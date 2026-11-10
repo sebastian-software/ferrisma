@@ -26,12 +26,12 @@
 //! `VP8FiltersInitSSE2` assigns:
 //!
 //! - `WebPUnfilters[WEBP_FILTER_HORIZONTAL]`, `[WEBP_FILTER_VERTICAL]`,
-//!   `[WEBP_FILTER_GRADIENT]`: [`horizontal_unfilter`],
-//!   [`vertical_unfilter`], [`gradient_unfilter`] (the vertical one unless
+//!   `[WEBP_FILTER_GRADIENT]`: `horizontal_unfilter`,
+//!   `vertical_unfilter`, `gradient_unfilter` (the vertical one unless
 //!   `CHROMIUM` is defined, which the reference configuration does not);
 //! - `WebPFilters[WEBP_FILTER_HORIZONTAL]`, `[WEBP_FILTER_VERTICAL]`,
-//!   `[WEBP_FILTER_GRADIENT]`: [`horizontal_filter`], [`vertical_filter`],
-//!   [`gradient_filter`].
+//!   `[WEBP_FILTER_GRADIENT]`: `horizontal_filter`, `vertical_filter`,
+//!   `gradient_filter`.
 //!
 //! `WebPUnfilters[WEBP_FILTER_NONE]` keeps the C function, and
 //! `WebPFilters[WEBP_FILTER_NONE]` stays NULL. The planes, rows and strides

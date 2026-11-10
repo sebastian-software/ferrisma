@@ -25,9 +25,9 @@
 //! suffix, which the dispatch function calls after testing `features().sse2`.
 //! `WebPRescalerDspInitSSE2` assigns `WebPRescalerImportRowExpand`,
 //! `WebPRescalerImportRowShrink`, `WebPRescalerExportRowExpand` and
-//! `WebPRescalerExportRowShrink`: [`rescaler_import_row_expand`],
-//! [`rescaler_import_row_shrink`], [`rescaler_export_row_expand`] and
-//! [`rescaler_export_row_shrink`]. The file is compiled without
+//! `WebPRescalerExportRowShrink`: `rescaler_import_row_expand`,
+//! `rescaler_import_row_shrink`, `rescaler_export_row_expand` and
+//! `rescaler_export_row_shrink`. The file is compiled without
 //! `WEBP_REDUCE_SIZE`, as in the reference configuration.
 //!
 //! The rescaler follows `src/utils/rescaler_utils.rs` (WP4, deviation 8): it
@@ -49,22 +49,7 @@
 //!
 //! # Excluded undefined behavior
 //!
-//! 1. **Two or three channels in the expanding import.**
-//!    `RescalerImportRowExpand_SSE2` handles four channels and treats every
-//!    other count as one channel; for two or three channels with a source of
-//!    eight or more pixels (and `x_add` below `1 << 15`), upstream's SSE2 and C
-//!    results differ. The translation keeps upstream's SSE2 behavior. libwebp
-//!    rescales with one or four channels only, and the parity tests compare
-//!    two and three channels only where both take the C function (narrow
-//!    sources and the shrinking import, which falls back to C for any count
-//!    other than four).
-//! 2. **States the rescaler cannot reach.** The export packs its 32-bit
-//!    results with signed saturation where C keeps the low byte of a negative
-//!    `int`, and the shrinking import keeps 16-bit sums; both agree with C on
-//!    every state that `WebPRescalerInit` and the import produce, which the
-//!    parity tests drive the rescaler through, and differ only on side rows no
-//!    import writes.
-//! 3. **Assertions.** The C `assert`s are `debug_assert!`s (ADR 0003).
+//! 1. **Assertions.** The C `assert`s are `debug_assert!`s (ADR 0003).
 //!
 //! # Checks not applicable
 //!
@@ -77,6 +62,28 @@
 //!    through each level with the C translation (`tests/wp18_rescaler.rs`);
 //!    the diagnostic `release-simd` oracle runs the WP4 probe against
 //!    upstream's SSE2.
+//! 4. **Comparison with the reference oracle outside the shared domain.**
+//!    Upstream's SSE2 rows differ from the C functions only on inputs that
+//!    libwebp's callers do not produce:
+//!    - **Two or three channels in the expanding import.**
+//!      `RescalerImportRowExpand_SSE2` handles four channels and treats every
+//!      other count as one channel; for two or three channels with a source of
+//!      eight or more pixels (and `x_add` below `1 << 15`), upstream's SSE2 and
+//!      C results differ. The translation keeps upstream's SSE2 behavior.
+//!      libwebp rescales with one or four channels only, and the parity tests
+//!      compare two and three channels only where both take the C function
+//!      (narrow sources and the shrinking import, which falls back to C for any
+//!      count other than four).
+//!    - **States the rescaler cannot reach.** The export packs its 32-bit
+//!      results with signed saturation where C keeps the low byte of a negative
+//!      `int`, and the shrinking import keeps 16-bit sums; both agree with C on
+//!      every state that `WebPRescalerInit` and the import produce, which the
+//!      parity tests drive the rescaler through, and differ only on side rows
+//!      no import writes.
+//!
+//!    No comparison with the reference oracle reaches them (`tests/wp4_*.rs`
+//!    use one and four channels), so none selects the C translation (ADR
+//!    0008).
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86 as arch;

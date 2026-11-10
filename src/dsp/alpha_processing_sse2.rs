@@ -24,14 +24,14 @@
 //! named after it without the suffix, which the dispatch function calls after
 //! testing `features().sse2`. `WebPInitAlphaProcessingSSE2` assigns:
 //!
-//! - `WebPMultARGBRow`, `WebPMultRow`: [`mult_argb_row`], [`mult_row`];
-//! - `WebPApplyAlphaMultiply`: [`apply_alpha_multiply`];
-//! - `WebPDispatchAlpha`, `WebPDispatchAlphaToGreen`: [`dispatch_alpha`],
-//!   [`dispatch_alpha_to_green`];
-//! - `WebPExtractAlpha`, `WebPExtractGreen`: [`extract_alpha`],
-//!   [`extract_green`] (`alpha_processing_sse41.rs` overrides the former);
+//! - `WebPMultARGBRow`, `WebPMultRow`: `mult_argb_row`, `mult_row`;
+//! - `WebPApplyAlphaMultiply`: `apply_alpha_multiply`;
+//! - `WebPDispatchAlpha`, `WebPDispatchAlphaToGreen`: `dispatch_alpha`,
+//!   `dispatch_alpha_to_green`;
+//! - `WebPExtractAlpha`, `WebPExtractGreen`: `extract_alpha`,
+//!   `extract_green` (`alpha_processing_sse41.rs` overrides the former);
 //! - `WebPHasAlpha8b`, `WebPHasAlpha32b`, `WebPAlphaReplace`:
-//!   [`has_alpha8b`], [`has_alpha32b`], [`alpha_replace`].
+//!   `has_alpha8b`, `has_alpha32b`, `alpha_replace`.
 //!
 //! `WebPApplyAlphaMultiply4444` and `WebPPackRGB` keep their C functions. The
 //! buffers, strides and lengths follow `src/dsp/alpha_processing.rs` (WP4).

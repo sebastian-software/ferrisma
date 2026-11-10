@@ -109,6 +109,16 @@
 //!    evidence with SSE2 selected is the decoding of the 131 test vectors,
 //!    the encoder matrix and the Rust-linked upstream scripts.
 //!
+//!    The other WP18 modules record their own domains under their checks not
+//!    applicable: `yuv_sse2.rs` and `yuv_sse41.rs` (`WebPConvertRGBA32ToUV`
+//!    samples from 32768 up, which `tests/wp4_yuv.rs` compares with the C
+//!    translation) and `rescaler_sse2.rs` (two or three channels in the
+//!    expanding import, and states the rescaler cannot reach). `filters_sse2.rs`
+//!    records, as deviation 2, the one input where the translation gives the
+//!    scalar result rather than upstream's SSE2: the gradient unfilter with
+//!    the previous row equal to the output, which the Rust signature cannot
+//!    express.
+//!
 //! # Notes for WP20
 //!
 //! WP18 added an x86 block to these dispatch functions of `src/dsp/dec.rs`:

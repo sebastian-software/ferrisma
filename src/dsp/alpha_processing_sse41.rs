@@ -21,7 +21,7 @@
 //! `WebPExtractAlpha`, behind `webp_extract_alpha` in
 //! `src/dsp/alpha_processing.rs` (ADR 0008). `WebPInitAlphaProcessing` runs
 //! `WebPInitAlphaProcessingSSE41` only inside its SSE2 branch, so the dispatch
-//! function selects [`extract_alpha`] when both `features().sse2` and
+//! function selects `extract_alpha` when both `features().sse2` and
 //! `features().sse4_1` hold, before the SSE2 variant.
 //!
 //! # Deviations from upstream
