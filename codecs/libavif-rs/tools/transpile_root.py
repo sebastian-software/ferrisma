@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate isolated native root profiles from the actual original C build."""
 import argparse
+from collections import Counter
 import hashlib
 import json
 import os
@@ -12,7 +13,7 @@ import subprocess
 
 from import_translation import translate
 from transpile_dav1d import current_variadic
-from root_assertions import single_evaluation
+from root_assertions import LEXEME, delimiters, single_evaluation
 import root_variants
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +37,74 @@ def corrected(source, raw, native):
     if count:
         changes['current-rust-variadic-list'] = count
     return text, changes
+
+
+
+def comparable_profile(source, text):
+    """Ignore only checkout-specific assertion filenames and unused assertion labels."""
+    relative = source.relative_to(ROOT / 'upstream/libavif').as_posix()
+    old = '/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/' + relative
+    current = source.as_posix()
+    tokens = [match for match in LEXEME.finditer(text) if not match[0].startswith(('//', '/*'))]
+    pairs, owners = delimiters(tokens)
+    replacements = []
+    for i in range(len(tokens) - 1):
+        if tokens[i][0] != '__assert_fail' or tokens[i + 1][0] != '(':
+            continue
+        if i and tokens[i - 1][0] == 'fn':
+            continue
+        opening = i + 1
+        stop = pairs[opening]
+        commas = [j for j in range(opening + 1, stop)
+                  if tokens[j][0] == ',' and owners[j] == opening]
+        if len(commas) < 2:
+            continue
+        argument = tokens[commas[0] + 1:commas[1]]
+        expected_cast = ['as', '*', 'const', 'u8', 'as', '*', 'const',
+                         'core', '::', 'ffi', '::', 'c_char']
+        if (len(argument) == len(expected_cast) + 1
+                and argument[0][0] in ('b"' + old + r'\0"', 'b"' + current + r'\0"')
+                and [token[0] for token in argument[1:]] == expected_cast):
+            replacements.append((argument[0].start(), argument[0].end(), 'b"<libavif-source>\\0"'))
+    occurrences = Counter(tokens[i + 1][0] for i in range(len(tokens) - 1)
+                          if tokens[i][0] == "'")
+    for i in range(len(tokens) - 3):
+        if tokens[i][0] != "'" or not re.fullmatch(r'c_\d+', tokens[i + 1][0]):
+            continue
+        if tokens[i + 2][0] != ':' or tokens[i + 3][0] != '{':
+            continue
+        label = tokens[i + 1][0]
+        # Only a declaration with no other token reference can be renamed safely.
+        if occurrences[label] != 1:
+            continue
+        stop = pairs[i + 3]
+        body = i + 4
+        if body >= stop or sum(token[0] == '__assert_fail' for token in tokens[body:stop]) != 1:
+            continue
+        if tokens[body][0] == 'if':
+            # C2Rust emits an empty success branch and a single failure call.
+            branches = [j for j in range(body + 1, stop)
+                        if tokens[j][0] == '{' and owners[j] == i + 3]
+            if not branches:
+                continue
+            success = branches[0]
+            after = pairs[success] + 1
+            if (pairs[success] != success + 1 or after + 1 >= stop
+                    or tokens[after][0] != 'else' or tokens[after + 1][0] != '{'
+                    or pairs[after + 1] != stop - 1):
+                continue
+            call = after + 2
+            end = pairs[after + 1]
+        else:
+            call, end = body, stop
+        if (call + 2 >= end or tokens[call][0] != '__assert_fail'
+                or tokens[call + 1][0] != '(' or pairs[call + 1] + 2 != end
+                or tokens[end - 1][0] != ';'):
+            continue
+        replacements.append((tokens[i + 1].start(), tokens[i + 1].end(), 'c_ASSERT'))
+    for start, end, replacement in sorted(replacements, reverse=True):
+        text = text[:start] + replacement + text[end:]
+    return text
 
 
 def main():
@@ -135,13 +204,18 @@ def main():
         name = Path('libyuv') / relative.name if relative.parts[0] == 'third_party' else Path(relative.name)
         output = destination / name.with_suffix('.rs')
         if args.check:
-            if not output.is_file() or output.read_text() != text:
+            if (not output.is_file() or
+                    comparable_profile(source, output.read_text()) != comparable_profile(source, text)):
                 raise SystemExit(f'Native root translation is not reproducible: {output}')
         else:
-            if output.exists() and output.read_text() != text:
-                raise SystemExit(f'Refusing to overwrite a different generated root profile: {output}')
-            output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_text(text)
+            if output.exists():
+                existing = output.read_text()
+                if comparable_profile(source, existing) != comparable_profile(source, text):
+                    raise SystemExit(f'Refusing to overwrite a different generated root profile: {output}')
+                text = existing  # Keep tracked bytes and manifest hashes unchanged.
+            else:
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text(text)
         units.append(dict(source=str(source.relative_to(ROOT)), source_sha256=digest(source), rust=str(output.relative_to(ROOT)),
                           raw_sha256=digest(raw_path), rust_sha256=hashlib.sha256(text.encode()).hexdigest(), corrections=changes))
         (bundled if name.parts[0] == 'libyuv' else modules).append(name.stem)
