@@ -18,10 +18,10 @@ use std::fmt::Write as _;
 use oracle::Oracle;
 use webp::dsp::dec::{
     h_filter8_c, h_filter8i_c, h_filter16_c, h_filter16i_c, simple_h_filter16_c,
-    simple_h_filter16i_c, simple_v_filter16_c, simple_v_filter16i_c, v_filter8_c, v_filter8i_c,
-    v_filter16_c, v_filter16i_c, vp8_dither_combine8x8, vp8_pred_chroma8, vp8_pred_luma4,
-    vp8_pred_luma16, vp8_transform, vp8_transform_ac3, vp8_transform_dc, vp8_transform_dcuv,
-    vp8_transform_uv, vp8_transform_wht,
+    simple_h_filter16i_c, simple_v_filter16_c, simple_v_filter16i_c, transform_ac3_c,
+    transform_two_c, v_filter8_c, v_filter8i_c, v_filter16_c, v_filter16i_c, vp8_dither_combine8x8,
+    vp8_pred_chroma8, vp8_pred_luma4, vp8_pred_luma16, vp8_transform_dc, vp8_transform_dcuv,
+    vp8_transform_wht,
 };
 use webp::dsp::dec_clip_tables::{VP8KABS0, VP8KCLIP1, VP8KSCLIP1, VP8KSCLIP2};
 use wp6_support::{Rng, compare, hex, int16_bytes, token};
@@ -96,11 +96,23 @@ fn transforms(script: &mut Script, rng: &mut Rng) {
                 hex(&dst)
             )
             .unwrap();
+            // The inverse transforms that call `TransformOne` run the C
+            // translations, which these records verify against the C oracle:
+            // with `simd` on 64-bit ARM the dispatch selects upstream's NEON
+            // transforms, which saturate in 16-bit lanes and differ from C
+            // outside `[-2048, 2047]`, the input range that `TransformOne_C`'s
+            // own comment assumes and that encoded streams stay in, while
+            // these records reach ±15000. `uv` is `TransformUV_C`: two
+            // `VP8Transform` calls of two blocks each. `tests/wp20_dec.rs`
+            // covers the NEON transforms (WP20, decided on issue #28).
             match kind {
-                "two" => vp8_transform(&coeffs, &mut dst, true),
-                "one" => vp8_transform(&coeffs, &mut dst, false),
-                "ac3" => vp8_transform_ac3(&coeffs, &mut dst),
-                "uv" => vp8_transform_uv(&coeffs, &mut dst),
+                "two" => transform_two_c(&coeffs, &mut dst, true),
+                "one" => transform_two_c(&coeffs, &mut dst, false),
+                "ac3" => transform_ac3_c(&coeffs, &mut dst),
+                "uv" => {
+                    transform_two_c(&coeffs, &mut dst, true);
+                    transform_two_c(&coeffs[2 * 16..], &mut dst[4 * BPS..], true);
+                }
                 "dc" => vp8_transform_dc(&coeffs, &mut dst),
                 _ => vp8_transform_dcuv(&coeffs, &mut dst),
             }
