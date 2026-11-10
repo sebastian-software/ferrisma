@@ -51,7 +51,7 @@ fn clip(v: i32, max: i32) -> u16 {
     clippy::cast_sign_loss,
     reason = "C integer and float conversions, kept as in the source (ADR 0003)"
 )]
-fn sharp_yuv_update_y_c(
+pub fn sharp_yuv_update_y_c(
     r#ref: &[u16],
     src: &[u16],
     dst: &mut [u16],
@@ -76,7 +76,7 @@ fn sharp_yuv_update_y_c(
     clippy::cast_sign_loss,
     reason = "C integer and float conversions, kept as in the source (ADR 0003)"
 )]
-fn sharp_yuv_update_rgb_c(r#ref: &[i16], src: &[i16], dst: &mut [i16], len: i32) {
+pub fn sharp_yuv_update_rgb_c(r#ref: &[i16], src: &[i16], dst: &mut [i16], len: i32) {
     let len = len as usize;
     for ((d, &r), &s) in dst[..len].iter_mut().zip(&r#ref[..len]).zip(&src[..len]) {
         let diff_uv = i32::from(r) - i32::from(s);
@@ -89,7 +89,7 @@ fn sharp_yuv_update_rgb_c(r#ref: &[i16], src: &[i16], dst: &mut [i16], len: i32)
     clippy::cast_sign_loss,
     reason = "C integer and float conversions, kept as in the source (ADR 0003)"
 )]
-fn sharp_yuv_filter_row_c(
+pub fn sharp_yuv_filter_row_c(
     a: &[i16],
     b: &[i16],
     len: i32,
@@ -121,11 +121,27 @@ pub fn sharp_yuv_update_y(
     len: i32,
     bit_depth: i32,
 ) -> u64 {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::sharpyuv::sharpyuv_neon::sharp_yuv_update_y(src, r#ref, dst, len, bit_depth);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     sharp_yuv_update_y_c(src, r#ref, dst, len, bit_depth)
 }
 
 // upstream: sharpyuv/sharpyuv_dsp.h SharpYuvUpdateRGB
 pub fn sharp_yuv_update_rgb(src: &[i16], r#ref: &[i16], dst: &mut [i16], len: i32) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::sharpyuv::sharpyuv_neon::sharp_yuv_update_rgb(src, r#ref, dst, len);
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     sharp_yuv_update_rgb_c(src, r#ref, dst, len);
 }
 
@@ -138,6 +154,16 @@ pub fn sharp_yuv_filter_row(
     out: &mut [u16],
     bit_depth: i32,
 ) {
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::sharpyuv::sharpyuv_neon::sharp_yuv_filter_row(
+            a, b, len, best_y, out, bit_depth,
+        );
+    }
+    #[allow(
+        unreachable_code,
+        reason = "the C path is reached only without a SIMD variant"
+    )]
     sharp_yuv_filter_row_c(a, b, len, best_y, out, bit_depth);
 }
 
