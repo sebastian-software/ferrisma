@@ -87,6 +87,15 @@ jobs:
         python3 tools/check_sharpyuv_alloc.py
         python3 tools/check_sharpyuv_cpu.py
         python3 tools/check_sharpyuv_linkage.py
+    - name: Verify extraction boundary fixtures against the pinned C reference
+      shell: bash
+      run: |
+        cc -std=c11 -O2 -I upstream/libwebp \
+          tests/sharpyuv/extraction_boundaries.c \
+          -L build/sharpyuv-reference -lsharpyuv \
+          -Wl,-rpath,"$PWD/build/sharpyuv-reference" \
+          -o build/sharpyuv-extraction-c
+        build/sharpyuv-extraction-c | tee build/sharpyuv-extraction-c.log
     - name: Record compiler-default Clang diagnostic
       if: runner.os == 'macOS' && env.CI_TIER == 'full'
       run: python3 tools/diagnose_sharpyuv_numerics.py
@@ -127,6 +136,7 @@ jobs:
           codecs/libavif-rs/build/sharpyuv-allocation/results.json
           codecs/libavif-rs/build/sharpyuv-cpu/results.json
           codecs/libavif-rs/build/sharpyuv-linkage.json
+          codecs/libavif-rs/build/sharpyuv-extraction-c.log
           codecs/libavif-rs/build/sharpyuv-webp-*/replacement.json
           codecs/libavif-rs/build/sharpyuv-webp-*/sharpyuv-linkage.json
           codecs/libavif-rs/build/sharpyuv-webp-*/Testing/Temporary/LastTest.log
