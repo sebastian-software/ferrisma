@@ -77,3 +77,7 @@ The [first opt-in linear-light sRGB path](design/color-correctness-experiment.md
 JPEG remains input-only through `zune-jpeg`; no JPEG encoder is planned, and `mozjpeg-rs` (BSD-3-Clause, pure Rust) is the recorded candidate should a consumer need one. The decision proposed WebP input and output through a mechanical libwebp-rs port, with no interim WebP dependency and the decoder as its first milestone. This resolves the WebP part of the phase 1 evaluation item. See the [JPEG and WebP evaluation](research/2026-11-05-jpeg-and-webp-codec-evaluation.md), the [libwebp port plan](research/2026-11-05-libwebp-port-plan.md), the [work plan for parallel sessions](research/2026-11-05-libwebp-port-workplan.md) and [ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md).
 
 The JPEG, WebP, JPEG XL and AVIF ports now reside in this workspace. Workspace membership does not select a port as a pipeline backend; see [codec development](codecs.md) and [ADR-0025](adr/0025-codec-selection-reference-conformance-and-image-scope.md) for adoption gates.
+
+As of 2026-11-11, `jpeg-read` selects the workspace libjpeg-turbo-rs port;
+the `zune-jpeg` references in the dated research above describe the historical
+adapter and its measurements.

@@ -1,7 +1,7 @@
 //! M1 reference executor: decoder -> color transform -> antialiased
 //! separable resampling -> explicit SDR output quantization.
-//! A single source region is decoded only once, even for JPEG's full-frame
-//! fallback. The reusable output buffer and cached *horizontal* source rows
+//! A single source region is decoded only once, including JPEG's codec-level
+//! ROI request. The reusable output buffer and cached *horizontal* source rows
 //! are charged to the shared managed-memory budget. The final encoder may
 //! separately require an entire output frame; this executor does not.
 

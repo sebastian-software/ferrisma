@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-10
+- **Last reviewed:** 2026-11-11
 - **Supersedes:** None
 - **Related:** [libavif-rs](../../codecs/libavif-rs), [libjxl-rs](../../codecs/libjxl-rs), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [JPEG and WebP evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md), [libwebp port plan](../research/2026-11-05-libwebp-port-plan.md), [license audit](../license-audit.md)
 
@@ -30,7 +30,7 @@ Keep every codec and CMS behind its own Cargo feature, off by default:
 
 | Feature | Crate | Role | Status of the choice |
 | --- | --- | --- | --- |
-| `jpeg-read` | `zune-jpeg` 0.5 | JPEG input (full-frame fallback) | Experimental, ADR-0012 |
+| `jpeg-read` | workspace `libjpeg-turbo-rs` 0.1 | JPEG input (safe scanlines and codec crop request) | Adopted for engine input; scaled IDCT remains unused, ADR-0012/0025 |
 | `jpeg-xl-read` | `jxl-oxide` 0.12 | JPEG XL input with codec ROI request | **Interim** until libjxl-rs is adoptable (ADR-0012) |
 | `avif-write` | `rav1e` 0.8 / `avif-serialize` 0.8 | First and only output encoder, driven directly since 2026-11-06 | **Interim choice** (permissive, Rust plus assembly); target: libavif-rs |
 | none (adapter crate) | `ferrixel-libavif` → libavif-rs (Rust AOM) | Optional output encoder through `transcode_with`, outside the workspace (ADR-0024) | **Adopted with gates (a) and (b) waived** by the maintainer: nightly, `unsafe` C ABI isolated in the adapter, no native libraries since libavif-rs `8be367f`; macOS arm64 and x86-64 Linux CI |
@@ -94,3 +94,4 @@ libavif-rs or libjxl-rs meets the adoption gates (safe API, stable toolchain, pi
 - 2026-11-06 — ADR-0025 sets the final selection rule for the interim codecs: reference implementation or, for decoders, recorded conformance; replacement and removal only after a measurement on Arm and x86-64. JPEG input gains a sister-port target (libjpeg-turbo or jpegli, chosen by measurement) in place of `zune-jpeg`.
 - 2026-11-07 — libavif-rs `8be367f` builds its AOM without VMAF tuning, which removes the libvmaf build requirement for AVIF. Gates (a) safe API and (b) stable toolchain remain open.
 - 2026-11-10 — ADR-0026 moves the four ports and the existing adapter into the common workspace. Source links now point to their local locations; codec selection, the scoped adapter waiver, and the remaining adoption gates are unchanged.
+- 2026-11-11 — `jpeg-read` now selects the workspace `libjpeg-turbo-rs` safe decoder, replacing the original zune table entry and full-frame adapter. The engine no longer depends on `zune-jpeg` at runtime. The existing standalone zune benchmark harness remains for comparison. No JPEG encoder or scaled-IDCT policy is added. The JPEG port already meets the safe API, stable toolchain, local pin, and reference validation gates; native platform and release evidence remain scoped to the codec validation tiers. Review the switch if its output semantics, platform validation, or measured performance diverge from the recorded evidence.

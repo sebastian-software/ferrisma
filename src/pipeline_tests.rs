@@ -20,7 +20,7 @@ fn real_jpeg_reaches_valid_avif_bytes_through_m1_graph() {
     assert!(image.avif_bytes.len() > 40);
     assert_eq!(&image.avif_bytes[4..8], b"ftyp");
     assert_eq!(image.report.decoder_requests, 1);
-    assert_eq!(image.report.decoder_full_frame_buffers, 1);
+    assert_eq!(image.report.decoder_full_frame_buffers, 0);
     assert_eq!(image.report.engine_full_frame_intermediates, 0);
     // rav1e's 10-bit 4:4:4 input frame, including its padding, is charged.
     assert!(image.report.encoder_output_frame_bytes >= 3 * 3 * 3 * 2);

@@ -26,8 +26,8 @@ Use `--assume-srgb` only when you accept that assumption for the input. For a
 supported rendered RGB ICC profile, `--use-rendered-icc` selects the explicit
 ICC path. Untagged color is not automatically sRGB; unsupported HDR and
 ambiguous color are rejected. Orientation is applied before crop coordinates;
-JPEG and AVIF may require full-frame decoding and the AVIF encoder materializes
-an output frame. See the [color contract](design/color-management-contract.md)
+JPEG codec internals and AVIF input may require full-frame work, and the AVIF
+encoder materializes an output frame. See the [color contract](design/color-management-contract.md)
 and [architecture](architecture.md).
 
 For codec source setup and the contributor checks, see [codec development](codecs.md)

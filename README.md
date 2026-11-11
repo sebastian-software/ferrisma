@@ -18,15 +18,16 @@ or production-readiness claim.
 | --- | --- |
 | [Engine](src/pipeline.rs) | Experimental SDR pipeline with orientation, linear-light resampling, parallel execution, and reported materializations |
 | [CPU kernels](crates/ferrixel-kernels) | Scalar, NEON, AVX2, and AVX-512 resampling behind a safe API |
-| [JPEG port](codecs/libjpeg-turbo-rs) | In-scope 8-bit decoder with a safe row API; engine adoption pending |
+| [JPEG port](codecs/libjpeg-turbo-rs) | In-scope 8-bit decoder with a safe row API, used by `jpeg-read` |
 | [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; engine adoption pending |
 | [JPEG XL port](codecs/libjxl-rs) | Incremental decoder with provisional APIs; encoder incomplete; engine adoption pending |
 | [AVIF ports](codecs/libavif-rs) | libavif, AOM, dav1d, and SharpYUV; an [optional encoder adapter](crates/ferrixel-libavif) exercises the port |
 | [Validation tooling](docs/codecs.md) | One Rust runner, scoped PR checks, and deeper independent oracle suites |
 
 The four codec ports share the Cargo workspace, but importing them does not
-automatically select them as engine backends. Ferrixel currently reads through
-`zune-jpeg`, `jxl-oxide`, and `avif-decode`, and writes AVIF through `rav1e`.
+automatically select them as engine backends. Ferrixel reads JPEG through the
+workspace `libjpeg-turbo-rs` port, JPEG XL through `jxl-oxide`, and AVIF through
+`avif-decode`; it writes AVIF through `rav1e`.
 
 **[Current status and remaining gates](docs/status.md)** gives the component
 and integration overview. **[Documentation guide](docs/README.md)** maps the
@@ -44,7 +45,7 @@ cargo run -p ferrixel --release --features cli -- \
 Use `--assume-srgb` only when that input assumption is appropriate; supported
 RGB ICC input can use `--use-rendered-icc`. Unknown or contradictory color,
 HDR, and unsupported alpha cases fail explicitly. Crops use upright image
-coordinates. Full-frame codec buffers and opaque native memory remain relevant
+coordinates. Codec-internal buffers and opaque memory remain relevant
 even when the transform streams rows.
 
 For features, build prerequisites, and scoped checks, see
