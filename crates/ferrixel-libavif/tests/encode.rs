@@ -6,7 +6,8 @@ use std::sync::Mutex;
 
 use ferrixel::pipeline::{
     ChromaSubsampling, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
-    InputProfilePolicy, ProcessingErrorKind, RowEncoder, TransformOptions, transcode_with,
+    InputProfilePolicy, OutputFormat, ProcessingErrorKind, RowEncoder, TransformOptions,
+    transcode_with,
 };
 use ferrixel_libavif::LibavifBackend;
 
@@ -19,6 +20,9 @@ struct Rows(Mutex<Vec<u8>>);
 struct RowSink<'a>(&'a Rows);
 
 impl EncoderBackend for Rows {
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Avif
+    }
     fn name(&self) -> &'static str {
         "rows"
     }
@@ -34,7 +38,7 @@ impl RowEncoder for RowSink<'_> {
         Ok(())
     }
     fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
-        Ok(EncodedImage::new(Vec::new(), 0, false))
+        Ok(EncodedImage::new(OutputFormat::Avif, Vec::new(), 0, false))
     }
 }
 
@@ -143,11 +147,11 @@ fn encodes_what_ferrixel_produced_with_the_same_color_signals() {
         let rows = reference.0.lock().unwrap().clone();
         let output =
             transcode_with(JPEG, ImageFormat::Jpeg, options, &LibavifBackend { depth }).unwrap();
-        assert_eq!(&output.avif_bytes[4..8], b"ftyp");
+        assert_eq!(&output.bytes[4..8], b"ftyp");
         assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
         assert!(output.report.opaque_encoder_memory);
         assert!(output.report.encoder_output_frame_bytes >= 96 * 64 * 4);
-        let decoded = decode(&output.avif_bytes);
+        let decoded = decode(&output.bytes);
         assert_eq!((decoded.width, decoded.height), (96, 64));
         assert!(!decoded.alpha, "opaque output has no alpha item");
         assert_eq!(decoded.depth, u32::from(depth));
@@ -219,6 +223,9 @@ fn straight_alpha_survives_the_encode() {
 fn backend_request(width: u32, height: u32) -> EncodeRequest {
     struct Capture<'a>(&'a Mutex<Option<EncodeRequest>>, &'a Rows);
     impl EncoderBackend for Capture<'_> {
+        fn format(&self) -> OutputFormat {
+            OutputFormat::Avif
+        }
         fn name(&self) -> &'static str {
             "capture"
         }
@@ -286,5 +293,5 @@ fn invalid_settings_are_rejected_before_decoding() {
         &LibavifBackend::default(),
     )
     .unwrap();
-    assert_eq!(decode(&output.avif_bytes).width, 8);
+    assert_eq!(decode(&output.bytes).width, 8);
 }

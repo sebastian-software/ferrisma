@@ -1,24 +1,26 @@
 //! Ferrixel — an experimental, pipeline-first image processing engine.
 //!
-//! Ferrixel currently contains a private experimental pipeline and optional
-//! read-only JPEG/JPEG XL decoders for validating codec capability contracts,
-//! region planning, and bounded engine-managed memory. There is intentionally no stable public processing API.
+//! Ferrixel exposes an experimental pipeline and optional codec adapters for
+//! validating color, region planning, and bounded engine-managed memory.
+//! There is intentionally no stable public processing API.
 //!
 //! See `docs/architecture.md` and `docs/adr/` in the repository.
 
 #![forbid(unsafe_code)]
-// Without the `avif-write` facade (ADR-0017) the crate has no public API, so
-// every internal item is unreachable outside tests. With the facade, dead code
-// is reported; architecture experiments carry their own scoped allowances.
-#![cfg_attr(all(not(test), not(feature = "avif-write")), allow(dead_code))]
+// A backend-only build exposes the row encoder facade but has no built-in
+// sink; some experimental internals are unreachable outside tests. With a
+// built-in sink, dead code is reported, except scoped architecture experiments.
+#![cfg_attr(
+    all(not(test), not(any(feature = "avif-write", feature = "webp-write"))),
+    allow(dead_code)
+)]
 
 #[cfg(feature = "avif-write")]
 mod av1_tuning;
 #[cfg(feature = "avif-write")]
 mod avif_sink;
-// The command line needs only the encoder; decoders it lacks report
-// `FeatureDisabled`, so encoder adapters can ship it with a narrower set.
-#[cfg(feature = "avif-write")]
+// The shared command accepts an external backend without a built-in writer;
+// missing decoder adapters report `FeatureDisabled`.
 pub mod cli;
 #[cfg(feature = "icc")]
 mod cms;
@@ -34,7 +36,6 @@ mod color_contract;
 )]
 mod decoded_resize;
 mod decoder;
-#[cfg(feature = "avif-write")]
 mod encoder_backend;
 mod error;
 #[cfg_attr(
@@ -59,7 +60,6 @@ mod linear_srgb;
 mod memory;
 mod orientation;
 mod parallel_execute;
-#[cfg(feature = "avif-write")]
 pub mod pipeline;
 mod plan;
 #[cfg_attr(
@@ -80,6 +80,8 @@ mod quality_execute;
     )
 )]
 mod surface;
+#[cfg(feature = "webp-write")]
+mod webp_sink;
 mod working_color;
 
 #[cfg(test)]
@@ -120,6 +122,12 @@ mod pipeline_tests;
 
 #[cfg(all(test, feature = "webp-read", feature = "avif-write"))]
 mod webp_pipeline_tests;
+
+#[cfg(all(test, feature = "webp-read", feature = "webp-write"))]
+mod webp_output_tests;
+
+#[cfg(all(test, feature = "jpeg-read", not(feature = "avif-write")))]
+mod backend_only_tests;
 
 #[cfg(test)]
 mod hardening_tests;

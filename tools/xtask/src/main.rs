@@ -35,9 +35,12 @@ impl Selection {
     fn classify(&mut self, path: &str) {
         if path.starts_with("codecs/libjpeg-turbo-rs/") || path == "codecs/libjpeg-turbo-rs" {
             self.jpeg = true;
+            // The engine's optional JPEG source consumes this workspace port.
+            self.engine = true;
             self.workspace = true;
         } else if path.starts_with("codecs/libwebp-rs/") || path == "codecs/libwebp-rs" {
             self.webp = true;
+            self.engine = true;
             self.workspace = true;
         } else if path.starts_with("codecs/libjxl-rs/") || path == "codecs/libjxl-rs" {
             self.jxl = true;
@@ -459,7 +462,7 @@ mod tests {
     fn conservative_and_webp() {
         let mut s = Selection::default();
         s.classify("codecs/libwebp-rs/src/lib.rs");
-        assert!(s.webp && s.workspace && !s.adapter && !s.avif);
+        assert!(s.webp && s.engine && s.workspace && !s.adapter && !s.avif);
         s.classify("new-config.toml");
         assert_eq!(s, {
             let mut all = Selection::default();
@@ -501,7 +504,13 @@ mod tests {
         git(&["add", "-A"]);
         git(&["commit", "-qm", "move"]);
         let selection = selection_from_git(&dir, "HEAD~1", "HEAD").unwrap();
-        assert!(selection.jpeg && selection.jxl && !selection.webp && selection.workspace);
+        assert!(
+            selection.jpeg
+                && selection.jxl
+                && selection.engine
+                && !selection.webp
+                && selection.workspace
+        );
         fs::remove_dir_all(dir).unwrap();
     }
     #[test]

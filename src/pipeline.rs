@@ -1,9 +1,10 @@
 //! First practical M1 facade. Codec implementations are opt-in and remain
-//! private. Output is SDR AVIF; HDR and unsupported ICC/profiles fail closed.
+//! private. Output is SDR AVIF or WebP; unsupported color fails closed.
 
 use std::fmt;
 use std::time::{Duration, Instant};
 
+#[cfg(feature = "avif-write")]
 use crate::avif_sink::{AvifSink, EncodeSettings};
 use crate::color::ColorEncoding;
 use crate::decoder::{DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo};
@@ -14,13 +15,50 @@ use crate::graph::Graph;
 use crate::memory::MemoryBudget;
 use crate::orientation::OrientedSource;
 use crate::quality_execute::execute_quality_srgb8;
+#[cfg(feature = "webp-write")]
+use crate::webp_sink::WebpSink;
 
-pub use crate::avif_sink::ChromaSubsampling;
 pub use crate::encoder_backend::{
     EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
 };
 pub use crate::quality::Filter as ResizeFilter;
 pub use ferrixel_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelReason};
+
+/// Chroma layout for AVIF output and AVIF encoder backends.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ChromaSubsampling {
+    /// Full-resolution chroma, the AVIF default.
+    #[default]
+    Yuv444,
+    /// Half-resolution chroma in both directions, centered 2×2 average.
+    Yuv420,
+}
+
+/// The encoded container format. WebP has no selectable chroma layout.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum OutputFormat {
+    #[default]
+    Avif,
+    WebP,
+}
+
+/// Settings for the built-in still WebP encoder.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum WebpOptions {
+    /// Quality is 1–100; speed is 1 (slowest) through 10 (fastest).
+    Lossy { quality: f32, speed: u8 },
+    /// Level 0 is fastest; 9 gives the smallest lossless files.
+    Lossless { level: u8 },
+}
+
+impl Default for WebpOptions {
+    fn default() -> Self {
+        Self::Lossy {
+            quality: 75.0,
+            speed: 6,
+        }
+    }
+}
 
 /// Accepted input codecs. Compile the corresponding Cargo features to enable
 /// each adapter; no transitive codec dependencies are required by the core.
@@ -69,6 +107,8 @@ pub struct Crop {
 /// Encoder scratch allocations are opaque and not constrained by the budget.
 #[derive(Clone, Copy, Debug)]
 pub struct TransformOptions {
+    pub output_format: OutputFormat,
+    pub webp: WebpOptions,
     pub output_width: u32,
     pub output_height: u32,
     pub crop: Option<Crop>,
@@ -98,11 +138,16 @@ pub struct TransformOptions {
     pub max_input_bytes: usize,
     /// Maximum decoded input pixels; AVIF preflights coded frame dimensions.
     pub max_input_pixels: u64,
+    /// Maximum retained encoded output bytes. WebP checks while writing;
+    /// AVIF and external backends are checked after their encoder returns.
+    pub max_output_bytes: usize,
 }
 
 impl Default for TransformOptions {
     fn default() -> Self {
         Self {
+            output_format: OutputFormat::Avif,
+            webp: WebpOptions::default(),
             output_width: 1,
             output_height: 1,
             crop: None,
@@ -118,6 +163,7 @@ impl Default for TransformOptions {
             max_managed_bytes: 256 * 1024 * 1024,
             max_input_bytes: 64 * 1024 * 1024,
             max_input_pixels: 100_000_000,
+            max_output_bytes: 256 * 1024 * 1024,
         }
     }
 }
@@ -184,7 +230,8 @@ pub struct ProcessingReport {
 
 #[derive(Debug)]
 pub struct Output {
-    pub avif_bytes: Vec<u8>,
+    pub format: OutputFormat,
+    pub bytes: Vec<u8>,
     pub report: ProcessingReport,
 }
 
@@ -261,7 +308,6 @@ impl From<Error> for ProcessingError {
             Error::InvalidDimensions | Error::GeometryOverflow | Error::OutOfBounds => {
                 Kind::InvalidOptions
             }
-            #[cfg(feature = "avif-write")]
             Error::InvalidEncodeOptions => Kind::InvalidOptions,
             #[cfg(any(feature = "avif-read", feature = "webp-read"))]
             Error::InputPixelLimitExceeded { .. } => Kind::InputLimitExceeded,
@@ -282,8 +328,9 @@ impl From<Error> for ProcessingError {
             Error::AllocationFailed | Error::BudgetExceeded { .. } => Kind::ResourceExhausted,
             Error::Cancelled => Kind::Cancelled,
             Error::EncodeFailed => Kind::EncodeFailed,
-            Error::IncompleteOutput
-            | Error::UnknownNode
+            #[cfg(any(feature = "avif-write", feature = "webp-write"))]
+            Error::IncompleteOutput => Kind::Internal,
+            Error::UnknownNode
             | Error::PixelFormatMismatch
             | Error::SourceBindingMismatch
             | Error::InvalidPlaneStride
@@ -419,7 +466,10 @@ pub fn transcode_with(
 
 /// The output side of one transcode: the built-in sink or a backend's.
 enum Sink<'b> {
+    #[cfg(feature = "avif-write")]
     Rav1e(Box<AvifSink>),
+    #[cfg(feature = "webp-write")]
+    WebP(Box<WebpSink>),
     Backend {
         encoder: Box<dyn RowEncoder + 'b>,
         /// The backend error that stopped the pipeline, if any; the
@@ -431,7 +481,10 @@ enum Sink<'b> {
 impl Sink<'_> {
     fn write_row(&mut self, y: u32, row: &[u8]) -> Result<(), Error> {
         match self {
+            #[cfg(feature = "avif-write")]
             Self::Rav1e(sink) => sink.write_row(y, row),
+            #[cfg(feature = "webp-write")]
+            Self::WebP(sink) => sink.write_row(y, row),
             Self::Backend { encoder, failure } => encoder.write_row(y, row).map_err(|error| {
                 *failure = Some(error);
                 Error::EncodeFailed
@@ -445,20 +498,29 @@ impl Sink<'_> {
             Self::Backend { failure, .. } if failure.is_some() => failure
                 .take()
                 .map_or_else(|| error.into(), ProcessingError::from),
-            _ => error.into(),
+            Self::Backend { .. } => error.into(),
+            #[cfg(feature = "avif-write")]
+            Self::Rav1e(_) => error.into(),
+            #[cfg(feature = "webp-write")]
+            Self::WebP(_) => error.into(),
         }
     }
 
+    #[allow(unused_variables)] // Only the built-in AVIF sink consumes the budget on finish.
     fn finish(self, budget: &MemoryBudget) -> Result<EncodedImage, ProcessingError> {
         match self {
+            #[cfg(feature = "avif-write")]
             Self::Rav1e(sink) => {
                 let avif = sink.finish(budget)?;
                 Ok(EncodedImage::new(
+                    OutputFormat::Avif,
                     avif.bytes,
                     avif.frame_materialization_bytes,
                     avif.opaque_encoder_memory_unbounded,
                 ))
             }
+            #[cfg(feature = "webp-write")]
+            Self::WebP(sink) => Ok(sink.finish()?),
             Self::Backend { encoder, .. } => Ok(encoder.finish()?),
         }
     }
@@ -472,12 +534,40 @@ fn run(
     backend: Option<&dyn EncoderBackend>,
 ) -> Result<Output, ProcessingError> {
     let started = Instant::now();
+    if options.max_output_bytes == 0 {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
+            "max_output_bytes must be nonzero",
+        ));
+    }
+    if match options.output_format {
+        OutputFormat::Avif => options.webp != WebpOptions::default(),
+        OutputFormat::WebP => {
+            options.quality.to_bits() != 75.0_f32.to_bits()
+                || options.speed != 6
+                || options.chroma_subsampling != ChromaSubsampling::Yuv444
+        }
+    } {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
+            "encoder options do not match the selected output format",
+        ));
+    }
+    if let Some(backend) = backend
+        && backend.format() != options.output_format
+    {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
+            "output format does not match encoder backend",
+        ));
+    }
     let encoder_threads = match options.encoder_threads {
         0 => std::thread::available_parallelism()
             .map_or(1, std::num::NonZero::get)
-            .min(crate::avif_sink::MAX_ENCODER_THREADS),
+            .min(256),
         threads => threads,
     };
+    #[cfg(feature = "avif-write")]
     let encode_settings = EncodeSettings {
         quality: options.quality,
         speed: options.speed,
@@ -485,7 +575,8 @@ fn run(
         parallel_tiles: options.encoder_threads != 1,
         chroma: options.chroma_subsampling,
     };
-    if backend.is_none() {
+    #[cfg(feature = "avif-write")]
+    if backend.is_none() && options.output_format == OutputFormat::Avif {
         encode_settings.validate()?;
     }
     let target_size = Size::new(options.output_width, options.output_height)?;
@@ -588,14 +679,43 @@ fn run(
     let budget = MemoryBudget::new(options.max_managed_bytes);
     let transparent = actual.info().layout == crate::decoder::ChannelLayout::Rgba;
     let mut output_sink = match backend {
-        None => Sink::Rav1e(Box::new(AvifSink::new(
-            target_size,
-            transparent,
-            encode_settings,
-            &budget,
-        )?)),
+        None => match options.output_format {
+            OutputFormat::Avif => {
+                #[cfg(feature = "avif-write")]
+                {
+                    Sink::Rav1e(Box::new(AvifSink::new(
+                        target_size,
+                        transparent,
+                        encode_settings,
+                        &budget,
+                    )?))
+                }
+                #[cfg(not(feature = "avif-write"))]
+                {
+                    return Err(ProcessingError::new(
+                        ProcessingErrorKind::FeatureDisabled,
+                        "enable the avif-write Cargo feature",
+                    ));
+                }
+            }
+            OutputFormat::WebP => {
+                #[cfg(feature = "webp-write")]
+                {
+                    Sink::WebP(Box::new(WebpSink::new(target_size, options, &budget)?))
+                }
+                #[cfg(not(feature = "webp-write"))]
+                {
+                    return Err(ProcessingError::new(
+                        ProcessingErrorKind::FeatureDisabled,
+                        "enable the webp-write Cargo feature",
+                    ));
+                }
+            }
+        },
         Some(backend) => Sink::Backend {
             encoder: backend.begin(&EncodeRequest {
+                format: options.output_format,
+                webp: options.webp,
                 width: target_size.width,
                 height: target_size.height,
                 has_alpha: transparent,
@@ -607,7 +727,13 @@ fn run(
             failure: None,
         },
     };
-    let encoder_backend = backend.map_or("rav1e", EncoderBackend::name);
+    let encoder_backend = backend.map_or(
+        match options.output_format {
+            OutputFormat::Avif => "rav1e",
+            OutputFormat::WebP => "libwebp-rs",
+        },
+        EncoderBackend::name,
+    );
     let open = started.elapsed();
     let request = Rect::new(0, 0, target_size.width, target_size.height)?;
     let kernels = match options.kernel_level_ceiling {
@@ -642,7 +768,19 @@ fn run(
     };
     let processed = processed.map_err(|error| output_sink.explain(error))?;
     let encode_started = Instant::now();
-    let encoded_avif = output_sink.finish(&budget)?;
+    let encoded_image = output_sink.finish(&budget)?;
+    if encoded_image.format != options.output_format {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::EncodeFailed,
+            "encoder backend returned a different output format",
+        ));
+    }
+    if encoded_image.bytes.len() > options.max_output_bytes {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::ResourceExhausted,
+            "encoded output exceeds max_output_bytes",
+        ));
+    }
     let encode = encode_started.elapsed();
     let input_access = match processed.decoder.access {
         DecodeAccess::FullFrameFallback => SourceAccess::FullFrameFallback,
@@ -654,10 +792,10 @@ fn run(
         decoder_full_frame_buffers: processed.decoder.known_full_frame_buffers,
         engine_full_frame_intermediates: processed.explicit_full_frame_intermediates,
         orientation_buffer_bytes: processed.decoder.engine_buffer_bytes,
-        encoder_output_frame_bytes: encoded_avif.frame_materialization_bytes,
+        encoder_output_frame_bytes: encoded_image.frame_materialization_bytes,
         peak_managed_bytes: budget.snapshot().peak,
         opaque_decoder_memory: processed.decoder.opaque_codec_memory_unbounded,
-        opaque_encoder_memory: encoded_avif.opaque_memory,
+        opaque_encoder_memory: encoded_image.opaque_memory,
         working_precision: options.precision,
         kernel_level,
         kernel_level_reason,
@@ -673,7 +811,8 @@ fn run(
         },
     };
     Ok(Output {
-        avif_bytes: encoded_avif.bytes,
+        format: options.output_format,
+        bytes: encoded_image.bytes,
         report,
     })
 }

@@ -26,6 +26,7 @@ use crate::av1_tuning::{quality_to_quantizer, speed_settings};
 use crate::error::Error;
 use crate::geometry::Size;
 use crate::memory::{ExternalReservation, ManagedBuffer, MemoryBudget};
+use crate::pipeline::ChromaSubsampling;
 
 /// Upper bound for `EncodeSettings::threads`; more threads than AV1 tiles
 /// cannot help a still image, and `rav1e` builds one pool per encode.
@@ -45,18 +46,6 @@ const ALPHA_QUALITY: f32 = 80.0;
 /// bytes); one-thread encoding uses a single tile and stays smallest.
 const PIXELS_PER_TILE: usize = 256 * 256;
 const MAX_TILES: usize = 64;
-
-/// Chroma layout of the encoded image.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum ChromaSubsampling {
-    /// Full-resolution chroma, the previous and default output.
-    #[default]
-    Yuv444,
-    /// Half-resolution chroma in both directions, centered (2×2 average).
-    /// At equal SSIMULACRA2 the encoder experiment measured 0.5–15 % fewer
-    /// bytes on its five images.
-    Yuv420,
-}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct EncodeSettings {

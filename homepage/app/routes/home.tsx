@@ -48,8 +48,8 @@ const stages = [
   {
     label: "Encode",
     title: "Make the output boundary explicit.",
-    body: "The default sink converts the resized image to sRGB samples and encodes AVIF through rav1e. It materializes the encoder input frame and reports that cost. An explicit backend API supports the separate libavif adapter.",
-    detail: "JPEG, WebP and JPEG XL output are not engine features yet.",
+    body: "The pipeline converts the resized image to sRGB samples and writes AVIF through rav1e or still WebP through the workspace port. Both sinks report their frame materialization. An explicit backend API supports the separate libavif adapter without requiring rav1e.",
+    detail: "WebP supports lossy and lossless output. JPEG and JPEG XL output remain outside the current engine.",
   },
   {
     label: "Report",
@@ -176,7 +176,7 @@ function Opening() {
         with every step in view.
       </h1>
       <p className="mono-standfirst">
-        From an encoded image to a resized AVIF, Ferrixel makes color, geometry and memory part of
+        From an encoded image to a resized AVIF or WebP, Ferrixel makes color, geometry and memory part of
         the contract. An engine, CPU kernels and four codec ports, developed together in one Rust
         workspace.
       </p>
@@ -193,7 +193,7 @@ function Opening() {
           <strong>JPEG · WebP · JXL · AVIF</strong>current engine inputs
         </li>
         <li>
-          <strong>AVIF</strong>current engine output
+          <strong>AVIF · WebP</strong>current engine outputs
         </li>
         <li>
           <strong>4 codec ports</strong>with independent adoption gates
@@ -237,7 +237,7 @@ export default function Home() {
           </p>
           <p>
             Ferrixel makes these decisions explicit. The current CPU path accepts supported SDR
-            input, applies orientation and crop, resizes in linear light, and encodes AVIF.
+            input, applies orientation and crop, resizes in linear light, and encodes AVIF or WebP.
             Unsupported color and geometry return errors instead of silent reinterpretation.
           </p>
         </MonoPassage>
@@ -260,7 +260,9 @@ export default function Home() {
         <p>
           The repository includes a working command-line path. The example below resizes a JPEG to
           1600 × 900 and writes AVIF using the default rav1e encoder. Run it from a clone of the
-          repository; Ferrixel is not published on crates.io yet.
+          repository; Ferrixel is not published on crates.io yet. Choose a <code>.webp</code> output
+          for still WebP; add <code>--webp-lossless</code> instead of quality and speed for lossless
+          compression of the pipeline's finished sRGB8 samples.
         </p>
         <MonoWide>
           <MonoCode caption="From the repository root" file="Terminal">
@@ -304,7 +306,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..TransformOptions::default()
     };
     let output = transcode(&input, ImageFormat::Jpeg, options)?;
-    std::fs::write("scaled.avif", &output.avif_bytes)?;
+    std::fs::write("scaled.avif", &output.bytes)?;
     println!("Peak managed bytes: {}", output.report.peak_managed_bytes);
     Ok(())
 }`}
@@ -329,7 +331,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             remain independent.
           </p>
           <p>
-            JPEG and WebP input use the workspace ports. JPEG XL and AVIF input still use interim
+            JPEG input and WebP input/output use the workspace ports. JPEG XL and AVIF input still use interim
             dependencies; their port integrations remain separate adoption steps.
           </p>
         </MonoPassage>
@@ -372,10 +374,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     <small>libwebp-rs</small>
                   </th>
                   <td>
-                    Still-image input through <code>libwebp-rs</code>, with a budgeted decode buffer.
+                    Still-image input and lossy or lossless output through <code>libwebp-rs</code>,
+                    with budgeted pixel buffers and an explicit encoded-output limit.
                   </td>
                   <td>Decode and encode, incremental input, containers, animation and SharpYUV.</td>
-                  <td>Add WebP output with explicit encoder options and memory costs.</td>
+                  <td>Consolidate SharpYUV with AVIF; keep animation outside the engine contract.</td>
                 </tr>
                 <tr>
                   <th scope="row">
@@ -466,8 +469,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           The row executor keeps filtered rows in a bounded cache and releases them when they are no
           longer needed. JPEG emits scanlines; WebP buffers the rows needed for a crop, including
           preceding rows and filter context; AVIF input requires a decoded frame. Codec internals
-          can allocate additional memory, reorientation can need another buffer, and the AVIF
-          encoder needs an output frame.
+          can allocate additional memory, reorientation can need another buffer, and both output
+          encoders need a frame. WebP also reserves its predictable YUV planes before lossy encoding.
         </p>
         <MonoWide>
           <figure className="fx-memory-path" aria-labelledby="memory-caption">

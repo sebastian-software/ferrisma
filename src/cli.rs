@@ -9,7 +9,8 @@ use std::process::ExitCode;
 
 use crate::pipeline::{
     ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy, KernelLevel,
-    ResizeFilter, TransformOptions, WorkingPrecision, transcode, transcode_with,
+    OutputFormat, ResizeFilter, TransformOptions, WebpOptions, WorkingPrecision, transcode,
+    transcode_with,
 };
 
 // Bound the stream itself: file metadata can be absent or change after opening.
@@ -62,13 +63,62 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
         "--use-rendered-icc" => options.profile_policy = InputProfilePolicy::UseRenderedIcc,
         "--area" => options.filter = ResizeFilter::Area,
         "--reference" => options.precision = WorkingPrecision::F64Reference,
-        option if option.starts_with("--quality=") => options.quality = option[10..].parse()?,
-        option if option.starts_with("--speed=") => options.speed = option[8..].parse()?,
+        option if option.starts_with("--quality=") => match options.output_format {
+            OutputFormat::Avif => options.quality = option[10..].parse()?,
+            OutputFormat::WebP => match options.webp {
+                WebpOptions::Lossy { speed, .. } => {
+                    options.webp = WebpOptions::Lossy {
+                        quality: option[10..].parse()?,
+                        speed,
+                    }
+                }
+                WebpOptions::Lossless { .. } => {
+                    return Err("--quality is unsupported for lossless WebP".into());
+                }
+            },
+        },
+        option if option.starts_with("--speed=") => match options.output_format {
+            OutputFormat::Avif => options.speed = option[8..].parse()?,
+            OutputFormat::WebP => match options.webp {
+                WebpOptions::Lossy { quality, .. } => {
+                    options.webp = WebpOptions::Lossy {
+                        quality,
+                        speed: option[8..].parse()?,
+                    }
+                }
+                WebpOptions::Lossless { .. } => {
+                    return Err("--speed is unsupported for lossless WebP; use --webp-level".into());
+                }
+            },
+        },
         "--kernel-level=scalar" => options.kernel_level_ceiling = Some(KernelLevel::Scalar),
         "--kernel-level=neon" => options.kernel_level_ceiling = Some(KernelLevel::Neon),
         "--kernel-level=avx2" => options.kernel_level_ceiling = Some(KernelLevel::Avx2),
+        "--chroma=444" | "--chroma=420" if options.output_format == OutputFormat::WebP => {
+            return Err("--chroma is unsupported for WebP".into());
+        }
         "--chroma=444" => options.chroma_subsampling = ChromaSubsampling::Yuv444,
         "--chroma=420" => options.chroma_subsampling = ChromaSubsampling::Yuv420,
+        "--webp-lossless" if options.output_format == OutputFormat::WebP => {
+            if !matches!(options.webp, WebpOptions::Lossless { .. }) {
+                options.webp = WebpOptions::Lossless { level: 4 };
+            }
+        }
+        "--webp-lossless" => return Err("--webp-lossless requires .webp output".into()),
+        option
+            if option.starts_with("--webp-level=")
+                && options.output_format == OutputFormat::WebP =>
+        {
+            options.webp = WebpOptions::Lossless {
+                level: option[13..].parse()?,
+            }
+        }
+        option if option.starts_with("--max-output-mb=") => {
+            let megabytes: usize = option[16..].parse()?;
+            options.max_output_bytes = megabytes
+                .checked_mul(1024 * 1024)
+                .ok_or("encoded output limit overflow")?;
+        }
         option if option.starts_with("--transform-threads=") => {
             options.transform_threads = option[20..].parse()?;
         }
@@ -119,20 +169,40 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrixel");
         eprintln!(
-            "usage: {program} input.jpg|input.webp output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1 (0 = all cores)] [--transform-threads=0 (0 = all cores)] [--chroma=444|420] [--kernel-level=scalar|neon|avx2] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} input.jpg|input.webp output.avif|output.webp WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }
     let input_path = Path::new(&args[1]);
     let output_path = Path::new(&args[2]);
-    if output_path.extension().and_then(|ext| ext.to_str()) != Some("avif") {
-        return Err("output must have a .avif extension".into());
+    let output_extension = output_path.extension().and_then(|ext| ext.to_str());
+    if !matches!(output_extension, Some("avif" | "webp")) {
+        return Err("output must have a .avif or .webp extension".into());
     }
     let mut options = TransformOptions {
+        output_format: if output_extension == Some("webp") {
+            OutputFormat::WebP
+        } else {
+            OutputFormat::Avif
+        },
         output_width: args[3].parse()?,
         output_height: args[4].parse()?,
         ..TransformOptions::default()
     };
+    if output_extension == Some("webp")
+        && args
+            .iter()
+            .skip(5)
+            .any(|arg| arg == "--webp-lossless" || arg.starts_with("--webp-level="))
+        && args
+            .iter()
+            .skip(5)
+            .any(|arg| arg.starts_with("--quality=") || arg.starts_with("--speed="))
+    {
+        return Err(
+            "--quality and --speed are unsupported for lossless WebP; use --webp-level".into(),
+        );
+    }
     for option in args.iter().skip(5) {
         apply_option(&mut options, option)?;
     }
@@ -142,11 +212,11 @@ pub fn run(
         None => transcode(&data, format, options)?,
         Some(backend) => transcode_with(&data, format, options, backend)?,
     };
-    std::fs::write(output_path, &output.avif_bytes)?;
+    std::fs::write(output_path, &output.bytes)?;
     println!(
         "Encoded {} bytes. Decoder requests: {}, known decoded full frames: {}, \
          peak engine-managed memory: {} bytes, encoder materialization: {} bytes.",
-        output.avif_bytes.len(),
+        output.bytes.len(),
         output.report.decoder_requests,
         output.report.decoder_full_frame_buffers,
         output.report.peak_managed_bytes,
@@ -172,7 +242,7 @@ pub fn run(
         timings.transform.as_micros(),
         timings.encode.as_micros(),
         timings.total.as_micros(),
-        output.avif_bytes.len(),
+        output.bytes.len(),
         output.report.peak_managed_bytes,
         output.report.encoder_output_frame_bytes,
         output.report.orientation_buffer_bytes,

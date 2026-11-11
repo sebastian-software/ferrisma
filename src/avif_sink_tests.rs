@@ -108,11 +108,12 @@ fn size_derived_tiles_make_bytes_independent_of_the_thread_count() {
 #[cfg(feature = "avif-read")]
 mod roundtrip {
     use super::encode;
-    use crate::avif_sink::{ChromaSubsampling, EncodeSettings, test_settings};
+    use crate::avif_sink::{EncodeSettings, test_settings};
     use crate::codecs::avif::AvifSource;
     use crate::decoder::{ChannelLayout, DecodeSource, DecodedRow};
     use crate::geometry::Rect;
     use crate::memory::MemoryBudget;
+    use crate::pipeline::ChromaSubsampling;
 
     fn decode(bytes: &[u8]) -> (ChannelLayout, Vec<f32>) {
         let mut source = AvifSource::new(bytes).unwrap();

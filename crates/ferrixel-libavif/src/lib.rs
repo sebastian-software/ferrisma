@@ -20,7 +20,7 @@ use std::ffi::CStr;
 use avif::{avif as image_api, rawdata, reformat, write};
 use ferrixel::pipeline::{
     ChromaSubsampling, EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend,
-    RowEncoder,
+    OutputFormat, RowEncoder,
 };
 
 // Values from libavif's `avif.h`; the generated bindings keep C enums as
@@ -61,6 +61,9 @@ impl Default for LibavifBackend {
 }
 
 impl EncoderBackend for LibavifBackend {
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Avif
+    }
     fn name(&self) -> &'static str {
         "libavif-rs/aom"
     }
@@ -129,6 +132,7 @@ impl RowEncoder for Frame {
         }
         let bytes = encode(&self.request, self.depth, self.rgba)?;
         Ok(EncodedImage::new(
+            OutputFormat::Avif,
             bytes,
             frame_bytes(&self.request, self.depth),
             true,
