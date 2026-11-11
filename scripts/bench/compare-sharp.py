@@ -15,7 +15,7 @@ Environment:
   COMPARE_RUNS              timed runs per measurement (default 10)
   COMPARE_MAX_LOAD          wait until the 1-minute load average is below
                             this before every timing run (default 4)
-  COMPARE_ENCODER_LEVELS    comma-separated rav1e quality anchors (default 60,80,90)
+  COMPARE_ENCODER_LEVELS    comma-separated rav1e quality anchors (default 80)
   COMPARE_ENCODER_RUN_ID    unique identifier for each encoder timing run
   COMPARE_IDLE_TIMEOUT      bounded encoder idle wait in seconds (default 900)
 
@@ -680,7 +680,7 @@ def sweep(out):
 # The encoder comparison intentionally uses the same prepared references as
 # the Sharp harness, but matches each thread configuration independently.
 def encoder_levels():
-    raw = os.environ.get("COMPARE_ENCODER_LEVELS", "60,80,90")
+    raw = os.environ.get("COMPARE_ENCODER_LEVELS", "80")
     try:
         values = [int(value) for value in raw.split(",")]
     except ValueError as error:
@@ -828,6 +828,9 @@ def validate_encoder_match(out, matching):
                 raise ValueError(f"invalid quality score for {key}")
         if not float(row["score_below"]) < float(row["target_score"]) <= float(row["score_above"]):
             raise ValueError(f"invalid quality bracket for {key}")
+        delta = float(row["score_nearest"]) - float(row["target_score"])
+        if abs(delta) > 0.5:
+            raise ValueError(f"nearest integer quality is more than 0.5 SSIMULACRA2 from target for {key}: delta={delta:+.3f}")
         indexed[key] = row
     expected = {(i[0], q, t, s) for i in IMAGES for q in encoder_levels() for t in (0, 1) for s in (6, 7)}
     if set(indexed) != expected:

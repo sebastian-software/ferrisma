@@ -16,7 +16,7 @@ on:
       qualities:
         description: "Comma-separated rav1e anchor qualities"
         type: string
-        default: "60,80"
+        default: "80"
       runs:
         description: "Samples per configuration"
         type: string

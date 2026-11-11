@@ -19,12 +19,14 @@ two use native-pixel regions of the **same full 60.2 MP input**, not independent
 photos or evidence of partial decoding. They may need substantially more RAM
 for reference creation and are optional.
 
-For each image, anchor quality (default 60, 80, 90), and thread setting
+For each image, anchor quality (default 80), and thread setting
 (one and all available cores), encode a 10-bit 4:4:4 `rav1e` speed-6 anchor.
 Match libavif/AOM speeds 6 and 7 **separately for each thread setting** using
 integer quality 0–100 and the existing bisection scorer. Byte interpolation
 between bracketing scores is an estimate; the selected nearest integer quality
-is the actual timed setting. Missing or non-bracketing targets fail timing.
+is the actual timed setting. Missing or non-bracketing targets, or a nearest
+integer quality more than 0.5 SSIMULACRA2 from its target, fail before any
+warmup or timing. Additional anchor qualities can be selected explicitly.
 Every timed output is independently rescored: it must be within 0.1
 SSIMULACRA2 of the matched candidate and within 0.5 of its own anchor. The
 scorer is RGB-only and does not validate alpha or arbitrary profiles. Both
@@ -41,7 +43,7 @@ anchor qualities in every phase:
 
 ```sh
 export BENCH_SHARP_NODE_MODULES=/path/to/node_modules
-export COMPARE_IMAGE_SET=dog COMPARE_ENCODER_LEVELS=60,80
+export COMPARE_IMAGE_SET=dog COMPARE_ENCODER_LEVELS=80
 python3 -I scripts/bench/compare-sharp.py prepare /tmp/ferrixel-encoders
 scripts/bench/compare-encoders.sh /tmp/ferrixel-encoders match
 COMPARE_RUNS=5 COMPARE_ENCODER_RUN_ID=simd \
@@ -64,7 +66,7 @@ It also refuses a reused run ID. `COMPARE_MAX_LOAD` defaults to 4; an idle
 window must arrive within `COMPARE_IDLE_TIMEOUT` seconds (default 900). Use
 `COMPARE_RUNS` from 1 to 100. Timing requires a quiet host; the load average is
 only a crude gate, not proof of isolation. The manual Linux workflow defaults to
-dog, qualities 60 and 80, and five samples. Its optional large lanes fetch and
+dog, quality 80, and five samples. Its optional large lanes fetch and
 verify the documented source before preparation.
 
 ## Evidence and interpretation
@@ -76,6 +78,14 @@ versions, and the AOM SIMD mask. The matching directories retain the encoded
 outputs and the tracked source patch for inspection. Untracked source files
 are not captured; use a clean checkout for decision evidence. A match with
 unbracketed cases stays visible but cannot be used for timing.
+
+The first hosted run, [43073087629](https://github.com/sebastian-software/ferrixel/actions/runs/43073087629),
+matched the dog image at anchor qualities 60 and 80. The quality-60 target was
+bracketed, but its nearest integer AOM settings were 1.379–1.619 SSIMULACRA2
+away for both speeds and thread settings. The four quality-80 settings were
+within 0.5. Timing failed its quality check, so that run is **not timing
+evidence**. This integer-quality gap does not establish an encoder or runtime
+defect; other images and levels must be checked independently.
 
 Each `encoders/time-<run-id>/` contains a provenance record, raw `samples.json`,
 summary, and the final output for each lane. Each sample records its exact

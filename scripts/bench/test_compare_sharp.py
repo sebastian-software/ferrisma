@@ -130,6 +130,8 @@ class ComparisonContract(unittest.TestCase):
             self.assertIn("--chroma=444", cmd)
 
     def test_encoder_quality_levels_are_bounded_and_unique(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(bench.encoder_levels(), [80])
         with patch.dict(os.environ, {"COMPARE_ENCODER_LEVELS": "60,80,90"}):
             self.assertEqual(bench.encoder_levels(), [60, 80, 90])
         for levels in ("", "60,60", "0,80", "101", "nan"):
@@ -190,6 +192,11 @@ class ComparisonContract(unittest.TestCase):
                         "outputs_sha256": {"anchor.avif": bench.sha256(work / "anchor.avif")}}
             with patch.object(bench, "IMAGES", [image]), patch.object(bench, "encoder_fingerprint", return_value={"x": 1}), patch.dict(os.environ, {"COMPARE_ENCODER_LEVELS": "80"}):
                 self.assertEqual(len(bench.validate_encoder_match(root, matching)), 4)
+                for nearest in ("69.5", "70.5"):
+                    records[0]["score_nearest"] = nearest
+                    match_file.write_text(json.dumps(records))
+                    matching["matched_sha256"] = bench.sha256(match_file)
+                    self.assertEqual(len(bench.validate_encoder_match(root, matching)), 4)
                 (work / "anchor.avif").write_bytes(b"changed")
                 with self.assertRaisesRegex(ValueError, "missing or changed"):
                     bench.validate_encoder_match(root, matching)
@@ -205,6 +212,37 @@ class ComparisonContract(unittest.TestCase):
                 matching["matched_sha256"] = bench.sha256(match_file)
                 with self.assertRaisesRegex(ValueError, "matrix"):
                     bench.validate_encoder_match(root, matching)
+
+    def test_integer_quality_gap_fails_before_any_warmup_or_sample(self):
+        image = ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = root / "encoders"
+            work.mkdir()
+            (work / "anchor.avif").write_bytes(b"anchor")
+            records = [{"image": "dog", "anchor_quality": 60, "threads": threads, "speed": speed,
+                        "status": "ok", "target_score": "70", "score_below": "68.415",
+                        "score_above": "71.5", "score_nearest": "70"}
+                       for threads in (0, 1) for speed in (6, 7)]
+            records[0]["score_nearest"] = "68.415"
+            match_file = work / "matched.json"
+            match_file.write_text(json.dumps(records))
+            matching = {"status": "complete", "fingerprint": {"x": 1},
+                        "matched_sha256": bench.sha256(match_file),
+                        "outputs_sha256": {"anchor.avif": bench.sha256(work / "anchor.avif")}}
+            (work / "match-provenance.json").write_text(json.dumps(matching))
+            with (patch.object(bench, "IMAGES", [image]),
+                  patch.object(bench, "encoder_fingerprint", return_value={"x": 1}),
+                  patch.object(bench, "encoder_sample") as sample,
+                  patch.object(bench, "encoder_wait_for_idle") as idle,
+                  patch.dict(os.environ, {"COMPARE_ENCODER_LEVELS": "60", "COMPARE_ENCODER_RUN_ID": "gap"})):
+                with self.assertRaisesRegex(ValueError, r"dog.*60.*0.*6.*delta=-1\.585"):
+                    bench.encoder_timing(root)
+                sample.assert_not_called()
+                idle.assert_not_called()
+                timed = work / "time-gap"
+                self.assertEqual(json.loads((timed / "provenance.json").read_text())["status"], "incomplete")
+                self.assertFalse((timed / "samples.json").exists())
 
     def test_encoder_phases_keep_per_thread_matches_and_each_sample(self):
         image = ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6)
