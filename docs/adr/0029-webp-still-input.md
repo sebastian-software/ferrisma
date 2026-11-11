@@ -34,11 +34,11 @@ The adapter requests a decoder crop into an engine-budgeted buffer. Lossless cro
 
 ## Validation
 
-Focused adapter tests compare odd and interior crops with a full decode for lossy RGB and lossless RGB/RGBA, and compare a retained lossy fixture exactly with C libwebp 1.6.0 `dwebp` RGB output; cover managed-buffer budget exhaustion and release, cancellation, malformed input, animation, canvas pixel limits, ICC, and EXIF orientation. The feature-only build, default build, CLI combination, relevant engine tests, formatting, and strict Clippy are the local gate. The port's existing scoped codec-oracle and provenance gates remain its own validation and are not replaced by adapter tests. This adoption makes no new speed or peak-RSS claim.
+Focused adapter tests compare odd and interior crops with a full decode for lossy RGB and lossless RGB/RGBA, and compare a retained lossy fixture exactly with C libwebp 1.6.0 `dwebp` RGB output; cover managed-buffer budget exhaustion and release, cancellation, malformed input, animation, canvas pixel limits, ICC, and EXIF orientation. A WebP-to-AVIF roundtrip through the independent AVIF reader confirms straight alpha survives with a gradient. The feature-only build, default build, CLI combination, relevant engine tests, formatting, and strict Clippy are the local gate. The port's existing scoped codec-oracle and provenance gates remain its own validation and are not replaced by adapter tests. This adoption makes no new speed or peak-RSS claim.
 
 ## Review when
 
-Review if the port changes crop memory or row-work behavior, its color conversion or metadata semantics change, the facade gains alpha output support, animation enters scope, or measured crop cost justifies incremental compressed-input streaming.
+Review if the port changes crop memory or row-work behavior, its color conversion or metadata semantics change, alpha formats or association rules change, animation enters scope, or measured crop cost justifies incremental compressed-input streaming.
 
 ## Amendment log
 

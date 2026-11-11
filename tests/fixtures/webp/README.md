@@ -3,10 +3,14 @@
 `reference-lossy.webp` is a copy of the tracked
 `codecs/libavif-rs/upstream/libwebp/examples/test.webp` from the imported
 libwebp 1.6.0 source (BSD-3-Clause; see `codecs/libwebp-rs/LICENSE` and
-`PATENTS`). It is a 128 × 128 lossy image.
+`PATENTS`). The source entered this repository in commit `ead92e1a97c70bcf572885fed2ba930c0231987b`.
+It is a 128 × 128 lossy image. Its SHA-256 is
+`1bf9449d529b491c6eb22ec84d42217e43cf9af0ffe391fa7a30b29b037f098a`.
 
 `reference-lossy.rgb` is the 49,152-byte RGB output of the independent C
-libwebp 1.6.0 `dwebp` tool. Generate it with:
+libwebp `dwebp -version` 1.6.0 tool. Its SHA-256 is
+`18f5c4d456175ab0d3215044b19c5e6cc0bf602c5418a1eaac0b3071d9130c6d`.
+Generate it with:
 
 ```sh
 dwebp reference-lossy.webp -ppm -o reference-lossy.ppm

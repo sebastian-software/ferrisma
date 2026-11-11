@@ -94,9 +94,11 @@ fn straight_alpha_webp_reaches_avif() {
                 &MemoryBudget::new(1 << 20),
                 &mut |_, row| {
                     match row {
-                        DecodedRow::U8(row) => alpha.extend(row.chunks_exact(4).map(|p| p[3])),
+                        DecodedRow::U8(row) => {
+                            alpha.extend(row.as_chunks::<4>().0.iter().map(|p| f32::from(p[3])));
+                        }
                         DecodedRow::F32(row) => {
-                            alpha.extend(row.chunks_exact(4).map(|p| (p[3] * 255.0).round() as u8))
+                            alpha.extend(row.as_chunks::<4>().0.iter().map(|p| p[3] * 255.0));
                         }
                     }
                     Ok(())
@@ -104,7 +106,7 @@ fn straight_alpha_webp_reaches_avif() {
             )
             .unwrap();
         assert_eq!(alpha.len(), 16);
-        assert!(alpha.iter().all(|&a| a < 255));
+        assert!(alpha.iter().all(|&a| a < 255.0));
         assert!(alpha[0] < alpha[3], "alpha gradient was lost: {alpha:?}");
     }
 }
