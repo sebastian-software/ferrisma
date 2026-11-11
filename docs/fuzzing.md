@@ -63,6 +63,23 @@ The existence of a fuzz target alone does not satisfy the M1 hardening acceptanc
 
 The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) uses the root pinned nightly and cargo-fuzz 0.13.2, verifies deterministic seed success, seeds eight input/output pairs from four real JPEG/JXL/AVIF/WebP fixtures, and runs **3,000 bounded attempts** with a 16 KiB maximum input and a 1 GiB process RSS cap. This is useful to catch shallow codec/protocol panics and integration bugs. It does **not** constitute a sustained, coverage-reviewed fuzz campaign and is not proof of process-wide memory safety; actual release acceptance still requires broader corpora, sanitizers and target-specific time budgets.
 
+### Expanded hosted smoke, 2026-11-11
+
+[Workflow run 43072724334](https://github.com/sebastian-software/ferrixel/actions/runs/43072724334)
+completed successfully on revision `8d34b360940a3ad7cff19436baf47f5ae75bd1e4`
+with Ubuntu 26.04 x86-64, `nightly-2026-09-07-x86_64-unknown-linux-gnu`,
+and cargo-fuzz 0.13.2. The deterministic test exercised all eight combinations
+of the four input fixtures and two output formats. The fuzz phase ran 3,000
+iterations in 16 seconds without a reported crash; libFuzzer reported 406
+retained corpus inputs and `rss: 405Mb`. The command specified a 16 KiB input
+limit, a five-second per-input timeout, and a 1 GiB RSS limit. The job log does
+not print an explicit sanitizer selection, so this record does not assert one.
+
+The uploaded [corpus artifact](https://github.com/sebastian-software/ferrixel/actions/runs/43072724334/artifacts/13878059847)
+has SHA-256 `a0a15b4dc3cfdcc637bcdbdb9c453c4c73a1995985f0c876063c51d49088d4dc`.
+This single short run does not close the sustained-campaign, coverage review,
+independent sanitizer, or security-sensitive release gates above.
+
 ## Early input limits
 
 The experimental public facade rejects compressed input exceeding a configurable byte cap (default **64 MiB**) before opening any decoder and rejects image dimensions above a configured **100-megapixel** default. The AVIF adapter checks the selected primary color tiles' AV1 sequence headers **before full-frame decode**, with ICC copies capped at 16 MiB. This mitigates common decompression-bomb cases; it does **not** bound memory used by libavif/AOM, JPEG XL or encoders. Ferrixel's bounded color/orientation parser and libavif each inspect the AVIF container. Always retain process RSS and sandbox limits for hostile inputs. See [ADR-0031](adr/0031-workspace-libavif-input-experiment.md) for the current boundary; the measured fuzz run below predates this reader replacement.
