@@ -1,0 +1,48 @@
+{
+  "status": "complete",
+  "fingerprint": {
+    "image_set": "dog",
+    "inputs": {
+      "dog": "fc67748b1f04aba4ae38476adae70bd9c6157ee0d86db1e93c05aca5815b42e4"
+    },
+    "references": {
+      "dog": "e745ed1c81f01c6b154329fff4cf5ba10dc01c90b4751db97adc2cb6e770b9fc"
+    },
+    "ferrixel_sha256": "efde46e99d3cde0cf0ff1b72d72c18ce353fa6bccea1fedb01848ba2d82963da",
+    "quality_match_sha256": "1b92c03c774db5925257e5e941650ea6c8748855647e2455d9103b7c3ea484f0",
+    "sharp_script_sha256": "d81e2c98f1936e21a3dc2dd75c6b1b152feda33e6c8d305c9edcf1feb576e92b",
+    "harness_sha256": "70567e4c15a2827315882b793d51b49c569a2e8fc4da524e9b78b2bb17f16edc",
+    "sharp_versions": {
+      "aom": "3.15.1",
+      "archive": "3.8.9",
+      "cairo": "1.18.6",
+      "cgif": "0.5.4",
+      "exif": "0.6.26",
+      "expat": "2.8.5",
+      "ffi": "3.8.0",
+      "fontconfig": "2.18.3",
+      "freetype": "2.14.3",
+      "fribidi": "1.0.17",
+      "glib": "2.90.0",
+      "harfbuzz": "14.5.0",
+      "heif": "1.23.5",
+      "highway": "1.4.0",
+      "imagequant": "2.4.1",
+      "lcms": "2.19.1",
+      "mozjpeg": "0826579",
+      "pango": "1.58.2",
+      "pixman": "0.46.4",
+      "png": "1.6.58",
+      "proxy-libintl": "0.5",
+      "rsvg": "2.63.2",
+      "tiff": "4.7.2",
+      "uhdr": "2.0.2",
+      "vips": "8.18.7",
+      "webp": "1.6.0",
+      "xml2": "2.15.4",
+      "zlib-ng": "2.3.3",
+      "sharp": "0.35.5"
+    }
+  },
+  "matched_sha256": "068d4051db5c719d7795d65de2cf9df75066167d8446b95fff44d44b675f7877"
+}

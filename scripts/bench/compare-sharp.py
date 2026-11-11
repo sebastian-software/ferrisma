@@ -20,7 +20,11 @@ produce bytes and SSIMULACRA2 scores, which do not depend on machine load.
 """
 
 import csv
+import hashlib
+import math
 import json
+import platform
+import shlex
 import os
 import statistics
 import subprocess
@@ -31,10 +35,12 @@ from pathlib import Path
 BENCH = Path(__file__).resolve().parent
 # The Ferrixel checkout whose CLI is measured; defaults to this script's.
 REPO = Path(os.environ.get("COMPARE_REPO", BENCH.parents[1])).resolve()
-FERRIXEL = REPO / "target" / "release" / "ferrixel"
-BATCH = REPO / "target" / "release" / "examples" / "batch"
+TARGET = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "target")).resolve()
+FERRIXEL = TARGET / "release" / "ferrixel"
+BATCH = TARGET / "release" / "examples" / "batch"
 QM_DIR = BENCH / "quality-match"
-QM = QM_DIR / "target" / "release" / "ferrixel-quality-match"
+QM_TARGET = TARGET if "CARGO_TARGET_DIR" in os.environ else QM_DIR / "target"
+QM = QM_TARGET / "release" / "ferrixel-quality-match"
 SHARP_AVIF = BENCH / "sharp-avif.cjs"
 SHARP_BATCH = BENCH / "sharp-batch.cjs"
 
@@ -46,6 +52,15 @@ IMAGES = [
     ("kodim03", "kodim03.jpg", "--assume-srgb", "convert", 512, 341, 1),
     ("kodim23", "kodim23.jpg", "--assume-srgb", "convert", 512, 341, 1),
 ]
+IMAGE_SET = os.environ.get("COMPARE_IMAGE_SET", "default")
+LARGE_CROPS = {"beach-24": "1752,1168,6000,4000", "beach-48": "752,168,8000,6000"}
+if IMAGE_SET in ("dog", "flower"):
+    IMAGES = [image for image in IMAGES if image[0] == IMAGE_SET]
+elif IMAGE_SET != "default":
+    if IMAGE_SET not in ("beach", *LARGE_CROPS):
+        sys.exit(f"unknown COMPARE_IMAGE_SET: {IMAGE_SET}")
+    height = 1200 if IMAGE_SET == "beach-48" else 1067
+    IMAGES = [(IMAGE_SET, "beach.jpg", "--use-rendered-icc", "ignore", 1600, height, 1)]
 SMALL = (320, 213)
 QUALITY_RANGE = (30, 95)
 
@@ -67,9 +82,7 @@ def node_env(extra=None):
 
 
 def load1():
-    if sys.platform == "darwin":
-        return float(run(["sysctl", "-n", "vm.loadavg"]).split()[1])
-    return float(Path("/proc/loadavg").read_text().split()[0])
+    return os.getloadavg()[0]
 
 
 def wait_for_idle():
@@ -80,9 +93,10 @@ def wait_for_idle():
     return load
 
 
-def ferrixel_cmd(src, out, w, h, flag, quality, threads, chroma="444"):
-    return [FERRIXEL, src, out, w, h, flag, f"--quality={quality}",
-            f"--encoder-threads={threads}", f"--transform-threads={threads}", f"--chroma={chroma}"]
+def ferrixel_cmd(src, out, w, h, flag, quality, threads, chroma="444", speed=6, crop=None):
+    cmd = [FERRIXEL, src, out, w, h, flag, f"--quality={quality}",
+           f"--encoder-threads={threads}", f"--transform-threads={threads}", f"--chroma={chroma}", f"--speed={speed}"]
+    return [*cmd, f"--crop={crop}"] if crop else cmd
 
 
 def sharp_cmd(src, out, w, h, icc, quality, threads, chroma="444", extra=()):
@@ -100,12 +114,38 @@ CONFIGS = [
     ("sharp", "sharp-all-420", 0, "420"),
 ]
 
+if os.environ.get("COMPARE_CONFIGS", "all") == "all-444":
+    CONFIGS = [config for config in CONFIGS if config[1] in ("ferrixel-all-444", "sharp-all-444")]
+elif os.environ.get("COMPARE_CONFIGS", "all") != "all":
+    sys.exit("COMPARE_CONFIGS must be all or all-444")
+TARGETS = os.environ.get("COMPARE_TARGETS", "AB")
+if TARGETS not in ("A", "AB"):
+    sys.exit("COMPARE_TARGETS must be A or AB")
+
 
 def config_cmd(tool, threads, chroma, image, corpus, quality, out):
     name, file, flag, icc, w, h, _ = image
+    crop = LARGE_CROPS.get(name)
     if tool == "ferrixel":
-        return ferrixel_cmd(corpus / file, out, w, h, flag, quality, threads, chroma)
-    return sharp_cmd(corpus / file, out, w, h, icc, quality, threads, chroma)
+        cmd = ferrixel_cmd(corpus / file, out, w, h, flag, quality, threads, chroma, crop=crop)
+        return [*cmd, "--budget-mb=2048"] if name.startswith("beach") else cmd
+    return sharp_cmd(corpus / file, out, w, h, icc, quality, threads, chroma,
+                     extra=(f"crop={crop}",) if crop else ())
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def verify_corpus_file(path, image_id, manifest_name="corpus.json"):
+    manifest = json.loads((BENCH / manifest_name).read_text())
+    entry = next(image for image in manifest["images"] if image["id"] == image_id)
+    if sha256(path) != entry["sha256"]:
+        raise ValueError(f"corpus SHA-256 mismatch: {image_id}: {path}")
 
 
 def prepare(out):
@@ -114,13 +154,23 @@ def prepare(out):
     small = corpus / "small"
     for d in (corpus, refs, small):
         d.mkdir(parents=True, exist_ok=True)
-    print("building ferrixel CLI, batch example and quality-match", file=sys.stderr)
-    run(["cargo", "build", "--release", "--features", "cli", "--bin", "ferrixel", "--example", "batch"], capture=False)
-    run(["cargo", "build", "--release", "--manifest-path", QM_DIR / "Cargo.toml"], capture=False)
+    if IMAGE_SET.startswith("beach"):
+        prepare_large(corpus, refs)
+        return
     avif = Path(os.environ.get("COMPARE_LIBAVIF_DATA", REPO / "codecs/libavif-rs/upstream/libavif/tests/data"))
     jxl = Path(os.environ.get("COMPARE_LIBJXL_DATA", REPO / "codecs/libjxl-rs/tests/data/decode-test"))
+    verify_corpus_file(avif / "dog_exif_extended_xmp_icc.jpg", "dog")
+    verify_corpus_file(jxl / "flower.png.im_q85_420.jpg", "flower")
+    print("building ferrixel CLI, batch example and quality-match", file=sys.stderr)
+    build = ["cargo", "build", "--release", "--features", "cli", "--bin", "ferrixel"]
+    if IMAGE_SET == "default":
+        build += ["--example", "batch"]
+    run(build, capture=False)
+    run(["cargo", "build", "--release", "--manifest-path", QM_DIR / "Cargo.toml"], capture=False)
     (corpus / "dog.jpg").write_bytes((avif / "dog_exif_extended_xmp_icc.jpg").read_bytes())
     (corpus / "flower.jpg").write_bytes((jxl / "flower.png.im_q85_420.jpg").read_bytes())
+    verify_corpus_file(corpus / "dog.jpg", "dog")
+    verify_corpus_file(corpus / "flower.jpg", "flower")
     env = node_env()
     for kodak in ("kodim03", "kodim23"):
         # y4m -> 8-bit PNG (BT.601 full range) -> JPEG q95 4:2:0 (mozjpeg):
@@ -136,6 +186,8 @@ def prepare(out):
              '.autoOrient().toColourspace("srgb").png({compressionLevel:1}).toFile(o)', corpus / file, src, icc], env=env)
         run([QM, "ref", src, w, h, refs / f"{name}.ref"])
         run([QM, "ref", f"{corpus / file}#{orientation}", w, h, refs / f"{name}-zune.ref"])
+    if IMAGE_SET != "default":
+        return
     # Many small images: 100 deterministic 640x427 crops of the four photos,
     # JPEG q90 4:2:0, no metadata (so --assume-srgb applies).
     script = r"""
@@ -169,9 +221,37 @@ const plan = [["dog.jpg", 50], ["flower.jpg", 40], ["kodim03.jpg", 5], ["kodim23
     print(f"corpus in {corpus}", file=sys.stderr)
 
 
+def prepare_large(corpus, refs):
+    source_dir = os.environ.get("COMPARE_LARGE_CORPUS")
+    if not source_dir:
+        sys.exit("set COMPARE_LARGE_CORPUS to the directory containing the verified large photo")
+    source = Path(source_dir) / "ferrixel-beach-volleyball-53458847235.jpg"
+    verify_corpus_file(source, "beach-volleyball-sunset", "corpus-large.json")
+    run(["cargo", "build", "--release", "--features", "cli", "--bin", "ferrixel"], capture=False)
+    run(["cargo", "build", "--release", "--manifest-path", QM_DIR / "Cargo.toml"], capture=False)
+    (corpus / "beach.jpg").write_bytes(source.read_bytes())
+    verify_corpus_file(corpus / "beach.jpg", "beach-volleyball-sunset", "corpus-large.json")
+    name, _, _, icc, w, h, orientation = IMAGES[0]
+    crop = LARGE_CROPS.get(name, "")
+    # The source profile is sRGB. As in the historical dog lane, ignore it in
+    # Sharp before linear processing; this is not valid for arbitrary profiles.
+    script = ("const [i,o,c]=process.argv.slice(1);let p=require('sharp')(i,{ignoreIcc:true}).autoOrient();"
+              "if(c){const [left,top,width,height]=c.split(',').map(Number);p=p.extract({left,top,width,height});}"
+              "p.toColourspace('srgb').png({compressionLevel:1}).toFile(o)")
+    for label, src in (("", corpus / "beach.jpg"), ("-zune", refs / "beach-zune-source.png")):
+        if label:
+            run([QM, "topng", f"{corpus / 'beach.jpg'}#{orientation}", src])
+        decoded = refs / f"{name}{label}-src.png"
+        run(["node", "-e", script, src, decoded, crop], env=node_env())
+        run([QM, "ref", decoded, w, h, refs / f"{name}{label}.ref"])
+
+
 def score(ref, files):
     rows = run([QM, "score", ref, *files]).strip().splitlines()
-    return [(Path(p).name, int(b), float(s)) for p, b, s in (r.split("\t") for r in rows)]
+    scored = [(Path(p).name, int(b), float(s)) for p, b, s in (r.split("\t") for r in rows)]
+    if len(scored) != len(files) or any(not math.isfinite(s) for _, _, s in scored):
+        raise ValueError("scorer returned missing or non-finite scores")
+    return scored
 
 
 def ceiling(out):
@@ -202,10 +282,29 @@ def ceiling(out):
     print("\n".join(lines))
 
 
+def match_fingerprint(out):
+    corpus, refs = out / "corpus", out / "refs"
+    if not IMAGE_SET.startswith("beach"):
+        for name in (image[0] for image in IMAGES if image[0] in ("dog", "flower")):
+            verify_corpus_file(corpus / f"{name}.jpg", name)
+    else:
+        verify_corpus_file(corpus / "beach.jpg", "beach-volleyball-sunset", "corpus-large.json")
+    return {
+        "image_set": IMAGE_SET, "inputs": {image[0]: sha256(corpus / image[1]) for image in IMAGES},
+        "references": {image[0]: sha256(refs / f"{image[0]}.ref") for image in IMAGES},
+        "ferrixel_sha256": sha256(FERRIXEL), "quality_match_sha256": sha256(QM),
+        "sharp_script_sha256": sha256(SHARP_AVIF), "harness_sha256": sha256(Path(__file__)),
+        "sharp_versions": json.loads(run(["node", "-e", "console.log(JSON.stringify(require('sharp').versions))"], env=node_env())),
+    }
+
+
 def match(out):
     corpus, refs, work = out / "corpus", out / "refs", out / "match"
     work.mkdir(parents=True, exist_ok=True)
     env = node_env()
+    provenance_path = out / "match-provenance.json"
+    provenance_path.write_text(json.dumps({"status": "incomplete"}) + "\n")
+    fingerprint = match_fingerprint(out)
     rows = ["image\ttarget\tconfig\tstatus\ttarget_score\tq_below\tscore_below\tbytes_below\tq_above\tscore_above"
             "\tbytes_above\tbytes_at_target\tq_nearest\tscore_nearest\tencodes"]
     anchors = ["image\tanchor\tbytes\tscore"]
@@ -220,7 +319,7 @@ def match(out):
         run(config_cmd("sharp", 0, "444", image, corpus, 50, b), env=env)
         (_, a_bytes, a_score), (_, b_bytes, b_score) = score(ref, [a, b])
         anchors += [f"{name}\tferrixel-q80\t{a_bytes}\t{a_score:.3f}", f"{name}\tsharp-q50\t{b_bytes}\t{b_score:.3f}"]
-        for target_name, target in (("A", a_score), ("B", b_score)):
+        for target_name, target in (("A", a_score), ("B", b_score))[:len(TARGETS)]:
             for tool, label, threads, chroma in CONFIGS:
                 print(f"{name} target {target_name} {target:.3f} {label}", file=sys.stderr)
                 cmd = config_cmd(tool, threads, chroma, image, corpus, "{q}", "{out}")
@@ -230,6 +329,10 @@ def match(out):
                 rows.append(f"{name}\t{target_name}\t{label}\t{result}")
                 (out / "matched.tsv").write_text("\n".join(rows) + "\n")
     (out / "anchors.tsv").write_text("\n".join(anchors) + "\n")
+    if fingerprint != match_fingerprint(out):
+        raise ValueError("matching inputs or tools changed during the run")
+    provenance_path.write_text(json.dumps({"status": "complete", "fingerprint": fingerprint,
+                                           "matched_sha256": sha256(out / "matched.tsv")}, indent=2) + "\n")
     print("\n".join(anchors + rows))
 
 
@@ -240,7 +343,7 @@ def read_tsv(path):
 
 def hyperfine(cmd, env, runs, json_path):
     run(["hyperfine", "--warmup", "1", "--runs", runs, "--shell=none", "--export-json", json_path,
-         " ".join(f"'{c}'" if " " in str(c) else str(c) for c in cmd)], env=env)
+         shlex.join(map(str, cmd))], env=env)
     result = json.loads(Path(json_path).read_text())["results"][0]
     if "measurements" in result:  # hyperfine 2 schema
         walls = [m["time_wall_clock"]["value"] for m in result["measurements"]]
@@ -248,7 +351,12 @@ def hyperfine(cmd, env, runs, json_path):
     else:
         walls = result["times"]
         cpu = result["user"] + result["system"]
+    if len(walls) != int(runs) or any(not math.isfinite(w) or w <= 0 for w in walls):
+        raise ValueError("invalid or missing Hyperfine wall-time samples")
+    if not math.isfinite(cpu) or cpu < 0:
+        raise ValueError("invalid Hyperfine CPU time")
     return {"mean_s": statistics.mean(walls), "median_s": statistics.median(walls),
+            "p95_s": sorted(walls)[math.ceil(0.95 * len(walls)) - 1],
             "stddev_s": statistics.stdev(walls) if len(walls) > 1 else 0.0,
             "min_s": min(walls), "cpu_s": cpu}
 
@@ -278,14 +386,80 @@ def in_process_ms(tool, cmd, env, runs):
     return statistics.median(totals)
 
 
+def validate_matched(matched):
+    for image in IMAGES:
+        for _, label, _, _ in CONFIGS:
+            key = (image[0], "A", label)
+            if key not in matched:
+                raise ValueError(f"missing quality match: {key}")
+            row = matched[key]
+            if row["status"] != "ok":
+                raise ValueError(f"quality target not bracketed for {key}: {row['status']}")
+            for field in ("target_score", "score_below", "score_above", "score_nearest"):
+                try:
+                    number = float(row[field])
+                except (ValueError, KeyError) as error:
+                    raise ValueError(f"invalid {field} for {key}") from error
+                if not math.isfinite(number):
+                    raise ValueError(f"non-finite {field} for {key}")
+
+
+def validate_output_score(row, actual):
+    target, nearest = float(row["target_score"]), float(row["score_nearest"])
+    if not all(math.isfinite(value) for value in (actual, target, nearest)):
+        raise ValueError("non-finite output or matching score")
+    if abs(actual - nearest) > 0.1:
+        raise ValueError("timed output score differs from matching pass")
+    delta = actual - target
+    if abs(delta) > 0.5:
+        raise ValueError("timed output is more than 0.5 SSIMULACRA2 from the target")
+    return delta
+
+
+def write_timing_provenance(path, provenance, csv_path, expected, actual):
+    if actual != expected:
+        raise ValueError("timing did not complete every expected lane")
+    provenance.update(status="complete", expected_lanes=expected, actual_lanes=actual,
+                      csv_sha256=sha256(csv_path))
+    path.write_text(json.dumps(provenance, indent=2) + "\n")
+
+
+def require_current_match(out, matching):
+    if (matching.get("status") != "complete" or matching.get("fingerprint") != match_fingerprint(out)
+            or matching.get("matched_sha256") != sha256(out / "matched.tsv")):
+        raise ValueError("quality matching evidence is incomplete or no longer matches the inputs and tools")
+
+
 def timing(out):
     corpus, work = out / "corpus", out / "time"
     work.mkdir(parents=True, exist_ok=True)
+    provenance_path = out / "time-provenance.json"
+    provenance_path.write_text(json.dumps({"status": "incomplete"}) + "\n")
     runs = os.environ.get("COMPARE_RUNS", "10")
+    matching = json.loads((out / "match-provenance.json").read_text())
+    require_current_match(out, matching)
     matched = {(r["image"], r["target"], r["config"]): r for r in read_tsv(out / "matched.tsv")}
-    fields = ["image", "target", "config", "quality", "score", "bytes", "load_before", "load_after", "runs",
-              "mean_s", "median_s", "stddev_s", "min_s", "cpu_s", "cpu_per_wall", "in_process_ms", "peak_rss_kib"]
+    validate_matched(matched)
+    fields = ["image", "target", "config", "quality", "target_score", "score", "score_delta", "bytes", "input_sha256", "reference_sha256",
+              "output_sha256", "command_json", "load_before", "load_after", "runs", "mean_s", "median_s", "p95_s",
+              "stddev_s", "min_s", "cpu_s", "cpu_per_wall", "in_process_ms", "peak_rss_kib"]
+    provenance = {
+        "status": "incomplete",
+        "repository_commit": run(["git", "rev-parse", "HEAD"]).strip(),
+        "repository_status": run(["git", "status", "--short"]).strip(),
+        "platform": platform.platform(), "machine": platform.machine(),
+        "rustc": run(["rustc", "--version"]).strip(),
+        "node": run(["node", "--version"]).strip(),
+        "hyperfine": run(["hyperfine", "--version"]).strip(),
+        "sharp_versions": json.loads(run(["node", "-e", "console.log(JSON.stringify(require('sharp').versions))"], env=node_env())),
+        "ferrixel_sha256": sha256(FERRIXEL), "quality_match_sha256": sha256(QM),
+        "warmup_runs": 1, "runs": int(runs), "order": "fixed, as listed in CONFIGS",
+        "peak_rss": "separate process run", "p95": "nearest rank",
+    }
+    provenance_path.write_text(json.dumps(provenance, indent=2) + "\n")
     path = out / "time.csv"
+    expected = len(IMAGES) * len(CONFIGS)
+    actual = 0
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
@@ -302,15 +476,23 @@ def timing(out):
                 rss = peak_rss_kib(cmd, env)
                 inproc = in_process_ms(tool, cmd, env, runs)
                 after = load1()
+                ref = out / "refs" / f"{name}.ref"
+                (_, output_bytes, actual_score), = score(ref, [avif])
+                delta = validate_output_score(m, actual_score)
                 row = {"image": name, "target": "A", "config": label, "quality": quality,
-                       "score": m["score_nearest"], "bytes": avif.stat().st_size,
+                       "target_score": m["target_score"], "score": actual_score, "score_delta": delta, "bytes": output_bytes,
+                       "input_sha256": sha256(corpus / image[1]), "reference_sha256": sha256(ref),
+                       "output_sha256": sha256(avif), "command_json": json.dumps([str(c) for c in cmd]),
                        "load_before": f"{before:.2f}", "load_after": f"{after:.2f}", "runs": runs,
                        **{k: f"{v:.4f}" for k, v in stats.items()},
                        "cpu_per_wall": f"{stats['cpu_s'] / stats['mean_s']:.2f}",
                        "in_process_ms": f"{inproc:.1f}", "peak_rss_kib": rss}
                 writer.writerow(row)
+                actual += 1
                 f.flush()
                 print(row, file=sys.stderr)
+    require_current_match(out, matching)
+    write_timing_provenance(provenance_path, provenance, path, expected, actual)
 
 
 def small_scores(refs, outputs):
@@ -424,7 +606,7 @@ SWEEP = [("ferrixel", 4), ("ferrixel", 8), ("ferrixel", 10), ("sharp", 0), ("sha
 def sweep_cmd(image, corpus, tool, preset, quality, path):
     name, file, flag, icc, w, h, _ = image
     if tool == "ferrixel":
-        return [*ferrixel_cmd(corpus / file, path, w, h, flag, quality, 0), f"--speed={preset}"]
+        return ferrixel_cmd(corpus / file, path, w, h, flag, quality, 0, speed=preset)
     return sharp_cmd(corpus / file, path, w, h, icc, quality, 0, extra=(f"effort={preset}",))
 
 
@@ -485,6 +667,8 @@ def main():
     phase, out = sys.argv[1], Path(sys.argv[2]).resolve()
     out.mkdir(parents=True, exist_ok=True)
     os.chdir(REPO)
+    if IMAGE_SET != "default" and phase not in ("prepare", "match", "time"):
+        sys.exit("large image sets support prepare, match and time only")
     phases = {"prepare": prepare, "ceiling": ceiling, "match": match, "time": timing, "batch": batch,
               "stages": stages, "sweepmatch": sweep_match, "sweep": sweep}
     for name in (phases if phase == "all" else [phase]):

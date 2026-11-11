@@ -1,0 +1,3 @@
+image	target	config	status	target_score	q_below	score_below	bytes_below	q_above	score_above	bytes_above	bytes_at_target	q_nearest	score_nearest	encodes
+dog	A	ferrixel-all-444	ok	73.467	79.77	73.467	261883	80.78	74.433	271116	261883	79.77	73.467	8
+dog	A	sharp-all-444	ok	73.467	55	72.538	220323	56	73.492	231260	230968	56	73.492	8

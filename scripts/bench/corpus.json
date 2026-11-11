@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "images": [
+    {
+      "id": "dog",
+      "path": "codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg",
+      "sha256": "fc67748b1f04aba4ae38476adae70bd9c6157ee0d86db1e93c05aca5815b42e4",
+      "source": "https://github.com/AOMediaCodec/libavif/blob/main/tests/data/README.md#file-dog_exif_extended_xmp_iccjpg",
+      "license": "BSD-2-Clause; see codecs/libavif-rs/upstream/libavif/LICENSE",
+      "role": "photo",
+      "description": "4032x3024 JPEG, EXIF orientation 6, sRGB ICC profile; original 12.2 MP photograph"
+    },
+    {
+      "id": "flower",
+      "path": "codecs/libjxl-rs/tests/data/decode-test/flower.png.im_q85_420.jpg",
+      "sha256": "6ad9a79e9f26d2723ef954a0dca774429606655ab7184f8ab400016f228ca2ce",
+      "source": "https://github.com/libjxl/testdata",
+      "license": "CC-BY-4.0; see codecs/libjxl-rs/tests/data/README.md",
+      "role": "photo",
+      "description": "2268x1512 JPEG, no ICC profile; original 3.4 MP photograph"
+    },
+    {
+      "id": "alpha-rotation",
+      "path": "codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_irot.avif",
+      "sha256": "b371cc88244a873131e4d10ff9363d71ce4f41cf333bd4a491b38d970d9abd3b",
+      "source": "https://github.com/AOMediaCodec/libavif/blob/main/tests/data/README.md#file-abc_color_irot_alpha_irotavif",
+      "license": "BSD-2-Clause; see codecs/libavif-rs/upstream/libavif/LICENSE",
+      "role": "correctness-only",
+      "description": "AVIF with translucent alpha and matching color/alpha rotation; not a photograph or RGB-only quality input"
+    }
+  ]
+}
