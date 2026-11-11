@@ -959,3 +959,103 @@ fn partial_parallel_worker_start_failure_releases_buffers_and_returns_error() {
         );
     }
 }
+
+#[test]
+fn wide_downscale_charges_filter_planning_before_decoding() {
+    // A 10,000-to-1 area filter needs 10,000 f64 taps; the input is tiny
+    // enough for a bounded regression but the tap vector exceeds 64 bytes.
+    let size = Size::new(10_000, 1).unwrap();
+    let mut source = TestSource::new(size, ChannelLayout::Rgb, SRGB, Samples::U8(vec![0; 30_000]));
+    let output = Size::new(1, 1).unwrap();
+    let (graph, input, target) = graph_for(&source, None, output, Filter::Area);
+    let budget = MemoryBudget::new(64);
+    let result = execute_quality_srgb8(
+        &graph,
+        target,
+        input,
+        &mut source,
+        Rect::new(0, 0, 1, 1).unwrap(),
+        &budget,
+        |_, _| Ok(()),
+    );
+    assert!(matches!(result, Err(Error::BudgetExceeded { .. })));
+    assert_eq!(source.calls, 0, "rejection must precede decoder work");
+    assert_eq!(budget.snapshot().live, 0);
+}
+
+#[test]
+fn extreme_geometry_is_rejected_before_work_in_both_executors() {
+    for (input_size, output_size) in [
+        (Size::new(u32::MAX, 1).unwrap(), Size::new(1, 1).unwrap()),
+        (Size::new(1, 1).unwrap(), Size::new(u32::MAX, 1).unwrap()),
+    ] {
+        let source = TestSource::new(
+            input_size,
+            ChannelLayout::Rgb,
+            SRGB,
+            Samples::U8(Vec::new()),
+        );
+        let (graph, input, target) = graph_for(&source, None, output_size, Filter::Lanczos3);
+        let request = Rect::new(0, 0, output_size.width, output_size.height).unwrap();
+        for threads in [0, 1, 4] {
+            let mut source = source.clone();
+            let budget = MemoryBudget::new(1024);
+            let result = if threads == 0 {
+                execute_quality_srgb8(
+                    &graph,
+                    target,
+                    input,
+                    &mut source,
+                    request,
+                    &budget,
+                    |_, _| Ok(()),
+                )
+            } else {
+                execute_fast_srgb8(
+                    &graph,
+                    target,
+                    input,
+                    &mut source,
+                    request,
+                    &budget,
+                    &Kernels::best(),
+                    threads,
+                    |_, _| Ok(()),
+                )
+            };
+            assert!(matches!(
+                result,
+                Err(Error::BudgetExceeded { .. } | Error::GeometryOverflow)
+            ));
+            assert_eq!(source.calls, 0);
+            assert_eq!(budget.snapshot().live, 0);
+        }
+    }
+}
+
+#[test]
+fn planning_reservation_is_shared_and_released() {
+    use crate::quality_execute::reserve_resize_plan;
+    let source = TestSource::new(
+        Size::new(20, 10).unwrap(),
+        ChannelLayout::Rgb,
+        SRGB,
+        Samples::U8(vec![0; 600]),
+    );
+    let (graph, _, target) = graph_for(&source, None, Size::new(3, 2).unwrap(), Filter::Lanczos3);
+    let request = Rect::new(0, 0, 3, 2).unwrap();
+    let probe = MemoryBudget::new(usize::MAX);
+    let reservation = reserve_resize_plan(&graph, target, request, &probe).unwrap();
+    let required = probe.snapshot().live;
+    assert!(required >= 20 * std::mem::size_of::<crate::quality::Tap>());
+    drop(reservation);
+    assert_eq!(probe.snapshot().live, 0);
+    let budget = MemoryBudget::new(required);
+    let first = reserve_resize_plan(&graph, target, request, &budget).unwrap();
+    assert!(matches!(
+        reserve_resize_plan(&graph, target, request, &budget),
+        Err(Error::BudgetExceeded { .. })
+    ));
+    drop(first);
+    assert_eq!(budget.snapshot().live, 0);
+}
