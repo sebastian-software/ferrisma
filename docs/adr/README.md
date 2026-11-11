@@ -53,6 +53,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0032](0032-jpeg-xl-workspace-decoder-input.md) | JPEG XL input through the workspace reference decoder, with a budgeted full-frame fallback | Experimental |
 | [0033](0033-shared-sharpyuv-conversion-core.md) | One safe SharpYUV conversion core with WebP and AVIF boundary adapters | Experimental |
 | [0034](0034-thumbnail-geometry.md) | Upright thumbnail geometry, centered cover, explicit no-enlargement behavior and bounded JPEG/WebP header inspection | Accepted |
+| [0037](0037-selectable-workspace-avif-encoder.md) | Explicit workspace libavif/AOM output selection through an independent writer boundary; Rav1e remains default | Experimental |
 
 ## Changing an ADR
 

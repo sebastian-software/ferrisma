@@ -47,7 +47,7 @@ Do not run `--all-features` over the entire workspace. Test adapters and
 ports through their [scoped component checks](docs/codecs.md#checks).
 The current AVIF reader and encoder share the same port and can link together;
 AVIF input still requires the pinned nightly and a supported native target.
-The stable Rust 1.98 check covers engine features without `avif-read` or `cli`.
+The stable Rust 1.98 check covers engine features without `avif-read`, `avif-own-write`, or `cli`.
 Scoped PR checks provide the ordinary feedback loop; the
 [validation guide](docs/validation.md) explains when live oracle and manual
 acceptance evidence is required.
