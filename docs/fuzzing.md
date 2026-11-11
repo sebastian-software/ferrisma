@@ -31,8 +31,8 @@ transform and encoder thread. The extreme aspect-ratio lanes exercise planning
 admission; a resource error is an expected result. These limits do not cap codec
 scratch, thread/runtime overhead, or total RSS. Run fuzzing in a sandbox with
 process-level limits and sanitizer support; preserve and minimize crashes in
-`fuzz/artifacts/` or the upstream codec test corpus. The opt-in workspace JPEG
-XL decoder still needs a dedicated lane.
+`fuzz/artifacts/` or the upstream codec test corpus. The sustained workflow
+also has a separate opt-in workspace JPEG XL decoder lane.
 
 The shared driver has a deterministic smoke test using real JPEG, JPEG XL,
 AVIF and WebP fixtures, each with both output formats. It checks that every
@@ -48,6 +48,54 @@ configuration is not a completed campaign result; retain the exact run and
 revision when reporting hosted coverage.
 
 The default CI also runs **deterministic malformed-header smoke tests** for truncated JPEG/JXL/AVIF files and invalid API options, so regressions surface without an expensive nightly fuzz dependency.
+
+## Sustained campaign workflow
+
+[M1 Sustained Fuzz Campaign](../.github/workflows/m1-fuzz-campaign.yml) is a
+manually dispatched, six-job experiment: the multi-format driver, the workspace
+AVIF/AOM writer, and the opt-in workspace JPEG XL decoder each run on native Linux x86-64 and macOS
+ARM64. Dispatch the registered `M1 Decoder Fuzz Smoke` workflow with the
+`campaign` input set to `true` to run it on a branch; the default remains the
+quick smoke. Each job uses the pinned nightly and cargo-fuzz 0.13.2 with explicit
+AddressSanitizer, a libFuzzer seed of 1, and a 1,800-second mutation budget.
+The input limit is 524,289 bytes including the selector; per-input timeout is
+10 seconds and the libFuzzer RSS limit is 2 GiB. A 150-minute job timeout and
+40-minute coverage-replay timeout bound setup and replay separately. These
+limits are not a bound on all operating-system resources.
+
+The checked-in seed generator frames the eight successful input/output pairs,
+additional AVIF grid, alpha, ICC and upstream proof-of-concept files, JPEG XL
+orientation fixtures, and valid and malformed JPEG ICC tag tables. The own-JXL
+lane accepts only inputs whose selector chooses JPEG XL; it keeps the rest of
+the selector and image bytes unchanged. Deterministic seed tests report whether
+each starting input encodes or is rejected, and assert both output encoders
+are reached for the applicable decoder. The generator hashes the exact starting
+bytes. Mutations and duration vary with scheduling and hardware despite the
+fixed PRNG seed; the seed does not make the resulting corpus deterministic.
+
+The own-AVIF lane accepts only AVIF-output selectors and runs each admitted
+input through the workspace AOM writer at both 8 and 10 bits. It uses the
+default input decoders, including JXL-Oxide. Its deterministic fixtures cover
+all four input formats and AVIF alpha; tests assert the reported encoder is
+`libavif-rs/aom`. The separate own-JXL lane covers Rav1e and WebP output; the
+own-JXL-to-own-AVIF combination is outside this campaign. Encoder choice and
+bit depth are explicit lane settings and do not consume or rewrite image bytes.
+
+Artifacts include the source commit and tree, toolchain, host, lockfile hashes,
+seed hashes and classifications, full fuzz log and final libFuzzer statistics,
+retained corpus and any crash files. A separate instrumented replay produces
+source coverage data and a report for the retained corpus. Coverage describes
+what that replay reached; it is not a correctness or security guarantee.
+Failures and timeouts require inspection, and the default smoke remains a quick,
+separate check. The standalone fuzz lockfile pins its dependencies; its AVIF
+profile exceptions mirror the four generated packages in the root workspace.
+Dependencies are fetched with `--locked`; mutation and replay builds run
+offline, and lockfile hashes are checked after tests, the campaign and replay.
+Seed classifications and source-coverage counts must be inspected before
+claiming that a particular ICC or AVIF path was reached.
+The workflow has not yet run merely because it is configured: record the
+actual job URLs, durations, crashes, coverage, and limitations after execution.
+An ASan campaign alone does not satisfy all release hardening gates.
 
 ## M1 exit evidence still needed
 

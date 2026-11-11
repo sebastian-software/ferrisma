@@ -7,6 +7,9 @@ edition = "2024"
 [package.metadata]
 cargo-fuzz = true
 
+[features]
+own-jxl = ["ferrixel/jpeg-xl-own-read"]
+
 [dependencies]
 libfuzzer-sys = "0.4"
 ferrixel = { path = "..", features = ["cli"] }
@@ -17,5 +20,39 @@ path = "fuzz_targets/transcode.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "transcode_own_avif"
+path = "fuzz_targets/transcode_own_avif.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "transcode_own_jxl"
+path = "fuzz_targets/transcode_own_jxl.rs"
+required-features = ["own-jxl"]
+test = false
+doc = false
+bench = false
+
+# This is a separate workspace, so preserve the root workspace's generated
+# AVIF arithmetic exceptions here as well, including cargo-fuzz's release build.
+[profile.dev.package.libavif-rs]
+overflow-checks = false
+[profile.dev.package.libavif-aom]
+overflow-checks = false
+[profile.dev.package.libavif-dav1d]
+overflow-checks = false
+[profile.dev.package.libavif-sharpyuv]
+overflow-checks = false
+[profile.release.package.libavif-rs]
+overflow-checks = false
+[profile.release.package.libavif-aom]
+overflow-checks = false
+[profile.release.package.libavif-dav1d]
+overflow-checks = false
+[profile.release.package.libavif-sharpyuv]
+overflow-checks = false
 
 [workspace]
