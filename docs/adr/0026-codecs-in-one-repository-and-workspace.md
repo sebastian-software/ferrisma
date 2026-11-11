@@ -172,7 +172,20 @@ it would couple unrelated codecs and leave the callback contract unresolved.
 This review therefore establishes an extraction direction and executable parity
 evidence now, without declaring an unimplemented adapter equivalent.
 
+The [first follow-up evidence package](../research/2026-11-10-sharpyuv-extraction-evidence.md)
+adds signed-layout, repeated-call, and defined rejection comparisons through
+both Rust public boundaries, plus a reproducible pre-extraction runtime and
+process peak-RSS baseline on macOS ARM64. The independent C signed-layout
+reference passes locally; native Linux and full consumer gates
+remain open. This does not change the extraction decision or the
+AVIF ABI contract.
+
 ## Amendment log
+
+- 2026-11-10 — Recorded the first bounded SharpYUV extraction evidence and
+  pre-extraction measurements. Re-review extraction after the remaining native
+  oracle and consumer gates pass and a shared core can be compared with this
+  baseline; no dependency or public API changed.
 
 - 2026-11-10 — Accepted the maintainer's consolidation decision and corrections:
   one workspace, early duplication review, no permanent source-repository
