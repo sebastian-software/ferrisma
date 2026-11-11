@@ -6,15 +6,46 @@ Ferrixel's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and A
 
 ## Reproducible fuzz target
 
-Install `cargo-fuzz` and run the target from the repository's `fuzz` directory or through `cargo +nightly fuzz` as appropriate for the current platform:
+Install the pinned `cargo-fuzz` and run the target with the repository's pinned native nightly toolchain:
 
 ```sh
-cargo install cargo-fuzz --locked
-cd fuzz
-cargo +nightly fuzz run transcode -- -max_len=524288 -timeout=10 -rss_limit_mb=1024
+cargo install cargo-fuzz --version 0.13.2 --locked
+cargo fuzz run transcode -- -max_len=524288 -timeout=10 -rss_limit_mb=1024
 ```
 
-The target exercises JPEG, default JPEG XL, and AVIF input using short, deliberately bounded output requests and an explicit no-guess color policy. WebP and the opt-in workspace JPEG XL decoder still need dedicated fuzz coverage. It does not assert that a 2 MiB *engine-managed* memory limit constrains external codecs. Run fuzzing in a sandbox with process-level limits and sanitizer support; preserve and minimize crashes in `fuzz/artifacts/` or the upstream codec test corpus.
+The target accepts one control byte followed by unchanged encoded image bytes.
+Its two low bits choose JPEG (0), default JPEG XL (1), AVIF (2), or WebP (3);
+bit 2 selects WebP instead of AVIF output. Bits 3–4 select the profile policy:
+zero uses rendered ICC for JPEG XL and an explicit sRGB assumption only when
+metadata is absent for the other formats; 1 is strict; 2 assumes sRGB only when
+metadata is absent; 3 requests the rendered-ICC transform. Bit 5 selects the
+`f64` reference rather than the `f32` executor. The high two bits select a small
+output, 8192×1, 1×8192, or 64×64. Existing JPEG and JPEG XL CI seeds keep their
+one-byte 0 and 1 prefixes and now reach the transform with the policies their
+fixtures require. The chosen policy remains explicit; unsupported color still
+fails rather than being silently reinterpreted.
+
+The driver sets limits of 512 KiB compressed input, 1 million input pixels,
+512 KiB retained output, and 2 MiB engine-managed memory, and requests one
+transform and encoder thread. The extreme aspect-ratio lanes exercise planning
+admission; a resource error is an expected result. These limits do not cap codec
+scratch, thread/runtime overhead, or total RSS. Run fuzzing in a sandbox with
+process-level limits and sanitizer support; preserve and minimize crashes in
+`fuzz/artifacts/` or the upstream codec test corpus. The opt-in workspace JPEG
+XL decoder still needs a dedicated lane.
+
+The shared driver has a deterministic smoke test using real JPEG, JPEG XL,
+AVIF and WebP fixtures, each with both output formats. It checks that every
+framed input reaches the decoder and produces encoded output, and checks strict
+color rejection and input/geometry limits:
+
+```sh
+cargo test --manifest-path fuzz/Cargo.toml --lib
+```
+
+The hosted workflow seeds all eight tested input/output pairs. This workflow
+configuration is not a completed campaign result; retain the exact run and
+revision when reporting hosted coverage.
 
 The default CI also runs **deterministic malformed-header smoke tests** for truncated JPEG/JXL/AVIF files and invalid API options, so regressions surface without an expensive nightly fuzz dependency.
 
@@ -30,7 +61,7 @@ The existence of a fuzz target alone does not satisfy the M1 hardening acceptanc
 
 ## CI bounded smoke
 
-The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) installs a pinned cargo-fuzz driver on a nightly Rust runner, seeds it with two checked-in real JPEG/JXL images, and runs **3,000 bounded attempts** with a 16 KiB maximum input and a 1 GiB process RSS cap. This is useful to catch shallow codec/protocol panics and integration bugs. It does **not** constitute a sustained, coverage-reviewed fuzz campaign and is not proof of process-wide memory safety; actual release acceptance still requires broader corpora, sanitizers and target-specific time budgets.
+The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) uses the root pinned nightly and cargo-fuzz 0.13.2, verifies deterministic seed success, seeds eight input/output pairs from four real JPEG/JXL/AVIF/WebP fixtures, and runs **3,000 bounded attempts** with a 16 KiB maximum input and a 1 GiB process RSS cap. This is useful to catch shallow codec/protocol panics and integration bugs. It does **not** constitute a sustained, coverage-reviewed fuzz campaign and is not proof of process-wide memory safety; actual release acceptance still requires broader corpora, sanitizers and target-specific time budgets.
 
 ## Early input limits
 
