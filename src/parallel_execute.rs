@@ -71,9 +71,16 @@ pub(crate) fn run<const C: usize>(
         for _ in 0..threads {
             let done_sender = done_sender.clone();
             let job_receiver = &job_receiver;
-            scope.spawn(move || {
+            if crate::thread_spawn::spawn(scope, move || {
                 worker::<C>(plan, budget, kernels, tables, job_receiver, &done_sender);
-            });
+            })
+            .is_err()
+            {
+                // Workers may already be waiting on the queue. Close it
+                // before scope joins them, including on a partial startup.
+                drop(jobs);
+                return Err(Error::ThreadSpawnFailed);
+            }
         }
         drop(done_sender);
         // `drive` owns the job sender; when it returns, for any reason, the
