@@ -17,7 +17,8 @@ import "ferramenta-family/monografie.css";
 import "ferramenta-family/monografie-docs.css";
 import "ferramenta-family/monografie-ardo.css";
 import "./site.css";
-import icon from "./icon.svg?url";
+import appleTouchIcon from "./assets/ferrixel-apple-touch-icon.png?url";
+import icon from "./assets/ferrixel-favicon.png?url";
 
 const sections = [
   {
@@ -84,7 +85,13 @@ function Article({ children }: { children: ReactNode }) {
 }
 export function Layout({ children }: { children: ReactNode }) {
   return (
-    <ArdoRootLayout colorScheme="light" className="mono-ardo" icon={icon} iconBasePath={false}>
+    <ArdoRootLayout
+      colorScheme="light"
+      className="mono-ardo"
+      icon={icon}
+      appleTouchIcon={appleTouchIcon}
+      iconBasePath={false}
+    >
       {children}
     </ArdoRootLayout>
   );
@@ -104,6 +111,7 @@ export default function Root() {
           <header className="mono-header fx-header">
             <div className="mono-header-in">
               <ArdoActiveLink className="mono-brand" to="/">
+                <span className="ferra-mark fx-mark" aria-hidden="true" />
                 Ferrixel <span className="fx-status">Experimental</span>
               </ArdoActiveLink>
               <nav className="fx-nav" aria-label="Main">

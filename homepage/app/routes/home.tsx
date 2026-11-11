@@ -166,7 +166,7 @@ function Opening() {
           width="2400"
           height="1200"
           fetchPriority="high"
-          alt="Ferrixel's instrument: a steel image registration bench with a pixel mosaic, an oxide crop frame, a filter carriage and a smaller output mosaic."
+          alt="Ferrixel's instrument: a gently curved steel railway whose wagons carry a mountain picture under a guillotine, a smaller copy under a spindle press, and the same picture as square pixels under a loupe."
         />
       </figure>
       <p className="mono-kicker">Ferrixel, an experimental image pipeline in Rust</p>

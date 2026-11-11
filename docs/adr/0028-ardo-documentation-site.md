@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-10
-- **Last reviewed:** 2026-11-10
+- **Last reviewed:** 2026-11-11
 - **Supersedes:** None
 - **Related:** [0026](0026-codecs-in-one-repository-and-workspace.md), [0027](0027-tiered-validation-and-rust-test-orchestration.md)
 
@@ -97,3 +97,12 @@ Ferrixel's rendered result; build and browser evidence are recorded separately.
   and validation explanations, and canonical color, development and acceptance
   pages. The original diagram-only identity is replaced; family registration
   remains open and no pipeline capability is added by this presentation work.
+- 2026-11-11 — Replaced the registration-bench instrument with an image
+  railway: wagons on a gently curved track pass a crop guillotine, a spindle
+  press and a pixel loupe, none of which blocks the rails. The maintainer chose
+  the station sequence from three studies, rejected a straight bench whose
+  press could not be passed, and asked for softer curves and less detail than
+  a right-angled first track. The pinned family studio, file path and provenance format are
+  unchanged; only the illustration and its alt text change. A site-local
+  Blender mark (stepped pixel mountain, copper sun) built with the pinned family
+  mark helpers replaces the placeholder favicon and now leads the header.
