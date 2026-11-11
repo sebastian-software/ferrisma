@@ -816,6 +816,10 @@ def encoder_match(out):
                                       "outputs_sha256": files}, indent=2) + "\n")
 
 
+class EncoderQualityMismatch(ValueError):
+    """Valid matching evidence cannot meet the declared quality tolerance."""
+
+
 def validate_encoder_match(out, matching):
     work = out / "encoders"
     if (matching.get("status") != "complete" or matching.get("fingerprint") != encoder_fingerprint(out)
@@ -831,8 +835,10 @@ def validate_encoder_match(out, matching):
         key = (row["image"], row["anchor_quality"], row["threads"], row["speed"])
         if key in indexed:
             raise ValueError(f"duplicate quality match: {key}")
+        if row["status"] in ("below-range", "unreachable"):
+            raise EncoderQualityMismatch(f"quality target not bracketed for {key}: {row['status']}")
         if row["status"] != "ok":
-            raise ValueError(f"quality target not bracketed for {key}: {row['status']}")
+            raise ValueError(f"unknown quality match status for {key}: {row['status']}")
         for field in ("target_score", "score_below", "score_above", "score_nearest"):
             if not math.isfinite(float(row[field])):
                 raise ValueError(f"invalid quality score for {key}")
@@ -840,7 +846,7 @@ def validate_encoder_match(out, matching):
             raise ValueError(f"invalid quality bracket for {key}")
         delta = float(row["score_nearest"]) - float(row["target_score"])
         if abs(delta) > 0.5:
-            raise ValueError(f"nearest integer quality is more than 0.5 SSIMULACRA2 from target for {key}: delta={delta:+.3f}")
+            raise EncoderQualityMismatch(f"nearest integer quality is more than 0.5 SSIMULACRA2 from target for {key}: delta={delta:+.3f}")
         indexed[key] = row
     expected = {(i[0], q, t, s) for i in IMAGES for q in encoder_levels() for t in (0, 1) for s in (6, 7)}
     if set(indexed) != expected:
@@ -851,7 +857,11 @@ def validate_encoder_match(out, matching):
 def encoder_check(out):
     """Check every matched cell without starting a timing run."""
     matching = json.loads((out / "encoders" / "match-provenance.json").read_text())
-    validate_encoder_match(out, matching)
+    try:
+        validate_encoder_match(out, matching)
+    except EncoderQualityMismatch as error:
+        print(error, file=sys.stderr)
+        raise SystemExit(3) from error
 
 
 def encoder_sample(cmd):

@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None
 - **Related:** [0001](0001-project-thesis.md), [0006](0006-cpu-first-gpu-capable-execution.md)
 
@@ -24,6 +24,13 @@ Track at least:
 
 Only add hand-written SIMD or special GPU kernels when measurements demonstrate a worthwhile win for realistic workloads. No unqualified claims such as 'fastest' or 'zero-copy' without evidence and scope.
 
+Encoder comparisons may calibrate a nominal quality using a finite candidate
+order declared before execution. Preserve the quality tolerance, every attempted
+match, the actual selected setting, and incomplete results. Infrastructure or
+provenance failures cannot trigger a search for a passing workload. Cross-host
+comparisons require the same selected workload; different selections remain
+separate observations. See the [encoder protocol](../benchmarks/encoder-adoption.md).
+
 ## Consequences
 
 + Prevents optimization from becoming a disconnected collection of microbenchmarks.
@@ -44,6 +51,17 @@ Create a benchmark protocol and correctness corpus before the first optimized ke
 
 Benchmarks become too expensive to sustain or a new quality metric demonstrates that the current oracle misses user-visible defects.
 
+Re-evaluate the bounded anchor calibration if it cannot find three usable levels
+on the representative corpus, or if host-specific selections prevent the
+intended comparison. Retain the existing tolerance until a separately justified
+quality policy replaces it.
+
 ## Amendment log
 
+- 2026-11-12 — Added a predeclared, bounded encoder-anchor calibration policy.
+  The [fixed-anchor native run](https://github.com/sebastian-software/ferrixel/actions/runs/43090843352)
+  completed 6/9 x86-64 and 5/9 ARM64 cells; integer-quality gaps prevented the
+  rest from satisfying the existing tolerance. The alternative of widening the
+  tolerance is rejected. The search adds matching cost, retains unsuccessful
+  attempts, and does not establish a complete benchmark or a performance gain.
 - 2026-10-31 — Accepted initial measurement and correctness policy.

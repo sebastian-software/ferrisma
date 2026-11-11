@@ -25,7 +25,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0004](0004-buffer-ownership-and-budget.md) | Ownership, allocation, conservative resize-plan admission and realistic memory budgets | Experimental |
 | [0005](0005-codec-capabilities-and-pixel-contracts.md) | Modern codec adapters, color and layout contracts | Proposed |
 | [0006](0006-cpu-first-gpu-capable-execution.md) | Execution scheduling, SIMD and conditional GPU | Proposed |
-| [0007](0007-correctness-and-performance-evidence.md) | Correctness and benchmark evidence before optimization | Accepted |
+| [0007](0007-correctness-and-performance-evidence.md) | Correctness, reproducible benchmark evidence and bounded quality calibration before optimization | Accepted |
 | [0008](0008-initial-vertical-slice.md) | Minimal architecture-validating implementation | Experimental |
 | [0009](0009-living-adr-process.md) | Decision lifecycle and amendment policy | Accepted |
 | [0010](0010-dual-licensing.md) | Dual-license Ferrixel under MIT OR Apache-2.0 | Accepted |

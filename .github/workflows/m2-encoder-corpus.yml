@@ -1,7 +1,7 @@
 name: M2 Encoder Corpus (native hosts)
 
-# Each image/anchor has a separate match, so an unmatched integer quality is
-# retained and cannot prevent the other cells from being examined.
+# Each nominal anchor tries offsets 0, -1, +1, -2, +2 in that order.
+# Every attempted match is retained; only the first passing candidate is timed.
 on:
   workflow_call:
     inputs:
@@ -89,49 +89,62 @@ jobs:
           for image in $images; do
             COMPARE_IMAGE_SET="$image" python3 -I scripts/bench/compare-sharp.py prepare "$OUT/prepared/$image"
           done
-      - name: Match all primary cells and retain dog q60 diagnostic
+      - name: Calibrate primary anchors and retain every attempted match
         run: |
-          printf 'image\tquality\trole\tmatch\ttiming\n' > "$OUT/cells.tsv"
+          printf 'image\tanchor\tquality\tmatch\n' > "$OUT/attempts.tsv"
+          printf 'image\tanchor\tquality\tmatch\n' > "$OUT/cells.tsv"
           while read -r image; do
-            for quality in 70 80 90; do
-              cell="$OUT/cells/$image-q$quality"
-              mkdir -p "$cell"
-              cp -R "$OUT/prepared/$image/corpus" "$cell/"
-              mkdir -p "$cell/refs"
-              cp "$OUT/prepared/$image/refs/"*.ref "$cell/refs/"
-              if COMPARE_IMAGE_SET="$image" COMPARE_ENCODER_LEVELS="$quality" scripts/bench/compare-encoders.sh "$cell" match; then
-                if COMPARE_IMAGE_SET="$image" COMPARE_ENCODER_LEVELS="$quality" scripts/bench/compare-encoders.sh "$cell" check; then
-                  result=complete
+            for anchor in 70 80 90; do
+              selected=none
+              for offset in 0 -1 1 -2 2; do
+                quality=$((anchor + offset))
+                cell="$OUT/cells/$image-a$anchor-q$quality"
+                mkdir -p "$cell"
+                ln -s "$OUT/prepared/$image/corpus" "$cell/corpus"
+                ln -s "$OUT/prepared/$image/refs" "$cell/refs"
+                if COMPARE_IMAGE_SET="$image" COMPARE_ENCODER_LEVELS="$quality" scripts/bench/compare-encoders.sh "$cell" match; then
+                  if COMPARE_IMAGE_SET="$image" COMPARE_ENCODER_LEVELS="$quality" scripts/bench/compare-encoders.sh "$cell" check; then
+                    result=complete
+                  else
+                    status=$?
+                    if [[ "$status" == 3 ]]; then result=rejected; else result=failed; fi
+                  fi
                 else
-                  result=rejected
+                  result=failed
                 fi
-                printf '%s\t%s\tprimary\t%s\tpending\n' "$image" "$quality" "$result" >> "$OUT/cells.tsv"
-              else
-                printf '%s\t%s\tprimary\tfailed\tskipped\n' "$image" "$quality" >> "$OUT/cells.tsv"
-              fi
+                printf '%s\t%s\t%s\t%s\n' "$image" "$anchor" "$quality" "$result" >> "$OUT/attempts.tsv"
+                if [[ "$result" == complete ]]; then selected=$quality; break; fi
+                # Build, runtime, and provenance failures must not be hidden by
+                # choosing another anchor. Only a quality mismatch is searchable.
+                if [[ "$result" == failed ]]; then break; fi
+              done
+              if [[ "$selected" == none ]]; then result=failed; else result=complete; fi
+              printf '%s\t%s\t%s\t%s\n' "$image" "$anchor" "$selected" "$result" >> "$OUT/cells.tsv"
             done
           done < "$OUT/images.txt"
+      - name: Retain the separate dog q60 diagnostic
+        run: |
           cell="$OUT/cells/dog-q60-diagnostic"
           mkdir -p "$cell"
-          cp -R "$OUT/prepared/dog/corpus" "$cell/"
-          mkdir -p "$cell/refs"
-          cp "$OUT/prepared/dog/refs/"*.ref "$cell/refs/"
+          ln -s "$OUT/prepared/dog/corpus" "$cell/corpus"
+          ln -s "$OUT/prepared/dog/refs" "$cell/refs"
           if COMPARE_IMAGE_SET=dog COMPARE_ENCODER_LEVELS=60 scripts/bench/compare-encoders.sh "$cell" match; then
             if COMPARE_IMAGE_SET=dog COMPARE_ENCODER_LEVELS=60 scripts/bench/compare-encoders.sh "$cell" check; then
               result=complete
             else
-              result=rejected
+              status=$?
+              if [[ "$status" == 3 ]]; then result=rejected; else result=failed; fi
             fi
-            printf 'dog\t60\tdiagnostic\t%s\tnot-requested\n' "$result" >> "$OUT/cells.tsv"
+            printf 'dog\t60\t%s\n' "$result" > "$OUT/diagnostic.tsv"
           else
-            printf 'dog\t60\tdiagnostic\tfailed\tnot-requested\n' >> "$OUT/cells.tsv"
+            printf 'dog\t60\tfailed\n' > "$OUT/diagnostic.tsv"
           fi
       - name: Time every primary cell with complete matching
         run: |
-          printf 'image\tquality\tstatus\n' > "$OUT/timing.tsv"
-          while IFS=$'\t' read -r image quality role match timing; do
-            [[ "$role" == primary && "$match" == complete ]] || continue
-            cell="$OUT/cells/$image-q$quality"
+          printf 'image\tanchor\tquality\tstatus\n' > "$OUT/timing.tsv"
+          while IFS=$'\t' read -r image anchor quality match; do
+            [[ "$match" == complete ]] || continue
+            cell="$OUT/cells/$image-a$anchor-q$quality"
             if COMPARE_IMAGE_SET="$image" COMPARE_ENCODER_LEVELS="$quality" COMPARE_ENCODER_RUN_ID=simd scripts/bench/compare-encoders.sh "$cell" time; then
               result=complete
               if [[ "$SCALAR" == true ]]; then
@@ -140,7 +153,7 @@ jobs:
             else
               result=failed
             fi
-            printf '%s\t%s\t%s\n' "$image" "$quality" "$result" >> "$OUT/timing.tsv"
+            printf '%s\t%s\t%s\t%s\n' "$image" "$anchor" "$quality" "$result" >> "$OUT/timing.tsv"
           done < "$OUT/cells.tsv"
       - name: Attach raw evidence
         if: always()
@@ -149,18 +162,21 @@ jobs:
           name: m2-encoder-corpus-${{ matrix.arch }}
           path: |
             bench-out/cells.tsv
+            bench-out/attempts.tsv
+            bench-out/diagnostic.tsv
             bench-out/timing.tsv
             bench-out/images.txt
-            bench-out/cells/*/refs/*.ref
+            bench-out/prepared/*/refs/*.ref
             bench-out/cells/*/encoders/
             scripts/bench/corpus*.json
             docs/benchmarks/corpus-and-comparison.md
             docs/benchmarks/encoder-adoption.md
           if-no-files-found: warn
+          retention-days: 30
       - name: Require every primary cell to complete
         run: |
           expected=$(( $(wc -l < "$OUT/images.txt") * 3 ))
-          matched=$(awk -F '\t' '$3 == "primary" && $4 == "complete" { n++ } END { print n+0 }' "$OUT/cells.tsv")
-          timed=$(awk -F '\t' '$3 == "complete" { n++ } END { print n+0 }' "$OUT/timing.tsv")
-          cat "$OUT/cells.tsv" "$OUT/timing.tsv"
+          matched=$(awk -F '\t' '$4 == "complete" { n++ } END { print n+0 }' "$OUT/cells.tsv")
+          timed=$(awk -F '\t' '$4 == "complete" { n++ } END { print n+0 }' "$OUT/timing.tsv")
+          cat "$OUT/attempts.tsv" "$OUT/cells.tsv" "$OUT/timing.tsv" "$OUT/diagnostic.tsv"
           [[ "$matched" == "$expected" && "$timed" == "$expected" ]]
