@@ -31,7 +31,9 @@ Verified facts on 2026-11-06:
 + Encoders are replaceable without touching the pipeline; ADR-0030 adds built-in still WebP output and format-tagged `Output::bytes`.
 + The core's stable compatibility and `unsafe` policy do not change; ADR-0026 makes the shared development default nightly.
 - The adapter needs nightly and one of two platforms. CI runs it on macOS arm64 and x86-64 Linux. Since libavif-rs `8be367f` it needs no native libraries (see the amendment log).
-- The backend materializes a full RGBA frame plus libavif's planes outside Ferrixel's budget (reported, not bounded), and AOM's memory is opaque.
+- The backend materializes a full RGBA frame plus libavif's planes; their
+  known sample bytes are reserved before `begin`. Allocation overhead, codec
+  scratch and compressed output remain opaque to the engine budget.
 - libavif's bytes depend on the thread count (as Sharp's do), unlike `rav1e`'s size-derived tiles.
 - The original duplicate-symbol exclusion was removed by ADR-0031's
   `avif-read` replacement. Native/nightly and full decoder-selection gates
@@ -86,3 +88,25 @@ The remaining triggers are a stable libavif toolchain or safe API, material chan
 - 2026-11-10 — ADR-0026 supersedes the separate workspace and Git pin. The adapter and imported codec use the root lockfile and toolchain; the unsafe boundary, default encoder, feature exclusions, and original measured evidence remain unchanged.
 - 2026-11-11 — ADR-0030 removes the `avif-write` prerequisite for the backend API, tags encoded results with their format, and adds built-in still WebP output. The direct YUV-to-AOM candidate remains unmeasured and open under issue #60.
 - 2026-11-11 — ADR-0031 connects AVIF input to the same workspace port through a separate safe read wrapper with explicit AOM selection. This supersedes decision 3's original linker exclusion and allows a combined input/encoder binary; it does not change the default `rav1e` output choice or complete the Argon and final selection gates.
+
+- 2026-11-11 — The adapter remains the explicit regular opt-in through
+  `transcode_with` and its `cli` binary; selecting it from the core as a
+  default would create a dependency cycle because the adapter already depends
+  on Ferrixel. The additive `required_frame_bytes` backend preflight reports a
+  checked bound for the concurrent RGBA and libavif YUV(A) sample planes, and
+  the engine reserves it from before `begin` through `finish`. The port's
+  `avifImageAllocatePlanes` uses tightly packed rows, including rounded-up 420
+  chroma dimensions. Existing backends default to zero and can remain opaque.
+  Allocator overhead, conversion scratch, AOM allocations and encoded output
+  are not covered; `max_output_bytes` is checked after the output exists.
+  This is a pixel-frame reservation, not a process-memory cap. Tests cover
+  invalid or overflowing dimensions, row errors, output limits, alpha and
+  metadata across 8/10-bit, 420/444 and thread settings, plus a same-process
+  AVIF input-to-output path. On macOS ARM64, FFmpeg 9.0.2/libdav1d independently
+  decoded a 96×64 10-bit 444 adapter CLI output; `ffprobe` identified
+  full-range BT.709/sRGB/BT.601 signals. This one file is not a codec
+  conformance corpus. The nightly and native-target restrictions, ADR-0025
+  reference/conformance and two-architecture quality, memory, binary-size and
+  corpus gates, and release/license gates remain open. Reconsider the default
+  and its dependency routing when those gates and a safe package boundary are
+  established.

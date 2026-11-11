@@ -1,13 +1,14 @@
 //! End to end: Ferrixel's pipeline with the libavif-rs backend, checked by
-//! decoding the result with an independent decoder (`avif-decode`, rav1d)
-//! and comparing it with the rows Ferrixel handed to the backend.
+//! decoding the result with libavif-rs and comparing it with the rows
+//! Ferrixel handed to the backend. Independent decoder checks are documented
+//! separately in ADR-0024.
 
 use std::sync::Mutex;
 
 use ferrixel::pipeline::{
-    ChromaSubsampling, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
-    InputProfilePolicy, OutputFormat, ProcessingErrorKind, RowEncoder, TransformOptions,
-    transcode_with,
+    ChromaSubsampling, EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend,
+    ImageFormat, InputProfilePolicy, OutputFormat, ProcessingErrorKind, RowEncoder,
+    TransformOptions, transcode_with,
 };
 use ferrixel_libavif::LibavifBackend;
 
@@ -49,9 +50,11 @@ struct Decoded {
     /// RGBA8; alpha 255 when the file has no alpha item.
     rgba: Vec<u8>,
     alpha: bool,
+    alpha_premultiplied: bool,
     depth: u32,
-    /// Colour primaries, transfer, matrix and full range.
+    /// Color primaries, transfer, matrix and full range.
     cicp: (u16, u16, u16, bool),
+    chroma: u32,
 }
 
 /// Decode with libavif-rs's own decoder (its dav1d port, validated byte for
@@ -88,7 +91,9 @@ fn decode(file: &[u8]) -> Decoded {
             height,
             rgba,
             alpha: !(*image).alphaPlane.is_null(),
+            alpha_premultiplied: (*image).alphaPremultiplied != 0,
             depth: (*image).depth,
+            chroma: (*image).yuvFormat,
             cicp: (
                 (*image).colorPrimaries,
                 (*image).transferCharacteristics,
@@ -137,6 +142,7 @@ fn encodes_what_ferrixel_produced_with_the_same_color_signals() {
         (10, ChromaSubsampling::Yuv444, 0),
         (8, ChromaSubsampling::Yuv444, 1),
         (10, ChromaSubsampling::Yuv420, 1),
+        (8, ChromaSubsampling::Yuv420, 2),
     ] {
         let options = TransformOptions {
             chroma_subsampling: chroma,
@@ -155,6 +161,14 @@ fn encodes_what_ferrixel_produced_with_the_same_color_signals() {
         assert_eq!((decoded.width, decoded.height), (96, 64));
         assert!(!decoded.alpha, "opaque output has no alpha item");
         assert_eq!(decoded.depth, u32::from(depth));
+        assert_eq!(
+            decoded.chroma,
+            if chroma == ChromaSubsampling::Yuv444 {
+                1
+            } else {
+                3
+            }
+        );
         // The same signals as Ferrixel's rav1e sink: BT.709 primaries, sRGB
         // transfer, BT.601 matrix, full range.
         assert_eq!(decoded.cicp, (1, 13, 6, true));
@@ -175,17 +189,15 @@ fn encodes_what_ferrixel_produced_with_the_same_color_signals() {
 
 #[test]
 fn straight_alpha_survives_the_encode() {
-    // Ferrixel's AVIF input needs rav1d, which cannot be linked next to
-    // libavif-rs (see `decode`), so the backend is driven directly with the
-    // rows the pipeline would hand it.
-    let (width, height) = (24_u32, 16_u32);
+    // Drive the row contract directly to exercise nonopaque samples.
+    let (width, height) = (25_u32, 17_u32);
     let row = |y: u32| -> Vec<u8> {
         (0..width)
             .flat_map(|x| {
                 let alpha = u8::try_from(x * 255 / (width - 1)).unwrap();
                 let rgb = [
                     u8::try_from(x * 10).unwrap(),
-                    u8::try_from(y * 15).unwrap(),
+                    u8::try_from(y * 14).unwrap(),
                     120,
                 ];
                 if alpha == 0 {
@@ -196,27 +208,51 @@ fn straight_alpha_survives_the_encode() {
             })
             .collect()
     };
-    let backend = LibavifBackend::default();
     let mut request = backend_request(width, height);
     request.has_alpha = true;
-    let mut encoder = backend.begin(&request).unwrap();
-    let mut expected = Vec::new();
-    for y in 0..height {
-        let rgba = row(y);
-        encoder.write_row(y, &rgba).unwrap();
-        expected.extend_from_slice(&rgba);
+    for (depth, chroma, threads) in [
+        (8, ChromaSubsampling::Yuv444, 1),
+        (10, ChromaSubsampling::Yuv444, 2),
+        (8, ChromaSubsampling::Yuv420, 2),
+        (10, ChromaSubsampling::Yuv420, 1),
+    ] {
+        let backend = LibavifBackend { depth };
+        request.chroma = chroma;
+        request.threads = threads;
+        let expected_bytes = backend.required_frame_bytes(&request).unwrap();
+        let mut encoder = backend.begin(&request).unwrap();
+        let mut expected = Vec::new();
+        for y in 0..height {
+            let rgba = row(y);
+            encoder.write_row(y, &rgba).unwrap();
+            expected.extend_from_slice(&rgba);
+        }
+        let image = encoder.finish().unwrap();
+        assert_eq!(image.frame_materialization_bytes, expected_bytes);
+        let decoded = decode(&image.bytes);
+        assert!(decoded.alpha, "the output carries an alpha item");
+        assert!(!decoded.alpha_premultiplied, "output alpha is straight");
+        assert_eq!(decoded.depth, u32::from(depth));
+        assert_eq!(decoded.cicp, (1, 13, 6, true));
+        let alpha_of = |data: &[u8]| data.chunks(4).map(|p| p[3]).collect::<Vec<_>>();
+        let (mean, _) = difference(&alpha_of(&decoded.rgba), &alpha_of(&expected));
+        let colors = |data: &[u8]| {
+            data.chunks(4)
+                .zip(expected.chunks(4))
+                .filter(|(_, reference)| reference[3] >= 128)
+                .flat_map(|(pixel, _)| pixel[..3].iter().copied())
+                .collect::<Vec<_>>()
+        };
+        let (color_mean, _) = difference(&colors(&decoded.rgba), &colors(&expected));
+        assert!(
+            color_mean < 6.0,
+            "{depth}-bit {chroma:?}: color mean difference {color_mean}"
+        );
+        assert!(
+            mean < 2.0,
+            "{depth}-bit {chroma:?}: alpha mean difference {mean}"
+        );
     }
-    let image = encoder.finish().unwrap();
-    // The RGBA frame and 10-bit Y, Cb, Cr and alpha planes.
-    assert_eq!(
-        image.frame_materialization_bytes,
-        (width * height * 4 + 2 * width * height * 4) as usize
-    );
-    let decoded = decode(&image.bytes);
-    assert!(decoded.alpha, "the output carries an alpha item");
-    let alpha_of = |data: &[u8]| data.chunks(4).map(|p| p[3]).collect::<Vec<_>>();
-    let (mean, _) = difference(&alpha_of(&decoded.rgba), &alpha_of(&expected));
-    assert!(mean < 2.0, "alpha mean difference {mean}");
 }
 
 /// A request as `transcode_with` would build it for an opaque image.
@@ -294,4 +330,78 @@ fn invalid_settings_are_rejected_before_decoding() {
     )
     .unwrap();
     assert_eq!(decode(&output.bytes).width, 8);
+}
+
+#[test]
+fn frame_preflight_counts_odd_chroma_and_alpha_planes() {
+    let mut request = backend_request(5, 3);
+    for (depth, chroma, alpha, expected) in [
+        (8, ChromaSubsampling::Yuv444, false, 60 + 15 * 3),
+        (10, ChromaSubsampling::Yuv444, true, 60 + 2 * 15 * 4),
+        (8, ChromaSubsampling::Yuv420, true, 60 + 15 + 2 * 3 * 2 + 15),
+        (
+            10,
+            ChromaSubsampling::Yuv420,
+            false,
+            60 + 2 * (15 + 2 * 3 * 2),
+        ),
+    ] {
+        request.chroma = chroma;
+        request.has_alpha = alpha;
+        assert_eq!(
+            LibavifBackend { depth }
+                .required_frame_bytes(&request)
+                .unwrap(),
+            expected
+        );
+    }
+}
+
+#[test]
+fn invalid_geometry_is_rejected_before_allocation() {
+    let backend = LibavifBackend::default();
+    let mut request = backend_request(4, 3);
+    for (width, height) in [(0, 3), (4, 0), (u32::MAX, 1), (u32::MAX / 4, u32::MAX)] {
+        request.width = width;
+        request.height = height;
+        let Err(error) = backend.begin(&request) else {
+            panic!("accepted {width}x{height}")
+        };
+        assert_eq!(
+            error.kind(),
+            EncodeErrorKind::InvalidOptions,
+            "{width}x{height}: {error}"
+        );
+    }
+    request.width = 4;
+    request.height = 3;
+    request.format = OutputFormat::WebP;
+    let Err(error) = backend.begin(&request) else {
+        panic!("accepted WebP output")
+    };
+    assert_eq!(error.kind(), EncodeErrorKind::InvalidOptions);
+}
+
+#[test]
+fn output_limit_is_enforced_after_backend_finish() {
+    let backend = LibavifBackend::default();
+    let opts = options(16, 12);
+    let output = transcode_with(JPEG, ImageFormat::Jpeg, opts, &backend).unwrap();
+    let mut limited = opts;
+    limited.max_output_bytes = output.bytes.len() - 1;
+    let error = transcode_with(JPEG, ImageFormat::Jpeg, limited, &backend).unwrap_err();
+    assert_eq!(error.kind(), ProcessingErrorKind::ResourceExhausted);
+}
+
+#[cfg(feature = "cli")]
+#[test]
+fn generated_avif_can_be_read_and_written_in_the_same_pipeline() {
+    let backend = LibavifBackend::default();
+    let first = transcode_with(JPEG, ImageFormat::Jpeg, options(32, 24), &backend).unwrap();
+    let second =
+        transcode_with(&first.bytes, ImageFormat::Avif, options(16, 12), &backend).unwrap();
+    let decoded = decode(&second.bytes);
+    assert_eq!((decoded.width, decoded.height), (16, 12));
+    assert_eq!(decoded.cicp, (1, 13, 6, true));
+    assert_eq!(second.report.encoder_backend, "libavif-rs/aom");
 }
