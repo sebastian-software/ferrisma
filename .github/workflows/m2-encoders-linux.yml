@@ -7,6 +7,20 @@ name: M2 Encoder Comparison (Linux)
 # AOM_SIMD_CAPS_MASK=0, which selects its scalar AOM paths.
 on:
   workflow_dispatch:
+    inputs:
+      image_set:
+        description: "Corpus lane; beach regions use the full attributed 60 MP source"
+        type: choice
+        options: [dog, flower, default, beach, beach-24, beach-48]
+        default: dog
+      qualities:
+        description: "Comma-separated rav1e anchor qualities"
+        type: string
+        default: "60,80"
+      runs:
+        description: "Samples per configuration"
+        type: string
+        default: "5"
 
 jobs:
   compare:
@@ -20,6 +34,10 @@ jobs:
       # The runner is idle apart from this job; the load rule only skips
       # the tail of the build.
       COMPARE_MAX_LOAD: "6"
+      COMPARE_IMAGE_SET: ${{ inputs.image_set }}
+      COMPARE_ENCODER_LEVELS: ${{ inputs.qualities }}
+      COMPARE_RUNS: ${{ inputs.runs }}
+      COMPARE_LARGE_CORPUS: ${{ runner.temp }}/ferrixel-large-corpus
     steps:
       - uses: actions/checkout@v4
       - name: Activate the root toolchain
@@ -36,30 +54,39 @@ jobs:
           grep -m1 'model name' /proc/cpuinfo
           nproc
           grep -m1 -o -w -E 'avx2|avx512f' /proc/cpuinfo | sort -u
+      - name: Fetch the attributed large photograph
+        if: startsWith(inputs.image_set, 'beach')
+        run: |
+          mkdir -p "$COMPARE_LARGE_CORPUS"
+          curl --fail --location --max-filesize 14000000 \
+            'https://upload.wikimedia.org/wikipedia/commons/e/e9/Beach_volleyball_sunset_%2853458847235%29.jpg' \
+            -o "$COMPARE_LARGE_CORPUS/ferrixel-beach-volleyball-53458847235.jpg"
+          node scripts/bench/corpus.cjs scripts/bench/corpus-large.json "$COMPARE_LARGE_CORPUS"
       - name: Prepare corpus and references
         run: python3 -I scripts/bench/compare-sharp.py prepare "$OUT"
-      - name: Target A and libavif-rs quality matching
-        run: |
-          scripts/bench/compare-encoders.sh "$OUT" anchor
-          scripts/bench/compare-encoders.sh "$OUT" match
+      - name: Match each encoder thread configuration
+        run: scripts/bench/compare-encoders.sh "$OUT" match
       - name: Time with libavif-rs SIMD dispatch
+        env:
+          COMPARE_ENCODER_RUN_ID: simd
         run: |
           scripts/bench/compare-encoders.sh "$OUT" time
-          mv "$OUT/encoders/time.md" "$OUT/encoders/time-simd.md"
       - name: Time with libavif-rs scalar AOM
         env:
           AOM_SIMD_CAPS_MASK: "0"
+          COMPARE_ENCODER_RUN_ID: scalar
         run: |
           scripts/bench/compare-encoders.sh "$OUT" time
-          mv "$OUT/encoders/time.md" "$OUT/encoders/time-scalar.md"
       - name: Attach results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: m2-encoders-linux
           path: |
-            bench-out/anchors.tsv
-            bench-out/encoders/matched.tsv
-            bench-out/encoders/time-simd.md
-            bench-out/encoders/time-scalar.md
+            bench-out/refs/*.ref
+            bench-out/encoders/
+            scripts/bench/corpus.json
+            scripts/bench/corpus-large.json
+            docs/benchmarks/corpus-and-comparison.md
+            docs/benchmarks/encoder-adoption.md
           if-no-files-found: ignore
