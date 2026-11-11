@@ -139,6 +139,10 @@ jobs:
       # libavif encoder link in the same binary without duplicate dav1d symbols.
       - run: cargo test -p ferrixel -p ferrixel-avif-read -p ferrixel-jxl-decoder -p ferrixel-libavif --all-targets --all-features --locked
       - run: cargo clippy -p ferrixel -p ferrixel-avif-read -p ferrixel-jxl-decoder -p ferrixel-libavif --all-targets --all-features --no-deps --locked -- -D warnings
+      - name: Verify concurrent SharpYUV cold initialization on ARM64
+        run: |
+          cargo test -p libavif-sharpyuv --test cross_port_cold_threads --profile checked --locked
+          cargo test -p libavif-sharpyuv --test cross_port_cold_threads --release --locked
   workspace:
     needs: affected
     if: needs.affected.outputs.workspace == 'true' || needs.affected.outputs.adapter == 'true'
@@ -156,8 +160,8 @@ jobs:
       - run: sudo apt-get update -qq && sudo apt-get install -y ninja-build pkg-config nasm
       - run: cargo fetch --locked
       - run: cargo check --workspace --all-targets --locked
-      - run: cargo test -p libavif-sharpyuv --test cross_port --profile checked --locked
-      - run: cargo test -p libavif-sharpyuv --test cross_port --release --locked
+      - run: cargo test -p libavif-sharpyuv --test cross_port --test cross_port_cold_threads --profile checked --locked
+      - run: cargo test -p libavif-sharpyuv --test cross_port --test cross_port_cold_threads --release --locked
       - name: Check shared SharpYUV core on its stable toolchain
         run: |
           rustup toolchain install 1.95 --profile minimal --component clippy

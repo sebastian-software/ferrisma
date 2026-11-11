@@ -60,7 +60,9 @@ tools and is not meant for Rust callers. What the library promises Ferrixel is
   [ADR 0005](docs/adr/0005-toolchain-and-unsafe-policy.md)), and the SIMD
   modules, which may load and store vectors and call target-feature functions
   ([ADR 0008](docs/adr/0008-simd-modules.md)).
-- Ordinary builds compile and link no C and use no dependencies. The crate
+- Ordinary builds compile and link no C. The only library dependency is the
+  workspace's small, safe `libsharpyuv-core` conversion crate, shared with
+  AVIF through a separate adapter ([ADR-0033](../../docs/adr/0033-shared-sharpyuv-conversion-core.md)). The crate
   builds on stable Rust 1.95 or later. The `simd` feature (default) compiles
   the SIMD modules and selects them at run time; `--no-default-features` is
   the scalar translation.

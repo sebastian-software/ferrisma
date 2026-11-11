@@ -20,9 +20,22 @@ conversion, matrix, gamma, CPU, portable DSP, and SIMD tests passed; scalar
 conversion passed with `--no-default-features`. Stable Clippy with warnings
 denied passed for the shared core and WebP port.
 
+A separate single-test process also releases eight threads together into the
+AVIF and WebP public boundaries without a sequential warmup. Repeated calls
+preserve input buffers and match each other, including output padding, and
+the pinned C hash. This passes locally in `checked` and `release`; native
+Linux and macOS PR jobs run it in both profiles. It is a concurrency
+regression check, not a thread-sanitizer result.
+
 The original full WebP consumer corpus and GNU Linux x86-64 native run remain
 CI/adoption gates. This local worktree lacks the pinned FuzzTest checkout and
 WebP test-data submodule, so the bounded local checks do not claim those gates.
+
+The follow-up [full native run](https://github.com/sebastian-software/ferrixel/actions/runs/42994552674)
+builds the unchanged pinned C and Rust-linked original consumers on GNU Linux
+x86-64 and macOS ARM64. Acceptance requires both jobs to pass, including the
+complete ordered test-case outcomes and skips from their CTest logs. The
+final PR records the run's completed result separately from these local checks.
 
 ## Reproduce the numeric and ABI checks
 
@@ -32,6 +45,8 @@ From the repository root after initializing the documented codec references:
 cargo fmt --all --check
 cargo test -p libavif-sharpyuv --test cross_port --profile checked --locked
 cargo test -p libavif-sharpyuv --test cross_port --release --locked
+cargo test -p libavif-sharpyuv --test cross_port_cold_threads --profile checked --locked
+cargo test -p libavif-sharpyuv --test cross_port_cold_threads --release --locked
 cargo test -p libwebp-rs --test wp5_convert --test wp5_matrix --test wp5_gamma --test wp5_dsp --test wp5_cpu --test wp20_sharpyuv --locked
 cargo test -p libwebp-rs --no-default-features --test wp5_convert --locked
 python3 codecs/libavif-rs/tools/check_translation.py
