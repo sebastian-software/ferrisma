@@ -249,7 +249,15 @@ fn emit_parallel<T: RowSample>(
         for _ in 0..threads.min(blocks) {
             let done_sender = done_sender.clone();
             let job_receiver = &job_receiver;
-            scope.spawn(move || gather_worker(pixels, layout, budget, job_receiver, &done_sender));
+            if crate::thread_spawn::spawn(scope, move || {
+                gather_worker(pixels, layout, budget, job_receiver, &done_sender);
+            })
+            .is_err()
+            {
+                // Close the queue before scope joins any started workers.
+                drop(jobs);
+                return Err(Error::ThreadSpawnFailed);
+            }
         }
         drop(done_sender);
         emit_blocks(layout, blocks, window, jobs, &done, sink)

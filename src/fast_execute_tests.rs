@@ -940,6 +940,27 @@ fn deferred_icc_conversion_is_byte_identical_to_converting_in_the_adapter() {
 }
 
 #[test]
+fn partial_parallel_worker_start_failure_releases_buffers_and_returns_error() {
+    let sources = tall_sources();
+    for successful in [0, 1, 3] {
+        let _failure = crate::thread_spawn::fail_after(successful);
+        assert_eq!(
+            run_threads(
+                &sources[0].1,
+                None,
+                Size::new(40, 150).unwrap(),
+                Filter::Lanczos3,
+                &Kernels::best(),
+                4,
+                64 << 20,
+                None,
+            ),
+            Err(Error::ThreadSpawnFailed)
+        );
+    }
+}
+
+#[test]
 fn wide_downscale_charges_filter_planning_before_decoding() {
     // A 10,000-to-1 area filter needs 10,000 f64 taps; the input is tiny
     // enough for a bounded regression but the tap vector exceeds 64 bytes.

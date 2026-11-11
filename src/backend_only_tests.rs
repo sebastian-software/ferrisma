@@ -212,3 +212,77 @@ fn own_avif_selection_requires_the_feature_before_opening_input() {
         ProcessingErrorKind::FeatureDisabled
     );
 }
+
+#[test]
+fn batch_spawn_failure_does_not_start_images_and_reports_each_item() {
+    use crate::pipeline::{BatchItem, Engine, ProcessingErrorKind};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct CountingBackend(AtomicUsize);
+    impl EncoderBackend for CountingBackend {
+        fn format(&self) -> OutputFormat {
+            OutputFormat::Avif
+        }
+        fn name(&self) -> &'static str {
+            "counting"
+        }
+        fn begin(&self, _: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+            self.0.fetch_add(1, Ordering::Relaxed);
+            Ok(Box::new(Rows { bytes: Vec::new() }))
+        }
+    }
+    let options = TransformOptions {
+        output_width: 4,
+        output_height: 4,
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        ..TransformOptions::default()
+    };
+    let items = [BatchItem {
+        encoded: include_bytes!("../tests/fixtures/sample.jpg"),
+        format: ImageFormat::Jpeg,
+        options,
+    }; 3];
+    let backend = CountingBackend(AtomicUsize::new(0));
+    for successful in [0, 1, 2] {
+        let _failure = crate::thread_spawn::fail_after(successful);
+        let results = Engine::new(3).transcode_batch_with(&items, &backend);
+        assert_eq!(results.len(), items.len());
+        assert!(results.into_iter().all(|result| matches!(result, Err(error) if error.kind() == ProcessingErrorKind::ResourceExhausted)));
+        assert_eq!(backend.0.load(Ordering::Relaxed), 0);
+    }
+    assert!(
+        Engine::new(3)
+            .transcode_batch_with(&items, &backend)
+            .into_iter()
+            .all(|result| result.is_ok())
+    );
+    assert_eq!(backend.0.load(Ordering::Relaxed), items.len());
+}
+
+#[test]
+fn batch_still_propagates_a_backend_panic() {
+    use crate::pipeline::{BatchItem, Engine};
+
+    struct Panics;
+    impl EncoderBackend for Panics {
+        fn format(&self) -> OutputFormat {
+            OutputFormat::Avif
+        }
+        fn name(&self) -> &'static str {
+            "panic-test"
+        }
+        fn begin(&self, _: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+            panic!("intentional backend panic")
+        }
+    }
+    let item = BatchItem {
+        encoded: include_bytes!("../tests/fixtures/sample.jpg"),
+        format: ImageFormat::Jpeg,
+        options: TransformOptions {
+            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+            ..TransformOptions::default()
+        },
+    };
+    let result = std::panic::catch_unwind(|| Engine::new(2).transcode_batch_with(&[item], &Panics));
+    assert!(result.is_err(), "scoped worker panics must propagate");
+}

@@ -83,6 +83,7 @@ mod resize_geometry;
     )
 )]
 mod surface;
+mod thread_spawn;
 #[cfg(feature = "webp-write")]
 mod webp_sink;
 mod working_color;

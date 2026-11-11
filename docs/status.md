@@ -45,7 +45,10 @@ Current behavior and boundaries:
   AVIF `clap` and unsupported transform orderings are rejected.
 - **Execution:** the default `f32` executor is checked against an `f64`
   reference. Runtime CPU dispatch, a parallel row pipeline, and batch execution
-  exist. GPU execution and a general multi-output DAG remain design work.
+  exist. Per-image thread requests above 256 fail before decoding; batch worker
+  counts are capped at 256. OS worker-start failure returns a resource error
+  after joining partially started workers ([ADR-0022](adr/0022-parallel-row-pipeline-and-engine.md)).
+  GPU execution and a general multi-output DAG remain design work.
 - **Thumbnail facade:** `transcode_resized` resolves one or two dimensions,
   inside/centered-cover/fill geometry, and explicit no-enlargement behavior
   after orientation and an optional upright crop. Existing exact-size calls
