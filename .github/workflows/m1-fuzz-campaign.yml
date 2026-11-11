@@ -1,0 +1,125 @@
+name: M1 Sustained Fuzz Campaign
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: ${{ matrix.target }} (${{ matrix.runner }}, ASan)
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: transcode
+            features: ''
+          - runner: ubuntu-latest
+            target: transcode_own_avif
+            features: ''
+          - runner: ubuntu-latest
+            target: transcode_own_jxl
+            features: '--features own-jxl'
+          - runner: macos-15
+            target: transcode
+            features: ''
+          - runner: macos-15
+            target: transcode_own_avif
+            features: ''
+          - runner: macos-15
+            target: transcode_own_jxl
+            features: '--features own-jxl'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install AV1 assembler on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y nasm
+      - name: Install AV1 assembler on macOS
+        if: runner.os == 'macOS'
+        run: command -v nasm || brew install nasm
+      - name: Install LLVM coverage tools
+        run: rustup component add llvm-tools-preview
+      - name: Install pinned fuzz driver
+        run: cargo install cargo-fuzz --version 0.13.2 --locked
+      - name: Fetch the pinned standalone dependency graph
+        run: cargo fetch --locked --manifest-path fuzz/Cargo.toml
+      - name: Record toolchain and source provenance
+        run: |
+          mkdir -p fuzz/campaign
+          {
+            echo "commit $(git rev-parse HEAD)"
+            echo "tree $(git rev-parse HEAD^{tree})"
+            echo "runner $RUNNER_OS $RUNNER_ARCH"
+            uname -a
+            rustup show active-toolchain
+            rustc -Vv
+            cargo -V
+            cargo fuzz --version
+            nasm -v
+            shasum -a 256 rust-toolchain.toml Cargo.lock fuzz/Cargo.lock
+            shasum -a 256 Cargo.lock fuzz/Cargo.lock > fuzz/campaign/lockfiles.sha256
+            echo "sanitizer=address; seed=1; max_total_time=1800; rss_limit_mb=2048"
+            echo "target=${{ matrix.target }} features=${{ matrix.features }}"
+          } | tee fuzz/campaign/provenance.txt
+      - name: Create and hash starting corpora
+        run: python3 fuzz/scripts/seed_campaign.py fuzz/corpus | tee fuzz/campaign/seeds.sha256
+      - name: Verify and classify the starting seeds
+        env:
+          FERRIXEL_FUZZ_SEEDS: ${{ github.workspace }}/fuzz/corpus
+        run: |
+          set -o pipefail
+          cargo test --locked --manifest-path fuzz/Cargo.toml --lib ${{ matrix.features }} -- --nocapture 2>&1 | tee fuzz/campaign/seed-results.log
+          shasum -a 256 -c fuzz/campaign/lockfiles.sha256
+      - name: Run 30-minute mutation campaign
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -o pipefail
+          mkdir -p fuzz/artifacts/${{ matrix.target }}
+          cargo fuzz run --sanitizer address ${{ matrix.features }} ${{ matrix.target }} -- \
+            -seed=1 -max_total_time=1800 -max_len=524289 -timeout=10 \
+            -rss_limit_mb=2048 -print_final_stats=1 2>&1 | tee fuzz/campaign/fuzz.log
+          shasum -a 256 -c fuzz/campaign/lockfiles.sha256
+      - name: Replay retained corpus for source coverage
+        timeout-minutes: 40
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -o pipefail
+          cargo fuzz coverage --sanitizer address ${{ matrix.features }} -j 1 --target-dir "$GITHUB_WORKSPACE/fuzz/coverage-build" ${{ matrix.target }} -- \
+            -timeout=10 -rss_limit_mb=2048 2>&1 | tee fuzz/campaign/coverage.log
+          shasum -a 256 -c fuzz/campaign/lockfiles.sha256
+          host=$(rustc -vV | sed -n 's/^host: //p')
+          llvm_cov="$(rustc --print sysroot)/lib/rustlib/$host/bin/llvm-cov"
+          "$llvm_cov" report "fuzz/coverage-build/$host/release/${{ matrix.target }}" \
+            -instr-profile="fuzz/coverage/${{ matrix.target }}/coverage.profdata" \
+            > fuzz/campaign/coverage-report.txt
+      - name: Upload logs, corpus, and crash artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m1-fuzz-campaign-${{ matrix.runner }}-${{ matrix.target }}
+          path: |
+            fuzz/campaign/
+            fuzz/coverage/${{ matrix.target }}/coverage.profdata
+            fuzz/artifacts/${{ matrix.target }}/
+            fuzz/corpus/${{ matrix.target }}/
+            fuzz/Cargo.lock
+            rust-toolchain.toml
+            docs/fuzzing.md
+            tests/fixtures/icc/README.md
+            tests/fixtures/icc/LICENSE-CC0
+            tests/fixtures/orientation/README.md
+            tests/fixtures/webp/README.md
+            codecs/libavif-rs/upstream/libavif/tests/data/README.md
+            codecs/libavif-rs/upstream/libavif/LICENSE
+          if-no-files-found: warn
+          retention-days: 30

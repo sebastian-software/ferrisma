@@ -2,6 +2,11 @@ name: M1 Decoder Fuzz Smoke
 
 on:
   workflow_dispatch:
+    inputs:
+      campaign:
+        description: Run the sustained campaign instead of the quick smoke
+        type: boolean
+        default: false
   workflow_call:
 
 concurrency:
@@ -10,6 +15,7 @@ concurrency:
 
 jobs:
   fuzz:
+    if: inputs.campaign != true
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -21,7 +27,7 @@ jobs:
       - name: Install pinned fuzz driver
         run: cargo install cargo-fuzz --version 0.13.2 --locked
       - name: Verify real seeds reach both output encoders
-        run: cargo test --manifest-path fuzz/Cargo.toml --lib
+        run: cargo test --locked --manifest-path fuzz/Cargo.toml --lib
       - name: Prepare real JPEG, JPEG XL, AVIF, and WebP corpus seeds
         run: |
           python3 - <<'PY'
@@ -50,3 +56,7 @@ jobs:
             fuzz/artifacts/transcode/
             fuzz/corpus/transcode/
           if-no-files-found: ignore
+
+  campaign:
+    if: inputs.campaign == true
+    uses: ./.github/workflows/m1-fuzz-campaign.yml
