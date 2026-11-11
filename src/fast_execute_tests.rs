@@ -859,8 +859,17 @@ fn deferred_icc_conversion_is_byte_identical_to_converting_in_the_adapter() {
     }
 
     let (_, mut noise) = tall_sources().into_iter().next().unwrap();
-    noise.info.rendered_icc = Some(moxcms::ColorProfile::new_display_p3().encode().unwrap());
+    noise.info.rendered_icc =
+        Some(include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc").to_vec());
     noise.info.rendered_cicp = None;
+    if let Samples::U8(values) = &mut noise.samples {
+        // Saturated alternating colors require negative and >1 linear
+        // channels before the resize filter mixes them.
+        for row in values.as_chunks_mut::<{ 80 * 3 }>().0 {
+            row[..3].copy_from_slice(&[255, 0, 0]);
+            row[3..6].copy_from_slice(&[0, 255, 255]);
+        }
+    }
     let size = Size::new(40, 150).unwrap();
     let kernels = Kernels::best();
     let run = |source: &mut dyn DecodeSource, threads: usize| -> Vec<u8> {
@@ -887,6 +896,35 @@ fn deferred_icc_conversion_is_byte_identical_to_converting_in_the_adapter() {
     };
     let adapter = || IccSrgbSource::new(Box::new(noise.clone())).unwrap();
     let reference = run(&mut Converted(adapter()), 1);
+    let quality = {
+        let mut source = adapter();
+        let (graph, input, output) = graph_for_info(source.info(), None, size, Filter::Lanczos3);
+        let budget = MemoryBudget::new(64 << 20);
+        let mut pixels = Vec::new();
+        execute_quality_srgb8(
+            &graph,
+            output,
+            input,
+            &mut source,
+            Rect::new(0, 0, size.width, size.height).unwrap(),
+            &budget,
+            |_, row| {
+                pixels.extend_from_slice(row);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(budget.snapshot().live, 0);
+        pixels
+    };
+    assert_eq!(reference.len(), quality.len());
+    assert!(
+        reference
+            .iter()
+            .zip(&quality)
+            .all(|(&fast, &scalar)| fast.abs_diff(scalar) <= 1),
+        "ICC f32 output must stay within one code of the f64 executor"
+    );
     for threads in [1, 2, 8] {
         assert_eq!(
             run(&mut adapter(), threads),
