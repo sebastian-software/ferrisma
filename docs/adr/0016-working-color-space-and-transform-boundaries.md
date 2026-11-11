@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-10
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0004](0004-buffer-ownership-and-budget.md), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0014](0014-linear-srgb-straight-alpha.md), [0015](0015-typed-output-color-signals.md), [M1](../milestones/M1-complete-image-pipeline.md)
 
@@ -74,3 +74,4 @@ PR #11 experimentally connects `ToLinearSrgb → WorkingLinear(Area/Lanczos3) �
 
 Differential testing exposed that the minimum *nonzero* tap of Lanczos3 can move backward at exact sinc zero crossings. Besides delaying row-cache eviction, the region planner must take the union of **every output sample's** filter support, not assume that the first and last output points bound all interior taps. The current reference planner now does so. For large regions, the O(number of output positions) planning overhead is an explicit optimization opportunity; a future analytical conservative bound must prove it contains the reference tap union.
 - 2026-11-06 — The rendered-ICC adapter converts directly into the linear-light working space (moxcms with an identity-TRC sRGB destination), so no transfer curve is encoded and decoded again between CMS and resampler (ADR-0023). Known limitation: moxcms' matrix-shaper path clamps to `[0, 1]`, so out-of-sRGB-gamut colors are clipped before resampling, contrary to this ADR's "no premature clipping"; a test documents the clamping on a Display P3 profile. The ICC stage still runs serially in front of the row pipeline; moving it into the workers is the next step for this boundary.
+- 2026-11-10 — The ICC adapter now opts into moxcms 0.9.1's floating-point extended-range matrix-shaper path (ADR-0023). Its input remains the decoder's rendered RGB ICC, and its output remains linear-light sRGB with signed values until final output quantization. The prior clamping test now requires preservation and fails on the old path. Selected samples from CC0 Display P3 and Adobe-compatible ICC files, plus independently generated variants, are checked against a LittleCMS 2.19 float transform; provenance and hashes are in `tests/fixtures/icc/README.md`. LUT-profile and intent-specific gamut behavior, P3/ICC photographs, and HDR rejection corpus remain open. This corrects the 2026-11-06 limitation without claiming that the proposed general graph transform is complete.

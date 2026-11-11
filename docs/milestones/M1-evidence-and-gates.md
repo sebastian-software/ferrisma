@@ -18,7 +18,7 @@
 | Gate | Current evidence | Remaining validation |
 | --- | --- | --- |
 | 1. Real JPEG/JXL → AVIF | End-to-end test fixtures with optional features | Broad real-image corpus, output profile and orientation cases |
-| 2. Color fidelity | Known sRGB/P3 numeric oracles, alpha and crop tests | Independent ICC oracles, P3/ICC real-image quality, out-of-gamut and HDR rejection corpus |
+| 2. Color fidelity | Known sRGB/P3 numeric oracles, alpha and crop tests; selected CC0 P3/Adobe ICC samples checked against LittleCMS 2.19, including out-of-gamut values (ADR-0023) | P3/ICC real-image quality, broader out-of-gamut and HDR rejection corpus, LUT/intent coverage |
 | 3. Codec capabilities | Reports ROI versus full-frame fallback | Measure internal decoder work and source overfetch on real formats |
 | 4. Engine memory | RAII frame, row and scratch reservations; cancellation tests | Planner metadata is not fully charged; AVIF decoder and encoders have opaque allocations; test peak process RSS and bombs |
 | 5. Correctness and errors | Geometry, invalid options, truncated headers, AVIF container/bitstream color conflicts; JPEG EXIF, JPEG XL and AVIF `irot`/`imir` orientation applied and checked against ImageMagick/libheif/libjxl fixtures (ADR-0019) | Larger malicious corpus, AVIF `clap`, alpha and ICC conflict cases |

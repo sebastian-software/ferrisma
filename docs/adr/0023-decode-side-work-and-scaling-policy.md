@@ -35,7 +35,7 @@ Verified facts from the [codec capability audit](../research/2026-11-05-decode-s
 + Linear-light sRGB becomes a first-class rendered signal, so a JPEG XL decoder that emits linear sRGB is now accepted too.
 - The JPEG decoder now runs third-party SIMD code with its own `unsafe`; its output may differ from the scalar decoder by rounding (JPEG decoding is not bit-exact across implementations).
 - Without shrink-on-load, Ferrixel decodes every source pixel for a thumbnail; a non-linear Sharp default with shrink-on-load does less decode work for strong downscales. Comparisons must say which mode each side ran (see the Sharp comparison).
-- The ICC path still clamps out-of-gamut colors inside moxcms.
+- The ICC matrix-shaper path now retains out-of-sRGB-gamut linear samples until final output quantization. LUT-profile behavior remains unchanged and has no extended-range guarantee.
 
 ## Alternatives considered
 
@@ -46,14 +46,14 @@ Verified facts from the [codec capability audit](../research/2026-11-05-decode-s
 
 ## Validation
 
-- The ICC adapter, fed a Display P3 profile written by moxcms, must match Ferrixel's own CSS Color 4 P3 to sRGB matrix within `2e-3` linear for in-gamut values (test `cms::tests`); out-of-gamut values are checked to be the clamped reference.
+- The ICC adapter, fed a Display P3 profile written by moxcms, must match Ferrixel's own CSS Color 4 P3 to sRGB matrix within `2e-3` linear for both in-gamut and out-of-gamut values (test `cms::tests`). Independent LittleCMS profile and numeric fixtures also check signed and above-one output from the matrix-shaper path.
 - All existing differential tests (ADR-0021) and orientation fixtures (ADR-0019) stay green.
 - The deferred ICC conversion gives bit-identical rows to the adapter's own conversion, and the executor gives byte-identical output with the conversion deferred or not, on 1, 2 and 8 threads. The parallel gather matches the independent reference for all eight EXIF orientations, `u8` and `f32` rows, three crops and 1, 2, 3 and 8 threads, and cancels and fails with `live == 0`.
 - Decode and total time of real photographs before and after, at low machine load, recorded in the M2 baseline. The decision is falsified if enabling the decoder's SIMD or the linear ICC output makes any measured case slower.
 
 ## Review when
 
-The workspace JPEG adapter gains an explicit scaled-IDCT quality policy; moxcms gains extended-range output; a real-photo corpus shows the orientation buffer as a dominant cost; the libavif-rs or libjxl-rs ports replace the interim decoders (ADR-0018).
+The workspace JPEG adapter gains an explicit scaled-IDCT quality policy; moxcms changes its extended-range matrix-shaper or LUT behavior; a real-photo corpus shows the orientation buffer as a dominant cost; the libavif-rs or libjxl-rs ports replace the interim decoders (ADR-0018).
 
 ## Amendment log
 
@@ -80,4 +80,5 @@ The real photo's decode stage still splits roughly into a third JPEG decoding, a
 
 The real photo's decode stage is now about the `zune-jpeg` decode itself, which is single-threaded. Inputs without ICC or orientation take the unchanged path; their differences are within the noise of the higher load during their runs (the flower's 5 ms are in the encoder, which this step does not touch).
 - 2026-11-06 — Decision 3's scaled IDCT comes from a JPEG decoder port under ADR-0025 (libjpeg-turbo or jpegli, both with libjpeg's `scale_num`/`scale_denom`), not from a `zune-jpeg` contribution or fork; the fork stays only as a fallback. The policy itself (opt-in, reported, quality measured) is unchanged.
+- 2026-11-10 — Corrected decision 2's ICC gamut limitation: enable moxcms 0.9.1's `extended_range` feature and `allow_extended_range_rgb_xyz` only for matrix-shaper RGB/XYZ sources without device-to-PCS LUT tags. The previous default clipped P3 blue at 1.0 instead of retaining approximately 1.098 linear; the changed regression failed before the option was set and now passes. Selected samples from CC0 Display P3 and Adobe-compatible ICC files and two independently generated variants agree with a LittleCMS 2.19 relative-colorimetric float transform within `8e-4` linear; the observed maximum was `6.54e-4`. U8 codes around the sRGB transfer knee agree within `1e-5` (observed maximum `1.12e-6`; fixture provenance and hashes in `tests/fixtures/icc/README.md`). LittleCMS reopens the exact ICC bytes consumed by the Rust test. The adapter's U8 and F32 row conversion, f32/f64 executor comparison, and deferred conversion on 1, 2, and 8 workers pass. This choice preserves moxcms's existing LUT/intent selection and adds no native CMS dependency; broader #17 real-image, arbitrary-LUT, and HDR evidence remains open. Re-evaluate if moxcms changes either branch or if the larger corpus exposes a mismatch.
 - 2026-11-11 — The JPEG adapter now uses the workspace libjpeg-turbo-rs decoder's safe scanlines (ADR-0012). The earlier zune SIMD and timing evidence remains historical. Full-resolution decoding stays the default; the port's scaled-IDCT capability is not enabled in the engine, and no shrink-on-load quality policy has been accepted. The adapter requests horizontal crop and leading-row skip without claiming skipped entropy work. Re-evaluate with measured image quality, wall time, and process memory before using scaled decode.
