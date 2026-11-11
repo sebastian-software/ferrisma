@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-05
+- Updated: 2026-11-11
 
 C++ pointer arithmetic, mutable visitors, and partially initialized storage
 cannot be copied literally into safe Rust. Preserve their defined behavior with
@@ -2031,8 +2031,17 @@ pass uninitialized storage.
 
 The thread and resizable runners of `lib/threads` use `std::thread`,
 `std::sync::Mutex` and `Condvar`; no C or C++ code is linked. Each runner keeps
-its original command/condition-variable protocol, guided or atomic-counter work
-distribution, thread-id assignment, init thread count and re-entry detection.
+the original work distribution, thread-id assignment, init thread count and
+re-entry detection. The fixed thread runner adds a mutex-guarded command epoch
+to the original condition-variable protocol. A worker waits for an epoch it
+has not consumed, so an extra wake while the previous command is still set
+cannot execute its tasks twice or overshoot the exact readiness barrier count.
+The pinned C++ source has the same race. A deterministic regression first
+observed two executions after a second wake, then one with the epoch predicate;
+the older PR-181 Linux job also hung in `thread_parallel_runner_test_pool`
+until cancellation. Revisit this narrow synchronization difference if the
+pinned upstream runner's protocol changes; neither task scheduling nor the
+oracle's expected outputs change.
 A std::mutex and the variables it guards become one `Mutex`. Lock poisoning
 cannot occur, because an unwinding `extern "C"` callback aborts. Fields that
 the main thread writes and workers read after the mutex hand-off are

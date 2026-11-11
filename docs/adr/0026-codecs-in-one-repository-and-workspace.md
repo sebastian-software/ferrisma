@@ -48,9 +48,11 @@ until a separately verified implementation makes the exception unnecessary.
    run; do not impose them on the engine's performance builds.
 4. Preserve crate boundaries: the engine forbids unsafe code; codec and SIMD
    boundaries retain their scoped policies. Codecs do not depend on Ferrixel.
-   The existing adapter owns the integration with libavif. The known dav1d
-   symbol collision still forbids linking that adapter with the interim AVIF
-   reader; validate supported feature combinations explicitly.
+   The encoder adapter and the independent safe AVIF read wrapper own their
+   separate libavif boundaries. The 2026-11-10 collision with the interim
+   reader is historical; [ADR-0031](0031-workspace-libavif-input-experiment.md)
+   replaces that reader and removes the duplicate `dav1d_*` link path.
+   Validate supported feature combinations explicitly.
 5. Reuse verification infrastructure after identifying equivalent behavior.
    Codec probes, C/C++ references, comparison rules and provenance remain
    independently reviewable. Missing required oracles fail their CI jobs.
@@ -181,3 +183,4 @@ evidence now, without declaring an unimplemented adapter equivalent.
 
 - 2026-11-10 — [ADR-0027](0027-tiered-validation-and-rust-test-orchestration.md) supersedes decision 7’s preserved cadence with scoped PR checks and deep scheduled validation; the reference and provenance requirements remain.
 - 2026-11-11 — Engine JPEG and WebP adoption makes the ports reachable as local dependencies. Engine Clippy selects `ferrixel` and `ferrixel-kernels` with `--no-deps`; otherwise the pinned AVIF nightly re-lints the translated codec loops and rejects their stable-Clippy expectations. The existing strict stable component checks remain unchanged. This applies decision 2's verifier boundary to the new dependency graph without weakening either package's lint policy.
+- 2026-11-11 — ADR-0031 adds `ferrixel-avif-read` as a second independent adapter over the pinned libavif port. `avif-read` now selects AOM explicitly and can link with `ferrixel-libavif`; this supersedes decision 4's 2026-11-10 collision note for current builds. The codec-free core and features without `avif-read`/`cli` retain stable Rust 1.98, while an AVIF-read build requires the pinned nightly and supported native host. The workspace has 13 members after this and the JPEG XL opt-in wrapper were added; component checks remain scoped.

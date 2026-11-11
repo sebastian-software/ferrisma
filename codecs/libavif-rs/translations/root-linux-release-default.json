@@ -264,7 +264,7 @@
     }
   ],
   "selector": "src/profiles/linux/release/default/modules.rs",
-  "selector_sha256": "662cf6043f49c17b4b54b48ea89ae85c08f55dacc25111c79d587740422f3a1d",
+  "selector_sha256": "620d3a7bbc546424f2fdf9331a2263ce050536d40bd8036114b98ab2a6bad59d",
   "original_compile_commands_sha256": "fd725bf79795e3ff157765062a1cb1cea785c2d5b04acae464f61e568fb34ff0",
   "original_cmake_cache_sha256": "4bab664396ef3f85fdd8310827bf03b551ae82ef5a7524bfed2f9f823a2e4e26",
   "original_tests_executed": false,

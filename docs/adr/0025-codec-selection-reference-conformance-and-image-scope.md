@@ -15,7 +15,7 @@ For several formats Ferrixel now has more than one implementation within reach. 
   - libaom, through libavif-rs, is available as a backend (ADR-0024).
   - SVT-AV1 has not been evaluated.
 - **AV1 decoders:**
-  - `rav1d` serves `avif-read`.
+  - At this decision's introduction, `rav1d` served `avif-read`; [ADR-0031](0031-workspace-libavif-input-experiment.md) now selects the workspace libaom reference decoder through a safe wrapper.
   - libavif-rs contains both its dav1d port and the libaom decoder.
 - **JPEG decoders:**
   - `zune-jpeg` is the interim decoder.
@@ -45,7 +45,7 @@ Verified on 2026-11-06 in the `google/jpegli` source (BSD-3-Clause; the pinned l
    - (d) Binary size.
    - (e) Maintenance: the effort of taking over upstream changes, `unsafe`, and suitability as a base for optimization.
    - (f) Required features: 8/10 bits, alpha, 4:4:4, and scaled decode for JPEG.
-4. **No removal before selection.** Alternative implementations and the interim crates stay until a candidate has won under point 3 and matches what it replaces.
+4. **No removal before selection.** Alternative implementations and the interim crates stay until a candidate has won under point 3 and matches what it replaces. The 2026-11-11 AVIF experiment removes the interim reader from the live dependency graph to resolve the duplicate-symbol path, while preserving its reviewed base revision and frozen comparison harness. That integration does not settle final decoder selection; restore or compare the interim path when point 3 requires it.
 5. **Ports are reduced to the image scope**, in this order:
    - (a) Whole components: one decoder and one encoder per format.
    - (b) Upstream configuration switches applied at translation time, for example libaom's `CONFIG_TUNE_VMAF=0` and, once dav1d decodes, `CONFIG_AV1_DECODER=0`.
@@ -60,7 +60,9 @@ Verified on 2026-11-06 in the `google/jpegli` source (BSD-3-Clause; the pinned l
 + Each format ends with one decoder and one encoder. Each was chosen by recorded evidence, and its correctness rests on the reference or on a conformance suite.
 + Upstream changes have to be followed only for the code Ferrixel keeps, and the oracle keeps every optimization honest.
 + Shrink-on-load gets the same basis as Sharp's (a libjpeg-API scaled IDCT) instead of a fork of a third-party crate.
-- `rav1e`, `rav1d`, `jxl-oxide` and `zune-jpeg` are interim by policy, not only by current state. Replacing each one needs a port that passes point 3.
+- `rav1e` and `jxl-oxide` remain interim defaults by policy. The historical
+  `rav1d` and `zune-jpeg` engine paths have been replaced; the AVIF input
+  integration remains experimental and does not declare point 3 complete.
 - A JPEG decoder port is a fourth sister project. Its size is not yet estimated.
 - Fair comparisons need SIMD in every candidate on both architectures, which delays decisions. libaom in libavif-rs has Neon kernels since 2026-11-07 and SSE2, SSE4.1 and AVX2 kernels since 2026-11-09 (see the amendment log).
 - Once a port is optimized, upstream changes have to be ported by hand. rav1d, a C2Rust translation of dav1d later refactored into idiomatic Rust, shows that this path works and costs effort for every line kept.
@@ -96,3 +98,4 @@ Verified on 2026-11-06 in the `google/jpegli` source (BSD-3-Clause; the pinned l
 
 - 2026-11-10 — ADR-0026 brings all four ports into this repository and workspace, including their open PRs. This changes coordination and dependency placement, not codec selection, still-image scope or the adoption gates above.
 - 2026-11-11 — The engine adopts the workspace libjpeg-turbo-rs safe scanline decoder for `jpeg-read` and removes its runtime zune dependency. The port's independent C differential, upstream bit, and ISO/IEC 10918-2 validation support correctness; Ferrixel's JPEG crop, EXIF, ICC, malformed-header, memory-budget, and JPEG-to-AVIF tests cover the adapter. A direct Rust-port versus zune speed measurement on the existing benchmark images is recorded in [M2-jpeg-decoders](../benchmarks/M2-jpeg-decoders.md). The earlier C libjpeg-turbo numbers do not predict the Rust port's speed. This is a decoder integration decision, not a general claim that every criterion in point 3 has been completed for every candidate or that scaled-IDCT is used. Reassess if an engine-supported JPEG output differs materially, native platform tests fail, or measured performance and memory undermine the choice.
+- 2026-11-11 — [ADR-0031](0031-workspace-libavif-input-experiment.md) integrates libavif's own libaom reference decoder experimentally for AVIF input. Eight pinned C/Rust raw-output fixtures match byte for byte, including 8/10/12-bit, alpha and grid cases. On one 2268×1512 photo its full/crop pipeline took 8–14% longer and about 2× peak process RSS than the former `rav1d` path ([evidence](../benchmarks/M2-avif-input.md)). The reference origin satisfies point 1 for this candidate; one Arm workload and fixture parity do not complete point 3's two-architecture corpus, binary-size, memory, quality or final-selection criteria. The old binary and frozen harness remain available for comparison. Issue #54's full Argon/dav1d evidence remains open.

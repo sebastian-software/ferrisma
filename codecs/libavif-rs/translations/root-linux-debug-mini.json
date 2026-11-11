@@ -285,7 +285,7 @@
     }
   ],
   "selector": "src/profiles/linux/debug/mini/modules.rs",
-  "selector_sha256": "662cf6043f49c17b4b54b48ea89ae85c08f55dacc25111c79d587740422f3a1d",
+  "selector_sha256": "7ffeca08bdcc4a75b87044ff5d488fe2e7ff942e5d6176843a740330e3588a20",
   "original_compile_commands_sha256": "1749a8259e351daae50e1f616b764171e3e2241e74340e4168268b3b975b83de",
   "original_cmake_cache_sha256": "9a0f57d019e1105c76ea4f3f19c80f8bad540d449cd3b03a2135f03bfc1304ca",
   "original_tests_executed": false,

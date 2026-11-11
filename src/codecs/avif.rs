@@ -1,21 +1,21 @@
-//! Read-only AVIF bridge via `avif-decode` (BSD-3-Clause).
+//! Read-only AVIF bridge via the workspace libavif port's libaom decoder.
 //!
 //! The constructor only parses container metadata and the AV1 sequence
 //! header, so callers can apply their color policy before any pixel decode.
-//! The first region request decodes the whole frame inside the codec; that
-//! allocation is NOT constrained by Ferrixel's managed-memory budget.
+//! A region request decodes a full frame into an engine-budgeted RGB buffer;
+//! codec scratch remains opaque and outside that budget.
 //!
-//! `avif-decode` converts YUV to full-range RGB with the bitstream's matrix
-//! and range and keeps the coded primaries and transfer. The adapter reports
-//! that rendered meaning as CICP `[primaries, transfer, 0, 1]` and any `colr`
+//! libavif converts YUV to full-range RGB with nearest-neighbor chroma
+//! upsampling. The adapter reports that rendered meaning as CICP
+//! `[primaries, transfer, 0, 1]` and any `colr`
 //! ICC profile. It fails closed when the container `nclx` disagrees with the
 //! bitstream, for monochrome input and for `clap`. `irot`/`imir` are reported
 //! as the source orientation and applied by the pipeline (ADR-0019).
 //! 10/12-bit input is emitted as normalized float samples.
 
-use avif_decode::{Decoder, Image};
+use ferrixel_avif_read::{Decoder, ReadError};
 
-use super::avif_meta::{PrimaryProperties, SequenceColor, primary_properties, sequence_color};
+use super::avif_meta::{MetaError, PrimaryProperties, SequenceColor, primary_properties};
 use crate::color::AlphaMode;
 use crate::decoder::{
     ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType,
@@ -25,9 +25,16 @@ use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
 use crate::orientation::Orientation;
 
-/// Whether `avif-decode` applies the same YUV matrix for both codes. It
-/// decodes unspecified matrix coefficients as BT.601, and BT.470BG uses the
-/// BT.601 matrix (ITU-T H.273 table 4).
+fn bridge_error(error: ReadError) -> Error {
+    match error {
+        ReadError::Allocation => Error::AllocationFailed,
+        ReadError::InvalidInput | ReadError::OutputSize => Error::DecodeFailed,
+        ReadError::Unsupported => Error::UnsupportedCodecLayout,
+        ReadError::PixelLimit { pixels, limit } => Error::InputPixelLimitExceeded { pixels, limit },
+    }
+}
+
+/// H.273 table 4 treats these matrix codes as equivalent BT.601 transforms.
 fn same_decode_matrix(signalled: u16, bitstream: u8) -> bool {
     let bt601 = |code: u16| matches!(code, 2 | 5 | 6);
     signalled == u16::from(bitstream) || (bt601(signalled) && bt601(u16::from(bitstream)))
@@ -39,7 +46,7 @@ pub(crate) fn rendered_cicp(
     properties: &PrimaryProperties,
     sequence: SequenceColor,
 ) -> Result<Option<[u8; 4]>, Error> {
-    // avif-decode maps BT.2020 constant luminance onto the non-constant matrix.
+    // Constant-luminance BT.2020 needs a separately verified output contract.
     if sequence.matrix == 10 {
         return Err(Error::UnsupportedCodecLayout);
     }
@@ -68,8 +75,8 @@ pub(crate) fn rendered_cicp(
 }
 
 pub(crate) struct AvifSource<'a> {
-    bytes: &'a [u8],
-    image: Option<Image>,
+    decoder: Decoder<'a>,
+    decoded: bool,
     info: DecoderInfo,
     orientation: Orientation,
 }
@@ -79,27 +86,11 @@ impl<'a> AvifSource<'a> {
     /// allocates a pixel surface. This is not an RSS limit: parsing and the
     /// later decode can still allocate opaque codec memory.
     pub(crate) fn new_bounded(bytes: &'a [u8], max_pixels: u64) -> Result<Self, Error> {
-        let mut reader = bytes;
-        let parsed =
-            avif_parse::AvifData::from_reader(&mut reader).map_err(|_| Error::DecodeFailed)?;
-        let metadata = parsed
-            .primary_item_metadata()
-            .map_err(|_| Error::DecodeFailed)?;
-        let coded_pixels = u64::from(metadata.max_frame_width.get())
-            .checked_mul(u64::from(metadata.max_frame_height.get()))
-            .ok_or(Error::GeometryOverflow)?;
-        if coded_pixels > max_pixels {
-            return Err(Error::InputPixelLimitExceeded {
-                pixels: coded_pixels,
-                limit: max_pixels,
-            });
-        }
-        let sequence = sequence_color(&parsed.primary_item).map_err(|_| Error::DecodeFailed)?;
-        let has_alpha = parsed.alpha_item.is_some();
-        // Parsing above holds compressed AV1 data temporarily; drop it before
-        // decoding. The downstream decoder parses the AVIF again.
-        drop(parsed);
-        let properties = primary_properties(bytes).map_err(|_| Error::DecodeFailed)?;
+        let properties = primary_properties(bytes).map_err(|error| match error {
+            MetaError::Allocation => Error::AllocationFailed,
+            MetaError::ProfileTooLarge => Error::UnsupportedColorEncoding,
+            _ => Error::DecodeFailed,
+        })?;
         // irot/imir are applied by the pipeline (ADR-0019); clap and an imir
         // that precedes irot are not supported yet.
         if properties.clean_aperture || properties.mirror_before_rotation {
@@ -107,9 +98,6 @@ impl<'a> AvifSource<'a> {
         }
         let orientation = Orientation::from_avif(properties.rotation, properties.mirror)
             .ok_or(Error::UnsupportedImageTransform)?;
-        if sequence.monochrome {
-            return Err(Error::UnsupportedCodecLayout);
-        }
         let (width, height) = properties.extent.ok_or(Error::DecodeFailed)?;
         let size = Size::new(width, height)?;
         let rendered_pixels = u64::from(size.width) * u64::from(size.height);
@@ -119,7 +107,53 @@ impl<'a> AvifSource<'a> {
                 limit: max_pixels,
             });
         }
+        let (decoder, decoded_info) = Decoder::parse(bytes, max_pixels).map_err(bridge_error)?;
+        let coded_pixels = u64::from(decoded_info.sequence.max_width)
+            .checked_mul(u64::from(decoded_info.sequence.max_height))
+            .ok_or(Error::GeometryOverflow)?;
+        if coded_pixels > max_pixels {
+            return Err(Error::InputPixelLimitExceeded {
+                pixels: coded_pixels,
+                limit: max_pixels,
+            });
+        }
+        let sequence = SequenceColor {
+            bit_depth: decoded_info.sequence.depth,
+            monochrome: decoded_info.sequence.monochrome,
+            primaries: decoded_info.sequence.primaries,
+            transfer: decoded_info.sequence.transfer,
+            matrix: decoded_info.sequence.matrix,
+            full_range: decoded_info.sequence.full_range,
+        };
+        if sequence.monochrome {
+            return Err(Error::UnsupportedCodecLayout);
+        }
         let rendered_cicp = rendered_cicp(&properties, sequence)?;
+        let has_alpha = decoded_info.alpha;
+        if decoded_info.width != width
+            || decoded_info.height != height
+            || decoded_info.depth != u32::from(sequence.bit_depth)
+            || decoded_info.image_count != 1
+            || decoded_info.alpha_premultiplied && !has_alpha
+        {
+            return Err(Error::DecodeFailed);
+        }
+        if decoded_info.transform_flags & 2 != 0 {
+            return Err(Error::UnsupportedImageTransform);
+        }
+        // libavif's parsed image describes container signaling. Retain the
+        // independent AV1 sequence-header check above for emitted RGB meaning.
+        if let Some(nclx) = properties.nclx
+            && (decoded_info.primaries != nclx.primaries
+                || decoded_info.transfer != nclx.transfer
+                || decoded_info.matrix != nclx.matrix
+                || decoded_info.full_range != nclx.full_range)
+        {
+            return Err(Error::ContradictoryColorSignals);
+        }
+        if decoded_info.icc != properties.icc {
+            return Err(Error::ContradictoryColorSignals);
+        }
         let layout = if has_alpha {
             ChannelLayout::Rgba
         } else {
@@ -134,7 +168,7 @@ impl<'a> AvifSource<'a> {
                 SampleType::U8
             },
             alpha: if has_alpha {
-                // avif-decode unpremultiplies images signaled as premultiplied.
+                // The wrapper requests straight RGB output from libavif.
                 AlphaMode::Straight
             } else {
                 AlphaMode::Opaque
@@ -144,8 +178,8 @@ impl<'a> AvifSource<'a> {
             rendered_cicp,
         };
         Ok(Self {
-            bytes,
-            image: None,
+            decoder,
+            decoded: false,
             info,
             orientation,
         })
@@ -155,121 +189,6 @@ impl<'a> AvifSource<'a> {
     pub(crate) fn new(bytes: &'a [u8]) -> Result<Self, Error> {
         Self::new_bounded(bytes, 100_000_000)
     }
-
-    /// Decode once and verify that the frame matches the advertised info.
-    fn decoded(&mut self) -> Result<&Image, Error> {
-        if self.image.is_none() {
-            let image = Decoder::from_avif(self.bytes)
-                .map_err(|_| Error::DecodeFailed)?
-                .to_image()
-                .map_err(|_| Error::DecodeFailed)?;
-            let (width, height, layout, sample) = match &image {
-                Image::Rgb8(f) => (f.width(), f.height(), ChannelLayout::Rgb, SampleType::U8),
-                Image::Rgba8(f) => (f.width(), f.height(), ChannelLayout::Rgba, SampleType::U8),
-                Image::Rgb16(f) => (f.width(), f.height(), ChannelLayout::Rgb, SampleType::F32),
-                Image::Rgba16(f) => (f.width(), f.height(), ChannelLayout::Rgba, SampleType::F32),
-                _ => return Err(Error::UnsupportedCodecLayout),
-            };
-            let size = self.info.size;
-            if usize::try_from(size.width) != Ok(width)
-                || usize::try_from(size.height) != Ok(height)
-                || layout != self.info.layout
-                || sample != self.info.sample
-            {
-                return Err(Error::DecodeFailed);
-            }
-            self.image = Some(image);
-        }
-        self.image.as_ref().ok_or(Error::DecodeFailed)
-    }
-}
-
-/// Convert the decoder-owned full frame into borrowed interleaved output
-/// rows. The temporary row buffers stay under Ferrixel's managed budget.
-fn emit_decoded_rows(
-    image: &Image,
-    region: Rect,
-    width: usize,
-    scratch_u8: &mut Option<crate::memory::ManagedBuffer<u8>>,
-    scratch_f32: &mut Option<crate::memory::ManagedBuffer<f32>>,
-    sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
-) -> Result<(), Error> {
-    let left = usize::try_from(region.x).map_err(|_| Error::GeometryOverflow)?;
-    for y in region.y..region.bottom() {
-        let row_index = usize::try_from(y).map_err(|_| Error::GeometryOverflow)?;
-        match image {
-            Image::Rgb8(frame) => {
-                let pixels = &frame[row_index][left..left + width];
-                let scratch = scratch_u8.as_mut().ok_or(Error::UnsupportedCodecLayout)?;
-                for (dst, pixel) in scratch
-                    .as_mut_slice()
-                    .as_chunks_mut::<3>()
-                    .0
-                    .iter_mut()
-                    .zip(pixels)
-                {
-                    dst.copy_from_slice(&[pixel.r, pixel.g, pixel.b]);
-                }
-            }
-            Image::Rgba8(frame) => {
-                let pixels = &frame[row_index][left..left + width];
-                let scratch = scratch_u8.as_mut().ok_or(Error::UnsupportedCodecLayout)?;
-                for (dst, pixel) in scratch
-                    .as_mut_slice()
-                    .as_chunks_mut::<4>()
-                    .0
-                    .iter_mut()
-                    .zip(pixels)
-                {
-                    dst.copy_from_slice(&[pixel.r, pixel.g, pixel.b, pixel.a]);
-                }
-            }
-            Image::Rgb16(frame) => {
-                let pixels = &frame[row_index][left..left + width];
-                let scratch = scratch_f32.as_mut().ok_or(Error::UnsupportedCodecLayout)?;
-                for (dst, pixel) in scratch
-                    .as_mut_slice()
-                    .as_chunks_mut::<3>()
-                    .0
-                    .iter_mut()
-                    .zip(pixels)
-                {
-                    dst.copy_from_slice(&[
-                        f32::from(pixel.r) / 65_535.0,
-                        f32::from(pixel.g) / 65_535.0,
-                        f32::from(pixel.b) / 65_535.0,
-                    ]);
-                }
-            }
-            Image::Rgba16(frame) => {
-                let pixels = &frame[row_index][left..left + width];
-                let scratch = scratch_f32.as_mut().ok_or(Error::UnsupportedCodecLayout)?;
-                for (dst, pixel) in scratch
-                    .as_mut_slice()
-                    .as_chunks_mut::<4>()
-                    .0
-                    .iter_mut()
-                    .zip(pixels)
-                {
-                    dst.copy_from_slice(&[
-                        f32::from(pixel.r) / 65_535.0,
-                        f32::from(pixel.g) / 65_535.0,
-                        f32::from(pixel.b) / 65_535.0,
-                        f32::from(pixel.a) / 65_535.0,
-                    ]);
-                }
-            }
-            _ => return Err(Error::UnsupportedCodecLayout),
-        }
-        if let Some(scratch) = &scratch_u8 {
-            sink(y, DecodedRow::U8(scratch.as_slice()))?;
-        } else if let Some(scratch) = &scratch_f32 {
-            sink(y, DecodedRow::F32(scratch.as_slice()))?;
-        } else {
-            return Err(Error::UnsupportedCodecLayout);
-        }
-    }
-    Ok(())
 }
 
 impl DecodeSource for AvifSource<'_> {
@@ -290,28 +209,72 @@ impl DecodeSource for AvifSource<'_> {
         if !region.fits(self.info.size) {
             return Err(Error::OutOfBounds);
         }
+        let size = self.info.size;
         let channels = usize::from(self.info.layout.channels());
-        let width = usize::try_from(region.width).map_err(|_| Error::GeometryOverflow)?;
-        let components = width.checked_mul(channels).ok_or(Error::GeometryOverflow)?;
-        let mut scratch_u8 = if self.info.sample == SampleType::U8 {
-            Some(budget.allocate(components)?)
+        let full_samples = usize::try_from(size.width)
+            .map_err(|_| Error::GeometryOverflow)?
+            .checked_mul(usize::try_from(size.height).map_err(|_| Error::GeometryOverflow)?)
+            .and_then(|pixels| pixels.checked_mul(channels))
+            .ok_or(Error::GeometryOverflow)?;
+        let row_samples = usize::try_from(region.width)
+            .map_err(|_| Error::GeometryOverflow)?
+            .checked_mul(channels)
+            .ok_or(Error::GeometryOverflow)?;
+        let left = usize::try_from(region.x).map_err(|_| Error::GeometryOverflow)?;
+        let stride = usize::try_from(size.width)
+            .map_err(|_| Error::GeometryOverflow)?
+            .checked_mul(channels)
+            .ok_or(Error::GeometryOverflow)?;
+        if self.info.sample == SampleType::U8 {
+            let mut frame = budget.allocate(full_samples)?;
+            self.decoder
+                .decode_u8(
+                    frame.as_mut_slice(),
+                    size.width,
+                    size.height,
+                    self.info.layout == ChannelLayout::Rgba,
+                )
+                .map_err(bridge_error)?;
+            self.decoded = true;
+            for y in region.y..region.bottom() {
+                let start = usize::try_from(y)
+                    .map_err(|_| Error::GeometryOverflow)?
+                    .checked_mul(stride)
+                    .and_then(|n| n.checked_add(left * channels))
+                    .ok_or(Error::GeometryOverflow)?;
+                sink(
+                    y,
+                    DecodedRow::U8(&frame.as_slice()[start..start + row_samples]),
+                )?;
+            }
         } else {
-            None
-        };
-        let mut scratch_f32 = if self.info.sample == SampleType::F32 {
-            Some(budget.allocate_typed::<f32>(components)?)
-        } else {
-            None
-        };
-        let image = self.decoded()?;
-        emit_decoded_rows(
-            image,
-            region,
-            width,
-            &mut scratch_u8,
-            &mut scratch_f32,
-            sink,
-        )?;
+            let mut frame = budget.allocate_typed::<u16>(full_samples)?;
+            let mut scratch = budget.allocate_typed::<f32>(row_samples)?;
+            self.decoder
+                .decode_u16(
+                    frame.as_mut_slice(),
+                    size.width,
+                    size.height,
+                    self.info.layout == ChannelLayout::Rgba,
+                )
+                .map_err(bridge_error)?;
+            self.decoded = true;
+            for y in region.y..region.bottom() {
+                let start = usize::try_from(y)
+                    .map_err(|_| Error::GeometryOverflow)?
+                    .checked_mul(stride)
+                    .and_then(|n| n.checked_add(left * channels))
+                    .ok_or(Error::GeometryOverflow)?;
+                for (dst, &sample) in scratch
+                    .as_mut_slice()
+                    .iter_mut()
+                    .zip(&frame.as_slice()[start..start + row_samples])
+                {
+                    *dst = f32::from(sample) / 65_535.0;
+                }
+                sink(y, DecodedRow::F32(scratch.as_slice()))?;
+            }
+        }
         Ok(DecodeReport {
             requested: region,
             access: DecodeAccess::FullFrameFallback,
@@ -334,7 +297,7 @@ impl DecodeSource for AvifSource<'_> {
 
 #[cfg(all(test, feature = "avif-write"))]
 mod tests {
-    use super::AvifSource;
+    use super::{AvifSource, Decoder};
     use crate::avif_sink::{AvifSink, test_settings};
     use crate::decoder::{DecodeSource, DecodedRow, SampleType};
     use crate::error::Error;
@@ -366,7 +329,7 @@ mod tests {
         let mut source = AvifSource::new(&file).unwrap();
         assert_eq!(source.info().rendered_cicp, Some([1, 13, 0, 1]));
         assert_eq!(source.info().size, Size::new(6, 4).unwrap());
-        assert!(source.image.is_none(), "metadata must not decode pixels");
+        assert!(!source.decoded, "metadata must not decode pixels");
         let budget = MemoryBudget::new(1 << 16);
         let mut rows = 0;
         source
@@ -376,7 +339,38 @@ mod tests {
             })
             .unwrap();
         assert_eq!(rows, 4);
-        assert!(source.image.is_some());
+        assert!(source.decoded);
+    }
+
+    #[test]
+    fn full_frame_is_budgeted_and_released_on_cancellation() {
+        let file = encoded();
+        let mut source = AvifSource::new(&file).unwrap();
+        let frame_bytes = 6 * 4 * 3 * 2;
+        let row_bytes = 2 * 3 * 4;
+        let too_small = MemoryBudget::new(frame_bytes - 1);
+        assert!(matches!(
+            source.read_region(Rect::new(1, 1, 2, 2).unwrap(), &too_small, &mut |_, _| Ok(
+                ()
+            )),
+            Err(Error::BudgetExceeded { .. })
+        ));
+        assert_eq!(too_small.snapshot().live, 0);
+
+        let budget = MemoryBudget::new(frame_bytes + row_bytes);
+        let report = source
+            .read_region(Rect::new(1, 1, 2, 2).unwrap(), &budget, &mut |_, _| Ok(()))
+            .unwrap();
+        assert_eq!(report.known_full_frame_buffers, 1);
+        assert_eq!(report.peak_engine_managed_bytes, frame_bytes + row_bytes);
+        assert_eq!(budget.snapshot().live, 0);
+        assert_eq!(
+            source.read_region(Rect::new(1, 1, 2, 2).unwrap(), &budget, &mut |_, _| {
+                Err(Error::DecodeFailed)
+            }),
+            Err(Error::DecodeFailed)
+        );
+        assert_eq!(budget.snapshot().live, 0);
     }
 
     /// Identity-matrix RGB coding makes ravif write an explicit `colr` box.
@@ -432,5 +426,66 @@ mod tests {
             AvifSource::new(&matrix).err(),
             Some(Error::ContradictoryColorSignals)
         );
+    }
+
+    #[test]
+    fn pinned_grid_and_twelve_bit_still_images_read_through_engine() {
+        let fixtures: &[(&[u8], SampleType)] = &[
+            (
+                include_bytes!(
+                    "../../codecs/libavif-rs/upstream/libavif/tests/data/sofa_grid1x5_420.avif"
+                ),
+                SampleType::U8,
+            ),
+            (
+                include_bytes!(
+                    "../../codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile2.12bpc.yuv444.avif"
+                ),
+                SampleType::F32,
+            ),
+        ];
+        for (bytes, sample) in fixtures {
+            let mut source = AvifSource::new(bytes).unwrap();
+            assert_eq!(source.info().sample, *sample);
+            let size = source.info().size;
+            let budget = MemoryBudget::new(64 << 20);
+            let mut rows = 0;
+            source
+                .read_region(
+                    Rect::new(0, 0, size.width, size.height).unwrap(),
+                    &budget,
+                    &mut |_, _| {
+                        rows += 1;
+                        Ok(())
+                    },
+                )
+                .unwrap();
+            assert_eq!(rows, size.height);
+        }
+    }
+
+    #[test]
+    fn twelve_bit_rows_normalize_pinned_c_oracle_sixteen_bit_samples() {
+        let bytes = include_bytes!(
+            "../../codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile2.12bpc.yuv444.avif"
+        );
+        let (mut decoder, raw_info) = Decoder::parse(bytes, 100_000_000).unwrap();
+        let mut raw = vec![0_u16; raw_info.width as usize * raw_info.height as usize * 3];
+        decoder
+            .decode_u16(&mut raw, raw_info.width, raw_info.height, false)
+            .unwrap();
+        let mut source = AvifSource::new(bytes).unwrap();
+        let budget = MemoryBudget::new(64 << 20);
+        source
+            .read_region(Rect::new(0, 0, 2, 1).unwrap(), &budget, &mut |_, row| {
+                let DecodedRow::F32(samples) = row else {
+                    panic!("12-bit samples must be normalized floats");
+                };
+                for (actual, coded) in samples.iter().zip(&raw[..6]) {
+                    assert_eq!(*actual, f32::from(*coded) / 65_535.0);
+                }
+                Ok(())
+            })
+            .unwrap();
     }
 }

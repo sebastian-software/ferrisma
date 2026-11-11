@@ -8,9 +8,9 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use crate::pipeline::{
-    ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy, KernelLevel,
-    OutputFormat, ResizeFilter, TransformOptions, WebpOptions, WorkingPrecision, transcode,
-    transcode_with,
+    ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy, JpegXlDecoder,
+    KernelLevel, OutputFormat, ResizeFilter, TransformOptions, WebpOptions, WorkingPrecision,
+    transcode, transcode_with,
 };
 
 // Bound the stream itself: file metadata can be absent or change after opening.
@@ -63,6 +63,8 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
         "--use-rendered-icc" => options.profile_policy = InputProfilePolicy::UseRenderedIcc,
         "--area" => options.filter = ResizeFilter::Area,
         "--reference" => options.precision = WorkingPrecision::F64Reference,
+        "--jxl-decoder=jxl-oxide" => options.jxl_decoder = JpegXlDecoder::JxlOxide,
+        "--jxl-decoder=libjxl-rs" => options.jxl_decoder = JpegXlDecoder::LibjxlRs,
         option if option.starts_with("--quality=") => match options.output_format {
             OutputFormat::Avif => options.quality = option[10..].parse()?,
             OutputFormat::WebP => match options.webp {
@@ -169,7 +171,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrixel");
         eprintln!(
-            "usage: {program} input.jpg|input.webp output.avif|output.webp WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=jxl-oxide|libjxl-rs] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }
@@ -264,7 +266,8 @@ pub fn run(
 
 #[cfg(test)]
 mod tests {
-    use super::read_input;
+    use super::{apply_option, read_input};
+    use crate::pipeline::{JpegXlDecoder, TransformOptions};
     use std::io::{self, Cursor, Read};
 
     #[test]
@@ -296,5 +299,16 @@ mod tests {
             read_input(Broken, 3).unwrap_err().kind(),
             io::ErrorKind::Other
         );
+    }
+
+    #[test]
+    fn selects_jpeg_xl_decoder_explicitly() {
+        let mut options = TransformOptions::default();
+        assert_eq!(options.jxl_decoder, JpegXlDecoder::JxlOxide);
+        apply_option(&mut options, "--jxl-decoder=libjxl-rs").unwrap();
+        assert_eq!(options.jxl_decoder, JpegXlDecoder::LibjxlRs);
+        apply_option(&mut options, "--jxl-decoder=jxl-oxide").unwrap();
+        assert_eq!(options.jxl_decoder, JpegXlDecoder::JxlOxide);
+        assert!(apply_option(&mut options, "--jxl-decoder=unknown").is_err());
     }
 }

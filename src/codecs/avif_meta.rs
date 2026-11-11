@@ -1,24 +1,26 @@
 //! Minimal, read-only AVIF metadata needed to describe decoded output.
 //!
-//! `avif-parse` extracts the primary AV1 payload but exposes neither the
-//! primary item's `colr`, `irot`, `imir` or `clap` properties nor the AV1
-//! sequence header's color configuration. `avif-decode` converts YUV to RGB
-//! with the *bitstream* matrix and range. Both sources are therefore read here
-//! so that the adapter can describe the emitted RGB samples and reject files
-//! whose container and bitstream signals disagree. Parsing is bounds-checked,
-//! allocation-light and never converts pixels.
+//! This independent container-property parser reads the selected primary
+//! item's `colr`, `irot`, `imir`, `clap`, and `ispe` properties. The production
+//! AV1 sequence header comes from the workspace libavif port's retained color
+//! samples. A small Rust header parser remains here as a test oracle. This
+//! parser is bounds-checked, allocation-light, and never converts pixels.
 
-/// Malformed or unsupported metadata structure. Callers map it to a decode
-/// error; the variant only supports tests and diagnostics.
+/// Malformed or unsupported metadata structure. Allocation and ICC-limit
+/// failures retain their own engine error categories.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum MetaError {
     Truncated,
+    Allocation,
+    ProfileTooLarge,
     MissingBox([u8; 4]),
     DuplicateBox([u8; 4]),
     InvalidPropertyIndex,
     UnsupportedVersion,
     UnsupportedEssentialProperty([u8; 4]),
+    #[cfg(test)]
     MissingSequenceHeader,
+    #[cfg(test)]
     InvalidSequenceHeader,
 }
 
@@ -50,6 +52,8 @@ pub(crate) struct PrimaryProperties {
     /// in association order, so this is a different transform.
     pub mirror_before_rotation: bool,
 }
+
+const MAX_ICC_BYTES: usize = 16 * 1024 * 1024;
 
 /// Color configuration from the AV1 sequence header.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -247,7 +251,16 @@ fn read_property(property: &IsoBox<'_>, result: &mut PrimaryProperties) -> Resul
                 if result.icc.is_some() {
                     return Err(MetaError::DuplicateBox(*b"colr"));
                 }
-                result.icc = Some(reader.rest().to_vec());
+                let source = reader.rest();
+                if source.len() > MAX_ICC_BYTES {
+                    return Err(MetaError::ProfileTooLarge);
+                }
+                let mut profile = Vec::new();
+                profile
+                    .try_reserve_exact(source.len())
+                    .map_err(|_| MetaError::Allocation)?;
+                profile.extend_from_slice(source);
+                result.icc = Some(profile);
             }
             // Other colour types carry no rendered-color evidence used here.
             _ => {}
@@ -271,11 +284,13 @@ fn read_property(property: &IsoBox<'_>, result: &mut PrimaryProperties) -> Resul
 }
 
 /// Most-significant-bit-first reader for AV1 `f(n)` and `uvlc()` fields.
+#[cfg(test)]
 struct BitReader<'a> {
     data: &'a [u8],
     position: usize,
 }
 
+#[cfg(test)]
 impl<'a> BitReader<'a> {
     fn new(data: &'a [u8]) -> Self {
         Self { data, position: 0 }
@@ -321,6 +336,7 @@ impl<'a> BitReader<'a> {
     }
 }
 
+#[cfg(test)]
 fn leb128(reader: &mut Reader<'_>) -> Result<usize, MetaError> {
     let mut value = 0_u64;
     for index in 0..8 {
@@ -335,6 +351,7 @@ fn leb128(reader: &mut Reader<'_>) -> Result<usize, MetaError> {
 
 /// Find the first sequence header OBU in an AV1 payload and read its color
 /// configuration (AV1 specification sections 5.3 and 5.5).
+#[cfg(test)]
 pub(crate) fn sequence_color(obus: &[u8]) -> Result<SequenceColor, MetaError> {
     const OBU_SEQUENCE_HEADER: u8 = 1;
     let mut reader = Reader::new(obus);
@@ -357,6 +374,7 @@ pub(crate) fn sequence_color(obus: &[u8]) -> Result<SequenceColor, MetaError> {
     Err(MetaError::MissingSequenceHeader)
 }
 
+#[cfg(test)]
 #[allow(clippy::too_many_lines)] // Mirrors the specification's field order.
 fn parse_sequence_header(payload: &[u8]) -> Result<SequenceColor, MetaError> {
     let mut bits = BitReader::new(payload);

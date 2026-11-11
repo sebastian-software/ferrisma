@@ -4,11 +4,12 @@
 - **Date:** 2026-11-05
 - **Last reviewed:** 2026-11-11
 - **Supersedes:** None
+- **Partially superseded by:** [0031](0031-workspace-libavif-input-experiment.md), experimental AVIF input and its native/nightly toolchain boundary; final adoption gates remain open.
 - **Related:** [libavif-rs](../../codecs/libavif-rs), [libjxl-rs](../../codecs/libjxl-rs), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [JPEG and WebP evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md), [libwebp port plan](../research/2026-11-05-libwebp-port-plan.md), [license audit](../license-audit.md)
 
 ## Context
 
-The research notes of 2026-10-31 named candidates but chose no dependency. PR #11 then added four optional crates (`ravif`, `avif-decode`, `avif-parse`, `moxcms`), raised the package MSRV to 1.98 and left `Cargo.lock` uncommitted, without a decision record. AGENTS.md requires an ADR before new dependencies. This ADR records the current choices, the evidence behind them and the gates that remain open. It does not declare any of them release-ready.
+The research notes of 2026-10-31 named candidates but chose no dependency. PR #11 then added four optional crates (`ravif`, `avif-decode`, `avif-parse`, `moxcms`), raised the package MSRV to 1.98 and left `Cargo.lock` uncommitted, without a decision record. AGENTS.md requires an ADR before new dependencies. This ADR records that history, current choices, evidence, and open gates. It does not declare any of them release-ready. The dated 2026-11-05 facts below describe the original dependency graph; the amendment log records later replacements.
 
 **Strategic direction.** Ferrixel's AVIF and JPEG XL codecs are meant to come from the sister projects [libavif-rs](../../codecs/libavif-rs) and [libjxl-rs](../../codecs/libjxl-rs): mechanical, reference-equivalent Rust ports of libavif (with libaom, dav1d and SharpYUV) and libjxl. Their state on 2026-11-05:
 
@@ -31,10 +32,11 @@ Keep every codec and CMS behind its own Cargo feature, off by default:
 | Feature | Crate | Role | Status of the choice |
 | --- | --- | --- | --- |
 | `jpeg-read` | workspace `libjpeg-turbo-rs` 0.1 | JPEG input (safe scanlines and codec crop request) | Adopted for engine input; scaled IDCT remains unused, ADR-0012/0025 |
-| `jpeg-xl-read` | `jxl-oxide` 0.12 | JPEG XL input with codec ROI request | **Interim** until libjxl-rs is adoptable (ADR-0012) |
+| `jpeg-xl-read` | `jxl-oxide` 0.12 | Default JPEG XL input with a codec ROI request | Interim pending ADR-0025 selection gates |
+| `jpeg-xl-own-read` | workspace `ferrixel-jxl-decoder` → `libjxl-rs` | Explicitly selected JPEG XL input with a full-frame fallback | **Experimental opt-in** through an isolated safe wrapper ([ADR-0032](0032-jpeg-xl-workspace-decoder-input.md)); external conformance and selection gates remain open |
 | `avif-write` | `rav1e` 0.8 / `avif-serialize` 0.8 | Default AVIF output encoder, driven directly since 2026-11-06 | **Interim choice** (permissive, Rust plus assembly); target: libavif-rs |
 | none (adapter crate) | `ferrixel-libavif` → libavif-rs (Rust AOM) | Optional output encoder through `transcode_with`, in an isolated workspace crate (ADR-0024/0026) | **Adopted with gates (a) and (b) waived** by the maintainer: nightly, `unsafe` C ABI isolated in the adapter, no native libraries since libavif-rs `8be367f`; macOS arm64 and x86-64 Linux CI |
-| `avif-read` | `avif-decode` 3.0 / `rav1d`, `avif-parse` 2.1 | AVIF input, full-frame fallback | **Interim, provisional**; target: libavif-rs |
+| `avif-read` | workspace `ferrixel-avif-read` → `libavif-rs` / AOM | AVIF input, budgeted full-frame RGB fallback | **Experimental integration** through isolated safe wrapper; pinned nightly and native macOS ARM64/GNU Linux x86-64 ([ADR-0031](0031-workspace-libavif-input-experiment.md)); full Argon/dav1d and final selection gates remain open |
 | `icc` | `moxcms` 0.9 | Rendered-ICC → sRGB source adapter | Selected independent LittleCMS fixtures pass (ADR-0023); broader real-image, LUT/intent, and HDR validation remains open |
 | `webp-read` | workspace `libwebp-rs` 0.1 | Still WebP input, lossy and lossless | **Experimental adoption**, [ADR-0029](0029-webp-still-input.md) |
 | `webp-write` | workspace `libwebp-rs` 0.1 | Still WebP output, lossy and lossless | **Experimental adoption**, [ADR-0030](0030-still-webp-output-and-format-neutral-encoder-result.md); ICC fixture has a separate license notice |
@@ -42,21 +44,25 @@ Keep every codec and CMS behind its own Cargo feature, off by default:
 
 Rules that apply to all of them:
 
-1. **Ferrixel owns color and geometry semantics.** Where a crate does not expose what the emitted samples mean, Ferrixel reads the evidence itself. For AVIF, a dependency-free, bounds-checked parser (`codecs/avif_meta.rs`) reads `colr`, `ispe`, `irot`, `imir`, `clap` and the AV1 sequence header before any pixel decode. Contradictory signals, unsupported transforms and unknown essential properties fail closed.
-2. **Third-party codecs are interim.** `avif-decode`, `ravif` and `jxl-oxide` are accepted because they work today on the CI targets; adapters must stay replaceable without public API impact. The replacement target is libavif-rs for AVIF input and output, libjxl-rs for JPEG XL input and, once ported, output, and workspace libwebp-rs for still WebP input and output. A libjxl-rs encoder would also resolve the JPEG XL output license gate, since libjxl is BSD-3-Clause. `rav1d-safe` is only a fallback if the sister ports cannot meet the gates below in time.
+1. **Ferrixel owns color and geometry semantics.** Where a crate does not expose what the emitted samples mean, Ferrixel reads the evidence itself. For AVIF, a dependency-free, bounds-checked parser (`codecs/avif_meta.rs`) reads primary-item `colr`, `ispe`, `irot`, `imir`, and `clap`; a same-module helper in the pinned libavif port reads the selected AV1 color samples' sequence headers before pixel decode. Contradictory signals, unsupported transforms and unknown essential properties fail closed ([ADR-0031](0031-workspace-libavif-input-experiment.md)).
+2. **Third-party codecs are interim.** The default JPEG XL reader `jxl-oxide` and default AVIF encoder `rav1e` remain interim runtime choices; `avif-decode` and `avif-parse` have been removed from the AVIF input graph. Still WebP input and output use workspace libwebp-rs. Adapters must stay replaceable without public API impact. The local libjxl-rs decoder is an explicit opt-in while ADR-0025's remaining gates are open; its encoder is not complete. `rav1d-safe` remains a historical fallback candidate, not the current AVIF reader.
 3. **Adoption gates for the sister ports.** Ferrixel switches a codec when the port provides (a) a safe Rust API, or a small isolated adapter crate, because this package forbids `unsafe`; (b) a stable Rust toolchain; (c) a dependency Ferrixel can pin (published crate, pinned git revision, or committed workspace path/version); (d) evidence on Ferrixel's CI targets; and (e) exposed rendered color, orientation and alpha semantics, so that Ferrixel-side parsing such as `avif_meta.rs` becomes unnecessary or is cross-checked.
-4. **License gate.** Strong copyleft stays blocked by `scripts/audit-licenses.py`. MPL-2.0 `avif-parse` is a recorded review item, not an allowlist entry. The AGPL-3.0/commercial `jxl-encoder` remains unapproved; JPEG XL output needs its own ADR. The AGPL-3.0/commercial `zenjpeg` and `zenwebp` are unapproved for the same reason.
+
+   The 2026-11-11 AVIF input integration is explicitly experimental while
+   gate (b) and full native/conformance evidence remain open; it is not a
+   declaration that final selection under ADR-0025 has finished.
+4. **License gate.** Strong copyleft stays blocked by `scripts/audit-licenses.py`. MPL-2.0 `avif-parse` was a historical review item for the former AVIF input graph, not a current runtime dependency or an allowlist entry ([license audit](../license-audit.md)). The AGPL-3.0/commercial `jxl-encoder` remains unapproved; JPEG XL output needs its own ADR. The AGPL-3.0/commercial `zenjpeg` and `zenwebp` are unapproved for the same reason.
 5. **MSRV.** Declare `rust-version = 1.98` for the single crate for now, and keep the MSRV CI job. Do not split crates only to lower the core MSRV before a consumer needs it (ADR-0008).
 6. **Lockfile.** Commit `Cargo.lock`. The package ships a binary, CI and benchmarks need reproducible dependency versions, and the license inventory must refer to an exact version set.
 
 ## Consequences
 
-+ The default build stays small, safe and dependency-free; each codec can be audited, replaced or dropped independently.
++ The default build keeps only the first-party kernel dependency and a safe engine API; each codec can be audited, replaced or dropped independently.
 + Color correctness does not depend on a crate's undocumented conversion choices.
 + A committed lockfile makes CI, license inventory and benchmark results reproducible.
 - Library users of the codec-free core still inherit Rust 1.98.
-- AVIF input pulls unsafe and assembly code plus an MPL-2.0 dependency into `--features cli` builds.
-- AVIF input is parsed three times (`avif-parse` preflight, Ferrixel metadata, `avif-decode`); acceptable for still images, a cost to remove when the decoder is replaced.
+- AVIF input reaches unsafe generated libavif/AOM code through an isolated safe wrapper and needs the pinned nightly on the port's supported native targets; the engine crate itself still forbids `unsafe`.
+- The former `avif-parse` and `avif-decode` three-pass path is replaced by the independent property check plus libavif's retained selected color samples ([ADR-0031](0031-workspace-libavif-input-experiment.md)).
 - The lockfile needs regular updates (Renovate or manual) to pick up fixes.
 
 ## Alternatives considered
@@ -74,13 +80,13 @@ Rules that apply to all of them:
 ## Validation
 
 - Feature-gated tests per adapter, including real ravif output with and without `colr`, contradictory `nclx`, PQ/HLG classification and the strict AVIF → AVIF facade path.
-- CI: all-features tests and clippy, each feature alone, MSRV job, fuzz smoke and the license metadata screen.
+- CI: scoped feature tests and Clippy on their supported toolchains, an MSRV job for the codec-free and non-AVIF engine, fuzz smoke, and the license metadata screen. An engine all-feature build now includes native/nightly `avif-read`; workspace-wide all-features is not the component validation contract.
 
-Before **Accepted**: complete transitive license and NOTICE review including MPL source obligations; review of native and unsafe code in `rav1d` and `rav1e`; malformed AVIF/ICC corpus; and a dated plan for replacing the interim crates with libavif-rs and libjxl-rs.
+Before **Accepted**: complete transitive license and NOTICE review for the current graph; review native and unsafe code in the selected codec paths; exercise malformed AVIF/ICC and full AV1 conformance where required; and complete final decoder selection under ADR-0025. Historical MPL obligations apply only to distributions containing the former `avif-parse` graph.
 
 ## Review when
 
-libavif-rs or libjxl-rs meets the adoption gates (safe API, stable toolchain, pinnable release); the libjxl-rs encoder lands; `rav1d-safe` or another permissive decoder exposes planar output and container metadata; `avif-decode` lowers its MSRV or exposes color properties; a consumer needs an older MSRV for the core; a dependency changes license; the license review blocks MPL-2.0 distribution; the adopted libwebp-rs decoder changes its parity, crop, color or memory contract; or a consumer needs JPEG output or expanded WebP output.
+Review the active dependency graph when libavif-rs or libjxl-rs meets the remaining adoption gates (safe API, stable toolchain, pinnable release), the libjxl-rs encoder lands, another decoder exposes useful planar output and container metadata, a consumer needs an older engine MSRV, a dependency changes license, the adopted libwebp-rs path changes its parity, crop, color or memory contract, or a consumer needs JPEG output or expanded WebP output. The former `avif-decode` MSRV and `avif-parse` MPL triggers apply only if that historical graph is restored.
 
 ## Amendment log
 
@@ -99,3 +105,5 @@ libavif-rs or libjxl-rs meets the adoption gates (safe API, stable toolchain, pi
 - 2026-11-11 — `jpeg-read` now selects the workspace `libjpeg-turbo-rs` safe decoder, replacing the original zune table entry and full-frame adapter. The engine no longer depends on `zune-jpeg` at runtime. The existing standalone zune benchmark harness remains for comparison. No JPEG encoder or scaled-IDCT policy is added. The JPEG port already meets the safe API, stable toolchain, local pin, and reference validation gates; native platform and release evidence remain scoped to the codec validation tiers. Review the switch if its output semantics, platform validation, or measured performance diverge from the recorded evidence.
 - 2026-11-11 — ADR-0029 adopts still WebP input through the workspace port's safe API. The monorepo path/version and shared lockfile replace the obsolete external revision gate #86 for this use. Decoder color, alpha, orientation and bounded caller-owned output are recorded there; output encoding and animation remain separate.
 - 2026-11-11 — ADR-0030 adopts still `webp-write` through the workspace safe encoder API, with a separate ICC profile license notice and a frame/output limit contract.
+- 2026-11-11 — ADR-0032 connects the local libjxl-rs decoder experimentally through an independent safe wrapper and explicit `jpeg-xl-own-read` selection. The measured photo-sized full/crop regression keeps jxl-oxide as the default `jpeg-xl-read` backend. The full external conformance and final selection gates remain open.
+- 2026-11-11 — [ADR-0031](0031-workspace-libavif-input-experiment.md) replaces the interim `avif-decode`/`avif-parse`/`rav1d` input path with a separate safe wrapper over the workspace libavif/AOM reference decoder. It removes the duplicate `dav1d_*` link path with the encoder adapter, but brings the pinned nightly and native-target boundary to `avif-read`. Eight-fixture pinned C byte parity and the measured photo trade-off are recorded in [M2 AVIF input evidence](../benchmarks/M2-avif-input.md); full Argon/dav1d and final ADR-0025 selection gates remain open. This supersedes the 2026-11-06 collision statement for current builds without rewriting its historical rationale.

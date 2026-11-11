@@ -11,6 +11,8 @@ and the M1 acceptance gates still apply. For the current pipeline, see [status](
 | Engine | `ferrixel` | repository root |
 | SIMD kernels | `ferrixel-kernels` | `crates/ferrixel-kernels` |
 | AVIF encoder adapter | `ferrixel-libavif` | `crates/ferrixel-libavif` |
+| AVIF input adapter | `ferrixel-avif-read` | `crates/ferrixel-avif-read` |
+| JPEG XL opt-in input adapter | `ferrixel-jxl-decoder` | `crates/ferrixel-jxl-decoder` |
 | JPEG | `libjpeg-turbo-rs` | `codecs/libjpeg-turbo-rs` |
 | WebP | `libwebp-rs` | `codecs/libwebp-rs` |
 | JPEG XL | `libjxl-rs` | `codecs/libjxl-rs` |
@@ -41,7 +43,11 @@ The root pins the nightly required by generated AVIF code. JPEG, WebP and JXL
 retain stable Clippy, whose lint expectations differ from that older nightly;
 their check scripts select it explicitly. MSRV jobs also select their toolchain
 explicitly. This is a verifier exception, not another workspace or dependency graph.
-The engine still builds on stable Rust 1.98 and the handwritten ports on Rust 1.95.
+The codec-free engine and its features without `avif-read`/`cli` still build on stable Rust 1.98;
+enabling `avif-read` reaches generated libavif/AOM code and requires the pinned
+nightly on macOS ARM64 or GNU Linux x86-64. The handwritten ports retain their
+own Rust 1.95 checks. An engine `--all-features` build is therefore not a
+stable-toolchain check.
 
 Engine Clippy selects `ferrixel` and `ferrixel-kernels` with `--no-deps` when
 codec features are enabled. Once the ports are local dependencies, this prevents
@@ -52,7 +58,7 @@ stable Clippy. See [contributing](../CONTRIBUTING.md) for the full command.
 ## Checks
 
 Root default members are the engine and kernels. This keeps the ordinary
-contributor loop bounded and preserves a stable-compatible engine. All 11 members (ten engine, adapter, and codec packages plus `xtask`) participate
+contributor loop bounded and preserves a stable-compatible codec-free engine. All 13 members participate
 in `cargo check --workspace --all-targets` on the AVIF port's supported native
 hosts (macOS ARM64 and GNU Linux x86-64).
 
@@ -85,10 +91,12 @@ original-consumer, recovery, and translation workflows supply additional evidenc
 Changes to oracle pins, goldens, unsafe ABI, SIMD, or floating-point semantics
 need the relevant deep branch run or equivalent recorded native evidence.
 
-Do not use workspace-wide `--all-features`: the interim `avif-read` backend and
-the libavif adapter export conflicting `dav1d_*` symbols. Engine all-feature
-checks explicitly select `-p ferrixel -p ferrixel-kernels`; the adapter is tested
-separately. JXL's local Cargo configuration disables auto-vectorization for its
+Do not use workspace-wide `--all-features`: component-specific native and
+validation configurations still need scoped checks. The former
+`avif-decode`/libavif `dav1d_*` collision is removed; current AVIF input and
+the libavif encoder adapter can link together. Engine all-feature checks select
+`-p ferrixel -p ferrixel-kernels` on the pinned nightly; stable checks omit
+`avif-read`. JXL's local Cargo configuration disables auto-vectorization for its
 reference-sensitive checks. Run those checks through its script or from its
 directory. Rust artifacts live in the root `target/`; C/C++ reference outputs
 stay local to each codec. Generated AVIF source is excluded from rustfmt because

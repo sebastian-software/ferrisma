@@ -33,5 +33,5 @@ Add or amend an ADR with its problem, alternatives, evidence, trade-offs and re-
 
 - Read [codec development](docs/codecs.md) and [ADR-0026](docs/adr/0026-codecs-in-one-repository-and-workspace.md) and [ADR-0027](docs/adr/0027-tiered-validation-and-rust-test-orchestration.md) before changing workspace configuration or imported ports.
 - Root default members are the engine and kernels. Run component verification through `cargo xtask codecs`; preserve each port's scoped oracle and provenance gates.
-- Do not run `--all-features` across the entire workspace: the interim AVIF reader and libavif adapter have conflicting C symbols. Test the engine and adapter separately.
+- Do not run `--all-features` across the entire workspace. Use scoped package checks for the engine and adapters. AVIF input and the encoder now share the workspace port and can link together (ADR-0031); the native AVIF platform and nightly requirements still apply.
 - Keep generated AVIF source hashes intact. Root profiles preserve its existing arithmetic semantics; do not broaden those exceptions.

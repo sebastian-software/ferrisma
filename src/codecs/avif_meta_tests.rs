@@ -1,5 +1,6 @@
 use super::{
-    MetaError, Nclx, PrimaryProperties, SequenceColor, primary_properties, sequence_color,
+    IsoBox, MAX_ICC_BYTES, MetaError, Nclx, PrimaryProperties, SequenceColor, primary_properties,
+    read_property, sequence_color,
 };
 use crate::codecs::avif::rendered_cicp;
 use crate::color::ColorEncoding;
@@ -432,5 +433,19 @@ fn records_mirror_before_rotation_association_order() {
         !primary_properties(&rotation_first)
             .unwrap()
             .mirror_before_rotation
+    );
+}
+
+#[test]
+fn oversized_icc_property_is_rejected_before_copy() {
+    let mut body = vec![0_u8; MAX_ICC_BYTES + 5];
+    body[..4].copy_from_slice(b"prof");
+    let property = IsoBox {
+        kind: *b"colr",
+        body: &body,
+    };
+    assert_eq!(
+        read_property(&property, &mut PrimaryProperties::default()),
+        Err(MetaError::ProfileTooLarge)
     );
 }

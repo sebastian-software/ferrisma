@@ -3,7 +3,9 @@
 See the [Ferrixel README](../../README.md), [project status](../../docs/status.md),
 and [codec guide](../../docs/codecs.md) for workspace context and current gates.
 
-[libavif-rs](../../codecs/libavif-rs), the mechanical Rust port of libavif with its Rust AOM encoder, as an output encoder for Ferrixel ([ADR-0024](../../docs/adr/0024-pluggable-encoders-and-libavif-rs-backend.md)).
+This adapter uses [libavif-rs](../../codecs/libavif-rs), the Rust port of libavif
+with its AOM encoder, as an output encoder for Ferrixel
+([ADR-0024](../../docs/adr/0024-pluggable-encoders-and-libavif-rs-backend.md)).
 
 ```rust
 use ferrixel::pipeline::{ImageFormat, TransformOptions, transcode_with};
@@ -25,7 +27,11 @@ cargo run -p ferrixel-libavif --release --features cli -- input.jpg output.avif 
 - **Toolchain:** the root workspace pins the nightly required by libavif-rs. The adapter uses the local codec package and root lockfile; the engine retains explicit stable/MSRV checks (ADR-0026).
 - **Platforms:** aarch64 macOS and x86-64 GNU Linux, the targets libavif-rs validates.
 - **No native libraries.** libavif-rs builds its AOM without VMAF tuning ([libavif-rs ADR 0057](../../codecs/libavif-rs/docs/adr/0057-translate-libaom-without-vmaf-tuning.md)), so libvmaf, pkg-config and a C++ runtime are no longer needed. AOM rejects VMAF tuning modes, which Ferrixel never selects.
-- **No AVIF input in the same binary.** Ferrixel's `avif-read` decodes with rav1d, which exports the same `dav1d_*` C symbols as libavif-rs's dav1d port; linking both is undefined behavior. The `cli` feature therefore enables JPEG and JPEG XL input only, and the tests decode with libavif-rs's own decoder.
+- **AVIF input in the same binary:** Ferrixel's `avif-read` now selects the
+  workspace libavif/AOM decoder through `ferrixel-avif-read`. The former
+  `rav1d`/dav1d duplicate-symbol path is gone. The adapter's `cli` feature
+  includes JPEG, WebP, JPEG XL and AVIF input. Scoped native CI tests the
+  combined build; local CLI smoke checks also cover AVIF and WebP input.
 - **Memory:** the backend materializes one RGBA frame and libavif's YUV(A) planes, reported as `encoder_output_frame_bytes`; AOM's own memory is opaque (`opaque_encoder_memory`).
 - **`unsafe`:** all calls into libavif's C ABI live in `src/lib.rs`, each with its safety argument; every libavif object is owned by a guard that frees it.
 

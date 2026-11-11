@@ -270,7 +270,7 @@
   ],
   "libyuv_translation_overlay_sha256": "a46a17e4eed90097148736fb3ee2ef7e780aa588305771fba46d6a04a44779fb",
   "selector": "src/profiles/linux/debug/mini-extended-pixi-libgav1-rav1e-svt-libyuv/modules.rs",
-  "selector_sha256": "40d171ac603f3f205532e6ba70a286e701f63e9e751246a1dc4659d34c5288f7",
+  "selector_sha256": "90727043a996b6dae7ec50e203ac9ecbacd64a94ea30e5fc61c8155119176674",
   "original_compile_commands_sha256": "7b97dd9f3924d253d1345398c74fc1026b23c24f5ec49ef9905bdc9290c3a509",
   "original_cmake_cache_sha256": "828b667e8634856ac26d2994663d1e5445c3311b5970ab9e7f7980be77fbf02a",
   "original_tests_executed": false,

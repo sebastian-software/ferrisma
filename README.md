@@ -20,15 +20,21 @@ or production-readiness claim.
 | [CPU kernels](crates/ferrixel-kernels) | Scalar, NEON, AVX2, and AVX-512 resampling behind a safe API |
 | [JPEG port](codecs/libjpeg-turbo-rs) | In-scope 8-bit decoder with a safe row API, used by `jpeg-read` |
 | [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; still-image input and output are connected through `webp-read` and `webp-write` |
-| [JPEG XL port](codecs/libjxl-rs) | Incremental decoder with provisional APIs; encoder incomplete; engine adoption pending |
-| [AVIF ports](codecs/libavif-rs) | libavif, AOM, dav1d, and SharpYUV; an [optional encoder adapter](crates/ferrixel-libavif) exercises the port |
+| [JPEG XL port](codecs/libjxl-rs) | Reference decoder available as experimental opt-in engine input through a safe wrapper; encoder incomplete |
+| [AVIF ports](codecs/libavif-rs) | libavif and its AOM, dav1d, and SharpYUV ports; `avif-read` uses the AOM reference decoder through an [isolated safe adapter](crates/ferrixel-avif-read), with a separate [optional encoder adapter](crates/ferrixel-libavif) |
 | [Validation tooling](docs/codecs.md) | One Rust runner, scoped PR checks, and deeper independent oracle suites |
 
 The four codec ports share the Cargo workspace, but importing them does not
 automatically select them as engine backends. Ferrixel reads JPEG and WebP
 through the workspace `libjpeg-turbo-rs` and `libwebp-rs` ports, JPEG XL through
-`jxl-oxide`, and AVIF through `avif-decode`; it writes AVIF through `rav1e`
+`jxl-oxide` by default (with the local reference decoder selectable explicitly),
+and AVIF through the workspace libavif/AOM reader; it writes AVIF through `rav1e`
 and still WebP through the workspace `libwebp-rs` encoder.
+The AVIF read feature needs the pinned nightly and a supported native target;
+the codec-free core and features without `avif-read`/`cli` retain stable Rust 1.98 support.
+On one 2268×1512 photo the AOM input path took 8–14% longer and used about
+2× peak RSS versus the former interim reader; see the
+[scoped measurement](docs/benchmarks/M2-avif-input.md).
 
 **[Current status and remaining gates](docs/status.md)** gives the component
 and integration overview. **[Documentation guide](docs/README.md)** maps the
@@ -61,5 +67,6 @@ presents these guides with the shared Ferramenta theme and can be previewed loca
 
 The engine is **[MIT](LICENSE-MIT) OR [Apache-2.0](LICENSE-APACHE)**. Codec
 packages retain their own licenses, notices, and publication gates. The
-[dependency audit](docs/license-audit.md) includes the interim AVIF parser's
-MPL-2.0 obligations; the root license does not relicense the workspace.
+[dependency audit](docs/license-audit.md) records the former interim AVIF parser's
+MPL-2.0 review separately from the current dependency graph; the root license
+does not relicense the workspace.

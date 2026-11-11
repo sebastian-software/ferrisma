@@ -267,7 +267,7 @@
     }
   ],
   "selector": "src/profiles/macos/debug/mini-extended-pixi/modules.rs",
-  "selector_sha256": "662cf6043f49c17b4b54b48ea89ae85c08f55dacc25111c79d587740422f3a1d",
+  "selector_sha256": "02db9fe4ae1601c4c10494dfade8a241af9153e9c5cc95664fd1287abd482ca1",
   "original_compile_commands_sha256": "ef876cf5c59fcec6569b698a7a1dc38bc8c4d39f3a2026e0def9c9c0b1de0bd6",
   "original_cmake_cache_sha256": "dfabfb5c56708ff43621b9adbe306a559b5db8120fb565476ce2e68cc547a015",
   "original_tests_executed": false,

@@ -28,6 +28,10 @@
 //! - `#[repr(C)]` keeps the declaration order, so the two 64-byte paddings
 //!   still separate the workers' atomic counter from the other fields.
 //! - Thread ids are the source's `int`, converted where the source converts.
+//! - A mutex-guarded command epoch makes each worker consume a command once.
+//!   The pinned source checks only the command value after waking; a second
+//!   wake before the readiness barrier clears that value can execute the same
+//!   command twice and overshoot the barrier's exact ready count.
 use crate::jxl::base::data_parallel::{
     JXL_PARALLEL_RET_RUNNER_ERROR, JXL_PARALLEL_RET_SUCCESS, JxlParallelRetCode,
     JxlParallelRunFunction, JxlParallelRunInit,
@@ -57,6 +61,7 @@ const WORKER_EXIT: WorkerCommand = !3;
 struct Guarded {
     workers_ready: u32,
     worker_start_command: WorkerCommand,
+    command_epoch: u64,
 }
 
 /// The runner pointer handed to each worker thread.
@@ -125,6 +130,7 @@ impl ThreadParallelRunner {
                 mutex: Mutex::new(Guarded {
                     workers_ready: 0,
                     worker_start_command: WORKER_WAIT,
+                    command_epoch: 0,
                 }),
                 workers_ready_cv: Condvar::new(),
                 worker_start_cv: Condvar::new(),
@@ -265,6 +271,9 @@ impl ThreadParallelRunner {
     fn start_workers(&self, worker_command: WorkerCommand) {
         let mut lock = self.lock();
         lock.worker_start_command = worker_command;
+        // Every command has a distinct epoch, even if its encoded range is
+        // identical to the previous one. Workers consume each epoch once.
+        lock.command_epoch = lock.command_epoch.wrapping_add(1);
         // Workers will need this lock, so release it before they wake up.
         drop(lock);
         self.worker_start_cv.notify_all();
@@ -396,6 +405,7 @@ impl ThreadParallelRunner {
         // SAFETY: The runner outlives this thread: the destructor joins it
         // before dropping the object. Only shared access is formed.
         let this = unsafe { &*this };
+        let mut seen_epoch = 0;
         // Until WORKER_EXIT command received:
         loop {
             let mut lock = this.lock();
@@ -404,19 +414,18 @@ impl ThreadParallelRunner {
             if lock.workers_ready == this.num_threads {
                 this.workers_ready_cv.notify_one();
             }
-            // RESUME_WAIT: wait for a command.
+            // Wait for a new command. A second wake for the current command
+            // must not execute it again or increment readiness twice.
             let command = loop {
                 lock = this
                     .worker_start_cv
                     .wait(lock)
                     .unwrap_or_else(PoisonError::into_inner);
-                let command = lock.worker_start_command;
-                if command == WORKER_WAIT {
-                    // spurious wakeup: lock still held, avoid incrementing
-                    // ready.
+                if lock.command_epoch == seen_epoch || lock.worker_start_command == WORKER_WAIT {
                     continue;
                 }
-                break command;
+                seen_epoch = lock.command_epoch;
+                break lock.worker_start_command;
             };
             match command {
                 WORKER_ONCE => {
@@ -430,5 +439,65 @@ impl ThreadParallelRunner {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::mem::MaybeUninit;
+    use std::time::{Duration, Instant};
+
+    unsafe extern "C" fn count_task(opaque: *mut c_void, _task: u32, _thread: usize) {
+        // SAFETY: The atomic outlives the runner and every worker call.
+        unsafe { &*opaque.cast::<AtomicU32>() }.fetch_add(1, Ordering::Relaxed);
+    }
+
+    #[test]
+    fn duplicate_wakeup_does_not_repeat_a_command() {
+        let mut storage = MaybeUninit::<ThreadParallelRunner>::uninit();
+        // SAFETY: The pinned stack storage stays live until destruct joins the worker.
+        unsafe { ThreadParallelRunner::construct(storage.as_mut_ptr(), 1) };
+        // SAFETY: construct initialized the object in this storage.
+        let runner = unsafe { storage.assume_init_ref() };
+        let calls = AtomicU32::new(0);
+        // SAFETY: The worker is waiting after construct's barrier; the atomic
+        // stays live until destruct joins it.
+        unsafe {
+            *runner.data_func.get() = Some(count_task);
+            *runner.jpegxl_opaque.get() = std::ptr::from_ref(&calls).cast_mut().cast();
+        }
+        runner.start_workers(1); // range [0, 1)
+
+        // Observe the worker back in its wait before deliberately waking it
+        // again while the previous command remains set.
+        let mut lock = runner.lock();
+        while lock.workers_ready < 1 {
+            lock = runner
+                .workers_ready_cv
+                .wait(lock)
+                .unwrap_or_else(PoisonError::into_inner);
+        }
+        let first_ready = lock.workers_ready;
+        drop(lock);
+
+        runner.worker_start_cv.notify_all();
+        let deadline = Instant::now() + Duration::from_millis(100);
+        let mut lock = runner.lock();
+        while lock.workers_ready < 2 && Instant::now() < deadline {
+            let (next, _) = runner
+                .workers_ready_cv
+                .wait_timeout(lock, Duration::from_millis(10))
+                .unwrap_or_else(PoisonError::into_inner);
+            lock = next;
+        }
+        let repeated_ready = lock.workers_ready;
+        drop(lock);
+        // SAFETY: After the first readiness report, the worker has completed
+        // the task and is waiting. Exit wakes and joins it before storage ends.
+        unsafe { ThreadParallelRunner::destruct(storage.as_mut_ptr()) };
+        assert_eq!(first_ready, 1);
+        assert_eq!(repeated_ready, 1, "one command must be consumed once");
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
     }
 }

@@ -265,7 +265,7 @@
     }
   ],
   "selector": "src/profiles/macos/release/default/modules.rs",
-  "selector_sha256": "662cf6043f49c17b4b54b48ea89ae85c08f55dacc25111c79d587740422f3a1d",
+  "selector_sha256": "8cf705d66361b70d8403e6cc56192d5a2cb73ca5ee58831d021768ceb752482a",
   "original_compile_commands_sha256": "385045ce5637e119bf407a2fa8f68c102bba2210f18c5ccf9e6ad1be6f5f86c1",
   "original_cmake_cache_sha256": "a545717bf6adcda3ac6090296e99eb7c0d4f1f74504ed49c8b8af98a76efa3a6",
   "original_tests_executed": false,

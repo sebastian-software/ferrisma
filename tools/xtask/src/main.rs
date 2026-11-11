@@ -44,9 +44,11 @@ impl Selection {
             self.workspace = true;
         } else if path.starts_with("codecs/libjxl-rs/") || path == "codecs/libjxl-rs" {
             self.jxl = true;
+            self.engine = true;
             self.workspace = true;
         } else if path.starts_with("codecs/libavif-rs/") || path == "codecs/libavif-rs" {
             self.avif = true;
+            self.engine = true;
             self.adapter = true;
             self.workspace = true;
         } else if path.starts_with("crates/ferrixel-kernels/") {
@@ -55,6 +57,15 @@ impl Selection {
             self.adapter = true;
         } else if path.starts_with("crates/ferrixel-libavif/") {
             self.adapter = true;
+        } else if path.starts_with("crates/ferrixel-avif-read/") {
+            self.avif = true;
+            self.engine = true;
+            self.adapter = true;
+            self.workspace = true;
+        } else if path.starts_with("crates/ferrixel-jxl-decoder/") {
+            self.jxl = true;
+            self.engine = true;
+            self.workspace = true;
         } else if ["src/", "tests/", "examples/"]
             .iter()
             .any(|p| path.starts_with(p))
@@ -469,6 +480,30 @@ mod tests {
             all.all();
             all
         });
+    }
+    #[test]
+    fn avif_reader_and_port_changes_select_native_consumers() {
+        for path in [
+            "crates/ferrixel-avif-read/src/lib.rs",
+            "codecs/libavif-rs/src/read_sample_access.rs",
+        ] {
+            let mut selection = Selection::default();
+            selection.classify(path);
+            assert!(selection.avif && selection.engine && selection.adapter && selection.workspace);
+            assert!(!selection.jxl && !selection.webp && !selection.jpeg);
+        }
+    }
+    #[test]
+    fn jxl_adapter_changes_select_engine_and_jxl() {
+        for path in [
+            "crates/ferrixel-jxl-decoder/src/lib.rs",
+            "codecs/libjxl-rs/src/lib.rs",
+        ] {
+            let mut selection = Selection::default();
+            selection.classify(path);
+            assert!(selection.jxl && selection.engine && selection.workspace);
+            assert!(!selection.avif && !selection.webp && !selection.jpeg);
+        }
     }
     #[test]
     fn git_diff_selects_both_sides_of_rename_and_deletion() {

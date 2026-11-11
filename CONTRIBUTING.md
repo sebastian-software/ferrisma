@@ -38,14 +38,16 @@ cargo fmt --all --check
 cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
 
-# Current engine adapters, ICC, and CLI; explicitly scoped to avoid ABI collisions.
+# Current engine adapters, ICC, and CLI on the pinned nightly.
 cargo test -p ferrixel -p ferrixel-kernels --all-targets --all-features
 cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features --no-deps -- -D warnings
 ```
 
-Do not run `--all-features` over the entire workspace: the interim AVIF reader
-and the libavif adapter export conflicting C symbols. Test the adapter and
-ports separately through their [component checks](docs/codecs.md#checks).
+Do not run `--all-features` over the entire workspace. Test adapters and
+ports through their [scoped component checks](docs/codecs.md#checks).
+The current AVIF reader and encoder share the same port and can link together;
+AVIF input still requires the pinned nightly and a supported native target.
+The stable Rust 1.98 check covers engine features without `avif-read` or `cli`.
 Scoped PR checks provide the ordinary feedback loop; the
 [validation guide](docs/validation.md) explains when live oracle and manual
 acceptance evidence is required.

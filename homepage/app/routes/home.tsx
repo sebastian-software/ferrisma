@@ -31,7 +31,7 @@ const stages = [
     label: "Decode",
     title: "Start with what the decoder actually emits.",
     body: "JPEG, WebP, JPEG XL and AVIF input adapters describe the rendered pixels, their color metadata and their access capabilities. A format supporting regions does not mean every decoder can avoid a full frame.",
-    detail: "JPEG and WebP use the workspace ports; JPEG XL and AVIF use jxl-oxide and avif-decode.",
+    detail: "JPEG, WebP and AVIF use workspace ports; JPEG XL uses jxl-oxide by default, with a local decoder available by explicit choice.",
   },
   {
     label: "Orient & crop",
@@ -331,8 +331,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             remain independent.
           </p>
           <p>
-            JPEG input and WebP input/output use the workspace ports. JPEG XL and AVIF input still use interim
-            dependencies; their port integrations remain separate adoption steps.
+            JPEG and WebP use the workspace ports for input; WebP also uses its
+            port for output. AVIF input uses the workspace libavif/AOM port
+            through an isolated safe wrapper. JPEG XL defaults to jxl-oxide,
+            with the local reference decoder available by explicit opt-in.
           </p>
         </MonoPassage>
         <MonoWide>
@@ -386,10 +388,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     <small>libjxl-rs</small>
                   </th>
                   <td>
-                    Input through <code>jxl-oxide</code>, with codec-level region requests.
+                    Input through <code>jxl-oxide</code> by default, with codec-level region
+                    requests; the local decoder is an explicit full-frame fallback.
                   </td>
                   <td>Incremental decoder and C-ABI surface with reference comparison suites.</td>
-                  <td>Provisional APIs, incomplete encoder and deeper acceptance work.</td>
+                  <td>Provisional APIs, incomplete encoder and full selection/conformance gates.</td>
                 </tr>
                 <tr>
                   <th scope="row">
@@ -397,12 +400,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     <small>libavif-rs and companions</small>
                   </th>
                   <td>
-                    <code>avif-decode</code> input; <code>rav1e</code> output. An explicit libavif
-                    encoder adapter is available separately.
+                    Workspace libavif/AOM input through a safe wrapper; <code>rav1e</code>
+                    output. An explicit libavif encoder adapter is available separately.
                   </td>
                   <td>Container, AOM, dav1d and SharpYUV ports with generated and owned Rust.</td>
                   <td>
-                    Native-host and unsafe-boundary validation; no stable safe Rust API claim.
+                    Pinned nightly and supported native hosts for AVIF input; full Argon and
+                    release gates remain open.
                   </td>
                 </tr>
               </tbody>
@@ -410,8 +414,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           </div>
           <MonoCaption>
             Current integration is maintained in the{" "}
-            <a href={path("guide/status")}>status overview</a>. The optional libavif encoder and
-            interim AVIF reader must be tested in separate builds.
+            <a href={path("guide/status")}>status overview</a>. AVIF input and the optional
+            libavif encoder can share a binary; the former dav1d symbol collision is removed.
           </MonoCaption>
         </MonoWide>
         <p className="fx-section-link">

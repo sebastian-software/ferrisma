@@ -114,6 +114,51 @@ fn jpeg_xl_icc_can_be_explicitly_transformed_and_encoded() {
     assert_eq!(&image.bytes[4..8], b"ftyp");
     assert_eq!(image.report.decoder_requests, 1);
     assert_eq!(image.report.engine_full_frame_intermediates, 0);
+    assert_eq!(image.report.decoder_full_frame_buffers, 0);
+}
+
+#[cfg(all(feature = "jpeg-xl-own-read", feature = "icc", feature = "avif-write"))]
+#[test]
+fn selected_local_jpeg_xl_decoder_reports_full_frame() {
+    use crate::pipeline::{JpegXlDecoder, SourceAccess};
+    let options = TransformOptions {
+        output_width: 3,
+        output_height: 2,
+        profile_policy: InputProfilePolicy::UseRenderedIcc,
+        jxl_decoder: JpegXlDecoder::LibjxlRs,
+        speed: 9,
+        max_managed_bytes: 1024 * 1024,
+        ..TransformOptions::default()
+    };
+    let image = transcode(
+        include_bytes!("../tests/fixtures/sample.jxl"),
+        ImageFormat::JpegXl,
+        options,
+    )
+    .unwrap();
+    assert_eq!(image.report.input_access, SourceAccess::FullFrameFallback);
+    assert_eq!(image.report.decoder_full_frame_buffers, 1);
+}
+
+#[cfg(all(
+    feature = "jpeg-xl-read",
+    not(feature = "jpeg-xl-own-read"),
+    feature = "avif-write"
+))]
+#[test]
+fn selecting_uncompiled_local_jpeg_xl_decoder_reports_feature_disabled() {
+    use crate::pipeline::{JpegXlDecoder, ProcessingErrorKind};
+    let options = TransformOptions {
+        jxl_decoder: JpegXlDecoder::LibjxlRs,
+        ..TransformOptions::default()
+    };
+    let error = transcode(
+        include_bytes!("../tests/fixtures/sample.jxl"),
+        ImageFormat::JpegXl,
+        options,
+    )
+    .unwrap_err();
+    assert_eq!(error.kind(), ProcessingErrorKind::FeatureDisabled);
 }
 
 #[test]

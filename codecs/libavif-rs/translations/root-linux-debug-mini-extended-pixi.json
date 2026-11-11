@@ -285,7 +285,7 @@
     }
   ],
   "selector": "src/profiles/linux/debug/mini-extended-pixi/modules.rs",
-  "selector_sha256": "662cf6043f49c17b4b54b48ea89ae85c08f55dacc25111c79d587740422f3a1d",
+  "selector_sha256": "ffcfa3e731a7fbad8581585a39329984b861ab0226edf6744303f0b6e6f64598",
   "original_compile_commands_sha256": "bec112ce707e554360b9d38ba3a3cf743bdc3d2c16c640033a81d17f721f7d07",
   "original_cmake_cache_sha256": "a0484f8d24a69c68946bc9ba61f68f276217716c1729283ae45e717ae959a88c",
   "original_tests_executed": false,

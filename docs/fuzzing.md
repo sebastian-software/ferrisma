@@ -2,7 +2,7 @@
 
 **Status:** Fuzz harness prepared; sustained fuzz campaign **not yet run**.
 
-Ferrixel's public processing facade accepts untrusted JPEG, JPEG XL, and AVIF bytes. The core forbids unsafe Rust; optional decoder, assembler, SIMD and encoder dependencies do **not** inherit that guarantee. In particular, the current `avif-decode` adapter may decode a complete image and allocate opaque buffers **before** Ferrixel has a chance to reject over-budget pixels.
+Ferrixel's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and AVIF bytes. The core forbids unsafe Rust; optional decoder, assembler, SIMD and encoder dependencies do **not** inherit that guarantee. The workspace AVIF reader checks dimensions and reserves the emitted RGB frame before pixel decoding, but libavif/AOM still allocate opaque parser and codec buffers outside the engine budget.
 
 ## Reproducible fuzz target
 
@@ -14,7 +14,7 @@ cd fuzz
 cargo +nightly fuzz run transcode -- -max_len=524288 -timeout=10 -rss_limit_mb=1024
 ```
 
-The target exercises all three input codec selectors using short, deliberately bounded output requests and an explicit no-guess color policy. It does not assert that a 2 MiB *engine-managed* memory limit constrains external codecs. Run fuzzing in a sandbox with process-level limits and sanitizer support; preserve and minimize crashes in `fuzz/artifacts/` or the upstream codec test corpus.
+The target exercises JPEG, default JPEG XL, and AVIF input using short, deliberately bounded output requests and an explicit no-guess color policy. WebP and the opt-in workspace JPEG XL decoder still need dedicated fuzz coverage. It does not assert that a 2 MiB *engine-managed* memory limit constrains external codecs. Run fuzzing in a sandbox with process-level limits and sanitizer support; preserve and minimize crashes in `fuzz/artifacts/` or the upstream codec test corpus.
 
 The default CI also runs **deterministic malformed-header smoke tests** for truncated JPEG/JXL/AVIF files and invalid API options, so regressions surface without an expensive nightly fuzz dependency.
 
@@ -34,7 +34,7 @@ The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) ins
 
 ## Early input limits
 
-The experimental public facade now rejects compressed input exceeding a configurable byte cap (default **64 MiB**) before opening any decoder and rejects image dimensions above a configured **100-megapixel** default. The AVIF adapter additionally parses the AV1 primary-item sequence header and checks its maximum coded frame dimensions **before full-frame decode**. This mitigates common decompression-bomb cases; it does **not** bound memory used by the compressed AVIF parser, rav1d, JPEG XL or encoders. The preflight and Ferrixel's own color/orientation metadata read intentionally require additional AVIF container parses and should eventually be folded into a retained decoder-header object so no work is repeated. Always retain process RSS and sandbox limits for hostile inputs.
+The experimental public facade rejects compressed input exceeding a configurable byte cap (default **64 MiB**) before opening any decoder and rejects image dimensions above a configured **100-megapixel** default. The AVIF adapter checks the selected primary color tiles' AV1 sequence headers **before full-frame decode**, with ICC copies capped at 16 MiB. This mitigates common decompression-bomb cases; it does **not** bound memory used by libavif/AOM, JPEG XL or encoders. Ferrixel's bounded color/orientation parser and libavif each inspect the AVIF container. Always retain process RSS and sandbox limits for hostile inputs. See [ADR-0031](adr/0031-workspace-libavif-input-experiment.md) for the current boundary; the measured fuzz run below predates this reader replacement.
 
 ## First measured fuzz result
 

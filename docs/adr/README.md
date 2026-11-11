@@ -49,6 +49,8 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0028](0028-ardo-documentation-site.md) | Ardo website with the shared Ferramenta theme and canonical repository Markdown | Accepted |
 | [0029](0029-webp-still-input.md) | Still WebP input through the workspace port with explicit crop cost, color, orientation and memory limits | Experimental |
 | [0030](0030-still-webp-output-and-format-neutral-encoder-result.md) | Still WebP output, format-tagged encoder results, and backend use without `avif-write` | Experimental |
+| [0031](0031-workspace-libavif-input-experiment.md) | Experimental AVIF input through an isolated safe reader and the workspace libaom reference decoder | Experimental |
+| [0032](0032-jpeg-xl-workspace-decoder-input.md) | JPEG XL input through the workspace reference decoder, with a budgeted full-frame fallback | Experimental |
 
 ## Changing an ADR
 
