@@ -66,7 +66,7 @@ covered by the adapter's scoped tests. The original port's ten C/Rust
 AVIF/PNG differential scenarios remain part of its prior evidence; they were
 not rerun as a full port suite here.
 
-## Measured engine comparison
+## Measured engine comparison (repeated against committed revisions)
 
 The input was generated from the repository's real flower JPEG
 (`6ad9a79e9f26d2723ef954a0dca774429606655ab7184f8ab400016f228ca2ce`)
@@ -79,55 +79,66 @@ magick codecs/libjxl-rs/tests/data/decode-test/flower.png.im_q85_420.jpg \
 
 The generated AVIF SHA-256 was
 `0222211a052d24f9e97f5f0666df3259749c7500847bd135b1d5adeb95e027de`.
-The [frozen pre-format-neutral harness](../../scripts/bench/avif-input-f0ff.rs)
-was compiled in release mode as a path-dependent binary against reviewed base
-`f0ffebf4` (interim `avif-decode`/rav1d) and this experimental AOM adapter
-separately, with
-`avif-read,avif-write`. Its only output work is a rolling digest over sRGB8
-rows. The pipeline used one transform thread, Lanczos3, and
-`AssumeSrgbIfMissing`. The full run produced 2268×1512 pixels. The crop run
-selected `(400,300,640,427)` and produced 320×213 pixels. Five timed runs
-of each binary were measured serially in a quiet CPU window. Values are
-medians, in milliseconds except where shown.
+The same committed [frozen pre-format-neutral harness](../../scripts/bench/avif-input-f0ff.rs)
+(SHA-256 `7da0d7e3b69eab9f69056b4c7daff0be2b330baddef9f441d655fb781038730d`)
+was compiled against clean reviewed base
+`f0ffebf4fb759457a5a03726265931182e2882e8` (interim
+`avif-decode`/rav1d) and clean final AVIF adapter
+`63905312e2df72030351a3e9d56067052b20f0bd` (AOM). These are the
+source revisions used for **this repeated measurement**; the earlier
+uncommitted-candidate timing numbers are superseded below. Both temporary
+Cargo packages used `features = ["avif-read", "avif-write"]`, release mode,
+the pinned `nightly-2026-09-07` toolchain, and separate lockfiles. Their
+lockfile SHA-256 values were `b1d8fa2c848001810620dbf0a0732c30636c8910cf0e79095afa84efcaa0640b`
+(base) and `2a394b20e7f41786790ca2b5dcde866d6d7643dbfc9c4f054ae6cf4d23dd42c3`
+(AOM). The compiled binary SHA-256 values were
+`723b8023cc580b81eb59813a816c9f0f6f076092c61cedd8906f954872c781d7`
+(base) and `b251acece34802adde5df0a67338da11db723badfaa5ad40c73fe5dc96d7b753`
+(AOM).
+
+The harness's only output work is a rolling digest over sRGB8 rows. The
+pipeline used one transform thread, Lanczos3, and `AssumeSrgbIfMissing`.
+The full run produced 2268×1512 pixels. The crop selected
+`(400,300,640,427)` and produced 320×213 pixels. Each candidate/workload
+ran in five fresh processes, alternated in an old/new and full/crop schedule.
+Each process ran the harness's five timed iterations. The time below is the
+median of the five per-process medians (milliseconds); peak process RSS is
+the median of five `/usr/bin/time -l` observations (bytes). Build time and
+AVIF generation are excluded. The raw order and 20 process logs are saved in
+`/private/tmp/avif-remeasure-order.txt` and
+`/private/tmp/avif-remeasure-{old,new}-{full,crop}-{1..5}.log`.
 
 | Workload | Interim total / decode | AOM total / decode | AOM relative total | Managed peak interim / AOM | Process peak RSS interim / AOM |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Full photo | 120.008 / 82.455 | 139.039 / 102.175 | 1.16× | 124,740 / 10,405,584 bytes | 35,717,120 / 65,290,240 bytes |
-| Crop from full decode | 85.387 / 83.145 | 106.159 / 103.880 | 1.24× | 85,120 / 10,370,848 bytes | 35,651,584 / 65,437,696 bytes |
+| Full photo | 139.417 / 98.514 | 150.441 / 112.063 | 1.08× | 124,740 / 10,405,584 bytes | 36,831,232 / 73,973,760 bytes (2.01×) |
+| Crop from full decode | 100.991 / 98.638 | 115.019 / 112.673 | 1.14× | 85,120 / 10,370,848 bytes | 37,060,608 / 73,990,144 bytes (2.00×) |
 
-Both paths requested one full-frame decode and avoided zero codec work for the
-crop. The managed-memory increase makes the complete RGB frame visible to the
-engine budget; libavif/libaom scratch remains opaque. RSS came from one
-additional `/usr/bin/time -l` process per workload and can vary with allocator
-and process state. The measured AOM path was slower and used more process
-memory on this photo. This is a workload observation, not a general decoder
-ranking.
+The base process medians varied from 122.326–166.158 ms for full and
+88.613–117.459 ms for crop, so these ratios describe this run, not a stable
+cross-workload ranking. AOM was about 8% slower for full and 14% slower for
+crop, with about twice the process RSS on this host and fixture. Both paths
+requested a full-frame decode, including for the crop.
+The managed-memory increase makes the complete RGB frame visible to the
+engine budget; libavif/libaom scratch remains opaque. RSS can vary with
+allocator and process state. This is a workload observation, not a general
+decoder ranking.
 
-The two engine output digests were stable across runs but differed. Dumping
-full RGBA output and comparing with ImageMagick gave a maximum difference of
-one 8-bit channel code and mean absolute difference about 0.06 code on this
-photo. That is separate from the exact raw C parity above and is not silently
-treated as equivalent output. The interim decoder comparison path remains
-available at base `f0ffebf4` for subsequent quality and performance review.
+The two engine output digests were stable within each candidate but differed
+between candidates. This timing run did not rerun the earlier RGBA-pixel
+difference check; the exact raw C/Rust parity for eight fixtures above is a
+separate result. The interim decoder remains reproducible at `f0ffebf4`.
 
-The recorded run used separate small Cargo binaries whose source was the
-frozen harness above. For the `f0ffebf4` baseline, use that file as
-`src/main.rs` in a temporary binary crate with a path dependency on the base
-checkout and `features = ["avif-read", "avif-write"]`. Use the same source against
-the pre-format-neutral AVIF branch. For the integrated tree, use the
+For the base, use the frozen harness as `src/main.rs` in a temporary binary
+crate with a path dependency on that base checkout and
+`features = ["avif-read", "avif-write"]`. Use the same source against
+`63905312` (retained on `codex/avif-input-comparison-20261111`) for the AOM comparison. In the integrated tree after the
+format-neutral output change, use the
 [current example](../../examples/avif_input_compare.rs), which is adapted to
 `EncoderBackend::format`, `EncodeRequest`, `EncodedImage::new`, and
-`Output::bytes`; the frozen file preserves the exact old API harness. The
-numbers above are from the frozen harness against the two earlier trees, not
-from a rerun of the adapted example. Invoke
-the binaries with:
+`Output::bytes`; the frozen file preserves the exact old API harness. Invoke
+each binary with:
 
 ```sh
 old-or-new-binary /tmp/ferrixel-avif-flower-2268x1512-q80.avif 2268 1512
 old-or-new-binary /tmp/ferrixel-avif-flower-2268x1512-q80.avif 320 213 400 300 640 427
 ```
-
-The final raw timing logs were kept under
-`/private/tmp/avif-final-{old,new}-{full,crop}.log`; byte-parity samples under
-`/private/tmp/avif-{c,rust}-*.raw`. Build time and AVIF input generation are
-excluded from the per-run timings.

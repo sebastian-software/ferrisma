@@ -51,8 +51,8 @@ Current behavior and boundaries:
   budget. JPEG and lossless WebP codec internals, AVIF decoding, and AVIF
   encoding may require full frames; there is no process-wide memory-cap guarantee.
   The AVIF reader charges its full RGB output to the engine budget but retains
-  opaque libavif/AOM scratch. On one measured photo it took 16–24% longer and
-  about 1.83× peak RSS versus the former interim decoder; this does not rank
+  opaque libavif/AOM scratch. On one measured photo it took 8–14% longer and
+  about 2× peak RSS versus the former interim decoder; this does not rank
   decoders on other workloads ([evidence](benchmarks/M2-avif-input.md)).
 - **Planar experiments:** borrowed YUV420P10 supports even-origin crop-only
   views. It is not a general high-bit-depth pipeline, and has no planar resize

@@ -32,8 +32,8 @@ and AVIF through the workspace libavif/AOM reader; it writes AVIF through `rav1e
 and still WebP through the workspace `libwebp-rs` encoder.
 The AVIF read feature needs the pinned nightly and a supported native target;
 the codec-free core and features without `avif-read`/`cli` retain stable Rust 1.98 support.
-On one 2268×1512 photo the AOM input path took 16–24% longer and used about
-1.83× peak RSS versus the former interim reader; see the
+On one 2268×1512 photo the AOM input path took 8–14% longer and used about
+2× peak RSS versus the former interim reader; see the
 [scoped measurement](docs/benchmarks/M2-avif-input.md).
 
 **[Current status and remaining gates](docs/status.md)** gives the component
