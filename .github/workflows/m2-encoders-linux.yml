@@ -37,7 +37,7 @@ jobs:
       COMPARE_IMAGE_SET: ${{ inputs.image_set }}
       COMPARE_ENCODER_LEVELS: ${{ inputs.qualities }}
       COMPARE_RUNS: ${{ inputs.runs }}
-      COMPARE_LARGE_CORPUS: ${{ runner.temp }}/ferrixel-large-corpus
+      COMPARE_LARGE_CORPUS: ${{ github.workspace }}/.bench-corpus-large
     steps:
       - uses: actions/checkout@v4
       - name: Activate the root toolchain
