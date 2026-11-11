@@ -2,9 +2,9 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-10
+- **Last reviewed:** 2026-11-11
 - **Supersedes:** None
-- **Partially superseded by:** [0026](0026-codecs-in-one-repository-and-workspace.md), repository/workspace placement and dependency pinning only
+- **Partially superseded by:** [0026](0026-codecs-in-one-repository-and-workspace.md), repository/workspace placement and dependency pinning; [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), output result and feature coupling
 - **Related:** [0017](0017-minimal-public-facade-and-cli.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0022](0022-parallel-row-pipeline-and-engine.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 2, [Sharp comparison](../benchmarks/M2-sharp-comparison.md), [libavif-rs](../../codecs/libavif-rs), [libwebp-rs plan](../research/2026-11-05-libwebp-port-plan.md)
 
 ## Context
@@ -20,21 +20,21 @@ Verified facts on 2026-11-06:
 
 ## Decision
 
-1. **Encoders are pluggable at the row boundary.** The public `EncoderBackend` trait (`begin(&EncodeRequest) -> Box<dyn RowEncoder>`, `name()`) and `RowEncoder` trait (`write_row(y, rgba)`, `finish() -> EncodedImage`) receive the finished straight-alpha sRGB8 RGBA rows top to bottom, after Ferrixel's decode, color, crop, resample and quantization. `transcode_with` and `Engine::transcode_batch_with` take a backend; `transcode` keeps the built-in `rav1e` sink. `EncodeRequest` carries size, alpha, quality, speed, resolved encoder threads and chroma layout; each backend validates quality and speed on its own scale. Backend errors keep their kind (`InvalidOptions`, `ResourceExhausted`, `Failed`) and message through `ProcessingError`. The report names the encoder (`encoder_backend`), and the CLI (`ferrixel::cli::run`) takes an optional backend, so an adapter ships the same command and report line.
+1. **Encoders are pluggable at the row boundary.** The public `EncoderBackend` trait (`format()`, `begin(&EncodeRequest) -> Box<dyn RowEncoder>`, `name()`) and `RowEncoder` trait (`write_row(y, rgba)`, `finish() -> EncodedImage`) receive the finished straight-alpha sRGB8 RGBA rows top to bottom, after Ferrixel's decode, color, crop, resample and quantization. `transcode_with` and `Engine::transcode_batch_with` take a backend; `transcode` selects the built-in `rav1e` or still WebP sink. `EncodeRequest` carries output format, typed WebP settings, size, alpha, AVIF quality and speed, resolved encoder threads and chroma layout; each backend validates quality and speed on its own scale. Backend errors keep their kind (`InvalidOptions`, `ResourceExhausted`, `Failed`) and message through `ProcessingError`. The report names the encoder (`encoder_backend`), and the CLI (`ferrixel::cli::run`) takes an optional backend, so an adapter ships the same command and report line.
 2. **libavif-rs lives behind an isolated adapter crate.** Since ADR-0026, `crates/ferrixel-libavif` belongs to the common workspace, uses its pinned nightly, and depends on `codecs/libavif-rs` and Ferrixel by local paths. Its original separate workspace and Git pin are superseded. The adapter contains all `unsafe` calls, each with its safety argument and every libavif object owned by a guard. The core crate keeps `#![forbid(unsafe_code)]`, stable Rust, MSRV 1.98 and `--all-features` builds. The backend collects one RGBA frame, converts it with `avifImageRGBToYUV` and encodes with `avifEncoderWrite`; its signals match the `rav1e` sink (CICP 1/13/6, full range, 10 bits by default). `maxThreads` follows the request, and libavif's automatic tiling is on unless one thread was requested, as tiles are for `rav1e`.
 3. **No AVIF input next to libavif-rs.** Until AVIF input also comes from libavif-rs, the adapter enables only JPEG and JPEG XL input, and its tests decode with libavif-rs's own decoder rather than `avif-decode`.
-4. **`rav1e` stays the default** for `transcode`, and the core does not depend on the adapter. Switching the default needs the adapter to meet the remaining ADR-0018 gates (stable toolchain, safe API) or an explicit maintainer decision.
+4. **`rav1e` stays the default for AVIF output** in `transcode`, and the core does not depend on the adapter. Switching the default needs the adapter to meet the remaining ADR-0018 gates (stable toolchain, safe API) or an explicit maintainer decision.
 
 ## Consequences
 
 + At matched SSIMULACRA2, libavif-rs's AOM at speed 6 writes 5–13 % fewer bytes than `rav1e` on the four test photos and is at or below Sharp on all four, at 8–32 % more time with all cores; speed 7 is 25–43 % faster than `rav1e` and still smaller on three of four (Validation).
-+ Encoders become replaceable without touching the pipeline; a libwebp-rs `webp-write` adapter can use the same interface (and will rename `Output::avif_bytes` when output stops being AVIF only).
++ Encoders are replaceable without touching the pipeline; ADR-0030 adds built-in still WebP output and format-tagged `Output::bytes`.
 + The core's stable compatibility and `unsafe` policy do not change; ADR-0026 makes the shared development default nightly.
 - The adapter needs nightly and one of two platforms. CI runs it on macOS arm64 and x86-64 Linux. Since libavif-rs `8be367f` it needs no native libraries (see the amendment log).
 - The backend materializes a full RGBA frame plus libavif's planes outside Ferrixel's budget (reported, not bounded), and AOM's memory is opaque.
 - libavif's bytes depend on the thread count (as Sharp's do), unlike `rav1e`'s size-derived tiles.
 - A binary cannot have both libavif-rs and Ferrixel's `avif-read`.
-- `pipeline` (and therefore the backend API) still requires the `avif-write` feature, so `rav1e` is compiled even when only a backend is used.
+- As initially implemented in 2026, `pipeline` required `avif-write`; ADR-0030 removed that coupling, so external backends can compile without `rav1e`.
 
 ## Alternatives considered
 
@@ -82,3 +82,4 @@ libavif-rs gains a stable toolchain, a safe API, SIMD, or an AOM profile without
 - 2026-11-09 — Review trigger "SIMD" fired for x86-64: libavif-rs `3df161d` dispatches SSE2, SSE4.1 and AVX2 kernels in its AOM on GNU Linux ([libavif-rs ADR 0058](../../codecs/libavif-rs/docs/adr/0058-dispatch-hand-translated-x86-simd-on-gnu-linux.md), [retained libavif-rs#11 commit](https://github.com/sebastian-software/ferrixel/commit/3df161d9715ac743a1c7305f9a37ffaa3ae51c05)), with byte-identical output. Measured on a four-vCPU AMD EPYC 7763 CI runner ([x86-64 Linux with AVX2](../benchmarks/M2-libavif-backend.md#x86-64-linux-with-avx2-libavif-rs-3df161d)): speed 6 is 5–13 % smaller and 41–47 % faster than `rav1e` with all cores, 43–50 % faster with one thread. libavif-rs is now ahead on both CI architectures. The decision stands: `rav1e` stays the default while ADR-0018 gates (a) safe API and (b) stable toolchain are open. The adapter pin moves to `3df161d`.
 
 - 2026-11-10 — ADR-0026 supersedes the separate workspace and Git pin. The adapter and imported codec use the root lockfile and toolchain; the unsafe boundary, default encoder, feature exclusions, and original measured evidence remain unchanged.
+- 2026-11-11 — ADR-0030 removes the `avif-write` prerequisite for the backend API, tags encoded results with their format, and adds built-in still WebP output. The direct YUV-to-AOM candidate remains unmeasured and open under issue #60.

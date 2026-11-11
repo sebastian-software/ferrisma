@@ -9,21 +9,25 @@
 
 use std::fmt;
 
-use crate::pipeline::ChromaSubsampling;
+use crate::pipeline::{ChromaSubsampling, OutputFormat, WebpOptions};
 
-/// What one image's encoder is asked to produce. Quality and speed are
-/// passed through as the caller set them: each backend interprets them on
-/// its own scale, so compare backends at matched quality, not at equal
-/// settings.
+/// What one image's encoder is asked to produce. AVIF quality and speed are
+/// passed through as the caller set them; WebP settings are in `webp`.
+/// Compare backends at matched quality, not equal numeric settings.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct EncodeRequest {
+    pub format: OutputFormat,
+    /// Format-specific settings when `format` is WebP.
+    pub webp: WebpOptions,
     pub width: u32,
     pub height: u32,
     /// The rows carry straight alpha that may be below 255; when false
     /// every alpha byte is 255.
     pub has_alpha: bool,
+    /// AVIF quality; for WebP use `webp`.
     pub quality: f32,
+    /// AVIF speed; for WebP use `webp`.
     pub speed: u8,
     /// Encoder threads, resolved (at least 1); 1 means the caller asked
     /// for single-threaded encoding.
@@ -35,6 +39,7 @@ pub struct EncodeRequest {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct EncodedImage {
+    pub format: OutputFormat,
     pub bytes: Vec<u8>,
     /// Bytes of input frames the backend materialized (for example a
     /// full RGBA or YUV frame), reported as `encoder_output_frame_bytes`.
@@ -46,8 +51,14 @@ pub struct EncodedImage {
 
 impl EncodedImage {
     #[must_use]
-    pub fn new(bytes: Vec<u8>, frame_materialization_bytes: usize, opaque_memory: bool) -> Self {
+    pub fn new(
+        format: OutputFormat,
+        bytes: Vec<u8>,
+        frame_materialization_bytes: usize,
+        opaque_memory: bool,
+    ) -> Self {
         Self {
+            format,
             bytes,
             frame_materialization_bytes,
             opaque_memory,
@@ -118,6 +129,8 @@ pub trait RowEncoder {
 
 /// A source of encoders, shared by the images of a batch.
 pub trait EncoderBackend: Sync {
+    /// Format this backend emits. The pipeline checks it against the request.
+    fn format(&self) -> OutputFormat;
     /// Short name for reports and diagnostics, such as `"libavif-rs/aom"`.
     fn name(&self) -> &'static str;
 

@@ -2,8 +2,9 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-06
+- **Last reviewed:** 2026-11-11
 - **Supersedes:** The "no public fluent API or CLI as initial prerequisites" clause of [ADR-0008](0008-initial-vertical-slice.md), for M1 only
+- **Partially superseded by:** [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), AVIF-only output result and feature gating
 - **Related:** [0008](0008-initial-vertical-slice.md), [0012](0012-codec-source-contract.md), [0016](0016-working-color-space-and-transform-boundaries.md), [M1 plan](../milestones/M1-complete-image-pipeline.md) work package 8
 
 ## Context
@@ -21,11 +22,15 @@ Verified facts (2026-11-05, `main` at 9291c33):
 
 Keep exactly one public, intentionally small facade for M1:
 
-1. **Surface.** `pipeline::{transcode, TransformOptions, Crop, ResizeFilter, InputProfilePolicy, ImageFormat, Output, ProcessingReport, StageTimings, WorkingPrecision, ChromaSubsampling, KernelLevel, KernelLevelReason, Engine, BatchItem, SourceAccess, ProcessingError, ProcessingErrorKind}`. No builder/fluent DAG API, plugin registry, async interface, streaming input, Node.js bindings or GPU options.
+The dated 2026-11-05 facts above describe the initial AVIF-only facade.
+Currently, `pipeline` and `cli` compile without `avif-write`; a built-in
+`transcode` still requires the selected output feature at runtime.
+
+1. **Surface.** `pipeline::{transcode, transcode_with, TransformOptions, Crop, ResizeFilter, InputProfilePolicy, ImageFormat, OutputFormat, WebpOptions, Output, ProcessingReport, StageTimings, WorkingPrecision, ChromaSubsampling, KernelLevel, KernelLevelReason, Engine, BatchItem, SourceAccess, ProcessingError, ProcessingErrorKind, EncoderBackend, RowEncoder}`. No builder/fluent DAG API, plugin registry, async interface, streaming input, Node.js bindings or GPU options.
 2. **Color intent is explicit.** `InputProfilePolicy::Strict` is the default. `AssumeSrgbIfMissing` applies only when the decoder reports neither rendered ICC nor CICP; `UseRenderedIcc` requires the `icc` feature. The facade never guesses a profile.
-3. **Resources are explicit options.** Managed-memory budget, compressed-input byte limit and decoded-pixel limit are caller options with conservative defaults. The report keeps engine-managed memory, known codec materializations and opaque codec/encoder memory separate.
+3. **Resources are explicit options.** Managed-memory budget, compressed-input byte limit, decoded-pixel limit, and encoded-output byte limit are caller options with conservative defaults. The report keeps engine-managed memory, known codec materializations and opaque codec/encoder memory separate.
 4. **No backend type leaks.** Codec errors are converted at the boundary; codec crates never appear in public signatures. `ProcessingError::kind()` returns a `#[non_exhaustive]` `ProcessingErrorKind` (invalid options, input limit, disabled feature, malformed input, unsupported input, unsupported color, resource exhaustion, cancellation, encoder failure, internal) so callers can match without parsing messages; the message keeps the details.
-5. **CLI is an example consumer.** `src/bin/ferrixel.rs` only parses arguments and calls `transcode`; it adds no processing logic. It stays behind `cli`.
+5. **CLI is an example consumer.** `src/bin/ferrixel.rs` delegates parsing and processing to `ferrixel::cli::run`, which calls `transcode` or `transcode_with`; it adds no processing logic. It stays behind `cli`.
 6. **No stability promise.** Until a first publication decision, any part of the facade may change without deprecation.
 
 ## Consequences
@@ -68,3 +73,4 @@ A first publication is decided; a consumer needs multiple outputs, streaming inp
 - 2026-11-06 — Added `KernelLevel` and `KernelLevelReason` (re-exported from `ferrixel-kernels`), `TransformOptions::kernel_level_ceiling` (`None` picks the best supported level), `ProcessingReport::kernel_level` and `kernel_level_reason`, and the CLI flag `--kernel-level=scalar|neon|avx2`, as ADR-0020 decision 5 requires.
 - 2026-11-06 — Added `TransformOptions::transform_threads` (default 0 = all cores; output byte-identical for every value), `ProcessingReport::transform_threads`, the CLI flag `--transform-threads`, and `Engine` with `BatchItem` for in-process batches (ADR-0022). The facade's surface grows by one type with two methods; a long-lived pool, async and streaming input remain out of scope.
 - 2026-11-06 — Pluggable encoders (ADR-0024): `transcode_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` traits with `EncodeRequest`, `EncodedImage` and `EncodeError`, and `ProcessingReport::encoder_backend`. The CLI moved into `ferrixel::cli::run(args, backend)` (compiled with `avif-write`), so adapter crates ship the same command; the `report:` line gained `encoder=`.
+- 2026-11-11 — ADR-0030 makes output format explicit (`Output::format` and `Output::bytes`), allows backend-only builds without `avif-write`, and selects still WebP by the output extension in the CLI. The original AVIF example and options remain valid.
