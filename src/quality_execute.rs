@@ -226,34 +226,6 @@ pub(crate) fn tap_entry_bound(
     usize::try_from(total).map_err(|_| Error::GeometryOverflow)
 }
 
-#[cfg(test)]
-mod plan_bound_tests {
-    use super::*;
-
-    #[test]
-    fn tap_bound_covers_real_spans_for_both_filters() {
-        for filter in [Filter::Area, Filter::Lanczos3] {
-            for input in 1..=32 {
-                for output in 1..=32 {
-                    let actual: usize = (0..output)
-                        .map(|at| {
-                            let taps = taps(input, output, at, filter).unwrap();
-                            usize::try_from(
-                                taps.last().unwrap().index - taps.first().unwrap().index + 1,
-                            )
-                            .unwrap()
-                        })
-                        .sum();
-                    assert!(
-                        actual <= tap_entry_bound(input, output, output, filter).unwrap(),
-                        "input={input} output={output} filter={filter:?}"
-                    );
-                }
-            }
-        }
-    }
-}
-
 fn sample_rgba(
     source: DecodedRow<'_>,
     pixel: usize,
@@ -470,4 +442,32 @@ pub(crate) fn execute_quality_srgb8(
         source_time,
         transform_time,
     })
+}
+
+#[cfg(test)]
+mod plan_bound_tests {
+    use super::*;
+
+    #[test]
+    fn tap_bound_covers_real_spans_for_both_filters() {
+        for filter in [Filter::Area, Filter::Lanczos3] {
+            for input in 1..=32 {
+                for output in 1..=32 {
+                    let actual: usize = (0..output)
+                        .map(|at| {
+                            let taps = taps(input, output, at, filter).unwrap();
+                            usize::try_from(
+                                taps.last().unwrap().index - taps.first().unwrap().index + 1,
+                            )
+                            .unwrap()
+                        })
+                        .sum();
+                    assert!(
+                        actual <= tap_entry_bound(input, output, output, filter).unwrap(),
+                        "input={input} output={output} filter={filter:?}"
+                    );
+                }
+            }
+        }
+    }
 }
