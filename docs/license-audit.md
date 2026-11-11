@@ -27,11 +27,15 @@ python3 scripts/production-license-bundle.py --target aarch64-apple-darwin --fea
 The output directory must not already exist. `--strict` makes generation fail
 when SPDX metadata needs review or no notice file was found; it still writes the
 bundle for inspection. `--verify` reconstructs the graph and checks identities
-and bundled file hashes. Passing verification establishes reproducibility, not
-license compliance. Ship the reviewed notices with the matching artifact only
+and bundled file hashes; combine it with `--strict` to fail on remaining review
+items. Verification rejects symlinks in referenced bundle files. Passing
+verification establishes reproducibility, not license compliance. Ship the reviewed notices with the matching artifact only
 after the source and legal review below; include [specific embedded-material
 notices](../THIRD-PARTY-NOTICES.md). Generate separately for every target and
-feature combination: `cli` does not include the opt-in `jpeg-xl-own-read`.
+feature combination: `cli` does not include the opt-in `jpeg-xl-own-read`. This
+tool selects the `ferrixel` package only; it does not inventory the separate
+`ferrixel-libavif` compatibility adapter or its CLI as a root package. Audit
+those artifacts separately before distribution.
 
 The JSON inventory records the Cargo version, target, requested features,
 lockfile hash, checkout revision and status, exact package versions and source

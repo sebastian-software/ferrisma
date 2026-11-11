@@ -228,19 +228,34 @@ def build(target: str, features: str, output: Path) -> int:
     return len(issues)
 
 
+def bundle_file(root: Path, relative: str) -> Path:
+    """Resolve a self-contained regular file without following bundle symlinks."""
+    path = Path(relative)
+    if path.is_absolute() or not path.parts or any(part in {".", ".."} for part in path.parts):
+        raise ValueError(f"Invalid bundled file path: {relative}")
+    current = root
+    for part in path.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"Bundled file traverses a symlink: {current}")
+    if not current.is_file():
+        raise ValueError(f"Missing bundled file: {current}")
+    return current
+
+
 def verify(target: str, features: str, output: Path) -> int:
-    recorded = json.loads((output / "inventory.json").read_text())
-    feature_tree = output / "cargo-tree-features.txt"
-    if not feature_tree.is_file() or digest(feature_tree) != recorded["cargo_tree_features_sha256"]:
+    recorded = json.loads(bundle_file(output, "inventory.json").read_text())
+    feature_tree = bundle_file(output, "cargo-tree-features.txt")
+    if digest(feature_tree) != recorded["cargo_tree_features_sha256"]:
         raise ValueError("Missing or altered Cargo feature tree")
     for package in recorded["packages"]:
         for notice in package["notices"]:
-            path = output / notice["path"]
-            if not path.is_file() or digest(path) != notice["sha256"]:
+            path = bundle_file(output, notice["path"])
+            if digest(path) != notice["sha256"]:
                 raise ValueError(f"Missing or altered bundled notice: {path}")
     with tempfile.TemporaryDirectory(prefix="ferrixel-license-verify-") as temporary:
         candidate = Path(temporary) / "bundle"
-        build(target, features, candidate)
+        issues = build(target, features, candidate)
         current = json.loads((candidate / "inventory.json").read_text())
     # The worktree status is contextual evidence, not part of the source hash.
     recorded.pop("git_status")
@@ -248,7 +263,7 @@ def verify(target: str, features: str, output: Path) -> int:
     if recorded != current:
         raise ValueError("Inventory does not match the current graph, sources, lockfile, or toolchain")
     print("Verified graph, source identities, and bundled notice hashes; legal review remains open.")
-    return 0
+    return issues
 
 
 def main() -> int:
@@ -261,8 +276,9 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.verify:
-            return verify(args.target, args.features, args.output.resolve())
-        issues = build(args.target, args.features, args.output.resolve())
+            issues = verify(args.target, args.features, args.output.resolve())
+        else:
+            issues = build(args.target, args.features, args.output.resolve())
         return int(args.strict and issues > 0)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"License bundle failed: {error}", file=sys.stderr)

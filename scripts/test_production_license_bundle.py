@@ -6,6 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().with_name("production-license-bundle.py")
 SPEC = importlib.util.spec_from_file_location("production_license_bundle", SCRIPT)
@@ -91,6 +92,44 @@ checksum = "def"
             (root / "inventory.json").write_text(json.dumps(report))
             with self.assertRaisesRegex(ValueError, "altered bundled notice"):
                 BUNDLE.verify("target", "features", root)
+
+    def test_strict_verify_propagates_rebuilt_review_items(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "cargo-tree-features.txt").write_text("tree")
+            (root / "notice").write_text("notice")
+            report = {"cargo_tree_features_sha256": BUNDLE.digest(root / "cargo-tree-features.txt"),
+                      "packages": [{"metadata_status": "REVIEW", "notice_review": "MISSING",
+                                    "notices": [{"path": "notice", "sha256": BUNDLE.digest(root / "notice")}]}],
+                      "git_status": []}
+            (root / "inventory.json").write_text(json.dumps(report))
+
+            def rebuild(_target, _features, candidate):
+                candidate.mkdir()
+                (candidate / "inventory.json").write_text(json.dumps(report))
+                return 1
+
+            args = ["bundle", "--target", "target", "--features", "cli", "--output", str(root), "--verify"]
+            with mock.patch.object(BUNDLE, "build", side_effect=rebuild), mock.patch("sys.argv", args):
+                self.assertEqual(BUNDLE.main(), 0)
+            with mock.patch.object(BUNDLE, "build", side_effect=rebuild), mock.patch("sys.argv", args + ["--strict"]):
+                self.assertEqual(BUNDLE.main(), 1)
+
+    def test_bundle_rejects_external_file_and_directory_symlinks(self):
+        with tempfile.TemporaryDirectory() as temp:
+            outer = Path(temp)
+            root = outer / "bundle"
+            root.mkdir()
+            outside = outer / "external"
+            outside.mkdir()
+            (outside / "LICENSE").write_text("same bytes")
+            (root / "link").symlink_to(outside / "LICENSE")
+            (root / "dir-link").symlink_to(outside, target_is_directory=True)
+            for relative in ("link", "dir-link/LICENSE", "../external/LICENSE"):
+                with self.subTest(relative=relative), self.assertRaises(ValueError):
+                    BUNDLE.bundle_file(root, relative)
+            (root / "actual").write_text("same bytes")
+            self.assertEqual(BUNDLE.bundle_file(root, "actual"), root / "actual")
 
     def test_notice_collection_includes_nested_patents(self):
         with tempfile.TemporaryDirectory() as temp:
