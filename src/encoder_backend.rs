@@ -134,6 +134,19 @@ pub trait EncoderBackend: Sync {
     /// Short name for reports and diagnostics, such as `"libavif-rs/aom"`.
     fn name(&self) -> &'static str;
 
+    /// Known pixel-frame bytes simultaneously materialized by this backend.
+    ///
+    /// The engine reserves this amount before `begin` and holds it through
+    /// `finish`. The default of zero preserves existing backends, whose
+    /// allocations may be opaque. This does not include encoded output,
+    /// allocator overhead, or other codec scratch memory.
+    ///
+    /// # Errors
+    /// Returns an error if the backend cannot represent the request.
+    fn required_frame_bytes(&self, _request: &EncodeRequest) -> Result<usize, EncodeError> {
+        Ok(0)
+    }
+
     /// Start one image. Called after the input and options were validated
     /// and before the first pixel is decoded.
     ///

@@ -68,23 +68,14 @@ impl EncoderBackend for LibavifBackend {
         "libavif-rs/aom"
     }
 
+    fn required_frame_bytes(&self, request: &EncodeRequest) -> Result<usize, EncodeError> {
+        validate_request(request, self.depth)
+    }
+
     fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
-        let invalid = |message: &str| EncodeError::new(EncodeErrorKind::InvalidOptions, message);
-        if !(self.depth == 8 || self.depth == 10) {
-            return Err(invalid("libavif-rs backend depth must be 8 or 10"));
-        }
-        if !request.quality.is_finite() || !(0.0..=100.0).contains(&request.quality) {
-            return Err(invalid("libavif quality must be between 0 and 100"));
-        }
-        if request.speed > MAX_SPEED {
-            return Err(invalid("libavif speed must be between 0 and 10"));
-        }
-        let frame = usize::try_from(request.width)
-            .ok()
-            .zip(usize::try_from(request.height).ok())
-            .and_then(|(width, height)| width.checked_mul(height))
-            .and_then(|pixels| pixels.checked_mul(4))
-            .ok_or_else(|| invalid("output frame size overflows"))?;
+        let materialization_bytes = self.required_frame_bytes(request)?;
+        // The checked dimensions also guarantee this multiplication fits.
+        let frame = request.width as usize * request.height as usize * 4;
         let mut rgba = Vec::new();
         rgba.try_reserve_exact(frame).map_err(|_| {
             EncodeError::new(
@@ -95,16 +86,43 @@ impl EncoderBackend for LibavifBackend {
         Ok(Box::new(Frame {
             request: *request,
             depth: self.depth,
+            materialization_bytes,
             rgba,
             next: 0,
         }))
     }
 }
 
+fn validate_request(request: &EncodeRequest, depth: u8) -> Result<usize, EncodeError> {
+    let invalid = |message: &str| EncodeError::new(EncodeErrorKind::InvalidOptions, message);
+    if request.format != OutputFormat::Avif {
+        return Err(invalid("libavif-rs backend requires AVIF output"));
+    }
+    if !(depth == 8 || depth == 10) {
+        return Err(invalid("libavif-rs backend depth must be 8 or 10"));
+    }
+    if !request.quality.is_finite() || !(0.0..=100.0).contains(&request.quality) {
+        return Err(invalid("libavif quality must be between 0 and 100"));
+    }
+    if request.speed > MAX_SPEED {
+        return Err(invalid("libavif speed must be between 0 and 10"));
+    }
+    if request.width == 0 || request.height == 0 {
+        return Err(invalid("output dimensions must be nonzero"));
+    }
+    // libavif's RGB rowBytes is u32, even on 64-bit platforms.
+    request
+        .width
+        .checked_mul(4)
+        .ok_or_else(|| invalid("output row size overflows"))?;
+    frame_bytes(request, depth).ok_or_else(|| invalid("output frame size overflows"))
+}
+
 /// One image: rows collected into a full RGBA frame, encoded at the end.
 struct Frame {
     request: EncodeRequest,
     depth: u8,
+    materialization_bytes: usize,
     rgba: Vec<u8>,
     next: u32,
 }
@@ -134,24 +152,31 @@ impl RowEncoder for Frame {
         Ok(EncodedImage::new(
             OutputFormat::Avif,
             bytes,
-            frame_bytes(&self.request, self.depth),
+            self.materialization_bytes,
             true,
         ))
     }
 }
 
 /// The RGBA frame plus libavif's YUV(A) planes, which are alive together.
-fn frame_bytes(request: &EncodeRequest, depth: u8) -> usize {
-    let pixels = request.width as usize * request.height as usize;
-    let sample = if depth > 8 { 2 } else { 1 };
+fn frame_bytes(request: &EncodeRequest, depth: u8) -> Option<usize> {
+    let width = usize::try_from(request.width).ok()?;
+    let height = usize::try_from(request.height).ok()?;
+    let pixels = width.checked_mul(height)?;
+    let sample: usize = if depth > 8 { 2 } else { 1 };
     let chroma = match request.chroma {
-        ChromaSubsampling::Yuv444 => 2 * pixels,
-        ChromaSubsampling::Yuv420 => {
-            2 * (request.width as usize).div_ceil(2) * (request.height as usize).div_ceil(2)
-        }
+        ChromaSubsampling::Yuv444 => pixels.checked_mul(2)?,
+        ChromaSubsampling::Yuv420 => width
+            .div_ceil(2)
+            .checked_mul(height.div_ceil(2))?
+            .checked_mul(2)?,
     };
     let alpha = if request.has_alpha { pixels } else { 0 };
-    4 * pixels + sample * (pixels + chroma + alpha)
+    let planes = pixels
+        .checked_add(chroma)?
+        .checked_add(alpha)?
+        .checked_mul(sample)?;
+    pixels.checked_mul(4)?.checked_add(planes)
 }
 
 fn failure(result: u32, during: &str) -> EncodeError {
@@ -289,14 +314,22 @@ fn encode(request: &EncodeRequest, depth: u8, mut rgba: Vec<u8>) -> Result<Vec<u
     if result != AVIF_RESULT_OK {
         return Err(failure(result, "encoding"));
     }
-    if output.0.data.is_null() {
+    if output.0.data.is_null() || output.0.size > isize::MAX as usize {
         return Err(EncodeError::new(
             EncodeErrorKind::Failed,
-            "libavif returned no output",
+            "libavif returned an invalid output buffer",
         ));
     }
     // SAFETY: on success libavif sets `data` to an allocation of `size`
     // initialized bytes, owned by `output` until it is dropped below.
-    let bytes = unsafe { std::slice::from_raw_parts(output.0.data, output.0.size) }.to_vec();
+    let source = unsafe { std::slice::from_raw_parts(output.0.data, output.0.size) };
+    let mut bytes = Vec::new();
+    bytes.try_reserve_exact(source.len()).map_err(|_| {
+        EncodeError::new(
+            EncodeErrorKind::ResourceExhausted,
+            "cannot allocate the encoded AVIF output",
+        )
+    })?;
+    bytes.extend_from_slice(source);
     Ok(bytes)
 }

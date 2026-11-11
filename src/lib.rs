@@ -72,6 +72,7 @@ mod plan;
 mod planar;
 mod quality;
 mod quality_execute;
+mod resize_geometry;
 #[cfg_attr(
     not(test),
     allow(
