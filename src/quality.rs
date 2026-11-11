@@ -29,7 +29,12 @@ pub(crate) fn taps(input: u32, output: u32, at: u32, filter: Filter) -> Result<V
     let first = (center - radius - 1.0).floor().max(0.0) as u32;
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let last = (center + radius + 1.0).ceil().min(f64::from(input - 1)) as u32;
+    let count = usize::try_from(u64::from(last) - u64::from(first) + 1)
+        .map_err(|_| Error::GeometryOverflow)?;
     let mut weights = Vec::new();
+    weights
+        .try_reserve_exact(count)
+        .map_err(|_| Error::AllocationFailed)?;
     let mut sum = 0.0;
     for index in first..=last {
         let distance = f64::from(index) - center;

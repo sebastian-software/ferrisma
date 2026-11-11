@@ -22,7 +22,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0001](0001-project-thesis.md) | Pipeline-first project principles and modern-format scope | Accepted |
 | [0002](0002-semantic-graph-and-planner.md) | Semantic graph separated from capability-aware planner | Experimental |
 | [0003](0003-demand-driven-regions.md) | Demand propagation, region footprints and fallback | Experimental |
-| [0004](0004-buffer-ownership-and-budget.md) | Ownership, allocation and realistic memory budgets | Experimental |
+| [0004](0004-buffer-ownership-and-budget.md) | Ownership, allocation, conservative resize-plan admission and realistic memory budgets | Experimental |
 | [0005](0005-codec-capabilities-and-pixel-contracts.md) | Modern codec adapters, color and layout contracts | Proposed |
 | [0006](0006-cpu-first-gpu-capable-execution.md) | Execution scheduling, SIMD and conditional GPU | Proposed |
 | [0007](0007-correctness-and-performance-evidence.md) | Correctness and benchmark evidence before optimization | Accepted |
@@ -53,6 +53,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0032](0032-jpeg-xl-workspace-decoder-input.md) | JPEG XL input through the workspace reference decoder, with a budgeted full-frame fallback | Experimental |
 | [0033](0033-shared-sharpyuv-conversion-core.md) | One safe SharpYUV conversion core with WebP and AVIF boundary adapters | Experimental |
 | [0034](0034-thumbnail-geometry.md) | Upright thumbnail geometry, centered cover, explicit no-enlargement behavior and bounded JPEG/WebP header inspection | Accepted |
+| [0037](0037-selectable-workspace-avif-encoder.md) | Explicit workspace libavif/AOM output selection through an independent writer boundary; Rav1e remains default | Experimental |
 
 ## Changing an ADR
 

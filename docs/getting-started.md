@@ -23,13 +23,18 @@ cargo run --release --features cli -- \
 ```
 
 The `cli` feature enables JPEG, still WebP, JPEG XL and AVIF input, AVIF and
-still WebP output, and ICC support. The default AVIF encoder is `rav1e`; the
-separate [`ferrixel-libavif` adapter](../crates/ferrixel-libavif/README.md)
-provides an experimental alternative. The current `avif-read` uses the same
+still WebP output, and ICC support. The default AVIF encoder is `rav1e`;
+`--avif-encoder=libavif --avif-depth=8` selects the workspace AOM encoder
+through `avif-own-write` (depth defaults to 10; 8 and 10 are supported).
+Rust callers use `AvifEncoder::Libavif { depth: 8 }` in `TransformOptions`.
+The separate [`ferrixel-libavif` adapter](../crates/ferrixel-libavif/README.md)
+delegates to the same implementation. Quality and speed use each encoder's own
+scale; their numeric values do not establish equivalent image quality.
+The current `avif-read` uses the same
 workspace port's AOM decoder through an isolated safe wrapper, so the former
-`rav1d`/dav1d symbol collision is gone. AVIF reading requires the pinned
+`rav1d`/dav1d symbol collision is gone. Own AVIF reading and writing require the pinned
 nightly and a supported native target (macOS ARM64 or GNU Linux x86-64).
-The codec-free core and engine features without `avif-read`/`cli` retain stable Rust 1.98
+The codec-free core and features without `avif-read`, `avif-own-write`, or `cli` retain stable Rust 1.98
 support. See the [measured AVIF input trade-off](benchmarks/M2-avif-input.md).
 
 WebP lossy uses its own quality and speed settings. Lossless uses only

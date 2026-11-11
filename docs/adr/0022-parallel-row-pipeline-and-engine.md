@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-06
+- **Last reviewed:** 2026-11-11
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0006](0006-cpu-first-gpu-capable-execution.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0021](0021-working-precision-policy.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 4, [M2 baseline](../benchmarks/M2-baseline.md)
 
@@ -58,6 +58,8 @@ The M2 plan sketched *bands with filter halos*: split the output into horizontal
 Decode-side scaling (package 5) gives decoders region access; the `Engine` needs nested or prioritized parallelism; the allocator shows up in profiles; a GPU backend (ADR-0024) needs a different job granularity.
 
 ## Amendment log
+
+- 2026-11-11 — Per-image transform and encoder thread options now admit only 0–256 before source opening; automatic transform selection is capped at 256. This prevents oversized explicit requests from reaching the scoped worker loop. It does not make thread stacks part of the managed budget or guarantee OS thread creation; batch worker admission remains separate.
 
 - 2026-11-06 — Initial proposal: row pipeline with ordered emission, bit-identical to the sequential executor, standard library only; `Engine` for batches as the second step.
 - 2026-11-06 — Implemented; status Experimental. `src/parallel_execute.rs` runs the row pipeline with `std::thread::scope`, a bounded job queue of twice the worker count and an unbounded result channel; `TransformOptions::transform_threads` (default 0 = all cores) and `ProcessingReport::transform_threads`; CLI `--transform-threads`. Tests: byte-identical output to the sequential path for four inputs (RGB, Display P3, RGBA, extended-range `f32`), six geometries including a crop, both filters, the best and the scalar kernel level and 2, 3 and 8 threads; rows reach the sink in order; a cancelling sink, an exhausted budget and a worker error (non-finite float) all return the sequential path's error with `live == 0`. Transform stage on the Apple M1 Ultra (best of three, one encoder thread): 24 Mpx 104 ms on one thread, 59 on 2, 33 on 4, 20 on 8, 19 on 20 (5.5×); 48 Mpx 194, 109, 57, 31, 29 ms (6.7×). The validation threshold (4× at 24 Mpx) holds. Scaling flattens beyond 8 threads because the driver thread, which copies each source row and dispatches jobs, is serial; peak RSS rose by at most 8 MiB.

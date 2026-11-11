@@ -3,7 +3,7 @@
 See the [Ferrixel README](../../README.md), [project status](../../docs/status.md),
 and [codec guide](../../docs/codecs.md) for workspace context and current gates.
 
-This adapter uses [libavif-rs](../../codecs/libavif-rs), the Rust port of libavif
+This compatibility adapter re-exports the engine's `LibavifBackend` and uses [libavif-rs](../../codecs/libavif-rs), the Rust port of libavif
 with its AOM encoder, as an output encoder for Ferrixel
 ([ADR-0024](../../docs/adr/0024-pluggable-encoders-and-libavif-rs-backend.md)).
 
@@ -39,7 +39,7 @@ cargo run -p ferrixel-libavif --release --features cli -- input.jpg output.avif 
   memory, and compressed output remain outside that reservation
   (`opaque_encoder_memory`). `max_output_bytes` is checked after encoding and
   does not cap the codec's temporary output allocation.
-- **`unsafe`:** all calls into libavif's C ABI live in `src/lib.rs`, each with its safety argument; every libavif object is owned by a guard that frees it.
+- **`unsafe`:** calls into libavif's C ABI live in the independent `ferrixel-avif-write` bridge, each with its safety argument; guards release every libavif object.
 
 ## Licenses
 

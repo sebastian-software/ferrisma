@@ -57,7 +57,9 @@ impl Selection {
             self.adapter = true;
         } else if path.starts_with("crates/ferrixel-libavif/") {
             self.adapter = true;
-        } else if path.starts_with("crates/ferrixel-avif-read/") {
+        } else if path.starts_with("crates/ferrixel-avif-read/")
+            || path.starts_with("crates/ferrixel-avif-write/")
+        {
             self.avif = true;
             self.engine = true;
             self.adapter = true;
@@ -496,9 +498,10 @@ mod tests {
         assert!(!selection.jxl && !selection.jpeg && !selection.kernels);
     }
     #[test]
-    fn avif_reader_and_port_changes_select_native_consumers() {
+    fn avif_boundaries_and_port_changes_select_native_consumers() {
         for path in [
             "crates/ferrixel-avif-read/src/lib.rs",
+            "crates/ferrixel-avif-write/src/lib.rs",
             "codecs/libavif-rs/src/read_sample_access.rs",
         ] {
             let mut selection = Selection::default();

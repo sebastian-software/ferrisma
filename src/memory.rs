@@ -1,9 +1,9 @@
-//! Bounded, RAII-tracked CPU pixel buffers.
+//! Bounded, RAII-tracked engine buffers and resize-plan admission.
 //!
-//! The limit covers buffers explicitly allocated by the engine. It does not
-//! claim to include graph metadata, decoder internals, OS allocations, or the
-//! caller-owned output sink. A shared atomic counter allows concurrent plans
-//! to honor the same managed-buffer budget in a future executor.
+//! The limit covers engine-managed buffers and a conservative reservation for
+//! resize planning. It does not claim to include all graph or runtime metadata,
+//! decoder internals, OS allocations, or the caller-owned output sink. A shared
+//! atomic counter allows concurrent plans to honor the same managed budget.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -85,7 +85,7 @@ impl MemoryBudget {
     }
 
     /// Charge memory that a component allocates on the engine's request and
-    /// whose size the engine knows exactly, such as an encoder's input frame.
+    /// whose size the engine bounds, such as an encoder frame or resize plan.
     /// The reservation is released when the returned value is dropped.
     pub(crate) fn reserve_external(&self, bytes: usize) -> Result<ExternalReservation, Error> {
         Ok(ExternalReservation {
@@ -126,6 +126,22 @@ impl MemoryBudget {
             bytes,
         })
     }
+}
+
+/// Allocate planning metadata fallibly. The caller must hold its planning
+/// reservation for at least as long as the returned vector is alive.
+pub(crate) fn try_vec<T>(capacity: usize) -> Result<Vec<T>, Error> {
+    let mut values = Vec::new();
+    values
+        .try_reserve_exact(capacity)
+        .map_err(|_| Error::AllocationFailed)?;
+    Ok(values)
+}
+
+pub(crate) fn try_filled_vec<T: Clone>(count: usize, value: T) -> Result<Vec<T>, Error> {
+    let mut values = try_vec(count)?;
+    values.resize(count, value);
+    Ok(values)
 }
 
 /// Budgeted bytes owned by another component (see `reserve_external`).
