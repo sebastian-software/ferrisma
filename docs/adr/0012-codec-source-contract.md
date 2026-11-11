@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-05
+- **Last reviewed:** 2026-11-11
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0013](0013-sample-domain-resize.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0018](0018-optional-codec-and-cms-dependencies.md)
 
@@ -65,6 +65,7 @@ A source requires native planar output, push/pull access rather than callback ro
 
 - 2026-10-31 — Initial experimental contract with JPEG read-only fallback and JPEG XL region requests.
 - 2026-11-05 — Admitted resize/color consumers, added the AVIF adapter, and required adapters to report rendered color before decoding pixels.
+- 2026-11-11 — Replaced the JPEG full-frame adapter with the workspace libjpeg-turbo-rs safe scanline API. The JPEG-specific fallback and memory statements above are historical; the current behavior is recorded below.
 
 ## 2026-11-05: transform consumers and the AVIF adapter
 
@@ -76,3 +77,33 @@ A third read-only adapter, **AVIF** via `avif-decode` (dependency choice in [ADR
 - **Rendered, not signalled, color.** Because `avif-decode` converts YUV with the bitstream's matrix and range, the adapter reports the emitted full-range RGB as CICP `[primaries, transfer, 0, 1]` from the container `colr`/`nclx` and the AV1 sequence header, carries a `colr` ICC profile as rendered ICC, and fails closed when container and bitstream disagree. AVIF `irot`/`imir` are reported as the source orientation (ADR-0019); `clap` is rejected.
 
 JPEG reports no CICP. Its EXIF `Orientation` tag is read from IFD0 at construction; a malformed TIFF structure fails as a decode error. JPEG and AVIF report their orientation through `DecodeSource::orientation()` and the facade applies it ([ADR-0019](0019-source-side-orientation.md)); JPEG XL is rendered upright by `jxl-oxide` itself, with crops in display coordinates.
+
+## 2026-11-11: workspace JPEG scanlines
+
+The `jpeg-read` adapter now uses `libjpeg-turbo-rs`'s safe `Decoder` and
+`Scanlines` API. It probes RGB8 dimensions, APP2 ICC, and APP1 EXIF before
+pixel decoding. For each source request it starts a fresh decoder, asks
+`jpeg_crop_scanline` for the horizontal range, skips leading rows, then emits
+the requested RGB8 samples from one engine-budgeted row. It skips the remaining
+rows and finishes the decoder, with warnings treated as errors, so malformed
+ICC and truncated tails cannot look like clean output. The codec can expand
+the crop to an iMCU boundary; the adapter also includes one source column on
+each side when available so fancy chroma upsampling matches full-frame RGB at
+the crop edge, then uses the returned origin to slice the requested columns.
+The source reports `CodecRegionRequest` and zero known engine-allocated
+full-frame output buffers. This records the codec request,
+not a proven reduction in entropy work, coefficient storage, or process RSS;
+finishing the stream can require work outside the requested vertical range.
+CMYK/YCCK files fail with `UnsupportedCodecLayout` rather than relabeling
+four-channel samples as RGB. Progressive JPEG can still require whole-image
+codec buffers, which remain outside the engine's memory budget. This replaces only the JPEG-specific
+full-frame decision above; the `DecodeSource` contract and AVIF/JPEG XL
+decisions are unchanged.
+
+The alternative was retaining the zune adapter and its full-frame RGB buffer.
+The workspace port already had independent C-oracle and conformance evidence
+and a safe row API; removing the engine buffer improves the observed managed
+memory contract. Re-evaluate if a supported JPEG layout changes, ICC/EXIF
+regressions appear, or measured whole-process memory and crop costs conflict
+with the intended use case. Scaled IDCT is available in the codec but is not
+selected by this adapter; ADR-0023's quality policy is still required.

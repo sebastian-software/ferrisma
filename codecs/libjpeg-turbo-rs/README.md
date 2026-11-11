@@ -20,10 +20,9 @@ lossless JPEG, color quantization and RGB565 output; see
 [ADR 0001](docs/adr/0001-mechanical-port.md) and
 [ADR 0006](docs/adr/0006-safe-decoding-api.md).
 
-**Engine integration:** Ferrixel currently uses `zune-jpeg` for `jpeg-read`;
-this port is not yet wired into the engine. Its row-streaming API exposes
-scaled decoding, but that capability is not yet available through the
-Ferrixel JPEG adapter. See [ADR-0025](../../docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)
+**Engine integration:** Ferrixel uses this port's safe scanline API for
+`jpeg-read`, including codec-level crop requests. Scaled decoding exists in
+the port but is not used by the Ferrixel adapter. See [ADR-0025](../../docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)
 and the [project status](../../docs/status.md) for adoption and open work.
 
 ## Why libjpeg-turbo, and why only the decoder

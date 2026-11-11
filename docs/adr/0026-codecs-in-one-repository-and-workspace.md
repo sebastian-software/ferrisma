@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-10
-- **Last reviewed:** 2026-11-10
+- **Last reviewed:** 2026-11-11
 - **Supersedes:** The separate-workspace requirement of [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), decision 2; codec-local development toolchain and profile placement where specified below
 - **Partially superseded by:** [0027](0027-tiered-validation-and-rust-test-orchestration.md) (decision 7 cadence)
 - **Related:** [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md)
@@ -180,3 +180,4 @@ evidence now, without declaring an unimplemented adapter equivalent.
 - 2026-11-10 — The first hosted Linux run exposed the shared workspace's registry-resolution requirement even for dependency-free codec packages. Codec CI now fetches the common lockfile before its established offline checks. AVIF workflows read the root toolchain pin instead of repeating it, and JXL's oracle cache identifies the relocated gitlink.
 
 - 2026-11-10 — [ADR-0027](0027-tiered-validation-and-rust-test-orchestration.md) supersedes decision 7’s preserved cadence with scoped PR checks and deep scheduled validation; the reference and provenance requirements remain.
+- 2026-11-11 — Engine JPEG and WebP adoption makes the ports reachable as local dependencies. Engine Clippy selects `ferrixel` and `ferrixel-kernels` with `--no-deps`; otherwise the pinned AVIF nightly re-lints the translated codec loops and rejects their stable-Clippy expectations. The existing strict stable component checks remain unchanged. This applies decision 2's verifier boundary to the new dependency graph without weakening either package's lint policy.

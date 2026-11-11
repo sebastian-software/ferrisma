@@ -43,6 +43,12 @@ their check scripts select it explicitly. MSRV jobs also select their toolchain
 explicitly. This is a verifier exception, not another workspace or dependency graph.
 The engine still builds on stable Rust 1.98 and the handwritten ports on Rust 1.95.
 
+Engine Clippy selects `ferrixel` and `ferrixel-kernels` with `--no-deps` when
+codec features are enabled. Once the ports are local dependencies, this prevents
+the pinned AVIF nightly from also linting their mechanically translated loops.
+The component checks below still lint each port strictly with its supported
+stable Clippy. See [contributing](../CONTRIBUTING.md) for the full command.
+
 ## Checks
 
 Root default members are the engine and kernels. This keeps the ordinary

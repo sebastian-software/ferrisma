@@ -62,8 +62,9 @@ jobs:
       - run: cargo clippy -p ferrixel-xtask --all-targets --locked -- -D warnings
       - run: cargo test -p ferrixel -p ferrixel-kernels --all-targets
       - run: cargo test -p ferrixel -p ferrixel-kernels --all-targets --all-features
-      - run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets -- -D warnings
-      - run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features -- -D warnings
+      # Codec dependencies retain their separate strict stable-Clippy jobs.
+      - run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --no-deps -- -D warnings
+      - run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features --no-deps -- -D warnings
       - run: |
           for feature in jpeg-read webp-read jpeg-xl-read avif-read avif-write icc cli; do
             cargo check --no-default-features --features "$feature"

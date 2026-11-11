@@ -30,8 +30,8 @@ const stages = [
   {
     label: "Decode",
     title: "Start with what the decoder actually emits.",
-    body: "JPEG, JPEG XL and AVIF input adapters describe the rendered pixels, their color metadata and their access capabilities. A format supporting regions does not mean every decoder can avoid a full frame.",
-    detail: "Current adapters: zune-jpeg, jxl-oxide and avif-decode.",
+    body: "JPEG, WebP, JPEG XL and AVIF input adapters describe the rendered pixels, their color metadata and their access capabilities. A format supporting regions does not mean every decoder can avoid a full frame.",
+    detail: "JPEG and WebP use the workspace ports; JPEG XL and AVIF use jxl-oxide and avif-decode.",
   },
   {
     label: "Orient & crop",
@@ -190,7 +190,7 @@ function Opening() {
       </div>
       <ul className="mono-facts fx-facts">
         <li>
-          <strong>JPEG · JXL · AVIF</strong>current engine inputs
+          <strong>JPEG · WebP · JXL · AVIF</strong>current engine inputs
         </li>
         <li>
           <strong>AVIF</strong>current engine output
@@ -319,7 +319,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       <MonoSection
         id="codecs"
         title="Four codec projects. One place to develop."
-        standfirst="The engine and its future codec backends now share a repository, a Cargo workspace and a validation entry point."
+        standfirst="The engine and its codec ports share a repository, a Cargo workspace and a validation entry point."
       >
         <MonoPassage>
           <p>
@@ -329,8 +329,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             remain independent.
           </p>
           <p>
-            The distinction below matters: being in the workspace does not make a port an active
-            engine backend. Most current input adapters still use interim dependencies.
+            JPEG and WebP input use the workspace ports. JPEG XL and AVIF input still use interim
+            dependencies; their port integrations remain separate adoption steps.
           </p>
         </MonoPassage>
         <MonoWide>
@@ -357,12 +357,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     <small>libjpeg-turbo-rs</small>
                   </th>
                   <td>
-                    Input through <code>zune-jpeg</code>; full-frame decode.
+                    Input through <code>libjpeg-turbo-rs</code>; full-resolution scanlines and
+                    crop/skip requests.
                   </td>
                   <td>8-bit decode, scaled decoding, crop/skip, metadata and safe scanlines.</td>
                   <td>
-                    Connect and validate the engine adapter. JPEG encoding is outside the port's
-                    scope.
+                    Broaden real-photo performance and memory evidence. JPEG encoding is outside
+                    the port's scope.
                   </td>
                 </tr>
                 <tr>
@@ -370,9 +371,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     <a href={path("codecs/webp")}>WebP</a>
                     <small>libwebp-rs</small>
                   </th>
-                  <td>No input or output adapter yet.</td>
+                  <td>
+                    Still-image input through <code>libwebp-rs</code>, with a budgeted decode buffer.
+                  </td>
                   <td>Decode and encode, incremental input, containers, animation and SharpYUV.</td>
-                  <td>Integrate the still-image path and satisfy its adoption gates.</td>
+                  <td>Add WebP output with explicit encoder options and memory costs.</td>
                 </tr>
                 <tr>
                   <th scope="row">
@@ -461,9 +464,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       >
         <p>
           The row executor keeps filtered rows in a bounded cache and releases them when they are no
-          longer needed. That does not remove the costs of the selected codecs: JPEG and AVIF input
-          may need a full frame, reorientation can allocate another buffer, and the AVIF encoder
-          needs an output frame.
+          longer needed. JPEG emits scanlines; WebP buffers the rows needed for a crop, including
+          preceding rows and filter context; AVIF input requires a decoded frame. Codec internals
+          can allocate additional memory, reorientation can need another buffer, and the AVIF
+          encoder needs an output frame.
         </p>
         <MonoWide>
           <figure className="fx-memory-path" aria-labelledby="memory-caption">

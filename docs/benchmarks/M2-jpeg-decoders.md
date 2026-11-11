@@ -1,5 +1,67 @@
 # M2: JPEG decoder candidates (libjpeg-turbo, jpegli, zune-jpeg)
 
+## 2026-11-11: Rust port versus zune before engine adoption
+
+This follow-up measures the actual workspace Rust port through its safe
+`Decoder`/`Scanlines` API before removing `zune-jpeg` from Ferrixel's runtime
+dependency graph. It is separate from the original C libjpeg-turbo comparison
+below. The two release harnesses decode a JPEG held in memory to full RGB8:
+the retained `scripts/bench/jpeg-decoders/zune` harness uses zune's full-frame
+API, while `examples/jpeg_decode_bench.rs` reads the port's scanlines into a
+full-frame `Vec`. Header/start, pixel decode, and output allocation are timed;
+file I/O is outside the timed region. No ICC transform or EXIF orientation is
+applied by either harness. The Ferrixel adapter instead emits a requested
+region from one budgeted row, so these RSS numbers are *not* adapter RSS.
+
+**Environment:** Apple M1 Ultra (`Mac13,2`), 64 GiB, macOS 27.0.1,
+Darwin 27.0.0 arm64; rustc 1.100.0-nightly (2026-09-06), Cargo release profile,
+workspace base `65aeca3a` with issue #14 changes, zune-jpeg 0.5.15 with
+`std,neon,x86`, workspace libjpeg-turbo-rs 0.1.0 with default SIMD. The
+12/24/48 Mpx plasma files came from `scripts/bench/make-corpus.sh`, seeded
+deterministically; the dog and flower files are the original tracked inputs
+named by `scripts/bench/compare-sharp.py`. Each harness was run once per file
+in zune-then-port order. The harness sorts 3–9 repetitions without a separate
+warmup. The one-minute load average after timing was 2.06; sandbox restrictions
+prevented a before/during sample. Single-run macOS `/usr/bin/time -l` measured
+peak resident set size (RSS) separately.
+
+| Input | Pixels | Repetitions | zune median ms | port median ms | port / zune |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Dog photo, ICC/EXIF | 4032×3024 | 9 | 52.20 | 60.34 | 1.16 |
+| Flower photo | 2268×1512 | 9 | 11.01 | 12.17 | 1.11 |
+| Plasma 12 Mpx | 4000×3000 | 7 | 30.40 | 30.23 | 0.99 |
+| Plasma 24 Mpx | 6000×4000 | 5 | 62.52 | 59.49 | 0.95 |
+| Plasma 48 Mpx | 8000×6000 | 3 | 118.27 | 117.06 | 0.99 |
+
+The best times were respectively zune/port 52.00/60.22, 10.97/11.92,
+30.27/30.11, 62.01/59.29, and 117.80/116.51 ms. Separate one-decode peak
+RSS readings were 42.94/42.66 MB (zune/port, dog) and 151.32/150.70 MB
+(plasma 48 Mpx). Single-run RSS differences are too small to support a
+process-memory superiority claim. In the engine's 7×5 JPEG regression, a
+requested crop budgets an 18-byte decoded row, down from the former 105-byte
+full-frame RGB buffer; codec scratch remains opaque and may hold whole-image
+coefficients for progressive input.
+
+Reproduce from the repository root on the same host profile:
+
+```sh
+scripts/bench/make-corpus.sh /private/tmp/ferrixel-jpeg-corpus
+cargo build --release --manifest-path scripts/bench/jpeg-decoders/zune/Cargo.toml
+cargo build -p ferrixel --release --features jpeg-read --example jpeg_decode_bench
+scripts/bench/jpeg-decoders/zune/target/release/ferrixel-jpeg-decoders-zune codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg 9
+target/release/examples/jpeg_decode_bench codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg 9
+```
+
+Repeat the last two commands for the tracked flower and generated plasma
+paths above, using 9/7/5/3 repetitions respectively. This measured Rust port
+does **not** beat zune on the two real photos; the engine adoption rests on the
+reference-derived decoder's independent conformance evidence and its safe
+row/region contract. Broader Arm/x86-64 speed, quality, binary-size, and
+whole-process-memory comparisons remain open. Scaled IDCT was not measured or
+enabled here.
+
+## Original 2026-11-06 C decoder comparison
+
 - **Date:** 2026-11-06
 - **Decision context:** [ADR-0025](../adr/0025-codec-selection-reference-conformance-and-image-scope.md) point 7 (choosing the JPEG decoder for a sister port) and [ADR-0023](../adr/0023-decode-side-work-and-scaling-policy.md) decision 3 (shrink-on-load as a measured quality policy)
 - **Harness:** [`scripts/bench/jpeg-decoders`](../../scripts/bench/jpeg-decoders): `build.sh` builds the pinned libraries and the harnesses, `run.py` runs all measurements, and `jpegdec.c` is a single libjpeg-API harness compiled once against each library
