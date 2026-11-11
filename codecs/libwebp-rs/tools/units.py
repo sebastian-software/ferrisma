@@ -164,6 +164,10 @@ def verify(manifest):
             problems.append(f"missing module file: {entry['module']}")
         elif not module.read_text().startswith(header):
             problems.append(f"{entry['module']}: provenance header differs from tools/units.json")
+        if "shared_core" in entry:
+            core = ROOT / entry["shared_core"]
+            if not core.is_file() or not core.read_text().startswith(header):
+                problems.append(f"{entry['shared_core']}: shared source provenance header differs")
     modules = {entry["module"]: entry for entry in manifest["modules"]}
     for exception in manifest.get("exceptions", []):
         target = modules.get(exception["module"])

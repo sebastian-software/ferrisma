@@ -87,6 +87,15 @@ jobs:
         python3 tools/check_sharpyuv_alloc.py
         python3 tools/check_sharpyuv_cpu.py
         python3 tools/check_sharpyuv_linkage.py
+    - name: Verify extraction boundary fixtures against the pinned C reference
+      shell: bash
+      run: |
+        cc -std=c11 -O2 -I upstream/libwebp \
+          tests/sharpyuv/extraction_boundaries.c \
+          -L build/sharpyuv-reference -lsharpyuv \
+          -Wl,-rpath,"$PWD/build/sharpyuv-reference" \
+          -o build/sharpyuv-extraction-c
+        build/sharpyuv-extraction-c | tee build/sharpyuv-extraction-c.log
     - name: Record compiler-default Clang diagnostic
       if: runner.os == 'macOS' && env.CI_TIER == 'full'
       run: python3 tools/diagnose_sharpyuv_numerics.py
@@ -100,7 +109,12 @@ jobs:
       run: |
         python3 tools/build_sharpyuv_consumers.py rust
         python3 tools/run_tests.py build/sharpyuv-webp-rust
-        python3 tools/compare_results.py --baseline build/sharpyuv-webp-c-results.xml --port build/sharpyuv-webp-rust-results.xml --report build/sharpyuv-webp-inventory.json
+        python3 tools/compare_results.py \
+          --baseline build/sharpyuv-webp-c-results.xml \
+          --port build/sharpyuv-webp-rust-results.xml \
+          --baseline-log build/sharpyuv-webp-c/Testing/Temporary/LastTest.log \
+          --port-log build/sharpyuv-webp-rust/Testing/Temporary/LastTest.log \
+          --report build/sharpyuv-webp-inventory.json
         python3 tools/check_sharpyuv_linkage.py --consumer build/sharpyuv-webp-rust --executable build/sharpyuv-webp-rust/tests/fuzzer/enc_dec_fuzzer
         python3 tools/verify_upstream.py
     - name: Record executed CI scope
@@ -127,6 +141,7 @@ jobs:
           codecs/libavif-rs/build/sharpyuv-allocation/results.json
           codecs/libavif-rs/build/sharpyuv-cpu/results.json
           codecs/libavif-rs/build/sharpyuv-linkage.json
+          codecs/libavif-rs/build/sharpyuv-extraction-c.log
           codecs/libavif-rs/build/sharpyuv-webp-*/replacement.json
           codecs/libavif-rs/build/sharpyuv-webp-*/sharpyuv-linkage.json
           codecs/libavif-rs/build/sharpyuv-webp-*/Testing/Temporary/LastTest.log

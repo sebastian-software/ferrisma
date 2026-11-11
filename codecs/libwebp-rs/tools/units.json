@@ -1,5 +1,5 @@
 {
-  "comment": "Upstream translation units, their Rust modules and owning work packages, each package's sub-wave and declared dependencies (ADR 0009), function- and type-level exceptions inside a module, and reviewed header includes. Fixed by WP0; tools/units.py verifies it against upstream/libwebp and src/, and tools/unit_dependencies.py compares the dependencies with the oracle's actual cross-unit references. The api list names the safe API modules (ADR 0006), which translate no upstream file.",
+  "comment": "Upstream translation units, their Rust modules and owning work packages, each package's sub-wave and declared dependencies (ADR 0009), function- and type-level exceptions inside a module, and reviewed header includes. Fixed by WP0; tools/units.py verifies it against upstream/libwebp and src/, including relocated SharpYUV bodies selected by shared_core, and tools/unit_dependencies.py compares the dependencies with the oracle's actual cross-unit references. The api list names the safe API modules (ADR 0006), which translate no upstream file.",
   "packages": {
     "WP1": {
       "name": "types, memory, workers",
@@ -1097,6 +1097,7 @@
     },
     {
       "module": "src/sharpyuv/sharpyuv.rs",
+      "shared_core": "../../crates/libsharpyuv-core/src/sharpyuv.rs",
       "upstream": [
         "sharpyuv/sharpyuv.c",
         "sharpyuv/sharpyuv.h"
@@ -1113,6 +1114,7 @@
     },
     {
       "module": "src/sharpyuv/sharpyuv_csp.rs",
+      "shared_core": "../../crates/libsharpyuv-core/src/sharpyuv_csp.rs",
       "upstream": [
         "sharpyuv/sharpyuv_csp.c",
         "sharpyuv/sharpyuv_csp.h"
@@ -1121,6 +1123,7 @@
     },
     {
       "module": "src/sharpyuv/sharpyuv_dsp.rs",
+      "shared_core": "../../crates/libsharpyuv-core/src/sharpyuv_dsp.rs",
       "upstream": [
         "sharpyuv/sharpyuv_dsp.c",
         "sharpyuv/sharpyuv_dsp.h"
@@ -1129,6 +1132,7 @@
     },
     {
       "module": "src/sharpyuv/sharpyuv_gamma.rs",
+      "shared_core": "../../crates/libsharpyuv-core/src/sharpyuv_gamma.rs",
       "upstream": [
         "sharpyuv/sharpyuv_gamma.c",
         "sharpyuv/sharpyuv_gamma.h"

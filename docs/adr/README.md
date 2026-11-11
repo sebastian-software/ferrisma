@@ -51,6 +51,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0030](0030-still-webp-output-and-format-neutral-encoder-result.md) | Still WebP output, format-tagged encoder results, and backend use without `avif-write` | Experimental |
 | [0031](0031-workspace-libavif-input-experiment.md) | Experimental AVIF input through an isolated safe reader and the workspace libaom reference decoder | Experimental |
 | [0032](0032-jpeg-xl-workspace-decoder-input.md) | JPEG XL input through the workspace reference decoder, with a budgeted full-frame fallback | Experimental |
+| [0033](0033-shared-sharpyuv-conversion-core.md) | One safe SharpYUV conversion core with WebP and AVIF boundary adapters | Experimental |
 
 ## Changing an ADR
 

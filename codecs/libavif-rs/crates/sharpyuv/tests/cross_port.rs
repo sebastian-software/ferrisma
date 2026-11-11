@@ -10,6 +10,16 @@ fn bytes(words: &[u16]) -> Vec<u8> {
     words.iter().flat_map(|word| word.to_ne_bytes()).collect()
 }
 
+fn fnv64(parts: &[&[u8]]) -> u64 {
+    let mut hash = 14_695_981_039_346_656_037_u64;
+    for part in parts {
+        for &byte in *part {
+            hash = (hash ^ u64::from(byte)).wrapping_mul(1_099_511_628_211);
+        }
+    }
+    hash
+}
+
 #[test]
 fn conversions_match_across_ports() {
     let mut cases = 0;
@@ -20,7 +30,11 @@ fn conversions_match_across_ports() {
                     for (width, height) in [(1_usize, 1_usize), (3, 5), (17, 9)] {
                         let input_unit = if rgb_depth == 8 { 1 } else { 2 };
                         let input_stride = (3 * width + 6) * input_unit;
-                        let mut input = vec![0_u16; input_stride * height / 2 + 1];
+                        // The AVIF/C loop forms channel pointers two rows past
+                        // the final input pair, including the G/B offsets. The
+                        // tail is allocated even though no sample there is read.
+                        let input_bytes_len = input_stride * (height + 2) + 2 * input_unit;
+                        let mut input = vec![0_u16; input_bytes_len.div_ceil(2) + 1];
                         let mut seed = 0x4156_4946_u32;
                         let max = (1_u32 << rgb_depth) - 1;
                         let mut encoded = vec![0_u8; input.len() * 2];
@@ -65,7 +79,8 @@ fn conversions_match_across_ports() {
                         };
                         // SAFETY: The input is u16-aligned, initialized, and includes every
                         // declared row. Channel addresses lie within this one read-only
-                        // allocation. Output planes are distinct aligned allocations with
+                        // allocation, including the final formed two-row-ahead
+                        // pointers. Output planes are distinct aligned allocations with
                         // padded strides and complete luma/chroma extents. All storage and
                         // the static matrix outlive this synchronous call; no pointer escapes.
                         let raw_ok = unsafe {
@@ -130,4 +145,227 @@ fn conversions_match_across_ports() {
         }
     }
     assert_eq!(cases, 2880);
+}
+
+// The independent C oracles cover these contracts separately. Compare the two
+// Rust public boundaries on the same signed layout before extracting a core.
+#[test]
+fn signed_layouts_and_repeated_calls_match_across_ports() {
+    // Exact outputs from tests/sharpyuv/extraction_boundaries.c linked against
+    // the pinned SharpYUV 0.4.2 C reference with -ffp-contract=off. The C
+    // program and reproduction command are recorded in the evidence note.
+    const C_HASHES: [u64; 16] = [
+        0xa42a_4a0c_61e4_d1de, 0xa860_f9de_fcb6_3669,
+        0xf22d_ccbb_a09d_4982, 0x11ab_e18f_588e_52a9,
+        0xa42a_4a0c_61e4_d1de, 0x5bbf_3f9a_1664_616c,
+        0xf22d_ccbb_a09d_4982, 0xfdf2_9ae3_8a42_b629,
+        0xdaf6_6228_b0d7_78f5, 0x91a6_296d_f83d_58b2,
+        0x9f02_a04a_3f98_7860, 0x338e_5c77_50ac_5232,
+        0x1aab_832c_2c5a_22c8, 0x755f_6aa9_adb9_e4f1,
+        0x7f39_0f81_cc2d_2cf8, 0xc64e_fdc8_329c_3212,
+    ];
+    let width = 3_usize;
+    let height = 5_usize;
+    // The AVIF/C implementation forms pointers one row beyond the final
+    // output row and two rows beyond the final input pair. Keep those formed
+    // pointers inside each allocation even though they are not dereferenced.
+    const INPUT_GUARD: usize = 64;
+    const OUTPUT_GUARD: usize = 32;
+    let mut case_index = 0;
+    for planar in [false, true] {
+        for reverse_rows in [false, true] {
+            for reverse_pixels in [false, true] {
+                for yuv_depth in [8, 10] {
+                    let step = if planar { 2 } else { 6 };
+                    let row = if planar { 16 } else { 24 };
+                    let channel = if planar { [0, 64, 128] } else { [0, 2, 4] };
+                    let mut input = vec![0xa5a5_u16; 128 + INPUT_GUARD];
+                    for (i, word) in input[INPUT_GUARD / 2..INPUT_GUARD / 2 + 128]
+                        .iter_mut()
+                        .enumerate()
+                    {
+                        *word = (i as u16).wrapping_mul(1009).wrapping_add(0x8001);
+                    }
+                    let input_bytes = bytes(&input);
+                    let origins = channel.map(|base| {
+                        INPUT_GUARD + base + if reverse_rows { (height - 1) * row } else { 0 }
+                            + if reverse_pixels { (width - 1) * step } else { 0 }
+                    });
+                    let signed_step = if reverse_pixels { -(step as i32) } else { step as i32 };
+                    let signed_row = if reverse_rows { -(row as i32) } else { row as i32 };
+                    for origin in origins {
+                        let formed = origin as isize + 6 * signed_row as isize;
+                        assert!(formed >= 0 && formed < input_bytes.len() as isize);
+                        for y in 0..height {
+                            for x in 0..width {
+                                let sample = origin as isize
+                                    + y as isize * signed_row as isize
+                                    + x as isize * signed_step as isize;
+                                assert!(sample >= 0 && sample + 2 <= input_bytes.len() as isize);
+                            }
+                        }
+                    }
+                    let output_unit = if yuv_depth == 8 { 1 } else { 2 };
+                    let y_row = 8 * output_unit;
+                    let uv_row = 6 * output_unit;
+                    let y_origin = OUTPUT_GUARD + if reverse_rows { (height - 1) * y_row } else { 0 };
+                    let uv_origin = OUTPUT_GUARD + if reverse_rows { (height.div_ceil(2) - 1) * uv_row } else { 0 };
+                    let y_stride = if reverse_rows { -(y_row as i32) } else { y_row as i32 };
+                    let uv_stride = if reverse_rows { -(uv_row as i32) } else { uv_row as i32 };
+                    for (origin, stride, rows, columns, size) in [
+                        (y_origin, y_stride, height, width, (64 + OUTPUT_GUARD) * 2),
+                        (uv_origin, uv_stride, height.div_ceil(2), width.div_ceil(2),
+                            (32 + OUTPUT_GUARD) * 2),
+                    ] {
+                        let formed = origin as isize + rows as isize * stride as isize;
+                        assert!(formed >= 0 && formed < size as isize);
+                        for y in 0..rows {
+                            for x in 0..columns {
+                                let sample = origin as isize
+                                    + y as isize * stride as isize
+                                    + x as isize * output_unit as isize;
+                                assert!(sample >= 0 && sample + output_unit as isize <= size as isize);
+                            }
+                        }
+                    }
+                    let matrix = sharp_yuv_get_conversion_matrix(SharpYuvMatrixType(0)).unwrap();
+                    // SAFETY: Matrix 0 is a live static predefined matrix.
+                    let raw_matrix = unsafe { sharpyuv::SharpYuvGetConversionMatrix(0) };
+                    let raw_options = sharpyuv::SharpYuvOptions {
+                        yuv_matrix: raw_matrix,
+                        transfer_type: 13,
+                    };
+                    let safe_options = SharpYuvOptions {
+                        yuv_matrix: matrix,
+                        transfer_type: SharpYuvTransferFunctionType(13),
+                    };
+                    for repetition in 0..3 {
+                        let mut raw_y = vec![0xa5a5_u16; 64 + OUTPUT_GUARD];
+                        let mut raw_u = vec![0xa5a5_u16; 32 + OUTPUT_GUARD];
+                        let mut raw_v = vec![0xa5a5_u16; 32 + OUTPUT_GUARD];
+                        let mut safe_y = bytes(&raw_y);
+                        let mut safe_u = bytes(&raw_u);
+                        let mut safe_v = bytes(&raw_v);
+                        // SAFETY: All channel pointers are aligned within the initialized
+                        // input allocation. Signed pixel steps and the final
+                        // two-row input advance stay inside it. Output planes
+                        // are distinct, aligned, and include one-row guards at
+                        // both ends for the final luma/chroma pointer advance.
+                        let raw_ok = unsafe {
+                            let base = input.as_ptr().cast::<u8>();
+                            sharpyuv::SharpYuvConvertWithOptions(
+                                base.add(origins[0]).cast(),
+                                base.add(origins[1]).cast(),
+                                base.add(origins[2]).cast(),
+                                signed_step,
+                                signed_row,
+                                16,
+                                raw_y.as_mut_ptr().cast::<u8>().add(y_origin).cast(),
+                                y_stride,
+                                raw_u.as_mut_ptr().cast::<u8>().add(uv_origin).cast(),
+                                uv_stride,
+                                raw_v.as_mut_ptr().cast::<u8>().add(uv_origin).cast(),
+                                uv_stride,
+                                yuv_depth,
+                                width as i32,
+                                height as i32,
+                                &raw_options,
+                            )
+                        };
+                        let safe_ok = sharp_yuv_convert_with_options(
+                            &input_bytes, origins[0], &input_bytes, origins[1],
+                            &input_bytes, origins[2], signed_step, signed_row, 16,
+                            &mut safe_y, y_origin, y_stride,
+                            &mut safe_u, uv_origin, uv_stride,
+                            &mut safe_v, uv_origin, uv_stride,
+                            yuv_depth, width as i32, height as i32, &safe_options,
+                        );
+                        let context = format!("planar={planar}, rows={reverse_rows}, pixels={reverse_pixels}, YUV{yuv_depth}, call={repetition}");
+                        assert_eq!(raw_ok, 1, "{context}");
+                        assert!(safe_ok, "{context}");
+                        assert_eq!(safe_y, bytes(&raw_y), "Y: {context}");
+                        assert_eq!(safe_u, bytes(&raw_u), "U: {context}");
+                        assert_eq!(safe_v, bytes(&raw_v), "V: {context}");
+                        assert_eq!(input_bytes, bytes(&input), "input: {context}");
+                        assert_eq!(
+                            fnv64(&[&safe_y, &safe_u, &safe_v]),
+                            C_HASHES[case_index],
+                            "pinned C oracle: {context}"
+                        );
+                    }
+                    case_index += 1;
+                }
+            }
+        }
+    }
+    assert_eq!(case_index, C_HASHES.len());
+}
+
+#[test]
+fn rejected_arguments_leave_outputs_unchanged_across_ports() {
+    let input = vec![0x1234_u16; 64];
+    let input_bytes = bytes(&input);
+    // (name, RGB step, RGB stride, RGB depth, Y stride, U stride, V stride,
+    // YUV depth, width, height). These are defined early rejections in C.
+    let cases = [
+        ("zero width", 6, 18, 16, 10, 8, 8, 10, 0, 3),
+        ("negative height", 6, 18, 16, 10, 8, 8, 10, 3, -1),
+        ("maximum width", 6, 18, 16, 10, 8, 8, 10, i32::MAX, 3),
+        ("RGB depth", 6, 18, 9, 10, 8, 8, 10, 3, 3),
+        ("YUV depth", 6, 18, 16, 10, 8, 8, 9, 3, 3),
+        ("RGB step alignment", 3, 18, 16, 10, 8, 8, 10, 3, 3),
+        ("RGB stride alignment", 6, 17, 16, 10, 8, 8, 10, 3, 3),
+        ("Y stride alignment", 6, 18, 16, 9, 8, 8, 10, 3, 3),
+        ("U stride alignment", 6, 18, 16, 10, 7, 8, 10, 3, 3),
+        ("V stride alignment", 6, 18, 16, 10, 8, 7, 10, 3, 3),
+    ];
+    let matrix = sharp_yuv_get_conversion_matrix(SharpYuvMatrixType(0)).unwrap();
+    // SAFETY: Matrix 0 is a live static predefined matrix.
+    let raw_matrix = unsafe { sharpyuv::SharpYuvGetConversionMatrix(0) };
+    let raw_options = sharpyuv::SharpYuvOptions {
+        yuv_matrix: raw_matrix,
+        transfer_type: 13,
+    };
+    let safe_options = SharpYuvOptions {
+        yuv_matrix: matrix,
+        transfer_type: SharpYuvTransferFunctionType(13),
+    };
+    for (name, step, row, rgb_depth, y_row, u_row, v_row, yuv_depth, width, height) in cases {
+        let mut raw_y = vec![0xa5a5_u16; 32];
+        let mut raw_u = vec![0xa5a5_u16; 16];
+        let mut raw_v = vec![0xa5a5_u16; 16];
+        let mut safe_y = bytes(&raw_y);
+        let mut safe_u = bytes(&raw_u);
+        let mut safe_v = bytes(&raw_v);
+        // SAFETY: All pointers are aligned and live. Each case returns before
+        // dereferencing any sample or output pointer, including the cases with
+        // dimensions too large for these buffers.
+        let raw_ok = unsafe {
+            let base = input.as_ptr().cast::<u8>();
+            sharpyuv::SharpYuvConvertWithOptions(
+                base.cast(), base.add(2).cast(), base.add(4).cast(),
+                step, row, rgb_depth,
+                raw_y.as_mut_ptr().cast(), y_row,
+                raw_u.as_mut_ptr().cast(), u_row,
+                raw_v.as_mut_ptr().cast(), v_row,
+                yuv_depth, width, height, &raw_options,
+            )
+        };
+        let safe_ok = sharp_yuv_convert_with_options(
+            &input_bytes, 0, &input_bytes, 2, &input_bytes, 4,
+            step, row, rgb_depth,
+            &mut safe_y, 0, y_row,
+            &mut safe_u, 0, u_row,
+            &mut safe_v, 0, v_row,
+            yuv_depth, width, height, &safe_options,
+        );
+        assert_eq!(raw_ok, 0, "{name}");
+        assert!(!safe_ok, "{name}");
+        assert_eq!(safe_y, bytes(&raw_y), "Y: {name}");
+        assert_eq!(safe_u, bytes(&raw_u), "U: {name}");
+        assert_eq!(safe_v, bytes(&raw_v), "V: {name}");
+        assert!(safe_y.iter().all(|&byte| byte == 0xa5), "Y modified: {name}");
+        assert!(safe_u.iter().all(|&byte| byte == 0xa5), "U modified: {name}");
+        assert!(safe_v.iter().all(|&byte| byte == 0xa5), "V modified: {name}");
+    }
 }

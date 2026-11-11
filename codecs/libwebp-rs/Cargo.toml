@@ -7,6 +7,9 @@ license = "BSD-3-Clause"
 description = "A mechanical Rust port of libwebp, the WebP reference implementation"
 publish = false
 
+[dependencies]
+libsharpyuv-core = { path = "../../crates/libsharpyuv-core", version = "0.1.0" }
+
 [lib]
 name = "webp"
 # The rlib serves Rust callers and the tests. The static and dynamic libraries

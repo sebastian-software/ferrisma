@@ -10,6 +10,7 @@ and the M1 acceptance gates still apply. For the current pipeline, see [status](
 | --- | --- | --- |
 | Engine | `ferrixel` | repository root |
 | SIMD kernels | `ferrixel-kernels` | `crates/ferrixel-kernels` |
+| Shared SharpYUV conversion | `libsharpyuv-core` | `crates/libsharpyuv-core` |
 | AVIF encoder adapter | `ferrixel-libavif` | `crates/ferrixel-libavif` |
 | AVIF input adapter | `ferrixel-avif-read` | `crates/ferrixel-avif-read` |
 | JPEG XL opt-in input adapter | `ferrixel-jxl-decoder` | `crates/ferrixel-jxl-decoder` |
@@ -58,7 +59,7 @@ stable Clippy. See [contributing](../CONTRIBUTING.md) for the full command.
 ## Checks
 
 Root default members are the engine and kernels. This keeps the ordinary
-contributor loop bounded and preserves a stable-compatible codec-free engine. All 13 members participate
+contributor loop bounded and preserves a stable-compatible codec-free engine. All 14 members participate
 in `cargo check --workspace --all-targets` on the AVIF port's supported native
 hosts (macOS ARM64 and GNU Linux x86-64).
 
@@ -100,7 +101,11 @@ the libavif encoder adapter can link together. Engine all-feature checks select
 reference-sensitive checks. Run those checks through its script or from its
 directory. Rust artifacts live in the root `target/`; C/C++ reference outputs
 stay local to each codec. Generated AVIF source is excluded from rustfmt because
-its translation manifests verify source hashes.
+its translation manifests verify source hashes. The shared SharpYUV core supplies
+one safe production conversion loop to WebP and AVIF through their distinct
+adapters ([ADR-0033](adr/0033-shared-sharpyuv-conversion-core.md)). The
+generated AVIF unit remains a byte-verified mechanical reference, and the
+pinned C oracle remains independent of both Rust paths.
 
 ## Ownership, provenance, and releases
 

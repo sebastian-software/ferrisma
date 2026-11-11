@@ -3,7 +3,7 @@ name = "libavif-sharpyuv"
 version = "0.1.0"
 edition = "2021"
 license = "BSD-3-Clause"
-description = "Mechanical portable SharpYUV 0.4.2 translation from libwebp 1.6.0"
+description = "SharpYUV 0.4.2 C ABI adapter over the shared safe conversion core"
 publish = false
 
 [lib]
@@ -12,6 +12,7 @@ crate-type = ["rlib", "staticlib", "cdylib"]
 
 [dependencies]
 libc = "=0.2.191"
+libsharpyuv-core = { path = "../../../../crates/libsharpyuv-core", version = "0.1.0" }
 
 [dev-dependencies]
 # Cross-port adoption evidence; this is not a production dependency.

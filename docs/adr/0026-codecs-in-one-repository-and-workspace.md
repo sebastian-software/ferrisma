@@ -5,7 +5,7 @@
 - **Last reviewed:** 2026-11-11
 - **Supersedes:** The separate-workspace requirement of [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), decision 2; codec-local development toolchain and profile placement where specified below
 - **Partially superseded by:** [0027](0027-tiered-validation-and-rust-test-orchestration.md) (decision 7 cadence)
-- **Related:** [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md)
+- **Related:** [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0033](0033-shared-sharpyuv-conversion-core.md)
 
 ## Context
 
@@ -172,7 +172,22 @@ it would couple unrelated codecs and leave the callback contract unresolved.
 This review therefore establishes an extraction direction and executable parity
 evidence now, without declaring an unimplemented adapter equivalent.
 
+The [first follow-up evidence package](../research/2026-11-10-sharpyuv-extraction-evidence.md)
+adds signed-layout, repeated-call, and defined rejection comparisons through
+both Rust public boundaries, plus a reproducible pre-extraction runtime and
+process peak-RSS baseline on macOS ARM64. The independent C signed-layout
+reference passes locally; native Linux and full consumer gates
+remain open. This does not change the extraction decision or the
+AVIF ABI contract.
+
 ## Amendment log
+
+- 2026-11-11 — [ADR-0033](0033-shared-sharpyuv-conversion-core.md) implements the extraction selected in this review. The safe numeric loop is shared; WebP and AVIF retain their distinct APIs, and the generated AVIF source remains an immutable reference. Re-review after native Linux and full original-consumer gates.
+
+- 2026-11-10 — Recorded the first bounded SharpYUV extraction evidence and
+  pre-extraction measurements. Re-review extraction after the remaining native
+  oracle and consumer gates pass and a shared core can be compared with this
+  baseline; no dependency or public API changed.
 
 - 2026-11-10 — Accepted the maintainer's consolidation decision and corrections:
   one workspace, early duplication review, no permanent source-repository

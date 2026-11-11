@@ -18,6 +18,9 @@
               all(target_os = "linux", target_arch = "x86_64"))))]
 compile_error!("The portable source mapping targets macOS ARM64 and Linux x86-64");
 
+// The generated `sharpyuv.rs` is retained byte-for-byte as the mechanical
+// reference in TRANSLATION.json. Production selects the shared-core adapter.
+#[path = "adapter.rs"]
 mod sharpyuv;
 #[cfg(target_arch = "aarch64")]
 mod sharpyuv_cpu;
