@@ -22,6 +22,7 @@ pub use crate::encoder_backend::{
     EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
 };
 pub use crate::quality::Filter as ResizeFilter;
+pub use crate::resize_geometry::{ResizeFit, ResizeOptions};
 pub use ferrixel_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelReason};
 
 /// Chroma layout for AVIF output and AVIF encoder backends.
@@ -243,6 +244,9 @@ pub struct ProcessingReport {
 pub struct Output {
     pub format: OutputFormat,
     pub bytes: Vec<u8>,
+    /// Actual encoded dimensions, which may be smaller than requested.
+    pub width: u32,
+    pub height: u32,
     pub report: ProcessingReport,
 }
 
@@ -466,6 +470,93 @@ fn open_source<'a>(
     }
 }
 
+/// Limits applied before and after parsing a JPEG or WebP header.
+#[derive(Clone, Copy, Debug)]
+pub struct InspectionLimits {
+    pub max_input_bytes: usize,
+    pub max_input_pixels: u64,
+}
+
+impl Default for InspectionLimits {
+    fn default() -> Self {
+        let options = TransformOptions::default();
+        Self {
+            max_input_bytes: options.max_input_bytes,
+            max_input_pixels: options.max_input_pixels,
+        }
+    }
+}
+
+/// Metadata for samples emitted by a JPEG or WebP decoder, before any
+/// profile assumption or color transform. Dimensions distinguish stored from
+/// upright display coordinates; ICC and CICP are evidence, not a conversion.
+#[derive(Clone, Debug)]
+pub struct ImageMetadata {
+    pub stored_width: u32,
+    pub stored_height: u32,
+    pub width: u32,
+    pub height: u32,
+    pub has_alpha: bool,
+    pub rendered_icc: Option<Vec<u8>>,
+    pub rendered_cicp: Option<[u8; 4]>,
+}
+
+/// Inspect JPEG or WebP headers without requesting pixel decoding. Limits do
+/// not bound opaque codec allocations, and a valid header does not guarantee
+/// a complete decodable image or a supported output color.
+///
+/// # Errors
+/// Returns an error for invalid limits, unsupported formats, missing codec
+/// features, malformed headers, or an exceeded input limit.
+pub fn inspect(
+    encoded: &[u8],
+    format: ImageFormat,
+    limits: InspectionLimits,
+) -> Result<ImageMetadata, ProcessingError> {
+    if limits.max_input_bytes == 0 || limits.max_input_pixels == 0 {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
+            "input byte/pixel limits must be nonzero",
+        ));
+    }
+    if encoded.len() > limits.max_input_bytes {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InputLimitExceeded,
+            "compressed image exceeds max_input_bytes",
+        ));
+    }
+    if !matches!(format, ImageFormat::Jpeg | ImageFormat::WebP) {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::UnsupportedInput,
+            "header inspection supports JPEG and WebP",
+        ));
+    }
+    let source = open_source(
+        encoded,
+        format,
+        limits.max_input_pixels,
+        JpegXlDecoder::default(),
+    )?;
+    let info = source.info();
+    let stored = info.size;
+    if u64::from(stored.width) * u64::from(stored.height) > limits.max_input_pixels {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InputLimitExceeded,
+            "image exceeds max_input_pixels",
+        ));
+    }
+    let display = source.orientation().display_size(stored)?;
+    Ok(ImageMetadata {
+        stored_width: stored.width,
+        stored_height: stored.height,
+        width: display.width,
+        height: display.height,
+        has_alpha: info.layout == crate::decoder::ChannelLayout::Rgba,
+        rendered_icc: info.rendered_icc.clone(),
+        rendered_cicp: info.rendered_cicp,
+    })
+}
+
 /// Convert one real input to SDR AVIF. Quality and profile constraints are
 /// enforced before executing a pixel transform, and only *one* decoder region
 /// is requested for the output. The encoder's input frame is explicitly
@@ -479,7 +570,7 @@ pub fn transcode(
     format: ImageFormat,
     options: TransformOptions,
 ) -> Result<Output, ProcessingError> {
-    run(encoded, format, options, None)
+    run(encoded, format, options, None, None)
 }
 
 /// [`transcode`] with another encoder (ADR-0024): the same decode, color,
@@ -497,7 +588,36 @@ pub fn transcode_with(
     options: TransformOptions,
     backend: &dyn EncoderBackend,
 ) -> Result<Output, ProcessingError> {
-    run(encoded, format, options, Some(backend))
+    run(encoded, format, options, Some(backend), None)
+}
+
+/// Transcode using aspect-aware thumbnail geometry. The `output_width` and
+/// `output_height` fields of `options` are ignored; all other options apply.
+/// See [`ResizeOptions`] and ADR-0034 for integer rounding and crop semantics.
+///
+/// # Errors
+/// Returns the same errors as [`transcode`], including invalid resize geometry.
+pub fn transcode_resized(
+    encoded: &[u8],
+    format: ImageFormat,
+    options: TransformOptions,
+    resize: ResizeOptions,
+) -> Result<Output, ProcessingError> {
+    run(encoded, format, options, None, Some(resize))
+}
+
+/// [`transcode_resized`] with a caller-provided encoder backend.
+///
+/// # Errors
+/// Returns the same errors as [`transcode_with`].
+pub fn transcode_resized_with(
+    encoded: &[u8],
+    format: ImageFormat,
+    options: TransformOptions,
+    resize: ResizeOptions,
+    backend: &dyn EncoderBackend,
+) -> Result<Output, ProcessingError> {
+    run(encoded, format, options, Some(backend), Some(resize))
 }
 
 /// The output side of one transcode: the built-in sink or a backend's.
@@ -568,6 +688,7 @@ fn run(
     format: ImageFormat,
     options: TransformOptions,
     backend: Option<&dyn EncoderBackend>,
+    resize: Option<ResizeOptions>,
 ) -> Result<Output, ProcessingError> {
     let started = Instant::now();
     if options.max_output_bytes == 0 {
@@ -615,7 +736,11 @@ fn run(
     if backend.is_none() && options.output_format == OutputFormat::Avif {
         encode_settings.validate()?;
     }
-    let target_size = Size::new(options.output_width, options.output_height)?;
+    if let Some(resize) = resize {
+        crate::resize_geometry::validate(resize)?;
+    } else {
+        Size::new(options.output_width, options.output_height)?;
+    }
     if options.max_input_bytes == 0 || options.max_input_pixels == 0 {
         return Err(ProcessingError::new(
             ProcessingErrorKind::InvalidOptions,
@@ -705,6 +830,14 @@ fn run(
     if !crop.fits(size) {
         return Err(Error::OutOfBounds.into());
     }
+    let (crop, target_size) = if let Some(resize) = resize {
+        crate::resize_geometry::resolve(crop, resize)?
+    } else {
+        (
+            crop,
+            Size::new(options.output_width, options.output_height)?,
+        )
+    };
 
     let mut graph = Graph::new();
     let input = graph.decoded_source(
@@ -854,6 +987,8 @@ fn run(
     Ok(Output {
         format: options.output_format,
         bytes: encoded_image.bytes,
+        width: target_size.width,
+        height: target_size.height,
         report,
     })
 }
@@ -939,7 +1074,7 @@ fn batch(
                         encoder_threads: 1,
                         ..item.options
                     };
-                    let result = run(item.encoded, item.format, options, backend);
+                    let result = run(item.encoded, item.format, options, backend, None);
                     if let Ok(mut slot) = results[index].lock() {
                         *slot = Some(result);
                     }
