@@ -167,3 +167,24 @@ Ferramenta theme. Technical pages are generated from this repository's Markdown;
 the website has a separate Node/pnpm dependency graph and build, outside Cargo.
 [ADR-0028](adr/0028-ardo-documentation-site.md) records the content ownership and
 presentation boundary. It adds no engine API or codec capability.
+
+## Thumbnail requests and encoder frame reservations (2026-11-11)
+
+[ADR-0034](adr/0034-thumbnail-geometry.md) adds a narrow thumbnail request to
+that same pipeline: orient the source, apply an explicit upright crop, resolve
+inside/centered-cover/fill geometry with integer rounding, then construct the
+existing private graph. One supplied dimension preserves aspect ratio;
+no-enlargement behavior is explicit, and the result reports actual dimensions.
+The old exact-size calls retain their pixel behavior. This unpublished API adds
+fields to `Output`; it does not promise exhaustive-struct source compatibility.
+JPEG/WebP header inspection reads emitted-sample evidence without requesting
+pixels, applying profile assumptions or establishing full-image validity.
+
+The external encoder seam also accepts a known pixel-frame requirement before
+`begin`. The engine reserves those bytes before backend allocation and keeps
+the reservation through `finish` or partial-sink destruction. The libavif
+adapter declares concurrent RGBA and tightly packed YUV(A) planes, including
+rounded-up chroma dimensions. This is conservative reservation accounting;
+allocator overhead, conversion scratch, encoded output and AOM internals remain
+opaque. Backends that do not declare frames retain a zero requirement. See the
+amendment to [ADR-0024](adr/0024-pluggable-encoders-and-libavif-rs-backend.md).

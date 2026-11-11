@@ -46,10 +46,21 @@ Current behavior and boundaries:
 - **Execution:** the default `f32` executor is checked against an `f64`
   reference. Runtime CPU dispatch, a parallel row pipeline, and batch execution
   exist. GPU execution and a general multi-output DAG remain design work.
+- **Thumbnail facade:** `transcode_resized` resolves one or two dimensions,
+  inside/centered-cover/fill geometry, and explicit no-enlargement behavior
+  after orientation and an optional upright crop. Existing exact-size calls
+  retain their pixel behavior. Results report actual dimensions; the public
+  `Output` type gains fields in this unpublished experimental API. JPEG/WebP
+  header inspection has byte/pixel limits and does not validate complete pixel
+  data or assume a color profile ([ADR-0034](adr/0034-thumbnail-geometry.md)).
 - **Memory:** engine-managed frame, row, and scratch allocations are budgeted
   and reported. Codec allocations and some planner metadata are outside that
   budget. JPEG and lossless WebP codec internals, AVIF decoding, and AVIF
   encoding may require full frames; there is no process-wide memory-cap guarantee.
+  External encoders can declare known simultaneous pixel-frame bytes before
+  allocation; the engine holds that reservation through encoder completion.
+  The libavif backend declares its RGBA and YUV(A) planes, while codec scratch,
+  allocator overhead and encoded bytes remain outside that reservation.
   The AVIF reader charges its full RGB output to the engine budget but retains
   opaque libavif/AOM scratch. On one measured photo it took 8–14% longer and
   about 2× peak RSS versus the former interim decoder; this does not rank
