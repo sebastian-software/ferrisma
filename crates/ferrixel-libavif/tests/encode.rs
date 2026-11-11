@@ -6,9 +6,9 @@
 use std::sync::Mutex;
 
 use ferrixel::pipeline::{
-    ChromaSubsampling, EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend,
-    ImageFormat, InputProfilePolicy, OutputFormat, ProcessingErrorKind, RowEncoder,
-    TransformOptions, transcode_with,
+    AvifEncoder, BatchItem, ChromaSubsampling, EncodeError, EncodeErrorKind, EncodeRequest,
+    EncodedImage, EncoderBackend, Engine, ImageFormat, InputProfilePolicy, OutputFormat,
+    ProcessingErrorKind, RowEncoder, TransformOptions, WorkingPrecision, transcode, transcode_with,
 };
 use ferrixel_libavif::LibavifBackend;
 
@@ -154,6 +154,20 @@ fn encodes_what_ferrixel_produced_with_the_same_color_signals() {
         let output =
             transcode_with(JPEG, ImageFormat::Jpeg, options, &LibavifBackend { depth }).unwrap();
         assert_eq!(&output.bytes[4..8], b"ftyp");
+        let built_in = transcode(
+            JPEG,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                avif_encoder: AvifEncoder::Libavif { depth },
+                ..options
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            built_in.bytes, output.bytes,
+            "built-in and compatibility adapter must agree"
+        );
+        assert_eq!(built_in.report.encoder_backend, "libavif-rs/aom");
         assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
         assert!(output.report.opaque_encoder_memory);
         assert!(output.report.encoder_output_frame_bytes >= 96 * 64 * 4);
@@ -408,4 +422,198 @@ fn generated_avif_can_be_read_and_written_in_the_same_pipeline() {
     assert_eq!((decoded.width, decoded.height), (16, 12));
     assert_eq!(decoded.cicp, (1, 13, 6, true));
     assert_eq!(second.report.encoder_backend, "libavif-rs/aom");
+    let mut request = backend_request(8, 8);
+    request.has_alpha = true;
+    let mut frame = backend.begin(&request).unwrap();
+    for y in 0..8 {
+        let row: Vec<u8> = (0..8).flat_map(|x| [160, 40, 80, (x * 32) as u8]).collect();
+        frame.write_row(y, &row).unwrap();
+    }
+    let transparent = frame.finish().unwrap();
+    let output = transcode(
+        &transparent.bytes,
+        ImageFormat::Avif,
+        TransformOptions {
+            avif_encoder: AvifEncoder::Libavif { depth: 8 },
+            ..options(8, 8)
+        },
+    )
+    .unwrap();
+    let decoded = decode(&output.bytes);
+    assert!(decoded.alpha && !decoded.alpha_premultiplied);
+    assert_eq!(decoded.depth, 8);
+    assert_eq!(decoded.cicp, (1, 13, 6, true));
+}
+
+#[test]
+fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
+    let opts = TransformOptions {
+        avif_encoder: AvifEncoder::Libavif { depth: 10 },
+        output_width: 16,
+        output_height: 12,
+        transform_threads: 1,
+        encoder_threads: 1,
+        precision: WorkingPrecision::F64Reference,
+        ..options(16, 12)
+    };
+    let single = transcode(JPEG, ImageFormat::Jpeg, opts).unwrap();
+    assert_eq!(single.report.encoder_backend, "libavif-rs/aom");
+    let results = Engine::new(2).transcode_batch(&[
+        BatchItem {
+            encoded: JPEG,
+            format: ImageFormat::Jpeg,
+            options: opts,
+        },
+        BatchItem {
+            encoded: JPEG,
+            format: ImageFormat::Jpeg,
+            options: opts,
+        },
+    ]);
+    for output in results {
+        assert_eq!(output.unwrap().bytes, single.bytes);
+    }
+    for bad in [
+        TransformOptions {
+            avif_encoder: AvifEncoder::Libavif { depth: 12 },
+            ..opts
+        },
+        TransformOptions {
+            quality: -1.0,
+            ..opts
+        },
+        TransformOptions { speed: 11, ..opts },
+    ] {
+        assert_eq!(
+            transcode(JPEG, ImageFormat::Jpeg, bad).unwrap_err().kind(),
+            ProcessingErrorKind::InvalidOptions
+        );
+    }
+    let quality_zero = transcode(
+        JPEG,
+        ImageFormat::Jpeg,
+        TransformOptions {
+            quality: 0.0,
+            speed: 0,
+            ..opts
+        },
+    )
+    .unwrap();
+    assert_eq!(quality_zero.report.encoder_backend, "libavif-rs/aom");
+    let webp_conflict = transcode(
+        JPEG,
+        ImageFormat::Jpeg,
+        TransformOptions {
+            output_format: OutputFormat::WebP,
+            quality: 75.0,
+            speed: 6,
+            ..opts
+        },
+    );
+    assert_eq!(
+        webp_conflict.unwrap_err().kind(),
+        ProcessingErrorKind::InvalidOptions
+    );
+    let limited = TransformOptions {
+        max_managed_bytes: 100,
+        ..opts
+    };
+    assert_eq!(
+        transcode(JPEG, ImageFormat::Jpeg, limited)
+            .unwrap_err()
+            .kind(),
+        ProcessingErrorKind::ResourceExhausted
+    );
+    let limited = TransformOptions {
+        max_output_bytes: single.bytes.len() - 1,
+        ..opts
+    };
+    assert_eq!(
+        transcode(JPEG, ImageFormat::Jpeg, limited)
+            .unwrap_err()
+            .kind(),
+        ProcessingErrorKind::ResourceExhausted
+    );
+    let conflict = transcode_with(JPEG, ImageFormat::Jpeg, opts, &LibavifBackend::default());
+    assert_eq!(
+        conflict.unwrap_err().kind(),
+        ProcessingErrorKind::InvalidOptions
+    );
+}
+
+#[cfg(feature = "cli")]
+#[test]
+fn compatibility_cli_keeps_default_backend_and_rejects_conflicting_selection() {
+    let input = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/sample.jpg"
+    );
+    let output = std::env::temp_dir().join(format!(
+        "ferrixel-compat-avif-{}-cli.avif",
+        std::process::id()
+    ));
+    let run = |flags: &[&str]| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_ferrixel-libavif"))
+            .args([
+                input,
+                output.to_str().unwrap(),
+                "8",
+                "8",
+                "--assume-srgb",
+                "--encoder-threads=1",
+            ])
+            .args(flags)
+            .output()
+            .unwrap()
+    };
+    let result = run(&[]);
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(String::from_utf8_lossy(&result.stdout).contains("encoder=libavif-rs/aom"));
+    for flags in [
+        ["--avif-encoder=libavif"],
+        ["--avif-encoder=rav1e"],
+        ["--avif-depth=8"],
+    ] {
+        let conflict = run(&flags);
+        assert!(!conflict.status.success());
+        assert!(
+            String::from_utf8_lossy(&conflict.stderr)
+                .contains("cannot be combined with an external backend")
+        );
+    }
+    std::fs::remove_file(output).unwrap();
+}
+
+#[cfg(feature = "cli")]
+#[test]
+fn independent_oriented_avif_reference_reaches_own_encoder() {
+    let input = include_bytes!("../../../tests/fixtures/orientation/avif-6.avif");
+    let reference = include_bytes!("../../../tests/fixtures/orientation/avif-6.rgb");
+    let output = transcode(
+        input,
+        ImageFormat::Avif,
+        TransformOptions {
+            avif_encoder: AvifEncoder::Libavif { depth: 10 },
+            quality: 100.0,
+            speed: 10,
+            encoder_threads: 1,
+            ..options(16, 24)
+        },
+    )
+    .unwrap();
+    let image = decode(&output.bytes);
+    assert_eq!((image.width, image.height), (16, 24));
+    let actual: Vec<u8> = image
+        .rgba
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .flat_map(|pixel| pixel[..3].iter().copied())
+        .collect();
+    let (mean, max) = difference(&actual, reference);
+    assert!(mean < 5.0, "oriented reference: mean {mean}, max {max}");
 }

@@ -13,10 +13,10 @@ default = []
 cli = ["ferrixel/jpeg-read", "ferrixel/webp-read", "ferrixel/jpeg-xl-read", "ferrixel/avif-read", "ferrixel/icc"]
 
 [dependencies]
-ferrixel = { path = "../..", default-features = false }
-libavif-rs = { path = "../../codecs/libavif-rs", version = "0.1.0" }
+ferrixel = { path = "../..", default-features = false, features = ["avif-own-write"] }
 
 [dev-dependencies]
+libavif-rs = { path = "../../codecs/libavif-rs", version = "0.1.0" }
 ferrixel = { path = "../..", default-features = false, features = ["jpeg-read"] }
 
 [[bin]]

@@ -8,9 +8,9 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use crate::pipeline::{
-    ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy, JpegXlDecoder,
-    KernelLevel, OutputFormat, ResizeFilter, TransformOptions, WebpOptions, WorkingPrecision,
-    transcode, transcode_with,
+    AvifEncoder, ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy,
+    JpegXlDecoder, KernelLevel, OutputFormat, ResizeFilter, TransformOptions, WebpOptions,
+    WorkingPrecision, transcode, transcode_with,
 };
 
 // Bound the stream itself: file metadata can be absent or change after opening.
@@ -154,7 +154,9 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
 }
 
 /// Run the command with `args` (the program name first), encoding with
-/// `backend`, or with the built-in `rav1e` sink when it is `None`.
+/// `backend`, or with the selected built-in sink when it is `None`. Explicit
+/// `--avif-encoder` or `--avif-depth` flags cannot accompany an external
+/// backend: its identity and depth are not available through the trait.
 ///
 /// # Errors
 /// Invalid arguments, unreadable input, unwritable output and every
@@ -171,7 +173,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrixel");
         eprintln!(
-            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=jxl-oxide|libjxl-rs] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=jxl-oxide|libjxl-rs] [--area] [--reference] [--avif-encoder=rav1e|libavif] [--avif-depth=8|10] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }
@@ -205,9 +207,37 @@ pub fn run(
             "--quality and --speed are unsupported for lossless WebP; use --webp-level".into(),
         );
     }
+    let mut avif_encoder = None;
+    let mut avif_depth = None;
     for option in args.iter().skip(5) {
-        apply_option(&mut options, option)?;
+        if let Some(value) = option.strip_prefix("--avif-encoder=") {
+            if avif_encoder.replace(value).is_some() {
+                return Err("--avif-encoder may only be set once".into());
+            }
+        } else if let Some(value) = option.strip_prefix("--avif-depth=") {
+            if avif_depth.replace(value.parse::<u8>()?).is_some() {
+                return Err("--avif-depth may only be set once".into());
+            }
+        } else {
+            apply_option(&mut options, option)?;
+        }
     }
+    if backend.is_some() && (avif_encoder.is_some() || avif_depth.is_some()) {
+        return Err("AVIF encoder options cannot be combined with an external backend".into());
+    }
+    if output_extension != Some("avif") && (avif_encoder.is_some() || avif_depth.is_some()) {
+        return Err("AVIF encoder options require .avif output".into());
+    }
+    options.avif_encoder = match (avif_encoder, avif_depth) {
+        (None | Some("rav1e"), None) => AvifEncoder::Rav1e,
+        (Some("libavif"), depth) => AvifEncoder::Libavif {
+            depth: depth.unwrap_or(10),
+        },
+        (None | Some("rav1e"), Some(_)) => {
+            return Err("--avif-depth requires --avif-encoder=libavif".into());
+        }
+        _ => return Err("--avif-encoder must be rav1e or libavif".into()),
+    };
     let format = parse_format(input_path)?;
     let data = read_input(std::fs::File::open(input_path)?, options.max_input_bytes)?;
     let output = match backend {

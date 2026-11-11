@@ -107,3 +107,9 @@ Review the active dependency graph when libavif-rs or libjxl-rs meets the remain
 - 2026-11-11 — ADR-0030 adopts still `webp-write` through the workspace safe encoder API, with a separate ICC profile license notice and a frame/output limit contract.
 - 2026-11-11 — ADR-0032 connects the local libjxl-rs decoder experimentally through an independent safe wrapper and explicit `jpeg-xl-own-read` selection. The measured photo-sized full/crop regression keeps jxl-oxide as the default `jpeg-xl-read` backend. The full external conformance and final selection gates remain open.
 - 2026-11-11 — [ADR-0031](0031-workspace-libavif-input-experiment.md) replaces the interim `avif-decode`/`avif-parse`/`rav1d` input path with a separate safe wrapper over the workspace libavif/AOM reference decoder. It removes the duplicate `dav1d_*` link path with the encoder adapter, but brings the pinned nightly and native-target boundary to `avif-read`. Eight-fixture pinned C byte parity and the measured photo trade-off are recorded in [M2 AVIF input evidence](../benchmarks/M2-avif-input.md); full Argon/dav1d and final ADR-0025 selection gates remain open. This supersedes the 2026-11-06 collision statement for current builds without rewriting its historical rationale.
+
+- 2026-11-11 — [ADR-0037](0037-selectable-workspace-avif-encoder.md) exposes
+  the workspace libavif/AOM writer as an explicit `avif-own-write` facade and
+  CLI choice through an independent safe bridge. The codec-free and
+  stable-compatible feature sets do not acquire the nightly native writer.
+  Rav1e remains the default and ADR-0025's final selection gates remain open.
