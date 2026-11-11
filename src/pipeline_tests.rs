@@ -4,7 +4,7 @@ use crate::pipeline::{
 };
 
 #[test]
-fn real_jpeg_reaches_valid_avif_bytes_through_m1_graph() {
+fn real_jpeg_reaches_valid_bytes_through_m1_graph() {
     let encoded = include_bytes!("../tests/fixtures/sample.jpg");
     let options = TransformOptions {
         output_width: 3,
@@ -17,8 +17,8 @@ fn real_jpeg_reaches_valid_avif_bytes_through_m1_graph() {
         ..TransformOptions::default()
     };
     let image = transcode(encoded, ImageFormat::Jpeg, options).unwrap();
-    assert!(image.avif_bytes.len() > 40);
-    assert_eq!(&image.avif_bytes[4..8], b"ftyp");
+    assert!(image.bytes.len() > 40);
+    assert_eq!(&image.bytes[4..8], b"ftyp");
     assert_eq!(image.report.decoder_requests, 1);
     assert_eq!(image.report.decoder_full_frame_buffers, 0);
     assert_eq!(image.report.engine_full_frame_intermediates, 0);
@@ -47,7 +47,7 @@ fn real_jpeg_reaches_valid_avif_bytes_through_m1_graph() {
         reference.report.working_precision,
         crate::pipeline::WorkingPrecision::F64Reference
     );
-    assert_eq!(&reference.avif_bytes[4..8], b"ftyp");
+    assert_eq!(&reference.bytes[4..8], b"ftyp");
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn produced_avif_is_accepted_by_an_independent_decoder() {
         options,
     )
     .unwrap();
-    let decoded = AvifSource::new(&encoded.avif_bytes).unwrap();
+    let decoded = AvifSource::new(&encoded.bytes).unwrap();
     assert_eq!(
         decoded.info().size,
         crate::geometry::Size::new(4, 3).unwrap()
@@ -111,7 +111,7 @@ fn jpeg_xl_icc_can_be_explicitly_transformed_and_encoded() {
         opts,
     )
     .unwrap();
-    assert_eq!(&image.avif_bytes[4..8], b"ftyp");
+    assert_eq!(&image.bytes[4..8], b"ftyp");
     assert_eq!(image.report.decoder_requests, 1);
     assert_eq!(image.report.engine_full_frame_intermediates, 0);
 }
@@ -177,7 +177,7 @@ fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
     )
     .unwrap();
     let again = transcode(
-        &srgb.avif_bytes,
+        &srgb.bytes,
         ImageFormat::Avif,
         TransformOptions {
             output_width: 4,
@@ -187,7 +187,7 @@ fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
         },
     )
     .unwrap();
-    assert_eq!(&again.avif_bytes[4..8], b"ftyp");
+    assert_eq!(&again.bytes[4..8], b"ftyp");
 }
 
 #[test]
@@ -208,7 +208,7 @@ fn exif_rotated_jpeg_is_cropped_in_display_coordinates() {
         ..TransformOptions::default()
     };
     let output = transcode(rotated, ImageFormat::Jpeg, options).unwrap();
-    assert_eq!(&output.avif_bytes[4..8], b"ftyp");
+    assert_eq!(&output.bytes[4..8], b"ftyp");
     assert_eq!(output.report.orientation_buffer_bytes, 16 * 20 * 3);
     // The same crop extends past the stored height if orientation is ignored.
     let upright = TransformOptions {
@@ -243,7 +243,7 @@ fn encoder_threads_trade_determinism_for_latency_explicitly() {
     // One thread (the default): byte-identical output on every run.
     let first = transcode(encoded, ImageFormat::Jpeg, options).unwrap();
     let second = transcode(encoded, ImageFormat::Jpeg, options).unwrap();
-    assert_eq!(first.avif_bytes, second.avif_bytes);
+    assert_eq!(first.bytes, second.bytes);
     assert_eq!(first.report.encoder_threads, 1);
     // 0 resolves to the available cores and still yields a valid file.
     let all = transcode(
@@ -256,7 +256,7 @@ fn encoder_threads_trade_determinism_for_latency_explicitly() {
     )
     .unwrap();
     assert!(all.report.encoder_threads >= 1);
-    assert_eq!(&all.avif_bytes[4..8], b"ftyp");
+    assert_eq!(&all.bytes[4..8], b"ftyp");
     assert_eq!(
         transcode(
             encoded,
@@ -308,7 +308,7 @@ fn engine_batches_match_single_image_results_in_order() {
     for (item, result) in items.iter().zip(&results).take(sizes.len()) {
         let single = transcode(item.encoded, item.format, item.options).unwrap();
         let batched = result.as_ref().unwrap();
-        assert_eq!(single.avif_bytes, batched.avif_bytes);
+        assert_eq!(single.bytes, batched.bytes);
         assert_eq!(batched.report.transform_threads, 1);
         assert_eq!(batched.report.encoder_threads, 1);
     }
@@ -346,6 +346,9 @@ mod backend {
     }
 
     impl EncoderBackend for Recorder {
+        fn format(&self) -> crate::pipeline::OutputFormat {
+            crate::pipeline::OutputFormat::Avif
+        }
         fn name(&self) -> &'static str {
             "recorder"
         }
@@ -386,7 +389,12 @@ mod backend {
                 return Err(EncodeError::new(EncodeErrorKind::ResourceExhausted, "full"));
             }
             let frame = self.bytes.len();
-            Ok(EncodedImage::new(self.bytes, frame, true))
+            Ok(EncodedImage::new(
+                crate::pipeline::OutputFormat::Avif,
+                self.bytes,
+                frame,
+                true,
+            ))
         }
     }
 }
@@ -418,8 +426,8 @@ fn a_backend_receives_the_request_and_every_output_row() {
     assert_eq!(request.threads, 3);
     assert_eq!(request.chroma, ChromaSubsampling::Yuv420);
     // The "encoding" is the rows: opaque straight RGBA8, 7 x 5 pixels.
-    assert_eq!(output.avif_bytes.len(), 7 * 5 * 4);
-    assert!(output.avif_bytes.chunks(4).all(|pixel| pixel[3] == 255));
+    assert_eq!(output.bytes.len(), 7 * 5 * 4);
+    assert!(output.bytes.chunks(4).all(|pixel| pixel[3] == 255));
     assert_eq!(output.report.encoder_backend, "recorder");
     assert_eq!(output.report.encoder_output_frame_bytes, 7 * 5 * 4);
     assert!(output.report.opaque_encoder_memory);
@@ -449,7 +457,7 @@ fn a_backend_receives_the_request_and_every_output_row() {
             &recorder,
         )
         .unwrap();
-        assert_eq!(again.avif_bytes, output.avif_bytes);
+        assert_eq!(again.bytes, output.bytes);
     }
 }
 
@@ -538,7 +546,7 @@ fn engine_batches_run_one_backend_encoder_per_image() {
     for (item, result) in items.iter().zip(&results) {
         let output = result.as_ref().unwrap();
         assert_eq!(
-            output.avif_bytes.len(),
+            output.bytes.len(),
             (item.options.output_width * item.options.output_height * 4) as usize
         );
         assert_eq!(output.report.encoder_backend, "recorder");

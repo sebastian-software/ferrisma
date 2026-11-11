@@ -68,13 +68,14 @@ publish = false
 default = []
 jpeg-read = ["dep:libjpeg-turbo-rs"]
 webp-read = ["dep:webp"]
+webp-write = ["dep:webp"]
 jpeg-xl-read = ["dep:jxl-oxide"]
 # rav1e's `asm` is bit-exact and about 2.2x faster; `threading` lets the
 # encoder use `TransformOptions::encoder_threads` (M2 work package 2, ADR-0018).
 avif-write = ["dep:rav1e", "dep:avif-serialize", "rav1e/asm", "rav1e/threading"]
 avif-read = ["dep:avif-decode", "dep:avif-parse"]
 icc = ["dep:moxcms"]
-cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "avif-read", "avif-write", "icc"]
+cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "avif-read", "avif-write", "webp-write", "icc"]
 
 
 [dependencies]

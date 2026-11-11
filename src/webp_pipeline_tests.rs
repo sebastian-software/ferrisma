@@ -41,7 +41,7 @@ fn still_webp_reaches_avif_and_untagged_color_requires_policy() {
         },
     )
     .unwrap();
-    assert_eq!(&output.avif_bytes[4..8], b"ftyp");
+    assert_eq!(&output.bytes[4..8], b"ftyp");
     assert_eq!(output.report.decoder_requests, 1);
     assert_eq!(output.report.decoder_full_frame_buffers, 1);
     assert!(output.report.opaque_decoder_memory);
@@ -75,8 +75,8 @@ fn straight_alpha_webp_reaches_avif() {
         },
     )
     .unwrap();
-    assert_eq!(&output.avif_bytes[4..8], b"ftyp");
-    assert!(output.avif_bytes.len() > 40);
+    assert_eq!(&output.bytes[4..8], b"ftyp");
+    assert!(output.bytes.len() > 40);
 
     #[cfg(feature = "avif-read")]
     {
@@ -85,7 +85,7 @@ fn straight_alpha_webp_reaches_avif() {
         use crate::geometry::Rect;
         use crate::memory::MemoryBudget;
 
-        let mut decoded = AvifSource::new(&output.avif_bytes).unwrap();
+        let mut decoded = AvifSource::new(&output.bytes).unwrap();
         assert_eq!(decoded.info().layout, ChannelLayout::Rgba);
         let mut alpha = Vec::new();
         decoded

@@ -60,11 +60,13 @@ pub(crate) enum Error {
         allow(dead_code, reason = "constructed only by codec adapters")
     )]
     UnsupportedImageTransform,
-    #[cfg(feature = "avif-write")]
+    #[cfg_attr(
+        not(any(feature = "avif-write", feature = "webp-write")),
+        allow(dead_code)
+    )]
     InvalidEncodeOptions,
-    #[cfg(feature = "avif-write")]
+    #[cfg(any(feature = "avif-write", feature = "webp-write"))]
     IncompleteOutput,
-    #[cfg(feature = "avif-write")]
     EncodeFailed,
     UnsupportedColorEncoding,
     UnsupportedAlphaMode,
@@ -113,14 +115,12 @@ impl fmt::Display for Error {
             Self::Cancelled => write!(f, "processing was cancelled by the output sink"),
             Self::DecodeFailed => write!(f, "decoder rejected input or could not render it"),
             Self::NonFinitePixelSample => write!(f, "non-finite sample during resampling"),
-            #[cfg(feature = "avif-write")]
             Self::InvalidEncodeOptions => {
                 write!(f, "encoder quality/speed or output dimensions are invalid")
             }
-            #[cfg(feature = "avif-write")]
+            #[cfg(any(feature = "avif-write", feature = "webp-write"))]
             Self::IncompleteOutput => write!(f, "output sink has not received every scanline"),
-            #[cfg(feature = "avif-write")]
-            Self::EncodeFailed => write!(f, "AVIF encoder failed"),
+            Self::EncodeFailed => write!(f, "encoder failed"),
             #[cfg(any(feature = "avif-read", feature = "webp-read"))]
             Self::InputPixelLimitExceeded { pixels, limit } => {
                 write!(
