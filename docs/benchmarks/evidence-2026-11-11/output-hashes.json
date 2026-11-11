@@ -1,0 +1,74 @@
+{
+  "dog-A-ferrixel-all-444/q30.00.avif": {
+    "bytes": 85461,
+    "sha256": "09371d4c88742a6093908f3231979c11ec6f73d730e466178fa8102c7774f9c1"
+  },
+  "dog-A-ferrixel-all-444/q62.50.avif": {
+    "bytes": 183746,
+    "sha256": "df9a8b2d4f5069dfee0a017084a84451d225cce7d120a7967f84733ec620d54f"
+  },
+  "dog-A-ferrixel-all-444/q78.75.avif": {
+    "bytes": 252683,
+    "sha256": "b69dea10f088a62830f452d67aa48da72ca5a380a83110df20c8cb0ad36999dc"
+  },
+  "dog-A-ferrixel-all-444/q79.77.avif": {
+    "bytes": 261883,
+    "sha256": "7045ab714aee3211fb8159eb4ebc82e07b87d763bf74e6cf038f59e945d2d27d"
+  },
+  "dog-A-ferrixel-all-444/q80.78.avif": {
+    "bytes": 271116,
+    "sha256": "71d4ebbbb56dbe8b108aeeb8a2d3d0635997b598f0e7ee683697fdcb70b092a6"
+  },
+  "dog-A-ferrixel-all-444/q82.81.avif": {
+    "bytes": 292628,
+    "sha256": "b95f8f0d9e585000be19ed0e2fea49703608a91d5fd8902328f81876292546a9"
+  },
+  "dog-A-ferrixel-all-444/q86.88.avif": {
+    "bytes": 427893,
+    "sha256": "83a1130595c262364c9367dd7fff2dc257952c1b350e7bb486985461d7ef3f53"
+  },
+  "dog-A-ferrixel-all-444/q95.00.avif": {
+    "bytes": 1112073,
+    "sha256": "98d7dbee5adb4a82d6d55b012d755cb5d9b7d3723a177c10fb64e27ec4efe4e3"
+  },
+  "dog-A-sharp-all-444/q30.avif": {
+    "bytes": 74881,
+    "sha256": "aa1ef35ba334c80ac184c4f6369c931f025aeb613a6cc093cee0ed9c94fd6690"
+  },
+  "dog-A-sharp-all-444/q46.avif": {
+    "bytes": 147163,
+    "sha256": "41a3a15d2ced38f535708f4e16b4a1429d7927985db469846b8116352dbdbe90"
+  },
+  "dog-A-sharp-all-444/q54.avif": {
+    "bytes": 206771,
+    "sha256": "a2f556bec77ef91a5428562bc0bfd227dd49268d2e1e4f14fe40ea1661c6272a"
+  },
+  "dog-A-sharp-all-444/q55.avif": {
+    "bytes": 220323,
+    "sha256": "54975b992f999c044f65a4437e5087509a825b3c310a49f24ac34fcdb9f4f9fb"
+  },
+  "dog-A-sharp-all-444/q56.avif": {
+    "bytes": 231260,
+    "sha256": "c9b2be848bde64cf027397e812725ede863b6b33230d86521aff5f7a268fe36b"
+  },
+  "dog-A-sharp-all-444/q58.avif": {
+    "bytes": 242996,
+    "sha256": "b668bc09f48ca418d733e4dfa63745502f7a30ca573bb7cb5e70b3cf55df381a"
+  },
+  "dog-A-sharp-all-444/q62.avif": {
+    "bytes": 280459,
+    "sha256": "81a2ca4b55387d01e151fae000c961832e63307f10510d24ad3dca5e9e84e88f"
+  },
+  "dog-A-sharp-all-444/q95.avif": {
+    "bytes": 1330800,
+    "sha256": "6076471cff02f9c7338aab08bd06d979c6b6c2f4bf74f9b72b5f97b86e61baef"
+  },
+  "dog-anchor-ferrixel-q80.avif": {
+    "bytes": 261883,
+    "sha256": "7045ab714aee3211fb8159eb4ebc82e07b87d763bf74e6cf038f59e945d2d27d"
+  },
+  "dog-anchor-sharp-q50.avif": {
+    "bytes": 181614,
+    "sha256": "5a5a6e33b493d190d2368a5c8876d8c20e6df7fb4a111b0727eca6d68dc45268"
+  }
+}

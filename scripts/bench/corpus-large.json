@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "images": [
+    {
+      "id": "beach-volleyball-sunset",
+      "path": "ferrixel-beach-volleyball-53458847235.jpg",
+      "sha256": "f3194042c19e9f76cdd6c5e3f32abaeb97822fd2f4eb368edc66a28e9ec732fe",
+      "source": "https://commons.wikimedia.org/wiki/File:Beach_volleyball_sunset_(53458847235).jpg",
+      "license": "CC BY-SA 2.0, Joseph Gage; https://creativecommons.org/licenses/by-sa/2.0/",
+      "role": "photo",
+      "description": "9504x6336 JPEG, 60.2 MP, embedded ICC; photographed by Joseph Gage with a Sony A7R IV"
+    }
+  ]
+}

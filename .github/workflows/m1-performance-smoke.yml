@@ -24,6 +24,10 @@ jobs:
           node-version: "22"
       - name: Install pinned Sharp for a non-parity AVIF comparison
         run: npm install --prefix "$RUNNER_TEMP/m1-sharp" --no-audit --no-fund sharp@0.34.5
+      - name: Check comparator crop geometry against Sharp
+        env:
+          NODE_PATH: ${{ runner.temp }}/m1-sharp/node_modules
+        run: node --test scripts/bench/sharp-avif.test.cjs
       - name: Generate a fixed synthetic JPEG and measure end-to-end RSS/time
         env:
           M1_SHARP_NODE_MODULES: ${{ runner.temp }}/m1-sharp/node_modules

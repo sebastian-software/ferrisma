@@ -21,6 +21,7 @@
 //   fastshrink=1    Sharp's fastShrinkOnLoad (default true); 0 disables it.
 //                   Sharp skips shrink-on-load whenever it rotates before the
 //                   resize, applies gamma or sets a pipeline colourspace
+//   crop=x,y,w,h  crop upright source pixels before resize (optional)
 //   threads=0       sharp.concurrency(); 0 keeps Sharp's default (all cores)
 //   repeat=1        run the whole pipeline N times in this process and print
 //                   per-run milliseconds (excludes Node and module start-up)
@@ -35,9 +36,9 @@ if (!input || !output || !width || !height) {
 }
 const options = {
   quality: 50, effort: 4, chroma: "444", bitdepth: 8, space: "linear",
-  icc: "convert", fastshrink: 1, threads: 0, repeat: 1,
+  icc: "convert", fastshrink: 1, threads: 0, repeat: 1, crop: "",
 };
-const strings = new Set(["chroma", "space", "icc"]);
+const strings = new Set(["chroma", "space", "icc", "crop"]);
 for (const arg of rest) {
   const [key, value] = arg.split("=");
   if (!(key in options) || value === undefined) {
@@ -52,6 +53,14 @@ if (options.threads > 0) sharp.concurrency(options.threads);
 
 function pipeline() {
   let image = sharp(input, { failOn: "error", ignoreIcc: options.icc === "ignore" }).autoOrient();
+  if (options.crop) {
+    const parts = options.crop.split(",");
+    if (parts.length !== 4 || parts.some((v) => !/^\d+$/.test(v)) || Number(parts[2]) === 0 || Number(parts[3]) === 0) {
+      throw new Error("crop must be x,y,width,height in upright pixels");
+    }
+    const [left, top, width, height] = parts.map(Number);
+    image = image.extract({ left, top, width, height });
+  }
   if (options.space === "linear") image = image.pipelineColourspace("scrgb");
   if (options.space === "gamma22") image = image.gamma(2.2);
   image = image
