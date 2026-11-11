@@ -17,11 +17,11 @@ import {
 
 export const handle = { layout: "bare" };
 export const meta: ArdoMetaFunction = () => [
-  { title: "Ferrixel — image processing, with every step in view" },
+  { title: "Ferrixel — your next image stack, built in Rust" },
   {
     name: "description",
     content:
-      "An experimental Rust image pipeline and four codec ports. Explore linear-light resizing, explicit color and memory contracts, and reference-based validation.",
+      "A Rust image engine in development for modern web delivery. Modern codec ports, linear-light resizing, and a pipeline you can inspect from input to output.",
   },
 ];
 const path = (route: string) => `${import.meta.env.BASE_URL}${route}`;
@@ -48,7 +48,7 @@ const stages = [
   {
     label: "Encode",
     title: "Make the output boundary explicit.",
-    body: "The pipeline converts the resized image to sRGB samples and writes AVIF through rav1e or still WebP through the workspace port. Both sinks report their frame materialization. An explicit backend API supports the separate libavif adapter without requiring rav1e.",
+    body: "Choose AVIF through rav1e or the workspace libavif/AOM encoder, or write still WebP through its workspace port. The Rust facade and CLI expose the choice, and the report includes the encoder's known frame materialization.",
     detail: "WebP supports lossy and lossless output. JPEG and JPEG XL output remain outside the current engine.",
   },
   {
@@ -169,23 +169,23 @@ function Opening() {
           alt="Ferrixel's instrument: a gently curved steel railway whose wagons carry a mountain picture under a guillotine, a smaller copy under a spindle press, and the same picture as square pixels under a loupe."
         />
       </figure>
-      <p className="mono-kicker">Ferrixel, an experimental image pipeline in Rust</p>
+      <p className="mono-kicker">Ferrixel · A Rust image engine in development</p>
       <h1 id="fx-title">
-        Image processing,
+        Your next image stack.
         <br />
-        with every step in view.
+        Built in Rust.
       </h1>
       <p className="mono-standfirst">
-        From an encoded image to a resized AVIF or WebP, Ferrixel makes color, geometry and memory part of
-        the contract. An engine, CPU kernels and four codec ports, developed together in one Rust
-        workspace.
+        We're building a Rust alternative to Sharp for modern image delivery. Decode, crop,
+        resize and encode through one pipeline, with the codec ports, color math and CPU kernels
+        developed alongside it.
       </p>
       <div className="mono-actions">
         <MonoAction href={path("guide/getting-started")} primary detail="Build from source">
-          Try the pipeline
+          Build the pipeline
         </MonoAction>
-        <MonoAction href={path("guide/status")} detail="Capabilities and open gates">
-          Explore the status
+        <MonoAction href="#vision" detail="The image stack we're building">
+          See the ambition
         </MonoAction>
       </div>
       <ul className="mono-facts fx-facts">
@@ -196,13 +196,14 @@ function Opening() {
           <strong>AVIF · WebP</strong>current engine outputs
         </li>
         <li>
-          <strong>4 codec ports</strong>with independent adoption gates
+          <strong>4 codec ports</strong>developed with the engine
         </li>
         <li>
           <strong>Experimental</strong>unpublished, under validation
         </li>
       </ul>
       <nav className="fx-contents" aria-label="On this page">
+        <a href="#vision">The ambition</a>
         <a href="#pipeline">The pipeline</a>
         <a href="#codecs">Codec workspace</a>
         <a href="#color">Color</a>
@@ -217,11 +218,62 @@ export default function Home() {
   return (
     <div className="fx-home">
       <Opening />
+      <MonoEngraving seed={10} />
+      <MonoSection
+        id="vision"
+        title="An image stack you can build on."
+        standfirst="For image services, media libraries and Rust applications that need to own the path from upload to delivery."
+      >
+        <MonoPassage>
+          <p>
+            A single upload becomes a thumbnail, a product image and a full-width photograph.
+            Each needs the right crop, color and format. Ferrixel's ambition is to make that
+            whole journey a coherent Rust workflow, with image quality and execution costs
+            visible at every stage.
+          </p>
+          <p>
+            The foundation is working today: four input formats, AVIF and WebP output, linear-light
+            resizing and a processing report. We're building toward shared work across multiple
+            outputs and a complete stack of codec APIs. Those next steps remain design and
+            validation work; the current API is experimental.
+          </p>
+        </MonoPassage>
+        <MonoTerms
+          columns={2}
+          prose
+          items={[
+            {
+              term: "One source, many outputs",
+              description:
+                "The next step is a pipeline that can reuse decoded pixels and transforms across a family of sizes and formats.",
+            },
+            {
+              term: "Codecs beside the engine",
+              description:
+                "JPEG, WebP, JPEG XL and AVIF ports live with their consumers, so a codec fix and its effect on the pipeline can be reviewed together.",
+            },
+            {
+              term: "Quality starts with the pixels",
+              description:
+                "Color profiles, linear light and alpha association are part of the transform, from the reference math to the final samples.",
+            },
+            {
+              term: "Performance you can inspect",
+              description:
+                "Follow the selected kernels, thread counts, known buffers and stage timings. New fast paths are checked against a reference.",
+            },
+          ]}
+        />
+        <p className="fx-section-link">
+          <a href={path("guide/architecture")}>Explore the design</a>
+          <a href={path("guide/status")}>See what works today</a>
+        </p>
+      </MonoSection>
       <MonoEngraving seed={1} />
       <MonoSection
         id="pipeline"
-        title="One image. A path you can explain."
-        standfirst="An image pipeline is the work between opening a file and delivering the right pixels."
+        title="Make every transform count."
+        standfirst="Deliver the right pixels, with the decisions behind them in view."
       >
         <MonoPassage
           note={{
@@ -320,8 +372,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       <MonoEngraving seed={3} />
       <MonoSection
         id="codecs"
-        title="Four codec projects. One place to develop."
-        standfirst="The engine and its codec ports share a repository, a Cargo workspace and a validation entry point."
+        title="Own the path from file to pixel."
+        standfirst="The engine and four codec ports are developed together, so changes can be followed all the way to the image."
       >
         <MonoPassage>
           <p>
@@ -400,12 +452,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     <small>libavif-rs and companions</small>
                   </th>
                   <td>
-                    Workspace libavif/AOM input through a safe wrapper; <code>rav1e</code>
-                    output. An explicit libavif encoder adapter is available separately.
+                    Workspace libavif/AOM input through a safe wrapper; AVIF output through
+                    <code> rav1e</code> or the explicitly selected workspace AOM encoder.
                   </td>
                   <td>Container, AOM, dav1d and SharpYUV ports with generated and owned Rust.</td>
                   <td>
-                    Pinned nightly and supported native hosts for AVIF input; full Argon and
+                    Pinned nightly and supported native hosts for own AVIF input/output; full Argon and
                     release gates remain open.
                   </td>
                 </tr>
@@ -491,7 +543,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 <i />
               </span>
               <h3>Engine working set</h3>
-              <p>Budgeted rows, scratch space and explicit orientation buffers.</p>
+              <p>Budgeted rows, resize planning, scratch space and orientation buffers.</p>
             </div>
             <div>
               <span className="fx-buffer-frame fx-buffer-output" aria-hidden="true" />
@@ -554,12 +606,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           sequential execution; batch work can also run across images.
         </p>
         <p>
-          These are implementation choices, not a universal speed claim. Performance evidence
-          belongs to a specific revision, machine, corpus and quality setting. GPU execution and a
-          general multi-output graph remain design work.
+          Compare performance at matched image quality. The retained measurements include
+          individual samples, output scores, process RSS and exact build settings. GPU execution
+          and a general multi-output graph remain design work.
         </p>
         <p className="fx-section-link">
           <a href={path("guide/architecture")}>Follow the execution design and its evidence</a>
+          <a href={`${source}/blob/main/docs/benchmarks/M2-encoder-smoke-2026-11-11.md`}>
+            Read the encoder measurements
+          </a>
         </p>
       </MonoSection>
 
@@ -628,13 +683,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       <MonoEngraving seed={8} />
       <MonoSection
         id="status"
-        title="Working code, with work still ahead."
-        standfirst="Ferrixel is experimental and unpublished. The M1 release gates are still open."
+        title="Build with us. Check our work."
+        standfirst="The pipeline runs today. The path to a production release is open to inspect."
       >
         <p>
-          You can exercise the SDR pipeline, inspect the report and work on the codec ports today.
-          That is different from a production-readiness claim. The next steps are recorded as
-          acceptance work with evidence, not a percentage-complete estimate.
+          Try the SDR pipeline, inspect a result, or work on a codec. Ferrixel is experimental
+          and unpublished, with quality, hardening and distribution gates still open. The release
+          register records the evidence and the work ahead.
         </p>
         <MonoTerms
           columns={2}
@@ -675,8 +730,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         </MonoColophon>
       </div>
       <MonoClosing
-        title="Start with an image. Follow the evidence."
-        standfirst="Build the current pipeline, explore a codec, or help close an acceptance gate. The guides and status come from the same repository as the code."
+        title="Help build the next image stack."
+        standfirst="Start with your first image. Explore the Rust pipeline, work on a codec, and help shape the path from working engine to production foundation."
         actions={
           <>
             <MonoAction href={path("guide/getting-started")} primary>

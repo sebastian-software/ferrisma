@@ -22,6 +22,11 @@ The site describes an experimental project. Keep codec-port capabilities
 separate from the engine's implemented adapters, and source performance claims
 to reproducible evidence.
 
+The homepage positions Ferrixel as a Rust image stack for modern delivery.
+Its ambition section describes the future multi-output workflow as design work;
+the current-format facts and build instructions describe the experimental
+implementation. Keep that distinction when updating the marketing copy.
+
 The homepage's pipeline explorer explains the current stages. Its interactive
 black/white example illustrates the sRGB transfer formula in
 `src/working_color.rs` and the midpoint covered in `src/linear_srgb_tests.rs`;
