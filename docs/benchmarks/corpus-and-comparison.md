@@ -22,7 +22,7 @@ orientation, attribution, and licensing are recorded descriptions; a matching
 hash does not independently prove those descriptions. Upstream attribution and
 licenses are linked in the inventory and the respective test-data READMEs.
 
-Two independent 24 MP photographs are listed in
+Three independent photographs are listed in
 [`corpus-photos.json`](../../scripts/bench/corpus-photos.json):
 
 - **Grandiose Landscape of Mountain He-Huan**, 6000×4000, by Weifukuo,
@@ -33,16 +33,25 @@ Two independent 24 MP photographs are listed in
   [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Deer_with_their_friend_myna_bird_at_Koneswaram_temple,_Trincomalee.jpg),
   [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). The
   downloaded file's SHA-1 matches Commons' `5d0937d720e7f2aab6730b840a21f71458ae33f9`.
+- **Veduta Elcito**, 7952×5304 (42.2 MP), by U9POI57 at Italian Wikipedia,
+  [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Veduta_Elcito.jpg),
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
-Both original JPEGs have orientation 1 and an sRGB IEC61966-2.1 ICC profile.
+All three original JPEGs have orientation 1. Mountain and deer have sRGB
+IEC61966-2.1 ICC profiles. Elcito has no embedded ICC profile and its EXIF
+ColorSpace is sRGB; the lane explicitly assumes sRGB for its emitted samples.
 Their pinned SHA-256 hashes are verified before preparation and again from the
-working copy. Preserve attribution and applicable share-alike terms when
-distributing derivatives. The native-host workflow fetches both; to reproduce
-locally, download the two original files to `ferrixel-mountain.jpg` and
-`ferrixel-deer.jpg`, then run `node scripts/bench/corpus.cjs
+working copy. The retained reference images are decoded and resized to 1600×1067;
+the benchmark AVIF outputs are resized and re-encoded derivatives of the
+corresponding originals. Those derivatives remain subject to the respective
+CC BY-SA 4.0 terms. When sharing them, retain each creator, source and license
+link above, identify these modifications, and satisfy the applicable
+share-alike terms. The benchmark artifact includes this guide and the manifest
+with each creator, source and license URL. The native-host workflow fetches all three; to reproduce
+locally, download the three original files to `ferrixel-mountain.jpg`,
+`ferrixel-deer.jpg`, and `ferrixel-elcito.jpg`, then run `node scripts/bench/corpus.cjs
 scripts/bench/corpus-photos.json /path/to/photos`. The original files are not
-checked in. These are separate sources and scenes, but they do not provide a
-40–48 MP native input.
+checked in. These are separate sources and scenes.
 
 A separately downloaded, real 60.2 MP photo extends the available size range:
 
@@ -107,7 +116,7 @@ COMPARE_RUNS=20 python3 -I scripts/bench/compare-sharp.py time /tmp/ferrixel-com
 ```
 
 For a focused run, set `COMPARE_IMAGE_SET=dog`, `flower`, `kodim03`, or
-`kodim23`. For the independent photographs use `mountain` or `deer` with
+`kodim23`. For the independent photographs use `mountain`, `deer`, or `elcito` with
 `COMPARE_LARGE_CORPUS` set to the verified photo directory; for the external
 beach photo use `beach`, `beach-24`, or `beach-48` and set
 `COMPARE_LARGE_CORPUS=/tmp/ferrixel-corpus`. Set the same image set on **each**
@@ -118,8 +127,9 @@ the all-core 4:4:4 pair and target A, set `COMPARE_CONFIGS=all-444` and
 for each selection. The large lanes request a 2 GiB Ferrixel memory budget and
 the independent reference construction can require substantially more process
 memory; they are not yet measured. Both comparators receive the same crop and
-output geometry. The source's embedded ICC is sRGB: the historical Sharp
-ignore-profile workaround applies to this specific profile, not arbitrary ICC.
+output geometry. The tagged sources use an sRGB ICC: the historical Sharp ignore-profile
+workaround applies to these specific profiles, not arbitrary ICC. Elcito has
+no ICC and both reference and engine use the explicit sRGB assumption.
 The independent reference decodes and crops before its own linear-light resize.
 
 Run timing only on a quiet machine, record power and background-load conditions,

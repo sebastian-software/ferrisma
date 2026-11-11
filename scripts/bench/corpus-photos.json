@@ -18,6 +18,15 @@
       "license": "CC BY-SA 4.0, J.Hamsalojan; https://creativecommons.org/licenses/by-sa/4.0/",
       "role": "photo",
       "description": "6000x4000 JPEG, orientation 1, sRGB ICC; photograph by J.Hamsalojan"
+    },
+    {
+      "id": "elcito",
+      "path": "ferrixel-elcito.jpg",
+      "sha256": "1c40fab3ee7f5f98e8d64bf3daf8dd96c625fb6b6695b86cbd559f71cce1a49d",
+      "source": "https://commons.wikimedia.org/wiki/File:Veduta_Elcito.jpg",
+      "license": "CC BY-SA 4.0, U9POI57 at Italian Wikipedia; https://creativecommons.org/licenses/by-sa/4.0/",
+      "role": "photo",
+      "description": "7952x5304 JPEG, orientation 1, no ICC; EXIF ColorSpace sRGB, photograph by U9POI57"
     }
   ]
 }

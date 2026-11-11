@@ -57,7 +57,8 @@ COMPARE_RUNS=5 COMPARE_ENCODER_RUN_ID=scalar AOM_SIMD_CAPS_MASK=0 \
 ```
 
 `check` validates the match without timing. `all` on the shell entry point
-runs match then time; it does not prepare the corpus. Matching builds both encoder CLIs and the independent scorer together
+runs match then time; it does not prepare the corpus. Matching builds both
+encoder CLIs and the independent scorer together
 with their locked dependencies, checks the source receipt before and after,
 and records their hashes. `COMPARE_REPO` must name the checkout containing
 the harness; a different checkout is rejected for this comparison. A relative
@@ -118,8 +119,8 @@ existing codec reference and license gates.
 
 The manual `M2 Encoder Corpus (native hosts)` workflow has one sequential job
 on `ubuntu-24.04` x86-64 and one on `macos-15` Arm64. `calibration` uses dog
-and Kodak 03/23; `corpus` adds the independent 24 MP mountain and deer photos
-in the [corpus inventory](corpus-and-comparison.md). For each image, primary
+and Kodak 03/23; `corpus` adds the independent 24 MP deer and 42.2 MP Elcito
+photos in the [corpus inventory](corpus-and-comparison.md). For each image, primary
 Rav1e anchors are 70, 80, and 90. Each image/anchor uses its own match and
 fresh timing directory; the job retains every match and attempts the remaining
 cells even if one fails. A separate dog quality-60 match is diagnostic and is
@@ -148,6 +149,7 @@ calibration first and inspect its elapsed time and failures before dispatching
 the corpus. Five samples do not establish tail latency. If primary integer
 matches fail, retain the failures and predeclare any nearby-anchor search before
 running it; report all attempted anchors. Do not relax the quality gates or
-claim three comparable levels until all required matches pass. Coverage ends at
-24 MP native inputs for these photos; the 48 MP beach crop is still decoded from
-one 60 MP source and does not fill the upper-range independent-photo gap.
+claim three comparable levels until all required matches pass. The corpus
+includes 12.2, 24, and 42.2 MP native input photographs; the 48 MP
+beach crop is still decoded from one 60 MP source and is not an independent
+48 MP input. These planned lanes are not measured evidence until they pass.

@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import os
+import subprocess
+import sys
 
 spec = importlib.util.spec_from_file_location("compare_sharp", Path(__file__).with_name("compare-sharp.py"))
 bench = importlib.util.module_from_spec(spec)
@@ -140,6 +142,14 @@ class ComparisonContract(unittest.TestCase):
             cmd = bench.encoder_cmd(image, corpus, "encoder", 80, 6, 1, "out.avif")
             self.assertIn("--budget-mb=2048", cmd)
             self.assertFalse(any(str(arg).startswith("--crop=") for arg in cmd))
+
+    def test_elcito_selection_uses_explicit_srgb_assumption(self):
+        script = ("import runpy; x=runpy.run_path('scripts/bench/compare-sharp.py'); "
+                  "print(x['IMAGES'][0][2])")
+        env = {**os.environ, "COMPARE_IMAGE_SET": "elcito"}
+        output = subprocess.check_output([sys.executable, "-I", "-c", script], env=env,
+                                         cwd=bench.REPO, text=True)
+        self.assertEqual(output.strip(), "--assume-srgb")
 
     def test_encoder_speed_is_explicit_and_sweep_overrides_it_once(self):
         image = ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6)

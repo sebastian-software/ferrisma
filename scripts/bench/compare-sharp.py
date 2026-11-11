@@ -72,8 +72,9 @@ IMAGE_SET = os.environ.get("COMPARE_IMAGE_SET", "default")
 LARGE_CROPS = {"beach-24": "1752,1168,6000,4000", "beach-48": "752,168,8000,6000"}
 if IMAGE_SET in ("dog", "flower", "kodim03", "kodim23"):
     IMAGES = [image for image in IMAGES if image[0] == IMAGE_SET]
-elif IMAGE_SET in ("mountain", "deer"):
-    IMAGES = [(IMAGE_SET, f"{IMAGE_SET}.jpg", "--use-rendered-icc", "ignore", 1600, 1067, 1)]
+elif IMAGE_SET in ("mountain", "deer", "elcito"):
+    flag = "--assume-srgb" if IMAGE_SET == "elcito" else "--use-rendered-icc"
+    IMAGES = [(IMAGE_SET, f"{IMAGE_SET}.jpg", flag, "ignore", 1600, 1067, 1)]
 elif IMAGE_SET != "default":
     if IMAGE_SET not in ("beach", *LARGE_CROPS):
         sys.exit(f"unknown COMPARE_IMAGE_SET: {IMAGE_SET}")
@@ -146,7 +147,7 @@ def config_cmd(tool, threads, chroma, image, corpus, quality, out):
     crop = LARGE_CROPS.get(name)
     if tool == "ferrixel":
         cmd = ferrixel_cmd(corpus / file, out, w, h, flag, quality, threads, chroma, crop=crop)
-        return [*cmd, "--budget-mb=2048"] if name.startswith("beach") or name in ("mountain", "deer") else cmd
+        return [*cmd, "--budget-mb=2048"] if name.startswith("beach") or name in ("mountain", "deer", "elcito") else cmd
     return sharp_cmd(corpus / file, out, w, h, icc, quality, threads, chroma,
                      extra=(f"crop={crop}",) if crop else ())
 
@@ -172,7 +173,7 @@ def prepare(out):
     small = corpus / "small"
     for d in (corpus, refs, small):
         d.mkdir(parents=True, exist_ok=True)
-    if IMAGE_SET.startswith("beach") or IMAGE_SET in ("mountain", "deer"):
+    if IMAGE_SET.startswith("beach") or IMAGE_SET in ("mountain", "deer", "elcito"):
         prepare_large(corpus, refs)
         return
     avif = Path(os.environ.get("COMPARE_LIBAVIF_DATA", REPO / "codecs/libavif-rs/upstream/libavif/tests/data"))
@@ -256,8 +257,8 @@ def prepare_large(corpus, refs):
     verify_corpus_file(input_file, image_id, manifest)
     name, _, _, icc, w, h, orientation = IMAGES[0]
     crop = LARGE_CROPS.get(name, "")
-    # The source profile is sRGB. As in the historical dog lane, ignore it in
-    # Sharp before linear processing; this is not valid for arbitrary profiles.
+    # These sources have sRGB profiles or, for Elcito, an explicit sRGB
+    # assumption. Ignoring arbitrary embedded profiles would not be valid.
     script = ("const [i,o,c]=process.argv.slice(1);let p=require('sharp')(i,{ignoreIcc:true}).autoOrient();"
               "if(c){const [left,top,width,height]=c.split(',').map(Number);p=p.extract({left,top,width,height});}"
               "p.toColourspace('srgb').png({compressionLevel:1}).toFile(o)")
@@ -312,7 +313,7 @@ def match_fingerprint(out):
             verify_corpus_file(corpus / f"{name}.jpg", name)
     else:
         verify_corpus_file(corpus / "beach.jpg", "beach-volleyball-sunset", "corpus-large.json")
-    if IMAGE_SET in ("mountain", "deer"):
+    if IMAGE_SET in ("mountain", "deer", "elcito"):
         verify_corpus_file(corpus / f"{IMAGE_SET}.jpg", IMAGE_SET, "corpus-photos.json")
     return {
         "image_set": IMAGE_SET, "inputs": {image[0]: sha256(corpus / image[1]) for image in IMAGES},
@@ -706,7 +707,7 @@ def encoder_cmd(image, corpus, binary, quality, speed, threads, output):
            f"--transform-threads={threads}", "--chroma=444"]
     if name in LARGE_CROPS:
         cmd.append(f"--crop={LARGE_CROPS[name]}")
-    if name.startswith("beach") or name in ("mountain", "deer"):
+    if name.startswith("beach") or name in ("mountain", "deer", "elcito"):
         cmd.append("--budget-mb=2048")
     return cmd
 

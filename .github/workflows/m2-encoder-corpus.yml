@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       workload:
-        description: "Calibration runs dog and two Kodak images; corpus adds two 24 MP photos"
+        description: "Calibration runs dog and two Kodak images; corpus adds independent 24 MP and 42 MP photos"
         type: choice
         options: [calibration, corpus]
         default: calibration
@@ -67,11 +67,14 @@ jobs:
           curl --fail --location --max-filesize 10000000 \
             'https://upload.wikimedia.org/wikipedia/commons/0/01/Deer_with_their_friend_myna_bird_at_Koneswaram_temple%2C_Trincomalee.jpg' \
             -o "$COMPARE_LARGE_CORPUS/ferrixel-deer.jpg"
+          curl --fail --location --max-filesize 28000000 \
+            'https://upload.wikimedia.org/wikipedia/commons/3/3d/Veduta_Elcito.jpg' \
+            -o "$COMPARE_LARGE_CORPUS/ferrixel-elcito.jpg"
           node scripts/bench/corpus.cjs scripts/bench/corpus-photos.json "$COMPARE_LARGE_CORPUS"
       - name: Prepare references once per image
         run: |
           images="dog kodim03 kodim23"
-          if [[ "$WORKLOAD" == corpus ]]; then images="$images mountain deer"; fi
+          if [[ "$WORKLOAD" == corpus ]]; then images="$images deer elcito"; fi
           mkdir -p "$OUT"
           printf '%s\n' $images > "$OUT/images.txt"
           for image in $images; do
