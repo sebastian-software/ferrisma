@@ -9,7 +9,7 @@ use crate::geometry::{Rect, Size};
 use crate::graph::Graph;
 use crate::memory::MemoryBudget;
 use crate::quality::Filter;
-use crate::quality_execute::execute_quality_srgb8;
+use crate::quality_execute::{execute_quality_srgb8, reserve_resize_plan};
 
 struct RgbSource {
     info: DecoderInfo,
@@ -96,6 +96,21 @@ fn make_graph(
     (graph, id, finished)
 }
 
+// The old pixel allowance remains unchanged. Add only the new admission
+// reservation so these color/cancellation tests do not assume free planning.
+fn budget_for(
+    graph: &Graph,
+    target: crate::graph::NodeId,
+    request: Rect,
+    pixels: usize,
+) -> MemoryBudget {
+    let estimate = MemoryBudget::new(usize::MAX);
+    let reservation = reserve_resize_plan(graph, target, request, &estimate).unwrap();
+    let planning = estimate.snapshot().live;
+    drop(reservation);
+    MemoryBudget::new(planning.checked_add(pixels).unwrap())
+}
+
 #[test]
 fn transparent_edges_are_filtered_after_linear_premultiplication() {
     let mut source = RgbSource::new(
@@ -104,7 +119,7 @@ fn transparent_edges_are_filtered_after_linear_premultiplication() {
         vec![255, 0, 0, 255, 0, 0, 255, 0],
     );
     let (graph, id, output) = make_graph(&source, Size::new(1, 1).unwrap(), Filter::Area);
-    let budget = MemoryBudget::new(128);
+    let budget = budget_for(&graph, output, Rect::new(0, 0, 1, 1).unwrap(), 128);
     let mut pixels = Vec::new();
     let report = execute_quality_srgb8(
         &graph,
@@ -137,7 +152,7 @@ fn area_downscale_black_white_checkerboard_is_linear_mid_gray() {
     }
     let mut source = RgbSource::new(Size::new(4, 4).unwrap(), ChannelLayout::Rgb, rgb);
     let (graph, id, out) = make_graph(&source, Size::new(1, 1).unwrap(), Filter::Area);
-    let budget = MemoryBudget::new(256);
+    let budget = budget_for(&graph, out, Rect::new(0, 0, 1, 1).unwrap(), 256);
     let mut result = Vec::new();
     let report = execute_quality_srgb8(
         &graph,
@@ -156,7 +171,7 @@ fn area_downscale_black_white_checkerboard_is_linear_mid_gray() {
     assert_eq!(report.output_rows, 1);
     assert_eq!(source.calls, 1);
     assert_eq!(budget.snapshot().live, 0);
-    assert!(report.peak_engine_managed_bytes <= 256);
+    assert!(report.peak_engine_managed_bytes <= budget.snapshot().limit);
 }
 
 #[test]
@@ -177,7 +192,7 @@ fn failure_and_sink_cancellation_release_cached_rows() {
         Err(Error::BudgetExceeded { .. })
     ));
     assert_eq!(small.snapshot().live, 0);
-    let big = MemoryBudget::new(2048);
+    let big = budget_for(&graph, out, Rect::new(0, 0, 2, 2).unwrap(), 2048);
     let mut called = 0;
     assert_eq!(
         execute_quality_srgb8(
@@ -234,7 +249,7 @@ fn output_whose_alpha_byte_rounds_to_zero_is_transparent_black() {
         input,
         &mut source,
         Rect::new(0, 0, 1, 1).unwrap(),
-        &MemoryBudget::new(512),
+        &budget_for(&graph, output, Rect::new(0, 0, 1, 1).unwrap(), 512),
         |_, row| {
             actual.extend_from_slice(row);
             Ok(())
@@ -258,7 +273,7 @@ fn two_dimensional_area_reference_handles_mixed_opacity() {
     );
     let (graph, input, output) = make_graph(&source, Size::new(1, 1).unwrap(), Filter::Area);
     let mut actual = Vec::new();
-    let budget = MemoryBudget::new(512);
+    let budget = budget_for(&graph, output, Rect::new(0, 0, 1, 1).unwrap(), 512);
     execute_quality_srgb8(
         &graph,
         output,
@@ -305,7 +320,7 @@ fn downstream_output_region_uses_crop_coordinates_not_source_origin() {
         .unwrap();
     let output = graph.add_srgb8(resized).unwrap();
     let mut pixels = Vec::new();
-    let budget = MemoryBudget::new(512);
+    let budget = budget_for(&graph, output, Rect::new(1, 0, 1, 1).unwrap(), 512);
     execute_quality_srgb8(
         &graph,
         output,
@@ -407,7 +422,7 @@ fn p3_reference_preserves_gamut_until_explicit_output_quantization() {
     source.info.rendered_cicp = Some([12, 13, 0, 1]);
     let (graph, id, output) = make_graph(&source, Size::new(1, 1).unwrap(), Filter::Area);
     let mut result = Vec::new();
-    let budget = MemoryBudget::new(256);
+    let budget = budget_for(&graph, output, Rect::new(0, 0, 1, 1).unwrap(), 256);
     execute_quality_srgb8(
         &graph,
         output,

@@ -13,8 +13,8 @@ use crate::decoder::{ChannelLayout, DecodeReport, DecodeSource, DecodedRow, Samp
 use crate::error::Error;
 use crate::geometry::Rect;
 use crate::graph::{Graph, NodeId, NodeKind, ResizeDomain};
-use crate::memory::{ManagedBuffer, MemoryBudget};
-use crate::quality::{Filter, taps};
+use crate::memory::{ExternalReservation, ManagedBuffer, MemoryBudget, try_filled_vec, try_vec};
+use crate::quality::{Filter, Tap, taps};
 use crate::surface::PixelFormat;
 use crate::working_color::{
     decode_straight_to_premultiplied_linear_srgb, decode_to_linear_srgb, encode_linear_srgb8,
@@ -40,6 +40,36 @@ struct CachedRow {
     y: u32,
     samples: ManagedBuffer<f64>,
 }
+
+// Charge all components together although the f64 and f32 executors do
+// not run concurrently. Flat tables reserve at most the entry bound and
+// contiguous SIMD weights reserve their exact span, so neither grows while
+// populated. The extra tap copy covers footprint/construction scratch.
+const TAP_STORAGE: usize = 2 * std::mem::size_of::<Tap>();
+const FLAT_AND_SIMD: usize =
+    2 * (std::mem::size_of::<u32>() + std::mem::size_of::<f32>()) + std::mem::size_of::<f32>();
+const RANK_AND_NEEDED: usize = 2 * std::mem::size_of::<usize>() + 2 * std::mem::size_of::<u32>();
+// Leave a second descriptor per needed row for queue capacity rounding.
+const REFERENCE_CACHE: usize = 2 * std::mem::size_of::<CachedRow>();
+// Allow a second descriptor-sized margin for Arc bookkeeping. Rust does
+// not promise Arc's layout; allocator and runtime internals remain outside
+// this charge, as do the separately budgeted pixel payloads.
+const SHARED_ROW: usize =
+    2 * (std::mem::size_of::<ManagedBuffer<f32>>() + 2 * std::mem::size_of::<usize>());
+const PARALLEL_REFERENCES: usize =
+    std::mem::size_of::<Option<std::sync::Arc<ManagedBuffer<f32>>>>()
+        + std::mem::size_of::<(std::sync::Arc<ManagedBuffer<f32>>, f32)>();
+const ENTRY_BYTES: usize = TAP_STORAGE
+    + FLAT_AND_SIMD
+    + RANK_AND_NEEDED
+    + REFERENCE_CACHE
+    + SHARED_ROW
+    + PARALLEL_REFERENCES;
+// Outer f64 tap vectors, f32 table offsets, SIMD offsets and
+// ready/future-min arrays are bounded by output positions.
+const POSITION_BYTES: usize = std::mem::size_of::<Vec<Tap>>()
+    + 2 * std::mem::size_of::<usize>()
+    + 4 * std::mem::size_of::<u32>();
 
 /// The validated chain shared by the `f64` reference executor and the fast
 /// executor (`fast_execute`): decoder region, resize input footprint, resize
@@ -122,6 +152,80 @@ pub(crate) fn prepare(
     })
 }
 
+/// Reserve a conservative upper bound for resize tap and scheduling storage
+/// before `plan_region` constructs even its first temporary tap vector.
+/// Retaining the reservation through execution also covers the row-plan
+/// metadata that lives alongside the pixel buffers. Allocator overhead,
+/// thread stacks, graph nodes, channels and codec memory are excluded.
+pub(crate) fn reserve_resize_plan(
+    graph: &Graph,
+    target: NodeId,
+    request: Rect,
+    budget: &MemoryBudget,
+) -> Result<ExternalReservation, Error> {
+    if !request.fits(graph.node(target)?.size) {
+        return Err(Error::OutOfBounds);
+    }
+    let mut current = target;
+    let mut resize = None;
+    loop {
+        let node = graph.node(current)?;
+        current = match node.kind {
+            NodeKind::ToLinearSrgb { input }
+            | NodeKind::ToSrgb8 { input }
+            | NodeKind::Crop { input, .. } => input,
+            NodeKind::Resize {
+                input,
+                domain: ResizeDomain::WorkingLinear(filter),
+            } => {
+                if resize.is_some() {
+                    return Err(Error::UnsupportedPixelOperation);
+                }
+                resize = Some((graph.node(input)?.size, node.size, filter));
+                input
+            }
+            NodeKind::Resize { .. } => return Err(Error::UnsupportedPixelOperation),
+            NodeKind::Synthetic | NodeKind::Planar10Source | NodeKind::DecoderSource => break,
+        };
+    }
+    let (input, output, filter) = resize.ok_or(Error::UnsupportedPixelOperation)?;
+    let x = tap_entry_bound(input.width, output.width, request.width, filter)?;
+    let y = tap_entry_bound(input.height, output.height, request.height, filter)?;
+    let positions = usize::try_from(u64::from(request.width) + u64::from(request.height) + 2)
+        .map_err(|_| Error::GeometryOverflow)?;
+    let bytes = x
+        .checked_add(y)
+        .and_then(|entries| entries.checked_mul(ENTRY_BYTES))
+        .and_then(|entries| {
+            positions
+                .checked_mul(POSITION_BYTES)
+                .and_then(|slots| entries.checked_add(slots))
+        })
+        .ok_or(Error::GeometryOverflow)?;
+    budget.reserve_external(bytes)
+}
+
+pub(crate) fn tap_entry_bound(
+    input: u32,
+    output: u32,
+    count: u32,
+    filter: Filter,
+) -> Result<usize, Error> {
+    let ratio = u64::from(input).div_ceil(u64::from(output)).max(1);
+    let span = ratio
+        .checked_mul(match filter {
+            Filter::Area => 1,
+            Filter::Lanczos3 => 6,
+        })
+        .and_then(|value| value.checked_add(4))
+        .ok_or(Error::GeometryOverflow)?
+        .min(u64::from(input));
+    let total = span
+        .checked_mul(u64::from(count))
+        .ok_or(Error::GeometryOverflow)?;
+    usize::try_from(total).map_err(|_| Error::GeometryOverflow)
+}
+
 fn sample_rgba(
     source: DecodedRow<'_>,
     pixel: usize,
@@ -182,6 +286,7 @@ pub(crate) fn execute_quality_srgb8(
     mut sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
     let info = source.info().clone();
+    let _plan_reservation = reserve_resize_plan(graph, target, requested, budget)?;
     let plan = prepare(graph, target, bound_source, source, requested)?;
     if info.layout == ChannelLayout::Rgba && info.alpha != AlphaMode::Straight {
         return Err(Error::UnsupportedAlphaMode);
@@ -197,7 +302,8 @@ pub(crate) fn execute_quality_srgb8(
         .checked_mul(channels)
         .ok_or(Error::GeometryOverflow)?;
 
-    let mut columns = Vec::new();
+    let mut columns =
+        try_vec(usize::try_from(requested.width).map_err(|_| Error::GeometryOverflow)?)?;
     for offset in 0..requested.width {
         let x = plan
             .resize
@@ -206,7 +312,8 @@ pub(crate) fn execute_quality_srgb8(
             .ok_or(Error::GeometryOverflow)?;
         columns.push(taps(plan.input.width, plan.output.width, x, plan.filter)?);
     }
-    let mut lines = Vec::new();
+    let mut lines =
+        try_vec(usize::try_from(requested.height).map_err(|_| Error::GeometryOverflow)?)?;
     for offset in 0..requested.height {
         let y = plan
             .resize
@@ -215,10 +322,11 @@ pub(crate) fn execute_quality_srgb8(
             .ok_or(Error::GeometryOverflow)?;
         lines.push(taps(plan.input.height, plan.output.height, y, plan.filter)?);
     }
-    let mut needed: Vec<u32> = lines
-        .iter()
-        .flat_map(|row| row.iter().map(|tap| tap.index))
-        .collect();
+    let needed_capacity = lines.iter().try_fold(0_usize, |sum, row| {
+        sum.checked_add(row.len()).ok_or(Error::GeometryOverflow)
+    })?;
+    let mut needed: Vec<u32> = try_vec(needed_capacity)?;
+    needed.extend(lines.iter().flat_map(|row| row.iter().map(|tap| tap.index)));
     needed.sort_unstable();
     needed.dedup();
 
@@ -226,7 +334,10 @@ pub(crate) fn execute_quality_srgb8(
     // tap need not increase monotonically with the destination row. Retain
     // each row until no remaining output row can reference it, rather than
     // only checking the immediately following row.
-    let mut future_min_source = vec![u32::MAX; lines.len() + 1];
+    let mut future_min_source = try_filled_vec(
+        lines.len().checked_add(1).ok_or(Error::GeometryOverflow)?,
+        u32::MAX,
+    )?;
     for index in (0..lines.len()).rev() {
         let earliest = lines[index]
             .first()
@@ -237,6 +348,9 @@ pub(crate) fn execute_quality_srgb8(
 
     let mut output = budget.allocate_typed::<u8>(width_components)?;
     let mut cache: VecDeque<CachedRow> = VecDeque::new();
+    cache
+        .try_reserve_exact(needed.len())
+        .map_err(|_| Error::AllocationFailed)?;
     let mut output_rows = 0_usize;
     let mut decoded_rows = 0_u32;
     let mut expected_y = plan.source.y;
@@ -328,4 +442,32 @@ pub(crate) fn execute_quality_srgb8(
         source_time,
         transform_time,
     })
+}
+
+#[cfg(test)]
+mod plan_bound_tests {
+    use super::*;
+
+    #[test]
+    fn tap_bound_covers_real_spans_for_both_filters() {
+        for filter in [Filter::Area, Filter::Lanczos3] {
+            for input in 1..=32 {
+                for output in 1..=32 {
+                    let actual: usize = (0..output)
+                        .map(|at| {
+                            let taps = taps(input, output, at, filter).unwrap();
+                            usize::try_from(
+                                taps.last().unwrap().index - taps.first().unwrap().index + 1,
+                            )
+                            .unwrap()
+                        })
+                        .sum();
+                    assert!(
+                        actual <= tap_entry_bound(input, output, output, filter).unwrap(),
+                        "input={input} output={output} filter={filter:?}"
+                    );
+                }
+            }
+        }
+    }
 }

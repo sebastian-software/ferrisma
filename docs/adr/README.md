@@ -22,7 +22,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0001](0001-project-thesis.md) | Pipeline-first project principles and modern-format scope | Accepted |
 | [0002](0002-semantic-graph-and-planner.md) | Semantic graph separated from capability-aware planner | Experimental |
 | [0003](0003-demand-driven-regions.md) | Demand propagation, region footprints and fallback | Experimental |
-| [0004](0004-buffer-ownership-and-budget.md) | Ownership, allocation and realistic memory budgets | Experimental |
+| [0004](0004-buffer-ownership-and-budget.md) | Ownership, allocation, conservative resize-plan admission and realistic memory budgets | Experimental |
 | [0005](0005-codec-capabilities-and-pixel-contracts.md) | Modern codec adapters, color and layout contracts | Proposed |
 | [0006](0006-cpu-first-gpu-capable-execution.md) | Execution scheduling, SIMD and conditional GPU | Proposed |
 | [0007](0007-correctness-and-performance-evidence.md) | Correctness and benchmark evidence before optimization | Accepted |
