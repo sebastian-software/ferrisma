@@ -9,6 +9,7 @@ pub(crate) enum Error {
     OutOfBounds,
     UnknownNode,
     AllocationFailed,
+    ThreadSpawnFailed,
     #[cfg_attr(
         not(test),
         allow(dead_code, reason = "used by test-only architecture experiments")
@@ -83,6 +84,7 @@ impl fmt::Display for Error {
             Self::OutOfBounds => write!(f, "requested region is outside image bounds"),
             Self::UnknownNode => write!(f, "graph node does not exist"),
             Self::AllocationFailed => write!(f, "could not allocate the requested buffer"),
+            Self::ThreadSpawnFailed => write!(f, "could not start an image processing worker"),
             Self::InvalidPlaneStride => write!(f, "plane stride is smaller than its active row"),
             Self::InvalidPlaneDimensions => {
                 write!(f, "plane dimensions do not match sampling geometry")

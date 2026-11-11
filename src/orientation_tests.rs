@@ -658,3 +658,24 @@ fn interim_jpeg_xl_orientations_are_rendered_upright_for_every_crop() {
         }
     }
 }
+
+#[test]
+fn partial_gather_worker_start_failure_releases_buffers_and_returns_error() {
+    let orientation = Orientation::from_exif(6).unwrap();
+    for successful in [0, 1, 3] {
+        let _failure = crate::thread_spawn::fail_after(successful);
+        let mut source =
+            OrientedSource::new(Box::new(GridSource::new(tall_grid(), orientation, false)))
+                .unwrap()
+                .with_threads(4);
+        let budget = MemoryBudget::new(1 << 20);
+        let mut rows = 0;
+        let result = source.read_region(Rect::new(0, 0, 90, 70).unwrap(), &budget, &mut |_, _| {
+            rows += 1;
+            Ok(())
+        });
+        assert!(matches!(result, Err(Error::ThreadSpawnFailed)));
+        assert_eq!(rows, 0);
+        assert_eq!(budget.snapshot().live, 0);
+    }
+}

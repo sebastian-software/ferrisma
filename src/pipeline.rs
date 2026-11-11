@@ -363,7 +363,9 @@ impl From<Error> for ProcessingError {
             Error::UnsupportedColorEncoding => Kind::UnsupportedColor,
             #[cfg(feature = "avif-read")]
             Error::ContradictoryColorSignals => Kind::UnsupportedColor,
-            Error::AllocationFailed | Error::BudgetExceeded { .. } => Kind::ResourceExhausted,
+            Error::AllocationFailed | Error::ThreadSpawnFailed | Error::BudgetExceeded { .. } => {
+                Kind::ResourceExhausted
+            }
             Error::Cancelled => Kind::Cancelled,
             Error::EncodeFailed => Kind::EncodeFailed,
             #[cfg(any(feature = "avif-write", feature = "webp-write"))]
@@ -743,7 +745,9 @@ fn run(
             "encoder options do not match the selected output format",
         ));
     }
-    if options.transform_threads > 256 || options.encoder_threads > 256 {
+    if options.transform_threads > crate::thread_spawn::MAX_WORKERS
+        || options.encoder_threads > crate::thread_spawn::MAX_WORKERS
+    {
         return Err(ProcessingError::new(
             ProcessingErrorKind::InvalidOptions,
             "transform and encoder threads must be between 0 and 256",
@@ -782,7 +786,7 @@ fn run(
     let encoder_threads = match options.encoder_threads {
         0 => std::thread::available_parallelism()
             .map_or(1, std::num::NonZero::get)
-            .min(256),
+            .min(crate::thread_spawn::MAX_WORKERS),
         threads => threads,
     };
     #[cfg(feature = "avif-write")]
@@ -818,7 +822,7 @@ fn run(
         (WorkingPrecision::F64Reference, _) => 1,
         (WorkingPrecision::F32, 0) => std::thread::available_parallelism()
             .map_or(1, std::num::NonZero::get)
-            .min(256),
+            .min(crate::thread_spawn::MAX_WORKERS),
         (WorkingPrecision::F32, threads) => threads,
     };
     let source = open_source(
@@ -1082,13 +1086,14 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// An engine with `threads` workers; 0 means all available cores.
+    /// An engine with up to 256 workers; 0 means available cores (also capped).
     #[must_use]
     pub fn new(threads: usize) -> Self {
         let threads = match threads {
             0 => std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
             threads => threads,
-        };
+        }
+        .min(crate::thread_spawn::MAX_WORKERS);
         Self { threads }
     }
 
@@ -1126,13 +1131,24 @@ fn batch(
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    if items.is_empty() {
+        return Vec::new();
+    }
     let next = AtomicUsize::new(0);
     let results: Vec<Mutex<Option<Result<Output, ProcessingError>>>> =
         items.iter().map(|_| Mutex::new(None)).collect();
     let workers = threads.min(items.len()).max(1);
-    std::thread::scope(|scope| {
+    // No image starts until every worker is created. Closing this gate
+    // after a partial spawn failure releases and joins all started workers.
+    let (start, receiver) = std::sync::mpsc::channel::<()>();
+    let receiver = Mutex::new(receiver);
+    let started = std::thread::scope(|scope| {
         for _ in 0..workers {
-            scope.spawn(|| {
+            let receiver = &receiver;
+            if crate::thread_spawn::spawn(scope, || {
+                if receiver.lock().ok().and_then(|rx| rx.recv().ok()).is_none() {
+                    return;
+                }
                 loop {
                     let index = next.fetch_add(1, Ordering::Relaxed);
                     let Some(item) = items.get(index) else { break };
@@ -1146,9 +1162,31 @@ fn batch(
                         *slot = Some(result);
                     }
                 }
-            });
+            })
+            .is_err()
+            {
+                drop(start);
+                return false;
+            }
         }
+        for _ in 0..workers {
+            if start.send(()).is_err() {
+                return false;
+            }
+        }
+        true
     });
+    if !started {
+        return items
+            .iter()
+            .map(|_| {
+                Err(ProcessingError::new(
+                    ProcessingErrorKind::ResourceExhausted,
+                    "could not start a batch worker",
+                ))
+            })
+            .collect();
+    }
     results
         .into_iter()
         .map(|slot| {
@@ -1160,4 +1198,23 @@ fn batch(
             })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod worker_limit_tests {
+    use super::{Engine, ProcessingError, ProcessingErrorKind};
+    use crate::error::Error;
+
+    #[test]
+    fn batch_worker_count_is_bounded_for_explicit_and_automatic_requests() {
+        assert_eq!(Engine::new(1).threads(), 1);
+        assert_eq!(Engine::new(256).threads(), 256);
+        assert_eq!(Engine::new(usize::MAX).threads(), 256);
+        assert!((1..=256).contains(&Engine::new(0).threads()));
+        assert!(Engine::new(256).transcode_batch(&[]).is_empty());
+        assert_eq!(
+            ProcessingError::from(Error::ThreadSpawnFailed).kind(),
+            ProcessingErrorKind::ResourceExhausted
+        );
+    }
 }

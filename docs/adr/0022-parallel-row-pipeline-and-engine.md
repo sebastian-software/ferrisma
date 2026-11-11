@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-06
+- **Last reviewed:** 2026-11-11
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0006](0006-cpu-first-gpu-capable-execution.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0021](0021-working-precision-policy.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 4, [M2 baseline](../benchmarks/M2-baseline.md)
 
@@ -63,3 +63,15 @@ Decode-side scaling (package 5) gives decoders region access; the `Engine` needs
 - 2026-11-06 — Implemented; status Experimental. `src/parallel_execute.rs` runs the row pipeline with `std::thread::scope`, a bounded job queue of twice the worker count and an unbounded result channel; `TransformOptions::transform_threads` (default 0 = all cores) and `ProcessingReport::transform_threads`; CLI `--transform-threads`. Tests: byte-identical output to the sequential path for four inputs (RGB, Display P3, RGBA, extended-range `f32`), six geometries including a crop, both filters, the best and the scalar kernel level and 2, 3 and 8 threads; rows reach the sink in order; a cancelling sink, an exhausted budget and a worker error (non-finite float) all return the sequential path's error with `live == 0`. Transform stage on the Apple M1 Ultra (best of three, one encoder thread): 24 Mpx 104 ms on one thread, 59 on 2, 33 on 4, 20 on 8, 19 on 20 (5.5×); 48 Mpx 194, 109, 57, 31, 29 ms (6.7×). The validation threshold (4× at 24 Mpx) holds. Scaling flattens beyond 8 threads because the driver thread, which copies each source row and dispatches jobs, is serial; peak RSS rose by at most 8 MiB.
 - 2026-11-06 — `Engine` and `BatchItem` added (decision 7): `Engine::new(threads)` and `Engine::transcode_batch(&[BatchItem])` schedule whole images over scoped worker threads, each image with one transform and one encoder thread, results in input order, failures isolated per image. Every batched image is byte-identical to `transcode` with those two options at 1 (tested). Threads are scoped to the batch call rather than a long-lived pool; per-image budgets stay, so the engine's managed memory is bounded by workers times the largest image budget. 100 synthetic 640×427 JPEGs to 320 wide: 221.6 images/s through the engine against 15.6 sequentially in one process and 13.9 with one process per image.
 - 2026-11-06 — Horizontal jobs apply a source conversion that the executor took over from the source (`RowConversion`, ADR-0023) before linearizing, on the worker. For ICC input the driver now copies the decoder's 8-bit row instead of a converted `f32` row, a quarter of the bytes, and the moxcms transform leaves the driver thread. The sequential path applies the same conversion in the same place, so the output stays byte-identical.
+
+- 2026-11-11 — Cap resolved batch workers and automatic per-image worker
+  counts at 256; reject explicit per-image transform or encoder counts above
+  256 before opening the codec. Batch workers still override per-image counts
+  to one. Row, orientation-gather, and batch workers use fallible scoped thread
+  creation. If startup fails after some workers started, the row and gather
+  queues close before joining; the batch start gate releases all workers without
+  starting images and returns `ResourceExhausted` for each item in order.
+  Tests inject failures after zero and several successful starts, check no
+  output or image processing escaped the failed start, and verify managed
+  buffers are released. OS thread stacks and codec scratch remain outside the
+  pixel budget. Worker panics retain the prior scoped-thread behavior.
