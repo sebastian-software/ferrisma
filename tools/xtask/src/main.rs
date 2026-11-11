@@ -66,6 +66,12 @@ impl Selection {
             self.jxl = true;
             self.engine = true;
             self.workspace = true;
+        } else if path.starts_with("crates/libsharpyuv-core/") {
+            self.webp = true;
+            self.avif = true;
+            self.engine = true;
+            self.adapter = true;
+            self.workspace = true;
         } else if ["src/", "tests/", "examples/"]
             .iter()
             .any(|p| path.starts_with(p))
@@ -480,6 +486,14 @@ mod tests {
             all.all();
             all
         });
+    }
+    #[test]
+    fn shared_sharpyuv_changes_select_both_codecs_and_consumers() {
+        let mut selection = Selection::default();
+        selection.classify("crates/libsharpyuv-core/src/sharpyuv.rs");
+        assert!(selection.webp && selection.avif && selection.engine);
+        assert!(selection.adapter && selection.workspace);
+        assert!(!selection.jxl && !selection.jpeg && !selection.kernels);
     }
     #[test]
     fn avif_reader_and_port_changes_select_native_consumers() {

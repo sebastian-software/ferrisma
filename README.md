@@ -22,6 +22,7 @@ or production-readiness claim.
 | [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; still-image input and output are connected through `webp-read` and `webp-write` |
 | [JPEG XL port](codecs/libjxl-rs) | Reference decoder available as experimental opt-in engine input through a safe wrapper; encoder incomplete |
 | [AVIF ports](codecs/libavif-rs) | libavif and its AOM, dav1d, and SharpYUV ports; `avif-read` uses the AOM reference decoder through an [isolated safe adapter](crates/ferrixel-avif-read), with a separate [optional encoder adapter](crates/ferrixel-libavif) |
+| [Shared SharpYUV core](crates/libsharpyuv-core) | One safe numeric conversion used by WebP and AVIF through their separate API and allocation boundaries |
 | [Validation tooling](docs/codecs.md) | One Rust runner, scoped PR checks, and deeper independent oracle suites |
 
 The four codec ports share the Cargo workspace, but importing them does not

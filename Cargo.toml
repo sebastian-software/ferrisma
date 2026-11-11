@@ -6,6 +6,7 @@ members = [
     "crates/ferrixel-libavif",
     "crates/ferrixel-avif-read",
     "crates/ferrixel-jxl-decoder",
+    "crates/libsharpyuv-core",
     "tools/xtask",
     "codecs/libjpeg-turbo-rs",
     "codecs/libwebp-rs",

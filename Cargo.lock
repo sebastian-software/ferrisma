@@ -567,6 +567,7 @@ name = "libavif-sharpyuv"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "libsharpyuv-core",
  "libwebp-rs",
 ]
 
@@ -595,8 +596,15 @@ name = "libjxl-rs"
 version = "0.1.0"
 
 [[package]]
+name = "libsharpyuv-core"
+version = "0.1.0"
+
+[[package]]
 name = "libwebp-rs"
 version = "0.1.0"
+dependencies = [
+ "libsharpyuv-core",
+]
 
 [[package]]
 name = "log"

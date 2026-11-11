@@ -109,7 +109,12 @@ jobs:
       run: |
         python3 tools/build_sharpyuv_consumers.py rust
         python3 tools/run_tests.py build/sharpyuv-webp-rust
-        python3 tools/compare_results.py --baseline build/sharpyuv-webp-c-results.xml --port build/sharpyuv-webp-rust-results.xml --report build/sharpyuv-webp-inventory.json
+        python3 tools/compare_results.py \
+          --baseline build/sharpyuv-webp-c-results.xml \
+          --port build/sharpyuv-webp-rust-results.xml \
+          --baseline-log build/sharpyuv-webp-c/Testing/Temporary/LastTest.log \
+          --port-log build/sharpyuv-webp-rust/Testing/Temporary/LastTest.log \
+          --report build/sharpyuv-webp-inventory.json
         python3 tools/check_sharpyuv_linkage.py --consumer build/sharpyuv-webp-rust --executable build/sharpyuv-webp-rust/tests/fuzzer/enc_dec_fuzzer
         python3 tools/verify_upstream.py
     - name: Record executed CI scope

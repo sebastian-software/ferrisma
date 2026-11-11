@@ -158,6 +158,11 @@ jobs:
       - run: cargo check --workspace --all-targets --locked
       - run: cargo test -p libavif-sharpyuv --test cross_port --profile checked --locked
       - run: cargo test -p libavif-sharpyuv --test cross_port --release --locked
+      - name: Check shared SharpYUV core on its stable toolchain
+        run: |
+          rustup toolchain install 1.95 --profile minimal --component clippy
+          cargo +1.95 check -p libsharpyuv-core --all-targets --locked
+          cargo +1.95 clippy -p libsharpyuv-core --all-targets --no-deps --locked -- -D warnings
       - working-directory: crates/ferrixel-libavif
         run: |
           cargo clippy --release --all-features --all-targets --locked --no-deps -- -D warnings

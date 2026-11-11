@@ -64,13 +64,14 @@ contracts and their limits.
 
 ## Components in the workspace
 
-There are **13 Cargo packages**. The four packages in the AVIF row below are
+There are **14 Cargo packages**. The four packages in the AVIF row below are
 separate workspace members; they are grouped here by their shared port.
 
 | Component | Implemented role | Remaining boundary or adoption gate |
 | --- | --- | --- |
 | [`ferrixel`](../Cargo.toml) | Feature-gated facade/CLI and the SDR pipeline above | M1 quality, resource, security, license, and release acceptance |
 | [`ferrixel-kernels`](../crates/ferrixel-kernels) | Safe API over scalar, NEON, AVX2, and AVX-512 resampling; runtime selection | Host-specific evidence still applies; no SVE2 kernel or GPU backend |
+| [`libsharpyuv-core`](../crates/libsharpyuv-core) | One safe SharpYUV numeric conversion shared by WebP and AVIF | Separate adapters preserve WebP slices/SIMD and AVIF C ABI/allocation behavior; measured AVIF kernel cost and native oracle gates are recorded in [ADR-0033](adr/0033-shared-sharpyuv-conversion-core.md) |
 | [`ferrixel-libavif`](../crates/ferrixel-libavif/README.md) | Explicit alternative AVIF encoder using the local libavif/AOM port | Nightly and an audited unsafe boundary; can share a binary with the current `avif-read` input path |
 | [`ferrixel-avif-read`](../crates/ferrixel-avif-read) | Safe, independent read wrapper over libavif's AOM decoder; selected by `avif-read` | Pinned nightly and supported macOS ARM64/GNU Linux x86-64; full Argon/dav1d adoption evidence remains open |
 | [`ferrixel-jxl-decoder`](../crates/ferrixel-jxl-decoder) | Safe, independent wrapper for the opt-in local JPEG XL decoder | Full-frame fallback and measured photo regression keep `jxl-oxide` as the default |
@@ -110,10 +111,11 @@ shows current run results. A green PR check is not full codec certification.
   [ADR-0025](adr/0025-codec-selection-reference-conformance-and-image-scope.md),
   preserving rendered color, orientation, buffer ownership, and conformance.
   Workspace membership alone does not satisfy those gates.
-- Extract a shared SharpYUV core only after the recorded ABI, callback,
-  allocation, parity, and measurement gates in
-  [ADR-0026](adr/0026-codecs-in-one-repository-and-workspace.md#sharpyuv-consolidation-review-2026-11-10)
-  and [issue #75](https://github.com/sebastian-software/ferrixel/issues/75) pass.
+- Validate the extracted shared SharpYUV core with native Linux and macOS
+  API, ABI, allocation, callback, and full original-consumer oracles. Preserve
+  the independent C reference and review the measured AVIF kernel cost in
+  [ADR-0033](adr/0033-shared-sharpyuv-conversion-core.md) and
+  [issue #75](https://github.com/sebastian-software/ferrixel/issues/75).
 - Continue verified Rust/TypeScript tooling consolidation. The shared runner
   is Rust already; retained Python harnesses are compatibility assets, not a
   new orchestration layer.

@@ -380,7 +380,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     with budgeted pixel buffers and an explicit encoded-output limit.
                   </td>
                   <td>Decode and encode, incremental input, containers, animation and SharpYUV.</td>
-                  <td>Consolidate SharpYUV with AVIF; keep animation outside the engine contract.</td>
+                  <td>Shared SharpYUV core with distinct WebP and AVIF adapters; animation remains outside the engine contract.</td>
                 </tr>
                 <tr>
                   <th scope="row">
@@ -652,7 +652,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             {
               term: "Shared SharpYUV",
               description:
-                "Consolidate only after API, allocation, parity and measurement gates are satisfied.",
+                "One conversion core now serves both codecs; native oracle checks and recorded performance costs govern adoption.",
             },
             {
               term: "Release acceptance",

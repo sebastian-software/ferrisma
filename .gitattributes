@@ -2,6 +2,7 @@
 # Their hashes, rather than whitespace normalization, are the acceptance gate.
 codecs/libavif-rs/upstream/** -text -whitespace
 codecs/libavif-rs/crates/*/LICENSES/** -text -whitespace
+crates/libsharpyuv-core/LICENSES/** -text -whitespace
 codecs/libavif-rs/crates/aom/reference/**/generated/** -text -whitespace
 codecs/libavif-rs/crates/aom/src/*/*/generated/** -text -whitespace
 codecs/libjxl-rs/tests/data/decode-test/LICENSE-testdata-CC-BY-4.0.txt -text -whitespace

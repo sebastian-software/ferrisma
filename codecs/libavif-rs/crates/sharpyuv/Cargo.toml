@@ -12,6 +12,7 @@ crate-type = ["rlib", "staticlib", "cdylib"]
 
 [dependencies]
 libc = "=0.2.191"
+libsharpyuv-core = { path = "../../../../crates/libsharpyuv-core", version = "0.1.0" }
 
 [dev-dependencies]
 # Cross-port adoption evidence; this is not a production dependency.

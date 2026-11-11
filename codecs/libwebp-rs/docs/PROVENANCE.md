@@ -44,6 +44,13 @@ file's description and author line. `tools/units.py` checks that header
 against the pinned source. The license reference in those notices names the
 `COPYING` file, which is `LICENSE` here.
 
+The SharpYUV conversion, gamma, matrix, and portable DSP bodies now live in
+the workspace's `crates/libsharpyuv-core`, retaining their upstream notices and
+the BSD license, patent grant, and authors in that crate's `LICENSES/`.
+`src/sharpyuv/` preserves the verified module headers and safe WebP wrappers.
+The pinned upstream source, WebP tests, and independent C oracle remain the
+provenance and behavior gates; see Ferrixel ADR-0033.
+
 ## Original material
 
 The following files are original to libwebp-rs and contain no upstream code:
