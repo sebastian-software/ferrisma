@@ -103,6 +103,15 @@ pub struct Crop {
     pub height: u32,
 }
 
+/// Select the JPEG XL input backend explicitly. The interim reader remains
+/// the default until the reference port meets the selection gates (ADR-0032).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum JpegXlDecoder {
+    #[default]
+    JxlOxide,
+    LibjxlRs,
+}
+
 /// Explicit output geometry, quality, profile assumption and memory budget.
 /// Encoder scratch allocations are opaque and not constrained by the budget.
 #[derive(Clone, Copy, Debug)]
@@ -123,6 +132,7 @@ pub struct TransformOptions {
     /// byte-identical for every value.
     pub transform_threads: usize,
     pub profile_policy: InputProfilePolicy,
+    pub jxl_decoder: JpegXlDecoder,
     pub quality: f32,
     pub speed: u8,
     /// AV1 encoder threads: 0 means all available cores. 1 (the default)
@@ -156,6 +166,7 @@ impl Default for TransformOptions {
             kernel_level_ceiling: None,
             transform_threads: 0,
             profile_policy: InputProfilePolicy::Strict,
+            jxl_decoder: JpegXlDecoder::JxlOxide,
             quality: 75.0,
             speed: 6,
             encoder_threads: 1,
@@ -309,7 +320,11 @@ impl From<Error> for ProcessingError {
                 Kind::InvalidOptions
             }
             Error::InvalidEncodeOptions => Kind::InvalidOptions,
-            #[cfg(any(feature = "avif-read", feature = "webp-read"))]
+            #[cfg(any(
+                feature = "avif-read",
+                feature = "webp-read",
+                feature = "jpeg-xl-own-read"
+            ))]
             Error::InputPixelLimitExceeded { .. } => Kind::InputLimitExceeded,
             Error::DecodeFailed
             | Error::IncompleteDecoderOutput
@@ -363,8 +378,13 @@ fn open_source<'a>(
     bytes: &'a [u8],
     format: ImageFormat,
     max_pixels: u64,
+    jxl_decoder: JpegXlDecoder,
 ) -> Result<Box<dyn DecodeSource + 'a>, ProcessingError> {
-    #[cfg(not(any(feature = "avif-read", feature = "webp-read")))]
+    #[cfg(not(any(
+        feature = "avif-read",
+        feature = "webp-read",
+        feature = "jpeg-xl-own-read"
+    )))]
     let _ = max_pixels;
     match format {
         ImageFormat::Jpeg => {
@@ -397,20 +417,36 @@ fn open_source<'a>(
                 ))
             }
         }
-        ImageFormat::JpegXl => {
-            #[cfg(feature = "jpeg-xl-read")]
-            {
-                Ok(Box::new(crate::codecs::jxl::JxlSource::new(bytes)?))
+        ImageFormat::JpegXl => match jxl_decoder {
+            JpegXlDecoder::JxlOxide => {
+                #[cfg(feature = "jpeg-xl-read")]
+                {
+                    Ok(Box::new(crate::codecs::jxl_oxide::JxlSource::new(bytes)?))
+                }
+                #[cfg(not(feature = "jpeg-xl-read"))]
+                {
+                    Err(ProcessingError::new(
+                        ProcessingErrorKind::FeatureDisabled,
+                        "enable the jpeg-xl-read Cargo feature for jxl-oxide",
+                    ))
+                }
             }
-            #[cfg(not(feature = "jpeg-xl-read"))]
-            {
-                let _ = bytes;
-                Err(ProcessingError::new(
-                    ProcessingErrorKind::FeatureDisabled,
-                    "enable the jpeg-xl-read Cargo feature",
-                ))
+            JpegXlDecoder::LibjxlRs => {
+                #[cfg(feature = "jpeg-xl-own-read")]
+                {
+                    Ok(Box::new(crate::codecs::jxl::JxlSource::new_bounded(
+                        bytes, max_pixels,
+                    )?))
+                }
+                #[cfg(not(feature = "jpeg-xl-own-read"))]
+                {
+                    Err(ProcessingError::new(
+                        ProcessingErrorKind::FeatureDisabled,
+                        "enable the jpeg-xl-own-read Cargo feature for libjxl-rs",
+                    ))
+                }
             }
-        }
+        },
         ImageFormat::Avif => {
             #[cfg(feature = "avif-read")]
             {
@@ -599,7 +635,12 @@ fn run(
         }
         (WorkingPrecision::F32, threads) => threads,
     };
-    let source = open_source(encoded, format, options.max_input_pixels)?;
+    let source = open_source(
+        encoded,
+        format,
+        options.max_input_pixels,
+        options.jxl_decoder,
+    )?;
     // Present an upright image to the graph; crops are display coordinates.
     let source: Box<dyn DecodeSource + '_> = if source.orientation().is_identity() {
         source

@@ -22,13 +22,13 @@ The existing graph planner maps requested output rectangles backwards through cr
 Two initial **read-only** adapters validate the contract:
 
 1. **JPEG** via optional `zune-jpeg` 0.5.15: header probe, RGB8 output, optional embedded ICC. Full RGB output is decoded directly into an engine-budgeted buffer; requested crop rows borrow from that buffer. Disable architecture-specific unsafe-intrinsic features for this first experiment. This does **not** create a JPEG encoder.
-2. **JPEG XL** via optional `jxl-oxide` 0.12.6: request a crop using the codec's ROI API; stream f32 samples via a single budgeted row buffer. Retain rendered ICC/CICP metadata. For now reject non-default orientation rather than risk incorrect coordinates.
+2. **JPEG XL** defaults to optional `jxl-oxide` 0.12.6: request a crop using the codec's ROI API; stream f32 samples via a single budgeted row buffer. Retain rendered ICC/CICP metadata. [ADR-0032](0032-jpeg-xl-workspace-decoder-input.md) adds an explicitly selected full-frame reference-port backend.
 
 The graph currently carries sample layout, but **not** a complete graph-owned color/profile contract. Only crop and sink are permitted for these sources until output semantics for resize, color and alpha are properly designed. *(Amended 2026-11-05: resize and color stages are now admitted under ADR-0013, ADR-0014 and ADR-0016; see below.)*
 
 ## Memory and safety
 
-The engine's RAII `MemoryBudget` covers allocations it creates, including the RGB8 JPEG frame and f32 JPEG XL row scratch. It **does not cap or measure** codec-internal scratch, retained compressed data, metadata vectors, or whole-process RSS. A report with zero *known* full-frame buffers is not evidence that a codec created none internally.
+The engine's RAII `MemoryBudget` covers allocations it creates. The original JPEG adapter charged a RGB8 frame; its replacement charges the scanline described in [the JPEG amendment below](#amendment-log). The default JPEG XL adapter charges one F32 row, while the opt-in workspace decoder charges the full F32 frame ([ADR-0032](0032-jpeg-xl-workspace-decoder-input.md)). The budget **does not cap or measure** codec-internal scratch, retained compressed data, metadata vectors, or whole-process RSS. A report with zero *known* full-frame buffers is not evidence that a codec created none internally.
 
 The Ferrixel crate continues to forbid `unsafe` locally. Do not equate that with a guarantee that all dependencies avoid unsafe code, or that arbitrary malicious inputs have been hardened and fuzzed.
 
@@ -40,7 +40,7 @@ Both selected adapters are permissively licensed. Do not integrate AGPL/commerci
 + JPEG read support is practical without optimizing the entire engine around it.
 + JPEG XL's float and region capabilities can be tested without forced RGB8 quantization.
 - JPEG currently decodes a full frame for every independently requested crop.
-- JPEG XL may perform opaque allocations or whole-image work despite the ROI API.
+- JPEG XL may perform opaque allocations or whole-image work despite the default backend's ROI API. The opt-in workspace decoder reports an explicit full-frame fallback (ADR-0032).
 - Color metadata is source-side rather than a full semantic graph contract.
 - No encoder, frame reuse, animation, or arbitrary untrusted-image hardening yet.
 
@@ -107,3 +107,10 @@ memory contract. Re-evaluate if a supported JPEG layout changes, ICC/EXIF
 regressions appear, or measured whole-process memory and crop costs conflict
 with the intended use case. Scaled IDCT is available in the codec but is not
 selected by this adapter; ADR-0023's quality policy is still required.
+
+### 2026-11-11 Additional JPEG XL decoder backend
+
+[ADR-0032](0032-jpeg-xl-workspace-decoder-input.md) adds an opt-in local
+reference decoder. It retains the same private source contract but reports
+`FullFrameFallback` and one budgeted F32 frame. The default jxl-oxide ROI
+request and row-only budget do not apply to this backend.

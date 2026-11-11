@@ -55,6 +55,10 @@ impl Selection {
             self.adapter = true;
         } else if path.starts_with("crates/ferrixel-libavif/") {
             self.adapter = true;
+        } else if path.starts_with("crates/ferrixel-jxl-decoder/") {
+            self.jxl = true;
+            self.engine = true;
+            self.workspace = true;
         } else if ["src/", "tests/", "examples/"]
             .iter()
             .any(|p| path.starts_with(p))
@@ -469,6 +473,13 @@ mod tests {
             all.all();
             all
         });
+    }
+    #[test]
+    fn jxl_adapter_changes_select_engine_and_jxl() {
+        let mut selection = Selection::default();
+        selection.classify("crates/ferrixel-jxl-decoder/src/lib.rs");
+        assert!(selection.jxl && selection.engine && selection.workspace);
+        assert!(!selection.avif && !selection.webp && !selection.jpeg);
     }
     #[test]
     fn git_diff_selects_both_sides_of_rename_and_deletion() {

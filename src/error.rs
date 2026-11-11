@@ -43,7 +43,11 @@ pub(crate) enum Error {
     IncompleteDecoderOutput,
     NonFinitePixelSample,
     InvalidAlphaValue,
-    #[cfg(any(feature = "avif-read", feature = "webp-read"))]
+    #[cfg(any(
+        feature = "avif-read",
+        feature = "webp-read",
+        feature = "jpeg-xl-own-read"
+    ))]
     InputPixelLimitExceeded {
         pixels: u64,
         limit: u64,
@@ -51,12 +55,7 @@ pub(crate) enum Error {
     #[cfg(feature = "avif-read")]
     ContradictoryColorSignals,
     #[cfg_attr(
-        not(any(
-            feature = "jpeg-read",
-            feature = "webp-read",
-            feature = "jpeg-xl-read",
-            feature = "avif-read"
-        )),
+        not(any(feature = "jpeg-read", feature = "webp-read", feature = "avif-read")),
         allow(dead_code, reason = "constructed only by codec adapters")
     )]
     UnsupportedImageTransform,
@@ -121,7 +120,11 @@ impl fmt::Display for Error {
             #[cfg(any(feature = "avif-write", feature = "webp-write"))]
             Self::IncompleteOutput => write!(f, "output sink has not received every scanline"),
             Self::EncodeFailed => write!(f, "encoder failed"),
-            #[cfg(any(feature = "avif-read", feature = "webp-read"))]
+            #[cfg(any(
+                feature = "avif-read",
+                feature = "webp-read",
+                feature = "jpeg-xl-own-read"
+            ))]
             Self::InputPixelLimitExceeded { pixels, limit } => {
                 write!(
                     f,

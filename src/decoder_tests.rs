@@ -197,16 +197,16 @@ fn jpeg_region_request_is_explicit_and_budgeted() {
     ));
 }
 
-#[cfg(feature = "jpeg-xl-read")]
+#[cfg(feature = "jpeg-xl-own-read")]
 #[test]
-fn jpeg_xl_requests_codec_region_and_delivers_float_scanlines() {
+fn jpeg_xl_reports_full_frame_fallback_and_delivers_float_scanlines() {
     use crate::codecs::jxl::JxlSource;
     let bytes = include_bytes!("../tests/fixtures/sample.jxl");
     let mut source = JxlSource::new(bytes).unwrap();
     assert_eq!(source.info().size, Size::new(7, 5).unwrap());
     assert_eq!(source.info().layout, ChannelLayout::Rgb);
     assert_eq!(source.info().sample, SampleType::F32);
-    assert_eq!(source.info().access, DecodeAccess::CodecRegionRequest);
+    assert_eq!(source.info().access, DecodeAccess::FullFrameFallback);
     let mut graph = Graph::new();
     let id = graph
         .decoded_source(
@@ -216,7 +216,15 @@ fn jpeg_xl_requests_codec_region_and_delivers_float_scanlines() {
         )
         .unwrap();
     let crop = graph.crop(id, rect(1, 1, 5, 3)).unwrap();
-    let budget = MemoryBudget::new(24);
+    // The old ROI-sized allowance cannot hide a full-frame materialization.
+    assert_eq!(
+        source.read_region(rect(2, 2, 2, 2), &MemoryBudget::new(24), &mut |_, _| Ok(())),
+        Err(Error::BudgetExceeded {
+            requested: 420,
+            available: 24
+        })
+    );
+    let budget = MemoryBudget::new(420);
     let mut ys = Vec::new();
     let report = execute_decoded(
         &graph,
@@ -234,13 +242,20 @@ fn jpeg_xl_requests_codec_region_and_delivers_float_scanlines() {
     .unwrap();
     assert_eq!(ys, vec![1, 2]);
     assert_eq!(report.requested, rect(2, 2, 2, 2));
-    assert_eq!(report.known_full_frame_buffers, 0);
+    assert_eq!(report.known_full_frame_buffers, 1);
     assert_eq!(report.output_sample_bytes, 48);
     assert_eq!(budget.snapshot().live, 0);
-    assert_eq!(budget.snapshot().peak, 24);
+    assert_eq!(budget.snapshot().peak, 420);
     assert!(matches!(
         JxlSource::new(b"invalid"),
         Err(Error::DecodeFailed)
+    ));
+    assert!(matches!(
+        JxlSource::new_bounded(bytes, 34),
+        Err(Error::InputPixelLimitExceeded {
+            pixels: 35,
+            limit: 34
+        })
     ));
 }
 
@@ -323,7 +338,7 @@ fn jpeg_imcu_boundary_crops_match_full_rgb_rows() {
     }
 }
 
-#[cfg(feature = "jpeg-xl-read")]
+#[cfg(feature = "jpeg-xl-own-read")]
 #[test]
 fn jpeg_xl_region_samples_match_full_render() {
     use crate::codecs::jxl::JxlSource;
@@ -331,7 +346,7 @@ fn jpeg_xl_region_samples_match_full_render() {
     let mut source = JxlSource::new(bytes).unwrap();
     let mut full = Vec::new();
     source
-        .read_region(rect(0, 0, 7, 5), &MemoryBudget::new(84), &mut |_, row| {
+        .read_region(rect(0, 0, 7, 5), &MemoryBudget::new(420), &mut |_, row| {
             let DecodedRow::F32(data) = row else {
                 panic!("JPEG XL must deliver f32");
             };
@@ -341,7 +356,7 @@ fn jpeg_xl_region_samples_match_full_render() {
         .unwrap();
     let mut crop = Vec::new();
     source
-        .read_region(rect(2, 1, 3, 2), &MemoryBudget::new(36), &mut |_, row| {
+        .read_region(rect(2, 1, 3, 2), &MemoryBudget::new(420), &mut |_, row| {
             let DecodedRow::F32(data) = row else {
                 panic!("JPEG XL must deliver f32");
             };

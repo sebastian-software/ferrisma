@@ -494,7 +494,7 @@ fn avif_irot_imir_match_libheif() {
     }
 }
 
-#[cfg(feature = "jpeg-xl-read")]
+#[cfg(feature = "jpeg-xl-own-read")]
 #[test]
 fn jpeg_xl_orientations_are_rendered_upright_for_every_crop() {
     use crate::codecs::jxl::JxlSource;

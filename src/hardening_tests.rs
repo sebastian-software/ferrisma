@@ -1,7 +1,11 @@
 //! Bounded deterministic malformed-input smoke corpus. These are not a
 //! replacement for libFuzzer/ASan or a full security review.
 
-#[cfg(any(feature = "jpeg-read", feature = "jpeg-xl-read", feature = "avif-read"))]
+#[cfg(any(
+    feature = "jpeg-read",
+    feature = "jpeg-xl-own-read",
+    feature = "avif-read"
+))]
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 #[cfg(feature = "jpeg-read")]
@@ -23,7 +27,7 @@ fn truncated_and_mutated_jpeg_headers_never_panic_in_adapter_setup() {
     assert!(catch_unwind(AssertUnwindSafe(|| JpegSource::new(&invalid))).is_ok());
 }
 
-#[cfg(feature = "jpeg-xl-read")]
+#[cfg(feature = "jpeg-xl-own-read")]
 #[test]
 fn truncated_and_mutated_jxl_headers_never_panic_in_adapter_setup() {
     use crate::codecs::jxl::JxlSource;

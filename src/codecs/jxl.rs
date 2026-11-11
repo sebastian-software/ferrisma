@@ -1,55 +1,83 @@
-//! JPEG XL adapter: codec-level ROI request, float output scanlines.
-//! ROI is a capability, not a guarantee of skipped internal codec work.
-use crate::color::AlphaMode;
-use jxl_oxide::{CropInfo, JxlImage, PixelFormat};
-use std::io::Cursor;
+//! JPEG XL through the independent local libjxl wrapper. Its decoder has no
+//! crop request: each read reconstructs an upright, full-frame F32 image.
 
+use crate::color::AlphaMode;
 use crate::decoder::{
     ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType,
 };
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
+use ferrixel_jxl_decoder::{ImageInfo, decode_into, inspect};
 
-pub(crate) struct JxlSource {
-    image: JxlImage,
+pub(crate) struct JxlSource<'a> {
+    bytes: &'a [u8],
+    image: ImageInfo,
     info: DecoderInfo,
+    max_pixels: u64,
 }
-impl JxlSource {
-    pub(crate) fn new(bytes: &[u8]) -> Result<Self, Error> {
-        let image = JxlImage::builder()
-            .read(Cursor::new(bytes))
-            .map_err(|_| Error::DecodeFailed)?;
-        // jxl-oxide renders upright samples itself: `width()`/`height()` are
-        // display dimensions, crop regions are display coordinates and the
-        // pixel stream applies the header orientation (ADR-0019).
-        let size = Size::new(image.width(), image.height())?;
-        let layout = match image.pixel_format() {
-            PixelFormat::Gray => ChannelLayout::Gray,
-            PixelFormat::Graya => ChannelLayout::GrayAlpha,
-            PixelFormat::Rgb => ChannelLayout::Rgb,
-            PixelFormat::Rgba => ChannelLayout::Rgba,
-            PixelFormat::Cmyk => ChannelLayout::Cmyk,
-            PixelFormat::Cmyka => ChannelLayout::Cmyka,
+
+impl<'a> JxlSource<'a> {
+    #[cfg(test)]
+    pub(crate) fn new(bytes: &'a [u8]) -> Result<Self, Error> {
+        Self::new_bounded(bytes, 100_000_000)
+    }
+    pub(crate) fn new_bounded(bytes: &'a [u8], max_pixels: u64) -> Result<Self, Error> {
+        let image = inspect(bytes, max_pixels).map_err(map_error)?;
+        let size = Size::new(image.width, image.height)?;
+        let (layout, alpha) = match image.channels {
+            1 => (ChannelLayout::Gray, AlphaMode::Opaque),
+            2 => (
+                ChannelLayout::GrayAlpha,
+                if image.alpha_premultiplied {
+                    AlphaMode::Premultiplied
+                } else {
+                    AlphaMode::Straight
+                },
+            ),
+            3 => (ChannelLayout::Rgb, AlphaMode::Opaque),
+            4 => (
+                ChannelLayout::Rgba,
+                if image.alpha_premultiplied {
+                    AlphaMode::Premultiplied
+                } else {
+                    AlphaMode::Straight
+                },
+            ),
+            _ => return Err(Error::UnsupportedCodecLayout),
         };
         let info = DecoderInfo {
             size,
             layout,
             sample: SampleType::F32,
-            access: DecodeAccess::CodecRegionRequest,
-            alpha: match layout {
-                ChannelLayout::GrayAlpha | ChannelLayout::Rgba | ChannelLayout::Cmyka => {
-                    AlphaMode::Unspecified
-                }
-                ChannelLayout::Gray | ChannelLayout::Rgb | ChannelLayout::Cmyk => AlphaMode::Opaque,
-            },
-            rendered_icc: Some(image.rendered_icc()),
-            rendered_cicp: image.rendered_cicp(),
+            access: DecodeAccess::FullFrameFallback,
+            alpha,
+            rendered_icc: Some(image.rendered_icc.clone()),
+            rendered_cicp: None,
         };
-        Ok(Self { image, info })
+        Ok(Self {
+            bytes,
+            image,
+            info,
+            max_pixels,
+        })
     }
 }
-impl DecodeSource for JxlSource {
+
+fn map_error(error: ferrixel_jxl_decoder::Error) -> Error {
+    match error {
+        ferrixel_jxl_decoder::Error::Unsupported => Error::UnsupportedCodecLayout,
+        ferrixel_jxl_decoder::Error::PixelLimit { pixels, limit } => {
+            Error::InputPixelLimitExceeded { pixels, limit }
+        }
+        ferrixel_jxl_decoder::Error::BufferSize | ferrixel_jxl_decoder::Error::Decode => {
+            Error::DecodeFailed
+        }
+        ferrixel_jxl_decoder::Error::Allocation => Error::AllocationFailed,
+    }
+}
+
+impl DecodeSource for JxlSource<'_> {
     fn info(&self) -> &DecoderInfo {
         &self.info
     }
@@ -63,45 +91,35 @@ impl DecodeSource for JxlSource {
         if !region.fits(self.info.size) {
             return Err(Error::OutOfBounds);
         }
-        self.image.set_image_region(CropInfo {
-            left: region.x,
-            top: region.y,
-            width: region.width,
-            height: region.height,
-        });
-        let rendered = self
-            .image
-            .render_frame_cropped(0)
-            .map_err(|_| Error::DecodeFailed)?;
-        let mut stream = rendered.stream();
-        if stream.width() != region.width
-            || stream.height() != region.height
-            || stream.channels() != u32::from(self.info.layout.channels())
-        {
-            return Err(Error::IncompleteDecoderOutput);
-        }
-        let row_samples = usize::try_from(region.width)
-            .map_err(|_| Error::GeometryOverflow)?
-            .checked_mul(usize::from(self.info.layout.channels()))
-            .ok_or(Error::GeometryOverflow)?;
-        let mut scratch = budget.allocate_typed::<f32>(row_samples)?;
+        let samples = self.image.sample_count().map_err(map_error)?;
+        let mut frame = budget.allocate_typed::<f32>(samples)?;
+        decode_into(
+            self.bytes,
+            &self.image,
+            frame.as_mut_slice(),
+            self.max_pixels,
+        )
+        .map_err(map_error)?;
+        let channels = self.image.channels as usize;
+        let stride = self.image.width as usize * channels;
+        let row_start = region.x as usize * channels;
+        let row_len = region.width as usize * channels;
         for y in region.y..region.bottom() {
-            if stream.write_to_buffer(scratch.as_mut_slice()) != row_samples {
-                return Err(Error::IncompleteDecoderOutput);
-            }
-            sink(y, DecodedRow::F32(scratch.as_slice()))?;
+            let start = y as usize * stride + row_start;
+            sink(
+                y,
+                DecodedRow::F32(&frame.as_slice()[start..start + row_len]),
+            )?;
         }
-        let output_bytes = u64::try_from(row_samples)
-            .map_err(|_| Error::GeometryOverflow)?
-            .checked_mul(u64::from(region.height))
-            .and_then(|n| n.checked_mul(4))
-            .ok_or(Error::GeometryOverflow)?;
         Ok(DecodeReport {
             requested: region,
-            access: DecodeAccess::CodecRegionRequest,
+            access: DecodeAccess::FullFrameFallback,
             rows: u64::from(region.height),
-            output_sample_bytes: output_bytes,
-            known_full_frame_buffers: 0,
+            output_sample_bytes: u64::from(region.width)
+                * u64::from(region.height)
+                * u64::from(self.image.channels)
+                * 4,
+            known_full_frame_buffers: 1,
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
             engine_buffer_bytes: 0,

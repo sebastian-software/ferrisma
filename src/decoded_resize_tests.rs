@@ -344,9 +344,9 @@ fn real_jpeg_region_request_is_decoded_once_for_resize() {
     assert_eq!(budget.snapshot().live, 0);
 }
 
-#[cfg(feature = "jpeg-xl-read")]
+#[cfg(feature = "jpeg-xl-own-read")]
 #[test]
-fn real_jxl_float_roi_flows_through_resize() {
+fn real_jxl_full_frame_float_flows_through_resize() {
     use crate::codecs::jxl::JxlSource;
     let mut source = JxlSource::new(include_bytes!("../tests/fixtures/sample.jxl")).unwrap();
     let mut graph = Graph::new();
@@ -359,7 +359,7 @@ fn real_jxl_float_roi_flows_through_resize() {
         id,
         &mut source,
         rect(1, 0, 2, 3),
-        &MemoryBudget::new(200),
+        &MemoryBudget::new(1_024),
         |_, row| {
             let DecodedRow::F32(data) = row else {
                 panic!("expected f32");
@@ -369,7 +369,7 @@ fn real_jxl_float_roi_flows_through_resize() {
         },
     )
     .unwrap();
-    assert_eq!(report.decoder.access, DecodeAccess::CodecRegionRequest);
+    assert_eq!(report.decoder.access, DecodeAccess::FullFrameFallback);
     assert_eq!(report.decoder_region_requests, 1);
     assert_eq!(samples, 18);
 }

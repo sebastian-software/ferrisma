@@ -20,14 +20,15 @@ or production-readiness claim.
 | [CPU kernels](crates/ferrixel-kernels) | Scalar, NEON, AVX2, and AVX-512 resampling behind a safe API |
 | [JPEG port](codecs/libjpeg-turbo-rs) | In-scope 8-bit decoder with a safe row API, used by `jpeg-read` |
 | [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; still-image input and output are connected through `webp-read` and `webp-write` |
-| [JPEG XL port](codecs/libjxl-rs) | Incremental decoder with provisional APIs; encoder incomplete; engine adoption pending |
+| [JPEG XL port](codecs/libjxl-rs) | Reference decoder available as experimental opt-in engine input through a safe wrapper; encoder incomplete |
 | [AVIF ports](codecs/libavif-rs) | libavif, AOM, dav1d, and SharpYUV; an [optional encoder adapter](crates/ferrixel-libavif) exercises the port |
 | [Validation tooling](docs/codecs.md) | One Rust runner, scoped PR checks, and deeper independent oracle suites |
 
 The four codec ports share the Cargo workspace, but importing them does not
 automatically select them as engine backends. Ferrixel reads JPEG and WebP
 through the workspace `libjpeg-turbo-rs` and `libwebp-rs` ports, JPEG XL through
-`jxl-oxide`, and AVIF through `avif-decode`; it writes AVIF through `rav1e`
+`jxl-oxide` by default (with the local reference decoder selectable explicitly),
+and AVIF through `avif-decode`; it writes AVIF through `rav1e`
 and still WebP through the workspace `libwebp-rs` encoder.
 
 **[Current status and remaining gates](docs/status.md)** gives the component

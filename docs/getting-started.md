@@ -35,6 +35,18 @@ profile for the rendered samples and drops source EXIF orientation and XMP.
 `--max-output-mb` caps the retained file; the WebP writer checks it during
 encoding, while AVIF and external backends check after encoding.
 
+JPEG XL input uses `jxl-oxide` by default. To inspect the experimental local
+reference decoder, add `jpeg-xl-own-read` to the Cargo features and select it
+explicitly:
+
+```sh
+cargo run --release --features cli,jpeg-xl-own-read -- \
+  photo.jxl scaled.avif 1600 900 --use-rendered-icc --jxl-decoder=libjxl-rs
+```
+
+This decoder budgets a complete F32 input frame for every request, including
+crops. It remains opt-in after the [measured photo regression](benchmarks/M2-jxl-input-switch.md).
+
 Use `--assume-srgb` only when you accept that assumption for the input. For a
 supported rendered RGB ICC profile, `--use-rendered-icc` selects the explicit
 ICC path. Untagged color is not automatically sRGB; unsupported HDR and

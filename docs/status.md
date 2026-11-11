@@ -26,7 +26,7 @@ quantize → encode AVIF or still WebP
 | Format | Current engine path | Workspace port relationship |
 | --- | --- | --- |
 | JPEG | Input through workspace `libjpeg-turbo-rs` (`jpeg-read`); codec-level crop request and budgeted RGB row | Scaled IDCT remains unused by the adapter; codec memory and reconstruction are opaque |
-| JPEG XL | Input through `jxl-oxide` (`jpeg-xl-read`); codec-level ROI requests | `libjxl-rs` is not yet connected; ROI requests do not prove avoided internal work |
+| JPEG XL | Default input through `jxl-oxide` (`jpeg-xl-read`); explicit opt-in local `libjxl-rs` via `ferrixel-jxl-decoder` (`jpeg-xl-own-read`) | `JpegXlDecoder::LibjxlRs` or `--jxl-decoder=libjxl-rs` selects the local decoder; it has no ROI request and budgets a full F32 frame. Complete external conformance and selection gates remain open |
 | AVIF | Input through `avif-decode` (`avif-read`); output through `rav1e` (`avif-write`) | `ferrixel-libavif` provides an explicitly selected alternative encoder; it is not the default or the input backend |
 | WebP | Still input and output through workspace `libwebp-rs` (`webp-read`, `webp-write`); lossy crop requests, lossless full-frame internal work | The output sink budgets an ARGB frame and predictable lossy planes, tags sRGB ICC, and reports opaque codec memory; animation is unsupported |
 

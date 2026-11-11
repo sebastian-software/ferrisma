@@ -64,11 +64,13 @@ jobs:
       - run: cargo test -p ferrixel --lib --no-default-features --features jpeg-read backend_only_tests
       - run: cargo test -p ferrixel --lib --no-default-features --features webp-read,webp-write webp_output_tests
       - run: cargo test -p ferrixel -p ferrixel-kernels --all-targets --all-features
+      - run: cargo test -p ferrixel-jxl-decoder --lib --locked
       # Codec dependencies retain their separate strict stable-Clippy jobs.
       - run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --no-deps -- -D warnings
       - run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features --no-deps -- -D warnings
+      - run: cargo clippy -p ferrixel-jxl-decoder --all-targets --no-deps --locked -- -D warnings
       - run: |
-          for feature in jpeg-read webp-read webp-write jpeg-xl-read avif-read avif-write icc cli; do
+          for feature in jpeg-read webp-read webp-write jpeg-xl-read jpeg-xl-own-read avif-read avif-write icc cli; do
             cargo check --no-default-features --features "$feature"
           done
       - run: python3 scripts/test_audit_licenses.py && python3 scripts/audit-licenses.py

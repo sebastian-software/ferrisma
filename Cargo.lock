@@ -338,6 +338,7 @@ dependencies = [
  "avif-decode",
  "avif-parse",
  "avif-serialize",
+ "ferrixel-jxl-decoder",
  "ferrixel-kernels",
  "jxl-oxide",
  "libjpeg-turbo-rs",
@@ -345,6 +346,14 @@ dependencies = [
  "moxcms",
  "rav1e",
  "ravif",
+]
+
+[[package]]
+name = "ferrixel-jxl-decoder"
+version = "0.1.0"
+dependencies = [
+ "jxl-oxide",
+ "libjxl-rs",
 ]
 
 [[package]]
