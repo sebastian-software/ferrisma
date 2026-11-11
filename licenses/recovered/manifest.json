@@ -1,0 +1,104 @@
+[
+  {
+    "name": "alloc-stdlib",
+    "version": "0.2.4",
+    "package_sha256": "0e76a019e91224d279006ff972f1e984179a6e9feb050adba6ce8274aef23195",
+    "upstream_revision": "ae42d22078b98549e987d2f03d12df7b984fde47",
+    "upstream_repository": "https://github.com/dropbox/rust-alloc-no-stdlib",
+    "files": [
+      {
+        "path": "alloc-stdlib-0.2.4/LICENSE",
+        "upstream_path": "LICENSE",
+        "git_blob_sha1": "cd496ba72eb37e83a44958358d1f89a8a28cbc15",
+        "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae"
+      }
+    ],
+    "upstream_manifest": "alloc-stdlib/Cargo.toml",
+    "upstream_manifest_blob_sha1": "b4d83ae7b6473ea017a91800f995d5b095463cd0",
+    "package_source": "registry+https://github.com/rust-lang/crates.io-index"
+  },
+  {
+    "name": "c2rust-bitfields",
+    "version": "0.3.0",
+    "package_sha256": "eb34f0c0ace43530b2df7f18bc69ee0c4082158aa451ece29602f8c841e73764",
+    "upstream_revision": "92752989760317eb2cfc80fe8ba2f68150431bed",
+    "upstream_repository": "https://github.com/immunant/c2rust",
+    "files": [
+      {
+        "path": "c2rust-bitfields-0.3.0/LICENSE",
+        "upstream_path": "LICENSE",
+        "git_blob_sha1": "c34ac6b416e7ffbac9766b74d7bdf80d69eae719",
+        "sha256": "ae5e791a5c4cd5c517d12aabe9e88aa63b85077c2b18b957b1b6452bb1859492"
+      }
+    ],
+    "upstream_manifest": "c2rust-bitfields/Cargo.toml",
+    "upstream_manifest_blob_sha1": "915e83b0c0e9c975a276e8250d164e4b07c27ea0",
+    "package_source": "registry+https://github.com/rust-lang/crates.io-index"
+  },
+  {
+    "name": "c2rust-bitfields-derive",
+    "version": "0.2.1",
+    "package_sha256": "3dd1601a7b828ab874d890e5a895563ca8ad485bdd3d2a359f148c8b72537241",
+    "upstream_revision": "b858a398c28c0cf6e6cd565d2263ae568c2137e7",
+    "upstream_repository": "https://github.com/immunant/c2rust",
+    "files": [
+      {
+        "path": "c2rust-bitfields-derive-0.2.1/LICENSE",
+        "upstream_path": "LICENSE",
+        "git_blob_sha1": "3c28b39d798e8b3cf69dbc284dcba7bf8ac3e0db",
+        "sha256": "2bd73a6df34e41c531e4088a97e90a489b163926fb214ac90e9c172d124bc2f8"
+      }
+    ],
+    "upstream_manifest": "c2rust-bitfields-derive/Cargo.toml",
+    "upstream_manifest_blob_sha1": "2f7bf6e69d62be0470b70766ca021ecc83340600",
+    "package_source": "registry+https://github.com/rust-lang/crates.io-index"
+  },
+  {
+    "name": "profiling",
+    "version": "1.0.18",
+    "package_sha256": "3d595e54a326bc53c1c197b32d295e14b169e3cfeaa8dc82b529f947fba6bcf5",
+    "upstream_revision": "8271551172eb6fa4cba47369aedd93790c623df9",
+    "upstream_repository": "https://github.com/aclysma/profiling",
+    "files": [
+      {
+        "path": "profiling-1.0.18/LICENSE-MIT",
+        "upstream_path": "LICENSE-MIT",
+        "git_blob_sha1": "6a84e059ad8b43e03c2b06bc2af4dc1d8442808d",
+        "sha256": "c8167fdeeed46d3f244d3f85c5bf998ce889343691c32be2c61a8bc4b5c08333"
+      },
+      {
+        "path": "profiling-1.0.18/LICENSE-APACHE",
+        "upstream_path": "LICENSE-APACHE",
+        "git_blob_sha1": "139dce95d473c201a8561ef17536314d8b8cda65",
+        "sha256": "10d30a673cd5e9349bdc02aeb48f14b3386d27d0da32df8f0a555d4aa16aa551"
+      }
+    ],
+    "upstream_manifest": "profiling/Cargo.toml",
+    "upstream_manifest_blob_sha1": "f1a1a97cfa6e3b1bcafc6f53c91671cecf319f43",
+    "package_source": "registry+https://github.com/rust-lang/crates.io-index"
+  },
+  {
+    "name": "profiling-procmacros",
+    "version": "1.0.18",
+    "package_sha256": "4488a4a36b9a4ba6b9334a32a39971f77c1436ec82c38707bce707699cc3bbcb",
+    "upstream_revision": "8271551172eb6fa4cba47369aedd93790c623df9",
+    "upstream_repository": "https://github.com/aclysma/profiling",
+    "files": [
+      {
+        "path": "profiling-1.0.18/LICENSE-MIT",
+        "upstream_path": "LICENSE-MIT",
+        "git_blob_sha1": "6a84e059ad8b43e03c2b06bc2af4dc1d8442808d",
+        "sha256": "c8167fdeeed46d3f244d3f85c5bf998ce889343691c32be2c61a8bc4b5c08333"
+      },
+      {
+        "path": "profiling-1.0.18/LICENSE-APACHE",
+        "upstream_path": "LICENSE-APACHE",
+        "git_blob_sha1": "139dce95d473c201a8561ef17536314d8b8cda65",
+        "sha256": "10d30a673cd5e9349bdc02aeb48f14b3386d27d0da32df8f0a555d4aa16aa551"
+      }
+    ],
+    "upstream_manifest": "profiling-procmacros/Cargo.toml",
+    "upstream_manifest_blob_sha1": "c8535ada5e0acf8ddcbdf12f96e4102d4c0f05f2",
+    "package_source": "registry+https://github.com/rust-lang/crates.io-index"
+  }
+]
