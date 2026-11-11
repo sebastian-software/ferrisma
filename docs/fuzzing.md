@@ -14,7 +14,39 @@ cd fuzz
 cargo +nightly fuzz run transcode -- -max_len=524288 -timeout=10 -rss_limit_mb=1024
 ```
 
-The target exercises JPEG, default JPEG XL, and AVIF input using short, deliberately bounded output requests and an explicit no-guess color policy. WebP and the opt-in workspace JPEG XL decoder still need dedicated fuzz coverage. It does not assert that a 2 MiB *engine-managed* memory limit constrains external codecs. Run fuzzing in a sandbox with process-level limits and sanitizer support; preserve and minimize crashes in `fuzz/artifacts/` or the upstream codec test corpus.
+The target accepts one control byte followed by unchanged encoded image bytes.
+Its two low bits choose JPEG (0), default JPEG XL (1), AVIF (2), or WebP (3);
+bit 2 selects WebP instead of AVIF output. Bits 3–4 select the profile policy:
+zero uses rendered ICC for JPEG XL and an explicit sRGB assumption only when
+metadata is absent for the other formats; 1 is strict; 2 assumes sRGB only when
+metadata is absent; 3 requests the rendered-ICC transform. Bit 5 selects the
+`f64` reference rather than the `f32` executor. The high two bits select a small
+output, 8192×1, 1×8192, or 64×64. Existing JPEG and JPEG XL CI seeds keep their
+one-byte 0 and 1 prefixes and now reach the transform with the policies their
+fixtures require. The chosen policy remains explicit; unsupported color still
+fails rather than being silently reinterpreted.
+
+The driver sets limits of 512 KiB compressed input, 1 million input pixels,
+512 KiB retained output, and 2 MiB engine-managed memory, and requests one
+transform and encoder thread. The extreme aspect-ratio lanes exercise planning
+admission; a resource error is an expected result. These limits do not cap codec
+scratch, thread/runtime overhead, or total RSS. Run fuzzing in a sandbox with
+process-level limits and sanitizer support; preserve and minimize crashes in
+`fuzz/artifacts/` or the upstream codec test corpus. The opt-in workspace JPEG
+XL decoder still needs a dedicated lane.
+
+The shared driver has a deterministic smoke test using real JPEG, JPEG XL,
+AVIF and WebP fixtures, each with both output formats. It checks that every
+framed input reaches the decoder and produces encoded output, and checks strict
+color rejection and input/geometry limits:
+
+```sh
+cargo test --manifest-path fuzz/Cargo.toml --lib
+```
+
+The current hosted fuzz workflow seeds JPEG and JPEG XL; the additional tested
+AVIF and WebP fixture lanes are available to seed but are not claimed as hosted
+coverage until that workflow is updated and run.
 
 The default CI also runs **deterministic malformed-header smoke tests** for truncated JPEG/JXL/AVIF files and invalid API options, so regressions surface without an expensive nightly fuzz dependency.
 
