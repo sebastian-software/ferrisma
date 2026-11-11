@@ -178,6 +178,11 @@ feature combinations, reference setup, and independent publication.
 
 ## Documentation delivery
 
+The [benchmark evidence policy](adr/0007-correctness-and-performance-evidence.md)
+requires quality gates before timing. Encoder comparisons retain their attempted
+calibration settings and actual selected workloads, including host differences;
+benchmark tooling does not change the engine's output or codec selection.
+
 The Ardo website in `homepage/` presents the engine and ports through the shared
 Ferramenta theme. Technical pages are generated from this repository's Markdown;
 the website has a separate Node/pnpm dependency graph and build, outside Cargo.

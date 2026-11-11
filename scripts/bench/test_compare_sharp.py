@@ -7,6 +7,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import os
+import subprocess
+import sys
+import textwrap
 
 spec = importlib.util.spec_from_file_location("compare_sharp", Path(__file__).with_name("compare-sharp.py"))
 bench = importlib.util.module_from_spec(spec)
@@ -14,6 +17,90 @@ spec.loader.exec_module(bench)
 
 
 class ComparisonContract(unittest.TestCase):
+    def run_calibration_workflow(self, root, accept_nearby, invalid_evidence=False):
+        """Exercise the real workflow shell with a bounded encoder-command fake."""
+        workflow = (bench.REPO / ".github/workflows/m2-encoder-corpus.yml").read_text()
+
+        def step(name):
+            block = workflow.split(f"      - name: {name}\n", 1)[1].split("\n      - ", 1)[0]
+            return textwrap.dedent(block.split("        run: |\n", 1)[1])
+
+        output = root / "bench-out"
+        for folder in ("corpus", "refs"):
+            (output / "prepared/dog" / folder).mkdir(parents=True)
+        (output / "images.txt").write_text("dog\n")
+        (output / "diagnostic.tsv").write_text("dog\t60\trejected\n")
+        command = root / "scripts/bench/compare-encoders.sh"
+        command.parent.mkdir(parents=True)
+        command.write_text('''#!/usr/bin/env bash
+printf '%s\\t%s\\n' "$COMPARE_ENCODER_LEVELS" "$2" >> "$OUT/calls.tsv"
+if [[ "$2" == check ]]; then
+  if [[ "$INVALID_EVIDENCE" == 1 ]]; then exit 1; fi
+  if [[ "$ACCEPT_NEARBY" == 1 && "$COMPARE_ENCODER_LEVELS" =~ ^(69|79|89)$ ]]; then exit 0; fi
+  exit 3
+fi
+''')
+        command.chmod(0o755)
+        env = {**os.environ, "OUT": str(output), "SCALAR": "false",
+               "ACCEPT_NEARBY": str(int(accept_nearby)),
+               "INVALID_EVIDENCE": str(int(invalid_evidence))}
+        for name in ("Calibrate primary anchors and retain every attempted match",
+                     "Time every primary cell with complete matching"):
+            subprocess.run(["bash", "-e", "-o", "pipefail", "-c", step(name)],
+                           cwd=root, env=env, check=True, capture_output=True, text=True)
+        final = subprocess.run(["bash", "-e", "-o", "pipefail", "-c",
+                                step("Require every primary cell to complete")],
+                               cwd=root, env=env, capture_output=True, text=True)
+        return output, final
+
+    def test_workflow_calibrates_in_declared_order_and_times_only_first_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output, final = self.run_calibration_workflow(Path(tmp), True)
+            self.assertEqual(final.returncode, 0, final.stderr)
+            calls = (output / "calls.tsv").read_text().splitlines()
+            self.assertEqual([line for line in calls if line.endswith("\tcheck")],
+                             [f"{q}\tcheck" for q in (70, 69, 80, 79, 90, 89)])
+            self.assertEqual([line for line in calls if line.endswith("\ttime")],
+                             [f"{q}\ttime" for q in (69, 79, 89)])
+            attempts = (output / "attempts.tsv").read_text()
+            self.assertIn("dog\t70\t70\trejected\n", attempts)
+            self.assertIn("dog\t70\t69\tcomplete\n", attempts)
+            self.assertEqual((output / "cells/dog-a70-q69/refs").resolve(),
+                             (output / "prepared/dog/refs").resolve())
+
+    def test_workflow_exhaustion_keeps_gate_red_without_timing_failed_matches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output, final = self.run_calibration_workflow(Path(tmp), False)
+            self.assertNotEqual(final.returncode, 0)
+            calls = (output / "calls.tsv").read_text().splitlines()
+            self.assertFalse(any(line.endswith("\ttime") for line in calls))
+            self.assertEqual([line for line in calls if line.endswith("\tcheck")][:5],
+                             [f"{q}\tcheck" for q in (70, 69, 71, 68, 72)])
+            self.assertEqual(len((output / "attempts.tsv").read_text().splitlines()), 16)
+
+    def test_workflow_does_not_search_past_invalid_matching_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output, final = self.run_calibration_workflow(Path(tmp), True, invalid_evidence=True)
+            self.assertNotEqual(final.returncode, 0)
+            calls = (output / "calls.tsv").read_text().splitlines()
+            self.assertEqual([line for line in calls if line.endswith("\tcheck")],
+                             [f"{q}\tcheck" for q in (70, 80, 90)])
+            self.assertFalse(any(line.endswith("\ttime") for line in calls))
+
+    def test_encoder_check_reserves_exit_three_for_quality_mismatches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "encoders").mkdir()
+            (root / "encoders/match-provenance.json").write_text('{}')
+            with patch.object(bench, "validate_encoder_match",
+                              side_effect=bench.EncoderQualityMismatch("quality gap")):
+                with self.assertRaises(SystemExit) as result:
+                    bench.encoder_check(root)
+                self.assertEqual(result.exception.code, 3)
+            with patch.object(bench, "validate_encoder_match", side_effect=ValueError("stale")):
+                with self.assertRaisesRegex(ValueError, "stale"):
+                    bench.encoder_check(root)
+
     def test_hyperfine_p95_uses_nearest_rank_and_preserves_arguments(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "raw.json"
@@ -112,6 +199,42 @@ class ComparisonContract(unittest.TestCase):
         self.assertIn("crop=1752,1168,6000,4000", sharp)
         self.assertIn(Path("corpus/beach.jpg"), ferrixel)
         self.assertIn("--budget-mb=2048", ferrixel)
+
+    def test_independent_photo_preparation_checks_source_and_copy(self):
+        image = ("deer", "deer.jpg", "--use-rendered-icc", "ignore", 1600, 1067, 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, corpus, refs = root / "source", root / "corpus", root / "refs"
+            for path in (source, corpus, refs):
+                path.mkdir()
+            (source / "ferrixel-deer.jpg").write_bytes(b"photo")
+            checks = []
+            commands = []
+            def verify(path, image_id, manifest):
+                checks.append((path, image_id, manifest))
+            def fake_run(args, env=None, capture=True):
+                commands.append(args)
+                return ""
+            with (patch.object(bench, "IMAGE_SET", "deer"), patch.object(bench, "IMAGES", [image]),
+                  patch.object(bench, "verify_corpus_file", side_effect=verify),
+                  patch.object(bench, "run", side_effect=fake_run),
+                  patch.dict(os.environ, {"COMPARE_LARGE_CORPUS": str(source), "BENCH_SHARP_NODE_MODULES": "test"})):
+                bench.prepare_large(corpus, refs)
+            self.assertEqual((corpus / "deer.jpg").read_bytes(), b"photo")
+            self.assertEqual(checks, [(source / "ferrixel-deer.jpg", "deer", "corpus-photos.json"),
+                                      (corpus / "deer.jpg", "deer", "corpus-photos.json")])
+            self.assertTrue(any(f"{corpus / 'deer.jpg'}#1" in command for command in commands))
+            cmd = bench.encoder_cmd(image, corpus, "encoder", 80, 6, 1, "out.avif")
+            self.assertIn("--budget-mb=2048", cmd)
+            self.assertFalse(any(str(arg).startswith("--crop=") for arg in cmd))
+
+    def test_elcito_selection_uses_explicit_srgb_assumption(self):
+        script = ("import runpy; x=runpy.run_path('scripts/bench/compare-sharp.py'); "
+                  "print(x['IMAGES'][0][2])")
+        env = {**os.environ, "COMPARE_IMAGE_SET": "elcito"}
+        output = subprocess.check_output([sys.executable, "-I", "-c", script], env=env,
+                                         cwd=bench.REPO, text=True)
+        self.assertEqual(output.strip(), "--assume-srgb")
 
     def test_encoder_speed_is_explicit_and_sweep_overrides_it_once(self):
         image = ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6)
@@ -236,6 +359,9 @@ class ComparisonContract(unittest.TestCase):
                   patch.object(bench, "encoder_sample") as sample,
                   patch.object(bench, "encoder_wait_for_idle") as idle,
                   patch.dict(os.environ, {"COMPARE_ENCODER_LEVELS": "60", "COMPARE_ENCODER_RUN_ID": "gap"})):
+                with self.assertRaises(SystemExit) as result:
+                    bench.encoder_check(root)
+                self.assertEqual(result.exception.code, 3)
                 with self.assertRaisesRegex(ValueError, r"dog.*60.*0.*6.*delta=-1\.585"):
                     bench.encoder_timing(root)
                 sample.assert_not_called()

@@ -8,6 +8,15 @@ name: M2 Encoder Comparison (Linux)
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "Choose the existing single-host run or a native-host corpus run"
+        type: choice
+        options: [single, native-calibration, native-corpus]
+        default: single
+      native_scalar:
+        description: "Also time scalar AOM in the native-host run"
+        type: boolean
+        default: false
       image_set:
         description: "Corpus lane; beach regions use the full attributed 60 MP source"
         type: choice
@@ -24,6 +33,7 @@ on:
 
 jobs:
   compare:
+    if: inputs.mode == 'single'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -87,6 +97,14 @@ jobs:
             bench-out/encoders/
             scripts/bench/corpus.json
             scripts/bench/corpus-large.json
+            scripts/bench/corpus-photos.json
             docs/benchmarks/corpus-and-comparison.md
             docs/benchmarks/encoder-adoption.md
           if-no-files-found: ignore
+
+  native:
+    if: inputs.mode == 'native-calibration' || inputs.mode == 'native-corpus'
+    uses: ./.github/workflows/m2-encoder-corpus.yml
+    with:
+      workload: ${{ inputs.mode == 'native-corpus' && 'corpus' || 'calibration' }}
+      scalar: ${{ inputs.native_scalar }}
