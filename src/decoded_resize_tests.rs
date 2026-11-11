@@ -313,7 +313,7 @@ fn memory_budget_and_cancellation_are_checked() {
 
 #[cfg(feature = "jpeg-read")]
 #[test]
-fn real_jpeg_full_frame_fallback_is_decoded_once_for_resize() {
+fn real_jpeg_region_request_is_decoded_once_for_resize() {
     use crate::codecs::jpeg::JpegSource;
     let mut source = JpegSource::new(include_bytes!("../tests/fixtures/sample.jpg")).unwrap();
     let mut graph = Graph::new();
@@ -337,8 +337,8 @@ fn real_jpeg_full_frame_fallback_is_decoded_once_for_resize() {
         },
     )
     .unwrap();
-    assert_eq!(report.decoder.access, DecodeAccess::FullFrameFallback);
-    assert_eq!(report.decoder.known_full_frame_buffers, 1);
+    assert_eq!(report.decoder.access, DecodeAccess::CodecRegionRequest);
+    assert_eq!(report.decoder.known_full_frame_buffers, 0);
     assert_eq!(report.decoder_region_requests, 1);
     assert_eq!(pixels.len(), 27);
     assert_eq!(budget.snapshot().live, 0);

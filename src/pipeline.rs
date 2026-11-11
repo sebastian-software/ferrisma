@@ -27,6 +27,7 @@ pub use ferrixel_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelRe
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ImageFormat {
     Jpeg,
+    WebP,
     JpegXl,
     Avif,
 }
@@ -262,7 +263,7 @@ impl From<Error> for ProcessingError {
             }
             #[cfg(feature = "avif-write")]
             Error::InvalidEncodeOptions => Kind::InvalidOptions,
-            #[cfg(feature = "avif-read")]
+            #[cfg(any(feature = "avif-read", feature = "webp-read"))]
             Error::InputPixelLimitExceeded { .. } => Kind::InputLimitExceeded,
             Error::DecodeFailed
             | Error::IncompleteDecoderOutput
@@ -272,6 +273,8 @@ impl From<Error> for ProcessingError {
             | Error::UnsupportedCodecLayout
             | Error::UnsupportedPixelOperation
             | Error::ChromaPhaseRequiresResampling => Kind::UnsupportedInput,
+            #[cfg(feature = "webp-read")]
+            Error::UnsupportedAnimation => Kind::UnsupportedInput,
             Error::UnsupportedImageTransform => Kind::UnsupportedInput,
             Error::UnsupportedColorEncoding => Kind::UnsupportedColor,
             #[cfg(feature = "avif-read")]
@@ -314,7 +317,7 @@ fn open_source<'a>(
     format: ImageFormat,
     max_pixels: u64,
 ) -> Result<Box<dyn DecodeSource + 'a>, ProcessingError> {
-    #[cfg(not(feature = "avif-read"))]
+    #[cfg(not(any(feature = "avif-read", feature = "webp-read")))]
     let _ = max_pixels;
     match format {
         ImageFormat::Jpeg => {
@@ -328,6 +331,22 @@ fn open_source<'a>(
                 Err(ProcessingError::new(
                     ProcessingErrorKind::FeatureDisabled,
                     "enable the jpeg-read Cargo feature",
+                ))
+            }
+        }
+        ImageFormat::WebP => {
+            #[cfg(feature = "webp-read")]
+            {
+                Ok(Box::new(crate::codecs::webp::WebpSource::new_bounded(
+                    bytes, max_pixels,
+                )?))
+            }
+            #[cfg(not(feature = "webp-read"))]
+            {
+                let _ = bytes;
+                Err(ProcessingError::new(
+                    ProcessingErrorKind::FeatureDisabled,
+                    "enable the webp-read Cargo feature",
                 ))
             }
         }

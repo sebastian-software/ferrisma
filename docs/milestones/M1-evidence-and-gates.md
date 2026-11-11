@@ -6,7 +6,7 @@
 
 - Semantic color-conversion, quality-resample and output-encoding nodes, with region planning and bounded cache/row-buffer ownership.
 - CPU scalar SDR sRGB / Display P3 transfer and gamut conversion, explicit straight-alpha association, Area and Lanczos3 filters, and a separate final sRGB8 quantization step.
-- Optional read-only JPEG, JPEG XL and AVIF sources and optional AVIF writer; the AVIF writer declares and budgets its required full-frame output surface.
+- Optional read-only JPEG, still WebP, JPEG XL and AVIF sources and optional AVIF writer; the AVIF writer declares and budgets its required full-frame output surface. WebP crop output is budgeted, while its decoder-internal memory is opaque ([ADR-0029](../adr/0029-webp-still-input.md)).
 - AVIF color evidence comes from the primary item's `colr` (`nclx` or ICC) property and the AV1 sequence header, read by a bounds-checked parser before any pixel decode. The adapter reports the emitted full-range RGB as CICP `[primaries, transfer, 0, 1]`, rejects `nclx` that contradicts the matrix, range, primaries or transfer the decoder actually uses, applies supported `irot`/`imir` orientation before cropping, and fails closed on `clap`, unsupported transform ordering, and unknown essential properties.
 - A small Rust facade and CLI using the same graph/executor. Untagged inputs require an **explicit** sRGB assumption or an ICC path when supported.
 - Optional `moxcms` rendered-ICC-to-sRGB source adapter with an explicit user policy. It is not arbitrary ICC/CICP equivalence or HDR handling.

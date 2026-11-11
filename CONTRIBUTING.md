@@ -40,7 +40,7 @@ cargo clippy --all-targets -- -D warnings
 
 # Current engine adapters, ICC, and CLI; explicitly scoped to avoid ABI collisions.
 cargo test -p ferrixel -p ferrixel-kernels --all-targets --all-features
-cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features -- -D warnings
+cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features --no-deps -- -D warnings
 ```
 
 Do not run `--all-features` over the entire workspace: the interim AVIF reader

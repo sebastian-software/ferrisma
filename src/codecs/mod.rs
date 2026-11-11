@@ -8,3 +8,5 @@ pub(crate) mod jxl;
 pub(crate) mod avif;
 #[cfg(feature = "avif-read")]
 mod avif_meta;
+#[cfg(feature = "webp-read")]
+pub(crate) mod webp;

@@ -30,7 +30,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0009](0009-living-adr-process.md) | Decision lifecycle and amendment policy | Accepted |
 | [0010](0010-dual-licensing.md) | Dual-license Ferrixel under MIT OR Apache-2.0 | Accepted |
 | [0011](0011-borrowed-planar-surface-contract.md) | Borrowed, byte-strided YUV420P10 source contract | Experimental |
-| [0012](0012-codec-source-contract.md) | Real decoder sources: explicit ROI capabilities and JPEG fallback | Experimental |
+| [0012](0012-codec-source-contract.md) | Real decoder sources: explicit ROI capabilities and workspace JPEG scanlines | Experimental |
 | [0013](0013-sample-domain-resize.md) | Preserve rendered metadata and validate sample-domain codec resize | Experimental |
 | [0014](0014-linear-srgb-straight-alpha.md) | Explicit sRGB linear-light resize and premultiplied filtering | Experimental |
 | [0015](0015-typed-output-color-signals.md) | Inspect CICP and ICC output evidence; describe required conversions | Experimental |
@@ -47,6 +47,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0026](0026-codecs-in-one-repository-and-workspace.md) | One repository and Cargo workspace for the engine, adapter and four codec ports; imported PRs, common verification entry point and early SharpYUV consolidation review | Accepted |
 | [0027](0027-tiered-validation-and-rust-test-orchestration.md) | Scoped PR checks, deep validation cadence and Rust orchestration | Accepted |
 | [0028](0028-ardo-documentation-site.md) | Ardo website with the shared Ferramenta theme and canonical repository Markdown | Accepted |
+| [0029](0029-webp-still-input.md) | Still WebP input through the workspace port with explicit crop cost, color, orientation and memory limits | Experimental |
 
 ## Changing an ADR
 

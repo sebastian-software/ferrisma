@@ -1,8 +1,7 @@
-//! Read-only JPEG fallback: full output materialization is explicit.
+//! Read-only JPEG source through the workspace codec's safe scanline API.
 //! No JPEG encoder or JPEG-first core assumptions.
 use crate::color::AlphaMode;
-use zune_jpeg::JpegDecoder;
-use zune_jpeg::zune_core::{bytestream::ZCursor, colorspace::ColorSpace, options::DecoderOptions};
+use jpeg::decode::{ColorSpace, Decoder, DecoderOptions, OutputOptions, PixelFormat};
 
 use crate::decoder::{
     ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType,
@@ -17,25 +16,45 @@ pub(crate) struct JpegSource<'a> {
     info: DecoderInfo,
     orientation: Orientation,
 }
-fn decoder(bytes: &[u8]) -> JpegDecoder<ZCursor<&[u8]>> {
-    let options = DecoderOptions::default().jpeg_set_out_colorspace(ColorSpace::RGB);
-    JpegDecoder::new_with_options(ZCursor::new(bytes), options)
+fn output_options() -> OutputOptions {
+    OutputOptions {
+        format: Some(PixelFormat::Rgb),
+        ..OutputOptions::default()
+    }
+}
+fn decoder(bytes: &[u8]) -> Result<Decoder<'_>, Error> {
+    // Missing entropy or EOI markers must not be disguised by libjpeg's
+    // synthetic-EOI recovery warning.
+    Decoder::with_options(
+        bytes,
+        &DecoderOptions {
+            fail_on_warning: true,
+            ..DecoderOptions::default()
+        },
+    )
+    .map_err(|_| Error::DecodeFailed)
 }
 impl<'a> JpegSource<'a> {
     pub(crate) fn new(bytes: &'a [u8]) -> Result<Self, Error> {
-        let mut decoder = decoder(bytes);
-        decoder.decode_headers().map_err(|_| Error::DecodeFailed)?;
-        let (width, height) = decoder.dimensions().ok_or(Error::DecodeFailed)?;
-        let size = Size::new(
-            u32::try_from(width).map_err(|_| Error::GeometryOverflow)?,
-            u32::try_from(height).map_err(|_| Error::GeometryOverflow)?,
-        )?;
-        if decoder.output_colorspace() != Some(ColorSpace::RGB) {
+        let mut decoder = decoder(bytes)?;
+        // The port does not emit RGB for CMYK/YCCK. Passing its raw four
+        // channels through an RGB contract would mislabel the samples.
+        if matches!(
+            decoder.header().color_space,
+            ColorSpace::Cmyk | ColorSpace::Ycck
+        ) {
+            return Err(Error::UnsupportedCodecLayout);
+        }
+        let output = decoder
+            .output_info(&output_options())
+            .map_err(|_| Error::DecodeFailed)?;
+        let size = Size::new(output.width, output.height)?;
+        if output.format != PixelFormat::Rgb || output.components != 3 {
             return Err(Error::UnsupportedCodecLayout);
         }
         // EXIF orientation describes how the stored samples are displayed;
         // the pipeline applies it (ADR-0019). Unknown values fail closed.
-        let orientation = match decoder.exif().map(|exif| exif_orientation(exif)) {
+        let orientation = match decoder.exif().map(exif_orientation) {
             None | Some(Ok(None)) => Orientation::IDENTITY,
             Some(Ok(Some(value))) => {
                 Orientation::from_exif(value).ok_or(Error::UnsupportedImageTransform)?
@@ -49,9 +68,9 @@ impl<'a> JpegSource<'a> {
                 size,
                 layout: ChannelLayout::Rgb,
                 sample: SampleType::U8,
-                access: DecodeAccess::FullFrameFallback,
+                access: DecodeAccess::CodecRegionRequest,
                 alpha: AlphaMode::Opaque,
-                rendered_icc: decoder.icc_profile(),
+                rendered_icc: decoder.icc_profile().map_err(|_| Error::DecodeFailed)?,
                 rendered_cicp: None,
             },
         })
@@ -127,51 +146,87 @@ impl DecodeSource for JpegSource<'_> {
         if !region.fits(self.info.size) {
             return Err(Error::OutOfBounds);
         }
-        let mut decoder = decoder(self.bytes);
-        decoder.decode_headers().map_err(|_| Error::DecodeFailed)?;
-        let width = usize::try_from(self.info.size.width).map_err(|_| Error::GeometryOverflow)?;
-        let height = usize::try_from(self.info.size.height).map_err(|_| Error::GeometryOverflow)?;
-        let frame_bytes = width
-            .checked_mul(height)
-            .and_then(|n| n.checked_mul(3))
-            .ok_or(Error::GeometryOverflow)?;
-        if decoder.output_buffer_size() != Some(frame_bytes) {
+        let decoder = decoder(self.bytes)?;
+        let mut scanlines = decoder
+            .start(&output_options())
+            .map_err(|_| Error::DecodeFailed)?;
+        if scanlines.info().width != self.info.size.width
+            || scanlines.info().height != self.info.size.height
+            || scanlines.info().format != PixelFormat::Rgb
+            || scanlines.info().components != 3
+        {
             return Err(Error::UnsupportedCodecLayout);
         }
-        let mut frame = budget.allocate(frame_bytes)?;
-        decoder
-            .decode_into(frame.as_mut_slice())
+        // libjpeg expands the horizontal request to an iMCU boundary. The
+        // returned offset, not the requested x, locates the sink's samples.
+        // Fancy chroma upsampling needs adjacent columns at both edges;
+        // without them an iMCU-aligned crop can change RGB edge samples.
+        let crop_x = region.x.saturating_sub(1);
+        let crop_right = region.right() + u32::from(region.right() < self.info.size.width);
+        let crop_width = crop_right - crop_x;
+        let (decoded_x, _) = scanlines
+            .crop(crop_x, crop_width)
             .map_err(|_| Error::DecodeFailed)?;
-        let stride = width.checked_mul(3).ok_or(Error::GeometryOverflow)?;
-        let x_bytes = usize::try_from(region.x)
+        let row_bytes = scanlines.info().row_bytes();
+        let mut row = budget.allocate(row_bytes)?;
+        let skipped = scanlines
+            .skip_rows(region.y)
+            .map_err(|_| Error::DecodeFailed)?;
+        if skipped != region.y {
+            return Err(Error::DecodeFailed);
+        }
+        let decoded_offset = region
+            .x
+            .checked_sub(decoded_x)
+            .ok_or(Error::UnsupportedCodecLayout)?;
+        let x_bytes = usize::try_from(decoded_offset)
             .map_err(|_| Error::GeometryOverflow)?
             .checked_mul(3)
             .ok_or(Error::GeometryOverflow)?;
-        let row_bytes = usize::try_from(region.width)
+        let output_row_bytes = usize::try_from(region.width)
             .map_err(|_| Error::GeometryOverflow)?
             .checked_mul(3)
             .ok_or(Error::GeometryOverflow)?;
+        if x_bytes
+            .checked_add(output_row_bytes)
+            .is_none_or(|end| end > row_bytes)
+        {
+            return Err(Error::UnsupportedCodecLayout);
+        }
         let mut rows = 0_u64;
         for y in region.y..region.bottom() {
-            let offset = usize::try_from(y)
-                .map_err(|_| Error::GeometryOverflow)?
-                .checked_mul(stride)
-                .and_then(|i| i.checked_add(x_bytes))
-                .ok_or(Error::GeometryOverflow)?;
+            if scanlines
+                .read_rows(row.as_mut_slice())
+                .map_err(|_| Error::DecodeFailed)?
+                != 1
+            {
+                return Err(Error::DecodeFailed);
+            }
             sink(
                 y,
-                DecodedRow::U8(&frame.as_slice()[offset..offset + row_bytes]),
+                DecodedRow::U8(&row.as_slice()[x_bytes..x_bytes + output_row_bytes]),
             )?;
             rows += 1;
         }
+        // A small ROI still validates the encoded tail. Without finishing,
+        // truncation beyond the last requested row could look successful.
+        let remaining = self.info.size.height - scanlines.next_row();
+        if scanlines
+            .skip_rows(remaining)
+            .map_err(|_| Error::DecodeFailed)?
+            != remaining
+        {
+            return Err(Error::DecodeFailed);
+        }
+        scanlines.finish().map_err(|_| Error::DecodeFailed)?;
         Ok(DecodeReport {
             requested: region,
-            access: DecodeAccess::FullFrameFallback,
+            access: DecodeAccess::CodecRegionRequest,
             rows,
             output_sample_bytes: rows
-                .checked_mul(u64::try_from(row_bytes).map_err(|_| Error::GeometryOverflow)?)
+                .checked_mul(u64::try_from(output_row_bytes).map_err(|_| Error::GeometryOverflow)?)
                 .ok_or(Error::GeometryOverflow)?,
-            known_full_frame_buffers: 1,
+            known_full_frame_buffers: 0,
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
             engine_buffer_bytes: 0,
@@ -231,6 +286,78 @@ mod tests {
             &jpeg[2..],
         ]
         .concat()
+    }
+
+    #[test]
+    fn reports_embedded_icc_without_changing_rgb_samples() {
+        use crate::decoder::{DecodeSource, DecodedRow};
+        use crate::geometry::Rect;
+        use crate::memory::MemoryBudget;
+
+        let jpeg = include_bytes!("../../tests/fixtures/sample.jpg");
+        let profile =
+            include_bytes!("../../codecs/libavif-rs/upstream/libavif/tests/data/sRGB2014.icc");
+        let payload = [b"ICC_PROFILE\0\x01\x01".as_slice(), profile].concat();
+        let length = u16::try_from(payload.len() + 2).unwrap().to_be_bytes();
+        let tagged = [&jpeg[..2], &[0xff, 0xe2], &length, &payload, &jpeg[2..]].concat();
+        let mut plain = JpegSource::new(jpeg).unwrap();
+        let mut tagged = JpegSource::new(&tagged).unwrap();
+        assert_eq!(
+            tagged.info().rendered_icc.as_deref(),
+            Some(profile.as_slice())
+        );
+        let region = Rect::new(1, 1, 4, 3).unwrap();
+        let read = |source: &mut JpegSource<'_>| {
+            let mut pixels = Vec::new();
+            source
+                .read_region(region, &MemoryBudget::new(21), &mut |_, row| {
+                    let DecodedRow::U8(samples) = row else {
+                        panic!("RGB8 expected")
+                    };
+                    pixels.extend_from_slice(samples);
+                    Ok(())
+                })
+                .unwrap();
+            pixels
+        };
+        assert_eq!(read(&mut plain), read(&mut tagged));
+    }
+
+    #[test]
+    fn does_not_label_cmyk_samples_as_rgb() {
+        assert_eq!(
+            JpegSource::new(include_bytes!("../../tests/fixtures/cmyk.jpg")).err(),
+            Some(Error::UnsupportedCodecLayout)
+        );
+    }
+
+    #[test]
+    fn cropped_read_rejects_a_truncated_tail() {
+        use crate::decoder::DecodeSource;
+        use crate::geometry::Rect;
+        use crate::memory::MemoryBudget;
+
+        let complete = include_bytes!("../../tests/fixtures/sample.jpg");
+        let missing_eoi = &complete[..complete.len() - 2];
+        let mut source = JpegSource::new(missing_eoi).unwrap();
+        assert_eq!(
+            source.read_region(
+                Rect::new(0, 0, 2, 1).unwrap(),
+                &MemoryBudget::new(21),
+                &mut |_, _| Ok(())
+            ),
+            Err(Error::DecodeFailed)
+        );
+    }
+
+    #[test]
+    fn malformed_icc_is_not_treated_as_untagged_color() {
+        let jpeg = include_bytes!("../../tests/fixtures/sample.jpg");
+        // The marker promises two ICC chunks, but only the first is present.
+        let payload = b"ICC_PROFILE\0\x01\x02bad";
+        let length = u16::try_from(payload.len() + 2).unwrap().to_be_bytes();
+        let tagged = [&jpeg[..2], &[0xff, 0xe2], &length, payload, &jpeg[2..]].concat();
+        assert_eq!(JpegSource::new(&tagged).err(), Some(Error::DecodeFailed));
     }
 
     #[test]

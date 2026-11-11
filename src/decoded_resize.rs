@@ -1,7 +1,7 @@
 //! First real-codec resize seam: a scalar, encoded-sample-domain reference.
 //!
 //! A single decoder region request streams rows past a one-row input cache and
-//! one-row output buffer. JPEG's full-frame fallback is decoded once, not
+//! one-row output buffer. A JPEG region is requested once, not
 //! once per output scanline. The bounding ROI can still overfetch with JPEG XL.
 //! This is not color-managed or alpha-aware resampling.
 

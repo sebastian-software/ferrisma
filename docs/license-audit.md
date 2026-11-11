@@ -17,14 +17,20 @@ When a crate is flagged, review its exact source license, license-file and notic
 
 | Dependency | Cargo feature | Upstream metadata/license | Review focus |
 | --- | --- | --- | --- |
-| `zune-jpeg` | `jpeg-read` | Permissive; verify exact crate release | JPEG headers, ICC handling, decode scratch |
+| workspace `libjpeg-turbo-rs` | `jpeg-read` | IJG and Zlib; pinned port of libjpeg-turbo 3.2.1 | Retain [IJG license](../codecs/libjpeg-turbo-rs/README.ijg), [Zlib notice](../codecs/libjpeg-turbo-rs/LICENSE.md), upstream notices, safe API boundary, ICC/EXIF handling, and codec scratch |
+| workspace `libwebp-rs` | `webp-read` | BSD-3-Clause; [license](../codecs/libwebp-rs/LICENSE), [patent grant](../codecs/libwebp-rs/PATENTS), [authors](../codecs/libwebp-rs/AUTHORS), [provenance](../codecs/libwebp-rs/docs/PROVENANCE.md) | Still decoder, ICC/EXIF, opaque scratch and notices; publication gate remains open |
 | `jxl-oxide` | `jpeg-xl-read` | Permissive; verify exact crate release | CMS output profile, color/alpha, crop/internal cache |
 | `avif-decode` / `rav1d` | `avif-read` | BSD-3-Clause decoder; inspect native/build artifacts | Target-specific NASM assembly, malformed bitstreams, MSRV 1.98 |
 | `rav1e` / `avif-serialize` | `avif-write` | BSD-2-Clause encoder, BSD-3-Clause container writer; `rav1e` links hand-written assembly | Encoded CICP, alpha, frame materialization and opaque scratch |
 | `ravif` | dev-dependency only | BSD-3-Clause | Writes one test fixture; not linked into the library or CLI |
+| `moxcms` | `icc` | BSD-3-Clause OR Apache-2.0 | ICC parsing, color fidelity, malformed profiles, SIMD/native code |
+
+The standalone `zune-jpeg` benchmark harness remains under `scripts/bench/`
+for comparison; it is not a `jpeg-read` runtime dependency. The workspace
+JPEG port retains its pinned upstream notices and its own scoped license
+terms; the engine's MIT OR Apache-2.0 license does not relicense that port.
 
 **Embedded third-party code.** `src/av1_tuning.rs` adapts `ravif` 0.13.0's quality-to-quantizer curve and speed overrides (BSD-3-Clause, Copyright (c) 2020, Kornel). The file carries the full license notice; binary distributions must reproduce it with the other third-party notices.
-| `moxcms` | `icc` | BSD-3-Clause OR Apache-2.0 | ICC parsing, color fidelity, malformed profiles, SIMD/native code |
 
 The choices and their remaining gates are recorded in [ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md). A future JPEG XL encoder, including the AGPL-3.0/commercial `jxl-encoder` candidate, is **not** an approved default dependency and requires a separate ADR.
 

@@ -145,13 +145,13 @@ fn source_binding_and_cancellation_are_checked() {
 
 #[cfg(feature = "jpeg-read")]
 #[test]
-fn jpeg_read_only_fallback_is_explicit_and_budgeted() {
+fn jpeg_region_request_is_explicit_and_budgeted() {
     use crate::codecs::jpeg::JpegSource;
     let bytes = include_bytes!("../tests/fixtures/sample.jpg");
     let mut source = JpegSource::new(bytes).unwrap();
     assert_eq!(source.info().size, Size::new(7, 5).unwrap());
     assert_eq!(source.info().layout, ChannelLayout::Rgb);
-    assert_eq!(source.info().access, DecodeAccess::FullFrameFallback);
+    assert_eq!(source.info().access, DecodeAccess::CodecRegionRequest);
     let mut graph = Graph::new();
     let id = graph
         .decoded_source(
@@ -162,7 +162,7 @@ fn jpeg_read_only_fallback_is_explicit_and_budgeted() {
         .unwrap();
     let crop = graph.crop(id, rect(2, 1, 4, 3)).unwrap();
     let mut ys = Vec::new();
-    let budget = MemoryBudget::new(105);
+    let budget = MemoryBudget::new(18);
     let report = execute_decoded(
         &graph,
         crop,
@@ -179,19 +179,16 @@ fn jpeg_read_only_fallback_is_explicit_and_budgeted() {
     .unwrap();
     assert_eq!(ys, vec![1, 2]);
     assert_eq!(report.requested, rect(3, 2, 2, 2));
-    assert_eq!(report.known_full_frame_buffers, 1);
+    assert_eq!(report.access, DecodeAccess::CodecRegionRequest);
+    assert_eq!(report.known_full_frame_buffers, 0);
     assert_eq!(report.output_sample_bytes, 12);
     assert_eq!(budget.snapshot().live, 0);
-    assert_eq!(budget.snapshot().peak, 105);
+    assert_eq!(budget.snapshot().peak, 18);
     assert_eq!(
-        source.read_region(
-            rect(3, 2, 2, 2),
-            &MemoryBudget::new(104),
-            &mut |_, _| Ok(())
-        ),
+        source.read_region(rect(3, 2, 2, 2), &MemoryBudget::new(17), &mut |_, _| Ok(())),
         Err(Error::BudgetExceeded {
-            requested: 105,
-            available: 104
+            requested: 18,
+            available: 17
         })
     );
     assert!(matches!(
@@ -276,6 +273,53 @@ fn jpeg_cropped_samples_match_full_decoded_output() {
     for y in 0..2_usize {
         let offset = ((y + 1) * 7 + 2) * 3;
         assert_eq!(&crop[y * 9..(y + 1) * 9], &full[offset..offset + 9]);
+    }
+}
+
+#[cfg(feature = "jpeg-read")]
+#[test]
+fn jpeg_imcu_boundary_crops_match_full_rgb_rows() {
+    use crate::codecs::jpeg::JpegSource;
+
+    let bytes =
+        include_bytes!("../codecs/libjxl-rs/tests/data/decode-test/flower.png.im_q85_420.jpg");
+    let mut source = JpegSource::new(bytes).unwrap();
+    let size = source.info().size;
+    let row_bytes = size.width as usize * 3;
+    let mut full = Vec::with_capacity(row_bytes * size.height as usize);
+    source
+        .read_region(
+            rect(0, 0, size.width, size.height),
+            &MemoryBudget::new(row_bytes),
+            &mut |_, row| {
+                let DecodedRow::U8(data) = row else {
+                    panic!("RGB8 expected")
+                };
+                full.extend_from_slice(data);
+                Ok(())
+            },
+        )
+        .unwrap();
+
+    for region in [
+        rect(0, 17, 41, 19),
+        rect(16, 17, 41, 19),
+        rect(17, 17, 41, 19),
+        rect(32, 29, 33, 23),
+        rect(33, 29, 33, 23),
+        rect(127, 55, 65, 17),
+        rect(2240, 17, 28, 19),
+    ] {
+        source
+            .read_region(region, &MemoryBudget::new(row_bytes), &mut |y, row| {
+                let DecodedRow::U8(data) = row else {
+                    panic!("RGB8 expected")
+                };
+                let offset = (y as usize * size.width as usize + region.x as usize) * 3;
+                assert_eq!(data, &full[offset..offset + region.width as usize * 3]);
+                Ok(())
+            })
+            .unwrap();
     }
 }
 
