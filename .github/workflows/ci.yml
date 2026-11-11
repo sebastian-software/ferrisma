@@ -80,7 +80,11 @@ jobs:
           for feature in jpeg-read webp-read webp-write jpeg-xl-read jpeg-xl-own-read avif-read avif-write avif-own-write icc cli; do
             cargo check --no-default-features --features "$feature"
           done
-      - run: python3 scripts/test_audit_licenses.py && python3 scripts/audit-licenses.py
+      - name: Check license inventory contracts and dependency metadata
+        run: |
+          python3 -I scripts/test_audit_licenses.py
+          python3 -I scripts/test_production_license_bundle.py
+          python3 -I scripts/audit-licenses.py
       - if: always()
         uses: actions/upload-artifact@v4
         with:

@@ -37,6 +37,11 @@ tool selects the `ferrixel` package only; it does not inventory the separate
 `ferrixel-libavif` compatibility adapter or its CLI as a root package. Audit
 those artifacts separately before distribution.
 
+The ordinary engine CI runs the bundle's contract tests alongside the existing
+license metadata tests. These tests check source identity, recovered-file
+provenance, tampering, symlink rejection, and strict verification failures;
+they do not approve a distribution or remove the independent review gate.
+
 The JSON inventory records the Cargo version, target, requested features,
 lockfile hash, checkout revision and status, exact package versions and source
 identity. `cargo-tree-features.txt` records the resolved features on the selected
