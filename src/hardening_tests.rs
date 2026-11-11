@@ -3,6 +3,7 @@
 
 #[cfg(any(
     feature = "jpeg-read",
+    feature = "jpeg-xl-read",
     feature = "jpeg-xl-own-read",
     feature = "avif-read"
 ))]
@@ -225,4 +226,24 @@ fn api_errors_carry_a_matchable_kind() {
         kind(jpeg, ImageFormat::JpegXl, options),
         Kind::FeatureDisabled
     );
+}
+
+// Preserve the default decoder contract while the workspace port remains opt-in.
+#[cfg(feature = "jpeg-xl-read")]
+#[test]
+fn interim_truncated_and_mutated_jxl_headers_never_panic_in_adapter_setup() {
+    use crate::codecs::jxl_oxide::JxlSource;
+
+    let complete = include_bytes!("../tests/fixtures/sample.jxl");
+    for length in [0, 1, 2, 4, 8, 16, complete.len() / 2] {
+        let data = &complete[..length.min(complete.len())];
+        let result = catch_unwind(AssertUnwindSafe(|| JxlSource::new(data)));
+        assert!(
+            result.is_ok(),
+            "JXL header parser panicked at length {length}"
+        );
+    }
+    let mut invalid = complete.to_vec();
+    invalid[0] ^= 0xff;
+    assert!(catch_unwind(AssertUnwindSafe(|| JxlSource::new(&invalid))).is_ok());
 }

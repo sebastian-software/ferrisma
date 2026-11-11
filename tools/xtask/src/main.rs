@@ -44,6 +44,7 @@ impl Selection {
             self.workspace = true;
         } else if path.starts_with("codecs/libjxl-rs/") || path == "codecs/libjxl-rs" {
             self.jxl = true;
+            self.engine = true;
             self.workspace = true;
         } else if path.starts_with("codecs/libavif-rs/") || path == "codecs/libavif-rs" {
             self.avif = true;
@@ -476,10 +477,15 @@ mod tests {
     }
     #[test]
     fn jxl_adapter_changes_select_engine_and_jxl() {
-        let mut selection = Selection::default();
-        selection.classify("crates/ferrixel-jxl-decoder/src/lib.rs");
-        assert!(selection.jxl && selection.engine && selection.workspace);
-        assert!(!selection.avif && !selection.webp && !selection.jpeg);
+        for path in [
+            "crates/ferrixel-jxl-decoder/src/lib.rs",
+            "codecs/libjxl-rs/src/lib.rs",
+        ] {
+            let mut selection = Selection::default();
+            selection.classify(path);
+            assert!(selection.jxl && selection.engine && selection.workspace);
+            assert!(!selection.avif && !selection.webp && !selection.jpeg);
+        }
     }
     #[test]
     fn git_diff_selects_both_sides_of_rename_and_deletion() {

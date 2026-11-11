@@ -373,3 +373,87 @@ fn jpeg_xl_region_samples_match_full_render() {
         }
     }
 }
+
+// Preserve the default decoder contract while the workspace port remains opt-in.
+#[cfg(feature = "jpeg-xl-read")]
+#[test]
+fn interim_jpeg_xl_requests_codec_region_and_delivers_float_scanlines() {
+    use crate::codecs::jxl_oxide::JxlSource;
+    let bytes = include_bytes!("../tests/fixtures/sample.jxl");
+    let mut source = JxlSource::new(bytes).unwrap();
+    assert_eq!(source.info().size, Size::new(7, 5).unwrap());
+    assert_eq!(source.info().layout, ChannelLayout::Rgb);
+    assert_eq!(source.info().sample, SampleType::F32);
+    assert_eq!(source.info().access, DecodeAccess::CodecRegionRequest);
+    let mut graph = Graph::new();
+    let id = graph
+        .decoded_source(
+            source.info().size,
+            source.info().pixel_format(),
+            source.info().semantics(),
+        )
+        .unwrap();
+    let crop = graph.crop(id, rect(1, 1, 5, 3)).unwrap();
+    let budget = MemoryBudget::new(24);
+    let mut ys = Vec::new();
+    let report = execute_decoded(
+        &graph,
+        crop,
+        id,
+        &mut source,
+        rect(1, 1, 2, 2),
+        &budget,
+        |y, row| {
+            assert!(matches!(row, DecodedRow::F32(samples) if samples.len() == 6));
+            ys.push(y);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(ys, vec![1, 2]);
+    assert_eq!(report.requested, rect(2, 2, 2, 2));
+    assert_eq!(report.known_full_frame_buffers, 0);
+    assert_eq!(report.output_sample_bytes, 48);
+    assert_eq!(budget.snapshot().live, 0);
+    assert_eq!(budget.snapshot().peak, 24);
+    assert!(matches!(
+        JxlSource::new(b"invalid"),
+        Err(Error::DecodeFailed)
+    ));
+}
+
+#[cfg(feature = "jpeg-xl-read")]
+#[test]
+fn interim_jpeg_xl_region_samples_match_full_render() {
+    use crate::codecs::jxl_oxide::JxlSource;
+    let bytes = include_bytes!("../tests/fixtures/sample.jxl");
+    let mut source = JxlSource::new(bytes).unwrap();
+    let mut full = Vec::new();
+    source
+        .read_region(rect(0, 0, 7, 5), &MemoryBudget::new(84), &mut |_, row| {
+            let DecodedRow::F32(data) = row else {
+                panic!("JPEG XL must deliver f32");
+            };
+            full.extend_from_slice(data);
+            Ok(())
+        })
+        .unwrap();
+    let mut crop = Vec::new();
+    source
+        .read_region(rect(2, 1, 3, 2), &MemoryBudget::new(36), &mut |_, row| {
+            let DecodedRow::F32(data) = row else {
+                panic!("JPEG XL must deliver f32");
+            };
+            crop.extend_from_slice(data);
+            Ok(())
+        })
+        .unwrap();
+    for y in 0..2_usize {
+        for x in 0..9_usize {
+            let expected = full[(y + 1) * 21 + 6 + x];
+            let actual = crop[y * 9 + x];
+            assert!(actual.is_finite() && expected.is_finite());
+            assert!((actual - expected).abs() <= 1.0e-4);
+        }
+    }
+}
