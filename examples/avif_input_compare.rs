@@ -35,7 +35,7 @@ impl RowEncoder for NullEncoder {
         for b in rgba {
             self.digest = self
                 .digest
-                .wrapping_mul(1099511628211)
+                .wrapping_mul(1_099_511_628_211)
                 .wrapping_add(u64::from(*b));
         }
         Ok(())

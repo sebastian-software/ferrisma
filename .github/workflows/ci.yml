@@ -64,11 +64,11 @@ jobs:
       - run: cargo test -p ferrixel --lib --no-default-features --features jpeg-read backend_only_tests
       - run: cargo test -p ferrixel --lib --no-default-features --features webp-read,webp-write webp_output_tests
       - run: cargo test -p ferrixel -p ferrixel-kernels --all-targets --all-features
-      - run: cargo test -p ferrixel-jxl-decoder --lib --locked
+      - run: cargo test -p ferrixel-jxl-decoder -p ferrixel-avif-read --lib --locked
       # Codec dependencies retain their separate strict stable-Clippy jobs.
       - run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --no-deps -- -D warnings
       - run: cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features --no-deps -- -D warnings
-      - run: cargo clippy -p ferrixel-jxl-decoder --all-targets --no-deps --locked -- -D warnings
+      - run: cargo clippy -p ferrixel-jxl-decoder -p ferrixel-avif-read --all-targets --no-deps --locked -- -D warnings
       - run: |
           for feature in jpeg-read webp-read webp-write jpeg-xl-read jpeg-xl-own-read avif-read avif-write icc cli; do
             cargo check --no-default-features --features "$feature"
@@ -97,7 +97,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.98.0
       - run: sudo apt-get update -qq && sudo apt-get install -y nasm
       - run: cargo +1.98.0 fetch --locked
-      - run: cargo +1.98.0 check -p ferrixel -p ferrixel-kernels --all-features --locked
+      # AVIF input uses the native nightly port; the remaining engine features
+      # keep the stable MSRV contract. Native reader jobs cover AVIF separately.
+      - run: cargo +1.98.0 check -p ferrixel -p ferrixel-kernels --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,avif-write,icc --locked
       - run: cargo +1.98.0 check -p ferrixel-xtask --all-targets --locked
   kernels-arm:
     needs: affected
@@ -117,6 +119,26 @@ jobs:
       - run: cargo run -p ferrixel-kernels --example detect
       - run: cargo test -p ferrixel -p ferrixel-kernels --all-targets
       - run: cargo clippy -p ferrixel-kernels --all-targets -- -D warnings
+  native-adapters:
+    needs: affected
+    if: needs.affected.outputs.engine == 'true' || needs.affected.outputs.adapter == 'true'
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Restore native adapter build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: target
+          key: core-native-readers-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-${{ github.sha }}
+          restore-keys: |
+            core-native-readers-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-
+      - run: test "$(uname -m)" = arm64
+      - run: cargo fetch --locked
+      # Selecting these consumers together also checks that AVIF input and the
+      # libavif encoder link in the same binary without duplicate dav1d symbols.
+      - run: cargo test -p ferrixel -p ferrixel-avif-read -p ferrixel-jxl-decoder -p ferrixel-libavif --all-targets --all-features --locked
+      - run: cargo clippy -p ferrixel -p ferrixel-avif-read -p ferrixel-jxl-decoder -p ferrixel-libavif --all-targets --all-features --no-deps --locked -- -D warnings
   workspace:
     needs: affected
     if: needs.affected.outputs.workspace == 'true' || needs.affected.outputs.adapter == 'true'
@@ -196,7 +218,7 @@ jobs:
   checks-passed:
     name: Checks passed
     if: always()
-    needs: [affected, rust, minimum-rust, kernels-arm, workspace, codecs]
+    needs: [affected, rust, minimum-rust, kernels-arm, native-adapters, workspace, codecs]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
@@ -204,13 +226,15 @@ jobs:
       CORE: ${{ needs.affected.outputs.engine == 'true' || needs.affected.outputs.kernels == 'true' }}
       WORKSPACE: ${{ needs.affected.outputs.workspace == 'true' || needs.affected.outputs.adapter == 'true' }}
       CODECS: ${{ needs.affected.outputs.has-codecs }}
+      READERS: ${{ needs.affected.outputs.engine == 'true' || needs.affected.outputs.adapter == 'true' }}
       RUST: ${{ needs.rust.result }}
       MSRV: ${{ needs.minimum-rust.result }}
       ARM: ${{ needs.kernels-arm.result }}
       INTEGRATION: ${{ needs.workspace.result }}
+      NATIVE: ${{ needs.native-adapters.result }}
       CODEC_RESULT: ${{ needs.codecs.result }}
     steps:
       - run: |
           [ "$DETECTOR" = success ] || exit 1
           check() { if [ "$1" = true ]; then [ "$2" = success ]; else [ "$2" = skipped ]; fi; }
-          check "$CORE" "$RUST" && check "$CORE" "$MSRV" && check "$CORE" "$ARM" && check "$WORKSPACE" "$INTEGRATION" && check "$CODECS" "$CODEC_RESULT"
+          check "$CORE" "$RUST" && check "$CORE" "$MSRV" && check "$CORE" "$ARM" && check "$READERS" "$NATIVE" && check "$WORKSPACE" "$INTEGRATION" && check "$CODECS" "$CODEC_RESULT"

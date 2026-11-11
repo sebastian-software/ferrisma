@@ -6,7 +6,7 @@
 
 - Semantic color-conversion, quality-resample and output-encoding nodes, with region planning and bounded cache/row-buffer ownership.
 - CPU scalar SDR sRGB / Display P3 transfer and gamut conversion, explicit straight-alpha association, Area and Lanczos3 filters, and a separate final sRGB8 quantization step.
-- Optional read-only JPEG, still WebP, JPEG XL and AVIF sources and optional AVIF writer; the AVIF writer declares and budgets its required full-frame output surface. WebP crop output is budgeted, while its decoder-internal memory is opaque ([ADR-0029](../adr/0029-webp-still-input.md)).
+- Optional JPEG, still WebP, JPEG XL and AVIF sources and optional AVIF and still WebP writers. The writers declare and budget their retained output surfaces. WebP crop output is budgeted, while its decoder-internal memory is opaque ([ADR-0029](../adr/0029-webp-still-input.md), [ADR-0030](../adr/0030-still-webp-output-and-format-neutral-encoder-result.md)).
 - AVIF color evidence comes from the primary item's `colr` (`nclx` or ICC) property and the AV1 sequence header, read by a bounds-checked parser before any pixel decode. The adapter reports the emitted full-range RGB as CICP `[primaries, transfer, 0, 1]`, rejects `nclx` that contradicts the matrix, range, primaries or transfer the decoder actually uses, applies supported `irot`/`imir` orientation before cropping, and fails closed on `clap`, unsupported transform ordering, and unknown essential properties.
 - A small Rust facade and CLI using the same graph/executor. Untagged inputs require an **explicit** sRGB assumption or an ICC path when supported.
 - Optional `moxcms` rendered-ICC-to-sRGB source adapter with an explicit user policy. It is not arbitrary ICC/CICP equivalence or HDR handling.
@@ -28,9 +28,9 @@
 ## Crucial engineering findings
 
 1. **Lanczos tap minima are not guaranteed monotone** because sinc zero crossings can remove a low-index tap for one output line and reintroduce it later. The row scheduler must keep data until its **last** consumer. A deterministic property test exposed the error and the cache retention policy was corrected in a separate commit.
-2. **MPL-2.0 transitive parser:** `avif-parse` 2.1.0 is MPL-2.0 via `avif-decode`. Ferrixel itself stays MIT OR Apache-2.0; delivery of the complete dependency graph still needs third-party license and notice/source audit. See [license audit](../license-audit.md).
+2. **Historical MPL-2.0 transitive parser:** The initial `avif-decode` reader brought in MPL-2.0 `avif-parse` 2.1.0. ADR-0031 removed both from the live engine graph on 2026-11-11. Ferrixel itself stays MIT OR Apache-2.0; delivery of the replacement graph still needs third-party license, patent and notice/source audit. See [license audit](../license-audit.md).
 3. **Memory accounting boundary:** Internal codec decode/encode allocations and currently some planner metadata structures are not included in `MemoryBudget`. Do not advertise a strict process-wide cap.
-4. **Portability:** The active all-feature AVIF path requires Rust 1.98 and may require NASM on x86. CPU-only/no-codec remains optional; broad cross-platform validation is not complete.
+4. **Portability:** AVIF input now requires the pinned nightly and a supported native host (macOS ARM64 or GNU Linux x86-64). Engine features without `avif-read`/`cli` retain stable Rust 1.98 checks. Broad cross-platform validation is not complete; the dated checks below describe the earlier reader.
 
 ## Decision
 

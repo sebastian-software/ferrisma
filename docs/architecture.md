@@ -124,11 +124,20 @@ Graph nodes now share exact rendered ICC and CICP metadata and alpha-association
 
 The current experimental M1 path runs `decoder source → crop → ToLinearSrgb → WorkingLinear(Area | Lanczos3) → ToSrgb8 → AVIF or WebP sink` through a bounded row-cache executor ([ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md), [ADR-0030](adr/0030-still-webp-output-and-format-neutral-encoder-result.md)). Two executors implement it: the scalar `f64` reference (`quality_execute`) and the default `f32` executor (`fast_execute`), with runtime-dispatched CPU kernels, which linearizes each sample once through exact tables and keeps filtered rows in an O(1) ring; a differential test holds the second to the first within [ADR-0021](adr/0021-working-precision-policy.md)'s bound. The AVIF and WebP sinks explicitly materialize output frames and report them. One public entry point, `pipeline::transcode`, and a `cli`-gated binary exercise this path; graph, planner and executor stay private ([ADR-0017](adr/0017-minimal-public-facade-and-cli.md)).
 
-Codecs and the ICC CMS are optional features: workspace `libjpeg-turbo-rs` and `libwebp-rs`, interim `jxl-oxide` and `avif-decode` for input, `rav1e` with `avif-serialize` for output (driven by Ferrixel's own sink, which converts rows to YCbCr directly into the encoder's frame and derives AV1 tiles from the output size) and `moxcms` for rendered-ICC conversion. The local `libjxl-rs` decoder is an explicit opt-in input backend through the independent `ferrixel-jxl-decoder` wrapper. The ICC source adapter emits linear-light sRGB and retains signed, out-of-sRGB-gamut samples for supported RGB matrix-shaper profiles until final output quantization; the LUT path retains its prior behavior ([ADR-0023](adr/0023-decode-side-work-and-scaling-policy.md)). Sources describe their rendered color before decoding. For AVIF, Ferrixel reads `colr`, orientation properties and the AV1 sequence header itself, because the decoder crate does not expose them ([ADR-0012](adr/0012-codec-source-contract.md), [ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md)). The core's only unconditional dependency is the first-party kernel crate `crates/ferrixel-kernels` (ADR-0020): `std::arch` SIMD kernels with runtime dispatch behind a safe API, so the engine keeps `#![forbid(unsafe_code)]`. The package declares Rust 1.98 because of `avif-decode`. The opt-in JPEG XL decoder reconstructs the full frame for every crop ([ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)); complete external conformance and selection gates remain open. Still WebP input and output use the workspace port through [ADR-0029](adr/0029-webp-still-input.md) and [ADR-0030](adr/0030-still-webp-output-and-format-neutral-encoder-result.md). JPEG stays input-only.
+Codecs and the ICC CMS are optional features: workspace `libjpeg-turbo-rs` and `libwebp-rs`, default JPEG XL reader `jxl-oxide`, workspace libavif/AOM through the independent safe `ferrixel-avif-read` input wrapper, `rav1e` with `avif-serialize` for default AVIF output, and `moxcms` for rendered-ICC conversion. The local `libjxl-rs` decoder is an explicit opt-in input backend through the independent `ferrixel-jxl-decoder` wrapper. The ICC source adapter emits linear-light sRGB and retains signed, out-of-sRGB-gamut samples for supported RGB matrix-shaper profiles until final output quantization; the LUT path retains its prior behavior ([ADR-0023](adr/0023-decode-side-work-and-scaling-policy.md)). Sources describe their rendered color before decoding. For AVIF, Ferrixel's bounded parser reads primary-item `colr` and orientation properties, while a small same-module libavif seam reads AV1 sequence headers from the selected color samples before pixel decode; contradictory signals fail closed ([ADR-0031](adr/0031-workspace-libavif-input-experiment.md)). The core's only unconditional dependency is the first-party kernel crate `crates/ferrixel-kernels` (ADR-0020): `std::arch` SIMD kernels with runtime dispatch behind a safe API, so the engine keeps `#![forbid(unsafe_code)]`. The codec-free core and features without `avif-read`/`cli` retain stable Rust 1.98 support; `avif-read` requires the pinned nightly on native macOS ARM64 or GNU Linux x86-64. The opt-in JPEG XL decoder reconstructs the full frame for every crop ([ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)); complete external conformance and selection gates remain open. Still WebP input and output use the workspace port through [ADR-0029](adr/0029-webp-still-input.md) and [ADR-0030](adr/0030-still-webp-output-and-format-neutral-encoder-result.md). JPEG stays input-only.
 
 ## Orientation (experimental)
 
-Decoders emit stored-order samples and report the EXIF orientation that displays them. A non-identity source is wrapped in `OrientedSource`, which maps each display rectangle back to its stored rectangle, reads it once into a budgeted buffer and emits upright rows. The graph therefore stays orientation-free and crops are display coordinates; the buffer is reported as `orientation_buffer_bytes`. Both JPEG XL input backends apply orientation by default and return upright dimensions and samples, verified against the eight independent fixtures. See [ADR-0019](adr/0019-source-side-orientation.md) and [ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md).
+JPEG and WebP sources report EXIF orientation; AVIF reports its `irot`/`imir`
+item transforms. A non-identity source is wrapped in `OrientedSource`, which
+maps each display rectangle back to its stored rectangle, reads it once into a
+budgeted buffer and emits upright rows. The graph therefore stays
+orientation-free and crops are display coordinates; the buffer is reported as
+`orientation_buffer_bytes`. Both JPEG XL input backends apply orientation by
+default and return upright dimensions and samples, verified against the eight
+independent fixtures. See [ADR-0019](adr/0019-source-side-orientation.md),
+[ADR-0031](adr/0031-workspace-libavif-input-experiment.md) and
+[ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md).
 
 ## Parallel execution (experimental)
 
@@ -137,10 +146,11 @@ Decoders emit stored-order samples and report the EXIF orientation that displays
 ## Repository and verification boundaries
 
 [ADR-0026](adr/0026-codecs-in-one-repository-and-workspace.md) places the four
-codec ports under `codecs/` in the engine's Cargo workspace. The optional encoder adapter
-uses the local libavif package; the default engine AVIF encoder remains rav1e. The engine, adapters, codec APIs, licenses and
-unsafe boundaries remain distinct; membership does not select new pipeline
-backends. The root owns the lockfile, development toolchain, profiles and active
+codec ports under `codecs/` in the engine's Cargo workspace. The AVIF input
+wrapper and optional encoder adapter both use the local libavif package; the
+default engine AVIF encoder remains rav1e. The engine, adapters, codec APIs,
+licenses and unsafe boundaries remain distinct; membership alone does not
+select a pipeline backend. The root owns the lockfile, development toolchain, profiles and active
 CI workflows. Component checks retain their independent C/C++ references,
 upstream pins and comparison rules, with a common entry point in
 `cargo xtask codecs`. See [codec development](codecs.md) for supported

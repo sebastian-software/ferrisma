@@ -3,12 +3,12 @@
 - **Status:** Experimental
 - **Date:** 2026-11-11
 - **Last reviewed:** 2026-11-11
-- **Supersedes:** None
+- **Partially supersedes:** [0018](0018-optional-codec-and-cms-dependencies.md), the interim AVIF reader and its toolchain contract; [0024](0024-pluggable-encoders-and-libavif-rs-backend.md) and [0026](0026-codecs-in-one-repository-and-workspace.md), the AVIF reader/encoder link exclusion. [0025](0025-codec-selection-reference-conformance-and-image-scope.md)'s final selection gates remain in force.
 - **Related:** [0015](0015-typed-output-color-signals.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [issue 54](https://github.com/sebastian-software/ferrixel/issues/54)
 
 ## Context
 
-The interim `avif-decode` reader uses `rav1d`, whose `dav1d_*` C symbols collide
+The former interim `avif-decode` reader used `rav1d`, whose `dav1d_*` C symbols collided
 with the workspace libavif port's dav1d. It also materializes an opaque RGB
 frame and requires three passes over the container. The workspace port exposes
 libavif's raw C-style API and includes its Rust libaom reference decoder.
@@ -24,8 +24,8 @@ explicitly and rejects files carrying tracks, so container color, orientation,
 and extent metadata refer to the decoded item. Ferrixel's private AVIF source owns the
 pixel buffer under `MemoryBudget`, reports a full-frame fallback, and borrows
 rows from it. AVIF input remains an optional, native-target and nightly-only
-feature while the codec port has those requirements. The codec-free engine
-retains stable Rust 1.98 and no `unsafe`.
+feature while the codec port has those requirements. The codec-free engine and
+features without `avif-read`/`cli` retain stable Rust 1.98; the engine contains no `unsafe`.
 
 The independent `avif_meta` parser still reads container color and transform
 properties. A handwritten same-module libavif helper prepares the selected
@@ -56,7 +56,7 @@ conformance or justify a universal performance claim.
 - The engine budget covers its full RGB output and F32 row scratch, while
   libavif and libaom scratch and retained compressed data remain opaque.
 - An AVIF input build requires the pinned nightly on supported macOS ARM64 or
-  GNU Linux x86-64. A codec-free build remains stable-compatible.
+  GNU Linux x86-64. Codec-free and builds without `avif-read`/`cli` remain stable-compatible.
 - `avif-parse` is removed. The handwritten sample helper is included in the
   port's generated module selectors; translated `read.rs` bytes and hashes
   remain unchanged. Selector hashes are updated in the translation manifests.
@@ -72,14 +72,20 @@ conformance or justify a universal performance claim.
 
 ## Validation
 
-Run focused source tests for color conflict, primary-item versus track selection,
+Focused source tests cover color conflict, primary-item versus track selection,
 ICC copy limits, 8/10/12-bit normalization,
 alpha, malformed input, pixel limits, budget release, selected color grid
-tiles, and AVIF orientation fixtures from ImageMagick/libheif. Compare rendered pixels against the interim
-reader and libavif's pinned C oracle. Record native macOS ARM64 and GNU Linux
-x86-64 runs before changing the default or removing comparison dependencies.
-Measure representative full-frame and crop workloads with versions, commands,
-time, and peak RSS; report the differences only for those workloads. The
+tiles, and AVIF orientation fixtures from ImageMagick/libheif. The selected raw
+output matches libavif's pinned C oracle byte for byte on eight fixtures. A
+frozen pre-format-neutral harness at reviewed base `f0ffebf4` retains the
+interim-reader comparison path after removal from the live dependency graph.
+Scoped PR CI checks the combined reader/encoder feature graph on native GNU
+Linux x86-64 and macOS ARM64. Wider quality and memory comparison and the
+Argon/dav1d corpus remain gates for a final decoder selection under ADR-0025
+and issue #54. The current own-reader default is experimental; it
+does not mean those gates passed. Measure representative full-frame and crop
+workloads with versions, commands, time, and peak RSS; report the differences
+only for those workloads. The
 eight-fixture pinned C byte parity and the measured flower-photo comparison
 are recorded in [M2 AVIF input evidence](../benchmarks/M2-avif-input.md).
 
@@ -93,4 +99,6 @@ an AVIF feature needs another platform.
 ## Amendment log
 
 - 2026-11-11 — Introduced the bounded-output experimental adapter with
-  explicit libaom decoding and retained interim comparison gates.
+  explicit libaom decoding. It is the live AVIF input path on supported
+  native/nightly builds. The frozen interim harness preserves comparison
+  evidence while ADR-0025's final selection and issue #54 remain open.

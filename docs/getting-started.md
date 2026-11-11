@@ -22,11 +22,15 @@ cargo run --release --features cli -- \
   drawing.webp resized.webp 800 600 --assume-srgb --webp-lossless --webp-level=6
 ```
 
-The `cli` feature enables JPEG, still WebP, JPEG XL and AVIF input, AVIF and still WebP output, and ICC
-support. The default AVIF encoder is `rav1e`. The separate
-[`ferrixel-libavif` adapter](../crates/ferrixel-libavif/README.md) provides an
-experimental alternative; do not combine it with the interim AVIF reader in one
-build because they export conflicting dav1d symbols.
+The `cli` feature enables JPEG, still WebP, JPEG XL and AVIF input, AVIF and
+still WebP output, and ICC support. The default AVIF encoder is `rav1e`; the
+separate [`ferrixel-libavif` adapter](../crates/ferrixel-libavif/README.md)
+provides an experimental alternative. The current `avif-read` uses the same
+workspace port's AOM decoder through an isolated safe wrapper, so the former
+`rav1d`/dav1d symbol collision is gone. AVIF reading requires the pinned
+nightly and a supported native target (macOS ARM64 or GNU Linux x86-64).
+The codec-free core and engine features without `avif-read`/`cli` retain stable Rust 1.98
+support. See the [measured AVIF input trade-off](benchmarks/M2-avif-input.md).
 
 WebP lossy uses its own quality and speed settings. Lossless uses only
 `--webp-level=0..9`; `--quality`, `--speed`, `--chroma`, and multiple encoder

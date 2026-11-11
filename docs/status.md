@@ -27,7 +27,7 @@ quantize → encode AVIF or still WebP
 | --- | --- | --- |
 | JPEG | Input through workspace `libjpeg-turbo-rs` (`jpeg-read`); codec-level crop request and budgeted RGB row | Scaled IDCT remains unused by the adapter; codec memory and reconstruction are opaque |
 | JPEG XL | Default input through `jxl-oxide` (`jpeg-xl-read`); explicit opt-in local `libjxl-rs` via `ferrixel-jxl-decoder` (`jpeg-xl-own-read`) | `JpegXlDecoder::LibjxlRs` or `--jxl-decoder=libjxl-rs` selects the local decoder; it has no ROI request and budgets a full F32 frame. Complete external conformance and selection gates remain open |
-| AVIF | Input through `avif-decode` (`avif-read`); output through `rav1e` (`avif-write`) | `ferrixel-libavif` provides an explicitly selected alternative encoder; it is not the default or the input backend |
+| AVIF | Input through workspace libavif with explicit AOM decoding (`avif-read`); output through `rav1e` (`avif-write`) | An independent safe reader wrapper contains the unsafe ABI; `ferrixel-libavif` remains an explicitly selected alternative encoder. Input has a full-frame fallback and native/nightly requirements ([ADR-0031](adr/0031-workspace-libavif-input-experiment.md)) |
 | WebP | Still input and output through workspace `libwebp-rs` (`webp-read`, `webp-write`); lossy crop requests, lossless full-frame internal work | The output sink budgets an ARGB frame and predictable lossy planes, tags sRGB ICC, and reports opaque codec memory; animation is unsupported |
 
 The `cli` feature enables the current engine adapters and ICC path together.
@@ -50,6 +50,10 @@ Current behavior and boundaries:
   and reported. Codec allocations and some planner metadata are outside that
   budget. JPEG and lossless WebP codec internals, AVIF decoding, and AVIF
   encoding may require full frames; there is no process-wide memory-cap guarantee.
+  The AVIF reader charges its full RGB output to the engine budget but retains
+  opaque libavif/AOM scratch. On one measured photo it took 16–24% longer and
+  about 1.83× peak RSS versus the former interim decoder; this does not rank
+  decoders on other workloads ([evidence](benchmarks/M2-avif-input.md)).
 - **Planar experiments:** borrowed YUV420P10 supports even-origin crop-only
   views. It is not a general high-bit-depth pipeline, and has no planar resize
   or HDR tone-mapping policy.
@@ -60,17 +64,19 @@ contracts and their limits.
 
 ## Components in the workspace
 
-There are **11 Cargo packages**. The four packages in the AVIF row below are
+There are **13 Cargo packages**. The four packages in the AVIF row below are
 separate workspace members; they are grouped here by their shared port.
 
 | Component | Implemented role | Remaining boundary or adoption gate |
 | --- | --- | --- |
 | [`ferrixel`](../Cargo.toml) | Feature-gated facade/CLI and the SDR pipeline above | M1 quality, resource, security, license, and release acceptance |
 | [`ferrixel-kernels`](../crates/ferrixel-kernels) | Safe API over scalar, NEON, AVX2, and AVX-512 resampling; runtime selection | Host-specific evidence still applies; no SVE2 kernel or GPU backend |
-| [`ferrixel-libavif`](../crates/ferrixel-libavif/README.md) | Explicit alternative AVIF encoder using the local libavif/AOM port | Nightly and an audited unsafe boundary; cannot link with the interim `avif-read` backend |
+| [`ferrixel-libavif`](../crates/ferrixel-libavif/README.md) | Explicit alternative AVIF encoder using the local libavif/AOM port | Nightly and an audited unsafe boundary; can share a binary with the current `avif-read` input path |
+| [`ferrixel-avif-read`](../crates/ferrixel-avif-read) | Safe, independent read wrapper over libavif's AOM decoder; selected by `avif-read` | Pinned nightly and supported macOS ARM64/GNU Linux x86-64; full Argon/dav1d adoption evidence remains open |
+| [`ferrixel-jxl-decoder`](../crates/ferrixel-jxl-decoder) | Safe, independent wrapper for the opt-in local JPEG XL decoder | Full-frame fallback and measured photo regression keep `jxl-oxide` as the default |
 | [`libjpeg-turbo-rs`](../codecs/libjpeg-turbo-rs/README.md) | 8-bit decoder, scaled decode, crop/skip, metadata, safe scanlines, and SIMD; selected for engine JPEG input | Scaled-IDCT quality policy and deeper cross-platform adoption evidence remain open; encoding, lossless JPEG, and 12/16-bit samples are outside the port's scope |
 | [`libwebp-rs`](../codecs/libwebp-rs/README.md) | Safe decode/encode APIs, incremental decode, containers/animation, and SharpYUV | Still-image input and output adopted through `webp-read` and `webp-write`; NEON rescaler export kernels retain the portable Rust translation |
-| [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder, C-ABI surface, and reference comparison suites | Public APIs are provisional; encoder incomplete; engine integration and deeper acceptance remain open |
+| [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder, C-ABI surface, and reference comparison suites | Opt-in engine integration exists; public APIs are provisional, encoder incomplete, and deeper acceptance remains open |
 | [`libavif-rs`](../codecs/libavif-rs/README.md), `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | AVIF container and codec ports, using generated and owned Rust with C-ABI boundaries | No stable safe Rust API claim; validated native hosts are macOS ARM64 and GNU Linux x86-64; package-specific deep gates remain |
 | [`ferrixel-xtask`](../tools/xtask) | Standard-library Rust control plane, invoked as `cargo xtask`, for affected components and validation stages | Existing Python oracle harnesses migrate incrementally without losing evidence |
 

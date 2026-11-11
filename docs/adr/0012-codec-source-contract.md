@@ -39,7 +39,7 @@ Both selected adapters are permissively licensed. Do not integrate AGPL/commerci
 + The graph stays codec-independent while the planner can observe known fallback costs.
 + JPEG read support is practical without optimizing the entire engine around it.
 + JPEG XL's float and region capabilities can be tested without forced RGB8 quantization.
-- JPEG currently decodes a full frame for every independently requested crop.
+- The original JPEG adapter decoded a full frame for every crop; the 2026-11-11 workspace scanline amendment below replaces that behavior.
 - JPEG XL may perform opaque allocations or whole-image work despite the default backend's ROI API. The opt-in workspace decoder reports an explicit full-frame fallback (ADR-0032).
 - Color metadata is source-side rather than a full semantic graph contract.
 - No encoder, frame reuse, animation, or arbitrary untrusted-image hardening yet.
@@ -66,12 +66,13 @@ A source requires native planar output, push/pull access rather than callback ro
 - 2026-10-31 — Initial experimental contract with JPEG read-only fallback and JPEG XL region requests.
 - 2026-11-05 — Admitted resize/color consumers, added the AVIF adapter, and required adapters to report rendered color before decoding pixels.
 - 2026-11-11 — Replaced the JPEG full-frame adapter with the workspace libjpeg-turbo-rs safe scanline API. The JPEG-specific fallback and memory statements above are historical; the current behavior is recorded below.
+- 2026-11-11 — [ADR-0031](0031-workspace-libavif-input-experiment.md) replaces the 2026-11-05 `avif-decode` implementation described below with an isolated safe wrapper over workspace libavif/AOM. The full-frame source contract, rendered-color checks, and orientation semantics remain; the managed RGB frame and native/nightly boundary are now explicit.
 
 ## 2026-11-05: transform consumers and the AVIF adapter
 
 The crop-and-sink restriction above no longer holds. Decoder sources now feed the encoded-sample resize (ADR-0013), the strict linear-sRGB reference (ADR-0014) and the working-color pipeline (ADR-0016), each of which checks the source's rendered color and alpha semantics at binding time.
 
-A third read-only adapter, **AVIF** via `avif-decode` (dependency choice in [ADR-0018](0018-optional-codec-and-cms-dependencies.md)), uses `FullFrameFallback`. It sharpens two parts of the contract that apply to every adapter:
+A third read-only adapter, **AVIF** via `avif-decode` (the original 2026-11-05 dependency choice in [ADR-0018](0018-optional-codec-and-cms-dependencies.md)), used `FullFrameFallback`. [ADR-0031](0031-workspace-libavif-input-experiment.md) replaces that implementation while retaining this access class. It sharpened two parts of the contract that apply to every adapter:
 
 - **Describe before decoding.** Construction parses only metadata: dimensions, layout, sample type and rendered ICC/CICP. The caller's color policy runs before the first region request triggers the full decode, which is then checked against the advertised size, layout and depth.
 - **Rendered, not signalled, color.** Because `avif-decode` converts YUV with the bitstream's matrix and range, the adapter reports the emitted full-range RGB as CICP `[primaries, transfer, 0, 1]` from the container `colr`/`nclx` and the AV1 sequence header, carries a `colr` ICC profile as rendered ICC, and fails closed when container and bitstream disagree. AVIF `irot`/`imir` are reported as the source orientation (ADR-0019); `clap` is rejected.

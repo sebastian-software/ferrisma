@@ -86,7 +86,7 @@ separately, with
 `avif-read,avif-write`. Its only output work is a rolling digest over sRGB8
 rows. The pipeline used one transform thread, Lanczos3, and
 `AssumeSrgbIfMissing`. The full run produced 2268×1512 pixels. The crop run
-selected `(400,300,640,427)` and produced 320×213 pixels. Five warmed runs
+selected `(400,300,640,427)` and produced 320×213 pixels. Five timed runs
 of each binary were measured serially in a quiet CPU window. Values are
 medians, in milliseconds except where shown.
 
@@ -114,10 +114,12 @@ The recorded run used separate small Cargo binaries whose source was the
 frozen harness above. For the `f0ffebf4` baseline, use that file as
 `src/main.rs` in a temporary binary crate with a path dependency on the base
 checkout and `features = ["avif-read", "avif-write"]`. Use the same source against
-this AVIF branch before the format-neutral output change. After that change,
-use the [current example](../../examples/avif_input_compare.rs), which must
-adapt `EncoderBackend::format`, `EncodeRequest`, `EncodedImage::new`, and
-`Output::bytes`; the frozen file preserves the exact old API harness. Invoke
+the pre-format-neutral AVIF branch. For the integrated tree, use the
+[current example](../../examples/avif_input_compare.rs), which is adapted to
+`EncoderBackend::format`, `EncodeRequest`, `EncodedImage::new`, and
+`Output::bytes`; the frozen file preserves the exact old API harness. The
+numbers above are from the frozen harness against the two earlier trees, not
+from a rerun of the adapted example. Invoke
 the binaries with:
 
 ```sh

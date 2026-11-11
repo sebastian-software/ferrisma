@@ -22,7 +22,7 @@ When a crate is flagged, review its exact source license, license-file and notic
 | embedded [sRGB2014.icc](../codecs/libavif-rs/upstream/libavif/tests/data/sRGB2014.icc) | `webp-write` | International Color Consortium, 2015; [upstream provenance](../codecs/libavif-rs/upstream/libavif/tests/data/README.md), [profile license](https://registry.color.org/profile-library/#licensing) | Unchanged profile embedded in WebP output to describe emitted sRGB samples; SHA-256 `384b832de3412066743b52a75ee906b6fb9fb8d9e09e936fc2c43223815c6e0a`; separate from libwebp's BSD license |
 | workspace `libjxl-rs` through `ferrixel-jxl-decoder` | `jpeg-xl-own-read` | BSD-3-Clause with retained MIT and Apache-2.0 with LLVM exception notices in the port | Raw decoder safety boundary, DATA ICC, alpha, full-frame output and opaque scratch; external conformance remains open |
 | `jxl-oxide` | `jpeg-xl-read`, default JPEG XL backend | MIT OR Apache-2.0 | Runtime ROI request; retained for measured full/crop comparison |
-| `avif-decode` / `rav1d` | `avif-read` | BSD-3-Clause decoder; inspect native/build artifacts | Target-specific NASM assembly, malformed bitstreams, MSRV 1.98 |
+| workspace `libavif-rs` / `libavif-aom` through `ferrixel-avif-read` | `avif-read` | libavif BSD-2-Clause; AOM port retains BSD-2-Clause, BSD-3-Clause, MIT notices and libaom's patent grant | Isolated unsafe boundary, generated-source provenance, AOM reference decode, malformed bitstreams, native/nightly target matrix, opaque codec scratch and full Argon/dav1d gate |
 | `rav1e` / `avif-serialize` | `avif-write` | BSD-2-Clause encoder, BSD-3-Clause container writer; `rav1e` links hand-written assembly | Encoded CICP, alpha, frame materialization and opaque scratch |
 | `ravif` | dev-dependency only | BSD-3-Clause | Writes one test fixture; not linked into the library or CLI |
 | `moxcms` | `icc` | BSD-3-Clause OR Apache-2.0 | ICC parsing, color fidelity, malformed profiles, SIMD/native code |
@@ -47,8 +47,16 @@ The choices and their remaining gates are recorded in [ADR-0018](adr/0018-option
 
 Do **not** declare M1 release-ready merely because the metadata gate passes.
 
-## Transitive review: `avif-parse` (MPL-2.0)
+## Historical transitive review: `avif-parse` (MPL-2.0)
 
-The `avif-decode` dependency currently incorporates `avif-parse` version 2.1.0, which declares **MPL-2.0** (confirmed in its upstream `Cargo.toml` and source headers). MPL-2.0 is **file-level copyleft**, not equivalent to a permissive MIT/Apache grant. A separately linked, unmodified MPL crate may be usable alongside an MIT/Apache project, but distributions must still honor MPL notices and source-availability obligations for covered files and assess any modifications. This review item must not be silently added to the permissive allowlist. Until the source/NOTICE redistribution requirements are explicitly reviewed, the full-dependency license gate remains **open**, even if code CI is green.
+The former `avif-decode` input path incorporated `avif-parse` version 2.1.0,
+which declares **MPL-2.0** (confirmed in its upstream `Cargo.toml` and source
+headers). MPL-2.0 is file-level copyleft and was a distribution review item for
+that historical graph. `avif-read` now uses the workspace libavif/AOM port and
+an independent bounded container-property parser; neither `avif-decode` nor
+`avif-parse` is a runtime dependency of the current engine. The old MPL item
+does not clear the separate, still-open full-dependency license and notice
+review for the current graph. Preserve its history when comparing earlier
+releases or benchmark binaries.
 
 Reference: https://github.com/kornelski/avif-parse/blob/main/Cargo.toml
