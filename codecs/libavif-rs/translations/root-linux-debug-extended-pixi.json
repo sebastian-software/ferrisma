@@ -285,7 +285,7 @@
     }
   ],
   "selector": "src/profiles/linux/debug/extended-pixi/modules.rs",
-  "selector_sha256": "662cf6043f49c17b4b54b48ea89ae85c08f55dacc25111c79d587740422f3a1d",
+  "selector_sha256": "d04a3be59e60e1defa313e758e05353555c5c34a420aac491ecd1762ebfe4223",
   "original_compile_commands_sha256": "8ce1393497c502c63d6eee9f53035c3c18dfa3128eb69538f8f02114163b4e3e",
   "original_cmake_cache_sha256": "9c938a0b4a540ed93287dbc3fc8f629c5938f022b6b9e0c3ef2d31e6970496a9",
   "original_tests_executed": false,

@@ -4,6 +4,7 @@ members = [
     ".",
     "crates/ferrixel-kernels",
     "crates/ferrixel-libavif",
+    "crates/ferrixel-avif-read",
     "crates/ferrixel-jxl-decoder",
     "tools/xtask",
     "codecs/libjpeg-turbo-rs",
@@ -76,7 +77,7 @@ jpeg-xl-own-read = ["dep:ferrixel-jxl-decoder"]
 # rav1e's `asm` is bit-exact and about 2.2x faster; `threading` lets the
 # encoder use `TransformOptions::encoder_threads` (M2 work package 2, ADR-0018).
 avif-write = ["dep:rav1e", "dep:avif-serialize", "rav1e/asm", "rav1e/threading"]
-avif-read = ["dep:avif-decode", "dep:avif-parse"]
+avif-read = ["dep:ferrixel-avif-read"]
 icc = ["dep:moxcms"]
 cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "avif-read", "avif-write", "webp-write", "icc"]
 
@@ -86,8 +87,7 @@ cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "avif-read", "avif-write", "web
 ferrixel-kernels = { path = "crates/ferrixel-kernels", version = "0.1.0" }
 rav1e = { version = "0.8.1", optional = true, default-features = false }
 avif-serialize = { version = "0.8.9", optional = true }
-avif-decode = { version = "3.0.0", optional = true, default-features = false }
-avif-parse = { version = "2.1.0", optional = true }
+ferrixel-avif-read = { path = "crates/ferrixel-avif-read", version = "0.0.0", optional = true }
 moxcms = { version = "0.9.1", optional = true, features = ["extended_range"] }
 # The workspace decoder exposes safe RGB scanlines; SIMD stays inside its codec boundary.
 libjpeg-turbo-rs = { path = "codecs/libjpeg-turbo-rs", version = "0.1.0", optional = true }

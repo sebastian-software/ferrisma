@@ -11,7 +11,10 @@ pub mod mem;
 pub mod obu;
 pub mod properties;
 pub mod rawdata;
-pub mod read;
+pub mod read {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/profiles/linux/release/mini-extended-pixi/read.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read_sample_access.rs"));
+}
 pub mod reformat;
 pub mod reformat_libsharpyuv;
 pub mod reformat_libyuv;
