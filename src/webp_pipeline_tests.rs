@@ -77,4 +77,34 @@ fn straight_alpha_webp_reaches_avif() {
     .unwrap();
     assert_eq!(&output.avif_bytes[4..8], b"ftyp");
     assert!(output.avif_bytes.len() > 40);
+
+    #[cfg(feature = "avif-read")]
+    {
+        use crate::codecs::avif::AvifSource;
+        use crate::decoder::{ChannelLayout, DecodeSource, DecodedRow};
+        use crate::geometry::Rect;
+        use crate::memory::MemoryBudget;
+
+        let mut decoded = AvifSource::new(&output.avif_bytes).unwrap();
+        assert_eq!(decoded.info().layout, ChannelLayout::Rgba);
+        let mut alpha = Vec::new();
+        decoded
+            .read_region(
+                Rect::new(0, 0, 4, 4).unwrap(),
+                &MemoryBudget::new(1 << 20),
+                &mut |_, row| {
+                    match row {
+                        DecodedRow::U8(row) => alpha.extend(row.chunks_exact(4).map(|p| p[3])),
+                        DecodedRow::F32(row) => {
+                            alpha.extend(row.chunks_exact(4).map(|p| (p[3] * 255.0).round() as u8))
+                        }
+                    }
+                    Ok(())
+                },
+            )
+            .unwrap();
+        assert_eq!(alpha.len(), 16);
+        assert!(alpha.iter().all(|&a| a < 255));
+        assert!(alpha[0] < alpha[3], "alpha gradient was lost: {alpha:?}");
+    }
 }

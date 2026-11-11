@@ -5,11 +5,19 @@
 //! is the translation's `armCPUInfo` (WP20); in the scalar build there it is
 //! `NULL`, as in the reference configuration.
 
-use core::ptr;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-use webp::abi::decode::VP8_GET_CPU_INFO;
-use webp::dsp::cpu::{Features, features};
+use webp::abi::decode::{
+    cpu_query_is_installed, disable_cpu_query, set_cpu_query_callback, use_builtin_cpu_query,
+};
+use webp::dsp::cpu::{CPUFeature, Features, features};
+
+static QUERY_CALLS: AtomicUsize = AtomicUsize::new(0);
+
+extern "C" fn no_features(_: CPUFeature) -> i32 {
+    QUERY_CALLS.fetch_add(1, Ordering::Relaxed);
+    0
+}
 
 #[test]
 fn features_follow_the_query_and_the_noasm_pointer() {
@@ -29,7 +37,7 @@ fn features_follow_the_query_and_the_noasm_pointer() {
     // The pointer of the configuration: the translation's query on x86 and,
     // with `simd`, on 64-bit ARM (`armCPUInfo`, WP20); `NULL` in the scalar
     // build on 64-bit ARM, as in the reference configuration.
-    let installed = !VP8_GET_CPU_INFO.load(Ordering::Acquire).is_null();
+    let installed = cpu_query_is_installed();
     assert_eq!(
         installed,
         cfg!(any(
@@ -49,9 +57,9 @@ fn features_follow_the_query_and_the_noasm_pointer() {
     // -noasm: the tools set the pointer to NULL before any call; every x86
     // feature and the query's kNEON answer are off, NEON on AArch64 stays,
     // as upstream compiles it in.
-    let previous = VP8_GET_CPU_INFO.swap(ptr::null_mut(), Ordering::AcqRel);
+    disable_cpu_query();
     let off = features();
-    VP8_GET_CPU_INFO.store(previous, Ordering::Release);
+    use_builtin_cpu_query();
     assert_eq!(
         off,
         Features {
@@ -60,6 +68,15 @@ fn features_follow_the_query_and_the_noasm_pointer() {
         }
     );
     assert!(!off.query_neon);
+
+    // A typed custom query is called by the dispatcher and can select the
+    // scalar path without handing safe code a raw writable pointer.
+    // SAFETY: this static callback never claims an unsupported feature and
+    // this test binary does not dispatch concurrently.
+    unsafe { set_cpu_query_callback(no_features) };
+    assert_eq!(features(), off);
+    assert!(QUERY_CALLS.load(Ordering::Relaxed) > 0);
+    use_builtin_cpu_query();
 
     // The cache follows the pointer back.
     assert_eq!(features(), detected);
