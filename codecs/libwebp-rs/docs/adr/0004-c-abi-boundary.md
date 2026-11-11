@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-05
+- Updated: 2026-11-10
 
 ## Context
 
@@ -43,6 +43,12 @@ header and the internal headers (`thread_utils.h`, `dsp/cpu.h` apart from the
 - **Data symbols.** `VP8GetCPUInfo` is a nullable function pointer that the
   upstream tools assign; it is exported as a pointer-sized static with interior
   mutability, never as a `static mut`, and read by the dispatch under ADR 0003.
+  The Rust static is private: a public `AtomicPtr` would let safe Rust store an
+  arbitrary address that dispatch later calls. Rust callers can safely disable
+  the query or restore the built-in one. Installing a typed custom callback is
+  unsafe because it must remain callable across concurrent use and report only
+  features supported by the host CPU and OS. C retains direct access to the
+  original exported data symbol and its existing responsibility for valid writes.
 - **Panics.** A panic must not cross the boundary; since Rust 1.81 a panic
   that reaches an `extern "C"` function aborts the process. ABI functions must
   not panic on any input that the C function defines.
@@ -58,6 +64,22 @@ The consumer builds (upstream tools and fuzzers linked against the Rust static
 library) are added by the integration packages through
 `tools/oracle/probes/<wp>/oracle.cmake` ([ADR 0002](0002-differential-oracle.md)).
 
+The alternative of leaving the Rust static public preserves direct access but
+allows undefined behavior from safe code. A safe callback setter cannot verify
+CPU support or the callback's behavior, so it is not sufficient. The existing
+dispatch tests and `dsp_bench` use the typed setter; a compile-fail doc test
+checks the Rust boundary, and the native consumer checks retain the C symbol
+contract.
+
+## 2026-11-10 amendment
+
+The original data-symbol decision kept C compatibility but exposed its atomic
+pointer to safe Rust. Once dispatch began calling custom queries, that access
+could turn an arbitrary safe Rust store into undefined behavior. The symbol
+remains exported for existing C consumers, while the Rust name is private and
+callers use the bounded setters above. Reevaluate this boundary if dispatch
+becomes scoped to a decoder instance instead of process-wide.
+
 ## Consequences
 
 All `unsafe` code sits in five files with a reviewable argument per operation.
@@ -68,4 +90,5 @@ that Rust's standard library already links.
 ## Review triggers
 
 Revisit when a header changes with an upstream migration, when a consumer
-needs an internal symbol, or when a conversion shows up in measurements.
+needs an internal symbol, when a conversion shows up in measurements, or when
+the process-wide CPU query can be replaced with a scoped dispatch contract.
