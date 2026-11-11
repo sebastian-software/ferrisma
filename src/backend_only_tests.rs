@@ -164,3 +164,51 @@ fn backend_frame_reservation_precedes_allocation_and_counts_toward_peak() {
     assert!(output.report.peak_managed_bytes > 4096);
     assert_eq!(output.bytes.len(), 4 * 4 * 4);
 }
+
+#[test]
+fn oversized_per_image_threads_fail_before_opening_input() {
+    use crate::pipeline::{ProcessingErrorKind, ResizeOptions, transcode, transcode_resized};
+    for options in [
+        TransformOptions {
+            transform_threads: 257,
+            ..TransformOptions::default()
+        },
+        TransformOptions {
+            encoder_threads: usize::MAX,
+            ..TransformOptions::default()
+        },
+    ] {
+        assert_eq!(
+            transcode(&[], ImageFormat::Jpeg, options)
+                .unwrap_err()
+                .kind(),
+            ProcessingErrorKind::InvalidOptions
+        );
+        let resize = ResizeOptions {
+            width: Some(4),
+            ..ResizeOptions::default()
+        };
+        assert_eq!(
+            transcode_resized(&[], ImageFormat::Jpeg, options, resize)
+                .unwrap_err()
+                .kind(),
+            ProcessingErrorKind::InvalidOptions
+        );
+    }
+}
+
+#[cfg(not(feature = "avif-own-write"))]
+#[test]
+fn own_avif_selection_requires_the_feature_before_opening_input() {
+    use crate::pipeline::{AvifEncoder, ProcessingErrorKind, transcode};
+    let options = TransformOptions {
+        avif_encoder: AvifEncoder::Libavif { depth: 10 },
+        ..TransformOptions::default()
+    };
+    assert_eq!(
+        transcode(&[], ImageFormat::Jpeg, options)
+            .unwrap_err()
+            .kind(),
+        ProcessingErrorKind::FeatureDisabled
+    );
+}

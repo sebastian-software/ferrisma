@@ -254,6 +254,7 @@ version = "0.1.0"
 dependencies = [
  "avif-serialize",
  "ferrixel-avif-read",
+ "ferrixel-avif-write",
  "ferrixel-jxl-decoder",
  "ferrixel-kernels",
  "jxl-oxide",
@@ -266,6 +267,13 @@ dependencies = [
 
 [[package]]
 name = "ferrixel-avif-read"
+version = "0.0.0"
+dependencies = [
+ "libavif-rs",
+]
+
+[[package]]
+name = "ferrixel-avif-write"
 version = "0.0.0"
 dependencies = [
  "libavif-rs",

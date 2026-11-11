@@ -30,9 +30,10 @@ automatically select them as engine backends. Ferrixel reads JPEG and WebP
 through the workspace `libjpeg-turbo-rs` and `libwebp-rs` ports, JPEG XL through
 `jxl-oxide` by default (with the local reference decoder selectable explicitly),
 and AVIF through the workspace libavif/AOM reader; it writes AVIF through `rav1e`
-and still WebP through the workspace `libwebp-rs` encoder.
-The AVIF read feature needs the pinned nightly and a supported native target;
-the codec-free core and features without `avif-read`/`cli` retain stable Rust 1.98 support.
+by default or explicitly selected workspace libavif/AOM, and still WebP through
+the workspace `libwebp-rs` encoder ([ADR-0037](docs/adr/0037-selectable-workspace-avif-encoder.md)).
+The own AVIF read/write features need the pinned nightly and a supported native
+target; features without `avif-read`, `avif-own-write`, or `cli` retain stable Rust 1.98 support.
 On one 2268×1512 photo the AOM input path took 8–14% longer and used about
 2× peak RSS versus the former interim reader; see the
 [scoped measurement](docs/benchmarks/M2-avif-input.md).

@@ -111,3 +111,11 @@ The remaining triggers are a stable libavif toolchain or safe API, material chan
   route; decoder conformance is a separate criterion where applicable.
   Reconsider the default and its dependency routing when those gates and a safe
   package boundary are established.
+
+- 2026-11-11 — [ADR-0037](0037-selectable-workspace-avif-encoder.md) extracts
+  the C ABI boundary into an engine-independent safe writer bridge. The
+  compatibility adapter delegates to the same backend used by an explicit
+  `avif-own-write` facade and CLI selection. This supersedes the dependency
+  cycle that prevented regular selection, not the Rav1e default or the
+  ADR-0025 comparison and selection gates. Known frame accounting and opaque
+  codec/output limitations remain unchanged.

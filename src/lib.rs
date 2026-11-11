@@ -59,6 +59,8 @@ mod graph;
 mod linear_srgb;
 mod memory;
 mod orientation;
+#[cfg(feature = "avif-own-write")]
+mod own_avif;
 mod parallel_execute;
 pub mod pipeline;
 mod plan;

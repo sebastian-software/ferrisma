@@ -21,6 +21,8 @@ use crate::webp_sink::WebpSink;
 pub use crate::encoder_backend::{
     EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
 };
+#[cfg(feature = "avif-own-write")]
+pub use crate::own_avif::LibavifBackend;
 pub use crate::quality::Filter as ResizeFilter;
 pub use crate::resize_geometry::{ResizeFit, ResizeOptions};
 pub use ferrixel_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelReason};
@@ -71,6 +73,16 @@ pub enum ImageFormat {
     Avif,
 }
 
+/// Explicit AVIF output encoder. Quality and speed use the selected encoder's scale.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum AvifEncoder {
+    /// The existing Rav1e encoder; the default.
+    #[default]
+    Rav1e,
+    /// Workspace libavif/AOM; requires `avif-own-write` and depth 8 or 10.
+    Libavif { depth: u8 },
+}
+
 /// Source color handling policy; the default never guesses a color profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum InputProfilePolicy {
@@ -118,6 +130,8 @@ pub enum JpegXlDecoder {
 #[derive(Clone, Copy, Debug)]
 pub struct TransformOptions {
     pub output_format: OutputFormat,
+    /// AVIF encoder selection; defaults to Rav1e.
+    pub avif_encoder: AvifEncoder,
     pub webp: WebpOptions,
     pub output_width: u32,
     pub output_height: u32,
@@ -129,18 +143,22 @@ pub struct TransformOptions {
     /// bound; it exists for verification, benchmarks and bug reports.
     pub kernel_level_ceiling: Option<KernelLevel>,
     /// Threads for the decode-transform row pipeline (ADR-0022): 0 means
-    /// all available cores, 1 the sequential path. The output is
+    /// all available cores (capped at 256), 1 the sequential path; explicit
+    /// values must be at most 256. The output is
     /// byte-identical for every value.
     pub transform_threads: usize,
     pub profile_policy: InputProfilePolicy,
     pub jxl_decoder: JpegXlDecoder,
+    /// AVIF quality on the selected encoder's scale; Rav1e accepts 1–100,
+    /// while libavif accepts 0–100.
     pub quality: f32,
+    /// AVIF speed on the selected encoder's scale; Rav1e accepts 1–10,
+    /// while libavif accepts 0–10.
     pub speed: u8,
-    /// AV1 encoder threads: 0 means all available cores. 1 (the default)
-    /// encodes one tile; any other value splits the image into tiles derived
-    /// from its size alone, so the bytes are the same for every thread count
-    /// other than 1 and on every machine. Tiles cost a few percent of bytes;
-    /// measurements in `docs/benchmarks/M2-baseline.md`.
+    /// AV1 encoder threads: 0 means available cores (capped at 256), and
+    /// explicit values must be at most 256. 1 uses one tile. Rav1e derives
+    /// other tile counts from image size; libavif uses automatic tiling and
+    /// its encoded bytes can depend on the selected thread count.
     pub encoder_threads: usize,
     /// Chroma layout of the AVIF output; 4:4:4 by default.
     pub chroma_subsampling: ChromaSubsampling,
@@ -158,6 +176,7 @@ impl Default for TransformOptions {
     fn default() -> Self {
         Self {
             output_format: OutputFormat::Avif,
+            avif_encoder: AvifEncoder::Rav1e,
             webp: WebpOptions::default(),
             output_width: 1,
             output_height: 1,
@@ -216,9 +235,9 @@ pub struct ProcessingReport {
     /// Engine-managed bytes materialized to reorient the input; zero for
     /// upright input.
     pub orientation_buffer_bytes: usize,
-    /// Bytes of the encoder's YUV input frame, allocated by `rav1e` on the
-    /// sink's request and charged to the managed budget (the larger of the
-    /// color and alpha frames; they are not alive at the same time).
+    /// Known pixel-frame bytes materialized by the selected encoder. Rav1e
+    /// reports its larger color or alpha frame; libavif reports its concurrent
+    /// RGBA and YUV(A) frames. Known bytes are charged to the managed budget.
     pub encoder_output_frame_bytes: usize,
     pub peak_managed_bytes: usize,
     pub opaque_decoder_memory: bool,
@@ -234,8 +253,8 @@ pub struct ProcessingReport {
     /// Transform pipeline threads actually used; 1 for the sequential path
     /// and the `f64` reference.
     pub transform_threads: usize,
-    /// The encoder that wrote the output: `"rav1e"` for `transcode`, the
-    /// backend's name for `transcode_with` (ADR-0024).
+    /// The encoder that wrote the output, such as `"rav1e"` or
+    /// `"libavif-rs/aom"` (ADR-0024).
     pub encoder_backend: &'static str,
     pub timings: StageTimings,
 }
@@ -581,7 +600,8 @@ pub fn transcode(
 ///
 /// # Errors
 /// As [`transcode`], plus the backend's errors, mapped to their
-/// [`ProcessingErrorKind`].
+/// [`ProcessingErrorKind`]. A nondefault built-in AVIF selection conflicts
+/// with an external backend; the default selection leaves it authoritative.
 pub fn transcode_with(
     encoded: &[u8],
     format: ImageFormat,
@@ -723,6 +743,34 @@ fn run(
             "encoder options do not match the selected output format",
         ));
     }
+    if options.transform_threads > 256 || options.encoder_threads > 256 {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
+            "transform and encoder threads must be between 0 and 256",
+        ));
+    }
+    if options.avif_encoder != AvifEncoder::Rav1e
+        && (backend.is_some() || options.output_format != OutputFormat::Avif)
+    {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
+            "AVIF encoder selection conflicts with the requested output or external backend",
+        ));
+    }
+    #[cfg(feature = "avif-own-write")]
+    let own = match options.avif_encoder {
+        AvifEncoder::Rav1e => None,
+        AvifEncoder::Libavif { depth } => Some(LibavifBackend { depth }),
+    };
+    #[cfg(feature = "avif-own-write")]
+    let backend = backend.or(own.as_ref().map(|encoder| encoder as &dyn EncoderBackend));
+    #[cfg(not(feature = "avif-own-write"))]
+    if matches!(options.avif_encoder, AvifEncoder::Libavif { .. }) {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::FeatureDisabled,
+            "enable the avif-own-write Cargo feature",
+        ));
+    }
     if let Some(backend) = backend
         && backend.format() != options.output_format
     {
@@ -768,9 +816,9 @@ fn run(
     }
     let transform_threads = match (options.precision, options.transform_threads) {
         (WorkingPrecision::F64Reference, _) => 1,
-        (WorkingPrecision::F32, 0) => {
-            std::thread::available_parallelism().map_or(1, std::num::NonZero::get)
-        }
+        (WorkingPrecision::F32, 0) => std::thread::available_parallelism()
+            .map_or(1, std::num::NonZero::get)
+            .min(256),
         (WorkingPrecision::F32, threads) => threads,
     };
     let source = open_source(
