@@ -64,6 +64,7 @@ These are semantic requirements, not an invitation to implement every possible l
 
 - **No full-frame intermediate by default.** Region views and borrowed input should be normal; explicit materialization is permitted when unavoidable or measurably beneficial.
 - Use a **memory budget** for engine-managed allocations, including concurrent in-flight tasks. Estimate or constrain opaque decoder/encoder memory separately; never claim total-process bounds that cannot be enforced.
+- Working-linear resize reserves a conservative allowance for tap construction and execution tables before planning. The allowance stays live through execution and thread joins; pixel buffers are charged separately. Graph nodes, allocator/runtime internals and worker stacks remain outside this model ([ADR-0004](adr/0004-buffer-ownership-and-budget.md)).
 - Represent filter **halos**, alignment and access patterns in dependencies; no single physical tile size is mandated.
 - Make cache and intermediate reuse evidence-driven. A region cache is helpful for overlapping consumers, but can hurt one-shot streaming workflows.
 - CPU/GPU transfers are explicit plan edges with costs. Avoid backend switches that erase gains through copying and synchronization.

@@ -54,8 +54,11 @@ Current behavior and boundaries:
   header inspection has byte/pixel limits and does not validate complete pixel
   data or assume a color profile ([ADR-0034](adr/0034-thumbnail-geometry.md)).
 - **Memory:** engine-managed frame, row, and scratch allocations are budgeted
-  and reported. Codec allocations and some planner metadata are outside that
-  budget. JPEG and lossless WebP codec internals, AVIF decoding, and AVIF
+  and reported. Working-linear resize also reserves a conservative tap-table
+  and scheduling allowance before footprint construction; reported peaks now
+  include it ([ADR-0004](adr/0004-buffer-ownership-and-budget.md)). Codec
+  allocations, graph nodes, allocator/runtime internals, and worker stacks
+  remain outside that budget. JPEG and lossless WebP codec internals, AVIF decoding, and AVIF
   encoding may require full frames; there is no process-wide memory-cap guarantee.
   External encoders can declare known simultaneous pixel-frame bytes before
   allocation; the engine holds that reservation through encoder completion.
