@@ -106,7 +106,8 @@ The remaining triggers are a stable libavif toolchain or safe API, material chan
   decoded a 96×64 10-bit 444 adapter CLI output; `ffprobe` identified
   full-range BT.709/sRGB/BT.601 signals. This one file is not a codec
   conformance corpus. The nightly and native-target restrictions, ADR-0025
-  reference/conformance and two-architecture quality, memory, binary-size and
-  corpus gates, and release/license gates remain open. Reconsider the default
-  and its dependency routing when those gates and a safe package boundary are
-  established.
+  two-architecture quality, memory, binary-size and corpus selection criteria,
+  and release/license gates remain open. The encoder follows the reference-origin
+  route; decoder conformance is a separate criterion where applicable.
+  Reconsider the default and its dependency routing when those gates and a safe
+  package boundary are established.

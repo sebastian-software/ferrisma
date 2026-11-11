@@ -87,7 +87,6 @@ impl MemoryBudget {
     /// Charge memory that a component allocates on the engine's request and
     /// whose size the engine knows exactly, such as an encoder's input frame.
     /// The reservation is released when the returned value is dropped.
-    #[cfg(any(feature = "avif-write", feature = "webp-write"))]
     pub(crate) fn reserve_external(&self, bytes: usize) -> Result<ExternalReservation, Error> {
         Ok(ExternalReservation {
             reservation: self.reserve_bytes(bytes)?,
@@ -130,14 +129,12 @@ impl MemoryBudget {
 }
 
 /// Budgeted bytes owned by another component (see `reserve_external`).
-#[cfg(any(feature = "avif-write", feature = "webp-write"))]
 #[derive(Debug)]
 pub(crate) struct ExternalReservation {
     #[cfg_attr(not(feature = "avif-write"), allow(dead_code))]
     reservation: Reservation,
 }
 
-#[cfg(any(feature = "avif-write", feature = "webp-write"))]
 impl ExternalReservation {
     #[cfg(feature = "avif-write")]
     pub(crate) fn bytes(&self) -> usize {

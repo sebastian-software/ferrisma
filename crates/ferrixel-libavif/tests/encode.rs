@@ -157,6 +157,10 @@ fn encodes_what_ferrixel_produced_with_the_same_color_signals() {
         assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
         assert!(output.report.opaque_encoder_memory);
         assert!(output.report.encoder_output_frame_bytes >= 96 * 64 * 4);
+        assert!(
+            output.report.peak_managed_bytes >= output.report.encoder_output_frame_bytes,
+            "known adapter frames must count toward the managed peak"
+        );
         let decoded = decode(&output.bytes);
         assert_eq!((decoded.width, decoded.height), (96, 64));
         assert!(!decoded.alpha, "opaque output has no alpha item");
