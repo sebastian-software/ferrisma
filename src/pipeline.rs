@@ -12,7 +12,7 @@ use crate::error::Error;
 use crate::fast_execute::execute_fast_srgb8;
 use crate::geometry::{Rect, Size};
 use crate::graph::Graph;
-use crate::memory::MemoryBudget;
+use crate::memory::{ExternalReservation, MemoryBudget};
 use crate::orientation::OrientedSource;
 use crate::quality_execute::execute_quality_srgb8;
 #[cfg(feature = "webp-write")]
@@ -631,6 +631,9 @@ enum Sink<'b> {
         /// The backend error that stopped the pipeline, if any; the
         /// executor only carries the internal `Error`.
         failure: Option<EncodeError>,
+        // Kept after the encoder so dropping a partial sink releases its
+        // pixel storage before its reservation.
+        frame_reservation: ExternalReservation,
     },
 }
 
@@ -641,7 +644,9 @@ impl Sink<'_> {
             Self::Rav1e(sink) => sink.write_row(y, row),
             #[cfg(feature = "webp-write")]
             Self::WebP(sink) => sink.write_row(y, row),
-            Self::Backend { encoder, failure } => encoder.write_row(y, row).map_err(|error| {
+            Self::Backend {
+                encoder, failure, ..
+            } => encoder.write_row(y, row).map_err(|error| {
                 *failure = Some(error);
                 Error::EncodeFailed
             }),
@@ -677,7 +682,15 @@ impl Sink<'_> {
             }
             #[cfg(feature = "webp-write")]
             Self::WebP(sink) => Ok(sink.finish()?),
-            Self::Backend { encoder, .. } => Ok(encoder.finish()?),
+            Self::Backend {
+                encoder,
+                frame_reservation,
+                ..
+            } => {
+                let image = encoder.finish()?;
+                drop(frame_reservation);
+                Ok(image)
+            }
         }
     }
 }
@@ -886,8 +899,8 @@ fn run(
                 }
             }
         },
-        Some(backend) => Sink::Backend {
-            encoder: backend.begin(&EncodeRequest {
+        Some(backend) => {
+            let request = EncodeRequest {
                 format: options.output_format,
                 webp: options.webp,
                 width: target_size.width,
@@ -897,9 +910,15 @@ fn run(
                 speed: options.speed,
                 threads: encoder_threads,
                 chroma: options.chroma_subsampling,
-            })?,
-            failure: None,
-        },
+            };
+            let frame_reservation =
+                budget.reserve_external(backend.required_frame_bytes(&request)?)?;
+            Sink::Backend {
+                encoder: backend.begin(&request)?,
+                failure: None,
+                frame_reservation,
+            }
+        }
     };
     let encoder_backend = backend.map_or(
         match options.output_format {

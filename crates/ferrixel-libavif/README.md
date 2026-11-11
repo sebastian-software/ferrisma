@@ -32,7 +32,13 @@ cargo run -p ferrixel-libavif --release --features cli -- input.jpg output.avif 
   `rav1d`/dav1d duplicate-symbol path is gone. The adapter's `cli` feature
   includes JPEG, WebP, JPEG XL and AVIF input. Scoped native CI tests the
   combined build; local CLI smoke checks also cover AVIF and WebP input.
-- **Memory:** the backend materializes one RGBA frame and libavif's YUV(A) planes, reported as `encoder_output_frame_bytes`; AOM's own memory is opaque (`opaque_encoder_memory`).
+- **Memory:** the backend preflights the combined RGBA frame and tightly packed
+  libavif YUV(A) planes, which coexist during conversion. Ferrixel reserves these
+  known pixel bytes before calling `begin` and reports them as
+  `encoder_output_frame_bytes`. Allocation overhead, conversion scratch, AOM
+  memory, and compressed output remain outside that reservation
+  (`opaque_encoder_memory`). `max_output_bytes` is checked after encoding and
+  does not cap the codec's temporary output allocation.
 - **`unsafe`:** all calls into libavif's C ABI live in `src/lib.rs`, each with its safety argument; every libavif object is owned by a guard that frees it.
 
 ## Licenses

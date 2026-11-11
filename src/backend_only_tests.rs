@@ -100,3 +100,67 @@ fn backend_runs_without_avif_write() {
         crate::pipeline::ProcessingErrorKind::ResourceExhausted
     );
 }
+
+struct BudgetedBackend {
+    began: std::sync::atomic::AtomicBool,
+}
+
+impl EncoderBackend for BudgetedBackend {
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Avif
+    }
+
+    fn name(&self) -> &'static str {
+        "budget-test"
+    }
+
+    fn required_frame_bytes(&self, _: &EncodeRequest) -> Result<usize, EncodeError> {
+        Ok(4096)
+    }
+
+    fn begin(&self, _: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+        self.began.store(true, std::sync::atomic::Ordering::Relaxed);
+        Ok(Box::new(Rows { bytes: Vec::new() }))
+    }
+}
+
+#[test]
+fn backend_frame_reservation_precedes_allocation_and_counts_toward_peak() {
+    let backend = BudgetedBackend {
+        began: std::sync::atomic::AtomicBool::new(false),
+    };
+    let options = TransformOptions {
+        output_width: 4,
+        output_height: 4,
+        transform_threads: 1,
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        max_managed_bytes: 4095,
+        ..TransformOptions::default()
+    };
+    let error = transcode_with(
+        include_bytes!("../tests/fixtures/sample.jpg"),
+        ImageFormat::Jpeg,
+        options,
+        &backend,
+    )
+    .unwrap_err();
+    assert_eq!(
+        error.kind(),
+        crate::pipeline::ProcessingErrorKind::ResourceExhausted
+    );
+    assert!(!backend.began.load(std::sync::atomic::Ordering::Relaxed));
+
+    let output = transcode_with(
+        include_bytes!("../tests/fixtures/sample.jpg"),
+        ImageFormat::Jpeg,
+        TransformOptions {
+            max_managed_bytes: 64 * 1024,
+            ..options
+        },
+        &backend,
+    )
+    .unwrap();
+    assert!(backend.began.load(std::sync::atomic::Ordering::Relaxed));
+    assert!(output.report.peak_managed_bytes > 4096);
+    assert_eq!(output.bytes.len(), 4 * 4 * 4);
+}
