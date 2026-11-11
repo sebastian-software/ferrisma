@@ -6,12 +6,11 @@ Ferrixel's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and A
 
 ## Reproducible fuzz target
 
-Install `cargo-fuzz` and run the target from the repository's `fuzz` directory or through `cargo +nightly fuzz` as appropriate for the current platform:
+Install the pinned `cargo-fuzz` and run the target with the repository's pinned native nightly toolchain:
 
 ```sh
-cargo install cargo-fuzz --locked
-cd fuzz
-cargo +nightly fuzz run transcode -- -max_len=524288 -timeout=10 -rss_limit_mb=1024
+cargo install cargo-fuzz --version 0.13.2 --locked
+cargo fuzz run transcode -- -max_len=524288 -timeout=10 -rss_limit_mb=1024
 ```
 
 The target accepts one control byte followed by unchanged encoded image bytes.
@@ -44,9 +43,9 @@ color rejection and input/geometry limits:
 cargo test --manifest-path fuzz/Cargo.toml --lib
 ```
 
-The current hosted fuzz workflow seeds JPEG and JPEG XL; the additional tested
-AVIF and WebP fixture lanes are available to seed but are not claimed as hosted
-coverage until that workflow is updated and run.
+The hosted workflow seeds all eight tested input/output pairs. This workflow
+configuration is not a completed campaign result; retain the exact run and
+revision when reporting hosted coverage.
 
 The default CI also runs **deterministic malformed-header smoke tests** for truncated JPEG/JXL/AVIF files and invalid API options, so regressions surface without an expensive nightly fuzz dependency.
 
@@ -62,7 +61,7 @@ The existence of a fuzz target alone does not satisfy the M1 hardening acceptanc
 
 ## CI bounded smoke
 
-The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) installs a pinned cargo-fuzz driver on a nightly Rust runner, seeds it with two checked-in real JPEG/JXL images, and runs **3,000 bounded attempts** with a 16 KiB maximum input and a 1 GiB process RSS cap. This is useful to catch shallow codec/protocol panics and integration bugs. It does **not** constitute a sustained, coverage-reviewed fuzz campaign and is not proof of process-wide memory safety; actual release acceptance still requires broader corpora, sanitizers and target-specific time budgets.
+The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) uses the root pinned nightly and cargo-fuzz 0.13.2, verifies deterministic seed success, seeds eight input/output pairs from four real JPEG/JXL/AVIF/WebP fixtures, and runs **3,000 bounded attempts** with a 16 KiB maximum input and a 1 GiB process RSS cap. This is useful to catch shallow codec/protocol panics and integration bugs. It does **not** constitute a sustained, coverage-reviewed fuzz campaign and is not proof of process-wide memory safety; actual release acceptance still requires broader corpora, sanitizers and target-specific time budgets.
 
 ## Early input limits
 
