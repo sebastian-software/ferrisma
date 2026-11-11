@@ -1004,7 +1004,7 @@ fn extreme_geometry_is_rejected_before_work_in_both_executors() {
             };
             assert!(matches!(
                 result,
-                Err(Error::BudgetExceeded { .. }) | Err(Error::GeometryOverflow)
+                Err(Error::BudgetExceeded { .. } | Error::GeometryOverflow)
             ));
             assert_eq!(source.calls, 0);
             assert_eq!(budget.snapshot().live, 0);
