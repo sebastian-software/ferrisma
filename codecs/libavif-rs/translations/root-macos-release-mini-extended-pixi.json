@@ -267,7 +267,7 @@
     }
   ],
   "selector": "src/profiles/macos/release/mini-extended-pixi/modules.rs",
-  "selector_sha256": "662cf6043f49c17b4b54b48ea89ae85c08f55dacc25111c79d587740422f3a1d",
+  "selector_sha256": "94fec2bc5fe9b6ba58aebe1213ed05fc2d2b23f0ccf95ddd3b4999703d50cfe3",
   "original_compile_commands_sha256": "4d569633fb4a91c0755b0283215ec8e19428f3d5dcdf118b9f96d0f12b75db92",
   "original_cmake_cache_sha256": "db8689ac765391160935ab39a385edd8d1a4f25750debfe4583802259c851230",
   "original_tests_executed": false,

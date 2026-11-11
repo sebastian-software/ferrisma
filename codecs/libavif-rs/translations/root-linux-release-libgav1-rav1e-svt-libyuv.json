@@ -253,7 +253,7 @@
   ],
   "libyuv_translation_overlay_sha256": "a46a17e4eed90097148736fb3ee2ef7e780aa588305771fba46d6a04a44779fb",
   "selector": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/modules.rs",
-  "selector_sha256": "40d171ac603f3f205532e6ba70a286e701f63e9e751246a1dc4659d34c5288f7",
+  "selector_sha256": "142716bcfd744e0fbf5fe187422959e184c1a8320530fb9387140747aa824670",
   "original_compile_commands_sha256": "b03fbd991dad441da9488b8e192d178da5916578af76df3c2e6ba54f99d35751",
   "original_cmake_cache_sha256": "4826893870bd734fc0a5c63ad40c0c018dfab3c2428a0867cb9eae79980fb23e",
   "original_tests_executed": false,

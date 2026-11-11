@@ -35,14 +35,53 @@ pub mod properties;
 
 pub mod rawdata;
 
-#[cfg_attr(all(feature = "mini", not(feature = "extended-pixi"), not(feature = "avm")), path = "variants/mini/read.rs")]
-#[cfg_attr(all(not(feature = "mini"), feature = "extended-pixi", not(feature = "avm")), path = "variants/extended-pixi/read.rs")]
-#[cfg_attr(all(feature = "mini", feature = "extended-pixi", not(feature = "avm")), path = "variants/mini-extended-pixi/read.rs")]
-#[cfg_attr(all(not(feature = "mini"), not(feature = "extended-pixi"), feature = "avm"), path = "variants/avm/read.rs")]
-#[cfg_attr(all(feature = "mini", not(feature = "extended-pixi"), feature = "avm"), path = "variants/mini-avm/read.rs")]
-#[cfg_attr(all(not(feature = "mini"), feature = "extended-pixi", feature = "avm"), path = "variants/extended-pixi-avm/read.rs")]
-#[cfg_attr(all(feature = "mini", feature = "extended-pixi", feature = "avm"), path = "variants/mini-extended-pixi-avm/read.rs")]
-pub mod read;
+#[cfg(all(feature = "mini", not(feature = "extended-pixi"), not(feature = "avm")))]
+pub mod read {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/variants/mini/read.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read_sample_access.rs"));
+}
+
+#[cfg(all(not(feature = "mini"), feature = "extended-pixi", not(feature = "avm")))]
+pub mod read {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/variants/extended-pixi/read.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read_sample_access.rs"));
+}
+
+#[cfg(all(feature = "mini", feature = "extended-pixi", not(feature = "avm")))]
+pub mod read {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/variants/mini-extended-pixi/read.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read_sample_access.rs"));
+}
+
+#[cfg(all(not(feature = "mini"), not(feature = "extended-pixi"), feature = "avm"))]
+pub mod read {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/variants/avm/read.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read_sample_access.rs"));
+}
+
+#[cfg(all(feature = "mini", not(feature = "extended-pixi"), feature = "avm"))]
+pub mod read {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/variants/mini-avm/read.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read_sample_access.rs"));
+}
+
+#[cfg(all(not(feature = "mini"), feature = "extended-pixi", feature = "avm"))]
+pub mod read {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/variants/extended-pixi-avm/read.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read_sample_access.rs"));
+}
+
+#[cfg(all(feature = "mini", feature = "extended-pixi", feature = "avm"))]
+pub mod read {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/variants/mini-extended-pixi-avm/read.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read_sample_access.rs"));
+}
+
+#[cfg(not(any(all(feature = "mini", not(feature = "extended-pixi"), not(feature = "avm")), all(not(feature = "mini"), feature = "extended-pixi", not(feature = "avm")), all(feature = "mini", feature = "extended-pixi", not(feature = "avm")), all(not(feature = "mini"), not(feature = "extended-pixi"), feature = "avm"), all(feature = "mini", not(feature = "extended-pixi"), feature = "avm"), all(not(feature = "mini"), feature = "extended-pixi", feature = "avm"), all(feature = "mini", feature = "extended-pixi", feature = "avm"))))]
+pub mod read {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read_sample_access.rs"));
+}
 
 pub mod reformat;
 

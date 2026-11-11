@@ -264,7 +264,7 @@
     }
   ],
   "selector": "src/profiles/linux/release/extended-pixi/modules.rs",
-  "selector_sha256": "662cf6043f49c17b4b54b48ea89ae85c08f55dacc25111c79d587740422f3a1d",
+  "selector_sha256": "07c5367bd649c1d2b407e3466889a39d3e6e226934d90e5ccba1044ff9674fb3",
   "original_compile_commands_sha256": "58aefcace56a7fc65b5b7e104cc5d554105c09f9129686464e7d44a48677b092",
   "original_cmake_cache_sha256": "cc55ae33e0f809f288c01ecf29f6bb7d26fc3ee256c2e705554960917b55661b",
   "original_tests_executed": false,

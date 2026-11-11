@@ -264,7 +264,7 @@
     }
   ],
   "selector": "src/profiles/linux/release/mini-extended-pixi/modules.rs",
-  "selector_sha256": "662cf6043f49c17b4b54b48ea89ae85c08f55dacc25111c79d587740422f3a1d",
+  "selector_sha256": "6a00d1d4f764fdb23921dbd7a8e9ac96ec42d09d4c9280204a46eb2284459471",
   "original_compile_commands_sha256": "9ffdc3d4fa8bd5b49b3f8a04dcd48e71645692c4ae5022766783f1e419f564a0",
   "original_cmake_cache_sha256": "aa456d3aa9875dfcb81be6ff201585a29b3942adfcb17e1318fce4f3ff307fc4",
   "original_tests_executed": false,
