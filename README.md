@@ -7,7 +7,7 @@ JPEG, WebP, JPEG XL, and AVIF libraries. The goal is to make color, decoder
 capabilities, intermediate buffers, and execution costs explicit throughout
 the pipeline.
 
-**Experimental and unpublished.** The JPEG/JPEG XL/AVIF → crop/resize → AVIF
+**Experimental and unpublished.** The JPEG/WebP/JPEG XL/AVIF → crop/resize → AVIF
 pipeline, Rust facade, and CLI work for supported SDR inputs. M1 quality,
 hardening, dependency, and release gates remain open; there is no stable API
 or production-readiness claim.
@@ -19,14 +19,14 @@ or production-readiness claim.
 | [Engine](src/pipeline.rs) | Experimental SDR pipeline with orientation, linear-light resampling, parallel execution, and reported materializations |
 | [CPU kernels](crates/ferrixel-kernels) | Scalar, NEON, AVX2, and AVX-512 resampling behind a safe API |
 | [JPEG port](codecs/libjpeg-turbo-rs) | In-scope 8-bit decoder with a safe row API; engine adoption pending |
-| [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; engine adoption pending |
+| [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; still-image input is connected through `webp-read` |
 | [JPEG XL port](codecs/libjxl-rs) | Incremental decoder with provisional APIs; encoder incomplete; engine adoption pending |
 | [AVIF ports](codecs/libavif-rs) | libavif, AOM, dav1d, and SharpYUV; an [optional encoder adapter](crates/ferrixel-libavif) exercises the port |
 | [Validation tooling](docs/codecs.md) | One Rust runner, scoped PR checks, and deeper independent oracle suites |
 
 The four codec ports share the Cargo workspace, but importing them does not
 automatically select them as engine backends. Ferrixel currently reads through
-`zune-jpeg`, `jxl-oxide`, and `avif-decode`, and writes AVIF through `rav1e`.
+`zune-jpeg`, the workspace `libwebp-rs`, `jxl-oxide`, and `avif-decode`, and writes AVIF through `rav1e`.
 
 **[Current status and remaining gates](docs/status.md)** gives the component
 and integration overview. **[Documentation guide](docs/README.md)** maps the

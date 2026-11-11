@@ -47,6 +47,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0026](0026-codecs-in-one-repository-and-workspace.md) | One repository and Cargo workspace for the engine, adapter and four codec ports; imported PRs, common verification entry point and early SharpYUV consolidation review | Accepted |
 | [0027](0027-tiered-validation-and-rust-test-orchestration.md) | Scoped PR checks, deep validation cadence and Rust orchestration | Accepted |
 | [0028](0028-ardo-documentation-site.md) | Ardo website with the shared Ferramenta theme and canonical repository Markdown | Accepted |
+| [0029](0029-webp-still-input.md) | Still WebP input through the workspace port with explicit crop cost, color, orientation and memory limits | Experimental |
 
 ## Changing an ADR
 

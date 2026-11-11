@@ -16,7 +16,7 @@ cargo run --release --features cli -- \
   photo.jpg scaled.avif 1600 900 --assume-srgb --quality=80 --speed=8
 ```
 
-The `cli` feature enables JPEG, JPEG XL and AVIF input, AVIF output, and ICC
+The `cli` feature enables JPEG, still WebP, JPEG XL and AVIF input, AVIF output, and ICC
 support. The default AVIF encoder is `rav1e`. The separate
 [`ferrixel-libavif` adapter](../crates/ferrixel-libavif/README.md) provides an
 experimental alternative; do not combine it with the interim AVIF reader in one
@@ -26,7 +26,7 @@ Use `--assume-srgb` only when you accept that assumption for the input. For a
 supported rendered RGB ICC profile, `--use-rendered-icc` selects the explicit
 ICC path. Untagged color is not automatically sRGB; unsupported HDR and
 ambiguous color are rejected. Orientation is applied before crop coordinates;
-JPEG and AVIF may require full-frame decoding and the AVIF encoder materializes
+JPEG, lossless WebP, and AVIF may require full-frame decoding and the AVIF encoder materializes
 an output frame. See the [color contract](design/color-management-contract.md)
 and [architecture](architecture.md).
 

@@ -18,6 +18,7 @@ When a crate is flagged, review its exact source license, license-file and notic
 | Dependency | Cargo feature | Upstream metadata/license | Review focus |
 | --- | --- | --- | --- |
 | `zune-jpeg` | `jpeg-read` | Permissive; verify exact crate release | JPEG headers, ICC handling, decode scratch |
+| workspace `libwebp-rs` | `webp-read` | BSD-3-Clause; [license](../codecs/libwebp-rs/LICENSE), [patent grant](../codecs/libwebp-rs/PATENTS), [authors](../codecs/libwebp-rs/AUTHORS), [provenance](../codecs/libwebp-rs/docs/PROVENANCE.md) | Still decoder, ICC/EXIF, opaque scratch and notices; publication gate remains open |
 | `jxl-oxide` | `jpeg-xl-read` | Permissive; verify exact crate release | CMS output profile, color/alpha, crop/internal cache |
 | `avif-decode` / `rav1d` | `avif-read` | BSD-3-Clause decoder; inspect native/build artifacts | Target-specific NASM assembly, malformed bitstreams, MSRV 1.98 |
 | `rav1e` / `avif-serialize` | `avif-write` | BSD-2-Clause encoder, BSD-3-Clause container writer; `rav1e` links hand-written assembly | Encoded CICP, alpha, frame materialization and opaque scratch |

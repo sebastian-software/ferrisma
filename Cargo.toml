@@ -67,13 +67,14 @@ publish = false
 [features]
 default = []
 jpeg-read = ["dep:zune-jpeg"]
+webp-read = ["dep:webp"]
 jpeg-xl-read = ["dep:jxl-oxide"]
 # rav1e's `asm` is bit-exact and about 2.2x faster; `threading` lets the
 # encoder use `TransformOptions::encoder_threads` (M2 work package 2, ADR-0018).
 avif-write = ["dep:rav1e", "dep:avif-serialize", "rav1e/asm", "rav1e/threading"]
 avif-read = ["dep:avif-decode", "dep:avif-parse"]
 icc = ["dep:moxcms"]
-cli = ["jpeg-read", "jpeg-xl-read", "avif-read", "avif-write", "icc"]
+cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "avif-read", "avif-write", "icc"]
 
 
 [dependencies]
@@ -87,6 +88,7 @@ moxcms = { version = "0.9.1", optional = true }
 # `neon` and `x86` enable zune-jpeg's runtime-detected SIMD IDCT, upsampling and
 # color conversion (M2 work package 5, ADR-0023).
 zune-jpeg = { version = "0.5.15", optional = true, default-features = false, features = ["std", "neon", "x86"] }
+webp = { package = "libwebp-rs", path = "codecs/libwebp-rs", version = "0.1.0", optional = true }
 jxl-oxide = { version = "0.12.6", optional = true, default-features = false }
 
 [dev-dependencies]

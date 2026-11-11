@@ -118,5 +118,8 @@ mod avif_sink_tests;
 #[cfg(all(test, feature = "jpeg-read", feature = "avif-write"))]
 mod pipeline_tests;
 
+#[cfg(all(test, feature = "webp-read", feature = "avif-write"))]
+mod webp_pipeline_tests;
+
 #[cfg(test)]
 mod hardening_tests;

@@ -35,9 +35,10 @@ fn parse_format(path: &Path) -> Result<ImageFormat, Box<dyn Error>> {
         .to_ascii_lowercase();
     match extension.as_str() {
         "jpg" | "jpeg" => Ok(ImageFormat::Jpeg),
+        "webp" => Ok(ImageFormat::WebP),
         "jxl" => Ok(ImageFormat::JpegXl),
         "avif" => Ok(ImageFormat::Avif),
-        _ => Err("unsupported file extension; expected JPEG, JXL or AVIF".into()),
+        _ => Err("unsupported file extension; expected JPEG, WebP, JXL or AVIF".into()),
     }
 }
 
@@ -118,7 +119,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrixel");
         eprintln!(
-            "usage: {program} input.jpg output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1 (0 = all cores)] [--transform-threads=0 (0 = all cores)] [--chroma=444|420] [--kernel-level=scalar|neon|avx2] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} input.jpg|input.webp output.avif WIDTH HEIGHT [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--quality=75] [--speed=6] [--encoder-threads=1 (0 = all cores)] [--transform-threads=0 (0 = all cores)] [--chroma=444|420] [--kernel-level=scalar|neon|avx2] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }

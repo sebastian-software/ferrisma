@@ -43,7 +43,7 @@ pub(crate) enum Error {
     IncompleteDecoderOutput,
     NonFinitePixelSample,
     InvalidAlphaValue,
-    #[cfg(feature = "avif-read")]
+    #[cfg(any(feature = "avif-read", feature = "webp-read"))]
     InputPixelLimitExceeded {
         pixels: u64,
         limit: u64,
@@ -51,7 +51,12 @@ pub(crate) enum Error {
     #[cfg(feature = "avif-read")]
     ContradictoryColorSignals,
     #[cfg_attr(
-        not(any(feature = "jpeg-read", feature = "jpeg-xl-read", feature = "avif-read")),
+        not(any(
+            feature = "jpeg-read",
+            feature = "webp-read",
+            feature = "jpeg-xl-read",
+            feature = "avif-read"
+        )),
         allow(dead_code, reason = "constructed only by codec adapters")
     )]
     UnsupportedImageTransform,
@@ -63,6 +68,8 @@ pub(crate) enum Error {
     EncodeFailed,
     UnsupportedColorEncoding,
     UnsupportedAlphaMode,
+    #[cfg(feature = "webp-read")]
+    UnsupportedAnimation,
     #[allow(dead_code)]
     UnsupportedCodecLayout,
 }
@@ -114,7 +121,7 @@ impl fmt::Display for Error {
             Self::IncompleteOutput => write!(f, "output sink has not received every scanline"),
             #[cfg(feature = "avif-write")]
             Self::EncodeFailed => write!(f, "AVIF encoder failed"),
-            #[cfg(feature = "avif-read")]
+            #[cfg(any(feature = "avif-read", feature = "webp-read"))]
             Self::InputPixelLimitExceeded { pixels, limit } => {
                 write!(
                     f,
@@ -141,6 +148,8 @@ impl fmt::Display for Error {
                 f,
                 "the channel layout requires an explicit, compatible alpha-association mode"
             ),
+            #[cfg(feature = "webp-read")]
+            Self::UnsupportedAnimation => write!(f, "animated WebP input is not supported"),
             Self::IncompleteDecoderOutput => {
                 write!(f, "decoder did not provide the complete output region")
             }

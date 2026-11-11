@@ -340,6 +340,7 @@ dependencies = [
  "avif-serialize",
  "ferrixel-kernels",
  "jxl-oxide",
+ "libwebp-rs",
  "moxcms",
  "rav1e",
  "ravif",
