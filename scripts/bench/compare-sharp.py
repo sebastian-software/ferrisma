@@ -2,8 +2,9 @@
 """Quality-matched Ferrixel versus Sharp comparison (M2 work package 0).
 
 Usage: python3 -I scripts/bench/compare-sharp.py PHASE OUT_DIR
-PHASE is prepare, ceiling, match, time, batch, stages, sweepmatch, sweep or all. See
-docs/benchmarks/M2-sharp-comparison.md for the method and the results.
+PHASE is prepare, ceiling, match, time, batch, stages, sweepmatch, sweep,
+encoder-match, encoder-time or all. See docs/benchmarks/M2-sharp-comparison.md
+and docs/benchmarks/encoder-adoption.md for the respective methods.
 
 Environment:
   BENCH_SHARP_NODE_MODULES  node_modules directory containing sharp (required)
@@ -14,9 +15,12 @@ Environment:
   COMPARE_RUNS              timed runs per measurement (default 10)
   COMPARE_MAX_LOAD          wait until the 1-minute load average is below
                             this before every timing run (default 4)
+  COMPARE_ENCODER_LEVELS    comma-separated rav1e quality anchors (default 80)
+  COMPARE_ENCODER_RUN_ID    unique identifier for each encoder timing run
+  COMPARE_IDLE_TIMEOUT      bounded encoder idle wait in seconds (default 900)
 
-Only `time`, `batch`, `stages` and `sweep` measure time; `prepare`, `ceiling` and `match`
-produce bytes and SSIMULACRA2 scores, which do not depend on machine load.
+Only `time`, `batch`, `stages`, `sweep` and `encoder-time` measure time;
+matching produces bytes and SSIMULACRA2 scores without timing them.
 """
 
 import csv
@@ -24,6 +28,7 @@ import hashlib
 import math
 import json
 import platform
+import re
 import shlex
 import os
 import statistics
@@ -35,12 +40,23 @@ from pathlib import Path
 BENCH = Path(__file__).resolve().parent
 # The Ferrixel checkout whose CLI is measured; defaults to this script's.
 REPO = Path(os.environ.get("COMPARE_REPO", BENCH.parents[1])).resolve()
-TARGET = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "target")).resolve()
+
+
+def resolve_target(path, repo):
+    path = Path(path)
+    return (path if path.is_absolute() else repo / path).resolve()
+
+
+TARGET_PATH = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "target"))
+TARGET = resolve_target(TARGET_PATH, REPO)
+if "CARGO_TARGET_DIR" in os.environ:
+    os.environ["CARGO_TARGET_DIR"] = str(TARGET)
 FERRIXEL = TARGET / "release" / "ferrixel"
 BATCH = TARGET / "release" / "examples" / "batch"
 QM_DIR = BENCH / "quality-match"
 QM_TARGET = TARGET if "CARGO_TARGET_DIR" in os.environ else QM_DIR / "target"
 QM = QM_TARGET / "release" / "ferrixel-quality-match"
+LIBAVIF_ENCODER = TARGET / "release" / "ferrixel-libavif"
 SHARP_AVIF = BENCH / "sharp-avif.cjs"
 SHARP_BATCH = BENCH / "sharp-batch.cjs"
 
@@ -661,17 +677,313 @@ def sweep(out):
             print(row, file=sys.stderr)
 
 
+# The encoder comparison intentionally uses the same prepared references as
+# the Sharp harness, but matches each thread configuration independently.
+def encoder_levels():
+    raw = os.environ.get("COMPARE_ENCODER_LEVELS", "80")
+    try:
+        values = [int(value) for value in raw.split(",")]
+    except ValueError as error:
+        raise ValueError("COMPARE_ENCODER_LEVELS must contain integer qualities") from error
+    if not values or len(set(values)) != len(values) or any(v < 1 or v > 100 for v in values):
+        raise ValueError("encoder anchor qualities must be distinct integers from 1 to 100")
+    return values
+
+
+def encoder_cmd(image, corpus, binary, quality, speed, threads, output):
+    name, file, flag, _, w, h, _ = image
+    cmd = [binary, corpus / file, output, w, h, flag, f"--quality={quality}",
+           f"--speed={speed}", f"--encoder-threads={threads}",
+           f"--transform-threads={threads}", "--chroma=444"]
+    if name in LARGE_CROPS:
+        cmd.append(f"--crop={LARGE_CROPS[name]}")
+    if name.startswith("beach"):
+        cmd.append("--budget-mb=2048")
+    return cmd
+
+
+def tracked_source_diff():
+    return subprocess.run(["git", "-C", str(REPO), "diff", "--binary", "HEAD"],
+                          check=True, stdout=subprocess.PIPE).stdout
+
+
+def encoder_source_receipt():
+    if REPO != BENCH.parents[1]:
+        raise ValueError("encoder comparison requires COMPARE_REPO to be the harness checkout")
+    return {
+        "encoder_script_sha256": sha256(BENCH / "compare-encoders.sh"),
+        "harness_sha256": sha256(Path(__file__)),
+        "lockfile_sha256": sha256(REPO / "Cargo.lock"),
+        "scorer_sources_sha256": {name: sha256(QM_DIR / name)
+                                  for name in ("Cargo.toml", "Cargo.lock", "src/main.rs")},
+        "corpus_manifests_sha256": {name: sha256(BENCH / name) for name in ("corpus.json", "corpus-large.json")},
+        "repository_commit": run(["git", "-C", REPO, "rev-parse", "HEAD"]).strip(),
+        "rustc": run(["rustc", "--version", "--verbose"]).strip(),
+        "cargo": run(["cargo", "--version"]).strip(),
+        "build_env": {key: os.environ.get(key) for key in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "CARGO_TARGET_DIR")},
+        "tracked_status": run(["git", "-C", REPO, "status", "--short", "--untracked-files=no"]).strip(),
+        "tracked_diff_sha256": hashlib.sha256(tracked_source_diff()).hexdigest(),
+        "levels": encoder_levels(),
+    }
+
+
+def encoder_build():
+    """Build all measured executables from one unchanged source receipt."""
+    before = encoder_source_receipt()
+    commands = [
+        ("ferrixel", FERRIXEL, ["cargo", "build", "--locked", "--release", "-p", "ferrixel", "--features", "cli", "--bin", "ferrixel"]),
+        ("ferrixel-libavif", LIBAVIF_ENCODER, ["cargo", "build", "--locked", "--release", "-p", "ferrixel-libavif", "--features", "cli", "--bin", "ferrixel-libavif"]),
+        ("ferrixel-quality-match", QM, ["cargo", "build", "--locked", "--release", "--manifest-path", QM_DIR / "Cargo.toml"]),
+    ]
+    for name, expected, command in commands:
+        messages = run([*command, "--message-format=json-render-diagnostics"]).splitlines()
+        built = [Path(message["executable"]).resolve() for line in messages
+                 for message in [json.loads(line)]
+                 if message.get("reason") == "compiler-artifact"
+                 and message.get("target", {}).get("name") == name
+                 and message.get("executable")]
+        if built != [expected.resolve()]:
+            raise ValueError(f"Cargo built {name} at {built}, expected {[expected.resolve()]}; check target configuration")
+    if before != encoder_source_receipt():
+        raise ValueError("encoder or scorer source changed while building")
+    return before
+
+
+def encoder_fingerprint(out):
+    # Reuse the existing source hash checks, references and tool provenance.
+    source = encoder_source_receipt()
+    base = match_fingerprint(out)
+    base.update(source)
+    base["libavif_sha256"] = sha256(LIBAVIF_ENCODER)
+    return base
+
+
+def encoder_match(out):
+    work = out / "encoders"
+    work.mkdir(parents=True, exist_ok=True)
+    provenance = work / "match-provenance.json"
+    if provenance.exists() or (work / "matched.json").exists():
+        raise ValueError("encoder matching output already exists; use a fresh output directory")
+    provenance.write_text('{"status":"incomplete"}\n')
+    built_from = encoder_build()
+    fingerprint = encoder_fingerprint(out)
+    if any(fingerprint.get(key) != value for key, value in built_from.items()):
+        raise ValueError("encoder or scorer source changed after building")
+    (work / "source.patch").write_bytes(tracked_source_diff())
+    if sha256(work / "source.patch") != fingerprint["tracked_diff_sha256"]:
+        raise ValueError("tracked source changed while recording provenance")
+    records = []
+    for image in IMAGES:
+        name = image[0]
+        ref = out / "refs" / f"{name}.ref"
+        for threads in (0, 1):
+            for level in encoder_levels():
+                anchor = work / f"{name}-q{level}-t{threads}-rav1e.avif"
+                anchor_cmd = encoder_cmd(image, out / "corpus", FERRIXEL, level, 6, threads, anchor)
+                run(anchor_cmd)
+                (_, size, target), = score(ref, [anchor])
+                for speed in (6, 7):
+                    path = work / f"{name}-q{level}-t{threads}-aom-s{speed}"
+                    cmd = encoder_cmd(image, out / "corpus", LIBAVIF_ENCODER, "{q}", speed, threads, "{out}")
+                    columns = run([QM, "bisect", ref, f"{target:.3f}", "0", "100", "1", path, "--", *cmd]).strip().split("\t")
+                    names = ("status", "target_score", "q_below", "score_below", "bytes_below", "q_above",
+                             "score_above", "bytes_above", "bytes_at_target", "q_nearest", "score_nearest", "encodes")
+                    if len(columns) != len(names):
+                        raise ValueError("invalid encoder bisection result")
+                    result = dict(zip(names, columns))
+                    records.append({"image": name, "anchor_quality": level, "threads": threads,
+                                    "speed": speed, "anchor_bytes": size, "anchor_score": target,
+                                    "anchor_sha256": sha256(anchor), **result})
+                    (work / "matched.json").write_text(json.dumps(records, indent=2) + "\n")
+    if fingerprint != encoder_fingerprint(out):
+        raise ValueError("matching inputs or tools changed during the run")
+    files = {str(path.relative_to(work)): sha256(path) for path in sorted(work.glob("*-rav1e.avif"))}
+    files.update({str(path.relative_to(work)): sha256(path) for path in sorted(work.glob("*-aom-s*/q*.avif"))})
+    files["source.patch"] = sha256(work / "source.patch")
+    provenance.write_text(json.dumps({"status": "complete", "fingerprint": fingerprint,
+                                      "matched_sha256": sha256(work / "matched.json"),
+                                      "match_aom_simd_caps_mask": os.environ.get("AOM_SIMD_CAPS_MASK"),
+                                      "outputs_sha256": files}, indent=2) + "\n")
+
+
+def validate_encoder_match(out, matching):
+    work = out / "encoders"
+    if (matching.get("status") != "complete" or matching.get("fingerprint") != encoder_fingerprint(out)
+            or matching.get("matched_sha256") != sha256(work / "matched.json")):
+        raise ValueError("encoder matching evidence is incomplete or stale")
+    if not matching.get("outputs_sha256") or any(
+            not (work / name).is_file() or sha256(work / name) != digest
+            for name, digest in matching["outputs_sha256"].items()):
+        raise ValueError("matched encoder outputs are missing or changed")
+    records = json.loads((work / "matched.json").read_text())
+    indexed = {}
+    for row in records:
+        key = (row["image"], row["anchor_quality"], row["threads"], row["speed"])
+        if key in indexed:
+            raise ValueError(f"duplicate quality match: {key}")
+        if row["status"] != "ok":
+            raise ValueError(f"quality target not bracketed for {key}: {row['status']}")
+        for field in ("target_score", "score_below", "score_above", "score_nearest"):
+            if not math.isfinite(float(row[field])):
+                raise ValueError(f"invalid quality score for {key}")
+        if not float(row["score_below"]) < float(row["target_score"]) <= float(row["score_above"]):
+            raise ValueError(f"invalid quality bracket for {key}")
+        delta = float(row["score_nearest"]) - float(row["target_score"])
+        if abs(delta) > 0.5:
+            raise ValueError(f"nearest integer quality is more than 0.5 SSIMULACRA2 from target for {key}: delta={delta:+.3f}")
+        indexed[key] = row
+    expected = {(i[0], q, t, s) for i in IMAGES for q in encoder_levels() for t in (0, 1) for s in (6, 7)}
+    if set(indexed) != expected:
+        raise ValueError("encoder quality matches do not cover the requested matrix")
+    return indexed
+
+
+def encoder_sample(cmd):
+    """One process wall-time and peak-RSS observation, including startup and I/O."""
+    if sys.platform == "darwin":
+        timed = ["/usr/bin/time", "-l", *map(str, cmd)]
+    else:
+        timed = ["/usr/bin/time", "-f", "FERRIXEL_RSS_KIB=%M", *map(str, cmd)]
+    start = time.monotonic()
+    result = subprocess.run(timed, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    wall = time.monotonic() - start
+    if sys.platform == "darwin":
+        rss = int(next(line.split()[0] for line in result.stderr.splitlines()
+                       if "maximum resident set size" in line)) // 1024
+    else:
+        rss = int(next(line.split("=", 1)[1] for line in result.stderr.splitlines()
+                       if line.startswith("FERRIXEL_RSS_KIB=")))
+    report = next(line for line in result.stdout.splitlines() if line.startswith("report:"))
+    fields = dict(field.split("=", 1) for field in report.split()[1:])
+    if wall <= 0 or rss <= 0:
+        raise ValueError("invalid timing or RSS sample")
+    return wall, rss, fields
+
+
+def encoder_wait_for_idle():
+    limit = float(os.environ.get("COMPARE_MAX_LOAD", "4"))
+    timeout = int(os.environ.get("COMPARE_IDLE_TIMEOUT", "900"))
+    if not math.isfinite(limit) or limit <= 0 or not 1 <= timeout <= 7200:
+        raise ValueError("invalid encoder load limit or idle timeout")
+    deadline = time.monotonic() + timeout
+    while load1() >= limit:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("encoder timing could not obtain an idle window")
+        time.sleep(min(30, remaining))
+
+
+def encoder_hardware():
+    model = platform.processor()
+    if sys.platform.startswith("linux"):
+        for line in Path("/proc/cpuinfo").read_text().splitlines():
+            if line.startswith("model name"):
+                model = line.split(":", 1)[1].strip()
+                break
+    elif sys.platform == "darwin":
+        result = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True)
+        if result.returncode == 0:
+            model = result.stdout.strip()
+    affinity = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else None
+    return {"model": model, "logical_cpus": os.cpu_count(), "affinity_cpus": affinity}
+
+
+def encoder_timing(out):
+    work = out / "encoders"
+    run_id = os.environ.get("COMPARE_ENCODER_RUN_ID", "default")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", run_id):
+        raise ValueError("COMPARE_ENCODER_RUN_ID must contain only letters, numbers, _ or -")
+    timedir = work / f"time-{run_id}"
+    timedir.mkdir(parents=True, exist_ok=False)
+    output = timedir / "provenance.json"
+    output.write_text('{"status":"incomplete"}\n')
+    matching = json.loads((work / "match-provenance.json").read_text())
+    matches = validate_encoder_match(out, matching)
+    runs = int(os.environ.get("COMPARE_RUNS", "5"))
+    if not 1 <= runs <= 100:
+        raise ValueError("COMPARE_RUNS must be between 1 and 100")
+    samples_path = timedir / "samples.json"
+    stamp = {"status": "incomplete", "fingerprint": matching["fingerprint"],
+             "matched_sha256": sha256(work / "matched.json"), "platform": platform.platform(),
+             "machine": platform.machine(), "rustc": run(["rustc", "--version", "--verbose"]).strip(),
+             "cargo": run(["cargo", "--version"]).strip(), "node": run(["node", "--version"]).strip(),
+             "hardware": encoder_hardware(),
+             "binary_sizes": {"rav1e": FERRIXEL.stat().st_size, "libavif": LIBAVIF_ENCODER.stat().st_size},
+             "env": {key: os.environ.get(key) for key in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "AOM_SIMD_CAPS_MASK", "CARGO_TARGET_DIR")},
+             "match_aom_simd_caps_mask": matching.get("match_aom_simd_caps_mask"),
+             "runs": runs, "warmups": 1, "order": "alternate candidate order per sample"}
+    samples = []
+    samples_path.write_text("[]\n")
+    output.write_text(json.dumps(stamp, indent=2) + "\n")
+    for image in IMAGES:
+        name = image[0]
+        for threads in (0, 1):
+            for level in encoder_levels():
+                lanes = [("rav1e", FERRIXEL, level, 6, None)]
+                for speed in (6, 7):
+                    row = matches[(name, level, threads, speed)]
+                    lanes.append((f"aom-s{speed}", LIBAVIF_ENCODER, row["q_nearest"], speed, row))
+                for sample in range(-1, runs):
+                    for label, binary, quality, speed, row in (lanes if sample % 2 == 0 else list(reversed(lanes))):
+                        encoder_wait_for_idle()
+                        avif = timedir / f"{name}-q{level}-t{threads}-{label}.avif"
+                        cmd = encoder_cmd(image, out / "corpus", binary, quality, speed, threads, avif)
+                        before = load1()
+                        wall, rss, report = encoder_sample(cmd)
+                        if sample < 0:
+                            continue
+                        (_, size, actual), = score(out / "refs" / f"{name}.ref", [avif])
+                        if row:
+                            validate_output_score(row, actual)
+                        else:
+                            anchor = matches[(name, level, threads, 6)]
+                            if abs(actual - float(anchor["anchor_score"])) > 0.1:
+                                raise ValueError("timed anchor differs from matching score")
+                        samples.append({"image": name, "anchor_quality": level, "threads": threads,
+                                        "lane": label, "quality": quality, "speed": speed,
+                                        "run": sample + 1, "wall_s": wall, "peak_rss_kib": rss,
+                                        "stage_report": report, "score": actual, "bytes": size,
+                                        "output_sha256": sha256(avif), "load_before": before,
+                                        "load_after": load1(), "output_file": avif.name,
+                                        "command": list(map(str, cmd))})
+                        samples_path.write_text(json.dumps(samples, indent=2) + "\n")
+    validate_encoder_match(out, matching)
+    expected = len(IMAGES) * len(encoder_levels()) * 2 * 3 * runs
+    if len(samples) != expected:
+        raise ValueError("encoder timing did not complete every lane")
+    groups = {}
+    for row in samples:
+        key = (row["image"], row["anchor_quality"], row["threads"], row["lane"])
+        groups.setdefault(key, []).append(row)
+    summary = []
+    for (name, quality, threads, lane), group in groups.items():
+        walls = sorted(row["wall_s"] for row in group)
+        summary.append({"image": name, "anchor_quality": quality, "threads": threads, "lane": lane,
+                        "median_s": statistics.median(walls), "p95_s": walls[math.ceil(0.95 * len(walls)) - 1],
+                        "min_s": walls[0], "max_s": walls[-1],
+                        "peak_rss_kib_max": max(row["peak_rss_kib"] for row in group)})
+    summary_path = timedir / "summary.json"
+    summary_path.write_text(json.dumps(summary, indent=2) + "\n")
+    stamp.update(status="complete", expected_samples=expected, actual_samples=len(samples),
+                 samples_sha256=sha256(samples_path),
+                 summary_sha256=sha256(summary_path),
+                 final_outputs_sha256={path.name: sha256(path) for path in sorted(timedir.glob("*.avif"))})
+    output.write_text(json.dumps(stamp, indent=2) + "\n")
+
+
 def main():
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     phase, out = sys.argv[1], Path(sys.argv[2]).resolve()
     out.mkdir(parents=True, exist_ok=True)
     os.chdir(REPO)
-    if IMAGE_SET != "default" and phase not in ("prepare", "match", "time"):
+    if IMAGE_SET != "default" and phase not in ("prepare", "match", "time", "encoder-match", "encoder-time"):
         sys.exit("large image sets support prepare, match and time only")
     phases = {"prepare": prepare, "ceiling": ceiling, "match": match, "time": timing, "batch": batch,
-              "stages": stages, "sweepmatch": sweep_match, "sweep": sweep}
-    for name in (phases if phase == "all" else [phase]):
+              "stages": stages, "sweepmatch": sweep_match, "sweep": sweep,
+              "encoder-match": encoder_match, "encoder-time": encoder_timing}
+    legacy_all = ("prepare", "ceiling", "match", "time", "batch", "stages", "sweepmatch", "sweep")
+    for name in (legacy_all if phase == "all" else [phase]):
         if name not in phases:
             sys.exit(__doc__)
         phases[name](out)
