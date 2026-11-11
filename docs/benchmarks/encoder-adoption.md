@@ -7,6 +7,10 @@ historical measurements in [M2-libavif-backend](M2-libavif-backend.md) were
 made on earlier revisions and remain historical. No current performance result
 is asserted by this procedure.
 
+The completed [2026-11-11 smoke](M2-encoder-smoke-2026-11-11.md) records one
+quality-80 photograph on a four-vCPU x86-64 runner, including both AOM mask
+settings and its remaining selection limits.
+
 ## Workload and quality
 
 The existing [corpus preparation](corpus-and-comparison.md) supplies the same
