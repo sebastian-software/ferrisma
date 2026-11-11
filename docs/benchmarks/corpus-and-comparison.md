@@ -22,6 +22,28 @@ orientation, attribution, and licensing are recorded descriptions; a matching
 hash does not independently prove those descriptions. Upstream attribution and
 licenses are linked in the inventory and the respective test-data READMEs.
 
+Two independent 24 MP photographs are listed in
+[`corpus-photos.json`](../../scripts/bench/corpus-photos.json):
+
+- **Grandiose Landscape of Mountain He-Huan**, 6000×4000, by Weifukuo,
+  [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Grandiose_Landscape_of_Mountain_He-Huan(WDPA_9287)_by_WEI-FU-KUO_04.jpg),
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+- **Deer with their friend myna bird at Koneswaram temple, Trincomalee**,
+  6000×4000, by J.Hamsalojan,
+  [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Deer_with_their_friend_myna_bird_at_Koneswaram_temple,_Trincomalee.jpg),
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). The
+  downloaded file's SHA-1 matches Commons' `5d0937d720e7f2aab6730b840a21f71458ae33f9`.
+
+Both original JPEGs have orientation 1 and an sRGB IEC61966-2.1 ICC profile.
+Their pinned SHA-256 hashes are verified before preparation and again from the
+working copy. Preserve attribution and applicable share-alike terms when
+distributing derivatives. The native-host workflow fetches both; to reproduce
+locally, download the two original files to `ferrixel-mountain.jpg` and
+`ferrixel-deer.jpg`, then run `node scripts/bench/corpus.cjs
+scripts/bench/corpus-photos.json /path/to/photos`. The original files are not
+checked in. These are separate sources and scenes, but they do not provide a
+40–48 MP native input.
+
 A separately downloaded, real 60.2 MP photo extends the available size range:
 
 - **Beach volleyball sunset**, 9504×6336 pixels, by Joseph Gage,
@@ -49,7 +71,7 @@ A partial transfer fails the hash check. Resume it with `curl --continue-at -`
 using the same URL and output path, then verify again. Never use a failed hash
 as a benchmark input. The JPEG is not checked in; select one of the optional large-image lanes below.
 
-The inventory does **not** contain independent 24 MP and 48 MP photographs.
+The inventory does **not** contain an independent 48 MP photograph.
 The optional `beach-24` and `beach-48` lanes select native-pixel regions of the
 same original: respectively `(1752, 1168, 6000, 4000)` and
 `(752, 168, 8000, 6000)` as upright `(x, y, width, height)`. Both pipelines
@@ -84,8 +106,10 @@ python3 -I scripts/bench/compare-sharp.py match /tmp/ferrixel-compare
 COMPARE_RUNS=20 python3 -I scripts/bench/compare-sharp.py time /tmp/ferrixel-compare
 ```
 
-For a focused run, set `COMPARE_IMAGE_SET=dog` or `flower`; for the external
-photo use `beach`, `beach-24`, or `beach-48` and set
+For a focused run, set `COMPARE_IMAGE_SET=dog`, `flower`, `kodim03`, or
+`kodim23`. For the independent photographs use `mountain` or `deer` with
+`COMPARE_LARGE_CORPUS` set to the verified photo directory; for the external
+beach photo use `beach`, `beach-24`, or `beach-48` and set
 `COMPARE_LARGE_CORPUS=/tmp/ferrixel-corpus`. Set the same image set on **each**
 phase. These selections support only `prepare`, `match`, and `time`; they fail
 for the batch, ceiling, and sweep modes. To limit the configuration matrix to

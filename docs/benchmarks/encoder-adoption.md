@@ -56,8 +56,8 @@ COMPARE_RUNS=5 COMPARE_ENCODER_RUN_ID=scalar AOM_SIMD_CAPS_MASK=0 \
   scripts/bench/compare-encoders.sh /tmp/ferrixel-encoders time
 ```
 
-`all` on the shell entry point runs match then time; it does not prepare the
-corpus. Matching builds both encoder CLIs and the independent scorer together
+`check` validates the match without timing. `all` on the shell entry point
+runs match then time; it does not prepare the corpus. Matching builds both encoder CLIs and the independent scorer together
 with their locked dependencies, checks the source receipt before and after,
 and records their hashes. `COMPARE_REPO` must name the checkout containing
 the harness; a different checkout is rejected for this comparison. A relative
@@ -113,3 +113,41 @@ requires the two-architecture quality/resource/binary-size corpus criteria in
 the nightly/native and safe-boundary decisions in
 [ADR-0024](../adr/0024-pluggable-encoders-and-libavif-rs-backend.md), and the
 existing codec reference and license gates.
+
+## Native-host corpus workflow
+
+The manual `M2 Encoder Corpus (native hosts)` workflow has one sequential job
+on `ubuntu-24.04` x86-64 and one on `macos-15` Arm64. `calibration` uses dog
+and Kodak 03/23; `corpus` adds the independent 24 MP mountain and deer photos
+in the [corpus inventory](corpus-and-comparison.md). For each image, primary
+Rav1e anchors are 70, 80, and 90. Each image/anchor uses its own match and
+fresh timing directory; the job retains every match and attempts the remaining
+cells even if one fails. A separate dog quality-60 match is diagnostic and is
+retained without counting as a primary timing lane. Its previously observed
+integer gap remains evidence, not an adjustment to the acceptance thresholds.
+
+Preparation precedes matching, and all matching precedes timing, so no build
+runs alongside the timed samples. Cargo verifies the same source receipt and
+its executable paths per match; preparation and subsequent no-change builds
+reuse the host's build outputs. Each successful primary cell has one warmup and
+five normal-dispatch samples for each thread/encoder combination. Scalar AOM
+is an optional second pass. Every failed or skipped primary cell leaves the job
+red after artifacts are uploaded. `cells.tsv`, `timing.tsv`, match and timing
+receipts, and full bisection outputs must be inspected together. `rejected`
+means the match did not pass the quality or provenance check; the raw match
+shows its bracket and nearest integer. The q60
+diagnostic is intentionally not timed or used to turn a primary failure green.
+
+The calibration has nine primary cells per host, plus the q60 diagnostic; the
+corpus has fifteen plus that diagnostic. The prior x86 dog timing totals about
+16 seconds over its six lanes per repetition, or about 96 seconds for a cell's
+warmup and five samples, before matching, scoring, preparation and build. This
+is only a workload estimate; Kodak, the independent photos, and the Arm host
+are not measured by that smoke. The workflow has a 120-minute job cap; use
+calibration first and inspect its elapsed time and failures before dispatching
+the corpus. Five samples do not establish tail latency. If primary integer
+matches fail, retain the failures and predeclare any nearby-anchor search before
+running it; report all attempted anchors. Do not relax the quality gates or
+claim three comparable levels until all required matches pass. Coverage ends at
+24 MP native inputs for these photos; the 48 MP beach crop is still decoded from
+one 60 MP source and does not fill the upper-range independent-photo gap.

@@ -87,6 +87,7 @@ jobs:
             bench-out/encoders/
             scripts/bench/corpus.json
             scripts/bench/corpus-large.json
+            scripts/bench/corpus-photos.json
             docs/benchmarks/corpus-and-comparison.md
             docs/benchmarks/encoder-adoption.md
           if-no-files-found: ignore

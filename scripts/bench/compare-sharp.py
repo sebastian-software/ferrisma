@@ -3,7 +3,7 @@
 
 Usage: python3 -I scripts/bench/compare-sharp.py PHASE OUT_DIR
 PHASE is prepare, ceiling, match, time, batch, stages, sweepmatch, sweep,
-encoder-match, encoder-time or all. See docs/benchmarks/M2-sharp-comparison.md
+encoder-match, encoder-check, encoder-time or all. See docs/benchmarks/M2-sharp-comparison.md
 and docs/benchmarks/encoder-adoption.md for the respective methods.
 
 Environment:
@@ -70,8 +70,10 @@ IMAGES = [
 ]
 IMAGE_SET = os.environ.get("COMPARE_IMAGE_SET", "default")
 LARGE_CROPS = {"beach-24": "1752,1168,6000,4000", "beach-48": "752,168,8000,6000"}
-if IMAGE_SET in ("dog", "flower"):
+if IMAGE_SET in ("dog", "flower", "kodim03", "kodim23"):
     IMAGES = [image for image in IMAGES if image[0] == IMAGE_SET]
+elif IMAGE_SET in ("mountain", "deer"):
+    IMAGES = [(IMAGE_SET, f"{IMAGE_SET}.jpg", "--use-rendered-icc", "ignore", 1600, 1067, 1)]
 elif IMAGE_SET != "default":
     if IMAGE_SET not in ("beach", *LARGE_CROPS):
         sys.exit(f"unknown COMPARE_IMAGE_SET: {IMAGE_SET}")
@@ -144,7 +146,7 @@ def config_cmd(tool, threads, chroma, image, corpus, quality, out):
     crop = LARGE_CROPS.get(name)
     if tool == "ferrixel":
         cmd = ferrixel_cmd(corpus / file, out, w, h, flag, quality, threads, chroma, crop=crop)
-        return [*cmd, "--budget-mb=2048"] if name.startswith("beach") else cmd
+        return [*cmd, "--budget-mb=2048"] if name.startswith("beach") or name in ("mountain", "deer") else cmd
     return sharp_cmd(corpus / file, out, w, h, icc, quality, threads, chroma,
                      extra=(f"crop={crop}",) if crop else ())
 
@@ -170,7 +172,7 @@ def prepare(out):
     small = corpus / "small"
     for d in (corpus, refs, small):
         d.mkdir(parents=True, exist_ok=True)
-    if IMAGE_SET.startswith("beach"):
+    if IMAGE_SET.startswith("beach") or IMAGE_SET in ("mountain", "deer"):
         prepare_large(corpus, refs)
         return
     avif = Path(os.environ.get("COMPARE_LIBAVIF_DATA", REPO / "codecs/libavif-rs/upstream/libavif/tests/data"))
@@ -241,12 +243,17 @@ def prepare_large(corpus, refs):
     source_dir = os.environ.get("COMPARE_LARGE_CORPUS")
     if not source_dir:
         sys.exit("set COMPARE_LARGE_CORPUS to the directory containing the verified large photo")
-    source = Path(source_dir) / "ferrixel-beach-volleyball-53458847235.jpg"
-    verify_corpus_file(source, "beach-volleyball-sunset", "corpus-large.json")
+    is_beach = IMAGE_SET.startswith("beach")
+    filename = "ferrixel-beach-volleyball-53458847235.jpg" if is_beach else f"ferrixel-{IMAGE_SET}.jpg"
+    image_id = "beach-volleyball-sunset" if is_beach else IMAGE_SET
+    manifest = "corpus-large.json" if is_beach else "corpus-photos.json"
+    source = Path(source_dir) / filename
+    verify_corpus_file(source, image_id, manifest)
     run(["cargo", "build", "--release", "--features", "cli", "--bin", "ferrixel"], capture=False)
     run(["cargo", "build", "--release", "--manifest-path", QM_DIR / "Cargo.toml"], capture=False)
-    (corpus / "beach.jpg").write_bytes(source.read_bytes())
-    verify_corpus_file(corpus / "beach.jpg", "beach-volleyball-sunset", "corpus-large.json")
+    input_file = corpus / IMAGES[0][1]
+    input_file.write_bytes(source.read_bytes())
+    verify_corpus_file(input_file, image_id, manifest)
     name, _, _, icc, w, h, orientation = IMAGES[0]
     crop = LARGE_CROPS.get(name, "")
     # The source profile is sRGB. As in the historical dog lane, ignore it in
@@ -254,9 +261,9 @@ def prepare_large(corpus, refs):
     script = ("const [i,o,c]=process.argv.slice(1);let p=require('sharp')(i,{ignoreIcc:true}).autoOrient();"
               "if(c){const [left,top,width,height]=c.split(',').map(Number);p=p.extract({left,top,width,height});}"
               "p.toColourspace('srgb').png({compressionLevel:1}).toFile(o)")
-    for label, src in (("", corpus / "beach.jpg"), ("-zune", refs / "beach-zune-source.png")):
+    for label, src in (("", input_file), ("-zune", refs / f"{name}-zune-source.png")):
         if label:
-            run([QM, "topng", f"{corpus / 'beach.jpg'}#{orientation}", src])
+            run([QM, "topng", f"{input_file}#{orientation}", src])
         decoded = refs / f"{name}{label}-src.png"
         run(["node", "-e", script, src, decoded, crop], env=node_env())
         run([QM, "ref", decoded, w, h, refs / f"{name}{label}.ref"])
@@ -305,6 +312,8 @@ def match_fingerprint(out):
             verify_corpus_file(corpus / f"{name}.jpg", name)
     else:
         verify_corpus_file(corpus / "beach.jpg", "beach-volleyball-sunset", "corpus-large.json")
+    if IMAGE_SET in ("mountain", "deer"):
+        verify_corpus_file(corpus / f"{IMAGE_SET}.jpg", IMAGE_SET, "corpus-photos.json")
     return {
         "image_set": IMAGE_SET, "inputs": {image[0]: sha256(corpus / image[1]) for image in IMAGES},
         "references": {image[0]: sha256(refs / f"{image[0]}.ref") for image in IMAGES},
@@ -697,7 +706,7 @@ def encoder_cmd(image, corpus, binary, quality, speed, threads, output):
            f"--transform-threads={threads}", "--chroma=444"]
     if name in LARGE_CROPS:
         cmd.append(f"--crop={LARGE_CROPS[name]}")
-    if name.startswith("beach"):
+    if name.startswith("beach") or name in ("mountain", "deer"):
         cmd.append("--budget-mb=2048")
     return cmd
 
@@ -716,7 +725,7 @@ def encoder_source_receipt():
         "lockfile_sha256": sha256(REPO / "Cargo.lock"),
         "scorer_sources_sha256": {name: sha256(QM_DIR / name)
                                   for name in ("Cargo.toml", "Cargo.lock", "src/main.rs")},
-        "corpus_manifests_sha256": {name: sha256(BENCH / name) for name in ("corpus.json", "corpus-large.json")},
+        "corpus_manifests_sha256": {name: sha256(BENCH / name) for name in ("corpus.json", "corpus-large.json", "corpus-photos.json")},
         "repository_commit": run(["git", "-C", REPO, "rev-parse", "HEAD"]).strip(),
         "rustc": run(["rustc", "--version", "--verbose"]).strip(),
         "cargo": run(["cargo", "--version"]).strip(),
@@ -836,6 +845,12 @@ def validate_encoder_match(out, matching):
     if set(indexed) != expected:
         raise ValueError("encoder quality matches do not cover the requested matrix")
     return indexed
+
+
+def encoder_check(out):
+    """Check every matched cell without starting a timing run."""
+    matching = json.loads((out / "encoders" / "match-provenance.json").read_text())
+    validate_encoder_match(out, matching)
 
 
 def encoder_sample(cmd):
@@ -977,11 +992,11 @@ def main():
     phase, out = sys.argv[1], Path(sys.argv[2]).resolve()
     out.mkdir(parents=True, exist_ok=True)
     os.chdir(REPO)
-    if IMAGE_SET != "default" and phase not in ("prepare", "match", "time", "encoder-match", "encoder-time"):
-        sys.exit("large image sets support prepare, match and time only")
+    if IMAGE_SET != "default" and phase not in ("prepare", "match", "time", "encoder-match", "encoder-check", "encoder-time"):
+        sys.exit("selected image sets support prepare, match and time only")
     phases = {"prepare": prepare, "ceiling": ceiling, "match": match, "time": timing, "batch": batch,
               "stages": stages, "sweepmatch": sweep_match, "sweep": sweep,
-              "encoder-match": encoder_match, "encoder-time": encoder_timing}
+              "encoder-match": encoder_match, "encoder-check": encoder_check, "encoder-time": encoder_timing}
     legacy_all = ("prepare", "ceiling", "match", "time", "batch", "stages", "sweepmatch", "sweep")
     for name in (legacy_all if phase == "all" else [phase]):
         if name not in phases:

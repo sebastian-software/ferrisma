@@ -1,0 +1,154 @@
+name: M2 Encoder Corpus (native hosts)
+
+# Each image/anchor has a separate match, so an unmatched integer quality is
+# retained and cannot prevent the other cells from being examined.
+on:
+  workflow_dispatch:
+    inputs:
+      workload:
+        description: "Calibration runs dog and two Kodak images; corpus adds two 24 MP photos"
+        type: choice
+        options: [calibration, corpus]
+        default: calibration
+      scalar:
+        description: "Also time AOM with its SIMD mask disabled"
+        type: boolean
+        default: false
+
+jobs:
+  compare:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86-64
+          - runner: macos-15
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      OUT: ${{ github.workspace }}/bench-out
+      BENCH_SHARP_NODE_MODULES: ${{ github.workspace }}/.sharp/node_modules
+      COMPARE_LARGE_CORPUS: ${{ github.workspace }}/.bench-corpus-photos
+      COMPARE_MAX_LOAD: "6"
+      COMPARE_RUNS: "5"
+      WORKLOAD: ${{ inputs.workload }}
+      SCALAR: ${{ inputs.scalar }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check native architecture and toolchain
+        run: |
+          case "${{ matrix.arch }}:$(uname -m)" in
+            x86-64:x86_64|arm64:arm64) ;;
+            *) echo "Unexpected runner architecture" >&2; exit 1 ;;
+          esac
+          rustup show active-toolchain
+          uname -a
+          if [[ "$(uname -s)" == Linux ]]; then lscpu; else sysctl -n machdep.cpu.brand_string hw.logicalcpu; fi
+      - name: Install AV1 assembler on x86-64
+        if: matrix.arch == 'x86-64'
+        run: sudo apt-get update -qq && sudo apt-get install -y nasm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned Sharp
+        run: npm install --prefix "$GITHUB_WORKSPACE/.sharp" --no-audit --no-fund sharp@0.34.5
+      - name: Fetch and verify independent photographs
+        if: inputs.workload == 'corpus'
+        run: |
+          mkdir -p "$COMPARE_LARGE_CORPUS"
+          curl --fail --location --max-filesize 10000000 \
+            'https://upload.wikimedia.org/wikipedia/commons/d/d2/Grandiose_Landscape_of_Mountain_He-Huan%28WDPA_9287%29_by_WEI-FU-KUO_04.jpg' \
+            -o "$COMPARE_LARGE_CORPUS/ferrixel-mountain.jpg"
+          curl --fail --location --max-filesize 10000000 \
+            'https://upload.wikimedia.org/wikipedia/commons/0/01/Deer_with_their_friend_myna_bird_at_Koneswaram_temple%2C_Trincomalee.jpg' \
+            -o "$COMPARE_LARGE_CORPUS/ferrixel-deer.jpg"
+          node scripts/bench/corpus.cjs scripts/bench/corpus-photos.json "$COMPARE_LARGE_CORPUS"
+      - name: Prepare references once per image
+        run: |
+          images="dog kodim03 kodim23"
+          if [[ "$WORKLOAD" == corpus ]]; then images="$images mountain deer"; fi
+          mkdir -p "$OUT"
+          printf '%s\n' $images > "$OUT/images.txt"
+          for image in $images; do
+            COMPARE_IMAGE_SET="$image" python3 -I scripts/bench/compare-sharp.py prepare "$OUT/prepared/$image"
+          done
+      - name: Match all primary cells and retain dog q60 diagnostic
+        run: |
+          printf 'image\tquality\trole\tmatch\ttiming\n' > "$OUT/cells.tsv"
+          while read -r image; do
+            for quality in 70 80 90; do
+              cell="$OUT/cells/$image-q$quality"
+              mkdir -p "$cell"
+              cp -R "$OUT/prepared/$image/corpus" "$cell/"
+              mkdir -p "$cell/refs"
+              cp "$OUT/prepared/$image/refs/"*.ref "$cell/refs/"
+              if COMPARE_IMAGE_SET="$image" COMPARE_ENCODER_LEVELS="$quality" scripts/bench/compare-encoders.sh "$cell" match; then
+                if COMPARE_IMAGE_SET="$image" COMPARE_ENCODER_LEVELS="$quality" scripts/bench/compare-encoders.sh "$cell" check; then
+                  result=complete
+                else
+                  result=rejected
+                fi
+                printf '%s\t%s\tprimary\t%s\tpending\n' "$image" "$quality" "$result" >> "$OUT/cells.tsv"
+              else
+                printf '%s\t%s\tprimary\tfailed\tskipped\n' "$image" "$quality" >> "$OUT/cells.tsv"
+              fi
+            done
+          done < "$OUT/images.txt"
+          cell="$OUT/cells/dog-q60-diagnostic"
+          mkdir -p "$cell"
+          cp -R "$OUT/prepared/dog/corpus" "$cell/"
+          mkdir -p "$cell/refs"
+          cp "$OUT/prepared/dog/refs/"*.ref "$cell/refs/"
+          if COMPARE_IMAGE_SET=dog COMPARE_ENCODER_LEVELS=60 scripts/bench/compare-encoders.sh "$cell" match; then
+            if COMPARE_IMAGE_SET=dog COMPARE_ENCODER_LEVELS=60 scripts/bench/compare-encoders.sh "$cell" check; then
+              result=complete
+            else
+              result=rejected
+            fi
+            printf 'dog\t60\tdiagnostic\t%s\tnot-requested\n' "$result" >> "$OUT/cells.tsv"
+          else
+            printf 'dog\t60\tdiagnostic\tfailed\tnot-requested\n' >> "$OUT/cells.tsv"
+          fi
+      - name: Time every primary cell with complete matching
+        run: |
+          printf 'image\tquality\tstatus\n' > "$OUT/timing.tsv"
+          while IFS=$'\t' read -r image quality role match timing; do
+            [[ "$role" == primary && "$match" == complete ]] || continue
+            cell="$OUT/cells/$image-q$quality"
+            if COMPARE_IMAGE_SET="$image" COMPARE_ENCODER_LEVELS="$quality" COMPARE_ENCODER_RUN_ID=simd scripts/bench/compare-encoders.sh "$cell" time; then
+              result=complete
+              if [[ "$SCALAR" == true ]]; then
+                if ! COMPARE_IMAGE_SET="$image" COMPARE_ENCODER_LEVELS="$quality" COMPARE_ENCODER_RUN_ID=scalar AOM_SIMD_CAPS_MASK=0 scripts/bench/compare-encoders.sh "$cell" time; then result=failed; fi
+              fi
+            else
+              result=failed
+            fi
+            printf '%s\t%s\t%s\n' "$image" "$quality" "$result" >> "$OUT/timing.tsv"
+          done < "$OUT/cells.tsv"
+      - name: Attach raw evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m2-encoder-corpus-${{ matrix.arch }}
+          path: |
+            bench-out/cells.tsv
+            bench-out/timing.tsv
+            bench-out/images.txt
+            bench-out/cells/*/refs/*.ref
+            bench-out/cells/*/encoders/
+            scripts/bench/corpus*.json
+            docs/benchmarks/corpus-and-comparison.md
+            docs/benchmarks/encoder-adoption.md
+          if-no-files-found: warn
+      - name: Require every primary cell to complete
+        run: |
+          expected=$(( $(wc -l < "$OUT/images.txt") * 3 ))
+          matched=$(awk -F '\t' '$3 == "primary" && $4 == "complete" { n++ } END { print n+0 }' "$OUT/cells.tsv")
+          timed=$(awk -F '\t' '$3 == "complete" { n++ } END { print n+0 }' "$OUT/timing.tsv")
+          cat "$OUT/cells.tsv" "$OUT/timing.tsv"
+          [[ "$matched" == "$expected" && "$timed" == "$expected" ]]

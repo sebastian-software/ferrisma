@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Compare rav1e and the workspace libavif encoder using the existing prepared
 # corpus and independent scorer. See docs/benchmarks/encoder-adoption.md.
-# Usage: compare-encoders.sh OUT_DIR [match|time|all]
+# Usage: compare-encoders.sh OUT_DIR [match|check|time|all]
 set -euo pipefail
-out=${1:?usage: compare-encoders.sh OUT_DIR [match|time|all]}
+out=${1:?usage: compare-encoders.sh OUT_DIR [match|check|time|all]}
 phase=${2:-all}
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 mkdir -p "$out"
@@ -12,6 +12,9 @@ cd "$repo"
 case "$phase" in
   match|all)
     python3 -I "$repo/scripts/bench/compare-sharp.py" encoder-match "$out"
+    ;;
+  check)
+    python3 -I "$repo/scripts/bench/compare-sharp.py" encoder-check "$out"
     ;;
   time) ;;
   *) echo "unknown phase: $phase" >&2; exit 2 ;;

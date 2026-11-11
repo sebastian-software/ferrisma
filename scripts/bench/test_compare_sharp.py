@@ -113,6 +113,34 @@ class ComparisonContract(unittest.TestCase):
         self.assertIn(Path("corpus/beach.jpg"), ferrixel)
         self.assertIn("--budget-mb=2048", ferrixel)
 
+    def test_independent_photo_preparation_checks_source_and_copy(self):
+        image = ("deer", "deer.jpg", "--use-rendered-icc", "ignore", 1600, 1067, 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, corpus, refs = root / "source", root / "corpus", root / "refs"
+            for path in (source, corpus, refs):
+                path.mkdir()
+            (source / "ferrixel-deer.jpg").write_bytes(b"photo")
+            checks = []
+            commands = []
+            def verify(path, image_id, manifest):
+                checks.append((path, image_id, manifest))
+            def fake_run(args, env=None, capture=True):
+                commands.append(args)
+                return ""
+            with (patch.object(bench, "IMAGE_SET", "deer"), patch.object(bench, "IMAGES", [image]),
+                  patch.object(bench, "verify_corpus_file", side_effect=verify),
+                  patch.object(bench, "run", side_effect=fake_run),
+                  patch.dict(os.environ, {"COMPARE_LARGE_CORPUS": str(source), "BENCH_SHARP_NODE_MODULES": "test"})):
+                bench.prepare_large(corpus, refs)
+            self.assertEqual((corpus / "deer.jpg").read_bytes(), b"photo")
+            self.assertEqual(checks, [(source / "ferrixel-deer.jpg", "deer", "corpus-photos.json"),
+                                      (corpus / "deer.jpg", "deer", "corpus-photos.json")])
+            self.assertTrue(any(f"{corpus / 'deer.jpg'}#1" in command for command in commands))
+            cmd = bench.encoder_cmd(image, corpus, "encoder", 80, 6, 1, "out.avif")
+            self.assertIn("--budget-mb=2048", cmd)
+            self.assertFalse(any(str(arg).startswith("--crop=") for arg in cmd))
+
     def test_encoder_speed_is_explicit_and_sweep_overrides_it_once(self):
         image = ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6)
         cmd = bench.sweep_cmd(image, Path("corpus"), "ferrixel", 8, 80, "out.avif")
@@ -236,6 +264,8 @@ class ComparisonContract(unittest.TestCase):
                   patch.object(bench, "encoder_sample") as sample,
                   patch.object(bench, "encoder_wait_for_idle") as idle,
                   patch.dict(os.environ, {"COMPARE_ENCODER_LEVELS": "60", "COMPARE_ENCODER_RUN_ID": "gap"})):
+                with self.assertRaisesRegex(ValueError, r"dog.*60.*0.*6.*delta=-1\.585"):
+                    bench.encoder_check(root)
                 with self.assertRaisesRegex(ValueError, r"dog.*60.*0.*6.*delta=-1\.585"):
                     bench.encoder_timing(root)
                 sample.assert_not_called()
