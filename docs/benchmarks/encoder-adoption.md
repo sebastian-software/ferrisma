@@ -117,7 +117,12 @@ existing codec reference and license gates.
 
 ## Native-host corpus workflow
 
-The manual `M2 Encoder Corpus (native hosts)` workflow has one sequential job
+The native-host workflow can be dispatched directly once registered on the
+repository's default branch. It can also be called from the existing manual
+`M2 Encoder Comparison (Linux)` workflow by selecting `native-calibration` or
+`native-corpus`; `single` remains that workflow's default. The caller selects
+the reusable workflow from the same commit as the caller and forwards its
+optional scalar setting. The native-host workflow has one sequential job
 on `ubuntu-24.04` x86-64 and one on `macos-15` Arm64. `calibration` uses dog
 and Kodak 03/23; `corpus` adds the independent 24 MP deer and 42.2 MP Elcito
 photos in the [corpus inventory](corpus-and-comparison.md). For each image, primary

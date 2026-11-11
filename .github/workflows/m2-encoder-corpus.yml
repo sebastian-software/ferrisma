@@ -3,6 +3,14 @@ name: M2 Encoder Corpus (native hosts)
 # Each image/anchor has a separate match, so an unmatched integer quality is
 # retained and cannot prevent the other cells from being examined.
 on:
+  workflow_call:
+    inputs:
+      workload:
+        type: string
+        default: calibration
+      scalar:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       workload:
@@ -46,6 +54,7 @@ jobs:
             x86-64:x86_64|arm64:arm64) ;;
             *) echo "Unexpected runner architecture" >&2; exit 1 ;;
           esac
+          case "$WORKLOAD" in calibration|corpus) ;; *) echo "Unknown workload" >&2; exit 1 ;; esac
           rustup show active-toolchain
           uname -a
           if [[ "$(uname -s)" == Linux ]]; then lscpu; else sysctl -n machdep.cpu.brand_string hw.logicalcpu; fi
