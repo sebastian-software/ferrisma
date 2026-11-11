@@ -60,6 +60,13 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo test -p ferrixel-xtask --locked
       - run: cargo clippy -p ferrixel-xtask --all-targets --locked -- -D warnings
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check benchmark evidence contracts without codecs or timing
+        run: |
+          python3 -I scripts/bench/test_compare_sharp.py
+          node --test scripts/bench/corpus.test.cjs
       - run: cargo test -p ferrixel -p ferrixel-kernels --all-targets
       - run: cargo test -p ferrixel --lib --no-default-features --features jpeg-read backend_only_tests
       - run: cargo test -p ferrixel --lib --no-default-features --features webp-read,webp-write webp_output_tests
