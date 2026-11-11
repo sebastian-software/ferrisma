@@ -1,8 +1,8 @@
 name: M2 Encoder Comparison (Linux)
 
 # ADR-0024 on x86-64: `rav1e` against libavif-rs at matched SSIMULACRA2,
-# with the method of docs/benchmarks/M2-libavif-backend.md. Target A comes
-# from the `anchor` phase instead of the full Sharp comparison. The timing
+# with the method of docs/benchmarks/encoder-adoption.md. Matching makes a
+# separate rav1e anchor for each quality and thread setting. The timing
 # runs twice, with libavif-rs's run-time SIMD dispatch and with
 # AOM_SIMD_CAPS_MASK=0, which selects its scalar AOM paths.
 on:

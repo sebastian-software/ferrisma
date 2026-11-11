@@ -11,7 +11,6 @@ out=$(cd "$out" && pwd)
 cd "$repo"
 case "$phase" in
   match|all)
-    cargo build -p ferrixel-libavif --release --features cli --bin ferrixel-libavif
     python3 -I "$repo/scripts/bench/compare-sharp.py" encoder-match "$out"
     ;;
   time) ;;

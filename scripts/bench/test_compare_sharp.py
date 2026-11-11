@@ -137,6 +137,42 @@ class ComparisonContract(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     bench.encoder_levels()
 
+    def test_encoder_builds_every_binary_from_one_unchanged_receipt(self):
+        commands = []
+        def fake_run(args, env=None, capture=True):
+            commands.append(args)
+            name, path = [("ferrixel", bench.FERRIXEL), ("ferrixel-libavif", bench.LIBAVIF_ENCODER),
+                          ("ferrixel-quality-match", bench.QM)][len(commands) - 1]
+            return json.dumps({"reason": "compiler-artifact", "target": {"name": name}, "executable": str(path)})
+        with patch.object(bench, "encoder_source_receipt", return_value={"source": "stable"}), patch.object(bench, "run", side_effect=fake_run):
+            self.assertEqual(bench.encoder_build(), {"source": "stable"})
+        self.assertEqual(len(commands), 3)
+        self.assertTrue(all("--locked" in command for command in commands))
+        self.assertIn("ferrixel", commands[0])
+        self.assertIn("ferrixel-libavif", commands[1])
+        self.assertIn(bench.QM_DIR / "Cargo.toml", commands[2])
+        self.assertTrue(all("--message-format=json-render-diagnostics" in command for command in commands))
+        commands.clear()
+        with patch.object(bench, "encoder_source_receipt", side_effect=[{"source": "before"}, {"source": "after"}]), patch.object(bench, "run", side_effect=fake_run):
+            with self.assertRaisesRegex(ValueError, "changed while building"):
+                bench.encoder_build()
+        wrong = json.dumps({"reason": "compiler-artifact", "target": {"name": "ferrixel"},
+                            "executable": "/tmp/stale/other/ferrixel"})
+        with patch.object(bench, "encoder_source_receipt", return_value={}), patch.object(bench, "run", return_value=wrong):
+            with self.assertRaisesRegex(ValueError, "check target configuration"):
+                bench.encoder_build()
+
+    def test_encoder_comparison_rejects_a_different_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(bench, "REPO", Path(tmp)):
+            with self.assertRaisesRegex(ValueError, "harness checkout"):
+                bench.encoder_source_receipt()
+
+    def test_relative_target_is_resolved_against_the_comparison_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            self.assertEqual(bench.resolve_target("other-target", repo), (repo / "other-target").resolve())
+            self.assertEqual(bench.resolve_target(Path(tmp) / "shared-target", repo), (Path(tmp) / "shared-target").resolve())
+
     def test_encoder_match_rejects_stale_missing_and_unbracketed_evidence(self):
         image = ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6)
         with tempfile.TemporaryDirectory() as tmp:
@@ -197,6 +233,7 @@ class ComparisonContract(unittest.TestCase):
             with (patch.object(bench, "IMAGES", [image]),
                   patch.object(bench, "FERRIXEL", rav),
                   patch.object(bench, "LIBAVIF_ENCODER", aom),
+                  patch.object(bench, "encoder_build", return_value={"tracked_diff_sha256": empty_sha}),
                   patch.object(bench, "encoder_fingerprint", return_value={"tracked_diff_sha256": empty_sha}),
                   patch.object(bench, "tracked_source_diff", return_value=b""),
                   patch.object(bench, "run", side_effect=fake_run),

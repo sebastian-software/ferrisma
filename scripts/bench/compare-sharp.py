@@ -2,8 +2,9 @@
 """Quality-matched Ferrixel versus Sharp comparison (M2 work package 0).
 
 Usage: python3 -I scripts/bench/compare-sharp.py PHASE OUT_DIR
-PHASE is prepare, ceiling, match, time, batch, stages, sweepmatch, sweep or all. See
-docs/benchmarks/M2-sharp-comparison.md for the method and the results.
+PHASE is prepare, ceiling, match, time, batch, stages, sweepmatch, sweep,
+encoder-match, encoder-time or all. See docs/benchmarks/M2-sharp-comparison.md
+and docs/benchmarks/encoder-adoption.md for the respective methods.
 
 Environment:
   BENCH_SHARP_NODE_MODULES  node_modules directory containing sharp (required)
@@ -14,9 +15,12 @@ Environment:
   COMPARE_RUNS              timed runs per measurement (default 10)
   COMPARE_MAX_LOAD          wait until the 1-minute load average is below
                             this before every timing run (default 4)
+  COMPARE_ENCODER_LEVELS    comma-separated rav1e quality anchors (default 60,80,90)
+  COMPARE_ENCODER_RUN_ID    unique identifier for each encoder timing run
+  COMPARE_IDLE_TIMEOUT      bounded encoder idle wait in seconds (default 900)
 
-Only `time`, `batch`, `stages` and `sweep` measure time; `prepare`, `ceiling` and `match`
-produce bytes and SSIMULACRA2 scores, which do not depend on machine load.
+Only `time`, `batch`, `stages`, `sweep` and `encoder-time` measure time;
+matching produces bytes and SSIMULACRA2 scores without timing them.
 """
 
 import csv
@@ -36,7 +40,17 @@ from pathlib import Path
 BENCH = Path(__file__).resolve().parent
 # The Ferrixel checkout whose CLI is measured; defaults to this script's.
 REPO = Path(os.environ.get("COMPARE_REPO", BENCH.parents[1])).resolve()
-TARGET = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "target")).resolve()
+
+
+def resolve_target(path, repo):
+    path = Path(path)
+    return (path if path.is_absolute() else repo / path).resolve()
+
+
+TARGET_PATH = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "target"))
+TARGET = resolve_target(TARGET_PATH, REPO)
+if "CARGO_TARGET_DIR" in os.environ:
+    os.environ["CARGO_TARGET_DIR"] = str(TARGET)
 FERRIXEL = TARGET / "release" / "ferrixel"
 BATCH = TARGET / "release" / "examples" / "batch"
 QM_DIR = BENCH / "quality-match"
@@ -693,14 +707,15 @@ def tracked_source_diff():
                           check=True, stdout=subprocess.PIPE).stdout
 
 
-def encoder_fingerprint(out):
-    # Reuse the existing source hash checks, references and tool provenance.
-    base = match_fingerprint(out)
-    base.update({
-        "libavif_sha256": sha256(LIBAVIF_ENCODER),
+def encoder_source_receipt():
+    if REPO != BENCH.parents[1]:
+        raise ValueError("encoder comparison requires COMPARE_REPO to be the harness checkout")
+    return {
         "encoder_script_sha256": sha256(BENCH / "compare-encoders.sh"),
+        "harness_sha256": sha256(Path(__file__)),
         "lockfile_sha256": sha256(REPO / "Cargo.lock"),
-        "scorer_lockfile_sha256": sha256(QM_DIR / "Cargo.lock"),
+        "scorer_sources_sha256": {name: sha256(QM_DIR / name)
+                                  for name in ("Cargo.toml", "Cargo.lock", "src/main.rs")},
         "corpus_manifests_sha256": {name: sha256(BENCH / name) for name in ("corpus.json", "corpus-large.json")},
         "repository_commit": run(["git", "-C", REPO, "rev-parse", "HEAD"]).strip(),
         "rustc": run(["rustc", "--version", "--verbose"]).strip(),
@@ -709,7 +724,37 @@ def encoder_fingerprint(out):
         "tracked_status": run(["git", "-C", REPO, "status", "--short", "--untracked-files=no"]).strip(),
         "tracked_diff_sha256": hashlib.sha256(tracked_source_diff()).hexdigest(),
         "levels": encoder_levels(),
-    })
+    }
+
+
+def encoder_build():
+    """Build all measured executables from one unchanged source receipt."""
+    before = encoder_source_receipt()
+    commands = [
+        ("ferrixel", FERRIXEL, ["cargo", "build", "--locked", "--release", "-p", "ferrixel", "--features", "cli", "--bin", "ferrixel"]),
+        ("ferrixel-libavif", LIBAVIF_ENCODER, ["cargo", "build", "--locked", "--release", "-p", "ferrixel-libavif", "--features", "cli", "--bin", "ferrixel-libavif"]),
+        ("ferrixel-quality-match", QM, ["cargo", "build", "--locked", "--release", "--manifest-path", QM_DIR / "Cargo.toml"]),
+    ]
+    for name, expected, command in commands:
+        messages = run([*command, "--message-format=json-render-diagnostics"]).splitlines()
+        built = [Path(message["executable"]).resolve() for line in messages
+                 for message in [json.loads(line)]
+                 if message.get("reason") == "compiler-artifact"
+                 and message.get("target", {}).get("name") == name
+                 and message.get("executable")]
+        if built != [expected.resolve()]:
+            raise ValueError(f"Cargo built {name} at {built}, expected {[expected.resolve()]}; check target configuration")
+    if before != encoder_source_receipt():
+        raise ValueError("encoder or scorer source changed while building")
+    return before
+
+
+def encoder_fingerprint(out):
+    # Reuse the existing source hash checks, references and tool provenance.
+    source = encoder_source_receipt()
+    base = match_fingerprint(out)
+    base.update(source)
+    base["libavif_sha256"] = sha256(LIBAVIF_ENCODER)
     return base
 
 
@@ -720,7 +765,10 @@ def encoder_match(out):
     if provenance.exists() or (work / "matched.json").exists():
         raise ValueError("encoder matching output already exists; use a fresh output directory")
     provenance.write_text('{"status":"incomplete"}\n')
+    built_from = encoder_build()
     fingerprint = encoder_fingerprint(out)
+    if any(fingerprint.get(key) != value for key, value in built_from.items()):
+        raise ValueError("encoder or scorer source changed after building")
     (work / "source.patch").write_bytes(tracked_source_diff())
     if sha256(work / "source.patch") != fingerprint["tracked_diff_sha256"]:
         raise ValueError("tracked source changed while recording provenance")

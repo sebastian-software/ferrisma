@@ -51,7 +51,14 @@ COMPARE_RUNS=5 COMPARE_ENCODER_RUN_ID=scalar AOM_SIMD_CAPS_MASK=0 \
 ```
 
 `all` on the shell entry point runs match then time; it does not prepare the
-corpus. The `time` phase never rebuilds a binary. It refuses changed inputs,
+corpus. Matching builds both encoder CLIs and the independent scorer together
+with their locked dependencies, checks the source receipt before and after,
+and records their hashes. `COMPARE_REPO` must name the checkout containing
+the harness; a different checkout is rejected for this comparison. A relative
+`CARGO_TARGET_DIR` is resolved against that checkout. Cargo-reported executable
+paths must match the selected target directories; cross-target or other Cargo
+configuration that changes those paths is rejected. The `time` phase never
+rebuilds a binary. It refuses changed inputs,
 references, binaries, tracked source diff, configuration, or matching output.
 It also refuses a reused run ID. `COMPARE_MAX_LOAD` defaults to 4; an idle
 window must arrive within `COMPARE_IDLE_TIMEOUT` seconds (default 900). Use
@@ -64,7 +71,7 @@ verify the documented source before preparation.
 
 `encoders/matched.json` and `match-provenance.json` record each anchor and
 bracket, input/reference/tool and output SHA-256 values, source commit and
-tracked diff, Cargo lockfiles, scorer, Rust toolchain, build flags, Sharp
+tracked diff, scorer source and manifest, Cargo lockfiles, Rust toolchain, build flags, Sharp
 versions, and the AOM SIMD mask. The matching directories retain the encoded
 outputs and the tracked source patch for inspection. Untracked source files
 are not captured; use a clean checkout for decision evidence. A match with
