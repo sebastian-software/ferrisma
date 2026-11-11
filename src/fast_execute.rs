@@ -32,9 +32,9 @@ use crate::decoder::{
 use crate::error::Error;
 use crate::geometry::Rect;
 use crate::graph::{Graph, NodeId};
-use crate::memory::MemoryBudget;
+use crate::memory::{MemoryBudget, try_filled_vec, try_vec};
 use crate::quality::taps;
-use crate::quality_execute::{QualityReport, prepare};
+use crate::quality_execute::{QualityReport, prepare, reserve_resize_plan, tap_entry_bound};
 use crate::working_color::{
     decode_srgb, decode_straight_to_premultiplied_linear_srgb, decode_to_linear_srgb,
     encode_linear_srgb8, p3_to_srgb_matrix,
@@ -144,9 +144,14 @@ impl TapTable {
         origin: u32,
     ) -> Result<Self, Error> {
         let mut table = Self {
-            start: Vec::with_capacity(usize::try_from(count).unwrap_or(0) + 1),
-            index: Vec::new(),
-            weight: Vec::new(),
+            start: try_vec(
+                usize::try_from(count)
+                    .map_err(|_| Error::GeometryOverflow)?
+                    .checked_add(1)
+                    .ok_or(Error::GeometryOverflow)?,
+            )?,
+            index: try_vec(tap_entry_bound(input, output, count, filter)?)?,
+            weight: try_vec(tap_entry_bound(input, output, count, filter)?)?,
         };
         table.start.push(0);
         for offset in 0..count {
@@ -173,9 +178,16 @@ impl TapTable {
     /// which adds exactly nothing.
     fn contiguous(&self, source_pixels: usize) -> Result<Taps, Error> {
         let outputs = self.start.len() - 1;
-        let mut starts = Vec::with_capacity(outputs);
-        let mut offsets = Vec::with_capacity(outputs + 1);
-        let mut weights = Vec::with_capacity(self.weight.len());
+        let mut starts = try_vec(outputs)?;
+        let mut offsets = try_vec(outputs.checked_add(1).ok_or(Error::GeometryOverflow)?)?;
+        let weight_count = (0..outputs).try_fold(0_usize, |total, position| {
+            let (indices, _) = self.taps(position);
+            let first = indices.first().ok_or(Error::IncompleteDecoderOutput)?;
+            let last = indices.last().ok_or(Error::IncompleteDecoderOutput)?;
+            let span = usize::try_from(last - first + 1).map_err(|_| Error::GeometryOverflow)?;
+            total.checked_add(span).ok_or(Error::GeometryOverflow)
+        })?;
+        let mut weights = try_vec(weight_count)?;
         offsets.push(0_u32);
         for position in 0..outputs {
             let (indices, values) = self.taps(position);
@@ -223,6 +235,7 @@ pub(crate) fn execute_fast_srgb8(
     sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
     let info = source.info().clone();
+    let _plan_reservation = reserve_resize_plan(graph, target, requested, budget)?;
     match (info.layout, info.alpha) {
         (ChannelLayout::Rgb, AlphaMode::Opaque) => run::<3>(
             graph,
@@ -539,7 +552,8 @@ impl RowPlan {
         )?;
         let output_rows = usize::try_from(requested.height).map_err(|_| Error::GeometryOverflow)?;
 
-        let mut needed = lines.index.clone();
+        let mut needed = try_vec(lines.index.len())?;
+        needed.extend_from_slice(&lines.index);
         needed.sort_unstable();
         needed.dedup();
         let rank = |y: u32| {
@@ -547,16 +561,15 @@ impl RowPlan {
                 .binary_search(&y)
                 .map_err(|_| Error::IncompleteDecoderOutput)
         };
-        let line_ranks = lines
-            .index
-            .iter()
-            .map(|&y| rank(y))
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut line_ranks = try_vec(lines.index.len())?;
+        for &y in &lines.index {
+            line_ranks.push(rank(y)?);
+        }
 
         // The running maximum of last taps keeps emission in order. A row is
         // dead once no remaining output row can reference it (Lanczos zero
         // crossings make the first tap nonmonotonic, see the reference).
-        let mut ready = Vec::with_capacity(output_rows);
+        let mut ready = try_vec(output_rows)?;
         let mut running_max = 0_u32;
         for row in 0..output_rows {
             let (indices, _) = lines.taps(row);
@@ -564,7 +577,10 @@ impl RowPlan {
             running_max = running_max.max(last);
             ready.push(running_max);
         }
-        let mut future_min = vec![u32::MAX; output_rows + 1];
+        let mut future_min = try_filled_vec(
+            output_rows.checked_add(1).ok_or(Error::GeometryOverflow)?,
+            u32::MAX,
+        )?;
         for row in (0..output_rows).rev() {
             let (indices, _) = lines.taps(row);
             let first = *indices.iter().min().ok_or(Error::IncompleteDecoderOutput)?;
@@ -679,7 +695,7 @@ fn run_sequential<const C: usize>(
             .checked_mul(row_samples)
             .ok_or(Error::GeometryOverflow)?,
     )?;
-    let mut ring_rank = vec![usize::MAX; capacity];
+    let mut ring_rank = try_filled_vec(capacity, usize::MAX)?;
     let mut accumulator = budget.allocate_typed::<f32>(row_samples)?;
     let mut output = budget.allocate_typed::<u8>(row_samples)?;
 

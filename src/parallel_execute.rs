@@ -28,7 +28,7 @@ use crate::error::Error;
 use crate::fast_execute::{
     ConversionScratch, RowPlan, Tables, kernel_error, quantize_row, source_row_to_linear, tables,
 };
-use crate::memory::{ManagedBuffer, MemoryBudget};
+use crate::memory::{ManagedBuffer, MemoryBudget, try_filled_vec, try_vec};
 
 /// An owned copy of one decoded source row.
 enum Samples {
@@ -234,12 +234,16 @@ impl Driver<'_> {
         let plan = self.plan;
         while self.next_vertical < plan.output_rows {
             let (ranks, weights) = plan.vertical_taps(self.next_vertical);
-            let inputs: Option<Vec<(Row, f32)>> = ranks
-                .iter()
-                .zip(weights)
-                .map(|(&rank, &weight)| self.rows[rank].clone().map(|row| (row, weight)))
-                .collect();
-            let Some(inputs) = inputs else { break };
+            if ranks.iter().any(|&rank| self.rows[rank].is_none()) {
+                break;
+            }
+            let mut inputs = try_vec(ranks.len())?;
+            for (&rank, &weight) in ranks.iter().zip(weights) {
+                let row = self.rows[rank]
+                    .clone()
+                    .ok_or(Error::IncompleteDecoderOutput)?;
+                inputs.push((row, weight));
+            }
             self.submit(Job::Vertical {
                 row: self.next_vertical,
                 inputs,
@@ -281,7 +285,7 @@ fn drive<const C: usize>(
     let mut driver = Driver {
         plan,
         jobs,
-        rows: vec![None; plan.needed.len()],
+        rows: try_filled_vec(plan.needed.len(), None)?,
         next_vertical: 0,
         next_emit: 0,
         released: 0,
