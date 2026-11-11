@@ -59,6 +59,13 @@ HDR, and unsupported alpha cases fail explicitly. Crops use upright image
 coordinates. Codec-internal buffers and opaque memory remain relevant
 even when the transform streams rows.
 
+For the experimental Rust API, the [thumbnail example](examples/thumbnail.rs)
+uses centered cover and avoids enlargement. `pipeline::transcode_resized` also
+supports inside, fill, and a single aspect-preserving dimension; it reports
+the actual output size. `pipeline::inspect` reads bounded JPEG/WebP headers
+without requesting pixels. A header alone does not establish that a complete
+image can be decoded or that its color is supported.
+
 For features, build prerequisites, and scoped checks, see
 [getting started](docs/getting-started.md), [contributing](CONTRIBUTING.md),
 and [codec development](docs/codecs.md). The [Ardo website](homepage/README.md)
