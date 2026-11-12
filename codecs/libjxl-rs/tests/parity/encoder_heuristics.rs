@@ -647,7 +647,7 @@ fn chain(args: Args<'_, '_>) -> String {
 fn bits(v: f32) -> u32 {
     v.to_bits()
 }
-fn push_floats(s: &mut String, values: &[f32]) {
+pub(super) fn push_floats(s: &mut String, values: &[f32]) {
     for v in values {
         write!(s, " {}", v.to_bits()).unwrap();
     }
@@ -658,14 +658,14 @@ fn unit(seed: &mut u64) -> f32 {
 
 /// Step 1 corpus contents.
 #[derive(Clone, Copy, Debug)]
-enum Content {
+pub(super) enum Content {
     Flat,
     Gradient,
     Noise,
     Photo,
     SomeTestImage,
 }
-const CONTENTS: [Content; 5] = [
+pub(super) const CONTENTS: [Content; 5] = [
     Content::Flat,
     Content::Gradient,
     Content::Noise,
@@ -675,7 +675,7 @@ const CONTENTS: [Content; 5] = [
 
 /// Step 1 corpus sizes: 1x1, 7x7, 8x8, 9x17, every `xsize mod 8` (41-48 x
 /// 15), 63x129, 256x256, 257x255 and 512x1024.
-const CORPUS_SIZES: [(usize, usize); 17] = [
+pub(super) const CORPUS_SIZES: [(usize, usize); 17] = [
     (1, 1),
     (7, 7),
     (8, 8),
@@ -697,7 +697,7 @@ const CORPUS_SIZES: [(usize, usize); 17] = [
 
 /// Nonlinear sRGB samples in [0, 1] for each of three planes. Gray images
 /// repeat the first plane.
-fn srgb_image(
+pub(super) fn srgb_image(
     xsize: usize,
     ysize: usize,
     content: Content,

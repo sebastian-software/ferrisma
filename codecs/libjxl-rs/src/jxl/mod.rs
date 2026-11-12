@@ -55,7 +55,7 @@ pub mod enc_chroma_from_luma;
 pub mod enc_cluster;
 pub mod enc_coeff_order;
 pub mod enc_context_map;
-mod enc_entropy;
+pub mod enc_entropy;
 pub mod enc_entropy_coder;
 pub mod enc_external_image;
 pub mod enc_fields;

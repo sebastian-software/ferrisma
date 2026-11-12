@@ -87,6 +87,25 @@ impl Default for HistogramParams {
     }
 }
 impl HistogramParams {
+    /// HistogramParams(SpeedTier tier, size_t num_ctx); `num_ctx` is unused.
+    pub fn with_tier(tier: SpeedTier, _num_ctx: usize) -> Self {
+        let mut params = Self::default();
+        if tier > SpeedTier::Falcon {
+            params.clustering = ClusteringType::Fastest;
+            params.lz77_method = LZ77Method::None;
+        } else if tier > SpeedTier::Tortoise {
+            params.clustering = ClusteringType::Fast;
+        } else {
+            params.clustering = ClusteringType::Best;
+        }
+        if tier > SpeedTier::Tortoise {
+            params.uint_method = HybridUintMethod::None;
+        }
+        if tier >= SpeedTier::Squirrel {
+            params.ans_histogram_strategy = ANSHistogramStrategy::Approximate;
+        }
+        params
+    }
     pub fn for_modular(
         cparams: &CompressParams<'_>,
         extra_dc_precision: &[u8],

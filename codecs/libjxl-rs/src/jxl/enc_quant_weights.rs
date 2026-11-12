@@ -11,7 +11,39 @@ use super::dec_bit_reader::BitReader;
 use super::enc_aux_out::{AuxOut, LayerType};
 use super::enc_bit_writer::BitWriter;
 use super::enc_fields::f16_coder;
-use super::quant_weights::{DC_QUANT, DequantMatrices};
+use super::quant_weights::{DC_QUANT, DequantMatrices, QuantMode};
+
+/// DequantMatricesEncode for matrices whose encodings are all the default
+/// library table, the only matrices the admitted encoder profile produces
+/// (FindBestDequantMatrices resets them). EncodeQuant for custom encodings
+/// is not translated; such matrices return an error before writing.
+pub fn dequant_matrices_encode_default(
+    matrices: &DequantMatrices,
+    writer: &mut BitWriter,
+    layer: LayerType,
+    aux: Option<&mut AuxOut>,
+) -> Status {
+    let mut all_default = true;
+    for encoding in matrices.encodings() {
+        if encoding.mode() != QuantMode::Library || encoding.predefined != 0 {
+            all_default = false;
+        }
+    }
+    if !all_default {
+        return Err(super::base::status::StatusCode::Unsupported);
+    }
+    // TODO(janwas): better bound
+    writer.with_max_bits(
+        512 * 1024,
+        layer,
+        aux,
+        |writer, _| {
+            writer.write(1, u64::from(all_default));
+            Ok(())
+        },
+        false,
+    )
+}
 
 pub fn dequant_matrices_encode_dc(
     matrices: &DequantMatrices,
