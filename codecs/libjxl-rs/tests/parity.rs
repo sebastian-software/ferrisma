@@ -122,6 +122,8 @@ mod dct;
 #[path = "parity/encoder_heuristics.rs"]
 mod encoder_heuristics;
 
+#[path = "parity/encoder_ar.rs"]
+mod encoder_ar;
 #[path = "parity/encoder_coefficients.rs"]
 mod encoder_coefficients;
 
@@ -877,6 +879,7 @@ fn observe(request: &str) -> String {
         kind if encoder_coefficients::handles(kind) => {
             encoder_coefficients::observe(kind, &mut args)
         }
+        kind if encoder_ar::handles(kind) => encoder_ar::observe(kind, &mut args),
         kind if block_context::handles(kind) => block_context::observe(kind, &mut args),
         kind if epf::handles(kind) => epf::observe(kind, &mut args),
         kind if splines::handles(kind) => splines::observe(kind, &mut args),

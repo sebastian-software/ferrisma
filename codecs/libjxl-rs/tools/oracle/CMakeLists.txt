@@ -67,6 +67,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   set_source_files_properties(encoder_public.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
   # Read-only access to the modular encoder's stream images.
   set_source_files_properties(encoder_coefficients.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
+  set_source_files_properties(encoder_ar.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
   set_source_files_properties(chroma_image.cc PROPERTIES COMPILE_OPTIONS -fno-rtti)
   set_source_files_properties(chroma_stages.cc PROPERTIES COMPILE_OPTIONS "-fno-rtti;-fno-access-control")
   # Original protected lifecycle calls only; pristine archive flags stay unchanged.
@@ -96,7 +97,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}"
 if(NOT extraction_status STREQUAL "0")
   message(FATAL_ERROR "Pinned source helper extraction failed")
 endif()
-add_executable(jxl_oracle color_output.cc decoder_api.cc decoder_public.cc encoder_public.cc encoder_transforms.cc encoder_transforms_unit.cc encoder_heuristics.cc encoder_coefficients.cc decode_test_inputs.cc output_stage.cc decoder_geometry.cc extra_channels.cc spot_color.cc icc_codec.cc chroma_image.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc to_linear.cc from_linear.cc jpeg_writer.cc icc_reader.cc jpeg_metadata.cc decode_to_jpeg.cc skcms_parser.cc decoder_input.cc jpeg_reconstruction.cc skcms_transform.cc skcms_fitting.cc skcms_matrix.cc skcms_transfer.cc
+add_executable(jxl_oracle color_output.cc decoder_api.cc decoder_public.cc encoder_public.cc encoder_transforms.cc encoder_transforms_unit.cc encoder_heuristics.cc encoder_coefficients.cc encoder_ar.cc decode_test_inputs.cc output_stage.cc decoder_geometry.cc extra_channels.cc spot_color.cc icc_codec.cc chroma_image.cc chroma_stages.cc chroma_ycbcr_stage.cc chroma_upsampling_stage.cc frame_sequence_writes.cc frame_sequences.cc blending_stage.cc main.cc retained_frame_owners.cc splines.cc alpha.cc patches.cc epf.cc noise_render.cc noise_stage.cc vardct_dc.cc group_schedule.cc dequant.cc group_render.cc block_context.cc dct.cc sample_conversion.cc noise.cc gaborish.cc xyb_stage.cc quant_ac.cc quantizer.cc ac_group_symbols.cc to_linear.cc from_linear.cc jpeg_writer.cc icc_reader.cc jpeg_metadata.cc decode_to_jpeg.cc skcms_parser.cc decoder_input.cc jpeg_reconstruction.cc skcms_transform.cc skcms_fitting.cc skcms_matrix.cc skcms_transfer.cc
   "${UPSTREAM}/lib/jxl/test_memory_manager.cc"
   # Pristine ParseDescription for the decode_test.cc color-space inputs.
   "${UPSTREAM}/lib/extras/dec/color_description.cc")

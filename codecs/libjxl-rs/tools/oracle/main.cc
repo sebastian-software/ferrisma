@@ -468,6 +468,7 @@ bool EncoderTransformsCommand(const std::string&, std::istringstream&, JxlMemory
 bool EncoderTransformsUnitCommand(const std::string&, std::istringstream&);
 bool EncoderHeuristicsCommand(const std::string&, std::istringstream&, JxlMemoryManager*);
 bool EncoderCoefficientsCommand(const std::string&, std::istringstream&, JxlMemoryManager*);
+bool EncoderArCommand(const std::string&, std::istringstream&, JxlMemoryManager*);
 bool SampleConversionCommand(const std::string& command, std::istringstream& in);
 bool ModularFrameCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
 bool ModularFrameStateCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm);
@@ -594,6 +595,7 @@ int main() {
       else if (EncoderTransformsCommand(command, in, &mm)) {}
       else if (EncoderHeuristicsCommand(command, in, &mm)) {}
       else if (EncoderCoefficientsCommand(command, in, &mm)) {}
+      else if (EncoderArCommand(command, in, &mm)) {}
       else if (QuantAcCommand(command, in, &mm)) {}
       else if (JpegReconstructionCommand(command, in, &mm)) {}
       else if (JpegWriterCommand(command, in)) {}

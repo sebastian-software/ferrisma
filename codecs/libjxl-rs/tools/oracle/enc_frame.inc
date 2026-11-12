@@ -48,6 +48,12 @@ jxl::Status EFVarDctOneShot(JxlMemoryManager* mm,const jxl::CompressParams& p,
   JXL_RETURN_IF_ERROR(output.SetFinalizedPosition());return output.CopyOutput(bytes);
 }
 
+// The internal LoopFilterFromParams for the `ear-chain` request (encoder_ar.cc).
+jxl::Status EFLoopFilterFromParams(const jxl::CompressParams& p, bool streaming,
+                                   jxl::FrameHeader* header) {
+  return jxl::LoopFilterFromParams(p, streaming, header);
+}
+
 template<class... T> void EFValues(T... values) { ((std::cout<<' '<<values),...); }
 float EFReadFloat(std::istringstream& in) { uint32_t bits;in>>bits;float value;memcpy(&value,&bits,4);return value; }
 std::vector<float> EFReadFloats(std::istringstream& in) { size_t n;in>>n;std::vector<float> values(n);for(auto& v:values)v=EFReadFloat(in);return values; }
