@@ -304,7 +304,8 @@ pub struct TransformOptions {
     /// AV1 encoder threads: 0 means available cores (capped at 256), and
     /// explicit values must be at most 256. 1 uses one tile. Rav1e derives
     /// other tile counts from image size; libavif uses automatic tiling and
-    /// its encoded bytes can depend on the selected thread count.
+    /// its encoded bytes can depend on the selected thread count. The
+    /// built-in WebP and JPEG XL encoders are serial and require 1.
     pub encoder_threads: usize,
     /// Chroma layout of the AVIF output; 4:4:4 by default.
     pub chroma_subsampling: ChromaSubsampling,
@@ -1003,6 +1004,17 @@ fn run(
         return Err(ProcessingError::new(
             ProcessingErrorKind::InvalidOptions,
             "transform and encoder threads must be between 0 and 256",
+        ));
+    }
+    // The built-in WebP encoder is serial, as is the JPEG XL one; 0 would
+    // mean "available cores" and be reported as such.
+    if backend.is_none()
+        && options.output_format == OutputFormat::WebP
+        && options.encoder_threads != 1
+    {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
+            "the WebP encoder is serial; set encoder_threads to 1",
         ));
     }
     // Only an explicitly changed selection conflicts; the default never does.

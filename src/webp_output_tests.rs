@@ -132,6 +132,26 @@ fn webp_output_frame_and_file_limits_fail_before_retaining_result() {
 }
 
 #[test]
+fn webp_encoder_threads_other_than_one_name_the_serial_encoder() {
+    for threads in [0, 2] {
+        let mut threaded = options(false);
+        threaded.encoder_threads = threads;
+        let error = transcode(&input(), ImageFormat::WebP, threaded).unwrap_err();
+        assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions);
+        assert_eq!(
+            error.to_string(),
+            "the WebP encoder is serial; set encoder_threads to 1"
+        );
+        // An external backend validates its own thread count (ADR-0024).
+        let mut threaded = options(true);
+        threaded.encoder_threads = threads;
+        assert!(transcode_with(&input(), ImageFormat::WebP, threaded, &RgbaBackend).is_ok());
+    }
+    let output = transcode(&input(), ImageFormat::WebP, options(false)).unwrap();
+    assert_eq!(output.report.encoder_threads, 1);
+}
+
+#[test]
 fn exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless() {
     for (input, lossless) in [(opaque_input(), false), (input(), false), (input(), true)] {
         let options = options(lossless);
