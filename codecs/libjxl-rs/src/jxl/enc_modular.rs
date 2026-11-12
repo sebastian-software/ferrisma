@@ -1003,7 +1003,7 @@ impl<'a> ModularFrameEncoder<'a> {
                 }
             }
             if need_to_restore {
-                #[expect(
+                #[allow(
                     clippy::needless_range_loop,
                     reason = "Preserve source triplet indices and plane-swap order."
                 )]

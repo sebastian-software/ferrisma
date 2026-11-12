@@ -1293,7 +1293,7 @@ fn decode_mcu_slow(
     reason = "C's integer conversions"
 )]
 #[expect(clippy::too_many_lines, reason = "mirrors the C function")]
-#[expect(clippy::needless_range_loop, reason = "C's loop over the blocks")]
+#[allow(clippy::needless_range_loop, reason = "C's loop over the blocks")]
 #[expect(non_snake_case, reason = "C names")]
 fn decode_mcu_fast(
     cinfo: j_decompress_ptr<'_, '_>,

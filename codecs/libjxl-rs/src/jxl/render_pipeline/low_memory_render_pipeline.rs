@@ -703,7 +703,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         1usize << ceil_log2_nonzero(required as usize)
     }
 
-    #[expect(
+    #[allow(
         clippy::needless_range_loop,
         reason = "Retain the source's indexed loops over parallel stage/channel tables."
     )]
@@ -823,7 +823,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
     /// RenderRect for `group_data[input_set]`. The input planes and this
     /// thread's stage buffers are lent to one row-resolution slice for the
     /// duration of the call and always returned before propagating its status.
-    #[expect(
+    #[allow(
         clippy::needless_range_loop,
         reason = "Retain the source's indexed loops over parallel stage/channel tables."
     )]

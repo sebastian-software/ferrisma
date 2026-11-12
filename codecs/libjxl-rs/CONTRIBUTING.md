@@ -195,7 +195,10 @@ documentation. No CI rule fails when it falls behind. Clippy reads
 `rust-version`, so a raise can enable lints that suggest newer idioms. In
 translated code, keep the source's form and add a function-scoped
 `#[expect(clippy::..., reason = "...")]`; for example, `is_multiple_of` differs
-from the source's `%` test for a zero divisor.
+from the source's `%` test for a zero divisor. When a lint fires under one
+supported stable Clippy and not under another, use `#[allow(clippy::...,
+reason = "...")]` instead, because an unfulfilled expectation is itself an
+error (Ferrisma ADR-0027, 2026-11-12).
 
 Keep [PORT_STATUS.md](docs/PORT_STATUS.md) current as units and evidence change.
 Update the relevant ADR and its evidence when a decision changes, and record

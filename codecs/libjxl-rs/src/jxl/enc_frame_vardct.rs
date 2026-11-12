@@ -299,7 +299,7 @@ pub fn copy_color_channels(
 }
 
 /// CopyExtraChannels with the buffer-backed input source.
-#[expect(clippy::needless_range_loop, reason = "Keep the source index loops.")]
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 fn copy_extra_channels(
     input: &JxlEncoderChunkedFrameAdapter<'_>,
     rect: Rect,

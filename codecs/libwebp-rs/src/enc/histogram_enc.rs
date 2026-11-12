@@ -1560,7 +1560,7 @@ fn histogram_combine_stochastic(
     clippy::cast_sign_loss,
     reason = "the C conversion of the best cluster index to uint32_t"
 )]
-#[expect(
+#[allow(
     clippy::needless_range_loop,
     reason = "the C index loop over the input histograms and the symbols"
 )]

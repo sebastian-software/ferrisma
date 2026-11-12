@@ -146,7 +146,7 @@ fn clip(v: i32, m: i32, mm: i32) -> i32 {
 }
 
 // upstream: src/enc/analysis_enc.c SetSegmentAlphas
-#[expect(
+#[allow(
     clippy::needless_range_loop,
     reason = "the C index loop over two arrays"
 )]

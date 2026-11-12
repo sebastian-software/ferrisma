@@ -518,7 +518,7 @@ fn mcu_blocks<'a>(
     reason = "C's conversions between int and JDIMENSION"
 )]
 #[expect(non_snake_case, reason = "C names")]
-#[expect(clippy::needless_range_loop, reason = "C's component loop")]
+#[allow(clippy::needless_range_loop, reason = "C's component loop")]
 pub fn decompress_data(
     cinfo: j_decompress_ptr<'_, '_>,
     output_buf: &mut [JSAMPROWS_MUT<'_, '_>],

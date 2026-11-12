@@ -201,7 +201,7 @@ static FREQ_SHARPENING: [u8; 16] = [
     clippy::cast_sign_loss,
     reason = "C stores the int results into the uint16_t and uint32_t fields"
 )]
-#[expect(
+#[allow(
     clippy::needless_range_loop,
     reason = "the C index loops over the matrix arrays"
 )]
@@ -1186,7 +1186,7 @@ fn correct_dc_values(
     clippy::cast_possible_truncation,
     reason = "C stores the int results into int8_t"
 )]
-#[expect(
+#[allow(
     clippy::needless_range_loop,
     reason = "the C index loop over two arrays"
 )]

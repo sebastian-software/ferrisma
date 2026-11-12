@@ -69,7 +69,7 @@ impl ProgressiveSplitter {
     }
     /// SplitACCoefficients<int32_t> from enc_progressive_split.cc. `output`
     /// holds one destination per pass, each at least the block's size.
-    #[expect(
+    #[allow(
         clippy::needless_range_loop,
         reason = "Keep the source pass index loop."
     )]

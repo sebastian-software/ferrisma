@@ -741,7 +741,7 @@ fn get_dht(cinfo: j_decompress_ptr<'_, '_>) -> Result<bool, ErrorExit> {
     clippy::cast_sign_loss,
     reason = "the C conversions of the table index and entries"
 )]
-#[expect(clippy::needless_range_loop, reason = "the C loop over the table")]
+#[allow(clippy::needless_range_loop, reason = "the C loop over the table")]
 fn get_dqt(cinfo: j_decompress_ptr<'_, '_>) -> Result<bool, ErrorExit> {
     let mut vars = INPUT_VARS(cinfo);
 

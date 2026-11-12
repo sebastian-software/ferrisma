@@ -208,7 +208,7 @@ pub fn start_pass_upsample(cinfo: j_decompress_ptr<'_, '_>) {
     clippy::cast_possible_wrap,
     reason = "C's conversions between int and JDIMENSION"
 )]
-#[expect(clippy::needless_range_loop, reason = "C's loop")]
+#[allow(clippy::needless_range_loop, reason = "C's loop")]
 pub fn sep_upsample(
     cinfo: j_decompress_ptr<'_, '_>,
     input_buf: &[JSAMPROWS_AT<'_>],
