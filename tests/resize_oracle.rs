@@ -2,7 +2,7 @@
 //! own `f64` reference (issue #18). See `tests/fixtures/resize/README.md`.
 //!
 //! Two oracles:
-//! 1. ImageMagick 7.1.2-35 Q16-HDRI linear-light results, retained as
+//! 1. `ImageMagick` 7.1.2-35 `Q16-HDRI` linear-light results, retained as
 //!    float32 fixtures (`tests/fixtures/resize/*.f32`).
 //! 2. `support/resize_oracle.rs`, a separately written direct 2D summation
 //!    from the filter definitions, itself checked against (1).

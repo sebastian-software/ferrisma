@@ -75,6 +75,10 @@ impl<'a> IccSrgbSource<'a> {
         if bytes.len() > 4 * 1024 * 1024 {
             return Err(Error::UnsupportedColorEncoding);
         }
+        // The same bounded header check as the color contract (ADR-0015):
+        // moxcms 0.9.1 accepts a header whose declared size exceeds the data.
+        crate::color_contract::IccHeader::inspect(bytes)
+            .map_err(|_| Error::UnsupportedColorEncoding)?;
         let src =
             ColorProfile::new_from_slice(bytes).map_err(|_| Error::UnsupportedColorEncoding)?;
         // Linear-light sRGB: the working space of the resample chain, so
@@ -101,6 +105,30 @@ impl<'a> IccSrgbSource<'a> {
         let transformer = src
             .create_transform_f32(Layout::Rgb, &dst, Layout::Rgb, options)
             .map_err(|_| Error::UnsupportedColorEncoding)?;
+        // CICP evidence beside the profile must agree with what the profile
+        // does (issues #17 and #41). The decoder's own CICP is independent
+        // evidence and is always checked. The profile's `cicp` tag is checked
+        // in full only when it is a well-formed RGB tag (matrix 0, full
+        // range); profiles in the wild carry miscoded tags (moxcms 0.9.1's
+        // own Display P3 profile writes `[11, 13, 1, 0]`), so a malformed tag
+        // is not trusted as a description, but its PQ/HLG transfer is still
+        // honored as a reason to reject.
+        if let Some(signal) = info.rendered_cicp {
+            check_cicp_agrees(signal, transformer.as_ref())?;
+        }
+        if let Some(cicp) = src.cicp.as_ref() {
+            let tag = [
+                cicp.color_primaries as u8,
+                cicp.transfer_characteristics as u8,
+                cicp.matrix_coefficients as u8,
+                u8::from(cicp.full_range),
+            ];
+            if tag[2] == 0 && tag[3] == 1 {
+                check_cicp_agrees(tag, transformer.as_ref())?;
+            } else if matches!(tag[1], 16 | 18) {
+                return Err(Error::UnsupportedColorEncoding);
+            }
+        }
         let conversion = Arc::new(IccConversion {
             transformer,
             input: info.sample,
@@ -117,6 +145,58 @@ impl<'a> IccSrgbSource<'a> {
         })
     }
 }
+/// Fail closed unless a CICP signal next to the rendered ICC is an SDR
+/// family the engine can evaluate itself and the profile transform agrees
+/// with it (issues #17 and #41).
+///
+/// The rendered-ICC policy makes the profile authoritative for the
+/// conversion, but it must not silently override contradicting evidence:
+/// - PQ and HLG need reference-white and tone-mapping decisions (ADR-0016
+///   rule 7). An ICC approximation of those curves, such as the profiles
+///   JPEG XL decoders synthesize for PQ/HLG, would be converted as if it were
+///   SDR, so they are rejected.
+/// - Code points outside sRGB, linear sRGB and Display P3 cannot be checked
+///   here and are rejected rather than ignored.
+/// - For the supported families, probe colors through the profile must match
+///   the engine's own CICP reference within `2e-3` linear (the moxcms versus
+///   reference P3 matrix bound of ADR-0023); otherwise the two signals
+///   contradict each other.
+fn check_cicp_agrees(raw: [u8; 4], transformer: &TransformF32Executor) -> Result<(), Error> {
+    use crate::color::ColorEncoding;
+    use crate::color_contract::{Cicp, CicpFamily};
+    use crate::working_color::decode_to_linear_srgb;
+    const PROBES: [[f32; 3]; 7] = [
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [1.0, 1.0, 1.0],
+        [0.5, 0.5, 0.5],
+        [0.04, 0.04, 0.04],
+        [0.2, 0.6, 0.9],
+    ];
+    let cicp = Cicp::try_from(raw).map_err(|_| Error::UnsupportedColorEncoding)?;
+    if !matches!(
+        cicp.family(),
+        CicpFamily::Srgb | CicpFamily::LinearSrgb | CicpFamily::DisplayP3
+    ) {
+        return Err(Error::UnsupportedColorEncoding);
+    }
+    let input: Vec<f32> = PROBES.iter().flatten().copied().collect();
+    let mut output = vec![0.0_f32; input.len()];
+    transformer
+        .transform(&input, &mut output)
+        .map_err(|_| Error::UnsupportedColorEncoding)?;
+    for (probe, actual) in PROBES.iter().zip(output.as_chunks::<3>().0) {
+        let expected = decode_to_linear_srgb(&ColorEncoding::Cicp(raw), probe.map(f64::from))?;
+        for (want, got) in expected.rgb.iter().zip(actual) {
+            if (want - f64::from(*got)).abs() > 2e-3 {
+                return Err(Error::UnsupportedColorEncoding);
+            }
+        }
+    }
+    Ok(())
+}
+
 impl DecodeSource for IccSrgbSource<'_> {
     fn info(&self) -> &DecoderInfo {
         &self.output
@@ -235,6 +315,83 @@ mod tests {
                 engine_copied_bytes: 0,
                 work: crate::decoder::CodecWork::region_at_least(region),
             })
+        }
+    }
+
+    fn signalled(icc: Vec<u8>, cicp: Option<[u8; 4]>) -> Result<(), Error> {
+        let mut grid = p3_grid(vec![10, 20, 30]);
+        grid.info.rendered_icc = Some(icc);
+        grid.info.rendered_cicp = cicp;
+        IccSrgbSource::new(Box::new(grid)).map(|_| ())
+    }
+
+    /// Issues #17 and #41: CICP beside the rendered ICC is never silently
+    /// overridden. Agreeing SDR evidence passes; contradicting, unknown and
+    /// HDR evidence is a controlled `UnsupportedColorEncoding`.
+    #[test]
+    fn cicp_beside_the_rendered_icc_must_agree() {
+        let srgb = moxcms::ColorProfile::new_srgb().encode().unwrap();
+        let p3 = moxcms::ColorProfile::new_display_p3().encode().unwrap();
+        assert_eq!(signalled(srgb.clone(), Some([1, 13, 0, 1])), Ok(()));
+        assert_eq!(signalled(p3.clone(), Some([12, 13, 0, 1])), Ok(()));
+        // moxcms's own P3 profile carries a miscoded `[11, 13, 1, 0]` tag; a
+        // malformed RGB tag is not trusted as a description.
+        assert_eq!(signalled(p3.clone(), None), Ok(()));
+        for (icc, cicp) in [
+            (p3.clone(), [1, 13, 0, 1]),
+            (srgb.clone(), [12, 13, 0, 1]),
+            (srgb.clone(), [1, 8, 0, 1]),
+            (srgb.clone(), [9, 16, 0, 1]),
+            (srgb.clone(), [9, 18, 0, 1]),
+            (srgb.clone(), [11, 13, 0, 1]),
+            (srgb.clone(), [1, 13, 0, 0]),
+            (srgb.clone(), [1, 13, 0, 7]),
+        ] {
+            assert_eq!(
+                signalled(icc, Some(cicp)),
+                Err(Error::UnsupportedColorEncoding),
+                "{cicp:?}"
+            );
+        }
+        // A PQ profile is rejected by its own tag, even without decoder CICP.
+        let pq = moxcms::ColorProfile::new_display_p3_pq().encode().unwrap();
+        assert_eq!(signalled(pq, None), Err(Error::UnsupportedColorEncoding));
+    }
+
+    /// Hostile profiles fail with a controlled error, never a panic.
+    #[test]
+    fn malformed_and_hostile_profiles_are_controlled_errors() {
+        let srgb = moxcms::ColorProfile::new_srgb().encode().unwrap();
+        let mut cases: Vec<Vec<u8>> = vec![
+            Vec::new(),
+            vec![0; 131],
+            srgb[..200].to_vec(),
+            vec![0xff; 4096],
+        ];
+        // Declared size far beyond the data.
+        let mut oversized = srgb.clone();
+        oversized[0..4].copy_from_slice(&u32::MAX.to_be_bytes());
+        cases.push(oversized);
+        // A tag count that overflows the table.
+        let mut tags = srgb.clone();
+        tags[128..132].copy_from_slice(&u32::MAX.to_be_bytes());
+        cases.push(tags);
+        // Every tag offset pointing past the end.
+        let mut offsets = srgb.clone();
+        let count = u32::from_be_bytes(offsets[128..132].try_into().unwrap()) as usize;
+        for i in 0..count {
+            let at = 132 + 12 * i + 4;
+            offsets[at..at + 4].copy_from_slice(&(u32::MAX - 8).to_be_bytes());
+        }
+        cases.push(offsets);
+        // Larger than the 4 MiB cap.
+        cases.push(vec![0; 4 * 1024 * 1024 + 1]);
+        for (i, icc) in cases.into_iter().enumerate() {
+            assert_eq!(
+                signalled(icc, None),
+                Err(Error::UnsupportedColorEncoding),
+                "case {i}"
+            );
         }
     }
 

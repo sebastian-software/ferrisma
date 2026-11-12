@@ -51,10 +51,43 @@ impl JxlSource {
                 ChannelLayout::Gray | ChannelLayout::Rgb | ChannelLayout::Cmyk => AlphaMode::Opaque,
             },
             rendered_icc: Some(image.rendered_icc()),
-            rendered_cicp: image.rendered_cicp(),
+            rendered_cicp: rendered_cicp(&image),
         };
         Ok(Self { image, info })
     }
+}
+
+/// The CICP of the emitted samples, only where it is verifiable (issue #41).
+///
+/// Without a CMS (`NullCms`, the engine's build) jxl-oxide 0.12.6 renders an
+/// enum-signalled image in exactly that enum encoding, and an ICC-signalled
+/// one either unchanged in the embedded profile (non-XYB), in an enum
+/// encoding recognized from that profile, or in sRGB (XYB with an
+/// unrecognized profile). `rendered_icc` always describes that result.
+/// `rendered_cicp`, however, maps the primaries without the white point:
+/// Display P3 (D65) is reported as CICP primaries 11, which H.273 defines
+/// with the DCI white point. So the adapter derives the code points itself
+/// from the header's enum encoding, which the renderer uses unchanged
+/// because this adapter never requests another encoding, and reports no
+/// CICP when the encoding came from an ICC profile or has no exact H.273
+/// equivalent.
+fn rendered_cicp(image: &JxlImage) -> Option<[u8; 4]> {
+    use jxl_oxide::color::{ColourEncoding, ColourSpace, Primaries, WhitePoint};
+    let reported = image.rendered_cicp()?;
+    let ColourEncoding::Enum(header) = &image.image_header().metadata.colour_encoding else {
+        return None;
+    };
+    if header.colour_space != ColourSpace::Rgb {
+        return None;
+    }
+    let primaries = match (&header.white_point, &header.primaries) {
+        (WhitePoint::D65, Primaries::Srgb) => 1,
+        (WhitePoint::D65, Primaries::Bt2100) => 9,
+        (WhitePoint::Dci, Primaries::P3) => 11,
+        (WhitePoint::D65, Primaries::P3) => 12,
+        _ => return None,
+    };
+    Some([primaries, reported[1], 0, 1])
 }
 impl DecodeSource for JxlSource {
     fn info(&self) -> &DecoderInfo {

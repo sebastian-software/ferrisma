@@ -148,3 +148,6 @@ mod backend_only_tests;
 
 #[cfg(test)]
 mod hardening_tests;
+
+#[cfg(all(test, any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read")))]
+mod jxl_color_tests;
