@@ -9,7 +9,7 @@
 
 use std::fmt;
 
-use crate::pipeline::{ChromaSubsampling, OutputFormat, WebpOptions};
+use crate::pipeline::{ChromaSubsampling, JpegXlOptions, OutputFormat, WebpOptions};
 
 /// What one image's encoder is asked to produce. AVIF quality and speed are
 /// passed through as the caller set them; WebP settings are in `webp`.
@@ -20,6 +20,8 @@ pub struct EncodeRequest {
     pub format: OutputFormat,
     /// Format-specific settings when `format` is WebP.
     pub webp: WebpOptions,
+    /// Format-specific settings when `format` is JPEG XL.
+    pub jpeg_xl: JpegXlOptions,
     pub width: u32,
     pub height: u32,
     /// The rows carry straight alpha that may be below 255; when false

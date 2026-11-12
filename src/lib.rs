@@ -11,7 +11,14 @@
 // sink; some experimental internals are unreachable outside tests. With a
 // built-in sink, dead code is reported, except scoped architecture experiments.
 #![cfg_attr(
-    all(not(test), not(any(feature = "avif-write", feature = "webp-write"))),
+    all(
+        not(test),
+        not(any(
+            feature = "avif-write",
+            feature = "webp-write",
+            feature = "jpeg-xl-write"
+        ))
+    ),
     allow(dead_code)
 )]
 
@@ -49,6 +56,8 @@ mod execute;
 mod fast_execute;
 mod geometry;
 mod graph;
+#[cfg(feature = "jpeg-xl-write")]
+mod jxl_sink;
 #[cfg_attr(
     not(test),
     allow(
@@ -129,6 +138,9 @@ mod webp_pipeline_tests;
 
 #[cfg(all(test, feature = "webp-read", feature = "webp-write"))]
 mod webp_output_tests;
+
+#[cfg(all(test, feature = "jpeg-xl-write"))]
+mod jxl_output_tests;
 
 #[cfg(all(test, feature = "jpeg-read", not(feature = "avif-write")))]
 mod backend_only_tests;

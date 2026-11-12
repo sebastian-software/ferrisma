@@ -1,5 +1,6 @@
 //! First practical M1 facade. Codec implementations are opt-in and remain
-//! private. Output is SDR AVIF or WebP; unsupported color fails closed.
+//! private. Output is SDR AVIF, WebP or lossless JPEG XL; unsupported color
+//! fails closed.
 
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -12,6 +13,8 @@ use crate::error::Error;
 use crate::fast_execute::execute_fast_srgb8;
 use crate::geometry::{Rect, Size};
 use crate::graph::Graph;
+#[cfg(feature = "jpeg-xl-write")]
+use crate::jxl_sink::JxlSink;
 use crate::memory::{ExternalReservation, MemoryBudget};
 use crate::orientation::OrientedSource;
 use crate::quality_execute::execute_quality_srgb8;
@@ -37,12 +40,32 @@ pub enum ChromaSubsampling {
     Yuv420,
 }
 
-/// The encoded container format. WebP has no selectable chroma layout.
+/// The encoded container format. WebP and JPEG XL have no selectable chroma
+/// layout.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum OutputFormat {
     #[default]
     Avif,
     WebP,
+    /// A raw JPEG XL codestream (ADR-0039); requires `jpeg-xl-write`.
+    JpegXl,
+}
+
+/// Settings for the built-in JPEG XL encoder (ADR-0039). The workspace
+/// encoder admits one profile today, so every other value is rejected with
+/// [`ProcessingErrorKind::InvalidOptions`] instead of falling back.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum JpegXlOptions {
+    /// Lossless Modular encoding. Only effort 2 (libjxl's "thunder") is
+    /// admitted by the workspace encoder.
+    Lossless { effort: u8 },
+}
+
+impl Default for JpegXlOptions {
+    fn default() -> Self {
+        Self::Lossless { effort: 2 }
+    }
 }
 
 /// Settings for the built-in still WebP encoder.
@@ -133,6 +156,8 @@ pub struct TransformOptions {
     /// AVIF encoder selection; defaults to Rav1e.
     pub avif_encoder: AvifEncoder,
     pub webp: WebpOptions,
+    /// JPEG XL settings; must stay at the default for other formats.
+    pub jpeg_xl: JpegXlOptions,
     pub output_width: u32,
     pub output_height: u32,
     pub crop: Option<Crop>,
@@ -178,6 +203,7 @@ impl Default for TransformOptions {
             output_format: OutputFormat::Avif,
             avif_encoder: AvifEncoder::Rav1e,
             webp: WebpOptions::default(),
+            jpeg_xl: JpegXlOptions::default(),
             output_width: 1,
             output_height: 1,
             crop: None,
@@ -368,8 +394,14 @@ impl From<Error> for ProcessingError {
             }
             Error::Cancelled => Kind::Cancelled,
             Error::EncodeFailed => Kind::EncodeFailed,
-            #[cfg(any(feature = "avif-write", feature = "webp-write"))]
+            #[cfg(any(
+                feature = "avif-write",
+                feature = "webp-write",
+                feature = "jpeg-xl-write"
+            ))]
             Error::IncompleteOutput => Kind::Internal,
+            #[cfg(feature = "jpeg-xl-write")]
+            Error::UnsupportedEncoderProfile(_) => Kind::InvalidOptions,
             Error::UnknownNode
             | Error::PixelFormatMismatch
             | Error::SourceBindingMismatch
@@ -648,6 +680,8 @@ enum Sink<'b> {
     Rav1e(Box<AvifSink>),
     #[cfg(feature = "webp-write")]
     WebP(Box<WebpSink>),
+    #[cfg(feature = "jpeg-xl-write")]
+    JpegXl(Box<JxlSink>),
     Backend {
         encoder: Box<dyn RowEncoder + 'b>,
         /// The backend error that stopped the pipeline, if any; the
@@ -666,6 +700,8 @@ impl Sink<'_> {
             Self::Rav1e(sink) => sink.write_row(y, row),
             #[cfg(feature = "webp-write")]
             Self::WebP(sink) => sink.write_row(y, row),
+            #[cfg(feature = "jpeg-xl-write")]
+            Self::JpegXl(sink) => sink.write_row(y, row),
             Self::Backend {
                 encoder, failure, ..
             } => encoder.write_row(y, row).map_err(|error| {
@@ -686,6 +722,8 @@ impl Sink<'_> {
             Self::Rav1e(_) => error.into(),
             #[cfg(feature = "webp-write")]
             Self::WebP(_) => error.into(),
+            #[cfg(feature = "jpeg-xl-write")]
+            Self::JpegXl(_) => error.into(),
         }
     }
 
@@ -704,6 +742,8 @@ impl Sink<'_> {
             }
             #[cfg(feature = "webp-write")]
             Self::WebP(sink) => Ok(sink.finish()?),
+            #[cfg(feature = "jpeg-xl-write")]
+            Self::JpegXl(sink) => Ok(sink.finish()?),
             Self::Backend {
                 encoder,
                 frame_reservation,
@@ -732,12 +772,18 @@ fn run(
             "max_output_bytes must be nonzero",
         ));
     }
+    let avif_settings_are_default = options.quality.to_bits() == 75.0_f32.to_bits()
+        && options.speed == 6
+        && options.chroma_subsampling == ChromaSubsampling::Yuv444;
     if match options.output_format {
-        OutputFormat::Avif => options.webp != WebpOptions::default(),
+        OutputFormat::Avif => {
+            options.webp != WebpOptions::default() || options.jpeg_xl != JpegXlOptions::default()
+        }
         OutputFormat::WebP => {
-            options.quality.to_bits() != 75.0_f32.to_bits()
-                || options.speed != 6
-                || options.chroma_subsampling != ChromaSubsampling::Yuv444
+            !avif_settings_are_default || options.jpeg_xl != JpegXlOptions::default()
+        }
+        OutputFormat::JpegXl => {
+            !avif_settings_are_default || options.webp != WebpOptions::default()
         }
     } {
         return Err(ProcessingError::new(
@@ -800,6 +846,10 @@ fn run(
     #[cfg(feature = "avif-write")]
     if backend.is_none() && options.output_format == OutputFormat::Avif {
         encode_settings.validate()?;
+    }
+    #[cfg(feature = "jpeg-xl-write")]
+    if backend.is_none() && options.output_format == OutputFormat::JpegXl {
+        JxlSink::validate(&options)?;
     }
     if let Some(resize) = resize {
         crate::resize_geometry::validate(resize)?;
@@ -950,11 +1000,25 @@ fn run(
                     ));
                 }
             }
+            OutputFormat::JpegXl => {
+                #[cfg(feature = "jpeg-xl-write")]
+                {
+                    Sink::JpegXl(Box::new(JxlSink::new(target_size, options, &budget)?))
+                }
+                #[cfg(not(feature = "jpeg-xl-write"))]
+                {
+                    return Err(ProcessingError::new(
+                        ProcessingErrorKind::FeatureDisabled,
+                        "enable the jpeg-xl-write Cargo feature",
+                    ));
+                }
+            }
         },
         Some(backend) => {
             let request = EncodeRequest {
                 format: options.output_format,
                 webp: options.webp,
+                jpeg_xl: options.jpeg_xl,
                 width: target_size.width,
                 height: target_size.height,
                 has_alpha: transparent,
@@ -976,6 +1040,7 @@ fn run(
         match options.output_format {
             OutputFormat::Avif => "rav1e",
             OutputFormat::WebP => "libwebp-rs",
+            OutputFormat::JpegXl => "libjxl-rs",
         },
         EncoderBackend::name,
     );

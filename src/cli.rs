@@ -57,6 +57,7 @@ fn parse_crop(value: &str) -> Result<Crop, Box<dyn Error>> {
 }
 
 /// Apply one `--flag` or `--flag=value` to the options.
+#[allow(clippy::too_many_lines)] // One flat match keeps every flag visible.
 fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<dyn Error>> {
     match option {
         "--assume-srgb" => options.profile_policy = InputProfilePolicy::AssumeSrgbIfMissing,
@@ -78,6 +79,9 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
                     return Err("--quality is unsupported for lossless WebP".into());
                 }
             },
+            OutputFormat::JpegXl => {
+                return Err("--quality is unsupported for lossless JPEG XL".into());
+            }
         },
         option if option.starts_with("--speed=") => match options.output_format {
             OutputFormat::Avif => options.speed = option[8..].parse()?,
@@ -92,12 +96,18 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
                     return Err("--speed is unsupported for lossless WebP; use --webp-level".into());
                 }
             },
+            OutputFormat::JpegXl => {
+                return Err("--speed is unsupported for JPEG XL; only effort 2 is admitted".into());
+            }
         },
         "--kernel-level=scalar" => options.kernel_level_ceiling = Some(KernelLevel::Scalar),
         "--kernel-level=neon" => options.kernel_level_ceiling = Some(KernelLevel::Neon),
         "--kernel-level=avx2" => options.kernel_level_ceiling = Some(KernelLevel::Avx2),
         "--chroma=444" | "--chroma=420" if options.output_format == OutputFormat::WebP => {
             return Err("--chroma is unsupported for WebP".into());
+        }
+        "--chroma=444" | "--chroma=420" if options.output_format == OutputFormat::JpegXl => {
+            return Err("--chroma is unsupported for JPEG XL".into());
         }
         "--chroma=444" => options.chroma_subsampling = ChromaSubsampling::Yuv444,
         "--chroma=420" => options.chroma_subsampling = ChromaSubsampling::Yuv420,
@@ -173,22 +183,22 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=jxl-oxide|libjxl-rs] [--area] [--reference] [--avif-encoder=rav1e|libavif] [--avif-depth=8|10] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=jxl-oxide|libjxl-rs] [--area] [--reference] [--avif-encoder=rav1e|libavif] [--avif-depth=8|10] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }
     let input_path = Path::new(&args[1]);
     let output_path = Path::new(&args[2]);
     let output_extension = output_path.extension().and_then(|ext| ext.to_str());
-    if !matches!(output_extension, Some("avif" | "webp")) {
-        return Err("output must have a .avif or .webp extension".into());
-    }
+    let output_format = match output_extension {
+        Some("avif") => OutputFormat::Avif,
+        Some("webp") => OutputFormat::WebP,
+        // Lossless only; requires the jpeg-xl-write feature (ADR-0039).
+        Some("jxl") => OutputFormat::JpegXl,
+        _ => return Err("output must have a .avif, .webp or .jxl extension".into()),
+    };
     let mut options = TransformOptions {
-        output_format: if output_extension == Some("webp") {
-            OutputFormat::WebP
-        } else {
-            OutputFormat::Avif
-        },
+        output_format,
         output_width: args[3].parse()?,
         output_height: args[4].parse()?,
         ..TransformOptions::default()

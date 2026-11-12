@@ -259,6 +259,7 @@ dependencies = [
  "ferrisma-kernels",
  "jxl-oxide",
  "libjpeg-turbo-rs",
+ "libjxl-rs",
  "libwebp-rs",
  "moxcms",
  "rav1e",

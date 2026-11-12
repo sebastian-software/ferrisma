@@ -61,12 +61,23 @@ pub(crate) enum Error {
     )]
     UnsupportedImageTransform,
     #[cfg_attr(
-        not(any(feature = "avif-write", feature = "webp-write")),
+        not(any(
+            feature = "avif-write",
+            feature = "webp-write",
+            feature = "jpeg-xl-write"
+        )),
         allow(dead_code)
     )]
     InvalidEncodeOptions,
-    #[cfg(any(feature = "avif-write", feature = "webp-write"))]
+    #[cfg(any(
+        feature = "avif-write",
+        feature = "webp-write",
+        feature = "jpeg-xl-write"
+    ))]
     IncompleteOutput,
+    /// A request outside the admitted JPEG XL encoder profile (ADR-0039).
+    #[cfg(feature = "jpeg-xl-write")]
+    UnsupportedEncoderProfile(&'static str),
     EncodeFailed,
     UnsupportedColorEncoding,
     UnsupportedAlphaMode,
@@ -119,8 +130,16 @@ impl fmt::Display for Error {
             Self::InvalidEncodeOptions => {
                 write!(f, "encoder quality/speed or output dimensions are invalid")
             }
-            #[cfg(any(feature = "avif-write", feature = "webp-write"))]
+            #[cfg(any(
+                feature = "avif-write",
+                feature = "webp-write",
+                feature = "jpeg-xl-write"
+            ))]
             Self::IncompleteOutput => write!(f, "output sink has not received every scanline"),
+            #[cfg(feature = "jpeg-xl-write")]
+            Self::UnsupportedEncoderProfile(reason) => {
+                write!(f, "JPEG XL encoder profile: {reason}")
+            }
             Self::EncodeFailed => write!(f, "encoder failed"),
             #[cfg(any(
                 feature = "avif-read",
