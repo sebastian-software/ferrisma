@@ -817,9 +817,53 @@ Progress:
   is translated and compared (`ecf-patches`, 101 requests, 12 with patches).
   DecodeGroupForRoundtrip, ReconstructImage and ComputeARHeuristics remain;
   the original runs them at every distance of at least 0.7 (epf_iters > 0 at
-  kSquirrel), including the default d1.0.
-- PR 6 (integration) has not started. Until it lands, every public frame
-  encode remains an admission result and no encode profile is admitted.
+  kSquirrel), including the default d1.0. They are reached through the single
+  boundary `compute_ar_heuristics_entry` in `enc_frame_vardct.rs`, which
+  translates only the source's early return (fill the EPF sharpness with 4)
+  and otherwise returns the `ArHeuristics` admission result; wiring the full
+  translation replaces that function's body.
+- PR 6 (integration), 2026-11-12, partial: `enc_heuristics_lossy.rs`
+  translates LossyFrameHeuristics and FindBestDequantMatrices;
+  `enc_frame_vardct.rs` translates EncodeFrame's setting resolution,
+  CanDoStreamingEncoding, EncodeFrameOneShot, general CopyColorChannels with
+  GetBitDepth, the VarDCT branch of ComputeEncodingData,
+  ComputeChromacityAdjustments with PixelStatsForChromacityAdjustment, the
+  reached ComputeNoiseParams/DownsampleColorChannels/PermuteGroups branches,
+  ComputeVarDCTEncodingData, ComputeAllCoeffOrders, TokenizeAllCoefficients,
+  EncodeGlobalDCInfo, the non-streaming EncodeGlobalACInfo and EncodeGroups;
+  `encode.rs` translates the raw-codestream branch of ProcessOneEnqueuedInput
+  (level checks, WriteCodestreamHeaders, the frame-index entry, the frame
+  call) and ProcessOutput's loop. The admitted sub-profile below encodes
+  whole files byte for byte with the original. Admission checkpoints:
+  `EnqueuedInput` (alpha, ICC, container, boxes, jxli), `StreamingFrame`,
+  `FrameProfile` (EncodeFrame's one-shot choice outside the profile, and the
+  reached untranslated branches inside the one-shot path), `PatchDictionary`
+  and `ArHeuristics`. The FrameProfile gate sits at EncodeFrame's one-shot
+  choice, before the first untranslated branch for settings whose branches
+  are translated but not yet compared (other efforts, overrides); see
+  [PORT_STATUS.md](PORT_STATUS.md#public-lossy-vardct-encode-below-d07-2026-11-12).
+
+Admitted encode profile (2026-11-12): the public API with the default memory
+manager, serial, raw codestream output in buffer mode; effort 7 (kSquirrel),
+lossy VarDCT with XYB (`uses_original_profile = false`) at distances from 0.05
+to below 0.7 (SetFrameDistance raises smaller positive requests to 0.05); gray or RGB
+without extra channels, enum sRGB or linear sRGB without ICC; `uint8`,
+`uint16`, `float16` and `float32` input at every endianness and alignment and
+every bit-depth source; basic-info orientation, intensity target and bit depth;
+one frame closed before ProcessOutput, without crop, blending, name, reference,
+animation or preview; default perceptual, progressive, patch, dot, noise,
+Gaborish, EPF and group-order options; and the one-shot path (at most 8 groups,
+or buffering 0 for larger images). Text-like content that FindTextLikePatches
+turns into patches remains an admission result. Distances of 0.7 and more
+(the default d1.0 included) return the `ArHeuristics` admission result until
+ComputeARHeuristics, ReconstructImage and DecodeGroupForRoundtrip are wired
+in.
+
+Step 1's gate is therefore met only for d < 0.7 on macOS AArch64 against the
+ordinary oracle. The d1.0, d1.5 and d2.9 gate cases, the native Linux and
+ASan/UBSan oracle runs, the upstream differential cases (`jxl_test`,
+`roundtrip_test`, `speed_tier_test`, `coeff_order_test`, `quant_weights_test`)
+and the checkpoint fixtures of LossyFrameHeuristics as a unit remain open.
 
 Step 1 is done when PR 6's gate passes on native Linux and macOS against both
 oracle graphs, and [PORT_STATUS.md](PORT_STATUS.md) and this plan record the

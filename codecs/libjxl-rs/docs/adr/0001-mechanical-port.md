@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-05
+- Updated: 2026-11-12
 
 The first phase translates libjxl into Rust while keeping the source and target
 easy to compare. Combining the port with algorithm, API, or performance changes
@@ -79,6 +79,17 @@ while any admission remains, because a C caller cannot tell an admission
 result from a libjxl status. [ENCODER_EXPANSION.md](../ENCODER_EXPANSION.md)
 records the admitted profile and its checkpoints; each step that translates an
 excluded branch deletes its check.
+
+Amendment (2026-11-12, encoder step 1 integration). The first admitted encode
+profile is gated at EncodeFrame's choice of the one-shot path: settings,
+metadata and input outside the compared profile return the `FrameProfile`
+admission result there, even where the branches that follow are translated
+but not yet compared with the original (other efforts, option overrides,
+unclosed frames, crops, a custom memory manager). This is earlier than the
+first untranslated branch and therefore conservative; it widens only with
+oracle evidence. Branches that do enter untranslated units (streaming,
+patches, the AR heuristics, alpha, ICC, containers) keep their own checkpoints,
+and the original's branch evidence for each is recorded by `epub-probe`.
 
 This preserves traceability at the cost of a less idiomatic initial Rust API.
 Revisit this decision after the complete migration contract passes, or if a

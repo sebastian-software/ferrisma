@@ -69,9 +69,84 @@ GaborishInverse and sRGB/linear-sRGB ToXYB are translated as standalone units
 quantization field, chroma-from-luma and AC strategy heuristics (see "Encoder
 quantization, CfL and AC strategy heuristics" below), and the VarDCT
 coefficient, order, DC, AC-metadata and text-like patch detection units (see
-"Encoder coefficients, DC streams and patch detection" below). No encode
-profile is admitted yet: every public frame encode is still an admission
-result at ProcessOneEnqueuedInput.
+"Encoder coefficients, DC streams and patch detection" below). The public
+encoder encodes one lossy VarDCT frame at effort 7 and distances below 0.7
+byte for byte with the original (see "Public lossy VarDCT encode below d0.7"
+below); every other frame encode, the default d1.0 included, is still an
+admission result.
+
+## Public lossy VarDCT encode below d0.7 (2026-11-12)
+
+The integration pull request of encoder step 1
+([ENCODER_EXPANSION.md](ENCODER_EXPANSION.md#first-step)), without the
+adaptive-reconstruction heuristics. `enc_heuristics_lossy.rs` translates
+LossyFrameHeuristics and FindBestDequantMatrices from enc_heuristics.cc;
+`enc_frame_vardct.rs` translates EncodeFrame (setting resolution),
+CanDoStreamingEncoding, EncodeFrameOneShot, GetBitDepth, general
+CopyColorChannels, the VarDCT branch of ComputeEncodingData,
+ComputeChromacityAdjustments with PixelStatsForChromacityAdjustment, the
+reached ComputeNoiseParams, DownsampleColorChannels and PermuteGroups
+branches, ComputeVarDCTEncodingData, ComputeAllCoeffOrders,
+TokenizeAllCoefficients, EncodeGlobalDCInfo, the non-streaming
+EncodeGlobalACInfo and EncodeGroups from enc_frame.cc; `encode.rs` translates
+the raw-codestream branch of ProcessOneEnqueuedInput, AddFrame and
+StoreFrameIndexBox of the frame index, MustUseContainer and ProcessOutput's
+loop. All units run serially, as RunOnPool does without a runner.
+
+Admission. Untranslated branches return typed admission results at their
+checkpoints: `EnqueuedInput` (alpha, ICC profiles, containers, boxes, the jxli
+box), `StreamingFrame` (CanDoStreamingEncoding), `FrameProfile` (EncodeFrame's
+one-shot choice for settings outside the admitted profile, a custom memory
+manager, and the reached untranslated branches inside the one-shot path),
+`PatchDictionary` (FindTextLikePatches found patches) and `ArHeuristics`.
+ComputeARHeuristics is reached only through `compute_ar_heuristics_entry`,
+which translates the source's early return (distance below
+kMinButteraugliForDynamicAR, a speed tier faster than kWombat or no EPF
+iterations: fill the EPF sharpness with 4) and returns `ArHeuristics`
+otherwise. At kSquirrel without an EPF override the early return holds below
+d0.7. The FrameProfile gate deliberately sits before the first untranslated
+branch for settings whose branches are translated but not yet compared (other
+efforts, overrides, unclosed frames, crops). The admitted profile is recorded
+in [ENCODER_EXPANSION.md](ENCODER_EXPANSION.md#first-step).
+
+Evidence (macOS AArch64, ordinary oracle, checked profile, 2026-11-12). The
+epub-run frame operation gained generated content (flat, gradient, noise and
+a photograph-like mix of ramps, edges and texture), written exactly as q/1024
+in every sample type, byte order and row alignment by both drivers. Whole
+caller histories, including every ProcessOutput status and output chunk with
+schedules of 0, 1, 7 and 64 bytes and then doubling, match the original:
+`public_encoder_lossy_vardct_small_sizes_match_original` (384 histories: 1x1,
+7x7, 8x8, 9x17 and 41 to 48 x 15, gray and RGB, all four sample types and
+contents), `..._large_sizes_match_original` (32: 63x129, 256x256, 257x255 and
+512x1024) and `..._d05_and_settings_match_original` (48: d0.5 at intensity
+targets 255 and 100 for every gate size, buffering -1 to 3 at 512x1024,
+1024x1024 with buffering 0, explicit effort 7, codestream and custom bit
+depths, orientations). Distances 0.001 to 0.69, sRGB and linear sRGB. All 464
+are exact; none is an admission result. `..._decode_back_matches_original_decoder`
+decodes 16 of these codestreams with the Rust and the original public decoder
+(float and uint8 output, whole and 64-byte input chunks) through both C ABI
+libraries: 32 histories match. `..._admissions_and_rejections_match_original`
+covers d0.7 to d2.9, an EPF override, streaming sizes, settings outside the
+profile, a custom memory manager, an unclosed frame and the step 1 rejection
+histories (frame before basic info or after CloseInput, short buffer, invalid
+distances, gray color encoding for RGB). epub-probe now reports the front
+queued frame's parameters after the original's own ParamsPostInit; every
+ArHeuristics and StreamingFrame result is checked against the source's
+branch conditions on that state. The existing encoder families keep passing.
+
+Contraction. `tools/encoder_frame_contraction.json` records the 13 front-end
+fmuladd sites of enc_frame.cc; `tools/encoder_transforms_contraction.py --map
+tools/encoder_frame_contraction.json` confirms them and the fused AArch64
+lowering in the ordinary oracle graph. Of these, PixelStatsForChromacityAdjustment's
+`cur_b - cur_y * 1.2` (624:33, double) is reached and translated with
+`mul_add_f64`; ParamsPostInit's site is mapped already; the others are in
+unreached alpha, noise, JPEG and center-first code. LossyFrameHeuristics has
+no fmuladd site of its own.
+
+Not verified: native Linux x86-64, the ASan/UBSan graphs, Debug and MSRV
+test runs, the upstream differential cases of step 1, checkpoint fixtures of
+LossyFrameHeuristics as one unit, and every distance from 0.7. No timing or
+memory measurement was taken.
 
 ## Encoder coefficients, DC streams and patch detection (2026-11-12)
 
@@ -1014,7 +1089,7 @@ followed in PRs #46 to #50.
 | `enc_external_image.cc` | `enc_external_image.rs` | Complete null-pool ConvertFromExternalPlaneNoSizeCheck and checked plane ConvertFromExternal; ImageBundle and BufferToImage wrappers unported |
 | `dec_external_image.h`, `.cc`, used `alpha.cc` loop | `dec_external_image.rs` | Complete integer and Float16/Float32 buffer/null-pool specializations of ConvertChannelsToExternal and ConvertToExternal, original scalar FloatToU32/FloatToF16 with selected native-half-cast mapping, generic UndoOrientation, store order, nullable channels, checked output spans, and alpha unpremultiplication; callbacks, custom runners, and alternate Highway half-conversion compile branches unported |
 | `encode_internal.h`, out-of-line wrapper methods in `encode.cc` | `encode_internal.rs` | BitsPerChannel, BytesPerPixel, the buffer-backed adapter/channel construction, binding, copying, views and format accessors, MakeBoxType, frame-index-box storage, JxlEncoderFrameSettingsValues, queued frame/box/input owners, and the buffer mode of JxlEncoderOutputProcessorWrapper with JxlOutputProcessorBuffer and AppendData; callback/JPEG input, CopyFromBuffer, CopyOutput, the external output processor, container headers and frame-index-box methods unported |
-| `encode.cc` lifecycle, setters and queueing, JxlEncoder/JxlEncoderFrameSettings in `encode_internal.h`, values in `../include/jxl/encode.h` | `encode.rs` | Create/Reset/Destroy, GetError, version, container/level/box flags, VerifyLevelSettings, basic-info, extra-channel, upsampling, color and ICC setters, frame-settings creation and every option/float option, distances, frame header/blend/name/bit depth, AddImageFrame, AddBox, SetExtraChannelBuffer, Close* and ProcessOutput; admission results at CanDoFastLossless and ProcessOneEnqueuedInput; frame encoding, containers, JPEG/chunked input, output processors, runner, debug and statistics APIs and the C ABI unported |
+| `encode.cc` lifecycle, setters and queueing, JxlEncoder/JxlEncoderFrameSettings in `encode_internal.h`, values in `../include/jxl/encode.h` | `encode.rs` | Create/Reset/Destroy, GetError, version, container/level/box flags, VerifyLevelSettings, basic-info, extra-channel, upsampling, color and ICC setters, frame-settings creation and every option/float option, distances, frame header/blend/name/bit depth, AddImageFrame, AddBox, SetExtraChannelBuffer, Close* and ProcessOutput; the raw-codestream branch of ProcessOneEnqueuedInput; admission results at CanDoFastLossless, ProcessOneEnqueuedInput (alpha, ICC, containers, boxes) and the frame encoder; containers, JPEG/chunked input, output processors, runner, debug and statistics APIs and the C ABI unported |
 | `luminance.h`, `.cc` | `luminance.rs` | Complete SetIntensityTarget |
 | `../include/jxl/types.h` | `types.rs` | Raw endianness/data-type values, pixel-format layout, and bit-depth descriptor storage; other public API types unported |
 | `base/override.h` | `base/override_option.rs` | Tri-state option storage, boolean conversion, and default behavior for other fixed-underlying enum values |
@@ -1048,6 +1123,7 @@ followed in PRs #46 to #50.
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
 | `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; SplitACCoefficients<int32_t> |
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder color/alpha CopyColorChannels, buffer-backed CopyExtraChannels, ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
+| `enc_frame.cc` (general frame entry) | `enc_frame_vardct.rs` | EncodeFrame setting resolution, CanDoStreamingEncoding, EncodeFrameOneShot, GetBitDepth, general CopyColorChannels, the VarDCT branch of ComputeEncodingData, ComputeChromacityAdjustments, reached ComputeNoiseParams/DownsampleColorChannels/PermuteGroups branches, ComputeVarDCTEncodingData, ComputeAllCoeffOrders, TokenizeAllCoefficients, EncodeGlobalDCInfo, non-streaming EncodeGlobalACInfo and EncodeGroups; streaming, JPEG, alpha/extra channels, noise, downsampling and center-first order are admission results |
 | `passes_state.h`, `.cc`, `enc_cache.h`, `enc_cache.cc` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, retained indexed DC write owners/mapped DC access, same-owner DC/patch/frame bindings; ComputeACMetadata and InitializePassesEncoder without the progressive-DC frame (serial) |
 | `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, retained shared reference temporary, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, complete VarDCT GroupDecCache::InitOnce; general preparation, output lifecycle, and custom runners remain separate |
 | `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | DecodeFrame and the complete public incremental FrameDecoder: InitFrame/InitFrameOutput, SectionInfo/TocEntry/SectionStatus, ProcessSections with partial and permuted input and progressive DC/pass pauses, Flush, FinalizeFrame, References/SavedAs, TOC/pass/DC accessors, SetPauseAtProgressive/NextNumPassesToPause, SetRenderSpotcolors/SetCoalescing, SetImageOutput/AddExtraChannelOutput with the original output-stage selection; the retained pool runs the DC/AC group and forced-draw RunOnPool sites (task bodies serialized under a runner; null for the internal profiles), with the constructor's simple/low-memory pipeline selection (fixed profiles select the simple pipeline), explicit profile admission; `decode.cc` orchestration remains separate |
@@ -1087,7 +1163,7 @@ followed in PRs #46 to #50.
 | DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; DequantMatricesEncode for all-default matrices; custom AC quantization encoding (EncodeQuant) and whole-matrix round trips unported |
 | `enc_group.cc` | `enc_group.rs` | One-lane QuantizeBlockAC, AdjustQuantBlockAC, QuantizeRoundtripYBlockAC, ComputeCoefficients and EncodeGroupTokenizedCoefficients |
 | `enc_entropy_coder.cc` | `enc_entropy_coder.rs` | One-lane NumNonZeroExceptLLF, NumNonZero8x8ExceptDC and TokenizeCoefficients |
-| `enc_heuristics.cc` (part) | `enc_heuristics.rs` | FindBestBlockEntropyModel; LossyFrameHeuristics, ComputeARHeuristics, ReconstructImage and the downsampling helpers unported |
+| `enc_heuristics.cc` (part) | `enc_heuristics.rs`, `enc_heuristics_lossy.rs` | FindBestBlockEntropyModel; LossyFrameHeuristics and FindBestDequantMatrices (default matrices; FindBestQuantizer reached only as its kSquirrel no-op); ComputeARHeuristics (its early return in `enc_frame_vardct.rs`), ReconstructImage and the downsampling helpers unported |
 | `enc_patch_dictionary.cc` (part) | `enc_patch_dictionary.rs` | Serial FindTextLikePatches without debug dumps; FindBestPatchDictionary bin packing, RoundtripPatchFrame and PatchDictionaryEncoder unported |
 | `dec_noise.h`, `.cc`, `xorshift128plus-inl.h`, `render_pipeline/stage_noise.h`, `.cc` | `dec_noise.rs`, `xorshift128plus.rs`, `render_pipeline/stage_noise.rs` | Complete scalar noise parsing/generation/convolution/application and admitted VarDCT file integration; frame-index and upsampling branches retain source seeds and geometry |
 | `dec_patch_dictionary.h`, `.cc`, `patch_dictionary_internal.h`, `render_pipeline/stage_patches.h`, `.cc` | `dec_patch_dictionary.rs`, `patch_dictionary_internal.rs`, `render_pipeline/stage_patches.rs` | Complete dictionary decoding/partial state, original libc++ interval tree, reference masks and clipped blending; borrowed/shared stages; complete saved-frame orchestration remains separate |

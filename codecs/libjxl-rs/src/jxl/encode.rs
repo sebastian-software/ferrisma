@@ -22,7 +22,9 @@
 //! GetCurrentDimensions, CanDoFastLossless, JxlEncoderAddImageFrameInternal,
 //! JxlEncoderAddImageFrame, JxlEncoderUseBoxes, JxlEncoderAddBox,
 //! JxlEncoderSetExtraChannelBuffer, JxlEncoderCloseFrames,
-//! JxlEncoderCloseBoxes, JxlEncoderCloseInput, JxlEncoderProcessOutput,
+//! JxlEncoderCloseBoxes, JxlEncoderCloseInput, JxlEncoderProcessOutput, the
+//! raw-codestream branch of JxlEncoder::ProcessOneEnqueuedInput with
+//! MustUseContainer and the frame index's AddFrame and StoreFrameIndexBox,
 //! JxlEncoderSetFrameHeader, JxlEncoderSetExtraChannelBlendInfo,
 //! JxlEncoderSetFrameName, JxlEncoderSetFrameBitDepth,
 //! JxlColorEncodingSetToSRGB, JxlColorEncodingSetToLinearSRGB and
@@ -33,8 +35,10 @@
 //! JXL_ENC_ERROR with JXL_ENC_ERR_NOT_SUPPORTED at that source checkpoint,
 //! after every check the original performs before it. The checkpoints are
 //! [`JxlEncoderAdmission`]: the fast-lossless branch of AddImageFrameInternal
-//! (enc_fast_lossless.cc) and ProcessOneEnqueuedInput, which ProcessOutput
-//! calls for a queued frame or box (headers, container and frame encoding).
+//! (enc_fast_lossless.cc); ProcessOneEnqueuedInput's alpha, ICC, container
+//! and box branches; and the frame encoder's checkpoints (streaming, the
+//! admitted one-shot profile, patches and the AR heuristics), see
+//! `enc_frame_vardct.rs`.
 //! Untranslated public functions are absent: AddJPEGFrame, AddChunkedFrame,
 //! FlushInput, SetOutputProcessor, SetParallelRunner, SetDebugImageCallback
 //! and the statistics functions. The C ABI is not exported (ADR 0001).

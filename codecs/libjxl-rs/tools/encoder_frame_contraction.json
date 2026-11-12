@@ -1,0 +1,114 @@
+{
+  "lowering": {
+    "aarch64": "Each llvm.fmuladd site lowers to a fused FMADD/FMSUB/FNMADD; a negated product keeps its constant or negated multiplicand.",
+    "x86_64": "Baseline x86-64 has no FMA: each llvm.fmuladd site lowers to a separate MULSS and ADDSS (or MULSD and ADDSD)."
+  },
+  "sources": {
+    "lib/jxl/enc_frame.cc": [
+      {
+        "file": "lib/jxl/chroma_from_luma.h",
+        "line": 52,
+        "column": 32,
+        "type": "f32",
+        "expression": "inlined YtoXRatio: base_correlation_x_ + x_factor * color_scale_ (ComputeJPEGTranscodingData)",
+        "rust": "unreached (JPEG transcoding, step 12); chroma_from_luma.rs y_to_x_ratio mul_add_f32 for its other callers"
+      },
+      {
+        "file": "lib/jxl/chroma_from_luma.h",
+        "line": 56,
+        "column": 32,
+        "type": "f32",
+        "expression": "inlined YtoBRatio: base_correlation_b_ + b_factor * color_scale_ (ComputeJPEGTranscodingData)",
+        "rust": "unreached (JPEG transcoding, step 12); chroma_from_luma.rs y_to_b_ratio mul_add_f32 for its other callers"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 115,
+        "column": 66,
+        "type": "f64",
+        "expression": "ParamsPostInit: (butteraugli_distance * 0.25) + 0.25",
+        "rust": "enc_frame.rs params_post_init mul_add_f64 (existing; unreached below d10)"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 570,
+        "column": 22,
+        "type": "f32",
+        "expression": "SimplifyInvisible: row[x] += 2.f * row[x + 1]",
+        "rust": "unported (alpha, step 4)"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 574,
+        "column": 22,
+        "type": "f32",
+        "expression": "SimplifyInvisible: row[x] += 2.f * prow[x + 1]",
+        "rust": "unported (alpha, step 4)"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 578,
+        "column": 22,
+        "type": "f32",
+        "expression": "SimplifyInvisible: row[x] += 2.f * nrow[x + 1]",
+        "rust": "unported (alpha, step 4)"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 583,
+        "column": 20,
+        "type": "f32",
+        "expression": "SimplifyInvisible: row[x] += 2.f * prow[x]",
+        "rust": "unported (alpha, step 4)"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 587,
+        "column": 20,
+        "type": "f32",
+        "expression": "SimplifyInvisible: row[x] += 2.f * nrow[x]",
+        "rust": "unported (alpha, step 4)"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 624,
+        "column": 33,
+        "type": "f64",
+        "expression": "PixelStatsForChromacityAdjustment::CalcExposedBlue: cur_b - cur_y * 1.2 (double)",
+        "rust": "enc_frame_vardct.rs calc_exposed_blue mul_add_f64(-cur_y, 1.2, cur_b)"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 735,
+        "column": 49,
+        "type": "f32",
+        "expression": "ComputeNoiseParams: kNoiseLevelAtStartOfRampUp + (1 - kNoiseLevelAtStartOfRampUp) * rampup",
+        "rust": "unported (noise estimate; an admission result)"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 932,
+        "column": 66,
+        "type": "f32",
+        "expression": "ComputeJPEGTranscodingData: kScale * row_s[...] + (kOffset - kBase * kScale) * scaled_m",
+        "rust": "unported (JPEG transcoding, step 12)"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 933,
+        "column": 30,
+        "type": "f32",
+        "expression": "ComputeJPEGTranscodingData: the same sum's inner product",
+        "rust": "unported (JPEG transcoding, step 12)"
+      },
+      {
+        "file": "lib/jxl/enc_frame.cc",
+        "line": 1786,
+        "column": 38,
+        "type": "f64",
+        "expression": "PermuteGroups: atan2(dy, dx) + kPi / 4 + side * (kPi / 2)",
+        "rust": "unported (center-first group order; an admission result)"
+      }
+    ]
+  }
+}

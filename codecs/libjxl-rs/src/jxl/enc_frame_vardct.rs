@@ -456,6 +456,10 @@ pub fn compute_ar_heuristics_entry(
 }
 
 /// ComputeVarDCTEncodingData.
+#[expect(
+    clippy::manual_is_multiple_of,
+    reason = "Mirror the source modulo test."
+)]
 fn compute_var_dct_encoding_data(
     frame_header: &FrameHeader<'_>,
     linear: Option<&Image3F>,
