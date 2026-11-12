@@ -1,3 +1,6 @@
+// Copyright (c) the JPEG XL Project Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license in LICENSE.
+
 //! djxl-compatible decoder front end for the external JPEG XL conformance
 //! runner (`libjxl/conformance` `scripts/conformance.py`).
 //!
