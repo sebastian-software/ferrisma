@@ -55,7 +55,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0034](0034-thumbnail-geometry.md) | Upright thumbnail geometry, centered cover, explicit no-enlargement behavior and bounded JPEG/WebP header inspection | Accepted |
 | [0037](0037-selectable-workspace-avif-encoder.md) | Explicit workspace libavif/AOM output selection through an independent writer boundary; Rav1e remains default | Experimental |
 | [0038](0038-ferrisma-project-name.md) | Ferrisma project identity, technical rename, ferrisma.dev, and published placeholder packages | Accepted |
-| [0039](0039-jpeg-xl-output-through-the-workspace-encoder.md) | Opt-in lossless JPEG XL output through the workspace libjxl-rs encoder's verified fixed profile; explicit output semantics and license gate; `jxl-encoder` stays excluded | Experimental |
+| [0039](0039-jpeg-xl-output-through-the-workspace-encoder.md) | JPEG XL output through the workspace libjxl-rs encoder: lossy VarDCT by default (straight alpha, patches off) and the verified lossless profile; explicit output semantics and license gate; `jxl-encoder` stays excluded | Experimental |
 | [0040](0040-stable-public-contract-and-compatibility-policy.md) | Stable 1.0 public contract tiers, SemVer, Rust version, deprecation and upgrade policy; facade review recommendations | Proposed |
 
 ## Changing an ADR

@@ -79,15 +79,14 @@ actually admits, and widen it only as the port's steps land.
   - a managed budget too small for the frames below: `ResourceExhausted`;
   - an encoded result above `max_output_bytes`: `ResourceExhausted`; lossless
     checks after encoding because the codec returns the whole codestream,
-    lossy stops copying out of the encoder at the limit;
-  - lossy output of an image with any alpha below 255: `UnsupportedInput`
-    ("lossy JPEG XL with alpha is not supported yet; use lossless") at the
-    first transparent row; alpha is never dropped silently and there is no
-    fallback to lossless;
-  - lossy content for which FindTextLikePatches finds patches:
-    `UnsupportedInput` ("this content needs the JPEG XL encoder's patch
-    path, which is not available yet"), after the decode, because the
-    decision depends on the pixels.
+    lossy stops copying out of the encoder at the limit.
+
+  Since the 2026-11-12 alpha and patches amendment no content-dependent
+  rejection remains: lossy output with alpha encodes, and lossy output always
+  runs with libjxl's patch search off. (Before it, transparent input failed
+  with "lossy JPEG XL with alpha is not supported yet; use lossless" and
+  text-like content with "this content needs the JPEG XL encoder's patch
+  path"; both errors are removed.)
 
 ### Output semantics
 
@@ -96,18 +95,20 @@ These describe the emitted samples (ADR-0015):
 | Property | Lossy (default) | Lossless |
 | --- | --- | --- |
 | Container | Raw codestream (`FF 0A`); no ISOBMFF container, no `jxll`, no Exif/XMP/JUMBF boxes | Same |
-| Coding | VarDCT, effort 7, the requested Butteraugli distance; default settings otherwise (patches, dots, noise, splines off or absent as admitted) | Modular, effort 2; decoded samples equal the engine's finished rows exactly |
+| Coding | VarDCT, effort 7, the requested Butteraugli distance, **patches off** (`JXL_ENC_FRAME_SETTING_PATCHES` = 0; the result equals `cjxl --patches=0 -e 7 -d <distance>`); default settings otherwise (dots, noise, splines off or absent as admitted) | Modular, effort 2; decoded samples equal the engine's finished rows exactly |
 | Bit depth | 8-bit integer samples signaled (`bits_per_sample = 8`) | Same |
 | Color | `xyb_encoded = true`; the signaled enum color encoding (RGB, D65, sRGB primaries, sRGB transfer, relative intent) describes the decoded samples; no ICC | `xyb_encoded = false`; same enum encoding; no ICC |
-| Alpha | None; transparent input is rejected, fully opaque alpha is omitted | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel; color under zero alpha is kept exactly. Fully opaque output has no extra channel. |
+| Alpha | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel, coded losslessly (extra-channel distance 0), so decoded alpha equals the finished rows exactly. Color under zero alpha is **not** kept: libjxl's lossy default (`keep_invisible` off, SimplifyInvisible) replaces it. Fully opaque output has no extra channel; the engine omits it before encoding and does not rely on the encoder's `STRIP_ALPHA` decision. | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel; color under zero alpha is kept exactly. Fully opaque output has no extra channel. |
 | Orientation | 1; the engine has already applied source orientation, so samples are upright | Same |
 | Other metadata | Default intensity target (255), no animation, no preview, no intrinsic size | Same |
 
-Both write gray content as RGB. Not supported: other efforts, lossy alpha,
-16-bit or float output, HDR, wide gamut, ICC output, gray-only output,
-premultiplied alpha, animation, metadata passthrough, container and level
-signaling, lossy content that needs patches, and distances of 3.0 and
-above.
+Both write gray content as RGB. Not supported: other efforts, alpha deeper
+than 8 bits (the engine's rows are 8-bit; the port needs a container above
+12 bits), lossily coded alpha (an alpha distance above 0), 16-bit or float output, HDR, wide gamut, ICC output,
+gray-only output, premultiplied alpha (the engine's rows are straight,
+ADR-0014; the output always signals unassociated alpha), animation,
+metadata passthrough, container and level signaling, patch encoding, and
+distances of 3.0 and above.
 
 ### Memory
 
@@ -126,7 +127,14 @@ coefficients and about 28 bytes per 8x8 block for the DC-resolution planes.
 Including the input frame that is 35 bytes per pixel plus 12 per
 group-padded pixel one-shot (600x400: 13,118,592 bytes, 54.7 per pixel) and
 about 8 bytes per pixel on the streaming path at large sizes (2268x1512:
-28,365,424 bytes, 8.3 per pixel). Tokens, histograms, heuristics state,
+28,365,424 bytes, 8.3 per pixel). With alpha (amended 2026-11-12) the
+estimate adds the alpha byte of the input copy and 12 bytes per pixel of
+the encoded area, from the buffers the port allocates on that path: the
+`f32` extra-channel plane of the VarDCT ComputeEncodingData, the Modular
+encoder's global `i32` channel (`compute_encoding_data_extra_channels`) and
+its `i32` per-group copies (`prepare_stream_params`). The encoded area is the
+whole frame one-shot (13 more bytes per pixel) and one 272x272 bordered
+group streaming (one more byte per pixel plus 887,808 bytes). Tokens, histograms, heuristics state,
 section writers and the encoded output (held by the encoder and copied once
 into the returned `Vec`) are opaque; the report sets
 `opaque_encoder_memory`.
@@ -179,9 +187,10 @@ field and `OutputFormat` a variant: exhaustive struct literals and matches in
 callers must be updated (experimental API, as in ADR-0037). The lossy
 variant made `JpegXlOptions` `PartialEq` only (its `f32` has no `Eq`), and
 the default moved from lossless to lossy d1.0: a caller that relied on the
-default getting exact pixels must now select `Lossless { effort: 2 }`. With
-the lossy default, transparent images and text-like content fail by default
-with a typed error that names the lossless alternative.
+default getting exact pixels must now select `Lossless { effort: 2 }`. Since
+the alpha and patches amendment the lossy default encodes transparent images
+(alpha exact, color under zero alpha replaced) and text-like content (patches
+off, at an unmeasured size cost against libjxl's default).
 
 ## Alternatives considered
 
@@ -291,12 +300,55 @@ AArch64 only), a C++ decoder on engine output, the encoder's actual peak
 allocation against the estimate, fuzzing of the encoder path, and any speed
 figure.
 
+Alpha and patches-off evidence, macOS ARM64, 2026-11-12, debug profile:
+
+- Port (not re-run here): `PORT_STATUS.md`, "Lossy VarDCT with extra
+  channels and patches off": whole public-API histories byte-identical with
+  pinned libjxl for patches off (135 requests, contents 1 to 5 including
+  text-like), 12 text-like histories (default: PatchDictionary admission;
+  patches off: exact), RGBA and gray-alpha at small, large and streaming
+  sizes, and the alpha variants (opaque stripped, premultiplied, depths).
+- Bridge (`crates/ferrisma-jxl-encoder`, 13 unit tests): RGBA and
+  gray+alpha at 1x1, 61x37, 300x260 and 2049x300 (streaming) decode with
+  exact alpha and one unassociated 8-bit alpha channel through jxl-oxide, and
+  the port records no admission result; text-like content with alpha
+  encodes; the two repeated-glyph images still return `PatchDictionary` with
+  patches on and encode with the default (off); a fully opaque alpha channel
+  is stripped by the port and then gives the same bytes as the RGB encode;
+  alpha buffer sizes are checked before the port; the alpha estimate.
+- Engine (`src/jxl_lossy_tests.rs`): straight alpha decodes exactly through
+  jxl-oxide (1x1, 9x17, 300x260, 800x700 streaming) and the workspace decoder
+  (300x260, `alpha_premultiplied` false); color over pixels with nonzero
+  alpha at d1.0 was 0 / 0, 17 / 3.75, 19 / 2.23 and 18 / 2.11 (max / mean),
+  inside the opaque pins. WebP transcodes with alpha, default options: one
+  transparent pixel 32x24 29 / 3.15, translucent 120x90 29 / 2.66, its
+  64x48 downscale 41 / 2.62 (the highest: resampled straight alpha leaves
+  low-alpha pixels whose straight color changes sharply), 800x700 18 / 2.11;
+  pinned with the same margins. Text-like content through the sink and
+  `transcode`: 64x64 (six glyphs, the bridge's patch case) 15 / 0.33 in 616
+  bytes, a 300x120 page of 200 glyphs 20 / 1.19 in 13,719 bytes. The alpha
+  reservation fails one byte short and succeeds at the exact estimate.
+- CLI (`tests/jxl_cli.rs`, `--features cli`): transparent, text-like and
+  page-like WebP input encodes to `.jxl` at the default options; the
+  transparent file decodes with exact alpha through jxl-oxide, the opaque
+  ones read back through `--jxl-decoder=jxl-oxide --use-rendered-icc`. The
+  engine cannot read back its own transparent lossy output yet: the
+  rendered-ICC stage accepts only opaque RGB, and without it the XYB samples
+  have no verifiable color (`UnsupportedColor`); this is an input-side
+  limitation, not an encoder one.
+
+Not measured: the size or quality cost of patches off against libjxl's
+default for text-like content (the port cannot encode patches, and the C++
+`cjxl` comparison was not run here), and the alpha estimate against a real
+peak allocation.
+
 ## Review when
 
-Review when the port admits alpha in VarDCT (#115) or a patches-disabled
-or patch-encoding profile (step 5), to lift the two lossy rejections; when
-the license review (#66) completes, to confirm `cli` distribution; when the
-owner decides the default; if a measured peak allocation contradicts the lossy
+Review when the port translates the patch reference-frame encode (encoder
+step 5), to measure patches on against off and revisit the patches-off
+policy; when the license review (#66) completes, to confirm `cli`
+distribution; when the owner decides the default or the patches-off policy;
+if a measured peak allocation contradicts the lossy
 estimate; if a non-sRGB or HDR output contract is needed (step 6, #113);
 if serial encoding is too slow for the supported path (step 13, #106); or if
 a decoder rejects the unsignaled level or a byte mismatch against libjxl
@@ -323,3 +375,24 @@ appears for this profile.
   default instead of encoding losslessly. `jpeg-xl-write` joins `cli`
   because the full feature set works end to end; the license gate for
   distributed binaries is unchanged.
+- 2026-11-12 — Lossy alpha and patches off (#27, #92, #115). The port now
+  admits straight alpha (1 to 12 bits, coded losslessly by default) and the
+  patches option at 0 in the lossy profile, byte-identical with pinned
+  libjxl on macOS AArch64. The bridge adds `Alpha::Straight8` (RGBA and
+  gray+alpha, 8-bit, unassociated) and `FrameOptions::patches` (default
+  off); the sink writes real alpha instead of failing and keeps omitting
+  fully opaque alpha itself. `LossyJpegXlAlpha` and `JpegXlPatchesRequired`
+  are removed. Still rejected: alpha deeper than 12 bits and ICC (container
+  and color steps 3 and 6; not reachable from the engine's 8-bit straight
+  sRGB rows), distances of 3.0 and above, other efforts, threads other than
+  1. **Patches policy, pending owner confirmation:** lossy output always
+  passes patches = 0, so every image encodes deterministically and the
+  result equals `cjxl --patches=0 -e 7 -d <distance>`. Rejected
+  alternatives: libjxl's default with an error for text-like content (the
+  previous behavior: screenshots fail by default), and trying the default
+  first and retrying with patches off (a hidden second encode and an output
+  mode that depends on the content). Cost: for text-like content libjxl's
+  default would code repeated shapes once as patches; the size difference is
+  **unmeasured**. Re-evaluate when the patch reference-frame encode lands in
+  the port. Color under fully transparent pixels is replaced in lossy mode
+  (libjxl's `keep_invisible` default); lossless keeps it.

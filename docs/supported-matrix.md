@@ -155,10 +155,10 @@ supported.
 | --- | --- | --- | --- | --- |
 | Feature / selection | `avif-own-write`; `AvifEncoder::Libavif { depth }`, `--avif-encoder=libavif` | `avif-write`; `AvifEncoder::Rav1e`, `--avif-encoder=rav1e` | `webp-write`; `.webp` | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2 }` (`--jxl-lossless`) |
 | Bit depth | 10 (default) or 8 (`--avif-depth=8`) | always 10 | 8 | 8 |
-| Chroma | 4:4:4 (default) or 4:2:0 | 4:4:4 (default) or 4:2:0 | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling; lossless: RGB Modular |
+| Chroma | 4:4:4 (default) or 4:2:0 | 4:4:4 (default) or 4:2:0 | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling, patches off (equals `cjxl --patches=0 -e 7`); lossless: RGB Modular |
 | Quality | `quality` 0–100, rounded, 64 quantizer steps | `quality` 1–100 through `ravif`'s curve | `WebpOptions::Lossy { quality 1–100, speed }` or `Lossless { level 0–9 }` | lossy: Butteraugli distance 0.05 to below 3.0; `--quality` is rejected |
 | Speed | 0–10 (`cpu-used`) | 1–10 | lossy speed 1 (slowest)–10; lossless uses the level | fixed: effort 7 lossy, effort 2 lossless; `--speed` is rejected |
-| Alpha | auxiliary item at the color quality, omitted when opaque | separate 10-bit item at fixed quality 80, omitted when opaque | straight alpha | lossless: unassociated alpha at 8 bits; lossy: **rejected** (`UnsupportedInput`, "use lossless"), never dropped; fully opaque alpha is omitted in both |
+| Alpha | auxiliary item at the color quality, omitted when opaque | separate 10-bit item at fixed quality 80, omitted when opaque | straight alpha | unassociated (straight) alpha at 8 bits, coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
 | Color signaling | AV1 header 1/13/6 full range **and** container `colr nclx` | AV1 header 1/13/6 full range; no container `colr` | embedded sRGB ICC | enum sRGB (lossy: XYB-encoded) |
 | Metadata | source EXIF/XMP/ICC not copied; orientation applied | same | same; EXIF orientation and XMP dropped | orientation applied, written as 1 |
 | Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | padded 10-bit frame(s) | ARGB frame and lossy planes reserved | input frame plus known codec planes (lossless) or a source-derived codec estimate (lossy) reserved |
@@ -201,15 +201,22 @@ libheif and rav1d in the evidence record above. WebP —
 streaming), `the_workspace_decoder_agrees_with_jxl_oxide`,
 `photograph_thumbnail_decodes_near_the_finished_rows`,
 `oriented_input_is_written_upright_with_orientation_one`,
-`real_alpha_fails_at_the_first_transparent_row_and_opaque_alpha_is_dropped`,
-`text_like_content_reports_the_missing_patch_path`,
+`real_alpha_encodes_and_opaque_alpha_is_omitted_by_the_sink`,
+`lossy_alpha_decodes_exactly_and_color_within_the_pinned_error` (one-shot and
+streaming), `the_workspace_decoder_reads_straight_alpha_exactly`,
+`transparent_input_encodes_with_exact_alpha`,
+`text_like_content_encodes_with_patches_off`,
+`text_like_input_encodes_with_patches_off`,
 `distances_outside_the_admitted_range_are_rejected_before_allocating`,
 `input_frame_and_codec_estimate_are_reserved`,
-`the_output_limit_applies_at_the_exact_byte`; the `ferrisma-jxl-encoder`
-unit tests ([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)).
-Lossy output also fails with `UnsupportedInput` for text-like content that
-needs the encoder's patch path (encoder step 5). JPEG output does not exist
-and is not planned.
+`the_output_limit_applies_at_the_exact_byte`;
+`tests/jxl_cli.rs::transparent_and_text_like_input_encode_to_lossy_jpeg_xl_by_default`;
+the `ferrisma-jxl-encoder` unit tests
+([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)).
+Lossy output always turns libjxl's patch search off, so text-like content
+encodes; its size cost against libjxl's default is not measured. The engine
+cannot yet read back its own transparent lossy output (the rendered-ICC stage
+accepts only opaque RGB). JPEG output does not exist and is not planned.
 
 ## Limits and memory
 
@@ -254,7 +261,7 @@ ferrisma paris_icc_exif_xmp.avif out.webp 64 48 --use-rendered-icc
 # JPEG XL with the default reader (full-frame fallback) and with jxl-oxide
 ferrisma sample.jxl out.avif 6 4 --use-rendered-icc                          # decoder_full_frames=1
 ferrisma sample.jxl out.avif 6 4 --use-rendered-icc --jxl-decoder=jxl-oxide  # decoder_full_frames=0
-# Lossless WebP; lossless JPEG XL (needs --features cli,jpeg-xl-write)
+# Lossless WebP; lossy JPEG XL d1.0, also with alpha (needs --features cli,jpeg-xl-write)
 ferrisma photo.jpg out.webp 64 48 --assume-srgb --webp-lossless --webp-level=6
 ferrisma photo.jpg out.jxl 64 48 --assume-srgb
 ```
@@ -272,7 +279,7 @@ Rejected, with the error the CLI prints (exit status 1):
 | `ferrisma colors_hdr_rec2020.avif …` (PQ) | `UnsupportedColor` | tone-map to SDR elsewhere; HDR is out of scope |
 | `ferrisma photo.jpg out.avif … --avif-encoder=rav1e --quality=0` | `InvalidOptions` | rav1e's scale starts at 1; libavif accepts 0 |
 | `ferrisma photo.jpg out.webp … --avif-encoder=rav1e` | "AVIF encoder options require .avif output" | drop AVIF flags for WebP |
-| `ferrisma photo.jpg out.jxl … --quality=80` | "--quality is unsupported for lossless JPEG XL" | JPEG XL output is lossless only |
+| `ferrisma photo.jpg out.jxl … --quality=80` | "--quality is unsupported for JPEG XL; use --jxl-distance or --jxl-lossless" | use `--jxl-distance` (lossy) or `--jxl-lossless` |
 | `ferrisma photo.jpg out.png …` | "output must have a .avif, .webp or .jxl extension" | choose a supported output |
 | `ferrisma photo.jpg out.avif … --max-input-mpx=0` | `InvalidOptions` "input byte/pixel limits must be nonzero" | use a positive limit |
 
