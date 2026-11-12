@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None
 - **Partially superseded by:** [0031](0031-workspace-libavif-input-experiment.md), experimental AVIF input and its native/nightly toolchain boundary; final adoption gates remain open.
 - **Related:** [libavif-rs](../../codecs/libavif-rs), [libjxl-rs](../../codecs/libjxl-rs), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [encoder and CMS research](../research/2026-10-31-encoder-and-cms-candidates.md), [codec adapter audit](../research/codec-adapter-audit.md), [JPEG and WebP evaluation](../research/2026-11-05-jpeg-and-webp-codec-evaluation.md), [libwebp port plan](../research/2026-11-05-libwebp-port-plan.md), [license audit](../license-audit.md)
@@ -40,6 +40,7 @@ Keep every codec and CMS behind its own Cargo feature, off by default:
 | `icc` | `moxcms` 0.9 | Rendered-ICC → sRGB source adapter | Selected independent LittleCMS fixtures pass (ADR-0023); broader real-image, LUT/intent, and HDR validation remains open |
 | `webp-read` | workspace `libwebp-rs` 0.1 | Still WebP input, lossy and lossless | **Experimental adoption**, [ADR-0029](0029-webp-still-input.md) |
 | `webp-write` | workspace `libwebp-rs` 0.1 | Still WebP output, lossy and lossless | **Experimental adoption**, [ADR-0030](0030-still-webp-output-and-format-neutral-encoder-result.md); ICC fixture has a separate license notice |
+| `jpeg-xl-write` | workspace `libjxl-rs` 0.1 (safe fixed-profile entry point) | Lossless effort-2 JPEG XL output | **Experimental opt-in**, not in `cli`, [ADR-0039](0039-jpeg-xl-output-through-the-workspace-encoder.md); license/NOTICE review (#66) open; `jxl-encoder` stays excluded |
 | JPEG output | none | — | **Not planned**; JPEG stays input-only through `jpeg-read` |
 
 Rules that apply to all of them:
@@ -113,3 +114,8 @@ Review the active dependency graph when libavif-rs or libjxl-rs meets the remain
   CLI choice through an independent safe bridge. The codec-free and
   stable-compatible feature sets do not acquire the nightly native writer.
   Rav1e remains the default and ADR-0025's final selection gates remain open.
+- 2026-11-12 — [ADR-0039](0039-jpeg-xl-output-through-the-workspace-encoder.md)
+  settles the separate JPEG XL output gate: opt-in `jpeg-xl-write` uses the
+  workspace libjxl-rs encoder's verified lossless effort-2 profile through a
+  safe entry point. The AGPL-3.0/commercial `jxl-encoder` stays unapproved;
+  the NOTICE review (#66) remains open, so the feature stays out of `cli`.

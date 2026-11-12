@@ -38,7 +38,8 @@ The architecture has four conceptual layers:
 ## Demand-driven example
 
 As a design example, consider cropping an AVIF image, resizing it, and encoding
-a JPEG XL thumbnail. JPEG XL output is not implemented in the current pipeline;
+a JPEG XL thumbnail. The current pipeline writes only lossless JPEG XL as an
+opt-in experiment ([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md));
 the example illustrates dependency propagation:
 
 ```text

@@ -25,20 +25,21 @@ decode and interpret rendered color
         ↓
 apply orientation → crop → resize in linear light
         ↓
-quantize → encode AVIF or still WebP
+quantize → encode AVIF, still WebP, or lossless JPEG XL (opt-in)
 ```
 
 | Format | Current engine path | Workspace port relationship |
 | --- | --- | --- |
 | JPEG | Input through workspace `libjpeg-turbo-rs` (`jpeg-read`); codec-level crop request and budgeted RGB row | Scaled IDCT remains unused by the adapter; codec memory and reconstruction are opaque |
-| JPEG XL | Default input through `jxl-oxide` (`jpeg-xl-read`); explicit opt-in local `libjxl-rs` via `ferrisma-jxl-decoder` (`jpeg-xl-own-read`) | `JpegXlDecoder::LibjxlRs` or `--jxl-decoder=libjxl-rs` selects the local decoder; it has no ROI request and budgets a full F32 frame. Complete external conformance and selection gates remain open |
+| JPEG XL | Default input through `jxl-oxide` (`jpeg-xl-read`); explicit opt-in local `libjxl-rs` via `ferrisma-jxl-decoder` (`jpeg-xl-own-read`). Experimental opt-in lossless output (`jpeg-xl-write`, not in `cli`) | `JpegXlDecoder::LibjxlRs` or `--jxl-decoder=libjxl-rs` selects the local decoder; it has no ROI request and budgets a full F32 frame. Complete external conformance and selection gates remain open. Output uses the port's verified lossless effort-2 profile (enum sRGB, 8-bit, straight alpha); lossy output waits for the public encoder API ([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)) |
 | AVIF | Workspace libavif/AOM input (`avif-read`); Rav1e output by default (`avif-write`), explicitly selectable workspace libavif/AOM output (`avif-own-write`) | Independent read/write wrappers isolate the unsafe ABI; the facade and CLI select the own writer through `AvifEncoder::Libavif` / `--avif-encoder=libavif`. Native/nightly requirements and backend-selection gates remain ([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)) |
 | WebP | Still input and output through workspace `libwebp-rs` (`webp-read`, `webp-write`); lossy crop requests, lossless full-frame internal work | The output sink budgets an ARGB frame and predictable lossy planes, tags sRGB ICC, and reports opaque codec memory; animation is unsupported |
 
 The `cli` feature enables the current engine adapters and ICC path together.
 The authoritative feature selection is in [Cargo.toml](../Cargo.toml); the
 [public facade](../src/pipeline.rs) and [CLI](../src/cli.rs) expose the supported
-operations. JPEG output and JPEG XL output are not implemented engine features.
+operations. JPEG output is not an engine feature; JPEG XL output is lossless
+only and requires the separate `jpeg-xl-write` feature.
 
 Current behavior and boundaries:
 
