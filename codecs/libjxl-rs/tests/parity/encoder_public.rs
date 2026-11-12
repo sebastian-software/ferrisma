@@ -100,8 +100,7 @@ fn compare_counted(family: &str, requests: Vec<String>) -> usize {
             JxlEncoderAdmission::EnqueuedInput
             | JxlEncoderAdmission::StreamingFrame
             | JxlEncoderAdmission::FrameProfile
-            | JxlEncoderAdmission::PatchDictionary
-            | JxlEncoderAdmission::ArHeuristics => {
+            | JxlEncoderAdmission::PatchDictionary => {
                 let (queue, frame) = evidence[2..]
                     .split_once(';')
                     .unwrap_or((&evidence[2..], ""));
@@ -126,10 +125,7 @@ fn compare_counted(family: &str, requests: Vec<String>) -> usize {
 /// The original's branch evidence for a frame-encoder admission result,
 /// from the front queued frame's state that `epub-probe` reports after the
 /// original's own setting resolution (ParamsPostInit). The conditions are the
-/// source's: ComputeARHeuristics proceeds past its early return when the
-/// distance is at least kMinButteraugliForDynamicAR, the speed tier is
-/// kWombat or slower and LoopFilterFromParams gives EPF iterations;
-/// CanDoStreamingEncoding's checks reached by these histories.
+/// source's: CanDoStreamingEncoding's checks reached by these histories.
 fn frame_branch_evidence(checkpoint: JxlEncoderAdmission, frame: &str, request: &str) {
     if checkpoint == JxlEncoderAdmission::EnqueuedInput {
         return;
@@ -143,36 +139,15 @@ fn frame_branch_evidence(checkpoint: JxlEncoderAdmission, frame: &str, request: 
     let distance = f32::from_bits(f[1].parse().unwrap());
     let speed_tier: i32 = f[2].parse().unwrap();
     let buffering: i32 = f[3].parse().unwrap();
-    let epf: i32 = f[4].parse().unwrap();
-    let decoding_speed_tier: usize = f[5].parse().unwrap();
+    let _ = (distance, speed_tier);
     let modular = f[6] == "1";
     let (xsize, ysize): (usize, usize) = (f[7].parse().unwrap(), f[8].parse().unwrap());
-    match checkpoint {
-        JxlEncoderAdmission::ArHeuristics => {
-            let epf_iters = if epf != -1 {
-                epf as usize
-            } else if decoding_speed_tier < 3 {
-                [0.7f32, 1.5, 4.0]
-                    .iter()
-                    .skip(usize::from(decoding_speed_tier == 2))
-                    .filter(|&&t| distance >= t)
-                    .count()
-            } else {
-                0
-            };
-            assert!(
-                !modular && distance >= 0.5 && speed_tier <= 4 && epf_iters > 0,
-                "the original runs the AR heuristics: {frame} {request}"
-            );
-        }
-        JxlEncoderAdmission::StreamingFrame => {
-            let groups = xsize.div_ceil(256) * ysize.div_ceil(256);
-            assert!(
-                !modular && groups > 8 && buffering != 0,
-                "the original encodes a streaming frame: {frame} {request}"
-            );
-        }
-        _ => {}
+    if checkpoint == JxlEncoderAdmission::StreamingFrame {
+        let groups = xsize.div_ceil(256) * ysize.div_ceil(256);
+        assert!(
+            !modular && groups > 8 && buffering != 0,
+            "the original encodes a streaming frame: {frame} {request}"
+        );
     }
 }
 
@@ -835,9 +810,10 @@ const LOSSY_TYPES: [(u32, usize, &str); 4] = [
     (0, 4, ",bits:32,exp:8"),
 ];
 
-/// Distances of the admitted sub-profile: below 0.7, where the original
-/// skips the AR heuristics (epf_iters == 0 at kSquirrel).
-const LOSSY_DISTANCES: [f32; 7] = [0.5, 0.1, 0.69, 0.05, 0.3, 0.6, 0.001];
+/// Distances of the admitted profile (below kMinButteraugliForDots): below
+/// 0.7 the original skips the AR heuristics (epf_iters == 0 at kSquirrel);
+/// from 0.7 it runs them with the decoder in the loop.
+const LOSSY_DISTANCES: [f32; 11] = [0.5, 1.0, 0.1, 1.5, 2.9, 0.69, 0.7, 2.0, 0.05, 0.3, 0.001];
 
 /// One lossy history: basic info, optional color encoding and settings, one
 /// frame of generated content, CloseInput and a ProcessOutput schedule.
@@ -926,7 +902,7 @@ fn public_encoder_lossy_vardct_large_sizes_match_original() {
     for &(xsize, ysize) in &sizes {
         for gray in [false, true] {
             for content in 1..=4 {
-                let distance = [0.5, 0.1, 0.69, 0.3][variant % 4];
+                let distance = [1.0, 2.9, 0.5, 1.5][variant % 4];
                 requests.push(run(
                     0,
                     0,
@@ -964,19 +940,22 @@ fn public_encoder_lossy_vardct_d05_and_settings_match_original() {
     ];
     let mut requests = Vec::new();
     for (index, &(xsize, ysize)) in sizes.iter().enumerate() {
-        // d0.5 at both intensity targets (variant % 7 == 2 sets 100 nits).
-        for base in [0, 2] {
-            let variant = base + index * 7;
-            requests.push(run(
-                0,
-                0,
-                &lossy_history(xsize, ysize, false, 0, 4, 0.5, variant, "", ""),
-            ));
-            requests.push(run(
-                0,
-                0,
-                &lossy_history(xsize, ysize, true, 3, 4, 0.5, variant, "", ""),
-            ));
+        // d1.0 and d0.5 at both intensity targets (variant % 7 == 2 sets 100
+        // nits).
+        for distance in [1.0, 0.5] {
+            for base in [0, 2] {
+                let variant = base + index * 7;
+                requests.push(run(
+                    0,
+                    0,
+                    &lossy_history(xsize, ysize, false, 0, 4, distance, variant, "", ""),
+                ));
+                requests.push(run(
+                    0,
+                    0,
+                    &lossy_history(xsize, ysize, true, 3, 4, distance, variant, "", ""),
+                ));
+            }
         }
     }
     // Buffering values that keep the one-shot path, explicit effort 7 and
@@ -1050,8 +1029,8 @@ fn public_encoder_lossy_vardct_d05_and_settings_match_original() {
 #[test]
 fn public_encoder_lossy_vardct_admissions_and_rejections_match_original() {
     let mut requests = Vec::new();
-    // Distances from 0.7 run the AR heuristics (ArHeuristics), at the gate's
-    // d1.0, d1.5 and d2.9 and at the 0.7 boundary.
+    // Distances from 0.7 run the AR heuristics (exact since the AR
+    // translation), at the gate's d1.0, d1.5 and d2.9 and at 0.7.
     for (index, distance) in [0.7f32, 1.0, 1.5, 2.9].into_iter().enumerate() {
         for (xsize, ysize) in [(1, 1), (9, 17), (256, 256)] {
             requests.push(run(
@@ -1071,7 +1050,7 @@ fn public_encoder_lossy_vardct_admissions_and_rejections_match_original() {
             ));
         }
     }
-    // An explicit EPF setting runs the AR heuristics below 0.7.
+    // An explicit EPF setting is outside the profile (FrameProfile).
     requests.push(run(
         0,
         0,
@@ -1253,7 +1232,7 @@ fn public_encoder_lossy_vardct_streaming_matches_original() {
                     gray,
                     variant % 4,
                     1 + variant % 4,
-                    [0.5, 0.1, 0.69, 0.3][variant % 4],
+                    [1.0, 0.5, 2.9, 1.5][variant % 4],
                     variant,
                     "",
                     &settings,

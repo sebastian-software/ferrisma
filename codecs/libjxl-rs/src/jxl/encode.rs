@@ -190,8 +190,6 @@ pub enum JxlEncoderAdmission {
     FrameProfile,
     /// FindBestPatchDictionary when FindTextLikePatches finds patches.
     PatchDictionary,
-    /// ComputeARHeuristics past its early return (the decoder in the loop).
-    ArHeuristics,
 }
 
 #[cfg(feature = "cpp-oracle")]
@@ -2102,7 +2100,6 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
                 FrameAdmission::StreamingFrame => JxlEncoderAdmission::StreamingFrame,
                 FrameAdmission::FrameProfile => JxlEncoderAdmission::FrameProfile,
                 FrameAdmission::PatchDictionary => JxlEncoderAdmission::PatchDictionary,
-                FrameAdmission::ArHeuristics => JxlEncoderAdmission::ArHeuristics,
             }));
         }
         Err(EncodeFrameError::Status(_)) => {

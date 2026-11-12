@@ -59,12 +59,10 @@ use super::enc_frame::{
     FrameInfo, make_frame_header, num_groups_for_frame, params_post_init, set_progressive_mode,
 };
 use super::enc_group::encode_group_tokenized_coefficients;
+use super::enc_heuristics_ar::compute_ar_heuristics;
 use super::enc_heuristics_lossy::lossy_frame_heuristics;
 use super::enc_modular::ModularFrameEncoder;
-use super::enc_params::{
-    CompressParams, MIN_BUTTERAUGLI_DISTANCE, MIN_BUTTERAUGLI_FOR_DOTS,
-    MIN_BUTTERAUGLI_FOR_DYNAMIC_AR,
-};
+use super::enc_params::{CompressParams, MIN_BUTTERAUGLI_DISTANCE, MIN_BUTTERAUGLI_FOR_DOTS};
 use super::enc_quant_weights::{dequant_matrices_encode_dc, dequant_matrices_encode_default};
 use super::enc_toc::{write_toc_permutation, write_toc_sizes};
 use super::enc_xyb::{XybInputEncoding, to_xyb};
@@ -79,9 +77,7 @@ use super::frame_header::{
 };
 use super::image::{Image3, Image3F, Plane};
 use super::image_metadata::{CodecMetadata, ExtraChannel, ImageMetadata};
-use super::image_ops::{
-    copy_image_to, copy_rect3_to, fill_plane, pad_image_to_block_multiple_in_place,
-};
+use super::image_ops::{copy_image_to, copy_rect3_to, pad_image_to_block_multiple_in_place};
 use super::toc::{ac_group_index, num_toc_entries};
 
 /// kNumFixedHistograms from enc_ans.h.
@@ -103,8 +99,6 @@ pub enum FrameAdmission {
     /// FindBestPatchDictionary when FindTextLikePatches returns patches: the
     /// reference-frame encode of step 5.
     PatchDictionary,
-    /// ComputeARHeuristics past its early return: the decoder in the loop.
-    ArHeuristics,
 }
 
 /// A frame-encoder failure: the source's status, or an admission result.
@@ -440,30 +434,22 @@ fn downsample_color_channels(
 }
 
 /// The boundary to ComputeARHeuristics (enc_heuristics.cc), called once from
-/// ComputeVarDCTEncodingData with the source's arguments. It translates the
-/// source's early return (distance below kMinButteraugliForDynamicAR, speed
-/// tier faster than kWombat, or no EPF iterations): fill the EPF sharpness
-/// with 4. Past that return the original runs the decoder in the loop
-/// (ReconstructImage, DecodeGroupForRoundtrip), which is an admission result
-/// until its translation replaces the body of this function.
+/// ComputeVarDCTEncodingData with the source's arguments: the translation in
+/// `enc_heuristics_ar.rs` with the decoder in the loop. Its admission result
+/// for a frame with `dc_level != 0` (an LF frame) maps to `FrameProfile`.
 pub fn compute_ar_heuristics_entry(
     frame_header: &FrameHeader<'_>,
     enc_state: &mut PassesEncoderState<'_>,
     orig_opsin: &Image3F,
     rect: Rect,
 ) -> FrameResult {
-    let _ = (orig_opsin, rect);
-    let cparams = &enc_state.cparams;
-    if cparams.butteraugli_distance < MIN_BUTTERAUGLI_FOR_DYNAMIC_AR
-        || cparams.speed_tier > SpeedTier::Wombat
-        || frame_header.loop_filter.epf_iters == 0
-    {
-        let epf_sharpness = &mut enc_state.shared.epf_sharpness;
-        let full = Rect::new(0, 0, epf_sharpness.xsize(), epf_sharpness.ysize());
-        fill_plane(4u8, epf_sharpness, full);
-        return Ok(());
+    match compute_ar_heuristics(frame_header, enc_state, orig_opsin, rect) {
+        Ok(()) => Ok(()),
+        Err(StatusCode::Unsupported) if frame_header.dc_level != 0 => {
+            admission(FrameAdmission::FrameProfile)
+        }
+        Err(code) => Err(code.into()),
     }
-    admission(FrameAdmission::ArHeuristics)
 }
 
 /// ComputeVarDCTEncodingData.

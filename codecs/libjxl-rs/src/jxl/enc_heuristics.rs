@@ -1,9 +1,10 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
-//! FindBestBlockEntropyModel from lib/jxl/enc_heuristics.cc. The remaining
-//! heuristics of that file (LossyFrameHeuristics, ComputeARHeuristics with
-//! ReconstructImage, the downsampling helpers) are not translated yet.
+//! FindBestBlockEntropyModel from lib/jxl/enc_heuristics.cc. LossyFrameHeuristics
+//! and FindBestDequantMatrices are in `enc_heuristics_lossy.rs`;
+//! ComputeARHeuristics, ReconstructImage and ComputeBlockL2Distance in
+//! `enc_heuristics_ar.rs`. The downsampling helpers are not translated yet.
 //!
 //! The cluster merge's std::sort uses the translated libc++ introsort
 //! (`base/libcpp_sort.rs`): its comparator orders equal counts arbitrarily,
