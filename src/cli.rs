@@ -183,7 +183,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=libjxl-rs (default)|jxl-oxide] [--area] [--reference] [--avif-encoder=rav1e|libavif] [--avif-depth=8|10] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=libjxl-rs (default)|jxl-oxide] [--area] [--reference] [--avif-encoder=libavif (default with avif-own-write)|rav1e] [--avif-depth=8|10 (libavif, default 10)] [--quality=75 (selected encoder's own scale; rav1e 1-100, libavif 0-100, not comparable)] [--speed=6 (rav1e 1-10, libavif 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }
@@ -238,15 +238,23 @@ pub fn run(
     if output_extension != Some("avif") && (avif_encoder.is_some() || avif_depth.is_some()) {
         return Err("AVIF encoder options require .avif output".into());
     }
-    options.avif_encoder = match (avif_encoder, avif_depth) {
-        (None | Some("rav1e"), None) => AvifEncoder::Rav1e,
-        (Some("libavif"), depth) => AvifEncoder::Libavif {
-            depth: depth.unwrap_or(10),
-        },
-        (None | Some("rav1e"), Some(_)) => {
-            return Err("--avif-depth requires --avif-encoder=libavif".into());
+    // Without a selector the build's default encoder applies (libavif when
+    // `avif-own-write` is compiled in). `--quality`/`--speed` are passed to
+    // the selected encoder unchanged, on its own scale.
+    let selected = match avif_encoder {
+        None => AvifEncoder::default(),
+        Some("rav1e") => AvifEncoder::Rav1e,
+        Some("libavif") => AvifEncoder::Libavif { depth: 10 },
+        Some(_) => return Err("--avif-encoder must be rav1e or libavif".into()),
+    };
+    options.avif_encoder = match (selected, avif_depth) {
+        (encoder, None) => encoder,
+        (AvifEncoder::Libavif { .. }, Some(depth)) => AvifEncoder::Libavif { depth },
+        (_, Some(_)) => {
+            return Err(
+                "--avif-depth requires the libavif encoder (--avif-encoder=libavif)".into(),
+            );
         }
-        _ => return Err("--avif-encoder must be rav1e or libavif".into()),
     };
     let format = parse_format(input_path)?;
     let data = read_input(std::fs::File::open(input_path)?, options.max_input_bytes)?;

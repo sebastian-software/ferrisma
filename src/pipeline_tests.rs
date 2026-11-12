@@ -11,6 +11,8 @@ fn real_jpeg_reaches_valid_bytes_through_m1_graph() {
         output_height: 3,
         filter: ResizeFilter::Area,
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        // Rav1e's frame accounting is checked below; pin it explicitly.
+        avif_encoder: crate::pipeline::AvifEncoder::Rav1e,
         quality: 85.0,
         speed: 9,
         max_managed_bytes: 1024 * 1024,
@@ -521,6 +523,7 @@ fn a_backend_receives_the_request_and_every_output_row() {
             ImageFormat::Jpeg,
             TransformOptions {
                 speed: 9,
+                avif_encoder: crate::pipeline::AvifEncoder::Rav1e,
                 ..options
             }
         )
@@ -528,6 +531,27 @@ fn a_backend_receives_the_request_and_every_output_row() {
         .report
         .encoder_backend,
         "rav1e"
+    );
+    // Without a backend or selection, the build's default encoder runs:
+    // the workspace libavif writer whenever `avif-own-write` is compiled in.
+    let default_backend = transcode(
+        jpeg,
+        ImageFormat::Jpeg,
+        TransformOptions {
+            speed: 9,
+            ..options
+        },
+    )
+    .unwrap()
+    .report
+    .encoder_backend;
+    assert_eq!(
+        default_backend,
+        if cfg!(feature = "avif-own-write") {
+            "libavif-rs/aom"
+        } else {
+            "rav1e"
+        }
     );
     // The rows do not depend on the transform thread count.
     for threads in [1, 4] {

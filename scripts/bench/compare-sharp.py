@@ -113,7 +113,9 @@ def wait_for_idle():
 
 
 def ferrisma_cmd(src, out, w, h, flag, quality, threads, chroma="444", speed=6, crop=None):
-    cmd = [FERRISMA, src, out, w, h, flag, f"--quality={quality}",
+    # The recorded comparisons calibrate rav1e's quality scale; since the
+    # workspace libavif writer became the `cli` default, select rav1e explicitly.
+    cmd = [FERRISMA, src, out, w, h, flag, "--avif-encoder=rav1e", f"--quality={quality}",
            f"--encoder-threads={threads}", f"--transform-threads={threads}", f"--chroma={chroma}", f"--speed={speed}"]
     return [*cmd, f"--crop={crop}"] if crop else cmd
 
@@ -705,6 +707,9 @@ def encoder_cmd(image, corpus, binary, quality, speed, threads, output):
     cmd = [binary, corpus / file, output, w, h, flag, f"--quality={quality}",
            f"--speed={speed}", f"--encoder-threads={threads}",
            f"--transform-threads={threads}", "--chroma=444"]
+    if binary == FERRISMA:
+        # The "rav1e" lane; the libavif lane runs the separate adapter binary.
+        cmd.append("--avif-encoder=rav1e")
     if name in LARGE_CROPS:
         cmd.append(f"--crop={LARGE_CROPS[name]}")
     if name.startswith("beach") or name in ("mountain", "deer", "elcito"):

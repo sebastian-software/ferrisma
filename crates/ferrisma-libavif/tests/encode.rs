@@ -500,20 +500,27 @@ fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
     )
     .unwrap();
     assert_eq!(quality_zero.report.encoder_backend, "libavif-rs/aom");
-    let webp_conflict = transcode(
-        JPEG,
-        ImageFormat::Jpeg,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            quality: 75.0,
-            speed: 6,
-            ..opts
-        },
-    );
-    assert_eq!(
-        webp_conflict.unwrap_err().kind(),
-        ProcessingErrorKind::InvalidOptions
-    );
+    // `Libavif { depth: 10 }` is the default with `avif-own-write`, and the
+    // default selection never conflicts; any other explicit AVIF selection
+    // conflicts with non-AVIF output.
+    for avif_encoder in [AvifEncoder::Libavif { depth: 8 }, AvifEncoder::Rav1e] {
+        let webp_conflict = transcode(
+            JPEG,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                output_format: OutputFormat::WebP,
+                avif_encoder,
+                quality: 75.0,
+                speed: 6,
+                ..opts
+            },
+        );
+        assert_eq!(
+            webp_conflict.unwrap_err().kind(),
+            ProcessingErrorKind::InvalidOptions,
+            "{avif_encoder:?}"
+        );
+    }
     let limited = TransformOptions {
         max_managed_bytes: 100,
         ..opts
@@ -534,11 +541,29 @@ fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
             .kind(),
         ProcessingErrorKind::ResourceExhausted
     );
-    let conflict = transcode_with(JPEG, ImageFormat::Jpeg, opts, &LibavifBackend::default());
-    assert_eq!(
-        conflict.unwrap_err().kind(),
-        ProcessingErrorKind::InvalidOptions
-    );
+    // A nondefault built-in selection conflicts with an external backend;
+    // the default selection (here `Libavif { depth: 10 }`) leaves the
+    // external backend authoritative.
+    for avif_encoder in [AvifEncoder::Libavif { depth: 8 }, AvifEncoder::Rav1e] {
+        let conflict = transcode_with(
+            JPEG,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                avif_encoder,
+                ..opts
+            },
+            &LibavifBackend::default(),
+        );
+        assert_eq!(
+            conflict.unwrap_err().kind(),
+            ProcessingErrorKind::InvalidOptions,
+            "{avif_encoder:?}"
+        );
+    }
+    assert_eq!(AvifEncoder::default(), AvifEncoder::Libavif { depth: 10 });
+    let external = transcode_with(JPEG, ImageFormat::Jpeg, opts, &LibavifBackend { depth: 8 })
+        .expect("the default selection does not conflict with an external backend");
+    assert_eq!(external.report.encoder_backend, "libavif-rs/aom");
 }
 
 #[cfg(feature = "cli")]

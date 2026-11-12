@@ -95,14 +95,46 @@ fn api_rejects_invalid_quality_and_mismatched_input_format() {
     };
     assert!(transcode(jpeg, ImageFormat::Avif, options).is_err());
     assert!(transcode(&[0; 32], ImageFormat::Jpeg, options).is_err());
+    // Each encoder validates quality on its own scale: Rav1e 1-100.
+    let rav1e = TransformOptions {
+        avif_encoder: crate::pipeline::AvifEncoder::Rav1e,
+        ..options
+    };
     for quality in [f32::NAN, f32::INFINITY, 0.0, 101.0] {
         assert!(
             transcode(
                 jpeg,
                 ImageFormat::Jpeg,
-                TransformOptions { quality, ..options },
+                TransformOptions { quality, ..rav1e },
             )
             .is_err()
+        );
+    }
+    // libavif 0-100; quality 0 is valid there and not remapped.
+    #[cfg(feature = "avif-own-write")]
+    {
+        let libavif = TransformOptions {
+            avif_encoder: crate::pipeline::AvifEncoder::Libavif { depth: 10 },
+            ..options
+        };
+        for quality in [f32::NAN, f32::INFINITY, -1.0, 100.5] {
+            let result = transcode(
+                jpeg,
+                ImageFormat::Jpeg,
+                TransformOptions { quality, ..libavif },
+            );
+            assert!(result.is_err(), "libavif quality {quality}");
+        }
+        assert!(
+            transcode(
+                jpeg,
+                ImageFormat::Jpeg,
+                TransformOptions {
+                    quality: 0.0,
+                    ..libavif
+                },
+            )
+            .is_ok()
         );
     }
     assert!(

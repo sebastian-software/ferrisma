@@ -118,18 +118,44 @@ pub enum ImageFormat {
     Avif,
 }
 
-/// Explicit AVIF output encoder. Quality and speed use the selected encoder's scale.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+/// AVIF output encoder.
+///
+/// The default is the workspace libavif/AOM writer at 10 bits whenever
+/// `avif-own-write` is compiled in, and Rav1e otherwise (ADR-0037). Because
+/// Cargo features are additive, a dependency that enables `avif-own-write`
+/// changes this default for the whole build; select a variant explicitly when
+/// the encoder must not depend on feature unification.
+///
+/// [`TransformOptions::quality`] and [`TransformOptions::speed`] are passed to
+/// the selected encoder unchanged. The two quality scales are **not**
+/// comparable and are never remapped: at matched SSIMULACRA2, Rav1e quality
+/// 70/80/90 corresponded to roughly libavif quality 50/55/78 on the recorded
+/// photographs, so the same number gives libavif larger, higher-quality files.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum AvifEncoder {
-    /// The existing Rav1e encoder; the default.
-    #[default]
+    /// Rav1e; requires `avif-write`. Quality 1–100 through `ravif`'s
+    /// quantizer curve, speed 1–10; always 10-bit; alpha at a fixed quality 80.
+    /// Explicit opt-in when `avif-own-write` is also enabled.
     Rav1e,
-    /// Workspace libavif/AOM; requires `avif-own-write` and depth 8 or 10.
+    /// Workspace libavif/AOM; requires `avif-own-write`. Quality 0–100 (64
+    /// quantizer steps), speed 0–10 (`cpu-used`); depth 8 or 10; alpha uses the
+    /// color quality.
     Libavif {
         /// AV1 bit depth: 8 or 10.
         depth: u8,
     },
+}
+
+impl Default for AvifEncoder {
+    /// `Libavif { depth: 10 }` with `avif-own-write`, otherwise [`AvifEncoder::Rav1e`].
+    fn default() -> Self {
+        if cfg!(feature = "avif-own-write") {
+            Self::Libavif { depth: 10 }
+        } else {
+            Self::Rav1e
+        }
+    }
 }
 
 /// Source color handling policy; the default never guesses a color profile.
@@ -213,7 +239,7 @@ impl Default for JpegXlDecoder {
 pub struct TransformOptions {
     /// Encoded output format.
     pub output_format: OutputFormat,
-    /// AVIF encoder selection; defaults to Rav1e.
+    /// AVIF encoder selection; see [`AvifEncoder::default`].
     pub avif_encoder: AvifEncoder,
     /// Settings for the built-in WebP encoder.
     pub webp: WebpOptions,
@@ -242,11 +268,13 @@ pub struct TransformOptions {
     pub profile_policy: InputProfilePolicy,
     /// JPEG XL input backend; see [`JpegXlDecoder::default`].
     pub jxl_decoder: JpegXlDecoder,
-    /// AVIF quality on the selected encoder's scale; Rav1e accepts 1–100,
-    /// while libavif accepts 0–100.
+    /// AVIF quality on the selected encoder's own scale, passed unchanged:
+    /// Rav1e accepts 1–100, libavif accepts 0–100 and rounds to an integer
+    /// (64 quantizer steps). The scales are not comparable (see
+    /// [`AvifEncoder`]); the default 75 means a different quality per encoder.
     pub quality: f32,
-    /// AVIF speed on the selected encoder's scale; Rav1e accepts 1–10,
-    /// while libavif accepts 0–10.
+    /// AVIF speed on the selected encoder's own scale, passed unchanged:
+    /// Rav1e accepts 1–10, libavif accepts 0–10 (AOM `cpu-used`).
     pub speed: u8,
     /// AV1 encoder threads: 0 means available cores (capped at 256), and
     /// explicit values must be at most 256. 1 uses one tile. Rav1e derives
@@ -271,7 +299,7 @@ impl Default for TransformOptions {
     fn default() -> Self {
         Self {
             output_format: OutputFormat::Avif,
-            avif_encoder: AvifEncoder::Rav1e,
+            avif_encoder: AvifEncoder::default(),
             webp: WebpOptions::default(),
             jpeg_xl: JpegXlOptions::default(),
             output_width: 1,
@@ -952,7 +980,8 @@ fn run(
             "transform and encoder threads must be between 0 and 256",
         ));
     }
-    if options.avif_encoder != AvifEncoder::Rav1e
+    // Only an explicitly changed selection conflicts; the default never does.
+    if options.avif_encoder != AvifEncoder::default()
         && (backend.is_some() || options.output_format != OutputFormat::Avif)
     {
         return Err(ProcessingError::new(
@@ -961,9 +990,9 @@ fn run(
         ));
     }
     #[cfg(feature = "avif-own-write")]
-    let own = match options.avif_encoder {
-        AvifEncoder::Rav1e => None,
-        AvifEncoder::Libavif { depth } => Some(LibavifBackend { depth }),
+    let own = match (options.output_format, options.avif_encoder) {
+        (OutputFormat::Avif, AvifEncoder::Libavif { depth }) => Some(LibavifBackend { depth }),
+        _ => None,
     };
     #[cfg(feature = "avif-own-write")]
     let backend = backend.or(own.as_ref().map(|encoder| encoder as &dyn EncoderBackend));

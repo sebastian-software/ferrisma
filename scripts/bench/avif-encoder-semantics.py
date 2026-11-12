@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Compare the output semantics of the two AVIF encoders (issue #53).
 
-Encodes the same Ferrisma rows with `rav1e` (default) and the workspace
-libavif/AOM writer (`--avif-encoder=libavif`) and inspects every file with
+Encodes the same Ferrisma rows with `rav1e` (`--avif-encoder=rav1e`; the
+default until 2026-11-12) and the workspace libavif/AOM writer
+(`--avif-encoder=libavif`, now the `cli` default) and inspects every file with
 independent readers: FFmpeg/libdav1d (`ffprobe`), libheif (`heif-info`,
 `heif-dec`), and the standalone SSIMULACRA2 scorer, which decodes with
 `avif-decode`/rav1d. It records bit depth, chroma layout, CICP, alpha,
@@ -29,7 +30,7 @@ FLOWER = ROOT / 'codecs/libjxl-rs/tests/data/decode-test/flower.png.im_q85_420.j
 ALPHA = ROOT / 'codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_irot.avif'
 
 ENCODERS = [
-    ('rav1e', []),
+    ('rav1e', ['--avif-encoder=rav1e']),
     ('aom-8', ['--avif-encoder=libavif', '--avif-depth=8']),
     ('aom-10', ['--avif-encoder=libavif', '--avif-depth=10']),
 ]
