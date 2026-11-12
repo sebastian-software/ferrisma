@@ -85,7 +85,13 @@ fn run_case_with_backends(
     let options = TransformOptions {
         output_format,
         jxl_decoder,
-        avif_encoder,
+        // A nondefault AVIF selection conflicts with WebP output; WebP keeps
+        // the build's default selection, like the other shared AVIF options.
+        avif_encoder: if output_format == OutputFormat::Avif {
+            avif_encoder
+        } else {
+            AvifEncoder::default()
+        },
         output_width,
         output_height,
         profile_policy,
