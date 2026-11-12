@@ -1084,12 +1084,13 @@ fn run(
             .min(crate::thread_spawn::MAX_WORKERS),
         (WorkingPrecision::F32, threads) => threads,
     };
-    let source = open_source(
+    let mut source = open_source(
         encoded,
         format,
         options.max_input_pixels,
         options.jxl_decoder,
     )?;
+    source.set_decode_threads(transform_threads);
     // Present an upright image to the graph; crops are display coordinates.
     let source: Box<dyn DecodeSource + '_> = if source.orientation().is_identity() {
         source

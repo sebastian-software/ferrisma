@@ -64,6 +64,8 @@ pub struct SequenceInfo {
 /// The raw decoder pointer also keeps the type `!Send` and `!Sync`.
 pub struct Decoder<'a> {
     raw: NonNull<read::avifDecoder>,
+    /// Row jobs of the YUV-to-RGB conversion.
+    threads: u32,
     _input: PhantomData<&'a [u8]>,
 }
 
@@ -81,6 +83,7 @@ impl<'a> Decoder<'a> {
             NonNull::new(unsafe { read::avifDecoderCreate() }).ok_or(ReadError::Allocation)?;
         let owner = Self {
             raw,
+            threads: 1,
             _input: PhantomData,
         };
         // SAFETY: The decoder is live; `bytes` outlives owner, and libavif's
@@ -226,6 +229,19 @@ impl<'a> Decoder<'a> {
         Ok((owner, info))
     }
 
+    /// Let libavif's YUV-to-RGB conversion split the frame into up to
+    /// `threads` row jobs (libavif caps it at eight and keeps one job where a
+    /// job would depend on its neighbor's rows). Each job owns disjoint
+    /// output rows, so the samples do not depend on the count.
+    ///
+    /// The AV1 decode itself stays on one thread: with more than one,
+    /// libaom's row-based multithreading keeps coefficient buffers for every
+    /// superblock of the frame, about 1.4 GB of opaque memory for a 24 MP
+    /// image on the 2026-11-12 measurement, whatever the thread count.
+    pub fn set_threads(&mut self, threads: u32) {
+        self.threads = threads.clamp(1, 64);
+    }
+
     fn next_image(&mut self) -> Result<*mut read::avifImage, ReadError> {
         // SAFETY: The live decoder has a parsed image and a valid memory reader.
         let result = unsafe { read::avifDecoderNthImage(self.raw.as_ptr(), 0) };
@@ -270,6 +286,7 @@ impl<'a> Decoder<'a> {
             };
             rgb.alphaPremultiplied = 0;
             rgb.chromaUpsampling = api::AVIF_CHROMA_UPSAMPLING_NEAREST;
+            rgb.maxThreads = i32::try_from(self.threads).unwrap_or(1);
             rgb.pixels = pixels;
             rgb.rowBytes = row_bytes;
             let result = reformat::avifImageYUVToRGB(image.cast(), &raw mut rgb);

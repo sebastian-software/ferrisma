@@ -244,6 +244,10 @@ pub(crate) trait DecodeSource {
     fn defer_conversion(&mut self) -> Option<std::sync::Arc<dyn RowConversion>> {
         None
     }
+    /// Allow the codec up to `threads` worker threads for its own decode.
+    /// Called before `read_region`; the default ignores it. A source may use
+    /// threads only where its emitted samples do not depend on the count.
+    fn set_decode_threads(&mut self, _threads: usize) {}
     /// Borrows each output row only for the duration of the sink callback.
     fn read_region(
         &mut self,

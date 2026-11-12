@@ -205,6 +205,14 @@ impl DecodeSource for AvifSource<'_> {
         self.orientation
     }
 
+    fn set_decode_threads(&mut self, threads: usize) {
+        // Only libavif's nearest-neighbor YUV-to-RGB conversion uses them:
+        // its jobs own disjoint rows, so samples are thread-independent. The
+        // AV1 decode stays single-threaded (see `Decoder::set_threads`).
+        self.decoder
+            .set_threads(u32::try_from(threads).unwrap_or(u32::MAX));
+    }
+
     fn read_region(
         &mut self,
         region: Rect,
@@ -496,5 +504,77 @@ mod tests {
                 Ok(())
             })
             .unwrap();
+    }
+
+    /// Every sample of a full-frame read, as bit patterns.
+    fn decode_all(bytes: &[u8], threads: usize) -> Vec<u32> {
+        let mut source = AvifSource::new(bytes).unwrap();
+        source.set_decode_threads(threads);
+        let size = source.info().size;
+        let mut samples = Vec::new();
+        source
+            .read_region(
+                Rect::new(0, 0, size.width, size.height).unwrap(),
+                &MemoryBudget::new(256 << 20),
+                &mut |_, row| {
+                    match row {
+                        DecodedRow::U8(values) => {
+                            samples.extend(values.iter().map(|&v| u32::from(v)));
+                        }
+                        DecodedRow::F32(values) => {
+                            samples.extend(values.iter().map(|v| v.to_bits()));
+                        }
+                    }
+                    Ok(())
+                },
+            )
+            .unwrap();
+        samples
+    }
+
+    /// Decoding with several threads (libavif's row-split YUV-to-RGB jobs)
+    /// emits exactly the single-thread samples.
+    #[test]
+    fn decode_threads_do_not_change_samples() {
+        use crate::avif_sink::EncodeSettings;
+        use crate::pipeline::ChromaSubsampling;
+        let (width, height) = (96_u32, 64_u32);
+        let mut files = Vec::new();
+        for chroma in [ChromaSubsampling::Yuv444, ChromaSubsampling::Yuv420] {
+            let budget = MemoryBudget::new(32 << 20);
+            let settings = EncodeSettings {
+                quality: 70.0,
+                speed: 10,
+                threads: 1,
+                parallel_tiles: false,
+                chroma,
+            };
+            let mut sink =
+                AvifSink::new(Size::new(width, height).unwrap(), false, settings, &budget).unwrap();
+            for y in 0..height {
+                let row: Vec<u8> = (0..width)
+                    .flat_map(|x| {
+                        let v = u8::try_from((x * 7 + y * 3) % 256).unwrap();
+                        [v, v.wrapping_mul(3), 255 - v, 255]
+                    })
+                    .collect();
+                sink.write_row(y, &row).unwrap();
+            }
+            files.push(sink.finish(&budget).unwrap().bytes);
+        }
+        files.push(include_bytes!(
+            "../../codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile2.12bpc.yuv444.avif"
+        ).to_vec());
+        for (index, file) in files.iter().enumerate() {
+            let single = decode_all(file, 1);
+            assert_ne!(single.len(), 0);
+            for threads in [2, 3, 8] {
+                assert_eq!(
+                    single,
+                    decode_all(file, threads),
+                    "file {index}, {threads} threads"
+                );
+            }
+        }
     }
 }
