@@ -164,8 +164,9 @@ and the profile extends to every distance below 3.0. The history families now
 include d0.7, d1.0, d1.5, d2.0 and d2.9 (d1.0 at both intensity targets for
 every gate size): smoke 9, small 384, settings 84, large 32, streaming 16 and
 the admission family's 22 exact histories match byte for byte against the
-ordinary oracle; decode-back 32. The ASan/UBSan results for this final state
-are listed in the final report of the integration work, not here.
+ordinary oracle; decode-back 32. All 17 encoder_public tests, with these
+families, also pass against the ASan/UBSan oracle graph, and the cherry-picked
+`ear-chain` and `ecf-chain` tests pass against the rebuilt ordinary oracle.
 
 Not verified: native Linux x86-64, Debug and MSRV test runs, the upstream
 differential cases of step 1 and checkpoint fixtures of LossyFrameHeuristics
