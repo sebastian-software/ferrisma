@@ -24,6 +24,16 @@ else, including every private module, is outside the contract.
 output), not a particular backend: ADR-0025 may switch the backend behind them
 in a minor release when its evidence gates are met.
 
+Since 2026-11-12 (pending owner confirmation), the default backend follows the
+compiled features: the workspace libjxl-rs reader whenever `jpeg-xl-own-read`
+is enabled, and the workspace libavif/AOM writer (10-bit) whenever
+`avif-own-write` is enabled. `cli` enables both, so it runs these experimental
+backends by default; `--jxl-decoder=jxl-oxide` and `--avif-encoder=rav1e`
+select the others. AVIF `quality` and `speed` are interpreted on the selected
+encoder's own scale and are not remapped. Select a backend explicitly when the
+result must not depend on Cargo feature unification. See the
+[supported matrix](supported-matrix.md).
+
 ## What a minor release may change
 
 - Add enum variants. Every public enum that can grow is

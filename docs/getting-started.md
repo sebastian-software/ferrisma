@@ -76,5 +76,9 @@ full-frame work. The AVIF and WebP encoders materialize output frames. See the
 [color contract](design/color-management-contract.md)
 and [architecture](architecture.md).
 
+The [supported matrix](supported-matrix.md) lists what each format accepts and
+rejects, the default and explicit backends, feature flags, toolchains and
+examples of rejected inputs with the error to expect.
+
 For codec source setup and the contributor checks, see [codec development](codecs.md)
 and [validation](validation.md).

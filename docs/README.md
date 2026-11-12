@@ -10,7 +10,7 @@ experiments.
 
 | I want to… | Start here |
 | --- | --- |
-| Understand what is included and what works today | [Current status](status.md): components, actual engine backends, and remaining gates |
+| Understand what is included and what works today | [Current status](status.md): components, actual engine backends, and remaining gates; [supported matrix](supported-matrix.md): accepted and rejected inputs, outputs, backends, features, and toolchains |
 | Try the CLI or contribute a change | [Getting started](getting-started.md), [contributor guide](../CONTRIBUTING.md), then [codec development](codecs.md) for workspace setup and scoped checks |
 | Understand the pipeline and its constraints | [Architecture](architecture.md) and [color contract](design/color-management-contract.md) |
 | See what must happen before a release | [M1 acceptance plan](milestones/M1-complete-image-pipeline.md) and [evidence/gate register](milestones/M1-evidence-and-gates.md) |

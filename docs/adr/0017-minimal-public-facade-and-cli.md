@@ -58,7 +58,7 @@ Currently, `pipeline` and `cli` compile without `avif-write`; a built-in
 - `hardening_tests` cover compressed-input and pixel limits, invalid options and malformed inputs through `transcode`, and assert the matching `ProcessingErrorKind`.
 - CI compiles each codec feature alone and the `cli` feature.
 
-Before **Accepted**: documented supported-input matrix, and at least one consumer outside the test suite. The consumer now exists: `examples/consumer.rs` uses only the public facade, and its `--self-check` asserts every documented failure category and resource limit in CI (2026-11-12).
+Before **Accepted**: documented supported-input matrix ([supported matrix](../supported-matrix.md), 2026-11-12), and at least one consumer outside the test suite. The consumer now exists: `examples/consumer.rs` uses only the public facade, and its `--self-check` asserts every documented failure category and resource limit in CI (2026-11-12).
 
 ## Review when
 
@@ -79,3 +79,4 @@ A first publication is decided; a consumer needs multiple outputs, streaming inp
 - 2026-11-11 — ADR-0030 makes output format explicit (`Output::format` and `Output::bytes`), allows backend-only builds without `avif-write`, and selects still WebP by the output extension in the CLI. The original AVIF example and options remain valid.
 - 2026-11-11 — ADR-0034 adds explicit aspect-aware resize and bounded JPEG/WebP header inspection while preserving exact-size calls; output dimensions are reported.
 - 2026-11-12 — [ADR-0040](0040-stable-public-contract-and-compatibility-policy.md) (Proposed) inventories the surface, proposes stable and experimental tiers, and records recommendations. Applied with it: rustdoc for every public item, `#![warn(missing_docs)]`, and `#[non_exhaustive]` on the growable facade enums and on `Output`, `ProcessingReport`, `StageTimings`, and `ImageMetadata`. Decision 6 stays in force until ADR-0040 is accepted.
+- 2026-11-12 — The [supported matrix](../supported-matrix.md) documents the supported and rejected inputs, outputs, backends, features, toolchains and targets, each with its test, which covers the "documented supported-input matrix" condition above. The facade's default JPEG XL reader and AVIF encoder now follow the compiled features (ADR-0032, ADR-0037), pending owner confirmation. The status stays Experimental.

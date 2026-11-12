@@ -101,7 +101,7 @@ separate workspace members; they are grouped here by their shared port.
 | [`ferrisma-jxl-decoder`](../crates/ferrisma-jxl-decoder) | Safe, independent wrapper for the default local JPEG XL decoder (`jpeg-xl-own-read`) | Full-frame fallback for every crop; measured photo regression against `jxl-oxide` accepted pending owner confirmation; x86-64 conformance and timing open |
 | [`libjpeg-turbo-rs`](../codecs/libjpeg-turbo-rs/README.md) | 8-bit decoder, scaled decode, crop/skip, metadata, safe scanlines, and SIMD; selected for engine JPEG input | Scaled-IDCT quality policy and deeper cross-platform adoption evidence remain open; encoding, lossless JPEG, and 12/16-bit samples are outside the port's scope |
 | [`libwebp-rs`](../codecs/libwebp-rs/README.md) | Safe decode/encode APIs, incremental decode, containers/animation, and SharpYUV | Still-image input and output adopted through `webp-read` and `webp-write`; NEON rescaler export kernels retain the portable Rust translation |
-| [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder, C-ABI surface, and reference comparison suites | Opt-in engine integration exists; public APIs are provisional, encoder incomplete, and deeper acceptance remains open |
+| [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder, C-ABI surface, and reference comparison suites | Default engine JPEG XL input since 2026-11-12 (pending owner confirmation) and the lossless `jpeg-xl-write` profile; public APIs are provisional, encoder incomplete, and deeper acceptance remains open |
 | [`libavif-rs`](../codecs/libavif-rs/README.md), `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | AVIF container and codec ports, using generated and owned Rust with C-ABI boundaries | No stable safe Rust API claim; validated native hosts are macOS ARM64 and GNU Linux x86-64; package-specific deep gates remain |
 | [`ferrisma-xtask`](../tools/xtask) | Standard-library Rust control plane, invoked as `cargo xtask`, for affected components and validation stages | Existing Python oracle harnesses migrate incrementally without losing evidence |
 
@@ -138,7 +138,8 @@ shows current run results. A green PR check is not full codec certification.
 - Confirm or revert the 2026-11-12 default switches to the workspace JPEG XL
   reader and AVIF writer (ADR-0032, ADR-0037), which follow the owner's v1.0
   direction but still lack x86-64 JPEG XL conformance, quiet-host timing and
-  peak-RSS evidence.
+  peak-RSS evidence. The [supported matrix](supported-matrix.md) lists the
+  current defaults, their limits and the 2026-11-12 macOS ARM64 verification.
 - Validate the extracted shared SharpYUV core with native Linux and macOS
   API, ABI, allocation, callback, and full original-consumer oracles. Preserve
   the independent C reference and review the measured AVIF kernel cost in

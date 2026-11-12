@@ -48,7 +48,9 @@ On one 2268×1512 photo the AOM input path took 8–14% longer and used about
 [scoped measurement](docs/benchmarks/M2-avif-input.md).
 
 **[Current status and remaining gates](docs/status.md)** gives the component
-and integration overview. **[Documentation guide](docs/README.md)** maps the
+and integration overview. **[Supported matrix](docs/supported-matrix.md)** lists
+every accepted and rejected input, output option, backend, Cargo feature and
+toolchain, with the test behind each claim. **[Documentation guide](docs/README.md)** maps the
 architecture, development instructions, decisions, and recorded experiments.
 
 ## Try the experimental CLI
