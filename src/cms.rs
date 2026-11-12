@@ -31,6 +31,108 @@ pub(crate) struct IccSrgbSource<'a> {
 pub(crate) struct IccConversion {
     transformer: Arc<TransformF32Executor>,
     input: SampleType,
+    /// Per-channel contributions for 8-bit matrix-shaper input; `None`
+    /// keeps every row on the moxcms transform.
+    table: Option<ChannelTable>,
+}
+
+/// Largest absolute difference, in linear light, that the per-channel table
+/// may have from moxcms on any probed 8-bit triplet. Measured worst case over
+/// all 2^24 triplets: 1.2e-7 (ADR-0016 and ADR-0023 amendments, 2026-11-12;
+/// pending owner confirmation).
+const CHANNEL_TABLE_BOUND: f32 = 2.5e-7;
+
+/// 8-bit matrix-shaper conversion as a sum of per-channel contributions
+/// (issue #219, pending owner confirmation in ADR-0016 and ADR-0023).
+///
+/// A matrix-shaper profile into linear sRGB computes `M · [trc_r(r),
+/// trc_g(g), trc_b(b)]`: each output is a weighted sum of three independent
+/// per-channel curves. With 8-bit input each channel has 256 values, so the
+/// transform is the sum of three entries of a 768-entry table. The entries
+/// are moxcms's own outputs for single-channel input (`[v, 0, 0]`,
+/// `[0, v, 0]`, `[0, 0, v]`), so the table carries moxcms's curves and
+/// matrix; only the order of the final f32 additions differs. That holds
+/// only if moxcms maps black to zero and adds nothing non-separable (no
+/// clamp, no gamut mapping, no black-point term), so the table is built
+/// only for the extended-range matrix-shaper path, and every table is
+/// checked against moxcms on a dense probe set when it is built; any
+/// difference above `CHANNEL_TABLE_BOUND` keeps the moxcms path.
+struct ChannelTable(Box<[[f32; 3]; 768]>);
+
+impl ChannelTable {
+    /// The probe set of `ChannelTable::build`: every single-channel and
+    /// gray value, and a 17³ grid (every 16th code and 255).
+    fn probes() -> Vec<[u8; 3]> {
+        let mut probes = Vec::with_capacity(4 * 256 + 17 * 17 * 17);
+        for value in 0..=255_u8 {
+            probes.extend([[value, 0, 0], [0, value, 0], [0, 0, value], [value; 3]]);
+        }
+        let grid: Vec<u8> = (0..=16_u16)
+            .map(|step| u8::try_from((step * 16).min(255)).unwrap_or(u8::MAX))
+            .collect();
+        for &r in &grid {
+            for &g in &grid {
+                for &b in &grid {
+                    probes.push([r, g, b]);
+                }
+            }
+        }
+        probes
+    }
+
+    fn build(transformer: &TransformF32Executor) -> Option<Self> {
+        let mut input = Vec::with_capacity(768 * 3);
+        for channel in 0..3 {
+            for value in 0..=255_u8 {
+                let mut pixel = [0.0_f32; 3];
+                pixel[channel] = f32::from(value) / 255.0;
+                input.extend_from_slice(&pixel);
+            }
+        }
+        let mut output = vec![0.0_f32; input.len()];
+        transformer.transform(&input, &mut output).ok()?;
+        let table = Self(
+            output
+                .as_chunks::<3>()
+                .0
+                .to_vec()
+                .into_boxed_slice()
+                .try_into()
+                .ok()?,
+        );
+        // Black must contribute nothing, or the sum would count it thrice.
+        if [0, 256, 512]
+            .iter()
+            .any(|&black| table.0.get(black) != Some(&[0.0; 3]))
+        {
+            return None;
+        }
+        let probes = Self::probes();
+        let input: Vec<f32> = probes
+            .iter()
+            .flatten()
+            .map(|&value| f32::from(value) / 255.0)
+            .collect();
+        let mut exact = vec![0.0_f32; input.len()];
+        transformer.transform(&input, &mut exact).ok()?;
+        for (pixel, want) in probes.iter().zip(exact.as_chunks::<3>().0) {
+            let got = table.apply(*pixel);
+            if got.iter().zip(want).any(|(got, want)| {
+                let d = (got - want).abs();
+                d.is_nan() || d > CHANNEL_TABLE_BOUND
+            }) {
+                return None;
+            }
+        }
+        Some(table)
+    }
+
+    fn apply(&self, [r, g, b]: [u8; 3]) -> [f32; 3] {
+        let r = self.0[usize::from(r)];
+        let g = self.0[256 + usize::from(g)];
+        let b = self.0[512 + usize::from(b)];
+        [r[0] + g[0] + b[0], r[1] + g[1] + b[1], r[2] + g[2] + b[2]]
+    }
 }
 
 impl RowConversion for IccConversion {
@@ -46,6 +148,17 @@ impl RowConversion for IccConversion {
     ) -> Result<(), Error> {
         if row.len() != out.len() || row.len() != scratch.len() || row.sample_type() != self.input {
             return Err(Error::IncompleteDecoderOutput);
+        }
+        if let (Some(table), DecodedRow::U8(values)) = (&self.table, row) {
+            for (dst, src) in out
+                .as_chunks_mut::<3>()
+                .0
+                .iter_mut()
+                .zip(values.as_chunks::<3>().0)
+            {
+                *dst = table.apply(*src);
+            }
+            return Ok(());
         }
         let input: &[f32] = match row {
             DecodedRow::U8(values) => {
@@ -129,9 +242,15 @@ impl<'a> IccSrgbSource<'a> {
                 return Err(Error::CicpBesideIcc(HDR));
             }
         }
+        let table = if info.sample == SampleType::U8 && extended_matrix_shaper {
+            ChannelTable::build(transformer.as_ref())
+        } else {
+            None
+        };
         let conversion = Arc::new(IccConversion {
             transformer,
             input: info.sample,
+            table,
         });
         let mut output = info.clone();
         output.sample = SampleType::F32;
@@ -261,6 +380,7 @@ impl DecodeSource for IccSrgbSource<'_> {
 mod tests {
     use super::IccSrgbSource;
     use crate::color::{AlphaMode, ColorEncoding};
+    use crate::decoder::RowConversion;
     use crate::decoder::{
         ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo,
         SampleType,
@@ -830,5 +950,169 @@ mod tests {
             assert!(actual.iter().any(|&v| v < -0.01));
             assert!(actual.iter().any(|&v| v > 1.01));
         }
+    }
+
+    /// The five matrix-shaper profiles of the channel-table evidence (issue
+    /// #219): two sRGB serializations, Display P3 with the sRGB curve,
+    /// Adobe RGB and Display P3 with gamma 2.2.
+    fn table_profiles() -> [(&'static str, Vec<u8>); 5] {
+        [
+            (
+                "moxcms sRGB",
+                moxcms::ColorProfile::new_srgb().encode().unwrap(),
+            ),
+            (
+                "paris sRGB",
+                include_bytes!("../tests/fixtures/icc/paris-srgb.icc").to_vec(),
+            ),
+            (
+                "Display P3 v4",
+                include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc").to_vec(),
+            ),
+            (
+                "Adobe RGB",
+                include_bytes!("../tests/fixtures/icc/adobe-rgb-1998.icc").to_vec(),
+            ),
+            (
+                "P3 gamma 2.2",
+                include_bytes!("../tests/fixtures/icc/display-p3-gamma22.icc").to_vec(),
+            ),
+        ]
+    }
+
+    fn table_conversion(icc: Vec<u8>, sample: SampleType) -> std::sync::Arc<super::IccConversion> {
+        let mut grid = p3_grid(vec![0; 3]);
+        grid.info.rendered_icc = Some(icc);
+        grid.info.sample = sample;
+        IccSrgbSource::new(Box::new(grid)).unwrap().conversion
+    }
+
+    /// Largest |table - moxcms| over `triplets`, through `convert` (the
+    /// production row path) against moxcms's own transform.
+    fn table_deviation(conversion: &super::IccConversion, triplets: &[[u8; 3]]) -> f32 {
+        let row: Vec<u8> = triplets.iter().flatten().copied().collect();
+        let mut scratch = vec![0.0_f32; row.len()];
+        let mut actual = vec![0.0_f32; row.len()];
+        conversion
+            .convert(DecodedRow::U8(&row), &mut scratch, &mut actual)
+            .unwrap();
+        let input: Vec<f32> = row.iter().map(|&v| f32::from(v) / 255.0).collect();
+        let mut exact = vec![0.0_f32; row.len()];
+        conversion
+            .transformer
+            .transform(&input, &mut exact)
+            .unwrap();
+        actual
+            .iter()
+            .zip(&exact)
+            .map(|(a, e)| (a - e).abs())
+            .fold(0.0, f32::max)
+    }
+
+    /// Issue #219: for 8-bit matrix-shaper input the per-channel table
+    /// stays within `CHANNEL_TABLE_BOUND` of moxcms on a dense deterministic
+    /// sample (every R value against 64 G and 17 B values, plus 65,536
+    /// pseudo-random triplets), for each of the five profiles.
+    ///
+    /// Why a sample bounds the whole cube: each table entry is moxcms's own
+    /// output for one channel, `M[:, c] · trc_c(v)`, and is monotone in `v`
+    /// per output component (checked here: the curves are monotone and the
+    /// matrix is fixed). The table's value at any triplet is therefore the
+    /// exact separable sum; its difference from moxcms is only the f32
+    /// rounding of moxcms's own matrix product versus three additions,
+    /// a few units in the last place of the output, not a function of
+    /// position that could peak between probes. The exhaustive 2^24 check
+    /// is `channel_table_exhaustive_deviation` (ignored; run in release).
+    #[test]
+    fn channel_table_stays_within_the_bound_of_moxcms() {
+        let mut triplets = Vec::new();
+        for r in 0..=255_u8 {
+            for g in (0..=255_u8).step_by(4).chain([255]) {
+                for b in (0..=255_u8).step_by(16).chain([255]) {
+                    triplets.push([r, g, b]);
+                }
+            }
+        }
+        let mut state = 0x9e37_79b9_u32;
+        for _ in 0..65_536 {
+            state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            let [r, g, b, _] = state.to_le_bytes();
+            triplets.push([r, g, b]);
+        }
+        for (name, icc) in table_profiles() {
+            let conversion = table_conversion(icc, SampleType::U8);
+            let table = conversion.table.as_ref().expect(name);
+            for channel in 0..3 {
+                for component in [0_usize, 1, 2] {
+                    let column: Vec<f32> = (0..256)
+                        .map(|v| table.0[channel * 256 + v][component])
+                        .collect();
+                    let rising = column.windows(2).all(|w| w[0] <= w[1]);
+                    let falling = column.windows(2).all(|w| w[0] >= w[1]);
+                    assert!(
+                        rising || falling,
+                        "{name} channel {channel} component {component}"
+                    );
+                }
+            }
+            let worst = table_deviation(&conversion, &triplets);
+            eprintln!(
+                "{name}: max |table - moxcms| over {} triplets = {worst:e}",
+                triplets.len()
+            );
+            assert!(worst <= super::CHANNEL_TABLE_BOUND, "{name}: {worst:e}");
+        }
+    }
+
+    /// The exhaustive form of the bound: every one of the 2^24 8-bit
+    /// triplets for each of the five profiles. Slow in debug builds; run
+    /// with `cargo test --release -p ferrisma --lib channel_table_exhaustive
+    /// -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "exhaustive 2^24 check per profile; run in release"]
+    fn channel_table_exhaustive_deviation() {
+        for (name, icc) in table_profiles() {
+            let conversion = table_conversion(icc, SampleType::U8);
+            assert!(conversion.table.is_some(), "{name}");
+            let mut worst = 0.0_f32;
+            let mut plane = Vec::with_capacity(65_536);
+            for r in 0..=255_u8 {
+                plane.clear();
+                for g in 0..=255_u8 {
+                    for b in 0..=255_u8 {
+                        plane.push([r, g, b]);
+                    }
+                }
+                worst = worst.max(table_deviation(&conversion, &plane));
+            }
+            eprintln!("{name}: max |table - moxcms| over all 2^24 triplets = {worst:e}");
+            assert!(worst <= super::CHANNEL_TABLE_BOUND, "{name}: {worst:e}");
+        }
+    }
+
+    /// Only 8-bit input of the extended matrix-shaper path gets a table
+    /// (LUT-based profiles never enter that path; see `IccSrgbSource::new`):
+    /// float input stays on moxcms, and the table path reproduces its own
+    /// `apply` exactly through the row interface.
+    #[test]
+    fn channel_table_is_limited_to_eight_bit_matrix_shaper_input() {
+        for (name, icc) in table_profiles() {
+            assert!(
+                table_conversion(icc, SampleType::F32).table.is_none(),
+                "{name}"
+            );
+        }
+        let p3 = table_conversion(
+            moxcms::ColorProfile::new_display_p3().encode().unwrap(),
+            SampleType::U8,
+        );
+        let table = p3.table.as_ref().unwrap();
+        let row = [0_u8, 10, 11, 128, 200, 255];
+        let mut scratch = [0.0_f32; 6];
+        let mut out = [0.0_f32; 6];
+        p3.convert(DecodedRow::U8(&row), &mut scratch, &mut out)
+            .unwrap();
+        assert_eq!(out[..3], table.apply([0, 10, 11]));
+        assert_eq!(out[3..], table.apply([128, 200, 255]));
     }
 }

@@ -1,0 +1,530 @@
+{
+"sRGB ICC to WebP 1600, t1": {
+"before": [
+{
+"decode_us": "82921",
+"transform_us": "610913",
+"encode_us": "231824",
+"total_us": "931456",
+"peak_managed_bytes": "30857272",
+"sha256": "452fcb0fbe057e7b1ef82512d189521c4c0bceeb7c47c096042e091da3430b77",
+"load": 14.92
+},
+{
+"decode_us": "90479",
+"transform_us": "694179",
+"encode_us": "237128",
+"total_us": "1025255",
+"peak_managed_bytes": "30857272",
+"sha256": "452fcb0fbe057e7b1ef82512d189521c4c0bceeb7c47c096042e091da3430b77",
+"load": 14.1
+},
+{
+"decode_us": "84678",
+"transform_us": "629512",
+"encode_us": "230554",
+"total_us": "948080",
+"peak_managed_bytes": "30857272",
+"sha256": "452fcb0fbe057e7b1ef82512d189521c4c0bceeb7c47c096042e091da3430b77",
+"load": 14.1
+},
+{
+"decode_us": "81138",
+"transform_us": "604974",
+"encode_us": "227188",
+"total_us": "916522",
+"peak_managed_bytes": "30857272",
+"sha256": "452fcb0fbe057e7b1ef82512d189521c4c0bceeb7c47c096042e091da3430b77",
+"load": 14.6
+},
+{
+"decode_us": "81673",
+"transform_us": "613086",
+"encode_us": "228410",
+"total_us": "926411",
+"peak_managed_bytes": "30857272",
+"sha256": "452fcb0fbe057e7b1ef82512d189521c4c0bceeb7c47c096042e091da3430b77",
+"load": 14.31
+},
+{
+"decode_us": "82658",
+"transform_us": "610806",
+"encode_us": "230847",
+"total_us": "927522",
+"peak_managed_bytes": "30857272",
+"sha256": "452fcb0fbe057e7b1ef82512d189521c4c0bceeb7c47c096042e091da3430b77",
+"load": 13.65
+},
+{
+"decode_us": "82495",
+"transform_us": "609732",
+"encode_us": "234839",
+"total_us": "930510",
+"peak_managed_bytes": "30857272",
+"sha256": "452fcb0fbe057e7b1ef82512d189521c4c0bceeb7c47c096042e091da3430b77",
+"load": 13.65
+}
+],
+"after": [
+{
+"decode_us": "81383",
+"transform_us": "135792",
+"encode_us": "230185",
+"total_us": "451383",
+"peak_managed_bytes": "30857272",
+"sha256": "b69ad8e8088e0034d6345716b3667e4f0f8393b96edc20ac9357fe81ecad3b58",
+"load": 14.92
+},
+{
+"decode_us": "82480",
+"transform_us": "137740",
+"encode_us": "235787",
+"total_us": "459566",
+"peak_managed_bytes": "30857272",
+"sha256": "b69ad8e8088e0034d6345716b3667e4f0f8393b96edc20ac9357fe81ecad3b58",
+"load": 14.1
+},
+{
+"decode_us": "81242",
+"transform_us": "135720",
+"encode_us": "231623",
+"total_us": "452030",
+"peak_managed_bytes": "30857272",
+"sha256": "b69ad8e8088e0034d6345716b3667e4f0f8393b96edc20ac9357fe81ecad3b58",
+"load": 14.65
+},
+{
+"decode_us": "81135",
+"transform_us": "135634",
+"encode_us": "230115",
+"total_us": "450372",
+"peak_managed_bytes": "30857272",
+"sha256": "b69ad8e8088e0034d6345716b3667e4f0f8393b96edc20ac9357fe81ecad3b58",
+"load": 14.6
+},
+{
+"decode_us": "80782",
+"transform_us": "135158",
+"encode_us": "228546",
+"total_us": "448000",
+"peak_managed_bytes": "30857272",
+"sha256": "b69ad8e8088e0034d6345716b3667e4f0f8393b96edc20ac9357fe81ecad3b58",
+"load": 14.31
+},
+{
+"decode_us": "81486",
+"transform_us": "135950",
+"encode_us": "231357",
+"total_us": "452402",
+"peak_managed_bytes": "30857272",
+"sha256": "b69ad8e8088e0034d6345716b3667e4f0f8393b96edc20ac9357fe81ecad3b58",
+"load": 13.96
+},
+{
+"decode_us": "80846",
+"transform_us": "135723",
+"encode_us": "230683",
+"total_us": "450597",
+"peak_managed_bytes": "30857272",
+"sha256": "b69ad8e8088e0034d6345716b3667e4f0f8393b96edc20ac9357fe81ecad3b58",
+"load": 13.65
+}
+]
+},
+"P3 ICC to WebP 1600, t1": {
+"before": [
+{
+"decode_us": "81889",
+"transform_us": "603610",
+"encode_us": "235644",
+"total_us": "924516",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.28
+},
+{
+"decode_us": "82389",
+"transform_us": "611416",
+"encode_us": "239457",
+"total_us": "936621",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.1
+},
+{
+"decode_us": "82778",
+"transform_us": "612281",
+"encode_us": "244647",
+"total_us": "943231",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.65
+},
+{
+"decode_us": "81962",
+"transform_us": "611889",
+"encode_us": "234278",
+"total_us": "931332",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.6
+},
+{
+"decode_us": "81825",
+"transform_us": "608811",
+"encode_us": "235521",
+"total_us": "929485",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.31
+},
+{
+"decode_us": "81817",
+"transform_us": "608815",
+"encode_us": "235479",
+"total_us": "929282",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 13.96
+},
+{
+"decode_us": "82468",
+"transform_us": "613808",
+"encode_us": "235255",
+"total_us": "934868",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 13.65
+}
+],
+"after": [
+{
+"decode_us": "80588",
+"transform_us": "134753",
+"encode_us": "238651",
+"total_us": "457390",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.28
+},
+{
+"decode_us": "81036",
+"transform_us": "137457",
+"encode_us": "236191",
+"total_us": "458186",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.1
+},
+{
+"decode_us": "80543",
+"transform_us": "135682",
+"encode_us": "237552",
+"total_us": "457259",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.65
+},
+{
+"decode_us": "80995",
+"transform_us": "136049",
+"encode_us": "238037",
+"total_us": "458326",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.6
+},
+{
+"decode_us": "80929",
+"transform_us": "136325",
+"encode_us": "234724",
+"total_us": "455507",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.31
+},
+{
+"decode_us": "81101",
+"transform_us": "136474",
+"encode_us": "234971",
+"total_us": "455954",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 13.96
+},
+{
+"decode_us": "80667",
+"transform_us": "135348",
+"encode_us": "237281",
+"total_us": "456804",
+"peak_managed_bytes": "30857272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 13.65
+}
+]
+},
+"P3 ICC to WebP 1600, all cores": {
+"before": [
+{
+"decode_us": "81276",
+"transform_us": "12244",
+"encode_us": "232788",
+"total_us": "332864",
+"peak_managed_bytes": "36858072",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.28
+},
+{
+"decode_us": "83557",
+"transform_us": "21588",
+"encode_us": "237066",
+"total_us": "346323",
+"peak_managed_bytes": "47180872",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.1
+},
+{
+"decode_us": "80577",
+"transform_us": "12095",
+"encode_us": "232252",
+"total_us": "329342",
+"peak_managed_bytes": "38786872",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.65
+},
+{
+"decode_us": "101179",
+"transform_us": "35520",
+"encode_us": "237781",
+"total_us": "378512",
+"peak_managed_bytes": "42345272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.6
+},
+{
+"decode_us": "81837",
+"transform_us": "11662",
+"encode_us": "233589",
+"total_us": "330875",
+"peak_managed_bytes": "36837272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.31
+},
+{
+"decode_us": "82304",
+"transform_us": "16807",
+"encode_us": "235607",
+"total_us": "338778",
+"peak_managed_bytes": "37482472",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 13.96
+},
+{
+"decode_us": "92937",
+"transform_us": "57871",
+"encode_us": "238230",
+"total_us": "393141",
+"peak_managed_bytes": "39432472",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 13.65
+}
+],
+"after": [
+{
+"decode_us": "80485",
+"transform_us": "10334",
+"encode_us": "236198",
+"total_us": "331231",
+"peak_managed_bytes": "36601272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.28
+},
+{
+"decode_us": "81038",
+"transform_us": "11030",
+"encode_us": "234382",
+"total_us": "330433",
+"peak_managed_bytes": "36596072",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.1
+},
+{
+"decode_us": "86301",
+"transform_us": "17856",
+"encode_us": "234176",
+"total_us": "342470",
+"peak_managed_bytes": "37324872",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.65
+},
+{
+"decode_us": "81167",
+"transform_us": "10994",
+"encode_us": "234559",
+"total_us": "330714",
+"peak_managed_bytes": "36778872",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.6
+},
+{
+"decode_us": "83331",
+"transform_us": "11420",
+"encode_us": "234146",
+"total_us": "333045",
+"peak_managed_bytes": "37071272",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 14.31
+},
+{
+"decode_us": "81341",
+"transform_us": "11091",
+"encode_us": "236106",
+"total_us": "332524",
+"peak_managed_bytes": "36688072",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 13.96
+},
+{
+"decode_us": "87145",
+"transform_us": "29186",
+"encode_us": "235973",
+"total_us": "356935",
+"peak_managed_bytes": "38222472",
+"sha256": "18b1a70a68fa5734cd1dad81ace45bc10527023fbacbe3a322dd0e982afd0867",
+"load": 13.65
+}
+]
+},
+"P3 ICC to lossless WebP 1600, t1": {
+"before": [
+{
+"decode_us": "82112",
+"transform_us": "607774",
+"encode_us": "492981",
+"total_us": "1186187",
+"peak_managed_bytes": "30857272",
+"sha256": "42ae2c9e92239b8accb615fe0b06f39c0351b999f177a90ab892a2984b98c792",
+"load": 14.28
+},
+{
+"decode_us": "82659",
+"transform_us": "609554",
+"encode_us": "489283",
+"total_us": "1184683",
+"peak_managed_bytes": "30857272",
+"sha256": "42ae2c9e92239b8accb615fe0b06f39c0351b999f177a90ab892a2984b98c792",
+"load": 14.28
+},
+{
+"decode_us": "82790",
+"transform_us": "617217",
+"encode_us": "487887",
+"total_us": "1191077",
+"peak_managed_bytes": "30857272",
+"sha256": "42ae2c9e92239b8accb615fe0b06f39c0351b999f177a90ab892a2984b98c792",
+"load": 14.65
+},
+{
+"decode_us": "82199",
+"transform_us": "608443",
+"encode_us": "487850",
+"total_us": "1181796",
+"peak_managed_bytes": "30857272",
+"sha256": "42ae2c9e92239b8accb615fe0b06f39c0351b999f177a90ab892a2984b98c792",
+"load": 14.6
+},
+{
+"decode_us": "81461",
+"transform_us": "606648",
+"encode_us": "484631",
+"total_us": "1176130",
+"peak_managed_bytes": "30857272",
+"sha256": "42ae2c9e92239b8accb615fe0b06f39c0351b999f177a90ab892a2984b98c792",
+"load": 14.31
+},
+{
+"decode_us": "82228",
+"transform_us": "611257",
+"encode_us": "488391",
+"total_us": "1185113",
+"peak_managed_bytes": "30857272",
+"sha256": "42ae2c9e92239b8accb615fe0b06f39c0351b999f177a90ab892a2984b98c792",
+"load": 13.96
+},
+{
+"decode_us": "82982",
+"transform_us": "617116",
+"encode_us": "496935",
+"total_us": "1200285",
+"peak_managed_bytes": "30857272",
+"sha256": "42ae2c9e92239b8accb615fe0b06f39c0351b999f177a90ab892a2984b98c792",
+"load": 13.65
+}
+],
+"after": [
+{
+"decode_us": "80967",
+"transform_us": "135733",
+"encode_us": "497854",
+"total_us": "718257",
+"peak_managed_bytes": "30857272",
+"sha256": "d61d7b9b361746208f03ba10a6e3c902d866c468751d765e620ebc1ec1b88d89",
+"load": 14.28
+},
+{
+"decode_us": "98383",
+"transform_us": "137727",
+"encode_us": "495451",
+"total_us": "735453",
+"peak_managed_bytes": "30857272",
+"sha256": "d61d7b9b361746208f03ba10a6e3c902d866c468751d765e620ebc1ec1b88d89",
+"load": 14.28
+},
+{
+"decode_us": "82113",
+"transform_us": "138098",
+"encode_us": "493828",
+"total_us": "717442",
+"peak_managed_bytes": "30857272",
+"sha256": "d61d7b9b361746208f03ba10a6e3c902d866c468751d765e620ebc1ec1b88d89",
+"load": 14.65
+},
+{
+"decode_us": "80121",
+"transform_us": "134536",
+"encode_us": "490578",
+"total_us": "708801",
+"peak_managed_bytes": "30857272",
+"sha256": "d61d7b9b361746208f03ba10a6e3c902d866c468751d765e620ebc1ec1b88d89",
+"load": 14.6
+},
+{
+"decode_us": "80570",
+"transform_us": "134601",
+"encode_us": "487613",
+"total_us": "706121",
+"peak_managed_bytes": "30857272",
+"sha256": "d61d7b9b361746208f03ba10a6e3c902d866c468751d765e620ebc1ec1b88d89",
+"load": 13.96
+},
+{
+"decode_us": "80712",
+"transform_us": "135639",
+"encode_us": "481626",
+"total_us": "701483",
+"peak_managed_bytes": "30857272",
+"sha256": "d61d7b9b361746208f03ba10a6e3c902d866c468751d765e620ebc1ec1b88d89",
+"load": 13.96
+},
+{
+"decode_us": "81504",
+"transform_us": "136440",
+"encode_us": "492457",
+"total_us": "713756",
+"peak_managed_bytes": "30857272",
+"sha256": "d61d7b9b361746208f03ba10a6e3c902d866c468751d765e620ebc1ec1b88d89",
+"load": 13.59
+}
+]
+}
+}

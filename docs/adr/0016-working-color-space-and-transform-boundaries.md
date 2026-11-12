@@ -63,6 +63,7 @@ Real codec and encoder dataflow makes the proposed format contract too expensive
 - 2026-10-31 — Proposed an explicit, region-capable working-color transform boundary for M1.
 - 2026-11-12 — Independent resize oracle (#18), CICP checks beside the rendered ICC (#17, #41), and real-photograph LittleCMS evidence.
 - 2026-11-12 — PQ/HLG rejection from the JPEG XL transfer function itself, independent of CICP (review of the v1.0 integration).
+- 2026-11-12 — 8-bit matrix-shaper input is evaluated through a per-channel table built from and checked against moxcms (issue #219); bound 1.19e-7 linear over all 2^24 triplets for five profiles. Pending owner confirmation.
 
 ## 2026-10-31: narrow reference experiment (not acceptance)
 
@@ -94,3 +95,53 @@ stage converted its approximation profile as SDR. Refusals in the
 CICP-beside-ICC check now name their reason (`CicpBesideIcc`). Evidence and
 the pending AVIF `nclx`-beside-ICC decision are recorded in ADR-0015
 (2026-11-12, review of the v1.0 integration).
+
+## 2026-11-12: per-channel table for 8-bit matrix-shaper input (issue #219; pending owner confirmation)
+
+**Pending owner confirmation; revert the commit "perf(icc): evaluate 8-bit matrix-shaper profiles through a channel table" (hash recorded in the next commit) to restore exact moxcms output.**
+
+**Mechanism.** A matrix-shaper profile converted into linear sRGB computes
+`M · [trc_r(r), trc_g(g), trc_b(b)]`. Each output is a sum of three
+independent per-channel terms, so for 8-bit input the whole transform is the
+sum of three entries of a 768-entry table (`cms::ChannelTable`). The entries
+are moxcms's own outputs for single-channel input (`[v, 0, 0]`, `[0, v, 0]`,
+`[0, 0, v]`): the table carries moxcms's curves and matrix, and only the
+order of the final float additions differs. The table is built only on the
+existing extended-range matrix-shaper path (XYZ PCS, matrix-shaper, no
+device-to-PCS LUT tags) and only for 8-bit decoder rows; float input,
+LUT-based profiles and every other path stay on moxcms unchanged. At
+construction the table must map black to zero for each channel and must
+match moxcms within `CHANNEL_TABLE_BOUND = 2.5e-7` linear on 1,024
+single-channel and gray probes and a 17³ grid; otherwise the adapter keeps
+the moxcms path. The table is 9 KiB, unbudgeted like the moxcms transform
+object it sits beside.
+
+This changes *how* the rendered profile is evaluated, not *what* is evaluated:
+the profile stays the input's only color description, no profile is
+recognized as sRGB by name or header, and ADR-0015's rule that an ICC header
+is not a transform is unchanged. CICP beside the profile is still checked
+against the moxcms transform.
+
+**Measured bound.** Largest |table − moxcms| over all 2^24 8-bit triplets
+(`cms::tests::channel_table_exhaustive_deviation`, run in release, ignored by
+default): 5.96e-8 for moxcms's sRGB and the Paris photograph's sRGB v4
+profile, 1.19e-7 for Display P3 v4, Adobe RGB (1998) and Display P3 gamma
+2.2. That is one unit in the last place of f32 near 1.0. The always-run
+`channel_table_stays_within_the_bound_of_moxcms` checks the same bound on
+348,416 deterministic triplets per profile (every R against 65 G and 17 B
+values, plus 65,536 pseudo-random triplets) and that every table column is
+monotone; the argument for why a sample bounds the cube is in its comment.
+Existing LittleCMS and reference-matrix tolerances (`8e-4`, `1e-5` at the
+sRGB knee, `2e-3` for CICP agreement) are unchanged and pass.
+
+**Output effect.** The difference can flip a final rounding. On a synthetic
+6000×4000 JPEG to lossless WebP 1600×1067 on one transform thread, 1 of
+5,121,600 RGB samples changed by one code with a Display P3 profile and 6 with
+the sRGB profile; the lossy WebP bytes of the sRGB case changed, the Display P3
+case's did not, and 8- and 10-bit AVIF output with all cores did not change.
+The earlier experiment saw 10-bit AVIF bytes change on another input. Speed
+is in ADR-0023 and the
+[performance analysis](../benchmarks/v1.0-engine-performance-analysis-2026-11-12.md#applied-fixes-2026-11-12-evening).
+Re-evaluate if moxcms changes its matrix-shaper evaluation, if a profile
+class is admitted to the extended path whose transform is not separable, or
+if the owner rejects any output change on this path (then revert).
