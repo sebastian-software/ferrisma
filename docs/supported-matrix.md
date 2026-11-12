@@ -291,16 +291,20 @@ from-scratch clean builds.
 | `cargo run -p ferrisma --example consumer --features cli -- --self-check` | `self-check passed` |
 | `cargo clippy -p ferrisma --all-targets --no-deps -- -D warnings` with `--all-features`, `--features cli,jpeg-xl-write`, no features, `jpeg-read,avif-own-write`, and the stable set without `jpeg-xl-own-read` | pass |
 | `cargo clippy -p ferrisma --all-targets --no-deps --no-default-features --features jpeg-read,avif-write -- -D warnings`, and the same with `jpeg-read,webp-read,webp-write,jpeg-xl-own-read,avif-write,icc` | **fails**: pre-existing `dead_code` on `CodecWork::region_at_least`, which only jxl-oxide uses outside tests; CI does not lint these combinations |
+| `cargo check -p ferrisma --no-default-features --features <feature>` for each of the 11 features, `jpeg-xl-write` included | pass |
 | `cargo +1.98.0 check -p ferrisma -p ferrisma-kernels --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,avif-write,icc --locked` | pass |
 | `cargo +1.98.0 check -p ferrisma --no-default-features --features jpeg-xl-write --locked` | pass (one warning) |
 | `cargo +1.98.0 check -p ferrisma-xtask --all-targets --locked` | pass |
 | `cargo +1.98.0 check -p ferrisma --no-default-features --features avif-own-write --locked` | fails as expected (`E0554`, `c_variadic`): nightly only |
 | `cargo xtask codecs --codec avif --stage pr --tests-only` (the ARM64 form CI uses) | pass: release tests of `libavif-rs`, `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` (5 + 63 + 3 + 1 tests), the checked SharpYUV cross-port test, and `check_aom_golden.py`: 62 of 62 cases match `golden/release.json` for macos-aarch64-release |
+| `cargo xtask codecs --codec jpeg --stage pr --tests-only` | pass |
+| `cargo xtask codecs --codec jxl --stage pr --tests-only` | pass (exit 0, 114 test binaries) |
+| `cargo xtask codecs --codec webp --stage pr --tests-only` | **fails here for setup reasons**: `wp12_incremental` reads `codecs/libwebp-rs/upstream/libwebp-test-data/*.webp`, and that pinned submodule is not initialized in this worktree; CI initializes it first |
 
 Not verified here: GNU Linux x86-64 (including NASM and the x86-64 JPEG XL
-conformance run), clean from-scratch builds, and the JPEG, WebP and JPEG XL
-codec `pr` stages, which need their pinned upstream submodules
-(`codecs/*/upstream`), not initialized in this worktree. The x86-64 claims
+conformance run), clean from-scratch builds, the full (not `--tests-only`) codec `pr`
+stages, and the WebP `pr` stage, which need the pinned upstream submodules
+(`codecs/*/upstream`) that are not initialized in this worktree. The x86-64 claims
 above rest on these CI workflows, which still need a hosted run on this
 branch: `ci.yml` jobs `rust` (Ubuntu 24.04 x86-64 with NASM: engine tests with
 and without all features, per-feature checks, consumer self-check),
