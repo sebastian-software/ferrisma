@@ -146,3 +146,18 @@ an AVIF feature needs another platform.
   measured on the shared host. The 2026-11-12 nightly `root` generate jobs
   failed with "The production package compiled a different translation than
   the native profile"; that port-level check needs its own follow-up.
+
+- 2026-11-12 — **Threads and decode memory** ([engine performance analysis](../benchmarks/v1.0-engine-performance-analysis-2026-11-12.md)).
+  The bridge now passes the resolved transform thread count to libavif's
+  nearest-neighbor YUV-to-RGB conversion (`avifRGBImage.maxThreads`, at most
+  eight row jobs; one thread keeps the serial path). The jobs own disjoint
+  rows; `decode_threads_do_not_change_samples` checks 8-bit 4:4:4/4:2:0 and
+  12-bit 4:4:4 files on 1, 2, 3 and 8 threads. The AV1 decode stays on one
+  thread: libavif's `decoder.maxThreads` above one enables libaom's row-based
+  multithreading, which halved a 24 MP decode stage but raised peak RSS from
+  about 0.42 to 1.8 GB at any thread count (indicative, loaded host). A live
+  allocation snapshot of a 24 MP 8-bit 4:2:0 decode attributes the opaque
+  memory to libaom: 271 MB mode-info grid (11.3 bytes per pixel) and a 38 MB
+  frame buffer; C libavif with libaom 3.15.3 shows the same RSS (445 MB).
+  Re-evaluate when libaom's row-MT can be disabled separately or when dav1d
+  is selected.

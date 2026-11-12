@@ -1,0 +1,650 @@
+{
+ "mountain-24MP-420|full|port": [
+  {
+   "ms_per_decode": 134.87380566666667,
+   "checksum": "90486c53b94d1542",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 133.70909733333335,
+   "checksum": "90486c53b94d1542",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 134.02730566666668,
+   "checksum": "90486c53b94d1542",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 135.05290266666665,
+   "checksum": "90486c53b94d1542",
+   "load": 8.2412109375
+  },
+  {
+   "ms_per_decode": 133.86744433333334,
+   "checksum": "90486c53b94d1542",
+   "load": 8.2412109375
+  }
+ ],
+ "mountain-24MP-420|full|c": [
+  {
+   "ms_per_decode": 86.38166666666666,
+   "checksum": "90486c53b94d1542",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 85.56233333333333,
+   "checksum": "90486c53b94d1542",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 84.649,
+   "checksum": "90486c53b94d1542",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 87.15166666666667,
+   "checksum": "90486c53b94d1542",
+   "load": 8.2412109375
+  },
+  {
+   "ms_per_decode": 84.99833333333333,
+   "checksum": "90486c53b94d1542",
+   "load": 8.2412109375
+  }
+ ],
+ "mountain-24MP-420|scale1/2|port": [
+  {
+   "ms_per_decode": 118.996125,
+   "checksum": "211bfcd3491a997f",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 118.66295833333334,
+   "checksum": "211bfcd3491a997f",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 117.48729166666666,
+   "checksum": "211bfcd3491a997f",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 119.174125,
+   "checksum": "211bfcd3491a997f",
+   "load": 8.2412109375
+  },
+  {
+   "ms_per_decode": 117.936625,
+   "checksum": "211bfcd3491a997f",
+   "load": 8.2412109375
+  }
+ ],
+ "mountain-24MP-420|scale1/2|c": [
+  {
+   "ms_per_decode": 73.46066666666667,
+   "checksum": "211bfcd3491a997f",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 72.874,
+   "checksum": "211bfcd3491a997f",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 72.557,
+   "checksum": "211bfcd3491a997f",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 73.57566666666666,
+   "checksum": "211bfcd3491a997f",
+   "load": 8.08837890625
+  },
+  {
+   "ms_per_decode": 73.60833333333333,
+   "checksum": "211bfcd3491a997f",
+   "load": 8.2412109375
+  }
+ ],
+ "mountain-24MP-420|scale1/8|port": [
+  {
+   "ms_per_decode": 109.11055533333334,
+   "checksum": "de562a3358c44dbe",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 109.05106933333333,
+   "checksum": "de562a3358c44dbe",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 108.20819433333334,
+   "checksum": "de562a3358c44dbe",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 109.58415266666667,
+   "checksum": "de562a3358c44dbe",
+   "load": 8.08837890625
+  },
+  {
+   "ms_per_decode": 109.77833333333334,
+   "checksum": "de562a3358c44dbe",
+   "load": 8.2412109375
+  }
+ ],
+ "mountain-24MP-420|scale1/8|c": [
+  {
+   "ms_per_decode": 61.558,
+   "checksum": "de562a3358c44dbe",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 62.406333333333336,
+   "checksum": "de562a3358c44dbe",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 62.108333333333334,
+   "checksum": "de562a3358c44dbe",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 62.336,
+   "checksum": "de562a3358c44dbe",
+   "load": 8.08837890625
+  },
+  {
+   "ms_per_decode": 62.41733333333333,
+   "checksum": "de562a3358c44dbe",
+   "load": 8.2412109375
+  }
+ ],
+ "dog-12MP-420|full|port": [
+  {
+   "ms_per_decode": 62.96554166666667,
+   "checksum": "c12761645458e02e",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 63.082236333333334,
+   "checksum": "c12761645458e02e",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 62.320653,
+   "checksum": "c12761645458e02e",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 62.819902666666664,
+   "checksum": "c12761645458e02e",
+   "load": 8.08837890625
+  },
+  {
+   "ms_per_decode": 62.661444333333336,
+   "checksum": "c12761645458e02e",
+   "load": 8.2412109375
+  }
+ ],
+ "dog-12MP-420|full|c": [
+  {
+   "ms_per_decode": 40.249,
+   "checksum": "c12761645458e02e",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 39.93333333333333,
+   "checksum": "c12761645458e02e",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 39.962,
+   "checksum": "c12761645458e02e",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 40.699,
+   "checksum": "c12761645458e02e",
+   "load": 8.08837890625
+  },
+  {
+   "ms_per_decode": 40.236666666666665,
+   "checksum": "c12761645458e02e",
+   "load": 8.2412109375
+  }
+ ],
+ "dog-12MP-420|scale1/2|port": [
+  {
+   "ms_per_decode": 54.44584733333333,
+   "checksum": "d901f41847d9bad8",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 53.701222,
+   "checksum": "d901f41847d9bad8",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 53.885694666666666,
+   "checksum": "d901f41847d9bad8",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 54.92694433333333,
+   "checksum": "d901f41847d9bad8",
+   "load": 8.08837890625
+  },
+  {
+   "ms_per_decode": 54.360236,
+   "checksum": "d901f41847d9bad8",
+   "load": 8.2412109375
+  }
+ ],
+ "dog-12MP-420|scale1/2|c": [
+  {
+   "ms_per_decode": 33.56333333333333,
+   "checksum": "d901f41847d9bad8",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 33.29533333333333,
+   "checksum": "d901f41847d9bad8",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 33.41166666666667,
+   "checksum": "d901f41847d9bad8",
+   "load": 9.05224609375
+  },
+  {
+   "ms_per_decode": 33.58866666666667,
+   "checksum": "d901f41847d9bad8",
+   "load": 8.08837890625
+  },
+  {
+   "ms_per_decode": 34.045,
+   "checksum": "d901f41847d9bad8",
+   "load": 7.9814453125
+  }
+ ],
+ "dog-12MP-420|scale1/8|port": [
+  {
+   "ms_per_decode": 49.616486,
+   "checksum": "b053ea787286c6fc",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 49.437347,
+   "checksum": "b053ea787286c6fc",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 49.14154166666667,
+   "checksum": "b053ea787286c6fc",
+   "load": 8.9677734375
+  },
+  {
+   "ms_per_decode": 50.545277666666664,
+   "checksum": "b053ea787286c6fc",
+   "load": 8.08837890625
+  },
+  {
+   "ms_per_decode": 49.404861333333336,
+   "checksum": "b053ea787286c6fc",
+   "load": 7.9814453125
+  }
+ ],
+ "dog-12MP-420|scale1/8|c": [
+  {
+   "ms_per_decode": 27.736666666666668,
+   "checksum": "b053ea787286c6fc",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 28.279666666666667,
+   "checksum": "b053ea787286c6fc",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 27.951,
+   "checksum": "b053ea787286c6fc",
+   "load": 8.9677734375
+  },
+  {
+   "ms_per_decode": 28.476666666666667,
+   "checksum": "b053ea787286c6fc",
+   "load": 8.08837890625
+  },
+  {
+   "ms_per_decode": 28.039,
+   "checksum": "b053ea787286c6fc",
+   "load": 7.9814453125
+  }
+ ],
+ "elcito-42MP-422|full|port": [
+  {
+   "ms_per_decode": 446.83818033333336,
+   "checksum": "7a844c6d561c70c0",
+   "load": 10.61474609375
+  },
+  {
+   "ms_per_decode": 447.9905,
+   "checksum": "7a844c6d561c70c0",
+   "load": 9.4052734375
+  },
+  {
+   "ms_per_decode": 445.24575,
+   "checksum": "7a844c6d561c70c0",
+   "load": 8.9677734375
+  },
+  {
+   "ms_per_decode": 448.2640553333333,
+   "checksum": "7a844c6d561c70c0",
+   "load": 8.08837890625
+  },
+  {
+   "ms_per_decode": 449.566611,
+   "checksum": "7a844c6d561c70c0",
+   "load": 7.9814453125
+  }
+ ],
+ "elcito-42MP-422|full|c": [
+  {
+   "ms_per_decode": 278.91866666666664,
+   "checksum": "7a844c6d561c70c0",
+   "load": 10.3251953125
+  },
+  {
+   "ms_per_decode": 278.324,
+   "checksum": "7a844c6d561c70c0",
+   "load": 9.7890625
+  },
+  {
+   "ms_per_decode": 274.2,
+   "checksum": "7a844c6d561c70c0",
+   "load": 8.9677734375
+  },
+  {
+   "ms_per_decode": 279.42266666666666,
+   "checksum": "7a844c6d561c70c0",
+   "load": 8.2705078125
+  },
+  {
+   "ms_per_decode": 277.47066666666666,
+   "checksum": "7a844c6d561c70c0",
+   "load": 7.9814453125
+  }
+ ],
+ "elcito-42MP-422|scale1/2|port": [
+  {
+   "ms_per_decode": 409.53906966666665,
+   "checksum": "5196995701e9bdc1",
+   "load": 10.3251953125
+  },
+  {
+   "ms_per_decode": 409.3579306666667,
+   "checksum": "5196995701e9bdc1",
+   "load": 9.7890625
+  },
+  {
+   "ms_per_decode": 406.2796666666667,
+   "checksum": "5196995701e9bdc1",
+   "load": 8.9677734375
+  },
+  {
+   "ms_per_decode": 409.62533333333334,
+   "checksum": "5196995701e9bdc1",
+   "load": 8.2705078125
+  },
+  {
+   "ms_per_decode": 410.37120833333336,
+   "checksum": "5196995701e9bdc1",
+   "load": 7.9814453125
+  }
+ ],
+ "elcito-42MP-422|scale1/2|c": [
+  {
+   "ms_per_decode": 249.37066666666666,
+   "checksum": "5196995701e9bdc1",
+   "load": 10.3251953125
+  },
+  {
+   "ms_per_decode": 246.28,
+   "checksum": "5196995701e9bdc1",
+   "load": 9.7890625
+  },
+  {
+   "ms_per_decode": 244.99366666666666,
+   "checksum": "5196995701e9bdc1",
+   "load": 9.21044921875
+  },
+  {
+   "ms_per_decode": 245.55466666666666,
+   "checksum": "5196995701e9bdc1",
+   "load": 8.2705078125
+  },
+  {
+   "ms_per_decode": 247.68,
+   "checksum": "5196995701e9bdc1",
+   "load": 7.90283203125
+  }
+ ],
+ "elcito-42MP-422|scale1/8|port": [
+  {
+   "ms_per_decode": 388.2020416666667,
+   "checksum": "edf2a246670a23af",
+   "load": 10.21875
+  },
+  {
+   "ms_per_decode": 385.79470833333335,
+   "checksum": "edf2a246670a23af",
+   "load": 9.7890625
+  },
+  {
+   "ms_per_decode": 383.052403,
+   "checksum": "edf2a246670a23af",
+   "load": 9.21044921875
+  },
+  {
+   "ms_per_decode": 383.0570833333333,
+   "checksum": "edf2a246670a23af",
+   "load": 8.2705078125
+  },
+  {
+   "ms_per_decode": 385.89508333333333,
+   "checksum": "edf2a246670a23af",
+   "load": 7.90283203125
+  }
+ ],
+ "elcito-42MP-422|scale1/8|c": [
+  {
+   "ms_per_decode": 213.83433333333332,
+   "checksum": "edf2a246670a23af",
+   "load": 10.21875
+  },
+  {
+   "ms_per_decode": 211.56233333333333,
+   "checksum": "edf2a246670a23af",
+   "load": 9.94482421875
+  },
+  {
+   "ms_per_decode": 210.29033333333334,
+   "checksum": "edf2a246670a23af",
+   "load": 9.21044921875
+  },
+  {
+   "ms_per_decode": 210.26866666666666,
+   "checksum": "edf2a246670a23af",
+   "load": 8.642578125
+  },
+  {
+   "ms_per_decode": 212.709,
+   "checksum": "edf2a246670a23af",
+   "load": 7.90283203125
+  }
+ ],
+ "beach-60MP-444|full|port": [
+  {
+   "ms_per_decode": 269.140639,
+   "checksum": "c77bcd6910f6745c",
+   "load": 10.21875
+  },
+  {
+   "ms_per_decode": 267.814236,
+   "checksum": "c77bcd6910f6745c",
+   "load": 9.94482421875
+  },
+  {
+   "ms_per_decode": 267.60379166666667,
+   "checksum": "c77bcd6910f6745c",
+   "load": 9.21044921875
+  },
+  {
+   "ms_per_decode": 266.8725416666667,
+   "checksum": "c77bcd6910f6745c",
+   "load": 8.642578125
+  },
+  {
+   "ms_per_decode": 270.57197233333335,
+   "checksum": "c77bcd6910f6745c",
+   "load": 7.90283203125
+  }
+ ],
+ "beach-60MP-444|full|c": [
+  {
+   "ms_per_decode": 224.927,
+   "checksum": "c77bcd6910f6745c",
+   "load": 10.21875
+  },
+  {
+   "ms_per_decode": 226.574,
+   "checksum": "c77bcd6910f6745c",
+   "load": 9.94482421875
+  },
+  {
+   "ms_per_decode": 219.18466666666666,
+   "checksum": "c77bcd6910f6745c",
+   "load": 9.21044921875
+  },
+  {
+   "ms_per_decode": 217.52633333333333,
+   "checksum": "c77bcd6910f6745c",
+   "load": 8.642578125
+  },
+  {
+   "ms_per_decode": 220.16333333333333,
+   "checksum": "c77bcd6910f6745c",
+   "load": 8.470703125
+  }
+ ],
+ "beach-60MP-444|scale1/2|port": [
+  {
+   "ms_per_decode": 213.08195833333335,
+   "checksum": "ed7175086002df78",
+   "load": 10.201171875
+  },
+  {
+   "ms_per_decode": 294.66468066666664,
+   "checksum": "ed7175086002df78",
+   "load": 9.94482421875
+  },
+  {
+   "ms_per_decode": 213.60755566666666,
+   "checksum": "ed7175086002df78",
+   "load": 8.873046875
+  },
+  {
+   "ms_per_decode": 212.43552766666667,
+   "checksum": "ed7175086002df78",
+   "load": 8.642578125
+  },
+  {
+   "ms_per_decode": 217.19480533333333,
+   "checksum": "ed7175086002df78",
+   "load": 8.470703125
+  }
+ ],
+ "beach-60MP-444|scale1/2|c": [
+  {
+   "ms_per_decode": 186.133,
+   "checksum": "ed7175086002df78",
+   "load": 10.201171875
+  },
+  {
+   "ms_per_decode": 184.14633333333333,
+   "checksum": "ed7175086002df78",
+   "load": 10.201171875
+  },
+  {
+   "ms_per_decode": 183.51333333333332,
+   "checksum": "ed7175086002df78",
+   "load": 8.873046875
+  },
+  {
+   "ms_per_decode": 182.66566666666668,
+   "checksum": "ed7175086002df78",
+   "load": 8.642578125
+  },
+  {
+   "ms_per_decode": 186.42433333333332,
+   "checksum": "ed7175086002df78",
+   "load": 8.470703125
+  }
+ ],
+ "beach-60MP-444|scale1/8|port": [
+  {
+   "ms_per_decode": 164.810736,
+   "checksum": "94bc5082bf5d86b0",
+   "load": 10.201171875
+  },
+  {
+   "ms_per_decode": 169.311361,
+   "checksum": "94bc5082bf5d86b0",
+   "load": 10.201171875
+  },
+  {
+   "ms_per_decode": 164.06272233333334,
+   "checksum": "94bc5082bf5d86b0",
+   "load": 8.873046875
+  },
+  {
+   "ms_per_decode": 163.89409733333332,
+   "checksum": "94bc5082bf5d86b0",
+   "load": 8.873046875
+  },
+  {
+   "ms_per_decode": 165.68913866666668,
+   "checksum": "94bc5082bf5d86b0",
+   "load": 8.470703125
+  }
+ ],
+ "beach-60MP-444|scale1/8|c": [
+  {
+   "ms_per_decode": 148.25366666666667,
+   "checksum": "94bc5082bf5d86b0",
+   "load": 10.201171875
+  },
+  {
+   "ms_per_decode": 148.61933333333334,
+   "checksum": "94bc5082bf5d86b0",
+   "load": 10.201171875
+  },
+  {
+   "ms_per_decode": 147.31966666666668,
+   "checksum": "94bc5082bf5d86b0",
+   "load": 8.873046875
+  },
+  {
+   "ms_per_decode": 146.934,
+   "checksum": "94bc5082bf5d86b0",
+   "load": 8.873046875
+  },
+  {
+   "ms_per_decode": 150.07133333333334,
+   "checksum": "94bc5082bf5d86b0",
+   "load": 8.470703125
+  }
+ ]
+}

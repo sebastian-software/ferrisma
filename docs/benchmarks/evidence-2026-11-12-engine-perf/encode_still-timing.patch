@@ -1,0 +1,25 @@
+--- /Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a33a3b32031caed03/codecs/libavif-rs/tools/encode_still.c	2026-11-12 18:07:32
++++ cavif/encode_still_timed.c	2026-11-12 18:16:25
+@@ -19,6 +19,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <time.h>
+ 
+ #include "avif/avif.h"
+ 
+@@ -176,10 +177,13 @@
+         encoder->maxThreads = threads;
+         encoder->autoTiling = threads != 1;
+         avifRWData output = AVIF_DATA_EMPTY;
++        struct timespec t0, t1;
++        clock_gettime(CLOCK_MONOTONIC, &t0);
+         if (avifEncoderWrite(encoder, image, &output) != AVIF_RESULT_OK) {
+             fail("avifEncoderWrite");
+         }
+-        printf("bytes=%zu\n", output.size);
++        clock_gettime(CLOCK_MONOTONIC, &t1);
++        printf("encode_us=%lld bytes=%zu\n", (long long)((t1.tv_sec - t0.tv_sec) * 1000000LL + (t1.tv_nsec - t0.tv_nsec) / 1000), output.size);
+         avifRWDataFree(&last);
+         last = output;
+         avifEncoderDestroy(encoder);

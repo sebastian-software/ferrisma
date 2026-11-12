@@ -1,0 +1,1965 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "candidates": [
+      {
+        "id": "avif24-webp-t0-base",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-webp-t0-base.webp",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-base",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif24.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-webp-t0-base.webp",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--budget-mb=2048",
+          "--transform-threads=0"
+        ]
+      },
+      {
+        "id": "avif24-webp-t0-avifmt",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-webp-t0-avifmt.webp",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-avifmt",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif24.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-webp-t0-avifmt.webp",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--budget-mb=2048",
+          "--transform-threads=0"
+        ]
+      },
+      {
+        "id": "avif24-avif-t0-base",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-avif-t0-base.avif",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-base",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif24.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-avif-t0-base.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--budget-mb=2048",
+          "--transform-threads=0",
+          "--encoder-threads=0"
+        ]
+      },
+      {
+        "id": "avif24-avif-t0-avifmt",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-avif-t0-avifmt.avif",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-avifmt",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif24.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-avif-t0-avifmt.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--budget-mb=2048",
+          "--transform-threads=0",
+          "--encoder-threads=0"
+        ]
+      },
+      {
+        "id": "avif12-webp-t0-base",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif12-webp-t0-base.webp",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-base",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif12.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif12-webp-t0-base.webp",
+          "1600",
+          "1200",
+          "--use-rendered-icc",
+          "--budget-mb=2048",
+          "--transform-threads=0"
+        ]
+      },
+      {
+        "id": "avif12-webp-t0-avifmt",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif12-webp-t0-avifmt.webp",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-avifmt",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif12.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif12-webp-t0-avifmt.webp",
+          "1600",
+          "1200",
+          "--use-rendered-icc",
+          "--budget-mb=2048",
+          "--transform-threads=0"
+        ]
+      },
+      {
+        "id": "avif24-webp-t1-base",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-webp-t1-base.webp",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-base",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif24.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-webp-t1-base.webp",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--budget-mb=2048",
+          "--transform-threads=1"
+        ]
+      },
+      {
+        "id": "avif24-webp-t1-avifmt",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-webp-t1-avifmt.webp",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-avifmt",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif24.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-webp-t1-avifmt.webp",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--budget-mb=2048",
+          "--transform-threads=1"
+        ]
+      },
+      {
+        "id": "avif24-avif-t1-base",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-avif-t1-base.avif",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-base",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif24.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-avif-t1-base.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--budget-mb=2048",
+          "--transform-threads=1",
+          "--encoder-threads=1"
+        ]
+      },
+      {
+        "id": "avif24-avif-t1-avifmt",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-avif-t1-avifmt.avif",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-avifmt",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif24.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif24-avif-t1-avifmt.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--budget-mb=2048",
+          "--transform-threads=1",
+          "--encoder-threads=1"
+        ]
+      },
+      {
+        "id": "avif12-webp-t1-base",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif12-webp-t1-base.webp",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-base",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif12.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif12-webp-t1-base.webp",
+          "1600",
+          "1200",
+          "--use-rendered-icc",
+          "--budget-mb=2048",
+          "--transform-threads=1"
+        ]
+      },
+      {
+        "id": "avif12-webp-t1-avifmt",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif12-webp-t1-avifmt.webp",
+        "cmd": [
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/ferrisma-avifmt",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/in19/avif12.avif",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/perf/out/pl-avif12-webp-t1-avifmt.webp",
+          "1600",
+          "1200",
+          "--use-rendered-icc",
+          "--budget-mb=2048",
+          "--transform-threads=1"
+        ]
+      }
+    ]
+  },
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "uptime_before": "18:23  up 37 days,  5:44, 1 user, load averages: 17.69 17.59 13.29",
+  "uptime_after": "18:24  up 37 days,  5:46, 1 user, load averages: 13.02 16.15 13.19",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "summary": {
+    "avif24-webp-t0-base": {
+      "n": 7,
+      "wall_median_s": 0.9046670419999998,
+      "wall_min_s": 0.8989167499999979,
+      "wall_max_s": 0.91709,
+      "rss_median_bytes": 440057856,
+      "rss_min_bytes": 439386112,
+      "rss_max_bytes": 441597952,
+      "load_min": 13.85009765625,
+      "load_max": 17.00927734375,
+      "internal_median_ms": 890.532,
+      "internal_min_ms": 884.762,
+      "internal_max_ms": 903.437,
+      "output_sha256": [
+        "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c"
+      ],
+      "output_bytes": [
+        250062
+      ]
+    },
+    "avif24-webp-t0-avifmt": {
+      "n": 7,
+      "wall_median_s": 0.5589160829999997,
+      "wall_min_s": 0.5535862500000022,
+      "wall_max_s": 0.5921592919999998,
+      "rss_median_bytes": 1888845824,
+      "rss_min_bytes": 1887830016,
+      "rss_max_bytes": 1890926592,
+      "load_min": 13.85009765625,
+      "load_max": 17.00927734375,
+      "internal_median_ms": 525.933,
+      "internal_min_ms": 519.108,
+      "internal_max_ms": 558.431,
+      "output_sha256": [
+        "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c"
+      ],
+      "output_bytes": [
+        250062
+      ]
+    },
+    "avif24-avif-t0-base": {
+      "n": 7,
+      "wall_median_s": 0.9176931659999994,
+      "wall_min_s": 0.8962345409999983,
+      "wall_max_s": 0.9488754580000016,
+      "rss_median_bytes": 532267008,
+      "rss_min_bytes": 531890176,
+      "rss_max_bytes": 533053440,
+      "load_min": 13.85009765625,
+      "load_max": 17.00927734375,
+      "internal_median_ms": 901.225,
+      "internal_min_ms": 878.976,
+      "internal_max_ms": 934.625,
+      "output_sha256": [
+        "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42"
+      ],
+      "output_bytes": [
+        337774
+      ]
+    },
+    "avif24-avif-t0-avifmt": {
+      "n": 7,
+      "wall_median_s": 0.5624987080000032,
+      "wall_min_s": 0.5561339590000074,
+      "wall_max_s": 0.5975603750000005,
+      "rss_median_bytes": 1980809216,
+      "rss_min_bytes": 1980448768,
+      "rss_max_bytes": 1982889984,
+      "load_min": 13.85009765625,
+      "load_max": 17.00927734375,
+      "internal_median_ms": 527.777,
+      "internal_min_ms": 520.1,
+      "internal_max_ms": 560.8,
+      "output_sha256": [
+        "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42"
+      ],
+      "output_bytes": [
+        337774
+      ]
+    },
+    "avif12-webp-t0-base": {
+      "n": 7,
+      "wall_median_s": 0.6020862499999993,
+      "wall_min_s": 0.5939724170000034,
+      "wall_max_s": 0.6831325830000026,
+      "rss_median_bytes": 243761152,
+      "rss_min_bytes": 242581504,
+      "rss_max_bytes": 245399552,
+      "load_min": 13.85009765625,
+      "load_max": 17.00927734375,
+      "internal_median_ms": 589.561,
+      "internal_min_ms": 582.674,
+      "internal_max_ms": 617.351,
+      "output_sha256": [
+        "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8"
+      ],
+      "output_bytes": [
+        183658
+      ]
+    },
+    "avif12-webp-t0-avifmt": {
+      "n": 7,
+      "wall_median_s": 0.44541416600000616,
+      "wall_min_s": 0.43024520899999885,
+      "wall_max_s": 0.45544791700000076,
+      "rss_median_bytes": 1000275968,
+      "rss_min_bytes": 999440384,
+      "rss_max_bytes": 1001406464,
+      "load_min": 13.85009765625,
+      "load_max": 16.68798828125,
+      "internal_median_ms": 418.904,
+      "internal_min_ms": 409.488,
+      "internal_max_ms": 434.808,
+      "output_sha256": [
+        "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8"
+      ],
+      "output_bytes": [
+        183658
+      ]
+    },
+    "avif24-webp-t1-base": {
+      "n": 7,
+      "wall_median_s": 0.9842264999999912,
+      "wall_min_s": 0.979518125000002,
+      "wall_max_s": 1.0055005000000037,
+      "rss_median_bytes": 434487296,
+      "rss_min_bytes": 434159616,
+      "rss_max_bytes": 435585024,
+      "load_min": 13.85009765625,
+      "load_max": 16.68798828125,
+      "internal_median_ms": 968.946,
+      "internal_min_ms": 965.939,
+      "internal_max_ms": 981.747,
+      "output_sha256": [
+        "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c"
+      ],
+      "output_bytes": [
+        250062
+      ]
+    },
+    "avif24-webp-t1-avifmt": {
+      "n": 7,
+      "wall_median_s": 0.9802689170000036,
+      "wall_min_s": 0.9790490000000034,
+      "wall_max_s": 1.0002430409999974,
+      "rss_median_bytes": 434487296,
+      "rss_min_bytes": 434372608,
+      "rss_max_bytes": 435093504,
+      "load_min": 13.46142578125,
+      "load_max": 16.68798828125,
+      "internal_median_ms": 966.558,
+      "internal_min_ms": 964.402,
+      "internal_max_ms": 986.153,
+      "output_sha256": [
+        "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c"
+      ],
+      "output_bytes": [
+        250062
+      ]
+    },
+    "avif24-avif-t1-base": {
+      "n": 7,
+      "wall_median_s": 1.8045685419999984,
+      "wall_min_s": 1.7961739579999971,
+      "wall_max_s": 1.8138376670000014,
+      "rss_median_bytes": 510410752,
+      "rss_min_bytes": 510033920,
+      "rss_max_bytes": 511639552,
+      "load_min": 13.46142578125,
+      "load_max": 16.68798828125,
+      "internal_median_ms": 1790.618,
+      "internal_min_ms": 1779.278,
+      "internal_max_ms": 1797.454,
+      "output_sha256": [
+        "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf"
+      ],
+      "output_bytes": [
+        337199
+      ]
+    },
+    "avif24-avif-t1-avifmt": {
+      "n": 7,
+      "wall_median_s": 1.8124619590000037,
+      "wall_min_s": 1.8058862500000004,
+      "wall_max_s": 1.8186130420000026,
+      "rss_median_bytes": 511688704,
+      "rss_min_bytes": 510246912,
+      "rss_max_bytes": 511852544,
+      "load_min": 13.46142578125,
+      "load_max": 16.68798828125,
+      "internal_median_ms": 1795.777,
+      "internal_min_ms": 1792.297,
+      "internal_max_ms": 1804.398,
+      "output_sha256": [
+        "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf"
+      ],
+      "output_bytes": [
+        337199
+      ]
+    },
+    "avif12-webp-t1-base": {
+      "n": 7,
+      "wall_median_s": 0.8727369169999974,
+      "wall_min_s": 0.8672530420000015,
+      "wall_max_s": 0.8761749589999965,
+      "rss_median_bytes": 236994560,
+      "rss_min_bytes": 236748800,
+      "rss_max_bytes": 238092288,
+      "load_min": 13.02392578125,
+      "load_max": 16.47265625,
+      "internal_median_ms": 860.069,
+      "internal_min_ms": 854.236,
+      "internal_max_ms": 864.403,
+      "output_sha256": [
+        "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8"
+      ],
+      "output_bytes": [
+        183658
+      ]
+    },
+    "avif12-webp-t1-avifmt": {
+      "n": 7,
+      "wall_median_s": 0.8687434160000009,
+      "wall_min_s": 0.8645282080000101,
+      "wall_max_s": 0.8746482919999963,
+      "rss_median_bytes": 236863488,
+      "rss_min_bytes": 236716032,
+      "rss_max_bytes": 237699072,
+      "load_min": 13.02392578125,
+      "load_max": 16.47265625,
+      "internal_median_ms": 856.735,
+      "internal_min_ms": 851.646,
+      "internal_max_ms": 862.912,
+      "output_sha256": [
+        "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8"
+      ],
+      "output_bytes": [
+        183658
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "avif12-webp-t1-avifmt",
+      "wall_s": 0.87438175,
+      "max_rss_bytes": 236503040,
+      "internal_ms": 863.332,
+      "stdout": [
+        "report: open_us=760 decode_us=332054 transform_us=320667 encode_us=207723 total_us=863332 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.68505859375,
+      "load_after": 17.4697265625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif12-webp-t1-base",
+      "wall_s": 0.8742697500000001,
+      "max_rss_bytes": 237862912,
+      "internal_ms": 863.123,
+      "stdout": [
+        "report: open_us=682 decode_us=331496 transform_us=320844 encode_us=208038 total_us=863123 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.4697265625,
+      "load_after": 17.4697265625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif24-avif-t1-avifmt",
+      "wall_s": 1.816604875,
+      "max_rss_bytes": 511606784,
+      "internal_ms": 1802.062,
+      "stdout": [
+        "report: open_us=50 decode_us=687865 transform_us=104396 encode_us=1007090 total_us=1802062 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.4697265625,
+      "load_after": 17.4697265625,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif24-avif-t1-base",
+      "wall_s": 1.812043417,
+      "max_rss_bytes": 511229952,
+      "internal_ms": 1798.178,
+      "stdout": [
+        "report: open_us=36 decode_us=683507 transform_us=104856 encode_us=1007090 total_us=1798178 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.4697265625,
+      "load_after": 17.271484375,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif24-webp-t1-avifmt",
+      "wall_s": 0.9844413329999995,
+      "max_rss_bytes": 434470912,
+      "internal_ms": 971.456,
+      "stdout": [
+        "report: open_us=532 decode_us=682997 transform_us=104275 encode_us=180975 total_us=971456 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.271484375,
+      "load_after": 17.271484375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif24-webp-t1-base",
+      "wall_s": 0.9837983750000001,
+      "max_rss_bytes": 434896896,
+      "internal_ms": 970.247,
+      "stdout": [
+        "report: open_us=546 decode_us=680533 transform_us=104565 encode_us=181896 total_us=970247 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.271484375,
+      "load_after": 17.271484375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif12-webp-t0-avifmt",
+      "wall_s": 0.4713262500000006,
+      "max_rss_bytes": 1000374272,
+      "internal_ms": 450.735,
+      "stdout": [
+        "report: open_us=618 decode_us=164385 transform_us=75042 encode_us=208045 total_us=450735 output_bytes=183658 peak_managed_bytes=69628144 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.271484375,
+      "load_after": 17.271484375,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif12-webp-t0-base",
+      "wall_s": 0.6256589589999999,
+      "max_rss_bytes": 244957184,
+      "internal_ms": 614.457,
+      "stdout": [
+        "report: open_us=595 decode_us=330261 transform_us=72710 encode_us=208162 total_us=614457 output_bytes=183658 peak_managed_bytes=69473136 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.271484375,
+      "load_after": 17.271484375,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif24-avif-t0-avifmt",
+      "wall_s": 0.6230440829999999,
+      "max_rss_bytes": 1980022784,
+      "internal_ms": 589.121,
+      "stdout": [
+        "report: open_us=41 decode_us=326470 transform_us=32945 encode_us=226355 total_us=589121 output_bytes=337774 peak_managed_bytes=117514472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.271484375,
+      "load_after": 17.271484375,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif24-avif-t0-base",
+      "wall_s": 1.0235339589999999,
+      "max_rss_bytes": 530907136,
+      "internal_ms": 1007.594,
+      "stdout": [
+        "report: open_us=39 decode_us=693436 transform_us=122789 encode_us=187945 total_us=1007594 output_bytes=337774 peak_managed_bytes=116978472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.271484375,
+      "load_after": 17.271484375,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif24-webp-t0-avifmt",
+      "wall_s": 0.795474500000001,
+      "max_rss_bytes": 1889239040,
+      "internal_ms": 756.517,
+      "stdout": [
+        "report: open_us=580 decode_us=413058 transform_us=44285 encode_us=295470 total_us=756517 output_bytes=250062 peak_managed_bytes=106756072 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.271484375,
+      "load_after": 17.00927734375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif24-webp-t0-base",
+      "wall_s": 0.9266058749999999,
+      "max_rss_bytes": 440909824,
+      "internal_ms": 913.531,
+      "stdout": [
+        "report: open_us=623 decode_us=692152 transform_us=35037 encode_us=182483 total_us=913531 output_bytes=250062 peak_managed_bytes=107310472 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.00927734375,
+      "load_after": 17.00927734375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "avif24-webp-t0-base",
+      "wall_s": 0.91709,
+      "max_rss_bytes": 440156160,
+      "internal_ms": 903.437,
+      "stdout": [
+        "report: open_us=535 decode_us=683289 transform_us=34179 encode_us=182116 total_us=903437 output_bytes=250062 peak_managed_bytes=107228472 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.00927734375,
+      "load_after": 17.00927734375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-avifmt",
+      "wall_s": 0.5921592919999998,
+      "max_rss_bytes": 1888632832,
+      "internal_ms": 558.431,
+      "stdout": [
+        "report: open_us=588 decode_us=324265 transform_us=48684 encode_us=181666 total_us=558431 output_bytes=250062 peak_managed_bytes=107092472 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.00927734375,
+      "load_after": 17.00927734375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-base",
+      "wall_s": 0.9488754580000016,
+      "max_rss_bytes": 531890176,
+      "internal_ms": 934.625,
+      "stdout": [
+        "report: open_us=47 decode_us=690384 transform_us=28809 encode_us=211978 total_us=934625 output_bytes=337774 peak_managed_bytes=117502072 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.00927734375,
+      "load_after": 17.00927734375,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-avifmt",
+      "wall_s": 0.5975603750000005,
+      "max_rss_bytes": 1981841408,
+      "internal_ms": 560.8,
+      "stdout": [
+        "report: open_us=42 decode_us=313985 transform_us=30842 encode_us=212603 total_us=560800 output_bytes=337774 peak_managed_bytes=118121272 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.00927734375,
+      "load_after": 17.00927734375,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-base",
+      "wall_s": 0.6155600830000001,
+      "max_rss_bytes": 244858880,
+      "internal_ms": 604.423,
+      "stdout": [
+        "report: open_us=721 decode_us=329270 transform_us=64637 encode_us=206839 total_us=604423 output_bytes=183658 peak_managed_bytes=70039088 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 17.00927734375,
+      "load_after": 16.68798828125,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-avifmt",
+      "wall_s": 0.4524910000000002,
+      "max_rss_bytes": 1000980480,
+      "internal_ms": 432.461,
+      "stdout": [
+        "report: open_us=668 decode_us=159559 transform_us=62653 encode_us=206763 total_us=432461 output_bytes=183658 peak_managed_bytes=69648112 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.68798828125,
+      "load_after": 16.68798828125,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-base",
+      "wall_s": 0.979518125000002,
+      "max_rss_bytes": 435585024,
+      "internal_ms": 965.939,
+      "stdout": [
+        "report: open_us=610 decode_us=676505 transform_us=104318 encode_us=181845 total_us=965939 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.68798828125,
+      "load_after": 16.68798828125,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-avifmt",
+      "wall_s": 0.9802504590000005,
+      "max_rss_bytes": 434487296,
+      "internal_ms": 966.558,
+      "stdout": [
+        "report: open_us=619 decode_us=679515 transform_us=103483 encode_us=180268 total_us=966558 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.68798828125,
+      "load_after": 16.68798828125,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-base",
+      "wall_s": 1.7986397919999995,
+      "max_rss_bytes": 511639552,
+      "internal_ms": 1783.888,
+      "stdout": [
+        "report: open_us=36 decode_us=674961 transform_us=103957 encode_us=1002253 total_us=1783888 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.68798828125,
+      "load_after": 16.68798828125,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-avifmt",
+      "wall_s": 1.8058862500000004,
+      "max_rss_bytes": 511852544,
+      "internal_ms": 1792.297,
+      "stdout": [
+        "report: open_us=37 decode_us=678689 transform_us=103968 encode_us=1006858 total_us=1792297 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.68798828125,
+      "load_after": 16.47265625,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-base",
+      "wall_s": 0.8721496250000023,
+      "max_rss_bytes": 238092288,
+      "internal_ms": 860.893,
+      "stdout": [
+        "report: open_us=689 decode_us=326479 transform_us=319016 encode_us=212582 total_us=860893 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.47265625,
+      "load_after": 16.47265625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-avifmt",
+      "wall_s": 0.8682032090000007,
+      "max_rss_bytes": 236716032,
+      "internal_ms": 856.735,
+      "stdout": [
+        "report: open_us=607 decode_us=327243 transform_us=318473 encode_us=208240 total_us=856735 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.47265625,
+      "load_after": 16.47265625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-avifmt",
+      "wall_s": 0.864914958,
+      "max_rss_bytes": 237404160,
+      "internal_ms": 853.639,
+      "stdout": [
+        "report: open_us=618 decode_us=324330 transform_us=318787 encode_us=207785 total_us=853639 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.47265625,
+      "load_after": 16.47265625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-base",
+      "wall_s": 0.8702509999999997,
+      "max_rss_bytes": 237600768,
+      "internal_ms": 858.796,
+      "stdout": [
+        "report: open_us=610 decode_us=327771 transform_us=320909 encode_us=207403 total_us=858796 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.47265625,
+      "load_after": 16.47265625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-avifmt",
+      "wall_s": 1.8153693749999995,
+      "max_rss_bytes": 511688704,
+      "internal_ms": 1800.975,
+      "stdout": [
+        "report: open_us=37 decode_us=691441 transform_us=103596 encode_us=1003205 total_us=1800975 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.47265625,
+      "load_after": 16.3544921875,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-base",
+      "wall_s": 1.8045685419999984,
+      "max_rss_bytes": 510410752,
+      "internal_ms": 1790.618,
+      "stdout": [
+        "report: open_us=36 decode_us=679448 transform_us=103809 encode_us=1004642 total_us=1790618 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.3544921875,
+      "load_after": 16.3544921875,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-avifmt",
+      "wall_s": 0.9791706670000018,
+      "max_rss_bytes": 434503680,
+      "internal_ms": 966.374,
+      "stdout": [
+        "report: open_us=611 decode_us=679235 transform_us=103020 encode_us=180867 total_us=966374 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.3544921875,
+      "load_after": 16.3544921875,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-base",
+      "wall_s": 0.9828758750000013,
+      "max_rss_bytes": 434159616,
+      "internal_ms": 968.837,
+      "stdout": [
+        "report: open_us=555 decode_us=680079 transform_us=103458 encode_us=182078 total_us=968837 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 16.3544921875,
+      "load_after": 15.92529296875,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-avifmt",
+      "wall_s": 0.45544791700000076,
+      "max_rss_bytes": 1000325120,
+      "internal_ms": 434.808,
+      "stdout": [
+        "report: open_us=825 decode_us=165051 transform_us=56648 encode_us=209349 total_us=434808 output_bytes=183658 peak_managed_bytes=69835824 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.92529296875,
+      "load_after": 15.92529296875,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-base",
+      "wall_s": 0.6020862499999993,
+      "max_rss_bytes": 243515392,
+      "internal_ms": 591.028,
+      "stdout": [
+        "report: open_us=768 decode_us=327570 transform_us=54735 encode_us=205266 total_us=591028 output_bytes=183658 peak_managed_bytes=69687216 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.92529296875,
+      "load_after": 15.92529296875,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-avifmt",
+      "wall_s": 0.5624987080000032,
+      "max_rss_bytes": 1980809216,
+      "internal_ms": 528.007,
+      "stdout": [
+        "report: open_us=42 decode_us=307741 transform_us=28128 encode_us=188991 total_us=528007 output_bytes=337774 peak_managed_bytes=117544472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.92529296875,
+      "load_after": 15.92529296875,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-base",
+      "wall_s": 0.9355009160000023,
+      "max_rss_bytes": 532185088,
+      "internal_ms": 919.691,
+      "stdout": [
+        "report: open_us=48 decode_us=683619 transform_us=28710 encode_us=204167 total_us=919691 output_bytes=337774 peak_managed_bytes=117527272 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.92529296875,
+      "load_after": 15.92529296875,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-avifmt",
+      "wall_s": 0.5684725410000055,
+      "max_rss_bytes": 1888092160,
+      "internal_ms": 533.044,
+      "stdout": [
+        "report: open_us=520 decode_us=315837 transform_us=30738 encode_us=182628 total_us=533044 output_bytes=250062 peak_managed_bytes=107313272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.92529296875,
+      "load_after": 15.92529296875,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-base",
+      "wall_s": 0.9046670419999998,
+      "max_rss_bytes": 441597952,
+      "internal_ms": 890.532,
+      "stdout": [
+        "report: open_us=511 decode_us=679718 transform_us=26949 encode_us=180011 total_us=890532 output_bytes=250062 peak_managed_bytes=108038472 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.92529296875,
+      "load_after": 15.92529296875,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-base",
+      "wall_s": 0.8989167499999979,
+      "max_rss_bytes": 439386112,
+      "internal_ms": 884.762,
+      "stdout": [
+        "report: open_us=564 decode_us=673215 transform_us=26909 encode_us=180772 total_us=884762 output_bytes=250062 peak_managed_bytes=107185272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.92529296875,
+      "load_after": 15.77099609375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-avifmt",
+      "wall_s": 0.5589160829999997,
+      "max_rss_bytes": 1890697216,
+      "internal_ms": 528.643,
+      "stdout": [
+        "report: open_us=549 decode_us=314380 transform_us=28469 encode_us=181942 total_us=528643 output_bytes=250062 peak_managed_bytes=108323272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.77099609375,
+      "load_after": 15.77099609375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-base",
+      "wall_s": 0.9148332080000046,
+      "max_rss_bytes": 532480000,
+      "internal_ms": 900.738,
+      "stdout": [
+        "report: open_us=40 decode_us=682016 transform_us=25446 encode_us=190122 total_us=900738 output_bytes=337774 peak_managed_bytes=118348072 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.77099609375,
+      "load_after": 15.77099609375,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-avifmt",
+      "wall_s": 0.5608737919999953,
+      "max_rss_bytes": 1980481536,
+      "internal_ms": 527.777,
+      "stdout": [
+        "report: open_us=40 decode_us=308024 transform_us=24843 encode_us=191733 total_us=527777 output_bytes=337774 peak_managed_bytes=117832472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.77099609375,
+      "load_after": 15.77099609375,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-base",
+      "wall_s": 0.5939724170000034,
+      "max_rss_bytes": 244105216,
+      "internal_ms": 582.674,
+      "stdout": [
+        "report: open_us=703 decode_us=325400 transform_us=48097 encode_us=205773 total_us=582674 output_bytes=183658 peak_managed_bytes=70202032 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.77099609375,
+      "load_after": 15.77099609375,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-avifmt",
+      "wall_s": 0.43024520899999885,
+      "max_rss_bytes": 999899136,
+      "internal_ms": 410.166,
+      "stdout": [
+        "report: open_us=674 decode_us=154218 transform_us=48619 encode_us=203812 total_us=410166 output_bytes=183658 peak_managed_bytes=69805936 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.77099609375,
+      "load_after": 15.77099609375,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-base",
+      "wall_s": 0.9836404590000001,
+      "max_rss_bytes": 434388992,
+      "internal_ms": 970.387,
+      "stdout": [
+        "report: open_us=512 decode_us=679398 transform_us=103781 encode_us=184013 total_us=970387 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.77099609375,
+      "load_after": 15.77099609375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-avifmt",
+      "wall_s": 0.9819845419999993,
+      "max_rss_bytes": 434388992,
+      "internal_ms": 969.183,
+      "stdout": [
+        "report: open_us=506 decode_us=679464 transform_us=103607 encode_us=182929 total_us=969183 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.77099609375,
+      "load_after": 15.388671875,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-base",
+      "wall_s": 1.8082535839999991,
+      "max_rss_bytes": 511131648,
+      "internal_ms": 1794.557,
+      "stdout": [
+        "report: open_us=35 decode_us=679893 transform_us=103133 encode_us=1008833 total_us=1794557 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.388671875,
+      "load_after": 15.388671875,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-avifmt",
+      "wall_s": 1.8186130420000026,
+      "max_rss_bytes": 511836160,
+      "internal_ms": 1804.398,
+      "stdout": [
+        "report: open_us=42 decode_us=687408 transform_us=104130 encode_us=1010138 total_us=1804398 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.388671875,
+      "load_after": 15.388671875,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-base",
+      "wall_s": 0.8761749589999965,
+      "max_rss_bytes": 236748800,
+      "internal_ms": 864.403,
+      "stdout": [
+        "report: open_us=617 decode_us=334334 transform_us=319495 encode_us=207784 total_us=864403 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.388671875,
+      "load_after": 15.388671875,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-avifmt",
+      "wall_s": 0.8687434160000009,
+      "max_rss_bytes": 237420544,
+      "internal_ms": 858.0,
+      "stdout": [
+        "report: open_us=736 decode_us=333558 transform_us=315573 encode_us=205950 total_us=858000 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.388671875,
+      "load_after": 15.037109375,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-avifmt",
+      "wall_s": 0.8746482919999963,
+      "max_rss_bytes": 236863488,
+      "internal_ms": 862.912,
+      "stdout": [
+        "report: open_us=675 decode_us=331836 transform_us=321504 encode_us=206778 total_us=862912 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.037109375,
+      "load_after": 15.037109375,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-base",
+      "wall_s": 0.8739547500000029,
+      "max_rss_bytes": 237043712,
+      "internal_ms": 863.357,
+      "stdout": [
+        "report: open_us=679 decode_us=331915 transform_us=320708 encode_us=207958 total_us=863357 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.037109375,
+      "load_after": 15.037109375,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-avifmt",
+      "wall_s": 1.8062399169999992,
+      "max_rss_bytes": 510246912,
+      "internal_ms": 1792.508,
+      "stdout": [
+        "report: open_us=43 decode_us=685685 transform_us=103350 encode_us=1000686 total_us=1792508 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.037109375,
+      "load_after": 15.037109375,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-base",
+      "wall_s": 1.8064610420000022,
+      "max_rss_bytes": 511442944,
+      "internal_ms": 1790.674,
+      "stdout": [
+        "report: open_us=38 decode_us=676493 transform_us=101044 encode_us=1010530 total_us=1790674 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 15.037109375,
+      "load_after": 14.87353515625,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-avifmt",
+      "wall_s": 1.0002430409999974,
+      "max_rss_bytes": 434372608,
+      "internal_ms": 986.153,
+      "stdout": [
+        "report: open_us=524 decode_us=698074 transform_us=104545 encode_us=180397 total_us=986153 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.87353515625,
+      "load_after": 14.87353515625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-base",
+      "wall_s": 1.0055005000000037,
+      "max_rss_bytes": 434749440,
+      "internal_ms": 981.747,
+      "stdout": [
+        "report: open_us=528 decode_us=693326 transform_us=101949 encode_us=183271 total_us=981747 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.87353515625,
+      "load_after": 14.87353515625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-avifmt",
+      "wall_s": 0.44724129200000107,
+      "max_rss_bytes": 1000275968,
+      "internal_ms": 424.386,
+      "stdout": [
+        "report: open_us=612 decode_us=160883 transform_us=50623 encode_us=209549 total_us=424386 output_bytes=183658 peak_managed_bytes=69710704 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.87353515625,
+      "load_after": 14.87353515625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-base",
+      "wall_s": 0.6831325830000026,
+      "max_rss_bytes": 242581504,
+      "internal_ms": 617.351,
+      "stdout": [
+        "report: open_us=668 decode_us=332603 transform_us=72345 encode_us=208970 total_us=617351 output_bytes=183658 peak_managed_bytes=69769008 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.87353515625,
+      "load_after": 14.87353515625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-avifmt",
+      "wall_s": 0.5578462499999972,
+      "max_rss_bytes": 1980678144,
+      "internal_ms": 520.787,
+      "stdout": [
+        "report: open_us=41 decode_us=313936 transform_us=26376 encode_us=177091 total_us=520787 output_bytes=337774 peak_managed_bytes=117605672 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.87353515625,
+      "load_after": 14.87353515625,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-base",
+      "wall_s": 0.9236491250000043,
+      "max_rss_bytes": 531972096,
+      "internal_ms": 907.541,
+      "stdout": [
+        "report: open_us=44 decode_us=682014 transform_us=25397 encode_us=196856 total_us=907541 output_bytes=337774 peak_managed_bytes=117896872 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.87353515625,
+      "load_after": 14.64306640625,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-avifmt",
+      "wall_s": 0.558126417000004,
+      "max_rss_bytes": 1887830016,
+      "internal_ms": 523.379,
+      "stdout": [
+        "report: open_us=685 decode_us=313856 transform_us=24793 encode_us=180829 total_us=523379 output_bytes=250062 peak_managed_bytes=107286872 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.64306640625,
+      "load_after": 14.64306640625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-base",
+      "wall_s": 0.9073850829999941,
+      "max_rss_bytes": 440057856,
+      "internal_ms": 892.722,
+      "stdout": [
+        "report: open_us=539 decode_us=681762 transform_us=25768 encode_us=181372 total_us=892722 output_bytes=250062 peak_managed_bytes=107536072 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.64306640625,
+      "load_after": 14.64306640625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-base",
+      "wall_s": 0.9091424169999982,
+      "max_rss_bytes": 439992320,
+      "internal_ms": 893.546,
+      "stdout": [
+        "report: open_us=607 decode_us=681286 transform_us=25219 encode_us=183170 total_us=893546 output_bytes=250062 peak_managed_bytes=107391672 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.64306640625,
+      "load_after": 14.64306640625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-avifmt",
+      "wall_s": 0.5535862500000022,
+      "max_rss_bytes": 1890926592,
+      "internal_ms": 519.108,
+      "stdout": [
+        "report: open_us=563 decode_us=309146 transform_us=25165 encode_us=180982 total_us=519108 output_bytes=250062 peak_managed_bytes=108359272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.64306640625,
+      "load_after": 14.64306640625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-base",
+      "wall_s": 0.9176931659999994,
+      "max_rss_bytes": 533053440,
+      "internal_ms": 901.225,
+      "stdout": [
+        "report: open_us=47 decode_us=673838 transform_us=26711 encode_us=197234 total_us=901225 output_bytes=337774 peak_managed_bytes=118226072 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.64306640625,
+      "load_after": 14.64306640625,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-avifmt",
+      "wall_s": 0.5626475420000006,
+      "max_rss_bytes": 1982889984,
+      "internal_ms": 526.101,
+      "stdout": [
+        "report: open_us=40 decode_us=313659 transform_us=25600 encode_us=183631 total_us=526101 output_bytes=337774 peak_managed_bytes=118626472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.64306640625,
+      "load_after": 14.59130859375,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-base",
+      "wall_s": 0.5977847079999989,
+      "max_rss_bytes": 243761152,
+      "internal_ms": 583.934,
+      "stdout": [
+        "report: open_us=642 decode_us=323997 transform_us=49783 encode_us=206574 total_us=583934 output_bytes=183658 peak_managed_bytes=69896944 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.59130859375,
+      "load_after": 14.59130859375,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-avifmt",
+      "wall_s": 0.44541416600000616,
+      "max_rss_bytes": 999440384,
+      "internal_ms": 418.904,
+      "stdout": [
+        "report: open_us=631 decode_us=159856 transform_us=48931 encode_us=206685 total_us=418904 output_bytes=183658 peak_managed_bytes=69658800 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.59130859375,
+      "load_after": 14.59130859375,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-base",
+      "wall_s": 0.9845593749999964,
+      "max_rss_bytes": 434487296,
+      "internal_ms": 968.946,
+      "stdout": [
+        "report: open_us=543 decode_us=678510 transform_us=105048 encode_us=182189 total_us=968946 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.59130859375,
+      "load_after": 14.59130859375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-avifmt",
+      "wall_s": 0.9802689170000036,
+      "max_rss_bytes": 434405376,
+      "internal_ms": 965.76,
+      "stdout": [
+        "report: open_us=518 decode_us=677796 transform_us=103882 encode_us=180893 total_us=965760 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.59130859375,
+      "load_after": 14.59130859375,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-base",
+      "wall_s": 1.7961739579999971,
+      "max_rss_bytes": 510230528,
+      "internal_ms": 1779.278,
+      "stdout": [
+        "report: open_us=38 decode_us=675920 transform_us=101238 encode_us=999425 total_us=1779278 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.59130859375,
+      "load_after": 14.59130859375,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-avifmt",
+      "wall_s": 1.8124619590000037,
+      "max_rss_bytes": 510394368,
+      "internal_ms": 1795.715,
+      "stdout": [
+        "report: open_us=38 decode_us=680362 transform_us=104490 encode_us=1008129 total_us=1795715 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.59130859375,
+      "load_after": 14.4638671875,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-base",
+      "wall_s": 0.8727369169999974,
+      "max_rss_bytes": 236830720,
+      "internal_ms": 859.745,
+      "stdout": [
+        "report: open_us=625 decode_us=328676 transform_us=321228 encode_us=207097 total_us=859745 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.4638671875,
+      "load_after": 14.4638671875,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-avifmt",
+      "wall_s": 0.8694621250000125,
+      "max_rss_bytes": 236830720,
+      "internal_ms": 855.95,
+      "stdout": [
+        "report: open_us=660 decode_us=326750 transform_us=319253 encode_us=207134 total_us=855950 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.4638671875,
+      "load_after": 14.4638671875,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-avifmt",
+      "wall_s": 0.8645282080000101,
+      "max_rss_bytes": 237699072,
+      "internal_ms": 851.646,
+      "stdout": [
+        "report: open_us=638 decode_us=327338 transform_us=315936 encode_us=205669 total_us=851646 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.4638671875,
+      "load_after": 14.4638671875,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-base",
+      "wall_s": 0.8672530420000015,
+      "max_rss_bytes": 236994560,
+      "internal_ms": 854.236,
+      "stdout": [
+        "report: open_us=630 decode_us=326086 transform_us=318562 encode_us=206837 total_us=854236 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.4638671875,
+      "load_after": 14.26611328125,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-avifmt",
+      "wall_s": 1.8114540420000083,
+      "max_rss_bytes": 511737856,
+      "internal_ms": 1795.777,
+      "stdout": [
+        "report: open_us=36 decode_us=684753 transform_us=103804 encode_us=1004487 total_us=1795777 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.26611328125,
+      "load_after": 14.26611328125,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-base",
+      "wall_s": 1.8138376670000014,
+      "max_rss_bytes": 510033920,
+      "internal_ms": 1797.454,
+      "stdout": [
+        "report: open_us=38 decode_us=686040 transform_us=102911 encode_us=1005800 total_us=1797454 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.26611328125,
+      "load_after": 14.26611328125,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-avifmt",
+      "wall_s": 0.9939328749999987,
+      "max_rss_bytes": 435093504,
+      "internal_ms": 978.218,
+      "stdout": [
+        "report: open_us=560 decode_us=683925 transform_us=104318 encode_us=186723 total_us=978218 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.26611328125,
+      "load_after": 14.26611328125,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-base",
+      "wall_s": 0.9842264999999912,
+      "max_rss_bytes": 434470912,
+      "internal_ms": 969.177,
+      "stdout": [
+        "report: open_us=601 decode_us=680281 transform_us=103520 encode_us=182085 total_us=969177 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 14.26611328125,
+      "load_after": 13.92431640625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-avifmt",
+      "wall_s": 0.4378966249999934,
+      "max_rss_bytes": 999489536,
+      "internal_ms": 413.347,
+      "stdout": [
+        "report: open_us=665 decode_us=154086 transform_us=48992 encode_us=206867 total_us=413347 output_bytes=183658 peak_managed_bytes=69722864 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.92431640625,
+      "load_after": 13.92431640625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-base",
+      "wall_s": 0.5981392089999957,
+      "max_rss_bytes": 243580928,
+      "internal_ms": 584.946,
+      "stdout": [
+        "report: open_us=651 decode_us=326361 transform_us=48864 encode_us=206460 total_us=584946 output_bytes=183658 peak_managed_bytes=69915504 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.92431640625,
+      "load_after": 13.92431640625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-avifmt",
+      "wall_s": 0.5722840000000105,
+      "max_rss_bytes": 1980940288,
+      "internal_ms": 533.107,
+      "stdout": [
+        "report: open_us=45 decode_us=312256 transform_us=26063 encode_us=191584 total_us=533107 output_bytes=337774 peak_managed_bytes=117626472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.92431640625,
+      "load_after": 13.92431640625,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-base",
+      "wall_s": 0.9160056249999968,
+      "max_rss_bytes": 532430848,
+      "internal_ms": 899.469,
+      "stdout": [
+        "report: open_us=45 decode_us=680899 transform_us=25651 encode_us=189630 total_us=899469 output_bytes=337774 peak_managed_bytes=118441272 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.92431640625,
+      "load_after": 13.92431640625,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-avifmt",
+      "wall_s": 0.5607152919999976,
+      "max_rss_bytes": 1888845824,
+      "internal_ms": 525.933,
+      "stdout": [
+        "report: open_us=518 decode_us=319615 transform_us=24308 encode_us=178300 total_us=525933 output_bytes=250062 peak_managed_bytes=107385272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.92431640625,
+      "load_after": 13.92431640625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-base",
+      "wall_s": 0.904124749999994,
+      "max_rss_bytes": 440778752,
+      "internal_ms": 888.968,
+      "stdout": [
+        "report: open_us=544 decode_us=680283 transform_us=25346 encode_us=179607 total_us=888968 output_bytes=250062 peak_managed_bytes=107775272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.92431640625,
+      "load_after": 13.92431640625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-base",
+      "wall_s": 0.9022173329999958,
+      "max_rss_bytes": 439828480,
+      "internal_ms": 886.867,
+      "stdout": [
+        "report: open_us=535 decode_us=679452 transform_us=23728 encode_us=179903 total_us=886867 output_bytes=250062 peak_managed_bytes=107188072 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.92431640625,
+      "load_after": 13.85009765625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t0-avifmt",
+      "wall_s": 0.5537117499999908,
+      "max_rss_bytes": 1888911360,
+      "internal_ms": 520.277,
+      "stdout": [
+        "report: open_us=566 decode_us=309183 transform_us=26559 encode_us=180772 total_us=520277 output_bytes=250062 peak_managed_bytes=107788872 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.85009765625,
+      "load_after": 13.85009765625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-base",
+      "wall_s": 0.8962345409999983,
+      "max_rss_bytes": 532267008,
+      "internal_ms": 878.976,
+      "stdout": [
+        "report: open_us=46 decode_us=680002 transform_us=24192 encode_us=171518 total_us=878976 output_bytes=337774 peak_managed_bytes=118402472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.85009765625,
+      "load_after": 13.85009765625,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t0-avifmt",
+      "wall_s": 0.5561339590000074,
+      "max_rss_bytes": 1980448768,
+      "internal_ms": 520.1,
+      "stdout": [
+        "report: open_us=41 decode_us=312606 transform_us=23969 encode_us=180253 total_us=520100 output_bytes=337774 peak_managed_bytes=117637672 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.85009765625,
+      "load_after": 13.85009765625,
+      "output_bytes": 337774,
+      "output_sha256": "8108f8cd6a8ec645c3d27c6d964b972d86a5cf77941c6e4ecd6b420b03dc6f42",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-base",
+      "wall_s": 0.6027618329999882,
+      "max_rss_bytes": 245399552,
+      "internal_ms": 589.561,
+      "stdout": [
+        "report: open_us=655 decode_us=327757 transform_us=51999 encode_us=206384 total_us=589561 output_bytes=183658 peak_managed_bytes=71261488 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.85009765625,
+      "load_after": 13.85009765625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t0-avifmt",
+      "wall_s": 0.4326030000000003,
+      "max_rss_bytes": 1001406464,
+      "internal_ms": 409.488,
+      "stdout": [
+        "report: open_us=623 decode_us=153614 transform_us=42831 encode_us=209650 total_us=409488 output_bytes=183658 peak_managed_bytes=70499888 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=20 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.85009765625,
+      "load_after": 13.85009765625,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-base",
+      "wall_s": 0.9849971249999925,
+      "max_rss_bytes": 434683904,
+      "internal_ms": 968.808,
+      "stdout": [
+        "report: open_us=552 decode_us=680403 transform_us=104125 encode_us=181057 total_us=968808 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.85009765625,
+      "load_after": 13.85009765625,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif24-webp-t1-avifmt",
+      "wall_s": 0.9790490000000034,
+      "max_rss_bytes": 434487296,
+      "internal_ms": 964.402,
+      "stdout": [
+        "report: open_us=519 decode_us=676685 transform_us=103036 encode_us=181517 total_us=964402 output_bytes=250062 peak_managed_bytes=102695272 encoder_frame_bytes=9390400 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.85009765625,
+      "load_after": 13.46142578125,
+      "output_bytes": 250062,
+      "output_sha256": "436036b8c4c2fca1e2156b3c4bdc9d5cd3d27f00e106e62a2fb65f03f08f181c",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-base",
+      "wall_s": 1.803598000000008,
+      "max_rss_bytes": 510181376,
+      "internal_ms": 1786.356,
+      "stdout": [
+        "report: open_us=46 decode_us=678879 transform_us=103585 encode_us=1001158 total_us=1786356 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.46142578125,
+      "load_after": 13.46142578125,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif24-avif-t1-avifmt",
+      "wall_s": 1.8164142090000013,
+      "max_rss_bytes": 511557632,
+      "internal_ms": 1799.915,
+      "stdout": [
+        "report: open_us=39 decode_us=684303 transform_us=104735 encode_us=1008175 total_us=1799915 output_bytes=337199 peak_managed_bytes=112938472 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.46142578125,
+      "load_after": 13.46142578125,
+      "output_bytes": 337199,
+      "output_sha256": "7e5513974702f9d8f8203e89679066e3c41cde27f5ae82136f4cd31ab5239caf",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-base",
+      "wall_s": 0.8737147089999979,
+      "max_rss_bytes": 236797952,
+      "internal_ms": 860.069,
+      "stdout": [
+        "report: open_us=664 decode_us=328973 transform_us=318998 encode_us=209173 total_us=860069 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.46142578125,
+      "load_after": 13.02392578125,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "avif12-webp-t1-avifmt",
+      "wall_s": 0.8718346670000017,
+      "max_rss_bytes": 236863488,
+      "internal_ms": 858.859,
+      "stdout": [
+        "report: open_us=677 decode_us=328431 transform_us=321156 encode_us=206476 total_us=858859 output_bytes=183658 peak_managed_bytes=63990896 encoder_frame_bytes=10560000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=>=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "load_before": 13.02392578125,
+      "load_after": 13.02392578125,
+      "output_bytes": 183658,
+      "output_sha256": "0e684f3935f0a0ce4c0f8bc884a68e22f83b9811f7521758f03e779f4633eea8",
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}

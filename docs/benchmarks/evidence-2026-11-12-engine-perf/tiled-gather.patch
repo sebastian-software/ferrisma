@@ -1,0 +1,103 @@
+diff --git a/src/orientation.rs b/src/orientation.rs
+index 5a743a12..6f4f87df 100644
+--- a/src/orientation.rs
++++ b/src/orientation.rs
+@@ -306,12 +306,63 @@ fn gather_block<T: RowSample>(
+         rows.checked_mul(layout.row_len)
+             .ok_or(Error::GeometryOverflow)?,
+     )?;
+-    for (y, out) in (first..).zip(buffer.as_mut_slice().chunks_exact_mut(layout.row_len)) {
+-        gather_row(pixels, out, layout, y)?;
+-    }
++    gather_rows(pixels, buffer.as_mut_slice(), layout, first)?;
+     Ok(buffer)
+ }
+ 
++/// Display columns per tile of a transposing gather.
++const TILE_COLUMNS: u32 = 64;
++
++/// Fill the consecutive display rows from `first` that `out` holds.
++///
++/// Without a transpose each display row reads one stored row, so rows are
++/// gathered one by one. With a transpose a display row reads a stored
++/// column; the rows are then gathered in tiles of `TILE_COLUMNS` columns, so
++/// that the stored pixels of neighboring display rows, which are adjacent in
++/// one stored row, are read while their cache lines are loaded. Every
++/// sample is the one `gather_row` copies; only the visiting order differs.
++fn gather_rows<T: Copy>(
++    pixels: &[T],
++    out: &mut [T],
++    layout: &Layout,
++    first: u32,
++) -> Result<(), Error> {
++    if !layout.orientation.transpose || layout.row_len == 0 {
++        for (y, row) in (first..).zip(out.chunks_exact_mut(layout.row_len)) {
++            gather_row(pixels, row, layout, y)?;
++        }
++        return Ok(());
++    }
++    let mut x = layout.display.x;
++    while x < layout.display.right() {
++        let width = (layout.display.right() - x).min(TILE_COLUMNS);
++        let tile = Layout {
++            display: Rect {
++                x,
++                y: layout.display.y,
++                width,
++                height: layout.display.height,
++            },
++            ..*layout
++        };
++        let start = usize::try_from(x - layout.display.x)
++            .ok()
++            .and_then(|offset| offset.checked_mul(layout.channels))
++            .ok_or(Error::GeometryOverflow)?;
++        let end = usize::try_from(width)
++            .ok()
++            .and_then(|width| width.checked_mul(layout.channels))
++            .and_then(|len| len.checked_add(start))
++            .ok_or(Error::GeometryOverflow)?;
++        for (y, row) in (first..).zip(out.chunks_exact_mut(layout.row_len)) {
++            let part = row.get_mut(start..end).ok_or(Error::OutOfBounds)?;
++            gather_row(pixels, part, &tile, y)?;
++        }
++        x += width;
++    }
++    Ok(())
++}
++
+ /// The calling thread's side of `emit_parallel`. It owns the job sender, so
+ /// that returning for any reason closes the queue and the workers exit.
+ #[allow(
+@@ -428,10 +479,27 @@ fn reorient<T: RowSample>(
+     if threads > 1 && display.height >= PARALLEL_MIN_ROWS {
+         emit_parallel(pixels, &layout, threads, budget, sink)?;
+     } else {
+-        let mut row = budget.allocate_typed::<T>(row_len)?;
+-        for y in display.y..display.bottom() {
+-            gather_row(pixels, row.as_mut_slice(), &layout, y)?;
+-            sink(y, T::wrap(row.as_slice()))?;
++        // Blocks of display rows, so that a transposing gather can tile.
++        let block_rows =
++            usize::try_from(display.height.min(BLOCK_ROWS)).map_err(|_| Error::GeometryOverflow)?;
++        let mut block = budget.allocate_typed::<T>(
++            row_len
++                .checked_mul(block_rows)
++                .ok_or(Error::GeometryOverflow)?,
++        )?;
++        let mut first = display.y;
++        while first < display.bottom() {
++            let rows = (display.bottom() - first).min(BLOCK_ROWS);
++            let len = usize::try_from(rows)
++                .ok()
++                .and_then(|rows| rows.checked_mul(row_len))
++                .ok_or(Error::GeometryOverflow)?;
++            let part = &mut block.as_mut_slice()[..len];
++            gather_rows(pixels, part, &layout, first)?;
++            for (y, row) in (first..).zip(part.chunks_exact(row_len.max(1))) {
++                sink(y, T::wrap(row))?;
++            }
++            first += rows;
+         }
+     }
+     let bytes = length

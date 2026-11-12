@@ -1,0 +1,152 @@
+diff --git a/src/cms.rs b/src/cms.rs
+index 959e01c9..42b48058 100644
+--- a/src/cms.rs
++++ b/src/cms.rs
+@@ -31,6 +31,55 @@ pub(crate) struct IccSrgbSource<'a> {
+ pub(crate) struct IccConversion {
+     transformer: Arc<TransformF32Executor>,
+     input: SampleType,
++    /// EXPERIMENT: per-channel contributions for 8-bit matrix-shaper input.
++    lut: Option<Box<[[f32; 3]]>>,
++}
++
++/// EXPERIMENT: for a matrix-shaper transform with identity output curves,
++/// out = M * [trc_r(r), trc_g(g), trc_b(b)], so each 8-bit channel value
++/// contributes a fixed vector when trc(0) == 0. Probe moxcms for those
++/// 768 vectors and verify the sum on a grid before using it.
++fn channel_lut(transformer: &TransformF32Executor) -> Option<Box<[[f32; 3]]>> {
++    let mut input = Vec::with_capacity(768 * 3);
++    for channel in 0..3 {
++        for value in 0..256_u16 {
++            let mut px = [0.0_f32; 3];
++            px[channel] = f32::from(value) / 255.0;
++            input.extend_from_slice(&px);
++        }
++    }
++    let mut output = vec![0.0_f32; input.len()];
++    transformer.transform(&input, &mut output).ok()?;
++    let lut: Box<[[f32; 3]]> = output.as_chunks::<3>().0.to_vec().into_boxed_slice();
++    if lut[0] != [0.0; 3] || lut[256] != [0.0; 3] || lut[512] != [0.0; 3] {
++        return None;
++    }
++    let grid: Vec<u8> = (0..=16).map(|i| u8::try_from((i * 255) / 16).unwrap_or(255)).collect();
++    let mut probe = Vec::new();
++    for &r in &grid {
++        for &g in &grid {
++            for &b in &grid {
++                probe.extend_from_slice(&[f32::from(r) / 255.0, f32::from(g) / 255.0, f32::from(b) / 255.0]);
++            }
++        }
++    }
++    let mut exact = vec![0.0_f32; probe.len()];
++    transformer.transform(&probe, &mut exact).ok()?;
++    let mut i = 0;
++    for &r in &grid {
++        for &g in &grid {
++            for &b in &grid {
++                let (lr, lg, lb) = (lut[usize::from(r)], lut[256 + usize::from(g)], lut[512 + usize::from(b)]);
++                for c in 0..3 {
++                    if (lr[c] + lg[c] + lb[c] - exact[i + c]).abs() > 1e-5 {
++                        return None;
++                    }
++                }
++                i += 3;
++            }
++        }
++    }
++    Some(lut)
+ }
+ 
+ impl RowConversion for IccConversion {
+@@ -47,6 +96,15 @@ impl RowConversion for IccConversion {
+         if row.len() != out.len() || row.len() != scratch.len() || row.sample_type() != self.input {
+             return Err(Error::IncompleteDecoderOutput);
+         }
++        if let (Some(lut), DecodedRow::U8(values)) = (self.lut.as_deref(), row) {
++            for (dst, src) in out.as_chunks_mut::<3>().0.iter_mut().zip(values.as_chunks::<3>().0) {
++                let r = lut[usize::from(src[0])];
++                let g = lut[256 + usize::from(src[1])];
++                let b = lut[512 + usize::from(src[2])];
++                *dst = [r[0] + g[0] + b[0], r[1] + g[1] + b[1], r[2] + g[2] + b[2]];
++            }
++            return Ok(());
++        }
+         let input: &[f32] = match row {
+             DecodedRow::U8(values) => {
+                 for (dst, src) in scratch.iter_mut().zip(values) {
+@@ -129,9 +187,18 @@ impl<'a> IccSrgbSource<'a> {
+                 return Err(Error::CicpBesideIcc(HDR));
+             }
+         }
++        let lut = if info.sample == SampleType::U8 && extended_matrix_shaper {
++            channel_lut(transformer.as_ref())
++        } else {
++            None
++        };
++        if std::env::var_os("FERRISMA_ICC_LUT_REPORT").is_some() {
++            eprintln!("icc channel lut: {}", lut.is_some());
++        }
+         let conversion = Arc::new(IccConversion {
+             transformer,
+             input: info.sample,
++            lut,
+         });
+         let mut output = info.clone();
+         output.sample = SampleType::F32;
+@@ -831,4 +898,56 @@ mod tests {
+             assert!(actual.iter().any(|&v| v > 1.01));
+         }
+     }
++
++    /// EXPERIMENT: maximum |LUT sum - moxcms| over every 8-bit RGB triplet.
++    #[test]
++    #[ignore = "experiment"]
++    fn experiment_channel_lut_deviation() {
++        let profiles: [(&str, Vec<u8>); 5] = [
++            ("moxcms sRGB", moxcms::ColorProfile::new_srgb().encode().unwrap()),
++            ("paris sRGB", include_bytes!("../tests/fixtures/icc/paris-srgb.icc").to_vec()),
++            ("Display P3 v4", include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc").to_vec()),
++            ("Adobe RGB", include_bytes!("../tests/fixtures/icc/adobe-rgb-1998.icc").to_vec()),
++            ("P3 gamma 2.2", include_bytes!("../tests/fixtures/icc/display-p3-gamma22.icc").to_vec()),
++        ];
++        for (name, icc) in profiles {
++            let source = Grid {
++                info: DecoderInfo {
++                    size: crate::geometry::Size::new(256, 1).unwrap(),
++                    layout: ChannelLayout::Rgb,
++                    sample: SampleType::U8,
++                    access: DecodeAccess::CodecRegionRequest,
++                    alpha: AlphaMode::Opaque,
++                    rendered_icc: Some(icc),
++                    rendered_cicp: None,
++                },
++                row: Vec::new(),
++            };
++            let adapter = IccSrgbSource::new(Box::new(source)).unwrap();
++            let conversion = adapter.conversion.clone();
++            let Some(lut) = conversion.lut.as_deref() else {
++                println!("{name}: no LUT");
++                continue;
++            };
++            let mut worst = 0.0_f32;
++            let mut input = Vec::with_capacity(256 * 3);
++            let mut exact = vec![0.0_f32; 256 * 3];
++            for r in 0..256_usize {
++                for g in 0..256_usize {
++                    input.clear();
++                    for b in 0..256_usize {
++                        input.extend_from_slice(&[r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0]);
++                    }
++                    conversion.transformer.transform(&input, &mut exact).unwrap();
++                    for b in 0..256_usize {
++                        for c in 0..3 {
++                            let sum = lut[r][c] + lut[256 + g][c] + lut[512 + b][c];
++                            worst = worst.max((sum - exact[3 * b + c]).abs());
++                        }
++                    }
++                }
++            }
++            println!("{name}: max |LUT - moxcms| over 2^24 triplets = {worst:e}");
++        }
++    }
+ }

@@ -1,0 +1,13 @@
+Experiment only (measured, not committed): force-inline the port's Huffman
+fast-path helper. Output checksums are identical to the port and to C
+libjpeg-turbo 3.2.1 on all inputs of jpeg-huffman-inline-experiment.md.
+
+--- a/codecs/libjpeg-turbo-rs/src/jdhuff.rs
++++ b/codecs/libjpeg-turbo-rs/src/jdhuff.rs
+@@ -735,7 +735,7 @@
+ // upstream: src/jdhuff.h HUFF_DECODE_FAST
+ /// Decodes the next Huffman-coded symbol from a buffer known to hold
+ /// enough bytes, setting `nb` to its code length.
+-#[inline]
++#[inline(always)]
+ #[expect(non_snake_case, reason = "C macro name")]
