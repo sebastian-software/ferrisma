@@ -62,6 +62,7 @@
 //!   source distinguishes a null pointer; output pointers of ProcessOutput
 //!   stay raw because the output wrapper retains them.
 
+use super::base::status::StatusCode;
 use super::cms::jxl_cms::get_default_cms;
 use super::cms_interface::JxlCmsInterface;
 use super::codestream_header::{
@@ -72,17 +73,24 @@ use super::color_encoding::{ColorSpace, JxlColorEncoding};
 use super::color_encoding_internal::ColorEncoding;
 use super::common::SpeedTier;
 use super::decode::{Aliased, JPEGXL_MAJOR_VERSION, JPEGXL_MINOR_VERSION, JPEGXL_PATCH_VERSION};
+use super::enc_aux_out::LayerType;
+use super::enc_bit_writer::BitWriter;
+use super::enc_fields::write_codestream_headers;
+use super::enc_frame::FrameInfo;
+use super::enc_frame_vardct::{EncodeFrameError, FrameAdmission, encode_frame};
 use super::enc_params::{CompressParams, MIN_BUTTERAUGLI_DISTANCE};
+use super::encode_internal::JxlEncoderFrameIndexBoxEntry;
 use super::encode_internal::{
     JxlEncoderChunkedFrameAdapter, JxlEncoderFrameIndexBox, JxlEncoderFrameSettingsValues,
     JxlEncoderOutputProcessorWrapper, JxlEncoderQueuedBox, JxlEncoderQueuedFrame,
-    JxlEncoderQueuedInput, make_box_type,
+    JxlEncoderQueuedInput, append_data, make_box_type,
 };
-use super::frame_header::ColorTransform;
+use super::frame_header::{BlendMode, BlendingInfo, ColorTransform};
 use super::image_metadata::{CodecMetadata, ExtraChannel, ExtraChannelInfo};
 use super::luminance::set_intensity_target;
 use super::memory_manager::{
-    JxlMemoryManager, memory_manager_alloc, memory_manager_free, memory_manager_init,
+    JxlMemoryManager, default_alloc, default_free, memory_manager_alloc, memory_manager_free,
+    memory_manager_init,
 };
 use super::memory_manager_internal::MemoryManagerUniquePtr;
 use super::modular::options::Predictor;
@@ -169,8 +177,17 @@ impl JxlEncoderFrameSettingId {
 pub enum JxlEncoderAdmission {
     /// AddImageFrameInternal when CanDoFastLossless selects enc_fast_lossless.
     FastLosslessFrame,
-    /// ProcessOutput's call of ProcessOneEnqueuedInput.
+    /// ProcessOneEnqueuedInput at a branch outside raw codestream output:
+    /// alpha, an ICC profile, a container or a box.
     EnqueuedInput,
+    /// EncodeFrame when CanDoStreamingEncoding selects the streaming encode.
+    StreamingFrame,
+    /// EncodeFrame outside the admitted one-shot VarDCT profile.
+    FrameProfile,
+    /// FindBestPatchDictionary when FindTextLikePatches finds patches.
+    PatchDictionary,
+    /// ComputeARHeuristics past its early return (the decoder in the loop).
+    ArHeuristics,
 }
 
 #[cfg(feature = "cpp-oracle")]
@@ -1830,8 +1847,287 @@ pub fn jxl_encoder_close_input(enc: &mut JxlEncoder) {
     jxl_encoder_close_boxes(enc);
 }
 
-/// JxlEncoderProcessOutput. ProcessOneEnqueuedInput is not yet translated, so
-/// its first call is an admission result (see the module header).
+/// How ProcessOneEnqueuedInput failed: with the status the source returns
+/// (JXL_API_ERROR has set `error`), or with an admission result.
+enum EnqueuedInputFailure {
+    Failed,
+    Admission(JxlEncoderAdmission),
+}
+impl From<StatusCode> for EnqueuedInputFailure {
+    fn from(_: StatusCode) -> Self {
+        Self::Failed
+    }
+}
+
+fn enqueued_api_error(enc: &mut JxlEncoder, error_code: JxlEncoderError) -> EnqueuedInputFailure {
+    api_error(enc, error_code);
+    EnqueuedInputFailure::Failed
+}
+
+/// The default memory manager after MemoryManagerInit with a null manager.
+fn uses_default_memory_manager(enc: &JxlEncoder) -> bool {
+    let manager = enc.memory_manager.get();
+    manager.alloc.map(|f| f as usize) == Some(default_alloc as *const () as usize)
+        && manager.free.map(|f| f as usize) == Some(default_free as *const () as usize)
+}
+
+/// JxlEncoderFrameIndexBox::AddFrame.
+fn frame_index_box_add_frame(
+    frame_index_box: &mut JxlEncoderFrameIndexBox,
+    offi: u64,
+    duration: u32,
+    to_be_indexed: bool,
+) {
+    if frame_index_box.entries.len() == 1 && offi == frame_index_box.entries[0].offi {
+        // API use for the first frame, let's clear the already recorded first
+        // frame.
+        frame_index_box.entries.clear();
+    }
+    frame_index_box.entries.push(JxlEncoderFrameIndexBoxEntry {
+        to_be_indexed,
+        duration,
+        offi,
+    });
+}
+
+/// JxlEncoderFrameIndexBox::StoreFrameIndexBox.
+fn store_frame_index_box(frame_index_box: &JxlEncoderFrameIndexBox) -> bool {
+    frame_index_box.entries.iter().any(|e| e.to_be_indexed)
+}
+
+/// JxlEncoder::MustUseContainer.
+fn must_use_container(enc: &JxlEncoder, output_mode: i32) -> bool {
+    enc.container_ftyp_version >= 0
+        || enc.use_container
+        || (enc.codestream_level != 5 && enc.codestream_level != -1)
+        || enc.store_jpeg_metadata
+        || enc.use_boxes
+        || output_mode == 2
+}
+
+/// JxlEncoder::ProcessOneEnqueuedInput for raw codestream output: the
+/// metadata header and one frame through EncodeFrame. The branches that
+/// enter untranslated units are admission results at their checkpoints:
+/// alpha (the opacity scan and extra-channel frames), ICC profiles
+/// (WriteICC), containers and boxes (step 3), and the frame encoder's own
+/// checkpoints ([`FrameAdmission`]).
+fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputFailure> {
+    let output_mode = enc.input_queue[0].output_mode; // resolved at queue time
+
+    // Mode 2 requires that the container was started with ftyp version 1.
+    if output_mode == 2 && enc.wrote_bytes && enc.container_ftyp_version != 1 {
+        return Err(enqueued_api_error(enc, JxlEncoderError::API_USAGE));
+    }
+
+    let mut header_bytes: Vec<u8> = Vec::new();
+    if !enc.wrote_bytes {
+        if enc.metadata.m.has_alpha() {
+            // The alpha stripping decision and its opacity scan, and the
+            // extra-channel frame encode after it, are step 4.
+            return Err(EnqueuedInputFailure::Admission(
+                JxlEncoderAdmission::EnqueuedInput,
+            ));
+        }
+
+        // First time encoding any data, verify the level 5 vs level 10 settings
+        let required_level = verify_level_settings(enc);
+        // Only level 5 and 10 are defined, and the function can return -1 to
+        // indicate full incompatibility.
+        if !(required_level == -1 || required_level == 5 || required_level == 10) {
+            return Err(EnqueuedInputFailure::Failed);
+        }
+        // codestream_level == -1 means auto-set to the required level
+        if enc.codestream_level == -1 {
+            enc.codestream_level = required_level;
+        }
+        if enc.codestream_level == 5 && required_level != 5 {
+            return Err(enqueued_api_error(enc, JxlEncoderError::API_USAGE));
+        }
+        if required_level == -1 {
+            return Err(enqueued_api_error(enc, JxlEncoderError::API_USAGE));
+        }
+        let mut writer = BitWriter::new();
+        if write_codestream_headers(&mut enc.metadata, &mut writer, None).is_err() {
+            return Err(enqueued_api_error(enc, JxlEncoderError::GENERIC));
+        }
+        // Only send ICC (at least several hundred bytes) if fields aren't enough.
+        if enc.metadata.m.color_encoding.want_icc() {
+            // WriteICC (enc_icc_codec.cc) is step 6.
+            return Err(EnqueuedInputFailure::Admission(
+                JxlEncoderAdmission::EnqueuedInput,
+            ));
+        }
+        writer.with_max_bits(
+            8,
+            LayerType::Header,
+            None,
+            |w, _| {
+                w.zero_pad_to_byte();
+                Ok(())
+            },
+            false,
+        )?;
+        header_bytes = writer.take_bytes().as_slice().to_vec();
+
+        // Not actually the end of frame, but the end of metadata/ICC, but helps
+        // the next frame to start here for indexing purposes.
+        enc.codestream_bytes_written_end_of_frame += header_bytes.len();
+
+        if must_use_container(enc, output_mode) {
+            // The container header, the jxll box and the partial-header jxlp
+            // box are step 3.
+            return Err(EnqueuedInputFailure::Admission(
+                JxlEncoderAdmission::EnqueuedInput,
+            ));
+        }
+        enc.wrote_bytes = true;
+    }
+
+    enc.output_processor.set_finalized_position()?;
+
+    // Choose frame or box processing: exactly one of the two owners (box or
+    // frame) in the input queue item is non-null.
+    if enc.input_queue[0].frame.is_none() {
+        // Box output (uncompressed or brob) needs a container, so it is
+        // reached only after the container admission above.
+        return Err(EnqueuedInputFailure::Admission(
+            JxlEncoderAdmission::EnqueuedInput,
+        ));
+    }
+    let mut input = enc.input_queue.remove(0);
+    let mut input_frame = input.frame.take().expect("checked above");
+    enc.num_queued_frames -= 1;
+    for idx in 0..input_frame.ec_initialized.len() {
+        if input_frame.ec_initialized[idx] == 0 {
+            return Err(enqueued_api_error(enc, JxlEncoderError::API_USAGE));
+        }
+    }
+    if enc.metadata.m.xyb_encoded {
+        input_frame.option_values.cparams.color_transform = ColorTransform::XYB;
+    } else {
+        input_frame.option_values.cparams.color_transform = ColorTransform::NONE;
+    }
+
+    let (duration, timecode) = if enc.metadata.m.have_animation {
+        (
+            input_frame.option_values.header.duration,
+            input_frame.option_values.header.timecode,
+        )
+    } else {
+        // If have_animation is false, the encoder should ignore the duration
+        // and timecode values.
+        (0, 0)
+    };
+
+    let last_frame = enc.frames_closed && enc.num_queued_frames == 0;
+
+    // The box-size estimate of the source (max_bits_per_sample, the upper
+    // bound and use_large_box) serves only the container branches.
+    let frame_start_pos = enc.output_processor.current_position();
+    let n0 = enc.jxlp_counter;
+    let content_start = enc.output_processor.current_position();
+
+    if !header_bytes.is_empty() {
+        append_data(&mut enc.output_processor, &header_bytes)?;
+    }
+    let _ = frame_start_pos;
+
+    frame_index_box_add_frame(
+        &mut enc.frame_index_box,
+        enc.codestream_bytes_written_end_of_frame as u64,
+        duration,
+        input_frame.option_values.frame_index_box,
+    );
+
+    let layer_info = input_frame.option_values.header.layer_info;
+    let save_as_reference = layer_info.save_as_reference as usize;
+    if save_as_reference >= 3 {
+        return Err(enqueued_api_error(enc, JxlEncoderError::API_USAGE));
+    }
+
+    let mut frame_info = FrameInfo {
+        is_last: last_frame,
+        save_as_reference,
+        source: layer_info.blend_info.source as usize,
+        clamp: layer_info.blend_info.clamp != 0,
+        alpha_channel: layer_info.blend_info.alpha as i32,
+        ..FrameInfo::default()
+    };
+    let num_extra_channels = enc.metadata.m.num_extra_channels as usize;
+    frame_info
+        .extra_channel_blending_info
+        .resize_with(num_extra_channels, BlendingInfo::default);
+    // If extra channel blend info has not been set, use the blend mode from
+    // the layer_info.
+    let default_blend_info = layer_info.blend_info;
+    for i in 0..num_extra_channels {
+        let from = input_frame
+            .option_values
+            .extra_channel_blend_info
+            .get(i)
+            .copied()
+            .unwrap_or(default_blend_info);
+        let to = &mut frame_info.extra_channel_blending_info[i];
+        to.mode = BlendMode(from.blendmode.0);
+        to.source = from.source;
+        to.alpha_channel = from.alpha;
+        to.clamp = from.clamp != 0;
+    }
+    frame_info.origin.x0 = layer_info.crop_x0;
+    frame_info.origin.y0 = layer_info.crop_y0;
+    frame_info.blendmode = BlendMode(layer_info.blend_info.blendmode.0);
+    frame_info.blend = layer_info.blend_info.blendmode != JxlBlendMode::REPLACE;
+    frame_info.image_bit_depth = input_frame.option_values.image_bit_depth;
+    frame_info.duration = duration;
+    frame_info.timecode = timecode;
+    frame_info.name = input_frame.option_values.frame_name.clone();
+    let mut frame_cparams = input_frame.option_values.cparams.clone();
+    frame_cparams.output_mode = output_mode;
+    let default_memory_manager = uses_default_memory_manager(enc);
+    match encode_frame(
+        &frame_cparams,
+        &frame_info,
+        &enc.metadata,
+        &input_frame.frame_data,
+        &mut enc.output_processor,
+        default_memory_manager,
+    ) {
+        Ok(()) => {}
+        Err(EncodeFrameError::Admission(checkpoint)) => {
+            return Err(EnqueuedInputFailure::Admission(match checkpoint {
+                FrameAdmission::StreamingFrame => JxlEncoderAdmission::StreamingFrame,
+                FrameAdmission::FrameProfile => JxlEncoderAdmission::FrameProfile,
+                FrameAdmission::PatchDictionary => JxlEncoderAdmission::PatchDictionary,
+                FrameAdmission::ArHeuristics => JxlEncoderAdmission::ArHeuristics,
+            }));
+        }
+        Err(EncodeFrameError::Status(_)) => {
+            return Err(enqueued_api_error(enc, JxlEncoderError::GENERIC));
+        }
+    }
+    enc.last_used_cparams = input_frame.option_values.cparams.clone();
+
+    let content_size = enc.output_processor.current_position() - content_start;
+    enc.codestream_bytes_written_end_of_frame = enc
+        .codestream_bytes_written_end_of_frame
+        .wrapping_add(content_size)
+        .wrapping_sub(header_bytes.len())
+        .wrapping_sub((enc.jxlp_counter - n0) * 12);
+
+    enc.output_processor.set_finalized_position()?;
+    if last_frame && store_frame_index_box(&enc.frame_index_box) {
+        // The jxli box is container output (step 3).
+        return Err(EnqueuedInputFailure::Admission(
+            JxlEncoderAdmission::EnqueuedInput,
+        ));
+    }
+    drop(input_frame);
+    drop(input);
+    Ok(())
+}
+
+/// JxlEncoderProcessOutput. ProcessOneEnqueuedInput returns an admission
+/// result at its untranslated checkpoints (see the module header).
 ///
 /// # Safety
 /// `next_out` and `avail_out` are valid, `*next_out` points to `*avail_out`
@@ -1850,10 +2146,17 @@ pub unsafe fn jxl_encoder_process_output(
     if unsafe { enc.output_processor.set_avail_out(next_out, avail_out) }.is_err() {
         return JxlEncoderStatus::ERROR;
     }
-    // SAFETY: As above.
-    if unsafe { *avail_out } != 0 && !enc.input_queue.is_empty() {
-        // The first iteration of the source loop calls ProcessOneEnqueuedInput.
-        return admission(enc, JxlEncoderAdmission::EnqueuedInput);
+    // SAFETY: As above; the output wrapper writes through the retained
+    // pointers only inside the calls below, and no reference is held across
+    // them.
+    while unsafe { *avail_out } != 0 && !enc.input_queue.is_empty() {
+        match process_one_enqueued_input(enc) {
+            Ok(()) => {}
+            Err(EnqueuedInputFailure::Failed) => return JxlEncoderStatus::ERROR,
+            Err(EnqueuedInputFailure::Admission(checkpoint)) => {
+                return admission(enc, checkpoint);
+            }
+        }
     }
     if !enc.input_queue.is_empty() || enc.output_processor.has_output_to_write() {
         return JxlEncoderStatus::NEED_MORE_OUTPUT;

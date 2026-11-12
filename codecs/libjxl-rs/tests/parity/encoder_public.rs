@@ -81,6 +81,9 @@ fn compare(family: &str, requests: Vec<String>) {
             r[index + 1]
         );
         let evidence = probe[index + 1];
+        if std::env::var_os("JXL_ENCODER_PUBLIC_DEBUG").is_some() {
+            eprintln!("admission {checkpoint:?} at {op}: {request}");
+        }
         match checkpoint {
             JxlEncoderAdmission::FastLosslessFrame => {
                 assert!(
@@ -89,7 +92,11 @@ fn compare(family: &str, requests: Vec<String>) {
                 );
                 fast_lossless += 1;
             }
-            JxlEncoderAdmission::EnqueuedInput => {
+            JxlEncoderAdmission::EnqueuedInput
+            | JxlEncoderAdmission::StreamingFrame
+            | JxlEncoderAdmission::FrameProfile
+            | JxlEncoderAdmission::PatchDictionary
+            | JxlEncoderAdmission::ArHeuristics => {
                 let fields: Vec<usize> = evidence[2..]
                     .split(',')
                     .map(|v| v.parse().unwrap())
@@ -743,4 +750,38 @@ fn public_encoder_output_wrapper_buffer_mode_matches_original() {
         requests.push(format!("epub-wrap {}", ops.join(" ")));
     }
     super::compare(requests);
+}
+
+/// A ProcessOutput schedule: 0, 1, 7 and 64 bytes, then doubling, until the
+/// sum exceeds `total`.
+fn output_schedule(total: usize) -> String {
+    let mut ops = vec!["p0".to_string(), "p1".into(), "p7".into()];
+    let mut sum = 8;
+    let mut avail = 64;
+    while sum <= total {
+        ops.push(format!("p{avail}"));
+        sum += avail;
+        avail *= 2;
+    }
+    ops.join(" ")
+}
+
+#[test]
+fn public_encoder_lossy_vardct_smoke_matches_original() {
+    let mut requests = Vec::new();
+    for (w, h) in [(8usize, 8usize), (1, 1), (17, 9)] {
+        for d in [0.5f32, 0.1, 1.0] {
+            let size = w * h * 3;
+            requests.push(run(
+                0,
+                0,
+                &format!(
+                    "Bw:{w},h:{h} s- d0,{} a0,3,2,0,0,{size} Z {}",
+                    bits(d),
+                    output_schedule(4 * size + 1024)
+                ),
+            ));
+        }
+    }
+    compare("lossy-smoke", requests);
 }
