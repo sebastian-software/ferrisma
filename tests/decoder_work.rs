@@ -201,14 +201,15 @@ fn lossless_webp_crop_is_small_but_reconstruction_is_not() {
     assert_eq!(output.report.decoder_work.overfetch_pixels, 41 * 31 - 1200);
 }
 
-/// The default jxl-oxide backend returns exactly the crop; its internal
-/// group work is unobserved, so only the output is a lower bound.
+/// The explicitly selected jxl-oxide backend returns exactly the crop; its
+/// internal group work is unobserved, so only the output is a lower bound.
 #[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
 #[test]
 fn jxl_oxide_crop_reports_only_a_lower_bound() {
     let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
     let crop = rect(1, 1, 4, 3);
     let options = TransformOptions {
+        jxl_decoder: ferrisma::pipeline::JpegXlDecoder::JxlOxide,
         profile_policy: InputProfilePolicy::UseRenderedIcc,
         ..TransformOptions::default()
     };
@@ -224,7 +225,8 @@ fn jxl_oxide_crop_reports_only_a_lower_bound() {
     );
 }
 
-/// The opt-in libjxl-rs backend decodes the full frame for any crop.
+/// The libjxl-rs backend (the default when compiled in) decodes the full
+/// frame for any crop.
 #[cfg(all(feature = "jpeg-xl-own-read", feature = "icc"))]
 #[test]
 fn libjxl_rs_crop_reports_the_full_frame_fallback() {

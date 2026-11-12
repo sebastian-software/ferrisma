@@ -13,11 +13,16 @@ const MAX_MANAGED_BYTES: usize = 2 * 1024 * 1024;
 
 /// Returns `None` for a missing selector or an oversized input. Other errors
 /// are expected fuzz outcomes; a successful result reached the output encoder.
+///
+/// Every lane pins its backends explicitly, so the engine defaults never
+/// change what a lane covers. This lane keeps the selectable external
+/// backends (jxl-oxide, rav1e); the workspace defaults are covered by
+/// `run_own_jxl_case` and `run_own_avif_case`.
 pub fn run_case(bytes: &[u8]) -> Option<Result<Output, ProcessingError>> {
     run_case_with_backends(bytes, JpegXlDecoder::JxlOxide, AvifEncoder::Rav1e)
 }
 
-/// Runs only JPEG XL inputs through the opt-in workspace decoder.
+/// Runs only JPEG XL inputs through the workspace decoder (the engine default).
 #[cfg(feature = "own-jxl")]
 pub fn run_own_jxl_case(bytes: &[u8]) -> Option<Result<Output, ProcessingError>> {
     if bytes.first()? & 3 != 1 {

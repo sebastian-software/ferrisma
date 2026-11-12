@@ -173,16 +173,38 @@ pub struct Crop {
     pub height: u32,
 }
 
-/// Select the JPEG XL input backend explicitly. The interim reader remains
-/// the default until the reference port meets the selection gates (ADR-0032).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Select the JPEG XL input backend.
+///
+/// The default is the workspace libjxl-rs reader whenever `jpeg-xl-own-read`
+/// is compiled in; `jxl-oxide` is the default only in builds that enable
+/// `jpeg-xl-read` without `jpeg-xl-own-read` (ADR-0032). Because Cargo
+/// features are additive, a dependency that enables `jpeg-xl-own-read` changes
+/// this default for the whole build; select a variant explicitly when the
+/// backend must not depend on feature unification.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum JpegXlDecoder {
-    /// The interim `jxl-oxide` reader; requires `jpeg-xl-read`.
-    #[default]
+    /// The `jxl-oxide` reader with a codec region request; requires
+    /// `jpeg-xl-read`. Explicit opt-in when `jpeg-xl-own-read` is also enabled.
     JxlOxide,
-    /// The experimental workspace libjxl-rs reader; requires `jpeg-xl-own-read`.
+    /// The workspace libjxl-rs reference-port reader; requires
+    /// `jpeg-xl-own-read`. It reconstructs the full upright frame for every
+    /// crop and reports a full-frame fallback with opaque codec memory.
     LibjxlRs,
+}
+
+impl Default for JpegXlDecoder {
+    /// [`JpegXlDecoder::LibjxlRs`] unless only `jpeg-xl-read` is compiled in.
+    fn default() -> Self {
+        if cfg!(all(
+            feature = "jpeg-xl-read",
+            not(feature = "jpeg-xl-own-read")
+        )) {
+            Self::JxlOxide
+        } else {
+            Self::LibjxlRs
+        }
+    }
 }
 
 /// Explicit output geometry, quality, profile assumption and memory budget.
@@ -218,7 +240,7 @@ pub struct TransformOptions {
     pub transform_threads: usize,
     /// How missing or rendered ICC color is handled.
     pub profile_policy: InputProfilePolicy,
-    /// JPEG XL input backend.
+    /// JPEG XL input backend; see [`JpegXlDecoder::default`].
     pub jxl_decoder: JpegXlDecoder,
     /// AVIF quality on the selected encoder's scale; Rav1e accepts 1–100,
     /// while libavif accepts 0–100.
@@ -260,7 +282,7 @@ impl Default for TransformOptions {
             kernel_level_ceiling: None,
             transform_threads: 0,
             profile_policy: InputProfilePolicy::Strict,
-            jxl_decoder: JpegXlDecoder::JxlOxide,
+            jxl_decoder: JpegXlDecoder::default(),
             quality: 75.0,
             speed: 6,
             encoder_threads: 1,

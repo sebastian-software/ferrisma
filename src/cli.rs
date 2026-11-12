@@ -183,7 +183,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=jxl-oxide|libjxl-rs] [--area] [--reference] [--avif-encoder=rav1e|libavif] [--avif-depth=8|10] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=libjxl-rs (default)|jxl-oxide] [--area] [--reference] [--avif-encoder=rav1e|libavif] [--avif-depth=8|10] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }
@@ -363,11 +363,23 @@ mod tests {
     #[test]
     fn selects_jpeg_xl_decoder_explicitly() {
         let mut options = TransformOptions::default();
+        // The workspace reader is the default whenever it is compiled in;
+        // jxl-oxide is the default only when it is the sole JPEG XL backend.
+        #[cfg(feature = "jpeg-xl-own-read")]
+        assert_eq!(options.jxl_decoder, JpegXlDecoder::LibjxlRs);
+        #[cfg(all(feature = "jpeg-xl-read", not(feature = "jpeg-xl-own-read")))]
         assert_eq!(options.jxl_decoder, JpegXlDecoder::JxlOxide);
         apply_option(&mut options, "--jxl-decoder=libjxl-rs").unwrap();
         assert_eq!(options.jxl_decoder, JpegXlDecoder::LibjxlRs);
         apply_option(&mut options, "--jxl-decoder=jxl-oxide").unwrap();
         assert_eq!(options.jxl_decoder, JpegXlDecoder::JxlOxide);
         assert!(apply_option(&mut options, "--jxl-decoder=unknown").is_err());
+        // Without any JPEG XL backend the default names the workspace reader,
+        // whose missing feature is then reported.
+        #[cfg(not(any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read")))]
+        assert_eq!(
+            TransformOptions::default().jxl_decoder,
+            JpegXlDecoder::LibjxlRs
+        );
     }
 }

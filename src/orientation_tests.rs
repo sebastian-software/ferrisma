@@ -820,7 +820,7 @@ fn jpeg_xl_orientations_are_rendered_upright_for_every_crop() {
     }
 }
 
-// Preserve the default decoder contract while the workspace port remains opt-in.
+// Preserve the jxl-oxide backend contract while it remains selectable.
 #[cfg(feature = "jpeg-xl-read")]
 #[test]
 fn interim_jpeg_xl_orientations_are_rendered_upright_for_every_crop() {

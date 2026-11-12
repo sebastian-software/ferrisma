@@ -376,7 +376,7 @@ fn jpeg_xl_region_samples_match_full_render() {
     }
 }
 
-// Preserve the default decoder contract while the workspace port remains opt-in.
+// Preserve the jxl-oxide backend contract while it remains selectable.
 #[cfg(feature = "jpeg-xl-read")]
 #[test]
 fn interim_jpeg_xl_requests_codec_region_and_delivers_float_scanlines() {

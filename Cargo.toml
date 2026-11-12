@@ -95,8 +95,9 @@ default = []
 jpeg-read = ["dep:libjpeg-turbo-rs"]
 webp-read = ["dep:webp"]
 webp-write = ["dep:webp"]
+# jxl-oxide; the default JPEG XL reader only without `jpeg-xl-own-read`.
 jpeg-xl-read = ["dep:jxl-oxide"]
-# Explicit reference-port experiment; runtime selection remains opt-in.
+# Workspace libjxl-rs reader; the default JPEG XL reader when compiled in (ADR-0032).
 jpeg-xl-own-read = ["dep:ferrisma-jxl-decoder"]
 # Experimental lossless JPEG XL output through the workspace libjxl-rs
 # encoder's admitted fixed profile (ADR-0039); not part of `cli` yet.
@@ -107,7 +108,7 @@ avif-write = ["dep:rav1e", "dep:avif-serialize", "rav1e/asm", "rav1e/threading"]
 avif-read = ["dep:ferrisma-avif-read"]
 avif-own-write = ["dep:ferrisma-avif-write"]
 icc = ["dep:moxcms"]
-cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "avif-read", "avif-write", "avif-own-write", "webp-write", "icc"]
+cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "jpeg-xl-own-read", "avif-read", "avif-write", "avif-own-write", "webp-write", "icc"]
 
 
 [dependencies]

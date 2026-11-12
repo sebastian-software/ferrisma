@@ -97,7 +97,9 @@ fn produced_avif_is_accepted_by_an_independent_decoder() {
 #[cfg(all(feature = "jpeg-xl-read", feature = "icc", feature = "avif-write"))]
 #[test]
 fn jpeg_xl_icc_can_be_explicitly_transformed_and_encoded() {
+    // jxl-oxide's codec region request: no full-frame decoder buffer.
     let opts = TransformOptions {
+        jxl_decoder: crate::pipeline::JpegXlDecoder::JxlOxide,
         output_width: 3,
         output_height: 2,
         profile_policy: InputProfilePolicy::UseRenderedIcc,
@@ -138,6 +140,43 @@ fn selected_local_jpeg_xl_decoder_reports_full_frame() {
     .unwrap();
     assert_eq!(image.report.input_access, SourceAccess::FullFrameFallback);
     assert_eq!(image.report.decoder_full_frame_buffers, 1);
+}
+
+/// The default JPEG XL reader is the workspace port whenever it is compiled
+/// in, and jxl-oxide only when it is the sole JPEG XL backend (ADR-0032).
+/// The report's source access distinguishes the two end to end.
+#[cfg(all(
+    any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"),
+    feature = "icc",
+    feature = "avif-write"
+))]
+#[test]
+fn default_jpeg_xl_decoder_follows_the_compiled_backends() {
+    use crate::pipeline::{JpegXlDecoder, SourceAccess};
+    let options = TransformOptions {
+        output_width: 3,
+        output_height: 2,
+        profile_policy: InputProfilePolicy::UseRenderedIcc,
+        avif_encoder: crate::pipeline::AvifEncoder::Rav1e,
+        speed: 9,
+        max_managed_bytes: 1024 * 1024,
+        ..TransformOptions::default()
+    };
+    let image = transcode(
+        include_bytes!("../tests/fixtures/sample.jxl"),
+        ImageFormat::JpegXl,
+        options,
+    )
+    .unwrap();
+    if cfg!(feature = "jpeg-xl-own-read") {
+        assert_eq!(options.jxl_decoder, JpegXlDecoder::LibjxlRs);
+        assert_eq!(image.report.input_access, SourceAccess::FullFrameFallback);
+        assert_eq!(image.report.decoder_full_frame_buffers, 1);
+    } else {
+        assert_eq!(options.jxl_decoder, JpegXlDecoder::JxlOxide);
+        assert_eq!(image.report.input_access, SourceAccess::CodecRegionRequest);
+        assert_eq!(image.report.decoder_full_frame_buffers, 0);
+    }
 }
 
 #[cfg(all(

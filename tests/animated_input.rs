@@ -83,8 +83,12 @@ fn animated_jpeg_xl_is_rejected_by_jxl_oxide() {
     let animated = include_bytes!(
         "../codecs/libjxl-rs/tests/data/decoder-geometry/sequence-reference-overwrite-animation-1.jxl"
     );
+    let options = TransformOptions {
+        jxl_decoder: ferrisma::pipeline::JpegXlDecoder::JxlOxide,
+        ..srgb()
+    };
     assert_eq!(
-        kind(animated, ImageFormat::JpegXl, srgb()),
+        kind(animated, ImageFormat::JpegXl, options),
         ProcessingErrorKind::UnsupportedInput
     );
 }

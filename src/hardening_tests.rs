@@ -221,14 +221,61 @@ fn api_errors_carry_a_matchable_kind() {
         ),
         Kind::ResourceExhausted
     );
+}
+
+// Each JPEG XL backend reports its own missing feature; the default follows
+// whichever backend is compiled in (ADR-0032).
+#[cfg(all(
+    feature = "jpeg-read",
+    feature = "avif-write",
+    not(all(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"))
+))]
+#[test]
+fn missing_jpeg_xl_backends_report_feature_disabled() {
+    use crate::pipeline::{
+        ImageFormat, InputProfilePolicy, ProcessingErrorKind as Kind, TransformOptions, transcode,
+    };
+    let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
+    let options = TransformOptions {
+        output_width: 2,
+        output_height: 2,
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+        ..TransformOptions::default()
+    };
+    let kind =
+        |bytes: &[u8], format, options| transcode(bytes, format, options).unwrap_err().kind();
     #[cfg(not(feature = "jpeg-xl-read"))]
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::JpegXl,
+            TransformOptions {
+                jxl_decoder: crate::pipeline::JpegXlDecoder::JxlOxide,
+                ..options
+            }
+        ),
+        Kind::FeatureDisabled
+    );
+    #[cfg(not(feature = "jpeg-xl-own-read"))]
+    assert_eq!(
+        kind(
+            jpeg,
+            ImageFormat::JpegXl,
+            TransformOptions {
+                jxl_decoder: crate::pipeline::JpegXlDecoder::LibjxlRs,
+                ..options
+            }
+        ),
+        Kind::FeatureDisabled
+    );
+    #[cfg(not(any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read")))]
     assert_eq!(
         kind(jpeg, ImageFormat::JpegXl, options),
         Kind::FeatureDisabled
     );
 }
 
-// Preserve the default decoder contract while the workspace port remains opt-in.
+// Preserve the jxl-oxide backend contract while it remains selectable.
 #[cfg(feature = "jpeg-xl-read")]
 #[test]
 fn interim_truncated_and_mutated_jxl_headers_never_panic_in_adapter_setup() {
@@ -286,6 +333,7 @@ fn public_transcode_rejects_unknown_jxl_colour_space() {
             quality: 75.0,
             speed: 6,
             profile_policy,
+            jxl_decoder: crate::pipeline::JpegXlDecoder::JxlOxide,
             ..TransformOptions::default()
         };
         let result = catch_unwind(AssertUnwindSafe(|| {

@@ -376,7 +376,7 @@ fn real_jxl_full_frame_float_flows_through_resize() {
     assert_eq!(samples, 18);
 }
 
-// Preserve the default decoder contract while the workspace port remains opt-in.
+// Preserve the jxl-oxide backend contract while it remains selectable.
 #[cfg(feature = "jpeg-xl-read")]
 #[test]
 fn interim_real_jxl_float_roi_flows_through_resize() {
