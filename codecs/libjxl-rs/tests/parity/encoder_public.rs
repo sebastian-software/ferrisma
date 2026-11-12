@@ -102,10 +102,11 @@ fn compare_counted(family: &str, requests: Vec<String>) -> usize {
             | JxlEncoderAdmission::FrameProfile
             | JxlEncoderAdmission::PatchDictionary
             | JxlEncoderAdmission::ArHeuristics => {
-                let fields: Vec<usize> = evidence[2..]
-                    .split(',')
-                    .map(|v| v.parse().unwrap())
-                    .collect();
+                let (queue, frame) = evidence[2..]
+                    .split_once(';')
+                    .unwrap_or((&evidence[2..], ""));
+                let fields: Vec<usize> = queue.split(',').map(|v| v.parse().unwrap()).collect();
+                frame_branch_evidence(checkpoint, frame, request);
                 assert!(
                     kind == 'p' && fields[0] > 0 && fields[1] > 0 && fields[2] == 0,
                     "the original must call ProcessOneEnqueuedInput at {op}: {evidence} {request}"
@@ -120,6 +121,59 @@ fn compare_counted(family: &str, requests: Vec<String>) -> usize {
          fast-lossless, {enqueued} ProcessOneEnqueuedInput"
     );
     exact
+}
+
+/// The original's branch evidence for a frame-encoder admission result,
+/// from the front queued frame's state that `epub-probe` reports after the
+/// original's own setting resolution (ParamsPostInit). The conditions are the
+/// source's: ComputeARHeuristics proceeds past its early return when the
+/// distance is at least kMinButteraugliForDynamicAR, the speed tier is
+/// kWombat or slower and LoopFilterFromParams gives EPF iterations;
+/// CanDoStreamingEncoding's checks reached by these histories.
+fn frame_branch_evidence(checkpoint: JxlEncoderAdmission, frame: &str, request: &str) {
+    if checkpoint == JxlEncoderAdmission::EnqueuedInput {
+        return;
+    }
+    assert!(
+        !frame.is_empty(),
+        "the original has a queued frame: {request}"
+    );
+    let f: Vec<&str> = frame.split(',').collect();
+    assert_eq!(f[0], "1", "the original resolves the settings: {request}");
+    let distance = f32::from_bits(f[1].parse().unwrap());
+    let speed_tier: i32 = f[2].parse().unwrap();
+    let buffering: i32 = f[3].parse().unwrap();
+    let epf: i32 = f[4].parse().unwrap();
+    let decoding_speed_tier: usize = f[5].parse().unwrap();
+    let modular = f[6] == "1";
+    let (xsize, ysize): (usize, usize) = (f[7].parse().unwrap(), f[8].parse().unwrap());
+    match checkpoint {
+        JxlEncoderAdmission::ArHeuristics => {
+            let epf_iters = if epf != -1 {
+                epf as usize
+            } else if decoding_speed_tier < 3 {
+                [0.7f32, 1.5, 4.0]
+                    .iter()
+                    .skip(usize::from(decoding_speed_tier == 2))
+                    .filter(|&&t| distance >= t)
+                    .count()
+            } else {
+                0
+            };
+            assert!(
+                !modular && distance >= 0.5 && speed_tier <= 4 && epf_iters > 0,
+                "the original runs the AR heuristics: {frame} {request}"
+            );
+        }
+        JxlEncoderAdmission::StreamingFrame => {
+            let groups = xsize.div_ceil(256) * ysize.div_ceil(256);
+            assert!(
+                !modular && groups > 8 && buffering != 0,
+                "the original encodes a streaming frame: {frame} {request}"
+            );
+        }
+        _ => {}
+    }
 }
 
 fn run(mm: u32, fail: usize, script: &str) -> String {
@@ -991,6 +1045,107 @@ fn public_encoder_lossy_vardct_d05_and_settings_match_original() {
         ));
     }
     compare_admitted("lossy-settings", requests);
+}
+
+#[test]
+fn public_encoder_lossy_vardct_admissions_and_rejections_match_original() {
+    let mut requests = Vec::new();
+    // Distances from 0.7 run the AR heuristics (ArHeuristics), at the gate's
+    // d1.0, d1.5 and d2.9 and at the 0.7 boundary.
+    for (index, distance) in [0.7f32, 1.0, 1.5, 2.9].into_iter().enumerate() {
+        for (xsize, ysize) in [(1, 1), (9, 17), (256, 256)] {
+            requests.push(run(
+                0,
+                0,
+                &lossy_history(
+                    xsize,
+                    ysize,
+                    index % 2 == 1,
+                    index,
+                    4,
+                    distance,
+                    index,
+                    "",
+                    "",
+                ),
+            ));
+        }
+    }
+    // An explicit EPF setting runs the AR heuristics below 0.7.
+    requests.push(run(
+        0,
+        0,
+        &lossy_history(16, 16, false, 0, 4, 0.5, 0, "", " o0,9,1"),
+    ));
+    // More than 8 groups take the streaming path (StreamingFrame).
+    for (xsize, ysize, buffering) in [(768, 768, -1), (2049, 300, 2), (768, 769, 3)] {
+        requests.push(run(
+            0,
+            0,
+            &lossy_history(
+                xsize,
+                ysize,
+                false,
+                0,
+                2,
+                0.5,
+                0,
+                "",
+                &format!(" o0,34,{buffering}"),
+            ),
+        ));
+    }
+    // Outside the one-shot profile (FrameProfile): another effort, modular,
+    // lossless, a non-default option, an unclosed (non-last) frame, a crop,
+    // a custom memory manager, d >= 3.
+    for settings in [
+        " o0,0,6",
+        " o0,0,9",
+        " o0,11,1",
+        " y0,1",
+        " o0,10,0",
+        " o0,6,0",
+        " o0,1,1",
+        " o0,13,1",
+        " h0,0,0,0,1,1,0,0,8,8,0,0,0,0,0",
+    ] {
+        requests.push(run(
+            0,
+            0,
+            &lossy_history(16, 16, false, 0, 4, 0.5, 0, "", settings),
+        ));
+    }
+    requests.push(run(
+        1,
+        0,
+        &lossy_history(16, 16, false, 0, 4, 0.5, 0, "", ""),
+    ));
+    requests.push(run(
+        0,
+        0,
+        &lossy_history(16, 16, false, 0, 4, 3.0, 0, "", ""),
+    ));
+    requests.push(run(
+        0,
+        0,
+        &lossy_history(16, 16, false, 0, 4, 0.5, 0, "", "").replacen(" Z ", " ", 1),
+    ));
+    // Rejections of the step 1 gate before any output: a frame before basic
+    // info, after CloseInput, with a short buffer, invalid distances, and a
+    // gray color encoding for an RGB image.
+    let frame = "a0,3,2,0,0,192,4,8,8";
+    for script in [
+        format!("s- {frame} p64"),
+        format!("Bw:8,h:8 s- Z {frame} p64"),
+        "Bw:8,h:8 s- a0,3,2,0,0,191,4,8,8 Z p64".to_string(),
+        format!("Bw:8,h:8 s- d0,{} {frame} Z p64", bits(-1.0)),
+        format!("Bw:8,h:8 s- d0,{} {frame} Z p64", bits(25.5)),
+        format!("Bw:8,h:8 G1 s- {frame} Z p64"),
+        format!("Bw:8,h:8 s- o0,0,10 {frame} Z p64"),
+    ] {
+        requests.push(run(0, 0, &script));
+    }
+    compare("lossy-admissions", requests);
 }
 
 #[test]

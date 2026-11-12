@@ -42,6 +42,7 @@
 #include "lib/jxl/enc_aux_out.h"
 #include "lib/jxl/enc_bit_writer.h"
 #include "lib/jxl/enc_fields.h"
+#include "lib/jxl/enc_frame.h"
 #include "lib/jxl/encode_internal.h"
 
 namespace {
@@ -231,6 +232,7 @@ class Driver {
     if (kind == 'p') {
       out_ << enc_->input_queue.size() << ',' << f[0] << ','
            << enc_->output_processor.OutputProcessorSet();
+      FrameEvidence();
       Result(kind, arg, f);
       return;
     }
@@ -246,6 +248,28 @@ class Driver {
       return;
     }
     out_ << '-';
+  }
+
+  // The front queued frame's parameters as the original's EncodeFrame
+  // resolves them (speed-tier switches, then the original ParamsPostInit) and
+  // its frame and metadata state: the evidence for the frame encoder's
+  // admission results. Fields: distance bits, speed tier, buffering, epf,
+  // decoding speed tier, modular mode, frame xsize and ysize, xyb_encoded,
+  // extra channels, resampling.
+  void FrameEvidence() {
+    if (enc_->input_queue.empty() || !enc_->input_queue[0].frame) return;
+    const jxl::JxlEncoderQueuedFrame& frame = *enc_->input_queue[0].frame;
+    jxl::CompressParams c = frame.option_values.cparams;
+    if (c.speed_tier == jxl::SpeedTier::kTectonicPlate && !c.IsLossless()) {
+      c.speed_tier = jxl::SpeedTier::kGlacier;
+    }
+    if (c.speed_tier == jxl::SpeedTier::kLightning) c.speed_tier = jxl::SpeedTier::kThunder;
+    bool ok = static_cast<bool>(jxl::ParamsPostInit(&c));
+    out_ << ";" << ok << ',' << F32(c.butteraugli_distance) << ','
+         << static_cast<int>(c.speed_tier) << ',' << c.buffering << ',' << c.epf << ','
+         << c.decoding_speed_tier << ',' << c.modular_mode << ',' << frame.frame_data.xsize
+         << ',' << frame.frame_data.ysize << ',' << enc_->metadata.m.xyb_encoded << ','
+         << enc_->metadata.m.num_extra_channels << ',' << c.resampling;
   }
 
   std::string Result(char kind, const std::string& arg, const std::vector<std::string>& f) {
