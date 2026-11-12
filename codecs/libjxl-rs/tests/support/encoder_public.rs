@@ -357,7 +357,7 @@ fn content_q(content: u32, x: u32, y: u32, c: u32, xsize: u32, ysize: u32) -> u3
         3 => content_hash(x, y, c) % 1025,
         _ => {
             let mut q = 150 + tri(x * 3 + y * 2 + c * 40) + tri(x * 11 / 7 + 5 * c) / 2;
-            if (x / 13 + y / 9) % 5 == 0 {
+            if (x / 13 + y / 9).is_multiple_of(5) {
                 q += 120;
             }
             q += content_hash(x, y, c) % 48;
@@ -374,7 +374,7 @@ fn content(size: usize, format: &JxlPixelFormat, content: u32, xsize: u32, ysize
         _ => 2,
     };
     let row = xsize as usize * format.num_channels as usize * bytes;
-    let stride = if format.align > 1 && row % format.align != 0 {
+    let stride = if format.align > 1 && !row.is_multiple_of(format.align) {
         row + format.align - row % format.align
     } else {
         row
