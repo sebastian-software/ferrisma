@@ -333,6 +333,85 @@ fn pattern(size: usize, seed: usize, floats: bool) -> Vec<u8> {
         .collect()
 }
 
+/// Image content for the lossy encoder gate, as the oracle's Content: each
+/// sample is q/1024 for an integer q in [0, 1024] stored exactly in the
+/// requested type, byte order and row alignment.
+fn content_hash(x: u32, y: u32, c: u32) -> u32 {
+    let mut h = x.wrapping_mul(0x9E37_79B1)
+        ^ y.wrapping_add(0x7F4A_7C15).wrapping_mul(0x85EB_CA77)
+        ^ (c + 1).wrapping_mul(0xC2B2_AE3D);
+    h ^= h >> 15;
+    h = h.wrapping_mul(0x2C1B_3C6D);
+    h ^= h >> 12;
+    h
+}
+
+fn content_q(content: u32, x: u32, y: u32, c: u32, xsize: u32, ysize: u32) -> u32 {
+    let tri = |t: u32| {
+        let m = t % 512;
+        if m < 256 { m } else { 511 - m }
+    };
+    match content {
+        1 => 300 + 200 * c,
+        2 => (x * 700) / xsize.max(1) + (y * 300) / ysize.max(1) + c * 10,
+        3 => content_hash(x, y, c) % 1025,
+        _ => {
+            let mut q = 150 + tri(x * 3 + y * 2 + c * 40) + tri(x * 11 / 7 + 5 * c) / 2;
+            if (x / 13 + y / 9) % 5 == 0 {
+                q += 120;
+            }
+            q += content_hash(x, y, c) % 48;
+            q.min(1024)
+        }
+    }
+}
+
+fn content(size: usize, format: &JxlPixelFormat, content: u32, xsize: u32, ysize: u32) -> Vec<u8> {
+    let mut data = vec![0u8; size + 1];
+    let bytes = match format.data_type {
+        JxlDataType::UINT8 => 1,
+        JxlDataType::FLOAT => 4,
+        _ => 2,
+    };
+    let row = xsize as usize * format.num_channels as usize * bytes;
+    let stride = if format.align > 1 && row % format.align != 0 {
+        row + format.align - row % format.align
+    } else {
+        row
+    };
+    let big = format.endianness == JxlEndianness::BIG;
+    for y in 0..ysize {
+        for x in 0..xsize {
+            for c in 0..format.num_channels {
+                let at = y as usize * stride
+                    + (x as usize * format.num_channels as usize + c as usize) * bytes;
+                if at + bytes > size {
+                    continue;
+                }
+                let q = content_q(content, x, y, c, xsize, ysize);
+                let word = match format.data_type {
+                    JxlDataType::UINT8 => (q * 255 + 512) / 1024,
+                    JxlDataType::UINT16 => (q * 65535 + 512) / 1024,
+                    JxlDataType::FLOAT => (q as f32 / 1024.0).to_bits(),
+                    _ => {
+                        if q == 0 {
+                            0
+                        } else {
+                            let e = 31 - q.leading_zeros();
+                            ((e + 5) << 10) | (((q << 10) >> e) & 0x3ff)
+                        }
+                    }
+                };
+                for b in 0..bytes {
+                    let shift = if big { 8 * (bytes - 1 - b) } else { 8 * b };
+                    data[at + b] = (word >> shift) as u8;
+                }
+            }
+        }
+    }
+    data
+}
+
 fn float_format(format: &JxlPixelFormat) -> bool {
     format.data_type == JxlDataType::FLOAT || format.data_type == JxlDataType::FLOAT16
 }
@@ -749,7 +828,18 @@ impl Driver {
                 let format = format(f, 1);
                 let null = f[5] == "~";
                 let size = if null { 0 } else { f[5].parse().unwrap() };
-                let pixels = pattern(size, 7, float_format(&format));
+                // Optional image content: a7,...,size,content,xsize,ysize.
+                let pixels = if f.len() > 6 {
+                    content(
+                        size,
+                        &format,
+                        f[6].parse().unwrap(),
+                        f[7].parse().unwrap(),
+                        f[8].parse().unwrap(),
+                    )
+                } else {
+                    pattern(size, 7, float_format(&format))
+                };
                 let buffer = (!null).then(|| &pixels[..size]);
                 s(
                     unsafe {

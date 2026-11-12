@@ -463,7 +463,11 @@ class Driver {
         JxlPixelFormat format = Format(f, 1);
         bool null = f[5] == "~";
         size_t size = null ? 0 : std::stoul(f[5]);
-        std::vector<uint8_t> pixels = Pattern(size, 7, FloatFormat(format));
+        // Optional image content: a7,...,size,content,xsize,ysize.
+        std::vector<uint8_t> pixels =
+            f.size() > 6 ? Content(size, format, std::stoul(f[6]), std::stoul(f[7]),
+                                   std::stoul(f[8]))
+                         : Pattern(size, 7, FloatFormat(format));
         o << JxlEncoderAddImageFrame(Settings(f[0]), &format, null ? nullptr : pixels.data(),
                                      size);
         break;
@@ -519,6 +523,77 @@ class Driver {
     for (size_t i = 0; i < data.size(); ++i) {
       uint8_t v = uint8_t((i * 13 + seed * 29 + 7) & 0xff);
       data[i] = floats ? uint8_t(0x30 | (v & 0x0f)) : v;
+    }
+    return data;
+  }
+  // Image content for the lossy encoder gate. Each sample is q/1024 for an
+  // integer q in [0, 1024], from integer arithmetic only, stored exactly in
+  // the requested type (uint8 and uint16 round q * max / 1024 to nearest),
+  // byte order and row alignment. Content 1 is flat, 2 a gradient, 3 noise
+  // and 4 a photograph-like mix of smooth ramps, edges and fine texture.
+  static uint32_t ContentHash(uint32_t x, uint32_t y, uint32_t c) {
+    uint32_t h = x * 0x9E3779B1u ^ (y + 0x7F4A7C15u) * 0x85EBCA77u ^ (c + 1) * 0xC2B2AE3Du;
+    h ^= h >> 15;
+    h *= 0x2C1B3C6Du;
+    h ^= h >> 12;
+    return h;
+  }
+  static uint32_t ContentQ(uint32_t content, uint32_t x, uint32_t y, uint32_t c, uint32_t xsize,
+                           uint32_t ysize) {
+    auto tri = [](uint32_t t) { uint32_t m = t % 512; return m < 256 ? m : 511 - m; };
+    switch (content) {
+      case 1: return 300 + 200 * c;
+      case 2: return (x * 700) / std::max(xsize, 1u) + (y * 300) / std::max(ysize, 1u) + c * 10;
+      case 3: return ContentHash(x, y, c) % 1025;
+      default: {
+        uint32_t q = 150 + tri(x * 3 + y * 2 + c * 40) + tri(x * 11 / 7 + 5 * c) / 2;
+        if ((x / 13 + y / 9) % 5 == 0) q += 120;
+        q += ContentHash(x, y, c) % 48;
+        return std::min(q, 1024u);
+      }
+    }
+  }
+  static std::vector<uint8_t> Content(size_t size, const JxlPixelFormat& format,
+                                      uint32_t content, uint32_t xsize, uint32_t ysize) {
+    std::vector<uint8_t> data(size + 1, 0);
+    size_t bytes = format.data_type == JXL_TYPE_UINT8 ? 1
+                   : format.data_type == JXL_TYPE_FLOAT ? 4
+                                                        : 2;
+    size_t row = size_t(xsize) * format.num_channels * bytes;
+    size_t stride = format.align > 1 && row % format.align != 0
+                        ? row + format.align - row % format.align
+                        : row;
+    bool big = format.endianness == JXL_BIG_ENDIAN;
+    for (uint32_t y = 0; y < ysize; ++y) {
+      for (uint32_t x = 0; x < xsize; ++x) {
+        for (uint32_t c = 0; c < format.num_channels; ++c) {
+          size_t at = y * stride + (size_t(x) * format.num_channels + c) * bytes;
+          if (at + bytes > size) continue;
+          uint32_t q = ContentQ(content, x, y, c, xsize, ysize);
+          uint32_t word;
+          if (format.data_type == JXL_TYPE_UINT8) {
+            word = (q * 255 + 512) / 1024;
+          } else if (format.data_type == JXL_TYPE_UINT16) {
+            word = (q * 65535 + 512) / 1024;
+          } else if (format.data_type == JXL_TYPE_FLOAT) {
+            float v = float(q) / 1024.0f;
+            memcpy(&word, &v, 4);
+          } else {
+            // float16: q/1024 exactly; q < 2^11 fits the 10-bit mantissa.
+            if (q == 0) {
+              word = 0;
+            } else {
+              uint32_t e = 0;
+              while ((q >> (e + 1)) != 0) ++e;
+              word = ((e + 5) << 10) | (((q << 10) >> e) & 0x3ff);
+            }
+          }
+          for (size_t b = 0; b < bytes; ++b) {
+            size_t shift = big ? 8 * (bytes - 1 - b) : 8 * b;
+            data[at + b] = uint8_t(word >> shift);
+          }
+        }
+      }
     }
     return data;
   }

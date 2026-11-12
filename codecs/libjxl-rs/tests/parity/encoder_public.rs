@@ -35,6 +35,11 @@ fn capture(family: &str, requests: &[String]) {
 
 /// Compares one family of epub-run histories with the original.
 fn compare(family: &str, requests: Vec<String>) {
+    compare_counted(family, requests);
+}
+
+/// [`compare`], returning the number of exactly matched histories.
+fn compare_counted(family: &str, requests: Vec<String>) -> usize {
     capture(family, &requests);
     let originals = super::original_observations(&requests);
     let probes = super::original_observations(
@@ -114,6 +119,7 @@ fn compare(family: &str, requests: Vec<String>) {
          the admission call with original branch evidence (not parity): {fast_lossless} \
          fast-lossless, {enqueued} ProcessOneEnqueuedInput"
     );
+    exact
 }
 
 fn run(mm: u32, fail: usize, script: &str) -> String {
@@ -764,6 +770,227 @@ fn output_schedule(total: usize) -> String {
         avail *= 2;
     }
     ops.join(" ")
+}
+
+/// Data types of the lossy gate: (JxlDataType, bytes per sample, basic-info
+/// bit depth fields).
+const LOSSY_TYPES: [(u32, usize, &str); 4] = [
+    (2, 1, ""),
+    (3, 2, ",bits:16"),
+    (5, 2, ",bits:16,exp:5"),
+    (0, 4, ",bits:32,exp:8"),
+];
+
+/// Distances of the admitted sub-profile: below 0.7, where the original
+/// skips the AR heuristics (epf_iters == 0 at kSquirrel).
+const LOSSY_DISTANCES: [f32; 7] = [0.5, 0.1, 0.69, 0.05, 0.3, 0.6, 0.001];
+
+/// One lossy history: basic info, optional color encoding and settings, one
+/// frame of generated content, CloseInput and a ProcessOutput schedule.
+#[expect(clippy::too_many_arguments, reason = "One history's fields")]
+fn lossy_history(
+    xsize: usize,
+    ysize: usize,
+    gray: bool,
+    type_index: usize,
+    content: usize,
+    distance: f32,
+    variant: usize,
+    extra_info: &str,
+    extra_settings: &str,
+) -> String {
+    let (data_type, bytes, depth) = LOSSY_TYPES[type_index];
+    let channels = if gray { 1 } else { 3 };
+    let endianness = variant % 3;
+    let align = [0, 1, 4, 16, 3][variant % 5];
+    let row = xsize * channels * bytes;
+    let stride = if align < 2 || row.is_multiple_of(align) {
+        row
+    } else {
+        row + align - row % align
+    };
+    let size = stride * (ysize - 1) + row + usize::from(variant % 4 == 3) * 5;
+    let mut info = format!("Bw:{xsize},h:{ysize}{depth}{extra_info}");
+    if gray {
+        info.push_str(",c:1");
+    }
+    if variant % 7 == 2 {
+        info.push_str(&format!(",it:{}", bits(100.0)));
+    }
+    let color = match variant % 3 {
+        0 => String::new(),
+        1 => format!(" G{}", u8::from(gray)),
+        _ => format!(" g{}", u8::from(gray)),
+    };
+    let encoded_bound = xsize * ysize * channels * 4 + 2048;
+    format!(
+        "{info}{color} s- d0,{}{extra_settings} \
+         a0,{channels},{data_type},{endianness},{align},{size},{content},{xsize},{ysize} Z {}",
+        bits(distance),
+        output_schedule(encoded_bound)
+    )
+}
+
+/// Every history of an admitted lossy family must match without admission.
+fn compare_admitted(family: &str, requests: Vec<String>) {
+    let count = requests.len();
+    let exact = compare_counted(family, requests);
+    assert_eq!(exact, count, "{family}: every admitted history is exact");
+}
+
+#[test]
+fn public_encoder_lossy_vardct_small_sizes_match_original() {
+    let mut sizes = vec![(1, 1), (7, 7), (8, 8), (9, 17)];
+    sizes.extend((41..=48).map(|x| (x, 15)));
+    let mut requests = Vec::new();
+    let mut variant = 0;
+    for &(xsize, ysize) in &sizes {
+        for gray in [false, true] {
+            for type_index in 0..4 {
+                for content in 1..=4 {
+                    let distance = LOSSY_DISTANCES[variant % LOSSY_DISTANCES.len()];
+                    requests.push(run(
+                        0,
+                        0,
+                        &lossy_history(
+                            xsize, ysize, gray, type_index, content, distance, variant, "", "",
+                        ),
+                    ));
+                    variant += 1;
+                }
+            }
+        }
+    }
+    compare_admitted("lossy-small", requests);
+}
+
+#[test]
+fn public_encoder_lossy_vardct_large_sizes_match_original() {
+    let sizes = [(63, 129), (256, 256), (257, 255), (512, 1024)];
+    let mut requests = Vec::new();
+    let mut variant = 0;
+    for &(xsize, ysize) in &sizes {
+        for gray in [false, true] {
+            for content in 1..=4 {
+                let distance = [0.5, 0.1, 0.69, 0.3][variant % 4];
+                requests.push(run(
+                    0,
+                    0,
+                    &lossy_history(
+                        xsize,
+                        ysize,
+                        gray,
+                        variant % 4,
+                        content,
+                        distance,
+                        variant,
+                        "",
+                        "",
+                    ),
+                ));
+                variant += 1;
+            }
+        }
+    }
+    compare_admitted("lossy-large", requests);
+}
+
+#[test]
+fn public_encoder_lossy_vardct_d05_and_settings_match_original() {
+    let sizes = [
+        (1, 1),
+        (7, 7),
+        (8, 8),
+        (9, 17),
+        (45, 15),
+        (63, 129),
+        (256, 256),
+        (257, 255),
+        (512, 1024),
+    ];
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize)) in sizes.iter().enumerate() {
+        // d0.5 at both intensity targets (variant % 7 == 2 sets 100 nits).
+        for base in [0, 2] {
+            let variant = base + index * 7;
+            requests.push(run(
+                0,
+                0,
+                &lossy_history(xsize, ysize, false, 0, 4, 0.5, variant, "", ""),
+            ));
+            requests.push(run(
+                0,
+                0,
+                &lossy_history(xsize, ysize, true, 3, 4, 0.5, variant, "", ""),
+            ));
+        }
+    }
+    // Buffering values that keep the one-shot path, explicit effort 7 and
+    // 16 groups with buffering 0.
+    for buffering in [-1, 0, 1, 2, 3] {
+        requests.push(run(
+            0,
+            0,
+            &lossy_history(
+                512,
+                1024,
+                false,
+                0,
+                4,
+                0.3,
+                5,
+                "",
+                &format!(" o0,34,{buffering}"),
+            ),
+        ));
+    }
+    requests.push(run(
+        0,
+        0,
+        &lossy_history(64, 64, false, 1, 2, 0.5, 6, "", " o0,0,7"),
+    ));
+    requests.push(run(
+        0,
+        0,
+        &lossy_history(1024, 1024, false, 0, 4, 0.5, 0, "", " o0,34,0"),
+    ));
+    // Bit depth from the codestream and a custom bit depth for uint16 input.
+    for (info_bits, depth) in [(",bits:12", "1,0,0"), (",bits:16", "2,10,0")] {
+        requests.push(run(
+            0,
+            0,
+            &lossy_history(
+                19,
+                23,
+                false,
+                1,
+                4,
+                0.5,
+                4,
+                info_bits,
+                &format!(" W0,{depth}"),
+            ),
+        ));
+    }
+    // Basic-info metadata: orientation.
+    for orientation in [1, 5, 8] {
+        requests.push(run(
+            0,
+            0,
+            &lossy_history(
+                21,
+                13,
+                false,
+                0,
+                2,
+                0.5,
+                0,
+                &format!(",or:{orientation}"),
+                "",
+            ),
+        ));
+    }
+    compare_admitted("lossy-settings", requests);
 }
 
 #[test]
