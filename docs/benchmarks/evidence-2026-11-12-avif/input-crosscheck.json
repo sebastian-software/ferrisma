@@ -1,0 +1,3159 @@
+{
+  "check": "Ferrisma AVIF input against libheif, ImageMagick and FFmpeg/libdav1d",
+  "tools": {
+    "libheif": "1.23.7\nlibheif: 1.23.7\nplugin path: /opt/homebrew/lib/libheif",
+    "libheif_avif_decoder": "aom = AOMedia Project AV1 Decoder 3.15.3",
+    "imagemagick": "Version: ImageMagick 7.1.2-35 Q16-HDRI aarch64 acaf7e418:20261031 https://imagemagick.org",
+    "ffmpeg": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers"
+  },
+  "tolerances": {
+    "engine_max": 2,
+    "engine_mean": 0.5,
+    "wrapper_max": 1.0,
+    "wrapper_max_high_depth": 1.5,
+    "ffmpeg_mean_advisory": 3.0
+  },
+  "results": [
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/white_1x1.avif",
+      "purpose": "1x1 still",
+      "sha256": "ea4e43d1f07e4c00de16c13afa32376111bb306e51f08212cf4c1b6064df3667",
+      "wrapper": {
+        "width": 1,
+        "height": 1,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1,
+        "height": 1,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 895,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1,
+        "height": 1,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1,
+        "height": 1,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.0,
+          0.0
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.0,
+        0.0
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        0.984,
+        0.9844
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/colors_sdr_srgb.avif",
+      "purpose": "8-bit sRGB nclx",
+      "sha256": "24463b9b79e4624d06e247079efddf624f9062c516d43ddf6fe5e150343629d6",
+      "wrapper": {
+        "width": 200,
+        "height": 200,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 200,
+        "height": 200,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 1384912,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 200,
+        "height": 200,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 200,
+        "height": 200,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.0,
+          0.0
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.0,
+        0.0
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        1.49,
+        0.6197
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/colors_text_sdr_srgb.avif",
+      "purpose": "8-bit sRGB nclx with text",
+      "sha256": "b38e0e8f818e0a6f7db2c12ef5da5937c4378d35adec2dc46e5a1c35c095af36",
+      "wrapper": {
+        "width": 200,
+        "height": 200,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 200,
+        "height": 200,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 1384912,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 200,
+        "height": 200,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 200,
+        "height": 200,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.0,
+          0.0
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.0,
+        0.0
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        1.49,
+        0.6399
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/paris_icc_exif_xmp.avif",
+      "purpose": "ICC needs the icc feature",
+      "sha256": "961bc38b61e60b7651fa20efa24269ae2f35e4958822a81c908c9bbf9b3f66e1",
+      "wrapper": {
+        "width": 403,
+        "height": 302,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 596,
+        "decode": "ok"
+      },
+      "engine": {
+        "error": "unsupported or ambiguous rendered color profile; a color-management transform is required",
+        "kind": "UnsupportedColor"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 403,
+        "height": 302,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "prof",
+        "nclx": [
+          2,
+          2,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 403,
+        "height": 302,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "side_data_list": [
+          {},
+          {}
+        ]
+      },
+      "notes": [
+        "ICC identical to ImageMagick/libheif (596 bytes)"
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/sofa_grid1x5_420.avif",
+      "purpose": "1x5 grid, 4:2:0",
+      "sha256": "c9e04ff9d90d7093454750fa33b7543ee5479e0cfb151e2c3d2ce6a16c1651c1",
+      "wrapper": {
+        "width": 1024,
+        "height": 770,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1024,
+        "height": 770,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 8044784,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 6,
+        "width": 1024,
+        "height": 770,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1024,
+        "height": 154,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc",
+        "ffmpeg/libdav1d decode unavailable for this layout"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.0168
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        1.0,
+        0.0168
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/sofa_grid1x5_420_dimg_repeat.avif",
+      "purpose": "grid with repeated dimg",
+      "sha256": "0a2abbe8b388df51e51b47cc4f1a932fed8c64d340490604fe6b510d77025514",
+      "wrapper": {
+        "error": "InvalidInput"
+      },
+      "engine": {
+        "error": "decoder rejected input or could not render it",
+        "kind": "MalformedInput"
+      },
+      "libheif": {
+        "images": 6,
+        "width": 1024,
+        "height": 770,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1024,
+        "height": 154,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/sofa_grid1x5_420_reversed_dimg_order.avif",
+      "purpose": "grid with reversed dimg",
+      "sha256": "8a77888b3d8b4876636666e4f8ebfaf6248361700b78e34b12dfc458919bd2b7",
+      "wrapper": {
+        "width": 1024,
+        "height": 770,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1024,
+        "height": 770,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 8044784,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 6,
+        "width": 1024,
+        "height": 770,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1024,
+        "height": 154,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc",
+        "ffmpeg/libdav1d decode unavailable for this layout"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.0168
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        1.0,
+        0.0168
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/color_grid_alpha_nogrid.avif",
+      "purpose": "color grid, alpha item",
+      "sha256": "bae56368b348b1d847e2bfb662522599f0c63dfe62fb68826c9e42a300ff405d",
+      "wrapper": {
+        "width": 80,
+        "height": 80,
+        "depth": 8,
+        "alpha": true,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 80,
+        "height": 80,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 531632,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 80,
+        "height": 80,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": true,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 80,
+        "height": 64,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.0,
+          0.0
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.0,
+        0.0
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/color_grid_alpha_grid_shared_tiles.avif",
+      "purpose": "shared grid tiles",
+      "sha256": "98260634024922d962f961205368496eceb90910c60cdf47c19dc461315ad198",
+      "wrapper": {
+        "width": 80,
+        "height": 80,
+        "depth": 8,
+        "alpha": true,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 80,
+        "height": 80,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 531632,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 80,
+        "height": 80,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": true,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 64,
+        "height": 64,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.0,
+          0.0
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.0,
+        0.0
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_irot.avif",
+      "purpose": "irot on color and alpha",
+      "sha256": "b371cc88244a873131e4d10ff9363d71ce4f41cf333bd4a491b38d970d9abd3b",
+      "wrapper": {
+        "width": 512,
+        "height": 256,
+        "depth": 8,
+        "alpha": true,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          2,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            1
+          ]
+        },
+        "transform_flags": 4,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 256,
+        "height": 512,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 3470448,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 256,
+        "height": 512,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": true,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          2,
+          1
+        ],
+        "transforms": [
+          "angle (ccw): 90"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 512,
+        "height": 256,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/None/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.0,
+          0.0
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_NOirot.avif",
+      "purpose": "irot on color only; ALPHA_TRANSFORM",
+      "sha256": "f2c8cd6ded641c68d13b3363417a62288a5eb335870de8d0b9da5093865ffb9a",
+      "wrapper": {
+        "width": 512,
+        "height": 256,
+        "depth": 8,
+        "alpha": true,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          2,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            1
+          ]
+        },
+        "transform_flags": 4,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 256,
+        "height": 512,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 3470448,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 256,
+        "height": 512,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": true,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          2,
+          1
+        ],
+        "transforms": [
+          "angle (ccw): 90"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 512,
+        "height": 256,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/None/pc",
+        "documented alpha-transform divergence: alpha (127.0, 12.9262)"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.0,
+          0.0
+        ],
+        "alpha_max_mean": [
+          127.0,
+          12.9262
+        ]
+      },
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/clap_irot_imir_non_essential.avif",
+      "purpose": "clap rejection",
+      "sha256": "33f869fcf2a879913eb394982b8fc03e9a60c25831aa37622ddefa656fd39fc1",
+      "wrapper": {
+        "error": "InvalidInput"
+      },
+      "engine": {
+        "error": "orientation, mirroring or clean-aperture transforms are not supported yet",
+        "kind": "UnsupportedInput"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 10,
+        "height": 8,
+        "primary_index": 1,
+        "depth": 10,
+        "alpha": true,
+        "profile": "no",
+        "nclx": null,
+        "transforms": [
+          "crop: left=4 top=6 right=0 bottom=18",
+          "angle (ccw): 90",
+          "mirror: horizontal"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 12,
+        "height": 34,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "pc",
+        "side_data_list": [
+          {},
+          {}
+        ]
+      },
+      "notes": [],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/clop_irot_imor.avif",
+      "purpose": "unknown non-essential clop/imor; ALPHA_TRANSFORM",
+      "sha256": "28e96ad4c913d75a32d66bce116f2963e29d93c01952698c7b33dd893f8bd541",
+      "wrapper": {
+        "width": 12,
+        "height": 34,
+        "depth": 10,
+        "alpha": true,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          1
+        ],
+        "sequence": {
+          "depth": 10,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            1
+          ]
+        },
+        "transform_flags": 4,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 34,
+        "height": 12,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 156120,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 34,
+        "height": 12,
+        "primary_index": 1,
+        "depth": 10,
+        "alpha": true,
+        "profile": "no",
+        "nclx": null,
+        "transforms": [
+          "angle (ccw): 90"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 12,
+        "height": 34,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "pc",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "documented alpha-transform divergence: alpha (188.751, 71.0638)"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.743,
+          0.214
+        ],
+        "alpha_max_mean": [
+          188.751,
+          71.0638
+        ]
+      },
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/extended_pixi.avif",
+      "purpose": "extended pixi",
+      "sha256": "7de53620b571aa61f54df2fc00cfa32955cd4e474a6a4b723a513b51ef21e946",
+      "wrapper": {
+        "width": 4,
+        "height": 4,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 4,
+        "height": 4,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 10672,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 4,
+        "height": 4,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 4,
+        "height": 4,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc"
+      },
+      "notes": [],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.0,
+          0.0
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.0,
+        0.0
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        0.961,
+        0.36
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/draw_points_idat.avif",
+      "purpose": "item data in idat",
+      "sha256": "ce2fd627efae49391ea82584e9beae05959b867ba429e688a2b95a015b38d3db",
+      "wrapper": {
+        "width": 33,
+        "height": 11,
+        "depth": 8,
+        "alpha": true,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          4,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            4,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "error": "unsupported or ambiguous rendered color profile; a color-management transform is required",
+        "kind": "UnsupportedColor"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 33,
+        "height": 11,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": true,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          4,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 33,
+        "height": 11,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "bt470m",
+        "color_primaries": "bt709"
+      },
+      "notes": [
+        "ffprobe colors: bt709/bt470m/smpte170m/pc"
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/weld_sato_12B_8B_q0.avif",
+      "purpose": "12-bit color, 8-bit alpha",
+      "sha256": "fa41d615d244d50fc99d71c1fea14561e0814382a748d1b8b672c3fd5a595dbe",
+      "wrapper": {
+        "width": 1024,
+        "height": 684,
+        "depth": 12,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          1
+        ],
+        "sequence": {
+          "depth": 12,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1024,
+        "height": 684,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 9624432,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1024,
+        "height": 684,
+        "primary_index": 1,
+        "depth": 12,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1024,
+        "height": 684,
+        "pix_fmt": "yuv444p12le",
+        "color_range": "pc"
+      },
+      "notes": [],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.584,
+          0.2313
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        1.437,
+        0.218
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        1.0,
+        0.1087
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/seine_sdr_gainmap_srgb.avif",
+      "purpose": "SDR base with gain map",
+      "sha256": "e0ebdb2f1f44c7d901e6b5f817eb2520eace344624cab0d57aaa929d05d6d971",
+      "wrapper": {
+        "width": 400,
+        "height": 300,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 400,
+        "height": 300,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 2576112,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 400,
+        "height": 300,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 400,
+        "height": 300,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.0,
+          0.0
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.0,
+        0.0
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        1.436,
+        0.6297
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/seine_sdr_gainmap_srgb_icc.avif",
+      "purpose": "gain map and ICC",
+      "sha256": "63fa6580a4cc215debc1229e35450c8144207218cc7ce6f5bfe5596efa357d55",
+      "wrapper": {
+        "width": 400,
+        "height": 300,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 3144,
+        "decode": "ok"
+      },
+      "engine": {
+        "error": "unsupported or ambiguous rendered color profile; a color-management transform is required",
+        "kind": "UnsupportedColor"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 400,
+        "height": 300,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "prof",
+        "nclx": [
+          2,
+          2,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 400,
+        "height": 300,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "side_data_list": [
+          {},
+          {}
+        ]
+      },
+      "notes": [
+        "ICC identical to ImageMagick/libheif (3144 bytes)"
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/colors_hdr_srgb.avif",
+      "purpose": "10-bit PQ sRGB primaries",
+      "sha256": "1aecb78d6d363caae95a5dd198f347ce4b200073ced638647364a2ad04d9707d",
+      "wrapper": {
+        "width": 200,
+        "height": 200,
+        "depth": 10,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          16,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 10,
+          "monochrome": false,
+          "cicp": [
+            1,
+            16,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "error": "unsupported or ambiguous rendered color profile; a color-management transform is required",
+        "kind": "UnsupportedColor"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 200,
+        "height": 200,
+        "primary_index": 1,
+        "depth": 10,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          16,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 200,
+        "height": 200,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "smpte2084",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/smpte2084/smpte170m/pc"
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/colors_hdr_p3.avif",
+      "purpose": "10-bit PQ Display P3",
+      "sha256": "ec4b67fa129360f4b44768bdd1027fb32834d1a1f7e49ae53bed44c819def9c4",
+      "wrapper": {
+        "width": 200,
+        "height": 200,
+        "depth": 10,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          12,
+          16,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 10,
+          "monochrome": false,
+          "cicp": [
+            12,
+            16,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "error": "unsupported or ambiguous rendered color profile; a color-management transform is required",
+        "kind": "UnsupportedColor"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 200,
+        "height": 200,
+        "primary_index": 1,
+        "depth": 10,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          12,
+          16,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 200,
+        "height": 200,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "smpte2084",
+        "color_primaries": "smpte432",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: smpte432/smpte2084/smpte170m/pc"
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/colors_hdr_rec2020.avif",
+      "purpose": "10-bit PQ BT.2020",
+      "sha256": "9980e58ddf718a923f1738c34aad1c72f8e5795ec07e68f1a5f9bd216ca19740",
+      "wrapper": {
+        "width": 200,
+        "height": 200,
+        "depth": 10,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          9,
+          16,
+          9,
+          1
+        ],
+        "sequence": {
+          "depth": 10,
+          "monochrome": false,
+          "cicp": [
+            9,
+            16,
+            9,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "error": "unsupported or ambiguous rendered color profile; a color-management transform is required",
+        "kind": "UnsupportedColor"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 200,
+        "height": 200,
+        "primary_index": 1,
+        "depth": 10,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          9,
+          16,
+          9,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 200,
+        "height": 200,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "pc",
+        "color_space": "bt2020nc",
+        "color_transfer": "smpte2084",
+        "color_primaries": "bt2020",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt2020/smpte2084/bt2020nc/pc"
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/colors_wcg_hdr_rec2020.avif",
+      "purpose": "WCG HDR BT.2020",
+      "sha256": "848d4e3ad357e73c9d7183146ab65ef2e5e4e482183d3617fcb7e31804a54110",
+      "wrapper": {
+        "width": 200,
+        "height": 200,
+        "depth": 10,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          9,
+          16,
+          9,
+          1
+        ],
+        "sequence": {
+          "depth": 10,
+          "monochrome": false,
+          "cicp": [
+            9,
+            16,
+            9,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "error": "unsupported or ambiguous rendered color profile; a color-management transform is required",
+        "kind": "UnsupportedColor"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 200,
+        "height": 200,
+        "primary_index": 1,
+        "depth": 10,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          9,
+          16,
+          9,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 200,
+        "height": 200,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "pc",
+        "color_space": "bt2020nc",
+        "color_transfer": "smpte2084",
+        "color_primaries": "bt2020",
+        "side_data_list": [
+          {},
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt2020/smpte2084/bt2020nc/pc"
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/colors-animated-8bpc.avif",
+      "purpose": "animation rejection",
+      "sha256": "2f8683d21725261f37f86e115f0c212cc52d0fefd3a2ddfcc4fa648c1859906d",
+      "wrapper": {
+        "error": "Unsupported"
+      },
+      "engine": {
+        "error": "decoder pixel or color layout is not supported",
+        "kind": "UnsupportedInput"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 150,
+        "height": 150,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 150,
+        "height": 150,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/tests/data/alpha_noispe.avif",
+      "purpose": "malformed: alpha without ispe",
+      "sha256": "8deb96e78c3e5d608a157b2de4c98eb1a30e0c85736b4230758400509c88d47e",
+      "wrapper": {
+        "error": "InvalidInput"
+      },
+      "engine": {
+        "error": "decoder rejected input or could not render it",
+        "kind": "MalformedInput"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 80,
+        "height": 80,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": true,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 80,
+        "height": 80,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile0.8bpc.yuv420.avif",
+      "purpose": "8-bit 4:2:0",
+      "sha256": "a0ae1ad1aea81291730f42259593b297a8444699f4553de8dc25da2db56a40d9",
+      "wrapper": {
+        "width": 1204,
+        "height": 800,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          0
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            0
+          ]
+        },
+        "transform_flags": 1,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1204,
+        "height": 800,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 9236864,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1204,
+        "height": 800,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1204,
+        "height": 800,
+        "pix_fmt": "yuv420p",
+        "color_range": "tv"
+      },
+      "notes": [],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.2185
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        1.0,
+        0.2185
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        1.471,
+        0.3232
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile0.10bpc.yuv420.avif",
+      "purpose": "10-bit 4:2:0",
+      "sha256": "1564a6cd6fd3350d6b02604c74894bb51f8133ff40fddcb86e521c88130c69f1",
+      "wrapper": {
+        "width": 1204,
+        "height": 800,
+        "depth": 10,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          0
+        ],
+        "sequence": {
+          "depth": 10,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            0
+          ]
+        },
+        "transform_flags": 1,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1204,
+        "height": 800,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 12140912,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1204,
+        "height": 800,
+        "primary_index": 1,
+        "depth": 10,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1204,
+        "height": 800,
+        "pix_fmt": "yuv420p10le",
+        "color_range": "tv"
+      },
+      "notes": [],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.626,
+          0.2543
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.983,
+        0.2494
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        3.949,
+        0.8507
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile1.8bpc.yuv444.avif",
+      "purpose": "8-bit 4:4:4",
+      "sha256": "ae159dde38f074ba47f6484a74a3858322da4530f6cac4cb8de348985ff4f4d4",
+      "wrapper": {
+        "width": 1204,
+        "height": 800,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          0
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            0
+          ]
+        },
+        "transform_flags": 1,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1204,
+        "height": 800,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 9236864,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1204,
+        "height": 800,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1204,
+        "height": 800,
+        "pix_fmt": "yuv444p",
+        "color_range": "tv"
+      },
+      "notes": [],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.2197
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        1.0,
+        0.2197
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        1.471,
+        0.3238
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile1.10bpc.yuv444.avif",
+      "purpose": "10-bit 4:4:4",
+      "sha256": "8e3c6ddabe21cb0b3063e90b58b26bc98e0dfce9337b6d38b5191e390e85712f",
+      "wrapper": {
+        "width": 1204,
+        "height": 800,
+        "depth": 10,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          0
+        ],
+        "sequence": {
+          "depth": 10,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            0
+          ]
+        },
+        "transform_flags": 1,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1204,
+        "height": 800,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 12140912,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1204,
+        "height": 800,
+        "primary_index": 1,
+        "depth": 10,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1204,
+        "height": 800,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "tv"
+      },
+      "notes": [],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.626,
+          0.2546
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.983,
+        0.2494
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        3.949,
+        0.8518
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile2.8bpc.yuv422.avif",
+      "purpose": "8-bit 4:2:2",
+      "sha256": "8029f46ba2504617948e8f0598e43547089917d0b589379226c1f91c28875d6e",
+      "wrapper": {
+        "width": 1204,
+        "height": 800,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          0
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            0
+          ]
+        },
+        "transform_flags": 1,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1204,
+        "height": 800,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 9236864,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1204,
+        "height": 800,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1204,
+        "height": 800,
+        "pix_fmt": "yuv422p",
+        "color_range": "tv"
+      },
+      "notes": [],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.2186
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        1.0,
+        0.2186
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        1.463,
+        0.3233
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile2.10bpc.yuv422.avif",
+      "purpose": "10-bit 4:2:2",
+      "sha256": "0b4590eb1e52a1c3e07d1614cfa8f95d8a4c1f9b36d4a71d2661bbc0df5eeb70",
+      "wrapper": {
+        "width": 1204,
+        "height": 800,
+        "depth": 10,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          0
+        ],
+        "sequence": {
+          "depth": 10,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            0
+          ]
+        },
+        "transform_flags": 1,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1204,
+        "height": 800,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 12140912,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1204,
+        "height": 800,
+        "primary_index": 1,
+        "depth": 10,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1204,
+        "height": 800,
+        "pix_fmt": "yuv422p10le",
+        "color_range": "tv"
+      },
+      "notes": [],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.626,
+          0.2544
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.983,
+        0.2494
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        3.949,
+        0.8513
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile2.12bpc.yuv420.avif",
+      "purpose": "12-bit 4:2:0",
+      "sha256": "ce734812bb76659dbaf7c8a96321e12a4281fb7829180cadb685c14b9310fe45",
+      "wrapper": {
+        "width": 1204,
+        "height": 800,
+        "depth": 12,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          0
+        ],
+        "sequence": {
+          "depth": 12,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            0
+          ]
+        },
+        "transform_flags": 1,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1204,
+        "height": 800,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 12140912,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1204,
+        "height": 800,
+        "primary_index": 1,
+        "depth": 12,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1204,
+        "height": 800,
+        "pix_fmt": "yuv420p12le",
+        "color_range": "tv"
+      },
+      "notes": [
+        "advisory: FFmpeg/libdav1d mean differs: (15.809, 3.4049)"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.537,
+          0.2493
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.937,
+        0.2503
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        15.809,
+        3.4049
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile2.12bpc.yuv422.avif",
+      "purpose": "12-bit 4:2:2",
+      "sha256": "571d282b5be186b125c3aa40c46dbb31c4c3206783fd3a88e7c646ae0b5f3b4c",
+      "wrapper": {
+        "width": 1204,
+        "height": 800,
+        "depth": 12,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          0
+        ],
+        "sequence": {
+          "depth": 12,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            0
+          ]
+        },
+        "transform_flags": 1,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1204,
+        "height": 800,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 12140912,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1204,
+        "height": 800,
+        "primary_index": 1,
+        "depth": 12,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1204,
+        "height": 800,
+        "pix_fmt": "yuv422p12le",
+        "color_range": "tv"
+      },
+      "notes": [
+        "advisory: FFmpeg/libdav1d mean differs: (15.809, 3.4061)"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.537,
+          0.2493
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.937,
+        0.2502
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        15.809,
+        3.4061
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile2.12bpc.yuv444.avif",
+      "purpose": "12-bit 4:4:4",
+      "sha256": "0989319c58afc70d0448676cabb0631d3a457814358bb6ea73e1dfadab3c8aaf",
+      "wrapper": {
+        "width": 1204,
+        "height": 800,
+        "depth": 12,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          0
+        ],
+        "sequence": {
+          "depth": 12,
+          "monochrome": false,
+          "cicp": [
+            2,
+            2,
+            2,
+            0
+          ]
+        },
+        "transform_flags": 1,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 1204,
+        "height": 800,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 12140912,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1204,
+        "height": 800,
+        "primary_index": 1,
+        "depth": 12,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1204,
+        "height": 800,
+        "pix_fmt": "yuv444p12le",
+        "color_range": "tv"
+      },
+      "notes": [
+        "advisory: FFmpeg/libdav1d mean differs: (15.809, 3.4092)"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          0.537,
+          0.2496
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        0.937,
+        0.2502
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        15.809,
+        3.4092
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile0.8bpc.yuv420.monochrome.avif",
+      "purpose": "monochrome rejection",
+      "sha256": "98d20d1c63820e47bf013b370044865277160f8edee9d07f41e4f5373a750e03",
+      "wrapper": {
+        "width": 1204,
+        "height": 800,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          2,
+          2,
+          2,
+          0
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": true,
+          "cicp": [
+            2,
+            2,
+            2,
+            0
+          ]
+        },
+        "transform_flags": 1,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "error": "decoder pixel or color layout is not supported",
+        "kind": "UnsupportedInput"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 1204,
+        "height": 800,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 1204,
+        "height": 800,
+        "pix_fmt": "gray",
+        "color_range": "tv"
+      },
+      "notes": [],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/blue-and-magenta-crop.avif",
+      "purpose": "clap rejection",
+      "sha256": "fa8fafe0aeddf18586a987ffb3ae26d3548b174ddcfd569c4ba16d4d804c8137",
+      "wrapper": {
+        "width": 320,
+        "height": 280,
+        "depth": 8,
+        "alpha": true,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 2,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "error": "orientation, mirroring or clean-aperture transforms are not supported yet",
+        "kind": "UnsupportedInput"
+      },
+      "libheif": {
+        "images": 1,
+        "width": 180,
+        "height": 100,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": true,
+        "profile": "nclx",
+        "nclx": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "transforms": [
+          "crop: left=40 top=80 right=100 bottom=100"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 320,
+        "height": 280,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "tests/fixtures/orientation/avif-1.avif",
+      "purpose": "irot/imir orientation 1",
+      "sha256": "369f938906b97e794ef857001d45fb1ba965378a9303f844dffbe581dc3ccc09",
+      "wrapper": {
+        "width": 24,
+        "height": 16,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 0,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 24,
+        "height": 16,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 127952,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 24,
+        "height": 16,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": []
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 24,
+        "height": 16,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.0139
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "wrapper_vs_libheif_source_depth": [
+        1.0,
+        0.0139
+      ],
+      "wrapper_vs_ffmpeg_dav1d_source_depth": [
+        1.226,
+        0.536
+      ],
+      "verdict": "ok"
+    },
+    {
+      "fixture": "tests/fixtures/orientation/avif-2.avif",
+      "purpose": "irot/imir orientation 2",
+      "sha256": "1393218832f3b1b58b69ada15ff01f9bdd233c80ebab102f5b9a07dba24d0472",
+      "wrapper": {
+        "width": 24,
+        "height": 16,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 8,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 24,
+        "height": 16,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 129104,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 24,
+        "height": 16,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": [
+          "mirror: horizontal"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 24,
+        "height": 16,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.0139
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "verdict": "ok"
+    },
+    {
+      "fixture": "tests/fixtures/orientation/avif-3.avif",
+      "purpose": "irot/imir orientation 3",
+      "sha256": "0bb827faabcb9e5b51eb62c876accca06b0d4c0b465c9dd2afecba2261703ccd",
+      "wrapper": {
+        "width": 24,
+        "height": 16,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 4,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 24,
+        "height": 16,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 129104,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 24,
+        "height": 16,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": [
+          "angle (ccw): 180"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 24,
+        "height": 16,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.0139
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "verdict": "ok"
+    },
+    {
+      "fixture": "tests/fixtures/orientation/avif-4.avif",
+      "purpose": "irot/imir orientation 4",
+      "sha256": "34d7bdbaf92d86b00cb568007e8ba474fbd2d6260f8dcae818675764181a41fa",
+      "wrapper": {
+        "width": 24,
+        "height": 16,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 8,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 24,
+        "height": 16,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 129104,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 24,
+        "height": 16,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": [
+          "mirror: vertical"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 24,
+        "height": 16,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.0139
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "verdict": "ok"
+    },
+    {
+      "fixture": "tests/fixtures/orientation/avif-5.avif",
+      "purpose": "irot/imir orientation 5",
+      "sha256": "66a79552f8bc03df5fcd99b007c6859a0ef87e40bbee1f53183f0e723f5324a7",
+      "wrapper": {
+        "width": 24,
+        "height": 16,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 12,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 16,
+        "height": 24,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 128688,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 16,
+        "height": 24,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": [
+          "angle (ccw): 270",
+          "mirror: horizontal"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 24,
+        "height": 16,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.0139
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "verdict": "ok"
+    },
+    {
+      "fixture": "tests/fixtures/orientation/avif-6.avif",
+      "purpose": "irot/imir orientation 6",
+      "sha256": "4d2df8f55fd047b880f39cdeda1edf689d3dd9787cb64fd72b30eac12f75041f",
+      "wrapper": {
+        "width": 24,
+        "height": 16,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 4,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 16,
+        "height": 24,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 128688,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 16,
+        "height": 24,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": [
+          "angle (ccw): 270"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 24,
+        "height": 16,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.0139
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "verdict": "ok"
+    },
+    {
+      "fixture": "tests/fixtures/orientation/avif-7.avif",
+      "purpose": "irot/imir orientation 7",
+      "sha256": "4f69b76f4129379cf216977b47d290d2f60a0f229836bf5907b5fcaa8c31630d",
+      "wrapper": {
+        "width": 24,
+        "height": 16,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 12,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 16,
+        "height": 24,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 128688,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 16,
+        "height": 24,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": [
+          "angle (ccw): 270",
+          "mirror: vertical"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 24,
+        "height": 16,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.0139
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "verdict": "ok"
+    },
+    {
+      "fixture": "tests/fixtures/orientation/avif-8.avif",
+      "purpose": "irot/imir orientation 8",
+      "sha256": "2bc3ecf67b0b8dde1786a5f8e5c36f677f00dedd2c030fcfa0c7122bb9edc230",
+      "wrapper": {
+        "width": 24,
+        "height": 16,
+        "depth": 8,
+        "alpha": false,
+        "alpha_premultiplied": false,
+        "container_cicp": [
+          1,
+          13,
+          6,
+          1
+        ],
+        "sequence": {
+          "depth": 8,
+          "monochrome": false,
+          "cicp": [
+            1,
+            13,
+            6,
+            1
+          ]
+        },
+        "transform_flags": 4,
+        "icc_bytes": 0,
+        "decode": "ok"
+      },
+      "engine": {
+        "width": 16,
+        "height": 24,
+        "decoder_full_frame_buffers": 1,
+        "peak_managed_bytes": 128688,
+        "opaque_decoder_memory": true
+      },
+      "libheif": {
+        "images": 1,
+        "width": 16,
+        "height": 24,
+        "primary_index": 1,
+        "depth": 8,
+        "alpha": false,
+        "profile": "no",
+        "nclx": null,
+        "transforms": [
+          "angle (ccw): 90"
+        ]
+      },
+      "ffprobe": {
+        "codec_name": "av1",
+        "width": 24,
+        "height": 16,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "side_data_list": [
+          {}
+        ]
+      },
+      "notes": [
+        "ffprobe colors: bt709/iec61966-2-1/smpte170m/pc"
+      ],
+      "engine_vs_libheif": {
+        "rgb_max_mean": [
+          1.0,
+          0.0139
+        ],
+        "alpha_max_mean": [
+          0.0,
+          0.0
+        ]
+      },
+      "verdict": "ok"
+    }
+  ],
+  "failures": []
+}

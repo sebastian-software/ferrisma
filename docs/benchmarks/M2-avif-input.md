@@ -142,3 +142,71 @@ each binary with:
 old-or-new-binary /tmp/ferrisma-avif-flower-2268x1512-q80.avif 2268 1512
 old-or-new-binary /tmp/ferrisma-avif-flower-2268x1512-q80.avif 320 213 400 300 640 427
 ```
+
+## Independent reader cross-check (2026-11-12)
+
+**Host:** macOS 27.0.1, Apple M1 Ultra, ARM64, pinned `nightly-2026-09-07`,
+release build at `54da920e`. This is a correctness record for issue #54; it
+has no timing.
+
+[`scripts/avif_reference_crosscheck.py`](../../scripts/avif_reference_crosscheck.py)
+runs [`examples/avif_reference_crosscheck.rs`](../../examples/avif_reference_crosscheck.rs)
+on 43 fixtures (libavif test data, its Android 8/10/12-bit 4:2:0/4:2:2/4:4:4
+and monochrome assets, and Ferrisma's eight orientation fixtures). For each
+file it compares the safe wrapper's parsed metadata and unoriented samples
+and the engine's upright sRGB8 rows with tools that share neither the
+container parser nor the YUV-to-RGB conversion:
+
+- **libheif 1.23.7** (`heif-info`, `heif-dec -C nn`): its own HEIF/ISOBMFF
+  parser, its own application of `irot`/`imir`/`clap`, its own
+  nearest-neighbor YUV-to-RGB, and the C libaom 3.15.3 decoder plugin.
+- **ImageMagick 7.1.2-35** for the ICC bytes (through libheif).
+- **FFmpeg 9.0.2 with libdav1d** (`ffprobe` color fields and, for opaque
+  untransformed items, an advisory dav1d decode).
+
+All 43 fixtures agree under tolerances fixed in the script; the report is
+[input-crosscheck.json](evidence-2026-11-12-avif/input-crosscheck.json):
+
+| Check | Result |
+| --- | --- |
+| Depth, alpha presence against libheif; container CICP where libheif reports `nclx` | equal for every file the wrapper parses |
+| ICC bytes against ImageMagick/libheif | identical (596 and 3,144 bytes); both files are rejected by the engine without `UseRenderedIcc`/`icc` |
+| Upright size (`irot`/`imir`, eight orientations, grids) against libheif | equal |
+| Engine sRGB8 rows against libheif, visible pixels | max ≤ 1 code, mean ≤ 0.26 (8/10/12-bit, 4:2:0/4:2:2/4:4:4, grids, alpha) |
+| Wrapper samples at source depth against libheif | 8-bit max 1 code; 10/12-bit max 1.44 codes (libavif emits 16-bit RGB directly; libheif rounds to the source depth first) |
+| Alpha against libheif | equal, except two documented cases below |
+| `clap` (2 files), monochrome, animation | rejected (`UnsupportedInput`) before pixel decode; libheif applies a crop to both `clap` files, and libavif's own parser also rejects `clap_irot_imir_non_essential.avif` |
+| HDR PQ, BT.470M transfer | rejected (`UnsupportedColor`); ffprobe reports the same CICP |
+| Malformed (`alpha_noispe`, repeated `dimg`) | rejected (`MalformedInput`) |
+| FFmpeg/libdav1d, opaque untransformed items (advisory) | 8-bit max 1.49 codes; 10-bit max 3.95 codes; 12-bit max 15.8 codes (about 1 code at 8 bits), from FFmpeg's scaler |
+
+Two fixtures differ deliberately. `abc_color_irot_alpha_NOirot.avif` and
+`clop_irot_imor.avif` associate `irot` with the color item but not with the
+alpha item. libavif applies the color item's transforms to alpha for
+compatibility with files written by older libavif versions (its
+`AlphaIrotNoIrot` test), so Ferrisma rotates the alpha with the color.
+libheif leaves that alpha unrotated. Colors match; alpha differs. MIAF requires
+the same transformative properties on both items, so such files are
+nonconforming; Ferrisma follows libavif instead of failing closed.
+
+The upright pixel check uses visible pixels only: where straight alpha is 0,
+the engine does not preserve color values (234 such pixels in
+`color_grid_alpha_nogrid.avif` differ by up to 14 codes; the wrapper's raw
+samples equal libheif's).
+
+Also verified on this host:
+
+- `cross_module_image_layouts_match` asserts equal size, alignment and field
+  offsets of the `avifImage` and `avifRGBImage` copies in the generated
+  `read`, `reformat` and `avif` modules that the wrapper casts between.
+- A `compile_fail` doctest (E0597) shows that a `Decoder` cannot outlive its
+  input slice; the raw pointer keeps the decoder `!Send` and `!Sync`.
+- Scoped tests pass with `avif-read`, `avif-read` + `avif-write` +
+  `avif-own-write`, and `cli` (167 library tests and the CLI integration tests).
+
+Reproduce from the repository root (the tools must be on `PATH`):
+
+```sh
+cargo build --release --features avif-read --example avif_reference_crosscheck
+python3 -I scripts/avif_reference_crosscheck.py --output target/avif-crosscheck.json
+```
