@@ -12,7 +12,7 @@ publish = false
 default = []
 # The shared CLI accepts all four inputs. AVIF input and this encoder now
 # use the same workspace libavif package and isolated safe boundaries.
-cli = ["ferrisma/jpeg-read", "ferrisma/webp-read", "ferrisma/jpeg-xl-read", "ferrisma/avif-read", "ferrisma/icc"]
+cli = ["ferrisma/jpeg-read", "ferrisma/webp-read", "ferrisma/jpeg-xl-read", "ferrisma/jpeg-xl-own-read", "ferrisma/avif-read", "ferrisma/icc"]
 
 [dependencies]
 ferrisma = { path = "../..", default-features = false, features = ["avif-own-write"] }
