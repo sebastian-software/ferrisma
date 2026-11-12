@@ -108,6 +108,10 @@ impl UpsamplingStage {
         }
         stage
     }
+    #[expect(
+        clippy::needless_range_loop,
+        reason = "Mirror the source loop over five parallel spans."
+    )]
     fn pre_process_row(
         &mut self,
         input: &RowInfo,

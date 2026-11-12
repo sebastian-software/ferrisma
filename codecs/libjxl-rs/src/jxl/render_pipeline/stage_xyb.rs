@@ -88,6 +88,9 @@ pub fn get_xyb_stage(info: &OutputEncodingInfo) -> Box<dyn RenderPipelineStage> 
     Box::new(XybStage::new(info))
 }
 
+/// One output row with its three matrix entries and their broadcast rows.
+type MatrixRow<'a> = (&'a mut [f32], [(&'a mut Broadcast, f32); 3]);
+
 /// XybToRgb (dec_xyb_scalar::xyb_to_rgb) over whole rows, in place.
 ///
 /// Every lane performs the operations of `xyb_to_rgb` with the same operands
@@ -152,7 +155,7 @@ fn xyb_to_rgb_rows(scratch: &mut XybRows, [r0, r1, r2]: [&mut [f32]; 3], params:
     // and MulAdd(m[c2], mixed_b, linear_c), as add(mul(m, mixed), linear).
     let product = lanes(f7, n);
     let acc = lanes(f0, n);
-    let channels: [(&mut [f32], [(&mut Broadcast, f32); 3]); 3] = [
+    let channels: [MatrixRow<'_>; 3] = [
         (r0, [(m0, matrix[0]), (m4, matrix[4]), (m8, matrix[8])]),
         (
             r1,

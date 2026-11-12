@@ -493,7 +493,7 @@ impl EpfRows {
         for sad in &mut self.sads {
             lanes(sad, n).copy_from_slice(self.zero.row(0.0, n));
         }
-        for c in 0..3 {
+        for (c, &scale) in scales.iter().enumerate() {
             let p = |dy: i32, dx: isize| &tap(c, dy, dx)[..n];
             let (p20, p21, p11, p31) = (p(-2, 0), p(-1, 0), p(-1, -1), p(-1, 1));
             let (p02, p12, p22, p32, p42) = (p(0, -2), p(0, -1), p(0, 0), p(0, 1), p(0, 2));
@@ -525,7 +525,7 @@ impl EpfRows {
             accumulate_diff(s3, tmp, n, p33, p32);
             accumulate_diff(s3, tmp, n, p24, p23);
             // sads[i] = ma(sad_ic, channel_scale[c], sads[i])
-            let scale = self.channel_scale[c].promoted(scales[c], n);
+            let scale = self.channel_scale[c].promoted(scale, n);
             for i in 0..4 {
                 mul_wide(&mut self.prod, &mut self.wa, n, &self.sad_c[i], scale);
                 accumulate_after(&mut self.sads[i], &mut self.tmp, n, &self.prod);
