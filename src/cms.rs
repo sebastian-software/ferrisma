@@ -410,6 +410,75 @@ mod tests {
         }
     }
 
+    /// Deterministic hostile-profile corpus derived from a real v4 profile:
+    /// truncations, every header and tag-table word forced to 0 and
+    /// `u32::MAX`, wrong data/PCS color spaces, and seeded byte flips. Each
+    /// profile must either build a transform that converts a row without
+    /// panicking or be rejected as unsupported color.
+    #[test]
+    fn hostile_icc_profiles_are_rejected_or_converted_without_panicking() {
+        use std::panic::{AssertUnwindSafe, catch_unwind};
+
+        let valid = include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc").to_vec();
+        let tag_table_end = 132 + 12 * usize::from(valid[131]);
+        let mut corpus: Vec<(String, Vec<u8>)> = Vec::new();
+        for length in [0, 1, 4, 127, 128, 131, 132, 143, 144, tag_table_end, 400] {
+            corpus.push((format!("truncated-{length}"), valid[..length].to_vec()));
+        }
+        for offset in (0..tag_table_end).step_by(4) {
+            for word in [[0; 4], [0xff; 4]] {
+                let mut profile = valid.clone();
+                profile[offset..offset + 4].copy_from_slice(&word);
+                corpus.push((format!("word-{offset}-{:02x}", word[0]), profile));
+            }
+        }
+        for (offset, value) in [
+            (16, *b"GRAY"),
+            (16, *b"CMYK"),
+            (16, *b"Lab "),
+            (20, *b"Lab "),
+            (20, *b"RGB "),
+        ] {
+            let mut profile = valid.clone();
+            profile[offset..offset + 4].copy_from_slice(&value);
+            corpus.push((format!("space-{offset}-{value:?}"), profile));
+        }
+        let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+        for case in 0..256 {
+            let mut profile = valid.clone();
+            for _ in 0..4 {
+                state = state
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                let index = usize::try_from(state >> 33).unwrap() % profile.len();
+                profile[index] ^= u8::try_from(state >> 56).unwrap() | 1;
+            }
+            corpus.push((format!("flip-{case}"), profile));
+        }
+
+        let mut accepted = 0;
+        for (name, profile) in corpus {
+            let outcome = catch_unwind(AssertUnwindSafe(|| {
+                let mut grid = p3_grid(vec![0, 64, 128, 255, 255, 255, 12, 200, 7]);
+                grid.info.rendered_icc = Some(profile);
+                let mut source = IccSrgbSource::new(Box::new(grid))?;
+                source.read_region(
+                    Rect::new(0, 0, 3, 1)?,
+                    &MemoryBudget::new(1 << 20),
+                    &mut |_, _| Ok(()),
+                )?;
+                Ok::<_, Error>(())
+            }))
+            .unwrap_or_else(|_| panic!("ICC profile {name} panicked"));
+            match outcome {
+                Ok(()) => accepted += 1,
+                Err(error) => assert_eq!(error, Error::UnsupportedColorEncoding, "{name}"),
+            }
+        }
+        // The unchanged tag-table words and some flips keep a usable profile.
+        assert!(accepted > 0);
+    }
+
     fn read_rows(source: &mut IccSrgbSource<'_>, width: u32) -> Vec<Vec<f32>> {
         let mut rows = Vec::new();
         source
