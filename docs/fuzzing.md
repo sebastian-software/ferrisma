@@ -199,6 +199,11 @@ JPEG XL decoder rejected the hostile seed as `MalformedInput`.
 
 - No coverage-reviewed sustained run exists yet; rerun the hosted workflow with
   the fixes and record its six jobs here.
+- Source coverage was not measured locally. An ASan coverage build of
+  `transcode` (with the same cfg) linked on macOS ARM64 and replayed all 3,812
+  retained inputs without a failure, but `llvm-tools-preview` is not installed
+  on that host, so the profile was not merged or reported. The hosted workflow
+  installs the tools; its coverage report is still needed.
 - ASan only; no UBSan, MSan or independent sanitizer. The Rust engine forbids
   `unsafe`, but the generated libavif/AOM/dav1d ports, assembly and other codec
   dependencies do not inherit that guarantee.
