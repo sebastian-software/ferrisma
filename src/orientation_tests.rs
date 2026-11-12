@@ -661,6 +661,149 @@ fn interim_jpeg_xl_orientations_are_rendered_upright_for_every_crop() {
     }
 }
 
+/// Lossy (VarDCT) JPEG XL files with every header orientation, written and
+/// captured as upright RGBA8 by libjxl a16d32d (libjxl-rs
+/// `decoder-geometry-fixtures.json`). All eight carry the same stored
+/// codestream, so each upright output must be exactly the EXIF transform of
+/// the orientation-1 output, and every display crop exactly a slice of it.
+#[cfg(any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"))]
+mod lossy_jpeg_xl {
+    use super::{DecodeSource, DecodedRow, MemoryBudget, Rect, exif_reference, stored_grid};
+    use crate::color::AlphaMode;
+    use crate::decoder::ChannelLayout;
+
+    /// RGB samples per pixel.
+    const C: usize = 3;
+
+    const FILES: [(&[u8], &[u8]); 8] = [
+        (
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-1.jxl"),
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-1.rgba8"),
+        ),
+        (
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-2.jxl"),
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-2.rgba8"),
+        ),
+        (
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-3.jxl"),
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-3.rgba8"),
+        ),
+        (
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-4.jxl"),
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-4.rgba8"),
+        ),
+        (
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-5.jxl"),
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-5.rgba8"),
+        ),
+        (
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-6.jxl"),
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-6.rgba8"),
+        ),
+        (
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-7.jxl"),
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-7.rgba8"),
+        ),
+        (
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-8.jxl"),
+            include_bytes!("../codecs/libjxl-rs/tests/data/decoder-geometry/orientation-8.rgba8"),
+        ),
+    ];
+
+    fn read(source: &mut dyn DecodeSource, region: Rect) -> Vec<f32> {
+        let mut samples = Vec::new();
+        let mut next = region.y;
+        let report = source
+            .read_region(region, &MemoryBudget::new(1 << 20), &mut |y, row| {
+                assert_eq!(y, next);
+                next += 1;
+                let DecodedRow::F32(row) = row else {
+                    panic!("JPEG XL rows are float")
+                };
+                assert_eq!(row.len(), region.width as usize * C);
+                samples.extend_from_slice(row);
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(next, region.bottom());
+        assert_eq!(report.engine_buffer_bytes, 0, "decoder-side orientation");
+        samples
+    }
+
+    /// Returns the largest 8-bit difference to libjxl's captures.
+    pub(super) fn check(make: &dyn Fn(&'static [u8]) -> Box<dyn DecodeSource>) -> u8 {
+        let stored = read(&mut *make(FILES[0].0), Rect::new(0, 0, 13, 11).unwrap());
+        let ids = stored_grid(13, 11);
+        let mut worst = 0;
+        for (index, &(file, capture)) in FILES.iter().enumerate() {
+            let value = u16::try_from(index + 1).unwrap();
+            let mut source = make(file);
+            assert!(source.orientation().is_identity(), "orientation {value}");
+            // The files carry no alpha channel; libjxl captured opaque RGBA.
+            assert_eq!(source.info().layout, ChannelLayout::Rgb);
+            assert_eq!(source.info().alpha, AlphaMode::Opaque);
+            let expected = exif_reference(value, &ids);
+            let (width, height) = (expected[0].len(), expected.len());
+            let size = source.info().size;
+            assert_eq!((size.width as usize, size.height as usize), (width, height));
+            let full = read(
+                &mut *source,
+                Rect::new(0, 0, size.width, size.height).unwrap(),
+            );
+            for (y, row) in expected.iter().enumerate() {
+                for (x, &id) in row.iter().enumerate() {
+                    let at = (y * width + x) * C;
+                    let from = (usize::from(id) - 1) * C;
+                    assert_eq!(
+                        full[at..at + C],
+                        stored[from..from + C],
+                        "orientation {value}: pixel ({x}, {y})"
+                    );
+                    // libjxl's capture: 16 padding bytes after each row.
+                    let captured = &capture[y * (width * 4 + 16) + x * 4..][..4];
+                    assert_eq!(captured[3], 255, "opaque capture");
+                    for (&got, &want) in full[at..at + C].iter().zip(captured) {
+                        let got = (got * 255.0).round().clamp(0.0, 255.0) as u8;
+                        worst = worst.max(got.abs_diff(want));
+                    }
+                }
+            }
+            for crop in [
+                Rect::new(3, 2, 5, 7).unwrap(),
+                Rect::new(size.width - 6, size.height - 9, 6, 9).unwrap(),
+                Rect::new(1, size.height - 1, size.width - 2, 1).unwrap(),
+            ] {
+                let got = read(&mut *source, crop);
+                for (row, y) in got.chunks(crop.width as usize * C).zip(crop.y..) {
+                    let at = (y as usize * width + crop.x as usize) * C;
+                    assert_eq!(
+                        row,
+                        &full[at..at + crop.width as usize * C],
+                        "orientation {value}: crop {crop:?}"
+                    );
+                }
+            }
+        }
+        worst
+    }
+}
+
+#[cfg(feature = "jpeg-xl-read")]
+#[test]
+fn lossy_jpeg_xl_orientations_and_crops_through_jxl_oxide() {
+    use crate::codecs::jxl_oxide::JxlSource;
+    let worst = lossy_jpeg_xl::check(&|bytes| Box::new(JxlSource::new(bytes).unwrap()));
+    assert_eq!(worst, 0, "jxl-oxide versus libjxl capture");
+}
+
+#[cfg(feature = "jpeg-xl-own-read")]
+#[test]
+fn lossy_jpeg_xl_orientations_and_crops_through_libjxl_rs() {
+    use crate::codecs::jxl::JxlSource;
+    let worst = lossy_jpeg_xl::check(&|bytes| Box::new(JxlSource::new(bytes).unwrap()));
+    assert_eq!(worst, 0, "libjxl-rs versus libjxl capture");
+}
+
 #[test]
 fn partial_gather_worker_start_failure_releases_buffers_and_returns_error() {
     let orientation = Orientation::from_exif(6).unwrap();

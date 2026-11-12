@@ -21,6 +21,12 @@ impl JxlSource {
         let image = JxlImage::builder()
             .read(Cursor::new(bytes))
             .map_err(|_| Error::DecodeFailed)?;
+        // `render_frame_cropped(0)` would silently return the first keyframe
+        // of an animation. Still images only, as for WebP, AVIF and the
+        // libjxl-rs backend; no first-frame policy is offered.
+        if image.image_header().metadata.animation.is_some() {
+            return Err(Error::UnsupportedAnimation);
+        }
         // jxl-oxide renders upright samples itself: `width()`/`height()` are
         // display dimensions, crop regions are display coordinates and the
         // pixel stream applies the header orientation (ADR-0019).
@@ -112,5 +118,201 @@ impl DecodeSource for JxlSource {
             // not observable through its API, so only the output is a bound.
             work: CodecWork::region_at_least(region),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::JxlSource;
+    use crate::decoder::{DecodeSource, DecodedRow, WorkCount};
+    use crate::error::Error;
+    use crate::geometry::Rect;
+    use crate::memory::MemoryBudget;
+    use jxl_oxide::JxlImage;
+
+    const DATA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/codecs/libjxl-rs/tests/data/");
+
+    fn fixture(name: &str) -> Vec<u8> {
+        std::fs::read(format!("{DATA}{name}")).unwrap()
+    }
+
+    fn read(bytes: &[u8], region: Rect) -> Result<Vec<f32>, Error> {
+        let mut source = JxlSource::new(bytes)?;
+        let mut samples = Vec::new();
+        let report = source.read_region(region, &MemoryBudget::new(1 << 24), &mut |_, row| {
+            let DecodedRow::F32(row) = row else {
+                panic!("JPEG XL rows are float")
+            };
+            samples.extend_from_slice(row);
+            Ok(())
+        })?;
+        // Only the returned rectangle is a bound; skipped work is unobserved.
+        assert_eq!(report.work.codec_output, region);
+        assert_eq!(
+            report.work.reconstructed_pixels,
+            WorkCount::AtLeast(u64::from(region.width) * u64::from(region.height))
+        );
+        Ok(samples)
+    }
+
+    /// Invert every byte of the frame-`frame` TOC groups whose kind (in its
+    /// `Debug` form, since jxl-oxide does not re-export the type) `select`
+    /// accepts. Returns the corrupted file and the number of inverted bytes.
+    fn corrupt(bytes: &[u8], frame: usize, select: impl Fn(&str) -> bool) -> (Vec<u8>, usize) {
+        let image = JxlImage::builder().read(bytes).unwrap();
+        let frame = image.frame(frame).unwrap();
+        let mut out = bytes.to_vec();
+        let mut inverted = 0;
+        for group in frame.toc().iter_bitstream_order() {
+            if !select(&format!("{:?}", group.kind)) {
+                continue;
+            }
+            let data = frame.data(group.kind).unwrap();
+            let mut found = bytes
+                .windows(data.len())
+                .enumerate()
+                .filter(|(_, w)| *w == data);
+            let (at, _) = found.next().expect("group bytes are in the file");
+            assert!(found.next().is_none(), "group bytes are unique");
+            for byte in &mut out[at..at + data.len()] {
+                *byte ^= 0xff;
+            }
+            inverted += data.len();
+        }
+        assert!(inverted > 0);
+        (out, inverted)
+    }
+
+    /// The corrupted bytes are read when the output changes or fails. The
+    /// file must still open: header and TOC parsing do not read group data,
+    /// so a difference comes from rendering.
+    fn uses_corrupted_bytes(clean: &[u8], corrupted: &[u8], region: Rect) -> bool {
+        assert!(JxlSource::new(corrupted).is_ok());
+        read(corrupted, region).map_or(true, |samples| samples != read(clean, region).unwrap())
+    }
+
+    /// #19: for multi-group VarDCT files, a crop that does not touch pass
+    /// group 1 renders identically when every byte of that group is
+    /// inverted, while the full frame and a crop over that group change or
+    /// fail. jxl-oxide therefore skipped the group's entropy decoding here.
+    /// This is evidence for these two files, not a general ROI guarantee,
+    /// and the adapter still reports only a lower bound.
+    #[test]
+    fn multi_group_crop_skips_unrequested_pass_groups() {
+        for name in [
+            "jpeg-reconstruction/large-progressive.jxl",
+            "jpeg-reconstruction/chunked-baseline.jxl",
+        ] {
+            let clean = fixture(name);
+            let (corrupted, inverted) = corrupt(&clean, 0, |kind| {
+                kind.starts_with("GroupPass") && kind.ends_with("group_idx: 1 }")
+            });
+            assert!(inverted >= 16, "{name}: {inverted} bytes");
+            let full = Rect::new(0, 0, 257, 129).unwrap();
+            let left = Rect::new(0, 0, 200, 129).unwrap();
+            let right = Rect::new(250, 0, 7, 129).unwrap();
+            assert!(uses_corrupted_bytes(&clean, &corrupted, full), "{name}");
+            assert!(uses_corrupted_bytes(&clean, &corrupted, right), "{name}");
+            assert_eq!(
+                read(&corrupted, left).unwrap(),
+                read(&clean, left).unwrap(),
+                "{name}"
+            );
+        }
+    }
+
+    /// A single-TOC frame stores everything in one group: a top-left crop
+    /// still consumes bytes that only lower or right pixels need.
+    #[test]
+    fn single_toc_crop_reads_the_whole_group() {
+        let clean = fixture("ycbcr-jpeg-444.jxl");
+        let image = JxlImage::builder().read(clean.as_slice()).unwrap();
+        assert!(image.frame_by_keyframe(0).unwrap().toc().is_single_entry());
+        let (corrupted, _) = corrupt(&clean, 0, |kind| kind == "All");
+        assert!(uses_corrupted_bytes(
+            &clean,
+            &corrupted,
+            Rect::new(0, 0, 4, 4).unwrap()
+        ));
+    }
+
+    /// Patches copy from a reference-only frame, which jxl-oxide renders over
+    /// its full extent: corrupting it changes or fails any crop.
+    #[test]
+    fn patch_reference_frame_is_decoded_for_any_crop() {
+        let clean = fixture("repeated-glyphs-modular-none.jxl");
+        let image = JxlImage::builder().read(clean.as_slice()).unwrap();
+        assert_eq!(image.num_loaded_frames(), 2);
+        assert!(image.frame_header(0).unwrap().flags.patches());
+        let reference = (0..2)
+            .find(|&index| {
+                !image
+                    .frame(index)
+                    .unwrap()
+                    .header()
+                    .frame_type
+                    .is_normal_frame()
+            })
+            .unwrap();
+        let (corrupted, _) = corrupt(&clean, reference, |_| true);
+        for region in [
+            Rect::new(0, 0, 8, 8).unwrap(),
+            Rect::new(120, 88, 8, 8).unwrap(),
+        ] {
+            assert!(
+                uses_corrupted_bytes(&clean, &corrupted, region),
+                "{region:?}"
+            );
+        }
+    }
+
+    /// Noise and splines are position-dependent; a crop must equal the
+    /// corresponding slice of the full render.
+    #[test]
+    fn crops_with_noise_and_splines_match_the_full_render() {
+        for name in ["effects_rgb_alpha8.jxl", "effects_gray_alpha16.jxl"] {
+            let bytes = fixture(name);
+            let image = JxlImage::builder().read(bytes.as_slice()).unwrap();
+            let header = image.frame_header(0).unwrap();
+            assert!(header.flags.noise() && header.flags.splines(), "{name}");
+            let source = JxlSource::new(&bytes).unwrap();
+            let channels = usize::from(source.info.layout.channels());
+            let (width, height) = (source.info.size.width, source.info.size.height);
+            let full = read(&bytes, Rect::new(0, 0, width, height).unwrap()).unwrap();
+            for y in 0..height {
+                for x in 0..width {
+                    for (w, h) in [(1, 1), (width - x, height - y)] {
+                        let region = Rect::new(x, y, w, h).unwrap();
+                        let crop = read(&bytes, region).unwrap();
+                        for (row, sy) in crop.chunks(w as usize * channels).zip(y..) {
+                            let at = (sy * width + x) as usize * channels;
+                            assert_eq!(row, &full[at..at + row.len()], "{name} {region:?}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn animated_input_is_rejected_rather_than_reduced_to_its_first_frame() {
+        for name in [
+            "decoder-geometry/sequence-reference-overwrite-animation-1.jxl",
+            "decoder-geometry/sequence-multigroup-257-3-0-0.jxl",
+        ] {
+            let animated = fixture(name);
+            let image = JxlImage::builder().read(animated.as_slice()).unwrap();
+            // Real multi-keyframe animations that jxl-oxide would otherwise
+            // render as keyframe 0.
+            assert!(image.image_header().metadata.animation.is_some(), "{name}");
+            assert!(image.num_loaded_keyframes() > 1, "{name}");
+            assert_eq!(
+                JxlSource::new(&animated).err(),
+                Some(Error::UnsupportedAnimation)
+            );
+        }
+        // Several frames composited into one still keyframe remain a still.
+        let composite = fixture("decoder-geometry/sequence-reference-overwrite-animation-0.jxl");
+        assert!(JxlSource::new(&composite).is_ok());
     }
 }

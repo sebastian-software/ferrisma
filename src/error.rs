@@ -81,7 +81,9 @@ pub(crate) enum Error {
     EncodeFailed,
     UnsupportedColorEncoding,
     UnsupportedAlphaMode,
-    #[cfg(feature = "webp-read")]
+    /// Animated input; only still images are decoded (no first-frame
+    /// fallback).
+    #[cfg(any(feature = "webp-read", feature = "jpeg-xl-read"))]
     UnsupportedAnimation,
     #[allow(dead_code)]
     UnsupportedCodecLayout,
@@ -172,8 +174,11 @@ impl fmt::Display for Error {
                 f,
                 "the channel layout requires an explicit, compatible alpha-association mode"
             ),
-            #[cfg(feature = "webp-read")]
-            Self::UnsupportedAnimation => write!(f, "animated WebP input is not supported"),
+            #[cfg(any(feature = "webp-read", feature = "jpeg-xl-read"))]
+            Self::UnsupportedAnimation => write!(
+                f,
+                "animated input is not supported; only still images are decoded"
+            ),
             Self::IncompleteDecoderOutput => {
                 write!(f, "decoder did not provide the complete output region")
             }
