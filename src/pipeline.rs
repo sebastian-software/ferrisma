@@ -598,8 +598,6 @@ impl From<Error> for ProcessingError {
             Error::IncompleteOutput => Kind::Internal,
             #[cfg(feature = "jpeg-xl-write")]
             Error::UnsupportedEncoderProfile(_) => Kind::InvalidOptions,
-            #[cfg(feature = "jpeg-xl-write")]
-            Error::LossyJpegXlAlpha | Error::JpegXlPatchesRequired => Kind::UnsupportedInput,
             Error::UnknownNode
             | Error::PixelFormatMismatch
             | Error::SourceBindingMismatch

@@ -8,14 +8,19 @@
 //!   reached through its safe entry point.
 //! - **Lossy:** the port's public encoder API through the safe
 //!   `ferrisma-jxl-encoder` bridge: `VarDCT` in XYB at effort 7, distance
-//!   0.05 to below 3.0, 8-bit RGB with enum sRGB, no alpha, one frame, raw
-//!   codestream, serial; byte-identical with pinned libjxl in the port's
-//!   own oracle tests.
+//!   0.05 to below 3.0, patches off, 8-bit RGB with enum sRGB and, when any
+//!   alpha sample is below 255, one straight 8-bit alpha channel coded
+//!   losslessly; one frame, raw codestream, serial. The result equals
+//!   `cjxl --patches=0 -e 7 -d <distance>` (byte-identical with pinned
+//!   libjxl in the port's own oracle tests).
 //!
-//! Every other request is rejected with a typed error instead of falling
-//! back. Real alpha in lossy mode and content that needs the encoder's
-//! patch path are rejected with their own errors; alpha is never dropped
-//! silently.
+//! Patches are always off in lossy mode (ADR-0039): the port does not encode
+//! the patch reference frame yet, and with the search off every image encodes
+//! deterministically, without a content-dependent retry. Fully opaque alpha
+//! is omitted by this sink in both modes before the encoder sees it; the
+//! encoder's own opaque-alpha stripping is not relied on. Every request
+//! outside the admitted profiles is rejected with a typed error instead of
+//! falling back; alpha is never dropped silently.
 
 use ferrisma_jxl_encoder as bridge;
 use jxl::jxl::base::status::StatusCode;
@@ -62,16 +67,30 @@ pub(crate) fn known_codec_frame_bytes(
         .ok_or(Error::GeometryOverflow)
 }
 
-/// The lossy encoder's large buffers for an opaque RGB8 frame: an estimate
+/// The bridge's description of the lossy frame: RGB8, or RGBA8 with
+/// straight alpha, enum sRGB.
+fn lossy_image(width: usize, height: usize, alpha: bool) -> Result<bridge::ImageInfo, Error> {
+    let width = u32::try_from(width).map_err(|_| Error::GeometryOverflow)?;
+    let height = u32::try_from(height).map_err(|_| Error::GeometryOverflow)?;
+    Ok(if alpha {
+        bridge::ImageInfo::srgba8(width, height)
+    } else {
+        bridge::ImageInfo::srgb8(width, height)
+    })
+}
+
+/// The lossy encoder's large buffers for an RGB8 or RGBA8 frame: an estimate
 /// derived from the port's source (input copy, padded XYB planes, masking
-/// plane, AC coefficients; see `ferrisma_jxl_encoder::estimated_codec_bytes`),
-/// not a measured bound.
-pub(crate) fn estimated_lossy_codec_bytes(width: usize, height: usize) -> Result<usize, Error> {
-    let image = bridge::ImageInfo::srgb8(
-        u32::try_from(width).map_err(|_| Error::GeometryOverflow)?,
-        u32::try_from(height).map_err(|_| Error::GeometryOverflow)?,
-    );
-    bridge::estimated_codec_bytes(&image).ok_or(Error::GeometryOverflow)
+/// plane, AC coefficients, and with alpha the extra-channel and Modular
+/// planes; see `ferrisma_jxl_encoder::estimated_codec_bytes`), not a
+/// measured bound.
+pub(crate) fn estimated_lossy_codec_bytes(
+    width: usize,
+    height: usize,
+    alpha: bool,
+) -> Result<usize, Error> {
+    bridge::estimated_codec_bytes(&lossy_image(width, height, alpha)?)
+        .ok_or(Error::GeometryOverflow)
 }
 
 #[derive(Clone, Copy)]
@@ -177,10 +196,6 @@ impl JxlSink {
             return Err(Error::IncompleteOutput);
         }
         let transparent = bytes.as_chunks::<4>().0.iter().any(|rgba| rgba[3] != 255);
-        if transparent && matches!(self.mode, Mode::Lossy { .. }) {
-            // Stop at the first transparent row; never drop alpha silently.
-            return Err(Error::LossyJpegXlAlpha);
-        }
         let start = self.next_y * row_bytes;
         self.frame.as_mut_slice()[start..start + row_bytes].copy_from_slice(bytes);
         self.has_alpha |= transparent;
@@ -204,7 +219,7 @@ impl JxlSink {
         }
         match self.mode {
             Mode::Lossless => self.finish_lossless(pixels * channels),
-            Mode::Lossy { distance } => self.finish_lossy(pixels * 3, distance),
+            Mode::Lossy { distance } => self.finish_lossy(pixels * channels, distance),
         }
     }
 
@@ -244,24 +259,21 @@ impl JxlSink {
     }
 
     fn finish_lossy(&self, samples: usize, distance: f32) -> Result<EncodedImage, Error> {
-        let codec_bytes = estimated_lossy_codec_bytes(self.width, self.height)?;
+        let codec_bytes = estimated_lossy_codec_bytes(self.width, self.height, self.has_alpha)?;
         let _codec_frames: ExternalReservation = self.budget.reserve_external(codec_bytes)?;
-        let image = bridge::ImageInfo::srgb8(
-            u32::try_from(self.width).map_err(|_| Error::GeometryOverflow)?,
-            u32::try_from(self.height).map_err(|_| Error::GeometryOverflow)?,
-        );
+        let image = lossy_image(self.width, self.height, self.has_alpha)?;
         let mut bytes = Vec::new();
         bridge::encode(
             image,
-            bridge::FrameOptions::with_distance(distance),
+            // Patches off, always: see the module documentation.
+            bridge::FrameOptions::with_distance(distance).with_patches(false),
             &self.frame.as_slice()[..samples],
             &mut bytes,
             self.max_output_bytes,
         )
         .map_err(|error| match error {
-            bridge::Error::NotAdmitted(bridge::Admission::PatchDictionary) => {
-                Error::JpegXlPatchesRequired
-            }
+            // Not reachable for the admitted request (patches off, 8-bit
+            // straight alpha, enum sRGB); kept typed, never a fallback.
             bridge::Error::NotAdmitted(_) => Error::UnsupportedEncoderProfile(
                 "the workspace encoder does not admit this lossy request",
             ),

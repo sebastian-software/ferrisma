@@ -1,10 +1,13 @@
-//! Lossy JPEG XL output (ADR-0039): the distance range, the alpha and
-//! patch rejections, budget and output limits, and independent decodes.
+//! Lossy JPEG XL output (ADR-0039): the distance range, straight alpha
+//! (coded losslessly, so it must decode exactly), text-like content with
+//! patches off, budget and output limits, and independent decodes.
 //!
-//! The pixel bounds below are regression pins measured on these fixtures
+//! The color bounds below are regression pins measured on these fixtures
 //! with margin, not conformance evidence: byte-exactness against libjxl is
 //! the port's own gate (`encoder_public` parity tests), and the decoded
-//! error of a lossy codec depends on content.
+//! error of a lossy codec depends on content. Color under fully transparent
+//! pixels is not compared: the encoder's `SimplifyInvisible` (libjxl's
+//! default `keep_invisible` off for lossy) replaces it, as `cjxl` does.
 // Test images are small; their coordinates and samples fit every cast.
 #![allow(clippy::cast_possible_truncation)]
 
@@ -13,8 +16,7 @@ use crate::geometry::Size;
 use crate::jxl_sink::{JxlSink, estimated_lossy_codec_bytes};
 use crate::memory::MemoryBudget;
 use crate::pipeline::{
-    ImageFormat, JpegXlOptions, OutputFormat, ProcessingError, ProcessingErrorKind,
-    TransformOptions, transcode,
+    ImageFormat, JpegXlOptions, OutputFormat, ProcessingErrorKind, TransformOptions, transcode,
 };
 
 fn lossy(width: u32, height: u32, distance: f32) -> TransformOptions {
@@ -41,6 +43,21 @@ fn smooth(width: usize, height: usize) -> Vec<u8> {
                 255,
             ]);
         }
+    }
+    data
+}
+
+/// Smooth content with straight alpha: a ramp with fully transparent
+/// vertical stripes (nonzero color underneath) and no other zeros.
+pub(crate) fn translucent(width: usize, height: usize) -> Vec<u8> {
+    let mut data = smooth(width, height);
+    for (i, pixel) in data.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+        let (x, y) = (i % width, i / width);
+        pixel[3] = if (x / 3) % 5 == 0 {
+            0
+        } else {
+            (1 + (x * 7 + y * 3) % 255) as u8
+        };
     }
     data
 }
@@ -94,18 +111,25 @@ fn encode(
 }
 
 /// Maximum and mean absolute difference over the RGB samples of two RGBA
-/// buffers.
+/// buffers, over the pixels whose expected alpha is nonzero (the encoder
+/// replaces color under zero alpha). Alpha itself must match exactly.
 #[cfg(feature = "jpeg-xl-read")]
 fn rgb_error(decoded: &[u8], expected: &[u8]) -> (u8, f64) {
     assert_eq!(decoded.len(), expected.len());
     let mut max = 0;
     let mut sum = 0_u64;
+    let mut visible = 0_u64;
     for (a, b) in decoded
         .as_chunks::<4>()
         .0
         .iter()
         .zip(expected.as_chunks::<4>().0)
     {
+        assert_eq!(a[3], b[3], "alpha is coded losslessly");
+        if b[3] == 0 {
+            continue;
+        }
+        visible += 1;
         for c in 0..3 {
             let d = a[c].abs_diff(b[c]);
             max = max.max(d);
@@ -113,7 +137,7 @@ fn rgb_error(decoded: &[u8], expected: &[u8]) -> (u8, f64) {
         }
     }
     #[allow(clippy::cast_precision_loss)] // Test-sized sample counts.
-    let mean = sum as f64 / (expected.len() / 4 * 3) as f64;
+    let mean = sum as f64 / (visible.max(1) * 3) as f64;
     (max, mean)
 }
 
@@ -151,68 +175,73 @@ fn distances_outside_the_admitted_range_are_rejected_before_allocating() {
 }
 
 #[test]
-fn real_alpha_fails_at_the_first_transparent_row_and_opaque_alpha_is_dropped() {
+fn real_alpha_encodes_and_opaque_alpha_is_omitted_by_the_sink() {
     let budget = MemoryBudget::new(64 << 20);
     let (width, height) = (16, 4);
     let mut data = smooth(width, height);
-    // Fully opaque RGBA rows encode; the alpha channel is not written.
+    // Fully opaque RGBA rows: the sink compacts them to RGB before the
+    // encoder sees them (it does not rely on the encoder's own stripping).
     let opaque = encode(width, height, &data, lossy(16, 4, 1.0), &budget).unwrap();
     assert_eq!(&opaque.bytes[..2], &[0xff, 0x0a]);
-    // One pixel below 255 in row 2 stops the sink there.
+    // One pixel below 255 in row 2: the frame keeps its alpha channel and
+    // encodes (before 2026-11-12 it failed with a "use lossless" error).
     data[(2 * width + 5) * 4 + 3] = 254;
-    let size = Size::new(16, 4).unwrap();
-    let mut sink = JxlSink::new(size, lossy(16, 4, 1.0), &budget).unwrap();
-    for (y, row) in data.chunks_exact(width * 4).enumerate().take(2) {
-        sink.write_row(y as u32, row).unwrap();
-    }
-    let error = sink
-        .write_row(2, &data[2 * width * 4..3 * width * 4])
-        .unwrap_err();
-    assert_eq!(error, Error::LossyJpegXlAlpha);
-    assert!(
-        error
-            .to_string()
-            .contains("lossy JPEG XL with alpha is not supported yet; use lossless")
-    );
-    let public = ProcessingError::from(error);
-    assert_eq!(public.kind(), ProcessingErrorKind::UnsupportedInput);
-    // The same rows encode losslessly with their alpha channel.
-    let lossless = TransformOptions {
-        jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
-        ..lossy(16, 4, 1.0)
-    };
-    encode(width, height, &data, lossless, &budget).unwrap();
+    let transparent = encode(width, height, &data, lossy(16, 4, 1.0), &budget).unwrap();
+    assert_eq!(&transparent.bytes[..2], &[0xff, 0x0a]);
+    assert_ne!(transparent.bytes, opaque.bytes);
+    assert_eq!(budget.snapshot().live, 0);
 }
 
 #[test]
-fn text_like_content_reports_the_missing_patch_path() {
+fn text_like_content_encodes_with_patches_off() {
+    // FindTextLikePatches finds patches in this content at libjxl's default
+    // patches setting (the bridge's tests check that admission); the sink
+    // always turns patches off, so it encodes (before 2026-11-12 it failed
+    // with a "patch path" error).
     let budget = MemoryBudget::new(64 << 20);
-    let data = glyphs(64, 64, 5, 6);
-    let error = encode(64, 64, &data, lossy(64, 64, 1.0), &budget).unwrap_err();
-    assert_eq!(error, Error::JpegXlPatchesRequired);
-    assert!(error.to_string().contains("patch path"), "{error}");
-    assert_eq!(
-        ProcessingError::from(error).kind(),
-        ProcessingErrorKind::UnsupportedInput
-    );
-    assert_eq!(budget.snapshot().live, 0);
-    // Lossless output of the same content is unaffected.
-    let lossless = TransformOptions {
-        jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
-        ..lossy(64, 64, 1.0)
-    };
-    encode(64, 64, &data, lossless, &budget).unwrap();
+    for (width, height, copies) in [(64, 64, 6), (300, 120, 200)] {
+        let data = glyphs(width, height, 5, copies);
+        let encoded = encode(
+            width,
+            height,
+            &data,
+            lossy(width as u32, height as u32, 1.0),
+            &budget,
+        )
+        .unwrap();
+        assert_eq!(&encoded.bytes[..2], &[0xff, 0x0a]);
+        assert_eq!(budget.snapshot().live, 0);
+    }
 }
 
 #[test]
 fn input_frame_and_codec_estimate_are_reserved() {
     let (width, height) = (24, 16);
     let frame = width * height * 4;
-    let codec = estimated_lossy_codec_bytes(width, height).unwrap();
+    let codec = estimated_lossy_codec_bytes(width, height, false).unwrap();
     // Regression pin of the bridge's estimate (input copy, seven f32 planes
     // padded to 8x8, one group of i32 coefficients); it is an estimate from
     // the port's source, not a measurement.
     assert_eq!(codec, width * height * 3 + 24 * 16 * 28 + 3 * 256 * 256 * 4);
+    // With alpha: the alpha byte of the input copy, and an f32 plane plus
+    // two i32 Modular copies of the frame.
+    let alpha = estimated_lossy_codec_bytes(width, height, true).unwrap();
+    assert_eq!(alpha, codec + width * height + width * height * 12);
+    // Transparent rows reserve the alpha estimate, at its exact boundary.
+    let data = translucent(width, height);
+    let short = MemoryBudget::new(frame + alpha - 1);
+    assert!(matches!(
+        encode(width, height, &data, lossy(24, 16, 1.0), &short),
+        Err(Error::BudgetExceeded { .. })
+    ));
+    assert_eq!(short.snapshot().live, 0);
+    assert_eq!(short.snapshot().peak, frame);
+    let exact = MemoryBudget::new(frame + alpha);
+    let encoded = encode(width, height, &data, lossy(24, 16, 1.0), &exact).unwrap();
+    assert_eq!(exact.snapshot().peak, frame + alpha);
+    assert_eq!(exact.snapshot().live, 0);
+    assert_eq!(encoded.frame_materialization_bytes, frame + alpha);
+    // Opaque rows reserve the smaller RGB estimate.
     let data = smooth(width, height);
     let short = MemoryBudget::new(frame + codec - 1);
     assert!(matches!(
@@ -284,16 +313,18 @@ fn default_options_of_other_formats_still_match() {
 
 #[cfg(feature = "jpeg-xl-read")]
 mod independent_decode {
-    use jxl_oxide::JxlImage;
     use jxl_oxide::color::{
         ColourEncoding, ColourSpace, Primaries, RenderingIntent, TransferFunction, WhitePoint,
     };
+    use jxl_oxide::image::BitDepth;
+    use jxl_oxide::{ExtraChannelType, JxlImage};
 
-    use super::{encode, lossy, rgb_error, smooth};
+    use super::{encode, lossy, rgb_error, smooth, translucent};
     use crate::memory::MemoryBudget;
 
     /// Decode with jxl-oxide, check the emitted signaling (XYB-encoded, enum
-    /// sRGB, orientation 1, no extra channels) and return RGBA8 samples.
+    /// sRGB, orientation 1, no extra channel or one straight 8-bit alpha
+    /// channel) and return RGBA8 samples (alpha 255 without the channel).
     pub(crate) fn decode_oxide(bytes: &[u8]) -> (u32, u32, Vec<u8>) {
         assert_eq!(&bytes[..2], &[0xff, 0x0a], "raw codestream signature");
         let image = JxlImage::builder()
@@ -302,7 +333,18 @@ mod independent_decode {
         let metadata = &image.image_header().metadata;
         assert!(metadata.xyb_encoded, "lossy samples are XYB-encoded");
         assert_eq!(metadata.orientation, 1);
-        assert!(metadata.ec_info.is_empty(), "no alpha or extra channels");
+        assert!(metadata.ec_info.len() <= 1, "at most the alpha channel");
+        for ec in &metadata.ec_info {
+            // Straight alpha (ADR-0014): never signaled as premultiplied.
+            assert_eq!(
+                ec.ty,
+                ExtraChannelType::Alpha {
+                    alpha_associated: false
+                }
+            );
+            assert_eq!(ec.bit_depth, BitDepth::IntegerSample { bits_per_sample: 8 });
+        }
+        let channels = 3 + metadata.ec_info.len();
         let ColourEncoding::Enum(color) = &metadata.colour_encoding else {
             panic!("expected enum color, found an ICC profile")
         };
@@ -313,16 +355,81 @@ mod independent_decode {
         assert_eq!(color.rendering_intent, RenderingIntent::Relative);
         let render = image.render_frame(0).unwrap();
         let mut stream = render.stream();
-        assert_eq!(stream.channels(), 3);
-        let mut rgb = vec![0_u8; (stream.width() * stream.height()) as usize * 3];
-        stream.write_to_buffer(&mut rgb);
-        let rgba = rgb
-            .as_chunks::<3>()
+        assert_eq!(stream.channels() as usize, channels);
+        let mut samples = vec![0_u8; (stream.width() * stream.height()) as usize * channels];
+        stream.write_to_buffer(&mut samples);
+        let rgba = if channels == 4 {
+            samples
+        } else {
+            samples
+                .as_chunks::<3>()
+                .0
+                .iter()
+                .flat_map(|p| [p[0], p[1], p[2], 255])
+                .collect()
+        };
+        (image.width(), image.height(), rgba)
+    }
+
+    /// Straight alpha decodes exactly; color within the opaque content's
+    /// pins, over visible pixels. One-shot (up to 2x2 groups) and streaming
+    /// (800x700, 12 groups) paths. Measured 2026-11-12 (max / mean): 1x1
+    /// 0 / 0, 9x17 17 / 3.75, 300x260 19 / 2.23, 800x700 18 / 2.11.
+    #[test]
+    fn lossy_alpha_decodes_exactly_and_color_within_the_pinned_error() {
+        for (width, height, max_bound, mean_bound) in [
+            (1, 1, 2, 0.5),
+            (9, 17, 48, 6.0),
+            (300, 260, 26, 3.4),
+            (800, 700, 26, 3.2),
+        ] {
+            let data = translucent(width, height);
+            let encoded = encode(
+                width,
+                height,
+                &data,
+                lossy(width as u32, height as u32, 1.0),
+                &MemoryBudget::new(256 << 20),
+            )
+            .unwrap();
+            let (w, h, decoded) = decode_oxide(&encoded.bytes);
+            assert_eq!((w as usize, h as usize), (width, height));
+            // rgb_error also asserts that every alpha sample is exact.
+            let (max, mean) = rgb_error(&decoded, &data);
+            assert!(
+                max <= max_bound && mean <= mean_bound,
+                "{width}x{height}: max {max} mean {mean}"
+            );
+        }
+    }
+
+    #[cfg(feature = "jpeg-xl-own-read")]
+    #[test]
+    fn the_workspace_decoder_reads_straight_alpha_exactly() {
+        let (width, height) = (300, 260);
+        let data = translucent(width, height);
+        let encoded = encode(
+            width,
+            height,
+            &data,
+            lossy(300, 260, 1.0),
+            &MemoryBudget::new(64 << 20),
+        )
+        .unwrap();
+        let info = ferrisma_jxl_decoder::inspect(&encoded.bytes, 1 << 20).unwrap();
+        assert_eq!((info.width, info.height, info.channels), (300, 260, 4));
+        assert!(!info.alpha_premultiplied);
+        let mut samples = vec![0_f32; info.sample_count().unwrap()];
+        ferrisma_jxl_decoder::decode_into(&encoded.bytes, &info, &mut samples, 1 << 20).unwrap();
+        for (decoded, expected) in samples
+            .as_chunks::<4>()
             .0
             .iter()
-            .flat_map(|p| [p[0], p[1], p[2], 255])
-            .collect();
-        (image.width(), image.height(), rgba)
+            .zip(data.as_chunks::<4>().0)
+        {
+            let scaled = decoded[3] * 255.0;
+            assert!((scaled - f32::from(expected[3])).abs() < 1e-3, "{scaled}");
+        }
     }
 
     /// d1.0 on the smooth synthetic content: one-shot (up to 2x2 groups) and
@@ -412,11 +519,10 @@ mod pipeline_round_trip {
     use webp::api::encode::{PixelLayout, PixelRows, encode_lossless};
 
     use super::independent_decode::decode_oxide;
-    use super::{glyphs, lossy, rgb_error, smooth};
+    use super::{glyphs, lossy, rgb_error, smooth, translucent};
     use crate::pipeline::{
         EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
-        JpegXlOptions, OutputFormat, ProcessingErrorKind, RowEncoder, TransformOptions, transcode,
-        transcode_with,
+        JpegXlOptions, OutputFormat, RowEncoder, TransformOptions, transcode, transcode_with,
     };
 
     /// Captures the finished rows the built-in sink would receive.
@@ -482,27 +588,81 @@ mod pipeline_round_trip {
         }
     }
 
+    /// Transparent input encodes at the default lossy options (before
+    /// 2026-11-12 it failed with a "use lossless" error): alpha equals the
+    /// finished rows exactly, color is within the opaque pins over visible
+    /// pixels. A one-pixel transparent hole, a same-size and a downscaled
+    /// translucent image, and a streaming-size image (800x700, 12 groups).
     #[test]
-    fn transparent_input_fails_for_lossy_and_encodes_losslessly() {
-        let mut data = smooth(32, 24);
-        data[(5 * 32 + 7) * 4 + 3] = 0;
-        let input = webp(32, 24, &data);
-        let error = transcode(&input, ImageFormat::WebP, srgb(lossy(32, 24, 1.0))).unwrap_err();
-        assert_eq!(error.kind(), ProcessingErrorKind::UnsupportedInput);
-        assert!(error.to_string().contains("use lossless"), "{error}");
-        let lossless = TransformOptions {
-            jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
-            ..srgb(lossy(32, 24, 1.0))
-        };
-        transcode(&input, ImageFormat::WebP, lossless).unwrap();
+    fn transparent_input_encodes_with_exact_alpha() {
+        let mut hole = smooth(32, 24);
+        hole[(5 * 32 + 7) * 4 + 3] = 0;
+        // Measured 2026-11-12 (max / mean over visible pixels): 32x24 29 /
+        // 3.15, 120x90 29 / 2.66, 64x48 41 / 2.62, 800x700 18 / 2.11; pins
+        // with about 30 % on the maximum and 50 % on the mean. The downscale
+        // is highest: resampling straight alpha leaves low-alpha pixels
+        // whose straight color changes sharply (ADR-0014 divides by alpha).
+        for (input, (width, height), (max_bound, mean_bound)) in [
+            (webp(32, 24, &hole), (32, 24), (38, 4.8)),
+            (webp(120, 90, &translucent(120, 90)), (120, 90), (38, 4.0)),
+            (webp(120, 90, &translucent(120, 90)), (64, 48), (54, 3.9)),
+            (
+                webp(800, 700, &translucent(800, 700)),
+                (800, 700),
+                (26, 3.2),
+            ),
+        ] {
+            let options = srgb(TransformOptions {
+                output_format: OutputFormat::JpegXl,
+                output_width: width,
+                output_height: height,
+                ..TransformOptions::default()
+            });
+            assert_eq!(options.jpeg_xl, JpegXlOptions::Lossy { distance: 1.0 });
+            let output = transcode(&input, ImageFormat::WebP, options).unwrap();
+            let expected = transcode_with(&input, ImageFormat::WebP, options, &Rows).unwrap();
+            assert!(
+                expected
+                    .bytes
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .any(|p| p[3] != 255)
+            );
+            let (w, h, decoded) = decode_oxide(&output.bytes);
+            assert_eq!((w, h), (width, height));
+            let (max, mean) = rgb_error(&decoded, &expected.bytes);
+            assert!(
+                max <= max_bound && mean <= mean_bound,
+                "{width}x{height}: max {max} mean {mean}"
+            );
+        }
     }
 
+    /// Text-like and screenshot-like input encodes at the default lossy
+    /// options with patches off (before 2026-11-12 it failed with a "patch
+    /// path" error). Measured 2026-11-12 (max / mean): 64x64 (6 glyphs) 15 /
+    /// 0.33 in 616 bytes, 300x120 (a page of 200 glyphs) 20 / 1.19 in
+    /// 13,719 bytes; pins with about 30 % on the maximum and 50 % on the
+    /// mean. The size cost of patches off for such content is not measured
+    /// (the port cannot encode it with patches on).
     #[test]
-    fn text_like_input_reports_the_missing_patch_path() {
-        let input = webp(64, 64, &glyphs(64, 64, 5, 6));
-        let error = transcode(&input, ImageFormat::WebP, srgb(lossy(64, 64, 1.0))).unwrap_err();
-        assert_eq!(error.kind(), ProcessingErrorKind::UnsupportedInput);
-        assert!(error.to_string().contains("patch path"), "{error}");
+    fn text_like_input_encodes_with_patches_off() {
+        for (width, height, copies, max_bound, mean_bound) in
+            [(64, 64, 6, 20, 0.5), (300, 120, 200, 26, 1.8)]
+        {
+            let input = webp(width, height, &glyphs(width, height, 5, copies));
+            let options = srgb(lossy(width as u32, height as u32, 1.0));
+            let output = transcode(&input, ImageFormat::WebP, options).unwrap();
+            let expected = transcode_with(&input, ImageFormat::WebP, options, &Rows).unwrap();
+            let (w, h, decoded) = decode_oxide(&output.bytes);
+            assert_eq!((w as usize, h as usize), (width, height));
+            let (max, mean) = rgb_error(&decoded, &expected.bytes);
+            assert!(
+                max <= max_bound && mean <= mean_bound,
+                "{width}x{height}: max {max} mean {mean}"
+            );
+        }
     }
 
     #[cfg(feature = "jpeg-read")]
