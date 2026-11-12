@@ -7,6 +7,7 @@
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
 };
+use super::scalar_rows::{self as k, Broadcast, lanes};
 use crate::jxl::base::float::mul_add_f32;
 use crate::jxl::base::status::Status;
 use crate::jxl::loop_filter::LoopFilter;
@@ -25,17 +26,8 @@ use crate::jxl::loop_filter::LoopFilter;
 fn add(a: f32, b: f32) -> f32 {
     a + b
 }
-#[inline(never)]
-fn promote(a: f32) -> f64 {
-    f64::from(a)
-}
-#[inline(never)]
-fn multiply_and_demote(a: f64, b: f64) -> f32 {
-    (a * b) as f32
-}
-fn mul(a: f32, b: f32) -> f32 {
-    multiply_and_demote(promote(a), promote(b))
-}
+// The pixel loop uses the row kernels of `scalar_rows`, which keep these
+// add/promote/product boundaries per operation over a whole row.
 
 // The pinned x86 plain constructor object multiplies reciprocal first; its
 // instrumented third weight keeps that order too. This is ordinary binary32
@@ -50,6 +42,11 @@ pub struct GaborishStage {
     weights: [f32; 9],
     /// One output row, written back after the row's samples are computed.
     scratch: Vec<f32>,
+    /// Intermediate rows of the row kernels.
+    sums: [Vec<f32>; 7],
+    wide: Vec<f64>,
+    /// The promoted weights as rows.
+    weight_rows: [Broadcast; 9],
 }
 impl GaborishStage {
     fn new(lf: &LoopFilter) -> Self {
@@ -89,6 +86,9 @@ impl GaborishStage {
         Self {
             weights,
             scratch: Vec::new(),
+            sums: Default::default(),
+            wide: Vec::new(),
+            weight_rows: Default::default(),
         }
     }
 }
@@ -115,37 +115,44 @@ impl RenderPipelineStage for GaborishStage {
             let row_m = self.get_input_row(input, c, 0);
             let row_b = self.get_input_row(input, c, 1);
             let row_out = self.get_output_row(output, c, 0);
-            let w0 = self.weights[3 * c];
-            let w1 = self.weights[3 * c + 1];
-            let w2 = self.weights[3 * c + 2];
+            let [w0, w1, w2] = [0, 1, 2].map(|i| self.weights[3 * c + i]);
             // Resolve each row span once per row instead of once per sample,
             // and stage the outputs in a scratch row: input and output rows
-            // may share one plane. The loaded values, their order and every
-            // arithmetic operation are unchanged; only addressing is hoisted.
-            let (tx, mx, bx) = (row_t.x, row_m.x, row_b.x);
-            let t_row = buffers.row(Row { x: 0, ..row_t });
-            let m_row = buffers.row(Row { x: 0, ..row_m });
-            let b_row = buffers.row(Row { x: 0, ..row_b });
-            let at = |x0: usize, x: isize| x0.wrapping_add_signed(x);
-            self.scratch.clear();
-            for x in x_start..x_end {
-                let t = t_row[at(tx, x)];
-                let tl = t_row[at(tx, x - 1)];
-                let tr = t_row[at(tx, x + 1)];
-                let m = m_row[at(mx, x)];
-                let l = m_row[at(mx, x - 1)];
-                let r = m_row[at(mx, x + 1)];
-                let b = b_row[at(bx, x)];
-                let bl = b_row[at(bx, x - 1)];
-                let br = b_row[at(bx, x + 1)];
-                let sum0 = m;
-                let sum1 = add(add(l, r), add(t, b));
-                let sum2 = add(add(tl, tr), add(bl, br));
-                // Literal original MulAdd(sum2,w2,MulAdd(sum1,w1,Mul(sum0,w0))).
-                // Each scalar multiply and add retains its own rounding.
-                let pixels = add(mul(sum2, w2), add(mul(sum1, w1), mul(sum0, w0)));
-                self.scratch.push(pixels);
-            }
+            // may share one plane. Each lane performs the original operations
+            // on the same operands in the same order; the row kernels keep
+            // the out-of-line Add/promote/product boundaries per operation.
+            let n = x_end.wrapping_sub(x_start) as usize;
+            let tap = |row: Row, dx: isize| {
+                let span = buffers.row(Row { x: 0, ..row });
+                &span[row.x.wrapping_add_signed(x_start + dx)..]
+            };
+            let (t, tl, tr) = (tap(row_t, 0), tap(row_t, -1), tap(row_t, 1));
+            let (m, l, r) = (tap(row_m, 0), tap(row_m, -1), tap(row_m, 1));
+            let (b, bl, br) = (tap(row_b, 0), tap(row_b, -1), tap(row_b, 1));
+            let [s0, s1, sum1, sum2, p0, p1, p2] = &mut self.sums;
+            let (s0, s1, sum1, sum2) = (lanes(s0, n), lanes(s1, n), lanes(sum1, n), lanes(sum2, n));
+            let (p0, p1, p2) = (lanes(p0, n), lanes(p1, n), lanes(p2, n));
+            let wide = lanes(&mut self.wide, n);
+            let [wr0, wr1, wr2] = &mut self.weight_rows[3 * c..3 * c + 3] else {
+                unreachable!()
+            };
+            // sum1 = add(add(l, r), add(t, b)); sum2 = add(add(tl, tr), add(bl, br))
+            k::add(s0, l, r);
+            k::add(s1, t, b);
+            k::add(sum1, s0, s1);
+            k::add(s0, tl, tr);
+            k::add(s1, bl, br);
+            k::add(sum2, s0, s1);
+            // Literal original MulAdd(sum2,w2,MulAdd(sum1,w1,Mul(sum0,w0))).
+            // Each scalar multiply and add retains its own rounding.
+            k::promote(wide, sum2);
+            k::product(p2, wide, wr2.promoted(w2, n));
+            k::promote(wide, sum1);
+            k::product(p1, wide, wr1.promoted(w1, n));
+            k::promote(wide, m);
+            k::product(p0, wide, wr0.promoted(w0, n));
+            k::add(s0, p1, p0);
+            k::add(lanes(&mut self.scratch, n), p2, s0);
             let out = buffers.row_mut(row_out.offset(x_start));
             out[..self.scratch.len()].copy_from_slice(&self.scratch);
         }
