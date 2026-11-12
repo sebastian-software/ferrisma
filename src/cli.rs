@@ -296,7 +296,10 @@ pub fn run(
         output.report.transform_threads,
         output.report.encoder_backend,
     );
-    // Decoder work in stored rectangles `WxH+X+Y`; `>=` marks a lower bound.
+    // Decoder work as rectangles `WxH+X+Y`; `>=` marks a lower bound. `crop`
+    // and `requested` are upright display coordinates; `codec_request` and
+    // `codec_output` are in the codec's frame (stored order, or display
+    // order for the JPEG XL decoders, which orient themselves).
     let work = output.report.decoder_work;
     let rect = |r: crate::pipeline::Crop| format!("{}x{}+{}+{}", r.width, r.height, r.x, r.y);
     println!(

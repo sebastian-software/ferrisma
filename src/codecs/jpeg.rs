@@ -260,6 +260,10 @@ impl DecodeSource for JpegSource<'_> {
             engine_buffer_bytes: 0,
             engine_copied_bytes: 0,
             work: CodecWork {
+                // The delivered region, not the libjpeg call: the adapter
+                // asked libjpeg for `crop_x..crop_right`, one context column
+                // wider on each side. Those columns are overfetch and appear
+                // in `codec_output` below.
                 request: region,
                 // The iMCU-aligned columns libjpeg returned, over the rows
                 // the adapter read; the final validation row is extra.

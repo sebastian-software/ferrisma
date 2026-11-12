@@ -128,10 +128,13 @@ impl std::fmt::Display for WorkCount {
 /// output and from work the format cannot skip.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct CodecWork {
-    /// The stored rectangle the adapter requested from the codec.
+    /// The rectangle whose samples the adapter delivers, in the codec's frame
+    /// (stored order, or display order for decoders that orient themselves).
+    /// Context the adapter adds to its own codec call is excluded, so it
+    /// counts as overfetch.
     pub request: Rect,
-    /// The stored rectangle of samples the codec wrote for the adapter. Its
-    /// area minus `request`'s is the source overfetch.
+    /// The rectangle of samples the codec wrote for the adapter, in the same
+    /// frame. Its area minus `request`'s is the source overfetch.
     pub codec_output: Rect,
     /// Pixels the codec reconstructed (prediction or inverse transform,
     /// upsampling and color conversion), including discarded context rows.

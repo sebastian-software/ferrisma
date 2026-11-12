@@ -318,11 +318,17 @@ pub struct DecoderWork {
     /// clamp at the crop's edges, so it equals `crop`: there is no filter
     /// halo beyond the crop and a difference would be a planning defect.
     pub requested: Crop,
-    /// The stored-order rectangle the codec adapter requested from the codec,
-    /// after any reorientation (ADR-0019).
+    /// The rectangle whose samples the codec adapter delivers, in the codec's
+    /// own frame: stored order when the engine reorients (JPEG, WebP, AVIF;
+    /// ADR-0019), upright display coordinates when the decoder applies the
+    /// orientation itself (both JPEG XL backends). Context an adapter adds
+    /// to its codec call, such as the JPEG adapter's extra column on each
+    /// side for chroma upsampling, is not part of it; it appears in
+    /// `codec_output` and therefore in `overfetch_pixels`.
     pub codec_request: Crop,
-    /// The stored-order rectangle the codec actually wrote, including
-    /// alignment, filter context and full-frame fallbacks.
+    /// The rectangle the codec actually wrote, in the same frame as
+    /// `codec_request`, including alignment, filter context and full-frame
+    /// fallbacks.
     pub codec_output: Crop,
     /// `codec_output` pixels beyond `codec_request`: the source overfetch.
     pub overfetch_pixels: u64,

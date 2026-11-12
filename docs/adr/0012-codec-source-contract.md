@@ -128,7 +128,12 @@ through unchanged, and the facade exposes it as `ProcessingReport::decoder_work`
 
 - `codec_request`, the stored rectangle the adapter asked for, and
   `codec_output`, the stored rectangle the codec actually wrote. Both are exact;
-  their area difference is the source overfetch.
+  their area difference is the source overfetch. (Clarified 2026-11-12 after
+  the independent v1.0 review: `codec_request` is the rectangle the adapter
+  *delivers*, not its literal codec call. The JPEG adapter calls libjpeg with
+  one context column more on each side; those columns count as overfetch. Both
+  rectangles are in the codec's frame, which is the display frame for the two
+  JPEG XL decoders, because they apply the orientation themselves.)
 - `reconstructed_pixels` and `entropy_rows` as `WorkCount::Exact` or
   `WorkCount::AtLeast`. Lower bounds come from the codec output and from work
   the format cannot skip (sequential VP8/VP8L rows, the JPEG entropy pass).
