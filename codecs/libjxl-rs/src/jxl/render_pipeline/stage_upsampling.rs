@@ -120,16 +120,19 @@ impl UpsamplingStage {
             self.get_input_row(input, self.c, i as i32 - 2)
                 .offset(x0 as isize - 2)
         });
+        // Resolve the five input spans once per call; values, order and
+        // arithmetic are unchanged.
+        let spans: [&[f32]; 5] = std::array::from_fn(|i| &buffers.row(rows[i])[..len + 4]);
         for x in 0..len + 4 {
-            let v0 = buffers.row(rows[0])[x];
-            let v1 = buffers.row(rows[1])[x];
+            let v0 = spans[0][x];
+            let v1 = spans[1][x];
             let min0 = scalar_min(v0, v1);
             let max0 = scalar_max(v0, v1);
-            let v2 = buffers.row(rows[2])[x];
-            let v3 = buffers.row(rows[3])[x];
+            let v2 = spans[2][x];
+            let v3 = spans[3][x];
             let min1 = scalar_min(v2, v3);
             let max1 = scalar_max(v2, v3);
-            let v4 = buffers.row(rows[4])[x];
+            let v4 = spans[4][x];
             let min2 = scalar_min(min0, min1);
             let max2 = scalar_max(max0, max1);
             self.temp[0][thread].as_mut().unwrap().u32s_mut()[x] = scalar_min(v4, min2).to_bits();
@@ -167,32 +170,41 @@ impl UpsamplingStage {
         });
         let mins = self.temp[2][thread].as_ref().unwrap().u32s();
         let maxs = self.temp[0][thread].as_ref().unwrap().u32s();
+        // Resolve the 25 input spans once per call and stage the N output
+        // rows, which are written back after all samples are computed (input
+        // and output rows may share a plane). Values, order and arithmetic
+        // are unchanged; only addressing is hoisted.
+        let spans: [&[f32]; 25] = std::array::from_fn(|i| &buffers.row(rows[i])[..len]);
+        let mut staged: [Vec<f32>; N] = std::array::from_fn(|_| Vec::with_capacity(len * N));
         for x in 0..len {
-            for oy in 0..N {
+            for (oy, staged) in staged.iter_mut().enumerate() {
                 let mut ups = [0.0; N];
                 for (ox, up) in ups.iter_mut().enumerate() {
                     let k = N * oy + ox;
                     let kernel = &self.kernel[k * 25..];
-                    let mut acc0 = buffers.row(rows[0])[x] * kernel[0];
-                    let mut acc1 = buffers.row(rows[1])[x] * kernel[1];
-                    let mut acc2 = buffers.row(rows[2])[x] * kernel[2];
+                    let mut acc0 = spans[0][x] * kernel[0];
+                    let mut acc1 = spans[1][x] * kernel[1];
+                    let mut acc2 = spans[2][x] * kernel[2];
                     for i in (3..24).step_by(3) {
-                        acc0 = scalar_mul_add(buffers.row(rows[i])[x], kernel[i], acc0);
-                        acc1 = scalar_mul_add(buffers.row(rows[i + 1])[x], kernel[i + 1], acc1);
-                        acc2 = scalar_mul_add(buffers.row(rows[i + 2])[x], kernel[i + 2], acc2);
+                        acc0 = scalar_mul_add(spans[i][x], kernel[i], acc0);
+                        acc1 = scalar_mul_add(spans[i + 1][x], kernel[i + 1], acc1);
+                        acc2 = scalar_mul_add(spans[i + 2][x], kernel[i + 2], acc2);
                     }
-                    acc0 = scalar_mul_add(buffers.row(rows[24])[x], kernel[24], acc0);
+                    acc0 = scalar_mul_add(spans[24][x], kernel[24], acc0);
                     let result = (acc1 + acc2) + acc0;
                     *up = scalar_min(
                         scalar_max(f32::from_bits(mins[x]), result),
                         f32::from_bits(maxs[x]),
                     );
                 }
-                let dst = self
-                    .get_output_row(output, self.c, oy)
-                    .offset((x0 * N + x * N) as isize);
-                buffers.row_mut(dst)[..N].copy_from_slice(&ups);
+                staged.extend_from_slice(&ups);
             }
+        }
+        for (oy, staged) in staged.iter().enumerate() {
+            let dst = self
+                .get_output_row(output, self.c, oy)
+                .offset((x0 * N) as isize);
+            buffers.row_mut(dst)[..staged.len()].copy_from_slice(staged);
         }
     }
 }
