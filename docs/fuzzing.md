@@ -1,6 +1,6 @@
 # Fuzzing and hostile-input policy
 
-**Status:** Fuzz harness prepared; sustained fuzz campaign **not yet run**.
+**Status:** Harness and six-lane ASan campaign workflow exist. The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure. The sustained, coverage-reviewed campaign required for release has **not** completed; see [results](#campaign-results).
 
 Ferrisma's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and AVIF bytes. The core forbids unsafe Rust; optional decoder, assembler, SIMD and encoder dependencies do **not** inherit that guarantee. The workspace AVIF reader checks dimensions and reserves the emitted RGB frame before pixel decoding, but libavif/AOM still allocate opaque parser and codec buffers outside the engine budget.
 
@@ -93,16 +93,126 @@ Dependencies are fetched with `--locked`; mutation and replay builds run
 offline, and lockfile hashes are checked after tests, the campaign and replay.
 Seed classifications and source-coverage counts must be inspected before
 claiming that a particular ICC or AVIF path was reached.
-The workflow has not yet run merely because it is configured: record the
-actual job URLs, durations, crashes, coverage, and limitations after execution.
-An ASan campaign alone does not satisfy all release hardening gates.
+Record the actual job URLs, durations, crashes, coverage, and limitations
+after each execution; the configuration alone is not a result. An ASan
+campaign alone does not satisfy all release hardening gates.
+
+The campaign and coverage steps set `RUSTFLAGS=--cfg libavif_rs_asan`, which
+cargo-fuzz appends to its own flags. The generated dav1d and AOM ports register
+C static initializers as `INIT_ARRAY` statics in `__mod_init_func`
+(`.init_array` on Linux); the cfg disables ASan instrumentation of exactly
+those statics, as the codec's own sanitizer tooling does. Without it the macOS
+linker rejects the instrumented `cdylib` outputs of `libavif-dav1d` and
+`libavif-aom` with `initializer pointer has no target`; this was a build
+failure, not a decoder memory-safety finding. Linux linked without the cfg.
+
+## Campaign results
+
+### Hosted campaign, run 43117625746 (2026-11-11)
+
+The first dispatch of the six-job workflow ran on the #194 branch. Only the two
+Linux own-JXL and own-AVIF lanes completed their 1,800-second budget.
+
+- **Linux `transcode`:** after 75,175 executions libFuzzer stopped on a panic in
+  `jxl-color` 0.11.0 `icc/synthesize.rs:274` ("Unknown color space, ICC profile
+  not embedded?"), reached from public `transcode` through the default
+  JXL-Oxide adapter: the JPEG XL header used an enum colour encoding whose
+  colour space was unknown, and `JxlImage::rendered_icc` synthesizes a profile
+  from it. The 40-byte input `crash-510ca0e9c63aeae240305a2f57956ff3f3f7db72`
+  is retained without its selector byte as
+  `tests/fixtures/hostile/jxl-unknown-colour-space.jxl` and as a campaign
+  seed. The adapter now rejects unknown or XYB colour spaces, an unknown
+  transfer function and a zero gamma (a divisor in the same synthesis code) with
+  `UnsupportedColor` before any profile synthesis or rendering
+  ([ADR-0012](adr/0012-codec-source-contract.md)). Tests:
+  `hardening_tests::jxl_oxide_unknown_colour_space_is_a_controlled_error`,
+  `public_transcode_rejects_unknown_jxl_colour_space` (all three color
+  policies) and `workspace_jxl_unknown_colour_space_is_a_controlled_error`
+  (the workspace decoder rejects the same bytes as malformed). The zero-gamma
+  branch has no minimized input yet.
+- **All three macOS lanes:** the ASan build failed while linking
+  `libavif-dav1d` and `libavif-aom`; no input was executed. See the
+  `libavif_rs_asan` note above.
+
+### Bounded local ASan runs (2026-11-12)
+
+These runs confirm the two fixes and add a short mutation pass. They are **not**
+the sustained campaign: each lane had a 600-second budget on a host shared with
+other build jobs, so execution counts are not throughput evidence.
+
+| | `transcode` | `transcode_own_avif` | `transcode_own_jxl` |
+|---|---|---|---|
+| Features | default (`cli`) | default (`cli`) | `own-jxl` |
+| Seed files (from `seed_campaign.py`) | 16 | 5 | 11 |
+| `-max_total_time` (s) | 600 | 600 | 600 |
+| Executions | 237,741 | 123,843 | 489,701 |
+| Final edge coverage (`cov`) | 34,720 | 34,228 | 20,152 |
+| Retained corpus files | 3,812 | 2,396 | 2,232 |
+| libFuzzer peak RSS (MB) | 563 | 606 | 762 |
+| Crashes, leaks, timeouts, OOM | none | none | none |
+
+Common settings: macOS 27.0 (Darwin 27.0.0) arm64, Apple M1 Ultra;
+`rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)` from `rust-toolchain.toml`;
+cargo-fuzz 0.13.2; `--sanitizer address`, `RUSTFLAGS=--cfg libavif_rs_asan`,
+`ASAN_OPTIONS=detect_odr_violation=0` (cargo-fuzz's default);
+`-seed=1 -max_len=524289 -timeout=10 -rss_limit_mb=2048`. libFuzzer's length
+control kept the effective maximum input near the largest seed (21,916 bytes
+for `transcode`; 378 bytes for own-JXL, whose JPEG XL seeds are 40–174 bytes),
+so the 512 KiB driver limit was not explored. Source: engine and fuzz driver at
+commit `984910f8` (later commits on that branch change only documentation and
+the workflow). Lockfile SHA-256: `Cargo.lock` `2f082fab…3086`,
+`fuzz/Cargo.lock` `e28859d0…4631`. The seed manifest printed by
+`seed_campaign.py` has SHA-256 `f9ae92b4…37b1`; replaying the hosted crash
+input through the rebuilt ASan `transcode` binary exits cleanly. Retained
+corpus manifests (SHA-256 over the sorted `shasum -a 256` listing):
+`transcode` `5ee12e43…c862`, own-AVIF `01f7c47d…3416`, own-JXL
+`5ed39970…55d5`. The corpora and logs stayed on the local host and were not
+uploaded.
+
+The deterministic seed test (`FERRISMA_FUZZ_SEEDS=… cargo test --manifest-path
+fuzz/Cargo.toml --lib --features own-jxl`) passed: every own-AVIF seed encoded
+at 8 and 10 bits; the default lane rejected the AVIF grid seed under the
+rendered-ICC selector (`UnsupportedInput`: the ICC transform accepts opaque RGB
+only), the upstream proof-of-concept file (`UnsupportedInput`), both malformed
+ICC tag tables and the hostile JPEG XL seed (`UnsupportedColor`); the workspace
+JPEG XL decoder rejected the hostile seed as `MalformedInput`.
+
+### Deterministic hostile-input corpus
+
+- `hardening_tests::upstream_libavif_corpus_returns_controlled_public_results`
+  runs every upstream libavif `.avif` test file (grid, alpha, `clap`, gain-map,
+  animation, HDR, ICC, truncated-extent and proof-of-concept inputs) through
+  public `transcode` under all three color policies. None panics or reports
+  `Internal`; `clap` is `UnsupportedInput`, PQ/HLG and container ICC without
+  the ICC policy are `UnsupportedColor`, animation is `UnsupportedInput`, and
+  grid/alpha stills encode.
+- `cms::tests::hostile_icc_profiles_are_rejected_or_converted_without_panicking`
+  derives 398 profiles from a real v4 profile: truncations, every header and
+  tag-table word set to 0 and `u32::MAX`, wrong data/PCS color spaces and
+  seeded byte flips. Each either converts a row or is rejected as unsupported
+  color.
+- Existing focused tests cover AVIF container/bitstream CICP and ICC conflicts,
+  mirror-before-rotation order, oversized ICC properties, and truncated boxes
+  (`avif_meta_tests`, `codecs::avif`), plus truncated JPEG/JXL/AVIF headers.
+
+### Limitations
+
+- No coverage-reviewed sustained run exists yet; rerun the hosted workflow with
+  the fixes and record its six jobs here.
+- ASan only; no UBSan, MSan or independent sanitizer. The Rust engine forbids
+  `unsafe`, but the generated libavif/AOM/dav1d ports, assembly and other codec
+  dependencies do not inherit that guarantee.
+- The own-JXL seeds are tiny; add larger JPEG XL inputs (ICC, alpha, animation,
+  extra channels) before the sustained run.
+- JPEG safe-API fuzzing is tracked separately in #73; color semantics in #17
+  and #41.
 
 ## M1 exit evidence still needed
 
-- [ ] Record fuzz duration, seed corpus, architecture/toolchain, sanitizer configuration, coverage and any unique crashes.
-- [ ] Audit decompression bombs and allocation ceilings at the **decoder preflight** stage before an untrusted AVIF frame is fully decoded.
+- [ ] Record a sustained, coverage-reviewed fuzz campaign (duration, seed corpus, architecture/toolchain, sanitizer configuration, coverage and unique crashes). A first hosted run and bounded local runs are recorded above.
+- [ ] Audit decompression bombs and allocation ceilings at the **decoder preflight** stage before an untrusted frame is fully decoded. The [preflight audit](#preflight-and-resource-audit-2026-11-12) records the current state per decoder.
 - [ ] Verify JPEG EXIF orientation, JPEG XL orientation/region coordinate mapping and AVIF orientation are not silently lost.
-- [ ] Verify ICC parsing and output-profile contradictions with hostile profiles, not only short headers.
+- [x] Verify ICC parsing with hostile profiles, not only short headers (deterministic corpus above). Output-profile contradictions remain with #17/#41.
 - [ ] Recheck memory limits with actual process RSS, not just `MemoryBudget` snapshots.
 
 The existence of a fuzz target alone does not satisfy the M1 hardening acceptance criteria.
@@ -127,6 +237,28 @@ The uploaded [corpus artifact](https://github.com/sebastian-software/ferrisma/ac
 has SHA-256 `a0a15b4dc3cfdcc637bcdbdb9c453c4c73a1995985f0c876063c51d49088d4dc`.
 This single short run does not close the sustained-campaign, coverage review,
 independent sanitizer, or security-sensitive release gates above.
+
+## Preflight and resource audit (2026-11-12)
+
+Source review of `src/pipeline.rs`, `src/memory.rs` and the codec adapters at
+commit `984910f8`. "Before decode" means before pixel data is rendered.
+
+| Check | State |
+|---|---|
+| Compressed byte cap | `max_input_bytes` (default 64 MiB) is checked before any decoder opens, in `transcode*` and `inspect`. |
+| Pixel cap, AVIF/WebP/own-JXL | Passed into the adapter and checked from container/sequence headers before the frame is decoded or reserved (`new_bounded`). |
+| Pixel cap, JPEG | Header-only `JpegSource::new`; the facade checks `max_input_pixels` before the first scanline request. |
+| Pixel cap, JXL-Oxide | Construction parses the header and buffers frame data (bounded by the compressed size); the facade checks the pixel cap before rendering. Unrenderable colour encodings are rejected at construction (above). |
+| Geometry overflow | Pixel counts use `u64`; budget reservations use `checked_add`/`checked_mul` and fallible `try_reserve_exact`; region and row sizes use checked conversions. |
+| Engine allocation admission | `MemoryBudget` (`max_managed_bytes`, default 256 MiB) admits every engine row, frame, orientation and encoder-frame buffer; the 8192×1 driver lane is rejected by planning before encode. |
+| Opaque codec memory | Not admitted: libjpeg-turbo-rs, JXL-Oxide render buffers, libavif/AOM parser state, libjxl-rs, libwebp-rs, rav1e and libavif encoder internals. Reports flag this with `opaque_decoder_memory`/`opaque_encoder_memory`. JXL-Oxide exposes an `AllocTracker` limit that is not wired up yet. |
+| Output cap | `max_output_bytes` is checked after the encoder returns its complete output, not incrementally. |
+| Cancellation | No caller-driven cancellation or deadline exists. `ProcessingErrorKind::Cancelled` arises only when an output sink or backend aborts. A hostile input is bounded by the byte/pixel caps and the caller's process limits, not by a time budget. |
+| Process RSS | Not measured against `MemoryBudget` yet; libFuzzer peak RSS above is the only process-level observation and includes ASan overhead. |
+
+No new engine gap required a code change in this audit beyond the JPEG XL
+colour rejection; the opaque-memory, incremental output cap, cancellation and
+RSS items remain open follow-ups.
 
 ## Early input limits
 

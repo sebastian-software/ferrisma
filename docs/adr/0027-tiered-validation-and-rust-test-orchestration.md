@@ -106,3 +106,10 @@ measured, a supported host changes, or fixture and live oracle results diverge.
   fails fast. The remaining JXL nightly failure, the decoder-state audit, ran
   workspace Clippy with the pinned nightly; it now uses the port's stable
   Clippy like `tools/check.py`.
+- 2026-11-12 — Sanitizer lanes that link the generated AVIF ports must pass
+  `--cfg libavif_rs_asan`, as the codec's own tooling does. The M1 fuzz
+  campaign omitted it, and all three macOS ASan lanes of
+  [run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746)
+  failed to link `libavif-dav1d`/`libavif-aom` (`initializer pointer has no
+  target`). With the cfg, all three lanes build and run locally on macOS ARM64
+  ([fuzzing](../fuzzing.md#campaign-results)); a hosted rerun is pending.
