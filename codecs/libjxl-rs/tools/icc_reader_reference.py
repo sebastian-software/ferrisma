@@ -55,6 +55,13 @@ def verify_existing_methods():
          '                WINDOW_SIZE * 4,\n                0,\n            )?)\n',
          '            Some(AlignedMemory::create(WINDOW_SIZE * 4, 0)?)\n'),
     ], 'ANS window allocation substitution changed')
+    # Clippy 1.100 (2026-11-12): is_huff_rle_only gained one lint allowance for
+    # its source index loop; its body is unchanged. Only this attribute differs.
+    suffix = normalize(suffix, [
+        ('    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]\n'
+         '    pub fn is_huff_rle_only(',
+         '    pub fn is_huff_rle_only('),
+    ], 'ANS lint allowance substitution changed')
     # The Rust 1.95 lint expectation on read_hybrid_uint_clustered_inlined is the
     # only change since ac734e93...; without it the bodies hash as before.
     if text_sha(suffix) != '48b995a3edccb5d9669fb4028560c16853d1345fa08cf477b3452872313792a5':
