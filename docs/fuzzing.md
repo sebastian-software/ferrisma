@@ -135,3 +135,36 @@ The experimental public facade rejects compressed input exceeding a configurable
 ## First measured fuzz result
 
 [Workflow run 41235323267](https://github.com/sebastian-software/ferrisma/actions/runs/41235323267) completed 3,000 seeded/mutated invocations using cargo-fuzz 0.13.2 and a nightly compiler, without a reported crash. The final corpus was 141 inputs; the log's reported peak RSS was about 139 MiB. This is only a shallow smoke. Continuous fuzzing with longer duration, realistic large color profiles, AVIF grids/alpha and independent sanitizers is **still required** for a security-sensitive release.
+
+## JPEG port target
+
+The workspace JPEG port has its own cargo-fuzz target, `decode`, in
+[codecs/libjpeg-turbo-rs/fuzz](../codecs/libjpeg-turbo-rs/fuzz/README.md),
+decided in codec [ADR 0009](../codecs/libjpeg-turbo-rs/docs/adr/0009-coverage-guided-fuzzing.md).
+It takes plain JPEG bytes and runs each input through seven cases of the
+port's safe decoding API: output formats, scales from 1/8 to 16/8, the
+islow, ifast and float IDCTs, fast upsampling, a column crop with skipped
+rows, metadata reads, and failing on the first warning. Unlike the engine's
+`transcode` target, it reaches decoder options that Ferrisma's adapter does
+not use. Images above one megapixel are skipped, as in upstream's targets.
+
+The seeds are upstream's test images, the in-scope `djpeg` inputs that
+upstream's CTest suite writes with the release oracle (progressive,
+arithmetic, unusual sampling, ICC), and the engine's JPEG fixtures; the
+T.83 compliance data is not redistributable and stays out. A unit test of
+the fuzz crate checks that each 8-bit seed finishes at least one case.
+The nightly smoke runs 3,000 attempts of this target in a separate job, and
+the dispatched sustained campaign adds an ASan job on Linux x86-64 and macOS
+ARM64 with the same 30-minute budget, artifacts and coverage replay as the
+other lanes. Neither hosted lane has run yet.
+
+### Local bounded run, 2026-11-12
+
+On revision `4d01f840` (macOS ARM64, `nightly-2026-09-07`, cargo-fuzz
+0.13.2, AddressSanitizer, upstream `fuzz/jpeg.dict`, 2 GiB RSS limit, 10 s
+per-input timeout), two local runs of 180 s and 600 s of configured budget
+executed 9,959 and 30,775 inputs without a crash, a timeout or a sanitizer
+report. The second started from the 25 seeds plus the first run's corpus,
+reached 5,451 coverage points, kept 1,031 inputs, and reported a peak RSS of
+907 MB. This is a short local smoke on a shared host, not a sustained
+campaign, and it says nothing about throughput.

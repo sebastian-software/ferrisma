@@ -88,7 +88,11 @@ a single-decode target would; the cases trade speed for API coverage.
 
 `cargo test --manifest-path fuzz/Cargo.toml --lib` runs the cases on known
 images and, with `LIBJPEG_FUZZ_SEEDS`, classifies every seed. A local
-bounded campaign is recorded below; it is not a sustained campaign.
+bounded campaign is recorded in the
+[Ferrisma fuzzing policy](../../../../docs/fuzzing.md) ("JPEG port target"):
+on 2026-11-12, 40,734 inputs under AddressSanitizer on macOS ARM64 found no
+crash, timeout or sanitizer report. It is not a sustained campaign; the
+hosted lanes have not run yet.
 
 ## Review when
 
