@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None
 - **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0012](0012-codec-source-contract.md), [0013](0013-sample-domain-resize.md), [0014](0014-linear-srgb-straight-alpha.md)
 
@@ -60,3 +60,12 @@ A real decoder exposes a usable output-profile transform API; an ICC parser/CMM 
 
 - 2026-10-31 — Added explicit, non-transforming color evidence classification.
 - 2026-11-06 — CICP `[1, 8, 0, 1]` (sRGB primaries, linear transfer, full range) is classified as its own family, `LinearSrgb`, and is transfer-ready: it is the graph's working-space signal and what the ICC adapter now emits (ADR-0023). Limited range or other matrices with transfer 8 stay `UnknownSignal`.
+- 2026-11-12 — Verified what jxl-oxide emits without a CMS and corrected its reported CICP; CICP beside a rendered ICC is checked, not ignored (#41).
+
+## 2026-11-12: JPEG XL emitted-sample evidence (#41)
+
+**What jxl-oxide 0.12.6 emits under `NullCms`** (the engine's build, `default-features = false`), from `jxl-render` 0.12.4 `RenderContextBuilder::build` and `jxl-oxide` `rendered_icc`/`rendered_cicp`: an enum-signalled image is rendered in exactly that enum encoding (XYB is converted to it; non-XYB samples are passed through). An ICC-signalled non-XYB image is passed through in the embedded profile, or in an enum encoding jxl-color recognizes in it. An ICC-signalled XYB image is rendered in that recognized enum encoding or, if the profile is not recognized, in sRGB; the embedded profile is then not used. `rendered_icc` always describes the result: the embedded bytes, or an ICC synthesized from the enum (with a `cicp` tag for PQ/HLG). `rendered_cicp`, however, maps primaries without the white point, so D65 Display P3 is reported as CICP primaries 11, which H.273 defines with the DCI white point.
+
+**Change.** The jxl-oxide adapter now derives CICP from the header's enum encoding (the renderer uses it unchanged, because the adapter never requests another encoding), maps white point and primaries together (`D65 + P3 -> 12`, `DCI + P3 -> 11`), and reports no CICP when the encoding came from an ICC profile or has no exact H.273 code. The libjxl-rs adapter reports only its rendered ICC, whose `cicp` tag carries the code points. Under the rendered-ICC policy, CICP beside the profile must agree with it (ADR-0016, 2026-11-12); the strict policy still refuses every JPEG XL input, because both adapters always describe their output with an ICC profile.
+
+**Evidence.** No JPEG XL encoder is available on the host, so `tests/fixtures/jxl-color` respells only the enum color encoding of two independently encoded files (lossless modular and lossy XYB) with a documented header rewriter. `src/jxl_color_tests.rs` runs every check against each compiled decoder: declared signals (P3, PQ, HLG, linear sRGB, DCI-P3; the P3 case failed before the adapter change); exact known lossless samples reproduced through each decoder's ICC within `2e-3` linear of the independent oracle (P3 and linear sRGB); both decoders identical on XYB rendered into Display P3; PQ, HLG and DCI-P3 rejected under both policies (PQ was converted before the CICP check). ICC-signalled JPEG XL files are covered by the source review above only: writing a fixture needs a JPEG XL ICC-stream encoder. **The default JPEG XL decoder may change for v1.0 (#55)**; the tests take the decoder as a parameter, so the same expectations apply to either. Re-evaluate when jxl-oxide changes `cicp()` or its default output encoding, when the adapter requests an output encoding, or when ICC-signalled fixtures become available.

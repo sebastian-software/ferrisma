@@ -59,6 +59,7 @@ The workspace JPEG adapter gains an explicit scaled-IDCT quality policy; moxcms 
 
 - 2026-11-06 — Initial proposal: full-resolution decode stays the default; decoder SIMD and linear ICC output as meaning-preserving speedups; shrink-on-load only as an explicit, measured quality policy.
 - 2026-11-06 — Decision 2 implemented and measured. `zune-jpeg` runs with `neon`/`x86`; the ICC adapter emits linear sRGB (`[1, 8, 0, 1]`), recognized by the color contract and both executors and checked against the reference P3 matrix (in-gamut worst `1.36e-4` linear; out-of-gamut values clamped by moxcms, as before); the orientation gather copies fixed-size pixels instead of calling `memmove` per pixel (ADR-0019). Before (`0612ccf`) and after, Apple M1 Ultra, best of five, all encoder and transform cores, speed 6, 1600 wide, machine load 5.3–5.6 from unrelated work:
+- 2026-11-12 — The ICC adapter checks CICP beside the profile and the bounded ICC header; real-photograph LittleCMS evidence (#17, ADR-0016).
 
 | image | decode ms before | decode ms after | total ms before | total ms after |
 | --- | ---: | ---: | ---: | ---: |
@@ -120,3 +121,7 @@ earlier statements in this ADR:
 No filter halo is requested beyond the crop and no row is decoded twice
 (ADR-0003). Timing and representative RSS on an unloaded host are deferred;
 the counts above do not depend on load.
+
+## 2026-11-12: ICC adapter limits observed (#17)
+
+The ICC adapter (`src/cms.rs`) now runs ADR-0015's bounded header check before moxcms (moxcms 0.9.1 accepted a declared size beyond the data), and rejects HDR, unknown or contradicting CICP beside the profile (ADR-0016, 2026-11-12). Hostile inputs (empty, truncated, oversized declared size, overflowing tag count, out-of-range tag offsets, over 4 MiB) are controlled `UnsupportedColorEncoding` errors in `cms::tests`. A real photograph with a compact sRGB ICC v4 profile, and the same crop as Display P3 with 103 out-of-sRGB samples, match LittleCMS 2.19 within `8e-4` linear (`tests/icc_photo.rs`). Observed limits: matrix-shaper RGB profiles only; LUT-based profiles keep moxcms' default path with no extended-range or LittleCMS evidence; only relative colorimetric is compared; ICC-signalled alpha input is rejected (`UnsupportedInput`); one photograph, not a corpus.
