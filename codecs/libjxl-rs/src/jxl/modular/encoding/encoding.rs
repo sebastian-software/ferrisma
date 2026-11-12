@@ -291,14 +291,6 @@ fn make_pixel(v: u64, multiplier: i32, offset: i64) -> i32 {
     let val = i64::from(unpack_signed(v as usize));
     (val * i64::from(multiplier) + offset) as i32
 }
-fn pixel_position(channel: &Channel, x: usize, y: usize) -> PixelPosition<'_> {
-    let onerow = channel.plane.pixels_per_row();
-    PixelPosition::new(
-        channel.plane.pixels().unwrap(),
-        y * onerow as usize + x,
-        onerow,
-    )
-}
 #[expect(
     clippy::too_many_arguments,
     reason = "Preserve the source channel/tree/reader/RLE boundaries"
@@ -321,6 +313,10 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
         let c = &image.channel[ci];
         (c.w, c.h, c.plane.pixels_per_row())
     };
+    // Rows are resolved once per row: `samples` is the channel's whole storage
+    // and `row0` the first sample of row y. Reads and writes address the same
+    // samples, in the same order, as the per-sample row lookups they replace.
+    let stride = onerow as usize;
     let mut static_props = [chan, group_id as i32];
     if w == 0 || h == 0 {
         return Ok(());
@@ -362,20 +358,23 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                 }
             } else if multiplier == 1 && offset == 0 {
                 for y in 0..h {
+                    let row0 = y * stride;
+                    let samples = image.channel[ci].plane.pixels_mut().unwrap();
                     for x in 0..w {
                         let v = reader.read_hybrid_uint_clustered_inlined::<USES_LZ77>(ctx_id, br)
                             as u32;
-                        image.channel[ci].row_mut(y)[x] = unpack_signed(v as usize);
+                        samples[row0 + x] = unpack_signed(v as usize);
                     }
                 }
             } else {
                 for y in 0..h {
+                    let row0 = y * stride;
+                    let samples = image.channel[ci].plane.pixels_mut().unwrap();
                     for x in 0..w {
                         let v = reader
                             .read_hybrid_uint_clustered_maybe_inlined::<USES_LZ77>(ctx_id, br)
                             as u32;
-                        image.channel[ci].row_mut(y)[x] =
-                            make_pixel(u64::from(v), multiplier, offset);
+                        samples[row0 + x] = make_pixel(u64::from(v), multiplier, offset);
                     }
                 }
             }
@@ -383,8 +382,10 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
         } else if USES_LZ77 && reader.is_huff_rle_only() && global_tree_is_all_gradient_noop {
             let mut sv = i64::from(unpack_signed(*fl_v as usize));
             for y in 0..h {
+                let row0 = y * stride;
+                let samples = image.channel[ci].plane.pixels_mut().unwrap();
                 let guess_0 = if y != 0 {
-                    i64::from(image.channel[ci].row(y - 1)[0])
+                    i64::from(samples[row0 - stride])
                 } else {
                     0
                 };
@@ -394,19 +395,18 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                 } else {
                     *fl_run -= 1;
                 }
-                image.channel[ci].row_mut(y)[0] = (sv + guess_0) as i32;
+                samples[row0] = (sv + guess_0) as i32;
                 for x in 1..w {
-                    let r = &image.channel[ci];
-                    let left = r.row(y)[x - 1];
+                    let left = samples[row0 + x - 1];
                     let top = if y != 0 {
-                        r.row(y - 1)[x]
+                        samples[row0 - stride + x]
                     } else {
-                        r.row(y)[x - 1]
+                        samples[row0 + x - 1]
                     };
                     let topleft = if y != 0 {
-                        r.row(y - 1)[x - 1]
+                        samples[row0 - stride + x - 1]
                     } else {
-                        r.row(y)[x - 1]
+                        samples[row0 + x - 1]
                     };
                     let guess = i64::from(clamped_gradient(top, left, topleft));
                     if *fl_run == 0 {
@@ -415,17 +415,18 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                     } else {
                         *fl_run -= 1;
                     }
-                    image.channel[ci].row_mut(y)[x] = (sv + guess) as i32;
+                    samples[row0 + x] = (sv + guess) as i32;
                 }
             }
             return Ok(());
         } else if predictor == Predictor::GRADIENT && offset == 0 && multiplier == 1 {
             for y in 0..h {
+                let row0 = y * stride;
+                let samples = image.channel[ci].plane.pixels_mut().unwrap();
                 for x in 0..w {
-                    let r = &image.channel[ci];
-                    let p = pixel_position(r, x, y);
+                    let p = PixelPosition::new(samples, row0 + x, onerow);
                     let left = if x != 0 {
-                        r.row(y)[x - 1]
+                        samples[row0 + x - 1]
                     } else if y != 0 {
                         p.read_pixel(-onerow)
                     } else {
@@ -440,7 +441,7 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                     let guess = clamped_gradient(top, left, topleft);
                     let v = reader.read_hybrid_uint_clustered_maybe_inlined::<USES_LZ77>(ctx_id, br)
                         as u64;
-                    image.channel[ci].row_mut(y)[x] = make_pixel(v, 1, i64::from(guess));
+                    samples[row0 + x] = make_pixel(v, 1, i64::from(guess));
                 }
             }
             return Ok(());
@@ -454,11 +455,12 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
     }
     if is_gradient_only {
         for y in 0..h {
+            let row0 = y * stride;
+            let samples = image.channel[ci].plane.pixels_mut().unwrap();
             for x in 0..w {
-                let r = &image.channel[ci];
-                let p = pixel_position(r, x, y);
+                let p = PixelPosition::new(samples, row0 + x, onerow);
                 let left = i64::from(if x != 0 {
-                    r.row(y)[x - 1]
+                    samples[row0 + x - 1]
                 } else if y != 0 {
                     p.read_pixel(-onerow)
                 } else {
@@ -482,28 +484,29 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                 let ctx_id = tree_lut.context_lookup[pos as usize] as usize;
                 let v =
                     reader.read_hybrid_uint_clustered_maybe_inlined::<USES_LZ77>(ctx_id, br) as u64;
-                image.channel[ci].row_mut(y)[x] = make_pixel(v, 1, i64::from(guess));
+                samples[row0 + x] = make_pixel(v, 1, i64::from(guess));
             }
         }
     } else if !USES_LZ77 && is_wp_only && w > 8 {
         let mut wp_state = weighted::State::new(wp_header, w, h);
         let mut properties = vec![0; 1];
         for y in 0..h {
-            let r = &image.channel[ci];
+            let row0 = y * stride;
+            let samples = image.channel[ci].plane.pixels_mut().unwrap();
             let left = if y != 0 {
-                i64::from(r.row(y - 1)[0])
+                i64::from(samples[row0 - stride])
             } else {
                 0
             };
             let toptop = if y > 1 {
-                i64::from(r.row(y - 2)[0])
+                i64::from(samples[row0 - 2 * stride])
             } else if y != 0 {
-                i64::from(r.row(y - 1)[0])
+                i64::from(samples[row0 - stride])
             } else {
                 0
             };
             let topright = if 1 < w && y != 0 {
-                i64::from(r.row(y - 1)[1])
+                i64::from(samples[row0 - stride + 1])
             } else {
                 left
             };
@@ -524,28 +527,27 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
             let ctx_id = tree_lut.context_lookup[pos as usize] as usize;
             let v = reader.read_hybrid_uint_clustered_inlined::<USES_LZ77>(ctx_id, br) as u64;
             let value = make_pixel(v, 1, i64::from(guess));
-            image.channel[ci].row_mut(y)[0] = value;
+            samples[row0] = value;
             wp_state.update_errors(i64::from(value), 0, y, w);
             for x in 1..w - 1 {
-                let r = &image.channel[ci];
-                let left = i64::from(r.row(y)[x - 1]);
+                let left = i64::from(samples[row0 + x - 1]);
                 let top = if y != 0 {
-                    i64::from(r.row(y - 1)[x])
+                    i64::from(samples[row0 - stride + x])
                 } else {
                     left
                 };
                 let topright = if y != 0 {
-                    i64::from(r.row(y - 1)[x + 1])
+                    i64::from(samples[row0 - stride + x + 1])
                 } else {
                     left
                 };
                 let topleft = if y != 0 {
-                    i64::from(r.row(y - 1)[x - 1])
+                    i64::from(samples[row0 - stride + x - 1])
                 } else {
                     left
                 };
                 let toptop = if y > 1 {
-                    i64::from(r.row(y - 2)[x])
+                    i64::from(samples[row0 - 2 * stride + x])
                 } else {
                     top
                 };
@@ -567,24 +569,23 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                 let ctx_id = tree_lut.context_lookup[pos as usize] as usize;
                 let v = reader.read_hybrid_uint_clustered_inlined::<USES_LZ77>(ctx_id, br) as u64;
                 let value = make_pixel(v, 1, i64::from(guess));
-                image.channel[ci].row_mut(y)[x] = value;
+                samples[row0 + x] = value;
                 wp_state.update_errors(i64::from(value), x, y, w);
             }
             let x = w - 1;
-            let r = &image.channel[ci];
-            let left = i64::from(r.row(y)[x - 1]);
+            let left = i64::from(samples[row0 + x - 1]);
             let top = if y != 0 {
-                i64::from(r.row(y - 1)[x])
+                i64::from(samples[row0 - stride + x])
             } else {
                 left
             };
             let topleft = if y != 0 {
-                i64::from(r.row(y - 1)[x - 1])
+                i64::from(samples[row0 - stride + x - 1])
             } else {
                 left
             };
             let toptop = if y > 1 {
-                i64::from(r.row(y - 2)[x])
+                i64::from(samples[row0 - 2 * stride + x])
             } else {
                 top
             };
@@ -605,7 +606,7 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
             let ctx_id = tree_lut.context_lookup[pos as usize] as usize;
             let v = reader.read_hybrid_uint_clustered_inlined::<USES_LZ77>(ctx_id, br) as u64;
             let value = make_pixel(v, 1, i64::from(guess));
-            image.channel[ci].row_mut(y)[x] = value;
+            samples[row0 + x] = value;
             wp_state.update_errors(i64::from(value), x, y, w);
         }
     } else if !tree_has_wp_prop_or_pred {
@@ -621,12 +622,14 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
         for y in 0..h {
             precompute_references(&image.channel[ci], y, image, chan as u32, &mut references);
             init_props_row(&mut properties, &static_props, y as i32);
+            let row0 = y * stride;
+            let samples = image.channel[ci].plane.pixels_mut().unwrap();
             if y > 1 && w > 8 && references.w == 0 {
                 for x in 0..2 {
                     let res = predict_tree_no_wp(
                         &mut properties,
                         w,
-                        pixel_position(&image.channel[ci], x, y),
+                        PixelPosition::new(samples, row0 + x, onerow),
                         x as i32,
                         y as i32,
                         &tree_lookup,
@@ -634,13 +637,13 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                     );
                     let v = reader.read_hybrid_uint_clustered::<USES_LZ77>(res.context as usize, br)
                         as u64;
-                    image.channel[ci].row_mut(y)[x] = make_pixel(v, res.multiplier, res.guess);
+                    samples[row0 + x] = make_pixel(v, res.multiplier, res.guess);
                 }
                 for x in 2..w - 2 {
                     let res = predict_tree_no_wp_nec(
                         &mut properties,
                         w,
-                        pixel_position(&image.channel[ci], x, y),
+                        PixelPosition::new(samples, row0 + x, onerow),
                         x as i32,
                         y as i32,
                         &tree_lookup,
@@ -649,13 +652,13 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                     let v = reader
                         .read_hybrid_uint_clustered_inlined::<USES_LZ77>(res.context as usize, br)
                         as u64;
-                    image.channel[ci].row_mut(y)[x] = make_pixel(v, res.multiplier, res.guess);
+                    samples[row0 + x] = make_pixel(v, res.multiplier, res.guess);
                 }
                 for x in w - 2..w {
                     let res = predict_tree_no_wp(
                         &mut properties,
                         w,
-                        pixel_position(&image.channel[ci], x, y),
+                        PixelPosition::new(samples, row0 + x, onerow),
                         x as i32,
                         y as i32,
                         &tree_lookup,
@@ -663,14 +666,14 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                     );
                     let v = reader.read_hybrid_uint_clustered::<USES_LZ77>(res.context as usize, br)
                         as u64;
-                    image.channel[ci].row_mut(y)[x] = make_pixel(v, res.multiplier, res.guess);
+                    samples[row0 + x] = make_pixel(v, res.multiplier, res.guess);
                 }
             } else {
                 for x in 0..w {
                     let res = predict_tree_no_wp(
                         &mut properties,
                         w,
-                        pixel_position(&image.channel[ci], x, y),
+                        PixelPosition::new(samples, row0 + x, onerow),
                         x as i32,
                         y as i32,
                         &tree_lookup,
@@ -680,7 +683,7 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                         res.context as usize,
                         br,
                     ) as u64;
-                    image.channel[ci].row_mut(y)[x] = make_pixel(v, res.multiplier, res.guess);
+                    samples[row0 + x] = make_pixel(v, res.multiplier, res.guess);
                 }
             }
         }
@@ -698,12 +701,14 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
         for y in 0..h {
             init_props_row(&mut properties, &static_props, y as i32);
             precompute_references(&image.channel[ci], y, image, chan as u32, &mut references);
+            let row0 = y * stride;
+            let samples = image.channel[ci].plane.pixels_mut().unwrap();
             if !USES_LZ77 && y > 1 && w > 8 && references.w == 0 {
                 for x in 0..2 {
                     let res = predict_tree_wp(
                         &mut properties,
                         w,
-                        pixel_position(&image.channel[ci], x, y),
+                        PixelPosition::new(samples, row0 + x, onerow),
                         x as i32,
                         y as i32,
                         &tree_lookup,
@@ -713,14 +718,14 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                     let v = reader.read_hybrid_uint_clustered::<USES_LZ77>(res.context as usize, br)
                         as u64;
                     let value = make_pixel(v, res.multiplier, res.guess);
-                    image.channel[ci].row_mut(y)[x] = value;
+                    samples[row0 + x] = value;
                     wp_state.update_errors(i64::from(value), x, y, w);
                 }
                 for x in 2..w - 2 {
                     let res = predict_tree_wp_nec(
                         &mut properties,
                         w,
-                        pixel_position(&image.channel[ci], x, y),
+                        PixelPosition::new(samples, row0 + x, onerow),
                         x as i32,
                         y as i32,
                         &tree_lookup,
@@ -731,14 +736,14 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                         .read_hybrid_uint_clustered_inlined::<USES_LZ77>(res.context as usize, br)
                         as u64;
                     let value = make_pixel(v, res.multiplier, res.guess);
-                    image.channel[ci].row_mut(y)[x] = value;
+                    samples[row0 + x] = value;
                     wp_state.update_errors(i64::from(value), x, y, w);
                 }
                 for x in w - 2..w {
                     let res = predict_tree_wp(
                         &mut properties,
                         w,
-                        pixel_position(&image.channel[ci], x, y),
+                        PixelPosition::new(samples, row0 + x, onerow),
                         x as i32,
                         y as i32,
                         &tree_lookup,
@@ -748,7 +753,7 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                     let v = reader.read_hybrid_uint_clustered::<USES_LZ77>(res.context as usize, br)
                         as u64;
                     let value = make_pixel(v, res.multiplier, res.guess);
-                    image.channel[ci].row_mut(y)[x] = value;
+                    samples[row0 + x] = value;
                     wp_state.update_errors(i64::from(value), x, y, w);
                 }
             } else {
@@ -756,7 +761,7 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                     let res = predict_tree_wp(
                         &mut properties,
                         w,
-                        pixel_position(&image.channel[ci], x, y),
+                        PixelPosition::new(samples, row0 + x, onerow),
                         x as i32,
                         y as i32,
                         &tree_lookup,
@@ -766,7 +771,7 @@ fn decode_modular_channel_maans_impl<const USES_LZ77: bool>(
                     let v = reader.read_hybrid_uint_clustered::<USES_LZ77>(res.context as usize, br)
                         as u64;
                     let value = make_pixel(v, res.multiplier, res.guess);
-                    image.channel[ci].row_mut(y)[x] = value;
+                    samples[row0 + x] = value;
                     wp_state.update_errors(i64::from(value), x, y, w);
                 }
             }
