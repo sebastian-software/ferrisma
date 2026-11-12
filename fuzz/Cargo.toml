@@ -1,5 +1,5 @@
 [package]
-name = "ferrixel-fuzz"
+name = "ferrisma-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2024"
@@ -8,11 +8,11 @@ edition = "2024"
 cargo-fuzz = true
 
 [features]
-own-jxl = ["ferrixel/jpeg-xl-own-read"]
+own-jxl = ["ferrisma/jpeg-xl-own-read"]
 
 [dependencies]
 libfuzzer-sys = "0.4"
-ferrixel = { path = "..", features = ["cli"] }
+ferrisma = { path = "..", features = ["cli"] }
 
 [[bin]]
 name = "transcode"

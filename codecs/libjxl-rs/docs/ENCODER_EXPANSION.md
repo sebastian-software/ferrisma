@@ -11,7 +11,7 @@ apply: translate the pinned source mechanically, keep C++ in the test oracle,
 and compare with the original rather than with a Rust round trip.
 
 The main goal is a usable encoder behind the public API whose output is
-byte-identical to pinned libjxl. A pipeline engine such as ferrixel needs that
+byte-identical to pinned libjxl. A pipeline engine such as ferrisma needs that
 API for JPEG XL output, beginning with lossy SDR photographs. The sequence
 therefore reaches a public lossy VarDCT encode at default settings first and
 broadens from there.
@@ -369,7 +369,7 @@ RoundtripAlphaNonMultipleOf8, RoundtripAlpha16; the remaining
 `libcpp_sort` and the existing learning boundary must also cover the new
 callers.
 
-**Milestone B (steps 1–4).** A ferrixel-ready SDR output path with alpha and
+**Milestone B (steps 1–4).** A ferrisma-ready SDR output path with alpha and
 metadata boxes.
 
 ### 5. General Modular image and frame encoding

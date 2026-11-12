@@ -3,7 +3,7 @@
 - Use US English for code, documentation, ADRs, comments and commit messages.
 - Use Conventional Commits, for example `feat(dhuff): port the Huffman decoder`.
 - Make one branch and one pull request per change, ideally for a
-  [GitHub issue](https://github.com/sebastian-software/ferrixel/issues);
+  [GitHub issue](https://github.com/sebastian-software/ferrisma/issues);
   never push to `main`.
 - The port is a mechanical, behavior-preserving translation of the pinned
   libjpeg-turbo 3.2.1 decoder. Preserve algorithms, tables, constants, numeric

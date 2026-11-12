@@ -1,5 +1,5 @@
-// WP12 probe: the row counters of the Ferrixel cropping measurement
-// (docs/adr/0010-ferrixel-adoption.md). Decodes with the internal API that DecodeInto
+// WP12 probe: the row counters of the Ferrisma cropping measurement
+// (docs/adr/0010-ferrisma-adoption.md). Decodes with the internal API that DecodeInto
 // uses, with put() wrapped by a counter, and prints which rows a cropped or
 // scaled decoding touches. Commands on standard input:
 //

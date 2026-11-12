@@ -1,7 +1,7 @@
 //! Shared decoder/encoder fuzz driver. The first byte is a control byte;
 //! every remaining byte is passed unchanged to the selected image decoder.
 
-use ferrixel::pipeline::{
+use ferrisma::pipeline::{
     AvifEncoder, ImageFormat, InputProfilePolicy, JpegXlDecoder, Output, OutputFormat,
     ProcessingError, TransformOptions, WorkingPrecision, transcode,
 };
@@ -110,7 +110,7 @@ fn run_case_with_backends(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ferrixel::pipeline::ProcessingErrorKind;
+    use ferrisma::pipeline::ProcessingErrorKind;
 
     const JPEG: &[u8] = include_bytes!("../../tests/fixtures/sample.jpg");
     const JXL: &[u8] = include_bytes!("../../tests/fixtures/sample.jxl");
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn campaign_seeds_report_reachability() {
         type CaseRunner = fn(&[u8]) -> Option<Result<Output, ProcessingError>>;
-        let Some(root) = std::env::var_os("FERRIXEL_FUZZ_SEEDS") else {
+        let Some(root) = std::env::var_os("FERRISMA_FUZZ_SEEDS") else {
             return;
         };
         let lanes = [

@@ -1,6 +1,6 @@
 # Getting started
 
-Ferrixel is an experimental, unpublished Rust image pipeline. Its M1 release
+Ferrisma is an experimental Rust image pipeline. Its M1 release
 and audit gates remain open; see [current status](status.md).
 
 ## Build the CLI
@@ -10,8 +10,8 @@ nightly needed by the workspace's generated AVIF code. On x86-64, the AVIF
 path needs NASM.
 
 ```sh
-git clone https://github.com/sebastian-software/ferrixel.git
-cd ferrixel
+git clone https://github.com/sebastian-software/ferrisma.git
+cd ferrisma
 cargo run --release --features cli -- \
   photo.jpg scaled.avif 1600 900 --assume-srgb --quality=80 --speed=8
 
@@ -27,7 +27,7 @@ still WebP output, and ICC support. The default AVIF encoder is `rav1e`;
 `--avif-encoder=libavif --avif-depth=8` selects the workspace AOM encoder
 through `avif-own-write` (depth defaults to 10; 8 and 10 are supported).
 Rust callers use `AvifEncoder::Libavif { depth: 8 }` in `TransformOptions`.
-The separate [`ferrixel-libavif` adapter](../crates/ferrixel-libavif/README.md)
+The separate [`ferrisma-libavif` adapter](../crates/ferrisma-libavif/README.md)
 delegates to the same implementation. Quality and speed use each encoder's own
 scale; their numeric values do not establish equivalent image quality.
 The current `avif-read` uses the same

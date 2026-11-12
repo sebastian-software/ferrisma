@@ -30,7 +30,7 @@ immutable graph: decoder source → crop → crop
 | Read-only input | Yes | Yes |
 | Access | Full-frame fallback | Codec ROI request |
 | Output | RGB8 | Float interleaved, 1–5 channels |
-| Known full-frame buffer | One engine-managed | None *created by Ferrixel* |
+| Known full-frame buffer | One engine-managed | None *created by Ferrisma* |
 | Engine-managed scratch | Complete RGB8 output | One f32 output row |
 | Internal decoder memory cap | No | No |
 | Profile | Embedded ICC if present | Rendered ICC / CICP |

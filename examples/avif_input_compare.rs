@@ -3,7 +3,7 @@
 //! The digest-only output backend keeps encoder work out of the comparison.
 //! `AVIF_BENCH_DUMP=<path>` writes one RGBA result for pixel comparison.
 
-use ferrixel::pipeline::{
+use ferrisma::pipeline::{
     Crop, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, OutputFormat, ResizeFilter, RowEncoder, TransformOptions, transcode_with,
 };

@@ -129,11 +129,11 @@ fi
 
     def test_matching_rejects_missing_and_unbracketed_lanes(self):
         image = ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6)
-        configs = [("ferrixel", "ferrixel-all-444", 0, "444")]
+        configs = [("ferrisma", "ferrisma-all-444", 0, "444")]
         with patch.object(bench, "IMAGES", [image]), patch.object(bench, "CONFIGS", configs):
             with self.assertRaisesRegex(ValueError, "missing quality match"):
                 bench.validate_matched({})
-            key = ("dog", "A", "ferrixel-all-444")
+            key = ("dog", "A", "ferrisma-all-444")
             with self.assertRaisesRegex(ValueError, "not bracketed"):
                 bench.validate_matched({key: {"status": "unreachable"}})
             row = {"status": "ok", "target_score": "70", "score_below": "69", "score_above": "71", "score_nearest": "71"}
@@ -193,12 +193,12 @@ fi
 
     def test_large_crop_matches_both_commands_and_keeps_full_source(self):
         image = ("beach-24", "beach.jpg", "--use-rendered-icc", "ignore", 1600, 1067, 1)
-        ferrixel = bench.config_cmd("ferrixel", 0, "444", image, Path("corpus"), 80, "out.avif")
+        ferrisma = bench.config_cmd("ferrisma", 0, "444", image, Path("corpus"), 80, "out.avif")
         sharp = bench.config_cmd("sharp", 0, "444", image, Path("corpus"), 50, "out.avif")
-        self.assertIn("--crop=1752,1168,6000,4000", ferrixel)
+        self.assertIn("--crop=1752,1168,6000,4000", ferrisma)
         self.assertIn("crop=1752,1168,6000,4000", sharp)
-        self.assertIn(Path("corpus/beach.jpg"), ferrixel)
-        self.assertIn("--budget-mb=2048", ferrixel)
+        self.assertIn(Path("corpus/beach.jpg"), ferrisma)
+        self.assertIn("--budget-mb=2048", ferrisma)
 
     def test_independent_photo_preparation_checks_source_and_copy(self):
         image = ("deer", "deer.jpg", "--use-rendered-icc", "ignore", 1600, 1067, 1)
@@ -207,7 +207,7 @@ fi
             source, corpus, refs = root / "source", root / "corpus", root / "refs"
             for path in (source, corpus, refs):
                 path.mkdir()
-            (source / "ferrixel-deer.jpg").write_bytes(b"photo")
+            (source / "ferrisma-deer.jpg").write_bytes(b"photo")
             checks = []
             commands = []
             def verify(path, image_id, manifest):
@@ -221,7 +221,7 @@ fi
                   patch.dict(os.environ, {"COMPARE_LARGE_CORPUS": str(source), "BENCH_SHARP_NODE_MODULES": "test"})):
                 bench.prepare_large(corpus, refs)
             self.assertEqual((corpus / "deer.jpg").read_bytes(), b"photo")
-            self.assertEqual(checks, [(source / "ferrixel-deer.jpg", "deer", "corpus-photos.json"),
+            self.assertEqual(checks, [(source / "ferrisma-deer.jpg", "deer", "corpus-photos.json"),
                                       (corpus / "deer.jpg", "deer", "corpus-photos.json")])
             self.assertTrue(any(f"{corpus / 'deer.jpg'}#1" in command for command in commands))
             cmd = bench.encoder_cmd(image, corpus, "encoder", 80, 6, 1, "out.avif")
@@ -238,7 +238,7 @@ fi
 
     def test_encoder_speed_is_explicit_and_sweep_overrides_it_once(self):
         image = ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6)
-        cmd = bench.sweep_cmd(image, Path("corpus"), "ferrixel", 8, 80, "out.avif")
+        cmd = bench.sweep_cmd(image, Path("corpus"), "ferrisma", 8, 80, "out.avif")
         self.assertEqual([str(x) for x in cmd if str(x).startswith("--speed=")], ["--speed=8"])
 
     def test_encoder_lanes_preserve_crop_geometry_and_threads(self):
@@ -266,23 +266,23 @@ fi
         commands = []
         def fake_run(args, env=None, capture=True):
             commands.append(args)
-            name, path = [("ferrixel", bench.FERRIXEL), ("ferrixel-libavif", bench.LIBAVIF_ENCODER),
-                          ("ferrixel-quality-match", bench.QM)][len(commands) - 1]
+            name, path = [("ferrisma", bench.FERRISMA), ("ferrisma-libavif", bench.LIBAVIF_ENCODER),
+                          ("ferrisma-quality-match", bench.QM)][len(commands) - 1]
             return json.dumps({"reason": "compiler-artifact", "target": {"name": name}, "executable": str(path)})
         with patch.object(bench, "encoder_source_receipt", return_value={"source": "stable"}), patch.object(bench, "run", side_effect=fake_run):
             self.assertEqual(bench.encoder_build(), {"source": "stable"})
         self.assertEqual(len(commands), 3)
         self.assertTrue(all("--locked" in command for command in commands))
-        self.assertIn("ferrixel", commands[0])
-        self.assertIn("ferrixel-libavif", commands[1])
+        self.assertIn("ferrisma", commands[0])
+        self.assertIn("ferrisma-libavif", commands[1])
         self.assertIn(bench.QM_DIR / "Cargo.toml", commands[2])
         self.assertTrue(all("--message-format=json-render-diagnostics" in command for command in commands))
         commands.clear()
         with patch.object(bench, "encoder_source_receipt", side_effect=[{"source": "before"}, {"source": "after"}]), patch.object(bench, "run", side_effect=fake_run):
             with self.assertRaisesRegex(ValueError, "changed while building"):
                 bench.encoder_build()
-        wrong = json.dumps({"reason": "compiler-artifact", "target": {"name": "ferrixel"},
-                            "executable": "/tmp/stale/other/ferrixel"})
+        wrong = json.dumps({"reason": "compiler-artifact", "target": {"name": "ferrisma"},
+                            "executable": "/tmp/stale/other/ferrisma"})
         with patch.object(bench, "encoder_source_receipt", return_value={}), patch.object(bench, "run", return_value=wrong):
             with self.assertRaisesRegex(ValueError, "check target configuration"):
                 bench.encoder_build()
@@ -395,7 +395,7 @@ fi
             env = {"COMPARE_ENCODER_LEVELS": "80", "COMPARE_RUNS": "2", "COMPARE_ENCODER_RUN_ID": "test"}
             empty_sha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
             with (patch.object(bench, "IMAGES", [image]),
-                  patch.object(bench, "FERRIXEL", rav),
+                  patch.object(bench, "FERRISMA", rav),
                   patch.object(bench, "LIBAVIF_ENCODER", aom),
                   patch.object(bench, "encoder_build", return_value={"tracked_diff_sha256": empty_sha}),
                   patch.object(bench, "encoder_fingerprint", return_value={"tracked_diff_sha256": empty_sha}),

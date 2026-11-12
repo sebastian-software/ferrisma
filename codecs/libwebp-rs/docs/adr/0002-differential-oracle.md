@@ -9,13 +9,13 @@
 A Rust round trip can agree with itself while both directions differ from
 libwebp. Evidence must come from the pinned C code, built in a fixed
 configuration, and the C code must never become part of the library that
-Ferrixel links.
+Ferrisma links.
 
 ## Decision
 
 **Oracle build.** `tools/build_oracle.py` configures `tools/oracle/CMakeLists.txt`,
 which adds the unmodified `upstream/libwebp` through its own CMake project in
-the reference configuration of Ferrixel's port plan:
+the reference configuration of Ferrisma's port plan:
 
 ```text
 -DCMAKE_BUILD_TYPE=Release -DWEBP_ENABLE_SIMD=OFF -DWEBP_USE_THREAD=ON

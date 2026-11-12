@@ -4,7 +4,7 @@
 
 ## Summary
 
-- **The M1 codec stack runs without threads and without SIMD**, except `rav1d` on x86-64. Ferrixel's `default-features = false` turns off `zune-jpeg`'s intrinsics, `jxl-oxide`'s Rayon pool, and `ravif`'s `threading` and `asm` features; the latter makes `rav1e` link the single-threaded `maybe-rayon` shim, so `with_num_threads(Some(1))` in `src/avif_sink.rs` is not what limits the encoder. Package 0's baseline must say which configuration it measured.
+- **The M1 codec stack runs without threads and without SIMD**, except `rav1d` on x86-64. Ferrisma's `default-features = false` turns off `zune-jpeg`'s intrinsics, `jxl-oxide`'s Rayon pool, and `ravif`'s `threading` and `asm` features; the latter makes `rav1e` link the single-threaded `maybe-rayon` shim, so `with_num_threads(Some(1))` in `src/avif_sink.rs` is not what limits the encoder. Package 0's baseline must say which configuration it measured.
 - **JPEG:** `zune-jpeg` has no scaled, region or row-streaming decode. Its 4x4 and 1x1 IDCTs are sparse-coefficient shortcuts that still emit 8x8 samples. Baseline decoding is internally MCU-row streaming into a caller-provided full-frame buffer; progressive decoding buffers every coefficient. DCT-domain scaling is an upstream contribution with six touchpoints, listed below, and even the reference implementation saves no entropy decoding.
 - **JPEG XL:** the region request does skip entropy decoding and transforms of groups outside the group-aligned, filter-padded region for VarDCT and plain modular frames; modular frames with squeeze or palette, LF frames and reference frames fall back to the full frame, and the whole codestream stays in memory. No public reduced-resolution (1/2, 1/4, 1/8, LF-only) rendering exists; the LF image is computed internally but not exposed.
 - **AVIF decode:** `avif-decode` runs `rav1d` with up to 32 threads and converts to a full RGB(A) frame; the YUV planes, chroma sampling and bit depth exist behind `pub(crate)` and are not reachable. AV1 has no reduced-resolution decode; neither dav1d nor libavif offers one.
@@ -12,18 +12,18 @@
 - **Sister ports:** libavif-rs exposes libavif's complete C API (planes, bit depth, `maxThreads`, tiles, YUV input to the encoder) as `unsafe extern "C"` on nightly Rust, guarded to macOS ARM64, with libvmaf linked natively; libjxl-rs builds on stable Rust 1.95 with no dependencies but exports libjxl's C-style API with raw pointers, serializes its parallel-runner tasks, and has no lossy encoder. Neither meets ADR-0018's adoption gates yet.
 - **Reference:** libvips' shrink-on-load sets `scale_denom` on libjpeg and reads scanlines in 8-row strips; libjpeg-turbo scales by choosing a smaller IDCT per component after decoding every coefficient. libjxl's "downsampled" decode is a progressive flush into a full-size buffer plus skipping the rest of the frame, and only when the encoder wrote passes.
 
-## 0. What Ferrixel actually builds
+## 0. What Ferrisma actually builds
 
-Resolved with `cargo tree --offline -e features` for each Ferrixel feature on 2026-11-05.
+Resolved with `cargo tree --offline -e features` for each Ferrisma feature on 2026-11-05.
 
-| Ferrixel feature | Crate features enabled | Consequence | Evidence |
+| Ferrisma feature | Crate features enabled | Consequence | Evidence |
 | --- | --- | --- | --- |
 | `jpeg-read` | `zune-jpeg/std` only (`x86`, `neon` off) | Scalar IDCT, upsampling and color conversion; the AVX2/NEON paths are compiled out | `Cargo.toml:28`; `zune-jpeg/Cargo.toml` features; `zune-jpeg/src/idct.rs:51-76` |
 | `jpeg-xl-read` | `jxl-oxide` without `rayon` | `jxl-threadpool` is built with `default = []`, so `default_pool()` returns `JxlThreadPool::none()`: every group job runs inline | `Cargo.toml:29`; `jxl-oxide/Cargo.toml:50`; `jxl-oxide/src/lib.rs:192-195`; `jxl-threadpool/Cargo.toml:30-35`; `Cargo.lock` lists only `tracing` under `jxl-threadpool` |
 | `avif-write` | `ravif` without `threading` and `asm` | `ravif` substitutes a `rayoff` module whose `join` runs both closures sequentially; `rav1e` is built without `threading = ["rayon/threads"]`, so its `rayon` alias is `maybe-rayon` 0.1.1 with the `threads` feature off, whose `ThreadPool::install` calls the closure in place; no assembly | `Cargo.toml:24`; `ravif/Cargo.toml:56`; `ravif/src/lib.rs:32-41`; `ravif/src/av1encoder.rs:5-6`; `rav1e/Cargo.toml:87, 230-233`; `maybe-rayon/src/lib.rs:4-30`; `Cargo.lock` lists only `cfg-if` under `maybe-rayon` |
 | `avif-read` | `avif-decode` without `binary`; `rav1d` with `default` (`asm`) on x86/x86-64, with only `bitdepth_8`/`bitdepth_16` elsewhere | On the Apple Silicon dev machine `rav1d` runs without its arm64 assembly; on x86-64 it needs NASM and runs the assembly | `Cargo.toml:25`; `avif-decode/Cargo.toml:82-95`; `cargo tree --target aarch64-apple-darwin` vs `--target x86_64-unknown-linux-gnu` |
 
-`rayon` 1.12.0 is still in the lockfile, pulled by `av-scenechange` through `rav1e`, not by any codec path Ferrixel calls.
+`rayon` 1.12.0 is still in the lockfile, pulled by `av-scenechange` through `rav1e`, not by any codec path Ferrisma calls.
 
 ## 1. `zune-jpeg` 0.5.15
 
@@ -37,7 +37,7 @@ Resolved with `cargo tree --offline -e features` for each Ferrixel feature on 20
 - **Progressive:** all coefficients of all components are buffered (`src/mcu_prog.rs:59`), refined scan by scan, and transformed at the end in `finish_progressive_decoding` (`:473`). This mirrors libjpeg's `coef->whole_image` for multi-scan files.
 - **Reduced IDCTs are not scaling.** After entropy decoding a block, the decoder counts the decoded coefficients and picks a 1x1 kernel for DC-only blocks, a 4x4-input kernel when at most ten zigzag coefficients are non-zero, else the full kernel (`src/mcu.rs:584-591`). The 4x4 kernel's contract is "only the first 4x4 block of coefficients are non-zero" (`src/idct.rs:81-84`); it still writes eight rows of eight samples (`src/idct/scalar.rs:203-260`). They reduce arithmetic on sparse blocks, not output size.
 - **Threads:** none. The README lists "Single-threaded decoding" as a feature (`README.md:58`); no thread or Rayon dependency.
-- **`unsafe`:** only in the SIMD files (`src/idct/{avx2,neon}.rs`, `src/color_convert/{avx,neon64}.rs`, `src/upsampler/{avx2,neon}.rs`, `src/unsafe_utils*.rs`), compile-time gated by the `x86`/`neon` features and runtime-gated by `DecoderOptions::use_unsafe` (`README.md:36`; `src/idct.rs:51-76`). Ferrixel compiles them out.
+- **`unsafe`:** only in the SIMD files (`src/idct/{avx2,neon}.rs`, `src/color_convert/{avx,neon64}.rs`, `src/upsampler/{avx2,neon}.rs`, `src/unsafe_utils*.rs`), compile-time gated by the `x86`/`neon` features and runtime-gated by `DecoderOptions::use_unsafe` (`README.md:36`; `src/idct.rs:51-76`). Ferrisma compiles them out.
 
 ### What adding DCT-domain scaled decode would involve
 
@@ -52,7 +52,7 @@ libjpeg's model (section 6) is the template: a per-component output block size o
 
 A smaller upstream contribution is **row-band output** for baseline images: `post_process` already writes sequential bands, so a callback or `decode_rows` API would remove the full-frame output buffer for baseline JPEG without changing any kernel. Progressive files would still buffer coefficients (not pixels), which is the ceiling for that path.
 
-Scaled IDCT output is a DCT-domain low-pass in gamma-encoded YCbCr, not Ferrixel's linear-light filter; libvips disables it in linear mode for that reason (section 6). ADR-0023 has to declare it as a separate quality policy before the planner may pick it.
+Scaled IDCT output is a DCT-domain low-pass in gamma-encoded YCbCr, not Ferrisma's linear-light filter; libvips disables it in linear mode for that reason (section 6). ADR-0023 has to declare it as a separate quality policy before the planner may pick it.
 
 ## 2. `jxl-oxide` 0.12.6
 
@@ -80,7 +80,7 @@ There is no public LF-only, 1/2, 1/4 or 1/8 render. The only `downsample` helper
 
 ### Output and color
 
-Rendering produces `f32` buffers per channel (`src/fb.rs:7-146`); `Render::stream()` writes interleaved rows cropped to the request as `f32`, `u16` or `u8` (`src/fb.rs:354`, `:454-463`), and `image_planar` returns per-channel planes (`src/lib.rs:1175`). The default output encoding is the image's enum color encoding, or its embedded ICC profile when parseable, else sRGB (`jxl-render/src/lib.rs:101-150`); XYB frames are converted to the requested encoding by `jxl-color`. The CMS is `NullCms` unless `set_cms` is called (`jxl-render/src/lib.rs:184, 200`); whether ICC-to-ICC requests fail or pass through under `NullCms` was not traced (unverified). Ferrixel reads `rendered_icc` and `rendered_cicp` and requests nothing, so it receives the image's own encoding, as `src/codecs/jxl.rs` assumes.
+Rendering produces `f32` buffers per channel (`src/fb.rs:7-146`); `Render::stream()` writes interleaved rows cropped to the request as `f32`, `u16` or `u8` (`src/fb.rs:354`, `:454-463`), and `image_planar` returns per-channel planes (`src/lib.rs:1175`). The default output encoding is the image's enum color encoding, or its embedded ICC profile when parseable, else sRGB (`jxl-render/src/lib.rs:101-150`); XYB frames are converted to the requested encoding by `jxl-color`. The CMS is `NullCms` unless `set_cms` is called (`jxl-render/src/lib.rs:184, 200`); whether ICC-to-ICC requests fail or pass through under `NullCms` was not traced (unverified). Ferrisma reads `rendered_icc` and `rendered_cicp` and requests nothing, so it receives the image's own encoding, as `src/codecs/jxl.rs` assumes.
 
 ## 3. `avif-decode` 3.0.0 and `rav1d` 1.1.0
 
@@ -94,7 +94,7 @@ Rendering produces `f32` buffers per channel (`src/fb.rs:7-146`); `Render::strea
 
 ### Memory and output granularity
 
-Known full-frame allocations per decode: the AVIF item copies made by `avif-parse` (`AvifData::primary_item`, `alpha_item`), the `rav1d` picture (planes with stride and padding, 16-bit storage above 8 bits) from `rav1d`'s default allocator, and the RGB(A) `ImgVec` that `yuv` 0.8.20 writes into (`src/image.rs:268-290`, `:190-204`); 16-bit planes are copied once more when unaligned (`:122-134`). `Dav1dSettings` has an `allocator` with `alloc_picture_callback` (`rav1d/include/dav1d/dav1d.rs:127-141`; `picture.rs:551-640`) that would let an engine place the picture in budgeted memory; `avif-decode` uses the default. There is no per-row or per-tile output: `dav1d_get_picture` returns whole pictures (`rav1d/src/lib.rs:584`). Ferrixel adds its own `avif-parse` preflight and `avif_meta` pass (ADR-0018) and, for more than 8 bits, an `f32` row conversion.
+Known full-frame allocations per decode: the AVIF item copies made by `avif-parse` (`AvifData::primary_item`, `alpha_item`), the `rav1d` picture (planes with stride and padding, 16-bit storage above 8 bits) from `rav1d`'s default allocator, and the RGB(A) `ImgVec` that `yuv` 0.8.20 writes into (`src/image.rs:268-290`, `:190-204`); 16-bit planes are copied once more when unaligned (`:122-134`). `Dav1dSettings` has an `allocator` with `alloc_picture_callback` (`rav1d/include/dav1d/dav1d.rs:127-141`; `picture.rs:551-640`) that would let an engine place the picture in budgeted memory; `avif-decode` uses the default. There is no per-row or per-tile output: `dav1d_get_picture` returns whole pictures (`rav1d/src/lib.rs:584`). Ferrisma adds its own `avif-parse` preflight and `avif_meta` pass (ADR-0018) and, for more than 8 bits, an `f32` row conversion.
 
 ### `rav1d` itself
 
@@ -104,7 +104,7 @@ Known full-frame allocations per decode: the AVIF item copies made by `avif-pars
 
 ### Threads and tiles
 
-`with_num_threads(None)` uses the global Rayon pool; `Some(n)` makes `rav1e` build a dedicated pool of `n` threads (`src/av1encoder.rs:177-185`; `rav1e/src/api/config/mod.rs:172, 261-268`). The tile count is `threads.min(width * height / min_tile_size^2)`, where `min_tile_size` is 4096, 2048, 1024, 512, 256 or 128 pixels for speeds 0 to 5 and above, doubled above quality 80 (`src/av1encoder.rs:584-591`, `:652-656`), so tiles follow threads. Color and alpha are encoded as two concurrent `rayon::join` branches (`:441`). In Ferrixel's build all of this collapses to one thread (section 0), and the `tiles` value becomes 1.
+`with_num_threads(None)` uses the global Rayon pool; `Some(n)` makes `rav1e` build a dedicated pool of `n` threads (`src/av1encoder.rs:177-185`; `rav1e/src/api/config/mod.rs:172, 261-268`). The tile count is `threads.min(width * height / min_tile_size^2)`, where `min_tile_size` is 4096, 2048, 1024, 512, 256 or 128 pixels for speeds 0 to 5 and above, doubled above quality 80 (`src/av1encoder.rs:584-591`, `:652-656`), so tiles follow threads. Color and alpha are encoded as two concurrent `rayon::join` branches (`:441`). In Ferrisma's build all of this collapses to one thread (section 0), and the `tiles` value becomes 1.
 
 ### Speed presets
 
@@ -114,12 +114,12 @@ Known full-frame allocations per decode: the AVIF item copies made by `avif-pars
 
 - `encode_rgba` / `encode_rgb` convert each pixel to BT.601 YCbCr at 8 or 10 bits; `BitDepth::Auto` (the default) means 10-bit, with 8-bit values expanded by bit replication (`src/av1encoder.rs:43-52`, `:240-262`, `:472-475`).
 - `encode_raw_planes_8_bit` / `encode_raw_planes_10_bit` take `width`, `height`, an iterator of per-pixel `[P; 3]` triples, an optional alpha iterator, a pixel range and matrix coefficients (`:353-384`). Despite the name they are not planar, and the documentation states "Chroma subsampling is not supported" (`:342`); the internal config hard-codes `ChromaSampling::Cs444` and sRGB transfer with BT.709 primaries (`:391-395`, `:414`).
-- `init_frame_3` copies the iterator row by row into a `rav1e` `Frame` (`:697-725`), which `Context::send_frame` requires complete (`rav1e/src/api/context.rs:51-57`, `:108-130`); the frame's planes carry `LUMA_PADDING = SB_SIZE + FRAME_MARGIN` on each side (`rav1e/src/frame/mod.rs:23, 69`). The encoder's working set is therefore the padded 4:4:4 planes (three 16-bit planes at 10 bits) plus `rav1e`'s opaque state, on top of Ferrixel's RGBA8 frame.
-- The container writer gets only matrix coefficients and the premultiplied flag from `ravif` (`:443-452`); primaries and transfer are left at `avif-serialize`'s defaults, so any non-sRGB output Ferrixel might later produce would be mislabeled through `ravif`.
+- `init_frame_3` copies the iterator row by row into a `rav1e` `Frame` (`:697-725`), which `Context::send_frame` requires complete (`rav1e/src/api/context.rs:51-57`, `:108-130`); the frame's planes carry `LUMA_PADDING = SB_SIZE + FRAME_MARGIN` on each side (`rav1e/src/frame/mod.rs:23, 69`). The encoder's working set is therefore the padded 4:4:4 planes (three 16-bit planes at 10 bits) plus `rav1e`'s opaque state, on top of Ferrisma's RGBA8 frame.
+- The container writer gets only matrix coefficients and the premultiplied flag from `ravif` (`:443-452`); primaries and transfer are left at `avif-serialize`'s defaults, so any non-sRGB output Ferrisma might later produce would be mislabeled through `ravif`.
 
 ### Direct `rav1e` plus `avif-serialize`
 
-`EncoderConfig` exposes `bit_depth`, `chroma_sampling` (`Cs420`, `Cs422`, `Cs444`, `Cs400`), `chroma_sample_position`, `pixel_range`, `color_description`, `tiles` or `tile_cols`/`tile_rows`, `still_picture` and the speed settings (`rav1e/src/api/config/encoder.rs:27-117`); `Config::with_threads` and `with_thread_pool` accept an engine-owned pool (`config/mod.rs:172-191`). `Context::new_frame()` allocates planes for the configured subsampling, and `Plane::copy_from_raw_u8` or `rows_iter_mut` fill them (`v_frame/src/plane.rs:352, 594`). `avif-serialize` 0.8.9 (BSD-3-Clause) writes `set_chroma_subsampling`, `set_monochrome`, `color_primaries`, `transfer_characteristics`, `matrix_coefficients` and `premultiplied_alpha` (`src/lib.rs:95-125`, `:390-400`), while its documentation discourages subsampling (`:43-44`, `:388`). So a Ferrixel adapter on `rav1e` directly can take 10-bit 4:2:0 planes and label the output correctly, using crates already in the tree; it still has to hand over a complete frame.
+`EncoderConfig` exposes `bit_depth`, `chroma_sampling` (`Cs420`, `Cs422`, `Cs444`, `Cs400`), `chroma_sample_position`, `pixel_range`, `color_description`, `tiles` or `tile_cols`/`tile_rows`, `still_picture` and the speed settings (`rav1e/src/api/config/encoder.rs:27-117`); `Config::with_threads` and `with_thread_pool` accept an engine-owned pool (`config/mod.rs:172-191`). `Context::new_frame()` allocates planes for the configured subsampling, and `Plane::copy_from_raw_u8` or `rows_iter_mut` fill them (`v_frame/src/plane.rs:352, 594`). `avif-serialize` 0.8.9 (BSD-3-Clause) writes `set_chroma_subsampling`, `set_monochrome`, `color_primaries`, `transfer_characteristics`, `matrix_coefficients` and `premultiplied_alpha` (`src/lib.rs:95-125`, `:390-400`), while its documentation discourages subsampling (`:43-44`, `:388`). So a Ferrisma adapter on `rav1e` directly can take 10-bit 4:2:0 planes and label the output correctly, using crates already in the tree; it still has to hand over a complete frame.
 
 ## 5. libavif-rs and libjxl-rs
 
@@ -144,7 +144,7 @@ ADR-0018's description of both ports holds except for one point: libjxl-rs's thr
 
 ### Update 2026-11-06: libavif-rs supports GNU Linux x86-64
 
-The table above describes libavif-rs at `d025dca`. Its `main` at `f3b2981` (2026-11-06) admits a second target: the guard in `src/lib.rs:15-19` now accepts `aarch64-apple-darwin` and `x86_64-unknown-linux-gnu`, and Linux compiles generated native profiles (`src/lib.rs:29-31`, `include!("linux_profiles.rs")`) for six Cargo feature sets (README "Linux whole-pipeline support", ADR 0054). Unchanged: `nightly-2026-09-07` with `#![feature(extern_types)]`, the `unsafe` C ABI (README row "Safe Rust API and stable toolchain: Deferred"), the libvmaf requirement in `crates/aom/build.rs:8-10`, and `publish = false`. For ADR-0018's gates this removes "any target but macOS ARM64" from the missing list: Ferrixel's CI target (Linux x86-64) is now covered; a safe API, a stable toolchain and a build without libvmaf remain open.
+The table above describes libavif-rs at `d025dca`. Its `main` at `f3b2981` (2026-11-06) admits a second target: the guard in `src/lib.rs:15-19` now accepts `aarch64-apple-darwin` and `x86_64-unknown-linux-gnu`, and Linux compiles generated native profiles (`src/lib.rs:29-31`, `include!("linux_profiles.rs")`) for six Cargo feature sets (README "Linux whole-pipeline support", ADR 0054). Unchanged: `nightly-2026-09-07` with `#![feature(extern_types)]`, the `unsafe` C ABI (README row "Safe Rust API and stable toolchain: Deferred"), the libvmaf requirement in `crates/aom/build.rs:8-10`, and `publish = false`. For ADR-0018's gates this removes "any target but macOS ARM64" from the missing list: Ferrisma's CI target (Linux x86-64) is now covered; a safe API, a stable toolchain and a build without libvmaf remain open.
 
 ## 6. Reference: libvips shrink-on-load and libjxl downsampling
 
@@ -163,7 +163,7 @@ The table above describes libavif-rs at `d025dca`. Its `main` at `f3b2981` (2026
 
 ## Capability matrix
 
-Columns are the crates Ferrixel ships (`zune-jpeg`, `jxl-oxide`, `avif-decode` on `rav1d`) and the reference implementations. "Internal" means present in the code but not reachable through the public API.
+Columns are the crates Ferrisma ships (`zune-jpeg`, `jxl-oxide`, `avif-decode` on `rav1d`) and the reference implementations. "Internal" means present in the code but not reachable through the public API.
 
 | Capability | `zune-jpeg` 0.5.15 | `jxl-oxide` 0.12.6 | `avif-decode` 3.0.0 / `rav1d` 1.1.0 | libjpeg-turbo / libjxl / libavif-rs |
 | --- | --- | --- | --- | --- |
@@ -172,13 +172,13 @@ Columns are the crates Ferrixel ships (`zune-jpeg`, `jxl-oxide`, `avif-decode` o
 | Row or band output | Internal: baseline writes bands of 8/16 rows into a full-frame caller buffer (`mcu.rs:252-260`); progressive buffers all coefficients (`mcu_prog.rs:59`) | Rows streamed from a region-sized rendered buffer (`fb.rs:354`) | No; whole picture (`rav1d/src/lib.rs:584`) | libjpeg scanlines (`jpeg2vips.c:879`); libjxl row callbacks (`decode.h:1130`); libavif `avifDecoderDecodedRowCount` for incremental input |
 | Native planar / YUV output | No (RGB, BGR, Luma, CMYK/YCCK interleaved) | `image_planar` per channel, XYB already converted (`lib.rs:1175`) | Internal: `Planes` with strides, 4:2:0/4:2:2/4:4:4, 8 to 16 bits (`image.rs:12-36`, `:138`), `pub(crate)` | libavif-rs `avifImage.yuvPlanes` (`src/avif.rs:177`); libjxl none |
 | Bit depth before conversion | 8-bit | f32 everywhere; `color_bit_depth` reported | Internal `bpc` 8/10/12/16 (`rav1d.rs:169`) | libavif-rs `avifImage.depth` |
-| Threads | None (`README.md:58`) | Rayon pool, off in Ferrixel (`lib.rs:192-195`) | `rav1d` `n_threads = min(cores, 32)`, not configurable (`lib.rs:80`) | libjpeg none; libjxl runners; libjxl-rs serialized; libavif-rs `maxThreads` |
+| Threads | None (`README.md:58`) | Rayon pool, off in Ferrisma (`lib.rs:192-195`) | `rav1d` `n_threads = min(cores, 32)`, not configurable (`lib.rs:80`) | libjpeg none; libjxl runners; libjxl-rs serialized; libavif-rs `maxThreads` |
 | Known full-frame buffers | Caller output buffer; whole coefficients for progressive | Whole codestream; group-aligned region buffers | Item copies, `rav1d` picture, RGB(A) frame (`image.rs:268`) | libvips none for baseline JPEG |
-| `unsafe` | SIMD only, compiled out by Ferrixel | None in `jxl-oxide` (not audited here) | `rav1d` throughout, C-ABI calls in `avif-decode/src/rav1d.rs` | libavif-rs and libjxl-rs: C-ABI mirrors |
+| `unsafe` | SIMD only, compiled out by Ferrisma | None in `jxl-oxide` (not audited here) | `rav1d` throughout, C-ABI calls in `avif-decode/src/rav1d.rs` | libavif-rs and libjxl-rs: C-ABI mirrors |
 
 | Encoder capability | `ravif` 0.13.0 | `rav1e` 0.8.1 direct | libavif-rs |
 | --- | --- | --- | --- |
-| Threads | `with_num_threads` (`av1encoder.rs:181`); shim in Ferrixel's build | `with_threads`, `with_thread_pool` (`config/mod.rs:172-191`) | `avifEncoder.maxThreads` |
+| Threads | `with_num_threads` (`av1encoder.rs:181`); shim in Ferrisma's build | `with_threads`, `with_thread_pool` (`config/mod.rs:172-191`) | `avifEncoder.maxThreads` |
 | Tiles | Derived from threads and speed (`:652-656`) | `tiles`, `tile_cols`, `tile_rows` (`encoder.rs:96-113`) | `tileRowsLog2`, `tileColsLog2`, `autoTiling` |
 | Speed presets | 1 to 10 with overrides (`:542-640`) | 0 to 10 (`speedsettings.rs:115`) | `speed` per codec |
 | 4:2:0 input | No, `Cs444` hard-coded (`:414`) | Yes, `ChromaSampling::Cs420` (`encoder.rs:42`) | Yes, `avifImage` planes |
@@ -190,13 +190,13 @@ Columns are the crates Ferrixel ships (`zune-jpeg`, `jxl-oxide`, `avif-decode` o
 
 ## Implications for work package 2 (encoder throughput)
 
-**Usable now, with Ferrixel-side changes only.**
+**Usable now, with Ferrisma-side changes only.**
 
 - Enable `ravif`'s `threading` feature (and measure `asm` separately) before any thread-count experiment; otherwise `with_num_threads` is a no-op. `asm` pulls NASM on x86 and assembly into the `unsafe` boundary that ADR-0018 still has under review; measure it as a separate configuration.
 - Sweep `with_num_threads` and `with_speed` on the package-0 corpus at matched SSIMULACRA2, recording bytes and time; tiles follow threads automatically, so a tile sweep is a thread sweep unless `rav1e` is driven directly.
-- Pass a Ferrixel-owned pool: `ravif` cannot take one, `rav1e`'s `Config::with_thread_pool` can. That is the first reason to bypass `ravif`.
+- Pass a Ferrisma-owned pool: `ravif` cannot take one, `rav1e`'s `Config::with_thread_pool` can. That is the first reason to bypass `ravif`.
 
-**Needs an adapter on `rav1e` directly (no upstream work).** 4:2:0 input, 10-bit planes from Ferrixel's working values without the 8-bit sRGB quantization step, correct `colr` for non-sRGB output, tile counts independent of threads, and an engine-owned pool. `avif-serialize` already writes the container. The adapter still materializes one padded frame per encode, which is what the AVIF sink does today in RGBA8; the plan must keep reporting it.
+**Needs an adapter on `rav1e` directly (no upstream work).** 4:2:0 input, 10-bit planes from Ferrisma's working values without the 8-bit sRGB quantization step, correct `colr` for non-sRGB output, tile counts independent of threads, and an engine-owned pool. `avif-serialize` already writes the container. The adapter still materializes one padded frame per encode, which is what the AVIF sink does today in RGBA8; the plan must keep reporting it.
 
 **Ceiling.** `rav1e` has no row or tile input, so the encoder cannot consume the decoder-ahead ring of package 4 directly; the best achievable shape is "resample into the encoder's planes, then encode". Encoder alternatives through libavif-rs are not adoptable until the port offers a safe API on stable Rust off macOS-only and without libvmaf; SVT-AV1 and rav1e there are native FFI anyway. Hardware encode (package 8) stays the escape hatch.
 
@@ -217,14 +217,14 @@ Columns are the crates Ferrixel ships (`zune-jpeg`, `jxl-oxide`, `avif-decode` o
 3. What does `jxl-oxide` emit for an ICC-tagged image under `NullCms` when a different encoding is requested: an error or untransformed samples?
 4. What speedup does `rav1d`'s task model give a single-tile still image at `max_frame_delay = 1`, and does it collide with an engine pool of the same size?
 5. Would `kornelski/avif-decode` accept exposing `Planes` and a thread setting? If not, is a `rav1d` adapter crate acceptable under ADR-0020's boundary?
-6. `ravif`'s `encode_raw_planes_*` documentation calls subsampling "a bad idea for AVIF"; is 4:2:0 a size win at matched SSIMULACRA2 for Ferrixel's corpus, or only a memory win?
+6. `ravif`'s `encode_raw_planes_*` documentation calls subsampling "a bad idea for AVIF"; is 4:2:0 a size win at matched SSIMULACRA2 for Ferrisma's corpus, or only a memory win?
 7. When libjxl-rs gains a lossy encoder, will its runner serialization be lifted, and will the decoder's row callbacks be usable from a safe wrapper?
 8. Which reduced-resolution API would `jxl-oxide` upstream prefer: an LF render target or a libjxl-style maximum-downsampling stop?
 
 ## Sources
 
 - Crate sources under `~/.cargo/registry/src/index.crates.io-*/` for the versions in `Cargo.lock`; feature resolution with `cargo tree --offline -e features`.
-- Ferrixel: `Cargo.toml`, `Cargo.lock`, `src/codecs/{jpeg,jxl,avif}.rs`, `src/avif_sink.rs`, [ADR-0011](../adr/0011-borrowed-planar-surface-contract.md), [ADR-0012](../adr/0012-codec-source-contract.md), [ADR-0018](../adr/0018-optional-codec-and-cms-dependencies.md), [M2 plan](../milestones/M2-performance-architecture.md), [format capabilities](format-capabilities.md), [codec adapter audit](codec-adapter-audit.md).
+- Ferrisma: `Cargo.toml`, `Cargo.lock`, `src/codecs/{jpeg,jxl,avif}.rs`, `src/avif_sink.rs`, [ADR-0011](../adr/0011-borrowed-planar-surface-contract.md), [ADR-0012](../adr/0012-codec-source-contract.md), [ADR-0018](../adr/0018-optional-codec-and-cms-dependencies.md), [M2 plan](../milestones/M2-performance-architecture.md), [format capabilities](format-capabilities.md), [codec adapter audit](codec-adapter-audit.md).
 - Sister ports: `/Users/sebastian/Workspace/libavif-rs` (`README.md`, `docs/PLATFORMS.md`, `docs/FUTURE.md`, `src/{avif,read,write,reformat}.rs`, `crates/aom/build.rs`) and `/Users/sebastian/Workspace/libjxl-rs` (`README.md`, `docs/PORT_STATUS.md`, `docs/ENCODER_EXPANSION.md`, `src/jxl/decode.rs`).
 - [libvips thumbnail.c](https://github.com/libvips/libvips/blob/master/libvips/resample/thumbnail.c), [jpeg2vips.c](https://github.com/libvips/libvips/blob/master/libvips/foreign/jpeg2vips.c), [jxlload.c](https://github.com/libvips/libvips/blob/master/libvips/foreign/jxlload.c), [webp2vips.c](https://github.com/libvips/libvips/blob/master/libvips/foreign/webp2vips.c), [heifload.c](https://github.com/libvips/libvips/blob/master/libvips/foreign/heifload.c)
 - [libjpeg-turbo libjpeg.txt](https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/doc/libjpeg.txt), [jdmaster.c](https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/src/jdmaster.c), [jddctmgr.c](https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/src/jddctmgr.c), [jidctred.c](https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/src/jidctred.c), [jdcoefct.c](https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/src/jdcoefct.c), [turbojpeg.h](https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/src/turbojpeg.h)

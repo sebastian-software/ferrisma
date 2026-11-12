@@ -16,10 +16,10 @@ in which `VP8_STATUS_SUSPENDED` is the normal state of an incremental
 decoding, the demuxer `WebPDemuxer<'a>` and the animation decoder
 `WebPAnimDecoder<'a>`, both of which borrow a `WebPData` value. Functions panic
 where C has a precondition: a buffer description that does not match its
-slices, or a flipped plane outside its region. Ferrixel's `webp-read` source
+slices, or a flipped plane outside its region. Ferrisma's `webp-read` source
 (WP21) needs a safe API under its ADR-0012 contract (describe the source, then
 stream rows of a region into memory the engine budgets) and its ADR-0018
-adoption gates, and Ferrixel's port plan (Phase 6) lists what the decoder half
+adoption gates, and Ferrisma's port plan (Phase 6) lists what the decoder half
 must offer. WP16 has no upstream unit: it adds no behavior, so every decoding must
 equal `webp_decode` (or the incremental decoder, or the animation decoder)
 with the same configuration, and therefore the C oracle. [ADR 0006](0006-safe-encoder-api.md)
@@ -215,7 +215,7 @@ markers.
 **Ownership and lifetimes.** `Config`, `Features`, `Image` and the errors own
 their data and are `Send` and `Sync`. `decode` returns an `Image` that owns
 the library memory (`samples`, `into_samples` hand it over without a copy).
-`decode_into` borrows the caller's slices for the call: Ferrixel's budgeted
+`decode_into` borrows the caller's slices for the call: Ferrisma's budgeted
 rows or planes (its ADR-0004). `IncrementalDecoder<'a>` borrows the `Config`
 shared and the caller's slices exclusively for its lifetime; the rows it lends
 (`rows`, `planes`) borrow the decoder, so they end before the next `append`.
@@ -282,7 +282,7 @@ mode. A whole-image decoding of a truncated file returns libwebp's status:
 `NOT_ENOUGH_DATA`), `NotEnoughData` or `BitstreamError` later. `UserAbort`
 is never returned (the API sets no I/O hooks) and is kept for `code()`.
 
-**Semantics (Ferrixel ADR-0018, gate e).**
+**Semantics (Ferrisma ADR-0018, gate e).**
 
 - **Lossy color.** `VP8 ` frames hold Y'CbCr 4:2:0 after ITU-R BT.601 in
   limited range (Y 16 to 235, Cb and Cr 16 to 240). The RGB modes convert with

@@ -1,6 +1,6 @@
-# Contributing to Ferrixel
+# Contributing to Ferrisma
 
-Ferrixel develops an experimental image pipeline and its codec ports in one
+Ferrisma develops an experimental image pipeline and its codec ports in one
 workspace. Start with [current status](docs/status.md) and the
 [documentation guide](docs/README.md) to identify the component and its open
 gates. The project remains design-first; implementation does not by itself
@@ -39,8 +39,8 @@ cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
 
 # Current engine adapters, ICC, and CLI on the pinned nightly.
-cargo test -p ferrixel -p ferrixel-kernels --all-targets --all-features
-cargo clippy -p ferrixel -p ferrixel-kernels --all-targets --all-features --no-deps -- -D warnings
+cargo test -p ferrisma -p ferrisma-kernels --all-targets --all-features
+cargo clippy -p ferrisma -p ferrisma-kernels --all-targets --all-features --no-deps -- -D warnings
 ```
 
 Do not run `--all-features` over the entire workspace. Test adapters and
@@ -64,11 +64,11 @@ accepted in [ADR-0010](docs/adr/0010-dual-licensing.md).
 
 ## License of contributions
 
-Unless explicitly stated otherwise, contributions intentionally submitted to Ferrixel are licensed under **MIT OR Apache-2.0**, at the recipient's option. Only submit code and assets you have the right to license on those terms. Third-party libraries and copied code must undergo a separate license, attribution, and patent-obligation review before inclusion; the project's license does not relicense its dependencies.
+Unless explicitly stated otherwise, contributions intentionally submitted to Ferrisma are licensed under **MIT OR Apache-2.0**, at the recipient's option. Only submit code and assets you have the right to license on those terms. Third-party libraries and copied code must undergo a separate license, attribution, and patent-obligation review before inclusion; the project's license does not relicense its dependencies.
 
 ## Codec changes
 
-Follow [the shared codec development guide](docs/codecs.md). Use one branch for a codec change and its Ferrixel integration. Keep the codec-local porting and oracle contracts, and run its scoped fast loop, for example `cargo xtask codecs --codec webp --stage pr`.
+Follow [the shared codec development guide](docs/codecs.md). Use one branch for a codec change and its Ferrisma integration. Keep the codec-local porting and oracle contracts, and run its scoped fast loop, for example `cargo xtask codecs --codec webp --stage pr`.
 
 ## Website and documentation changes
 

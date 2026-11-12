@@ -2,7 +2,7 @@
 //! per-speed overrides of `rav1e`'s presets.
 //!
 //! Both are adapted from `ravif` 0.13.0 (`src/av1encoder.rs`,
-//! `quality_to_quantizer` and `SpeedTweaks`), which Ferrixel used before it
+//! `quality_to_quantizer` and `SpeedTweaks`), which Ferrisma used before it
 //! drove `rav1e` directly. Keeping them unchanged means `quality` and
 //! `speed` keep their meaning, and the encoder experiment
 //! (`docs/research/encoder-experiment`) shows the direct path produces the

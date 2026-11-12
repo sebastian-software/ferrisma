@@ -4,7 +4,7 @@
 - **Date:** 2026-11-11
 - **Last reviewed:** 2026-11-11
 - **Amends:** [0026](0026-codecs-in-one-repository-and-workspace.md), SharpYUV consolidation review
-- **Related:** [0027](0027-tiered-validation-and-rust-test-orchestration.md), [extraction evidence](../research/2026-11-10-sharpyuv-extraction-evidence.md), issue [#75](https://github.com/sebastian-software/ferrixel/issues/75)
+- **Related:** [0027](0027-tiered-validation-and-rust-test-orchestration.md), [extraction evidence](../research/2026-11-10-sharpyuv-extraction-evidence.md), issue [#75](https://github.com/sebastian-software/ferrisma/issues/75)
 
 ## Context
 

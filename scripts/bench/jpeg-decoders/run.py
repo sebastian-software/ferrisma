@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-QM = HERE.parent / "quality-match" / "target" / "release" / "ferrixel-quality-match"
+QM = HERE.parent / "quality-match" / "target" / "release" / "ferrisma-quality-match"
 
 
 def run(cmd):

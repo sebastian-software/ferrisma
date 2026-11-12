@@ -1,6 +1,6 @@
-# Third-party notices for Ferrixel
+# Third-party notices for Ferrisma
 
-This document covers specific material embedded in Ferrixel. It is not a
+This document covers specific material embedded in Ferrisma. It is not a
 complete third-party license bundle; generate and review the target-specific
 bundle described in [the license audit](docs/license-audit.md) for each
 binary distribution. Do not remove upstream license, copyright, or patent

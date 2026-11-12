@@ -2,7 +2,7 @@
 
 - **Status:** Implementation under validation; release-candidate gates open
 - **Created:** 2026-10-31
-- **Audience:** Ferrixel maintainers and contributors
+- **Audience:** Ferrisma maintainers and contributors
 - **Horizon:** The next coherent product milestone, not a date-driven release commitment
 - **Scope:** Correct, usable **SDR** image transformation ending in **AVIF**
 - **Companion research:** [Encoder and color-management candidates](../research/2026-10-31-encoder-and-cms-candidates.md)
@@ -12,7 +12,7 @@ For the current implementation and remaining gates, see [status](../status.md) a
 
 ## Milestone statement
 
-> Ferrixel can read a real JPEG or JPEG XL image, interpret its *rendered* color meaning under an explicit policy, crop and resize with an image-quality reference, and produce a valid AVIF file using the **Ferrixel pipeline** rather than an eager general-purpose image-library pipeline.
+> Ferrisma can read a real JPEG or JPEG XL image, interpret its *rendered* color meaning under an explicit policy, crop and resize with an image-quality reference, and produce a valid AVIF file using the **Ferrisma pipeline** rather than an eager general-purpose image-library pipeline.
 
 The engine and graph remain independent of concrete codec libraries. A small Rust example and CLI exercise the same core. Color, alpha, materializations, codec fallbacks, and engine-owned memory are observable.
 

@@ -34,7 +34,7 @@ warmup or timing. Additional anchor qualities can be selected explicitly.
 Every timed output is independently rescored: it must be within 0.1
 SSIMULACRA2 of the matched candidate and within 0.5 of its own anchor. The
 scorer is RGB-only and does not validate alpha or arbitrary profiles. Both
-encoders use Ferrixel's same decode/transform path and output color policy;
+encoders use Ferrisma's same decode/transform path and output color policy;
 the independent reference has the known JPEG decoder and ICC limitations in
 the corpus guide. This comparison does not isolate encoding from decoding.
 
@@ -48,12 +48,12 @@ anchor qualities in every phase:
 ```sh
 export BENCH_SHARP_NODE_MODULES=/path/to/node_modules
 export COMPARE_IMAGE_SET=dog COMPARE_ENCODER_LEVELS=80
-python3 -I scripts/bench/compare-sharp.py prepare /tmp/ferrixel-encoders
-scripts/bench/compare-encoders.sh /tmp/ferrixel-encoders match
+python3 -I scripts/bench/compare-sharp.py prepare /tmp/ferrisma-encoders
+scripts/bench/compare-encoders.sh /tmp/ferrisma-encoders match
 COMPARE_RUNS=5 COMPARE_ENCODER_RUN_ID=simd \
-  scripts/bench/compare-encoders.sh /tmp/ferrixel-encoders time
+  scripts/bench/compare-encoders.sh /tmp/ferrisma-encoders time
 COMPARE_RUNS=5 COMPARE_ENCODER_RUN_ID=scalar AOM_SIMD_CAPS_MASK=0 \
-  scripts/bench/compare-encoders.sh /tmp/ferrixel-encoders time
+  scripts/bench/compare-encoders.sh /tmp/ferrisma-encoders time
 ```
 
 `check` validates the match without timing. Exit 3 denotes a valid result that
@@ -86,7 +86,7 @@ outputs and the tracked source patch for inspection. Untracked source files
 are not captured; use a clean checkout for decision evidence. A match with
 unbracketed cases stays visible but cannot be used for timing.
 
-The first hosted run, [43073087629](https://github.com/sebastian-software/ferrixel/actions/runs/43073087629),
+The first hosted run, [43073087629](https://github.com/sebastian-software/ferrisma/actions/runs/43073087629),
 matched the dog image at anchor qualities 60 and 80. The quality-60 target was
 bracketed, but its nearest integer AOM settings were 1.379–1.619 SSIMULACRA2
 away for both speeds and thread settings. The four quality-80 settings were
@@ -176,7 +176,7 @@ beach crop is still decoded from one 60 MP source and is not an independent
 48 MP input. These planned lanes are not measured evidence until they pass.
 
 The earlier fixed-anchor calibration at `65ce2229` is retained in
-[run 43090843352](https://github.com/sebastian-software/ferrixel/actions/runs/43090843352).
+[run 43090843352](https://github.com/sebastian-software/ferrisma/actions/runs/43090843352).
 It completed 6/9 primary cells on x86-64 and 5/9 on ARM64, then failed the
 completeness gate because some nearest integer qualities missed ±0.5. This is
 evidence for the bounded calibration policy, not a complete corpus comparison.

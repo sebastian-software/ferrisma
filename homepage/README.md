@@ -1,9 +1,9 @@
-# Ferrixel homepage
+# Ferrisma homepage
 
-This Ardo site uses the Ferramenta family's pinned Monografie package. Ferrixel
+This Ardo site uses the Ferramenta family's pinned Monografie package. Ferrisma
 is not yet a registered family identity, so its header, footer, mark and
 instrument are site-local; shared typography, color and reading components come
-from the package. The Ferrixel instrument and mark are rendered in Blender
+from the package. The Ferrisma instrument and mark are rendered in Blender
 using the family's pinned studio and mark helpers; their editable recipes and
 provenance are in [artwork/](artwork/README.md). Blender is not needed to build or test the site.
 
@@ -11,9 +11,10 @@ From `homepage/`, run `pnpm install --frozen-lockfile`, then `pnpm dev`.
 `pnpm test` checks the Markdown link translation. `pnpm typecheck` and
 `pnpm build` synchronize the guide pages from the root
 Markdown documentation before checking or building. The generated routes must
-not be edited by hand. The default base path is `/ferrixel/` for GitHub Pages;
-`pnpm preview` serves the built site under that path. A custom domain requires
-updating the Ardo base and canonical site URL together.
+not be edited by hand. The site uses the root base path `/` and the canonical
+URL `https://ferrisma.dev`. `public/CNAME` carries the custom domain into the
+static build; hosting and DNS must serve that domain at the root. `pnpm preview`
+serves the built site at `/`.
 
 The Homepage workflow checks types, tests the link translation, builds every
 route, and retains the static site as a CI artifact. It does not deploy the site.
@@ -22,7 +23,7 @@ The site describes an experimental project. Keep codec-port capabilities
 separate from the engine's implemented adapters, and source performance claims
 to reproducible evidence.
 
-The homepage positions Ferrixel as a Rust image stack for modern delivery.
+The homepage positions Ferrisma as a Rust image stack for modern delivery.
 Its ambition section describes the future multi-output workflow as design work;
 the current-format facts and build instructions describe the experimental
 implementation. Keep that distinction when updating the marketing copy.

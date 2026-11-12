@@ -71,7 +71,7 @@ def validate_failure(directory, names, identity):
 
 def api(path):
     return json.loads(subprocess.check_output(['gh', 'api',
-        'repos/sebastian-software/ferrixel/' + path], text=True))
+        'repos/sebastian-software/ferrisma/' + path], text=True))
 
 
 def verify_repaired_pair(directory, names, identity):

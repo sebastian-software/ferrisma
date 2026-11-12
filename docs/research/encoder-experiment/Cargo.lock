@@ -312,7 +312,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dab93c7205280c4785c44517fe84d99751b81f6deb8450cb196da6be88e332bb"
 
 [[package]]
-name = "ferrixel-encoder-experiment"
+name = "ferrisma-encoder-experiment"
 version = "0.0.0"
 dependencies = [
  "avif-decode",

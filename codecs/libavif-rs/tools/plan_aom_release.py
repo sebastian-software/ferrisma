@@ -68,7 +68,7 @@ def main():
     expected_host = 'arm64' if args.runner.startswith('macos-') else 'x86_64'
     if platform.machine() != expected_host:
         raise ValueError('Plan must validate source binaries on their original native architecture')
-    repository = os.environ.get('GITHUB_REPOSITORY', 'sebastian-software/ferrixel')
+    repository = os.environ.get('GITHUB_REPOSITORY', 'sebastian-software/ferrisma')
     source = json.loads(subprocess.check_output(['gh', 'api',
         f'repos/{repository}/actions/runs/{args.source_run}'], text=True))
     if source['path'].split('@', 1)[0] != '.github/workflows/avif-aom-original-native.yml':

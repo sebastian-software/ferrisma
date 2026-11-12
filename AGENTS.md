@@ -1,6 +1,6 @@
-# Working on Ferrixel
+# Working on Ferrisma
 
-Ferrixel is in an intentionally **design-first** phase. Do not turn a proposed architectural idea into a public API or dependency merely because it is described in an ADR.
+Ferrisma is in an intentionally **design-first** phase. Do not turn a proposed architectural idea into a public API or dependency merely because it is described in an ADR.
 
 ## Non-negotiable conventions
 

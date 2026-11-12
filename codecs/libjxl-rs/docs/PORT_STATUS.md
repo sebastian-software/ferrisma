@@ -1,9 +1,9 @@
 # Port status
 
 This is the JXL port and historical evidence record in the
-[Ferrixel workspace](../../../README.md). See the [current project status](../../../docs/status.md)
+[Ferrisma workspace](../../../README.md). See the [current project status](../../../docs/status.md)
 and [codec guide](../../../docs/codecs.md) for integration and validation cadence.
-Ferrixel currently uses `jxl-oxide` for JPEG XL input; this port is not its decoder.
+Ferrisma currently uses `jxl-oxide` for JPEG XL input; this port is not its decoder.
 Historical PR and CI references below describe their original revisions, not a
 current release or platform acceptance.
 
@@ -1041,7 +1041,7 @@ From 2026-11-03, the checks run the Rust tests once per oracle graph in the
 optimized `checked` profile, with overflow checks and debug assertions enabled,
 and compile all targets with the minimum Rust version, now 1.95. Results below that name Debug, Release and Rust 1.85 test runs record the
 configurations and minimum version in use at that time. Current PR and deep
-validation cadence is governed by [Ferrixel ADR-0027](../../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md);
+validation cadence is governed by [Ferrisma ADR-0027](../../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md);
 these historical results do not establish acceptance of a later revision.
 
 Validated on 2026-11-02 on macOS arm64 with Rust 1.99.0 (stable), Rust 1.85.1

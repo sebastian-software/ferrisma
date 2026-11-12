@@ -6,11 +6,11 @@
 
 ## Context
 
-Ferrixel needs a JPEG decoder that is fast, correct by reference lineage and
+Ferrisma needs a JPEG decoder that is fast, correct by reference lineage and
 able to decode at reduced scale for shrink-on-load. After a measurement, its
 maintainer chose libjpeg-turbo over jpegli and over a `zune-jpeg` fork
-([Ferrixel ADR-0025](https://github.com/sebastian-software/ferrixel/blob/main/docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)).
-Ferrixel's ports cover the still-image scope that Ferrixel uses; code outside
+([Ferrisma ADR-0025](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)).
+Ferrisma's ports cover the still-image scope that Ferrisma uses; code outside
 it is not translated, because every translated line must later follow
 upstream changes. The sister ports (libavif-rs, libjxl-rs, libwebp-rs) first
 translate upstream behavior exactly and optimize afterwards against that
@@ -46,14 +46,14 @@ map against upstream and `src/`.
 All of them as the 8-bit instantiation that upstream builds through
 `src/wrapper/*-8.c` (`BITS_IN_JSAMPLE == 8`). Arithmetic decoding stays in
 because upstream's default build includes it and a decoder that rejects valid
-baseline-family files is incomplete for Ferrixel's input.
+baseline-family files is incomplete for Ferrisma's input.
 
 | Out of scope (not translated) | Reason |
 | --- | --- |
-| The encoder (`jc*.c`, `jf*.c`, `jdatadst.c`, `jpeg_nbits.c`) and transcoding (`jctrans.c`, `jdtrans.c`) | Ferrixel does not write JPEG |
+| The encoder (`jc*.c`, `jf*.c`, `jdatadst.c`, `jpeg_nbits.c`) and transcoding (`jctrans.c`, `jdtrans.c`) | Ferrisma does not write JPEG |
 | 12-bit and 16-bit instantiations, lossless JPEG (`jdlossls.c`, `jdlhuff.c`, `jddiffct.c`) | Rare in photographs; revisit when a consumer needs them |
 | Color quantization (`jquant1.c`, `jquant2.c`) and RGB565 output (`jdcol565.c`, `jdmrg565.c`) | Palette and 16-bit-per-pixel output are not used |
-| The TurboJPEG API (`turbojpeg.c`) and the stdio source `jpeg_stdio_src` | Ferrixel uses the libjpeg API from memory |
+| The TurboJPEG API (`turbojpeg.c`) and the stdio source `jpeg_stdio_src` | Ferrisma uses the libjpeg API from memory |
 | Assembly and intrinsics | Ported afterwards under [ADR 0004](0004-simd-after-the-portable-port.md) |
 
 The upstream programs (`djpeg`), the test images and the fuzzers are

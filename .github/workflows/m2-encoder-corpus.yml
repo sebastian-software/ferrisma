@@ -72,13 +72,13 @@ jobs:
           mkdir -p "$COMPARE_LARGE_CORPUS"
           curl --fail --location --max-filesize 10000000 \
             'https://upload.wikimedia.org/wikipedia/commons/d/d2/Grandiose_Landscape_of_Mountain_He-Huan%28WDPA_9287%29_by_WEI-FU-KUO_04.jpg' \
-            -o "$COMPARE_LARGE_CORPUS/ferrixel-mountain.jpg"
+            -o "$COMPARE_LARGE_CORPUS/ferrisma-mountain.jpg"
           curl --fail --location --max-filesize 10000000 \
             'https://upload.wikimedia.org/wikipedia/commons/0/01/Deer_with_their_friend_myna_bird_at_Koneswaram_temple%2C_Trincomalee.jpg' \
-            -o "$COMPARE_LARGE_CORPUS/ferrixel-deer.jpg"
+            -o "$COMPARE_LARGE_CORPUS/ferrisma-deer.jpg"
           curl --fail --location --max-filesize 28000000 \
             'https://upload.wikimedia.org/wikipedia/commons/3/3d/Veduta_Elcito.jpg' \
-            -o "$COMPARE_LARGE_CORPUS/ferrixel-elcito.jpg"
+            -o "$COMPARE_LARGE_CORPUS/ferrisma-elcito.jpg"
           node scripts/bench/corpus.cjs scripts/bench/corpus-photos.json "$COMPARE_LARGE_CORPUS"
       - name: Prepare references once per image
         run: |

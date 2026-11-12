@@ -2,7 +2,7 @@
 
 This inventory extends the historical [M2 comparison](M2-sharp-comparison.md);
 it does not replace or update its measurements. The question for a new run is
-how current Ferrixel and Sharp compare on a specified output geometry, color
+how current Ferrisma and Sharp compare on a specified output geometry, color
 intent, and matched visual quality. Results are limited to the measured files,
 implementations, presets, and host. There are no new timing results here.
 
@@ -48,8 +48,8 @@ CC BY-SA 4.0 terms. When sharing them, retain each creator, source and license
 link above, identify these modifications, and satisfy the applicable
 share-alike terms. The benchmark artifact includes this guide and the manifest
 with each creator, source and license URL. The native-host workflow fetches all three; to reproduce
-locally, download the three original files to `ferrixel-mountain.jpg`,
-`ferrixel-deer.jpg`, and `ferrixel-elcito.jpg`, then run `node scripts/bench/corpus.cjs
+locally, download the three original files to `ferrisma-mountain.jpg`,
+`ferrisma-deer.jpg`, and `ferrisma-elcito.jpg`, then run `node scripts/bench/corpus.cjs
 scripts/bench/corpus-photos.json /path/to/photos`. The original files are not
 checked in. These are separate sources and scenes.
 
@@ -69,11 +69,11 @@ A separately downloaded, real 60.2 MP photo extends the available size range:
   user-selected cache directory with at least 14 MB free, then verify:
 
 ```sh
-mkdir -p /tmp/ferrixel-corpus
+mkdir -p /tmp/ferrisma-corpus
 curl --fail --location --max-filesize 14000000 \
   'https://upload.wikimedia.org/wikipedia/commons/e/e9/Beach_volleyball_sunset_%2853458847235%29.jpg' \
-  -o /tmp/ferrixel-corpus/ferrixel-beach-volleyball-53458847235.jpg
-node scripts/bench/corpus.cjs scripts/bench/corpus-large.json /tmp/ferrixel-corpus
+  -o /tmp/ferrisma-corpus/ferrisma-beach-volleyball-53458847235.jpg
+node scripts/bench/corpus.cjs scripts/bench/corpus-large.json /tmp/ferrisma-corpus
 ```
 
 A partial transfer fails the hash check. Resume it with `curl --continue-at -`
@@ -102,7 +102,7 @@ an incomplete, changed, or non-bracketing match. It independently rescores the
 retained output and requires it to be within 0.1 SSIMULACRA2 of the matched
 nearest output and within 0.5 of the shared target. A completed
 `time-provenance.json` binds the CSV hash and expected and actual lane counts;
-an interrupted or failed run remains marked incomplete. Ferrixel's rav1e speed
+an interrupted or failed run remains marked incomplete. Ferrisma's rav1e speed
 is explicitly 6 in this lane; the preset sweep chooses its speed separately.
 
 Run the setup and phases from the checkout with a compatible Sharp installation
@@ -110,21 +110,21 @@ and the other prerequisites in the [historical method](M2-sharp-comparison.md):
 
 ```sh
 export BENCH_SHARP_NODE_MODULES=/path/to/node_modules
-python3 -I scripts/bench/compare-sharp.py prepare /tmp/ferrixel-compare
-python3 -I scripts/bench/compare-sharp.py match /tmp/ferrixel-compare
-COMPARE_RUNS=20 python3 -I scripts/bench/compare-sharp.py time /tmp/ferrixel-compare
+python3 -I scripts/bench/compare-sharp.py prepare /tmp/ferrisma-compare
+python3 -I scripts/bench/compare-sharp.py match /tmp/ferrisma-compare
+COMPARE_RUNS=20 python3 -I scripts/bench/compare-sharp.py time /tmp/ferrisma-compare
 ```
 
 For a focused run, set `COMPARE_IMAGE_SET=dog`, `flower`, `kodim03`, or
 `kodim23`. For the independent photographs use `mountain`, `deer`, or `elcito` with
 `COMPARE_LARGE_CORPUS` set to the verified photo directory; for the external
 beach photo use `beach`, `beach-24`, or `beach-48` and set
-`COMPARE_LARGE_CORPUS=/tmp/ferrixel-corpus`. Set the same image set on **each**
+`COMPARE_LARGE_CORPUS=/tmp/ferrisma-corpus`. Set the same image set on **each**
 phase. These selections support only `prepare`, `match`, and `time`; they fail
 for the batch, ceiling, and sweep modes. To limit the configuration matrix to
 the all-core 4:4:4 pair and target A, set `COMPARE_CONFIGS=all-444` and
 `COMPARE_TARGETS=A` on both `match` and `time`. Use a distinct output directory
-for each selection. The large lanes request a 2 GiB Ferrixel memory budget and
+for each selection. The large lanes request a 2 GiB Ferrisma memory budget and
 the independent reference construction can require substantially more process
 memory; they are not yet measured. Both comparators receive the same crop and
 output geometry. The tagged sources use an sRGB ICC: the historical Sharp ignore-profile
@@ -154,6 +154,6 @@ sRGB RGB only, not alpha compositing or arbitrary ICC transforms. The historical
 Sharp workaround ignores the dog photo's sRGB profile and does not generalize to
 other profiles. The alpha fixture is inventoried but is not part of an automated
 quality-matched lane. The historical 8-bit Sharp
-versus 10-bit Ferrixel AVIF distinction and the independent scorer's decoder
+versus 10-bit Ferrisma AVIF distinction and the independent scorer's decoder
 bias remain material. There is no separate libvips or libavif-encoder comparison
 in this lane.

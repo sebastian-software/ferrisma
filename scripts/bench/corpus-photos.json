@@ -3,7 +3,7 @@
   "images": [
     {
       "id": "mountain",
-      "path": "ferrixel-mountain.jpg",
+      "path": "ferrisma-mountain.jpg",
       "sha256": "e1c73ee88188b350464d0b63599301c84585fc2ca0345416d84293f0fa5ba13b",
       "source": "https://commons.wikimedia.org/wiki/File:Grandiose_Landscape_of_Mountain_He-Huan(WDPA_9287)_by_WEI-FU-KUO_04.jpg",
       "license": "CC BY-SA 4.0, Weifukuo; https://creativecommons.org/licenses/by-sa/4.0/",
@@ -12,7 +12,7 @@
     },
     {
       "id": "deer",
-      "path": "ferrixel-deer.jpg",
+      "path": "ferrisma-deer.jpg",
       "sha256": "64b54177c256b9bbb00d41f3678fd4a467aa3e8f8daa98722efb2cdf7d5d5e43",
       "source": "https://commons.wikimedia.org/wiki/File:Deer_with_their_friend_myna_bird_at_Koneswaram_temple,_Trincomalee.jpg",
       "license": "CC BY-SA 4.0, J.Hamsalojan; https://creativecommons.org/licenses/by-sa/4.0/",
@@ -21,7 +21,7 @@
     },
     {
       "id": "elcito",
-      "path": "ferrixel-elcito.jpg",
+      "path": "ferrisma-elcito.jpg",
       "sha256": "1c40fab3ee7f5f98e8d64bf3daf8dd96c625fb6b6695b86cbd559f71cce1a49d",
       "source": "https://commons.wikimedia.org/wiki/File:Veduta_Elcito.jpg",
       "license": "CC BY-SA 4.0, U9POI57 at Italian Wikipedia; https://creativecommons.org/licenses/by-sa/4.0/",

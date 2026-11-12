@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().with_name("audit-licenses.py")
-SPEC = importlib.util.spec_from_file_location("ferrixel_license_audit", SCRIPT)
+SPEC = importlib.util.spec_from_file_location("ferrisma_license_audit", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 AUDIT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(AUDIT)

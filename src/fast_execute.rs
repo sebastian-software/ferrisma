@@ -9,7 +9,7 @@
 //!   table for 8-bit input, instead of once per filter tap;
 //! - filter taps are precomputed into flat index/weight tables;
 //! - horizontally filtered rows live in a ring buffer addressed in O(1);
-//! - the horizontal and vertical resample run on `ferrixel-kernels`
+//! - the horizontal and vertical resample run on `ferrisma-kernels`
 //!   (runtime-dispatched NEON or AVX2, ADR-0020), on four `f32` channels
 //!   per pixel (the fourth is unused for opaque RGB);
 //! - output samples are quantized by an exact `f32` to sRGB8 encoder
@@ -23,7 +23,7 @@
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
-use ferrixel_kernels::{KernelError, Kernels, Taps};
+use ferrisma_kernels::{KernelError, Kernels, Taps};
 
 use crate::color::{AlphaMode, ColorEncoding};
 use crate::decoder::{

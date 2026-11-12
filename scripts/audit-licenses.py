@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SPDX-aware transitive dependency-license metadata screening for Ferrixel.
+"""SPDX-aware transitive dependency-license metadata screening for Ferrisma.
 
 This is an early CI gate, NOT a substitute for inspecting the actual license
 texts, notices, source files, distribution obligations and patent terms.

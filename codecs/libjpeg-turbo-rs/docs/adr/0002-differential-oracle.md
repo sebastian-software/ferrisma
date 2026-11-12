@@ -8,7 +8,7 @@
 
 A Rust decoder can agree with itself and still differ from libjpeg-turbo.
 Evidence must come from the pinned C code in a fixed configuration, and that C
-code must never become part of the library Ferrixel links.
+code must never become part of the library Ferrisma links.
 
 ## Decision
 
@@ -82,7 +82,7 @@ need a C ABI; the damaged-stream tests of each package cover corrupt input
 against the oracle instead, and
 coverage-guided fuzzing in Rust is a separate decision, since it needs a
 development dependency ([ADR 0003](0003-toolchain-and-unsafe-policy.md),
-[ferrixel#73](https://github.com/sebastian-software/ferrixel/issues/73), formerly libjpeg-turbo-rs#18).
+[ferrisma#73](https://github.com/sebastian-software/ferrisma/issues/73), formerly libjpeg-turbo-rs#18).
 
 **Mutations.** A passing test shows nothing unless it can fail. Each change
 that adds or changes translated code or a check shows, before it merges, that
@@ -95,7 +95,7 @@ test catches either gets a test or is shown to be equivalent, that is, to
 give the same output for every input the code can receive, and the pull
 request says why.
 
-**Conformance.** Before Ferrixel adopts the decoder, it is checked with the
+**Conformance.** Before Ferrisma adopts the decoder, it is checked with the
 ISO/IEC 10918-2 (ITU-T T.83) compliance test data for the processes in scope:
 baseline, extended (8-bit Huffman and arithmetic) and progressive. ITU
 publishes the data as one zip file
@@ -160,4 +160,4 @@ check.
 Revisit when the pin, the reference configuration, the compiler or a CI host
 changes, when a unit cannot be observed through a probe, or when the
 tolerance of ISO/IEC 10918-2 clause 7 becomes available
-([ferrixel#72](https://github.com/sebastian-software/ferrixel/issues/72), formerly libjpeg-turbo-rs#19).
+([ferrisma#72](https://github.com/sebastian-software/ferrisma/issues/72), formerly libjpeg-turbo-rs#19).

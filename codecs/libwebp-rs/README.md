@@ -1,6 +1,6 @@
 # libwebp-rs
 
-This port is a workspace member of the Ferrixel monorepo. Start with the
+This port is a workspace member of the Ferrisma monorepo. Start with the
 [project overview](../../README.md), [current status](../../docs/status.md), or
 [codec workspace guide](../../docs/codecs.md). Its local porting contracts
 and licenses still apply.
@@ -19,9 +19,9 @@ encoding. SIMD implementations and their exceptions are documented in
 export rows that remain on the scalar path. Each module records its deviations
 and excluded undefined behavior.
 
-**Engine integration:** Ferrixel does not currently provide WebP input or
+**Engine integration:** Ferrisma does not currently provide WebP input or
 output adapters. The port's APIs are the intended adoption boundary, subject
-to the gates in [ADR 0010](docs/adr/0010-ferrixel-adoption.md); see the
+to the gates in [ADR 0010](docs/adr/0010-ferrisma-adoption.md); see the
 [project status](../../docs/status.md) for current integration work.
 
 ## Using the library
@@ -43,8 +43,8 @@ The differential suite compares results with libwebp v1.6.0 for its tested
 inputs and configurations; it is not proof for every possible input. The
 translated modules (`webp::dec`, `webp::enc`, `webp::dsp`, ...) are public but
 mirror the C library's shapes; `webp::abi` exports the C API for the upstream
-tools and is not meant for Rust callers. What the library promises Ferrixel is
-[ADR 0010](docs/adr/0010-ferrixel-adoption.md).
+tools and is not meant for Rust callers. What the library promises Ferrisma is
+[ADR 0010](docs/adr/0010-ferrisma-adoption.md).
 
 ## How it works
 

@@ -1,7 +1,7 @@
 # Working on the mechanical port
 
 Run commands in this guide from `codecs/libavif-rs` unless stated otherwise.
-See the [Ferrixel README](../../README.md), [project status](../../docs/status.md),
+See the [Ferrisma README](../../README.md), [project status](../../docs/status.md),
 and [codec guide](../../docs/codecs.md) for workspace setup and current gates.
 
 Use US English and Conventional Commits. Commit coherent verified steps
@@ -430,7 +430,7 @@ selects affected components and runs the bounded Rust, provenance, translation,
 license, SharpYUV cross-port, and C-confirmed AOM golden checks. The central
 nightly and manual deep runs retain broader reference coverage; some exhaustive
 AOM original-consumer, recovery, and translation workflows remain manual. See
-[Ferrixel ADR-0027](../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md).
+[Ferrisma ADR-0027](../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md).
 A workflow status alone does not establish complete target or release acceptance:
 review the reports for the exact revision and configuration.
 

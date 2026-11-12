@@ -6,7 +6,7 @@
 
 ## Context
 
-Ferrixel's dependency gates require a safe Rust API and a stable toolchain.
+Ferrisma's dependency gates require a safe Rust API and a stable toolchain.
 libjxl-rs uses `rust-version = "1.95"` and edition 2024 and allows `unsafe`
 inside the codec with local safety arguments. VP8 and VP8L translate into safe
 Rust (as `image-webp` shows), so libwebp-rs can be stricter.
@@ -20,7 +20,7 @@ Rust (as `image-webp` shows), so libwebp-rs can be stricter.
 - `src/lib.rs` declares `#![deny(unsafe_code)]`. The only exception is
   `#[allow(unsafe_code, reason = ...)]` on `pub mod abi`
   ([ADR 0004](0004-c-abi-boundary.md)). The crate cannot use `forbid`, as
-  Ferrixel's port plan proposed, because `forbid` cannot be relaxed for the ABI module.
+  Ferrisma's port plan proposed, because `forbid` cannot be relaxed for the ABI module.
 - Relaxing the policy for any other module needs a new ADR that names the
   modules, the operations and the local safety arguments. The wave 4 SIMD
   packages (WP18 to WP20) need such an ADR before they start: `std::arch`
@@ -66,10 +66,10 @@ or when the minimum Rust version is raised.
 
 ## Monorepo amendment, 2026-11-10
 
-[Ferrixel ADR-0026](../../../../docs/adr/0026-codecs-in-one-repository-and-workspace.md)
+[Ferrisma ADR-0026](../../../../docs/adr/0026-codecs-in-one-repository-and-workspace.md)
 supersedes the former repository-local workspace, profile and development
 toolchain placement. This package uses the root workspace and lockfile. The
 original compiler compatibility promises and independent reference comparisons
 remain; handwritten ports explicitly use stable Clippy and their MSRV jobs.
 Shared profiles retain the numeric and unwinding requirements of each port.
-Active workflows now live at the Ferrixel repository root.
+Active workflows now live at the Ferrisma repository root.

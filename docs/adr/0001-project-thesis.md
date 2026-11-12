@@ -14,7 +14,7 @@ The project's purpose is sustainable architecture over a roughly five-year horiz
 
 ## Decision
 
-Build **Ferrixel** as a safe-Rust, pipeline-first image processing engine. Treat the **pipeline** as the product: a semantic graph describes requests, a planner minimizes work and memory movement, and backends execute operations. Defaults should avoid materializing complete intermediate images when demand-driven regions suffice.
+Build **Ferrisma** as a safe-Rust, pipeline-first image processing engine. Treat the **pipeline** as the product: a semantic graph describes requests, a planner minimizes work and memory movement, and backends execute operations. Defaults should avoid materializing complete intermediate images when demand-driven regions suffice.
 
 Prioritize realistic paths for **JPEG XL, AVIF and WebP** and the capabilities of their actual decoder/encoder implementations. Optimize the core for modern CPUs and allow a later GPU backend when justified by measurement. Treat SIMD as a measured operation-level implementation strategy, not a defining public abstraction.
 

@@ -78,7 +78,7 @@ deletion, and invalid-revision failure paths. All four codec PR stages passed
 locally on a warm macOS ARM checkout. Actionlint passed for all 27 workflow
 YAML files. These local results do not establish hosted timing or coverage.
 
-Hosted PR runs [42805567476](https://github.com/sebastian-software/ferrixel/actions/runs/42805567476) and [42819064673](https://github.com/sebastian-software/ferrixel/actions/runs/42819064673) completed successfully on 2026-11-10. These runs demonstrate their tested revisions and scopes, not a timing guarantee for all PRs. Continue validating representative documentation, codec, common-configuration, and high-risk changes, including missing-oracle failure and native architecture coverage. Record timings and failures before claiming the budget is met.
+Hosted PR runs [42805567476](https://github.com/sebastian-software/ferrisma/actions/runs/42805567476) and [42819064673](https://github.com/sebastian-software/ferrisma/actions/runs/42819064673) completed successfully on 2026-11-10. These runs demonstrate their tested revisions and scopes, not a timing guarantee for all PRs. Continue validating representative documentation, codec, common-configuration, and high-risk changes, including missing-oracle failure and native architecture coverage. Record timings and failures before claiming the budget is met.
 
 ## Review when
 

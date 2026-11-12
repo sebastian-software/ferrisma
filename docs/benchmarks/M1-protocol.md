@@ -9,9 +9,9 @@ The engine's own reported peak *managed* allocation does not cover decoder/encod
 The benchmark script `scripts/bench-m1.sh` builds a `--release` CLI and runs a real encode repeatedly. It prints CSV `iteration,elapsed_seconds,peak_rss_kib,output_bytes` and records the compiler/host in stderr. This is a first single-image measurement harness, **not a completed assessment against libvips/Sharp**.
 
 ```sh
-FERRIXEL_PROFILE=assume-srgb FERRIXEL_FILTER=area \
-  scripts/bench-m1.sh photos/untagged.jpg 1600 900 5 > m1-ferrixel.csv
-# For ICC-tagged RGB input, use FERRIXEL_PROFILE=rendered-icc.
+FERRISMA_PROFILE=assume-srgb FERRISMA_FILTER=area \
+  scripts/bench-m1.sh photos/untagged.jpg 1600 900 5 > m1-ferrisma.csv
+# For ICC-tagged RGB input, use FERRISMA_PROFILE=rendered-icc.
 ```
 
 Collect multiple realistic images: small photos (hundreds of pixels), 12/24/48-Mpx images, transparent overlays, odd dimensions, P3, ICC-tagged JPEG, JPEG XL, AVIF, and adversarial extreme downscales. Record orientation. The tiny committed `sample.jpg` is a correctness fixture, **not** representative of throughput.
@@ -42,13 +42,13 @@ Do not mark M1 release-ready based only on a small set of passing unit tests.
 
 ## CI synthetic feasibility comparison (not parity)
 
-The separate [M1 Synthetic Performance Smoke](../../.github/workflows/m1-performance-smoke.yml) generates a deterministic 1280×853 JPEG, transcodes it to 640×427 AVIF with Ferrixel, and tries an analogous `vipsthumbnail --linear` libvips operation. It records two wall-time/peak-RSS/output-size observations per backend and captures environment details in downloadable workflow artifacts.
+The separate [M1 Synthetic Performance Smoke](../../.github/workflows/m1-performance-smoke.yml) generates a deterministic 1280×853 JPEG, transcodes it to 640×427 AVIF with Ferrisma, and tries an analogous `vipsthumbnail --linear` libvips operation. It records two wall-time/peak-RSS/output-size observations per backend and captures environment details in downloadable workflow artifacts.
 
 **Interpretation:** output `Q=80` is not equal fidelity between `ravif` and libvips' AV1 encoder; libvips may use a different filter, chroma mode and internal parallelism. Results prove a runnable tool and provide resource *smoke data*, not a speedup/quality claim. The mandatory fair Sharp/libvips corpus comparison, matching image quality through SSIMULACRA2/Butteraugli, remains an open M1-RC gate.
 
 ## 2026-10-31 first measured smoke, not quality parity
 
-GitHub Actions [run 41234019887](https://github.com/sebastian-software/ferrixel/actions/runs/41234019887) measured a fixed synthetic 1280×853 JPEG to 640×427 AVIF (quality label 80, speed 10) on a hosted Linux runner. In two repetitions, Ferrixel's end-to-end wall time was **0.69 seconds** each; observed peak RSS was **24,908 KiB** and **24,680 KiB**, with **159,086 output bytes**. These values are narrow *smoke observations* on transient CI hardware, not portable throughput claims. The runner's libvips/libheif reported **`heifsave: Unsupported compression`**, so no end-to-end libvips AVIF comparator was obtained. A subsequent workflow revision captures an explicitly labeled PNG resize-only fallback; it still cannot establish AVIF or quality parity.
+GitHub Actions [run 41234019887](https://github.com/sebastian-software/ferrisma/actions/runs/41234019887) measured a fixed synthetic 1280×853 JPEG to 640×427 AVIF (quality label 80, speed 10) on a hosted Linux runner. In two repetitions, Ferrisma's end-to-end wall time was **0.69 seconds** each; observed peak RSS was **24,908 KiB** and **24,680 KiB**, with **159,086 output bytes**. These values are narrow *smoke observations* on transient CI hardware, not portable throughput claims. The runner's libvips/libheif reported **`heifsave: Unsupported compression`**, so no end-to-end libvips AVIF comparator was obtained. A subsequent workflow revision captures an explicitly labeled PNG resize-only fallback; it still cannot establish AVIF or quality parity.
 
 ## Sharp AVIF feasibility baseline
 
@@ -56,14 +56,14 @@ The smoke workflow optionally installs a **pinned Sharp 0.34.5** only on the Git
 
 ## Sharp AVIF observations (smoke only)
 
-GitHub Actions [run 41235323253](https://github.com/sebastian-software/ferrixel/actions/runs/41235323253) extended the reproducible synthetic 1280×853 JPEG → 640×427 experiment to pinned **Sharp 0.34.5** with its own libvips binary. Two repeats on that run recorded:
+GitHub Actions [run 41235323253](https://github.com/sebastian-software/ferrisma/actions/runs/41235323253) extended the reproducible synthetic 1280×853 JPEG → 640×427 experiment to pinned **Sharp 0.34.5** with its own libvips binary. Two repeats on that run recorded:
 
 | Backend | Time (s) | Peak RSS (KiB) | Output (bytes) |
 | --- | ---: | ---: | ---: |
-| Ferrixel, AVIF (ravif) | 0.69, 0.69 | 24,916; 24,868 | 159,086 |
+| Ferrisma, AVIF (ravif) | 0.69, 0.69 | 24,916; 24,868 | 159,086 |
 | Sharp 0.34.5, AVIF | 0.11, 0.11 | 85,940; 85,732 | 254,757 |
 | OS libvips, PNG resize-only | 0.06, 0.06 | 62,428; 62,224 | 795,223 |
 
-Both AVIF paths used a nominal quality setting of 80 but **not an independently verified equivalent perceptual quality**, encoder speed, chroma mode, transfer curve, threading policy or output profile. In this run Sharp was faster, while Ferrixel's reported process RSS was lower; **neither observation establishes a quality-matched advantage**. The OS libvips package still could not encode AVIF, so that PNG result is not an AVIF competitor.
+Both AVIF paths used a nominal quality setting of 80 but **not an independently verified equivalent perceptual quality**, encoder speed, chroma mode, transfer curve, threading policy or output profile. In this run Sharp was faster, while Ferrisma's reported process RSS was lower; **neither observation establishes a quality-matched advantage**. The OS libvips package still could not encode AVIF, so that PNG result is not an AVIF competitor.
 
 The benchmark remains a runner-specific feasibility smoke. Its reference input is synthetic and cannot replace a real-image corpus or SSIMULACRA2/Butteraugli quality matching. Artifacts contain the CSV and environment for reproducibility.

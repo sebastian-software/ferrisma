@@ -49,7 +49,7 @@ the workspace's `crates/libsharpyuv-core`, retaining their upstream notices and
 the BSD license, patent grant, and authors in that crate's `LICENSES/`.
 `src/sharpyuv/` preserves the verified module headers and safe WebP wrappers.
 The pinned upstream source, WebP tests, and independent C oracle remain the
-provenance and behavior gates; see Ferrixel ADR-0033.
+provenance and behavior gates; see Ferrisma ADR-0033.
 
 ## Original material
 
@@ -59,11 +59,11 @@ the documentation under `docs/`, the tools under `tools/` including
 `tests/`, the CI workflows, and `src/lib.rs` and the `mod.rs` files. Probes call
 the pinned upstream library; they do not copy its algorithms.
 
-The port was planned in the Ferrixel repository
+The port was planned in the Ferrisma repository
 (`docs/research/2026-11-05-libwebp-port-plan.md` and
 `2026-11-05-libwebp-port-workplan.md` at commit
 `2aa4f3d1bb226d9541a4e9270168b03d17cac2ec`), by the same maintainer. Copies
 lived here as `docs/PORT_PLAN.md` and `docs/WORKPLAN.md` until 9 November
 2026, when [ADR 0009](adr/0009-work-packages-and-integration.md) and
-[ADR 0010](adr/0010-ferrixel-adoption.md) replaced them; Git history keeps
+[ADR 0010](adr/0010-ferrisma-adoption.md) replaced them; Git history keeps
 them.

@@ -249,14 +249,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "ferrixel"
+name = "ferrisma"
 version = "0.1.0"
 dependencies = [
  "avif-serialize",
- "ferrixel-avif-read",
- "ferrixel-avif-write",
- "ferrixel-jxl-decoder",
- "ferrixel-kernels",
+ "ferrisma-avif-read",
+ "ferrisma-avif-write",
+ "ferrisma-jxl-decoder",
+ "ferrisma-kernels",
  "jxl-oxide",
  "libjpeg-turbo-rs",
  "libwebp-rs",
@@ -265,36 +265,36 @@ dependencies = [
 ]
 
 [[package]]
-name = "ferrixel-avif-read"
+name = "ferrisma-avif-read"
 version = "0.0.0"
 dependencies = [
  "libavif-rs",
 ]
 
 [[package]]
-name = "ferrixel-avif-write"
+name = "ferrisma-avif-write"
 version = "0.0.0"
 dependencies = [
  "libavif-rs",
 ]
 
 [[package]]
-name = "ferrixel-fuzz"
+name = "ferrisma-fuzz"
 version = "0.0.0"
 dependencies = [
- "ferrixel",
+ "ferrisma",
  "libfuzzer-sys",
 ]
 
 [[package]]
-name = "ferrixel-jxl-decoder"
+name = "ferrisma-jxl-decoder"
 version = "0.1.0"
 dependencies = [
  "libjxl-rs",
 ]
 
 [[package]]
-name = "ferrixel-kernels"
+name = "ferrisma-kernels"
 version = "0.1.0"
 
 [[package]]

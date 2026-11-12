@@ -12,10 +12,10 @@ remain to be planned; this decision does not restructure the existing crate.
 
 ## Monorepo amendment, 2026-11-10
 
-[Ferrixel ADR-0026](../../../../docs/adr/0026-codecs-in-one-repository-and-workspace.md)
+[Ferrisma ADR-0026](../../../../docs/adr/0026-codecs-in-one-repository-and-workspace.md)
 supersedes the former repository-local workspace, profile and development
 toolchain placement. This package uses the root workspace and lockfile. The
 original compiler compatibility promises and independent reference comparisons
 remain; handwritten ports explicitly use stable Clippy and their MSRV jobs.
 Shared profiles retain the numeric and unwinding requirements of each port.
-Active workflows now live at the Ferrixel repository root.
+Active workflows now live at the Ferrisma repository root.

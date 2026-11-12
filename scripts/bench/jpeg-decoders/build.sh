@@ -48,5 +48,5 @@ c++ -o "$bin/jpegdec-jpegli" "$build/jpegdec-jpegli.o" \
 cp "$build/turbo/cjpeg-static" "$bin/cjpeg-turbo"
 
 cargo build -q --release --manifest-path "$here/zune/Cargo.toml" --target-dir "$build/zune"
-cp "$build/zune/release/ferrixel-jpeg-decoders-zune" "$bin/zune"
+cp "$build/zune/release/ferrisma-jpeg-decoders-zune" "$bin/zune"
 echo "built: $(ls "$bin" | tr '\n' ' ')" >&2

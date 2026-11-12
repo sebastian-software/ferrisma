@@ -13,7 +13,7 @@
 //! as the source orientation and applied by the pipeline (ADR-0019).
 //! 10/12-bit input is emitted as normalized float samples.
 
-use ferrixel_avif_read::{Decoder, ReadError};
+use ferrisma_avif_read::{Decoder, ReadError};
 
 use super::avif_meta::{MetaError, PrimaryProperties, SequenceColor, primary_properties};
 use crate::color::AlphaMode;

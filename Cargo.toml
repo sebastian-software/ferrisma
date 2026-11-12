@@ -2,11 +2,11 @@
 # One source and dependency graph; codec verification stays scoped (ADR-0026).
 members = [
     ".",
-    "crates/ferrixel-kernels",
-    "crates/ferrixel-libavif",
-    "crates/ferrixel-avif-read",
-    "crates/ferrixel-avif-write",
-    "crates/ferrixel-jxl-decoder",
+    "crates/ferrisma-kernels",
+    "crates/ferrisma-libavif",
+    "crates/ferrisma-avif-read",
+    "crates/ferrisma-avif-write",
+    "crates/ferrisma-jxl-decoder",
     "crates/libsharpyuv-core",
     "tools/xtask",
     "codecs/libjpeg-turbo-rs",
@@ -17,7 +17,7 @@ members = [
     "codecs/libavif-rs/crates/dav1d",
     "codecs/libavif-rs/crates/sharpyuv",
 ]
-default-members = [".", "crates/ferrixel-kernels"]
+default-members = [".", "crates/ferrisma-kernels"]
 resolver = "3"
 exclude = ["codecs/libwebp-rs/fuzz"]
 
@@ -53,17 +53,18 @@ overflow-checks = false
 [profile.checked.package.libavif-sharpyuv]
 overflow-checks = false
 
-[profile.release.package.ferrixel-libavif]
+[profile.release.package.ferrisma-libavif]
 debug = "line-tables-only"
 
 [package]
-name = "ferrixel"
+name = "ferrisma"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.98"
 authors = ["Sebastian Software GmbH"]
 description = "Experimental pipeline-first Rust image processing engine"
-repository = "https://github.com/sebastian-software/ferrixel"
+homepage = "https://ferrisma.dev"
+repository = "https://github.com/sebastian-software/ferrisma"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 publish = false
@@ -75,28 +76,28 @@ webp-read = ["dep:webp"]
 webp-write = ["dep:webp"]
 jpeg-xl-read = ["dep:jxl-oxide"]
 # Explicit reference-port experiment; runtime selection remains opt-in.
-jpeg-xl-own-read = ["dep:ferrixel-jxl-decoder"]
+jpeg-xl-own-read = ["dep:ferrisma-jxl-decoder"]
 # rav1e's `asm` is bit-exact and about 2.2x faster; `threading` lets the
 # encoder use `TransformOptions::encoder_threads` (M2 work package 2, ADR-0018).
 avif-write = ["dep:rav1e", "dep:avif-serialize", "rav1e/asm", "rav1e/threading"]
-avif-read = ["dep:ferrixel-avif-read"]
-avif-own-write = ["dep:ferrixel-avif-write"]
+avif-read = ["dep:ferrisma-avif-read"]
+avif-own-write = ["dep:ferrisma-avif-write"]
 icc = ["dep:moxcms"]
 cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "avif-read", "avif-write", "avif-own-write", "webp-write", "icc"]
 
 
 [dependencies]
 # First-party, unconditional: the engine's kernels with runtime ISA dispatch.
-ferrixel-kernels = { path = "crates/ferrixel-kernels", version = "0.1.0" }
+ferrisma-kernels = { path = "crates/ferrisma-kernels", version = "0.1.0" }
 rav1e = { version = "0.8.1", optional = true, default-features = false }
 avif-serialize = { version = "0.8.9", optional = true }
-ferrixel-avif-read = { path = "crates/ferrixel-avif-read", version = "0.0.0", optional = true }
-ferrixel-avif-write = { path = "crates/ferrixel-avif-write", version = "0.0.0", optional = true }
+ferrisma-avif-read = { path = "crates/ferrisma-avif-read", version = "0.0.0", optional = true }
+ferrisma-avif-write = { path = "crates/ferrisma-avif-write", version = "0.0.0", optional = true }
 moxcms = { version = "0.9.1", optional = true, features = ["extended_range"] }
 # The workspace decoder exposes safe RGB scanlines; SIMD stays inside its codec boundary.
 libjpeg-turbo-rs = { path = "codecs/libjpeg-turbo-rs", version = "0.1.0", optional = true }
 webp = { package = "libwebp-rs", path = "codecs/libwebp-rs", version = "0.1.0", optional = true }
-ferrixel-jxl-decoder = { path = "crates/ferrixel-jxl-decoder", version = "0.1.0", optional = true }
+ferrisma-jxl-decoder = { path = "crates/ferrisma-jxl-decoder", version = "0.1.0", optional = true }
 jxl-oxide = { version = "0.12.6", optional = true, default-features = false }
 
 [dev-dependencies]
@@ -111,8 +112,8 @@ all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 
 [[bin]]
-name = "ferrixel"
-path = "src/bin/ferrixel.rs"
+name = "ferrisma"
+path = "src/bin/ferrisma.rs"
 required-features = ["cli"]
 
 [[example]]

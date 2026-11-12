@@ -1,9 +1,9 @@
 # libjxl-rs
 
-This port is maintained in the [Ferrixel workspace](../../README.md). See the
+This port is maintained in the [Ferrisma workspace](../../README.md). See the
 [project status](../../docs/status.md) and [codec guide](../../docs/codecs.md)
 for integration and checks; local porting contracts and licenses still apply.
-Ferrixel currently uses `jxl-oxide` for JPEG XL input, not this port
+Ferrisma currently uses `jxl-oxide` for JPEG XL input, not this port
 ([ADR-0025](../../docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)).
 
 A mechanical Rust port of the JPEG XL reference implementation, starting from

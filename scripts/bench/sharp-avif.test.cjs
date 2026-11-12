@@ -8,7 +8,7 @@ const { spawnSync } = require("node:child_process");
 const sharp = require("sharp");
 
 test("comparator extracts the requested upright pixels before resizing", async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ferrixel-sharp-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ferrisma-sharp-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const input = path.join(dir, "input.png");
   const output = path.join(dir, "output.png");

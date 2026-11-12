@@ -8,7 +8,7 @@ use crate::decoder::{
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
-use ferrixel_jxl_decoder::{ImageInfo, decode_into, inspect};
+use ferrisma_jxl_decoder::{ImageInfo, decode_into, inspect};
 
 pub(crate) struct JxlSource<'a> {
     bytes: &'a [u8],
@@ -64,16 +64,16 @@ impl<'a> JxlSource<'a> {
     }
 }
 
-fn map_error(error: ferrixel_jxl_decoder::Error) -> Error {
+fn map_error(error: ferrisma_jxl_decoder::Error) -> Error {
     match error {
-        ferrixel_jxl_decoder::Error::Unsupported => Error::UnsupportedCodecLayout,
-        ferrixel_jxl_decoder::Error::PixelLimit { pixels, limit } => {
+        ferrisma_jxl_decoder::Error::Unsupported => Error::UnsupportedCodecLayout,
+        ferrisma_jxl_decoder::Error::PixelLimit { pixels, limit } => {
             Error::InputPixelLimitExceeded { pixels, limit }
         }
-        ferrixel_jxl_decoder::Error::BufferSize | ferrixel_jxl_decoder::Error::Decode => {
+        ferrisma_jxl_decoder::Error::BufferSize | ferrisma_jxl_decoder::Error::Decode => {
             Error::DecodeFailed
         }
-        ferrixel_jxl_decoder::Error::Allocation => Error::AllocationFailed,
+        ferrisma_jxl_decoder::Error::Allocation => Error::AllocationFailed,
     }
 }
 

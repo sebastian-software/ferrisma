@@ -5,13 +5,13 @@
 ## Decisions
 
 1. **JPEG stays input-only.** `zune-jpeg` remains the `jpeg-read` adapter ([ADR-0012](../adr/0012-codec-source-contract.md)). No JPEG encoder is planned; the permissive candidate is recorded below for the day a consumer needs one.
-2. **WebP input and output come from a mechanical Rust port of libwebp.** Ferrixel takes no interim WebP dependency. The port is planned in [the libwebp port plan](2026-11-05-libwebp-port-plan.md) and recorded as the WebP target in [ADR-0018](../adr/0018-optional-codec-and-cms-dependencies.md).
+2. **WebP input and output come from a mechanical Rust port of libwebp.** Ferrisma takes no interim WebP dependency. The port is planned in [the libwebp port plan](2026-11-05-libwebp-port-plan.md) and recorded as the WebP target in [ADR-0018](../adr/0018-optional-codec-and-cms-dependencies.md).
 
 ## JPEG
 
 ### Decoding (kept)
 
-`zune-jpeg` 0.5 (MIT OR Apache-2.0 OR Zlib, Rust 1.77) stays. The `image` crate made it its default JPEG decoder in 0.25 with libjpeg-turbo-class speed; the jpegli-rs README lists its throughput at roughly eight times that of jpegli-rs's own decoder. Lossless JPEG (medical imaging) is not supported, which Ferrixel does not need.
+`zune-jpeg` 0.5 (MIT OR Apache-2.0 OR Zlib, Rust 1.77) stays. The `image` crate made it its default JPEG decoder in 0.25 with libjpeg-turbo-class speed; the jpegli-rs README lists its throughput at roughly eight times that of jpegli-rs's own decoder. Lossless JPEG (medical imaging) is not supported, which Ferrisma does not need.
 
 ### Encoding candidates (not adopted)
 
@@ -22,9 +22,9 @@
 | `zenjpeg` (formerly `jpegli-rs`) | 0.8.4 (2026-06-01) | AGPL-3.0-only OR commercial | `#![forbid(unsafe_code)]` | Encoder and decoder with jpegli-class compression (author-reported). Blocked by the license gate in ADR-0018; the decoder API is declared prerelease. |
 | `jpegli-rs` | 0.12.0 (2026-01-24) | AGPL-3.0-or-later | opt-in `unsafe_simd` | Being renamed to `zenjpeg`; same gate. |
 
-C and C++ encoders (mozjpeg, libjpeg-turbo, jpegli in libjxl's `lib/jpegli`, all permissive) would require FFI or a port. jpegli lives in the libjxl tree, so a Rust jpegli would belong to libjxl-rs, not to Ferrixel. Not pursued.
+C and C++ encoders (mozjpeg, libjpeg-turbo, jpegli in libjxl's `lib/jpegli`, all permissive) would require FFI or a port. jpegli lives in the libjxl tree, so a Rust jpegli would belong to libjxl-rs, not to Ferrisma. Not pursued.
 
-**Why no encoder now.** M1 ends in AVIF; the roadmap lists historical JPEG output tuning under "Not prioritized initially". If a consumer needs JPEG output, `mozjpeg-rs` is the candidate to run through the adapter checklist in [the encoder research](2026-10-31-encoder-and-cms-candidates.md); its one-MCU-row streaming encoder and pre-allocation limits match Ferrixel's memory contract on paper. The README states that not all code was manually reviewed.
+**Why no encoder now.** M1 ends in AVIF; the roadmap lists historical JPEG output tuning under "Not prioritized initially". If a consumer needs JPEG output, `mozjpeg-rs` is the candidate to run through the adapter checklist in [the encoder research](2026-10-31-encoder-and-cms-candidates.md); its one-MCU-row streaming encoder and pre-allocation limits match Ferrisma's memory contract on paper. The README states that not all code was manually reviewed.
 
 ## WebP
 

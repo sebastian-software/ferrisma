@@ -59,7 +59,7 @@ quality policy replaces it.
 ## Amendment log
 
 - 2026-11-12 — Added a predeclared, bounded encoder-anchor calibration policy.
-  The [fixed-anchor native run](https://github.com/sebastian-software/ferrixel/actions/runs/43090843352)
+  The [fixed-anchor native run](https://github.com/sebastian-software/ferrisma/actions/runs/43090843352)
   completed 6/9 x86-64 and 5/9 ARM64 cells; integer-quality gaps prevented the
   rest from satisfying the existing tolerance. The alternative of widening the
   tolerance is rejected. The search adds matching cost, retains unsuccessful

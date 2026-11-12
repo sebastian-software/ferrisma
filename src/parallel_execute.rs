@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use ferrixel_kernels::Kernels;
+use ferrisma_kernels::Kernels;
 
 use crate::decoder::{DecodeReport, DecodeSource, DecodedRow};
 use crate::error::Error;

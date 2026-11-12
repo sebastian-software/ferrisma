@@ -3,14 +3,14 @@
 ## 2026-11-11: Rust port versus zune before engine adoption
 
 This follow-up measures the actual workspace Rust port through its safe
-`Decoder`/`Scanlines` API before removing `zune-jpeg` from Ferrixel's runtime
+`Decoder`/`Scanlines` API before removing `zune-jpeg` from Ferrisma's runtime
 dependency graph. It is separate from the original C libjpeg-turbo comparison
 below. The two release harnesses decode a JPEG held in memory to full RGB8:
 the retained `scripts/bench/jpeg-decoders/zune` harness uses zune's full-frame
 API, while `examples/jpeg_decode_bench.rs` reads the port's scanlines into a
 full-frame `Vec`. Header/start, pixel decode, and output allocation are timed;
 file I/O is outside the timed region. No ICC transform or EXIF orientation is
-applied by either harness. The Ferrixel adapter instead emits a requested
+applied by either harness. The Ferrisma adapter instead emits a requested
 region from one budgeted row, so these RSS numbers are *not* adapter RSS.
 
 **Environment:** Apple M1 Ultra (`Mac13,2`), 64 GiB, macOS 27.0.1,
@@ -45,10 +45,10 @@ coefficients for progressive input.
 Reproduce from the repository root on the same host profile:
 
 ```sh
-scripts/bench/make-corpus.sh /private/tmp/ferrixel-jpeg-corpus
+scripts/bench/make-corpus.sh /private/tmp/ferrisma-jpeg-corpus
 cargo build --release --manifest-path scripts/bench/jpeg-decoders/zune/Cargo.toml
-cargo build -p ferrixel --release --features jpeg-read --example jpeg_decode_bench
-scripts/bench/jpeg-decoders/zune/target/release/ferrixel-jpeg-decoders-zune codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg 9
+cargo build -p ferrisma --release --features jpeg-read --example jpeg_decode_bench
+scripts/bench/jpeg-decoders/zune/target/release/ferrisma-jpeg-decoders-zune codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg 9
 target/release/examples/jpeg_decode_bench codecs/libavif-rs/upstream/libavif/tests/data/dog_exif_extended_xmp_icc.jpg 9
 ```
 
@@ -73,7 +73,7 @@ enabled here.
 | Machine | Apple M1 Ultra, macOS 27.0.1, shared; 1-minute load 3.8–4.3 during the runs |
 | libjpeg-turbo | 3.2.1 (`7b49937`), static, CMake Release, Apple clang 21, its own NEON SIMD; default `JDCT_ISLOW` and fancy upsampling |
 | jpegli | `google/jpegli` `031a007`, static `jpegli-static`, CMake Release, Apple clang 21, Highway NEON dispatch; `jpegli_*` API |
-| zune-jpeg | 0.5.15 with Ferrixel's features (`std`, `neon`, `x86`), rustc 1.100 nightly, release |
+| zune-jpeg | 0.5.15 with Ferrisma's features (`std`, `neon`, `x86`), rustc 1.100 nightly, release |
 | Mode | One thread (none of the three decoders threads), decode from memory to interleaved RGB, best and median of 7–60 runs |
 
 Quality is SSIMULACRA2 from `scripts/bench/quality-match`, with jpegli's `f32` output clamped to [0, 1] for scoring.
@@ -90,7 +90,7 @@ Best time in ms. The real photographs are the 12 Mpx phone photo (`dog.jpg`, 4:2
 | plasma 6000×4000 | **39.3** | 62.9 | 103.1 | 100.1 |
 | plasma 8000×6000 | **77.6** | 123.4 | 207.3 | 199.9 |
 
-- libjpeg-turbo is 1.4–1.6× faster than zune-jpeg, Ferrixel's current decoder, and 1.7–2.7× faster than jpegli.
+- libjpeg-turbo is 1.4–1.6× faster than zune-jpeg, Ferrisma's current decoder, and 1.7–2.7× faster than jpegli.
 - jpegli's `f32` output is as fast as its `u8` output, or slightly faster.
 
 ## Speed of scaled decode
@@ -153,7 +153,7 @@ This measures how much a decoder loses when it decodes at reduced scale and then
 | flower | 400×267 | 1/4 (567×378) | 1.4× | 91.27 | 92.01 |
 | flower | 1000×667 | 1/2 (1134×756) | 1.1× | 93.18 | 93.75 |
 
-- Under libvips' rule (at least a 2× residual), shrink-on-load scores 89.7–96.5 against Ferrixel's linear-light result.
+- Under libvips' rule (at least a 2× residual), shrink-on-load scores 89.7–96.5 against Ferrisma's linear-light result.
 - Even at a 5× residual, the photo loses about 5 points, so the loss is not only resolution.
 - Both decoders lose about the same amount.
 - This supports ADR-0023: shrink-on-load stays an explicit, reported quality policy and is never a silent optimization.
@@ -178,7 +178,7 @@ A decoder-only port keeps only part of either code base. For libjpeg-turbo, the 
 Not covered yet:
 - x86-64.
 - JPEGs from other encoders, such as phone hardware encoders, progressive files and restart intervals.
-- The effect of the decoder's quality difference after Ferrixel's downscale.
+- The effect of the decoder's quality difference after Ferrisma's downscale.
 - Conformance runs.
 - Memory.
 

@@ -11,7 +11,7 @@ not a complete inventory of today's executor capabilities.
 
 ## Input contract
 
-The decoder reports the profile and channel layout of the **samples delivered to Ferrixel**. A JPEG XL decoder that has already performed a CMS conversion must report its selected *output* profile, not reuse an original-file ICC tag. This same rule will apply to AVIF and future codecs.
+The decoder reports the profile and channel layout of the **samples delivered to Ferrisma**. A JPEG XL decoder that has already performed a CMS conversion must report its selected *output* profile, not reuse an original-file ICC tag. This same rule will apply to AVIF and future codecs.
 
 The codec-independent graph stores an `ImageSemantics` description. Cropping preserves it without pixel conversion. The inspection stage analyzes a borrowed view of raw ICC bytes and/or CICP code points; it does not allocate a pixel buffer, modify decoded samples or create a GPU resource.
 

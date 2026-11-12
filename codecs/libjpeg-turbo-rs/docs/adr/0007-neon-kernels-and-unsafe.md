@@ -129,7 +129,7 @@ call through an `unsafe fn` pointer, the only pointer type that a
 ## Alternatives considered
 
 - **A feature off by default.** Every user of the crate would have to opt in
-  to the speed that upstream's default build has, and Ferrixel would carry the
+  to the speed that upstream's default build has, and Ferrisma would carry the
   difference. The reference configuration stays one flag away.
 - **Unsafe kernels with raw pointers, as the C code has them.** The kernels
   would read like the C code, but every load and store would need its own

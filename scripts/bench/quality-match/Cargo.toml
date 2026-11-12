@@ -1,13 +1,13 @@
 [package]
-name = "ferrixel-quality-match"
+name = "ferrisma-quality-match"
 version = "0.0.0"
 edition = "2024"
 publish = false
 license = "MIT OR Apache-2.0"
 description = "M2 work package 0: common-reference SSIMULACRA2 scoring and quality bisection for comparator runs"
 
-# Standalone: not a member of the Ferrixel workspace, never shipped, and no
-# dependency on the `ferrixel` crate, so the reference shares none of its code.
+# Standalone: not a member of the Ferrisma workspace, never shipped, and no
+# dependency on the `ferrisma` crate, so the reference shares none of its code.
 [workspace]
 
 [dependencies]

@@ -14,7 +14,7 @@ use crate::memory::MemoryBudget;
 use crate::quality::Filter;
 use crate::quality_execute::execute_quality_srgb8;
 use crate::working_color::encode_linear_srgb8;
-use ferrixel_kernels::Kernels;
+use ferrisma_kernels::Kernels;
 
 const SRGB: [u8; 4] = [1, 13, 0, 1];
 const P3: [u8; 4] = [12, 13, 0, 1];
@@ -742,8 +742,8 @@ fn parallel_pipeline_is_byte_identical_to_the_sequential_executor() {
         (Some(Rect::new(3, 17, 70, 250).unwrap()), 33, 101),
     ];
     let mut levels = vec![Kernels::best()];
-    if Kernels::best().level() != ferrixel_kernels::IsaLevel::Scalar {
-        levels.push(Kernels::for_level(ferrixel_kernels::IsaLevel::Scalar).unwrap());
+    if Kernels::best().level() != ferrisma_kernels::IsaLevel::Scalar {
+        levels.push(Kernels::for_level(ferrisma_kernels::IsaLevel::Scalar).unwrap());
     }
     for (name, source) in tall_sources() {
         for filter in [Filter::Area, Filter::Lanczos3] {

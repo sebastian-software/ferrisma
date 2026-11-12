@@ -2,11 +2,11 @@
 //!
 //! Inputs are real photographs, decoded and area-downscaled to the width the
 //! benchmark harness uses (1600 pixels) in the sRGB domain. The resampling is
-//! only there to produce realistic encoder input; it is not Ferrixel's
+//! only there to produce realistic encoder input; it is not Ferrisma's
 //! color-managed path. Every encoded file is decoded with `avif-decode` and
 //! scored with SSIMULACRA2 against that input frame.
 //!
-//! Anchor: what Ferrixel ships today, `ravif` at speed 6, one thread,
+//! Anchor: what Ferrisma ships today, `ravif` at speed 6, one thread,
 //! quality 80. Every other variant is quality-matched: its quality knob is
 //! bisected until the SSIMULACRA2 score brackets the anchor's score, and
 //! bytes and time are interpolated at the anchor's score.
@@ -150,14 +150,14 @@ enum Chroma {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Variant {
-    /// `ravif` as Ferrixel calls it (4:4:4, 10-bit, BT.601 full range).
+    /// `ravif` as Ferrisma calls it (4:4:4, 10-bit, BT.601 full range).
     Ravif { speed: u8, threads: usize },
     /// `rav1e` driven directly with `ravif`'s speed tweaks, so that chroma
     /// subsampling and bit depth are the only differences.
     Direct { speed: u8, threads: usize, chroma: Chroma, depth: u8 },
     /// `rav1e` with its own preset plus the four still-image settings only
     /// (no `ravif` tweaks), and a tile count fixed by the image size instead
-    /// of the thread count: the candidate for Ferrixel's own sink.
+    /// of the thread count: the candidate for Ferrisma's own sink.
     Preset { speed: u8, threads: usize, chroma: Chroma, size_tiles: bool },
 }
 

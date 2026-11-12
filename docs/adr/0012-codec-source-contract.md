@@ -30,7 +30,7 @@ The graph currently carries sample layout, but **not** a complete graph-owned co
 
 The engine's RAII `MemoryBudget` covers allocations it creates. The original JPEG adapter charged a RGB8 frame; its replacement charges the scanline described in [the JPEG amendment below](#amendment-log). The default JPEG XL adapter charges one F32 row, while the opt-in workspace decoder charges the full F32 frame ([ADR-0032](0032-jpeg-xl-workspace-decoder-input.md)). The budget **does not cap or measure** codec-internal scratch, retained compressed data, metadata vectors, or whole-process RSS. A report with zero *known* full-frame buffers is not evidence that a codec created none internally.
 
-The Ferrixel crate continues to forbid `unsafe` locally. Do not equate that with a guarantee that all dependencies avoid unsafe code, or that arbitrary malicious inputs have been hardened and fuzzed.
+The Ferrisma crate continues to forbid `unsafe` locally. Do not equate that with a guarantee that all dependencies avoid unsafe code, or that arbitrary malicious inputs have been hardened and fuzzed.
 
 Both selected adapters are permissively licensed. Do not integrate AGPL/commercial AVIF libraries into the MIT OR Apache-2.0 package without an explicit license decision and dependency audit.
 

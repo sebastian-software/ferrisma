@@ -22,4 +22,4 @@ reports it instead of deciding alone ([ADR 0009](0009-work-packages-and-integrat
 - [0007: Wrap the decoder translation in a safe, validated Rust API](0007-safe-decoder-api.md)
 - [0008: Translate the SIMD variants in unsafe-allowed modules behind runtime selection](0008-simd-modules.md)
 - [0009: Deliver the port in work packages that an integrator merges one at a time](0009-work-packages-and-integration.md)
-- [0010: Promise Ferrixel a safe API, a stable toolchain, a pinned revision and stated semantics](0010-ferrixel-adoption.md)
+- [0010: Promise Ferrisma a safe API, a stable toolchain, a pinned revision and stated semantics](0010-ferrisma-adoption.md)

@@ -1,6 +1,6 @@
 # libjpeg-turbo-rs
 
-This decoder is a workspace member of the Ferrixel monorepo. Start with the
+This decoder is a workspace member of the Ferrisma monorepo. Start with the
 [project overview](../../README.md), [current status](../../docs/status.md), or
 [codec workspace guide](../../docs/codecs.md). Its local porting contracts
 and licenses still apply.
@@ -10,7 +10,7 @@ A mechanical, behavior-preserving Rust port of the JPEG decoder in
 descendant of the Independent JPEG Group's reference libjpeg. It is maintained
 alongside [libavif-rs](../libavif-rs),
 [libjxl-rs](../libjxl-rs) and
-[libwebp-rs](../libwebp-rs), as a candidate for Ferrixel JPEG input.
+[libwebp-rs](../libwebp-rs), as a candidate for Ferrisma JPEG input.
 
 **Port status:** the in-scope 8-bit decoder and Neon, SSE2 and AVX2 kernels
 are translated. The validation includes differential tests against the C
@@ -20,20 +20,20 @@ lossless JPEG, color quantization and RGB565 output; see
 [ADR 0001](docs/adr/0001-mechanical-port.md) and
 [ADR 0006](docs/adr/0006-safe-decoding-api.md).
 
-**Engine integration:** Ferrixel uses this port's safe scanline API for
+**Engine integration:** Ferrisma uses this port's safe scanline API for
 `jpeg-read`, including codec-level crop requests. Scaled decoding exists in
-the port but is not used by the Ferrixel adapter. See [ADR-0025](../../docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)
+the port but is not used by the Ferrisma adapter. See [ADR-0025](../../docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)
 and the [project status](../../docs/status.md) for adoption and open work.
 
 ## Why libjpeg-turbo, and why only the decoder
 
-Ferrixel selects codecs by reference lineage or proven conformance and measures
+Ferrisma selects codecs by reference lineage or proven conformance and measures
 alternatives before choosing
-([Ferrixel ADR-0025](https://github.com/sebastian-software/ferrixel/blob/main/docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)).
+([Ferrisma ADR-0025](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)).
 On an Apple M1 Ultra, single-threaded, libjpeg-turbo decoded a 12 Mpx photograph
 in 39 ms, against 54 ms for `zune-jpeg` and 67–70 ms for jpegli
-([measurement](https://github.com/sebastian-software/ferrixel/blob/main/docs/benchmarks/M2-jpeg-decoders.md)).
-Ferrixel treats JPEG as an input format. The port therefore covers decompression only ([ADR 0001](docs/adr/0001-mechanical-port.md)).
+([measurement](https://github.com/sebastian-software/ferrisma/blob/main/docs/benchmarks/M2-jpeg-decoders.md)).
+Ferrisma treats JPEG as an input format. The port therefore covers decompression only ([ADR 0001](docs/adr/0001-mechanical-port.md)).
 
 ## How it works
 

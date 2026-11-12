@@ -1,6 +1,6 @@
 # Contributing
 
-This package lives in the Ferrixel monorepo. See the [project overview](../../README.md),
+This package lives in the Ferrisma monorepo. See the [project overview](../../README.md),
 [current status](../../docs/status.md), and [codec workspace guide](../../docs/codecs.md).
 Commands below run from `codecs/libwebp-rs` unless stated otherwise.
 

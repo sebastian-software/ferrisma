@@ -1,10 +1,10 @@
 # libavif-rs
 
-This port is maintained in the [Ferrixel workspace](../../README.md). See the
+This port is maintained in the [Ferrisma workspace](../../README.md). See the
 [project status](../../docs/status.md) and [codec guide](../../docs/codecs.md)
 for integration and checks; local porting contracts and licenses still apply.
-The separate [ferrixel-libavif adapter](../../crates/ferrixel-libavif/README.md)
-connects its AOM encoder to Ferrixel; it is not Ferrixel's built-in AVIF backend.
+The separate [ferrisma-libavif adapter](../../crates/ferrisma-libavif/README.md)
+connects its AOM encoder to Ferrisma; it is not Ferrisma's built-in AVIF backend.
 
 A mechanical Rust port of [libavif](https://github.com/AOMediaCodec/libavif).
 
@@ -33,7 +33,7 @@ translated without VMAF tuning, so libvmaf is not a dependency ([ADR 0057](docs/
 Complete applies to the stated mechanical-port scope, not a stable safe Rust API
 or an unrestricted release approval. The selected portable library
 implementations and their default integration are delivered; open work is
-tracked in [GitHub issues](https://github.com/sebastian-software/ferrixel/issues)
+tracked in [GitHub issues](https://github.com/sebastian-software/ferrisma/issues)
 and decisions in [`docs/adr/`](docs/adr). The evidence in this table describes
 recorded runs for their stated configurations; it is not a release claim for
 the current workspace revision.

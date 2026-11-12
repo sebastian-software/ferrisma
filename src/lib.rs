@@ -1,6 +1,6 @@
-//! Ferrixel — an experimental, pipeline-first image processing engine.
+//! Ferrisma — an experimental, pipeline-first image processing engine.
 //!
-//! Ferrixel exposes an experimental pipeline and optional codec adapters for
+//! Ferrisma exposes an experimental pipeline and optional codec adapters for
 //! validating color, region planning, and bounded engine-managed memory.
 //! There is intentionally no stable public processing API.
 //!

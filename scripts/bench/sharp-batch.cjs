@@ -1,7 +1,7 @@
 "use strict";
 
 // Sharp side of the batch-throughput comparison (M2 work package 0,
-// docs/benchmarks/M2-sharp-comparison.md); the Ferrixel side is
+// docs/benchmarks/M2-sharp-comparison.md); the Ferrisma side is
 // `examples/batch.rs`. Reads every .jpg in DIR into memory, then transcodes
 // all of them buffer to buffer (auto-orient, Lanczos3 resize in linear light
 // to WIDTH x HEIGHT, sRGB, AVIF) with PARALLEL images in flight, and prints

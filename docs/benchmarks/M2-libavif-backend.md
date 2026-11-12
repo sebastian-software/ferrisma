@@ -1,18 +1,18 @@
 # M2 encoder comparison: `rav1e` and libavif-rs at matched quality
 
-**Status:** measurements for [ADR-0024](../adr/0024-pluggable-encoders-and-libavif-rs-backend.md) on one machine (Apple M1 Ultra, 20 logical cores, macOS 27.0.1), 2026-11-06. Ferrixel at the ADR-0024 commit, libavif-rs `f3b2981` (Rust AOM, no SIMD). Same corpus, references and target A as the [Sharp comparison](M2-sharp-comparison.md); read every number as "these four photographs, this machine".
+**Status:** measurements for [ADR-0024](../adr/0024-pluggable-encoders-and-libavif-rs-backend.md) on one machine (Apple M1 Ultra, 20 logical cores, macOS 27.0.1), 2026-11-06. Ferrisma at the ADR-0024 commit, libavif-rs `f3b2981` (Rust AOM, no SIMD). Same corpus, references and target A as the [Sharp comparison](M2-sharp-comparison.md); read every number as "these four photographs, this machine".
 
-**Current context:** The adapter and codec now share the Ferrixel workspace ([ADR-0026](../adr/0026-codecs-in-one-repository-and-workspace.md)); `rav1e` remains the default. The tables below describe the specific historical revisions and hosts, not current performance guarantees.
+**Current context:** The adapter and codec now share the Ferrisma workspace ([ADR-0026](../adr/0026-codecs-in-one-repository-and-workspace.md)); `rav1e` remains the default. The tables below describe the specific historical revisions and hosts, not current performance guarantees.
 
-**Update 2026-11-07:** libavif-rs `c9b583c` adds Neon kernels to its AOM ([retained Neon commit](https://github.com/sebastian-software/ferrixel/commit/c9b583ccd12aabcfe2bb1ad5ad2f8b3165ad9bc0)). The re-run is in [After Neon](#after-neon-libavif-rs-c9b583c); bytes are unchanged, time drops by a third to a half.
+**Update 2026-11-07:** libavif-rs `c9b583c` adds Neon kernels to its AOM ([retained Neon commit](https://github.com/sebastian-software/ferrisma/commit/c9b583ccd12aabcfe2bb1ad5ad2f8b3165ad9bc0)). The re-run is in [After Neon](#after-neon-libavif-rs-c9b583c); bytes are unchanged, time drops by a third to a half.
 
-**Update 2026-11-09:** libavif-rs `3df161d` adds SSE2, SSE4.1 and AVX2 kernels on x86-64 GNU Linux ([retained x86 SIMD commit](https://github.com/sebastian-software/ferrixel/commit/3df161d9715ac743a1c7305f9a37ffaa3ae51c05)). The first x86-64 run is in [x86-64 Linux with AVX2](#x86-64-linux-with-avx2-libavif-rs-3df161d): libavif-rs speed 6 is 41–47 % faster than `rav1e` with all cores and 5–13 % smaller.
+**Update 2026-11-09:** libavif-rs `3df161d` adds SSE2, SSE4.1 and AVX2 kernels on x86-64 GNU Linux ([retained x86 SIMD commit](https://github.com/sebastian-software/ferrisma/commit/3df161d9715ac743a1c7305f9a37ffaa3ae51c05)). The first x86-64 run is in [x86-64 Linux with AVX2](#x86-64-linux-with-avx2-libavif-rs-3df161d): libavif-rs speed 6 is 41–47 % faster than `rav1e` with all cores and 5–13 % smaller.
 
 ## Method
 
-- **Pipelines.** Both runs are Ferrixel end to end (decode, orientation, ICC, linear-light Lanczos3, sRGB8): `ferrixel` encodes with the built-in `rav1e` sink, `ferrixel-libavif` hands the same rows to libavif-rs. 4:4:4, 10 bits, CICP 1/13/6 for both.
+- **Pipelines.** Both runs are Ferrisma end to end (decode, orientation, ICC, linear-light Lanczos3, sRGB8): `ferrisma` encodes with the built-in `rav1e` sink, `ferrisma-libavif` hands the same rows to libavif-rs. 4:4:4, 10 bits, CICP 1/13/6 for both.
 - **Quality matching.** Target A is the SSIMULACRA2 score of `rav1e` at quality 80, speed 6, all cores. libavif-rs's integer quality is bisected to that score at speeds 6 and 7, all cores; bytes are interpolated between the bracketing settings (`scripts/bench/quality-match`). `rav1e` bytes are those of its quality-80 anchor.
-- **Timing.** Best of five runs of Ferrixel's own stage report, all cores (`--encoder-threads=0 --transform-threads=0`) and one thread, at the matched settings. The run waited for a 1-minute load average below 4 and the load during each image is recorded; two background services kept it between 3.9 and 5.9. One-thread libavif-rs rows use the all-cores matched quality, so their bytes differ slightly from the matched value.
+- **Timing.** Best of five runs of Ferrisma's own stage report, all cores (`--encoder-threads=0 --transform-threads=0`) and one thread, at the matched settings. The run waited for a 1-minute load average below 4 and the load during each image is recorded; two background services kept it between 3.9 and 5.9. One-thread libavif-rs rows use the all-cores matched quality, so their bytes differ slightly from the matched value.
 - **Reproduce:** `scripts/bench/compare-encoders.sh OUT_DIR` after `compare-sharp.py prepare` and `match` have written `OUT_DIR`.
 
 ## Bytes at equal SSIMULACRA2 (target A)
@@ -90,7 +90,7 @@ Re-run on 2026-11-07, same machine, corpus, references and method, with libavif-
 
 ## x86-64 Linux with AVX2 (libavif-rs `3df161d`)
 
-Run on 2026-11-09 on a GitHub-hosted `ubuntu-24.04` runner (AMD EPYC 7763, 4 vCPUs, AVX2 without AVX-512) by the manual workflow `m2-encoders-linux.yml` ([run 42586794419](https://github.com/sebastian-software/ferrixel/actions/runs/42586794419)), Ferrixel `a2dc650` with the adapter pinned to libavif-rs `3df161d`. Same corpus and method, with two differences: target A comes from `compare-encoders.sh anchor` (only `rav1e` at quality 80, not the full Sharp comparison), and the timing runs twice, with libavif-rs's run-time SIMD dispatch (AVX2 on this CPU) and with `AOM_SIMD_CAPS_MASK=0`, which selects its scalar AOM. `rav1e` uses its x86 assembly. The 1-minute load, which on four vCPUs includes the measurement's own all-cores runs, was between 1.8 and 3.8.
+Run on 2026-11-09 on a GitHub-hosted `ubuntu-24.04` runner (AMD EPYC 7763, 4 vCPUs, AVX2 without AVX-512) by the manual workflow `m2-encoders-linux.yml` ([run 42586794419](https://github.com/sebastian-software/ferrisma/actions/runs/42586794419)), Ferrisma `a2dc650` with the adapter pinned to libavif-rs `3df161d`. Same corpus and method, with two differences: target A comes from `compare-encoders.sh anchor` (only `rav1e` at quality 80, not the full Sharp comparison), and the timing runs twice, with libavif-rs's run-time SIMD dispatch (AVX2 on this CPU) and with `AOM_SIMD_CAPS_MASK=0`, which selects its scalar AOM. `rav1e` uses its x86 assembly. The 1-minute load, which on four vCPUs includes the measurement's own all-cores runs, was between 1.8 and 3.8.
 
 Target A, the matched qualities and the libavif-rs bytes reproduce the macOS run: the same target scores to the two decimals recorded there, the same qualities, and bytes within 0.3 %.
 
@@ -129,7 +129,7 @@ The `rav1e` column is from the AVX2 pass; its second pass differed by at most 8 
 1. **libavif-rs speed 6 is the smallest encoder measured**: 5–13 % below `rav1e` and at or below Sharp's libaom on all four photographs, at 8–32 % more end-to-end time than `rav1e` with all cores (dog 401 against 357 ms) and 21–50 % more with one thread.
 2. **libavif-rs speed 7 is faster than `rav1e` and smaller on three of four images**: 25–43 % less total time with all cores (dog 267 against 357 ms, flower 147 against 206 ms, Kodak 55–56 against 97 ms), 5–7 % fewer bytes on dog, flower and kodim03, 2.5 % more on kodim23.
 3. **The port had no SIMD yet** (see [After Neon](#after-neon-libavif-rs-c9b583c) for the re-run). Its single-thread speed 6 encode is 1.4–1.5× `rav1e`'s on the 1600-wide photos (3.7 against 2.7 s for the dog); the all-cores result comes from libavif's automatic tiling and AOM's threading. SIMD in libavif-rs's AOM would move every libavif-rs row.
-4. **Against Sharp end to end** (from the Sharp comparison, a different run and load): Sharp needed 679 ms in process for the dog and 314 ms for the flower, with matched files 3–5 % larger than libavif-rs speed 6; Ferrixel with libavif-rs speed 6 needs 401 and 271 ms. On the 512-wide Kodak images Sharp's 61–67 ms in process stays ahead of both Ferrixel encoders at speed 6.
+4. **Against Sharp end to end** (from the Sharp comparison, a different run and load): Sharp needed 679 ms in process for the dog and 314 ms for the flower, with matched files 3–5 % larger than libavif-rs speed 6; Ferrisma with libavif-rs speed 6 needs 401 and 271 ms. On the 512-wide Kodak images Sharp's 61–67 ms in process stays ahead of both Ferrisma encoders at speed 6.
 
 ## Limits
 

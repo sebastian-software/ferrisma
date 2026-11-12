@@ -8,7 +8,7 @@ exactness applies; this ADR records only what differs on x86.
 
 ADR 0056 added Neon kernels on macOS ARM64 and left GNU Linux on the generic
 headers "until AVX2 kernels exist". The translated Linux encoder is therefore
-entirely scalar. Ferrixel's consumer measurements show the Neon build of the
+entirely scalar. Ferrisma's consumer measurements show the Neon build of the
 same encoder 21 to 40 % faster than `rav1e`; on x86-64 that gap does not exist
 yet, and x86 servers are where Sharp-style pipelines usually run.
 

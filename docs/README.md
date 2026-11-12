@@ -1,7 +1,7 @@
 # Documentation guide
 
 Start with the [project overview](../README.md) and
-[current status](status.md). Ferrixel contains an experimental image engine,
+[current status](status.md). Ferrisma contains an experimental image engine,
 its CPU kernels and encoder adapter, and four codec ports in one workspace.
 This guide separates today's usable paths from design decisions and recorded
 experiments.
@@ -29,8 +29,8 @@ experiments.
 | WebP | [Port overview](../codecs/libwebp-rs/README.md) | [Porting rules](../codecs/libwebp-rs/docs/PORTING.md), [provenance](../codecs/libwebp-rs/docs/PROVENANCE.md), [ADRs](../codecs/libwebp-rs/docs/adr/README.md) |
 | JPEG XL | [Port overview](../codecs/libjxl-rs/README.md) | [Port status](../codecs/libjxl-rs/docs/PORT_STATUS.md), [porting rules](../codecs/libjxl-rs/docs/PORTING.md), [ADRs](../codecs/libjxl-rs/docs/adr/README.md) |
 | AVIF and its codec dependencies | [Port overview](../codecs/libavif-rs/README.md) | [Porting rules](../codecs/libavif-rs/docs/PORTING.md), [native licenses](../codecs/libavif-rs/docs/NATIVE-LICENSES.md), [ADRs](../codecs/libavif-rs/docs/adr/) |
-| Ferrixel's optional libavif encoder adapter | [Adapter guide](../crates/ferrixel-libavif/README.md) | [ADR-0024](adr/0024-pluggable-encoders-and-libavif-rs-backend.md) |
-| CPU kernels | [Source and API contracts](../crates/ferrixel-kernels/src/lib.rs) | [ADR-0020](adr/0020-kernel-crate-and-isa-dispatch.md) and [precision policy](adr/0021-working-precision-policy.md) |
+| Ferrisma's optional libavif encoder adapter | [Adapter guide](../crates/ferrisma-libavif/README.md) | [ADR-0024](adr/0024-pluggable-encoders-and-libavif-rs-backend.md) |
+| CPU kernels | [Source and API contracts](../crates/ferrisma-kernels/src/lib.rs) | [ADR-0020](adr/0020-kernel-crate-and-isa-dispatch.md) and [precision policy](adr/0021-working-precision-policy.md) |
 
 ## Decisions and historical evidence
 

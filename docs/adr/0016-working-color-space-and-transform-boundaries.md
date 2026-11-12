@@ -10,7 +10,7 @@
 
 The current scalar `LinearSrgb` reference handles only explicitly tagged SDR sRGB samples and straight alpha. The typed color-signalling contract now distinguishes P3, PQ/HLG and ICC evidence but deliberately cannot execute conversions. The next several milestones need a coherent place for profile transforms, higher-quality resampling and encoder input negotiation.
 
-Neither always-converting to RGBA8 nor making every codec emit a full-frame floating-point RGB buffer is consistent with Ferrixel's pipeline-first, memory-conscious design.
+Neither always-converting to RGBA8 nor making every codec emit a full-frame floating-point RGB buffer is consistent with Ferrisma's pipeline-first, memory-conscious design.
 
 ## Proposed decision
 

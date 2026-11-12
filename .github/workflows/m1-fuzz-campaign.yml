@@ -73,7 +73,7 @@ jobs:
         run: python3 fuzz/scripts/seed_campaign.py fuzz/corpus | tee fuzz/campaign/seeds.sha256
       - name: Verify and classify the starting seeds
         env:
-          FERRIXEL_FUZZ_SEEDS: ${{ github.workspace }}/fuzz/corpus
+          FERRISMA_FUZZ_SEEDS: ${{ github.workspace }}/fuzz/corpus
         run: |
           set -o pipefail
           cargo test --locked --manifest-path fuzz/Cargo.toml --lib ${{ matrix.features }} -- --nocapture 2>&1 | tee fuzz/campaign/seed-results.log

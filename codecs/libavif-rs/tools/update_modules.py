@@ -27,7 +27,7 @@ for unit in base:
         continue
     if Path(unit["rust"]).stem == "read":
         # Compose the unchanged generated reader with the handwritten,
-        # same-module sample access seam used by the Ferrixel input adapter.
+        # same-module sample access seam used by the Ferrisma input adapter.
         for name, condition in CONDITIONS.items():
             alternative = variants[name][unit["source"]]["rust"]
             lines += [f'#[cfg({condition})]', 'pub mod read {',

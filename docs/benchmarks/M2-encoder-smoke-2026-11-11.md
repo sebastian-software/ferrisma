@@ -6,10 +6,10 @@ or evidence of general Sharp parity. Rav1e remains the default.
 
 ## Source and workload
 
-[Run 43075697017](https://github.com/sebastian-software/ferrixel/actions/runs/43075697017)
+[Run 43075697017](https://github.com/sebastian-software/ferrisma/actions/runs/43075697017)
 measured revision `efe799b948022ca9ba0ce4bfd71ebdbe57a21704` using the
 [encoder comparison procedure](encoder-adoption.md). Both measured CLIs use
-Ferrixel's decode/transform path. The libavif compatibility CLI uses the shared
+Ferrisma's decode/transform path. The libavif compatibility CLI uses the shared
 workspace AOM writer; the normal facade selector was not timed separately.
 This snapshot includes the writer extraction and resource admission changes,
 and precedes the later worker-startup hardening.
@@ -58,7 +58,7 @@ sizes of actual equally scored files.
 
 ## AOM runtime SIMD mask zero
 
-The second timing pass sets `AOM_SIMD_CAPS_MASK=0`. Ferrixel still reports
+The second timing pass sets `AOM_SIMD_CAPS_MASK=0`. Ferrisma still reports
 its AVX-512 transform kernel in both passes. This is not a scalar-engine
 measurement and does not rule out compiler auto-vectorization. The six final
 bitstreams match the corresponding first-pass hashes; scores and sizes above
@@ -73,14 +73,14 @@ therefore apply to both passes.
 | 1 | AOM s6 | 6,140.3 | 6,143.3 | 137.8 |
 | 1 | AOM s7 | 3,138.0 | 3,157.4 | 137.4 |
 
-Retained CLI binary sizes were 18,271,848 bytes for `ferrixel` and 19,296,552
-for `ferrixel-libavif`. These are complete linked CLI builds, not isolated
+Retained CLI binary sizes were 18,271,848 bytes for `ferrisma` and 19,296,552
+for `ferrisma-libavif`. These are complete linked CLI builds, not isolated
 encoder-library sizes. The maximum sampled before/after load was about 3.27;
 the load gate does not establish physical-host isolation.
 
 ## Evidence and remaining gates
 
-The [artifact](https://github.com/sebastian-software/ferrixel/actions/runs/43075697017/artifacts/13881268261)
+The [artifact](https://github.com/sebastian-software/ferrisma/actions/runs/43075697017/artifacts/13881268261)
 has ZIP SHA-256 `8218efc7042dbc16dc0302d58d45e6d398a4ce84516e20e5041bba75f791403e`.
 It retains references, all matching outputs, 60 measured samples, 12 summaries,
 final outputs, source/build receipts and completion checksums. Independent
@@ -91,7 +91,7 @@ The original JPEG is reproducible from the pinned corpus fixture, but it and
 the encoder/scorer binaries are not included in the artifact; their recorded
 hashes alone do not make the archive a self-contained build reproduction.
 
-The earlier [run 43073087629](https://github.com/sebastian-software/ferrixel/actions/runs/43073087629)
+The earlier [run 43073087629](https://github.com/sebastian-software/ferrisma/actions/runs/43073087629)
 failed its quality gate at anchor quality 60: the nearest AOM integers were
 1.379–1.619 SSIMULACRA2 away. Its partial timing is invalid. The procedure
 now rejects such integer-quality gaps before warmup; the tolerance was not

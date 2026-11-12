@@ -15,12 +15,12 @@ at the right time and read the error code out of `cinfo.err`. ADR 0005 leaves
 two questions to work package 8: what the safe API re-exports, and the error
 manager it installs.
 
-Ferrixel's `jpeg-read` adapter (`src/codecs/jpeg.rs`) is the first user. It
+Ferrisma's `jpeg-read` adapter (`src/codecs/jpeg.rs`) is the first user. It
 reads the header, the ICC profile and the EXIF orientation when it opens a
 file, and later emits RGB rows of a region to a sink, with a memory budget.
 With `zune-jpeg` it decodes the full frame for every region. Shrink-on-load
 needs libjpeg's scaled IDCT
-([Ferrixel ADR-0023](https://github.com/sebastian-software/ferrixel/blob/main/docs/adr/0023-decode-side-work-and-scaling-policy.md)).
+([Ferrisma ADR-0023](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0023-decode-side-work-and-scaling-policy.md)).
 
 ## Decision
 
@@ -71,7 +71,7 @@ needs libjpeg's scaled IDCT
 
 ## Consequences
 
-- Ferrixel's adapter can emit rows as they are decoded, skip the rows above
+- Ferrisma's adapter can emit rows as they are decoded, skip the rows above
   a region, crop to its iMCU-aligned columns and request a scaled decode,
   without `unsafe` and without the translated API.
 - Every call of the safe API is an upstream call in upstream's order, so the
@@ -92,17 +92,17 @@ needs libjpeg's scaled IDCT
 ## Alternatives considered
 
 - **A separate crate for the safe API.** Not needed: the safe API adds no
-  `unsafe` and no dependency, and one crate keeps Ferrixel's dependency
+  `unsafe` and no dependency, and one crate keeps Ferrisma's dependency
   simple. A separate crate stays the place for a test C interface
   ([ADR 0003](0003-toolchain-and-unsafe-policy.md)).
 - **A one-call full-frame decode.** It would materialize the whole image,
-  which is what Ferrixel wants to avoid. A caller can build it from
+  which is what Ferrisma wants to avoid. A caller can build it from
   `Scanlines`.
 - **A row iterator.** An iterator would allocate a row per item or lend rows
   with lifetimes tied to the decoder. A caller buffer of whole rows maps
   directly onto `jpeg_read_scanlines`.
 - **Parsing the EXIF orientation here.** It is not upstream code, and
-  Ferrixel already has a parser for it.
+  Ferrisma already has a parser for it.
 
 ## Validation
 
@@ -111,13 +111,13 @@ oracle's WP6 probe, with the same options and plan, and compares output
 dimensions, crops, a hash of every row, warnings and errors. It compares
 metadata with the WP2 probe, and the memory limit with the oracle's
 `JPEGMEM`. The record is falsified if the safe API decodes any in-scope input
-differently from the oracle under the same parameters, or if Ferrixel's
+differently from the oracle under the same parameters, or if Ferrisma's
 adapter needs a libjpeg call that the safe API does not offer.
 
 ## Review when
 
-- Ferrixel's adapter adopts the decoder
-  ([ferrixel#14](https://github.com/sebastian-software/ferrixel/issues/14))
+- Ferrisma's adapter adopts the decoder
+  ([ferrisma#14](https://github.com/sebastian-software/ferrisma/issues/14))
   and needs a call the API lacks.
 - A caller needs `Send` decoders or a suspending source.
 - The SIMD packages add options, for example a choice of kernels.

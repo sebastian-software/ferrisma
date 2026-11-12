@@ -51,20 +51,20 @@ impl Selection {
             self.engine = true;
             self.adapter = true;
             self.workspace = true;
-        } else if path.starts_with("crates/ferrixel-kernels/") {
+        } else if path.starts_with("crates/ferrisma-kernels/") {
             self.kernels = true;
             self.engine = true;
             self.adapter = true;
-        } else if path.starts_with("crates/ferrixel-libavif/") {
+        } else if path.starts_with("crates/ferrisma-libavif/") {
             self.adapter = true;
-        } else if path.starts_with("crates/ferrixel-avif-read/")
-            || path.starts_with("crates/ferrixel-avif-write/")
+        } else if path.starts_with("crates/ferrisma-avif-read/")
+            || path.starts_with("crates/ferrisma-avif-write/")
         {
             self.avif = true;
             self.engine = true;
             self.adapter = true;
             self.workspace = true;
-        } else if path.starts_with("crates/ferrixel-jxl-decoder/") {
+        } else if path.starts_with("crates/ferrisma-jxl-decoder/") {
             self.jxl = true;
             self.engine = true;
             self.workspace = true;
@@ -472,7 +472,7 @@ mod tests {
         s.classify("homepage/pnpm-lock.yaml");
         s.classify(".github/workflows/homepage.yml");
         assert_eq!(s, Selection::default());
-        s.classify("crates/ferrixel-kernels/src/lib.rs");
+        s.classify("crates/ferrisma-kernels/src/lib.rs");
         assert!(s.kernels && s.engine && s.adapter && !s.jpeg);
         s.classify("codecs/libavif-rs/src/lib.rs");
         assert!(s.avif && s.adapter);
@@ -500,8 +500,8 @@ mod tests {
     #[test]
     fn avif_boundaries_and_port_changes_select_native_consumers() {
         for path in [
-            "crates/ferrixel-avif-read/src/lib.rs",
-            "crates/ferrixel-avif-write/src/lib.rs",
+            "crates/ferrisma-avif-read/src/lib.rs",
+            "crates/ferrisma-avif-write/src/lib.rs",
             "codecs/libavif-rs/src/read_sample_access.rs",
         ] {
             let mut selection = Selection::default();
@@ -513,7 +513,7 @@ mod tests {
     #[test]
     fn jxl_adapter_changes_select_engine_and_jxl() {
         for path in [
-            "crates/ferrixel-jxl-decoder/src/lib.rs",
+            "crates/ferrisma-jxl-decoder/src/lib.rs",
             "codecs/libjxl-rs/src/lib.rs",
         ] {
             let mut selection = Selection::default();
@@ -524,7 +524,7 @@ mod tests {
     }
     #[test]
     fn git_diff_selects_both_sides_of_rename_and_deletion() {
-        let dir = std::env::temp_dir().join(format!("ferrixel-xtask-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("ferrisma-xtask-test-{}", std::process::id()));
         fs::create_dir_all(dir.join("codecs/libjpeg-turbo-rs")).unwrap();
         fs::create_dir_all(dir.join("codecs/libjxl-rs")).unwrap();
         let git = |args: &[&str]| {

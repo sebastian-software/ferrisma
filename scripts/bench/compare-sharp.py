@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Quality-matched Ferrixel versus Sharp comparison (M2 work package 0).
+"""Quality-matched Ferrisma versus Sharp comparison (M2 work package 0).
 
 Usage: python3 -I scripts/bench/compare-sharp.py PHASE OUT_DIR
 PHASE is prepare, ceiling, match, time, batch, stages, sweepmatch, sweep,
@@ -10,7 +10,7 @@ Environment:
   BENCH_SHARP_NODE_MODULES  node_modules directory containing sharp (required)
   COMPARE_LIBAVIF_DATA      libavif tests/data (default: imported local fixtures)
   COMPARE_LIBJXL_DATA       libjxl decode-test (default: imported local fixtures)
-  COMPARE_REPO              Ferrixel checkout to build and measure (default:
+  COMPARE_REPO              Ferrisma checkout to build and measure (default:
                             the checkout containing this script)
   COMPARE_RUNS              timed runs per measurement (default 10)
   COMPARE_MAX_LOAD          wait until the 1-minute load average is below
@@ -38,7 +38,7 @@ import time
 from pathlib import Path
 
 BENCH = Path(__file__).resolve().parent
-# The Ferrixel checkout whose CLI is measured; defaults to this script's.
+# The Ferrisma checkout whose CLI is measured; defaults to this script's.
 REPO = Path(os.environ.get("COMPARE_REPO", BENCH.parents[1])).resolve()
 
 
@@ -51,16 +51,16 @@ TARGET_PATH = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "target"))
 TARGET = resolve_target(TARGET_PATH, REPO)
 if "CARGO_TARGET_DIR" in os.environ:
     os.environ["CARGO_TARGET_DIR"] = str(TARGET)
-FERRIXEL = TARGET / "release" / "ferrixel"
+FERRISMA = TARGET / "release" / "ferrisma"
 BATCH = TARGET / "release" / "examples" / "batch"
 QM_DIR = BENCH / "quality-match"
 QM_TARGET = TARGET if "CARGO_TARGET_DIR" in os.environ else QM_DIR / "target"
-QM = QM_TARGET / "release" / "ferrixel-quality-match"
-LIBAVIF_ENCODER = TARGET / "release" / "ferrixel-libavif"
+QM = QM_TARGET / "release" / "ferrisma-quality-match"
+LIBAVIF_ENCODER = TARGET / "release" / "ferrisma-libavif"
 SHARP_AVIF = BENCH / "sharp-avif.cjs"
 SHARP_BATCH = BENCH / "sharp-batch.cjs"
 
-# name, source file in the corpus, Ferrixel profile flag, Sharp ICC mode,
+# name, source file in the corpus, Ferrisma profile flag, Sharp ICC mode,
 # output width, height, EXIF orientation (for the zune-jpeg reference).
 IMAGES = [
     ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6),
@@ -112,8 +112,8 @@ def wait_for_idle():
     return load
 
 
-def ferrixel_cmd(src, out, w, h, flag, quality, threads, chroma="444", speed=6, crop=None):
-    cmd = [FERRIXEL, src, out, w, h, flag, f"--quality={quality}",
+def ferrisma_cmd(src, out, w, h, flag, quality, threads, chroma="444", speed=6, crop=None):
+    cmd = [FERRISMA, src, out, w, h, flag, f"--quality={quality}",
            f"--encoder-threads={threads}", f"--transform-threads={threads}", f"--chroma={chroma}", f"--speed={speed}"]
     return [*cmd, f"--crop={crop}"] if crop else cmd
 
@@ -125,16 +125,16 @@ def sharp_cmd(src, out, w, h, icc, quality, threads, chroma="444", extra=()):
 
 # Matched configurations: tool, label, threads (0 = all cores), chroma.
 CONFIGS = [
-    ("ferrixel", "ferrixel-all-444", 0, "444"),
+    ("ferrisma", "ferrisma-all-444", 0, "444"),
     ("sharp", "sharp-all-444", 0, "444"),
-    ("ferrixel", "ferrixel-one-444", 1, "444"),
+    ("ferrisma", "ferrisma-one-444", 1, "444"),
     ("sharp", "sharp-one-444", 1, "444"),
-    ("ferrixel", "ferrixel-all-420", 0, "420"),
+    ("ferrisma", "ferrisma-all-420", 0, "420"),
     ("sharp", "sharp-all-420", 0, "420"),
 ]
 
 if os.environ.get("COMPARE_CONFIGS", "all") == "all-444":
-    CONFIGS = [config for config in CONFIGS if config[1] in ("ferrixel-all-444", "sharp-all-444")]
+    CONFIGS = [config for config in CONFIGS if config[1] in ("ferrisma-all-444", "sharp-all-444")]
 elif os.environ.get("COMPARE_CONFIGS", "all") != "all":
     sys.exit("COMPARE_CONFIGS must be all or all-444")
 TARGETS = os.environ.get("COMPARE_TARGETS", "AB")
@@ -145,8 +145,8 @@ if TARGETS not in ("A", "AB"):
 def config_cmd(tool, threads, chroma, image, corpus, quality, out):
     name, file, flag, icc, w, h, _ = image
     crop = LARGE_CROPS.get(name)
-    if tool == "ferrixel":
-        cmd = ferrixel_cmd(corpus / file, out, w, h, flag, quality, threads, chroma, crop=crop)
+    if tool == "ferrisma":
+        cmd = ferrisma_cmd(corpus / file, out, w, h, flag, quality, threads, chroma, crop=crop)
         return [*cmd, "--budget-mb=2048"] if name.startswith("beach") or name in ("mountain", "deer", "elcito") else cmd
     return sharp_cmd(corpus / file, out, w, h, icc, quality, threads, chroma,
                      extra=(f"crop={crop}",) if crop else ())
@@ -180,8 +180,8 @@ def prepare(out):
     jxl = Path(os.environ.get("COMPARE_LIBJXL_DATA", REPO / "codecs/libjxl-rs/tests/data/decode-test"))
     verify_corpus_file(avif / "dog_exif_extended_xmp_icc.jpg", "dog")
     verify_corpus_file(jxl / "flower.png.im_q85_420.jpg", "flower")
-    print("building ferrixel CLI, batch example and quality-match", file=sys.stderr)
-    build = ["cargo", "build", "--release", "--features", "cli", "--bin", "ferrixel"]
+    print("building ferrisma CLI, batch example and quality-match", file=sys.stderr)
+    build = ["cargo", "build", "--release", "--features", "cli", "--bin", "ferrisma"]
     if IMAGE_SET == "default":
         build += ["--example", "batch"]
     run(build, capture=False)
@@ -199,7 +199,7 @@ def prepare(out):
              '.toFile(process.argv[2])', corpus / f"{kodak}-y4m.png", corpus / f"{kodak}.jpg"], env=env)
     for name, file, _, icc, w, h, orientation in IMAGES:
         # Main reference: libjpeg-turbo-family decode (Sharp's mozjpeg),
-        # oriented, sRGB. Second reference: zune-jpeg (Ferrixel's decoder).
+        # oriented, sRGB. Second reference: zune-jpeg (Ferrisma's decoder).
         src = refs / f"{name}-src.png"
         run(["node", "-e", 'const [i,o,icc]=process.argv.slice(1);require("sharp")(i,{ignoreIcc:icc==="ignore"})'
              '.autoOrient().toColourspace("srgb").png({compressionLevel:1}).toFile(o)', corpus / file, src, icc], env=env)
@@ -245,12 +245,12 @@ def prepare_large(corpus, refs):
     if not source_dir:
         sys.exit("set COMPARE_LARGE_CORPUS to the directory containing the verified large photo")
     is_beach = IMAGE_SET.startswith("beach")
-    filename = "ferrixel-beach-volleyball-53458847235.jpg" if is_beach else f"ferrixel-{IMAGE_SET}.jpg"
+    filename = "ferrisma-beach-volleyball-53458847235.jpg" if is_beach else f"ferrisma-{IMAGE_SET}.jpg"
     image_id = "beach-volleyball-sunset" if is_beach else IMAGE_SET
     manifest = "corpus-large.json" if is_beach else "corpus-photos.json"
     source = Path(source_dir) / filename
     verify_corpus_file(source, image_id, manifest)
-    run(["cargo", "build", "--release", "--features", "cli", "--bin", "ferrixel"], capture=False)
+    run(["cargo", "build", "--release", "--features", "cli", "--bin", "ferrisma"], capture=False)
     run(["cargo", "build", "--release", "--manifest-path", QM_DIR / "Cargo.toml"], capture=False)
     input_file = corpus / IMAGES[0][1]
     input_file.write_bytes(source.read_bytes())
@@ -294,8 +294,8 @@ def ceiling(out):
         f = work / f"{name}-sharp-q100.avif"
         run(sharp_cmd(corpus / file, f, w, h, icc, 100, 0), env=env)
         files.append(f)
-        f = work / f"{name}-ferrixel-q100.avif"
-        run(ferrixel_cmd(corpus / file, f, w, h, flag, 100, 0))
+        f = work / f"{name}-ferrisma-q100.avif"
+        run(ferrisma_cmd(corpus / file, f, w, h, flag, 100, 0))
         files.append(f)
         main = score(refs / f"{name}.ref", [refs / f"{name}-zune.ref", *files])
         zune = score(refs / f"{name}-zune.ref", files)
@@ -318,7 +318,7 @@ def match_fingerprint(out):
     return {
         "image_set": IMAGE_SET, "inputs": {image[0]: sha256(corpus / image[1]) for image in IMAGES},
         "references": {image[0]: sha256(refs / f"{image[0]}.ref") for image in IMAGES},
-        "ferrixel_sha256": sha256(FERRIXEL), "quality_match_sha256": sha256(QM),
+        "ferrisma_sha256": sha256(FERRISMA), "quality_match_sha256": sha256(QM),
         "sharp_script_sha256": sha256(SHARP_AVIF), "harness_sha256": sha256(Path(__file__)),
         "sharp_versions": json.loads(run(["node", "-e", "console.log(JSON.stringify(require('sharp').versions))"], env=node_env())),
     }
@@ -337,14 +337,14 @@ def match(out):
     for image in IMAGES:
         name, _, _, _, _, _, _ = image
         ref = refs / f"{name}.ref"
-        # A: Ferrixel's benchmark setting (quality 80, speed 6, all cores).
+        # A: Ferrisma's benchmark setting (quality 80, speed 6, all cores).
         # B: Sharp's defaults (quality 50, effort 4, all cores).
-        a = work / f"{name}-anchor-ferrixel-q80.avif"
-        run(config_cmd("ferrixel", 0, "444", image, corpus, 80, a))
+        a = work / f"{name}-anchor-ferrisma-q80.avif"
+        run(config_cmd("ferrisma", 0, "444", image, corpus, 80, a))
         b = work / f"{name}-anchor-sharp-q50.avif"
         run(config_cmd("sharp", 0, "444", image, corpus, 50, b), env=env)
         (_, a_bytes, a_score), (_, b_bytes, b_score) = score(ref, [a, b])
-        anchors += [f"{name}\tferrixel-q80\t{a_bytes}\t{a_score:.3f}", f"{name}\tsharp-q50\t{b_bytes}\t{b_score:.3f}"]
+        anchors += [f"{name}\tferrisma-q80\t{a_bytes}\t{a_score:.3f}", f"{name}\tsharp-q50\t{b_bytes}\t{b_score:.3f}"]
         for target_name, target in (("A", a_score), ("B", b_score))[:len(TARGETS)]:
             for tool, label, threads, chroma in CONFIGS:
                 print(f"{name} target {target_name} {target:.3f} {label}", file=sys.stderr)
@@ -478,7 +478,7 @@ def timing(out):
         "node": run(["node", "--version"]).strip(),
         "hyperfine": run(["hyperfine", "--version"]).strip(),
         "sharp_versions": json.loads(run(["node", "-e", "console.log(JSON.stringify(require('sharp').versions))"], env=node_env())),
-        "ferrixel_sha256": sha256(FERRIXEL), "quality_match_sha256": sha256(QM),
+        "ferrisma_sha256": sha256(FERRISMA), "quality_match_sha256": sha256(QM),
         "warmup_runs": 1, "runs": int(runs), "order": "fixed, as listed in CONFIGS",
         "peak_rss": "separate process run", "p95": "nearest rank",
     }
@@ -536,15 +536,15 @@ def batch(out):
     w, h = SMALL
     env = node_env()
     lines = []
-    # Target: Ferrixel's batch setting (quality 80, one thread per image, as
+    # Target: Ferrisma's batch setting (quality 80, one thread per image, as
     # Engine::transcode_batch runs it), mean score over the set.
-    fdir = work / "ferrixel-q80"
+    fdir = work / "ferrisma-q80"
     fdir.mkdir(exist_ok=True)
     for jpg in sorted(small.glob("*.jpg")):
-        run(ferrixel_cmd(jpg, fdir / (jpg.stem + ".avif"), w, h, "--assume-srgb", 80, 1))
+        run(ferrisma_cmd(jpg, fdir / (jpg.stem + ".avif"), w, h, "--assume-srgb", 80, 1))
     fs = small_scores(refs, fdir)
     target = statistics.mean(s for _, s in fs)
-    lines.append(f"ferrixel q80: images {len(fs)} mean score {target:.3f} total bytes {sum(b for b, _ in fs)}")
+    lines.append(f"ferrisma q80: images {len(fs)} mean score {target:.3f} total bytes {sum(b for b, _ in fs)}")
     # Bisect Sharp's quality on the mean score (one thread per image, 20 in
     # flight; the defaults are scored at the matched quality too).
     def sharp_mean(quality, parallel=20, threads=1):
@@ -574,7 +574,7 @@ def batch(out):
     # Throughput, three runs each, after the load check.
     runs = 3
     for label, cmd, nenv in [
-        ("ferrixel Engine (20 workers) and sequential", [BATCH, small, w, 0, h], {}),
+        ("ferrisma Engine (20 workers) and sequential", [BATCH, small, w, 0, h], {}),
         ("sharp defaults: 4 in flight, all threads", ["node", SHARP_BATCH, small, w, h, f"quality={quality}"], env),
         ("sharp 20 in flight, 1 thread each", ["node", SHARP_BATCH, small, w, h, f"quality={quality}",
                                                 "parallel=20", "threads=1"], env),
@@ -596,7 +596,7 @@ def batch(out):
 
 
 def stages(out):
-    """Ferrixel's own stage report at the matched setting (target A)."""
+    """Ferrisma's own stage report at the matched setting (target A)."""
     corpus, work = out / "corpus", out / "stages"
     work.mkdir(parents=True, exist_ok=True)
     runs = int(os.environ.get("COMPARE_RUNS", "10"))
@@ -605,7 +605,7 @@ def stages(out):
     lines = ["image\tconfig\tload_before\tload_after\t" + "\t".join(k.replace("_us", "_ms") for k in keys)]
     for image in IMAGES:
         for tool, label, threads, chroma in CONFIGS:
-            if tool != "ferrixel":
+            if tool != "ferrisma":
                 continue
             cmd = config_cmd(tool, threads, chroma, image, corpus, matched[(image[0], label)]["q_nearest"],
                              work / f"{image[0]}-{label}.avif")
@@ -626,13 +626,13 @@ def stages(out):
 # Encoder presets around each tool's default (rav1e speed 6, aom effort 4),
 # all cores, 4:4:4, matched to target A: the bytes-versus-time trade-off.
 SWEEP_IMAGES = ("flower", "kodim23")
-SWEEP = [("ferrixel", 4), ("ferrixel", 8), ("ferrixel", 10), ("sharp", 0), ("sharp", 2), ("sharp", 6)]
+SWEEP = [("ferrisma", 4), ("ferrisma", 8), ("ferrisma", 10), ("sharp", 0), ("sharp", 2), ("sharp", 6)]
 
 
 def sweep_cmd(image, corpus, tool, preset, quality, path):
     name, file, flag, icc, w, h, _ = image
-    if tool == "ferrixel":
-        return ferrixel_cmd(corpus / file, path, w, h, flag, quality, 0, speed=preset)
+    if tool == "ferrisma":
+        return ferrisma_cmd(corpus / file, path, w, h, flag, quality, 0, speed=preset)
     return sharp_cmd(corpus / file, path, w, h, icc, quality, 0, extra=(f"effort={preset}",))
 
 
@@ -640,7 +640,7 @@ def sweep_match(out):
     """Bytes and scores of the preset sweep (no timing; safe under load)."""
     corpus, refs, work = out / "corpus", out / "refs", out / "sweep"
     work.mkdir(parents=True, exist_ok=True)
-    targets = {r["image"]: float(r["score"]) for r in read_tsv(out / "anchors.tsv") if r["anchor"] == "ferrixel-q80"}
+    targets = {r["image"]: float(r["score"]) for r in read_tsv(out / "anchors.tsv") if r["anchor"] == "ferrisma-q80"}
     rows = ["image\ttool\tpreset\tstatus\ttarget_score\tq_below\tscore_below\tbytes_below\tq_above\tscore_above"
             "\tbytes_above\tbytes_at_target\tq_nearest\tscore_nearest\tencodes"]
     env = node_env()
@@ -741,9 +741,9 @@ def encoder_build():
     """Build all measured executables from one unchanged source receipt."""
     before = encoder_source_receipt()
     commands = [
-        ("ferrixel", FERRIXEL, ["cargo", "build", "--locked", "--release", "-p", "ferrixel", "--features", "cli", "--bin", "ferrixel"]),
-        ("ferrixel-libavif", LIBAVIF_ENCODER, ["cargo", "build", "--locked", "--release", "-p", "ferrixel-libavif", "--features", "cli", "--bin", "ferrixel-libavif"]),
-        ("ferrixel-quality-match", QM, ["cargo", "build", "--locked", "--release", "--manifest-path", QM_DIR / "Cargo.toml"]),
+        ("ferrisma", FERRISMA, ["cargo", "build", "--locked", "--release", "-p", "ferrisma", "--features", "cli", "--bin", "ferrisma"]),
+        ("ferrisma-libavif", LIBAVIF_ENCODER, ["cargo", "build", "--locked", "--release", "-p", "ferrisma-libavif", "--features", "cli", "--bin", "ferrisma-libavif"]),
+        ("ferrisma-quality-match", QM, ["cargo", "build", "--locked", "--release", "--manifest-path", QM_DIR / "Cargo.toml"]),
     ]
     for name, expected, command in commands:
         messages = run([*command, "--message-format=json-render-diagnostics"]).splitlines()
@@ -789,7 +789,7 @@ def encoder_match(out):
         for threads in (0, 1):
             for level in encoder_levels():
                 anchor = work / f"{name}-q{level}-t{threads}-rav1e.avif"
-                anchor_cmd = encoder_cmd(image, out / "corpus", FERRIXEL, level, 6, threads, anchor)
+                anchor_cmd = encoder_cmd(image, out / "corpus", FERRISMA, level, 6, threads, anchor)
                 run(anchor_cmd)
                 (_, size, target), = score(ref, [anchor])
                 for speed in (6, 7):
@@ -869,7 +869,7 @@ def encoder_sample(cmd):
     if sys.platform == "darwin":
         timed = ["/usr/bin/time", "-l", *map(str, cmd)]
     else:
-        timed = ["/usr/bin/time", "-f", "FERRIXEL_RSS_KIB=%M", *map(str, cmd)]
+        timed = ["/usr/bin/time", "-f", "FERRISMA_RSS_KIB=%M", *map(str, cmd)]
     start = time.monotonic()
     result = subprocess.run(timed, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     wall = time.monotonic() - start
@@ -878,7 +878,7 @@ def encoder_sample(cmd):
                        if "maximum resident set size" in line)) // 1024
     else:
         rss = int(next(line.split("=", 1)[1] for line in result.stderr.splitlines()
-                       if line.startswith("FERRIXEL_RSS_KIB=")))
+                       if line.startswith("FERRISMA_RSS_KIB=")))
     report = next(line for line in result.stdout.splitlines() if line.startswith("report:"))
     fields = dict(field.split("=", 1) for field in report.split()[1:])
     if wall <= 0 or rss <= 0:
@@ -934,7 +934,7 @@ def encoder_timing(out):
              "machine": platform.machine(), "rustc": run(["rustc", "--version", "--verbose"]).strip(),
              "cargo": run(["cargo", "--version"]).strip(), "node": run(["node", "--version"]).strip(),
              "hardware": encoder_hardware(),
-             "binary_sizes": {"rav1e": FERRIXEL.stat().st_size, "libavif": LIBAVIF_ENCODER.stat().st_size},
+             "binary_sizes": {"rav1e": FERRISMA.stat().st_size, "libavif": LIBAVIF_ENCODER.stat().st_size},
              "env": {key: os.environ.get(key) for key in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "AOM_SIMD_CAPS_MASK", "CARGO_TARGET_DIR")},
              "match_aom_simd_caps_mask": matching.get("match_aom_simd_caps_mask"),
              "runs": runs, "warmups": 1, "order": "alternate candidate order per sample"}
@@ -945,7 +945,7 @@ def encoder_timing(out):
         name = image[0]
         for threads in (0, 1):
             for level in encoder_levels():
-                lanes = [("rav1e", FERRIXEL, level, 6, None)]
+                lanes = [("rav1e", FERRISMA, level, 6, None)]
                 for speed in (6, 7):
                     row = matches[(name, level, threads, speed)]
                     lanes.append((f"aom-s{speed}", LIBAVIF_ENCODER, row["q_nearest"], speed, row))

@@ -4,7 +4,7 @@
 
 ## Why two resize domains?
 
-Ferrixel's previous `EncodedSamples` bilinear reference filters the numbers delivered by the decoder. This is useful as a controlled baseline but produces a dark midpoint between black and white in gamma-encoded sRGB. A 50/50 average between sRGB 0 and 255 gives 128 in encoded space; decoded to linear light, averaged and encoded again, it gives **188**.
+Ferrisma's previous `EncodedSamples` bilinear reference filters the numbers delivered by the decoder. This is useful as a controlled baseline but produces a dark midpoint between black and white in gamma-encoded sRGB. A 50/50 average between sRGB 0 and 255 gives 128 in encoded space; decoded to linear light, averaged and encoded again, it gives **188**.
 
 `LinearSrgb` is a distinct semantic graph operation. It uses the same region- and row-based executor but requires exact input color and alpha semantics before a source can be bound. Its refusal of unsupported color is intentional and testable.
 

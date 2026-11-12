@@ -6,6 +6,7 @@
 *.heaptrack
 *.dSYM/
 .DS_Store
+/.pnpm-store/
 
 # Ardo site and routes generated from canonical repository Markdown.
 /homepage/node_modules/

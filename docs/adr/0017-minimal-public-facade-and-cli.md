@@ -9,7 +9,7 @@
 
 ## Context
 
-ADR-0008 deliberately kept a public API and CLI out of the first vertical slice so that execution contracts were validated before interface work. M1 work package 8 requires a small Rust API and CLI that exercise the *same* core as the tests (`input → crop → resize → AVIF`). PR #11 added `ferrixel::pipeline` and `src/bin/ferrixel.rs` without recording that decision. This ADR records the boundary that now exists and what it deliberately does not promise.
+ADR-0008 deliberately kept a public API and CLI out of the first vertical slice so that execution contracts were validated before interface work. M1 work package 8 requires a small Rust API and CLI that exercise the *same* core as the tests (`input → crop → resize → AVIF`). PR #11 added `ferrisma::pipeline` and `src/bin/ferrisma.rs` without recording that decision. This ADR records the boundary that now exists and what it deliberately does not promise.
 
 Verified facts (2026-11-05, `main` at 9291c33):
 
@@ -33,13 +33,13 @@ Currently, `pipeline` and `cli` compile without `avif-write`; a built-in
 2. **Color intent is explicit.** `InputProfilePolicy::Strict` is the default. `AssumeSrgbIfMissing` applies only when the decoder reports neither rendered ICC nor CICP; `UseRenderedIcc` requires the `icc` feature. The facade never guesses a profile.
 3. **Resources are explicit options.** Managed-memory budget, compressed-input byte limit, decoded-pixel limit, and encoded-output byte limit are caller options with conservative defaults. The report keeps engine-managed memory, known codec materializations and opaque codec/encoder memory separate.
 4. **No backend type leaks.** Codec errors are converted at the boundary; codec crates never appear in public signatures. `ProcessingError::kind()` returns a `#[non_exhaustive]` `ProcessingErrorKind` (invalid options, input limit, disabled feature, malformed input, unsupported input, unsupported color, resource exhaustion, cancellation, encoder failure, internal) so callers can match without parsing messages; the message keeps the details.
-5. **CLI is an example consumer.** `src/bin/ferrixel.rs` delegates parsing and processing to `ferrixel::cli::run`, which calls `transcode` or `transcode_with`; it adds no processing logic. It stays behind `cli`.
+5. **CLI is an example consumer.** `src/bin/ferrisma.rs` delegates parsing and processing to `ferrisma::cli::run`, which calls `transcode` or `transcode_with`; it adds no processing logic. It stays behind `cli`.
 6. **No stability promise.** Until a first publication decision, any part of the facade may change without deprecation.
 
 ## Consequences
 
 + M1 can be exercised end to end by a real consumer without exposing the graph or executor.
-+ Codec and CMS features remain optional; the core crate's only unconditional dependency is the first-party `ferrixel-kernels` (ADR-0020).
++ Codec and CMS features remain optional; the core crate's only unconditional dependency is the first-party `ferrisma-kernels` (ADR-0020).
 - Error kinds are deliberately coarse; finer-grained variants (for example which limit or which color signal) are a later, additive change.
 - The facade decodes one image to one AVIF output. Multi-output DAGs, other output formats and streaming input are out of scope (M2+).
 - EXIF, JPEG XL and AVIF orientation are applied with crops in display coordinates (ADR-0019); AVIF `clap` is still rejected with `ProcessingErrorKind::UnsupportedInput`.
@@ -73,8 +73,8 @@ A first publication is decided; a consumer needs multiple outputs, streaming inp
 - 2026-11-06 — Added `TransformOptions::encoder_threads` (default 1, 0 = all cores, at most 256), `ProcessingReport::encoder_threads` and the CLI flag `--encoder-threads`. The default keeps output bytes independent of the machine, because `ravif` derives AV1 tiles from the thread count.
 - 2026-11-06 — Added `ChromaSubsampling` (`Yuv444` default, `Yuv420`) as `TransformOptions::chroma_subsampling` and the CLI flag `--chroma=444|420`. `encoder_threads` changed meaning slightly: 1 encodes one AV1 tile, any other value uses tiles derived from the output size, so the bytes no longer depend on the thread count or the machine. `encoder_output_frame_bytes` now reports the encoder's YUV input frame instead of an RGBA copy.
 - 2026-11-06 — Kept `ChromaSubsampling::Yuv444` as the default after the 4:2:0 measurements (maintainer decision): full-resolution chroma matches Sharp's AVIF default and avoids a silent output change; callers opt into 4:2:0 explicitly.
-- 2026-11-06 — Added `KernelLevel` and `KernelLevelReason` (re-exported from `ferrixel-kernels`), `TransformOptions::kernel_level_ceiling` (`None` picks the best supported level), `ProcessingReport::kernel_level` and `kernel_level_reason`, and the CLI flag `--kernel-level=scalar|neon|avx2`, as ADR-0020 decision 5 requires.
+- 2026-11-06 — Added `KernelLevel` and `KernelLevelReason` (re-exported from `ferrisma-kernels`), `TransformOptions::kernel_level_ceiling` (`None` picks the best supported level), `ProcessingReport::kernel_level` and `kernel_level_reason`, and the CLI flag `--kernel-level=scalar|neon|avx2`, as ADR-0020 decision 5 requires.
 - 2026-11-06 — Added `TransformOptions::transform_threads` (default 0 = all cores; output byte-identical for every value), `ProcessingReport::transform_threads`, the CLI flag `--transform-threads`, and `Engine` with `BatchItem` for in-process batches (ADR-0022). The facade's surface grows by one type with two methods; a long-lived pool, async and streaming input remain out of scope.
-- 2026-11-06 — Pluggable encoders (ADR-0024): `transcode_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` traits with `EncodeRequest`, `EncodedImage` and `EncodeError`, and `ProcessingReport::encoder_backend`. The CLI moved into `ferrixel::cli::run(args, backend)` (compiled with `avif-write`), so adapter crates ship the same command; the `report:` line gained `encoder=`.
+- 2026-11-06 — Pluggable encoders (ADR-0024): `transcode_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` traits with `EncodeRequest`, `EncodedImage` and `EncodeError`, and `ProcessingReport::encoder_backend`. The CLI moved into `ferrisma::cli::run(args, backend)` (compiled with `avif-write`), so adapter crates ship the same command; the `report:` line gained `encoder=`.
 - 2026-11-11 — ADR-0030 makes output format explicit (`Output::format` and `Output::bytes`), allows backend-only builds without `avif-write`, and selects still WebP by the output extension in the CLI. The original AVIF example and options remain valid.
 - 2026-11-11 — ADR-0034 adds explicit aspect-aware resize and bounded JPEG/WebP header inspection while preserving exact-size calls; output dimensions are reported.

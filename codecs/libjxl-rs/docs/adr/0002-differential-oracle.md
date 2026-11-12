@@ -4,7 +4,7 @@
 - Created: 2026-10-31
 - Updated: 2026-11-10
 
-> **2026-11-10 amendment:** [Ferrixel ADR-0027](../../../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md) supersedes the ordinary PR C++ oracle and full local macOS check on every ported-code change. The rationale and evidence below remain historical; deep validation and platform acceptance still apply under that decision.
+> **2026-11-10 amendment:** [Ferrisma ADR-0027](../../../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md) supersedes the ordinary PR C++ oracle and full local macOS check on every ported-code change. The rationale and evidence below remain historical; deep validation and platform acceptance still apply under that decision.
 
 Round trips within the Rust port can agree with each other while both differ
 from libjxl. Tests therefore compile the pinned, unmodified C++ source into a
@@ -847,10 +847,10 @@ both original graphs and all Rust profiles pass the same complete inventory.
 
 ## Monorepo amendment, 2026-11-10
 
-[Ferrixel ADR-0026](../../../../docs/adr/0026-codecs-in-one-repository-and-workspace.md)
+[Ferrisma ADR-0026](../../../../docs/adr/0026-codecs-in-one-repository-and-workspace.md)
 supersedes the former repository-local workspace, profile and development
 toolchain placement. This package uses the root workspace and lockfile. The
 original compiler compatibility promises and independent reference comparisons
 remain; handwritten ports explicitly use stable Clippy and their MSRV jobs.
 Shared profiles retain the numeric and unwinding requirements of each port.
-Active workflows now live at the Ferrixel repository root.
+Active workflows now live at the Ferrisma repository root.

@@ -2,9 +2,9 @@
 .fx-header .mono-header-in {
   gap: 2rem;
 }
-/* Site-local mark until the family registry includes Ferrixel. */
+/* Site-local mark until the family registry includes Ferrisma. */
 .fx-mark {
-  background-image: url("./assets/ferrixel-mark.webp");
+  background-image: url("./assets/ferrisma-mark.webp");
 }
 .fx-status {
   display: inline-block;

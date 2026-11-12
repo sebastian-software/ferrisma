@@ -42,7 +42,7 @@ impl TryFrom<[u8; 4]> for Cicp {
 pub(crate) enum CicpFamily {
     Srgb,
     /// sRGB primaries with linear transfer (H.273 transfer 8): already in
-    /// Ferrixel's working space, as emitted by the ICC adapter.
+    /// Ferrisma's working space, as emitted by the ICC adapter.
     LinearSrgb,
     DisplayP3,
     Bt2100Pq,

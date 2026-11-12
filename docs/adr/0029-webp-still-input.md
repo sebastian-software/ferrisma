@@ -8,7 +8,7 @@
 
 ## Context
 
-Ferrixel has no WebP input. The workspace now contains `libwebp-rs`, a BSD-3-Clause port of the libwebp reference implementation. Its safe API exposes image features, a still-image crop decoder, and container ICC and EXIF. The prior plan required a pinnable external revision (issue #86); ADR-0026's committed monorepo path and compatible package version now provide the same reproducible dependency identity through the shared lockfile. The old external-tag gate is therefore obsolete for this workspace adoption, while independent publication remains separate.
+Ferrisma has no WebP input. The workspace now contains `libwebp-rs`, a BSD-3-Clause port of the libwebp reference implementation. Its safe API exposes image features, a still-image crop decoder, and container ICC and EXIF. The prior plan required a pinnable external revision (issue #86); ADR-0026's committed monorepo path and compatible package version now provide the same reproducible dependency identity through the shared lockfile. The old external-tag gate is therefore obsolete for this workspace adoption, while independent publication remains separate.
 
 ## Decision
 

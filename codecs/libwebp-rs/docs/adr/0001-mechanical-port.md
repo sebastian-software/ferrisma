@@ -6,7 +6,7 @@
 
 ## Context
 
-libwebp-rs translates libwebp v1.6.0 so that Ferrixel can read and write WebP
+libwebp-rs translates libwebp v1.6.0 so that Ferrisma can read and write WebP
 without a C dependency. The translation runs as parallel work packages
 ([ADR 0009](0009-work-packages-and-integration.md)), each verified against
 the original C code.

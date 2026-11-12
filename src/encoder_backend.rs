@@ -2,10 +2,10 @@
 //!
 //! `transcode` writes AVIF with the built-in `rav1e` sink. An
 //! [`EncoderBackend`] lets a separate crate supply another encoder, such as
-//! the libavif-rs adapter in `crates/ferrixel-libavif`, without adding its
+//! the libavif-rs adapter in `crates/ferrisma-libavif`, without adding its
 //! dependencies, toolchain or `unsafe` code to this crate. The engine hands
 //! the backend finished output rows; everything up to and including the
-//! final sRGB8 quantization stays Ferrixel's.
+//! final sRGB8 quantization stays Ferrisma's.
 
 use std::fmt;
 
@@ -45,7 +45,7 @@ pub struct EncodedImage {
     /// full RGBA or YUV frame), reported as `encoder_output_frame_bytes`.
     pub frame_materialization_bytes: usize,
     /// Whether the backend's own allocations are outside any bound
-    /// Ferrixel can report; reported as `opaque_encoder_memory`.
+    /// Ferrisma can report; reported as `opaque_encoder_memory`.
     pub opaque_memory: bool,
 }
 

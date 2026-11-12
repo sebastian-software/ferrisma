@@ -11,7 +11,7 @@
 //   chroma=444      444 (Sharp's default) or 420
 //   bitdepth=8      8 (default), 10 or 12
 //   space=linear    linear: resize in linear light (pipelineColourspace scrgb,
-//                   the closest match to Ferrixel); srgb: Sharp's default,
+//                   the closest match to Ferrisma); srgb: Sharp's default,
 //                   resize on gamma-encoded values; gamma22: Sharp's
 //                   .gamma(2.2) approximation
 //   icc=convert     convert: Sharp's default, apply an embedded ICC profile;

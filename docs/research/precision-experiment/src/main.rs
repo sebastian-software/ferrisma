@@ -1,6 +1,6 @@
 //! ADR-0021 precision experiment.
 //!
-//! Standalone evidence program: no dependency on the `ferrixel` crate. It
+//! Standalone evidence program: no dependency on the `ferrisma` crate. It
 //! measures the error of the proposed lookup tables, the f32 working type and
 //! the 16-bit fixed-point path against the f64 scalar reference, over
 //! exhaustive 8-bit inputs, dense 16-bit and f32 sweeps, and complete
@@ -8,7 +8,7 @@
 //! synthetic adversarial images.
 //!
 //! The reference functions below mirror `src/working_color.rs` and
-//! `src/quality.rs` of Ferrixel at commit 17f3f46 (2026-11-05). They are
+//! `src/quality.rs` of Ferrisma at commit 17f3f46 (2026-11-05). They are
 //! copied by hand on purpose so that this program stays buildable without
 //! the engine crate; keep them in sync when the reference changes.
 //!

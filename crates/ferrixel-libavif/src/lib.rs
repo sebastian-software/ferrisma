@@ -1,7 +1,0 @@
-//! Compatibility adapter for Ferrixel's workspace libavif/AOM encoder.
-//!
-//! The safe backend is also available directly through the engine's
-//! `avif-own-write` feature. The libavif ABI is isolated in the independent
-//! `ferrixel-avif-write` crate (ADR-0037).
-
-pub use ferrixel::pipeline::LibavifBackend;

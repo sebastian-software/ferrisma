@@ -17,7 +17,7 @@ import {
 
 export const handle = { layout: "bare" };
 export const meta: ArdoMetaFunction = () => [
-  { title: "Ferrixel — your next image stack, built in Rust" },
+  { title: "Ferrisma — your next image stack, built in Rust" },
   {
     name: "description",
     content:
@@ -25,7 +25,7 @@ export const meta: ArdoMetaFunction = () => [
   },
 ];
 const path = (route: string) => `${import.meta.env.BASE_URL}${route}`;
-const source = "https://github.com/sebastian-software/ferrixel";
+const source = "https://github.com/sebastian-software/ferrisma";
 const stages = [
   {
     label: "Decode",
@@ -150,7 +150,7 @@ function ColorIllustration() {
         </div>
       </div>
       <MonoCaption>
-        An sRGB transfer illustration, not a browser execution of Ferrixel. At an equal mix, the two
+        An sRGB transfer illustration, not a browser execution of Ferrisma. At an equal mix, the two
         results are 128 and 188. The Rust reference tests cover this midpoint.
       </MonoCaption>
     </div>
@@ -162,14 +162,14 @@ function Opening() {
     <section className="mono-opening fx-opening" aria-labelledby="fx-title">
       <figure className="mono-plate fx-instrument">
         <img
-          src={path("ferrixel-instrument.webp")}
+          src={path("ferrisma-instrument.webp")}
           width="2400"
           height="1200"
           fetchPriority="high"
-          alt="Ferrixel's instrument: a gently curved steel railway whose wagons carry a mountain picture under a guillotine, a smaller copy under a spindle press, and the same picture as square pixels under a loupe."
+          alt="Ferrisma's instrument: a gently curved steel railway whose wagons carry a mountain picture under a guillotine, a smaller copy under a spindle press, and the same picture as square pixels under a loupe."
         />
       </figure>
-      <p className="mono-kicker">Ferrixel · A Rust image engine in development</p>
+      <p className="mono-kicker">Ferrisma · A Rust image engine in development</p>
       <h1 id="fx-title">
         Your next image stack.
         <br />
@@ -199,7 +199,7 @@ function Opening() {
           <strong>4 codec ports</strong>developed with the engine
         </li>
         <li>
-          <strong>Experimental</strong>unpublished, under validation
+          <strong>Experimental</strong>engine under validation
         </li>
       </ul>
       <nav className="fx-contents" aria-label="On this page">
@@ -227,7 +227,7 @@ export default function Home() {
         <MonoPassage>
           <p>
             A single upload becomes a thumbnail, a product image and a full-width photograph.
-            Each needs the right crop, color and format. Ferrixel's ambition is to make that
+            Each needs the right crop, color and format. Ferrisma's ambition is to make that
             whole journey a coherent Rust workflow, with image quality and execution costs
             visible at every stage.
           </p>
@@ -288,7 +288,7 @@ export default function Home() {
             decoder may need a full image even when the caller asks for a small crop.
           </p>
           <p>
-            Ferrixel makes these decisions explicit. The current CPU path accepts supported SDR
+            Ferrisma makes these decisions explicit. The current CPU path accepts supported SDR
             input, applies orientation and crop, resizes in linear light, and encodes AVIF or WebP.
             Unsupported color and geometry return errors instead of silent reinterpretation.
           </p>
@@ -312,7 +312,7 @@ export default function Home() {
         <p>
           The repository includes a working command-line path. The example below resizes a JPEG to
           1600 × 900 and writes AVIF using the default rav1e encoder. Run it from a clone of the
-          repository; Ferrixel is not published on crates.io yet. Choose a <code>.webp</code> output
+          repository; the published <code>0.0.0</code> packages are placeholders. Choose a <code>.webp</code> output
           for still WebP; add <code>--webp-lossless</code> instead of quality and speed for lossless
           compression of the pipeline's finished sRGB8 samples.
         </p>
@@ -344,7 +344,7 @@ export default function Home() {
             enabled:
           </p>
           <MonoCode caption="The experimental public facade" file="main.rs">
-            {`use ferrixel::pipeline::{
+            {`use ferrisma::pipeline::{
     transcode, ImageFormat, InputProfilePolicy,
     TransformOptions,
 };
@@ -501,7 +501,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         </MonoWide>
         <MonoPassage>
           <p>
-            Ferrixel inspects the decoder's emitted samples, not just the original file's tags.
+            Ferrisma inspects the decoder's emitted samples, not just the original file's tags.
             Supported RGB ICC conversion is explicit. ICC and CICP signals are not silently
             prioritized, and P3, PQ or HLG samples are never simply relabeled as sRGB.
           </p>
@@ -687,8 +687,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         standfirst="The pipeline runs today. The path to a production release is open to inspect."
       >
         <p>
-          Try the SDR pipeline, inspect a result, or work on a codec. Ferrixel is experimental
-          and unpublished, with quality, hardening and distribution gates still open. The release
+          Try the SDR pipeline, inspect a result, or work on a codec. Ferrisma's engine is experimental,
+          with quality, hardening and distribution gates still open. The release
           register records the evidence and the work ahead.
         </p>
         <MonoTerms
@@ -724,7 +724,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       <MonoEngraving seed={9} />
       <div className="mono-axis">
         <MonoColophon>
-          Ferrixel is part of the Ferramenta family, made by Sebastian Software. The engine is MIT
+          Ferrisma is part of the Ferramenta family, made by Sebastian Software. The engine is MIT
           OR Apache-2.0; codec packages retain their own licenses and attribution. Its instrument is
           an original Blender scene built with the family's shared studio.
         </MonoColophon>
@@ -737,7 +737,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             <MonoAction href={path("guide/getting-started")} primary>
               Build the pipeline
             </MonoAction>
-            <MonoAction href={path("guide/development")}>Contribute to Ferrixel</MonoAction>
+            <MonoAction href={path("guide/development")}>Contribute to Ferrisma</MonoAction>
           </>
         }
         links={

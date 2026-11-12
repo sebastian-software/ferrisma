@@ -8,12 +8,12 @@
 
 ## Context
 
-After work package 4 the transform takes 20 ms for a 24 Mpx JPEG on 20 cores; the decode stage is the largest stage that Ferrixel controls. The work-package-0 harness measured it on synthetic plasma images only (88 ms at 24 Mpx, 173 ms at 48 Mpx). The first real photograph in the measurements, a 4032×3024 phone JPEG with an ICC profile and EXIF orientation 6 (a quarter turn) (libavif test data), showed 154 ms for its decode stage at 12 Mpx, and a profile placed most of that outside the JPEG decoder: in the ICC adapter's `f32` output being decoded again per sample through the `f64` reference transfer function, in the moxcms transform itself, and in the orientation wrapper's full-region buffer and copies. Camera JPEGs nearly always carry an ICC profile, so this is the common case, not an edge case.
+After work package 4 the transform takes 20 ms for a 24 Mpx JPEG on 20 cores; the decode stage is the largest stage that Ferrisma controls. The work-package-0 harness measured it on synthetic plasma images only (88 ms at 24 Mpx, 173 ms at 48 Mpx). The first real photograph in the measurements, a 4032×3024 phone JPEG with an ICC profile and EXIF orientation 6 (a quarter turn) (libavif test data), showed 154 ms for its decode stage at 12 Mpx, and a profile placed most of that outside the JPEG decoder: in the ICC adapter's `f32` output being decoded again per sample through the `f64` reference transfer function, in the moxcms transform itself, and in the orientation wrapper's full-region buffer and copies. Camera JPEGs nearly always carry an ICC profile, so this is the common case, not an edge case.
 
 Verified facts from the [codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md) and the code:
 
-- **`zune-jpeg` 0.5.15** has runtime-detected AVX2 and NEON paths for IDCT, upsampling and color conversion behind its `x86` and `neon` features, which Ferrixel's `default-features = false` had turned off. It has no scaled (DCT-domain) decode, no region decode and no row-streaming output; adding scaled IDCT touches six places upstream, and entropy decoding is never saved.
-- **libvips' shrink-on-load** sets `scale_denom` on libjpeg, but returns a shrink of 1 in linear mode because "libjpeg shrinks in Y (of YCbCr), not linear space" (`libvips/resample/thumbnail.c:547-575`). DCT-domain scaling is a gamma-domain low-pass; it does not satisfy Ferrixel's linear-light reference (ADR-0014, ADR-0021).
+- **`zune-jpeg` 0.5.15** has runtime-detected AVX2 and NEON paths for IDCT, upsampling and color conversion behind its `x86` and `neon` features, which Ferrisma's `default-features = false` had turned off. It has no scaled (DCT-domain) decode, no region decode and no row-streaming output; adding scaled IDCT touches six places upstream, and entropy decoding is never saved.
+- **libvips' shrink-on-load** sets `scale_denom` on libjpeg, but returns a shrink of 1 in linear mode because "libjpeg shrinks in Y (of YCbCr), not linear space" (`libvips/resample/thumbnail.c:547-575`). DCT-domain scaling is a gamma-domain low-pass; it does not satisfy Ferrisma's linear-light reference (ADR-0014, ADR-0021).
 - **`jxl-oxide`** skips entropy decoding and transforms outside a region for VarDCT and plain modular frames, has no reduced-resolution render, and runs single-threaded without its `rayon` feature.
 - **`avif-decode`/`rav1d`** decode with up to 32 threads and convert to a full RGB frame; AV1 has no reduced-resolution decode.
 - **moxcms** (the `icc` feature) produced sRGB-encoded `f32`, which the executor then linearized again per sample. Its matrix-shaper path clamps to `[0, 1]`, so wide-gamut colors outside sRGB are clipped before resampling; that predates this ADR and is recorded here as a limitation.
@@ -34,7 +34,7 @@ Verified facts from the [codec capability audit](../research/2026-11-05-decode-s
 + The common real-photo case (ICC-tagged JPEG) loses a full per-sample `powf` pass and a rounding step.
 + Linear-light sRGB becomes a first-class rendered signal, so a JPEG XL decoder that emits linear sRGB is now accepted too.
 - The JPEG decoder now runs third-party SIMD code with its own `unsafe`; its output may differ from the scalar decoder by rounding (JPEG decoding is not bit-exact across implementations).
-- Without shrink-on-load, Ferrixel decodes every source pixel for a thumbnail; a non-linear Sharp default with shrink-on-load does less decode work for strong downscales. Comparisons must say which mode each side ran (see the Sharp comparison).
+- Without shrink-on-load, Ferrisma decodes every source pixel for a thumbnail; a non-linear Sharp default with shrink-on-load does less decode work for strong downscales. Comparisons must say which mode each side ran (see the Sharp comparison).
 - The ICC matrix-shaper path now retains out-of-sRGB-gamut linear samples until final output quantization. LUT-profile behavior remains unchanged and has no extended-range guarantee.
 
 ## Alternatives considered
@@ -46,7 +46,7 @@ Verified facts from the [codec capability audit](../research/2026-11-05-decode-s
 
 ## Validation
 
-- The ICC adapter, fed a Display P3 profile written by moxcms, must match Ferrixel's own CSS Color 4 P3 to sRGB matrix within `2e-3` linear for both in-gamut and out-of-gamut values (test `cms::tests`). Independent LittleCMS profile and numeric fixtures also check signed and above-one output from the matrix-shaper path.
+- The ICC adapter, fed a Display P3 profile written by moxcms, must match Ferrisma's own CSS Color 4 P3 to sRGB matrix within `2e-3` linear for both in-gamut and out-of-gamut values (test `cms::tests`). Independent LittleCMS profile and numeric fixtures also check signed and above-one output from the matrix-shaper path.
 - All existing differential tests (ADR-0021) and orientation fixtures (ADR-0019) stay green.
 - The deferred ICC conversion gives bit-identical rows to the adapter's own conversion, and the executor gives byte-identical output with the conversion deferred or not, on 1, 2 and 8 threads. The parallel gather matches the independent reference for all eight EXIF orientations, `u8` and `f32` rows, three crops and 1, 2, 3 and 8 threads, and cancels and fails with `live == 0`.
 - Decode and total time of real photographs before and after, at low machine load, recorded in the M2 baseline. The decision is falsified if enabling the decoder's SIMD or the linear ICC output makes any measured case slower.

@@ -1,0 +1,11 @@
+[package]
+name = "ferrisma-avif-write"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Safe still AVIF encoder boundary for the workspace libavif port"
+homepage = "https://ferrisma.dev"
+publish = false
+
+[dependencies]
+libavif-rs = { path = "../../codecs/libavif-rs", version = "0.1.0" }

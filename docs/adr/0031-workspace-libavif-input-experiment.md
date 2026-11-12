@@ -4,7 +4,7 @@
 - **Date:** 2026-11-11
 - **Last reviewed:** 2026-11-11
 - **Partially supersedes:** [0018](0018-optional-codec-and-cms-dependencies.md), the interim AVIF reader and its toolchain contract; [0024](0024-pluggable-encoders-and-libavif-rs-backend.md) and [0026](0026-codecs-in-one-repository-and-workspace.md), the AVIF reader/encoder link exclusion. [0025](0025-codec-selection-reference-conformance-and-image-scope.md)'s final selection gates remain in force.
-- **Related:** [0015](0015-typed-output-color-signals.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [issue 54](https://github.com/sebastian-software/ferrixel/issues/54)
+- **Related:** [0015](0015-typed-output-color-signals.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [issue 54](https://github.com/sebastian-software/ferrisma/issues/54)
 
 ## Context
 
@@ -12,16 +12,16 @@ The former interim `avif-decode` reader used `rav1d`, whose `dav1d_*` C symbols 
 with the workspace libavif port's dav1d. It also materializes an opaque RGB
 frame and requires three passes over the container. The workspace port exposes
 libavif's raw C-style API and includes its Rust libaom reference decoder.
-Moving the raw API into Ferrixel's engine would violate its `unsafe` rule.
+Moving the raw API into Ferrisma's engine would violate its `unsafe` rule.
 
 ## Decision
 
-Introduce `ferrixel-avif-read`, a small crate that depends on the local
-`libavif-rs` package but not on Ferrixel. It owns the decoder and memory reader,
+Introduce `ferrisma-avif-read`, a small crate that depends on the local
+`libavif-rs` package but not on Ferrisma. It owns the decoder and memory reader,
 sets `AVIF_CODEC_CHOICE_AOM` explicitly, guards cleanup, and writes interleaved
 RGB or RGBA into a caller-owned buffer. It selects the primary image item
 explicitly and rejects files carrying tracks, so container color, orientation,
-and extent metadata refer to the decoded item. Ferrixel's private AVIF source owns the
+and extent metadata refer to the decoded item. Ferrisma's private AVIF source owns the
 pixel buffer under `MemoryBudget`, reports a full-frame fallback, and borrows
 rows from it. AVIF input remains an optional, native-target and nightly-only
 feature while the codec port has those requirements. The codec-free engine and
@@ -39,7 +39,7 @@ emits full-range RGB, so the rendered CICP
 descriptor has RGB matrix code 0 and full-range flag 1; the original ICC is
 retained only if the decoded output's color meaning is unchanged. For 10/12-bit
 input, a managed U16 frame is normalized to F32 rows. RGB alpha output is
-requested straight. Orientation remains in Ferrixel's source wrapper, with
+requested straight. Orientation remains in Ferrisma's source wrapper, with
 crops in upright display coordinates. Only AVIF `irot` and `imir` determine
 display orientation; EXIF payload orientation is not applied or forwarded by
 this pipeline. The decoded image's chroma siting is interpreted by libavif's
@@ -67,8 +67,8 @@ conformance or justify a universal performance claim.
   Argon conformance corpus has not been run; it can be selected deliberately
   after the evidence and quality gates.
 - Put raw calls in the engine. Rejected by its no-`unsafe` policy.
-- Put the reader in `ferrixel-libavif`. Rejected because that encoder adapter
-  already depends on Ferrixel, creating a Cargo dependency cycle.
+- Put the reader in `ferrisma-libavif`. Rejected because that encoder adapter
+  already depends on Ferrisma, creating a Cargo dependency cycle.
 
 ## Validation
 

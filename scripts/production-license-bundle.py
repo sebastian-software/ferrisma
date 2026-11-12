@@ -25,7 +25,7 @@ SPEC.loader.exec_module(AUDIT)
 NOTICE = re.compile(r"^(license|licence|copying|notice|patents?|authors|copyright)([._-].*)?$", re.I)
 TREE_LINE = re.compile(r"^([^ ]+) v([^ ]+)(?: .*)?$")
 EXTRA = {
-    "ferrixel": ["src/av1_tuning.rs", "THIRD-PARTY-NOTICES.md", "codecs/libavif-rs/upstream/libavif/tests/data/README.md", "codecs/libavif-rs/upstream/libavif/tests/data/sRGB2014.icc"],
+    "ferrisma": ["src/av1_tuning.rs", "THIRD-PARTY-NOTICES.md", "codecs/libavif-rs/upstream/libavif/tests/data/README.md", "codecs/libavif-rs/upstream/libavif/tests/data/sRGB2014.icc"],
     "libjpeg-turbo-rs": ["README.ijg", "src/jdcolext_neon.rs", "src/jsimdcpu.rs"],
 }
 
@@ -143,14 +143,14 @@ def jpeg_source_review(package: dict, source_hash: str) -> str | None:
 
 def build(target: str, features: str, output: Path) -> int:
     common = ["--locked", "--target", target, "--no-default-features", "--features", features]
-    tree = ["cargo", "tree", "-p", "ferrixel", *common, "--prefix", "none", "--format", "{p}"]
+    tree = ["cargo", "tree", "-p", "ferrisma", *common, "--prefix", "none", "--format", "{p}"]
     normal = parse_tree(command([*tree, "-e", "normal"]))
     all_edges = parse_tree(command([*tree, "-e", "normal,build"]))
     metadata = json.loads(command(["cargo", "metadata", "--format-version", "1", "--locked",
                                    "--filter-platform", target, "--no-default-features",
                                    "--features", features]))
     packages = select_packages(metadata, normal, all_edges)
-    feature_tree = command(["cargo", "tree", "-p", "ferrixel", *common, "-e", "normal,build",
+    feature_tree = command(["cargo", "tree", "-p", "ferrisma", *common, "-e", "normal,build",
                             "--prefix", "none", "--format", "{p} | {f}"]).replace(str(ROOT), "<workspace>")
     if output.exists():
         raise ValueError(f"Output already exists: {output}")
@@ -167,7 +167,7 @@ def build(target: str, features: str, output: Path) -> int:
         if not source_hash:
             raise ValueError(f"Missing source checksum: {package['name']} {package['version']}")
         selected = notices(directory, recursive=not workspace)
-        if workspace and package["name"] in {"ferrixel-kernels", "ferrixel-avif-read", "ferrixel-avif-write", "ferrixel-jxl-decoder"}:
+        if workspace and package["name"] in {"ferrisma-kernels", "ferrisma-avif-read", "ferrisma-avif-write", "ferrisma-jxl-decoder"}:
             # The project-owned workspace crates use the root's dual license.
             selected.extend([ROOT / "LICENSE-MIT", ROOT / "LICENSE-APACHE"])
         if workspace and directory != ROOT:
@@ -253,7 +253,7 @@ def verify(target: str, features: str, output: Path) -> int:
             path = bundle_file(output, notice["path"])
             if digest(path) != notice["sha256"]:
                 raise ValueError(f"Missing or altered bundled notice: {path}")
-    with tempfile.TemporaryDirectory(prefix="ferrixel-license-verify-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="ferrisma-license-verify-") as temporary:
         candidate = Path(temporary) / "bundle"
         issues = build(target, features, candidate)
         current = json.loads((candidate / "inventory.json").read_text())
@@ -269,7 +269,7 @@ def verify(target: str, features: str, output: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", required=True, help="Explicit Rust target triple")
-    parser.add_argument("--features", required=True, help="Explicit comma-separated Ferrixel features")
+    parser.add_argument("--features", required=True, help="Explicit comma-separated Ferrisma features")
     parser.add_argument("--output", required=True, type=Path, help="New output directory")
     parser.add_argument("--verify", action="store_true", help="Verify an existing bundle against the current checkout")
     parser.add_argument("--strict", action="store_true", help="Fail for review metadata or missing notice files")

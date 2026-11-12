@@ -1,2 +1,2 @@
 [alias]
-xtask = "run --package ferrixel-xtask --"
+xtask = "run --package ferrisma-xtask --"

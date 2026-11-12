@@ -171,7 +171,7 @@ pub fn run(
             .first()
             .and_then(|path| Path::new(path).file_name())
             .and_then(|name| name.to_str())
-            .unwrap_or("ferrixel");
+            .unwrap_or("ferrisma");
         eprintln!(
             "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=jxl-oxide|libjxl-rs] [--area] [--reference] [--avif-encoder=rav1e|libavif] [--avif-depth=8|10] [--quality=75] [--speed=6] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );

@@ -16,11 +16,11 @@ wrapper that establishes the needed dependency direction.
 
 ## Decision
 
-Move the existing libavif write boundary into `ferrixel-avif-write`, a narrow
+Move the existing libavif write boundary into `ferrisma-avif-write`, a narrow
 workspace crate that depends on the libavif port but not the engine. It owns
 the C ABI calls and guards, validates requests, collects straight RGBA8 rows,
 reports checked simultaneous RGBA and YUV(A) sample bytes, and returns owned
-encoded bytes or typed errors. The existing `ferrixel-libavif` adapter delegates
+encoded bytes or typed errors. The existing `ferrisma-libavif` adapter delegates
 to that bridge, preserving its backend API. No generated codec source changes.
 
 The engine's optional `avif-own-write` feature selects the same bridge through

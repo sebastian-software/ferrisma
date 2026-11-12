@@ -38,7 +38,7 @@ export function rewriteTarget(source: string, target: string): string {
   const route = routes.get(path);
   if (route) return route + match[2];
   const kind = stats.isDirectory() ? "tree" : "blob";
-  return `https://github.com/sebastian-software/ferrixel/${kind}/main/${repoPath.split(sep).map(encodeURIComponent).join("/")}${match[2]}`;
+  return `https://github.com/sebastian-software/ferrisma/${kind}/main/${repoPath.split(sep).map(encodeURIComponent).join("/")}${match[2]}`;
 }
 
 type Node = {

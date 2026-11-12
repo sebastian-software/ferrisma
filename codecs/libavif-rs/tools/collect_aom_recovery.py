@@ -107,7 +107,7 @@ def main():
     parser.add_argument('--recovery-run', type=int, action='append', default=[])
     parser.add_argument('--release-only', action='store_true', help='Use ADR 0048; do not claim complete Debug execution')
     parser.add_argument('--source-plan', type=Path, help='Verify unchanged original Release results reused by a continuation')
-    parser.add_argument('--repository', default=os.environ.get('GITHUB_REPOSITORY', 'sebastian-software/ferrixel'))
+    parser.add_argument('--repository', default=os.environ.get('GITHUB_REPOSITORY', 'sebastian-software/ferrisma'))
     args = parser.parse_args()
     if args.source_run < 1 or len(set(args.recovery_run)) != len(args.recovery_run):
         parser.error('Require a positive original source run and distinct recovery runs')

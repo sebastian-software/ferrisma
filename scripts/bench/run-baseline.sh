@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # M2 work package 0: reproducible latency, stage timings, peak RSS and
-# sequential throughput of the current Ferrixel CLI on one machine.
+# sequential throughput of the current Ferrisma CLI on one machine.
 # Usage: scripts/bench/run-baseline.sh CORPUS_DIR OUT_DIR [RUNS]
 #
 # CORPUS_DIR/single/*.{jpg,jpeg,avif,jxl}: each image is resized to a width
@@ -8,7 +8,7 @@
 # under hyperfine, then once more under /usr/bin/time for peak RSS and the
 # CLI's stage report. CORPUS_DIR/small/*: processed one after another to a
 # width of BENCH_SMALL_WIDTH (default 320) for a sequential images-per-second
-# figure (one process per image; Ferrixel has no batch API yet).
+# figure (one process per image; Ferrisma has no batch API yet).
 #
 # Comparators run only when present: vipsthumbnail on PATH, and Sharp when
 # BENCH_SHARP_NODE_MODULES names a node_modules directory containing sharp.
@@ -62,14 +62,14 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 (cd "$repo" && cargo build --release --features cli > "$out/build.log" 2>&1)
-bin=$repo/target/release/ferrixel
+bin=$repo/target/release/ferrisma
 # Bash 3.2 (macOS) treats an expanded empty array as unbound under set -u.
 case "$kernel_level" in
   best) kernel_args=() ;;
   scalar|neon|avx2) kernel_args=("--kernel-level=$kernel_level") ;;
   *) echo "BENCH_KERNEL_LEVEL must be best, scalar, neon or avx2" >&2; exit 2 ;;
 esac
-ferrixel_args=(${kernel_args[@]+"${kernel_args[@]}"} ${policy_args[@]+"${policy_args[@]}"} ${filter_args[@]+"${filter_args[@]}"} ${precision_args[@]+"${precision_args[@]}"}
+ferrisma_args=(${kernel_args[@]+"${kernel_args[@]}"} ${policy_args[@]+"${policy_args[@]}"} ${filter_args[@]+"${filter_args[@]}"} ${precision_args[@]+"${precision_args[@]}"}
   "--quality=$quality" "--speed=$speed" "--encoder-threads=$encoder_threads" "--chroma=$chroma" "--max-input-mb=$max_input_mb")
 
 sharp_available=0
@@ -81,7 +81,7 @@ vips_available=0
 command -v vipsthumbnail >/dev/null && vips_available=1
 
 {
-  echo "# Ferrixel M2 baseline environment ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+  echo "# Ferrisma M2 baseline environment ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
   echo "git: $(cd "$repo" && git rev-parse --short HEAD) $(cd "$repo" && git status --short | wc -l | tr -d ' ') uncommitted paths"
   uname -a
   if [[ "$(uname)" == Darwin ]]; then
@@ -171,18 +171,18 @@ for image in "$corpus"/single/*.jpg "$corpus"/single/*.jpeg "$corpus"/single/*.a
   input_bytes=$(wc -c < "$image" | tr -d ' ')
   echo "== $name ${in_w}x${in_h} -> ${out_w}x${out_h}" >&2
 
-  cmd="$bin $image $tmp/ferrixel.avif $out_w $out_h ${ferrixel_args[*]}"
+  cmd="$bin $image $tmp/ferrisma.avif $out_w $out_h ${ferrisma_args[*]}"
   if ! hyperfine --warmup 1 --runs "$runs" --shell=none \
-      --export-json "$out/hyperfine-ferrixel-$name.json" "$cmd" > "$out/hyperfine-ferrixel-$name.txt" 2>&1; then
-    echo "ferrixel failed on $name:" >&2
-    tail -5 "$out/hyperfine-ferrixel-$name.txt" >&2
+      --export-json "$out/hyperfine-ferrisma-$name.json" "$cmd" > "$out/hyperfine-ferrisma-$name.txt" 2>&1; then
+    echo "ferrisma failed on $name:" >&2
+    tail -5 "$out/hyperfine-ferrisma-$name.txt" >&2
     continue
   fi
-  stats=$(hyperfine_stats "$out/hyperfine-ferrixel-$name.json")
-  rss=$(peak_rss_kib "$tmp/ferrixel.log" "$bin" "$image" "$tmp/ferrixel.avif" "$out_w" "$out_h" "${ferrixel_args[@]}")
-  bytes=$(wc -c < "$tmp/ferrixel.avif" | tr -d ' ')
-  stages=$(for key in open_us decode_us transform_us encode_us total_us; do report_field "$tmp/ferrixel.log" "$key"; done | paste -sd, -)
-  echo "ferrixel,$name,$input_bytes,$in_w,$in_h,$out_w,$out_h,$runs,$stats,$rss,$bytes,$stages,n/a" >> "$results"
+  stats=$(hyperfine_stats "$out/hyperfine-ferrisma-$name.json")
+  rss=$(peak_rss_kib "$tmp/ferrisma.log" "$bin" "$image" "$tmp/ferrisma.avif" "$out_w" "$out_h" "${ferrisma_args[@]}")
+  bytes=$(wc -c < "$tmp/ferrisma.avif" | tr -d ' ')
+  stages=$(for key in open_us decode_us transform_us encode_us total_us; do report_field "$tmp/ferrisma.log" "$key"; done | paste -sd, -)
+  echo "ferrisma,$name,$input_bytes,$in_w,$in_h,$out_w,$out_h,$runs,$stats,$rss,$bytes,$stages,n/a" >> "$results"
 
   if [[ $sharp_available == 1 && "$name" != *.jxl ]]; then
     cmd="node $repo/scripts/bench/sharp-resize.cjs $image $tmp/sharp.avif $out_w $out_h $quality 4"
@@ -219,17 +219,17 @@ if (( ${#small[@]} > 0 )); then
   read -r s_w s_h <<< "$(dimensions "${small[0]}")"
   if [[ -n "${s_w:-}" ]]; then
     s_out_h=$(( (s_h * small_width + s_w / 2) / s_w ))
-    loop="for f in $corpus/small/*; do $bin \"\$f\" $tmp/small.avif $small_width $s_out_h ${ferrixel_args[*]} >/dev/null; done"
-    hyperfine --runs 2 --shell=bash --export-json "$out/hyperfine-throughput-ferrixel.json" "$loop" > "$out/hyperfine-throughput-ferrixel.txt" 2>&1
-    mean=$(hyperfine_stats "$out/hyperfine-throughput-ferrixel.json" | cut -d, -f1)
-    echo "ferrixel,${#small[@]},$mean,$(python3 -I -c "print(f'{${#small[@]} / $mean:.2f}')")" >> "$throughput"
+    loop="for f in $corpus/small/*; do $bin \"\$f\" $tmp/small.avif $small_width $s_out_h ${ferrisma_args[*]} >/dev/null; done"
+    hyperfine --runs 2 --shell=bash --export-json "$out/hyperfine-throughput-ferrisma.json" "$loop" > "$out/hyperfine-throughput-ferrisma.txt" 2>&1
+    mean=$(hyperfine_stats "$out/hyperfine-throughput-ferrisma.json" | cut -d, -f1)
+    echo "ferrisma,${#small[@]},$mean,$(python3 -I -c "print(f'{${#small[@]} / $mean:.2f}')")" >> "$throughput"
     # In-process batch through the Engine (ADR-0022): all cores, one image
     # per worker; no process start per image.
     (cd "$repo" && cargo build --release --features cli --example batch > /dev/null 2>&1)
     "$repo/target/release/examples/batch" "$corpus/small" "$small_width" 0 "$s_out_h" > "$out/batch.txt" 2>&1 || true
     engine_rate=$(awk '/^engine batch:/ {print $5}' "$out/batch.txt")
     engine_seconds=$(awk '/^engine batch:/ {print $3}' "$out/batch.txt")
-    [[ -n "$engine_rate" ]] && echo "ferrixel-engine-batch,${#small[@]},$engine_seconds,$engine_rate" >> "$throughput"
+    [[ -n "$engine_rate" ]] && echo "ferrisma-engine-batch,${#small[@]},$engine_seconds,$engine_rate" >> "$throughput"
     if [[ $sharp_available == 1 ]]; then
       loop="for f in $corpus/small/*; do node $repo/scripts/bench/sharp-resize.cjs \"\$f\" $tmp/small.avif $small_width $s_out_h $quality 4; done"
       NODE_PATH="$BENCH_SHARP_NODE_MODULES" hyperfine --runs 2 --shell=bash --export-json "$out/hyperfine-throughput-sharp.json" "$loop" > "$out/hyperfine-throughput-sharp.txt" 2>&1

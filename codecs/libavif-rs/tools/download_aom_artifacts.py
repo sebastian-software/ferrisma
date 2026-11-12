@@ -79,7 +79,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run', required=True, type=int)
     parser.add_argument('--pattern', required=True)
-    parser.add_argument('--repository', default='sebastian-software/ferrixel')
+    parser.add_argument('--repository', default='sebastian-software/ferrisma')
     parser.add_argument('--destination', type=Path, default=ROOT / 'build')
     args = parser.parse_args()
     if args.run < 1:

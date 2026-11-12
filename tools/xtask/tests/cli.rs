@@ -2,11 +2,11 @@ use std::process::Command;
 
 #[test]
 fn invalid_git_revision_fails_without_outputs() {
-    let output = Command::new(env!("CARGO_BIN_EXE_ferrixel-xtask"))
+    let output = Command::new(env!("CARGO_BIN_EXE_ferrisma-xtask"))
         .args([
             "affected",
             "--base",
-            "not-a-valid-ferrixel-revision",
+            "not-a-valid-ferrisma-revision",
             "--head",
             "HEAD",
         ])

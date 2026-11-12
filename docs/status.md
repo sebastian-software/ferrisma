@@ -1,9 +1,14 @@
 # Current project status
 
-**Reviewed: 2026-11-11.** Ferrixel is an experimental, unpublished image engine
+**Reviewed: 2026-11-12.** Ferrisma is an experimental image engine
 and codec workspace. M1 is implemented in part and under validation, not a
 release candidate. This page owns the current cross-component overview;
 the linked guides and evidence records own the details.
+
+The `ferrisma` npm package and crate at version `0.0.0` have been published as
+placeholders. They contain no image processing implementation; the functional
+engine is available from this repository. The name and domain are recorded in
+[ADR-0038](adr/0038-ferrisma-project-name.md).
 
 The repository contains both the pipeline a caller can exercise today and the
 codec ports intended for its future backends. A port's coverage, its Rust API,
@@ -26,7 +31,7 @@ quantize → encode AVIF or still WebP
 | Format | Current engine path | Workspace port relationship |
 | --- | --- | --- |
 | JPEG | Input through workspace `libjpeg-turbo-rs` (`jpeg-read`); codec-level crop request and budgeted RGB row | Scaled IDCT remains unused by the adapter; codec memory and reconstruction are opaque |
-| JPEG XL | Default input through `jxl-oxide` (`jpeg-xl-read`); explicit opt-in local `libjxl-rs` via `ferrixel-jxl-decoder` (`jpeg-xl-own-read`) | `JpegXlDecoder::LibjxlRs` or `--jxl-decoder=libjxl-rs` selects the local decoder; it has no ROI request and budgets a full F32 frame. Complete external conformance and selection gates remain open |
+| JPEG XL | Default input through `jxl-oxide` (`jpeg-xl-read`); explicit opt-in local `libjxl-rs` via `ferrisma-jxl-decoder` (`jpeg-xl-own-read`) | `JpegXlDecoder::LibjxlRs` or `--jxl-decoder=libjxl-rs` selects the local decoder; it has no ROI request and budgets a full F32 frame. Complete external conformance and selection gates remain open |
 | AVIF | Workspace libavif/AOM input (`avif-read`); Rav1e output by default (`avif-write`), explicitly selectable workspace libavif/AOM output (`avif-own-write`) | Independent read/write wrappers isolate the unsafe ABI; the facade and CLI select the own writer through `AvifEncoder::Libavif` / `--avif-encoder=libavif`. Native/nightly requirements and backend-selection gates remain ([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)) |
 | WebP | Still input and output through workspace `libwebp-rs` (`webp-read`, `webp-write`); lossy crop requests, lossless full-frame internal work | The output sink budgets an ARGB frame and predictable lossy planes, tags sRGB ICC, and reports opaque codec memory; animation is unsupported |
 
@@ -86,18 +91,18 @@ separate workspace members; they are grouped here by their shared port.
 
 | Component | Implemented role | Remaining boundary or adoption gate |
 | --- | --- | --- |
-| [`ferrixel`](../Cargo.toml) | Feature-gated facade/CLI and the SDR pipeline above | M1 quality, resource, security, license, and release acceptance |
-| [`ferrixel-kernels`](../crates/ferrixel-kernels) | Safe API over scalar, NEON, AVX2, and AVX-512 resampling; runtime selection | Host-specific evidence still applies; no SVE2 kernel or GPU backend |
+| [`ferrisma`](../Cargo.toml) | Feature-gated facade/CLI and the SDR pipeline above | M1 quality, resource, security, license, and release acceptance |
+| [`ferrisma-kernels`](../crates/ferrisma-kernels) | Safe API over scalar, NEON, AVX2, and AVX-512 resampling; runtime selection | Host-specific evidence still applies; no SVE2 kernel or GPU backend |
 | [`libsharpyuv-core`](../crates/libsharpyuv-core) | One safe SharpYUV numeric conversion shared by WebP and AVIF | Separate adapters preserve WebP slices/SIMD and AVIF C ABI/allocation behavior; measured AVIF kernel cost and native oracle gates are recorded in [ADR-0033](adr/0033-shared-sharpyuv-conversion-core.md) |
-| [`ferrixel-libavif`](../crates/ferrixel-libavif/README.md) | Compatibility adapter and CLI re-exporting the engine's libavif backend | Delegates to the independent writer; native/nightly and codec acceptance gates remain |
-| [`ferrixel-avif-read`](../crates/ferrixel-avif-read) | Safe, independent read wrapper over libavif's AOM decoder; selected by `avif-read` | Pinned nightly and supported macOS ARM64/GNU Linux x86-64; full Argon/dav1d adoption evidence remains open |
-| [`ferrixel-avif-write`](../crates/ferrixel-avif-write) | Independent safe row writer over the workspace AOM encoder; selected by `avif-own-write` | Isolates unsafe ABI calls; known RGBA/YUV(A) bytes are reserved, codec scratch and encoded output remain opaque |
-| [`ferrixel-jxl-decoder`](../crates/ferrixel-jxl-decoder) | Safe, independent wrapper for the opt-in local JPEG XL decoder | Full-frame fallback and measured photo regression keep `jxl-oxide` as the default |
+| [`ferrisma-libavif`](../crates/ferrisma-libavif/README.md) | Compatibility adapter and CLI re-exporting the engine's libavif backend | Delegates to the independent writer; native/nightly and codec acceptance gates remain |
+| [`ferrisma-avif-read`](../crates/ferrisma-avif-read) | Safe, independent read wrapper over libavif's AOM decoder; selected by `avif-read` | Pinned nightly and supported macOS ARM64/GNU Linux x86-64; full Argon/dav1d adoption evidence remains open |
+| [`ferrisma-avif-write`](../crates/ferrisma-avif-write) | Independent safe row writer over the workspace AOM encoder; selected by `avif-own-write` | Isolates unsafe ABI calls; known RGBA/YUV(A) bytes are reserved, codec scratch and encoded output remain opaque |
+| [`ferrisma-jxl-decoder`](../crates/ferrisma-jxl-decoder) | Safe, independent wrapper for the opt-in local JPEG XL decoder | Full-frame fallback and measured photo regression keep `jxl-oxide` as the default |
 | [`libjpeg-turbo-rs`](../codecs/libjpeg-turbo-rs/README.md) | 8-bit decoder, scaled decode, crop/skip, metadata, safe scanlines, and SIMD; selected for engine JPEG input | Scaled-IDCT quality policy and deeper cross-platform adoption evidence remain open; encoding, lossless JPEG, and 12/16-bit samples are outside the port's scope |
 | [`libwebp-rs`](../codecs/libwebp-rs/README.md) | Safe decode/encode APIs, incremental decode, containers/animation, and SharpYUV | Still-image input and output adopted through `webp-read` and `webp-write`; NEON rescaler export kernels retain the portable Rust translation |
 | [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder, C-ABI surface, and reference comparison suites | Opt-in engine integration exists; public APIs are provisional, encoder incomplete, and deeper acceptance remains open |
 | [`libavif-rs`](../codecs/libavif-rs/README.md), `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | AVIF container and codec ports, using generated and owned Rust with C-ABI boundaries | No stable safe Rust API claim; validated native hosts are macOS ARM64 and GNU Linux x86-64; package-specific deep gates remain |
-| [`ferrixel-xtask`](../tools/xtask) | Standard-library Rust control plane, invoked as `cargo xtask`, for affected components and validation stages | Existing Python oracle harnesses migrate incrementally without losing evidence |
+| [`ferrisma-xtask`](../tools/xtask) | Standard-library Rust control plane, invoked as `cargo xtask`, for affected components and validation stages | Existing Python oracle harnesses migrate incrementally without losing evidence |
 
 The engine forbids unsafe code. The kernel, adapter, and codec boundaries have
 their own policies; that engine rule does not describe the entire dependency
@@ -118,7 +123,7 @@ Required live oracles fail their jobs if unavailable. Changes to oracle pins,
 goldens, unsafe ABI, SIMD, or floating-point behavior require the relevant deep
 evidence before acceptance. No expected output is refreshed merely to turn a
 failure green. [ADR-0027](adr/0027-tiered-validation-and-rust-test-orchestration.md)
-owns this policy; [GitHub Actions](https://github.com/sebastian-software/ferrixel/actions)
+owns this policy; [GitHub Actions](https://github.com/sebastian-software/ferrisma/actions)
 shows current run results. A green PR check is not full codec certification.
 
 ## Next integration and release gates
@@ -133,7 +138,7 @@ shows current run results. A green PR check is not full codec certification.
   API, ABI, allocation, callback, and full original-consumer oracles. Preserve
   the independent C reference and review the measured AVIF kernel cost in
   [ADR-0033](adr/0033-shared-sharpyuv-conversion-core.md) and
-  [issue #75](https://github.com/sebastian-software/ferrixel/issues/75).
+  [issue #75](https://github.com/sebastian-software/ferrisma/issues/75).
 - Continue verified Rust/TypeScript tooling consolidation. The shared runner
   is Rust already; retained Python harnesses are compatibility assets, not a
   new orchestration layer.

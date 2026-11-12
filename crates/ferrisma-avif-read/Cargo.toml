@@ -1,0 +1,14 @@
+[package]
+name = "ferrisma-avif-read"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Safe, bounded-output read bridge to the workspace libavif port"
+homepage = "https://ferrisma.dev"
+publish = false
+
+[dependencies]
+libavif-rs = { path = "../../codecs/libavif-rs", version = "0.1.0" }
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"

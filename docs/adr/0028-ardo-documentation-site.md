@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-10
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None
 - **Related:** [0026](0026-codecs-in-one-repository-and-workspace.md), [0027](0027-tiered-validation-and-rust-test-orchestration.md)
 
@@ -16,8 +16,8 @@ using Ardo and the Ferramenta family's theming, with Ferromark and Ferroni as
 references.
 
 Both reference sites use Ardo and the Monografie components/styles from
-`ferramenta-family`. The inspected family revision does not register Ferrixel's
-identity or provide a Ferrixel instrument image. Reusing another engine's name
+`ferramenta-family`. The inspected family revision does not register Ferrisma's
+identity or provide a Ferrisma instrument image. Reusing another engine's name
 or asset would misrepresent the product.
 
 ## Decision
@@ -34,8 +34,8 @@ repository Markdown and translates links for the website. Do not maintain a
 second editable status register or copy benchmark figures into marketing claims
 without their measurement context.
 
-Use narrow site-local identity markup and an original Ferrixel instrument until
-the family package supports Ferrixel. The Blender scene uses the pinned shared
+Use narrow site-local identity markup and an original Ferrisma instrument until
+the family package supports Ferrisma. The Blender scene uses the pinned shared
 studio and records its authoring sources; only the optimized render is needed
 at website build time. Typography, spacing, color tokens, reading styles,
 and general components come from the pinned shared package. The local layer
@@ -55,7 +55,7 @@ hosting and a custom domain remain separate configuration choices.
 - The repository gains a TypeScript website toolchain and its maintenance cost.
   Rust contributors do not need it for engine or codec checks.
 - Local identity markup is a small temporary duplication; family registration
-  should remove it when shared components can represent Ferrixel correctly.
+  should remove it when shared components can represent Ferrisma correctly.
 
 ## Alternatives considered
 
@@ -77,11 +77,11 @@ mobile, including keyboard navigation. Claims must retain the project's
 experimental status and the separation between ports and active backends.
 
 The reference source inspection establishes stack/theme compatibility, not
-Ferrixel's rendered result; build and browser evidence are recorded separately.
+Ferrisma's rendered result; build and browser evidence are recorded separately.
 
 ## Review when
 
-- The family registry and shared shell support Ferrixel's identity.
+- The family registry and shared shell support Ferrisma's identity.
 - Canonical Markdown cannot express a required website interaction or source
   links stop surviving generation.
 - A release changes the experimental status, codec selection, or claims.
@@ -89,6 +89,11 @@ Ferrixel's rendered result; build and browser evidence are recorded separately.
 
 ## Amendment log
 
+- 2026-11-12 — [ADR-0038](0038-ferrisma-project-name.md) changes the project
+  identity to Ferrisma and the canonical website to https://ferrisma.dev at `/`.
+  Assets and recipes use the new name; the original rendered pixels and their
+  hashes are retained with explicit naming provenance. Hosting and DNS remain
+  separate from source configuration.
 - 2026-11-10 — Accepted the maintainer's Ardo and shared-theme direction; kept
   technical Markdown canonical and deployment separate from the site build.
 - 2026-11-10 — The first homepage's short passages and abstract diagram were

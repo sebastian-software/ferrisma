@@ -12,7 +12,7 @@ from this repository's provenance-checked snapshots. The AOM reference has
 166 original C translation units, `CONFIG_TUNE_VMAF=0`, and
 `-ffp-contract=off`. The C library was built with the same FP contraction
 setting. The supplemental [C consumer](../../codecs/libavif-rs/tests/ports/avif_input_rgb.c)
-and Rust `ferrixel-avif-read` wrapper both select AOM and the primary image
+and Rust `ferrisma-avif-read` wrapper both select AOM and the primary image
 item explicitly, decode image zero, request nearest-neighbor chroma upsampling,
 straight interleaved RGB(A),
 and 8-bit or 16-bit emitted samples according to source depth. They keep AVIF
@@ -74,7 +74,7 @@ with ImageMagick 7.1.2-35 Q16-HDRI, HEIC delegate 1.23.7:
 
 ```sh
 magick codecs/libjxl-rs/tests/data/decode-test/flower.png.im_q85_420.jpg \
-  -strip -quality 80 /tmp/ferrixel-avif-flower-2268x1512-q80.avif
+  -strip -quality 80 /tmp/ferrisma-avif-flower-2268x1512-q80.avif
 ```
 
 The generated AVIF SHA-256 was
@@ -139,6 +139,6 @@ format-neutral output change, use the
 each binary with:
 
 ```sh
-old-or-new-binary /tmp/ferrixel-avif-flower-2268x1512-q80.avif 2268 1512
-old-or-new-binary /tmp/ferrixel-avif-flower-2268x1512-q80.avif 320 213 400 300 640 427
+old-or-new-binary /tmp/ferrisma-avif-flower-2268x1512-q80.avif 2268 1512
+old-or-new-binary /tmp/ferrisma-avif-flower-2268x1512-q80.avif 320 213 400 300 640 427
 ```

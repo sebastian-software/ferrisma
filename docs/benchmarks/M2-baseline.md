@@ -7,7 +7,7 @@
 - **Stage timings** come from the pipeline itself. `ProcessingReport::timings` ([ADR-0017](../adr/0017-minimal-public-facade-and-cli.md)) holds wall-clock durations for `open` (option validation, header parsing, orientation and ICC setup, graph construction), `decode` (time inside the source's region reader excluding the per-row transform callback: codec decode, reorientation, ICC conversion), `transform` (transfer decode, resampling, quantization, copying rows into the encoder surface), `encode` (AVIF encoding of the materialized frame) and `total`. The CLI prints them and a stable `report: key=value ...` line.
 - **End-to-end latency** is measured outside the process with `hyperfine` (one warmup, `RUNS` timed runs, mean, standard deviation, min, max).
 - **Peak RSS** comes from one extra run under `/usr/bin/time -l` (macOS, bytes) or GNU `time -f %M` (Linux, KiB). It includes codec-internal memory that the engine budget deliberately does not cover.
-- **Sequential throughput** runs one process per small image, so it includes process start, codec initialization and encoder setup for every image. Ferrixel has no batch API yet; this number is the ceiling a batch API has to beat.
+- **Sequential throughput** runs one process per small image, so it includes process start, codec initialization and encoder setup for every image. Ferrisma has no batch API yet; this number is the ceiling a batch API has to beat.
 - **Comparators** (Sharp through `scripts/bench/sharp-resize.cjs`, libvips through `vipsthumbnail --linear`) run only when installed and are labeled `comparable_quality=no`: filters, transfer intent, chroma mode, threading and AV1 encoders differ in that harness. The quality-matched Sharp comparison (equal geometry, linear light, SSIMULACRA2-matched AVIF settings) is a separate harness, `scripts/bench/compare-sharp.py`, with results in [M2-sharp-comparison.md](M2-sharp-comparison.md).
 
 ## How to run
@@ -32,7 +32,7 @@ The synthetic corpus exists so that the harness runs anywhere. Plasma noise afte
 
 ## 2026-11-05 — first dev-machine baseline (synthetic corpus)
 
-**Machine:** Apple M1 Ultra, 20 logical cores, 64 GiB, macOS 27.0 (Darwin 27.0.0, arm64). rustc 1.100.0-nightly (2026-09-06), hyperfine 2.0.0. Crates: zune-jpeg 0.5.15, jxl-oxide 0.12.6, avif-decode 3.0.0, rav1d 1.1.0, ravif 0.13.0, rav1e 0.8.1, moxcms 0.9.1. Ferrixel at `6984255` plus the uncommitted package-0 changes. Settings: `--assume-srgb --quality=80 --speed=6`, Lanczos3, output width 1600, 5 timed runs after 1 warmup. Comparators were not run: neither Sharp nor libvips is installed on this machine.
+**Machine:** Apple M1 Ultra, 20 logical cores, 64 GiB, macOS 27.0 (Darwin 27.0.0, arm64). rustc 1.100.0-nightly (2026-09-06), hyperfine 2.0.0. Crates: zune-jpeg 0.5.15, jxl-oxide 0.12.6, avif-decode 3.0.0, rav1d 1.1.0, ravif 0.13.0, rav1e 0.8.1, moxcms 0.9.1. Ferrisma at `6984255` plus the uncommitted package-0 changes. Settings: `--assume-srgb --quality=80 --speed=6`, Lanczos3, output width 1600, 5 timed runs after 1 warmup. Comparators were not run: neither Sharp nor libvips is installed on this machine.
 
 Wall time, CPU/wall and peak RSS are hyperfine and `/usr/bin/time` observations; the stage columns come from one additional run's `report:` line.
 
@@ -53,7 +53,7 @@ Sequential throughput, 100 synthetic 640×427 JPEGs to 320×213 AVIF, one proces
 | self samples | symbol | stage |
 | ---: | --- | --- |
 | 3655 (+162 stub) | `pow` (libsystem_m) | transform: sRGB transfer decode per filter tap |
-| 1089 | `ferrixel::working_color::decode_to_linear_srgb` | transform |
+| 1089 | `ferrisma::working_color::decode_to_linear_srgb` | transform |
 | 1036 | `execute_quality_srgb8` row closure | transform: horizontal and vertical accumulation |
 | 601 | `rav1e::transform::inverse::rust::inverse_transform_add` | encode |
 | 268 | `rav1e::cdef::rust::cdef_filter_block` | encode |
@@ -63,7 +63,7 @@ Sequential throughput, 100 synthetic 640×427 JPEGs to 320×213 AVIF, one proces
 | 29 + 28 + 22 | `zune_jpeg` MCU decode, YCbCr→RGB, IDCT | decode |
 | 20 | `VecDeque<CachedRow>::push_back` | transform: row cache |
 
-Every rav1e symbol in the list carries the `rust::` fallback path: the encoder runs its scalar kernels. Verified cause: Ferrixel declares `ravif` with `default-features = false`, which drops ravif's default `asm` and `threading` features (ravif 0.13.0 `Cargo.toml`); rav1e 0.8.1 ships x86-64 and aarch64 assembly behind `asm` (`src/asm/aarch64`, `build.rs`), so this build uses neither NEON kernels nor the encoder's own thread pool, and `AvifSink` additionally pins `with_num_threads(Some(1))`. Enabling `asm` pulls in C-compiled and NASM-assembled foreign code, which ADR-0018's dependency policy has to weigh; that trade-off is package 2's first measurement.
+Every rav1e symbol in the list carries the `rust::` fallback path: the encoder runs its scalar kernels. Verified cause: Ferrisma declares `ravif` with `default-features = false`, which drops ravif's default `asm` and `threading` features (ravif 0.13.0 `Cargo.toml`); rav1e 0.8.1 ships x86-64 and aarch64 assembly behind `asm` (`src/asm/aarch64`, `build.rs`), so this build uses neither NEON kernels nor the encoder's own thread pool, and `AvifSink` additionally pins `with_num_threads(Some(1))`. Enabling `asm` pulls in C-compiled and NASM-assembled foreign code, which ADR-0018's dependency policy has to weigh; that trade-off is package 2's first measurement.
 
 ### What the numbers say
 
@@ -134,7 +134,7 @@ Five images: two real photographs downscaled to 1600 wide (a 12 Mpx phone photo 
 2. **Multi-threaded encoding costs bytes through tiles, not threads.** A direct `rav1e` adapter can set tiles from the image size and threads from the machine independently, which removes the trade-off and makes multi-threaded output machine-independent; it also unlocks 4:2:0 10-bit, the only knob that saved bytes at equal quality. That adapter is the remaining part of package 2.
 3. **For batch work one encoder thread per image is the efficient setting**: it has the smallest files and leaves cores to other images; the package 4 engine should schedule images, not tiles, when many are queued.
 
-## 2026-11-06 — Ferrixel's own `rav1e` sink
+## 2026-11-06 — Ferrisma's own `rav1e` sink
 
 `avif-write` now drives `rav1e` directly (`src/avif_sink.rs`) instead of through `ravif`. Rows are converted to BT.601 full-range 10-bit YCbCr on arrival and written into `rav1e`'s input frame, so the engine no longer keeps an RGBA copy of the output; the frame's exact size is charged to the budget. AV1 tiles depend only on the output size (one per 256×256 pixels, at most 64) whenever `encoder_threads` is not 1, so parallel output is the same on every machine and for every thread count. `ChromaSubsampling::Yuv420` (CLI `--chroma=420`) is new. With one thread and 4:4:4 the bytes are identical to the `ravif` path (sink candidate run of the [encoder experiment](../research/encoder-experiment/results/2026-11-06-apple-m1-ultra.md), and unchanged output sizes below).
 
@@ -154,7 +154,7 @@ A denser rule was measured against the first candidate: 512×512 pixels per tile
 
 ## 2026-11-06 — work package 3, first step: kernel crate with NEON and AVX2
 
-The f32 executor's resample now runs on `crates/ferrixel-kernels` (ADR-0020) with runtime dispatch: `scalar`, `neon` and `avx2` levels for the horizontal pass and the vertical `axpy`. Pixels are stored as four `f32` channels with contiguous, zero-padded taps. `--kernel-level` (or `BENCH_KERNEL_LEVEL`) sets a ceiling; the report names the level. Same machine and corpus, all encoder cores, 4:4:4.
+The f32 executor's resample now runs on `crates/ferrisma-kernels` (ADR-0020) with runtime dispatch: `scalar`, `neon` and `avx2` levels for the horizontal pass and the vertical `axpy`. Pixels are stored as four `f32` channels with contiguous, zero-padded taps. `--kernel-level` (or `BENCH_KERNEL_LEVEL`) sets a ceiling; the report names the level. Same machine and corpus, all encoder cores, 4:4:4.
 
 | image | transform ms before | transform ms, `scalar` | transform ms, `neon` | wall s, `neon` |
 | --- | ---: | ---: | ---: | ---: |
@@ -174,7 +174,7 @@ The f32 executor's resample now runs on `crates/ferrixel-kernels` (ADR-0020) wit
 
 ## 2026-11-06 — kernel levels on three hardware classes
 
-`crates/ferrixel-kernels/examples/bench.rs` times the resample kernels on the shape of the 24 Mpx row (6000×4000 to 1600×1067, Lanczos3, synthetic data). Apple M1 locally; x86-64 and Arm on GitHub-hosted runners in [CI run 42179398696](https://github.com/sebastian-software/ferrixel/actions/runs/42179398696). Hosted runners are shared virtual machines; treat their numbers as indicative.
+`crates/ferrisma-kernels/examples/bench.rs` times the resample kernels on the shape of the 24 Mpx row (6000×4000 to 1600×1067, Lanczos3, synthetic data). Apple M1 locally; x86-64 and Arm on GitHub-hosted runners in [CI run 42179398696](https://github.com/sebastian-software/ferrisma/actions/runs/42179398696). Hosted runners are shared virtual machines; treat their numbers as indicative.
 
 | hardware | level | horizontal ms | vertical ms | total ms |
 | --- | --- | ---: | ---: | ---: |
@@ -263,4 +263,4 @@ The phone photo's row in the previous section used a 1600×1200 output and EXIF 
 
 ## 2026-11-06 — quality-matched comparison with Sharp
 
-The first comparator numbers at equal SSIMULACRA2, on real photographs instead of the synthetic corpus, are in [M2-sharp-comparison.md](M2-sharp-comparison.md). Sharp 0.34.5 writes 3.7–12.0 % smaller files at equal score. Ferrixel is 1.7–1.8× faster on 1600-wide outputs with all cores, 1.5–2.0× with one thread, and about 2× in batch throughput, with lower peak memory. On real input the dog photo's decode (155 ms for 12 Mpx with rotation and ICC) and its larger 1600×2133 encode (271 ms) make up most of Ferrixel's 461 ms. These numbers are for `0612ccf`, before the decode step above; that step is not part of the comparison.
+The first comparator numbers at equal SSIMULACRA2, on real photographs instead of the synthetic corpus, are in [M2-sharp-comparison.md](M2-sharp-comparison.md). Sharp 0.34.5 writes 3.7–12.0 % smaller files at equal score. Ferrisma is 1.7–1.8× faster on 1600-wide outputs with all cores, 1.5–2.0× with one thread, and about 2× in batch throughput, with lower peak memory. On real input the dog photo's decode (155 ms for 12 Mpx with rotation and ICC) and its larger 1600×2133 encode (271 ms) make up most of Ferrisma's 461 ms. These numbers are for `0612ccf`, before the decode step above; that step is not part of the comparison.

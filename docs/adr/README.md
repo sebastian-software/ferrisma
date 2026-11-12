@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Ferrixel keeps **living ADRs**: decisions are durable and reviewable, not immutable historical monuments. A decision can change when evidence changes, but its previous rationale and the reason for revision must remain discoverable.
+Ferrisma keeps **living ADRs**: decisions are durable and reviewable, not immutable historical monuments. A decision can change when evidence changes, but its previous rationale and the reason for revision must remain discoverable.
 
 For implemented capabilities and package status, use [current status](../status.md).
 The [documentation guide](../README.md) also links the codec-local ADR indexes.
@@ -28,7 +28,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0007](0007-correctness-and-performance-evidence.md) | Correctness, reproducible benchmark evidence and bounded quality calibration before optimization | Accepted |
 | [0008](0008-initial-vertical-slice.md) | Minimal architecture-validating implementation | Experimental |
 | [0009](0009-living-adr-process.md) | Decision lifecycle and amendment policy | Accepted |
-| [0010](0010-dual-licensing.md) | Dual-license Ferrixel under MIT OR Apache-2.0 | Accepted |
+| [0010](0010-dual-licensing.md) | Dual-license Ferrisma under MIT OR Apache-2.0 | Accepted |
 | [0011](0011-borrowed-planar-surface-contract.md) | Borrowed, byte-strided YUV420P10 source contract | Experimental |
 | [0012](0012-codec-source-contract.md) | Real decoder sources: explicit ROI capabilities and workspace JPEG scanlines | Experimental |
 | [0013](0013-sample-domain-resize.md) | Preserve rendered metadata and validate sample-domain codec resize | Experimental |
@@ -38,7 +38,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0017](0017-minimal-public-facade-and-cli.md) | Minimal `pipeline::transcode` facade and feature-gated CLI; partially supersedes 0008 | Experimental |
 | [0018](0018-optional-codec-and-cms-dependencies.md) | Interim codec/CMS dependencies and port adoption gates; JPEG input-only; MSRV 1.98; committed lockfile | Experimental |
 | [0019](0019-source-side-orientation.md) | Apply EXIF/AVIF orientation through an explicit, budgeted source-side materialization | Experimental |
-| [0020](0020-kernel-crate-and-isa-dispatch.md) | Separate `ferrixel-kernels` crate, `std::arch` intrinsics behind a safe API, runtime ISA dispatch reported in the plan, scalar/SIMD differential tests | Experimental |
+| [0020](0020-kernel-crate-and-isa-dispatch.md) | Separate `ferrisma-kernels` crate, `std::arch` intrinsics behind a safe API, runtime ISA dispatch reported in the plan, scalar/SIMD differential tests | Experimental |
 | [0021](0021-working-precision-policy.md) | Working precision: `f32` with exact LUTs and a testable error bound against the `f64` oracle; the Q1.14 path was measured and dropped | Experimental |
 | [0022](0022-parallel-row-pipeline-and-engine.md) | Parallel row pipeline with ordered emission (byte-identical to the sequential executor, standard library only) and an `Engine` for batches | Experimental |
 | [0023](0023-decode-side-work-and-scaling-policy.md) | Full-resolution decode by default; decoder SIMD, extended-range linear ICC matrix-shaper output and cheaper orientation; shrink-on-load only as an explicit, measured quality policy | Experimental |
@@ -54,6 +54,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0033](0033-shared-sharpyuv-conversion-core.md) | One safe SharpYUV conversion core with WebP and AVIF boundary adapters | Experimental |
 | [0034](0034-thumbnail-geometry.md) | Upright thumbnail geometry, centered cover, explicit no-enlargement behavior and bounded JPEG/WebP header inspection | Accepted |
 | [0037](0037-selectable-workspace-avif-encoder.md) | Explicit workspace libavif/AOM output selection through an independent writer boundary; Rav1e remains default | Experimental |
+| [0038](0038-ferrisma-project-name.md) | Ferrisma project identity, technical rename, ferrisma.dev, and published placeholder packages | Accepted |
 
 ## Changing an ADR
 

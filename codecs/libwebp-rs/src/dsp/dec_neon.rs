@@ -178,7 +178,7 @@
 //! modules (`examples/dsp_bench/dec_neon.rs` and so on) and registered under
 //! `#[cfg(target_arch = "aarch64")]`.
 //!
-//! # Notes for Ferrixel
+//! # Notes for Ferrisma
 //!
 //! With the default `simd` feature on 64-bit ARM, these functions have a NEON
 //! path, selected without a run-time query as upstream does (`-noasm` through

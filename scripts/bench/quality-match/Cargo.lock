@@ -235,7 +235,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ferrixel-quality-match"
+name = "ferrisma-quality-match"
 version = "0.0.0"
 dependencies = [
  "avif-decode",

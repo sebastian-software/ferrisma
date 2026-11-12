@@ -1,6 +1,6 @@
 # libwebp-rs fuzz targets
 
-This is the WebP port in the Ferrixel monorepo. See the [project overview](../../../README.md),
+This is the WebP port in the Ferrisma monorepo. See the [project overview](../../../README.md),
 [status](../../../docs/status.md), and [codec workspace guide](../../../docs/codecs.md).
 
 cargo-fuzz targets that exercise the Rust translation, ported from the

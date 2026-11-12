@@ -6,7 +6,7 @@
 
 ## Context
 
-Ferrixel's core is stable Rust without `unsafe` and accepts codec `unsafe` only
+Ferrisma's core is stable Rust without `unsafe` and accepts codec `unsafe` only
 in isolated, audited places. libwebp-rs shows that a mechanical decoder port
 can stay in safe Rust except for its exported C ABI, which this port does not
 have: it serves Rust programs, and C compatibility is not a goal.
@@ -44,10 +44,10 @@ packages start, or when the minimum Rust version is raised.
 
 ## Monorepo amendment, 2026-11-10
 
-[Ferrixel ADR-0026](../../../../docs/adr/0026-codecs-in-one-repository-and-workspace.md)
+[Ferrisma ADR-0026](../../../../docs/adr/0026-codecs-in-one-repository-and-workspace.md)
 supersedes the former repository-local workspace, profile and development
 toolchain placement. This package uses the root workspace and lockfile. The
 original compiler compatibility promises and independent reference comparisons
 remain; handwritten ports explicitly use stable Clippy and their MSRV jobs.
 Shared profiles retain the numeric and unwinding requirements of each port.
-Active workflows now live at the Ferrixel repository root.
+Active workflows now live at the Ferrisma repository root.

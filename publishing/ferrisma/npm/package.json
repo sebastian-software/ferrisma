@@ -1,0 +1,25 @@
+{
+  "name": "ferrisma",
+  "version": "0.0.0",
+  "description": "Ferrisma image processing pipeline: placeholder release with no image processing API.",
+  "license": "MIT OR Apache-2.0",
+  "author": "Sebastian Software GmbH",
+  "homepage": "https://ferrisma.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sebastian-software/ferrixel.git",
+    "directory": "publishing/ferrisma/npm"
+  },
+  "type": "module",
+  "exports": "./index.js",
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

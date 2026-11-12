@@ -1,8 +1,14 @@
-# Ferrixel artwork
+# Ferrisma artwork
+
+On November 12, 2026, product labels, recipe names, and asset paths were renamed
+from Ferrixel to Ferrisma. Exported pixel files and geometry are unchanged.
+Each provenance sidecar's `identityRename` field retains the original rendered
+construction hash, commit, and path; `constructionSha256` tracks the renamed
+recipe. Master and export hashes continue to identify the original renders.
 
 ## Instrument
 
-`ferrixel-instrument.py` constructs an image railway. One broad steel bed
+`ferrisma-instrument.py` constructs an image railway. One broad steel bed
 follows a gentle S-curve and carries two rails; flanged-wheel wagons bring a
 source picture under a raised guillotine, a half-size copy under a spindle
 press, and the same motif as square pixels beneath an adjustable loupe. The
@@ -18,14 +24,14 @@ commit and both helper hashes before importing them. The Ferramenta source is
 MIT-licensed and is read without modification. Blender and the family source
 are authoring tools only, not dependencies of the website build or tests.
 
-From the Ferrixel root, with Blender 5.3 and the pinned Ferramenta checkout:
+From the Ferrisma root, with Blender 5.3 and the pinned Ferramenta checkout:
 
 ```sh
-blender --background --python homepage/artwork/ferrixel-instrument.py -- \
-  --family-source /path/to/ferramenta --output /tmp/ferrixel-draft.png --draft
-blender --background --python homepage/artwork/ferrixel-instrument.py -- \
-  --family-source /path/to/ferramenta --output /tmp/ferrixel-instrument-master.png
-cwebp -q 90 /tmp/ferrixel-instrument-master.png -o homepage/public/ferrixel-instrument.webp
+blender --background --python homepage/artwork/ferrisma-instrument.py -- \
+  --family-source /path/to/ferramenta --output /tmp/ferrisma-draft.png --draft
+blender --background --python homepage/artwork/ferrisma-instrument.py -- \
+  --family-source /path/to/ferramenta --output /tmp/ferrisma-instrument-master.png
+cwebp -q 90 /tmp/ferrisma-instrument-master.png -o homepage/public/ferrisma-instrument.webp
 ```
 
 The draft uses 1200×600 and 32 samples; the final uses 2400×1200 and 192
@@ -46,32 +52,32 @@ they do not establish that every intended assembly contact is collision-free.
 
 ## Mark
 
-`ferrixel-mark.py` builds the compact header mark with the family's mark
+`ferrisma-mark.py` builds the compact header mark with the family's mark
 helpers (`studio.py` and `family_marks.py`, pinned to the same commit and
 checked by hash). A polished steel picture plate has a stepped pixel mountain
 cut through into a dark graphite bed; a crowned copper sun, as on the
 instrument's picture samples, sits in its sky; a graphite registration corner
 holds the plate. It stays site-local until the family registry includes
-Ferrixel.
+Ferrisma.
 
 ```sh
-blender --background --python homepage/artwork/ferrixel-mark.py -- \
-  --family-source /path/to/ferramenta --output /tmp/ferrixel-mark-master.png
-M=/tmp/ferrixel-mark-master.png
+blender --background --python homepage/artwork/ferrisma-mark.py -- \
+  --family-source /path/to/ferramenta --output /tmp/ferrisma-mark-master.png
+M=/tmp/ferrisma-mark-master.png
 B=$(magick "$M" -alpha extract -threshold 10% -trim -format "%wx%h%X%Y" info:)
 for s in 64 256; do
   magick "$M" -crop "$B" +repage -background none -gravity center \
     -extent "%[fx:ceil(max(w,h)/0.875)]x%[fx:ceil(max(w,h)/0.875)]" \
-    -filter Lanczos -resize "${s}x${s}" "/tmp/ferrixel-mark-$s.png"
+    -filter Lanczos -resize "${s}x${s}" "/tmp/ferrisma-mark-$s.png"
 done
-magick /tmp/ferrixel-mark-256.png -define webp:lossless=true homepage/app/assets/ferrixel-mark.webp
-cp /tmp/ferrixel-mark-64.png homepage/app/assets/ferrixel-favicon.png
-magick /tmp/ferrixel-mark-256.png -resize 156x156 -background '#F4F0E6' \
-  -gravity center -extent 180x180 -alpha remove homepage/app/assets/ferrixel-apple-touch-icon.png
+magick /tmp/ferrisma-mark-256.png -define webp:lossless=true homepage/app/assets/ferrisma-mark.webp
+cp /tmp/ferrisma-mark-64.png homepage/app/assets/ferrisma-favicon.png
+magick /tmp/ferrisma-mark-256.png -resize 156x156 -background '#F4F0E6' \
+  -gravity center -extent 180x180 -alpha remove homepage/app/assets/ferrisma-apple-touch-icon.png
 ```
 
 The export mirrors Ferramenta's `design/ferra/build-assets.mjs`: the alpha
 threshold only measures bounds, the square extent leaves the family's 12.5%
 margin, and resizing uses Lanczos. The master is 1600×1600 with 160 samples.
-`ferrixel-mark.provenance.json` records the helper, script, master and export
+`ferrisma-mark.provenance.json` records the helper, script, master and export
 hashes; the committed exports used ImageMagick 7.1.2 on macOS ARM64.

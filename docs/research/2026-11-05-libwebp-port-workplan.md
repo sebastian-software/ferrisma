@@ -54,10 +54,10 @@ libwebp-rs/
 | 1 | WP1 types and workers, WP2 bit I/O, WP3 lossless shared, WP4 pixel ops, WP5 SharpYUV | up to 5 | wave 2 |
 | 2 | WP6 VP8 decoder, WP7 VP8L decoder, WP8 demux, WP9 encoder picture, WP10 VP8 encoder, WP11 VP8L encoder | up to 6 | wave 3 |
 | 3 | WP12 decoder integration, WP13 encoder integration, WP14 animation decode | up to 3 | wave 4 |
-| 4 | WP15 mux, WP16 safe decoder API, WP17 safe encoder API, WP18 to WP20 SIMD | as wanted | Ferrixel adapters |
-| 5 | WP21 Ferrixel `webp-read`, WP22 Ferrixel `webp-write` (in the Ferrixel repository) | 2 | Ferrixel WebP support |
+| 4 | WP15 mux, WP16 safe decoder API, WP17 safe encoder API, WP18 to WP20 SIMD | as wanted | Ferrisma adapters |
+| 5 | WP21 Ferrisma `webp-read`, WP22 Ferrisma `webp-write` (in the Ferrisma repository) | 2 | Ferrisma WebP support |
 
-**Critical path to Ferrixel's first WebP milestone (reading):** WP0 → WP1, WP2, WP4 (and WP3 for lossless) → WP6, WP7 → WP12 → WP16 → WP21.
+**Critical path to Ferrisma's first WebP milestone (reading):** WP0 → WP1, WP2, WP4 (and WP3 for lossless) → WP6, WP7 → WP12 → WP16 → WP21.
 
 **Start order with three sessions:** WP1, WP2, WP4; then WP3, WP5, WP6; then WP7, WP9, WP10; then WP8, WP11, WP12; then WP13, WP14, WP16; then WP15, WP17, WP21.
 
@@ -105,7 +105,7 @@ A Haiku package that meets a design question (for example an allocation-limit re
 
 | Package | Upstream units (lines) | Takes over | Verification and gates |
 | --- | --- | --- | --- |
-| **WP12 decoder integration** (about 2,480 plus ABI) | `webp_dec.c` (657), `buffer_dec.c` (258), `io_dec.c` (557), `alpha_dec.c` (183), `idec_dec.c` (735), `alphai_dec.h`, `webpi_dec.h` (90); `src/abi/decode.rs` exporting `decode.h` | WP6, WP7 modules for integration fixes; `tools/oracle` consumer build of `dwebp`, `webpinfo` and `imageio` against the Rust static library | `test_dwebp.sh` 480 checksums with Rust-linked `dwebp`; `test_lossless.sh`; advanced-API matrix (cropping, scaling, `bypass_filtering`, `no_fancy_upsampling`, `flip`, `use_threads`, all `WEBP_CSP_MODE`, `WebPDecodeYUVInto`); incremental decoder at chunk sizes 1, 7, 64, 4,096; `dec_fuzzer`, `simple_api_fuzzer`, `advanced_api_fuzzer`, `huffman_fuzzer` as `fuzz/` targets; `webpinfo` output identical; row counters for the Ferrixel cropping measurement |
+| **WP12 decoder integration** (about 2,480 plus ABI) | `webp_dec.c` (657), `buffer_dec.c` (258), `io_dec.c` (557), `alpha_dec.c` (183), `idec_dec.c` (735), `alphai_dec.h`, `webpi_dec.h` (90); `src/abi/decode.rs` exporting `decode.h` | WP6, WP7 modules for integration fixes; `tools/oracle` consumer build of `dwebp`, `webpinfo` and `imageio` against the Rust static library | `test_dwebp.sh` 480 checksums with Rust-linked `dwebp`; `test_lossless.sh`; advanced-API matrix (cropping, scaling, `bypass_filtering`, `no_fancy_upsampling`, `flip`, `use_threads`, all `WEBP_CSP_MODE`, `WebPDecodeYUVInto`); incremental decoder at chunk sizes 1, 7, 64, 4,096; `dec_fuzzer`, `simple_api_fuzzer`, `advanced_api_fuzzer`, `huffman_fuzzer` as `fuzz/` targets; `webpinfo` output identical; row counters for the Ferrisma cropping measurement |
 | **WP13 encoder integration** (about 340 plus ABI) | `alpha_enc.c` (341), the alpha branch of `webp_enc.rs`; `src/abi/encode.rs` exporting `encode.h` | WP9, WP10, WP11 modules; consumer build of `cwebp` | Full encoder matrix from the port plan with alpha (`alpha_quality`, `alpha_filtering`, `alpha_compression`, `exact`), `test_cwebp.sh` with Rust-linked `cwebp`, progress hook and abort, custom writer; `enc_fuzzer`, `enc_dec_fuzzer` as `fuzz/` targets |
 | **WP14 animation decode and demux ABI** (about 360 plus ABI) | `src/demux/anim_decode.c` (360); `src/abi/demux.rs` exporting `demux.h` | WP8 | `WebPAnimDecoder` frames compared with the oracle on the animated vectors and synthetic animations (blend and dispose combinations, odd offsets); `animdecoder_fuzzer`; `anim_dump` as consumer |
 
@@ -122,7 +122,7 @@ A Haiku package that meets a design question (for example an allocation-limit re
 
 MIPS and MSA variants are not planned.
 
-### Wave 5: Ferrixel adapters (in the Ferrixel repository)
+### Wave 5: Ferrisma adapters (in the Ferrisma repository)
 
 | Package | Scope | Depends on |
 | --- | --- | --- |

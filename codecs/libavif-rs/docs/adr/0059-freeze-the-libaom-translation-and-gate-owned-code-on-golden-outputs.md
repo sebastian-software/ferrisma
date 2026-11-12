@@ -17,7 +17,7 @@ ADR 0058).
 
 Two things now stand in the way of the next phase.
 
-**Regenerating the translation overwrites owned work.** The gains Ferrixel
+**Regenerating the translation overwrites owned work.** The gains Ferrisma
 needs mostly come from treating the encoder as part of one still-image
 pipeline. Examples are writing pipeline output straight into the encoder's
 buffer layout, allocating for one frame instead of a video lookahead,
@@ -68,7 +68,7 @@ Golden outputs are recorded from that C reference and committed with their
 provenance: source and patch hashes, configuration, compiler flags, platform
 and floating-point profile. They come at two levels:
 
-- **End to end:** a still-image corpus crossed with the settings Ferrixel uses
+- **End to end:** a still-image corpus crossed with the settings Ferrisma uses
   (bit depth, subsampling, speed, quality, tuning). For each combination, the
   SHA-256 of the AVIF output is recorded, and of the decoded pixels where it
   applies.
@@ -100,7 +100,7 @@ Translated code is changed by layer:
 - **API boundary** (configuration, input, output): safe, idiomatic Rust under
   `#![forbid(unsafe_code)]`.
 - **Pipeline integration** (buffers, allocation, context reuse, threading): the
-  main area for Ferrixel-specific optimization, safe wherever practical.
+  main area for Ferrisma-specific optimization, safe wherever practical.
 - **DSP and SIMD hot paths:** owned kernels behind RTCD. `unsafe` is limited to
   memory access and feature dispatch.
 - **Encoder decision logic** (RD search, speed features, tuning): kept close to
@@ -139,14 +139,14 @@ that reaches zero gets `#![forbid(unsafe_code)]`. A pull request that adds an
 
 Changes that keep the output identical are accepted on golden outputs alone.
 Changes that alter the output on purpose need a C reference change (for a
-ported upstream feature) or, for Ferrixel's own encoder changes, a measured
+ported upstream feature) or, for Ferrisma's own encoder changes, a measured
 quality and size comparison on the corpus. Such changes leave the libaom
 reference, so their golden outputs only guard against unintended change.
 
 ### Upstream features
 
 Upstream releases are not followed as a whole. A feature is ported when it
-pays off for Ferrixel. Its upstream commits are applied to the C reference,
+pays off for Ferrisma. Its upstream commits are applied to the C reference,
 reproduced in the Rust, and accepted on the new golden outputs.
 
 ## Consequences
@@ -163,11 +163,11 @@ reproduced in the Rust, and accepted on the new golden outputs.
 - Correspondence with upstream source (ADR 0001) no longer holds for changed
   modules. Source correspondence checks are limited to modules still in their
   translated form, and the inventory records which modules are owned.
-- Ferrixel's
-  [ADR-0025](https://github.com/sebastian-software/ferrixel/blob/main/docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)
+- Ferrisma's
+  [ADR-0025](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md)
   says scope is reduced "never by editing generated code". After the freeze
   that rule applies only up to the final regeneration and needs a matching
-  update in Ferrixel.
+  update in Ferrisma.
 - The same approach can later apply to the other ports, each in its own
   decision.
 
@@ -211,7 +211,7 @@ upstream libavif test PNGs with the Python standard library alone (decode,
 16-to-8-bit rounding, crop, transpose, mirror), so runner image updates of
 ImageMagick or `sips` cannot change the inputs. Its PNG decoding matches
 ImageMagick byte for byte on all sources. The 62 cases cross six images (up to
-1368x2048, odd sizes, grayscale, text with alpha) with Ferrixel's settings: 8,
+1368x2048, odd sizes, grayscale, text with alpha) with Ferrisma's settings: 8,
 10 and 12 bits, 4:2:0 and 4:4:4, quality 20 to 100 including lossless, speeds
 4 to 10, one thread and four threads with automatic tiling, and RGBA input with
 an alpha plane. Thread counts are fixed because libavif derives the tile
@@ -244,9 +244,9 @@ the record; on Linux it takes 3 min 22 s.
   same runner) to stay below that noise.
 
 - Which further upstream switches the final regeneration uses: whether the
-  decoder, real-time paths or other units can be dropped for Ferrixel's use.
+  decoder, real-time paths or other units can be dropped for Ferrisma's use.
 - Whether the end-to-end corpus needs more images or settings, such as tuning
-  modes or larger images, once Ferrixel's settings settle. The first corpus is
+  modes or larger images, once Ferrisma's settings settle. The first corpus is
   described in the amendment above.
 - Whether the macOS and Linux C references produce identical golden outputs
   under the non-contracting floating-point profile. Resolved for the first

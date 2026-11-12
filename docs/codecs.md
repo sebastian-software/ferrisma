@@ -1,6 +1,6 @@
 # Codec development in the shared workspace
 
-Ferrixel, its encoder adapter, and the four codec ports share one Cargo workspace,
+Ferrisma, its encoder adapter, and the four codec ports share one Cargo workspace,
 lockfile, development toolchain, and repository. [ADR-0026](adr/0026-codecs-in-one-repository-and-workspace.md)
 owns the consolidation decision. Importing a port does not select it as a pipeline
 backend or approve publication; [ADR-0025](adr/0025-codec-selection-reference-conformance-and-image-scope.md)
@@ -8,17 +8,17 @@ and the M1 acceptance gates still apply. For the current pipeline, see [status](
 
 | Component | Package | Local source |
 | --- | --- | --- |
-| Engine | `ferrixel` | repository root |
-| SIMD kernels | `ferrixel-kernels` | `crates/ferrixel-kernels` |
+| Engine | `ferrisma` | repository root |
+| SIMD kernels | `ferrisma-kernels` | `crates/ferrisma-kernels` |
 | Shared SharpYUV conversion | `libsharpyuv-core` | `crates/libsharpyuv-core` |
-| AVIF encoder adapter | `ferrixel-libavif` | `crates/ferrixel-libavif` |
-| AVIF input adapter | `ferrixel-avif-read` | `crates/ferrixel-avif-read` |
-| AVIF output boundary | `ferrixel-avif-write` | `crates/ferrixel-avif-write` |
-| JPEG XL opt-in input adapter | `ferrixel-jxl-decoder` | `crates/ferrixel-jxl-decoder` |
+| AVIF encoder adapter | `ferrisma-libavif` | `crates/ferrisma-libavif` |
+| AVIF input adapter | `ferrisma-avif-read` | `crates/ferrisma-avif-read` |
+| AVIF output boundary | `ferrisma-avif-write` | `crates/ferrisma-avif-write` |
+| JPEG XL opt-in input adapter | `ferrisma-jxl-decoder` | `crates/ferrisma-jxl-decoder` |
 | JPEG | `libjpeg-turbo-rs` | `codecs/libjpeg-turbo-rs` |
 | WebP | `libwebp-rs` | `codecs/libwebp-rs` |
 | JPEG XL | `libjxl-rs` | `codecs/libjxl-rs` |
-| Tooling | `ferrixel-xtask` (invoked as `cargo xtask`) | `tools/xtask` |
+| Tooling | `ferrisma-xtask` (invoked as `cargo xtask`) | `tools/xtask` |
 | AVIF, AOM, dav1d, SharpYUV | `libavif-rs`, `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | `codecs/libavif-rs` |
 
 ## Setup
@@ -51,7 +51,7 @@ nightly on macOS ARM64 or GNU Linux x86-64. The handwritten ports retain their
 own Rust 1.95 checks. An engine `--all-features` build is therefore not a
 stable-toolchain check.
 
-Engine Clippy selects `ferrixel` and `ferrixel-kernels` with `--no-deps` when
+Engine Clippy selects `ferrisma` and `ferrisma-kernels` with `--no-deps` when
 codec features are enabled. Once the ports are local dependencies, this prevents
 the pinned AVIF nightly from also linting their mechanically translated loops.
 The component checks below still lint each port strictly with its supported
@@ -71,7 +71,7 @@ cargo clippy --all-targets -- -D warnings
 cargo xtask codecs --codec webp --stage pr
 # Deep local differential checks, when needed:
 cargo xtask codecs --codec webp --stage oracle
-cargo test -p ferrixel-libavif --release --all-features
+cargo test -p ferrisma-libavif --release --all-features
 ```
 
 The `pr` stage is the contributor fast loop for one codec. On JPEG, WebP,
@@ -97,7 +97,7 @@ Do not use workspace-wide `--all-features`: component-specific native and
 validation configurations still need scoped checks. The former
 `avif-decode`/libavif `dav1d_*` collision is removed; current AVIF input and
 the libavif encoder adapter can link together. Engine all-feature checks select
-`-p ferrixel -p ferrixel-kernels` on the pinned nightly; stable checks omit
+`-p ferrisma -p ferrisma-kernels` on the pinned nightly; stable checks omit
 `avif-read` and `avif-own-write`. JXL's local Cargo configuration disables auto-vectorization for its
 reference-sensitive checks. Run those checks through its script or from its
 directory. Rust artifacts live in the root `target/`; C/C++ reference outputs
@@ -134,5 +134,5 @@ source. The root license screen still covers the engine's reachable dependency
 graph; codec notice and provenance checks remain separate.
 
 The four original codec repositories have been retired and their issues migrated.
-Development and issue tracking continue in Ferrixel; retained import metadata and
+Development and issue tracking continue in Ferrisma; retained import metadata and
 Git history document the source revisions.

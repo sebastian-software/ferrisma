@@ -8,7 +8,7 @@
 use std::error::Error;
 use std::time::Instant;
 
-use ferrixel::pipeline::{
+use ferrisma::pipeline::{
     BatchItem, Engine, ImageFormat, InputProfilePolicy, TransformOptions, transcode,
 };
 

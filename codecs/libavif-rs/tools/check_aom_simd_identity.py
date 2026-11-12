@@ -32,7 +32,7 @@ DATA = ROOT / 'upstream/libavif/tests/data'
 # name, source, sips operations (applied in order), purpose
 CORPUS = [
     ('dog-1600x2133', 'dog_exif_extended_xmp_icc.jpg',
-     [['-r', '90'], ['-z', '2133', '1600']], 'photo at the size used for Ferrixel measurements'),
+     [['-r', '90'], ['-z', '2133', '1600']], 'photo at the size used for Ferrisma measurements'),
     ('dog-1001x777', 'dog_exif_extended_xmp_icc.jpg',
      [['-z', '777', '1001']], 'odd dimensions, partial superblocks'),
     ('weld-1024x684', 'weld_16bit.png', [], '16-bit PNG reduced to 8-bit RGB'),

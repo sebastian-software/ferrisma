@@ -11,7 +11,7 @@ Verify that a small immutable image graph can be planned backward from output de
 - `Graph`: append-only node construction, with source, crop and bilinear resize. Parent indexes must refer to already-added nodes, keeping the graph acyclic. Dimension and crop bounds validation is checked.
 - `Rect`: half-open, integer image-coordinate regions. A requested crop translates by its top-left offset. No physical tile size is part of the graph semantics.
 - `plan_region`: walks requested output regions backward to the source, using exact pixel-center bilinear sample footprints and edge clamping. The resulting steps are a **temporary** plan for a region; no persistent IR is required yet.
-- `execute`: requests each output scanline separately. It then executes only that scanline's dependency plan. The output sink receives a borrowed row, allowing the caller to stream without allocating a final image in Ferrixel.
+- `execute`: requests each output scanline separately. It then executes only that scanline's dependency plan. The output sink receives a borrowed row, allowing the caller to stream without allocating a final image in Ferrisma.
 - `MemoryBudget`: RAII-reserved pixel byte buffers with an atomic shared cap, high-water mark, allocation count, and safe release on failure/cancellation.
 - Scalar Gray8 bilinear reference operation. Pixel coordinate convention is `(output + 0.5) * source / destination - 0.5`, with edge clamping; this is a **defined test baseline**, not yet a quality recommendation for real photographs or HDR.
 

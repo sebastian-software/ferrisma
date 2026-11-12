@@ -1,4 +1,4 @@
-//! Times `zune-jpeg` (Ferrixel's `jpeg-read` decoder) on one JPEG held in
+//! Times `zune-jpeg` (Ferrisma's `jpeg-read` decoder) on one JPEG held in
 //! memory, with the same output line and `.ref` format as `jpegdec.c`.
 //!
 //! usage: zune FILE REPS [OUT.ref]

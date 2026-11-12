@@ -441,7 +441,7 @@ The maintainer accepted the proposed answers to the questions raised in review:
    them, while the oracle succeeds. The safe API (work package 8) may check
    them up front.
 2. **`JPEGMEM`** is kept for parity: `jinit_memory_mgr` reads it as upstream
-   does. Ferrixel's adapter sets its memory limit explicitly.
+   does. Ferrisma's adapter sets its memory limit explicitly.
 3. **Small allocations.** An infallible `Box` is fine for fixed-size module
    structs; large buffers stay fallible.
 4. **Default `error_exit`** prints to standard error and returns. The work

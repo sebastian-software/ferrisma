@@ -1,0 +1,26 @@
+[package]
+name = "ferrisma-libavif"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "libavif-rs (Rust AOM) as an output encoder backend for Ferrisma (ADR-0024)"
+homepage = "https://ferrisma.dev"
+publish = false
+
+[features]
+default = []
+# The shared CLI accepts all four inputs. AVIF input and this encoder now
+# use the same workspace libavif package and isolated safe boundaries.
+cli = ["ferrisma/jpeg-read", "ferrisma/webp-read", "ferrisma/jpeg-xl-read", "ferrisma/avif-read", "ferrisma/icc"]
+
+[dependencies]
+ferrisma = { path = "../..", default-features = false, features = ["avif-own-write"] }
+
+[dev-dependencies]
+libavif-rs = { path = "../../codecs/libavif-rs", version = "0.1.0" }
+ferrisma = { path = "../..", default-features = false, features = ["jpeg-read"] }
+
+[[bin]]
+name = "ferrisma-libavif"
+path = "src/bin/ferrisma-libavif.rs"
+required-features = ["cli"]

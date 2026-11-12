@@ -1,7 +1,7 @@
 # Contributing
 
 This guide uses `codecs/libjxl-rs` as its working directory. See the
-[Ferrixel README](../../README.md), [project status](../../docs/status.md),
+[Ferrisma README](../../README.md), [project status](../../docs/status.md),
 and [codec guide](../../docs/codecs.md) for workspace setup and current gates.
 
 Use US English in all project artifacts and Conventional Commits for every
@@ -183,7 +183,7 @@ components. For JXL it runs checked-profile Rust tests and retained captures on
 Linux x86-64 and ARM, with static checks and MSRV on x86-64. It does not build
 the C++ oracle in the PR tier. Nightly and manually dispatched deep workflows
 retain the live oracle and broader audits. See
-[Ferrixel ADR-0027](../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md)
+[Ferrisma ADR-0027](../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md)
 for cadence and high-risk change requirements. Historical results in
 [PORT_STATUS.md](docs/PORT_STATUS.md) apply to their stated revisions; a local
 result does not establish hosted or release acceptance.

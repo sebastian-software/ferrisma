@@ -1,32 +1,38 @@
-# Ferrixel
+# Ferrisma
+
+**[ferrisma.dev](https://ferrisma.dev)**
 
 **A Rust image pipeline and its codec ports, developed in one repository.**
 
-Ferrixel combines an image processing engine, CPU kernels, and Rust ports of
+Ferrisma combines an image processing engine, CPU kernels, and Rust ports of
 JPEG, WebP, JPEG XL, and AVIF libraries. The goal is to make color, decoder
 capabilities, intermediate buffers, and execution costs explicit throughout
 the pipeline.
 
-**Experimental and unpublished.** The JPEG/WebP/JPEG XL/AVIF → crop/resize → AVIF/WebP
+**Experimental.** The JPEG/WebP/JPEG XL/AVIF → crop/resize → AVIF/WebP
 pipeline, Rust facade, and CLI work for supported SDR inputs. M1 quality,
 hardening, dependency, and release gates remain open; there is no stable API
 or production-readiness claim.
+
+The published npm package and crate at version `0.0.0` are placeholders without
+image processing functionality. Build the engine from this repository; see
+[ADR-0038](docs/adr/0038-ferrisma-project-name.md) for the naming transition.
 
 ## What's here
 
 | Component | Current role |
 | --- | --- |
 | [Engine](src/pipeline.rs) | Experimental SDR pipeline with orientation, linear-light resampling, parallel execution, and reported materializations |
-| [CPU kernels](crates/ferrixel-kernels) | Scalar, NEON, AVX2, and AVX-512 resampling behind a safe API |
+| [CPU kernels](crates/ferrisma-kernels) | Scalar, NEON, AVX2, and AVX-512 resampling behind a safe API |
 | [JPEG port](codecs/libjpeg-turbo-rs) | In-scope 8-bit decoder with a safe row API, used by `jpeg-read` |
 | [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; still-image input and output are connected through `webp-read` and `webp-write` |
 | [JPEG XL port](codecs/libjxl-rs) | Reference decoder available as experimental opt-in engine input through a safe wrapper; encoder incomplete |
-| [AVIF ports](codecs/libavif-rs) | libavif and its AOM, dav1d, and SharpYUV ports; `avif-read` uses the AOM reference decoder through an [isolated safe adapter](crates/ferrixel-avif-read), with a separate [optional encoder adapter](crates/ferrixel-libavif) |
+| [AVIF ports](codecs/libavif-rs) | libavif and its AOM, dav1d, and SharpYUV ports; `avif-read` uses the AOM reference decoder through an [isolated safe adapter](crates/ferrisma-avif-read), with a separate [optional encoder adapter](crates/ferrisma-libavif) |
 | [Shared SharpYUV core](crates/libsharpyuv-core) | One safe numeric conversion used by WebP and AVIF through their separate API and allocation boundaries |
 | [Validation tooling](docs/codecs.md) | One Rust runner, scoped PR checks, and deeper independent oracle suites |
 
 The four codec ports share the Cargo workspace, but importing them does not
-automatically select them as engine backends. Ferrixel reads JPEG and WebP
+automatically select them as engine backends. Ferrisma reads JPEG and WebP
 through the workspace `libjpeg-turbo-rs` and `libwebp-rs` ports, JPEG XL through
 `jxl-oxide` by default (with the local reference decoder selectable explicitly),
 and AVIF through the workspace libavif/AOM reader; it writes AVIF through `rav1e`
@@ -47,10 +53,10 @@ architecture, development instructions, decisions, and recorded experiments.
 From a checkout with Rust installed (NASM is also needed on x86-64):
 
 ```sh
-cargo run -p ferrixel --release --features cli -- \
+cargo run -p ferrisma --release --features cli -- \
   photo.jpg scaled.avif 1600 900 --assume-srgb --quality=80 --speed=8
 
-cargo run -p ferrixel --release --features cli -- \
+cargo run -p ferrisma --release --features cli -- \
   photo.jpg scaled.webp 1600 900 --assume-srgb --quality=80 --speed=8
 ```
 

@@ -8,7 +8,7 @@
     "4": "Coefficients and IDCT",
     "5": "Upsampling, color, buffers",
     "6": "Control and API",
-    "8": "Safe Rust API for Ferrixel",
+    "8": "Safe Rust API for Ferrisma",
     "9": "NEON SIMD",
     "10": "x86-64 SIMD"
   },

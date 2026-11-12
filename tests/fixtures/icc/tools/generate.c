@@ -1,6 +1,6 @@
 // Regenerate the committed ICC profiles and independent linear-sRGB oracle.
 // Build: cc -O2 generate.c -o generate $(pkg-config --cflags --libs lcms2)
-// Run from the repository root: /private/tmp/ferrixel-icc-oracle
+// Run from the repository root: /private/tmp/ferrisma-icc-oracle
 // LittleCMS 2.19, relative colorimetric intent, floating-point RGB, no BPC.
 #include <lcms2.h>
 #include <stdio.h>

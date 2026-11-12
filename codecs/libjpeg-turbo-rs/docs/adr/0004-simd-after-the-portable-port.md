@@ -11,7 +11,7 @@ conversion (`simd/`). On AArch64 that code is C with NEON intrinsics (about 7k
 lines in `simd/arm`); upstream replaced its former GAS assembly with it and
 reports it as faster in several cases. On x86-64 it is NASM assembly (about 14k
 lines in `simd/x86_64`) for SSE2 and AVX2. The serial Huffman decoder has no
-SIMD and dominates decode time on photographs (Ferrixel's measurement
+SIMD and dominates decode time on photographs (Ferrisma's measurement
 estimates about 70 % on a 12 Mpx photo).
 
 ## Decision
@@ -53,5 +53,5 @@ is bounded by the share of decode time in SIMD code and is measured per kernel.
 
 Revisit when the portable decoder passes its gates, when an intrinsics kernel
 cannot reach the assembly's speed
-([ferrixel#74](https://github.com/sebastian-software/ferrixel/issues/74), formerly libjpeg-turbo-rs#17), or
+([ferrisma#74](https://github.com/sebastian-software/ferrisma/issues/74), formerly libjpeg-turbo-rs#17), or
 when upstream changes its SIMD layout.

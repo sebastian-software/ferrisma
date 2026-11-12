@@ -7,7 +7,7 @@ const path = require("node:path");
 const { verify } = require("./corpus.cjs");
 
 test("corpus verification rejects changed, missing, duplicate and escaping files", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ferrixel-corpus-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ferrisma-corpus-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, "image"), "abc");
   const entry = { id: "test", path: "image", sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", source: "source", license: "license", role: "photo", description: "test" };

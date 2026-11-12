@@ -16,8 +16,8 @@ the independent linear-sRGB oracle are in [tools/generate.c](tools/generate.c).
 From the repository root on a machine with LittleCMS headers and library:
 
 ```sh
-cc -O2 tests/fixtures/icc/tools/generate.c -o /tmp/ferrixel-icc-oracle $(pkg-config --cflags --libs lcms2)
-/tmp/ferrixel-icc-oracle
+cc -O2 tests/fixtures/icc/tools/generate.c -o /tmp/ferrisma-icc-oracle $(pkg-config --cflags --libs lcms2)
+/tmp/ferrisma-icc-oracle
 shasum -a 256 tests/fixtures/icc/*.icc
 ```
 

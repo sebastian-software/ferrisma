@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "ferrixel-jpeg-decoders-zune"
+name = "ferrisma-jpeg-decoders-zune"
 version = "0.0.0"
 dependencies = [
  "zune-jpeg",

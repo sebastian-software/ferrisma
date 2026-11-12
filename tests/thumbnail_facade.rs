@@ -1,6 +1,6 @@
 #![cfg(all(feature = "jpeg-read", feature = "webp-read", feature = "webp-write"))]
 
-use ferrixel::pipeline::{
+use ferrisma::pipeline::{
     Crop, ImageFormat, InputProfilePolicy, InspectionLimits, OutputFormat, ProcessingErrorKind,
     ResizeFit, ResizeOptions, TransformOptions, WebpOptions, inspect, transcode, transcode_resized,
 };
@@ -8,7 +8,7 @@ use ferrixel::pipeline::{
 struct RowCapture;
 struct CapturedRows(Vec<u8>);
 
-impl ferrixel::pipeline::EncoderBackend for RowCapture {
+impl ferrisma::pipeline::EncoderBackend for RowCapture {
     fn format(&self) -> OutputFormat {
         OutputFormat::WebP
     }
@@ -17,21 +17,21 @@ impl ferrixel::pipeline::EncoderBackend for RowCapture {
     }
     fn begin(
         &self,
-        _: &ferrixel::pipeline::EncodeRequest,
-    ) -> Result<Box<dyn ferrixel::pipeline::RowEncoder + '_>, ferrixel::pipeline::EncodeError> {
+        _: &ferrisma::pipeline::EncodeRequest,
+    ) -> Result<Box<dyn ferrisma::pipeline::RowEncoder + '_>, ferrisma::pipeline::EncodeError> {
         Ok(Box::new(CapturedRows(Vec::new())))
     }
 }
 
-impl ferrixel::pipeline::RowEncoder for CapturedRows {
-    fn write_row(&mut self, _: u32, row: &[u8]) -> Result<(), ferrixel::pipeline::EncodeError> {
+impl ferrisma::pipeline::RowEncoder for CapturedRows {
+    fn write_row(&mut self, _: u32, row: &[u8]) -> Result<(), ferrisma::pipeline::EncodeError> {
         self.0.extend_from_slice(row);
         Ok(())
     }
     fn finish(
         self: Box<Self>,
-    ) -> Result<ferrixel::pipeline::EncodedImage, ferrixel::pipeline::EncodeError> {
-        Ok(ferrixel::pipeline::EncodedImage::new(
+    ) -> Result<ferrisma::pipeline::EncodedImage, ferrisma::pipeline::EncodeError> {
+        Ok(ferrisma::pipeline::EncodedImage::new(
             OutputFormat::WebP,
             self.0,
             0,
@@ -157,7 +157,7 @@ fn webp_input_resizes_and_fill_matches_legacy_exact_output() {
 
 #[test]
 fn resized_backend_receives_the_same_rows_as_manual_cover_without_enlargement() {
-    use ferrixel::pipeline::{transcode_resized_with, transcode_with};
+    use ferrisma::pipeline::{transcode_resized_with, transcode_with};
     let jpeg = include_bytes!("fixtures/orientation/jpeg-6.jpg");
     let actual = transcode_resized_with(
         jpeg,

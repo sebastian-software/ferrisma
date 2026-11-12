@@ -1,7 +1,7 @@
 "use strict";
 
 // CI-only secondary AVIF feasibility baseline. Sharp's resize, gamma,
-// chroma and encoder quality settings are NOT matched to Ferrixel.
+// chroma and encoder quality settings are NOT matched to Ferrisma.
 const sharp = require("sharp");
 
 const [input, output] = process.argv.slice(2);

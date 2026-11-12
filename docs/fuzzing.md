@@ -2,7 +2,7 @@
 
 **Status:** Fuzz harness prepared; sustained fuzz campaign **not yet run**.
 
-Ferrixel's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and AVIF bytes. The core forbids unsafe Rust; optional decoder, assembler, SIMD and encoder dependencies do **not** inherit that guarantee. The workspace AVIF reader checks dimensions and reserves the emitted RGB frame before pixel decoding, but libavif/AOM still allocate opaque parser and codec buffers outside the engine budget.
+Ferrisma's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and AVIF bytes. The core forbids unsafe Rust; optional decoder, assembler, SIMD and encoder dependencies do **not** inherit that guarantee. The workspace AVIF reader checks dimensions and reserves the emitted RGB frame before pixel decoding, but libavif/AOM still allocate opaque parser and codec buffers outside the engine budget.
 
 ## Reproducible fuzz target
 
@@ -113,7 +113,7 @@ The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) use
 
 ### Expanded hosted smoke, 2026-11-11
 
-[Workflow run 43072724334](https://github.com/sebastian-software/ferrixel/actions/runs/43072724334)
+[Workflow run 43072724334](https://github.com/sebastian-software/ferrisma/actions/runs/43072724334)
 completed successfully on revision `8d34b360940a3ad7cff19436baf47f5ae75bd1e4`
 with Ubuntu 26.04 x86-64, `nightly-2026-09-07-x86_64-unknown-linux-gnu`,
 and cargo-fuzz 0.13.2. The deterministic test exercised all eight combinations
@@ -123,15 +123,15 @@ retained corpus inputs and `rss: 405Mb`. The command specified a 16 KiB input
 limit, a five-second per-input timeout, and a 1 GiB RSS limit. The job log does
 not print an explicit sanitizer selection, so this record does not assert one.
 
-The uploaded [corpus artifact](https://github.com/sebastian-software/ferrixel/actions/runs/43072724334/artifacts/13878059847)
+The uploaded [corpus artifact](https://github.com/sebastian-software/ferrisma/actions/runs/43072724334/artifacts/13878059847)
 has SHA-256 `a0a15b4dc3cfdcc637bcdbdb9c453c4c73a1995985f0c876063c51d49088d4dc`.
 This single short run does not close the sustained-campaign, coverage review,
 independent sanitizer, or security-sensitive release gates above.
 
 ## Early input limits
 
-The experimental public facade rejects compressed input exceeding a configurable byte cap (default **64 MiB**) before opening any decoder and rejects image dimensions above a configured **100-megapixel** default. The AVIF adapter checks the selected primary color tiles' AV1 sequence headers **before full-frame decode**, with ICC copies capped at 16 MiB. This mitigates common decompression-bomb cases; it does **not** bound memory used by libavif/AOM, JPEG XL or encoders. Ferrixel's bounded color/orientation parser and libavif each inspect the AVIF container. Always retain process RSS and sandbox limits for hostile inputs. See [ADR-0031](adr/0031-workspace-libavif-input-experiment.md) for the current boundary; the measured fuzz run below predates this reader replacement.
+The experimental public facade rejects compressed input exceeding a configurable byte cap (default **64 MiB**) before opening any decoder and rejects image dimensions above a configured **100-megapixel** default. The AVIF adapter checks the selected primary color tiles' AV1 sequence headers **before full-frame decode**, with ICC copies capped at 16 MiB. This mitigates common decompression-bomb cases; it does **not** bound memory used by libavif/AOM, JPEG XL or encoders. Ferrisma's bounded color/orientation parser and libavif each inspect the AVIF container. Always retain process RSS and sandbox limits for hostile inputs. See [ADR-0031](adr/0031-workspace-libavif-input-experiment.md) for the current boundary; the measured fuzz run below predates this reader replacement.
 
 ## First measured fuzz result
 
-[Workflow run 41235323267](https://github.com/sebastian-software/ferrixel/actions/runs/41235323267) completed 3,000 seeded/mutated invocations using cargo-fuzz 0.13.2 and a nightly compiler, without a reported crash. The final corpus was 141 inputs; the log's reported peak RSS was about 139 MiB. This is only a shallow smoke. Continuous fuzzing with longer duration, realistic large color profiles, AVIF grids/alpha and independent sanitizers is **still required** for a security-sensitive release.
+[Workflow run 41235323267](https://github.com/sebastian-software/ferrisma/actions/runs/41235323267) completed 3,000 seeded/mutated invocations using cargo-fuzz 0.13.2 and a nightly compiler, without a reported crash. The final corpus was 141 inputs; the log's reported peak RSS was about 139 MiB. This is only a shallow smoke. Continuous fuzzing with longer duration, realistic large color profiles, AVIF grids/alpha and independent sanitizers is **still required** for a security-sensitive release.

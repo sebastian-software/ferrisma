@@ -13,12 +13,12 @@ C++ standard library into every consumer, and its two VMAF units
 per profile, roughly 40,000 across the four committed profiles, that every
 upstream update must regenerate and re-verify.
 
-The port's consumer is Ferrixel, a still-image pipeline. Ferrixel's codec policy
-([ADR-0025](https://github.com/sebastian-software/ferrixel/blob/main/docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md))
+The port's consumer is Ferrisma, a still-image pipeline. Ferrisma's codec policy
+([ADR-0025](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0025-codec-selection-reference-conformance-and-image-scope.md))
 limits its ports to the still-image scope it uses, reduced through upstream's
 own configuration switches before translation and never by editing generated
-code. Ferrixel never selects a VMAF tuning mode, and its adoption rules
-([ADR-0018](https://github.com/sebastian-software/ferrixel/blob/main/docs/adr/0018-optional-codec-and-cms-dependencies.md))
+code. Ferrisma never selects a VMAF tuning mode, and its adoption rules
+([ADR-0018](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0018-optional-codec-and-cms-dependencies.md))
 count the libvmaf requirement as an open gate.
 
 No original libaom test depends on `CONFIG_TUNE_VMAF`: `test/test.cmake` has no

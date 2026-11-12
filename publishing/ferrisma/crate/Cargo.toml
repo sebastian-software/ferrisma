@@ -1,0 +1,15 @@
+[package]
+name = "ferrisma"
+version = "0.0.0"
+edition = "2024"
+authors = ["Sebastian Software GmbH"]
+description = "Ferrisma image processing pipeline: placeholder release with no image processing API"
+homepage = "https://ferrisma.dev"
+repository = "https://github.com/sebastian-software/ferrixel"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+publish = ["crates-io"]
+include = ["Cargo.toml", "src/lib.rs", "README.md", "LICENSE-MIT", "LICENSE-APACHE"]
+
+# Isolate this temporary publication stub from the engine and codec workspace.
+[workspace]

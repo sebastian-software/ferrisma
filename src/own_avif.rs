@@ -1,10 +1,10 @@
-//! Ferrixel's row contract over the independent libavif writer boundary.
+//! Ferrisma's row contract over the independent libavif writer boundary.
 
 use crate::encoder_backend::{
     EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
 };
 use crate::pipeline::{ChromaSubsampling, OutputFormat};
-use ferrixel_avif_write as writer;
+use ferrisma_avif_write as writer;
 
 /// Workspace libavif with its AOM encoder, available with `avif-own-write`.
 ///

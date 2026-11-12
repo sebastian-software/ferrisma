@@ -2,7 +2,7 @@
 
 #[cfg(all(feature = "jpeg-read", feature = "webp-write"))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use ferrixel::pipeline::{
+    use ferrisma::pipeline::{
         ImageFormat, InputProfilePolicy, OutputFormat, ResizeFit, ResizeOptions, TransformOptions,
         transcode_resized,
     };

@@ -2,7 +2,7 @@
 
 // Optional comparator for run-baseline.sh. Sharp's resampler, transfer
 // handling, chroma mode, threading and AV1 encoder are NOT matched to
-// Ferrixel; results are labeled comparable_quality=no until SSIMULACRA2
+// Ferrisma; results are labeled comparable_quality=no until SSIMULACRA2
 // matching exists (M2 work package 0).
 const sharp = require("sharp");
 

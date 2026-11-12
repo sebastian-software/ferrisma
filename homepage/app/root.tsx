@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "ardo/react";
-import { ArdoActiveLink, useArdoPageData, useArdoPath } from "ardo/runtime";
+import { ArdoActiveLink, useArdoConfig, useArdoPageData, useArdoPath } from "ardo/runtime";
 import {
   ArdoDocContent,
   ArdoErrorBoundary,
@@ -17,8 +17,8 @@ import "ferramenta-family/monografie.css";
 import "ferramenta-family/monografie-docs.css";
 import "ferramenta-family/monografie-ardo.css";
 import "./site.css";
-import appleTouchIcon from "./assets/ferrixel-apple-touch-icon.png?url";
-import icon from "./assets/ferrixel-favicon.png?url";
+import appleTouchIcon from "./assets/ferrisma-apple-touch-icon.png?url";
+import icon from "./assets/ferrisma-favicon.png?url";
 
 const sections = [
   {
@@ -99,10 +99,13 @@ export function Layout({ children }: { children: ReactNode }) {
 export const ErrorBoundary = ArdoErrorBoundary;
 export default function Root() {
   const path = useArdoPath();
+  const config = useArdoConfig();
+  const canonical = config.siteUrl ? new URL(path || "/", config.siteUrl).href : undefined;
   const home = path === "/" || path === "";
   const [open, setOpen] = useState(false);
   return (
     <MonoPage className={home ? "fx-site" : "mono-docs fx-docs"}>
+      {home && canonical && <link rel="canonical" href={canonical} />}
       <MarkDefs />
       <ArdoRoot
         className="mono-ardo-shell"
@@ -112,7 +115,7 @@ export default function Root() {
             <div className="mono-header-in">
               <ArdoActiveLink className="mono-brand" to="/">
                 <span className="ferra-mark fx-mark" aria-hidden="true" />
-                Ferrixel <span className="fx-status">Experimental</span>
+                Ferrisma <span className="fx-status">Experimental</span>
               </ArdoActiveLink>
               <nav className="fx-nav" aria-label="Main">
                 <ArdoActiveLink to="/guide/getting-started">Guide</ArdoActiveLink>
@@ -121,7 +124,7 @@ export default function Root() {
               </nav>
               <div className="mono-header-actions">
                 <ArdoMobileNavigation
-                  title="Ferrixel documentation"
+                  title="Ferrisma documentation"
                   open={open}
                   onOpenChange={setOpen}
                 >
@@ -130,7 +133,7 @@ export default function Root() {
                 <ArdoHeaderSearch variant="icon" onActivate={() => setOpen(false)} />
                 <a
                   className="mono-repository"
-                  href="https://github.com/sebastian-software/ferrixel"
+                  href="https://github.com/sebastian-software/ferrisma"
                   aria-label="Source code on GitHub"
                 >
                   <svg className="icon" width="20" height="20" aria-hidden="true">
@@ -148,10 +151,10 @@ export default function Root() {
       <footer className="mono-footer">
         <div className="mono-footer-in">
           <p>
-            Ferrixel, an experimental image pipeline from{" "}
+            Ferrisma, an experimental image pipeline from{" "}
             <a href="https://ferramenta.dev">Ferramenta</a>.
           </p>
-          <a href="https://github.com/sebastian-software/ferrixel">GitHub</a>
+          <a href="https://github.com/sebastian-software/ferrisma">GitHub</a>
           <a href={WORKSHOP.imprint}>Imprint</a>
           <a href={WORKSHOP.privacy}>Privacy</a>
           <p className="mono-footer-copy">

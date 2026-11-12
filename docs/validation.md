@@ -1,6 +1,6 @@
 # Validation
 
-Ferrixel uses scoped pull request checks and deeper reference suites. The
+Ferrisma uses scoped pull request checks and deeper reference suites. The
 [codec guide](codecs.md) owns setup and commands; [ADR-0027](adr/0027-tiered-validation-and-rust-test-orchestration.md)
 records the policy and its evidence. M1 release and license gates remain open.
 

@@ -6,9 +6,9 @@ use std::process::Command;
 fn normal_cli_selects_own_encoder_with_order_independent_depth() {
     let input = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/sample.jpg");
     let output =
-        std::env::temp_dir().join(format!("ferrixel-own-avif-{}-cli.avif", std::process::id()));
+        std::env::temp_dir().join(format!("ferrisma-own-avif-{}-cli.avif", std::process::id()));
     let run = |flags: &[&str]| {
-        Command::new(env!("CARGO_BIN_EXE_ferrixel"))
+        Command::new(env!("CARGO_BIN_EXE_ferrisma"))
             .args([
                 input,
                 output.to_str().unwrap(),

@@ -1,4 +1,4 @@
-//! Cropping measurement for Ferrixel (`docs/adr/0010-ferrixel-adoption.md`):
+//! Cropping measurement for Ferrisma (`docs/adr/0010-ferrisma-adoption.md`):
 //! which rows a cropped or scaled decoding touches, counted in the C library
 //! by the probe `tools/oracle/probes/wp12/crop_rows.c` and in the Rust
 //! translation here, through the internal API that `DecodeInto` uses

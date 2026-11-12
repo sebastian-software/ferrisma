@@ -1,4 +1,4 @@
-/* Supplemental pinned-C input oracle for Ferrixel's safe AVIF bridge.
+/* Supplemental pinned-C input oracle for Ferrisma's safe AVIF bridge.
  * Decode image 0 with the AOM reference, nearest chroma upsampling, and
  * straight interleaved RGB(A), writing native-endian 8/16-bit raw samples.
  * This consumer is linked only to the original C libavif and AOM archives.

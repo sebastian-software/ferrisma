@@ -25,7 +25,7 @@ A production-quality decoder choice is still an open research and adapter decisi
 - Repository: https://github.com/imazen/jxl-encoder
 - **License: AGPL-3.0 or commercial**, rather than MIT/Apache/BSD as a blanket dependency. Its libjxl-derived upstream algorithms are separately BSD-3-Clause; that does **not** relicense its implementation.
 - Features include lossless and lossy JPEG XL and a `Write`-oriented output API. A `Write` output interface alone is **not evidence of bounded source/scratch memory**; validate the current frame-input behavior, especially on very large images.
-- **Not approved for the default MIT OR Apache-2.0 Ferrixel dependency tree.** A compatible implementation, explicit commercial license, or a separate optional backend would require its own decision.
+- **Not approved for the default MIT OR Apache-2.0 Ferrisma dependency tree.** A compatible implementation, explicit commercial license, or a separate optional backend would require its own decision.
 
 ### `libjxl` (reference C++)
 
@@ -45,7 +45,7 @@ A production-quality decoder choice is still an open research and adapter decisi
 
 - Manifest: https://docs.rs/crate/moxcms/0.9.1/source/Cargo.toml.orig
 - Repository: https://github.com/awxkee/moxcms
-- **License: BSD-3-Clause OR Apache-2.0**; attractive for Ferrixel's default permissive policy subject to transitive audit.
+- **License: BSD-3-Clause OR Apache-2.0**; attractive for Ferrisma's default permissive policy subject to transitive audit.
 - Pure-Rust profile parsing and transforms; scanline-based RGB/CMYK transform examples exist. Verify out-of-gamut, linear-light precision, alpha and profile/intent handling using known ICC profiles and independent test oracles.
 - A usable ICC-transform API does **not** answer how to choose a working color space, how to treat PQ/HLG, or how to resolve encoder-versus-decoder precedence. Those remain separate graph/planner contracts.
 

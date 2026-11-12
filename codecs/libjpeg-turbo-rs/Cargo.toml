@@ -7,7 +7,7 @@ rust-version = "1.95"
 # extensions, once translated, are under the zlib License (LICENSE.md).
 license = "IJG AND Zlib"
 description = "A mechanical Rust port of libjpeg-turbo's JPEG decoder"
-repository = "https://github.com/sebastian-software/ferrixel"
+repository = "https://github.com/sebastian-software/ferrisma"
 publish = false
 
 [lib]

@@ -1,13 +1,13 @@
 # libwebp port plan (5 November 2026)
 
-**Status:** Plan. Nothing has been ported and the repository does not exist yet. This document scopes a third sister port, libwebp-rs, next to [libavif-rs](../../codecs/libavif-rs) and [libjxl-rs](../../codecs/libjxl-rs). It records the upstream pin, the method to confirm, the phase order with the exact source units, the parity gates and the Ferrixel adoption step. Line counts are non-blank, non-comment lines of libwebp 1.6.0 and describe size, not effort. See [the codec evaluation](2026-11-05-jpeg-and-webp-codec-evaluation.md) for why libwebp was chosen.
+**Status:** Plan. Nothing has been ported and the repository does not exist yet. This document scopes a third sister port, libwebp-rs, next to [libavif-rs](../../codecs/libavif-rs) and [libjxl-rs](../../codecs/libjxl-rs). It records the upstream pin, the method to confirm, the phase order with the exact source units, the parity gates and the Ferrisma adoption step. Line counts are non-blank, non-comment lines of libwebp 1.6.0 and describe size, not effort. See [the codec evaluation](2026-11-05-jpeg-and-webp-codec-evaluation.md) for why libwebp was chosen.
 
 ## Goal
 
 The [work plan for parallel sessions](2026-11-05-libwebp-port-workplan.md) splits this plan into work packages with disjoint file ownership, waves and briefs.
 
 
-A mechanical, behavior-preserving Rust port of libwebp 1.6.0: decoder, demux, encoder and later mux, with a safe Rust API that Ferrixel can consume behind `webp-read` and `webp-write` features under the adoption gates of [ADR-0018](../adr/0018-optional-codec-and-cms-dependencies.md). The original C tools (`dwebp`, `cwebp`, `webpinfo`) remain unmodified consumers that link the Rust library through the original headers, as both sister ports do.
+A mechanical, behavior-preserving Rust port of libwebp 1.6.0: decoder, demux, encoder and later mux, with a safe Rust API that Ferrisma can consume behind `webp-read` and `webp-write` features under the adoption gates of [ADR-0018](../adr/0018-optional-codec-and-cms-dependencies.md). The original C tools (`dwebp`, `cwebp`, `webpinfo`) remain unmodified consumers that link the Rust library through the original headers, as both sister ports do.
 
 ## Upstream pin
 
@@ -36,7 +36,7 @@ Decisions to confirm with the maintainer before Phase 0:
 
 1. libjxl-rs method (recommended) or c2rust method.
 2. New repository `sebastian-software/libwebp-rs` (recommended) or a workspace crate inside libavif-rs. libavif-rs keeps its `libavif-sharpyuv` crate either way.
-3. MSRV: align with libjxl-rs (1.95) or with Ferrixel (1.98).
+3. MSRV: align with libjxl-rs (1.95) or with Ferrisma (1.98).
 4. SharpYUV: translate again in the safe style (recommended, about 1,100 portable lines) or depend on `libavif-sharpyuv` (unsafe, nightly). The existing crate stays useful as a second oracle in both cases.
 
 ## Reference configuration for the C oracle
@@ -72,10 +72,10 @@ cmake -S upstream/libwebp -B build/oracle -DCMAKE_BUILD_TYPE=Release \
 - Shared portable `src/dsp`: `dsp.h` (303), `cpu.c/.h` (394: dispatch tables select the portable implementations; `VP8GetCPUInfo` stays a query), `yuv.c/.h` (352), `upsampling.c` (280), `filters.c` (199), `rescaler.c` (210), `alpha_processing.c` (415), `lossless.c/.h` with `lossless_common.h` (876), `dec_clip_tables.c` (342), `quant.h` (64).
 - Gates: per-unit differential tests against the oracle in separate processes with exact outputs: bit reader on random and truncated streams including the end-of-stream and `eos` behavior, Huffman table construction on fuzzed code-length sets including rejected sets, rescaler on seeded sizes and scale factors, filters, upsampling and YUV conversion on seeded planes with padded strides, allocation limits on oversized requests.
 
-### Phase 2: decoder and demux (about 7,600 lines), first Ferrixel-relevant milestone
+### Phase 2: decoder and demux (about 7,600 lines), first Ferrisma-relevant milestone
 
 - `src/dec`: `webp_dec.c` (657: RIFF, VP8X and `WebPGetFeatures`), `vp8_dec.c` (591), `tree_dec.c` (500), `quant_dec.c` (87), `frame_dec.c` (624), `io_dec.c` (557: output modes, cropping, scaling, upsampling), `buffer_dec.c` (258), `alpha_dec.c` (183), `vp8l_dec.c` (1,436), `idec_dec.c` (735: incremental decoder); headers (445); `src/dsp/dec.c` (752).
-- `src/demux/demux.c` (761) belongs to this phase: `ICCP`, `EXIF` and `XMP` chunks are stored and exposed only through the demux API (`WebPDemuxGetChunk`), not through the decoder, and Ferrixel needs the ICC profile before it decodes pixels. `anim_decode.c` (360) may wait for Phase 4.
+- `src/demux/demux.c` (761) belongs to this phase: `ICCP`, `EXIF` and `XMP` chunks are stored and exposed only through the demux API (`WebPDemuxGetChunk`), not through the decoder, and Ferrisma needs the ICC profile before it decodes pixels. `anim_decode.c` (360) may wait for Phase 4.
 - Export the `decode.h` and `demux.h` C ABI from Rust so the unmodified `examples/dwebp.c` (378) and `examples/webpinfo.c` (1,077) with `imageio` link against the Rust library.
 - Gates:
   1. `test_dwebp.sh` against the Rust-linked `dwebp`: all 480 checksums in all five output formats, including `-pgm` (planar YUV dump) and `-pam` (RGBA).
@@ -84,7 +84,7 @@ cmake -S upstream/libwebp -B build/oracle -DCMAKE_BUILD_TYPE=Release \
   4. Incremental decoder: feed each vector in chunk sizes 1, 7, 64 and 4,096 bytes and compare each intermediate `WebPIDecGetRGB`/`WebPIDecGetYUVA` state and status with the oracle at the same prefixes.
   5. Malformed input: `dec_fuzzer`, `simple_api_fuzzer`, `advanced_api_fuzzer` and `huffman_fuzzer` from `tests/fuzzer` reproduced as Rust fuzz targets; status-code parity on a seeded corpus plus every vector truncated at every chunk boundary; the oracle side runs under the sanitizers.
   6. `webpinfo` linked against Rust prints identical output for every vector.
-- Ferrixel measurement, recorded in [format-capabilities.md](format-capabilities.md): instrument the port to count parsed macroblock rows, filtered rows and converted rows under cropping and scaling. The source shows what to expect (`src/dec/frame_dec.c`, `vp8_dec.c`, `io_dec.c`): VP8 parses macroblock rows up to the crop bottom plus the filter margin, filters only from the crop top, emits only cropped rows, and saves nothing for horizontal cropping; scaling runs after full-resolution reconstruction. Do not claim region savings before the measurement confirms this.
+- Ferrisma measurement, recorded in [format-capabilities.md](format-capabilities.md): instrument the port to count parsed macroblock rows, filtered rows and converted rows under cropping and scaling. The source shows what to expect (`src/dec/frame_dec.c`, `vp8_dec.c`, `io_dec.c`): VP8 parses macroblock rows up to the crop bottom plus the filter margin, filters only from the crop top, emits only cropped rows, and saves nothing for horizontal cropping; scaling runs after full-resolution reconstruction. Do not claim region savings before the measurement confirms this.
 
 ### Phase 3: encoder (about 14,800 lines)
 
@@ -97,17 +97,17 @@ cmake -S upstream/libwebp -B build/oracle -DCMAKE_BUILD_TYPE=Release \
 
 ### Phase 4: container utilities (about 4,200 lines)
 
-`src/mux`: `anim_encode.c` (1,277), `muxedit.c` (484), `muxinternal.c` (391), `muxread.c` (432), headers (132); `src/demux/anim_decode.c` (360); `mux.h` ABI. Consumers: `webpmux`, `img2webp`, `anim_diff`. Needed for animated WebP only. Ferrixel's still-image scope does not depend on it, so this phase can follow adoption.
+`src/mux`: `anim_encode.c` (1,277), `muxedit.c` (484), `muxinternal.c` (391), `muxread.c` (432), headers (132); `src/demux/anim_decode.c` (360); `mux.h` ABI. Consumers: `webpmux`, `img2webp`, `anim_diff`. Needed for animated WebP only. Ferrisma's still-image scope does not depend on it, so this phase can follow adoption.
 
 ### Phase 5: SIMD, deferred and measured
 
-`src/dsp` SSE2, SSE4.1 and AVX2 variants (7,309 lines) and NEON variants (3,794) as isolated `unsafe` `std::arch` modules or portable SIMD, each admitted only with exact parity against the scalar port and the SIMD-on oracle, and with a reproducible benchmark. MIPS and MSA variants (10,402) have no target and are not planned. Ferrixel's rule applies: correctness and a scalar path first.
+`src/dsp` SSE2, SSE4.1 and AVX2 variants (7,309 lines) and NEON variants (3,794) as isolated `unsafe` `std::arch` modules or portable SIMD, each admitted only with exact parity against the scalar port and the SIMD-on oracle, and with a reproducible benchmark. MIPS and MSA variants (10,402) have no target and are not planned. Ferrisma's rule applies: correctness and a scalar path first.
 
-### Phase 6: safe Rust API and Ferrixel adoption
+### Phase 6: safe Rust API and Ferrisma adoption
 
 - Safe API over the port, separate from the C ABI module: a features probe; a decoder configuration with cropping, scaling and colorspace that decodes into a caller `&mut [u8]` or planar YUVA slices; an incremental decoder with `append(&[u8])` and partial-row access; a demux view for `ICCP`, `EXIF` and `XMP` chunks; an encoder with presets, picture import from RGB/RGBA rows with strides and from YUVA planes, output through `Vec<u8>` or `impl FnMut(&[u8]) -> bool` (the `WebPWriterFunction` contract), progress and abort hooks; allocation failures as errors.
-- ADR-0018 gates: (a) the ABI module is the only `unsafe`; (b) stable toolchain; (c) a tagged release or pinned Git revision; (d) CI evidence on Ferrixel's targets; (e) exposed semantics: lossy output is full-range BT.601 YCbCr converted with the constants in `src/dsp/yuv.h`, alpha is straight unless a premultiplied `WEBP_CSP_MODE` is selected, ICC comes from the demux API, and WebP carries no orientation of its own beyond an optional `EXIF` chunk, which Ferrixel's orientation policy must treat as it treats JPEG EXIF ([ADR-0019](../adr/0019-source-side-orientation.md)).
-- Ferrixel adapters, each with its own ADR when adopted: a `webp-read` source under the [ADR-0012](../adr/0012-codec-source-contract.md) contract (header probe, RGB rows or planar YUV, cropping only with the measured semantics from Phase 2, ICC through demux) and a `webp-write` sink for lossy and lossless output. libwebp's encoder needs the complete picture before analysis, so the sink declares and budgets one output frame like the AVIF sink does; this materialization is reported, not hidden.
+- ADR-0018 gates: (a) the ABI module is the only `unsafe`; (b) stable toolchain; (c) a tagged release or pinned Git revision; (d) CI evidence on Ferrisma's targets; (e) exposed semantics: lossy output is full-range BT.601 YCbCr converted with the constants in `src/dsp/yuv.h`, alpha is straight unless a premultiplied `WEBP_CSP_MODE` is selected, ICC comes from the demux API, and WebP carries no orientation of its own beyond an optional `EXIF` chunk, which Ferrisma's orientation policy must treat as it treats JPEG EXIF ([ADR-0019](../adr/0019-source-side-orientation.md)).
+- Ferrisma adapters, each with its own ADR when adopted: a `webp-read` source under the [ADR-0012](../adr/0012-codec-source-contract.md) contract (header probe, RGB rows or planar YUV, cropping only with the measured semantics from Phase 2, ICC through demux) and a `webp-write` sink for lossy and lossless output. libwebp's encoder needs the complete picture before analysis, so the sink declares and budgets one output frame like the AVIF sink does; this materialization is reported, not hidden.
 
 ## Verification principles carried over from the sister ports
 
@@ -123,4 +123,4 @@ cmake -S upstream/libwebp -B build/oracle -DCMAKE_BUILD_TYPE=Release \
 - **Threading.** `WebPWorker` semantics on `std::thread` must produce identical output with threads on and off; the decoder's `use_threads` and the encoder's `thread_level` are matrix dimensions.
 - **Allocation limits.** `WebPSafeMalloc` size checks and `WEBP_MAX_ALLOCABLE_MEMORY` decide which malformed inputs fail; they must be preserved for status-code parity.
 - **Build options.** `WEBP_ENABLE_SWAP_16BIT_CSP`, `WEBP_NEAR_LOSSLESS`, `WEBP_USE_THREAD` and `WEBP_REDUCE_SIZE`/`WEBP_REDUCE_CSP` change behavior; the pinned configuration is recorded and others are not claimed.
-- **API design pressure.** Keep the C ABI export verbatim and design the safe API after Phase 2 against Ferrixel's actual needs, not before.
+- **API design pressure.** Keep the C ABI export verbatim and design the safe API after Phase 2 against Ferrisma's actual needs, not before.

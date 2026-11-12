@@ -4,7 +4,7 @@
 - **Date:** 2026-11-11
 - **Last reviewed:** 2026-11-11
 - **Partially supersedes:** [0017](0017-minimal-public-facade-and-cli.md), AVIF-only result and feature gating; [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), backend feature coupling and result naming
-- **Related:** [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0029](0029-webp-still-input.md), [M1](../milestones/M1-complete-image-pipeline.md), issues [#16](https://github.com/sebastian-software/ferrixel/issues/16) and [#60](https://github.com/sebastian-software/ferrixel/issues/60)
+- **Related:** [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0029](0029-webp-still-input.md), [M1](../milestones/M1-complete-image-pipeline.md), issues [#16](https://github.com/sebastian-software/ferrisma/issues/16) and [#60](https://github.com/sebastian-software/ferrisma/issues/60)
 
 ## Context
 

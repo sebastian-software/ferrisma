@@ -36,7 +36,7 @@ tools assign ([ADR 0004](0004-c-abi-boundary.md)). The oracle of
 [ADR 0002](0002-differential-oracle.md) is built with `WEBP_ENABLE_SIMD=OFF`;
 upstream's own `test_cwebp.sh` compares its SIMD and `-noasm` outputs by
 checksum, so the SIMD variants are bit-exact with the C code they replace, and
-Ferrixel's port plan admits each variant only with exact parity and a reproducible
+Ferrisma's port plan admits each variant only with exact parity and a reproducible
 benchmark.
 
 ## Decision
@@ -173,7 +173,7 @@ records the table (host, CPU, `rustc` version) in its pull request
 description; the x86 variants, which have no x86 host here, are measured by
 a non-gating job of the `Checks` workflow on the Linux runner. A variant
 slower than the C translation is recorded, not removed or tuned: this is the
-mechanical port; optimization is Ferrixel's later phase.
+mechanical port; optimization is Ferrisma's later phase.
 
 ## Consequences
 
@@ -191,4 +191,4 @@ the merged tree as for every pair.
 Revisit when a SIMD function cannot be expressed with the two operations
 above, when Rust stabilizes a portable SIMD type that could replace the
 per-architecture modules, when the minimum Rust version is raised, or when
-Ferrixel's measurements ask for tuning beyond the mechanical port.
+Ferrisma's measurements ask for tuning beyond the mechanical port.

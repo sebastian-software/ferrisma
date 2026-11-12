@@ -9,7 +9,7 @@
 
 ## Context
 
-Ferrixel and the four sister Rust ports have the same integration destination.
+Ferrisma and the four sister Rust ports have the same integration destination.
 Changes to buffer ownership, rendered color, decoder access and encoder input
 need a codec change and a matching pipeline change. Separate repositories make
 that work depend on coordinated pull requests and Git dependency revisions.
@@ -28,7 +28,7 @@ until a separately verified implementation makes the exception unnecessary.
 
 ## Decision
 
-1. Ferrixel owns the four ports under `codecs/`. Import the recorded `main`
+1. Ferrisma owns the four ports under `codecs/`. Import the recorded `main`
    revisions together with the eight pull requests open at migration start and
    their commit history, retaining copyright notices, licenses, patent grants,
    source mappings, test inputs and codec-local ADRs. Each `IMPORT.json` records
@@ -47,7 +47,7 @@ until a separately verified implementation makes the exception unnecessary.
    or the other codecs. Select JXL's reference flags explicitly for its parity
    run; do not impose them on the engine's performance builds.
 4. Preserve crate boundaries: the engine forbids unsafe code; codec and SIMD
-   boundaries retain their scoped policies. Codecs do not depend on Ferrixel.
+   boundaries retain their scoped policies. Codecs do not depend on Ferrisma.
    The encoder adapter and the independent safe AVIF read wrapper own their
    separate libavif boundaries. The 2026-11-10 collision with the interim
    reader is historical; [ADR-0031](0031-workspace-libavif-input-experiment.md)
@@ -72,7 +72,7 @@ until a separately verified implementation makes the exception unnecessary.
 
 ## Consequences
 
-- One commit can contain a codec contract change, its Ferrixel consumer and
+- One commit can contain a codec contract change, its Ferrisma consumer and
   their end-to-end regression evidence.
 - Development uses one resolved dependency graph, while package APIs, licenses
   and release versions stay independently defined.
@@ -197,5 +197,5 @@ AVIF ABI contract.
 - 2026-11-10 — The first hosted Linux run exposed the shared workspace's registry-resolution requirement even for dependency-free codec packages. Codec CI now fetches the common lockfile before its established offline checks. AVIF workflows read the root toolchain pin instead of repeating it, and JXL's oracle cache identifies the relocated gitlink.
 
 - 2026-11-10 — [ADR-0027](0027-tiered-validation-and-rust-test-orchestration.md) supersedes decision 7’s preserved cadence with scoped PR checks and deep scheduled validation; the reference and provenance requirements remain.
-- 2026-11-11 — Engine JPEG and WebP adoption makes the ports reachable as local dependencies. Engine Clippy selects `ferrixel` and `ferrixel-kernels` with `--no-deps`; otherwise the pinned AVIF nightly re-lints the translated codec loops and rejects their stable-Clippy expectations. The existing strict stable component checks remain unchanged. This applies decision 2's verifier boundary to the new dependency graph without weakening either package's lint policy.
-- 2026-11-11 — ADR-0031 adds `ferrixel-avif-read` as a second independent adapter over the pinned libavif port. `avif-read` now selects AOM explicitly and can link with `ferrixel-libavif`; this supersedes decision 4's 2026-11-10 collision note for current builds. The codec-free core and features without `avif-read`/`cli` retain stable Rust 1.98, while an AVIF-read build requires the pinned nightly and supported native host. The workspace has 13 members after this and the JPEG XL opt-in wrapper were added; component checks remain scoped.
+- 2026-11-11 — Engine JPEG and WebP adoption makes the ports reachable as local dependencies. Engine Clippy selects `ferrisma` and `ferrisma-kernels` with `--no-deps`; otherwise the pinned AVIF nightly re-lints the translated codec loops and rejects their stable-Clippy expectations. The existing strict stable component checks remain unchanged. This applies decision 2's verifier boundary to the new dependency graph without weakening either package's lint policy.
+- 2026-11-11 — ADR-0031 adds `ferrisma-avif-read` as a second independent adapter over the pinned libavif port. `avif-read` now selects AOM explicitly and can link with `ferrisma-libavif`; this supersedes decision 4's 2026-11-10 collision note for current builds. The codec-free core and features without `avif-read`/`cli` retain stable Rust 1.98, while an AVIF-read build requires the pinned nightly and supported native host. The workspace has 13 members after this and the JPEG XL opt-in wrapper were added; component checks remain scoped.

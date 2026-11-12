@@ -17,7 +17,7 @@ for the translated opaque external types; toolchain stabilization is deferred.
 
 [ADR 0036](0036-map-libaom-nonlocal-errors-to-rust-unwinding.md) supersedes the
 `panic = "abort"` decision for libaom's nonlocal error handling. The shared
-Ferrixel profiles explicitly use `panic = "unwind"`; the original rationale
-above is retained as history. [Ferrixel ADR-0026](../../../../docs/adr/0026-codecs-in-one-repository-and-workspace.md)
+Ferrisma profiles explicitly use `panic = "unwind"`; the original rationale
+above is retained as history. [Ferrisma ADR-0026](../../../../docs/adr/0026-codecs-in-one-repository-and-workspace.md)
 moves profile ownership to the repository root and scopes disabled overflow
 checks to the generated AVIF packages. It does not change their numeric contract.

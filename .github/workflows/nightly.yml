@@ -44,8 +44,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - run: cargo fetch --locked
-      - run: cargo run -p ferrixel-kernels --example detect
-      - run: cargo run --release -p ferrixel-kernels --example bench
+      - run: cargo run -p ferrisma-kernels --example detect
+      - run: cargo run --release -p ferrisma-kernels --example bench
   gate:
     if: always()
     needs: [families, macos-workspace, kernel-bench, fuzz-smoke, performance-smoke]

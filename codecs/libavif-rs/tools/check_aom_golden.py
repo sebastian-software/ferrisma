@@ -2,7 +2,7 @@
 """Check the Rust AOM encoder against recorded golden AVIF outputs (ADR 0059).
 
 Each case encodes one still image through `examples/encode_still.rs`
-(avifImageRGBToYUV + avifEncoderWrite, the calls Ferrixel makes) with the RTCD
+(avifImageRGBToYUV + avifEncoderWrite, the calls Ferrisma makes) with the RTCD
 dispatch detected at run time, and compares the SHA-256 of the AVIF bytes with
 the record in `crates/aom/golden/release.json`, which lists every profile
 (`<os>-<arch>-release`) that reproduces it. A profile whose floating-point
@@ -25,7 +25,7 @@ not depend on ImageMagick or `sips`, so runner image updates cannot change the
 inputs. Each record also carries the digest of the derived bitmap, and a
 mismatch there is reported as an input change, not an encoder change.
 
-The settings matrix follows Ferrixel's use of libavif: 8- and 10-bit (and
+The settings matrix follows Ferrisma's use of libavif: 8- and 10-bit (and
 12-bit), 4:2:0 and 4:4:4, a quality range including lossless, speeds 4 to 10,
 one thread and four threads with automatic tiling, and RGBA input with an
 alpha plane. Thread counts are fixed, because libavif derives the tile layout
@@ -78,7 +78,7 @@ def case(speed=6, depth=10, yuv444=False, quality=56, threads=1, alpha=False):
                 alpha=alpha)
 
 
-# Every image: Ferrixel's common settings.
+# Every image: Ferrisma's common settings.
 BASE = [case(speed=6, depth=8), case(speed=6, depth=10), case(speed=9, depth=10),
         case(speed=6, depth=10, yuv444=True), case(speed=6, depth=10, threads=4)]
 # Smaller images additionally cover the rest of the range.

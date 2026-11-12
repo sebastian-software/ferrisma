@@ -1,6 +1,6 @@
 # Dependency licensing and release gates
 
-Ferrixel itself is **MIT OR Apache-2.0** (see [ADR-0010](adr/0010-dual-licensing.md)). That license does **not** relicense embedded or transitive codec, compression, image, parser, assembler or CMS implementations.
+Ferrisma itself is **MIT OR Apache-2.0** (see [ADR-0010](adr/0010-dual-licensing.md)). That license does **not** relicense embedded or transitive codec, compression, image, parser, assembler or CMS implementations.
 
 ## Automated metadata screening
 
@@ -33,8 +33,8 @@ verification establishes reproducibility, not license compliance. Ship the revie
 after the source and legal review below; include [specific embedded-material
 notices](../THIRD-PARTY-NOTICES.md). Generate separately for every target and
 feature combination: `cli` does not include the opt-in `jpeg-xl-own-read`. This
-tool selects the `ferrixel` package only; it does not inventory the separate
-`ferrixel-libavif` compatibility adapter or its CLI as a root package. Audit
+tool selects the `ferrisma` package only; it does not inventory the separate
+`ferrisma-libavif` compatibility adapter or its CLI as a root package. Audit
 those artifacts separately before distribution.
 
 The ordinary engine CI runs the bundle's contract tests alongside the existing
@@ -107,9 +107,9 @@ remaining independent review is completed.
 | workspace `libjpeg-turbo-rs` | `jpeg-read` | IJG and Zlib; pinned port of libjpeg-turbo 3.2.1 | Retain [IJG license](../codecs/libjpeg-turbo-rs/README.ijg), [Zlib notice](../codecs/libjpeg-turbo-rs/LICENSE.md), upstream notices, safe API boundary, ICC/EXIF handling, and codec scratch |
 | workspace `libwebp-rs` | `webp-read`, `webp-write` | BSD-3-Clause; [license](../codecs/libwebp-rs/LICENSE), [patent grant](../codecs/libwebp-rs/PATENTS), [authors](../codecs/libwebp-rs/AUTHORS), [provenance](../codecs/libwebp-rs/docs/PROVENANCE.md) | Still decoder/encoder, ICC/EXIF input, opaque scratch and notices; publication gate remains open |
 | embedded [sRGB2014.icc](../codecs/libavif-rs/upstream/libavif/tests/data/sRGB2014.icc) | `webp-write` | International Color Consortium, 2015; [upstream provenance](../codecs/libavif-rs/upstream/libavif/tests/data/README.md), [profile license](https://registry.color.org/profile-library/#licensing) | Unchanged profile embedded in WebP output to describe emitted sRGB samples; SHA-256 `384b832de3412066743b52a75ee906b6fb9fb8d9e09e936fc2c43223815c6e0a`; separate from libwebp's BSD license |
-| workspace `libjxl-rs` through `ferrixel-jxl-decoder` | `jpeg-xl-own-read` | BSD-3-Clause with retained MIT and Apache-2.0 with LLVM exception notices in the port | Raw decoder safety boundary, DATA ICC, alpha, full-frame output and opaque scratch; external conformance remains open |
+| workspace `libjxl-rs` through `ferrisma-jxl-decoder` | `jpeg-xl-own-read` | BSD-3-Clause with retained MIT and Apache-2.0 with LLVM exception notices in the port | Raw decoder safety boundary, DATA ICC, alpha, full-frame output and opaque scratch; external conformance remains open |
 | `jxl-oxide` | `jpeg-xl-read`, default JPEG XL backend | MIT OR Apache-2.0 | Runtime ROI request; retained for measured full/crop comparison |
-| workspace `libavif-rs` / `libavif-aom` through `ferrixel-avif-read` | `avif-read` | libavif BSD-2-Clause; AOM port retains BSD-2-Clause, BSD-3-Clause, MIT notices and libaom's patent grant | Isolated unsafe boundary, generated-source provenance, AOM reference decode, normal dependency on the dav1d port and its retained notices, malformed bitstreams, native/nightly target matrix, opaque codec scratch and full Argon/dav1d gate |
+| workspace `libavif-rs` / `libavif-aom` through `ferrisma-avif-read` | `avif-read` | libavif BSD-2-Clause; AOM port retains BSD-2-Clause, BSD-3-Clause, MIT notices and libaom's patent grant | Isolated unsafe boundary, generated-source provenance, AOM reference decode, normal dependency on the dav1d port and its retained notices, malformed bitstreams, native/nightly target matrix, opaque codec scratch and full Argon/dav1d gate |
 | `rav1e` / `avif-serialize` | `avif-write` | BSD-2-Clause encoder, BSD-3-Clause container writer; `rav1e` links hand-written assembly | Encoded CICP, alpha, frame materialization and opaque scratch |
 | `ravif` | dev-dependency only | BSD-3-Clause | Writes one test fixture; not linked into the library or CLI |
 | `moxcms` | `icc` | BSD-3-Clause OR Apache-2.0 | ICC parsing, color fidelity, malformed profiles, SIMD/native code |
@@ -126,7 +126,7 @@ The choices and their remaining gates are recorded in [ADR-0018](adr/0018-option
 ## M1 release prerequisites
 
 - [ ] Store an externally reviewable license inventory for an exact, reproducible version set (including NOTICE/license files).
-- [ ] Review native code, assembler and unsafe boundaries in *all* dependencies, not only Ferrixel's `#![forbid(unsafe_code)]` core.
+- [ ] Review native code, assembler and unsafe boundaries in *all* dependencies, not only Ferrisma's `#![forbid(unsafe_code)]` core.
 - [x] Commit `Cargo.lock` for the CLI and reproducible measurements ([ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md)).
 - [ ] Check that the package advertises its required Rust version accurately and that the target platforms actually compile.
 - [ ] Record real AVIF output ICC/CICP and alpha behavior, HDR rejection, and total RSS on representative images.

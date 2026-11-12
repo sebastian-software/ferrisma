@@ -12,9 +12,9 @@ The translation exposes libwebp's encoder in C's shape ([ADR
 `PlaneStorage` and boxed callbacks, `webp_encode` returning `bool` with the
 code in `pic.error_code`, and functions that panic on inputs that are
 preconditions in C (negative strides, item 4 of `# Deviations from upstream` in
-`src/enc/picture_enc.rs`; short buffers index out of bounds). Ferrixel's
+`src/enc/picture_enc.rs`; short buffers index out of bounds). Ferrisma's
 `webp-write` sink (WP22) needs a safe API under the adoption gates of its
-ADR-0018, with buffers it owns and budgets (its ADR-0004), and Ferrixel's port
+ADR-0018, with buffers it owns and budgets (its ADR-0004), and Ferrisma's port
 plan (Phase 6) lists what the encoder half must offer. WP17 has no upstream
 unit: it adds no behavior, so every encoding must stay byte-identical to
 `webp_encode` with the same `WebPConfig`, and therefore to the C oracle.
@@ -145,7 +145,7 @@ pub enum Plane { Pixels, Y, U, V, A, Argb }
 specifications and its two storages, never callbacks, so it is `Send` and
 `Sync`. `import` copies the rows into planes that the picture owns
 (`Picture<'static>`); `from_argb` and `from_yuva` borrow the caller's planes
-exclusively for `'a` (Ferrixel ADR-0004: the caller allocates and budgets
+exclusively for `'a` (Ferrisma ADR-0004: the caller allocates and budgets
 them). Each encoding builds a `WebPPicture` that lives for the call: owned
 planes move into it and back, caller planes are reborrowed, and the writer,
 hook and statistics are borrowed for the call only, so they need not outlive
@@ -202,7 +202,7 @@ no code (C: `QuantizeLevels` running out of memory) is `Unreported`.
 `EncodeError::code` returns the `WebPEncodingError` for codes C records and
 `None` for the API's own errors.
 
-**Semantics (Ferrixel ADR-0018, gate e).** Lossy samples are Y'CbCr 4:2:0
+**Semantics (Ferrisma ADR-0018, gate e).** Lossy samples are Y'CbCr 4:2:0
 after ITU-R BT.601 in limited range (Y 16 to 235, Cb and Cr 16 to 240), with
 the fixed-point constants of `src/dsp/yuv.h` (`VP8RGBToY`, `VP8RGBToU`,
 `VP8RGBToV`) and gamma-corrected chroma averaging (alpha-weighted in blocks

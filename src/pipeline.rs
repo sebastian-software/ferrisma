@@ -25,7 +25,7 @@ pub use crate::encoder_backend::{
 pub use crate::own_avif::LibavifBackend;
 pub use crate::quality::Filter as ResizeFilter;
 pub use crate::resize_geometry::{ResizeFit, ResizeOptions};
-pub use ferrixel_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelReason};
+pub use ferrisma_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelReason};
 
 /// Chroma layout for AVIF output and AVIF encoder backends.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -295,7 +295,7 @@ pub enum ProcessingErrorKind {
     Cancelled,
     /// The encoder failed.
     EncodeFailed,
-    /// An internal invariant failed; this indicates a Ferrixel bug.
+    /// An internal invariant failed; this indicates a Ferrisma bug.
     Internal,
 }
 
@@ -982,8 +982,8 @@ fn run(
     let open = started.elapsed();
     let request = Rect::new(0, 0, target_size.width, target_size.height)?;
     let kernels = match options.kernel_level_ceiling {
-        Some(ceiling) => ferrixel_kernels::Kernels::with_ceiling(ceiling),
-        None => ferrixel_kernels::Kernels::best(),
+        Some(ceiling) => ferrisma_kernels::Kernels::with_ceiling(ceiling),
+        None => ferrisma_kernels::Kernels::best(),
     };
     let (kernel_level, kernel_level_reason) = match options.precision {
         WorkingPrecision::F32 => (kernels.level(), kernels.reason()),

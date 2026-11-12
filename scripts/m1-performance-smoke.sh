@@ -45,14 +45,14 @@ cargo build --release --features cli
 csv="$repo_dir/target/m1-benchmark-smoke.csv"
 echo "backend,iteration,elapsed_seconds,peak_rss_kib,output_bytes,comparable_quality" > "$csv"
 for iteration in 1 2; do
-    /usr/bin/time -f '%e,%M' -o "$tmp/ferrixel-time" \
-        "$repo_dir/target/release/ferrixel" \
-        "$tmp/source.jpg" "$tmp/ferrixel.avif" 640 427 \
+    /usr/bin/time -f '%e,%M' -o "$tmp/ferrisma-time" \
+        "$repo_dir/target/release/ferrisma" \
+        "$tmp/source.jpg" "$tmp/ferrisma.avif" 640 427 \
         --assume-srgb --quality=80 --speed=10 --budget-mb=192 \
-        > "$tmp/ferrixel-log"
-    IFS=, read -r elapsed rss < "$tmp/ferrixel-time"
-    bytes=$(wc -c < "$tmp/ferrixel.avif" | tr -d ' ')
-    printf 'ferrixel,%s,%s,%s,%s,no\n' "$iteration" "$elapsed" "$rss" "$bytes" >> "$csv"
+        > "$tmp/ferrisma-log"
+    IFS=, read -r elapsed rss < "$tmp/ferrisma-time"
+    bytes=$(wc -c < "$tmp/ferrisma.avif" | tr -d ' ')
+    printf 'ferrisma,%s,%s,%s,%s,no\n' "$iteration" "$elapsed" "$rss" "$bytes" >> "$csv"
 
     # libvips uses a different filter, color pipeline and AV1 encoder.
     # The result is useful as a feasibility comparator only.
