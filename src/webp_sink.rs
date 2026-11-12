@@ -16,8 +16,7 @@ use crate::pipeline::{ChromaSubsampling, OutputFormat, TransformOptions, WebpOpt
 // The unchanged ICC sRGB2014 profile (assets/icc/README.md) describes the
 // emitted sRGB8 samples. It is a package-local copy so the published crate
 // does not depend on the libavif upstream snapshot.
-const SRGB_ICC: &[u8] =
-    include_bytes!("../assets/icc/sRGB2014.icc");
+const SRGB_ICC: &[u8] = include_bytes!("../assets/icc/sRGB2014.icc");
 const ICC_CHUNK_BYTES: usize = 8 + SRGB_ICC.len().next_multiple_of(2);
 
 pub(crate) struct WebpSink {

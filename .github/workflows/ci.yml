@@ -70,6 +70,8 @@ jobs:
       - run: cargo test -p ferrisma -p ferrisma-kernels --all-targets
       - run: cargo test -p ferrisma --lib --no-default-features --features jpeg-read backend_only_tests
       - run: cargo test -p ferrisma --lib --no-default-features --features webp-read,webp-write webp_output_tests
+      # A consumer outside the test suite exercises the facade's failure kinds and limits.
+      - run: cargo run -p ferrisma --example consumer --no-default-features --features jpeg-read,webp-read,webp-write -- --self-check
       - run: cargo test -p ferrisma -p ferrisma-kernels --all-targets --all-features
       - run: cargo test -p ferrisma-jxl-decoder -p ferrisma-avif-read -p ferrisma-avif-write --lib --locked
       # Codec dependencies retain their separate strict stable-Clippy jobs.

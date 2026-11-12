@@ -8,7 +8,6 @@ description = "Runtime-dispatched SIMD kernels behind a safe API for Ferrisma (A
 homepage = "https://ferrisma.dev"
 repository = "https://github.com/sebastian-software/ferrisma"
 license = "MIT OR Apache-2.0"
-readme = "README.md"
 include = ["/Cargo.toml", "/README.md", "/LICENSE-MIT", "/LICENSE-APACHE", "/src/**", "/tests/**", "/examples/**"]
 publish = false
 
