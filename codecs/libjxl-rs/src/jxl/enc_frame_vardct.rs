@@ -190,7 +190,9 @@ pub fn admitted_frame_profile(
         && frame_info.name.is_empty()
         && frame_data.xsize() == metadata.xsize()
         && frame_data.ysize() == metadata.ysize()
-        && frame_data.channels().len() == 1 + m.num_extra_channels as usize
+        // A stripped alpha channel keeps its input channel in the adapter;
+        // CopyExtraChannels reads only the metadata's extra channels.
+        && frame_data.channels().len() >= 1 + m.num_extra_channels as usize
 }
 
 /// The admitted extra channels (encoder step 4): none, or one alpha channel

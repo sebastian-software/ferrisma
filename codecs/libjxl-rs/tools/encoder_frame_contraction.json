@@ -11,7 +11,7 @@
         "column": 32,
         "type": "f32",
         "expression": "inlined YtoXRatio: base_correlation_x_ + x_factor * color_scale_ (ComputeJPEGTranscodingData)",
-        "rust": "unreached (JPEG transcoding, step 12); chroma_from_luma.rs y_to_x_ratio mul_add_f32 for its other callers"
+        "rust": "unported here (JPEG transcoding, step 12); chroma_from_luma.rs y_to_x_ratio mul_add_f32 for its other callers"
       },
       {
         "file": "lib/jxl/chroma_from_luma.h",
@@ -19,7 +19,7 @@
         "column": 32,
         "type": "f32",
         "expression": "inlined YtoBRatio: base_correlation_b_ + b_factor * color_scale_ (ComputeJPEGTranscodingData)",
-        "rust": "unreached (JPEG transcoding, step 12); chroma_from_luma.rs y_to_b_ratio mul_add_f32 for its other callers"
+        "rust": "unported here (JPEG transcoding, step 12); chroma_from_luma.rs y_to_b_ratio mul_add_f32 for its other callers"
       },
       {
         "file": "lib/jxl/enc_frame.cc",
@@ -35,7 +35,7 @@
         "column": 22,
         "type": "f32",
         "expression": "SimplifyInvisible: row[x] += 2.f * row[x + 1]",
-        "rust": "unported (alpha, step 4)"
+        "rust": "enc_frame_vardct.rs simplify_invisible mul_add_f32(2.0, v, row[x])"
       },
       {
         "file": "lib/jxl/enc_frame.cc",
@@ -43,7 +43,7 @@
         "column": 22,
         "type": "f32",
         "expression": "SimplifyInvisible: row[x] += 2.f * prow[x + 1]",
-        "rust": "unported (alpha, step 4)"
+        "rust": "enc_frame_vardct.rs simplify_invisible mul_add_f32(2.0, v, row[x])"
       },
       {
         "file": "lib/jxl/enc_frame.cc",
@@ -51,7 +51,7 @@
         "column": 22,
         "type": "f32",
         "expression": "SimplifyInvisible: row[x] += 2.f * nrow[x + 1]",
-        "rust": "unported (alpha, step 4)"
+        "rust": "enc_frame_vardct.rs simplify_invisible mul_add_f32(2.0, v, row[x])"
       },
       {
         "file": "lib/jxl/enc_frame.cc",
@@ -59,7 +59,7 @@
         "column": 20,
         "type": "f32",
         "expression": "SimplifyInvisible: row[x] += 2.f * prow[x]",
-        "rust": "unported (alpha, step 4)"
+        "rust": "enc_frame_vardct.rs simplify_invisible mul_add_f32(2.0, v, row[x])"
       },
       {
         "file": "lib/jxl/enc_frame.cc",
@@ -67,7 +67,7 @@
         "column": 20,
         "type": "f32",
         "expression": "SimplifyInvisible: row[x] += 2.f * nrow[x]",
-        "rust": "unported (alpha, step 4)"
+        "rust": "enc_frame_vardct.rs simplify_invisible mul_add_f32(2.0, v, row[x])"
       },
       {
         "file": "lib/jxl/enc_frame.cc",

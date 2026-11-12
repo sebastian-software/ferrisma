@@ -1410,6 +1410,176 @@ fn public_encoder_lossy_vardct_alpha_large_sizes_match_original() {
     compare_admitted("alpha-large", requests);
 }
 
+/// More than 8 groups with lossless alpha: ModularPartIsLossless holds, so
+/// CanDoStreamingEncoding keeps the streaming path (the extra-channel check
+/// excludes only lossy or responsive modular parts), and the alpha streams
+/// are coded per DC group with local trees. Output modes 0 and 1, and
+/// buffering 0 for the one-shot path at the same sizes.
+#[test]
+fn public_encoder_lossy_vardct_alpha_streaming_matches_original() {
+    let cases = [
+        (768, 768, -1),
+        (768, 769, 0),
+        (1000, 700, -1),
+        (2049, 300, 1),
+        (2049, 300, 2),
+        (768, 768, 3),
+        (1031, 517, 3),
+        (1024, 1024, -1),
+    ];
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize, buffering)) in cases.iter().enumerate() {
+        for gray in [false, true] {
+            let variant = index * 2 + usize::from(gray);
+            let settings = if buffering == -1 {
+                String::new()
+            } else {
+                format!(" o0,34,{buffering}")
+            };
+            requests.push(run(
+                0,
+                0,
+                &alpha_history(
+                    xsize,
+                    ysize,
+                    gray,
+                    variant % 2,
+                    1 + variant % 4,
+                    2 + variant % 2,
+                    [1.0, 0.5, 2.9, 1.5][variant % 4],
+                    variant,
+                    false,
+                    "",
+                    &settings,
+                ),
+            ));
+        }
+    }
+    compare_admitted("alpha-streaming", requests);
+}
+
+/// Alpha variants of the admitted profile: fully opaque alpha (stripped by
+/// the opacity scan, every type), the strip-alpha option, a separate alpha
+/// buffer (JxlEncoderSetExtraChannelBuffer), premultiplied alpha (no
+/// SimplifyInvisible), float16 and float32 color input with integer alpha,
+/// low alpha bit depths, and text-like content with patches off.
+#[test]
+fn public_encoder_lossy_vardct_alpha_variants_match_original() {
+    let mut requests = Vec::new();
+    let mut push = |history: String| requests.push(run(0, 0, &history));
+    for (index, &(xsize, ysize)) in [(1, 1), (9, 17), (45, 15), (256, 256), (768, 768)]
+        .iter()
+        .enumerate()
+    {
+        for type_index in 0..4 {
+            let variant = index * 4 + type_index;
+            let gray = variant % 2 == 1;
+            let d = [1.0, 0.5, 2.9, 1.5][variant % 4];
+            // Opaque: stripped at the default (auto) and if-opaque settings.
+            for settings in ["", " o0,41,2"] {
+                push(alpha_history(
+                    xsize, ysize, gray, type_index, 4, 1, d, variant, false, "", settings,
+                ));
+            }
+            // Translucent alpha with every input type.
+            push(alpha_history(
+                xsize, ysize, gray, type_index, 2, 2, d, variant, false, "", "",
+            ));
+            // A separate alpha plane.
+            push(alpha_history(
+                xsize,
+                ysize,
+                gray,
+                type_index,
+                4,
+                2 + variant % 2,
+                d,
+                variant,
+                true,
+                "",
+                "",
+            ));
+            // Premultiplied alpha.
+            push(alpha_history(
+                xsize, ysize, gray, type_index, 4, 2, d, variant, false, ",apre:1", "",
+            ));
+        }
+    }
+    for (xsize, ysize) in [(7, 7), (63, 129), (257, 255)] {
+        for (variant, ab) in [1usize, 4, 7, 12].into_iter().enumerate() {
+            let gray = variant % 2 == 0;
+            // Low bit depths: ab overrides the type's default alpha depth.
+            push(alpha_history(
+                xsize,
+                ysize,
+                gray,
+                0,
+                4,
+                2 + variant % 2,
+                1.0,
+                variant,
+                false,
+                &format!(",ab:{ab}"),
+                "",
+            ));
+        }
+        // Strip alpha forced, and never stripped.
+        for settings in [" o0,41,1", " o0,41,0"] {
+            push(alpha_history(
+                xsize, ysize, false, 0, 4, 1, 1.0, 1, false, "", settings,
+            ));
+        }
+        // Text-like content with alpha, patches off.
+        push(alpha_history(
+            xsize, ysize, false, 0, 5, 3, 1.0, 2, false, "", " o0,8,0",
+        ));
+    }
+    compare_admitted("alpha-variants", requests);
+}
+
+/// Alpha settings: keep_invisible on and off, and lossy alpha through
+/// JxlEncoderSetExtraChannelDistance (a lossy modular part: Squeeze and
+/// quantization in the modular encoder, and no streaming path).
+#[test]
+fn public_encoder_lossy_vardct_alpha_settings_match_original() {
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize)) in [(1, 1), (9, 17), (45, 15), (63, 129), (257, 255), (768, 768)]
+        .iter()
+        .enumerate()
+    {
+        for (k, settings) in [
+            " o0,12,1".to_string(),
+            " o0,12,0".to_string(),
+            format!(" D0,0,{}", bits(1.0)),
+            format!(" D0,0,{}", bits(0.5)),
+            format!(" D0,0,{}", bits(3.0)),
+        ]
+        .iter()
+        .enumerate()
+        {
+            let variant = index * 5 + k;
+            requests.push(run(
+                0,
+                0,
+                &alpha_history(
+                    xsize,
+                    ysize,
+                    variant % 2 == 1,
+                    variant % 2,
+                    1 + variant % 4,
+                    2 + variant % 2,
+                    [1.0, 0.5, 2.9, 1.5][variant % 4],
+                    variant,
+                    false,
+                    "",
+                    settings,
+                ),
+            ));
+        }
+    }
+    compare_admitted("alpha-settings", requests);
+}
+
 /// The codestream bytes of a history's ProcessOutput results (an observation
 /// line of either implementation).
 fn output_bytes(text: &str) -> Vec<u8> {
