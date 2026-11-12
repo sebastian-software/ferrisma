@@ -4,7 +4,7 @@
 //! lib/jxl/render_pipeline/stage_noise.cc. Borrowed parameter owners replace
 //! source references; row descriptors resolve under the pipeline's storage borrow.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+    RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
 };
 use crate::jxl::base::hwy_scalar::{floor, max, min, to_i32, zero_if_negative};
 use crate::jxl::base::status::{Status, StatusCode};
@@ -65,6 +65,8 @@ enum NoiseOwners<'a> {
 pub struct AddNoiseStage<'a> {
     owners: NoiseOwners<'a>,
     first_c: usize,
+    /// Copies of the three random rows of one call.
+    scratch: [Vec<f32>; 3],
 }
 impl RenderPipelineStage for AddNoiseStage<'_> {
     fn settings(&self) -> Settings {
@@ -106,27 +108,38 @@ impl RenderPipelineStage for AddNoiseStage<'_> {
         let rows: [_; 3] = std::array::from_fn(|c| self.get_input_row(input, c, 0));
         let random: [_; 3] =
             std::array::from_fn(|c| self.get_input_row(input, self.first_c + c, 0));
+        // Resolve the three in-place spans and the three random spans once
+        // per row; values, order and arithmetic are unchanged. The random
+        // channels are separate Input channels, copied before the loop
+        // because the borrow of the in-place spans is exclusive.
+        let mut noise = std::mem::take(&mut self.scratch);
+        for (c, row) in noise.iter_mut().enumerate() {
+            row.clear();
+            row.extend_from_slice(&buffers.row(random[c])[..width]);
+        }
+        let [r0, r1, r2] = buffers.three_rows_mut(rows, width);
         for x in 0..width {
-            let vx = buffers.row(rows[0])[x];
-            let vy = buffers.row(rows[1])[x];
-            let vb = buffers.row(rows[2])[x];
+            let vx = r0[x];
+            let vy = r1[x];
+            let vb = r2[x];
             let in_g = sub(vy, vx);
             let in_r = add(vy, vx);
             let strength_g = noise_strength(noise_params, mul(in_g, 0.5));
             let strength_r = noise_strength(noise_params, mul(in_r, 0.5));
-            let rnd_r = mul(buffers.row(random[0])[x], 0.22);
-            let rnd_g = mul(buffers.row(random[1])[x], 0.22);
-            let rnd_c = mul(buffers.row(random[2])[x], 0.22);
+            let rnd_r = mul(noise[0][x], 0.22);
+            let rnd_g = mul(noise[1][x], 0.22);
+            let rnd_c = mul(noise[2][x], 0.22);
             let red = mul(strength_r, mul_add(0.0078125, rnd_r, mul(0.9921875, rnd_c)));
             let green = mul(strength_g, mul_add(0.0078125, rnd_g, mul(0.9921875, rnd_c)));
             let rg = add(red, green);
             let vx = add(mul_add(ytox, rg, sub(red, green)), vx);
             let vy = add(vy, rg);
             let vb = mul_add(ytob, rg, vb);
-            buffers.row_mut(rows[0])[x] = vx;
-            buffers.row_mut(rows[1])[x] = vy;
-            buffers.row_mut(rows[2])[x] = vb;
+            r0[x] = vx;
+            r1[x] = vy;
+            r2[x] = vb;
         }
+        self.scratch = noise;
         Ok(())
     }
     fn get_channel_mode(&self, c: usize) -> Mode {
@@ -150,6 +163,7 @@ pub fn get_add_noise_stage<'a>(
     Box::new(AddNoiseStage {
         owners: NoiseOwners::Borrowed(noise_params, color_correlation),
         first_c,
+        scratch: Default::default(),
     })
 }
 
@@ -163,11 +177,14 @@ pub fn get_add_noise_stage_shared(
     Box::new(AddNoiseStage {
         owners: NoiseOwners::Shared(noise_params, color_correlation),
         first_c,
+        scratch: Default::default(),
     })
 }
 
 pub struct ConvolveNoiseStage {
     first_c: usize,
+    /// One output row, written back after the row's samples are computed.
+    scratch: [Vec<f32>; 1],
 }
 impl RenderPipelineStage for ConvolveNoiseStage {
     fn settings(&self) -> Settings {
@@ -188,20 +205,29 @@ impl RenderPipelineStage for ConvolveNoiseStage {
         for c in self.first_c..self.first_c + 3 {
             let rows: [_; 5] = std::array::from_fn(|i| self.get_input_row(input, c, i as i32 - 2));
             let out = self.get_output_row(output, c, 0);
-            for x in -(left as isize)..(width + right) as isize {
-                let p00 = buffers.row(rows[2].offset(x))[0];
+            // Resolve the five input spans once per row and stage the output
+            // row, as for Gaborish: input and output rows may share a plane.
+            // Values, order and arithmetic are unchanged.
+            let spans: [&[f32]; 5] = std::array::from_fn(|i| buffers.row(Row { x: 0, ..rows[i] }));
+            let get = |r: usize, x: isize| spans[r][rows[r].x.wrapping_add_signed(x)];
+            let x_begin = -(left as isize);
+            self.scratch[0].clear();
+            for x in x_begin..(width + right) as isize {
+                let p00 = get(2, x);
                 let mut others = 0.0;
                 for i in -2..=2 {
-                    others = add(others, buffers.row(rows[0].offset(x + i))[0]);
-                    others = add(others, buffers.row(rows[1].offset(x + i))[0]);
-                    others = add(others, buffers.row(rows[3].offset(x + i))[0]);
-                    others = add(others, buffers.row(rows[4].offset(x + i))[0]);
+                    others = add(others, get(0, x + i));
+                    others = add(others, get(1, x + i));
+                    others = add(others, get(3, x + i));
+                    others = add(others, get(4, x + i));
                 }
                 for i in [-2, -1, 1, 2] {
-                    others = add(others, buffers.row(rows[2].offset(x + i))[0]);
+                    others = add(others, get(2, x + i));
                 }
-                buffers.row_mut(out.offset(x))[0] = mul_add(others, 0.16, mul(p00, -3.84));
+                self.scratch[0].push(mul_add(others, 0.16, mul(p00, -3.84)));
             }
+            let target = buffers.row_mut(out.offset(x_begin));
+            target[..self.scratch[0].len()].copy_from_slice(&self.scratch[0]);
         }
         Ok(())
     }
@@ -217,5 +243,8 @@ impl RenderPipelineStage for ConvolveNoiseStage {
     }
 }
 pub fn get_convolve_noise_stage(first_c: usize) -> Box<dyn RenderPipelineStage> {
-    Box::new(ConvolveNoiseStage { first_c })
+    Box::new(ConvolveNoiseStage {
+        first_c,
+        scratch: Default::default(),
+    })
 }
