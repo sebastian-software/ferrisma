@@ -45,4 +45,21 @@ for level in 10 5; do
   echo "## Level $level"
   python3 -I "$here/corpus.py" summarize "$work/level$level.json" || status=1
 done
+
+# Ferrisma's safe wrapper, as the engine builds it, in the runner's
+# application (--lax) mode over every case. Its by-design rejections
+# (animation, non-alpha extra channels, float samples) appear as decoder
+# errors and do not change the exit status of the codec run above.
+root="$(cd "$port/../.." && pwd)"
+if [ -d "$root/crates/ferrisma-jxl-decoder" ]; then
+  (cd "$root" && cargo build --release --locked -p ferrisma-jxl-decoder --example jxl_conformance_wrapper)
+  sort -u "$work/corpus/testcases/main_level10.txt" "$work/corpus/testcases/main_level5.txt" \
+    >"$work/corpus/testcases/all.txt"
+  (cd "$runner" && "${python[@]}" conformance.py --lax \
+    --decoder "$(dirname "$decoder")/jxl_conformance_wrapper" \
+    --corpus "$work/corpus/testcases/all.txt" \
+    --results "$work/wrapper-lax.json" >"$work/wrapper-lax.log" 2>&1) || true
+  echo "## Ferrisma wrapper (--lax)"
+  python3 -I "$here/corpus.py" summarize "$work/wrapper-lax.json" || true
+fi
 exit "$status"

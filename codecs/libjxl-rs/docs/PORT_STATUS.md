@@ -569,6 +569,12 @@ other difference; its 39 remaining cases were this null-buffer kind.
 
 Every test in the pinned `lib/jxl/decode_test.cc` runs as a differential
 case: 64 test definitions, five of them parameterized into 2,836 instances.
+A 2026-11-12 recount of the pinned file's `TEST`, `TEST_P`,
+`JXL_*_TEST` and `JXL_TRANSCODE_JPEG_TEST` definitions found the same 64, each
+in the table below and in a family of
+`tests/parity/decode_test_inventory.rs` or `tests/box_content_decoder.rs`.
+The independent external conformance corpus is recorded separately in
+[CONFORMANCE.md](CONFORMANCE.md).
 `tests/parity/decode_test_inventory.rs` replays each test's call history on the
 original public API and on the Rust port and compares statuses, events, getter
 outputs, consumed and released byte counts, box and JPEG bytes, and digests of
@@ -1477,8 +1483,10 @@ fail the build; the reference source has not been edited to suppress it.
 Not yet established: general Rust image decoding and encoding,
 the encoder and runner C ABI, decoder C ABI compatibility beyond the measured
 64-bit Linux and macOS targets,
-thread runners, SIMD parity, full upstream test inventory, external conformance
-corpus, fuzzing, Rust sanitizer/Miri results, or performance/memory parity.
+thread runners, SIMD parity, upstream test inventories beyond `decode_test.cc`,
+the external conformance corpus beyond macOS ARM64 (see
+[CONFORMANCE.md](CONFORMANCE.md)), fuzzing, Rust sanitizer/Miri results, or
+performance/memory parity.
 Test passing here does not establish any of those. Native Linux/macOS hosted
 results for the prior integrated tree are recorded above; new port batches
 require their own current-head CI evidence.

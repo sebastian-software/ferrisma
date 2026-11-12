@@ -218,6 +218,7 @@ decoder API.
 
 - [Porting contract](docs/PORTING.md): scope, invariants, and gates.
 - [Port status](docs/PORT_STATUS.md): implemented units and remaining work.
+- [Conformance](docs/CONFORMANCE.md): the external JPEG XL conformance corpus run.
 - [Living ADRs](docs/adr/README.md): current decisions and rationale.
 - [Provenance](docs/PROVENANCE.md): source and test origins.
 - [Contributing](CONTRIBUTING.md): prerequisites, checks, and commit conventions.
