@@ -147,6 +147,11 @@ sites and try_palettes' two sites (`tools/encoder_coefficients_contraction.json`
 were translated with their helpers and are now reached.
 `tools/contraction_inventory.py --check` passes.
 
+The whole `encoder_` filter of the parity suite (75 tests: these families,
+the earlier lossy families and the lossless, transform, heuristics,
+coefficient and AR chains) passes against the ordinary and the ASan/UBSan
+oracle graphs (macOS AArch64, checked profile).
+
 Not done: the patch reference-frame encode (patches at the default), 16-bit
 and float alpha (container output, step 3), black channels, `dim_shift`,
 extra-channel resampling, native Linux x86-64 runs.
