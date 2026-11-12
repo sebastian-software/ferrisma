@@ -48,6 +48,26 @@ pub fn sub(out: &mut [f32], a: &[f32], b: &[f32]) {
     }
 }
 
+/// `out[i] = |a[i] - b[i]|`: Highway scalar AbsDiff, Sub followed by the
+/// sign-bit clear of Abs (no addition, so no operand can be reordered).
+#[inline(never)]
+pub fn abs_diff(out: &mut [f32], a: &[f32], b: &[f32]) {
+    let (a, b) = (&a[..out.len()], &b[..out.len()]);
+    for ((o, &a), &b) in out.iter_mut().zip(a).zip(b) {
+        *o = (a - b).abs();
+    }
+}
+
+/// `out[i] = acc[i] + |a[i] - b[i]|`: `add(acc, abs_diff(a, b))` with the
+/// accumulator as the first addition operand. All three operands are loads.
+#[inline(never)]
+pub fn add_abs_diff(out: &mut [f32], acc: &[f32], a: &[f32], b: &[f32]) {
+    let (acc, a, b) = (&acc[..out.len()], &a[..out.len()], &b[..out.len()]);
+    for (((o, &acc), &a), &b) in out.iter_mut().zip(acc).zip(a).zip(b) {
+        *o = acc + (a - b).abs();
+    }
+}
+
 /// `out[i] = f64::from(a[i])`: the promotion of Highway's scalar operator*.
 #[inline(never)]
 pub fn promote(out: &mut [f64], a: &[f32]) {
@@ -197,6 +217,26 @@ pub(crate) mod tests {
         super::sub(&mut out, &a, &b);
         let want: Vec<_> = a.iter().zip(&b).map(|(&a, &b)| sub1(a, b)).collect();
         assert_eq!(bits(&out), bits(&want));
+        super::abs_diff(&mut out, &a, &b);
+        let want: Vec<_> = a.iter().zip(&b).map(|(&a, &b)| sub1(a, b).abs()).collect();
+        assert_eq!(bits(&out), bits(&want));
+        // add(acc, diff(a, b)) on every triple of adversarial words.
+        let v = adversarial();
+        let mut acc = Vec::new();
+        let (mut ta, mut tb) = (Vec::new(), Vec::new());
+        for &x in &v {
+            for (&y, &z) in a.iter().zip(&b) {
+                acc.push(x);
+                ta.push(y);
+                tb.push(z);
+            }
+        }
+        let mut sum = vec![0.0; acc.len()];
+        super::add_abs_diff(&mut sum, &acc, &ta, &tb);
+        let want: Vec<_> = (0..acc.len())
+            .map(|i| add1(acc[i], sub1(ta[i], tb[i]).abs()))
+            .collect();
+        assert_eq!(bits(&sum), bits(&want));
         let mut wa = vec![0.0; n];
         let mut wb = vec![0.0; n];
         super::promote(&mut wa, &a);

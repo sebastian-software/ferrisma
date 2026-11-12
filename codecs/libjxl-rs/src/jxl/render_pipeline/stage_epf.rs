@@ -413,13 +413,14 @@ struct EpfRows {
 
 type Tap<'a> = dyn Fn(usize, i32, isize) -> &'a [f32] + 'a;
 
-/// `out = |a - b|`: the Sub kernel, then the sign-bit clear of Abs.
+/// `out = diff(a, b) = |a - b|`.
 fn diff_row(out: &mut Vec<f32>, n: usize, a: &[f32], b: &[f32]) {
-    let out = lanes(out, n);
-    k::sub(out, a, b);
-    for v in out {
-        *v = v.abs();
-    }
+    k::abs_diff(lanes(out, n), a, b);
+}
+/// `acc = add(acc, diff(a, b))`.
+fn accumulate_diff(acc: &mut Vec<f32>, tmp: &mut Vec<f32>, n: usize, a: &[f32], b: &[f32]) {
+    k::add_abs_diff(lanes(tmp, n), &acc[..n], a, b);
+    std::mem::swap(acc, tmp);
 }
 /// `acc = add(acc, b)`.
 fn accumulate(acc: &mut Vec<f32>, tmp: &mut Vec<f32>, n: usize, b: &[f32]) {
@@ -498,40 +499,31 @@ impl EpfRows {
             let (p02, p12, p22, p32, p42) = (p(0, -2), p(0, -1), p(0, 0), p(0, 1), p(0, 2));
             let (p13, p23, p33, p24) = (p(1, -1), p(1, 0), p(1, 1), p(2, 0));
             let [s0, s1, s2, s3] = &mut self.sad_c;
-            let (t, d, tmp) = (&mut self.t, &mut self.d, &mut self.tmp);
+            let (t, tmp) = (&mut self.t, &mut self.tmp);
             diff_row(s0, n, p20, p21);
             diff_row(s1, n, p11, p21);
             diff_row(s2, n, p31, p21);
-            diff_row(d, n, p02, p12);
-            accumulate(s1, tmp, n, d);
-            diff_row(d, n, p11, p12);
-            accumulate(s0, tmp, n, d);
+            accumulate_diff(s1, tmp, n, p02, p12);
+            accumulate_diff(s0, tmp, n, p11, p12);
             diff_row(t, n, p12, p22);
             accumulate(s1, tmp, n, t);
             accumulate(s2, tmp, n, t);
             diff_row(t, n, p22, p21);
             lanes(s3, n).copy_from_slice(&t[..n]);
             accumulate(s0, tmp, n, t);
-            diff_row(d, n, p31, p32);
-            accumulate(s0, tmp, n, d);
+            accumulate_diff(s0, tmp, n, p31, p32);
             diff_row(t, n, p22, p32);
             accumulate(s1, tmp, n, t);
             accumulate(s2, tmp, n, t);
-            diff_row(d, n, p42, p32);
-            accumulate(s2, tmp, n, d);
-            diff_row(d, n, p13, p12);
-            accumulate(s3, tmp, n, d);
+            accumulate_diff(s2, tmp, n, p42, p32);
+            accumulate_diff(s3, tmp, n, p13, p12);
             diff_row(t, n, p22, p23);
             accumulate(s0, tmp, n, t);
             accumulate(s3, tmp, n, t);
-            diff_row(d, n, p13, p23);
-            accumulate(s1, tmp, n, d);
-            diff_row(d, n, p33, p23);
-            accumulate(s2, tmp, n, d);
-            diff_row(d, n, p33, p32);
-            accumulate(s3, tmp, n, d);
-            diff_row(d, n, p24, p23);
-            accumulate(s3, tmp, n, d);
+            accumulate_diff(s1, tmp, n, p13, p23);
+            accumulate_diff(s2, tmp, n, p33, p23);
+            accumulate_diff(s3, tmp, n, p33, p32);
+            accumulate_diff(s3, tmp, n, p24, p23);
             // sads[i] = ma(sad_ic, channel_scale[c], sads[i])
             let scale = self.channel_scale[c].promoted(scales[c], n);
             for i in 0..4 {
