@@ -296,6 +296,22 @@ pub fn run(
         output.report.transform_threads,
         output.report.encoder_backend,
     );
+    // Decoder work in stored rectangles `WxH+X+Y`; `>=` marks a lower bound.
+    let work = output.report.decoder_work;
+    let rect = |r: crate::pipeline::Crop| format!("{}x{}+{}+{}", r.width, r.height, r.x, r.y);
+    println!(
+        "decoder_work: crop={} requested={} codec_request={} codec_output={} overfetch_pixels={} \
+         reconstructed_pixels={} entropy_rows={} delivered_rows={} wrapper_copied_bytes={}",
+        rect(work.crop),
+        rect(work.requested),
+        rect(work.codec_request),
+        rect(work.codec_output),
+        work.overfetch_pixels,
+        work.reconstructed_pixels,
+        work.entropy_rows,
+        work.delivered_rows,
+        work.wrapper_copied_bytes,
+    );
     if output.report.opaque_decoder_memory || output.report.opaque_encoder_memory {
         eprintln!(
             "Note: decoder and/or encoder internal allocations are not subject to this memory budget."

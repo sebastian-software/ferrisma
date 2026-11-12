@@ -18,7 +18,8 @@ use ferrisma_avif_read::{Decoder, ReadError};
 use super::avif_meta::{MetaError, PrimaryProperties, SequenceColor, primary_properties};
 use crate::color::AlphaMode;
 use crate::decoder::{
-    ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType,
+    ChannelLayout, CodecWork, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo,
+    SampleType,
 };
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
@@ -291,6 +292,10 @@ impl DecodeSource for AvifSource<'_> {
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
             engine_buffer_bytes: 0,
+            engine_copied_bytes: 0,
+            // AV1 has no region decode in this path: every request decodes and
+            // converts the whole frame (ADR-0031).
+            work: CodecWork::full_frame(region, size),
         })
     }
 }

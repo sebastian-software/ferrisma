@@ -5,7 +5,8 @@ use webp::api::decode::{self, ColorMode, Config, Container, Features, Format, Ou
 
 use crate::color::AlphaMode;
 use crate::decoder::{
-    ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType,
+    ChannelLayout, CodecWork, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo,
+    SampleType, WorkCount,
 };
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
@@ -180,7 +181,24 @@ impl DecodeSource for WebpSource<'_> {
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
             engine_buffer_bytes: 0,
+            engine_copied_bytes: 0,
+            work: webp_work(region, self.info.size, Rect::new(left, top, width, height)?),
         })
+    }
+}
+
+/// VP8 and VP8L both decode from the first row and across the full width:
+/// VP8 needs intra prediction and loop-filter context, VP8L its spatial
+/// predictors and backward references. Every stored row above the bottom of
+/// the codec output is therefore reconstructed at full width, however small
+/// the returned crop is. Rows below it may be skipped; that is not observed.
+fn webp_work(request: Rect, size: Size, codec_output: Rect) -> CodecWork {
+    let rows = u64::from(codec_output.bottom());
+    CodecWork {
+        request,
+        codec_output,
+        reconstructed_pixels: WorkCount::AtLeast(rows * u64::from(size.width)),
+        entropy_rows: WorkCount::AtLeast(rows),
     }
 }
 

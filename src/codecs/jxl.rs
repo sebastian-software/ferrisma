@@ -3,7 +3,8 @@
 
 use crate::color::AlphaMode;
 use crate::decoder::{
-    ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType,
+    ChannelLayout, CodecWork, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo,
+    SampleType,
 };
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
@@ -123,6 +124,8 @@ impl DecodeSource for JxlSource<'_> {
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
             engine_buffer_bytes: 0,
+            engine_copied_bytes: 0,
+            work: CodecWork::full_frame(region, self.info.size),
         })
     }
 }

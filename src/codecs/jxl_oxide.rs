@@ -5,7 +5,8 @@ use jxl_oxide::{CropInfo, JxlImage, PixelFormat};
 use std::io::Cursor;
 
 use crate::decoder::{
-    ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType,
+    ChannelLayout, CodecWork, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo,
+    SampleType,
 };
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
@@ -105,6 +106,11 @@ impl DecodeSource for JxlSource {
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
             engine_buffer_bytes: 0,
+            engine_copied_bytes: 0,
+            // jxl-oxide returns exactly the requested display rectangle. Which
+            // groups, reference frames and filter borders it reconstructed is
+            // not observable through its API, so only the output is a bound.
+            work: CodecWork::region_at_least(region),
         })
     }
 }

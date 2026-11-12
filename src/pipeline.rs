@@ -21,6 +21,7 @@ use crate::quality_execute::execute_quality_srgb8;
 #[cfg(feature = "webp-write")]
 use crate::webp_sink::WebpSink;
 
+pub use crate::decoder::WorkCount;
 pub use crate::encoder_backend::{
     EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
 };
@@ -303,6 +304,49 @@ pub struct StageTimings {
     pub total: Duration,
 }
 
+/// What the decoder was asked for, what it returned and which work it
+/// necessarily performed (ADR-0012, ADR-0023). Counts are pixels and rows,
+/// not time. Only [`WorkCount::Exact`] values bound the work from above: a
+/// codec that returns a crop may still have decoded far more.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct DecoderWork {
+    /// The upright source crop that feeds the resize, in display
+    /// coordinates; the whole image when no crop was requested.
+    pub crop: Crop,
+    /// The upright rectangle the executor requested from the source. Filters
+    /// clamp at the crop's edges, so it equals `crop`: there is no filter
+    /// halo beyond the crop and a difference would be a planning defect.
+    pub requested: Crop,
+    /// The stored-order rectangle the codec adapter requested from the codec,
+    /// after any reorientation (ADR-0019).
+    pub codec_request: Crop,
+    /// The stored-order rectangle the codec actually wrote, including
+    /// alignment, filter context and full-frame fallbacks.
+    pub codec_output: Crop,
+    /// `codec_output` pixels beyond `codec_request`: the source overfetch.
+    pub overfetch_pixels: u64,
+    /// Pixels the codec reconstructed, as far as the adapter can establish.
+    pub reconstructed_pixels: WorkCount,
+    /// Stored rows whose compressed data the codec parsed.
+    pub entropy_rows: WorkCount,
+    /// Rows the source handed to the executor. Equal to `requested.height`
+    /// when no source row is decoded or delivered twice.
+    pub delivered_rows: u64,
+    /// Sample bytes copied between engine buffers by source wrappers; the
+    /// reorientation fill and gather each copy the region once (ADR-0019).
+    pub wrapper_copied_bytes: u64,
+}
+
+fn public_rect(rect: Rect) -> Crop {
+    Crop {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+    }
+}
+
 /// Report known materializations separately from opaque codec memory.
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
@@ -328,6 +372,8 @@ pub struct ProcessingReport {
     pub opaque_decoder_memory: bool,
     /// The encoder allocated memory that the engine cannot observe or bound.
     pub opaque_encoder_memory: bool,
+    /// Requested versus decoded source regions and the decoder's work.
+    pub decoder_work: DecoderWork,
     /// The executor that produced the pixels.
     pub working_precision: WorkingPrecision,
     /// SIMD level of the resample kernels and why it was chosen; the `f64`
@@ -1184,6 +1230,17 @@ fn run(
         peak_managed_bytes: budget.snapshot().peak,
         opaque_decoder_memory: processed.decoder.opaque_codec_memory_unbounded,
         opaque_encoder_memory: encoded_image.opaque_memory,
+        decoder_work: DecoderWork {
+            crop: public_rect(crop),
+            requested: public_rect(processed.decoder.requested),
+            codec_request: public_rect(processed.decoder.work.request),
+            codec_output: public_rect(processed.decoder.work.codec_output),
+            overfetch_pixels: processed.decoder.work.overfetch_pixels(),
+            reconstructed_pixels: processed.decoder.work.reconstructed_pixels,
+            entropy_rows: processed.decoder.work.entropy_rows,
+            delivered_rows: processed.decoder.rows,
+            wrapper_copied_bytes: processed.decoder.engine_copied_bytes,
+        },
         working_precision: options.precision,
         kernel_level,
         kernel_level_reason,

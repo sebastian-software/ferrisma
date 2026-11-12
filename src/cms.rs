@@ -201,6 +201,8 @@ mod tests {
                 peak_engine_managed_bytes: 0,
                 opaque_codec_memory_unbounded: false,
                 engine_buffer_bytes: 0,
+                engine_copied_bytes: 0,
+                work: crate::decoder::CodecWork::region_at_least(region),
             })
         }
     }
@@ -230,6 +232,8 @@ mod tests {
                 peak_engine_managed_bytes: 0,
                 opaque_codec_memory_unbounded: false,
                 engine_buffer_bytes: 0,
+                engine_copied_bytes: 0,
+                work: crate::decoder::CodecWork::region_at_least(region),
             })
         }
     }

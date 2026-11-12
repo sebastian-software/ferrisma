@@ -4,7 +4,8 @@ use crate::color::AlphaMode;
 use jpeg::decode::{ColorSpace, Decoder, DecoderOptions, OutputOptions, PixelFormat};
 
 use crate::decoder::{
-    ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType,
+    ChannelLayout, CodecWork, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo,
+    SampleType, WorkCount,
 };
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
@@ -76,6 +77,11 @@ impl<'a> JpegSource<'a> {
         })
     }
 }
+/// Pixel width of one RGB8 scanline of `row_bytes`.
+fn scanlines_width(row_bytes: usize) -> Result<u32, Error> {
+    u32::try_from(row_bytes / 3).map_err(|_| Error::GeometryOverflow)
+}
+
 /// Read the IFD0 `Orientation` tag (0x0112) from EXIF data starting at its
 /// TIFF header. `Ok(None)` means the tag is absent; `Err` means the TIFF
 /// structure needed to find it is malformed.
@@ -208,17 +214,30 @@ impl DecodeSource for JpegSource<'_> {
             )?;
             rows += 1;
         }
-        // A small ROI still validates the encoded tail. Without finishing,
-        // truncation beyond the last requested row could look successful.
+        // A small ROI still validates the encoded tail. `jpeg_skip_scanlines`
+        // to the last row marks EOI as reached without entropy-decoding the
+        // skipped tail, so a file truncated below the request would finish
+        // cleanly. Skipping all but the last row entropy-decodes the whole
+        // iMCU rows in between; reading that row reconstructs only the final
+        // iMCU row of the cropped columns and lets `finish` look for EOI.
         let remaining = self.info.size.height - scanlines.next_row();
-        if scanlines
-            .skip_rows(remaining)
-            .map_err(|_| Error::DecodeFailed)?
-            != remaining
-        {
-            return Err(Error::DecodeFailed);
+        let mut tail_rows = 0_u64;
+        if remaining > 0 {
+            if scanlines
+                .skip_rows(remaining - 1)
+                .map_err(|_| Error::DecodeFailed)?
+                != remaining - 1
+                || scanlines
+                    .read_rows(row.as_mut_slice())
+                    .map_err(|_| Error::DecodeFailed)?
+                    != 1
+            {
+                return Err(Error::DecodeFailed);
+            }
+            tail_rows = 1;
         }
         scanlines.finish().map_err(|_| Error::DecodeFailed)?;
+        let decoded_width = scanlines_width(row_bytes)?;
         Ok(DecodeReport {
             requested: region,
             access: DecodeAccess::CodecRegionRequest,
@@ -230,6 +249,31 @@ impl DecodeSource for JpegSource<'_> {
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
             engine_buffer_bytes: 0,
+            engine_copied_bytes: 0,
+            work: CodecWork {
+                request: region,
+                // The iMCU-aligned columns libjpeg returned, over the rows
+                // the adapter read; the final validation row is extra.
+                codec_output: Rect {
+                    x: decoded_x,
+                    y: region.y,
+                    width: decoded_width,
+                    height: region.height,
+                },
+                // Skipped partial iMCU rows and fancy-upsampling context rows
+                // are reconstructed and discarded inside libjpeg; they are
+                // not observable through the scanline API.
+                reconstructed_pixels: WorkCount::AtLeast(
+                    u64::from(decoded_width)
+                        .checked_mul(rows + tail_rows)
+                        .ok_or(Error::GeometryOverflow)?,
+                ),
+                // Baseline skips call the entropy decoder for each skipped
+                // MCU, the last row's read and `finish` consume the tail, and
+                // a progressive start decodes every scan: every row's
+                // compressed data is parsed.
+                entropy_rows: WorkCount::Exact(u64::from(self.info.size.height)),
+            },
         })
     }
 }
@@ -346,6 +390,86 @@ mod tests {
                 &mut |_, _| Ok(())
             ),
             Err(Error::DecodeFailed)
+        );
+    }
+
+    const PARIS_444: &[u8] = include_bytes!(
+        "../../codecs/libavif-rs/upstream/libavif/tests/data/paris_exif_xmp_icc.jpg"
+    );
+    const PARIS_420: &[u8] = include_bytes!("../../tests/fixtures/decoder-work/paris-420.jpg");
+
+    fn read_work(
+        bytes: &[u8],
+        region: crate::geometry::Rect,
+    ) -> Result<crate::decoder::DecodeReport, Error> {
+        use crate::decoder::DecodeSource;
+        use crate::memory::MemoryBudget;
+        JpegSource::new(bytes)?.read_region(region, &MemoryBudget::new(1 << 20), &mut |_, _| Ok(()))
+    }
+
+    /// Regression: skipping to the last row made libjpeg mark EOI as reached
+    /// without parsing the skipped tail, so a top crop of a file truncated in
+    /// its lower half finished cleanly. Both the 4:4:4 path and the 4:2:0
+    /// context-row path must now fail closed.
+    #[test]
+    fn a_top_crop_of_a_file_truncated_below_it_fails_closed() {
+        use crate::geometry::Rect;
+        for bytes in [PARIS_444, PARIS_420] {
+            let truncated = &bytes[..bytes.len() * 6 / 10];
+            for region in [
+                Rect::new(0, 0, 403, 8).unwrap(),
+                Rect::new(50, 3, 20, 17).unwrap(),
+            ] {
+                assert!(read_work(bytes, region).is_ok());
+                assert_eq!(
+                    read_work(truncated, region).err(),
+                    Some(Error::DecodeFailed),
+                    "{region:?}"
+                );
+            }
+        }
+    }
+
+    /// The codec output is libjpeg's iMCU-aligned column range over the
+    /// requested rows; every row is entropy-decoded; reconstruction is only a
+    /// lower bound because skipped partial iMCU rows and context rows are
+    /// reconstructed inside libjpeg without being observable.
+    #[test]
+    fn crop_reports_codec_columns_overfetch_and_entropy_rows() {
+        use crate::decoder::{CodecWork, WorkCount};
+        use crate::geometry::Rect;
+        let region = Rect::new(101, 50, 40, 20).unwrap();
+        for (bytes, imcu) in [(PARIS_444, 8), (PARIS_420, 16)] {
+            let report = read_work(bytes, region).unwrap();
+            // One adapter context column on each side, then iMCU alignment of
+            // the left edge; libjpeg keeps the requested right edge.
+            let x = (region.x - 1) / imcu * imcu;
+            let width = region.right() + 1 - x;
+            assert_eq!(
+                report.work,
+                CodecWork {
+                    request: region,
+                    codec_output: Rect::new(x, 50, width, 20).unwrap(),
+                    reconstructed_pixels: WorkCount::AtLeast(u64::from(width) * 21),
+                    entropy_rows: WorkCount::Exact(302),
+                },
+                "iMCU width {imcu}"
+            );
+            assert_eq!(
+                report.work.overfetch_pixels(),
+                u64::from(width - 40) * 20,
+                "iMCU width {imcu}"
+            );
+            assert_eq!(report.known_full_frame_buffers, 0);
+            assert_eq!(report.peak_engine_managed_bytes, width as usize * 3);
+        }
+        // A full-width request has no column overfetch and no extra tail row
+        // when it ends at the bottom.
+        let full = read_work(PARIS_444, Rect::new(0, 0, 403, 302).unwrap()).unwrap();
+        assert_eq!(full.work.overfetch_pixels(), 0);
+        assert_eq!(
+            full.work.reconstructed_pixels,
+            WorkCount::AtLeast(403 * 302)
         );
     }
 

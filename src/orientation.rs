@@ -214,6 +214,7 @@ struct Layout {
 fn gather_row<T: Copy>(pixels: &[T], out: &mut [T], layout: &Layout, y: u32) -> Result<(), Error> {
     match layout.channels {
         1 => gather::<T, 1>(pixels, out, layout, y),
+        2 => gather::<T, 2>(pixels, out, layout, y),
         3 => gather::<T, 3>(pixels, out, layout, y),
         4 => gather::<T, 4>(pixels, out, layout, y),
         _ => Err(Error::UnsupportedCodecLayout),
@@ -486,6 +487,13 @@ impl DecodeSource for OrientedSource<'_> {
             engine_buffer_bytes: inner
                 .engine_buffer_bytes
                 .checked_add(bytes)
+                .ok_or(Error::GeometryOverflow)?,
+            // One copy fills the stored-order region, one gathers it upright;
+            // both move every sample of the region exactly once.
+            engine_copied_bytes: u64::try_from(bytes)
+                .ok()
+                .and_then(|bytes| bytes.checked_mul(2))
+                .and_then(|copied| copied.checked_add(inner.engine_copied_bytes))
                 .ok_or(Error::GeometryOverflow)?,
             peak_engine_managed_bytes: budget.snapshot().peak,
             ..inner
