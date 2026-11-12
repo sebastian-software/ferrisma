@@ -80,6 +80,11 @@ pub(crate) enum Error {
     UnsupportedEncoderProfile(&'static str),
     EncodeFailed,
     UnsupportedColorEncoding,
+    /// CICP evidence beside the rendered ICC profile that the rendered-ICC
+    /// stage cannot reconcile with it; the reason names the conflict. ICC is
+    /// never given precedence over CICP silently (ADR-0015 rule 4).
+    #[cfg(feature = "icc")]
+    CicpBesideIcc(&'static str),
     UnsupportedAlphaMode,
     /// Animated input; only still images are decoded (no first-frame
     /// fallback).
@@ -174,6 +179,11 @@ impl fmt::Display for Error {
             Self::UnsupportedColorEncoding => write!(
                 f,
                 "linear-sRGB resize requires unambiguous full-range RGB sRGB CICP; ICC/unknown/HDR need a managed transform"
+            ),
+            #[cfg(feature = "icc")]
+            Self::CicpBesideIcc(reason) => write!(
+                f,
+                "CICP beside the rendered ICC profile {reason}; the ICC profile is not given precedence over CICP automatically"
             ),
             Self::UnsupportedAlphaMode => write!(
                 f,

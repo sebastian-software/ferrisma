@@ -126,7 +126,7 @@ impl<'a> IccSrgbSource<'a> {
             if tag[2] == 0 && tag[3] == 1 {
                 check_cicp_agrees(tag, transformer.as_ref())?;
             } else if matches!(tag[1], 16 | 18) {
-                return Err(Error::UnsupportedColorEncoding);
+                return Err(Error::CicpBesideIcc(HDR));
             }
         }
         let conversion = Arc::new(IccConversion {
@@ -161,6 +161,12 @@ impl<'a> IccSrgbSource<'a> {
 ///   the engine's own CICP reference within `2e-3` linear (the moxcms versus
 ///   reference P3 matrix bound of ADR-0023); otherwise the two signals
 ///   contradict each other.
+///
+/// MIAF gives an AVIF ICC `colr` precedence over `nclx` for color
+/// interpretation; the engine does not apply that precedence silently. Each
+/// refusal is a `CicpBesideIcc` that names the reason (review of 2026-11-12;
+/// the outcome for SDR transfers outside these families, such as BT.709
+/// transfer 1 beside an sRGB profile, awaits owner confirmation in ADR-0015).
 fn check_cicp_agrees(raw: [u8; 4], transformer: &TransformF32Executor) -> Result<(), Error> {
     use crate::color::ColorEncoding;
     use crate::color_contract::{Cicp, CicpFamily};
@@ -174,12 +180,18 @@ fn check_cicp_agrees(raw: [u8; 4], transformer: &TransformF32Executor) -> Result
         [0.04, 0.04, 0.04],
         [0.2, 0.6, 0.9],
     ];
-    let cicp = Cicp::try_from(raw).map_err(|_| Error::UnsupportedColorEncoding)?;
+    if matches!(raw[1], 16 | 18) {
+        return Err(Error::CicpBesideIcc(HDR));
+    }
+    let cicp = Cicp::try_from(raw)
+        .map_err(|_| Error::CicpBesideIcc("is not a valid full-range RGB code point"))?;
     if !matches!(
         cicp.family(),
         CicpFamily::Srgb | CicpFamily::LinearSrgb | CicpFamily::DisplayP3
     ) {
-        return Err(Error::UnsupportedColorEncoding);
+        return Err(Error::CicpBesideIcc(
+            "is outside sRGB, linear sRGB and Display P3, so it cannot be checked against the profile",
+        ));
     }
     let input: Vec<f32> = PROBES.iter().flatten().copied().collect();
     let mut output = vec![0.0_f32; input.len()];
@@ -190,12 +202,15 @@ fn check_cicp_agrees(raw: [u8; 4], transformer: &TransformF32Executor) -> Result
         let expected = decode_to_linear_srgb(&ColorEncoding::Cicp(raw), probe.map(f64::from))?;
         for (want, got) in expected.rgb.iter().zip(actual) {
             if (want - f64::from(*got)).abs() > 2e-3 {
-                return Err(Error::UnsupportedColorEncoding);
+                return Err(Error::CicpBesideIcc("disagrees with the profile transform"));
             }
         }
     }
     Ok(())
 }
+
+/// The refusal reason for a PQ or HLG transfer beside the profile.
+const HDR: &str = "signals a PQ or HLG transfer, which needs tone mapping (ADR-0016 rule 7)";
 
 impl DecodeSource for IccSrgbSource<'_> {
     fn info(&self) -> &DecoderInfo {
@@ -327,7 +342,7 @@ mod tests {
 
     /// Issues #17 and #41: CICP beside the rendered ICC is never silently
     /// overridden. Agreeing SDR evidence passes; contradicting, unknown and
-    /// HDR evidence is a controlled `UnsupportedColorEncoding`.
+    /// HDR evidence is a controlled `CicpBesideIcc` naming the reason.
     #[test]
     fn cicp_beside_the_rendered_icc_must_agree() {
         let srgb = moxcms::ColorProfile::new_srgb().encode().unwrap();
@@ -347,15 +362,14 @@ mod tests {
             (srgb.clone(), [1, 13, 0, 0]),
             (srgb.clone(), [1, 13, 0, 7]),
         ] {
-            assert_eq!(
-                signalled(icc, Some(cicp)),
-                Err(Error::UnsupportedColorEncoding),
+            assert!(
+                matches!(signalled(icc, Some(cicp)), Err(Error::CicpBesideIcc(_))),
                 "{cicp:?}"
             );
         }
         // A PQ profile is rejected by its own tag, even without decoder CICP.
         let pq = moxcms::ColorProfile::new_display_p3_pq().encode().unwrap();
-        assert_eq!(signalled(pq, None), Err(Error::UnsupportedColorEncoding));
+        assert_eq!(signalled(pq, None), Err(Error::CicpBesideIcc(super::HDR)));
     }
 
     /// Hostile profiles fail with a controlled error, never a panic.

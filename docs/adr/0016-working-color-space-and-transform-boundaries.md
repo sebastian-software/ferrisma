@@ -62,6 +62,7 @@ Real codec and encoder dataflow makes the proposed format contract too expensive
 
 - 2026-10-31 — Proposed an explicit, region-capable working-color transform boundary for M1.
 - 2026-11-12 — Independent resize oracle (#18), CICP checks beside the rendered ICC (#17, #41), and real-photograph LittleCMS evidence.
+- 2026-11-12 — PQ/HLG rejection from the JPEG XL transfer function itself, independent of CICP (review of the v1.0 integration).
 
 ## 2026-10-31: narrow reference experiment (not acceptance)
 
@@ -82,3 +83,14 @@ Differential testing exposed that the minimum *nonzero* tap of Lanczos3 can move
 **Resize (#18).** `tests/resize_oracle.rs` compares the public facade's Area and Lanczos3 output (lossless WebP input, captured final rows, `F32` and `F64Reference`) with two oracles that share no code with `src/quality.rs` or the executors: retained ImageMagick 7.1.2-35 Q16-HDRI linear-light results and a separately written direct 2D summation (`tests/support/resize_oracle.rs`). ImageMagick's Lanczos is forced to the exact sinc; Ferrisma's Area equals ImageMagick `-scale` on downscaled axes and `-filter Triangle` on upscaled ones (a unit box integrated over unit pixels is a tent), so the fixtures apply the matching operator per axis. Cases: 2.1x and 2.2x upscale, 80x and 60x downscale, odd crops, mixed axis scales, a one-pixel column, opaque edges, a checkerboard, straight-alpha stripes, fully transparent pixels with saturated hidden color, and random alpha. Results: oracle and ImageMagick agree within `1.7e-7` linear (bound `1e-6`, derived from float32 storage); the engine matches both on all 73,119 compared RGB samples, alpha differs by one code only at exact rounding ties (asserted); a broader sweep (identity, 1.5x, 2.37x, 16x, 120x/160x, 1 x 1, anisotropic, far-corner crop, one- and two-pixel sources) matches the in-tree oracle on all 138,606 RGB samples. Every sRGB8 code round-trips at identity geometry. Tolerances are ADR-0021 rule 4, adopted unchanged. One intentional output-step difference is recorded in ADR-0014. Display P3 input through the rendered-ICC policy stays within a derived `1.66e-3` linear bound around the oracle on 108,888 samples, while an oracle that clips before filtering leaves that bound on 24,884, so out-of-gamut values provably survive until the output step. Provenance and regeneration: `tests/fixtures/resize/README.md`.
 
 **ICC and CICP (#17, #41).** The rendered-ICC adapter no longer ignores CICP beside the profile. Decoder CICP, and a well-formed RGB `cicp` tag inside the profile, must be sRGB, linear sRGB or Display P3 and must agree with the profile transform on seven probe colors within `2e-3` linear; PQ, HLG, unknown and contradicting signals are a controlled `UnsupportedColor`. Before this change a PQ or HLG JPEG XL file was converted through the decoder's synthesized ICC as if it were SDR. Miscoded profile tags (moxcms 0.9.1 writes `[11, 13, 1, 0]` into its own Display P3 profile) are not trusted as descriptions, but a PQ/HLG transfer in them still rejects. The bounded ICC header check of ADR-0015 now runs before moxcms, which accepted a declared size beyond the data. A real photograph (the libavif Paris JPEG with its compact sRGB ICC v4 profile) and the same crop tagged as Display P3 match a LittleCMS 2.19 float transform within ADR-0023's `8e-4` on all samples (`tests/icc_photo.rs`). LUT-based profiles, intents other than relative colorimetric and a photograph corpus remain open; this ADR stays Proposed.
+
+## 2026-11-12: HDR transfer rejection independent of CICP
+
+Rule 7's PQ/HLG rejection is now applied from the transfer function itself
+by both JPEG XL adapters, not only through CICP evidence. Before this change,
+an enum-signalled PQ or HLG image with custom primaries (or, for libjxl-rs,
+a non-D65, non-DCI white point) had no CICP anywhere, and the rendered-ICC
+stage converted its approximation profile as SDR. Refusals in the
+CICP-beside-ICC check now name their reason (`CicpBesideIcc`). Evidence and
+the pending AVIF `nclx`-beside-ICC decision are recorded in ADR-0015
+(2026-11-12, review of the v1.0 integration).

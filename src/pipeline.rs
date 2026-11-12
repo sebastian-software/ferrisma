@@ -512,6 +512,8 @@ impl From<Error> for ProcessingError {
             Error::UnsupportedAnimation => Kind::UnsupportedInput,
             Error::UnsupportedImageTransform => Kind::UnsupportedInput,
             Error::UnsupportedColorEncoding => Kind::UnsupportedColor,
+            #[cfg(feature = "icc")]
+            Error::CicpBesideIcc(_) => Kind::UnsupportedColor,
             #[cfg(feature = "avif-read")]
             Error::ContradictoryColorSignals => Kind::UnsupportedColor,
             Error::AllocationFailed | Error::ThreadSpawnFailed | Error::BudgetExceeded { .. } => {

@@ -61,6 +61,7 @@ A real decoder exposes a usable output-profile transform API; an ICC parser/CMM 
 - 2026-10-31 — Added explicit, non-transforming color evidence classification.
 - 2026-11-06 — CICP `[1, 8, 0, 1]` (sRGB primaries, linear transfer, full range) is classified as its own family, `LinearSrgb`, and is transfer-ready: it is the graph's working-space signal and what the ICC adapter now emits (ADR-0023). Limited range or other matrices with transfer 8 stay `UnknownSignal`.
 - 2026-11-12 — Verified what jxl-oxide emits without a CMS and corrected its reported CICP; CICP beside a rendered ICC is checked, not ignored (#41).
+- 2026-11-12 — Review of the v1.0 integration: PQ/HLG JPEG XL is refused from the transfer function, also without any CICP; AVIF `nclx` beside ICC is refused unless it agrees, with a named reason (pending owner confirmation).
 
 ## 2026-11-12: JPEG XL emitted-sample evidence (#41)
 
@@ -69,3 +70,47 @@ A real decoder exposes a usable output-profile transform API; an ICC parser/CMM 
 **Change.** The jxl-oxide adapter now derives CICP from the header's enum encoding (the renderer uses it unchanged, because the adapter never requests another encoding), maps white point and primaries together (`D65 + P3 -> 12`, `DCI + P3 -> 11`), and reports no CICP when the encoding came from an ICC profile or has no exact H.273 code. The libjxl-rs adapter reports only its rendered ICC, whose `cicp` tag carries the code points. Under the rendered-ICC policy, CICP beside the profile must agree with it (ADR-0016, 2026-11-12); the strict policy still refuses every JPEG XL input, because both adapters always describe their output with an ICC profile.
 
 **Evidence.** No JPEG XL encoder is available on the host, so `tests/fixtures/jxl-color` respells only the enum color encoding of two independently encoded files (lossless modular and lossy XYB) with a documented header rewriter. `src/jxl_color_tests.rs` runs every check against each compiled decoder: declared signals (P3, PQ, HLG, linear sRGB, DCI-P3; the P3 case failed before the adapter change); exact known lossless samples reproduced through each decoder's ICC within `2e-3` linear of the independent oracle (P3 and linear sRGB); both decoders identical on XYB rendered into Display P3; PQ, HLG and DCI-P3 rejected under both policies (PQ was converted before the CICP check). ICC-signalled JPEG XL files are covered by the source review above only: writing a fixture needs a JPEG XL ICC-stream encoder. **The default JPEG XL decoder may change for v1.0 (#55)**; the tests take the decoder as a parameter, so the same expectations apply to either. Re-evaluate when jxl-oxide changes `cicp()` or its default output encoding, when the adapter requests an output encoding, or when ICC-signalled fixtures become available.
+
+## 2026-11-12: review of the v1.0 integration
+
+**PQ/HLG without a CICP code point (correction).** The entry above says PQ
+and HLG are rejected, but that rejection only fired when a CICP code point
+existed: the jxl-oxide adapter's `rendered_cicp`, or a `cicp` tag in the
+rendered ICC. An enum colour encoding with custom primaries (and, for the
+libjxl-rs backend, a white point other than D65 or DCI) has neither, so its
+PQ or HLG transfer passed and `UseRenderedIcc` converted the synthesized
+PQ/HLG approximation profile as SDR sRGB. Both JPEG XL adapters now refuse
+PQ and HLG from the declared transfer function itself, before any profile is
+declared: jxl-oxide from the header's enum encoding (and from the encoding
+jxl-render recognized in an embedded ICC), libjxl-rs from the DATA encoding,
+which the safe wrapper now exposes as `ImageInfo::data_transfer`. Under every
+input profile policy these files are a controlled `UnsupportedColor`.
+Evidence: four respelled fixtures (`tests/fixtures/jxl-color`, custom
+primaries with PQ and HLG, white point E with PQ, XYB with custom primaries
+and PQ) and `jxl_color_tests::hdr_transfer_is_rejected_without_any_cicp_equivalent`,
+which runs both decoders under all three policies. Before the change it
+failed for seven of eight decoder/fixture pairs under `UseRenderedIcc`
+(the jxl-oxide adapter already rejected the white point E file through the
+existing CICP check). An ICC-signalled JPEG XL file with an unrecognized PQ/HLG
+profile is still covered only by the profile's own `cicp` tag; no fixture
+exists for it.
+
+**AVIF `nclx` beside an ICC `colr` (decision pending owner confirmation).**
+MIAF gives an ICC `colr` precedence over `nclx` for color interpretation.
+Rule 4 above forbids a default precedence, so the engine keeps both signals
+and applies MIAF's rule only where the two agree: under `UseRenderedIcc` an
+`nclx` beside the profile must be sRGB, linear sRGB or Display P3 and must
+match the profile transform on the probe colors. An sRGB profile with
+`nclx` 1/13/6 therefore converts. The same profile with `nclx` 1/1/6
+(BT.709 transfer) is refused rather than resolved in the profile's favor.
+The error is now a dedicated `CicpBesideIcc` whose message names the
+conflict and says that the ICC profile is not given precedence
+automatically. The same error now covers every refusal in the CICP-beside-ICC
+check, including HDR and contradicting code points. The alternative, applying
+MIAF precedence and reporting that `nclx` was ignored, needs a report field
+for the signal used and an owner decision; until then, refusal is the
+fail-closed choice. Evidence: `tests/avif_icc_nclx.rs` with the two fixtures in
+`tests/fixtures/avif-color` (provenance in its README). Strict and
+`AssumeSrgbIfMissing` refuse both files, because neither treats an ICC-tagged
+file as sRGB. Re-evaluate when the owner confirms or changes this outcome, or
+when the report can name the color signal it used.
