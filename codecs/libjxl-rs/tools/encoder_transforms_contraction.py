@@ -13,7 +13,9 @@ emitting the front end's IR with line tables (`-Xclang -disable-llvm-passes`)
 into the new output directory, and compares the fmuladd source sites with a
 recorded map: tools/encoder_transforms_contraction.json by default, or
 tools/encoder_heuristics_contraction.json for the quantization,
-chroma-from-luma and AC strategy heuristics (`--map`). The front end decides
+chroma-from-luma and AC strategy heuristics, or
+tools/encoder_coefficients_contraction.json for the coefficient, order, DC,
+AC-metadata and patch-detection units (`--map`). The front end decides
 every contraction; optimized IR can fold a site with constant or identity
 operands away and can move or merge the debug locations of speculated sites
 differently in the ordinary and instrumented graphs. A recorded site marked

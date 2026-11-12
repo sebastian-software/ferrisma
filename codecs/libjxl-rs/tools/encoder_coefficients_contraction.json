@@ -1,0 +1,270 @@
+{
+  "lowering": {
+    "aarch64": "Each llvm.fmuladd site lowers to a fused FMADD/FMSUB/FNMADD; a negated product keeps its constant or negated multiplicand.",
+    "x86_64": "Baseline x86-64 has no FMA: each llvm.fmuladd site lowers to a separate MULSS and ADDSS (or MULSD and ADDSD)."
+  },
+  "sources": {
+    "lib/jxl/enc_group.cc": [
+      {
+        "file": "lib/jxl/chroma_from_luma.h",
+        "line": 52,
+        "column": 32,
+        "type": "f32",
+        "expression": "inlined YtoXRatio: base_correlation_x_ + x_factor * color_scale_",
+        "rust": "chroma_from_luma.rs y_to_x_ratio mul_add_f32 (existing)"
+      },
+      {
+        "file": "lib/jxl/chroma_from_luma.h",
+        "line": 56,
+        "column": 32,
+        "type": "f32",
+        "expression": "inlined YtoBRatio: base_correlation_b_ + b_factor * color_scale_",
+        "rust": "chroma_from_luma.rs y_to_b_ratio mul_add_f32 (existing)"
+      },
+      {
+        "file": "lib/jxl/enc_group.cc",
+        "line": 68,
+        "column": 21,
+        "type": "f32",
+        "expression": "QuantizeBlockAC: thresholds[i] -= 0.00744f * xsize * ysize",
+        "rust": "enc_group.rs quantize_block_ac mul_add_f32(-(0.00744 * xsize), ysize, threshold)"
+      },
+      {
+        "file": "lib/jxl/enc_group.cc",
+        "line": 288,
+        "column": 80,
+        "type": "f64",
+        "expression": "AdjustQuantBlockAC step: kMul1 * xsize * ysize * kBlockDim * kBlockDim + kMul2 * sum_of_vals (fused factor is the exact * kBlockDim)",
+        "rust": "enc_group.rs adjust_quant_block_ac limit mul_add_f64"
+      },
+      {
+        "file": "lib/jxl/enc_group.cc",
+        "line": 296,
+        "column": 79,
+        "type": "f64",
+        "expression": "AdjustQuantBlockAC comparison: the same sum as line 288",
+        "rust": "enc_group.rs adjust_quant_block_ac limit mul_add_f64"
+      },
+      {
+        "file": "lib/jxl/enc_group.cc",
+        "line": 317,
+        "column": 23,
+        "type": "f64",
+        "expression": "AdjustQuantBlockAC: thresholds[i] += 0.01 * activity",
+        "rust": "enc_group.rs adjust_quant_block_ac mul_add_f64(0.01, activity, threshold)"
+      },
+      {
+        "file": "lib/jxl/enc_transforms-inl.h",
+        "line": 452,
+        "column": 40,
+        "type": "f32",
+        "expression": "inlined AFVTransformFromPixels: block00 + block01 + 2 * block10",
+        "rust": "enc_transforms.rs afv_dc_mix (existing)"
+      },
+      {
+        "file": "lib/jxl/enc_transforms-inl.h",
+        "line": 454,
+        "column": 40,
+        "type": "f32",
+        "expression": "inlined AFVTransformFromPixels: block00 + block01 - 2 * block10",
+        "rust": "enc_transforms.rs afv_dc_mix (existing)"
+      }
+    ],
+    "lib/jxl/enc_entropy_coder.cc": [],
+    "lib/jxl/enc_coeff_order.cc": [
+      {
+        "file": "lib/jxl/enc_coeff_order.cc",
+        "line": 210,
+        "column": 64,
+        "type": "f32",
+        "expression": "ComputeCoeffOrder: num_zeros[offset + pos] * inv_sqrt_sz + 0.1f",
+        "rust": "enc_coeff_order.rs compute_coeff_order mul_add_f32"
+      }
+    ],
+    "lib/jxl/enc_cache.cc": [],
+    "lib/jxl/enc_progressive_split.cc": [],
+    "lib/jxl/enc_quant_weights.cc": [],
+    "lib/jxl/enc_modular.cc": [
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 164,
+        "column": 42,
+        "type": "f64",
+        "expression": "float_to_int: row_in[x] * dfactor + (row_in[x] < 0 ? -0.5 : 0.5)",
+        "rust": "outside this map: general Modular sample conversion (steps 4 and 5)"
+      },
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 169,
+        "column": 41,
+        "type": "f32",
+        "expression": "float_to_int: row_in[x] * factor + (row_in[x] < 0 ? -0.5f : 0.5f)",
+        "rust": "outside this map: general Modular sample conversion (steps 4 and 5)"
+      },
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 364,
+        "column": 50,
+        "type": "f32",
+        "expression": "try_palettes: cost_before * 0.0005f + nb_pixels / 128 + 128",
+        "rust": "outside this map: palette search (steps 4 and 5)"
+      },
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 386,
+        "column": 50,
+        "type": "f32",
+        "expression": "try_palettes: cost_before * 0.0005f + nb_pixels / 128 + 128",
+        "rust": "outside this map: palette search (steps 4 and 5)"
+      },
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 765,
+        "column": 36,
+        "type": "f32",
+        "expression": "ComputeEncodingData lossy XYB factors: 1.f + 23.f * butteraugli_distance",
+        "rust": "unported (lossy Modular, step 5)"
+      },
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 766,
+        "column": 36,
+        "type": "f32",
+        "expression": "ComputeEncodingData lossy XYB factors: 1.f + 14.f * butteraugli_distance",
+        "rust": "unported (lossy Modular, step 5)"
+      },
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 767,
+        "column": 36,
+        "type": "f32",
+        "expression": "ComputeEncodingData lossy XYB factors: 1.f + 14.f * butteraugli_distance",
+        "rust": "unported (lossy Modular, step 5)"
+      },
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 803,
+        "column": 45,
+        "type": "f64",
+        "expression": "ComputeEncodingData: row_in[x] * factor + 0.5f",
+        "rust": "unported (lossy Modular, step 5)"
+      },
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 1645,
+        "column": 24,
+        "type": "f32",
+        "expression": "AddVarDCTDC gradient branch: row[x] - quant_row_y[x] * (y_factor * cfl_factor)",
+        "rust": "enc_modular.rs dc_residual mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 1678,
+        "column": 35,
+        "type": "f32",
+        "expression": "AddVarDCTDC weighted-predictor branch: row[x] - quant_row_y[x] * (y_factor * cfl_factor)",
+        "rust": "enc_modular.rs dc_residual mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/enc_modular.cc",
+        "line": 1703,
+        "column": 36,
+        "type": "f32",
+        "expression": "AddVarDCTDC 4:4:4 branch: row[x] - quant_row_y[x] * (y_factor * cfl_factor)",
+        "rust": "enc_modular.rs dc_residual mul_add_f32"
+      }
+    ],
+    "lib/jxl/enc_heuristics.cc": [
+      {
+        "file": "lib/jxl/enc_heuristics.cc",
+        "line": 382,
+        "column": 15,
+        "type": "f32",
+        "expression": "DownsampleImage2_Sharper: sum += row_in[ky][ix] * kernel[...]",
+        "rust": "unported (2x resampling, step 7)"
+      },
+      {
+        "file": "lib/jxl/enc_heuristics.cc",
+        "line": 510,
+        "column": 15,
+        "type": "f32",
+        "expression": "UpsampleImage: sum += input.Row(yi)[xi] * kernel[...]",
+        "rust": "unported (2x resampling, step 7)"
+      },
+      {
+        "file": "lib/jxl/enc_heuristics.cc",
+        "line": 569,
+        "column": 15,
+        "type": "f64",
+        "expression": "AntiUpsample: sum += deriv * row_in[x]",
+        "rust": "unported (2x resampling, step 7)"
+      },
+      {
+        "file": "lib/jxl/enc_heuristics.cc",
+        "line": 879,
+        "column": 17,
+        "type": "f32",
+        "expression": "ComputeBlockL2Distance: err2[i] += mask2 * diff * diff",
+        "rust": "unported (ComputeARHeuristics)"
+      },
+      {
+        "file": "lib/jxl/enc_heuristics.cc",
+        "line": 888,
+        "column": 34,
+        "type": "f64",
+        "expression": "ComputeBlockL2Distance: kW[0] * err2[0] + kW[1] * err2[1]",
+        "rust": "unported (ComputeARHeuristics)"
+      },
+      {
+        "file": "lib/jxl/enc_heuristics.cc",
+        "line": 888,
+        "column": 52,
+        "type": "f64",
+        "expression": "ComputeBlockL2Distance: ... + kW[2] * err2[2]",
+        "rust": "unported (ComputeARHeuristics)"
+      },
+      {
+        "file": "lib/jxl/image_ops.h",
+        "line": 136,
+        "column": 38,
+        "type": "f32",
+        "expression": "inlined LinComb (DownsampleImage2_Iterative): lambda1 * row1[x] + lambda2 * row2[x]",
+        "rust": "unported (2x resampling, step 7)"
+      }
+    ],
+    "lib/jxl/enc_patch_dictionary.cc": [
+      {
+        "file": "lib/jxl/base/random.h",
+        "line": 66,
+        "column": 39,
+        "type": "f32",
+        "expression": "inlined Rng::UniformF (debug connected-component painting)",
+        "rust": "not translated: the debug output is off without a debug callback"
+      },
+      {
+        "file": "lib/jxl/enc_patch_dictionary.cc",
+        "line": 222,
+        "column": 16,
+        "type": "f32",
+        "expression": "PatchColorspaceInfo::is_similar_v: distance += std::abs(v1[c] - v2[c]) * kChannelWeights[c]",
+        "rust": "enc_patch_dictionary.rs is_similar_v mul_add_f32"
+      },
+      {
+        "file": "lib/jxl/enc_patch_dictionary.cc",
+        "line": 673,
+        "column": 50,
+        "type": "f32",
+        "expression": "FindBestPatchDictionary bin packing: ref_xsize * kBinPackingSlackness + 1",
+        "rust": "unported (patch reference frame, step 5)"
+      },
+      {
+        "file": "lib/jxl/enc_patch_dictionary.cc",
+        "line": 674,
+        "column": 50,
+        "type": "f32",
+        "expression": "FindBestPatchDictionary bin packing: ref_ysize * kBinPackingSlackness + 1",
+        "rust": "unported (patch reference frame, step 5)"
+      }
+    ]
+  }
+}
