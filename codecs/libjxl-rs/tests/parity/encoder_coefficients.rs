@@ -50,7 +50,7 @@ use jxl::jxl::modular::modular_image::Image as ModularImage;
 use jxl::jxl::quantizer::Quantizer;
 
 pub(super) fn handles(kind: &str) -> bool {
-    kind == "ecf-chain"
+    kind == "ecf-chain" || kind == "ecf-patches"
 }
 
 type Args<'a, 'b> = &'a mut std::str::SplitWhitespace<'b>;
@@ -152,7 +152,10 @@ fn tiles(xsize_blocks: usize, ysize_blocks: usize) -> Vec<Rect> {
         .collect()
 }
 
-pub(super) fn observe(_kind: &str, args: Args<'_, '_>) -> String {
+pub(super) fn observe(kind: &str, args: Args<'_, '_>) -> String {
+    if kind == "ecf-patches" {
+        return observe_patches(args);
+    }
     let mut out = String::new();
     let distance = float(args);
     let xsize: usize = number(args);
@@ -734,6 +737,145 @@ fn request(
         push_floats(&mut s, plane);
     }
     s
+}
+
+fn observe_patches(args: Args<'_, '_>) -> String {
+    let distance = float(args);
+    let xsize: usize = number(args);
+    let ysize: usize = number(args);
+    let mut opsin = Image3F::create(xsize.div_ceil(8) * 8, ysize.div_ceil(8) * 8).unwrap();
+    opsin.shrink_to(xsize, ysize).unwrap();
+    for c in 0..3 {
+        let plane = opsin.plane_mut(c);
+        for y in 0..ysize {
+            for x in 0..xsize {
+                plane.row_mut(y)[x] = float(args);
+            }
+        }
+    }
+    let encoding = XybInputEncoding::new(ColorEncoding::srgb(false)).unwrap();
+    let mut status = to_xyb(encoding, 255.0, None, None, &mut opsin, None);
+    if status.is_ok() {
+        status = pad_image_to_block_multiple_in_place(&mut opsin, 8);
+    }
+    let mut out = format!("X {}", status_code(&status));
+    if status.is_err() {
+        return out;
+    }
+    let mut metadata = CodecMetadata::default();
+    metadata.size.set(xsize, ysize).unwrap();
+    let frame_header = FrameHeader::new(Some(&metadata));
+    let cparams = CompressParams {
+        butteraugli_distance: distance,
+        ..CompressParams::default()
+    };
+    let frame_dim = frame_header.to_frame_dimensions();
+    let result =
+        jxl::jxl::enc_patch_dictionary::find_text_like_patches(&cparams, &opsin, &frame_dim, true);
+    let status = result.as_ref().map(|_| ()).map_err(|e| *e);
+    let (has_any, positions) = result.as_ref().map_or((false, 0), |info| {
+        (
+            !info.is_empty(),
+            info.iter().map(|p| p.positions.len()).sum::<usize>(),
+        )
+    });
+    write!(
+        out,
+        " {} {} {}",
+        status_code(&status),
+        u8::from(has_any),
+        positions
+    )
+    .unwrap();
+    out
+}
+
+/// Text-like content: a flat background with repeated small glyphs.
+fn glyph_image(
+    xsize: usize,
+    ysize: usize,
+    glyph: usize,
+    copies: usize,
+    seed: u64,
+) -> [Vec<f32>; 3] {
+    let mut s = seed.wrapping_mul(0x9e3779b97f4a7c15) | 1;
+    let mut rnd = || {
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        s
+    };
+    let bg = [0.95f32, 0.93, 0.9];
+    let mut planes = [
+        vec![bg[0]; xsize * ysize],
+        vec![bg[1]; xsize * ysize],
+        vec![bg[2]; xsize * ysize],
+    ];
+    let shape: Vec<bool> = (0..glyph * glyph).map(|_| rnd() % 3 != 0).collect();
+    let span = xsize.saturating_sub(glyph + 8).max(1);
+    for k in 0..copies {
+        let gx = 4 + (k * (glyph + 6)) % span;
+        let gy = 4 + ((k * (glyph + 6)) / span) * (glyph + 6);
+        if gy + glyph + 4 >= ysize {
+            break;
+        }
+        for y in 0..glyph {
+            for x in 0..glyph {
+                if shape[y * glyph + x] {
+                    for (c, plane) in planes.iter_mut().enumerate() {
+                        plane[(gy + y) * xsize + gx + x] = 0.1 + 0.05 * c as f32;
+                    }
+                }
+            }
+        }
+    }
+    planes
+}
+
+/// FindTextLikePatches through the original FindBestPatchDictionary: whether
+/// patches are found and how many positions they cover, on the corpus and on
+/// text-like content with repeated glyphs.
+#[test]
+fn encoder_text_like_patch_detection_matches_original() {
+    let mut cases = Vec::new();
+    let mut push = |xsize: usize, ysize: usize, planes: &[Vec<f32>; 3], d: f32| {
+        let mut s = format!("ecf-patches {} {xsize} {ysize}", d.to_bits());
+        for plane in planes {
+            push_floats(&mut s, plane);
+        }
+        cases.push(s);
+    };
+    for (i, &(xsize, ysize)) in CORPUS_SIZES.iter().enumerate() {
+        if xsize * ysize > 70000 {
+            continue;
+        }
+        for (j, &content) in CONTENTS.iter().enumerate() {
+            let planes = srgb_image(xsize, ysize, content, false, (i * 10 + j) as u64);
+            push(xsize, ysize, &planes, 1.0);
+        }
+    }
+    let glyphs = [
+        (64, 64, 5, 6),
+        (96, 48, 4, 8),
+        (128, 72, 6, 10),
+        (63, 129, 7, 5),
+        (256, 64, 3, 30),
+        (128, 128, 9, 2),
+        (128, 128, 5, 1),
+    ];
+    for (k, &(xsize, ysize, glyph, copies)) in glyphs.iter().enumerate() {
+        for d in [0.5f32, 1.0, 2.9] {
+            let planes = glyph_image(xsize, ysize, glyph, copies, k as u64 + 1);
+            push(xsize, ysize, &planes, d);
+        }
+    }
+    let found = cases
+        .iter()
+        .filter(|request| super::observe(request).split(' ').nth(3) == Some("1"))
+        .count();
+    println!("{found} of {} patch requests found patches", cases.len());
+    assert!(found > 0 && found < cases.len());
+    compare_located(cases);
 }
 
 /// Compares each request and reports the first differing field.

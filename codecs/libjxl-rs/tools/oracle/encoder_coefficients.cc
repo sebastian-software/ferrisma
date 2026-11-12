@@ -53,6 +53,7 @@
 #include "lib/jxl/enc_group.h"
 #include "lib/jxl/enc_modular.h"
 #include "lib/jxl/enc_params.h"
+#include "lib/jxl/enc_patch_dictionary.h"
 #include "lib/jxl/enc_quant_weights.h"
 #include "lib/jxl/enc_xyb.h"
 #include "lib/jxl/fields.h"
@@ -146,6 +147,45 @@ T EcfValue(jxl::StatusOr<T>&& value) {
 
 bool EncoderCoefficientsCommand(const std::string& command, std::istringstream& in,
                                 JxlMemoryManager* mm) {
+  if (command == "ecf-patches") {
+    // FindBestPatchDictionary on the XYB image, as LossyFrameHeuristics calls
+    // it at kSquirrel; reports whether its internal FindTextLikePatches found
+    // patches (dots stay off below kMinButteraugliForDots) and the number of
+    // dictionary positions.
+    const float distance = EcfFloat(in);
+    size_t xsize, ysize;
+    in >> xsize >> ysize;
+    const size_t pxs = jxl::RoundUpToBlockDim(xsize), pys = jxl::RoundUpToBlockDim(ysize);
+    jxl::Image3F opsin = EcfValue(jxl::Image3F::Create(mm, pxs, pys));
+    if (!opsin.ShrinkTo(xsize, ysize)) throw std::runtime_error("ShrinkTo");
+    for (size_t c = 0; c < 3; ++c) {
+      for (size_t y = 0; y < ysize; ++y)
+        for (size_t x = 0; x < xsize; ++x) opsin.PlaneRow(c, y)[x] = EcfFloat(in);
+    }
+    jxl::Status status = jxl::ToXYB(jxl::ColorEncoding::SRGB(false), 255.0f, nullptr, nullptr,
+                                    &opsin, *JxlGetDefaultCms(), nullptr);
+    if (status) status = jxl::PadImageToBlockMultipleInPlace(&opsin);
+    std::cout << "X " << int(status.code());
+    if (!status) return true;
+    jxl::CodecMetadata metadata;
+    if (!metadata.size.Set(xsize, ysize)) throw std::runtime_error("size");
+    jxl::FrameHeader frame_header(&metadata);
+    jxl::CompressParams cparams;
+    cparams.butteraugli_distance = distance;
+    jxl::PassesEncoderState enc_state(mm);
+    enc_state.cparams = cparams;
+    enc_state.shared.metadata = &metadata;
+    enc_state.shared.frame_dim = frame_header.ToFrameDimensions();
+    enc_state.shared.image_features.patches.SetShared(&enc_state.shared.reference_frames);
+    enc_state.shared.cmap = EcfValue(jxl::ColorCorrelationMap::Create(
+        mm, enc_state.shared.frame_dim.xsize, enc_state.shared.frame_dim.ysize));
+    status = jxl::FindBestPatchDictionary(opsin, &enc_state, *JxlGetDefaultCms(), nullptr,
+                                          nullptr);
+    std::cout << ' ' << int(status.code()) << ' '
+              << int(enc_state.shared.image_features.patches.HasAny()) << ' '
+              << enc_state.shared.image_features.patches.positions_.size();
+    return true;
+  }
   if (command != "ecf-chain") return false;
   const float distance = EcfFloat(in);
   size_t xsize, ysize, gray, x_qm_scale, b_qm_scale;
