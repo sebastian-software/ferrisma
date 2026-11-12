@@ -555,6 +555,7 @@ unsafe fn load_pixels<const N: usize>(op: Op, src: *const u8, rgba: &mut [F<N>; 
 
 /// # Safety
 /// Destination has the source's writable N-pixel span and typed alignment.
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 unsafe fn store_pixels<const N: usize>(op: Op, dst: *mut u8, rgba: [F<N>; 4]) {
     use Op::*;
     let [r, g, b, a] = rgba;
