@@ -65,6 +65,7 @@ pub mod enc_gaborish;
 pub mod enc_group;
 pub mod enc_heuristics;
 pub mod enc_heuristics_lossy;
+pub mod enc_heuristics_ar;
 pub mod enc_huffman;
 pub mod enc_huffman_tree;
 pub mod enc_lz77;
