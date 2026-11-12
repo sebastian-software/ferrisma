@@ -98,7 +98,7 @@ the pending AVIF `nclx`-beside-ICC decision are recorded in ADR-0015
 
 ## 2026-11-12: per-channel table for 8-bit matrix-shaper input (issue #219; pending owner confirmation)
 
-**Pending owner confirmation; revert commit bd3c4d44 to restore exact moxcms output.**
+**Pending owner confirmation; revert the commit `perf(icc): evaluate 8-bit matrix-shaper profiles through a channel table` to restore exact moxcms output.**
 
 **Mechanism.** A matrix-shaper profile converted into linear sRGB computes
 `M · [trc_r(r), trc_g(g), trc_b(b)]`. Each output is a sum of three
