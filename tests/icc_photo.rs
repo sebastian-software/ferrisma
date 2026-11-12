@@ -1,11 +1,11 @@
-//! A real photograph through the rendered-ICC policy against LittleCMS 2.19
-//! (issue #17). See `tests/fixtures/icc/README.md` for provenance.
+//! A real photograph through the rendered-ICC policy against `LittleCMS`
+//! 2.19 (issue #17). See `tests/fixtures/icc/README.md` for provenance.
 //!
 //! - The libavif test photograph `paris_exif_xmp_icc.jpg` carries a compact
-//!   Google sRGB IEC61966-2.1 ICC v4 profile. The engine decodes it with the
-//!   workspace JPEG decoder, crops 96 x 64 at (150, 100) and converts with
-//!   moxcms; LittleCMS converts the same crop as decoded by ImageMagick's
-//!   libjpeg-turbo.
+//!   Google sRGB `IEC61966-2.1` ICC v4 profile. The engine decodes it with
+//!   the workspace JPEG decoder, crops 96 x 64 at (150, 100) and converts
+//!   with moxcms; `LittleCMS` converts the same crop as decoded by
+//!   `ImageMagick`'s libjpeg-turbo.
 //! - The same decoded crop, tagged with `DisplayP3-v4.icc` and delivered as
 //!   lossless WebP, gives real photographic content a wide-gamut meaning,
 //!   including colors outside sRGB.
