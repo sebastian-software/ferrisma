@@ -1,0 +1,54 @@
+samples=5390
+
+## Top 15 exclusive (self) symbols
+  85.8%  jxl::detail::DecodeModularChannelMAANS<false>(jxl::BitReader*, jxl::ANSSymbolReader*, std::__1::vector<unsigned char, std::__1::allocator<unsigned cha
+   3.5%  jxl::N_SCALAR::WriteToOutputStage::OutputBuffers(jxl::N_SCALAR::WriteToOutputStage::Output const&, unsigned long, unsigned long, unsigned long, unsign
+   3.1%  jxl::ThreadPool::RunCallState<jxl::RunOnPool<jxl::ModularFrameDecoder::ModularImageToDecodedRect(jxl::FrameHeader const&, jxl::Image&, jxl::PassesDeco
+   2.7%  jxl::N_SCALAR::InvRCTRow<6>(int const*, int const*, int const*, int*, int*, int*, unsigned long)
+   2.2%  _platform_memmove
+   0.7%  jxl::TreeToLookupTable<unsigned char, false, false>(std::__1::vector<jxl::FlatDecisionNode, std::__1::allocator<jxl::FlatDecisionNode> > const&, jxl::
+   0.4%  jxl::N_SCALAR::WriteToOutputStage::ProcessRow(std::__1::vector<std::__1::vector<float*, std::__1::allocator<float*> >, std::__1::allocator<std::__1::v
+   0.3%  jxl::LowMemoryRenderPipeline::RenderRect(unsigned long, std::__1::vector<jxl::Plane<float>, std::__1::allocator<jxl::Plane<float> > >&, jxl::RectT<uns
+   0.2%  mach_absolute_time
+   0.1%  jxl::FilterTree(std::__1::vector<jxl::PropertyDecisionNode, std::__1::allocator<jxl::PropertyDecisionNode> > const&, std::__1::array<int, (unsigned lo
+   0.1%  libc++abi.dylib+0x14ec0
+   0.1%  libsystem_malloc.dylib+0x33aac
+   0.0%  libsystem_malloc.dylib+0x33b50
+   0.0%  jxl::InitAliasTable(std::__1::vector<int, std::__1::allocator<int> >, unsigned int, unsigned long, jxl::AliasTable::Entry*)
+   0.0%  libsystem_malloc.dylib+0x3a934
+
+## Top 15 inclusive symbols
+ 100.0%  start
+ 100.0%  main
+ 100.0%  jxl::extras::DecodeImageJXL(unsigned char const*, unsigned long, jxl::extras::JXLDecompressParams const&, unsigned long*, jxl::extras::PackedPixelFile
+  99.9%  JxlDecoderProcessInput
+  99.9%  HandleBoxes(JxlDecoder*)
+  99.9%  jxl::FrameDecoder::ProcessSections(jxl::FrameDecoder::SectionInfo const*, unsigned long, jxl::FrameDecoder::SectionStatus*)
+  99.8%  jpegxl::ThreadParallelRunner::Runner(void*, void*, int (*)(void*, unsigned long), void (*)(void*, unsigned int, unsigned long), unsigned int, unsigned
+  99.8%  jxl::ThreadPool::Run<jxl::FrameDecoder::ProcessSections(jxl::FrameDecoder::SectionInfo const*, unsigned long, jxl::FrameDecoder::SectionStatus*)::$_1,
+  99.8%  jxl::ThreadPool::RunCallState<jxl::FrameDecoder::ProcessSections(jxl::FrameDecoder::SectionInfo const*, unsigned long, jxl::FrameDecoder::SectionStatu
+  99.8%  jxl::FrameDecoder::ProcessACGroup(unsigned long, std::__1::array<jxl::BitReader*, (unsigned long)11>&, unsigned long, unsigned long, bool, bool)
+  93.2%  jxl::ModularFrameDecoder::DecodeGroup(jxl::FrameHeader const&, jxl::RectT<unsigned long> const&, jxl::BitReader*, int, int, jxl::ModularStreamId const
+  87.1%  jxl::ModularGenericDecompress(jxl::BitReader*, jxl::Image&, jxl::GroupHeader*, unsigned long, jxl::ModularOptions*, bool, std::__1::vector<jxl::Proper
+  87.0%  jxl::ModularDecode(jxl::BitReader*, jxl::Image&, jxl::GroupHeader&, unsigned long, jxl::ModularOptions*, std::__1::vector<jxl::PropertyDecisionNode, s
+  87.0%  jxl::detail::DecodeModularChannelMAANS<false>(jxl::BitReader*, jxl::ANSSymbolReader*, std::__1::vector<unsigned char, std::__1::allocator<unsigned cha
+   6.6%  jxl::LowMemoryRenderPipeline::ProcessBuffers(unsigned long, unsigned long)
+   6.5%  jxl::LowMemoryRenderPipeline::RenderRect(unsigned long, std::__1::vector<jxl::Plane<float>, std::__1::allocator<jxl::Plane<float> > >&, jxl::RectT<uns
+   6.1%  jxl::N_SCALAR::WriteToOutputStage::ProcessRow(std::__1::vector<std::__1::vector<float*, std::__1::allocator<float*> >, std::__1::allocator<std::__1::v
+   3.5%  jxl::N_SCALAR::WriteToOutputStage::OutputBuffers(jxl::N_SCALAR::WriteToOutputStage::Output const&, unsigned long, unsigned long, unsigned long, unsign
+   3.2%  jxl::ModularFrameDecoder::ModularImageToDecodedRect(jxl::FrameHeader const&, jxl::Image&, jxl::PassesDecoderState*, jxl::ThreadPool*, jxl::RenderPipel
+   3.2%  jxl::RunOnPool<jxl::ModularFrameDecoder::ModularImageToDecodedRect(jxl::FrameHeader const&, jxl::Image&, jxl::PassesDecoderState*, jxl::ThreadPool*, j
+   3.1%  jxl::ThreadPool::RunCallState<jxl::RunOnPool<jxl::ModularFrameDecoder::ModularImageToDecodedRect(jxl::FrameHeader const&, jxl::Image&, jxl::PassesDeco
+   2.7%  jxl::N_SCALAR::InvRCT(jxl::Image&, unsigned long, unsigned long, jxl::ThreadPool*)
+   2.7%  jxl::ThreadPool::Run<jxl::RunOnPool<jxl::N_SCALAR::InvRCT(jxl::Image&, unsigned long, unsigned long, jxl::ThreadPool*)::$_0>(jxl::ThreadPool*, unsigne
+   2.7%  jxl::N_SCALAR::InvRCTRow<6>(int const*, int const*, int const*, int*, int*, int*, unsigned long)
+   2.2%  _platform_memmove
+
+## Stage shares (innermost matching frame)
+  87.5%  entropy (ANS/Huffman symbols)
+   4.0%  write to output buffer
+   3.2%  modular -> float conversion
+   2.7%  inverse RCT / modular transforms
+   2.2%  memset/memcpy
+   0.4%  render pipeline (other)
+   0.1%  other

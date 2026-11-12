@@ -1,0 +1,394 @@
+{
+ "plan": {
+  "reps": 3,
+  "candidates": [
+   {
+    "name": "port-base-lossy-e7d1",
+    "argv": [
+     "$S/jxlperf/bin/probe-base",
+     "lossy",
+     "$S/jxlperf/flower.ppm",
+     "7",
+     "1.0",
+     "1",
+     "$S/jxlperf/enc-base.jxl"
+    ],
+    "parse": "ms"
+   },
+   {
+    "name": "port-proto-lossy-e7d1",
+    "argv": [
+     "$S/jxlperf/bin/probe-lazy2",
+     "lossy",
+     "$S/jxlperf/flower.ppm",
+     "7",
+     "1.0",
+     "1",
+     "$S/jxlperf/enc-proto.jxl"
+    ],
+    "parse": "ms"
+   },
+   {
+    "name": "cxx-scalar-lossy-e7d1",
+    "argv": [
+     "$S/cxx-scalar/tools/cjxl",
+     "$S/jxlperf/flower.ppm",
+     "/dev/null",
+     "-d",
+     "1",
+     "-e",
+     "7",
+     "--num_threads=0"
+    ],
+    "parse": "mps",
+    "pixels": 3429216
+   },
+   {
+    "name": "cxx-simd-lossy-e7d1",
+    "argv": [
+     "$S/cxx-simd/tools/cjxl",
+     "$S/jxlperf/flower.ppm",
+     "/dev/null",
+     "-d",
+     "1",
+     "-e",
+     "7",
+     "--num_threads=0"
+    ],
+    "parse": "mps",
+    "pixels": 3429216
+   },
+   {
+    "name": "cxx-simd-8thr-lossy-e7d1",
+    "argv": [
+     "$S/cxx-simd/tools/cjxl",
+     "$S/jxlperf/flower.ppm",
+     "/dev/null",
+     "-d",
+     "1",
+     "-e",
+     "7",
+     "--num_threads=8"
+    ],
+    "parse": "mps",
+    "pixels": 3429216
+   },
+   {
+    "name": "port-lossless-e2",
+    "argv": [
+     "$S/jxlperf/bin/probe-lazy2",
+     "lossless",
+     "$S/jxlperf/flower.ppm"
+    ],
+    "parse": "ms"
+   },
+   {
+    "name": "cxx-scalar-lossless-e2-buffering0",
+    "argv": [
+     "$S/cxx-scalar/tools/cjxl",
+     "$S/jxlperf/flower.ppm",
+     "/dev/null",
+     "-d",
+     "0",
+     "-e",
+     "2",
+     "--num_threads=0",
+     "--buffering=0"
+    ],
+    "parse": "mps",
+    "pixels": 3429216
+   },
+   {
+    "name": "cxx-simd-lossless-e2-default",
+    "argv": [
+     "$S/cxx-simd/tools/cjxl",
+     "$S/jxlperf/flower.ppm",
+     "/dev/null",
+     "-d",
+     "0",
+     "-e",
+     "2",
+     "--num_threads=0"
+    ],
+    "parse": "mps",
+    "pixels": 3429216
+   }
+  ]
+ },
+ "samples": {
+  "port-base-lossy-e7d1": [
+   {
+    "ms": 12910.5,
+    "rss": 276987904,
+    "load": [
+     8.2890625,
+     7.5966796875
+    ]
+   },
+   {
+    "ms": 12666.1,
+    "rss": 279986176,
+    "load": [
+     5.576171875,
+     5.0322265625
+    ]
+   },
+   {
+    "ms": 12722.4,
+    "rss": 276709376,
+    "load": [
+     5.0322265625,
+     4.66650390625
+    ]
+   }
+  ],
+  "port-proto-lossy-e7d1": [
+   {
+    "ms": 12245.6,
+    "rss": 275038208,
+    "load": [
+     7.5966796875,
+     6.96337890625
+    ]
+   },
+   {
+    "ms": 12096.6,
+    "rss": 274546688,
+    "load": [
+     6.4208984375,
+     5.576171875
+    ]
+   },
+   {
+    "ms": 11954.9,
+    "rss": 277250048,
+    "load": [
+     4.66650390625,
+     4.69775390625
+    ]
+   }
+  ],
+  "cxx-scalar-lossy-e7d1": [
+   {
+    "ms": 3425.79020979021,
+    "rss": 287555584,
+    "load": [
+     6.96337890625,
+     6.80615234375
+    ]
+   },
+   {
+    "ms": 3415.5537848605577,
+    "rss": 286212096,
+    "load": [
+     6.4208984375,
+     6.4208984375
+    ]
+   },
+   {
+    "ms": 3365.2757605495585,
+    "rss": 281657344,
+    "load": [
+     4.69775390625,
+     4.5615234375
+    ]
+   }
+  ],
+  "cxx-simd-lossy-e7d1": [
+   {
+    "ms": 998.6068724519511,
+    "rss": 288636928,
+    "load": [
+     6.80615234375,
+     6.80615234375
+    ]
+   },
+   {
+    "ms": 995.4182873730043,
+    "rss": 284983296,
+    "load": [
+     6.80615234375,
+     6.4208984375
+    ]
+   },
+   {
+    "ms": 982.865004299226,
+    "rss": 288964608,
+    "load": [
+     4.5615234375,
+     4.5615234375
+    ]
+   }
+  ],
+  "cxx-simd-8thr-lossy-e7d1": [
+   {
+    "ms": 213.1139146106519,
+    "rss": 305676288,
+    "load": [
+     6.80615234375,
+     6.80615234375
+    ]
+   },
+   {
+    "ms": 210.31683532658693,
+    "rss": 307068928,
+    "load": [
+     6.80615234375,
+     6.80615234375
+    ]
+   },
+   {
+    "ms": 210.69157041042024,
+    "rss": 314261504,
+    "load": [
+     4.5615234375,
+     4.5615234375
+    ]
+   }
+  ],
+  "port-lossless-e2": [
+   {
+    "ms": 205.2,
+    "rss": 258457600,
+    "load": [
+     6.80615234375,
+     6.80615234375
+    ]
+   },
+   {
+    "ms": 203.3,
+    "rss": 254722048,
+    "load": [
+     6.80615234375,
+     6.80615234375
+    ]
+   },
+   {
+    "ms": 200.5,
+    "rss": 253788160,
+    "load": [
+     4.5615234375,
+     4.5615234375
+    ]
+   }
+  ],
+  "cxx-scalar-lossless-e2-buffering0": [
+   {
+    "ms": 185.96616052060736,
+    "rss": 270270464,
+    "load": [
+     6.80615234375,
+     6.80615234375
+    ]
+   },
+   {
+    "ms": 185.24286949006049,
+    "rss": 276480000,
+    "load": [
+     6.80615234375,
+     6.80615234375
+    ]
+   },
+   {
+    "ms": 182.6869106600607,
+    "rss": 275038208,
+    "load": [
+     4.5615234375,
+     4.5615234375
+    ]
+   }
+  ],
+  "cxx-simd-lossless-e2-default": [
+   {
+    "ms": 173.66636280765724,
+    "rss": 203374592,
+    "load": [
+     6.80615234375,
+     6.80615234375
+    ]
+   },
+   {
+    "ms": 173.50819672131146,
+    "rss": 202014720,
+    "load": [
+     6.80615234375,
+     6.80615234375
+    ]
+   },
+   {
+    "ms": 169.87249219794916,
+    "rss": 208027648,
+    "load": [
+     4.5615234375,
+     4.5615234375
+    ]
+   }
+  ]
+ },
+ "summary": {
+  "port-base-lossy-e7d1": {
+   "ms_median": 12722.4,
+   "ms_min": 12666.1,
+   "ms_max": 12910.5,
+   "rss_mb_median": 276.987904,
+   "load_min": 4.66650390625,
+   "load_max": 8.2890625
+  },
+  "port-proto-lossy-e7d1": {
+   "ms_median": 12096.6,
+   "ms_min": 11954.9,
+   "ms_max": 12245.6,
+   "rss_mb_median": 275.038208,
+   "load_min": 4.66650390625,
+   "load_max": 7.5966796875
+  },
+  "cxx-scalar-lossy-e7d1": {
+   "ms_median": 3415.5537848605577,
+   "ms_min": 3365.2757605495585,
+   "ms_max": 3425.79020979021,
+   "rss_mb_median": 286.212096,
+   "load_min": 4.5615234375,
+   "load_max": 6.96337890625
+  },
+  "cxx-simd-lossy-e7d1": {
+   "ms_median": 995.4182873730043,
+   "ms_min": 982.865004299226,
+   "ms_max": 998.6068724519511,
+   "rss_mb_median": 288.636928,
+   "load_min": 4.5615234375,
+   "load_max": 6.80615234375
+  },
+  "cxx-simd-8thr-lossy-e7d1": {
+   "ms_median": 210.69157041042024,
+   "ms_min": 210.31683532658693,
+   "ms_max": 213.1139146106519,
+   "rss_mb_median": 307.068928,
+   "load_min": 4.5615234375,
+   "load_max": 6.80615234375
+  },
+  "port-lossless-e2": {
+   "ms_median": 203.3,
+   "ms_min": 200.5,
+   "ms_max": 205.2,
+   "rss_mb_median": 254.722048,
+   "load_min": 4.5615234375,
+   "load_max": 6.80615234375
+  },
+  "cxx-scalar-lossless-e2-buffering0": {
+   "ms_median": 185.24286949006049,
+   "ms_min": 182.6869106600607,
+   "ms_max": 185.96616052060736,
+   "rss_mb_median": 275.038208,
+   "load_min": 4.5615234375,
+   "load_max": 6.80615234375
+  },
+  "cxx-simd-lossless-e2-default": {
+   "ms_median": 173.50819672131146,
+   "ms_min": 169.87249219794916,
+   "ms_max": 173.66636280765724,
+   "rss_mb_median": 203.374592,
+   "load_min": 4.5615234375,
+   "load_max": 6.80615234375
+  }
+ }
+}

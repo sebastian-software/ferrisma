@@ -1,0 +1,57 @@
+samples=10838
+
+## Top 15 exclusive (self) symbols
+  27.7%  jxl::N_SCALAR::EstimateEntropy(jxl::AcStrategy const&, float, unsigned long, unsigned long, jxl::ACSConfig const&, float const*, float*, float*, unsig
+  13.2%  jxl::N_SCALAR::FindBestMultiplier(float const*, float const*, unsigned long, float, float, bool)
+   6.7%  jxl::N_SCALAR::(anonymous namespace)::IDCT1DImpl<(unsigned long)16, (unsigned long)1>::operator()(float const*, unsigned long, float*, unsigned long, 
+   5.9%  jxl::N_SCALAR::(anonymous namespace)::DCT1DImpl<(unsigned long)16, (unsigned long)1>::operator()(float*, float*)
+   4.5%  jxl::N_SCALAR::(anonymous namespace)::DCT1DImpl<(unsigned long)32, (unsigned long)1>::operator()(float*, float*)
+   4.2%  jxl::N_SCALAR::(anonymous namespace)::IDCT1DImpl<(unsigned long)32, (unsigned long)1>::operator()(float const*, unsigned long, float*, unsigned long, 
+   2.9%  jxl::N_SCALAR::(anonymous namespace)::DCT1DWrapper<(unsigned long)8, (unsigned long)1, false, jxl::N_SCALAR::(anonymous namespace)::DCTFrom, jxl::N_SC
+   2.7%  jxl::N_SCALAR::(anonymous namespace)::TransformFromPixels(jxl::AcStrategyType, float const*, unsigned long, float*, float*)
+   2.4%  jxl::N_SCALAR::(anonymous namespace)::TransformToPixels(jxl::AcStrategyType, float*, float*, unsigned long, float*)
+   2.3%  jxl::N_SCALAR::(anonymous namespace)::DCT1DWrapper<(unsigned long)16, (unsigned long)1, false, jxl::N_SCALAR::(anonymous namespace)::DCTFrom, jxl::N_S
+   1.8%  jxl::N_SCALAR::EPF1Stage::ProcessRow(std::__1::vector<std::__1::vector<float*, std::__1::allocator<float*> >, std::__1::allocator<std::__1::vector<flo
+   1.6%  jxl::N_SCALAR::(anonymous namespace)::GenericTransposeBlock<(unsigned long)0, (unsigned long)0, jxl::N_SCALAR::(anonymous namespace)::DCTFrom, jxl::N_
+   1.6%  jxl::N_SCALAR::(anonymous namespace)::IDCT1DWrapper<(unsigned long)8, (unsigned long)1, false, jxl::N_SCALAR::(anonymous namespace)::DCTFrom, jxl::N_S
+   1.5%  jxl::N_SCALAR::(anonymous namespace)::DCT1DWrapper<(unsigned long)32, (unsigned long)1, false, jxl::N_SCALAR::(anonymous namespace)::DCTFrom, jxl::N_S
+   1.5%  jxl::N_SCALAR::LinearRGBToXYB<hwy::N_SCALAR::Vec1<float> >(hwy::N_SCALAR::Vec1<float>, hwy::N_SCALAR::Vec1<float>, hwy::N_SCALAR::Vec1<float>, float c
+
+## Top 15 inclusive symbols
+ 100.0%  start
+ 100.0%  main
+  99.9%  jxl::extras::EncodeImageJXL(jxl::extras::JXLCompressParams const&, jxl::extras::PackedPixelFile const&, std::__1::vector<unsigned char, std::__1::allo
+  99.9%  jxl::(anonymous namespace)::EncodeFrameStreaming(JxlMemoryManagerStruct*, jxl::CompressParams const&, jxl::FrameInfo const&, jxl::CodecMetadata const*
+  99.9%  jxl::EncodeFrame(JxlMemoryManagerStruct*, jxl::CompressParams const&, jxl::FrameInfo const&, jxl::CodecMetadata const*, jxl::JxlEncoderChunkedFrameAda
+  99.9%  jxl::extras::ReadCompressedOutput(JxlEncoder*, std::__1::vector<unsigned char, std::__1::allocator<unsigned char> >*)
+  99.9%  JxlEncoderProcessOutput
+  99.9%  JxlEncoder::ProcessOneEnqueuedInput()
+  99.9%  jxl::(anonymous namespace)::ComputeEncodingData(jxl::CompressParams const&, jxl::FrameInfo const&, jxl::CodecMetadata const*, jxl::JxlEncoderChunkedFr
+  98.0%  jpegxl::ThreadParallelRunner::Runner(void*, void*, int (*)(void*, unsigned long), void (*)(void*, unsigned int, unsigned long), unsigned int, unsigned
+  95.6%  jxl::(anonymous namespace)::ComputeVarDCTEncodingData(jxl::FrameHeader const&, jxl::Image3<float> const*, jxl::Image3<float>*, jxl::RectT<unsigned lon
+  84.4%  jxl::LossyFrameHeuristics(jxl::FrameHeader const&, jxl::PassesEncoderState*, jxl::ModularFrameEncoder*, jxl::Image3<float> const*, jxl::Image3<float>*
+  81.2%  jxl::ThreadPool::RunCallState<jxl::LossyFrameHeuristics(jxl::FrameHeader const&, jxl::PassesEncoderState*, jxl::ModularFrameEncoder*, jxl::Image3<floa
+  66.0%  jxl::N_SCALAR::ProcessRectACS(jxl::CompressParams const&, jxl::ACSConfig const&, jxl::RectT<unsigned long> const&, jxl::ColorCorrelationMap const&, fl
+  65.8%  jxl::N_SCALAR::EstimateEntropy(jxl::AcStrategy const&, float, unsigned long, unsigned long, jxl::ACSConfig const&, float const*, float*, float*, unsig
+  37.5%  jxl::N_SCALAR::FindBestFirstLevelDivisionForSquare(unsigned long, bool, unsigned long, unsigned long, unsigned long, unsigned long, jxl::ACSConfig con
+  24.4%  jxl::N_SCALAR::(anonymous namespace)::TransformFromPixels(jxl::AcStrategyType, float const*, unsigned long, float*, float*)
+  22.6%  jxl::N_SCALAR::FindBest8x8Transform(unsigned long, unsigned long, int, float, jxl::ACSConfig const&, float const*, jxl::AcStrategyImage*, float*, floa
+  18.4%  jxl::N_SCALAR::(anonymous namespace)::TransformToPixels(jxl::AcStrategyType, float*, float*, unsigned long, float*)
+  15.1%  jxl::N_SCALAR::ComputeTile(jxl::Image3<float> const&, jxl::RectT<unsigned long> const&, jxl::DequantMatrices const&, jxl::AcStrategyImage const*, jxl:
+  15.1%  jxl::CfLHeuristics::ComputeTile(jxl::RectT<unsigned long> const&, jxl::Image3<float> const&, jxl::RectT<unsigned long> const&, jxl::DequantMatrices co
+  13.2%  jxl::N_SCALAR::FindBestMultiplier(float const*, float const*, unsigned long, float, float, bool)
+   8.5%  jxl::N_SCALAR::(anonymous namespace)::DCT1DImpl<(unsigned long)32, (unsigned long)1>::operator()(float*, float*)
+   8.3%  jxl::N_SCALAR::(anonymous namespace)::IDCT1DImpl<(unsigned long)32, (unsigned long)1>::operator()(float const*, unsigned long, float*, unsigned long, 
+   8.1%  jxl::ComputeARHeuristics(jxl::FrameHeader const&, jxl::PassesEncoderState*, jxl::Image3<float> const&, jxl::RectT<unsigned long> const&, jxl::ThreadPo
+
+## Stage shares (innermost matching frame)
+  44.2%  AC strategy search
+  27.7%  forward transform + quant (final)
+  13.2%  CfL heuristics
+   6.4%  AR heuristics (decode roundtrip)
+   2.5%  XYB conversion
+   2.2%  adaptive quantization
+   2.1%  entropy coding/tokens
+   1.0%  Gaborish inverse (encoder)
+   0.7%  memset/memcpy
+   0.0%  other

@@ -1,0 +1,10 @@
+[["AR heuristics (decode roundtrip)", "compute_ar_heuristics|ComputeARHeuristics|reconstruct_image|RoundtripImage"],
+ ["CfL heuristics", "CfLHeuristics|enc_chroma_from_luma|FindBestMultiplier|find_best_multiplier"],
+ ["AC strategy search", "AcStrategyHeuristics|ProcessRectACS|process_rect|estimate_entropy|EstimateEntropy|FindBest8x8|find_best|try_merge|TryMerge"],
+ ["adaptive quantization", "adaptive_quantization|AdaptiveQuant|InitialQuantField|initial_quant"],
+ ["forward transform + quant (final)", "compute_coefficients|ComputeCoefficients|quantize|Quantize|transform_from_pixels|TransformFromPixels"],
+ ["entropy coding/tokens", "tokenize|Tokenize|enc_ans|enc_entropy|ANS|histogram|Histogram|cluster|Cluster|BitWriter|bit_writer|enc_modular|ModularFrameEncoder|lz77"],
+ ["XYB conversion", "enc_xyb|ToXYB|to_xyb|LinearRGBToXYB|linear_rgb_to_xyb"],
+ ["Gaborish inverse (encoder)", "enc_gaborish|GaborishInverse|gaborish_inverse"],
+ ["memset/memcpy", "memmove|bzero|memset|memcpy"],
+ ["allocation", "^(_?malloc|_?free|_?calloc|_?realloc|__rust_alloc|__rust_dealloc|_malloc_zone|_szone|_nanov2|mvm_)|alloc::alloc::|^<std::alloc|GlobalAlloc"]]

@@ -1,0 +1,58 @@
+samples=3248
+
+## Top 15 exclusive (self) symbols
+  12.7%  jxl::jxl::dct::idct_1d_in_place
+  12.4%  <jxl::jxl::image::Plane<f32>>::row_at
+   9.8%  <jxl::jxl::image::Plane<f32>>::row_at_mut
+   8.8%  jxl::jxl::dec_group_render::dequant_lane
+   8.8%  <jxl::jxl::render_pipeline::stage_ycbcr::YCbCrStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+   7.4%  <jxl::jxl::render_pipeline::stage_chroma_upsampling::VerticalChromaUpsamplingStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipeline
+   5.8%  jxl::jxl::dct::idct_columns
+   4.0%  <jxl::jxl::render_pipeline::stage_chroma_upsampling::HorizontalChromaUpsamplingStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipeli
+   3.0%  <jxl::jxl::dec_ans::ANSSymbolReader>::read_symbol_ans_without_refill
+   2.6%  <jxl::jxl::render_pipeline::stage_write::WriteToOutputStage>::output_buffers
+   2.5%  <jxl::jxl::dec_group::GetBlockFromBitstream as jxl::jxl::dec_group::GetBlock>::load_block
+   2.4%  jxl::jxl::render_pipeline::stage_ycbcr::promote
+   2.2%  jxl::jxl::dct::idct_finish
+   2.0%  jxl::jxl::render_pipeline::stage_ycbcr::add
+   2.0%  jxl::jxl::render_pipeline::stage_chroma_upsampling::promote
+
+## Top 15 inclusive symbols
+ 100.0%  std::rt::lang_start::<()>::{closure#0}
+ 100.0%  std::rt::lang_start_internal
+ 100.0%  main
+ 100.0%  std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+ 100.0%  jxl_perf_probe::main
+ 100.0%  start
+  99.8%  jxl::jxl::decode::jxl_decoder_process_codestream
+  99.8%  jxl::jxl::decode::jxl_decoder_process_input
+  99.8%  ferrisma_jxl_decoder::decode_into
+  99.7%  <jxl::jxl::dec_frame::FrameDecoder>::process_sections
+  99.7%  <jxl::jxl::dec_frame::FrameDecoderScope>::process_sections
+  98.3%  <jxl::jxl::base::data_parallel::RunCallState<jxl::jxl::base::data_parallel::run_on_pool_exclusive<(&mut jxl::jxl::dec_frame::FrameDecoderScope, &mut [
+  98.3%  jxl::jxl::base::data_parallel::run_on_pool_exclusive::<(&mut jxl::jxl::dec_frame::FrameDecoderScope, &mut [jxl::jxl::dec_frame::SectionInfo], &mut [jx
+  98.3%  <jxl::jxl::dec_frame::FrameDecoderScope>::process_ac_group
+  98.3%  <jxl::jxl::base::data_parallel::ThreadPool>::run::<jxl::jxl::base::data_parallel::run_on_pool_exclusive<(&mut jxl::jxl::dec_frame::FrameDecoderScope, 
+  56.9%  <jxl::jxl::render_pipeline::low_memory_render_pipeline::LowMemoryRenderPipeline as jxl::jxl::render_pipeline::render_pipeline::RenderPipeline>::proces
+  41.4%  jxl::jxl::dec_group_render::decode_group_impl::<jxl::jxl::dec_group::GetBlockFromBitstream>
+  41.4%  jxl::jxl::dec_group::decode_ac_group
+  23.2%  jxl::jxl::dec_transforms::transform_to_pixels
+  23.1%  jxl::jxl::dct::compute_scaled_idct
+  23.0%  <jxl::jxl::render_pipeline::stage_ycbcr::YCbCrStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+  21.6%  jxl::jxl::dct::idct_columns
+  18.9%  <jxl::jxl::render_pipeline::stage_chroma_upsampling::VerticalChromaUpsamplingStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipeline
+  14.3%  jxl::jxl::dct::idct_1d_in_place
+  12.4%  <jxl::jxl::image::Plane<f32>>::row_at
+
+## Stage shares (innermost matching frame)
+  28.6%  chroma upsampling
+  23.0%  YCbCr
+  22.4%  IDCT / transform to pixels
+  10.1%  dequant
+   7.8%  AC entropy decode
+   2.7%  write to output buffer
+   1.6%  render pipeline (other)
+   1.4%  memset/memcpy
+   1.0%  modular/DC decode
+   0.9%  XYB->linear (XYB stage)
+   0.6%  other

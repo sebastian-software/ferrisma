@@ -1,0 +1,34 @@
+host: Apple M1 Ultra (Mac13,2), 20 cores, 64 GiB, Darwin 27.0.0 arm64; shared with other agents (load per table)
+rustc: rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)
+cargo: cargo 1.100.0-nightly (3c0b53475 2026-09-04)
+C++: Apple clang version 21.0.0 (clang-2100.3.34.2); cmake version 4.4.5; ninja 1.13.2
+base commit: 93c5281f81ab9ea4bf235f830660c0fb96fc25e3; prototypes 91e51ec0 (row spans), 1166ebe0 (lazy zero), 5e60a6fa (YCbCr/chroma spans)
+libjxl pin: a16d32d0ac113f5e54125e49bb571281c5d0b704, third_party highway/brotli/skcms at their pinned gitlinks
+Rust builds: release + CARGO_PROFILE_RELEASE_DEBUG=line-tables-only, from the repository root (auto-vectorization on, as the engine builds)
+C++ builds: tools/cxx_configure.sh (Release, -g1; cxx-scalar adds -DHWY_COMPILE_ONLY_SCALAR=1 like the port's oracle; cxx-simd uses Highway dynamic dispatch, NEON here)
+
+## inputs (sha256  bytes  name)
+f202533a6bf4565a36f30eefb529bfe13cac48acb745abbdaa36da3ccd6d4c14  455570  flower-jpegrecon.jxl
+518da2c23887272e84725a1644b7931e920ea13a0ad4370676fa7cc88b461d32  3207665  flower-lossless.jxl
+69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a  25574493  mountain-lossless.jxl
+3cdcd9fae0d043aed22912bcf873564f47c7bf88e3d5b6a66f26d100e1594a2d  8150226  mountain-noexif.jpg
+d8049e23b4d0c3627921c942ebf656320aa33b0da964b235e7a50e83ecc97e7a  464592  flower-d1e7.jxl
+92746275e8b9fa34f35ec5aeda932c60c76286702654d4e2c03cb5fc356d6ed5  3755347  mountain-d1e7.jxl
+cda5c6be7c8ea0251c6ea2bcf540d663b71f60d2a49af9b6c53ca61c5d51c4cc  10287665  flower.ppm
+b7b3c0bae6fd47f682804ee485afc4ae0dd2fe1c17d7d771cfc7e77360c0a3a3  72000017  mountain.ppm
+
+## binaries (sha256  name)
+0de2a5a6c04fb95b983b11c53f8731959e02a21d995af25b1553deeaa5c46d46  jxlperf/bin/compare-base
+61f5b531ab95448b76c8cfd26d8273ec8f706cb488d71b68afb31aba1d1c110f  jxlperf/bin/ferrisma-base
+a36988bd700322d0934f1054e7d50bda34275b0fc554134650d987fd26ecc75e  jxlperf/bin/ferrisma-proto
+d2adb0cdab328c5188d9379995a7db44d8a5d73d7ebe15c36746da49ba70198b  jxlperf/bin/probe-base
+15f487c775330f54f5bc53204dc3476e0b20564bd494228cef9cd3c9221451cf  jxlperf/bin/probe-gab
+8a555c6ddac1dc523c5905907413bc0825ff73e3ee5e2be1f9ab052568d65b38  jxlperf/bin/probe-gabepf
+5481b573d90d5c62a48fb65970a30c1009d6fdd98e622c7d2a7b15273cf6117b  jxlperf/bin/probe-inline
+d507e99468154c28244ed4904eaa0799297e3b48c4a0d8786d5e56b20e6e35a9  jxlperf/bin/probe-lazy
+e5b9d6e2b0e69bdffdc12ca13f3786e9a9cab5c88018d440491cca1d53bc9b80  jxlperf/bin/probe-lazy2
+8c54c184398d2347c3fb39725e4b0c9ad49ff3835573e3f38b0ae367509a718c  jxlperf/bin/probe-ycc
+d093ee103ceeb363dd9fe07d4f7e95b080867093e1c159f507525dc89c253b11  cxx-scalar/tools/djxl
+92695d1a5187516d632e619c15b646106eca87beadd404b53f465de072b7d0c5  cxx-scalar/tools/cjxl
+ea86e4819daeb20aba7ceabe91f525edf1e75af29e865e3f49e56ec3bf5d6086  cxx-simd/tools/djxl
+8344c70ff52d64ba5addcbc128619c26756e54f74f0b5d64151027af5c394284  cxx-simd/tools/cjxl

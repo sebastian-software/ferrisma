@@ -1,0 +1,57 @@
+samples=14247
+
+## Top 15 exclusive (self) symbols
+  25.1%  jxl::jxl::dct::dct_1d
+  17.3%  jxl::jxl::enc_ac_strategy::estimate_entropy
+  16.6%  jxl::jxl::dct::idct_1d_in_place
+   5.7%  jxl::jxl::dct::idct_columns
+   5.4%  <jxl::jxl::render_pipeline::stage_gaborish::GaborishStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+   4.4%  <jxl::jxl::render_pipeline::stage_epf::EPFStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+   4.0%  jxl::jxl::dct::dct_columns
+   3.5%  jxl::jxl::dct::idct_finish
+   1.6%  jxl::jxl::dct::compute_scaled_dct
+   1.5%  jxl::jxl::dec_xyb_scalar::add
+   1.3%  jxl::jxl::dct::compute_scaled_idct
+   1.2%  jxl::jxl::enc_chroma_from_luma::find_best_multiplier
+   1.1%  jxl::jxl::dec_group_render::dequant_lane
+   1.1%  <jxl::jxl::image::Plane<f32>>::row_at
+   1.1%  jxl::jxl::convolve_symmetric5::weighted_sum::<jxl::jxl::image_ops::WrapUnchanged>
+
+## Top 15 inclusive symbols
+ 100.0%  start
+ 100.0%  jxl_perf_probe::main
+ 100.0%  std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+ 100.0%  std::rt::lang_start::<()>::{closure#0}
+ 100.0%  std::rt::lang_start_internal
+ 100.0%  main
+ 100.0%  jxl::jxl::enc_frame_vardct::encode_frame_streaming
+ 100.0%  jxl::jxl::enc_frame_vardct::encode_frame
+ 100.0%  jxl::jxl::encode::jxl_encoder_process_output
+  99.9%  jxl::jxl::enc_frame_vardct::compute_encoding_data
+  98.8%  jxl::jxl::enc_frame_vardct::compute_var_dct_encoding_data
+  76.2%  jxl::jxl::enc_heuristics_lossy::lossy_frame_heuristics
+  70.2%  <jxl::jxl::enc_ac_strategy::AcStrategyHeuristics>::process_rect
+  70.1%  jxl::jxl::enc_ac_strategy::estimate_entropy
+  41.9%  jxl::jxl::enc_ac_strategy::find_best_first_level_division_for_square
+  30.8%  jxl::jxl::dct::compute_scaled_dct
+  29.4%  jxl::jxl::dec_transforms::transform_to_pixels
+  29.2%  jxl::jxl::dct::dct_columns
+  28.2%  jxl::jxl::dct::compute_scaled_idct
+  28.1%  jxl::jxl::enc_transforms::transform_from_pixels
+  26.9%  jxl::jxl::dct::idct_columns
+  25.1%  jxl::jxl::dct::dct_1d
+  20.0%  jxl::jxl::enc_heuristics_ar::compute_ar_heuristics
+  19.7%  jxl::jxl::enc_heuristics_ar::reconstruct_image
+  19.6%  jxl::jxl::dct::idct_1d_in_place
+
+## Stage shares (innermost matching frame)
+  42.2%  AC strategy search
+  32.6%  forward transform + quant (final)
+  19.8%  AR heuristics (decode roundtrip)
+   1.4%  Gaborish inverse (encoder)
+   1.3%  CfL heuristics
+   1.0%  adaptive quantization
+   0.6%  XYB conversion
+   0.4%  entropy coding/tokens
+   0.3%  memset/memcpy
+   0.2%  other

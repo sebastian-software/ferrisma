@@ -1,0 +1,28 @@
+## ferrisma-base
+xyb-full decode_us=998266 total_us=1142620 peak_managed_bytes=52300480  rss=66699264
+xyb-crop decode_us=1000752 total_us=1050641 peak_managed_bytes=46883452  rss=66093056
+recon-crop decode_us=279593 total_us=328837 peak_managed_bytes=46883452  rss=60899328
+lossless24-full decode_us=1300953 total_us=2059553 peak_managed_bytes=318839272  rss=639893504
+lossless24-crop decode_us=1296001 total_us=1611836 peak_managed_bytes=306898112  rss=635174912
+xyb24-full decode_us=7601536 total_us=8365144 peak_managed_bytes=318839272  rss=370343936
+## ferrisma-proto
+xyb-full decode_us=798937 total_us=937154 peak_managed_bytes=52300480  rss=66797568
+xyb-crop decode_us=795665 total_us=844803 peak_managed_bytes=46883452  rss=65290240
+recon-crop decode_us=279650 total_us=329413 peak_managed_bytes=46883452  rss=53313536
+lossless24-full decode_us=1290665 total_us=2049170 peak_managed_bytes=318839272  rss=346243072
+lossless24-crop decode_us=1286846 total_us=1602876 peak_managed_bytes=306898112  rss=343195648
+xyb24-full decode_us=6009211 total_us=6770593 peak_managed_bytes=318839272  rss=368246784
+## ferrisma-base
+xyb-full decode_us=1003896 total_us=1141802 peak_managed_bytes=52300480  rss=68075520
+xyb-crop decode_us=1008635 total_us=1058018 peak_managed_bytes=46883452  rss=66322432
+recon-crop decode_us=278423 total_us=328348 peak_managed_bytes=46883452  rss=60686336
+lossless24-full decode_us=1309815 total_us=2067838 peak_managed_bytes=318839272  rss=639352832
+lossless24-crop decode_us=1301564 total_us=1617250 peak_managed_bytes=306898112  rss=635650048
+xyb24-full decode_us=7580984 total_us=8335815 peak_managed_bytes=318839272  rss=369049600
+## ferrisma-proto
+xyb-full decode_us=792644 total_us=928472 peak_managed_bytes=52300480  rss=66486272
+xyb-crop decode_us=791408 total_us=841300 peak_managed_bytes=46883452  rss=66453504
+recon-crop decode_us=278833 total_us=328050 peak_managed_bytes=46883452  rss=52953088
+lossless24-full decode_us=1284380 total_us=2038183 peak_managed_bytes=318839272  rss=347537408
+lossless24-crop decode_us=1280463 total_us=1596863 peak_managed_bytes=306898112  rss=341475328
+xyb24-full decode_us=6022655 total_us=6785934 peak_managed_bytes=318839272  rss=367771648

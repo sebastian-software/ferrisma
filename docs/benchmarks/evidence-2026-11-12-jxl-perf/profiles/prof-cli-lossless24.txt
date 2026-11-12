@@ -1,0 +1,55 @@
+samples=2203
+
+## Top 15 exclusive (self) symbols
+  16.3%  <<moxcms::cicp::TransferCharacteristics>::extended_linear_tristimulus::{closure#11} as core::ops::function::FnOnce<(moxcms::rgb::Rgb<f32>,)>>::call_on
+  15.3%  <jxl::jxl::dec_ans::ANSSymbolReader>::read_symbol_ans_without_refill
+  12.7%  jxl::jxl::modular::encoding::encoding::decode_modular_channel_maans
+   7.7%  <jxl::jxl::image::Plane<f32>>::row_at
+   7.4%  <jxl::jxl::dec_ans::ANSSymbolReader>::read_hybrid_uint_clustered_inlined::<false>
+   4.4%  <moxcms::conversions::rgbxyz_float::TransformShaperRgbFloatInOut<f32, 0, 0> as moxcms::transform::TransformExecutor<f32>>::transform
+   3.8%  <jxl::jxl::image::Plane<f32>>::row_at_mut
+   3.4%  <jxl::jxl::dec_bit_reader::BitReader>::refill
+   3.0%  ferrisma_kernels::dispatch::neon::horizontal_rgba
+   2.2%  __bzero
+   2.1%  <jxl::jxl::modular::transform::rct::InPlaceRows as jxl::jxl::modular::transform::rct::Rows>::set3
+   2.0%  <jxl::jxl::modular::transform::rct::InPlaceRows as jxl::jxl::modular::transform::rct::Rows>::get3
+   2.0%  <jxl::jxl::render_pipeline::stage_write::WriteToOutputStage>::output_buffers
+   1.7%  webp::dsp::enc_neon::load4x4_neon
+   1.6%  _platform_memmove
+
+## Top 15 inclusive symbols
+ 100.0%  start
+  99.9%  std::rt::lang_start_internal
+  99.9%  ferrisma::main
+  99.9%  main
+  99.9%  std::sys::backtrace::__rust_begin_short_backtrace::<fn() -> core::result::Result<std::process::ExitCode, alloc::boxed::Box<dyn core::error::Error>>, c
+  99.9%  ferrisma::cli::run
+  99.9%  std::rt::lang_start::<core::result::Result<std::process::ExitCode, alloc::boxed::Box<dyn core::error::Error>>>::{closure#0}
+  99.6%  ferrisma::pipeline::run
+  90.9%  ferrisma::fast_execute::execute_fast_srgb8::<ferrisma::pipeline::run::{closure#1}>
+  90.8%  <ferrisma::codecs::jxl::JxlSource as ferrisma::decoder::DecodeSource>::read_region
+  90.8%  <ferrisma::cms::IccSrgbSource as ferrisma::decoder::DecodeSource>::read_region
+  62.2%  ferrisma_jxl_decoder::decode_into
+  62.2%  jxl::jxl::decode::jxl_decoder_process_codestream
+  62.2%  jxl::jxl::decode::jxl_decoder_process_input
+  62.1%  <jxl::jxl::dec_frame::FrameDecoderScope>::process_sections
+  62.1%  <jxl::jxl::dec_frame::FrameDecoder>::process_sections
+  61.1%  <jxl::jxl::dec_frame::FrameDecoderScope>::process_ac_group
+  61.1%  <jxl::jxl::base::data_parallel::ThreadPool>::run::<jxl::jxl::base::data_parallel::run_on_pool_exclusive<(&mut jxl::jxl::dec_frame::FrameDecoderScope, 
+  61.1%  jxl::jxl::base::data_parallel::run_on_pool_exclusive::<(&mut jxl::jxl::dec_frame::FrameDecoderScope, &mut [jxl::jxl::dec_frame::SectionInfo], &mut [jx
+  61.1%  <jxl::jxl::base::data_parallel::RunCallState<jxl::jxl::base::data_parallel::run_on_pool_exclusive<(&mut jxl::jxl::dec_frame::FrameDecoderScope, &mut [
+  56.9%  <jxl::jxl::dec_modular::ModularFrameDecoder>::decode_group
+  50.5%  jxl::jxl::modular::encoding::encoding::modular_decode
+  50.5%  jxl::jxl::modular::encoding::encoding::modular_generic_decompress
+  50.5%  jxl::jxl::modular::encoding::encoding::decode_modular_channel_maans
+  50.5%  jxl::jxl::modular::encoding::encoding::modular_decode::{closure#0}
+
+## Stage shares (innermost matching frame)
+  36.9%  other
+  26.1%  entropy (ANS/Huffman symbols)
+  24.4%  MA tree / predictor loop
+   5.7%  inverse RCT / modular transforms
+   3.8%  memset/memcpy
+   2.3%  write to output buffer
+   0.5%  modular -> float conversion
+   0.4%  render pipeline (other)

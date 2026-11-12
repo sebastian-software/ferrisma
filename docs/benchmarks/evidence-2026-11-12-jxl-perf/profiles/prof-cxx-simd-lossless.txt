@@ -1,0 +1,54 @@
+samples=4865
+
+## Top 15 exclusive (self) symbols
+  90.3%  jxl::detail::DecodeModularChannelMAANS<false>(jxl::BitReader*, jxl::ANSSymbolReader*, std::__1::vector<unsigned char, std::__1::allocator<unsigned cha
+   2.4%  _platform_memmove
+   2.2%  jxl::N_NEON::WriteToOutputStage::OutputBuffers(jxl::N_NEON::WriteToOutputStage::Output const&, unsigned long, unsigned long, unsigned long, unsigned l
+   1.1%  jxl::N_NEON::InvRCTRow<6>(int const*, int const*, int const*, int*, int*, int*, unsigned long)
+   1.1%  jxl::N_NEON::SingleFromSingle(unsigned long, int const*, float, float*)
+   0.5%  jxl::TreeToLookupTable<unsigned char, false, false>(std::__1::vector<jxl::FlatDecisionNode, std::__1::allocator<jxl::FlatDecisionNode> > const&, jxl::
+   0.3%  jxl::FilterTree(std::__1::vector<jxl::PropertyDecisionNode, std::__1::allocator<jxl::PropertyDecisionNode> > const&, std::__1::array<int, (unsigned lo
+   0.2%  jxl::N_NEON::WriteToOutputStage::ProcessRow(std::__1::vector<std::__1::vector<float*, std::__1::allocator<float*> >, std::__1::allocator<std::__1::vec
+   0.2%  jxl::ThreadPool::RunCallState<jxl::RunOnPool<jxl::ModularFrameDecoder::ModularImageToDecodedRect(jxl::FrameHeader const&, jxl::Image&, jxl::PassesDeco
+   0.1%  jxl::RunOnPool<jxl::ModularFrameDecoder::ModularImageToDecodedRect(jxl::FrameHeader const&, jxl::Image&, jxl::PassesDecoderState*, jxl::ThreadPool*, j
+   0.1%  jxl::LowMemoryRenderPipeline::RenderRect(unsigned long, std::__1::vector<jxl::Plane<float>, std::__1::allocator<jxl::Plane<float> > >&, jxl::RectT<uns
+   0.1%  jxl::ThreadPool::Run<jxl::RunOnPool<jxl::N_NEON::InvRCT(jxl::Image&, unsigned long, unsigned long, jxl::ThreadPool*)::$_0>(jxl::ThreadPool*, unsigned 
+   0.1%  jxl::AlignedMemory::~AlignedMemory()
+   0.1%  jxl::ModularFrameDecoder::DecodeGroup(jxl::FrameHeader const&, jxl::RectT<unsigned long> const&, jxl::BitReader*, int, int, jxl::ModularStreamId const
+   0.1%  jxl::FrameDecoder::ProcessACGroup(unsigned long, std::__1::array<jxl::BitReader*, (unsigned long)11>&, unsigned long, unsigned long, bool, bool)
+
+## Top 15 inclusive symbols
+ 100.0%  start
+ 100.0%  main
+ 100.0%  jxl::extras::DecodeImageJXL(unsigned char const*, unsigned long, jxl::extras::JXLDecompressParams const&, unsigned long*, jxl::extras::PackedPixelFile
+  99.9%  HandleBoxes(JxlDecoder*)
+  99.9%  JxlDecoderProcessInput
+  99.9%  jxl::FrameDecoder::ProcessSections(jxl::FrameDecoder::SectionInfo const*, unsigned long, jxl::FrameDecoder::SectionStatus*)
+  99.8%  jxl::ThreadPool::RunCallState<jxl::FrameDecoder::ProcessSections(jxl::FrameDecoder::SectionInfo const*, unsigned long, jxl::FrameDecoder::SectionStatu
+  99.8%  jpegxl::ThreadParallelRunner::Runner(void*, void*, int (*)(void*, unsigned long), void (*)(void*, unsigned int, unsigned long), unsigned int, unsigned
+  99.8%  jxl::ThreadPool::Run<jxl::FrameDecoder::ProcessSections(jxl::FrameDecoder::SectionInfo const*, unsigned long, jxl::FrameDecoder::SectionStatus*)::$_1,
+  99.8%  jxl::FrameDecoder::ProcessACGroup(unsigned long, std::__1::array<jxl::BitReader*, (unsigned long)11>&, unsigned long, unsigned long, bool, bool)
+  94.6%  jxl::ModularFrameDecoder::DecodeGroup(jxl::FrameHeader const&, jxl::RectT<unsigned long> const&, jxl::BitReader*, int, int, jxl::ModularStreamId const
+  91.6%  jxl::ModularDecode(jxl::BitReader*, jxl::Image&, jxl::GroupHeader&, unsigned long, jxl::ModularOptions*, std::__1::vector<jxl::PropertyDecisionNode, s
+  91.6%  jxl::ModularGenericDecompress(jxl::BitReader*, jxl::Image&, jxl::GroupHeader*, unsigned long, jxl::ModularOptions*, bool, std::__1::vector<jxl::Proper
+  91.5%  jxl::detail::DecodeModularChannelMAANS<false>(jxl::BitReader*, jxl::ANSSymbolReader*, std::__1::vector<unsigned char, std::__1::allocator<unsigned cha
+   5.1%  jxl::LowMemoryRenderPipeline::ProcessBuffers(unsigned long, unsigned long)
+   5.0%  jxl::LowMemoryRenderPipeline::RenderRect(unsigned long, std::__1::vector<jxl::Plane<float>, std::__1::allocator<jxl::Plane<float> > >&, jxl::RectT<uns
+   4.8%  jxl::N_NEON::WriteToOutputStage::ProcessRow(std::__1::vector<std::__1::vector<float*, std::__1::allocator<float*> >, std::__1::allocator<std::__1::vec
+   2.4%  _platform_memmove
+   2.2%  jxl::N_NEON::WriteToOutputStage::OutputBuffers(jxl::N_NEON::WriteToOutputStage::Output const&, unsigned long, unsigned long, unsigned long, unsigned l
+   1.4%  jxl::RunOnPool<jxl::ModularFrameDecoder::ModularImageToDecodedRect(jxl::FrameHeader const&, jxl::Image&, jxl::PassesDecoderState*, jxl::ThreadPool*, j
+   1.4%  jxl::ModularFrameDecoder::ModularImageToDecodedRect(jxl::FrameHeader const&, jxl::Image&, jxl::PassesDecoderState*, jxl::ThreadPool*, jxl::RenderPipel
+   1.2%  jxl::N_NEON::InvRCT(jxl::Image&, unsigned long, unsigned long, jxl::ThreadPool*)
+   1.2%  jxl::ThreadPool::Run<jxl::RunOnPool<jxl::N_NEON::InvRCT(jxl::Image&, unsigned long, unsigned long, jxl::ThreadPool*)::$_0>(jxl::ThreadPool*, unsigned 
+   1.1%  jxl::N_NEON::InvRCTRow<6>(int const*, int const*, int const*, int*, int*, int*, unsigned long)
+   1.1%  jxl::N_NEON::SingleFromSingle(unsigned long, int const*, float, float*)
+
+## Stage shares (innermost matching frame)
+  92.1%  entropy (ANS/Huffman symbols)
+   2.4%  write to output buffer
+   2.4%  memset/memcpy
+   1.4%  modular -> float conversion
+   1.2%  inverse RCT / modular transforms
+   0.3%  render pipeline (other)
+   0.1%  other

@@ -1,0 +1,10 @@
+{"reps": 3, "candidates": [
+ {"name": "port-base-lossy-e7d1", "argv": ["$S/jxlperf/bin/probe-base", "lossy", "$S/jxlperf/flower.ppm", "7", "1.0", "1", "$S/jxlperf/enc-base.jxl"], "parse": "ms"},
+ {"name": "port-proto-lossy-e7d1", "argv": ["$S/jxlperf/bin/probe-lazy2", "lossy", "$S/jxlperf/flower.ppm", "7", "1.0", "1", "$S/jxlperf/enc-proto.jxl"], "parse": "ms"},
+ {"name": "cxx-scalar-lossy-e7d1", "argv": ["$S/cxx-scalar/tools/cjxl", "$S/jxlperf/flower.ppm", "/dev/null", "-d", "1", "-e", "7", "--num_threads=0"], "parse": "mps", "pixels": 3429216},
+ {"name": "cxx-simd-lossy-e7d1", "argv": ["$S/cxx-simd/tools/cjxl", "$S/jxlperf/flower.ppm", "/dev/null", "-d", "1", "-e", "7", "--num_threads=0"], "parse": "mps", "pixels": 3429216},
+ {"name": "cxx-simd-8thr-lossy-e7d1", "argv": ["$S/cxx-simd/tools/cjxl", "$S/jxlperf/flower.ppm", "/dev/null", "-d", "1", "-e", "7", "--num_threads=8"], "parse": "mps", "pixels": 3429216},
+ {"name": "port-lossless-e2", "argv": ["$S/jxlperf/bin/probe-lazy2", "lossless", "$S/jxlperf/flower.ppm"], "parse": "ms"},
+ {"name": "cxx-scalar-lossless-e2-buffering0", "argv": ["$S/cxx-scalar/tools/cjxl", "$S/jxlperf/flower.ppm", "/dev/null", "-d", "0", "-e", "2", "--num_threads=0", "--buffering=0"], "parse": "mps", "pixels": 3429216},
+ {"name": "cxx-simd-lossless-e2-default", "argv": ["$S/cxx-simd/tools/cjxl", "$S/jxlperf/flower.ppm", "/dev/null", "-d", "0", "-e", "2", "--num_threads=0"], "parse": "mps", "pixels": 3429216}
+]}

@@ -1,0 +1,8 @@
+[["entropy (ANS/Huffman symbols)", "ANSSymbolReader|dec_ans|BitReader|dec_bit_reader|HuffmanDecoding|huffman"],
+ ["inverse RCT / modular transforms", "rct|RCT|InvRCT|modular::transform|InvPalette|palette|Squeeze|squeeze"],
+ ["modular -> float conversion", "modular_image_to_decoded_rect|ModularImageToDecodedRect|int_to_float|IntToFloat"],
+ ["MA tree / predictor loop", "decode_modular_channel|DecodeModularChannel|PredictTree|predict|Predict|weighted|tree_lookup|MATree"],
+ ["write to output buffer", "WriteToOutput|stage_write"],
+ ["render pipeline (other)", "RenderPipeline|render_pipeline|RenderRect|ProcessBuffers"],
+ ["memset/memcpy", "memmove|bzero|memset|memcpy"],
+ ["allocation", "^(_?malloc|_?free|_?calloc|_?realloc|__rust_alloc|__rust_dealloc|_malloc_zone|_szone|_nanov2|mvm_)|alloc::alloc::|^<std::alloc|GlobalAlloc"]]

@@ -1,0 +1,5 @@
+{"reps": 5, "candidates": [
+ {"name": "oxide-crop-flower-d1e7", "argv": ["$S/jxlperf/bin/compare-base", "$S/jxlperf/flower-d1e7.jxl", "oxide", "crop", "3"], "parse": "ms", "per": 3},
+ {"name": "own-crop-flower-d1e7", "argv": ["$S/jxlperf/bin/compare-base", "$S/jxlperf/flower-d1e7.jxl", "own", "crop", "3"], "parse": "ms", "per": 3},
+ {"name": "oxide-crop-mountain-d1e7", "argv": ["$S/jxlperf/bin/compare-base", "$S/jxlperf/mountain-d1e7.jxl", "oxide", "crop", "1"], "parse": "ms", "per": 1}
+]}
