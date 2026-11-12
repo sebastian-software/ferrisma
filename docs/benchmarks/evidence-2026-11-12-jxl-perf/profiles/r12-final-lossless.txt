@@ -1,0 +1,53 @@
+samples=485
+
+## Top 14 exclusive (self) symbols
+  44.7%  <jxl::jxl::dec_ans::ANSSymbolReader>::read_symbol_ans_without_refill
+  23.3%  jxl::jxl::modular::encoding::encoding::decode_modular_channel_maans
+   9.1%  <jxl::jxl::dec_bit_reader::BitReader>::refill
+   8.2%  <jxl::jxl::dec_ans::ANSSymbolReader>::read_hybrid_uint_clustered_inlined::<false>
+   3.9%  <jxl::jxl::render_pipeline::stage_write::WriteToOutputStage>::output_buffers
+   3.3%  jxl::jxl::modular::transform::rct::inv_rct_row::<6, jxl::jxl::modular::transform::rct::InPlaceRows>
+   2.5%  _platform_memmove
+   1.4%  __bzero
+   1.0%  <jxl::jxl::render_pipeline::stage_write::WriteToOutputStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+   0.6%  <jxl::jxl::dec_modular::ModularFrameDecoder>::modular_image_to_decoded_rect
+   0.4%  _platform_memset
+   0.4%  <jxl::jxl::image::Plane<f32>>::row_at_mut
+   0.2%  read
+   0.2%  <jxl::jxl::modular::encoding::encoding::GroupHeader as jxl::jxl::field_encodings::Fields>::visit_fields
+
+## Top 14 inclusive symbols
+ 100.0%  main
+ 100.0%  std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+ 100.0%  jxl_perf_probe::main
+ 100.0%  std::rt::lang_start::<()>::{closure#0}
+ 100.0%  start
+ 100.0%  std::rt::lang_start_internal
+  99.4%  <jxl::jxl::dec_frame::FrameDecoder>::process_sections
+  99.4%  jxl::jxl::decode::jxl_decoder_process_codestream
+  99.4%  jxl::jxl::decode::jxl_decoder_process_input
+  99.4%  <jxl::jxl::dec_frame::FrameDecoderScope>::process_sections
+  99.4%  ferrisma_jxl_decoder::decode_into
+  98.4%  jxl::jxl::base::data_parallel::run_on_pool_exclusive::<(&mut jxl::jxl::dec_frame::FrameDecoderScope, &mut [jxl::jxl::dec_frame::SectionInfo], &mut [jx
+  98.4%  <jxl::jxl::base::data_parallel::ThreadPool>::run::<jxl::jxl::base::data_parallel::run_on_pool_exclusive<(&mut jxl::jxl::dec_frame::FrameDecoderScope, 
+  98.4%  <jxl::jxl::dec_frame::FrameDecoderScope>::process_ac_group
+  98.4%  <jxl::jxl::base::data_parallel::RunCallState<jxl::jxl::base::data_parallel::run_on_pool_exclusive<(&mut jxl::jxl::dec_frame::FrameDecoderScope, &mut [
+  90.7%  <jxl::jxl::dec_modular::ModularFrameDecoder>::decode_group
+  86.2%  jxl::jxl::modular::encoding::encoding::modular_decode
+  86.2%  jxl::jxl::modular::encoding::encoding::modular_generic_decompress
+  85.8%  jxl::jxl::modular::encoding::encoding::modular_decode::{closure#0}
+  85.8%  jxl::jxl::modular::encoding::encoding::decode_modular_channel_maans
+  53.0%  <jxl::jxl::dec_ans::ANSSymbolReader>::read_hybrid_uint_clustered_inlined::<false>
+  44.7%  <jxl::jxl::dec_ans::ANSSymbolReader>::read_symbol_ans_without_refill
+   9.1%  <jxl::jxl::dec_bit_reader::BitReader>::refill
+   7.6%  <jxl::jxl::render_pipeline::low_memory_render_pipeline::LowMemoryRenderPipeline as jxl::jxl::render_pipeline::render_pipeline::RenderPipeline>::proces
+
+## Stage shares (innermost matching frame)
+  62.1%  entropy (ANS/Huffman symbols)
+  23.3%  MA tree / predictor loop
+   4.9%  write to output buffer
+   4.3%  memset/memcpy
+   3.5%  inverse RCT / modular transforms
+   1.0%  modular -> float conversion
+   0.6%  other
+   0.2%  render pipeline (other)

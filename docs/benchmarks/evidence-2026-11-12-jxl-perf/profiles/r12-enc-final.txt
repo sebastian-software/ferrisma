@@ -1,0 +1,58 @@
+samples=12235
+
+## Top 15 exclusive (self) symbols
+  28.4%  jxl::jxl::dct::dct_1d
+  19.8%  jxl::jxl::enc_ac_strategy::estimate_entropy
+  19.1%  jxl::jxl::dct::idct_1d_in_place
+   6.2%  jxl::jxl::dct::idct_columns
+   4.9%  jxl::jxl::dct::dct_columns
+   3.6%  jxl::jxl::dct::idct_finish
+   1.7%  jxl::jxl::dec_transforms::identity_add
+   1.5%  jxl::jxl::dct::compute_scaled_idct
+   1.4%  jxl::jxl::dct::compute_scaled_dct
+   1.4%  jxl::jxl::enc_chroma_from_luma::find_best_multiplier
+   1.2%  jxl::jxl::convolve_symmetric5::weighted_sum::<jxl::jxl::image_ops::WrapUnchanged>
+   1.0%  <jxl::jxl::image::Plane<f32>>::row_at
+   0.9%  jxl::jxl::dec_transforms::transform_to_pixels
+   0.6%  jxl::jxl::dec_group_render::dequant_lane
+   0.6%  jxl::jxl::enc_transforms::afvdct4x4
+
+## Top 15 inclusive symbols
+ 100.0%  main
+ 100.0%  start
+ 100.0%  jxl_perf_probe::main
+ 100.0%  std::rt::lang_start::<()>::{closure#0}
+ 100.0%  std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+ 100.0%  std::rt::lang_start_internal
+ 100.0%  jxl::jxl::enc_frame_vardct::encode_frame_streaming
+ 100.0%  jxl::jxl::encode::jxl_encoder_process_output
+ 100.0%  jxl::jxl::enc_frame_vardct::encode_frame
+ 100.0%  jxl::jxl::enc_frame_vardct::compute_encoding_data
+  98.6%  jxl::jxl::enc_frame_vardct::compute_var_dct_encoding_data
+  87.8%  jxl::jxl::enc_heuristics_lossy::lossy_frame_heuristics
+  80.8%  <jxl::jxl::enc_ac_strategy::AcStrategyHeuristics>::process_rect
+  80.7%  jxl::jxl::enc_ac_strategy::estimate_entropy
+  48.4%  jxl::jxl::enc_ac_strategy::find_best_first_level_division_for_square
+  34.8%  jxl::jxl::dct::compute_scaled_dct
+  33.3%  jxl::jxl::dct::dct_columns
+  33.1%  jxl::jxl::dec_transforms::transform_to_pixels
+  32.2%  jxl::jxl::enc_transforms::transform_from_pixels
+  31.6%  jxl::jxl::dct::compute_scaled_idct
+  30.1%  jxl::jxl::dct::idct_columns
+  28.4%  jxl::jxl::dct::dct_1d
+  22.3%  jxl::jxl::dct::idct_1d_in_place
+  17.4%  jxl::jxl::dct::idct_finish
+   8.5%  jxl::jxl::enc_heuristics_ar::compute_ar_heuristics
+
+## Stage shares (innermost matching frame)
+  48.8%  AC strategy search
+  36.8%  forward transform + quant (final)
+   8.2%  AR heuristics (decode roundtrip)
+   1.7%  Gaborish inverse (encoder)
+   1.5%  CfL heuristics
+   1.2%  adaptive quantization
+   0.8%  XYB conversion
+   0.5%  entropy coding/tokens
+   0.4%  memset/memcpy
+   0.2%  other
+   0.0%  allocation

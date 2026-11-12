@@ -1,0 +1,55 @@
+samples=449
+
+## Top 14 exclusive (self) symbols
+  21.6%  jxl::jxl::dct::idct_1d_in_place
+  15.8%  jxl::jxl::dec_group_render::dequant_lane
+  12.0%  jxl::jxl::dct::idct_columns
+   5.3%  <jxl::jxl::dec_ans::ANSSymbolReader>::read_symbol_ans_without_refill
+   5.1%  jxl::jxl::dct::idct_finish
+   4.9%  <jxl::jxl::render_pipeline::stage_write::WriteToOutputStage>::output_buffers
+   4.7%  _platform_memmove
+   4.7%  <jxl::jxl::dec_group::GetBlockFromBitstream as jxl::jxl::dec_group::GetBlock>::load_block
+   2.9%  jxl::jxl::render_pipeline::scalar_rows::product
+   2.2%  <jxl::jxl::dec_ans::ANSSymbolReader>::read_hybrid_uint_clustered_inlined::<false>
+   2.2%  jxl::jxl::dec_transforms::identity_add
+   2.0%  jxl::jxl::dec_group_render::dequant_block
+   1.6%  <jxl::jxl::render_pipeline::stage_chroma_upsampling::HorizontalChromaUpsamplingStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipeli
+   1.6%  jxl::jxl::render_pipeline::scalar_rows::promote
+
+## Top 14 inclusive symbols
+ 100.0%  std::rt::lang_start_internal
+ 100.0%  start
+ 100.0%  std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+ 100.0%  main
+ 100.0%  jxl_perf_probe::main
+ 100.0%  std::rt::lang_start::<()>::{closure#0}
+  99.6%  jxl::jxl::decode::jxl_decoder_process_codestream
+  99.6%  jxl::jxl::decode::jxl_decoder_process_input
+  99.3%  <jxl::jxl::dec_frame::FrameDecoder>::process_sections
+  99.3%  <jxl::jxl::dec_frame::FrameDecoderScope>::process_sections
+  99.3%  ferrisma_jxl_decoder::decode_into
+  96.9%  <jxl::jxl::base::data_parallel::ThreadPool>::run::<jxl::jxl::base::data_parallel::run_on_pool_exclusive<(&mut jxl::jxl::dec_frame::FrameDecoderScope, 
+  96.9%  <jxl::jxl::dec_frame::FrameDecoderScope>::process_ac_group
+  96.9%  <jxl::jxl::base::data_parallel::RunCallState<jxl::jxl::base::data_parallel::run_on_pool_exclusive<(&mut jxl::jxl::dec_frame::FrameDecoderScope, &mut [
+  96.9%  jxl::jxl::base::data_parallel::run_on_pool_exclusive::<(&mut jxl::jxl::dec_frame::FrameDecoderScope, &mut [jxl::jxl::dec_frame::SectionInfo], &mut [jx
+  75.7%  jxl::jxl::dec_group::decode_ac_group
+  75.5%  jxl::jxl::dec_group_render::decode_group_impl::<jxl::jxl::dec_group::GetBlockFromBitstream>
+  41.9%  jxl::jxl::dec_transforms::transform_to_pixels
+  41.4%  jxl::jxl::dct::compute_scaled_idct
+  40.3%  jxl::jxl::dct::idct_columns
+  24.3%  jxl::jxl::dct::idct_1d_in_place
+  21.2%  <jxl::jxl::render_pipeline::low_memory_render_pipeline::LowMemoryRenderPipeline as jxl::jxl::render_pipeline::render_pipeline::RenderPipeline>::proces
+  18.7%  jxl::jxl::dec_group_render::dequant_block
+  17.8%  jxl::jxl::dct::idct_finish
+
+## Stage shares (innermost matching frame)
+  41.9%  IDCT / transform to pixels
+  18.9%  dequant
+  13.8%  AC entropy decode
+   9.6%  render pipeline (other)
+   5.1%  memset/memcpy
+   4.9%  write to output buffer
+   2.2%  chroma upsampling
+   1.8%  other
+   1.6%  modular/DC decode
+   0.2%  allocation

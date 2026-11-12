@@ -854,3 +854,24 @@ original compiler compatibility promises and independent reference comparisons
 remain; handwritten ports explicitly use stable Clippy and their MSRV jobs.
 Shared profiles retain the numeric and unwinding requirements of each port.
 Active workflows now live at the Ferrisma repository root.
+
+## Row-granular arithmetic boundaries, 2026-11-12
+
+The render stages' local out-of-line Add/Sub/promote/product boundaries now
+sit at row granularity (`render_pipeline/scalar_rows.rs`) instead of per
+element in XYB, Gaborish, EPF passes 1 and 2, YCbCr and chroma upsampling.
+Each kernel is `#[inline(never)]` and performs one IEEE operation per lane
+(AbsDiff: Sub, then the sign-bit clear of Abs) with both operands loaded from
+slices in the source order; promotion stays in a separate kernel from the
+product, and scalar operands are broadcast rows, never constants or
+arguments. Target-specific operand orders keep their `cfg` split. This keeps
+the operand-order and promotion contract above without assembly or NaN
+rewriting. Evidence: unit tests compare each kernel and the XYB row kernel
+with the previous per-element helpers bit for bit on adversarial pairs and
+triples (and assert that the corpus observes operand order and promotion);
+the existing exceptional-word stage comparisons and the complete test stage
+pass against the pinned original. Re-evaluate together with the other
+boundaries after a compiler, target or source change; a fused per-lane
+kernel would need its own codegen evidence (see section 8 of
+`docs/benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md` at the
+repository root).
