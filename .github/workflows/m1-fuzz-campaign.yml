@@ -66,7 +66,7 @@ jobs:
             nasm -v
             shasum -a 256 rust-toolchain.toml Cargo.lock fuzz/Cargo.lock
             shasum -a 256 Cargo.lock fuzz/Cargo.lock > fuzz/campaign/lockfiles.sha256
-            echo "sanitizer=address; seed=1; max_total_time=1800; rss_limit_mb=2048"
+            echo "sanitizer=address; rustflags=--cfg libavif_rs_asan; seed=1; max_total_time=1800; rss_limit_mb=2048"
             echo "target=${{ matrix.target }} features=${{ matrix.features }}"
           } | tee fuzz/campaign/provenance.txt
       - name: Create and hash starting corpora
@@ -81,6 +81,11 @@ jobs:
       - name: Run 30-minute mutation campaign
         env:
           CARGO_NET_OFFLINE: "true"
+          # The generated AVIF ports register static initializers in
+          # __mod_init_func/.init_array. Without this cfg ASan instruments
+          # those arrays, and the macOS linker rejects their cdylib output
+          # ("initializer pointer has no target"). cargo-fuzz appends RUSTFLAGS.
+          RUSTFLAGS: --cfg libavif_rs_asan
         run: |
           set -o pipefail
           mkdir -p fuzz/artifacts/${{ matrix.target }}
@@ -92,6 +97,7 @@ jobs:
         timeout-minutes: 40
         env:
           CARGO_NET_OFFLINE: "true"
+          RUSTFLAGS: --cfg libavif_rs_asan
         run: |
           set -o pipefail
           cargo fuzz coverage --sanitizer address ${{ matrix.features }} -j 1 --target-dir "$GITHUB_WORKSPACE/fuzz/coverage-build" ${{ matrix.target }} -- \
