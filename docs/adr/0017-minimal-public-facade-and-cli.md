@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** The "no public fluent API or CLI as initial prerequisites" clause of [ADR-0008](0008-initial-vertical-slice.md), for M1 only
 - **Partially superseded by:** [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), AVIF-only output result and feature gating
 - **Related:** [0008](0008-initial-vertical-slice.md), [0012](0012-codec-source-contract.md), [0016](0016-working-color-space-and-transform-boundaries.md), [M1 plan](../milestones/M1-complete-image-pipeline.md) work package 8
@@ -58,7 +58,7 @@ Currently, `pipeline` and `cli` compile without `avif-write`; a built-in
 - `hardening_tests` cover compressed-input and pixel limits, invalid options and malformed inputs through `transcode`, and assert the matching `ProcessingErrorKind`.
 - CI compiles each codec feature alone and the `cli` feature.
 
-Before **Accepted**: documented supported-input matrix, and at least one consumer outside the test suite.
+Before **Accepted**: documented supported-input matrix, and at least one consumer outside the test suite. The consumer now exists: `examples/consumer.rs` uses only the public facade, and its `--self-check` asserts every documented failure category and resource limit in CI (2026-11-12).
 
 ## Review when
 
@@ -78,3 +78,4 @@ A first publication is decided; a consumer needs multiple outputs, streaming inp
 - 2026-11-06 — Pluggable encoders (ADR-0024): `transcode_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` traits with `EncodeRequest`, `EncodedImage` and `EncodeError`, and `ProcessingReport::encoder_backend`. The CLI moved into `ferrisma::cli::run(args, backend)` (compiled with `avif-write`), so adapter crates ship the same command; the `report:` line gained `encoder=`.
 - 2026-11-11 — ADR-0030 makes output format explicit (`Output::format` and `Output::bytes`), allows backend-only builds without `avif-write`, and selects still WebP by the output extension in the CLI. The original AVIF example and options remain valid.
 - 2026-11-11 — ADR-0034 adds explicit aspect-aware resize and bounded JPEG/WebP header inspection while preserving exact-size calls; output dimensions are reported.
+- 2026-11-12 — [ADR-0040](0040-stable-public-contract-and-compatibility-policy.md) (Proposed) inventories the surface, proposes stable and experimental tiers, and records recommendations. Applied with it: rustdoc for every public item, `#![warn(missing_docs)]`, and `#[non_exhaustive]` on the growable facade enums and on `Output`, `ProcessingReport`, `StageTimings`, and `ImageMetadata`. Decision 6 stays in force until ADR-0040 is accepted.
