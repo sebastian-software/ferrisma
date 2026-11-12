@@ -279,6 +279,248 @@ fn reorientation_is_budgeted_reported_and_bounds_checked() {
     assert_eq!(Orientation::from_exif(9), None);
 }
 
+/// A stored-order source with `channels` distinct samples per pixel, so a
+/// channel or alpha mix-up shows; it also carries non-default alpha and color
+/// metadata that reorientation must pass through unchanged.
+struct ChannelSource {
+    info: DecoderInfo,
+    grid: Grid,
+    orientation: Orientation,
+}
+
+const LAYOUTS: [(ChannelLayout, AlphaMode); 4] = [
+    (ChannelLayout::Gray, AlphaMode::Opaque),
+    (ChannelLayout::GrayAlpha, AlphaMode::Straight),
+    (ChannelLayout::Rgb, AlphaMode::Opaque),
+    (ChannelLayout::Rgba, AlphaMode::Premultiplied),
+];
+
+fn pixel(id: u8, channels: usize) -> Vec<u8> {
+    [id, 255 - id, id ^ 0x55, id / 2 + 1][..channels].to_vec()
+}
+
+impl DecodeSource for ChannelSource {
+    fn info(&self) -> &DecoderInfo {
+        &self.info
+    }
+    fn orientation(&self) -> Orientation {
+        self.orientation
+    }
+    fn read_region(
+        &mut self,
+        region: Rect,
+        _budget: &MemoryBudget,
+        sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+    ) -> Result<DecodeReport, Error> {
+        let channels = usize::from(self.info.layout.channels());
+        for y in region.y..region.bottom() {
+            let row: Vec<u8> = self.grid[y as usize][region.x as usize..region.right() as usize]
+                .iter()
+                .flat_map(|&id| pixel(id, channels))
+                .collect();
+            if self.info.sample == SampleType::F32 {
+                let floats: Vec<f32> = row.iter().map(|&b| f32::from(b)).collect();
+                sink(y, DecodedRow::F32(&floats))?;
+            } else {
+                sink(y, DecodedRow::U8(&row))?;
+            }
+        }
+        Ok(DecodeReport {
+            requested: region,
+            access: DecodeAccess::CodecRegionRequest,
+            rows: u64::from(region.height),
+            output_sample_bytes: 0,
+            known_full_frame_buffers: 0,
+            peak_engine_managed_bytes: 0,
+            opaque_codec_memory_unbounded: false,
+            engine_buffer_bytes: 0,
+            engine_copied_bytes: 0,
+            work: crate::decoder::CodecWork::region_at_least(region),
+        })
+    }
+}
+
+/// #68: every orientation keeps each pixel's channels together (including
+/// alpha in gray+alpha and RGBA), maps every display crop to the correct
+/// stored samples, and passes the alpha mode and rendered color through.
+/// Gray+alpha rows failed with `UnsupportedCodecLayout` before 2026-11-12.
+#[test]
+fn every_orientation_keeps_channels_alpha_and_color_for_every_crop() {
+    let stored = stored_grid(5, 3);
+    let icc = vec![1, 2, 3];
+    for (layout, alpha) in LAYOUTS {
+        let channels = usize::from(layout.channels());
+        for float in [false, true] {
+            for value in 1..=8 {
+                let expected = exif_reference(value, &stored);
+                let source = ChannelSource {
+                    info: DecoderInfo {
+                        size: Size::new(5, 3).unwrap(),
+                        layout,
+                        sample: if float {
+                            SampleType::F32
+                        } else {
+                            SampleType::U8
+                        },
+                        access: DecodeAccess::CodecRegionRequest,
+                        alpha,
+                        rendered_icc: Some(icc.clone()),
+                        rendered_cicp: Some([12, 13, 0, 1]),
+                    },
+                    grid: stored.clone(),
+                    orientation: Orientation::from_exif(value).unwrap(),
+                };
+                let mut oriented = OrientedSource::new(Box::new(source)).unwrap();
+                let info = oriented.info().clone();
+                assert_eq!((info.layout, info.alpha), (layout, alpha));
+                assert_eq!(info.rendered_icc.as_deref(), Some(icc.as_slice()));
+                assert_eq!(info.rendered_cicp, Some([12, 13, 0, 1]));
+                let (width, height) = (info.size.width, info.size.height);
+                for y in 0..height {
+                    for x in 0..width {
+                        let region = Rect::new(x, y, width - x, height - y).unwrap();
+                        let budget = MemoryBudget::new(1 << 12);
+                        let mut next = y;
+                        let report = oriented
+                            .read_region(region, &budget, &mut |row_y, row| {
+                                assert_eq!(row_y, next);
+                                next += 1;
+                                let samples: Vec<u8> = match row {
+                                    DecodedRow::U8(samples) => samples.to_vec(),
+                                    DecodedRow::F32(samples) => {
+                                        samples.iter().map(|&v| v as u8).collect()
+                                    }
+                                };
+                                let want: Vec<u8> = expected[row_y as usize]
+                                    [x as usize..width as usize]
+                                    .iter()
+                                    .flat_map(|&id| pixel(id, channels))
+                                    .collect();
+                                assert_eq!(samples, want, "{layout:?} {value} {region:?}");
+                                Ok(())
+                            })
+                            .unwrap();
+                        assert_eq!(next, height);
+                        let bytes = region.width as usize
+                            * region.height as usize
+                            * channels
+                            * if float { 4 } else { 1 };
+                        assert_eq!(report.engine_buffer_bytes, bytes);
+                        assert_eq!(report.engine_copied_bytes, 2 * bytes as u64);
+                        assert_eq!(budget.snapshot().live, 0);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// #68 accounting at camera sizes, without decoding pixels: the stored
+/// region, the bytes copied and the bounded parallel blocks for a full 24 Mpx
+/// and 48 Mpx RGB8 frame in every orientation. One full-frame budget too few
+/// bytes fails before decoding; the reported bytes are exact.
+#[test]
+fn camera_size_orientation_costs_are_reported_exactly() {
+    for (width, height) in [(6000_u32, 4000_u32), (8000, 6000)] {
+        let frame = width as usize * height as usize * 3;
+        for value in [2_u16, 6] {
+            let orientation = Orientation::from_exif(value).unwrap();
+            let display = orientation
+                .display_size(Size::new(width, height).unwrap())
+                .unwrap();
+            let make = || ConstantSource {
+                info: DecoderInfo {
+                    size: Size::new(width, height).unwrap(),
+                    layout: ChannelLayout::Rgb,
+                    sample: SampleType::U8,
+                    access: DecodeAccess::CodecRegionRequest,
+                    alpha: AlphaMode::Opaque,
+                    rendered_icc: None,
+                    rendered_cicp: Some([1, 13, 0, 1]),
+                },
+                orientation,
+                row: vec![7; width as usize * 3],
+            };
+            let full = Rect::new(0, 0, display.width, display.height).unwrap();
+            let short = MemoryBudget::new(frame - 1);
+            let mut oriented = OrientedSource::new(Box::new(make())).unwrap();
+            assert!(matches!(
+                oriented.read_region(full, &short, &mut |_, _| Ok(())),
+                Err(Error::BudgetExceeded { .. })
+            ));
+            assert_eq!(short.snapshot().live, 0);
+            for threads in [1, 8] {
+                let budget = MemoryBudget::new(usize::MAX / 4);
+                let mut oriented = OrientedSource::new(Box::new(make()))
+                    .unwrap()
+                    .with_threads(threads);
+                let mut rows = 0_u32;
+                let report = oriented
+                    .read_region(full, &budget, &mut |_, _| {
+                        rows += 1;
+                        Ok(())
+                    })
+                    .unwrap();
+                assert_eq!(rows, display.height);
+                assert_eq!(report.engine_buffer_bytes, frame);
+                assert_eq!(report.engine_copied_bytes, 2 * frame as u64);
+                let row = display.width as usize * 3;
+                // Sequential: the stored frame plus one display row. Parallel:
+                // at most 2 × threads + 1 blocks of 16 rows on top of the frame.
+                let peak = budget.snapshot().peak;
+                if threads == 1 {
+                    assert_eq!(peak, frame + row, "{width}x{height} {value}");
+                } else {
+                    assert!(peak > frame + row && peak <= frame + (2 * threads + 1) * 16 * row);
+                }
+                assert_eq!(budget.snapshot().live, 0);
+            }
+        }
+    }
+}
+
+/// Emits one constant row per stored row without allocating a frame.
+struct ConstantSource {
+    info: DecoderInfo,
+    orientation: Orientation,
+    row: Vec<u8>,
+}
+
+impl DecodeSource for ConstantSource {
+    fn info(&self) -> &DecoderInfo {
+        &self.info
+    }
+    fn orientation(&self) -> Orientation {
+        self.orientation
+    }
+    fn read_region(
+        &mut self,
+        region: Rect,
+        _budget: &MemoryBudget,
+        sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
+    ) -> Result<DecodeReport, Error> {
+        let start = region.x as usize * 3;
+        for y in region.y..region.bottom() {
+            sink(
+                y,
+                DecodedRow::U8(&self.row[start..start + region.width as usize * 3]),
+            )?;
+        }
+        Ok(DecodeReport {
+            requested: region,
+            access: DecodeAccess::CodecRegionRequest,
+            rows: u64::from(region.height),
+            output_sample_bytes: 0,
+            known_full_frame_buffers: 0,
+            peak_engine_managed_bytes: 0,
+            opaque_codec_memory_unbounded: false,
+            engine_buffer_bytes: 0,
+            engine_copied_bytes: 0,
+            work: crate::decoder::CodecWork::region_at_least(region),
+        })
+    }
+}
+
 /// A stored grid tall and wide enough that every orientation has more
 /// display rows than the parallel threshold, with a partial last block.
 fn tall_grid() -> Grid {
