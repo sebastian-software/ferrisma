@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-06
-- Updated: 2026-11-09
+- Updated: 2026-11-12
 
 ## Context
 
@@ -79,10 +79,9 @@ upstream's. Upstream's `example-8bit-*-decompress` test is not an
 port, so the float cases' `FLOATTEST8=sse` hashes do not apply and the
 driver skips them in that mode. Upstream's fuzzers are C programs that would
 need a C ABI; the damaged-stream tests of each package cover corrupt input
-against the oracle instead, and
-coverage-guided fuzzing in Rust is a separate decision, since it needs a
-development dependency ([ADR 0003](0003-toolchain-and-unsafe-policy.md),
-[ferrisma#73](https://github.com/sebastian-software/ferrisma/issues/73), formerly libjpeg-turbo-rs#18).
+against the oracle instead, and coverage-guided fuzzing of the safe API is
+[ADR 0009](0009-coverage-guided-fuzzing.md)
+([ferrisma#73](https://github.com/sebastian-software/ferrisma/issues/73), formerly libjpeg-turbo-rs#18).
 
 **Mutations.** A passing test shows nothing unless it can fail. Each change
 that adds or changes translated code or a check shows, before it merges, that
@@ -129,7 +128,14 @@ DREF therefore differs from EREF by one in a few coefficients (24 of
 component A and 52 of B), as an independent decoder author also observed
 ([A. Tarpai](https://halicery.no/DecodersImage/JPEG/JPEG81.html)). The tolerance
 of T.83 clause 7 and Annex A was not available, so the conformance run
-records the measured values instead of judging them against it:
+records the measured values instead of judging them against it. On
+2026-11-12 the ITU page of the only edition, T.83 (11/94), in force, still
+offered the text only to TIES users and "through payment", and its download
+link led to the TIES login; no edition dated 09/92 exists. A bound taken from
+secondary sources is not used: the test asserts T.83's bound only once the
+authoritative text has been read.
+
+The recorded checks:
 
 1. The port's raw output with the islow IDCT equals `jpeg_idct_islow`
    applied to EREF with the stream's quantization tables, bit for bit over
