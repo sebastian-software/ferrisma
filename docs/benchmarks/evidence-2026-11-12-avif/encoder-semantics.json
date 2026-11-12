@@ -1,0 +1,494 @@
+[
+  {
+    "source": "flower",
+    "chroma": "444",
+    "encoder": "rav1e",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=55682 peak_managed_bytes=13634484 encoder_frame_bytes=4237824 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+    "bytes": 55682,
+    "sha256": "a938ff8dafb178be58885bbdefe7221f975008dd476c80351e3e3451c05cc622",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 800,
+        "height": 533,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      }
+    ],
+    "libheif": {
+      "size": "800x533",
+      "layout": "YCbCr, 4:4:4",
+      "depth": "10",
+      "alpha": "no",
+      "nclx": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "ssimulacra2_rav1d_decode": "77.455"
+  },
+  {
+    "source": "flower",
+    "chroma": "444",
+    "encoder": "aom-8",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=94064 peak_managed_bytes=12381460 encoder_frame_bytes=2984800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+    "bytes": 94064,
+    "sha256": "d051b51b993d05db4546ca239d68812e6be01c2c4a825ce755a419134d229253",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 800,
+        "height": 533,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      }
+    ],
+    "libheif": {
+      "size": "800x533",
+      "layout": "YCbCr, 4:4:4",
+      "depth": "8",
+      "alpha": "no",
+      "nclx": [
+        "1",
+        "13",
+        "6",
+        "1"
+      ]
+    },
+    "ssimulacra2_rav1d_decode": "87.069"
+  },
+  {
+    "source": "flower",
+    "chroma": "444",
+    "encoder": "aom-10",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=100512 peak_managed_bytes=13660660 encoder_frame_bytes=4264000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+    "bytes": 100512,
+    "sha256": "10bad721df7a99d0e9f3867607ef73c81ee099655c29acdc0c3789fd26cc675d",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 800,
+        "height": 533,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      }
+    ],
+    "libheif": {
+      "size": "800x533",
+      "layout": "YCbCr, 4:4:4",
+      "depth": "10",
+      "alpha": "no",
+      "nclx": [
+        "1",
+        "13",
+        "6",
+        "1"
+      ]
+    },
+    "ssimulacra2_rav1d_decode": "88.307"
+  },
+  {
+    "source": "flower",
+    "chroma": "420",
+    "encoder": "rav1e",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=51224 peak_managed_bytes=11541556 encoder_frame_bytes=2141696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+    "bytes": 51224,
+    "sha256": "4387ba018c8d224961257289a837ebf5fef3548ceed1d95c78ce10ecbca2fb4c",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 800,
+        "height": 533,
+        "pix_fmt": "yuv420p10le",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      }
+    ],
+    "libheif": {
+      "size": "800x533",
+      "layout": "YCbCr, 4:2:0",
+      "depth": "10",
+      "alpha": "no",
+      "nclx": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "ssimulacra2_rav1d_decode": "76.266"
+  },
+  {
+    "source": "flower",
+    "chroma": "420",
+    "encoder": "aom-8",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=90073 peak_managed_bytes=11742260 encoder_frame_bytes=2345600 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+    "bytes": 90073,
+    "sha256": "fefcc6b74e28b2183c37a62a878844efce6839c14ca2ea344fada70c6a4a394e",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 800,
+        "height": 533,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      }
+    ],
+    "libheif": {
+      "size": "800x533",
+      "layout": "YCbCr, 4:2:0",
+      "depth": "8",
+      "alpha": "no",
+      "nclx": [
+        "1",
+        "13",
+        "6",
+        "1"
+      ]
+    },
+    "ssimulacra2_rav1d_decode": "86.255"
+  },
+  {
+    "source": "flower",
+    "chroma": "420",
+    "encoder": "aom-10",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=97855 peak_managed_bytes=12382260 encoder_frame_bytes=2985600 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+    "bytes": 97855,
+    "sha256": "df54628daa7ff4825d359c550309ac76f5ba3362c18852433bdd72b5989dc38f",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 800,
+        "height": 533,
+        "pix_fmt": "yuv420p10le",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      }
+    ],
+    "libheif": {
+      "size": "800x533",
+      "layout": "YCbCr, 4:2:0",
+      "depth": "10",
+      "alpha": "no",
+      "nclx": [
+        "1",
+        "13",
+        "6",
+        "1"
+      ]
+    },
+    "ssimulacra2_rav1d_decode": "87.638"
+  },
+  {
+    "source": "abc-alpha",
+    "chroma": "444",
+    "encoder": "rav1e",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=3863 peak_managed_bytes=5450864 encoder_frame_bytes=1849344 orientation_buffer_bytes=524288 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+    "bytes": 3863,
+    "sha256": "540b2acb4e3b3c979951307a84940edf958037b7525ed04c4e018b2367f04595",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      {
+        "index": 1,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "gray10le",
+        "color_range": "pc"
+      }
+    ],
+    "libheif": {
+      "size": "256x512",
+      "layout": "YCbCr, 4:4:4",
+      "depth": "10",
+      "alpha": "yes",
+      "nclx": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "alpha_max_abs_diff_vs_source": 32
+  },
+  {
+    "source": "abc-alpha",
+    "chroma": "444",
+    "encoder": "aom-8",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=3617 peak_managed_bytes=4519024 encoder_frame_bytes=1048576 orientation_buffer_bytes=524288 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+    "bytes": 3617,
+    "sha256": "44d30d1195b4239d2b194830da8b023e4fb3ea5732df4d19717e87fda76b5609",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "yuv444p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      {
+        "index": 1,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "gray",
+        "color_range": "pc"
+      }
+    ],
+    "libheif": {
+      "size": "256x512",
+      "layout": "YCbCr, 4:4:4",
+      "depth": "8",
+      "alpha": "yes",
+      "nclx": [
+        "1",
+        "13",
+        "6",
+        "1"
+      ]
+    },
+    "alpha_max_abs_diff_vs_source": 13
+  },
+  {
+    "source": "abc-alpha",
+    "chroma": "444",
+    "encoder": "aom-10",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=3841 peak_managed_bytes=5043312 encoder_frame_bytes=1572864 orientation_buffer_bytes=524288 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+    "bytes": 3841,
+    "sha256": "1c120b3eb72b1489e7d7db579ee56a2deab7171016ec76ca0d4dfd4766321966",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "yuv444p10le",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      {
+        "index": 1,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "gray10le",
+        "color_range": "pc"
+      }
+    ],
+    "libheif": {
+      "size": "256x512",
+      "layout": "YCbCr, 4:4:4",
+      "depth": "10",
+      "alpha": "yes",
+      "nclx": [
+        "1",
+        "13",
+        "6",
+        "1"
+      ]
+    },
+    "alpha_max_abs_diff_vs_source": 9
+  },
+  {
+    "source": "abc-alpha",
+    "chroma": "420",
+    "encoder": "rav1e",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=3863 peak_managed_bytes=4571248 encoder_frame_bytes=968704 orientation_buffer_bytes=524288 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+    "bytes": 3863,
+    "sha256": "7459c3ec6af8db3b6282a7ecbc6ec101d84b1bfeb984b6cef7fc5fa3c66ffe61",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "yuv420p10le",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      {
+        "index": 1,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "gray10le",
+        "color_range": "pc"
+      }
+    ],
+    "libheif": {
+      "size": "256x512",
+      "layout": "YCbCr, 4:2:0",
+      "depth": "10",
+      "alpha": "yes",
+      "nclx": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "alpha_max_abs_diff_vs_source": 32
+  },
+  {
+    "source": "abc-alpha",
+    "chroma": "420",
+    "encoder": "aom-8",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=3616 peak_managed_bytes=4322416 encoder_frame_bytes=851968 orientation_buffer_bytes=524288 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+    "bytes": 3616,
+    "sha256": "6e0546730989288f53db68ec029de2957213784d35079c031a28ea7d92ed1633",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "yuv420p",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      {
+        "index": 1,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "gray",
+        "color_range": "pc"
+      }
+    ],
+    "libheif": {
+      "size": "256x512",
+      "layout": "YCbCr, 4:2:0",
+      "depth": "8",
+      "alpha": "yes",
+      "nclx": [
+        "1",
+        "13",
+        "6",
+        "1"
+      ]
+    },
+    "alpha_max_abs_diff_vs_source": 13
+  },
+  {
+    "source": "abc-alpha",
+    "chroma": "420",
+    "encoder": "aom-10",
+    "quality": 80,
+    "speed": 6,
+    "status": 0,
+    "report": "report: output_bytes=3839 peak_managed_bytes=4650096 encoder_frame_bytes=1179648 orientation_buffer_bytes=524288 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+    "bytes": 3839,
+    "sha256": "3a411fccf9c9723aca80d187e9ae1a00ae4f92e7ba342307016da21b39c0084f",
+    "ffprobe": [
+      {
+        "index": 0,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "yuv420p10le",
+        "color_range": "pc",
+        "color_space": "smpte170m",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709"
+      },
+      {
+        "index": 1,
+        "codec_name": "av1",
+        "width": 256,
+        "height": 512,
+        "pix_fmt": "gray10le",
+        "color_range": "pc"
+      }
+    ],
+    "libheif": {
+      "size": "256x512",
+      "layout": "YCbCr, 4:2:0",
+      "depth": "10",
+      "alpha": "yes",
+      "nclx": [
+        "1",
+        "13",
+        "6",
+        "1"
+      ]
+    },
+    "alpha_max_abs_diff_vs_source": 9
+  }
+]

@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-12
 - **Related:** [0018](0018-optional-codec-and-cms-dependencies.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0031](0031-workspace-libavif-input-experiment.md)
 
 ## Context
@@ -82,3 +82,16 @@ set changes, or a streaming encoder can demonstrably replace the full frame.
 
 - 2026-11-11 — Added opt-in facade and CLI selection through an independent
   safe writer bridge. The original Rav1e default and selection gates remain.
+- 2026-11-12 — Non-timing default-encoder evidence for issue #53
+  ([record](../benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)).
+  Both writers emit full-range 1/13/6 in the AV1 sequence header; only AOM
+  also writes a container `colr nclx` box. Rav1e is always 10-bit and encodes
+  alpha at a fixed quality 80; AOM uses 8 or 10 bits and the color quality
+  for alpha. The quality scales differ (rav1e 70/80/90 matched AOM about
+  50/55/78 here), so a default switch needs a quality mapping or a documented
+  scale change. Independent FFmpeg/libdav1d, libheif and rav1d decodes
+  accepted every output. AOM output differed by a few bytes between this
+  ARM64 host and the earlier x86-64 smoke at two settings, while rav1e bytes
+  matched. The record recommends switching the default to AOM after the
+  pending timing evidence, keeping rav1e as an explicit non-default backend.
+  This amendment does not change the default.
