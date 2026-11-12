@@ -3,13 +3,16 @@
 
 //! The general frame entry of lib/jxl/enc_frame.cc for the admitted lossy
 //! VarDCT profile: EncodeFrame (the JxlEncoderChunkedFrameAdapter overload)
-//! with its setting resolution, CanDoStreamingEncoding, EncodeFrameOneShot,
+//! with its setting resolution, CanDoStreamingEncoding, EncodeFrameStreaming
+//! for output modes 0 and 1 with ComputePermutationForStreaming, TOCBucket,
+//! TOCSize, ComputeGroupDataOffset, ComputeDcGlobalPadding, OutputGroups,
+//! RemoveUnusedHistograms and OutputAcGlobal, EncodeFrameOneShot,
 //! PermuteGroups' early return, GetBitDepth, general CopyColorChannels, the
 //! VarDCT branch of ComputeEncodingData, ComputeChromacityAdjustments with
 //! PixelStatsForChromacityAdjustment, the reached ComputeNoiseParams and
 //! DownsampleColorChannels branches, ComputeVarDCTEncodingData,
-//! ComputeAllCoeffOrders, TokenizeAllCoefficients, EncodeGlobalDCInfo, the
-//! non-streaming EncodeGlobalACInfo and EncodeGroups. Serial: RunOnPool
+//! ComputeAllCoeffOrders, TokenizeAllCoefficients, EncodeGlobalDCInfo,
+//! EncodeGlobalACInfo and EncodeGroups, with their streaming branches. Serial: RunOnPool
 //! without a runner runs one thread in index order. The fixed lossless
 //! Thunder configuration in `enc_frame.rs` remains a separate internal entry.
 //!
@@ -32,20 +35,23 @@ use super::base::bits::ceil_log2_nonzero;
 use super::base::float::{max_f32, mul_add_f64};
 use super::base::override_option::Override;
 use super::base::rect::Rect;
-use super::base::status::{Status, StatusCode};
+use super::base::status::{Status, StatusCode, StatusOr};
 use super::chroma_from_luma::ColorCorrelationMap;
 use super::coeff_order::COEFF_ORDER_MAX_SIZE;
+use super::coeff_order_fwd::CoeffOrder;
 use super::common::SpeedTier;
 use super::dct_util::{AcType, ConstAcPtr};
 use super::dec_modular::ModularStreamId;
+use super::enc_ans::EntropyEncodingData;
 use super::enc_ans_params::{HistogramParams, LZ77Method};
 use super::enc_aux_out::LayerType;
 use super::enc_bit_writer::BitWriter;
 use super::enc_cache::{PassesEncoderState, compute_ac_metadata, initialize_passes_encoder};
 use super::enc_chroma_from_luma::color_correlation_encode_dc;
 use super::enc_coeff_order::{compute_coeff_order, compute_used_orders, encode_coeff_orders};
+use super::enc_context_map::CLUSTERS_LIMIT;
 use super::enc_context_map::encode_block_ctx_map;
-use super::enc_entropy::build_and_encode_histograms;
+use super::enc_entropy::{build_and_encode_histograms, encode_histograms};
 use super::enc_entropy_coder::tokenize_coefficients;
 use super::enc_external_image::convert_from_external_plane_no_size_check;
 use super::enc_fields::{u32_coder, write_frame_header, write_quantizer_params};
@@ -76,7 +82,10 @@ use super::image_metadata::{CodecMetadata, ExtraChannel, ImageMetadata};
 use super::image_ops::{
     copy_image_to, copy_rect3_to, fill_plane, pad_image_to_block_multiple_in_place,
 };
-use super::toc::ac_group_index;
+use super::toc::{ac_group_index, num_toc_entries};
+
+/// kNumFixedHistograms from enc_ans.h.
+const NUM_FIXED_HISTOGRAMS: usize = 1;
 use super::types::{JxlBitDepth, JxlBitDepthType, JxlPixelFormat};
 
 /// The source checkpoints of the frame encoder at which the public encoder
@@ -84,7 +93,8 @@ use super::types::{JxlBitDepth, JxlBitDepthType, JxlPixelFormat};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FrameAdmission {
     /// EncodeFrame when CanDoStreamingEncoding selects EncodeFrameStreaming
-    /// (step 2).
+    /// for a frame outside the admitted profile, and its container output
+    /// mode 2.
     StreamingFrame,
     /// EncodeFrame for settings, metadata or input outside the admitted
     /// one-shot profile (see [`admitted_frame_profile`]), and the reached
@@ -114,8 +124,9 @@ fn admission<T>(checkpoint: FrameAdmission) -> FrameResult<T> {
     Err(EncodeFrameError::Admission(checkpoint))
 }
 
-/// The admitted one-shot profile of encoder step 1, decided on the resolved
-/// parameters at the point where EncodeFrame chooses EncodeFrameOneShot:
+/// The admitted profile of encoder steps 1 and 2, decided on the resolved
+/// parameters at the point where EncodeFrame chooses EncodeFrameStreaming or
+/// EncodeFrameOneShot:
 /// effort 7 (kSquirrel) lossy VarDCT with XYB at distances below
 /// kMinButteraugliForDots, gray or RGB enum sRGB or linear sRGB without extra
 /// channels, a single displayed full-size frame without blending, names or
@@ -595,19 +606,16 @@ fn encode_global_dc_info(enc_state: &PassesEncoderState<'_>, writer: &mut BitWri
     Ok(())
 }
 
-/// EncodeGlobalACInfo for the non-streaming mode, with the default matrices
-/// that FindBestDequantMatrices selects in the admitted profile.
+/// EncodeGlobalACInfo with the default matrices that FindBestDequantMatrices
+/// selects in the admitted profile. In streaming mode it only clusters and
+/// stores the histograms; OutputAcGlobal writes the AC global section.
 fn encode_global_ac_info(
     enc_state: &mut PassesEncoderState<'_>,
     writer: &mut BitWriter,
 ) -> FrameResult {
-    if enc_state.streaming_mode {
-        // The streaming histogram budget is step 2.
-        return admission(FrameAdmission::StreamingFrame);
-    }
     dequant_matrices_encode_default(&enc_state.shared.matrices, writer, LayerType::Quant, None)?;
     let num_histo_bits = ceil_log2_nonzero(enc_state.shared.frame_dim.num_groups);
-    if num_histo_bits != 0 {
+    if !enc_state.streaming_mode && num_histo_bits != 0 {
         let num_histograms = enc_state.shared.num_histograms;
         writer.with_max_bits(
             num_histo_bits,
@@ -623,24 +631,26 @@ fn encode_global_ac_info(
 
     for i in 0..enc_state.progressive_splitter.get_num_passes() {
         // Encode coefficient orders.
-        let used_orders = enc_state.used_orders[i];
-        let mut order_bits = 0;
-        can_encode(ORDER_ENC, used_orders, &mut order_bits)?;
-        writer.with_max_bits(
-            order_bits,
-            LayerType::Order,
-            None,
-            |w, _| u32_coder::write(ORDER_ENC, used_orders, w),
-            false,
-        )?;
-        let size = enc_state.shared.coeff_order_size;
-        encode_coeff_orders(
-            used_orders as u16,
-            &enc_state.shared.coeff_orders[i * size..],
-            writer,
-            LayerType::Order,
-            None,
-        )?;
+        if !enc_state.streaming_mode {
+            let used_orders = enc_state.used_orders[i];
+            let mut order_bits = 0;
+            can_encode(ORDER_ENC, used_orders, &mut order_bits)?;
+            writer.with_max_bits(
+                order_bits,
+                LayerType::Order,
+                None,
+                |w, _| u32_coder::write(ORDER_ENC, used_orders, w),
+                false,
+            )?;
+            let size = enc_state.shared.coeff_order_size;
+            encode_coeff_orders(
+                used_orders as u16,
+                &enc_state.shared.coeff_orders[i * size..],
+                writer,
+                LayerType::Order,
+                None,
+            )?;
+        }
 
         // Encode histograms.
         let num_ac_contexts = enc_state.shared.block_ctx_map.num_ac_contexts() as usize;
@@ -652,7 +662,23 @@ fn encode_global_ac_info(
         if enc_state.cparams.decoding_speed_tier >= 1 {
             hist_params.max_histograms = 6;
         }
-        let num_histogram_groups = enc_state.shared.num_histograms;
+        let mut num_histogram_groups = enc_state.shared.num_histograms;
+        if enc_state.streaming_mode {
+            let mut prev_num_histograms = enc_state.passes[i].codes.encoding_info.len();
+            if enc_state.initialize_global_state {
+                prev_num_histograms += NUM_FIXED_HISTOGRAMS;
+                hist_params.add_fixed_histograms = true;
+            }
+            let remaining_histograms = CLUSTERS_LIMIT.wrapping_sub(prev_num_histograms);
+            // Heuristic to assign budget of new histograms to DC groups.
+            let max_histograms = if remaining_histograms < 20 {
+                remaining_histograms.min(4)
+            } else {
+                remaining_histograms / 4
+            };
+            hist_params.max_histograms = max_histograms.min(hist_params.max_histograms);
+            num_histogram_groups = 1;
+        }
         hist_params.streaming_mode = enc_state.streaming_mode;
         hist_params.initialize_global_state = enc_state.initialize_global_state;
         let pass = &mut enc_state.passes[i];
@@ -669,8 +695,8 @@ fn encode_global_ac_info(
     Ok(())
 }
 
-/// EncodeGroups for a non-streaming VarDCT frame without patches, splines or
-/// noise (their encoders are admission results).
+/// EncodeGroups for a VarDCT frame without patches, splines or noise (their
+/// encoders are admission results).
 fn encode_groups(
     frame_header: &FrameHeader<'_>,
     enc_state: &mut PassesEncoderState<'_>,
@@ -690,9 +716,6 @@ fn encode_groups(
     };
     if !group_codes.is_empty() {
         return Err(StatusCode::GenericError.into());
-    }
-    if enc_state.streaming_mode {
-        return admission(FrameAdmission::StreamingFrame);
     }
     group_codes.reserve(num_toc_entries);
     for _ in 0..num_toc_entries {
@@ -720,10 +743,24 @@ fn encode_groups(
     }
 
     // RunOnPool over the DC groups: one thread, groups in index order. The
-    // AuxOut array is null without an aux_out.
-    for group_index in 0..frame_dim.num_dc_groups as u32 {
-        let group_index = group_index as usize;
-        let input_index = group_index;
+    // AuxOut array is null without an aux_out. Streaming encodes only the
+    // current DC group.
+    let dc_groups: Vec<usize> = if enc_state.streaming_mode {
+        if frame_dim.num_dc_groups != 1 {
+            return Err(StatusCode::GenericError.into());
+        }
+        vec![enc_state.dc_group_index]
+    } else {
+        (0..frame_dim.num_dc_groups as u32)
+            .map(|g| g as usize)
+            .collect()
+    };
+    for group_index in dc_groups {
+        let input_index = if enc_state.streaming_mode {
+            0
+        } else {
+            group_index
+        };
         let output = &mut group_codes[output_index(input_index + 1)];
         if frame_header.encoding == FrameEncoding::VAR_DCT
             && frame_header.flags & FLAG_USE_DC_FRAME == 0
@@ -783,7 +820,15 @@ fn encode_groups(
 
     for group_index in 0..num_groups as u32 {
         let group_index = group_index as usize;
-        let ac_group_id = group_index;
+        let ac_group_id = if enc_state.streaming_mode {
+            enc_modular.compute_streaming_absolute_ac_group_id(
+                enc_state.dc_group_index,
+                group_index,
+                &enc_state.shared.frame_dim,
+            )
+        } else {
+            group_index
+        };
         for i in 0..num_passes {
             let output = &mut group_codes[output_index(ac_group_index(
                 i,
@@ -826,8 +871,8 @@ fn encode_groups(
     Ok(())
 }
 
-/// ComputeEncodingData for the non-streaming VarDCT frame of the admitted
-/// profile. The original's other branches (JPEG input, extra channels,
+/// ComputeEncodingData for a VarDCT frame of the admitted profile, whole or
+/// one DC group in streaming mode. The original's other branches (JPEG input, extra channels,
 /// non-XYB or color-transformed input, streaming) are admission results at
 /// their checkpoints.
 #[expect(
@@ -856,9 +901,18 @@ fn compute_encoding_data<'m>(
         let shared = &mut enc_state.shared;
         shared.metadata = Some(metadata);
         if enc_state.streaming_mode {
-            return admission(FrameAdmission::StreamingFrame);
+            shared.frame_dim.set(
+                xsize,
+                ysize,
+                mutable_frame_header.group_size_shift as usize,
+                0,
+                0,
+                mutable_frame_header.encoding == FrameEncoding::MODULAR,
+                1,
+            );
+        } else {
+            shared.frame_dim = mutable_frame_header.to_frame_dimensions();
         }
-        shared.frame_dim = mutable_frame_header.to_frame_dimensions();
         shared.bind_own_reference_frames();
         let dim = shared.frame_dim;
         shared.ac_strategy = AcStrategyImage::create(dim.xsize_blocks, dim.ysize_blocks)?;
@@ -889,7 +943,14 @@ fn compute_encoding_data<'m>(
     let alpha_eci = metadata.m.find(ExtraChannel::ALPHA);
     let c_enc = metadata.m.color_encoding.clone();
 
-    let max_border = 0; // not streaming
+    // Make the image patch bigger than the currently processed group in
+    // streaming mode so that we can take into account border pixels around
+    // the group when computing inverse Gaborish and adaptive quantization map.
+    let max_border = if enc_state.streaming_mode {
+        BLOCK_DIM
+    } else {
+        0
+    };
     let frame_rect = Rect::new(0, 0, frame_data.xsize(), frame_data.ysize());
     let frame_area_rect = Rect::new(x0, y0, xsize, ysize);
     let patch_rect = frame_area_rect.extend(max_border, frame_rect);
@@ -975,7 +1036,9 @@ fn compute_encoding_data<'m>(
         // No extra channels: the loop has no iteration.
     }
 
-    group_rect = Rect::new(0, 0, color.xsize(), color.ysize());
+    if !enc_state.streaming_mode {
+        group_rect = Rect::new(0, 0, color.xsize(), color.ysize());
+    }
 
     if mutable_frame_header.encoding != FrameEncoding::VAR_DCT {
         return admission(FrameAdmission::FrameProfile);
@@ -999,31 +1062,41 @@ fn compute_encoding_data<'m>(
         enc_state,
     )?;
     compute_all_coeff_orders(enc_state, &frame_dim)?;
-    enc_state.shared.num_histograms = 1;
-    enc_state.histogram_idx.resize(frame_dim.num_groups, 0);
+    if !enc_state.streaming_mode {
+        enc_state.shared.num_histograms = 1;
+        enc_state.histogram_idx.resize(frame_dim.num_groups, 0);
+    }
     tokenize_all_coefficients(frame_header, enc_state)?;
 
     if cparams.modular_mode {
         return admission(FrameAdmission::FrameProfile);
     }
 
-    // If checks pass here and CanDoStreamingEncoding returns false
-    // a Global MA tree is used.
-    if cparams.speed_tier < SpeedTier::Tortoise
-        || !cparams.modular_part_is_lossless()
-        || cparams.lossy_palette
-        || (!(cparams.responsive == 1 && cparams.is_lossless()) && cparams.buffering < 3)
-        || !cparams.custom_fixed_tree.is_empty()
-    {
-        enc_modular.compute_tree()?;
-        enc_modular.compute_tokens()?;
+    if !enc_state.streaming_mode {
+        // If checks pass here and CanDoStreamingEncoding returns false
+        // a Global MA tree is used.
+        if cparams.speed_tier < SpeedTier::Tortoise
+            || !cparams.modular_part_is_lossless()
+            || cparams.lossy_palette
+            || (!(cparams.responsive == 1 && cparams.is_lossless()) && cparams.buffering < 3)
+            || !cparams.custom_fixed_tree.is_empty()
+        {
+            enc_modular.compute_tree()?;
+            enc_modular.compute_tokens()?;
+        }
+        let has_patches = enc_state.shared.image_features.patches.borrow().has_any();
+        let has_splines = enc_state.shared.image_features.splines.borrow().has_any();
+        mutable_frame_header.update_flag(has_patches, FLAG_PATCHES);
+        mutable_frame_header.update_flag(has_splines, FLAG_SPLINES);
     }
-    let has_patches = enc_state.shared.image_features.patches.borrow().has_any();
-    let has_splines = enc_state.shared.image_features.splines.borrow().has_any();
-    mutable_frame_header.update_flag(has_patches, FLAG_PATCHES);
-    mutable_frame_header.update_flag(has_splines, FLAG_SPLINES);
 
     encode_groups(mutable_frame_header, enc_state, enc_modular, group_codes)?;
+    if enc_state.streaming_mode {
+        let group_index = enc_state.dc_group_index;
+        enc_modular.clear_stream_data(&ModularStreamId::var_dct_dc(group_index));
+        enc_modular.clear_stream_data(&ModularStreamId::ac_metadata(group_index));
+        enc_modular.clear_modular_stream_data();
+    }
     Ok(())
 }
 
@@ -1110,6 +1183,453 @@ fn encode_frame_one_shot(
     writer.append_byte_aligned_writers(&refs)?;
     let frame_bytes = writer.take_bytes();
     append_data(output_processor, frame_bytes.as_slice())?;
+    Ok(())
+}
+
+/// ComputePermutationForStreaming.
+fn compute_permutation_for_streaming(
+    xsize: usize,
+    ysize: usize,
+    group_size: usize,
+    num_passes: usize,
+    permutation: &mut Vec<CoeffOrder>,
+    dc_group_order: &mut Vec<usize>,
+) -> Status {
+    // This is only valid in VarDCT mode, otherwise there can be group shift.
+    let dc_group_size = group_size * BLOCK_DIM;
+    let group_xsize = xsize.div_ceil(group_size);
+    let group_ysize = ysize.div_ceil(group_size);
+    let dc_group_xsize = xsize.div_ceil(dc_group_size);
+    let dc_group_ysize = ysize.div_ceil(dc_group_size);
+    let num_groups = group_xsize * group_ysize;
+    let num_dc_groups = dc_group_xsize * dc_group_ysize;
+    let num_sections = 2 + num_dc_groups + num_passes * num_groups;
+    permutation.resize(num_sections, 0);
+    let mut new_ix = 0usize;
+    // DC Global is first
+    permutation[0] = new_ix as CoeffOrder;
+    new_ix += 1;
+    for dc_y in 0..dc_group_ysize {
+        for dc_x in 0..dc_group_xsize {
+            let dc_ix = dc_y * dc_group_xsize + dc_x;
+            dc_group_order.push(dc_ix);
+            permutation[1 + dc_ix] = new_ix as CoeffOrder;
+            new_ix += 1;
+            let ac_y0 = dc_y * BLOCK_DIM;
+            let ac_x0 = dc_x * BLOCK_DIM;
+            let ac_y1 = group_ysize.min(ac_y0 + BLOCK_DIM);
+            let ac_x1 = group_xsize.min(ac_x0 + BLOCK_DIM);
+            for pass in 0..num_passes {
+                for ac_y in ac_y0..ac_y1 {
+                    for ac_x in ac_x0..ac_x1 {
+                        let group_ix = ac_y * group_xsize + ac_x;
+                        let old_ix = ac_group_index(pass, group_ix, num_groups, num_dc_groups);
+                        permutation[old_ix] = new_ix as CoeffOrder;
+                        new_ix += 1;
+                    }
+                }
+            }
+        }
+    }
+    // AC Global is last
+    permutation[1 + num_dc_groups] = new_ix as CoeffOrder;
+    new_ix += 1;
+    if new_ix != num_sections {
+        return Err(StatusCode::GenericError);
+    }
+    Ok(())
+}
+
+const GROUP_SIZE_OFFSET: [usize; 4] = [0, 1024, 17408, 4211712];
+const TOC_BITS: [usize; 4] = [12, 16, 24, 32];
+
+/// TOCBucket.
+fn toc_bucket(group_size: usize) -> usize {
+    let mut bucket = 0;
+    while bucket < 3 && group_size >= GROUP_SIZE_OFFSET[bucket + 1] {
+        bucket += 1;
+    }
+    bucket
+}
+
+/// TOCSize.
+fn toc_size(group_sizes: &[usize]) -> usize {
+    let toc_bits: usize = group_sizes.iter().map(|&s| TOC_BITS[toc_bucket(s)]).sum();
+    toc_bits.div_ceil(8)
+}
+
+/// ComputeGroupDataOffset.
+fn compute_group_data_offset(
+    frame_header_size: usize,
+    dc_global_size: usize,
+    num_sections: usize,
+    min_dc_global_size: &mut usize,
+    group_offset: &mut usize,
+) -> Status {
+    let mut max_toc_bits = (num_sections - 1) * 32;
+    let min_toc_bits = (num_sections - 1) * 12;
+    let max_padding = (max_toc_bits - min_toc_bits).div_ceil(8);
+    *min_dc_global_size = dc_global_size;
+    let mut dc_global_bucket = toc_bucket(*min_dc_global_size);
+    while toc_bucket(*min_dc_global_size + max_padding) > dc_global_bucket {
+        dc_global_bucket = toc_bucket(*min_dc_global_size + max_padding);
+        *min_dc_global_size = GROUP_SIZE_OFFSET[dc_global_bucket];
+    }
+    if toc_bucket(*min_dc_global_size) != dc_global_bucket
+        || toc_bucket(*min_dc_global_size + max_padding) != dc_global_bucket
+    {
+        return Err(StatusCode::GenericError);
+    }
+    max_toc_bits += TOC_BITS[dc_global_bucket];
+    let max_toc_size = max_toc_bits.div_ceil(8);
+    *group_offset = frame_header_size + max_toc_size + *min_dc_global_size;
+    Ok(())
+}
+
+/// ComputeDcGlobalPadding.
+fn compute_dc_global_padding(
+    group_sizes: &[usize],
+    frame_header_size: usize,
+    group_data_offset: usize,
+    min_dc_global_size: usize,
+) -> usize {
+    let mut new_group_sizes = group_sizes.to_vec();
+    new_group_sizes[0] = min_dc_global_size;
+    let toc = toc_size(&new_group_sizes);
+    let actual_offset = frame_header_size + toc + group_sizes[0];
+    group_data_offset.wrapping_sub(actual_offset)
+}
+
+/// RemoveUnusedHistograms.
+fn remove_unused_histograms(codes: &mut EntropyEncodingData) {
+    let mut remap = vec![-1i32; 256];
+    let mut inv_remap: Vec<u8> = Vec::new();
+    for context in codes.context_map.iter_mut() {
+        let histo_ix = *context;
+        if remap[usize::from(histo_ix)] == -1 {
+            remap[usize::from(histo_ix)] = inv_remap.len() as i32;
+            inv_remap.push(histo_ix);
+        }
+        *context = remap[usize::from(histo_ix)] as u8;
+    }
+    let mut new_codes = EntropyEncodingData {
+        use_prefix_code: codes.use_prefix_code,
+        lz77: codes.lz77.clone(),
+        context_map: std::mem::take(&mut codes.context_map),
+        ..EntropyEncodingData::default()
+    };
+    let mut encoding_info: Vec<Option<_>> = std::mem::take(&mut codes.encoding_info)
+        .into_iter()
+        .map(Some)
+        .collect();
+    let mut encoded: Vec<Option<_>> = std::mem::take(&mut codes.encoded_histograms)
+        .into_iter()
+        .map(Some)
+        .collect();
+    for &histo_idx in &inv_remap {
+        let h = usize::from(histo_idx);
+        new_codes
+            .encoding_info
+            .push(encoding_info[h].take().unwrap_or_default());
+        new_codes.uint_config.push(codes.uint_config[h]);
+        new_codes
+            .encoded_histograms
+            .push(encoded[h].take().unwrap_or_else(BitWriter::new));
+    }
+    *codes = new_codes;
+}
+
+/// OutputAcGlobal.
+fn output_ac_global(
+    enc_state: &mut PassesEncoderState<'_>,
+    frame_dim: &FrameDimensions,
+) -> StatusOr<BitWriter> {
+    if frame_dim.num_groups <= 1 {
+        return Err(StatusCode::GenericError);
+    }
+    let mut writer = BitWriter::new();
+    {
+        let num_histo_bits = ceil_log2_nonzero(frame_dim.num_groups);
+        let num_dc_groups = frame_dim.num_dc_groups;
+        writer.with_max_bits(
+            num_histo_bits + 1,
+            LayerType::Ac,
+            None,
+            |w, _| {
+                w.write(1, 1); // default dequant matrices
+                w.write(num_histo_bits, num_dc_groups as u64 - 1);
+                Ok(())
+            },
+            false,
+        )?;
+    }
+    for i in 0..enc_state.progressive_splitter.get_num_passes() {
+        // Encode coefficient orders.
+        let used_orders = enc_state.used_orders[i];
+        let mut order_bits = 0;
+        can_encode(ORDER_ENC, used_orders, &mut order_bits)?;
+        writer.with_max_bits(
+            order_bits,
+            LayerType::Order,
+            None,
+            |w, _| u32_coder::write(ORDER_ENC, used_orders, w),
+            false,
+        )?;
+        let size = enc_state.shared.coeff_order_size;
+        encode_coeff_orders(
+            used_orders as u16,
+            &enc_state.shared.coeff_orders[i * size..],
+            &mut writer,
+            LayerType::Order,
+            None,
+        )?;
+        // Fix up context map and entropy codes to remove any fix histograms
+        // that were not selected by clustering.
+        remove_unused_histograms(&mut enc_state.passes[i].codes);
+        encode_histograms(
+            &mut enc_state.passes[i].codes,
+            &mut writer,
+            LayerType::Ac,
+            None,
+        )?;
+    }
+    writer.with_max_bits(
+        8,
+        LayerType::Ac,
+        None,
+        |w, _| {
+            w.zero_pad_to_byte(); // end of group.
+            Ok(())
+        },
+        false,
+    )?;
+    Ok(writer)
+}
+
+/// EncodeFrameStreaming for output modes 0 (collected sections) and 1
+/// (streaming output with the TOC written after the groups); mode 2 is a
+/// container mode outside the profile.
+#[expect(clippy::needless_range_loop, reason = "Keep the source index loops.")]
+fn encode_frame_streaming(
+    cparams: &CompressParams<'static>,
+    frame_info: &FrameInfo,
+    metadata: &CodecMetadata,
+    frame_data: &JxlEncoderChunkedFrameAdapter<'_>,
+    output_processor: &mut JxlEncoderOutputProcessorWrapper,
+) -> FrameResult {
+    let output_mode = cparams.output_mode;
+    if output_mode == 2 {
+        return admission(FrameAdmission::StreamingFrame);
+    }
+    let mut enc_state = Box::new(PassesEncoderState::new());
+    set_progressive_mode(cparams, &mut enc_state.progressive_splitter);
+    let mut frame_header = FrameHeader::new(Some(metadata));
+    make_frame_header(
+        frame_data.xsize(),
+        frame_data.ysize(),
+        cparams,
+        &enc_state.progressive_splitter,
+        frame_info,
+        None,
+        true,
+        &mut frame_header,
+    )?;
+    let num_passes = enc_state.progressive_splitter.get_num_passes();
+    let mut enc_modular = ModularFrameEncoder::create(&frame_header, cparams, true)?;
+    let mut permutation = Vec::new();
+    let mut dc_group_order = Vec::new();
+    let full_dim = frame_header.to_frame_dimensions();
+    let group_size = full_dim.group_dim;
+    compute_permutation_for_streaming(
+        frame_data.xsize(),
+        frame_data.ysize(),
+        group_size,
+        num_passes,
+        &mut permutation,
+        &mut dc_group_order,
+    )?;
+    enc_state.shared.num_histograms = dc_group_order.len();
+    let dc_group_size = group_size * BLOCK_DIM;
+    let dc_group_xsize = frame_data.xsize().div_ceil(dc_group_size);
+    let mut min_dc_global_size = 0;
+    let mut group_data_offset = 0;
+    let mut frame_header_bytes: Vec<u8> = Vec::new();
+    let mut dc_global_bytes: Vec<u8> = Vec::new();
+    let mut group_sizes: Vec<usize> = Vec::new();
+    let streaming_output = output_mode == 1;
+    let streaming = output_mode >= 1;
+    let start_pos = if streaming_output {
+        output_processor.current_position()
+    } else {
+        0
+    };
+    let total_sections = num_toc_entries(full_dim.num_groups, dc_group_order.len(), num_passes);
+    let mut global_group_codes: Vec<Option<BitWriter>> = if streaming {
+        Vec::new()
+    } else {
+        (0..total_sections).map(|_| None).collect()
+    };
+
+    // PermuteGroups: no center-first order in the admitted profile.
+    let group_order_perm: Vec<CoeffOrder> = Vec::new();
+    permute_groups(cparams, &full_dim, num_passes)?;
+
+    for i in 0..dc_group_order.len() {
+        let dc_ix = dc_group_order[i];
+        let dc_y = dc_ix / dc_group_xsize;
+        let dc_x = dc_ix % dc_group_xsize;
+        let y0 = dc_y * dc_group_size;
+        let x0 = dc_x * dc_group_size;
+        let ysize = dc_group_size.min(frame_data.ysize() - y0);
+        let xsize = dc_group_size.min(frame_data.xsize() - x0);
+        let group_xsize = xsize.div_ceil(group_size);
+        let group_ysize = ysize.div_ceil(group_size);
+        enc_state.streaming_mode = true;
+        enc_state.initialize_global_state = i == 0;
+        enc_state.dc_group_index = dc_ix;
+        enc_state.histogram_idx = vec![i; group_xsize * group_ysize];
+        let mut group_codes = Vec::new();
+        compute_encoding_data(
+            cparams,
+            frame_info,
+            metadata,
+            frame_data,
+            x0,
+            y0,
+            xsize,
+            ysize,
+            &mut frame_header,
+            &mut enc_modular,
+            &mut enc_state,
+            &mut group_codes,
+        )?;
+        if !enc_state.special_frames.is_empty() {
+            return Err(StatusCode::GenericError.into());
+        }
+        if i == 0 {
+            let mut writer = BitWriter::new();
+            write_frame_header(&mut frame_header, &mut writer, None)?;
+            write_toc_permutation(
+                if streaming_output {
+                    &permutation
+                } else {
+                    &group_order_perm
+                },
+                &mut writer,
+                None,
+            )?;
+            frame_header_bytes = writer.take_bytes().as_slice().to_vec();
+            if streaming_output {
+                dc_global_bytes = std::mem::take(&mut group_codes[0])
+                    .take_bytes()
+                    .as_slice()
+                    .to_vec();
+                compute_group_data_offset(
+                    frame_header_bytes.len(),
+                    dc_global_bytes.len(),
+                    permutation.len(),
+                    &mut min_dc_global_size,
+                    &mut group_data_offset,
+                )?;
+                group_sizes.push(dc_global_bytes.len());
+                output_processor.seek(start_pos + group_data_offset)?;
+            }
+        }
+        if streaming {
+            // OutputGroups.
+            if group_codes.len() < 4 {
+                return Err(StatusCode::GenericError.into());
+            }
+            let bytes = std::mem::take(&mut group_codes[1]).take_bytes();
+            group_sizes.push(bytes.len());
+            append_data(output_processor, bytes.as_slice())?;
+            for code in group_codes.iter_mut().skip(3) {
+                let bytes = std::mem::take(code).take_bytes();
+                group_sizes.push(bytes.len());
+                append_data(output_processor, bytes.as_slice())?;
+            }
+        } else {
+            if group_codes.len() < 4 {
+                return Err(StatusCode::GenericError.into());
+            }
+            if i == 0 {
+                group_codes[0].shrink()?;
+                global_group_codes[0] = Some(std::mem::take(&mut group_codes[0]));
+            }
+            group_codes[1].shrink()?;
+            global_group_codes[1 + i] = Some(std::mem::take(&mut group_codes[1]));
+            for j in 3..group_codes.len() {
+                let mut patch_dim = FrameDimensions::default();
+                patch_dim.set(
+                    xsize,
+                    ysize,
+                    frame_header.group_size_shift as usize,
+                    0,
+                    0,
+                    frame_header.encoding == FrameEncoding::MODULAR,
+                    1,
+                );
+                let global_ac_idx =
+                    enc_modular.compute_streaming_absolute_ac_group_id(i, j - 3, &patch_dim);
+                group_codes[j].shrink()?;
+                global_group_codes[2 + dc_group_order.len() + global_ac_idx] =
+                    Some(std::mem::take(&mut group_codes[j]));
+            }
+        }
+    }
+    let mut writer = output_ac_global(&mut enc_state, &full_dim)?;
+    writer.shrink()?;
+    if streaming {
+        let bytes = writer.take_bytes();
+        group_sizes.push(bytes.len());
+        append_data(output_processor, bytes.as_slice())?;
+    } else {
+        global_group_codes[1 + dc_group_order.len()] = Some(writer);
+    }
+    if streaming_output {
+        if group_sizes.len() != permutation.len() {
+            return Err(StatusCode::GenericError.into());
+        }
+        let end_pos = output_processor.current_position();
+        output_processor.seek(start_pos)?;
+        let padding_size = compute_dc_global_padding(
+            &group_sizes,
+            frame_header_bytes.len(),
+            group_data_offset,
+            min_dc_global_size,
+        );
+        group_sizes[0] += padding_size;
+        let mut toc_writer = BitWriter::new();
+        write_toc_sizes(&group_sizes, &mut toc_writer, None)?;
+        let toc_bytes = toc_writer.take_bytes();
+        let padding_bytes = vec![0u8; padding_size];
+        append_data(output_processor, &frame_header_bytes)?;
+        append_data(output_processor, toc_bytes.as_slice())?;
+        append_data(output_processor, &dc_global_bytes)?;
+        append_data(output_processor, &padding_bytes)?;
+        if output_processor.current_position() != start_pos + group_data_offset {
+            return Err(StatusCode::GenericError.into());
+        }
+        output_processor.seek(end_pos)?;
+    } else {
+        let mut codes = Vec::with_capacity(global_group_codes.len());
+        for g in global_group_codes {
+            let g = g.ok_or(StatusCode::GenericError)?;
+            group_sizes.push(g.bits_written() / 8);
+            codes.push(g);
+        }
+        if group_sizes.len() != permutation.len() {
+            return Err(StatusCode::GenericError.into());
+        }
+        let mut combined = BitWriter::new();
+        write_frame_header(&mut frame_header, &mut combined, None)?;
+        write_toc_permutation(&group_order_perm, &mut combined, None)?;
+        write_toc_sizes(&group_sizes, &mut combined, None)?;
+        append_data(output_processor, combined.take_bytes().as_slice())?;
+        for g in codes {
+            append_data(output_processor, g.take_bytes().as_slice())?;
+        }
+    }
     Ok(())
 }
 
@@ -1247,9 +1767,7 @@ pub fn encode_frame(
         return Err(StatusCode::GenericError.into());
     }
 
-    if can_do_streaming_encoding(&cparams, frame_info, metadata, frame_data) {
-        return admission(FrameAdmission::StreamingFrame);
-    }
+    let streaming = can_do_streaming_encoding(&cparams, frame_info, metadata, frame_data);
     if !admitted_frame_profile(
         &cparams,
         frame_info,
@@ -1257,7 +1775,20 @@ pub fn encode_frame(
         frame_data,
         default_memory_manager,
     ) {
-        return admission(FrameAdmission::FrameProfile);
+        return admission(if streaming {
+            FrameAdmission::StreamingFrame
+        } else {
+            FrameAdmission::FrameProfile
+        });
+    }
+    if streaming {
+        return encode_frame_streaming(
+            &cparams,
+            frame_info,
+            metadata,
+            frame_data,
+            output_processor,
+        );
     }
     // output_mode 2 (the jxlp gap) is a container mode, outside the profile.
     encode_frame_one_shot(&cparams, frame_info, metadata, frame_data, output_processor)

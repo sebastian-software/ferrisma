@@ -1077,7 +1077,7 @@ fn public_encoder_lossy_vardct_admissions_and_rejections_match_original() {
         0,
         &lossy_history(16, 16, false, 0, 4, 0.5, 0, "", " o0,9,1"),
     ));
-    // More than 8 groups take the streaming path (StreamingFrame).
+    // More than 8 groups take the streaming path (exact since step 2).
     for (xsize, ysize, buffering) in [(768, 768, -1), (2049, 300, 2), (768, 769, 3)] {
         requests.push(run(
             0,
@@ -1218,6 +1218,50 @@ fn public_encoder_lossy_vardct_decode_back_matches_original_decoder() {
         }
     }
     super::decoder_public::compare("lossy-decode-back", requests);
+}
+
+/// Encoder step 2: more than 8 groups take EncodeFrameStreaming, in output
+/// mode 0 (collected sections, buffering -1 to 2) and 1 (buffering 3, TOC
+/// written after the groups through output seeks).
+#[test]
+fn public_encoder_lossy_vardct_streaming_matches_original() {
+    let cases = [
+        (768, 768, -1),
+        (768, 769, 0),
+        (1000, 700, -1),
+        (2049, 300, 1),
+        (2049, 300, 2),
+        (768, 768, 3),
+        (1031, 517, 3),
+        (1024, 1024, -1),
+    ];
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize, buffering)) in cases.iter().enumerate() {
+        for gray in [false, true] {
+            let variant = index * 2 + usize::from(gray);
+            let settings = if buffering == -1 {
+                String::new()
+            } else {
+                format!(" o0,34,{buffering}")
+            };
+            requests.push(run(
+                0,
+                0,
+                &lossy_history(
+                    xsize,
+                    ysize,
+                    gray,
+                    variant % 4,
+                    1 + variant % 4,
+                    [0.5, 0.1, 0.69, 0.3][variant % 4],
+                    variant,
+                    "",
+                    &settings,
+                ),
+            ));
+        }
+    }
+    compare_admitted("lossy-streaming", requests);
 }
 
 #[test]
