@@ -10,45 +10,42 @@ use crate::jxl::base::status::Status;
 // Copyright (c) The Highway Project Authors. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // Scalar Add/MulAdd/operator* from hwy/ops/scalar-inl.h.
-#[inline(never)]
-fn add(a: f32, b: f32) -> f32 {
-    a + b
-}
-#[inline(never)]
-fn promote(a: f32) -> f64 {
-    f64::from(a)
-}
-#[inline(never)]
-fn product(a: f64, b: f64) -> f32 {
-    (a * b) as f32
-}
-fn mul(a: f32, b: f32) -> f32 {
-    product(promote(a), promote(b))
-}
-fn ma(a: f32, b: f32, c: f32) -> f32 {
-    add(mul(a, b), c)
-}
+// The row kernels of `scalar_rows` keep these Add/promote/product boundaries
+// per operation over a whole row.
+use super::scalar_rows::{self as k, Broadcast, lanes};
+
 // The selected original Linux x86_64 keeps the neighbor product first; the
 // established ARM mapping keeps the current value first. Retain NaN operand order.
-fn neighbor_add(neighbor: f32, current: f32) -> f32 {
+fn neighbor_add(out: &mut [f32], neighbor: &[f32], current: &[f32]) {
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     {
-        add(neighbor, current)
+        k::add(out, neighbor, current)
     }
     #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
     {
-        add(current, neighbor)
+        k::add(out, current, neighbor)
     }
+}
+
+/// Scratch rows of the row kernels.
+#[derive(Default)]
+struct ChromaRows {
+    f: [Vec<f32>; 4],
+    d: [Vec<f64>; 3],
+    /// The promoted 0.75 and 0.25.
+    scalars: [Broadcast; 2],
 }
 pub struct HorizontalChromaUpsamplingStage {
     channel: usize,
     /// Output samples of one call, written back after the loop.
     scratch: Vec<f32>,
+    rows: ChromaRows,
 }
 pub struct VerticalChromaUpsamplingStage {
     channel: usize,
     /// Output samples of one call for both output rows.
     scratch: [Vec<f32>; 2],
+    rows: ChromaRows,
 }
 impl RenderPipelineStage for HorizontalChromaUpsamplingStage {
     fn settings(&self) -> Settings {
@@ -72,17 +69,29 @@ impl RenderPipelineStage for HorizontalChromaUpsamplingStage {
         // and output rows may share a plane. Values, order and arithmetic are
         // unchanged; only addressing is hoisted.
         let span = buffers.row(Row { x: 0, ..row });
-        let at = |x: isize| row.x.wrapping_add_signed(x);
         let mut scratch = std::mem::take(&mut self.scratch);
         scratch.clear();
         let x_begin = -(left as isize);
-        for x in x_begin..width.wrapping_add(right) as isize {
-            let current = mul(span[at(x)], 0.75);
-            let prev = span[at(x - 1)];
-            let next = span[at(x + 1)];
-            // Keep the selected original target-specific addition operands.
-            let l = neighbor_add(mul(0.25, prev), current);
-            let r = neighbor_add(mul(0.25, next), current);
+        let n = (width.wrapping_add(right) as isize).wrapping_sub(x_begin) as usize;
+        // Lane by lane through the row kernels: current = mul(in[x], 0.75),
+        // l = neighbor_add(mul(0.25, in[x - 1]), current) and r likewise with
+        // in[x + 1]. The span is promoted once over n + 2 lanes; promotion is
+        // exact and deterministic, so shifted views equal per-tap promotion.
+        let ChromaRows { f, d, scalars } = &mut self.rows;
+        let [current, neighbor, l, r] = f;
+        let [wide, _, _] = d;
+        let [s075, s025] = scalars;
+        let (current, neighbor) = (lanes(current, n), lanes(neighbor, n));
+        let (l, r) = (lanes(l, n), lanes(r, n));
+        let wide = lanes(wide, n + 2);
+        k::promote(wide, &span[row.x.wrapping_add_signed(x_begin - 1)..]);
+        k::product(current, &wide[1..], s075.promoted(0.75, n));
+        let quarter = s025.promoted(0.25, n);
+        k::product(neighbor, quarter, &wide[..n]);
+        neighbor_add(l, neighbor, current);
+        k::product(neighbor, quarter, &wide[2..]);
+        neighbor_add(r, neighbor, current);
+        for (&l, &r) in l.iter().zip(&*r) {
             scratch.push(l);
             scratch.push(r);
         }
@@ -130,18 +139,28 @@ impl RenderPipelineStage for VerticalChromaUpsamplingStage {
             buffers.row(Row { x: 0, ..bot }),
         );
         let [mut s0, mut s1] = std::mem::take(&mut self.scratch);
-        s0.clear();
-        s1.clear();
         let x_begin = -(left as isize);
-        for x in x_begin..width.wrapping_add(right) as isize {
-            let it = t_row[top.x.wrapping_add_signed(x)];
-            let im = m_row[mid.x.wrapping_add_signed(x)];
-            let ib = b_row[bot.x.wrapping_add_signed(x)];
-            let scaled = mul(im, 0.75);
-            s0.push(ma(it, 0.25, scaled));
-            // Original top and bottom stores keep distinct addition operands.
-            s1.push(neighbor_add(mul(ib, 0.25), scaled));
-        }
+        let n = (width.wrapping_add(right) as isize).wrapping_sub(x_begin) as usize;
+        let at = |row: Row| row.x.wrapping_add_signed(x_begin);
+        let (it, im, ib) = (&t_row[at(top)..], &m_row[at(mid)..], &b_row[at(bot)..]);
+        // Lane by lane through the row kernels: scaled = mul(im, 0.75),
+        // out0 = ma(it, 0.25, scaled) = add(mul(it, 0.25), scaled) and
+        // out1 = neighbor_add(mul(ib, 0.25), scaled).
+        let ChromaRows { f, d, scalars } = &mut self.rows;
+        let [scaled, product, _, _] = f;
+        let [wm, wt, wb] = d;
+        let [s075, s025] = scalars;
+        let (scaled, product) = (lanes(scaled, n), lanes(product, n));
+        let (wm, wt, wb) = (lanes(wm, n), lanes(wt, n), lanes(wb, n));
+        k::promote(wm, im);
+        k::product(scaled, wm, s075.promoted(0.75, n));
+        let quarter = s025.promoted(0.25, n);
+        k::promote(wt, it);
+        k::product(product, wt, quarter);
+        k::add(lanes(&mut s0, n), product, scaled);
+        k::promote(wb, ib);
+        k::product(product, wb, quarter);
+        neighbor_add(lanes(&mut s1, n), product, scaled);
         let target = buffers.row_mut(out0.offset(x_begin));
         target[..s0.len()].copy_from_slice(&s0);
         let target = buffers.row_mut(out1.offset(x_begin));
@@ -168,11 +187,13 @@ pub fn get_chroma_upsampling_stage(
         Box::new(HorizontalChromaUpsamplingStage {
             channel,
             scratch: Vec::new(),
+            rows: ChromaRows::default(),
         })
     } else {
         Box::new(VerticalChromaUpsamplingStage {
             channel,
             scratch: Default::default(),
+            rows: ChromaRows::default(),
         })
     }
 }
