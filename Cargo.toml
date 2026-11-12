@@ -102,7 +102,8 @@ jpeg-xl-read = ["dep:jxl-oxide"]
 jpeg-xl-own-read = ["dep:ferrisma-jxl-decoder"]
 # Experimental JPEG XL output through the workspace libjxl-rs encoder's
 # admitted profiles (ADR-0039): lossless through the port's safe fixed-profile
-# entry point, lossy through the `ferrisma-jxl-encoder` safe bridge.
+# entry point, lossy through the `ferrisma-jxl-encoder` safe bridge. Part of
+# `cli`; distributing a binary still requires the license review (#66).
 jpeg-xl-write = ["dep:jxl", "dep:ferrisma-jxl-encoder"]
 # rav1e's `asm` is bit-exact and about 2.2x faster; `threading` lets the
 # encoder use `TransformOptions::encoder_threads` (M2 work package 2, ADR-0018).
@@ -110,7 +111,7 @@ avif-write = ["dep:rav1e", "dep:avif-serialize", "rav1e/asm", "rav1e/threading"]
 avif-read = ["dep:ferrisma-avif-read"]
 avif-own-write = ["dep:ferrisma-avif-write"]
 icc = ["dep:moxcms"]
-cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "jpeg-xl-own-read", "avif-read", "avif-write", "avif-own-write", "webp-write", "icc"]
+cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "jpeg-xl-own-read", "avif-read", "avif-write", "avif-own-write", "webp-write", "jpeg-xl-write", "icc"]
 
 
 [dependencies]

@@ -167,7 +167,7 @@ def build(target: str, features: str, output: Path) -> int:
         if not source_hash:
             raise ValueError(f"Missing source checksum: {package['name']} {package['version']}")
         selected = notices(directory, recursive=not workspace)
-        if workspace and package["name"] in {"ferrisma-kernels", "ferrisma-avif-read", "ferrisma-avif-write", "ferrisma-jxl-decoder"}:
+        if workspace and package["name"] in {"ferrisma-kernels", "ferrisma-avif-read", "ferrisma-avif-write", "ferrisma-jxl-decoder", "ferrisma-jxl-encoder"}:
             # The project-owned workspace crates use the root's dual license;
             # packaged crates carry linked copies of the same texts.
             selected.extend(ROOT / name for name in ("LICENSE-MIT", "LICENSE-APACHE")
