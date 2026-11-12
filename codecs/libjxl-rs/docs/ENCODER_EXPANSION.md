@@ -813,15 +813,23 @@ Progress:
   requests exactly (corpus sizes up to 512x1024, d0.5/d1/d1.5/d2.9). The
   contraction map is `tools/encoder_coefficients_contraction.json` (31 sites).
   See [PORT_STATUS.md](PORT_STATUS.md#encoder-coefficients-dc-streams-and-patch-detection-2026-11-12).
-- PR 5 (decoder in the loop and patch detection), partial: FindTextLikePatches
-  is translated and compared (`ecf-patches`, 101 requests, 12 with patches).
-  DecodeGroupForRoundtrip, ReconstructImage and ComputeARHeuristics remain;
-  the original runs them at every distance of at least 0.7 (epf_iters > 0 at
-  kSquirrel), including the default d1.0. They are reached through the single
-  boundary `compute_ar_heuristics_entry` in `enc_frame_vardct.rs`, which
-  translates only the source's early return (fill the EPF sharpness with 4)
-  and otherwise returns the `ArHeuristics` admission result; wiring the full
-  translation replaces that function's body.
+- PR 5 (decoder in the loop and patch detection), 2026-11-12:
+  FindTextLikePatches is translated and compared (`ecf-patches`, 101
+  requests, 12 with patches). DecodeGroupForRoundtrip with
+  GetBlockFromEncoder (`dec_group.rs`) and a PreparePipeline for callers
+  outside FrameDecoder (`dec_cache.rs`) are added to the decoder without
+  changing its decode paths; ReconstructImage, ComputeBlockL2Distance and
+  ComputeARHeuristics are in `enc_heuristics_ar.rs`, whose
+  `compute_ar_heuristics` is the entry point for the integration PR. The
+  original runs them at every distance of at least 0.7 (epf_iters > 0 at
+  kSquirrel), including the default d1.0. `tools/oracle/encoder_ar.cc`'s
+  `ear-chain` compares every reconstruction, block error image, the chosen
+  EPF sharpness field and the AC-metadata images exactly; 560 requests match
+  (corpus sizes up to 512x1024, gray and RGB, d0.5 to d6.0 including
+  d0.7/1/1.5/2/2.9, and isolated Gaborish/EPF loop filters) against both
+  oracle graphs on macOS AArch64. The contraction map adds
+  `tools/encoder_ar_contraction.json`. See
+  [PORT_STATUS.md](PORT_STATUS.md#encoder-ar-heuristics-with-the-decoder-in-the-loop-2026-11-12).
 - PR 6 (integration), 2026-11-12, partial: `enc_heuristics_lossy.rs`
   translates LossyFrameHeuristics and FindBestDequantMatrices;
   `enc_frame_vardct.rs` translates EncodeFrame's setting resolution,
