@@ -97,11 +97,12 @@ measured, a supported host changes, or fixture and live oracle results diverge.
 
 - 2026-11-12 — Issue #119: the JXL nightly shard `Tests (ubuntu-latest,
   sanitized oracle, 3/4)` was cancelled after the hosted 360-minute job limit
-  on 2026-11-08 and 2026-11-11. The job log shows
-  `thread_parallel_runner_test_pool` hanging in the Rust thread runner's
-  readiness barrier, the duplicate-wake race fixed in commit `592a6b8b`
-  (libjxl-rs ADR 0003); both failing commits predate it, and the shard passed
-  at `90b638dd`. The JXL parity jobs now set a 120-minute timeout so a hang
+  on 2026-11-08 and 2026-11-11. The retained 2026-11-11 log shows
+  `thread_parallel_runner_test_pool` still running after its last output,
+  consistent with the duplicate-wake race in the Rust thread runner's
+  readiness barrier that commit `592a6b8b` fixed (libjxl-rs ADR 0003). The
+  2026-11-08 log is no longer retrievable. Both failing commits predate the
+  fix, and the shard passed at `90b638dd`. The JXL parity jobs now set a 120-minute timeout so a hang
   fails fast. The remaining JXL nightly failure, the decoder-state audit, ran
   workspace Clippy with the pinned nightly; it now uses the port's stable
   Clippy like `tools/check.py`.

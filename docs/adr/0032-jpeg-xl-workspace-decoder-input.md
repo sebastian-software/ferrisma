@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None; adds an explicit opt-in backend alongside the interim reader in [0018](0018-optional-codec-and-cms-dependencies.md)
 - **Related:** [0015](0015-typed-output-color-signals.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md)
 
@@ -28,12 +28,26 @@ The reference-origin decoder can enter the experimental pipeline behind its own 
 
 ## Validation
 
-The existing eight lossless, independently libjxl-encoded orientation fixtures match upright expected RGB samples on full and cropped reads. Adapter tests compare crop samples against a full read, verify full-frame accounting and an ROI-sized budget failure, and exercise malformed header handling, grayscale and alpha association. The port's 14 retained public-decoder captures pass the Rust test and were replayed directly against the prebuilt pinned C++ oracle with byte-identical observations on 2026-11-11. The broader scoped C++ oracle remains a separate gate. The [comparison record](../benchmarks/M2-jxl-input-switch.md) measures release-mode full/crop decoding of the same input on one thread and records elapsed time plus process max RSS. The complete external conformance corpus is not yet recorded.
+The existing eight lossless, independently libjxl-encoded orientation fixtures match upright expected RGB samples on full and cropped reads. Adapter tests compare crop samples against a full read, verify full-frame accounting and an ROI-sized budget failure, and exercise malformed header handling, grayscale and alpha association. The port's 14 retained public-decoder captures pass the Rust test and were replayed directly against the prebuilt pinned C++ oracle with byte-identical observations on 2026-11-11. The broader scoped C++ oracle remains a separate gate. The [comparison record](../benchmarks/M2-jxl-input-switch.md) measures release-mode full/crop decoding of the same input on one thread and records elapsed time plus process max RSS. On 2026-11-12 the pinned external JPEG XL conformance corpus (`libjxl/conformance` `b1d0f990`) passed under its own runner and tolerances on macOS ARM64: 27 of 27 level-10 and 24 of 24 level-5 cases through a djxl-equivalent harness, with byte-identical original profiles and reconstructed JPEGs ([record](../../codecs/libjxl-rs/docs/CONFORMANCE.md)). Through this wrapper, built as the engine builds it, all 32 cases it accepts pass in the runner's application mode after the runner converts the emitted samples from the wrapper's `DATA` ICC to the reference profile. This covers straight and premultiplied alpha, gray, XYB fallback profiles and orientation. The other eight (animation, CMYK, spot colors, float samples) are rejected with `Unsupported` before pixel allocation. Wrapper unit tests also cover float, spot and multi-channel rejection, and an `ImageInfo` from another image being refused before any output buffer is registered.
+
+## v1.0 adoption assessment (2026-11-12)
+
+Correctness no longer blocks a default switch. The decoder is the reference port (ADR-0025 point 1), matches the pinned C++ decoder on every `decode_test.cc` history, and passes the external conformance corpus; the wrapper review found no ownership or error-mapping defect. It owns the decoder pointer, ties the input lifetime to the decoder, drops the decoder before the caller's buffer is released, checks pixel limits, sample arithmetic and the 16 MiB profile bound before allocation, and maps every non-success event to an error before rows are emitted. It does not catch panics from the port; panic freedom on malformed input remains fuzzing work (#65, #94).
+
+Performance blocks the switch. The only recorded comparison is the [photo-sized measurement](../benchmarks/M2-jxl-input-switch.md): about 3.6× slower than jxl-oxide for a full 2268×1512 decode and about 9.5× slower for a center crop, on one thread on Apple M1 Ultra. Two known port limitations are the likely contributors to the full-decode gap; neither has been measured in isolation. Both are release work if v1.0 keeps its "workspace port by default" scope:
+
+- #96: the decoder runs only scalar paths; libjxl's Highway SIMD specializations are not ported.
+- #100: RunOnPool task bodies run one at a time under a runner, so threads bring no decode speedup.
+
+The crop gap has an additional structural cause that neither issue removes: the public decoder has no region request, so every crop reconstructs and budgets the full frame. Closing it would require a codec-local region API (a separate port change, see Alternatives) or accepting full-frame crops for JPEG XL.
+
+Recommendation: keep jxl-oxide as the default until a timing phase on an otherwise idle host, after #96 and #100, measures full and crop decode against jxl-oxide on the ADR-0025 corpus. Switch the default for v1.0 if the full-decode gap is within a bound the maintainer accepts and the full-frame crop cost is accepted as a documented JPEG XL limitation. Otherwise, record JPEG XL input as the v1.0 exception in #196 and #67. In either case, keep jxl-oxide available as a fallback until ADR-0025 point 4 is satisfied. Still open beside timing: conformance on x86-64 and Linux, binary size, and process-level peak memory on the selection corpus.
 
 ## Review when
 
-Review after a full conformance run, realistic-image time/RSS comparisons, a libjxl region-decode API, a color or alpha mismatch, or a supported input that requires additional extra channels.
+Review after the conformance run on x86-64 and Linux, the timing phase after #96 and #100, realistic-image time/RSS comparisons, a libjxl region-decode API, a color or alpha mismatch, or a supported input that requires additional extra channels.
 
 ## Amendment log
 
 - 2026-11-11 — Added the independent safe wrapper and explicit full-frame experimental input path. The photo-sized time/RSS comparison retained jxl-oxide as the default under ADR-0025.
+- 2026-11-12 — Recorded the external conformance corpus (all level-10 and level-5 cases pass on macOS ARM64) and the wrapper's application-mode run (32 accepted cases pass, 8 rejected by design). Added the v1.0 assessment: correctness is no longer blocking; the measured performance gap blocks the switch pending #96 and #100. The default is unchanged.
