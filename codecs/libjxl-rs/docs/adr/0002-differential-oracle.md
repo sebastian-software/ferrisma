@@ -902,3 +902,36 @@ Re-evaluate when an x86-64 kernel has codegen evidence of its own (as
 section 10 of that record gathered for the per-size DCT), or after a
 compiler or target change. Hosted x86-64 CI (`codecs (jxl, ubuntu-24.04)` and the JXL deep
 check) is the acceptance gate for this amendment.
+
+### Amendment: pre-work render stages off AArch64, 2026-11-12 (night)
+
+The per-lane fallback of the previous amendment was exact but slower than
+the code it replaced. Hosted run 43303279681 measured the libjxl-rs VarDCT
+decode on the same Blacksmith x86-64 CPU model at 3,670 ms (12 MP) before
+the render-stage work, 1,737 ms with the inexact row kernels, and 4,972 ms
+with the fallback; the lossy e7 d1 encode got slower too
+(`docs/benchmarks/v1.0-ci-performance-2026-11-12.md`, last section).
+
+Decision, superseding the per-lane fallback: on every target other than
+AArch64, `render_pipeline/mod.rs` loads the XYB, Gaborish, EPF (all
+passes), YCbCr, chroma upsampling, upsampling, FromLinear and noise stages
+from `render_pipeline/pre_r1/`, byte-for-byte copies of those files at
+`93c5281f` (`#[cfg_attr(not(target_arch = "aarch64"), path = ...)]`),
+except one Clippy 1.100 lint `#[allow]` on the EPF `process_row`. The
+`scalar_rows` module is compiled on AArch64 only and no longer has a
+per-element fallback; its reference helpers are test-only. AArch64 compiles
+the same row-span and row-kernel sources as before. Integer and allocation
+changes stay on every target: lazily zeroed planes, the modular MA decoder
+and inverse RCT row accessors, and the wrapper's crop-sized buffering.
+
+Getting the row-kernel gains on x86-64 needs codegen evidence per kernel:
+the emitted x86-64 instruction for every inlined `fadd`/`fmul` with two
+possibly-NaN operands must take the source's first operand as its first
+source (as section 10 of the analysis record required for the per-size
+DCT), or the kernel must keep an out-of-line boundary that is shown not to
+cost more than the per-sample stage. Re-evaluate after such evidence, or
+after a compiler or target change. Evidence for this amendment: addendum
+"pre-work render stages" in section 9 of
+`docs/benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md`. Hosted x86-64
+CI (`codecs (jxl, ubuntu-24.04)`, the JXL deep check and the v1.0 CI
+performance workflow) is the acceptance gate.

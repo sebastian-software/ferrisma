@@ -1,0 +1,194 @@
+{
+ "plan": {
+  "reps": 5,
+  "candidates": [
+   {
+    "name": "x86-93c5281f-pre",
+    "argv": [
+     "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/x86ab/bin/probe-pre",
+     "decode",
+     "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/jxlperf/flower-d1e7.jxl",
+     "3"
+    ],
+    "parse": "ms",
+    "per": 3
+   },
+   {
+    "name": "x86-4194617b-base",
+    "argv": [
+     "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/x86ab/bin/probe-base",
+     "decode",
+     "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/jxlperf/flower-d1e7.jxl",
+     "3"
+    ],
+    "parse": "ms",
+    "per": 3
+   },
+   {
+    "name": "x86-fix",
+    "argv": [
+     "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/x86ab/bin/probe-fix",
+     "decode",
+     "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/jxlperf/flower-d1e7.jxl",
+     "3"
+    ],
+    "parse": "ms",
+    "per": 3
+   }
+  ]
+ },
+ "samples": {
+  "x86-93c5281f-pre": [
+   {
+    "ms": 1787.3,
+    "rss": 105590784,
+    "load": [
+     4.49658203125,
+     4.37646484375
+    ]
+   },
+   {
+    "ms": 1745.8666666666668,
+    "rss": 96923648,
+    "load": [
+     4.4892578125,
+     4.44970703125
+    ]
+   },
+   {
+    "ms": 1750.3333333333333,
+    "rss": 108433408,
+    "load": [
+     4.44970703125,
+     4.2939453125
+    ]
+   },
+   {
+    "ms": 1737.8666666666668,
+    "rss": 78495744,
+    "load": [
+     4.87744140625,
+     4.56689453125
+    ]
+   },
+   {
+    "ms": 1741.5,
+    "rss": 82186240,
+    "load": [
+     4.56689453125,
+     4.521484375
+    ]
+   }
+  ],
+  "x86-4194617b-base": [
+   {
+    "ms": 2133.1,
+    "rss": 99532800,
+    "load": [
+     4.37646484375,
+     4.26611328125
+    ]
+   },
+   {
+    "ms": 2148.266666666667,
+    "rss": 101347328,
+    "load": [
+     4.5322265625,
+     4.4892578125
+    ]
+   },
+   {
+    "ms": 2148.0666666666666,
+    "rss": 97361920,
+    "load": [
+     4.2939453125,
+     4.59033203125
+    ]
+   },
+   {
+    "ms": 2131.6666666666665,
+    "rss": 83877888,
+    "load": [
+     4.9541015625,
+     4.87744140625
+    ]
+   },
+   {
+    "ms": 2134.5,
+    "rss": 83210240,
+    "load": [
+     4.521484375,
+     4.37353515625
+    ]
+   }
+  ],
+  "x86-fix": [
+   {
+    "ms": 1841.0,
+    "rss": 98570240,
+    "load": [
+     4.26611328125,
+     4.40478515625
+    ]
+   },
+   {
+    "ms": 1819.9333333333334,
+    "rss": 92278784,
+    "load": [
+     4.40478515625,
+     4.5322265625
+    ]
+   },
+   {
+    "ms": 1837.1000000000001,
+    "rss": 105992192,
+    "load": [
+     4.59033203125,
+     4.86328125
+    ]
+   },
+   {
+    "ms": 1785.2666666666667,
+    "rss": 108244992,
+    "load": [
+     4.86328125,
+     4.9541015625
+    ]
+   },
+   {
+    "ms": 1776.7333333333333,
+    "rss": 90726400,
+    "load": [
+     4.37353515625,
+     4.10302734375
+    ]
+   }
+  ]
+ },
+ "summary": {
+  "x86-93c5281f-pre": {
+   "ms_median": 1745.8666666666668,
+   "ms_min": 1737.8666666666668,
+   "ms_max": 1787.3,
+   "rss_mb_median": 96.923648,
+   "load_min": 4.2939453125,
+   "load_max": 4.87744140625
+  },
+  "x86-4194617b-base": {
+   "ms_median": 2134.5,
+   "ms_min": 2131.6666666666665,
+   "ms_max": 2148.266666666667,
+   "rss_mb_median": 97.36192,
+   "load_min": 4.26611328125,
+   "load_max": 4.9541015625
+  },
+  "x86-fix": {
+   "ms_median": 1819.9333333333334,
+   "ms_min": 1776.7333333333333,
+   "ms_max": 1841.0,
+   "rss_mb_median": 98.57024,
+   "load_min": 4.10302734375,
+   "load_max": 4.9541015625
+  }
+ }
+}
