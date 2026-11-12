@@ -178,3 +178,21 @@ if hosted x86-64 golden evidence fails.
   with all cores. Nine cells were rejected by the 0.5 SSIMULACRA2 gate and
   stay recorded. Idle-host ARM64/x86-64 timing remains open; the default is
   unchanged.
+- 2026-11-12 — The writer bridge's RGB-to-YUV conversion runs in row bands
+  when more than one encoder thread is requested: one band per thread, at
+  most 8, each at least 64 rows; every band but the last has an even height,
+  so bands start on even rows (a 4:2:0 view must, and each 2×2 chroma average
+  reads the same rows as in the whole image). Each band converts into an
+  `avifImageSetViewRect` view of the parent's preallocated planes on a scoped
+  thread; one encoder thread keeps the serial whole-image call. The samples
+  are identical for every band count
+  (`ferrisma-avif-write` `tests::conversion_bands_do_not_change_samples`: 4:4:4
+  and 4:2:0, 8 and 10 bits, with and without alpha, odd and even sizes, 1, 2,
+  3 and 8 bands), and the CLI's AVIF bytes did not change at any tested
+  setting. Interleaved A/B, 6000×4000 JPEG, all cores, 7 repetitions,
+  **indicative; loaded host** (load 12.7–16.9): encode stage 229.9 → 216.3 ms
+  (1600×1067 4:4:4), 192.7 → 180.3 ms (4:2:0), 1,335.7 → 1,159.3 ms (no
+  resize); one encoder thread unchanged. The unsafe boundary grows by the
+  plane allocation, view creation and view destruction, documented in
+  [the unsafe review](../unsafe-review.md) and at each block
+  ([analysis](../benchmarks/v1.0-engine-performance-analysis-2026-11-12.md#applied-fixes-2026-11-12-evening)).

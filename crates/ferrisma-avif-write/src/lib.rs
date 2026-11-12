@@ -73,6 +73,10 @@ const AVIF_MATRIX_COEFFICIENTS_BT601: u16 = 6;
 const MAX_SPEED: u8 = 10;
 /// Ferrisma caps encoder threads at 256 as well.
 const MAX_THREADS: usize = 256;
+/// At most this many row bands convert RGB to YUV at once.
+const MAX_BANDS: usize = 8;
+/// Bands shorter than this cost more in thread start-up than they save.
+const MIN_BAND_ROWS: u32 = 64;
 
 /// Validate the request and return the simultaneous RGBA and YUV(A) sample bytes.
 /// This excludes allocator overhead, codec scratch and compressed output.
@@ -228,6 +232,174 @@ impl Drop for Output {
     }
 }
 
+/// Row bands for the RGB-to-YUV conversion: one per encoder thread, at most
+/// `MAX_BANDS`, each at least `MIN_BAND_ROWS` rows. One thread keeps the
+/// serial whole-image call.
+fn conversion_bands(height: u32, threads: usize) -> usize {
+    let by_rows = usize::try_from(height / MIN_BAND_ROWS).unwrap_or(1);
+    threads.min(MAX_BANDS).min(by_rows).max(1)
+}
+
+/// The first row and row count of each band when `height` rows are split
+/// into at most `bands` bands. Every band but the last has an even height,
+/// so every band starts on an even row: a 4:2:0 view must start on a chroma
+/// row, and each 2x2 chroma average then reads the same two rows as in the
+/// whole image.
+fn band_rows(height: u32, bands: usize) -> Vec<(u32, u32)> {
+    let bands = u32::try_from(bands.max(1)).unwrap_or(1);
+    let step = height.div_ceil(bands).next_multiple_of(2).max(2);
+    let mut rows = Vec::new();
+    let mut y = 0;
+    while y < height {
+        let count = step.min(height - y);
+        rows.push((y, count));
+        y += count;
+    }
+    rows
+}
+
+/// A view of one row band of an image's planes, from
+/// `avifImageSetViewRect`. It points into the parent's planes and never
+/// frees them.
+struct View(*mut image_api::avifImage);
+// SAFETY: a `View` is an `avifImage` struct used by one band thread only.
+// Its plane pointers address rows of the parent's planes that no other band
+// touches (`band_rows` gives disjoint rows; 4:2:0 bands start on even rows,
+// so their chroma rows are disjoint too). The built-in path of
+// `avifImageRGBToYUV` keeps its state in locals and per-call allocations,
+// not in globals.
+unsafe impl Send for View {}
+impl Drop for View {
+    fn drop(&mut self) {
+        // SAFETY: `self.0` came from `avifImageCreateEmpty`, is not null and
+        // is destroyed exactly once, here. `avifImageRGBToYUV` marks a view's
+        // planes as owned when it "allocates" them (they are already set, so
+        // it allocates nothing); clearing the pointers and flags first keeps
+        // `avifImageDestroy` from freeing the parent's memory.
+        unsafe {
+            (*self.0).yuvPlanes = [std::ptr::null_mut(); 3];
+            (*self.0).imageOwnsYUVPlanes = 0;
+            (*self.0).alphaPlane = std::ptr::null_mut();
+            (*self.0).imageOwnsAlphaPlane = 0;
+            image_api::avifImageDestroy(self.0);
+        }
+    }
+}
+
+/// Convert one band of RGBA rows into `target`'s planes.
+fn convert_band(
+    target: *mut image_api::avifImage,
+    request: &Config,
+    band: &mut [u8],
+    row_bytes: u32,
+) -> Result<(), EncodeError> {
+    // SAFETY: an all-zero `avifRGBImage` is a valid value of the C struct
+    // (integers and a null pointer); it is fully initialized just below.
+    let mut rgb: reformat::avifRGBImage = unsafe { std::mem::zeroed() };
+    // SAFETY: `rgb` is a valid, writable `avifRGBImage` and `target` a valid
+    // image. The `avif` and `reformat` modules translate the same C struct,
+    // so the pointer casts keep its layout.
+    unsafe { image_api::avifRGBImageSetDefaults((&raw mut rgb).cast(), target.cast()) };
+    rgb.format = AVIF_RGB_FORMAT_RGBA;
+    rgb.depth = 8;
+    rgb.ignoreAlpha = i32::from(!request.has_alpha);
+    rgb.alphaPremultiplied = 0;
+    rgb.pixels = band.as_mut_ptr();
+    rgb.rowBytes = row_bytes;
+    // SAFETY: `rgb.pixels` points to `rowBytes * height` initialized bytes
+    // of `band` (the target's rows), which outlives the call and is not
+    // otherwise accessed during it; libavif only reads the RGB image here.
+    // For the whole image it allocates the planes, which `Image` frees; a
+    // view's planes are already set and are written in place.
+    let result = unsafe { reformat::avifImageRGBToYUV(target.cast(), &raw const rgb) };
+    if result == AVIF_RESULT_OK {
+        Ok(())
+    } else {
+        Err(failure(result, "RGB to YUV conversion"))
+    }
+}
+
+/// Convert the RGBA frame into `image`'s planes in up to `bands` row bands
+/// on scoped threads; one band is libavif's serial call on the whole image.
+/// libavif's built-in conversion works per pixel for 4:4:4 and per 2x2
+/// block for 4:2:0, so the samples are the same for every band count
+/// (`tests::conversion_bands_do_not_change_samples`).
+fn rgb_to_yuv(
+    image: &Image,
+    request: &Config,
+    rgba: &mut [u8],
+    row_bytes: u32,
+    bands: usize,
+) -> Result<(), EncodeError> {
+    let rows = band_rows(request.height, bands);
+    if rows.len() == 1 {
+        return convert_band(image.0, request, rgba, row_bytes);
+    }
+    let planes = if request.has_alpha {
+        image_api::AVIF_PLANES_ALL
+    } else {
+        image_api::AVIF_PLANES_YUV
+    };
+    // SAFETY: `image.0` is a valid image with nonzero size and a supported
+    // depth and format; the planes it allocates belong to `image` and are
+    // freed by `Image`.
+    let result = unsafe { image_api::avifImageAllocatePlanes(image.0, planes) };
+    if result != AVIF_RESULT_OK {
+        return Err(failure(result, "plane allocation"));
+    }
+    let mut jobs = Vec::with_capacity(rows.len());
+    let mut rest = rgba;
+    for &(y, count) in &rows {
+        let (band, tail) = rest.split_at_mut(row_bytes as usize * count as usize);
+        rest = tail;
+        // SAFETY: no arguments; a null result is handled below.
+        let view = unsafe { image_api::avifImageCreateEmpty() };
+        if view.is_null() {
+            return Err(EncodeError::new(
+                ErrorKind::ResourceExhausted,
+                "libavif could not create a band view",
+            ));
+        }
+        let view = View(view);
+        let rect = image_api::avifCropRect {
+            x: 0,
+            y,
+            width: request.width,
+            height: count,
+        };
+        // SAFETY: `view.0` and `image.0` are distinct valid images; the
+        // rectangle lies inside the image and starts on an even row
+        // (`band_rows`), as 4:2:0 requires. The view only points into
+        // `image`'s planes, which outlive it.
+        let result = unsafe { image_api::avifImageSetViewRect(view.0, image.0, &raw const rect) };
+        if result != AVIF_RESULT_OK {
+            return Err(failure(result, "band view"));
+        }
+        jobs.push((view, band));
+    }
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = jobs
+            .into_iter()
+            .map(|(view, band)| {
+                scope.spawn(move || {
+                    // Own the whole view, so it is destroyed on this thread
+                    // after the conversion.
+                    let view = view;
+                    convert_band(view.0, request, band, row_bytes)
+                })
+            })
+            .collect();
+        handles.into_iter().try_for_each(|handle| {
+            handle.join().unwrap_or_else(|_| {
+                Err(EncodeError::new(
+                    ErrorKind::Failed,
+                    "libavif RGB to YUV band panicked",
+                ))
+            })
+        })
+    })
+}
+
 fn encode(request: &Config, mut rgba: Vec<u8>) -> Result<Vec<u8>, EncodeError> {
     let format = match request.chroma {
         Chroma::Yuv444 => AVIF_PIXEL_FORMAT_YUV444,
@@ -243,6 +415,16 @@ fn encode(request: &Config, mut rgba: Vec<u8>) -> Result<Vec<u8>, EncodeError> {
             "libavif-rs backend frame is incomplete",
         ));
     }
+    let image = new_image(request, format)?;
+    let bands = conversion_bands(request.height, request.threads.clamp(1, MAX_THREADS));
+    rgb_to_yuv(&image, request, &mut rgba, row_bytes, bands)?;
+    drop(rgba);
+    encode_image(request, &image)
+}
+
+/// A planeless image of the request's size, depth and format with the
+/// output's CICP and range.
+fn new_image(request: &Config, format: u32) -> Result<Image, EncodeError> {
     // SAFETY: plain arguments; a null result is handled below.
     let image = unsafe {
         image_api::avifImageCreate(
@@ -267,30 +449,10 @@ fn encode(request: &Config, mut rgba: Vec<u8>) -> Result<Vec<u8>, EncodeError> {
         (*image.0).matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_BT601;
         (*image.0).yuvRange = AVIF_RANGE_FULL;
     }
+    Ok(image)
+}
 
-    // SAFETY: an all-zero `avifRGBImage` is a valid value of the C struct
-    // (integers and a null pointer); it is fully initialized just below.
-    let mut rgb: reformat::avifRGBImage = unsafe { std::mem::zeroed() };
-    // SAFETY: `rgb` is a valid, writable `avifRGBImage` and `image.0` a valid
-    // image. The `avif` and `reformat` modules translate the same C struct,
-    // so the pointer casts keep its layout.
-    unsafe { image_api::avifRGBImageSetDefaults((&raw mut rgb).cast(), image.0.cast()) };
-    rgb.format = AVIF_RGB_FORMAT_RGBA;
-    rgb.depth = 8;
-    rgb.ignoreAlpha = i32::from(!request.has_alpha);
-    rgb.alphaPremultiplied = 0;
-    rgb.pixels = rgba.as_mut_ptr();
-    rgb.rowBytes = row_bytes;
-    // SAFETY: `rgb.pixels` points to `rowBytes * height` initialized bytes
-    // in `rgba`, which outlives the call and is not otherwise accessed
-    // during it; libavif only reads the RGB image here. It allocates the
-    // image's planes, which `Image` frees.
-    let result = unsafe { reformat::avifImageRGBToYUV(image.0.cast(), &raw const rgb) };
-    if result != AVIF_RESULT_OK {
-        return Err(failure(result, "RGB to YUV conversion"));
-    }
-    drop(rgba);
-
+fn encode_image(request: &Config, image: &Image) -> Result<Vec<u8>, EncodeError> {
     // SAFETY: no arguments; a null result is handled below.
     let encoder = unsafe { write::avifEncoderCreate() };
     if encoder.is_null() {
@@ -343,4 +505,135 @@ fn encode(request: &Config, mut rgba: Vec<u8>) -> Result<Vec<u8>, EncodeError> {
     })?;
     bytes.extend_from_slice(source);
     Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every plane's sample bytes, row by row without padding.
+    fn planes(image: &Image, request: &Config) -> Vec<Vec<u8>> {
+        let sample = if request.depth > 8 { 2 } else { 1 };
+        let (chroma_width, chroma_height) = match request.chroma {
+            Chroma::Yuv444 => (request.width, request.height),
+            Chroma::Yuv420 => (request.width.div_ceil(2), request.height.div_ceil(2)),
+        };
+        // SAFETY: `image.0` is a valid image whose planes `rgb_to_yuv`
+        // allocated with these dimensions; the reads stay inside them.
+        unsafe {
+            let image = &*image.0;
+            let mut planes: Vec<(*mut u8, u32, u32, u32)> = (0..3)
+                .map(|plane| {
+                    let (width, height) = if plane == 0 {
+                        (request.width, request.height)
+                    } else {
+                        (chroma_width, chroma_height)
+                    };
+                    (
+                        image.yuvPlanes[plane],
+                        image.yuvRowBytes[plane],
+                        width,
+                        height,
+                    )
+                })
+                .collect();
+            if request.has_alpha {
+                planes.push((
+                    image.alphaPlane,
+                    image.alphaRowBytes,
+                    request.width,
+                    request.height,
+                ));
+            } else {
+                assert!(image.alphaPlane.is_null());
+            }
+            planes
+                .into_iter()
+                .map(|(base, row_bytes, width, height)| {
+                    assert!(!base.is_null());
+                    (0..height as usize)
+                        .flat_map(|y| {
+                            std::slice::from_raw_parts(
+                                base.add(y * row_bytes as usize),
+                                width as usize * sample,
+                            )
+                            .to_vec()
+                        })
+                        .collect()
+                })
+                .collect()
+        }
+    }
+
+    #[test]
+    fn conversion_bands_do_not_change_samples() {
+        // Odd and even sizes, so that 4:2:0 has a partial last chroma row
+        // and column; a pseudo-random frame with varying alpha.
+        for (width, height) in [(67_u32, 131_u32), (130, 256), (33, 7)] {
+            let mut state = 0x2545_f491_u32;
+            let rgba: Vec<u8> = (0..width * height * 4)
+                .map(|_| {
+                    state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                    (state >> 24) as u8
+                })
+                .collect();
+            for chroma in [Chroma::Yuv444, Chroma::Yuv420] {
+                for depth in [8, 10] {
+                    for has_alpha in [false, true] {
+                        let request = Config {
+                            width,
+                            height,
+                            has_alpha,
+                            quality: 75.0,
+                            speed: 6,
+                            threads: 1,
+                            chroma,
+                            depth,
+                        };
+                        let format = match chroma {
+                            Chroma::Yuv444 => AVIF_PIXEL_FORMAT_YUV444,
+                            Chroma::Yuv420 => AVIF_PIXEL_FORMAT_YUV420,
+                        };
+                        let convert = |bands| {
+                            let image = new_image(&request, format).unwrap();
+                            let mut frame = rgba.clone();
+                            rgb_to_yuv(&image, &request, &mut frame, width * 4, bands).unwrap();
+                            planes(&image, &request)
+                        };
+                        let serial = convert(1);
+                        for bands in [2, 3, 8] {
+                            assert!(band_rows(height, bands).len() > 1);
+                            assert_eq!(
+                                convert(bands),
+                                serial,
+                                "{width}x{height} {chroma:?} {depth}-bit alpha {has_alpha} bands {bands}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn bands_cover_the_rows_once_and_start_on_even_rows() {
+        for height in [1, 2, 3, 63, 64, 127, 128, 129, 1067, 4000] {
+            for bands in 1..=9 {
+                let rows = band_rows(height, bands);
+                assert!(rows.len() <= bands.max(1));
+                let mut next = 0;
+                for &(y, count) in &rows {
+                    assert_eq!(y, next);
+                    assert_eq!(y % 2, 0);
+                    assert!(count > 0);
+                    next += count;
+                }
+                assert_eq!(next, height);
+            }
+        }
+        assert_eq!(conversion_bands(1067, 1), 1);
+        assert_eq!(conversion_bands(1067, 20), 8);
+        assert_eq!(conversion_bands(100, 20), 1);
+        assert_eq!(conversion_bands(130, 20), 2);
+    }
 }

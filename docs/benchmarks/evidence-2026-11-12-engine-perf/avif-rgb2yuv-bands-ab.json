@@ -1,0 +1,586 @@
+{
+"1600x1067 4:4:4, all cores": {
+"before": [
+{
+"decode_us": "81452",
+"transform_us": "10979",
+"encode_us": "207166",
+"total_us": "303372",
+"peak_managed_bytes": "43998872",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 13.55
+},
+{
+"decode_us": "80985",
+"transform_us": "10556",
+"encode_us": "235770",
+"total_us": "330545",
+"peak_managed_bytes": "44077672",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 13.33
+},
+{
+"decode_us": "80931",
+"transform_us": "11035",
+"encode_us": "236511",
+"total_us": "331707",
+"peak_managed_bytes": "43994472",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 13.33
+},
+{
+"decode_us": "81565",
+"transform_us": "11724",
+"encode_us": "229871",
+"total_us": "326326",
+"peak_managed_bytes": "44006472",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 14.51
+},
+{
+"decode_us": "81600",
+"transform_us": "12244",
+"encode_us": "222468",
+"total_us": "319471",
+"peak_managed_bytes": "44070072",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 14.51
+},
+{
+"decode_us": "81994",
+"transform_us": "12852",
+"encode_us": "229264",
+"total_us": "327270",
+"peak_managed_bytes": "43998072",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 15.13
+},
+{
+"decode_us": "82086",
+"transform_us": "12902",
+"encode_us": "294615",
+"total_us": "392957",
+"peak_managed_bytes": "44149672",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 15.13
+}
+],
+"after": [
+{
+"decode_us": "79954",
+"transform_us": "10627",
+"encode_us": "188857",
+"total_us": "282654",
+"peak_managed_bytes": "43991272",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 13.55
+},
+{
+"decode_us": "80590",
+"transform_us": "10471",
+"encode_us": "216332",
+"total_us": "310726",
+"peak_managed_bytes": "43973272",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 13.33
+},
+{
+"decode_us": "80673",
+"transform_us": "10961",
+"encode_us": "219928",
+"total_us": "314812",
+"peak_managed_bytes": "44016872",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 13.14
+},
+{
+"decode_us": "81510",
+"transform_us": "11441",
+"encode_us": "209319",
+"total_us": "305400",
+"peak_managed_bytes": "43933672",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 14.51
+},
+{
+"decode_us": "81998",
+"transform_us": "14016",
+"encode_us": "204058",
+"total_us": "303260",
+"peak_managed_bytes": "44598872",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 14.51
+},
+{
+"decode_us": "81264",
+"transform_us": "12615",
+"encode_us": "218380",
+"total_us": "315489",
+"peak_managed_bytes": "43998872",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 15.13
+},
+{
+"decode_us": "81185",
+"transform_us": "12165",
+"encode_us": "231872",
+"total_us": "328529",
+"peak_managed_bytes": "43998872",
+"encoder_threads": "20",
+"sha256": "a45882e6f508d6fc6eb557df08dd5a86f5d1f41ce3ee8c8da941adb5947a90a6",
+"load": 15.13
+}
+]
+},
+"1600x1067 4:2:0, all cores": {
+"before": [
+{
+"decode_us": "80491",
+"transform_us": "10625",
+"encode_us": "175901",
+"total_us": "270240",
+"peak_managed_bytes": "38845672",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 13.55
+},
+{
+"decode_us": "80656",
+"transform_us": "10595",
+"encode_us": "211644",
+"total_us": "306177",
+"peak_managed_bytes": "38839272",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 13.33
+},
+{
+"decode_us": "81140",
+"transform_us": "11107",
+"encode_us": "205045",
+"total_us": "300415",
+"peak_managed_bytes": "38922472",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 13.14
+},
+{
+"decode_us": "82552",
+"transform_us": "20048",
+"encode_us": "188790",
+"total_us": "294626",
+"peak_managed_bytes": "39468472",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 13.08
+},
+{
+"decode_us": "80769",
+"transform_us": "10800",
+"encode_us": "201243",
+"total_us": "296104",
+"peak_managed_bytes": "38832872",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 14.51
+},
+{
+"decode_us": "81338",
+"transform_us": "11633",
+"encode_us": "192479",
+"total_us": "288699",
+"peak_managed_bytes": "38937672",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 15.13
+},
+{
+"decode_us": "80805",
+"transform_us": "10587",
+"encode_us": "192702",
+"total_us": "287235",
+"peak_managed_bytes": "38885672",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 15.13
+}
+],
+"after": [
+{
+"decode_us": "80140",
+"transform_us": "10582",
+"encode_us": "161275",
+"total_us": "255212",
+"peak_managed_bytes": "38918472",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 14.39
+},
+{
+"decode_us": "81089",
+"transform_us": "11373",
+"encode_us": "179878",
+"total_us": "275736",
+"peak_managed_bytes": "38871272",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 13.33
+},
+{
+"decode_us": "83044",
+"transform_us": "10913",
+"encode_us": "188897",
+"total_us": "286257",
+"peak_managed_bytes": "38922472",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 13.14
+},
+{
+"decode_us": "80393",
+"transform_us": "10926",
+"encode_us": "183391",
+"total_us": "277868",
+"peak_managed_bytes": "38844872",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 13.08
+},
+{
+"decode_us": "80840",
+"transform_us": "11162",
+"encode_us": "180318",
+"total_us": "275610",
+"peak_managed_bytes": "38871272",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 14.51
+},
+{
+"decode_us": "81161",
+"transform_us": "11224",
+"encode_us": "186200",
+"total_us": "281919",
+"peak_managed_bytes": "38904472",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 15.13
+},
+{
+"decode_us": "80948",
+"transform_us": "11216",
+"encode_us": "180104",
+"total_us": "275556",
+"peak_managed_bytes": "38827672",
+"encoder_threads": "20",
+"sha256": "5357273976e0492512fa5c738dfb512c1a55467a507223699536b912ec5ab849",
+"load": 15.13
+}
+]
+},
+"6000x4000 no resize 4:4:4, all cores": {
+"before": [
+{
+"decode_us": "80471",
+"transform_us": "24107",
+"encode_us": "1245896",
+"total_us": "1353264",
+"peak_managed_bytes": "277372112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 14.39
+},
+{
+"decode_us": "81825",
+"transform_us": "24161",
+"encode_us": "1391078",
+"total_us": "1499949",
+"peak_managed_bytes": "277414112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 13.33
+},
+{
+"decode_us": "81615",
+"transform_us": "25838",
+"encode_us": "1383643",
+"total_us": "1493924",
+"peak_managed_bytes": "278554112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 13.14
+},
+{
+"decode_us": "81217",
+"transform_us": "23136",
+"encode_us": "1280491",
+"total_us": "1387526",
+"peak_managed_bytes": "277438112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 13.08
+},
+{
+"decode_us": "81614",
+"transform_us": "25852",
+"encode_us": "1330560",
+"total_us": "1440812",
+"peak_managed_bytes": "277852112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 14.51
+},
+{
+"decode_us": "80991",
+"transform_us": "24457",
+"encode_us": "1335701",
+"total_us": "1443925",
+"peak_managed_bytes": "277474112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 13.66
+},
+{
+"decode_us": "81736",
+"transform_us": "23624",
+"encode_us": "1387377",
+"total_us": "1495552",
+"peak_managed_bytes": "277438112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 15.13
+}
+],
+"after": [
+{
+"decode_us": "81597",
+"transform_us": "24046",
+"encode_us": "1126727",
+"total_us": "1235125",
+"peak_managed_bytes": "277474112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 14.39
+},
+{
+"decode_us": "81734",
+"transform_us": "24926",
+"encode_us": "1142008",
+"total_us": "1251480",
+"peak_managed_bytes": "277480112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 13.33
+},
+{
+"decode_us": "80974",
+"transform_us": "23822",
+"encode_us": "1193977",
+"total_us": "1301648",
+"peak_managed_bytes": "277474112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 13.14
+},
+{
+"decode_us": "80432",
+"transform_us": "22891",
+"encode_us": "1147256",
+"total_us": "1253536",
+"peak_managed_bytes": "277390112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 13.08
+},
+{
+"decode_us": "81638",
+"transform_us": "26254",
+"encode_us": "1161192",
+"total_us": "1271993",
+"peak_managed_bytes": "277504112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 14.51
+},
+{
+"decode_us": "80803",
+"transform_us": "23243",
+"encode_us": "1159344",
+"total_us": "1266120",
+"peak_managed_bytes": "277480112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 13.66
+},
+{
+"decode_us": "81029",
+"transform_us": "23388",
+"encode_us": "1172255",
+"total_us": "1279573",
+"peak_managed_bytes": "277534112",
+"encoder_threads": "20",
+"sha256": "96438e8633ffc3f33f4d7b578cf15f40aa281e25f9a0a7b388922902872749f3",
+"load": 15.13
+}
+]
+},
+"1600x1067 4:4:4, one encoder thread": {
+"before": [
+{
+"decode_us": "80363",
+"transform_us": "10593",
+"encode_us": "1854167",
+"total_us": "1948327",
+"peak_managed_bytes": "43991272",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 14.39
+},
+{
+"decode_us": "82725",
+"transform_us": "11247",
+"encode_us": "1870004",
+"total_us": "1967381",
+"peak_managed_bytes": "44144072",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 13.79
+},
+{
+"decode_us": "81177",
+"transform_us": "10731",
+"encode_us": "1852092",
+"total_us": "1947336",
+"peak_managed_bytes": "43965672",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 13.14
+},
+{
+"decode_us": "81550",
+"transform_us": "11491",
+"encode_us": "1843480",
+"total_us": "1939815",
+"peak_managed_bytes": "43959272",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 12.65
+},
+{
+"decode_us": "81086",
+"transform_us": "10803",
+"encode_us": "1873759",
+"total_us": "1968948",
+"peak_managed_bytes": "44024472",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 14.51
+},
+{
+"decode_us": "80475",
+"transform_us": "10426",
+"encode_us": "1850163",
+"total_us": "1944190",
+"peak_managed_bytes": "43959272",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 13.66
+},
+{
+"decode_us": "81534",
+"transform_us": "12171",
+"encode_us": "1870871",
+"total_us": "1967958",
+"peak_managed_bytes": "44011272",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 16.88
+}
+],
+"after": [
+{
+"decode_us": "80292",
+"transform_us": "10715",
+"encode_us": "1857409",
+"total_us": "1951618",
+"peak_managed_bytes": "43967672",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 14.39
+},
+{
+"decode_us": "80586",
+"transform_us": "10608",
+"encode_us": "1881928",
+"total_us": "1976437",
+"peak_managed_bytes": "43991272",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 13.79
+},
+{
+"decode_us": "81206",
+"transform_us": "11786",
+"encode_us": "1852291",
+"total_us": "1948575",
+"peak_managed_bytes": "44088072",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 12.65
+},
+{
+"decode_us": "80723",
+"transform_us": "10336",
+"encode_us": "1855171",
+"total_us": "1949492",
+"peak_managed_bytes": "43991272",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 12.65
+},
+{
+"decode_us": "81635",
+"transform_us": "12280",
+"encode_us": "1855993",
+"total_us": "1953046",
+"peak_managed_bytes": "43991272",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 14.15
+},
+{
+"decode_us": "81250",
+"transform_us": "12581",
+"encode_us": "1859152",
+"total_us": "1956396",
+"peak_managed_bytes": "45826872",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 14.15
+},
+{
+"decode_us": "80954",
+"transform_us": "10489",
+"encode_us": "1855887",
+"total_us": "1950524",
+"peak_managed_bytes": "43959272",
+"encoder_threads": "1",
+"sha256": "4da2a88268f13cc60cc2041ee20f712c5eb1bd1f024c9fbfb62a1b4aef72f0ca",
+"load": 16.88
+}
+]
+}
+}
