@@ -54,6 +54,38 @@ pub(crate) unsafe extern "C" fn default_alloc(_opaque: *mut c_void, size: usize)
         base.add(DEFAULT_HEADER).cast()
     }
 }
+/// `default_alloc` with a zero-initialized payload, obtained from the global
+/// allocator's zeroing path (calloc for this alignment) instead of an explicit
+/// write. Large zeroed blocks can then stay lazily mapped until first written,
+/// as the original's uninitialized blocks do. Released by `default_free`.
+pub(crate) fn default_alloc_zeroed(size: usize) -> *mut c_void {
+    let Some(physical_size) = size.max(1).checked_add(DEFAULT_HEADER) else {
+        return std::ptr::null_mut();
+    };
+    let Ok(layout) = Layout::from_size_align(physical_size, DEFAULT_ALIGNMENT) else {
+        return std::ptr::null_mut();
+    };
+    // SAFETY: Layout is checked and nonzero; the block layout is identical to
+    // default_alloc's, so default_free releases it unchanged.
+    let base = unsafe { std::alloc::alloc_zeroed(layout) };
+    if base.is_null() {
+        return std::ptr::null_mut();
+    }
+    // SAFETY: As in default_alloc; the payload is already zeroed.
+    unsafe {
+        base.cast::<usize>().write(physical_size);
+        base.add(DEFAULT_HEADER).cast()
+    }
+}
+/// Whether `manager` allocates through `default_alloc` (its opaque is unused).
+///
+/// # Safety
+/// `manager` is readable and initialized.
+pub(crate) unsafe fn uses_default_alloc(manager: *const JxlMemoryManager) -> bool {
+    // SAFETY: The caller supplies a readable, initialized manager.
+    let alloc = unsafe { (*manager).alloc };
+    alloc.map(|f| f as usize) == Some(default_alloc as *const () as usize)
+}
 pub(crate) unsafe extern "C" fn default_free(_opaque: *mut c_void, address: *mut c_void) {
     if address.is_null() {
         return;

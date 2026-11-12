@@ -11,7 +11,10 @@
 //! size. See ADR 0003.
 
 use super::base::status::{StatusCode, StatusOr};
-use super::memory_manager::{JxlMemoryManager, memory_manager_alloc, memory_manager_free};
+use super::memory_manager::{
+    JxlMemoryManager, default_alloc_zeroed, memory_manager_alloc, memory_manager_free,
+    uses_default_alloc,
+};
 use std::alloc::{Layout, alloc_zeroed, dealloc};
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -253,18 +256,30 @@ impl AlignedMemory {
                 (allocation, Backing::Native(layout))
             }
             Kind::Manager(manager) => {
-                // SAFETY: from_raw's caller keeps this manager live with valid
-                // callbacks. No borrowed view of any block exists across the
-                // call, and the request is the source's exact size.
-                let allocated = unsafe { memory_manager_alloc(manager.as_ptr(), allocation_size) };
-                let allocation =
-                    NonNull::new(allocated.cast::<u8>()).ok_or(StatusCode::GenericError)?;
-                // SAFETY: A successful alloc returns an exclusively owned
-                // writable block of allocation_size bytes (from_raw contract).
-                // Zeroing it is the representation's internal initialization
-                // so that the safe slices below never read indeterminate bytes.
-                unsafe { allocation.as_ptr().write_bytes(0, allocation_size) };
-                (allocation, Backing::Manager(manager))
+                // SAFETY: from_raw's caller keeps this manager live and readable.
+                if unsafe { uses_default_alloc(manager.as_ptr()) } {
+                    // The default callback ignores its opaque and has no
+                    // observable history; request the same block already
+                    // zeroed so untouched pages need not become resident.
+                    let allocated = default_alloc_zeroed(allocation_size);
+                    let allocation =
+                        NonNull::new(allocated.cast::<u8>()).ok_or(StatusCode::GenericError)?;
+                    (allocation, Backing::Manager(manager))
+                } else {
+                    // SAFETY: from_raw's caller keeps this manager live with valid
+                    // callbacks. No borrowed view of any block exists across the
+                    // call, and the request is the source's exact size.
+                    let allocated =
+                        unsafe { memory_manager_alloc(manager.as_ptr(), allocation_size) };
+                    let allocation =
+                        NonNull::new(allocated.cast::<u8>()).ok_or(StatusCode::GenericError)?;
+                    // SAFETY: A successful alloc returns an exclusively owned
+                    // writable block of allocation_size bytes (from_raw contract).
+                    // Zeroing it is the representation's internal initialization
+                    // so that the safe slices below never read indeterminate bytes.
+                    unsafe { allocation.as_ptr().write_bytes(0, allocation_size) };
+                    (allocation, Backing::Manager(manager))
+                }
             }
         };
 
