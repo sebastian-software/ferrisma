@@ -361,7 +361,7 @@ fn content_q(content: u32, x: u32, y: u32, c: u32, xsize: u32, ysize: u32) -> u3
                 return 960;
             }
             let glyph = (x / 10 * 7 + y / 14 * 3) % 5;
-            if content_hash(gx, gy, glyph + 100) % 3 != 0 {
+            if !content_hash(gx, gy, glyph + 100).is_multiple_of(3) {
                 80 + 5 * c
             } else {
                 960

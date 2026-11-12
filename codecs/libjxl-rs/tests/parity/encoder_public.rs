@@ -1795,6 +1795,7 @@ fn public_encoder_lossy_vardct_text_like_default_admission_matches_original() {
 /// plane), and the channels of `infos` (type, bits) set with
 /// JxlEncoderSetExtraChannelInfo and filled with
 /// JxlEncoderSetExtraChannelBuffer. 8-bit input.
+#[expect(clippy::too_many_arguments, reason = "one argument per history field")]
 fn extra_channels_history(
     xsize: usize,
     ysize: usize,
