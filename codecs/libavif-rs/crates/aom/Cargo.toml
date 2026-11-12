@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 license = "BSD-2-Clause AND BSD-3-Clause AND MIT"
 description = "Mechanical portable Rust translation of libaom 3.15.2"
+repository = "https://github.com/sebastian-software/ferrisma"
+include = ["/Cargo.toml", "/build.rs", "/README.md", "/NOTICE.md", "/LICENSES/**", "/src/**"]
 publish = false
 
 [lib]

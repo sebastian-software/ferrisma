@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 license = "BSD-2-Clause"
 description = "Mechanical portable Rust translation of dav1d 1.5.4"
+repository = "https://github.com/sebastian-software/ferrisma"
+include = ["/Cargo.toml", "/build.rs", "/README.md", "/NOTICE.md", "/LICENSES/**", "/src/**"]
 publish = false
 
 [lib]

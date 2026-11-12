@@ -5,6 +5,7 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "libavif-rs (Rust AOM) as an output encoder backend for Ferrisma (ADR-0024)"
 homepage = "https://ferrisma.dev"
+repository = "https://github.com/sebastian-software/ferrisma"
 publish = false
 
 [features]

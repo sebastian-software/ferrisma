@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 license = "BSD-3-Clause"
 description = "SharpYUV 0.4.2 C ABI adapter over the shared safe conversion core"
+repository = "https://github.com/sebastian-software/ferrisma"
+include = ["/Cargo.toml", "/build.rs", "/README.md", "/NOTICE.md", "/LICENSES/**", "/src/**"]
 publish = false
 
 [lib]

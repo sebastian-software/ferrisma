@@ -5,6 +5,8 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Safe still AVIF encoder boundary for the workspace libavif port"
 homepage = "https://ferrisma.dev"
+repository = "https://github.com/sebastian-software/ferrisma"
+include = ["/Cargo.toml", "/LICENSE-MIT", "/LICENSE-APACHE", "/src/**"]
 publish = false
 
 [dependencies]

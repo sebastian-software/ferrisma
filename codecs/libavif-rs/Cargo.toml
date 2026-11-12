@@ -2,8 +2,13 @@
 name = "libavif-rs"
 version = "0.1.0"
 edition = "2021"
-license = "BSD-2-Clause"
+# libavif and its dav1d-derived OBU parser are BSD-2-Clause; the translated
+# libyuv fallback in src/libyuv is BSD-3-Clause (see LICENSE).
+license = "BSD-2-Clause AND BSD-3-Clause"
 description = "Mechanical Rust port of the pinned libavif implementation"
+repository = "https://github.com/sebastian-software/ferrisma"
+# The upstream snapshot, oracle tooling, and tests stay in the repository.
+include = ["/Cargo.toml", "/build.rs", "/README.md", "/LICENSE", "/upstream/libavif/third_party/libyuv/AUTHORS", "/src/**"]
 publish = false
 
 [lib]
@@ -12,9 +17,9 @@ crate-type = ["staticlib", "rlib", "cdylib"]
 
 [dependencies]
 libc = "=0.2.191"
-sharpyuv = { package = "libavif-sharpyuv", path = "crates/sharpyuv" }
-dav1d = { package = "libavif-dav1d", path = "crates/dav1d" }
-aom = { package = "libavif-aom", path = "crates/aom" }
+sharpyuv = { package = "libavif-sharpyuv", path = "crates/sharpyuv", version = "0.1.0" }
+dav1d = { package = "libavif-dav1d", path = "crates/dav1d", version = "0.1.0" }
+aom = { package = "libavif-aom", path = "crates/aom", version = "0.1.0" }
 
 [features]
 default = []

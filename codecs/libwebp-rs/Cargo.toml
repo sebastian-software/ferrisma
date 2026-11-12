@@ -5,6 +5,9 @@ edition = "2024"
 rust-version = "1.95"
 license = "BSD-3-Clause"
 description = "A mechanical Rust port of libwebp, the WebP reference implementation"
+repository = "https://github.com/sebastian-software/ferrisma"
+# Upstream submodules, oracle tooling, and test data stay in the repository.
+include = ["/Cargo.toml", "/README.md", "/LICENSE", "/PATENTS", "/AUTHORS", "/docs/PROVENANCE.md", "/src/**"]
 publish = false
 
 [dependencies]

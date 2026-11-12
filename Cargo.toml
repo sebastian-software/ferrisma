@@ -67,6 +67,21 @@ homepage = "https://ferrisma.dev"
 repository = "https://github.com/sebastian-software/ferrisma"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
+keywords = ["image", "avif", "webp", "jpeg-xl", "resize"]
+categories = ["multimedia::images"]
+# Package only what a dependent build, the documentation, and the license
+# obligations need; nested workspace packages are excluded by Cargo anyway.
+include = [
+    "/Cargo.toml",
+    "/README.md",
+    "/LICENSE-MIT",
+    "/LICENSE-APACHE",
+    "/THIRD-PARTY-NOTICES.md",
+    "/assets/icc/**",
+    "/src/**",
+    "/examples/**",
+    "/tests/**",
+]
 publish = false
 
 [features]
