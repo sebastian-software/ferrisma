@@ -88,12 +88,15 @@ pub(crate) enum Error {
     UnsupportedAlphaMode,
     /// Animated input; only still images are decoded (no first-frame
     /// fallback).
-    #[cfg(any(
-        feature = "webp-read",
-        feature = "jpeg-xl-read",
-        feature = "jpeg-xl-own-read",
-        feature = "avif-read"
-    ))]
+    #[cfg_attr(
+        not(any(
+            feature = "webp-read",
+            feature = "jpeg-xl-read",
+            feature = "jpeg-xl-own-read",
+            feature = "avif-read"
+        )),
+        allow(dead_code, reason = "constructed only by animated-format adapters")
+    )]
     UnsupportedAnimation,
     #[allow(dead_code)]
     UnsupportedCodecLayout,
@@ -189,12 +192,6 @@ impl fmt::Display for Error {
                 f,
                 "the channel layout requires an explicit, compatible alpha-association mode"
             ),
-            #[cfg(any(
-                feature = "webp-read",
-                feature = "jpeg-xl-read",
-                feature = "jpeg-xl-own-read",
-                feature = "avif-read"
-            ))]
             Self::UnsupportedAnimation => write!(
                 f,
                 "animated input is not supported; only still images are decoded"
