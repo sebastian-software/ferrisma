@@ -1,0 +1,38 @@
+{
+ "reps": 7,
+ "candidates": [
+  {
+   "name": "probe-r3base",
+   "argv": [
+    "$S/r3/bin/probe-r3base",
+    "decode",
+    "$S/jxlperf/mountain-d1e7.jxl",
+    "1"
+   ],
+   "parse": "ms",
+   "per": 1
+  },
+  {
+   "name": "probe-r3idct",
+   "argv": [
+    "$S/r3/bin/probe-r3idct",
+    "decode",
+    "$S/jxlperf/mountain-d1e7.jxl",
+    "1"
+   ],
+   "parse": "ms",
+   "per": 1
+  },
+  {
+   "name": "probe-r3final",
+   "argv": [
+    "$S/r3/bin/probe-r3final",
+    "decode",
+    "$S/jxlperf/mountain-d1e7.jxl",
+    "1"
+   ],
+   "parse": "ms",
+   "per": 1
+  }
+ ]
+}

@@ -1,0 +1,63 @@
+samples=4278
+
+## Top 15 exclusive (self) symbols
+  13.6%  jxl::jxl::dct::idct_1d_in_place
+  11.6%  <jxl::jxl::render_pipeline::stage_epf::EPFStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+   8.9%  <jxl::jxl::render_pipeline::stage_gaborish::GaborishStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+   7.9%  jxl::jxl::dec_xyb_scalar::mul
+   4.0%  jxl::jxl::dec_xyb_scalar::widen
+   3.8%  jxl::jxl::dct::idct_columns
+   3.7%  <jxl::jxl::render_pipeline::stage_from_linear::FromLinearStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+   3.6%  jxl::jxl::dec_xyb_scalar::xyb_to_rgb
+   3.6%  jxl::jxl::render_pipeline::stage_gaborish::add
+   3.6%  jxl::jxl::render_pipeline::stage_ycbcr::add
+   3.3%  <jxl::jxl::image::Plane<f32>>::row_at_mut
+   3.3%  <jxl::jxl::image::Plane<f32>>::row_at
+   3.1%  jxl::jxl::render_pipeline::stage_gaborish::promote
+   2.8%  jxl::jxl::dct::idct_finish
+   2.6%  jxl::jxl::dec_group_render::dequant_lane
+
+## Top 15 inclusive symbols
+ 100.0%  std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+ 100.0%  start
+ 100.0%  std::rt::lang_start_internal
+ 100.0%  jxl_perf_probe::main
+ 100.0%  std::rt::lang_start::<()>::{closure#0}
+ 100.0%  main
+  99.9%  jxl::jxl::decode::jxl_decoder_process_input
+  99.9%  <jxl::jxl::dec_frame::FrameDecoderScope>::process_sections
+  99.9%  <jxl::jxl::dec_frame::FrameDecoder>::process_sections
+  99.9%  jxl::jxl::decode::jxl_decoder_process_codestream
+  99.9%  ferrisma_jxl_decoder::decode_into
+  98.1%  <jxl::jxl::base::data_parallel::RunCallState<jxl::jxl::base::data_parallel::run_on_pool_exclusive<(&mut jxl::jxl::dec_frame::FrameDecoderScope, &mut [
+  98.1%  <jxl::jxl::dec_frame::FrameDecoderScope>::process_ac_group
+  98.1%  jxl::jxl::base::data_parallel::run_on_pool_exclusive::<(&mut jxl::jxl::dec_frame::FrameDecoderScope, &mut [jxl::jxl::dec_frame::SectionInfo], &mut [jx
+  98.1%  <jxl::jxl::base::data_parallel::ThreadPool>::run::<jxl::jxl::base::data_parallel::run_on_pool_exclusive<(&mut jxl::jxl::dec_frame::FrameDecoderScope, 
+  70.6%  <jxl::jxl::render_pipeline::low_memory_render_pipeline::LowMemoryRenderPipeline as jxl::jxl::render_pipeline::render_pipeline::RenderPipeline>::proces
+  27.5%  jxl::jxl::dec_group::decode_ac_group
+  27.5%  jxl::jxl::dec_group_render::decode_group_impl::<jxl::jxl::dec_group::GetBlockFromBitstream>
+  24.1%  <jxl::jxl::render_pipeline::stage_xyb::XybStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+  21.5%  jxl::jxl::dec_transforms::transform_to_pixels
+  21.5%  jxl::jxl::dct::compute_scaled_idct
+  20.7%  jxl::jxl::dct::idct_columns
+  20.3%  <jxl::jxl::render_pipeline::stage_epf::EPFStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+  19.3%  jxl::jxl::dec_xyb_scalar::xyb_to_rgb
+  16.9%  <jxl::jxl::render_pipeline::stage_gaborish::GaborishStage as jxl::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage>::process_row
+
+## Stage shares (innermost matching frame)
+  24.1%  XYB->linear (XYB stage)
+  21.6%  IDCT / transform to pixels
+  16.7%  Gaborish
+  13.4%  EPF
+   7.2%  linear->sRGB (FromLinear)
+   6.8%  YCbCr
+   3.1%  AC entropy decode
+   3.1%  dequant
+   1.3%  modular/DC decode
+   1.2%  memset/memcpy
+   0.9%  write to output buffer
+   0.5%  render pipeline (other)
+   0.1%  other
+samples=4278
+  21.5%  /transform_to_pixels/
+  21.5%  /compute_scaled_idct|scaled_idct/

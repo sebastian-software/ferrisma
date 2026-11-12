@@ -1,0 +1,38 @@
+{
+ "reps": 7,
+ "candidates": [
+  {
+   "name": "probe-r3base",
+   "argv": [
+    "$S/r3/bin/probe-r3base",
+    "decode",
+    "$S/corpus/flower-jpegrecon.jxl",
+    "3"
+   ],
+   "parse": "ms",
+   "per": 3
+  },
+  {
+   "name": "probe-r3idct",
+   "argv": [
+    "$S/r3/bin/probe-r3idct",
+    "decode",
+    "$S/corpus/flower-jpegrecon.jxl",
+    "3"
+   ],
+   "parse": "ms",
+   "per": 3
+  },
+  {
+   "name": "probe-r3final",
+   "argv": [
+    "$S/r3/bin/probe-r3final",
+    "decode",
+    "$S/corpus/flower-jpegrecon.jxl",
+    "3"
+   ],
+   "parse": "ms",
+   "per": 3
+  }
+ ]
+}

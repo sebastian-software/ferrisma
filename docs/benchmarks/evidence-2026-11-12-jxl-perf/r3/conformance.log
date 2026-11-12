@@ -1,0 +1,152 @@
+verified corpus b1d0f990b03e57bf6d137c365cd5dc8b470b9191 in $S/r3/conf/corpus
+warning: explicit `package.readme` can be inferred
+  --> Cargo.toml:69:1
+   |
+69 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `ferrisma` (manifest) generated 1 warning
+   Compiling libjxl-rs v0.1.0 ($W/codecs/libjxl-rs)
+    Finished `release` profile [optimized] target(s) in 14.22s
+## Level 10
+| Case | Result | Frames | Max RMSE / limit | Max peak / limit | Exact files |
+| --- | --- | ---: | --- | --- | --- |
+| `alpha_nonpremultiplied` | pass | 1 | 5.82e-11 / 6.1035e-05 | 1.86e-09 / 6.1035e-05 | - |
+| `alpha_premultiplied` | pass | 1 | 1.78e-07 / 3.815e-06 | 3.04e-06 / 3.815e-06 | - |
+| `alpha_triangles` | pass | 1 | 1.64e-09 / 0.00195312 | 2.98e-08 / 0.00195312 | - |
+| `animation_icos4d` | pass | 48 | 5.39e-07 / 0.0001 | 2.63e-05 / 0.005 | - |
+| `animation_newtons_cradle` | pass | 36 | 0 / 0.000976562 | 0 / 0.000976562 | - |
+| `animation_spline` | pass | 60 | 2.93e-07 / 0.0001 | 1.17e-05 / 0.004 | - |
+| `bench_oriented_brg` | pass | 1 | 2.66e-07 / 1e-05 | 1.91e-06 / 0.004 | reconstructed.jpg identical, original.icc identical |
+| `bicycles` | pass | 1 | 1.78e-07 / 0.000976562 | 4.95e-06 / 0.000976562 | - |
+| `bike` | pass | 1 | 2.59e-06 / 0.0001 | 0.000249 / 0.007 | original.icc identical |
+| `blendmodes` | pass | 1 | 1.17e-07 / 0.004 | 1.43e-06 / 0.0001 | - |
+| `cafe` | pass | 1 | 4.59e-07 / 1e-05 | 4.95e-06 / 0.004 | reconstructed.jpg identical, original.icc identical |
+| `cmyk_layers` | pass | 1 | 2.69e-09 / 0.000976562 | 5.96e-08 / 0.000976562 | original.icc identical |
+| `delta_palette` | pass | 1 | 0 / 0.000976562 | 0 / 0.000976562 | - |
+| `grayscale_jpeg` | pass | 1 | 1.33e-07 / 1e-05 | 1.79e-06 / 0.004 | reconstructed.jpg identical, original.icc identical |
+| `grayscale` | pass | 1 | 7.82e-06 / 0.0001 | 0.000228 / 0.004 | original.icc identical |
+| `grayscale_public_university` | pass | 1 | 5.11e-08 / 0.000976562 | 8.05e-07 / 0.000976562 | original.icc identical |
+| `lossless_pfm` | pass | 1 | 0 / 0 | 0 / 0 | - |
+| `lz77_flower` | pass | 1 | 0 / 0.000976562 | 0 / 0.000976562 | original.icc identical |
+| `mul_no_extra_channels` | pass | 1 | 0 / 0.0001 | 0 / 0.004 | - |
+| `noise` | pass | 1 | 5.39e-07 / 0.0001 | 2.93e-05 / 0.004 | - |
+| `opsin_inverse` | pass | 1 | 6.12e-07 / 0.0001 | 7.62e-06 / 0.004 | - |
+| `patches` | pass | 1 | 1.39e-07 / 0.0001 | 6.68e-06 / 0.004 | original.icc identical |
+| `patches_lossless` | pass | 1 | 0 / 0.000976562 | 0 / 0.000976562 | original.icc identical |
+| `progressive` | pass | 1 | 4.08e-07 / 0.0001 | 2.01e-05 / 0.02 | original.icc identical |
+| `spot` | pass | 1 | 1.52e-09 / 3.815e-06 | 5.96e-08 / 3.815e-06 | original.icc identical |
+| `sunset_logo` | pass | 1 | 1.71e-08 / 0.000244141 | 2.38e-07 / 0.000244141 | - |
+| `upsampling` | pass | 1 | 1.25e-06 / 0.0001 | 4.45e-05 / 0.004 | - |
+
+27 of 27 passed
+## Level 5
+| Case | Result | Frames | Max RMSE / limit | Max peak / limit | Exact files |
+| --- | --- | ---: | --- | --- | --- |
+| `alpha_nonpremultiplied` | pass | 1 | 5.82e-11 / 6.1035e-05 | 1.86e-09 / 6.1035e-05 | - |
+| `alpha_triangles` | pass | 1 | 1.64e-09 / 0.00195312 | 2.98e-08 / 0.00195312 | - |
+| `animation_icos4d_5` | pass | 48 | 0.00113 / 0.02 | 0.0557 / 0.06 | - |
+| `animation_newtons_cradle` | pass | 36 | 0 / 0.000976562 | 0 / 0.000976562 | - |
+| `animation_spline_5` | pass | 60 | 2.93e-07 / 0.02 | 1.17e-05 / 0.06 | - |
+| `bench_oriented_brg_5` | pass | 1 | 2.66e-07 / 0.02 | 1.91e-06 / 0.06 | reconstructed.jpg identical, original.icc identical |
+| `bicycles` | pass | 1 | 1.78e-07 / 0.000976562 | 4.95e-06 / 0.000976562 | - |
+| `bike_5` | pass | 1 | 2.59e-06 / 0.02 | 0.000249 / 0.06 | original.icc identical |
+| `blendmodes_5` | pass | 1 | 1.17e-07 / 0.02 | 1.43e-06 / 0.06 | - |
+| `cafe_5` | pass | 1 | 4.59e-07 / 0.02 | 4.95e-06 / 0.06 | reconstructed.jpg identical, original.icc identical |
+| `delta_palette` | pass | 1 | 0 / 0.000976562 | 0 / 0.000976562 | - |
+| `grayscale_5` | pass | 1 | 7.82e-06 / 0.02 | 0.000228 / 0.06 | original.icc identical |
+| `grayscale_jpeg_5` | pass | 1 | 1.33e-07 / 0.02 | 1.79e-06 / 0.06 | reconstructed.jpg identical, original.icc identical |
+| `grayscale_public_university` | pass | 1 | 5.11e-08 / 0.000976562 | 8.05e-07 / 0.000976562 | original.icc identical |
+| `lz77_flower` | pass | 1 | 0 / 0.000976562 | 0 / 0.000976562 | original.icc identical |
+| `mul_no_extra_channels` | pass | 1 | 0 / 0.0001 | 0 / 0.004 | - |
+| `noise_5` | pass | 1 | 5.39e-07 / 0.02 | 2.93e-05 / 0.06 | - |
+| `opsin_inverse_5` | pass | 1 | 6.12e-07 / 0.02 | 7.62e-06 / 0.06 | - |
+| `patches_5` | pass | 1 | 0.000255 / 0.02 | 0.0241 / 0.06 | original.icc identical |
+| `patches_lossless` | pass | 1 | 0 / 0.000976562 | 0 / 0.000976562 | original.icc identical |
+| `progressive_5` | pass | 1 | 4.08e-07 / 0.02 | 2.01e-05 / 0.06 | original.icc identical |
+| `spot` | pass | 1 | 1.52e-09 / 3.815e-06 | 5.96e-08 / 3.815e-06 | original.icc identical |
+| `sunset_logo` | pass | 1 | 1.71e-08 / 0.000244141 | 2.38e-07 / 0.000244141 | - |
+| `upsampling_5` | pass | 1 | 0.000258 / 0.02 | 0.0163 / 0.06 | - |
+
+24 of 24 passed
+warning: explicit `package.readme` can be inferred
+  --> Cargo.toml:69:1
+   |
+69 | readme = "README.md"
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `cargo::manual_readme` is set to `warn` by default
+help: consider removing `package.readme`
+warning: `ferrisma` (manifest) generated 1 warning
+   Compiling once_cell v1.21.4
+   Compiling pin-project-lite v0.2.17
+   Compiling alloc-no-stdlib v2.0.4
+   Compiling bytemuck v1.25.2
+   Compiling alloc-stdlib v0.2.4
+   Compiling libjxl-rs v0.1.0 ($W/codecs/libjxl-rs)
+   Compiling tracing-core v0.1.36
+   Compiling brotli-decompressor v5.0.3
+   Compiling tracing v0.1.44
+   Compiling jxl-bitstream v1.1.0
+   Compiling jxl-oxide-common v1.0.0
+   Compiling jxl-grid v0.6.2
+   Compiling jxl-coding v1.0.1
+   Compiling jxl-threadpool v1.0.0
+   Compiling jxl-image v0.13.0
+   Compiling jxl-modular v0.11.3
+   Compiling jxl-vardct v0.11.1
+   Compiling jxl-frame v0.13.3
+   Compiling jxl-color v0.11.0
+   Compiling jxl-render v0.12.4
+   Compiling jxl-jbr v0.2.1
+   Compiling jxl-oxide v0.12.6
+   Compiling ferrisma-jxl-decoder v0.1.0 ($W/crates/ferrisma-jxl-decoder)
+    Finished `release` profile [optimized] target(s) in 26.03s
+## Ferrisma wrapper (--lax)
+| Case | Result | Frames | Max RMSE / limit | Max peak / limit | Exact files |
+| --- | --- | ---: | --- | --- | --- |
+| `alpha_nonpremultiplied` | pass | 1 | 5.82e-11 / 6.1035e-05 | 1.86e-09 / 6.1035e-05 | - |
+| `alpha_premultiplied` | pass | 1 | 1.78e-07 / 3.815e-06 | 3.04e-06 / 3.815e-06 | - |
+| `alpha_triangles` | pass | 1 | 9.2e-11 / 0.00195312 | 1.86e-09 / 0.00195312 | - |
+| `animation_icos4d` | FAIL | 0 | decoder exited with an error | decoder exited with an error | - |
+| `animation_icos4d_5` | FAIL | 0 | decoder exited with an error | decoder exited with an error | - |
+| `animation_newtons_cradle` | FAIL | 0 | decoder exited with an error | decoder exited with an error | - |
+| `animation_spline` | FAIL | 0 | decoder exited with an error | decoder exited with an error | - |
+| `animation_spline_5` | FAIL | 0 | decoder exited with an error | decoder exited with an error | - |
+| `bench_oriented_brg` | pass | 1 | 2.66e-07 / 1e-05 | 1.91e-06 / 0.004 | - |
+| `bench_oriented_brg_5` | pass | 1 | 2.66e-07 / 0.02 | 1.91e-06 / 0.06 | - |
+| `bicycles` | pass | 1 | 1.76e-07 / 0.000976562 | 4.95e-06 / 0.000976562 | - |
+| `bike` | pass | 1 | 2.59e-06 / 0.0001 | 0.000249 / 0.007 | - |
+| `bike_5` | pass | 1 | 2.59e-06 / 0.02 | 0.000249 / 0.06 | - |
+| `blendmodes` | pass | 1 | 2.96e-08 / 0.004 | 4.77e-07 / 0.0001 | - |
+| `blendmodes_5` | pass | 1 | 2.96e-08 / 0.02 | 4.77e-07 / 0.06 | - |
+| `cafe` | pass | 1 | 4.25e-07 / 1e-05 | 4.95e-06 / 0.004 | - |
+| `cafe_5` | pass | 1 | 4.25e-07 / 0.02 | 4.95e-06 / 0.06 | - |
+| `cmyk_layers` | FAIL | 0 | decoder exited with an error | decoder exited with an error | - |
+| `delta_palette` | pass | 1 | 0 / 0.000976562 | 0 / 0.000976562 | - |
+| `grayscale` | pass | 1 | 7.82e-06 / 0.0001 | 0.000228 / 0.004 | - |
+| `grayscale_5` | pass | 1 | 7.82e-06 / 0.02 | 0.000228 / 0.06 | - |
+| `grayscale_jpeg` | pass | 1 | 1.24e-07 / 1e-05 | 1.79e-06 / 0.004 | - |
+| `grayscale_jpeg_5` | pass | 1 | 1.24e-07 / 0.02 | 1.79e-06 / 0.06 | - |
+| `grayscale_public_university` | pass | 1 | 5.11e-08 / 0.000976562 | 8.05e-07 / 0.000976562 | - |
+| `lossless_pfm` | FAIL | 0 | decoder exited with an error | decoder exited with an error | - |
+| `lz77_flower` | pass | 1 | 0 / 0.000976562 | 0 / 0.000976562 | - |
+| `mul_no_extra_channels` | pass | 1 | 0 / 0.0001 | 0 / 0.004 | - |
+| `noise` | pass | 1 | 5e-07 / 0.0001 | 2.93e-05 / 0.004 | - |
+| `noise_5` | pass | 1 | 5e-07 / 0.02 | 2.93e-05 / 0.06 | - |
+| `opsin_inverse` | pass | 1 | 5.84e-07 / 0.0001 | 7.62e-06 / 0.004 | - |
+| `opsin_inverse_5` | pass | 1 | 5.84e-07 / 0.02 | 7.62e-06 / 0.06 | - |
+| `patches` | pass | 1 | 1.39e-07 / 0.0001 | 6.68e-06 / 0.004 | - |
+| `patches_5` | pass | 1 | 0.000255 / 0.02 | 0.0241 / 0.06 | - |
+| `patches_lossless` | pass | 1 | 0 / 0.000976562 | 0 / 0.000976562 | - |
+| `progressive` | pass | 1 | 4.01e-07 / 0.0001 | 1.28e-05 / 0.02 | - |
+| `progressive_5` | pass | 1 | 4.01e-07 / 0.02 | 1.28e-05 / 0.06 | - |
+| `spot` | FAIL | 0 | decoder exited with an error | decoder exited with an error | - |
+| `sunset_logo` | pass | 1 | 1.27e-08 / 0.000244141 | 5.96e-08 / 0.000244141 | - |
+| `upsampling` | pass | 1 | 1.08e-06 / 0.0001 | 4.45e-05 / 0.004 | - |
+| `upsampling_5` | pass | 1 | 0.000217 / 0.02 | 0.0138 / 0.06 | - |
+
+32 of 40 passed
+exit 0

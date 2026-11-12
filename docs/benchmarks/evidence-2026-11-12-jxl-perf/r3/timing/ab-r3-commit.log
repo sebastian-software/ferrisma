@@ -1,0 +1,6 @@
+## enc-commit 20:23 { 5.20 7.05 8.53 }
+probe-r3base                               12171.9 ms (12016.6-12827.8)  RSS   281.3 MB  load 3.7-6.4
+probe-r3A                                   8190.7 ms (8156.8-8442.4)  RSS   277.7 MB  load 4.0-6.7
+## d1e7-commit 20:26 { 4.92 6.15 7.89 }
+probe-r3base                                 798.7 ms (787.4-805.2)  RSS    67.6 MB  load 4.5-4.8
+probe-r3A                                    665.6 ms (664.9-672.1)  RSS    68.0 MB  load 4.5-4.8

@@ -1,0 +1,27 @@
+{
+ "reps": 7,
+ "candidates": [
+  {
+   "name": "probe-r3base",
+   "argv": [
+    "$S/r3/bin/probe-r3base",
+    "decode",
+    "$S/jxlperf/flower-d1e7.jxl",
+    "3"
+   ],
+   "parse": "ms",
+   "per": 3
+  },
+  {
+   "name": "probe-r3A",
+   "argv": [
+    "$S/r3/bin/probe-r3A",
+    "decode",
+    "$S/jxlperf/flower-d1e7.jxl",
+    "3"
+   ],
+   "parse": "ms",
+   "per": 3
+  }
+ ]
+}

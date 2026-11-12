@@ -1,0 +1,16 @@
+## recon 19:46 { 28.35 15.69 12.35 }
+probe-r3base                                 281.3 ms (258.9-314.6)  RSS    60.4 MB  load 28.3-30.5
+probe-r3idct                                 183.3 ms (166.9-231.7)  RSS    60.5 MB  load 28.3-30.5
+probe-r3final                                190.4 ms (173.5-196.5)  RSS    59.8 MB  load 29.0-30.5
+## d1e7 19:46 { 30.46 16.77 12.79 }
+probe-r3base                                 811.9 ms (804.7-927.0)  RSS    73.9 MB  load 25.7-31.1
+probe-r3idct                                 672.4 ms (669.1-770.6)  RSS    70.4 MB  load 24.3-31.5
+probe-r3final                                670.3 ms (668.9-722.0)  RSS    70.3 MB  load 24.3-31.5
+## mountain 19:47 { 24.32 17.63 13.38 }
+probe-r3base                                6130.0 ms (6090.2-6164.7)  RSS   348.6 MB  load 9.1-22.0
+probe-r3idct                                5147.7 ms (5131.8-5222.8)  RSS   348.2 MB  load 8.7-20.9
+probe-r3final                               5142.7 ms (5137.6-5200.9)  RSS   348.5 MB  load 8.6-18.9
+## enc 19:49 { 8.60 14.06 12.57 }
+probe-r3base                               12376.3 ms (12024.4-12400.3)  RSS   277.4 MB  load 4.7-7.5
+probe-r3idct                                9433.6 ms (9201.8-9463.3)  RSS   276.0 MB  load 4.6-7.0
+probe-r3final                               7478.8 ms (7289.5-7507.6)  RSS   276.6 MB  load 4.6-6.9

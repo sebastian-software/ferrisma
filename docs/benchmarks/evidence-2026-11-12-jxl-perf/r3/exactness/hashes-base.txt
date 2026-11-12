@@ -1,0 +1,6 @@
+flower-jpegrecon.jxl output_fnv1a64=938a07df6049aa00 samples=10287648
+flower-d1e7.jxl output_fnv1a64=e03e8df9ed696f61 samples=10287648
+mountain-d1e7.jxl output_fnv1a64=799f8fe0b5477dbf samples=72000000
+flower-lossless.jxl output_fnv1a64=aaa681dc056f68cd samples=10287648
+bytes=464590
+8cafad7a3a19eb8a02d064dbe14583009969125e0203e3f670fe79745cd5c5b3  $S/r3/enc-base.jxl

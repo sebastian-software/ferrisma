@@ -1,0 +1,12 @@
+# Randomized competing-payload probe, 21,504 cases (tools/dct_nan_probe.rs).
+# label  sha256(listing)[:16]  differing-cases-vs-reference  description
+nan-base  02601e2a77c00830  0  AArch64 checked profile, base aaf768fa
+nan-cfgA  02601e2a77c00830  0  AArch64 checked profile, committed d5839a1d
+nan-cfg  02601e2a77c00830  0  AArch64 checked, rejected: 4-point DCT inlined (fails 2x4 LLF in the exhaustive set)
+nan-step1  33b5531e412041bd  3480  AArch64 checked, rejected: fully inlined per-size 1D, runtime 2D
+nan-c  c5af30f212399a57  3732  AArch64 checked, rejected: fully inlined per-size and per-shape, inlined idct_add
+nanroot-base  02601e2a77c00830  0  AArch64 root release profile, base
+nanroot-cfgA  02601e2a77c00830  0  AArch64 root release profile, committed
+nanx86-base  1c81580cdb80023b  0  x86_64 checked profile under Rosetta 2, base
+nanx86-final  8cfbf6275d08b127  684  x86_64 under Rosetta 2, rejected: instantiated form on x86_64
+nanx86-cfg  1c81580cdb80023b  0  x86_64 under Rosetta 2, committed (former recursion on x86_64)

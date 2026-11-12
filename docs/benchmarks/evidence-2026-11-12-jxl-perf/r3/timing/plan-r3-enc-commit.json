@@ -1,0 +1,29 @@
+{
+ "reps": 7,
+ "candidates": [
+  {
+   "name": "probe-r3base",
+   "argv": [
+    "$S/r3/bin/probe-r3base",
+    "lossy",
+    "$S/jxlperf/flower.ppm",
+    "7",
+    "1.0",
+    "1"
+   ],
+   "parse": "ms"
+  },
+  {
+   "name": "probe-r3A",
+   "argv": [
+    "$S/r3/bin/probe-r3A",
+    "lossy",
+    "$S/jxlperf/flower.ppm",
+    "7",
+    "1.0",
+    "1"
+   ],
+   "parse": "ms"
+  }
+ ]
+}
