@@ -256,9 +256,11 @@ dependencies = [
  "ferrisma-avif-read",
  "ferrisma-avif-write",
  "ferrisma-jxl-decoder",
+ "ferrisma-jxl-encoder",
  "ferrisma-kernels",
  "jxl-oxide",
  "libjpeg-turbo-rs",
+ "libjxl-rs",
  "libwebp-rs",
  "moxcms",
  "rav1e",
@@ -288,6 +290,13 @@ dependencies = [
 
 [[package]]
 name = "ferrisma-jxl-decoder"
+version = "0.1.0"
+dependencies = [
+ "libjxl-rs",
+]
+
+[[package]]
+name = "ferrisma-jxl-encoder"
 version = "0.1.0"
 dependencies = [
  "libjxl-rs",
