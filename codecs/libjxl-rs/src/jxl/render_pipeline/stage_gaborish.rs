@@ -5,7 +5,7 @@
 //! Highway loads/stores have one lane, so rounding the left extra span retains
 //! its original value. SIMD specializations remain a separate boundary.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+    RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
 };
 use crate::jxl::base::float::mul_add_f32;
 use crate::jxl::base::status::Status;
@@ -48,6 +48,8 @@ fn normalize_mul(reciprocal: f32, weight: f32) -> f32 {
 
 pub struct GaborishStage {
     weights: [f32; 9],
+    /// One output row, written back after the row's samples are computed.
+    scratch: Vec<f32>,
 }
 impl GaborishStage {
     fn new(lf: &LoopFilter) -> Self {
@@ -84,7 +86,10 @@ impl GaborishStage {
                 weights[3 * c + 2] *= mul;
             }
         }
-        Self { weights }
+        Self {
+            weights,
+            scratch: Vec::new(),
+        }
     }
 }
 impl RenderPipelineStage for GaborishStage {
@@ -113,24 +118,36 @@ impl RenderPipelineStage for GaborishStage {
             let w0 = self.weights[3 * c];
             let w1 = self.weights[3 * c + 1];
             let w2 = self.weights[3 * c + 2];
+            // Resolve each row span once per row instead of once per sample,
+            // and stage the outputs in a scratch row: input and output rows
+            // may share one plane. The loaded values, their order and every
+            // arithmetic operation are unchanged; only addressing is hoisted.
+            let (tx, mx, bx) = (row_t.x, row_m.x, row_b.x);
+            let t_row = buffers.row(Row { x: 0, ..row_t });
+            let m_row = buffers.row(Row { x: 0, ..row_m });
+            let b_row = buffers.row(Row { x: 0, ..row_b });
+            let at = |x0: usize, x: isize| x0.wrapping_add_signed(x);
+            self.scratch.clear();
             for x in x_start..x_end {
-                let t = buffers.row(row_t.offset(x))[0];
-                let tl = buffers.row(row_t.offset(x - 1))[0];
-                let tr = buffers.row(row_t.offset(x + 1))[0];
-                let m = buffers.row(row_m.offset(x))[0];
-                let l = buffers.row(row_m.offset(x - 1))[0];
-                let r = buffers.row(row_m.offset(x + 1))[0];
-                let b = buffers.row(row_b.offset(x))[0];
-                let bl = buffers.row(row_b.offset(x - 1))[0];
-                let br = buffers.row(row_b.offset(x + 1))[0];
+                let t = t_row[at(tx, x)];
+                let tl = t_row[at(tx, x - 1)];
+                let tr = t_row[at(tx, x + 1)];
+                let m = m_row[at(mx, x)];
+                let l = m_row[at(mx, x - 1)];
+                let r = m_row[at(mx, x + 1)];
+                let b = b_row[at(bx, x)];
+                let bl = b_row[at(bx, x - 1)];
+                let br = b_row[at(bx, x + 1)];
                 let sum0 = m;
                 let sum1 = add(add(l, r), add(t, b));
                 let sum2 = add(add(tl, tr), add(bl, br));
                 // Literal original MulAdd(sum2,w2,MulAdd(sum1,w1,Mul(sum0,w0))).
                 // Each scalar multiply and add retains its own rounding.
                 let pixels = add(mul(sum2, w2), add(mul(sum1, w1), mul(sum0, w0)));
-                buffers.row_mut(row_out.offset(x))[0] = pixels;
+                self.scratch.push(pixels);
             }
+            let out = buffers.row_mut(row_out.offset(x_start));
+            out[..self.scratch.len()].copy_from_slice(&self.scratch);
         }
         Ok(())
     }

@@ -4,7 +4,7 @@
 //! Owner-relative row descriptors replace pointers; the sigma plane remains a
 //! borrow of the original frame owner. SIMD specializations are separate.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+    RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
 };
 use crate::jxl::{
     base::status::Status, dec_cache::SIGMA_PADDING, epf::MIN_SIGMA, image::Plane,
@@ -62,6 +62,8 @@ pub struct EPFStage<'a> {
     lf: LoopFilter,
     sigma: SigmaOwner<'a>,
     pass: EpfStage,
+    /// Output rows of one call, written back after all samples are computed.
+    scratch: [Vec<f32>; 3],
 }
 impl EPFStage<'_> {
     fn border(&self) -> usize {
@@ -122,19 +124,31 @@ impl RenderPipelineStage for EPFStage<'_> {
             }
         }
         let outs: [_; 3] = std::array::from_fn(|c| self.get_output_row(output, c, 0));
-        for x in -(left as isize)..width.wrapping_add(right) as isize {
+        // Resolve every input row span once per call instead of once per tap,
+        // and stage outputs in scratch rows. Loaded values, their order and
+        // all arithmetic are unchanged; only addressing is hoisted.
+        let spans: [[&[f32]; 7]; 3] = std::array::from_fn(|c| {
+            std::array::from_fn(|i| buffers.row(Row { x: 0, ..rows[c][i] }))
+        });
+        let mut scratch = std::mem::take(&mut self.scratch);
+        for row in &mut scratch {
+            row.clear();
+        }
+        let x_begin = -(left as isize);
+        for x in x_begin..width.wrapping_add(right) as isize {
             let bx = (x as usize)
                 .wrapping_add(xpos)
                 .wrapping_add(SIGMA_PADDING * 8)
                 / 8;
             let ix = (x as usize).wrapping_add(xpos) % 8;
             let get = |c: usize, y: i32, dx: isize| {
-                buffers.row(rows[c][(border + y) as usize].offset(x + dx))[0]
+                let row = rows[c][(border + y) as usize];
+                spans[c][(border + y) as usize][row.x.wrapping_add_signed(x + dx)]
             };
             let center: [f32; 3] = std::array::from_fn(|c| get(c, 0, 0));
             if row_sigma[bx] < MIN_SIGMA {
                 for c in 0..3 {
-                    buffers.row_mut(outs[c].offset(x))[0] = center[c];
+                    scratch[c].push(center[c]);
                 }
                 continue;
             }
@@ -260,9 +274,14 @@ impl RenderPipelineStage for EPFStage<'_> {
             }
             let inv_w = 1.0 / w; // JXL_HIGH_PRECISION defaults to 1 in the pinned source.
             for c in 0..3 {
-                buffers.row_mut(outs[c].offset(x))[0] = mul(accum[c], inv_w);
+                scratch[c].push(mul(accum[c], inv_w));
             }
         }
+        for c in 0..3 {
+            let out = buffers.row_mut(outs[c].offset(x_begin));
+            out[..scratch[c].len()].copy_from_slice(&scratch[c]);
+        }
+        self.scratch = scratch;
         Ok(())
     }
     fn get_channel_mode(&self, c: usize) -> Mode {
@@ -288,6 +307,7 @@ pub fn get_epf_stage<'a>(
             lf: lf.clone(),
             sigma: SigmaOwner::Borrowed(sigma),
             pass,
+            scratch: Default::default(),
         }))
     }
 }
@@ -306,6 +326,7 @@ pub fn get_epf_stage_shared(
             lf: lf.clone(),
             sigma: SigmaOwner::Shared(sigma),
             pass,
+            scratch: Default::default(),
         }))
     }
 }
