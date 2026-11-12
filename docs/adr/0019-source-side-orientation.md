@@ -55,6 +55,7 @@ The JPEG XL decoder changes again; a workload shows the region copy is significa
 - 2026-11-06 — With more than one transform thread and at least 64 display rows, the gather runs in blocks of 16 rows on scoped worker threads and the rows reach the sink in order on the calling thread (ADR-0023). At most twice the thread count of blocks are in flight, budgeted as engine-managed memory on top of the stored-order buffer; a budget that fits the buffer but no block fails with `BudgetExceeded`. Rows are identical for every thread count. `orientation_buffer_bytes` still reports only the stored-order buffer.
 - 2026-11-11 — The opt-in local libjxl-rs decoder's default upright output matched the existing eight independent orientation fixtures for full frames and crops. The decoder's full-frame output cost is recorded in ADR-0032; jxl-oxide remains the default input backend.
 - 2026-11-12 — Recorded camera-size copy costs, lossy JPEG XL orientation, channel/alpha/color preservation and the animation policy; fixed gray+alpha gathering; kept the materialization for mirror-only orientations (issue #68). Status stays Experimental.
+- 2026-11-12 — The JPEG and WebP EXIF readers accept an Orientation tag stored as LONG as well as SHORT. Two verified corpus photographs (`mountain`, `deer`) store it as LONG and failed closed with `MalformedInput`. Other types, counts, and out-of-range values still fail.
 
 
 ## 2026-11-12: large, lossy and animated input (issue #68)

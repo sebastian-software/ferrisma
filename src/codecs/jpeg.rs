@@ -156,11 +156,17 @@ pub(crate) fn exif_orientation(tiff: &[u8]) -> Result<Option<u16>, ()> {
         if u16_at(entry)? != 0x0112 {
             continue;
         }
-        // SHORT (type 3) with one value, stored in the first two value bytes.
-        if u16_at(entry + 2)? != 3 || u32_at(entry + 4)? != 1 {
+        // One value, stored inline. EXIF specifies SHORT (type 3); real
+        // camera files also store it as LONG (type 4), which TIFF readers
+        // accept for integer fields. Any other type or count is malformed.
+        if u32_at(entry + 4)? != 1 {
             return Err(());
         }
-        return u16_at(entry + 8).map(Some);
+        return match u16_at(entry + 2)? {
+            3 => u16_at(entry + 8).map(Some),
+            4 => u16::try_from(u32_at(entry + 8)?).map(Some).map_err(|_| ()),
+            _ => Err(()),
+        };
     }
     Ok(None)
 }
@@ -504,12 +510,35 @@ mod tests {
     }
 
     #[test]
+    fn reads_an_orientation_stored_as_long() {
+        use crate::decoder::DecodeSource;
+        use crate::orientation::Orientation;
+        // Some cameras write the tag as LONG; such photos must not fail closed.
+        assert_eq!(exif_orientation(&tiff(true, 0x0112, 4, 1, 6)), Ok(Some(6)));
+        // Big-endian LONG: the value sits in the last two of the four bytes.
+        let mut big = tiff(false, 0x0112, 4, 1, 0);
+        big[21] = 8;
+        assert_eq!(exif_orientation(&big), Ok(Some(8)));
+        let file = with_exif(&tiff(true, 0x0112, 4, 1, 6));
+        assert_eq!(
+            JpegSource::new(&file).unwrap().orientation(),
+            Orientation::from_exif(6).unwrap()
+        );
+    }
+
+    #[test]
     fn rejects_malformed_tiff_structures() {
         assert_eq!(exif_orientation(b"XX*\0"), Err(()));
         let mut magic = tiff(true, 0x0112, 3, 1, 1);
         magic[2] = 41;
         assert_eq!(exif_orientation(&magic), Err(()));
-        assert_eq!(exif_orientation(&tiff(true, 0x0112, 4, 1, 1)), Err(()));
+        // A RATIONAL or a second value is not an orientation.
+        assert_eq!(exif_orientation(&tiff(true, 0x0112, 5, 1, 1)), Err(()));
+        assert_eq!(exif_orientation(&tiff(true, 0x0112, 4, 2, 1)), Err(()));
+        // A LONG that does not fit an orientation code is malformed.
+        let mut wide = tiff(true, 0x0112, 4, 1, 1);
+        wide[20] = 1;
+        assert_eq!(exif_orientation(&wide), Err(()));
         let truncated = tiff(true, 0x0112, 3, 1, 1);
         assert_eq!(exif_orientation(&truncated[..12]), Err(()));
     }

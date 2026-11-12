@@ -244,10 +244,15 @@ fn read_exif_orientation(payload: &[u8]) -> Result<Option<u16>, ()> {
             .and_then(|n| n.checked_add(index.checked_mul(12)?))
             .ok_or(())?;
         if u16_at(entry)? == 0x0112 {
-            if u16_at(entry + 2)? != 3 || u32_at(entry + 4)? != 1 {
+            // SHORT per EXIF; LONG occurs in real files (see the JPEG adapter).
+            if u32_at(entry + 4)? != 1 {
                 return Err(());
             }
-            return u16_at(entry + 8).map(Some);
+            return match u16_at(entry + 2)? {
+                3 => u16_at(entry + 8).map(Some),
+                4 => u16::try_from(u32_at(entry + 8)?).map(Some).map_err(|_| ()),
+                _ => Err(()),
+            };
         }
     }
     Ok(None)
