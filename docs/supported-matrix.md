@@ -37,25 +37,24 @@ matters.
 | `avif-read` | still AVIF input | workspace libavif/AOM via `ferrisma-avif-read` | only AVIF reader | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Experimental |
 | `avif-own-write` | AVIF output | workspace libavif/AOM via `ferrisma-avif-write` | **default AVIF encoder** when compiled in | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Experimental |
 | `avif-write` | AVIF output | `rav1e` 0.8 + `avif-serialize` | default only without `avif-own-write`; otherwise `--avif-encoder=rav1e` | stable 1.98 | NASM on x86-64 (rav1e assembly, ADR-0018) | Stable as capability |
-| `jpeg-xl-write` | lossless JPEG XL output | workspace `libjxl-rs` fixed profile | only JPEG XL writer; **not in `cli`** | stable 1.98 (check only, see below) | none | Experimental |
+| `jpeg-xl-write` | JPEG XL output: lossy d1.0 (default) or lossless | workspace `libjxl-rs`: public encoder through `ferrisma-jxl-encoder` (lossy), fixed-profile entry point (lossless) | only JPEG XL writer; in `cli` since 2026-11-12 | stable 1.98 | none | Experimental |
 | `icc` | rendered-ICC → sRGB conversion | `moxcms` 0.9 | needed for `UseRenderedIcc` / `--use-rendered-icc` | stable 1.98 | none | Stable |
-| `cli` | the `ferrisma` binary | `jpeg-read`, `webp-read`, `jpeg-xl-read`, `jpeg-xl-own-read`, `avif-read`, `avif-write`, `avif-own-write`, `webp-write`, `icc` | — | pinned nightly | native macOS ARM64 or GNU Linux x86-64; NASM on x86-64 | Stable command line, experimental backends |
+| `cli` | the `ferrisma` binary | `jpeg-read`, `webp-read`, `jpeg-xl-read`, `jpeg-xl-own-read`, `avif-read`, `avif-write`, `avif-own-write`, `webp-write`, `jpeg-xl-write`, `icc` | — | pinned nightly | native macOS ARM64 or GNU Linux x86-64; NASM on x86-64 | Stable command line, experimental backends |
 
 The pinned nightly is `nightly-2026-09-07` from
 [`rust-toolchain.toml`](../rust-toolchain.toml); the generated AVIF code needs
 `extern_types` and `c_variadic`. Stable Rust 1.98 is the declared
 `rust-version`. The stable-compatible set is the one CI's `minimum-rust` job
-checks: `jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,avif-write,icc`.
+checks: `jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,jpeg-xl-write,avif-write,icc`.
 A stable-toolchain build that needs AVIF output therefore uses rav1e; a
 stable-toolchain build cannot read AVIF.
 
 Evidence: CI `rust` job checks each feature alone (`cargo check
---no-default-features --features <feature>` for every feature above except
-`jpeg-xl-write`); `minimum-rust` checks the stable set with `cargo +1.98.0`;
+--no-default-features --features <feature>` for every feature above);
+`minimum-rust` checks the stable set with `cargo +1.98.0`, including
+`jpeg-xl-write` since 2026-11-12 (before, a local check only);
 the local run in [Verification record](#verification-record-2026-11-12-macos-arm64)
-repeats both, adds `jpeg-xl-write` alone on nightly and on stable, and confirms
-that `avif-own-write` fails on stable with `E0554`. `jpeg-xl-write` on stable
-is a local `cargo check` only; no CI job covers it.
+repeats both and confirms that `avif-own-write` fails on stable with `E0554`.
 
 ## Inputs
 
@@ -152,18 +151,18 @@ supported.
 
 ## Outputs
 
-| | AVIF, libavif/AOM (default) | AVIF, rav1e (explicit) | still WebP | JPEG XL (lossless) |
+| | AVIF, libavif/AOM (default) | AVIF, rav1e (explicit) | still WebP | JPEG XL |
 | --- | --- | --- | --- | --- |
-| Feature / selection | `avif-own-write`; `AvifEncoder::Libavif { depth }`, `--avif-encoder=libavif` | `avif-write`; `AvifEncoder::Rav1e`, `--avif-encoder=rav1e` | `webp-write`; `.webp` | `jpeg-xl-write`; `.jxl` (not in `cli`) |
+| Feature / selection | `avif-own-write`; `AvifEncoder::Libavif { depth }`, `--avif-encoder=libavif` | `avif-write`; `AvifEncoder::Rav1e`, `--avif-encoder=rav1e` | `webp-write`; `.webp` | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2 }` (`--jxl-lossless`) |
 | Bit depth | 10 (default) or 8 (`--avif-depth=8`) | always 10 | 8 | 8 |
-| Chroma | 4:4:4 (default) or 4:2:0 | 4:4:4 (default) or 4:2:0 | lossy YUV 4:2:0 / lossless ARGB | RGB, no subsampling |
-| Quality | `quality` 0–100, rounded, 64 quantizer steps | `quality` 1–100 through `ravif`'s curve | `WebpOptions::Lossy { quality 1–100, speed }` or `Lossless { level 0–9 }` | none; `--quality` is rejected |
-| Speed | 0–10 (`cpu-used`) | 1–10 | lossy speed 1 (slowest)–10; lossless uses the level | effort 2 only |
-| Alpha | auxiliary item at the color quality, omitted when opaque | separate 10-bit item at fixed quality 80, omitted when opaque | straight alpha | unassociated alpha at 8 bits |
-| Color signaling | AV1 header 1/13/6 full range **and** container `colr nclx` | AV1 header 1/13/6 full range; no container `colr` | embedded sRGB ICC | enum sRGB |
+| Chroma | 4:4:4 (default) or 4:2:0 | 4:4:4 (default) or 4:2:0 | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling; lossless: RGB Modular |
+| Quality | `quality` 0–100, rounded, 64 quantizer steps | `quality` 1–100 through `ravif`'s curve | `WebpOptions::Lossy { quality 1–100, speed }` or `Lossless { level 0–9 }` | lossy: Butteraugli distance 0.05 to below 3.0; `--quality` is rejected |
+| Speed | 0–10 (`cpu-used`) | 1–10 | lossy speed 1 (slowest)–10; lossless uses the level | fixed: effort 7 lossy, effort 2 lossless; `--speed` is rejected |
+| Alpha | auxiliary item at the color quality, omitted when opaque | separate 10-bit item at fixed quality 80, omitted when opaque | straight alpha | lossless: unassociated alpha at 8 bits; lossy: **rejected** (`UnsupportedInput`, "use lossless"), never dropped; fully opaque alpha is omitted in both |
+| Color signaling | AV1 header 1/13/6 full range **and** container `colr nclx` | AV1 header 1/13/6 full range; no container `colr` | embedded sRGB ICC | enum sRGB (lossy: XYB-encoded) |
 | Metadata | source EXIF/XMP/ICC not copied; orientation applied | same | same; EXIF orientation and XMP dropped | orientation applied, written as 1 |
-| Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | padded 10-bit frame(s) | ARGB frame and lossy planes reserved | input frame and known codec planes reserved |
-| Determinism | bytes can depend on thread count and host | tiles derived from size: bytes independent of thread count | — | byte-identical with the C++ encoder on the port's recorded requests |
+| Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | padded 10-bit frame(s) | ARGB frame and lossy planes reserved | input frame plus known codec planes (lossless) or a source-derived codec estimate (lossy) reserved |
+| Determinism | bytes can depend on thread count and host | tiles derived from size: bytes independent of thread count | — | both profiles byte-identical with the C++ encoder on the port's recorded requests (macOS AArch64) |
 
 **The two AVIF quality scales are not comparable and are never remapped.**
 `quality` and `speed` go unchanged to the selected encoder. At equal
@@ -197,10 +196,20 @@ libheif and rav1d in the evidence record above. WebP —
 `sink_round_trips_exactly_through_jxl_oxide`,
 `oriented_input_is_written_upright_with_orientation_one`,
 `rejects_requests_outside_the_admitted_profile_before_allocating`,
-`facade_rejects_mismatched_and_disabled_settings_before_decoding`
-([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)).
-JPEG output does not exist and is not planned. Lossy JPEG XL output waits for
-the port's encoder (#92).
+`facade_rejects_mismatched_and_disabled_settings_before_decoding`; lossy —
+`jxl_lossy_tests::lossy_output_decodes_within_the_pinned_error` (one-shot and
+streaming), `the_workspace_decoder_agrees_with_jxl_oxide`,
+`photograph_thumbnail_decodes_near_the_finished_rows`,
+`oriented_input_is_written_upright_with_orientation_one`,
+`real_alpha_fails_at_the_first_transparent_row_and_opaque_alpha_is_dropped`,
+`text_like_content_reports_the_missing_patch_path`,
+`distances_outside_the_admitted_range_are_rejected_before_allocating`,
+`input_frame_and_codec_estimate_are_reserved`,
+`the_output_limit_applies_at_the_exact_byte`; the `ferrisma-jxl-encoder`
+unit tests ([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)).
+Lossy output also fails with `UnsupportedInput` for text-like content that
+needs the encoder's patch path (encoder step 5). JPEG output does not exist
+and is not planned.
 
 ## Limits and memory
 

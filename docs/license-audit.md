@@ -122,6 +122,17 @@ at the branch head `7ff04d68` on top of `90b638dd`, lockfile SHA-256
 | `avif-own-write` | `aarch64-apple-darwin` | 15 | 15 | 0 | None in metadata |
 | `icc` | `aarch64-apple-darwin` | 6 | 5 | 1 | None in metadata |
 
+Update after JPEG XL output joined `cli` (2026-11-12, ADR-0039, same tool,
+uncommitted working tree on top of `32889ae5`, lockfile including the new
+`ferrisma-jxl-encoder` package): `cli` on `aarch64-apple-darwin` collects 96
+packages (89 normal, 7 build-only), with `ferrisma-jxl-encoder` (2 notice
+files) and `libjxl-rs` (12 notice files) in the graph and the same two
+remaining review items; `jpeg-xl-write` alone collects 4 packages
+(`ferrisma`, `ferrisma-kernels`, `ferrisma-jxl-encoder`, `libjxl-rs`). The
+x86-64 `cli` bundle and the other rows were not regenerated. The encoder is
+now reachable from the engine, so the libjxl-rs encoder notice review in
+ADR-0039's license gate applies to every `cli` distribution.
+
 "None in metadata" means that every package passes the SPDX screen and
 supplied at least one notice file. It is not a completed legal review.
 
@@ -139,6 +150,7 @@ Workspace packages in the `cli` graph and their declared terms:
 | `libavif-dav1d` | BSD-2-Clause | 5 | `LICENSES/` (`COPYING`, `doc/PATENTS`) |
 | `libavif-sharpyuv` | BSD-3-Clause | 7 | `LICENSES/` (libwebp `COPYING`, `PATENTS`, `AUTHORS`) |
 | `ferrisma-jxl-decoder` (own-read only) | MIT OR Apache-2.0 | 2 | Project-owned |
+| `ferrisma-jxl-encoder` (`jpeg-xl-write`, in `cli` since 2026-11-12) | MIT OR Apache-2.0 | 2 | Project-owned |
 | `libjxl-rs` (own-read only) | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | 7 | `LICENSE`, `PATENTS`, `licenses/` (Brotli MIT, Highway BSD, skcms BSD, libc++ Apache-2.0 with LLVM exception) |
 
 ### Findings from the 2026-11-12 review
@@ -214,7 +226,7 @@ in that change.
 | workspace `libwebp-rs` | `webp-read`, `webp-write` | BSD-3-Clause; [license](../codecs/libwebp-rs/LICENSE), [patent grant](../codecs/libwebp-rs/PATENTS), [authors](../codecs/libwebp-rs/AUTHORS), [provenance](../codecs/libwebp-rs/docs/PROVENANCE.md) | Still decoder/encoder, ICC/EXIF input, opaque scratch and notices; publication gate remains open |
 | embedded [sRGB2014.icc](../assets/icc/sRGB2014.icc) | `webp-write` | International Color Consortium, 2015; [package-local copy and provenance](../assets/icc/README.md), [upstream provenance](../codecs/libavif-rs/upstream/libavif/tests/data/README.md), [profile license](https://registry.color.org/profile-library/#licensing) | Unchanged profile embedded in WebP output to describe emitted sRGB samples; SHA-256 `384b832de3412066743b52a75ee906b6fb9fb8d9e09e936fc2c43223815c6e0a`; separate from libwebp's BSD license |
 | workspace `libjxl-rs` through `ferrisma-jxl-decoder` | `jpeg-xl-own-read` | BSD-3-Clause with retained MIT and Apache-2.0 with LLVM exception notices in the port | Raw decoder safety boundary, DATA ICC, alpha, full-frame output and opaque scratch; external conformance remains open |
-| workspace `libjxl-rs` encoder sources (`src/jxl/enc_*.rs`, `encode*.rs`, `modular/encoding/enc_*.rs`, `jpeg/enc_jpeg_data.rs`) | none yet; planned JPEG XL output (#27, #92) | Same package and expression; every encoder file reviewed on 2026-11-12 carries the JPEG XL Project Authors BSD-3-Clause header, and the package retains [LICENSE](../codecs/libjxl-rs/LICENSE) and [PATENTS](../codecs/libjxl-rs/PATENTS) | Not yet reachable from the engine; rerun the bundle and the [unsafe review](unsafe-review.md) when its engine adapter lands |
+| workspace `libjxl-rs` encoder sources (`src/jxl/enc_*.rs`, `encode*.rs`, `modular/encoding/enc_*.rs`, `jpeg/enc_jpeg_data.rs`) | `jpeg-xl-write` (in `cli` since 2026-11-12): lossless entry point and, through `ferrisma-jxl-encoder`, the public lossy encoder (#27, #92) | Same package and expression; every encoder file reviewed on 2026-11-12 carries the JPEG XL Project Authors BSD-3-Clause header, and the package retains [LICENSE](../codecs/libjxl-rs/LICENSE) and [PATENTS](../codecs/libjxl-rs/PATENTS) | Reachable from the engine; the `cli` macOS ARM64 bundle was regenerated (above); the PATENTS scope question and the encoder's internal unsafe review ([unsafe review](unsafe-review.md)) remain open |
 | `jxl-oxide` | `jpeg-xl-read`, default JPEG XL backend | MIT OR Apache-2.0 | Runtime ROI request; retained for measured full/crop comparison |
 | workspace `libavif-rs` / `libavif-aom` through `ferrisma-avif-read` | `avif-read` | libavif BSD-2-Clause; AOM port retains BSD-2-Clause, BSD-3-Clause, MIT notices and libaom's patent grant | Isolated unsafe boundary, generated-source provenance, AOM reference decode, normal dependency on the dav1d port and its retained notices, malformed bitstreams, native/nightly target matrix, opaque codec scratch and full Argon/dav1d gate |
 | `rav1e` / `avif-serialize` | `avif-write` | BSD-2-Clause encoder, BSD-3-Clause container writer; `rav1e` links hand-written assembly | Encoded CICP, alpha, frame materialization and opaque scratch |

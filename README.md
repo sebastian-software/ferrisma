@@ -26,7 +26,7 @@ image processing functionality. Build the engine from this repository; see
 | [CPU kernels](crates/ferrisma-kernels) | Scalar, NEON, AVX2, and AVX-512 resampling behind a safe API |
 | [JPEG port](codecs/libjpeg-turbo-rs) | In-scope 8-bit decoder with a safe row API, used by `jpeg-read` |
 | [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; still-image input and output are connected through `webp-read` and `webp-write` |
-| [JPEG XL port](codecs/libjxl-rs) | Reference decoder is the default engine JPEG XL input (`jpeg-xl-own-read`) through a safe wrapper; lossless effort-2 encoder profile behind `jpeg-xl-write`; full encoder incomplete |
+| [JPEG XL port](codecs/libjxl-rs) | Reference decoder is the default engine JPEG XL input (`jpeg-xl-own-read`) through a safe wrapper; lossy (d1.0 default) and lossless encoder profiles behind `jpeg-xl-write` (in `cli`); full encoder incomplete |
 | [AVIF ports](codecs/libavif-rs) | libavif and its AOM, dav1d, and SharpYUV ports; `avif-read` uses the AOM reference decoder through an [isolated safe adapter](crates/ferrisma-avif-read), with a separate [optional encoder adapter](crates/ferrisma-libavif) |
 | [Shared SharpYUV core](crates/libsharpyuv-core) | One safe numeric conversion used by WebP and AVIF through their separate API and allocation boundaries |
 | [Validation tooling](docs/codecs.md) | One Rust runner, scoped PR checks, and deeper independent oracle suites |

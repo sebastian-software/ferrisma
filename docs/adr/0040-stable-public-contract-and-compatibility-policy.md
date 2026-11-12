@@ -50,6 +50,7 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `InputProfilePolicy` | enum | Stable | Non-exhaustive; `Strict` default |
 | `ImageFormat`, `OutputFormat` | enum | Stable | Non-exhaustive |
 | `WebpOptions` | enum | Stable | Non-exhaustive |
+| `JpegXlOptions` (`Lossy { distance }`, `Lossless { effort }`) | enum | Experimental (ADR-0039); default lossy d1.0 pending owner confirmation | Non-exhaustive; `PartialEq` only |
 | `ChromaSubsampling` | enum | Stable | Non-exhaustive |
 | `AvifEncoder::Rav1e` | enum variant | Stable | Non-exhaustive enum |
 | `AvifEncoder::Libavif`, `LibavifBackend` | variant, struct | Experimental (`avif-own-write`, nightly) | ADR-0037 |
@@ -78,6 +79,7 @@ binary's command line, not this function, is the stable CLI contract.
 | `avif-write` (rav1e) | Stable as "AVIF output"; the backend behind it may change per ADR-0025 | Stable 1.98; NASM on x86-64 |
 | `jpeg-xl-read` | Stable as "JPEG XL input"; backend may change per ADR-0025 (#55) | Stable 1.98 |
 | `jpeg-xl-own-read` | Experimental | Stable 1.98 |
+| `jpeg-xl-write` (in `cli` since 2026-11-12, ADR-0039) | Experimental | Stable 1.98 |
 | `avif-read`, `avif-own-write` | Experimental until they build on stable | Pinned nightly, native targets only |
 | `cli` | Stable command line; inherits the nightly requirement through `avif-read`/`avif-own-write` | Pinned nightly |
 
@@ -94,6 +96,7 @@ binary's command line, not this function, is the stable CLI contract.
 | `--area` | Stable, see problem 15 |
 | `--avif-encoder=rav1e\|libavif`, `--avif-depth=8\|10`, `--jxl-decoder=jxl-oxide\|libjxl-rs` | Experimental (selects experimental backends) |
 | `--reference`, `--kernel-level=scalar\|neon\|avx2` | Experimental (verification and diagnostics) |
+| `.jxl` output, `--jxl-distance=`, `--jxl-lossless` (ADR-0039) | Experimental |
 | Exit status 0 success, 2 usage (fewer than four positional arguments), 1 any other error (Rust's default `Error: …` on stderr) | Stable |
 | `report:` key=value line on stdout | Stable keys; new keys are additive; integer values |
 | Human-readable `Encoded …`, `Timings: …` lines and the stderr memory note | Not stable |

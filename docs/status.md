@@ -25,21 +25,21 @@ decode and interpret rendered color
         ↓
 apply orientation → crop → resize in linear light
         ↓
-quantize → encode AVIF, still WebP, or lossless JPEG XL (opt-in)
+quantize → encode AVIF, still WebP, or JPEG XL (lossy or lossless)
 ```
 
 | Format | Current engine path | Workspace port relationship |
 | --- | --- | --- |
 | JPEG | Input through workspace `libjpeg-turbo-rs` (`jpeg-read`); codec-level crop request and budgeted RGB row | Scaled IDCT remains unused by the adapter; codec memory and reconstruction are opaque |
-| JPEG XL | Input through workspace `libjxl-rs` via `ferrisma-jxl-decoder` (`jpeg-xl-own-read`, in `cli`), the default whenever compiled in since 2026-11-12; `jxl-oxide` (`jpeg-xl-read`) stays an explicit backend (`--jxl-decoder=jxl-oxide`) and is the default only without `jpeg-xl-own-read`. Experimental opt-in lossless output (`jpeg-xl-write`, not in `cli`) | The workspace reader has no ROI request: every crop reconstructs and budgets a full F32 frame and reports `FullFrameFallback`. The external conformance corpus passes on macOS ARM64 ([record](../codecs/libjxl-rs/docs/CONFORMANCE.md)). The recorded gap to jxl-oxide (about 3.6× slower full, 9.5× slower crop, one host) is accepted under the owner's v1.0 direction, pending owner confirmation; x86-64 conformance and idle-host timing after #96/#100 stay open ([ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)). Output uses the port's verified lossless effort-2 profile (enum sRGB, 8-bit, straight alpha); lossy output waits for the public encoder API ([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)) |
+| JPEG XL | Input through workspace `libjxl-rs` via `ferrisma-jxl-decoder` (`jpeg-xl-own-read`, in `cli`), the default whenever compiled in since 2026-11-12; `jxl-oxide` (`jpeg-xl-read`) stays an explicit backend (`--jxl-decoder=jxl-oxide`) and is the default only without `jpeg-xl-own-read`. Experimental output (`jpeg-xl-write`, in `cli` since 2026-11-12): lossy d1.0 by default through `ferrisma-jxl-encoder`, or lossless | The workspace reader has no ROI request: every crop reconstructs and budgets a full F32 frame and reports `FullFrameFallback`. The external conformance corpus passes on macOS ARM64 ([record](../codecs/libjxl-rs/docs/CONFORMANCE.md)). The recorded gap to jxl-oxide (about 3.6× slower full, 9.5× slower crop, one host) is accepted under the owner's v1.0 direction, pending owner confirmation; x86-64 conformance and idle-host timing after #96/#100 stay open ([ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)). Lossy output (VarDCT, effort 7, distance 0.05 to below 3.0, XYB with enum sRGB, no alpha) uses the port's public encoder, byte-identical with libjxl on macOS AArch64; transparent and text-like (patch) content fail with typed errors naming lossless. Lossless uses the verified effort-2 profile (enum sRGB, 8-bit, straight alpha). The lossy default and the lossy codec-memory estimate are pending owner confirmation ([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)) |
 | AVIF | Workspace libavif/AOM input (`avif-read`); workspace libavif/AOM output (`avif-own-write`, in `cli`), the default encoder whenever compiled in since 2026-11-12; Rav1e (`avif-write`) stays an explicit backend (`--avif-encoder=rav1e`) and the default only without `avif-own-write` | Independent read/write wrappers isolate the unsafe ABI. `quality`/`speed` are passed unchanged on the selected encoder's own scale; the scales are not comparable (rav1e 70/80/90 ≈ AOM 50/55/78). Native/nightly requirements stay; quiet-host timing and RSS remain open; the default is pending owner confirmation ([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)) |
 | WebP | Still input and output through workspace `libwebp-rs` (`webp-read`, `webp-write`); lossy crop requests, lossless full-frame internal work | The output sink budgets an ARGB frame and predictable lossy planes, tags sRGB ICC, and reports opaque codec memory; animation is unsupported |
 
 The `cli` feature enables the current engine adapters and ICC path together.
 The authoritative feature selection is in [Cargo.toml](../Cargo.toml); the
 [public facade](../src/pipeline.rs) and [CLI](../src/cli.rs) expose the supported
-operations. JPEG output is not an engine feature; JPEG XL output is lossless
-only and requires the separate `jpeg-xl-write` feature.
+operations. JPEG output is not an engine feature; JPEG XL output (lossy by default, or
+lossless) requires `jpeg-xl-write`, which `cli` includes.
 
 Current behavior and boundaries:
 
@@ -99,9 +99,10 @@ separate workspace members; they are grouped here by their shared port.
 | [`ferrisma-avif-read`](../crates/ferrisma-avif-read) | Safe, independent read wrapper over libavif's AOM decoder; selected by `avif-read` | Pinned nightly and supported macOS ARM64/GNU Linux x86-64; full Argon/dav1d adoption evidence remains open |
 | [`ferrisma-avif-write`](../crates/ferrisma-avif-write) | Independent safe row writer over the workspace AOM encoder; selected by `avif-own-write` | Isolates unsafe ABI calls; known RGBA/YUV(A) bytes are reserved, codec scratch and encoded output remain opaque |
 | [`ferrisma-jxl-decoder`](../crates/ferrisma-jxl-decoder) | Safe, independent wrapper for the default local JPEG XL decoder (`jpeg-xl-own-read`) | Full-frame fallback for every crop; measured photo regression against `jxl-oxide` accepted pending owner confirmation; x86-64 conformance and timing open |
+| [`ferrisma-jxl-encoder`](../crates/ferrisma-jxl-encoder) | Safe, independent wrapper for the port's public JPEG XL encoder; lossy output of `jpeg-xl-write` | Admits only the port's lossy profile; alpha and patches are typed admission errors; codec memory is a source-derived estimate; x86-64 parity and timing open |
 | [`libjpeg-turbo-rs`](../codecs/libjpeg-turbo-rs/README.md) | 8-bit decoder, scaled decode, crop/skip, metadata, safe scanlines, and SIMD; selected for engine JPEG input | Scaled-IDCT quality policy and deeper cross-platform adoption evidence remain open; encoding, lossless JPEG, and 12/16-bit samples are outside the port's scope |
 | [`libwebp-rs`](../codecs/libwebp-rs/README.md) | Safe decode/encode APIs, incremental decode, containers/animation, and SharpYUV | Still-image input and output adopted through `webp-read` and `webp-write`; NEON rescaler export kernels retain the portable Rust translation |
-| [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder, C-ABI surface, and reference comparison suites | Default engine JPEG XL input since 2026-11-12 (pending owner confirmation) and the lossless `jpeg-xl-write` profile; public APIs are provisional, encoder incomplete, and deeper acceptance remains open |
+| [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder, C-ABI surface, and reference comparison suites | Default engine JPEG XL input since 2026-11-12 (pending owner confirmation) and the lossy and lossless `jpeg-xl-write` profiles; public APIs are provisional, encoder incomplete (alpha, patches, other efforts), and deeper acceptance remains open |
 | [`libavif-rs`](../codecs/libavif-rs/README.md), `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | AVIF container and codec ports, using generated and owned Rust with C-ABI boundaries | No stable safe Rust API claim; validated native hosts are macOS ARM64 and GNU Linux x86-64; package-specific deep gates remain |
 | [`ferrisma-xtask`](../tools/xtask) | Standard-library Rust control plane, invoked as `cargo xtask`, for affected components and validation stages | Existing Python oracle harnesses migrate incrementally without losing evidence |
 
@@ -136,7 +137,8 @@ shows current run results. A green PR check is not full codec certification.
   preserving rendered color, orientation, buffer ownership, and conformance.
   Workspace membership alone does not satisfy those gates.
 - Confirm or revert the 2026-11-12 default switches to the workspace JPEG XL
-  reader and AVIF writer (ADR-0032, ADR-0037), which follow the owner's v1.0
+  reader and AVIF writer (ADR-0032, ADR-0037) and to lossy d1.0 JPEG XL output
+  (ADR-0039), which follow the owner's v1.0
   direction but still lack x86-64 JPEG XL conformance, quiet-host timing and
   peak-RSS evidence. The [supported matrix](supported-matrix.md) lists the
   current defaults, their limits and the 2026-11-12 macOS ARM64 verification.

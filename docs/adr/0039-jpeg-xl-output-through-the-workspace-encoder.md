@@ -29,6 +29,8 @@ Verified state of the port's encoder on 2026-11-12 (this worktree's base,
   original selects `enc_fast_lossless.cc`, and ProcessOutput returns one where
   it would call ProcessOneEnqueuedInput. Lossy VarDCT (steps 1 and 2, issues
   #118 and #117) and alpha in VarDCT frames (step 4, #115) are in progress.
+  (Lossy VarDCT landed later the same day; see the 2026-11-12 lossy
+  amendment.)
   The heuristics and transforms below VarDCT are ported with checkpoint
   parity, but no complete lossy image path exists yet.
 - One complete image path exists and is oracle-verified:
@@ -50,19 +52,23 @@ Add opt-in JPEG XL output now, restricted to the encoder profile the port
 actually admits, and widen it only as the port's steps land.
 
 - **Feature and dependency.** The engine feature `jpeg-xl-write` depends
-  directly on `libjxl-rs`. The entry point needs no `unsafe`, so no separate
-  adapter crate is added; the engine keeps `forbid(unsafe_code)`. The feature
-  is not part of `cli` until the license review below is done and a lossy
-  profile exists. The CLI selects the output by the `.jxl` extension when
-  built with the feature; otherwise it returns `FeatureDisabled`.
+  directly on `libjxl-rs` for the lossless entry point, which needs no
+  `unsafe`, and on the adapter crate `ferrisma-jxl-encoder` for lossy output
+  (amended 2026-11-12, below); the engine keeps `forbid(unsafe_code)`. The CLI
+  selects the output by the `.jxl` extension when built with the feature;
+  otherwise it returns `FeatureDisabled`. Since the 2026-11-12 amendment the
+  feature is part of `cli`; distributing a binary still needs the license
+  review below.
 - **Facade.** `OutputFormat::JpegXl` and `TransformOptions::jpeg_xl`
-  (`JpegXlOptions::Lossless { effort: 2 }`, the default and the only admitted
-  value; the enum is `non_exhaustive` for later lossy settings).
-  `EncodeRequest` carries the same field to external backends. The report
-  names the encoder `libjxl-rs`.
+  (`JpegXlOptions`, `non_exhaustive`): `Lossy { distance }` and
+  `Lossless { effort: 2 }`. The default is `Lossy { distance: 1.0 }`,
+  **pending owner confirmation** (see the amendment). `EncodeRequest` carries
+  the same field to external backends. The report names the encoder
+  `libjxl-rs`.
 - **Admitted profile and rejected requests.** Everything else fails with a
   typed error before any pixel is decoded and never falls back:
-  - another effort or any lossy request: `InvalidOptions` (AVIF `quality`,
+  - another lossless effort, or a lossy distance outside 0.05 to below 3.0
+    (including NaN and infinities): `InvalidOptions` (AVIF `quality`,
     `speed` or `chroma_subsampling` other than their defaults, and WebP
     options, are rejected as mismatched settings);
   - `encoder_threads` other than 1: `InvalidOptions` (the port has no
@@ -71,29 +77,61 @@ actually admits, and widen it only as the port's steps land.
     `InvalidOptions`. The raw codestream carries no `jxll` box, so a decoder
     assumes level 5; the encoder's level 10 parameters are not signaled.
   - a managed budget too small for the frames below: `ResourceExhausted`;
-  - an encoded result above `max_output_bytes`: `ResourceExhausted`, checked
-    after encoding because the codec returns the whole codestream.
+  - an encoded result above `max_output_bytes`: `ResourceExhausted`; lossless
+    checks after encoding because the codec returns the whole codestream,
+    lossy stops copying out of the encoder at the limit;
+  - lossy output of an image with any alpha below 255: `UnsupportedInput`
+    ("lossy JPEG XL with alpha is not supported yet; use lossless") at the
+    first transparent row; alpha is never dropped silently and there is no
+    fallback to lossless;
+  - lossy content for which FindTextLikePatches finds patches:
+    `UnsupportedInput` ("this content needs the JPEG XL encoder's patch
+    path, which is not available yet"), after the decode, because the
+    decision depends on the pixels.
 
 ### Output semantics
 
 These describe the emitted samples (ADR-0015):
 
-| Property | Emitted value |
-| --- | --- |
-| Container | Raw codestream (`FF 0A`); no ISOBMFF container, no `jxll`, no Exif/XMP/JUMBF boxes |
-| Coding | Lossless Modular, effort 2; decoded samples equal the engine's finished rows exactly |
-| Bit depth | 8-bit integer samples (`bits_per_sample = 8`, no exponent bits) |
-| Color | `xyb_encoded = false`; enum color encoding RGB, D65 white point, sRGB primaries, sRGB transfer, relative intent; no ICC profile. This is what the engine's sRGB8 quantization produces. Gray content is still written as RGB. |
-| Alpha | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel; color under zero alpha is kept exactly. Fully opaque output has no extra channel. |
-| Orientation | 1; the engine has already applied source orientation, so samples are upright |
-| Other metadata | Default intensity target (255), no animation, no preview, no intrinsic size |
-| Not supported | Lossy coding, other efforts, 16-bit or float output, HDR, wide gamut, ICC output, gray-only output, premultiplied alpha, animation, metadata passthrough, container and level signaling |
+| Property | Lossy (default) | Lossless |
+| --- | --- | --- |
+| Container | Raw codestream (`FF 0A`); no ISOBMFF container, no `jxll`, no Exif/XMP/JUMBF boxes | Same |
+| Coding | VarDCT, effort 7, the requested Butteraugli distance; default settings otherwise (patches, dots, noise, splines off or absent as admitted) | Modular, effort 2; decoded samples equal the engine's finished rows exactly |
+| Bit depth | 8-bit integer samples signaled (`bits_per_sample = 8`) | Same |
+| Color | `xyb_encoded = true`; the signaled enum color encoding (RGB, D65, sRGB primaries, sRGB transfer, relative intent) describes the decoded samples; no ICC | `xyb_encoded = false`; same enum encoding; no ICC |
+| Alpha | None; transparent input is rejected, fully opaque alpha is omitted | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel; color under zero alpha is kept exactly. Fully opaque output has no extra channel. |
+| Orientation | 1; the engine has already applied source orientation, so samples are upright | Same |
+| Other metadata | Default intensity target (255), no animation, no preview, no intrinsic size | Same |
+
+Both write gray content as RGB. Not supported: other efforts, lossy alpha,
+16-bit or float output, HDR, wide gamut, ICC output, gray-only output,
+premultiplied alpha, animation, metadata passthrough, container and level
+signaling, lossy content that needs patches, and distances of 3.0 and
+above.
 
 ### Memory
 
 The sink allocates one RGBA8 frame (4 bytes per pixel) from the managed
 budget when it is created. Before encoding it compacts an opaque frame to
-RGB8 in place and reserves the codec planes that the admitted one-shot path
+RGB8 in place.
+
+Lossy: it reserves `ferrisma_jxl_encoder::estimated_codec_bytes`, an
+**estimate** derived from the port's source, not a measurement: the queued
+input copy (3 bytes per pixel), and on the one-shot path (at most eight
+256x256 groups) seven `f32` samples per block-padded pixel (the XYB color
+frame, the pre-Gaborish `orig_opsin` copy and the 1x1 masking plane) plus
+the `i32` AC coefficients of every group (786,432 bytes per group); on the
+streaming path one group's planes with an 8-pixel border, one group of
+coefficients and about 28 bytes per 8x8 block for the DC-resolution planes.
+Including the input frame that is 35 bytes per pixel plus 12 per
+group-padded pixel one-shot (600x400: 13,118,592 bytes, 54.7 per pixel) and
+about 8 bytes per pixel on the streaming path at large sizes (2268x1512:
+28,365,424 bytes, 8.3 per pixel). Tokens, histograms, heuristics state,
+section writers and the encoded output (held by the encoder and copied once
+into the returned `Vec`) are opaque; the report sets
+`opaque_encoder_memory`.
+
+Lossless: it reserves the codec planes that the admitted one-shot path
 allocates at the same time: an `Image3<f32>` color frame padded to whole 8x8
 blocks, one `f32` alpha plane, and one `i32` Modular channel per color and
 alpha plane. That is about 28 bytes per pixel opaque and 36 with alpha,
@@ -118,19 +156,32 @@ implementation of JPEG XL" and may not extend to a translation without
 review; and the Highway, Brotli, skcms and LLVM/libc++ notices in
 `codecs/libjxl-rs/licenses` that the crate's license expression already
 names. `scripts/audit-licenses.py` lists `libjxl-rs` as metadata-OK; that is
-not a notice review.
+not a notice review. Since the lossy amendment the review must also cover the
+public API (`encode`, `encode_internal`) and every unit of the VarDCT path
+it reaches (`enc_frame_vardct`, `enc_heuristics_lossy`, `enc_heuristics_ar`,
+`enc_adaptive_quantization`, `enc_ac_strategy`, `enc_chroma_from_luma`,
+`enc_patch_dictionary`, `enc_xyb`, `enc_gaborish`, `enc_transforms`,
+`enc_cache`, `enc_coeff_order`, `enc_entropy_coder`, `quantizer` and their
+helpers), and the `ferrisma-jxl-encoder` bridge's own unsafe boundary
+([unsafe review](../unsafe-review.md)). Including `jpeg-xl-write` in `cli`
+does not complete this gate.
 
 ## Consequences
 
-Callers can produce JPEG XL today with exact pixels, explicit color and a
-budgeted frame. Files are large because coding is lossless (3.2 MB for the
-2268x1512 test photograph below); no lossy size comparison exists yet, and
-this output is not presented as a size-efficient delivery format. The memory cost per pixel is high, and the serial encoder
+Callers can produce JPEG XL with explicit color and a budgeted frame: lossy
+by default, and lossless with exact pixels. Lossless files are large (3.2 MB
+for the 2268x1512 test photograph below, 371,465 bytes for its 600x400
+thumbnail); the lossy default writes the same thumbnail in 73,020 bytes.
+No size or quality comparison against other formats or encoders is made
+here. The memory cost per pixel is high, and the serial encoder
 uses one core per image. `TransformOptions` and `EncodeRequest` gain a public
 field and `OutputFormat` a variant: exhaustive struct literals and matches in
-callers must be updated (experimental API, as in ADR-0037). The facade must
-grow a lossy setting later; the `non_exhaustive` options enum leaves room for
-it without changing the lossless meaning.
+callers must be updated (experimental API, as in ADR-0037). The lossy
+variant made `JpegXlOptions` `PartialEq` only (its `f32` has no `Eq`), and
+the default moved from lossless to lossy d1.0: a caller that relied on the
+default getting exact pixels must now select `Lossless { effort: 2 }`. With
+the lossy default, transparent images and text-like content fail by default
+with a typed error that names the lossless alternative.
 
 ## Alternatives considered
 
@@ -145,8 +196,8 @@ it without changing the lossless meaning.
 - **Write the 16-bit profile:** not useful; the engine's finished rows are
   8-bit.
 - **A separate adapter crate, as for the decoder (ADR-0032):** unnecessary
-  because the entry point is safe; revisit if the public API's raw-pointer
-  functions are used.
+  for the safe lossless entry point; adopted on 2026-11-12 for the lossy
+  path, which uses the public API's raw-pointer functions.
 
 ## Validation
 
@@ -191,11 +242,62 @@ Evidence on macOS ARM64, 2026-11-12, debug profile:
 Not verified: x86-64, a C++ decoder (`djxl`) on engine output, the fuzz lanes
 (#65), and any speed or peak-RSS figure. No performance claim is made.
 
+Lossy evidence, macOS ARM64, 2026-11-12, debug profile:
+
+- Bridge (`crates/ferrisma-jxl-encoder`, 10 unit tests): XYB enum-sRGB
+  signaling decoded by jxl-oxide; gray and linear sRGB; the frame copy (the
+  caller's buffer changed after `add_frame` gives the same bytes) and drop
+  at every state; bridge misuse rejected before the port; port
+  `API_USAGE` (distance 25.5, a side above 2^30) typed and poisoning the
+  encoder; distances 3.0 and 4.5 reported as `FrameProfile`; two repeated-glyph
+  images from the port's patch parity corpus reported as `PatchDictionary`
+  and a single-glyph image encoded; the output limit at the exact byte with
+  the caller's vector restored; a 2049x300 (18-group) streaming encode. The
+  admission classification is inferred (the public API reports every
+  checkpoint as `NOT_SUPPORTED`); the tests compare it with the port's own
+  `take_admissions` record, available through the observation-only
+  `cpp-oracle` feature in the bridge's dev-dependencies.
+- Engine (`src/jxl_lossy_tests.rs`): the distance range before allocation
+  and before the input is opened; the alpha error at the first transparent
+  row; the patch error through the sink and through `transcode`; exact
+  budget accounting for the estimate (one byte short fails, live memory back
+  to zero); the output limit at the exact byte; default options of AVIF and
+  WebP still match. Decoded by jxl-oxide with checked signaling (XYB, enum
+  sRGB, orientation 1, no extra channels), the d1.0 maximum / mean absolute
+  RGB error against the rows the sink received was 0 / 0 at 1x1, 37 / 4.00
+  at 9x17, 19 / 2.22 at 300x260, 18 / 2.09 at 800x700 (12 groups,
+  streaming), 22 / 2.60 and 23 / 1.67 for WebP transcodes, 61 / 4.79 for the
+  orientation-6 16x24 pattern, and 79 / 2.76 for the flower photograph as a
+  600x400 thumbnail. The tests pin these with about 30 % margin on the
+  maximum and 50 % on the mean; the pins are regression checks, not
+  conformance evidence (byte parity with libjxl is the port's gate). The
+  workspace decoder agrees with jxl-oxide within one level (mean 0.006).
+- CLI (`--features cli,jpeg-xl-write`, debug): the flower photograph as a
+  600x400 thumbnail writes 73,020 bytes at the default d1.0, 114,319 at
+  `--jxl-distance=0.5` and 33,850 at 2.9 (371,465 with `--jxl-lossless`);
+  at full 2268x1512 size (54 groups, streaming) 464,590 bytes. Read back
+  through the engine (`--use-rendered-icc`, both JPEG XL readers) and written
+  as lossless WebP, the thumbnail is 35.73 dB PSNR from the direct JPEG to
+  lossless WebP result (ImageMagick). `--jxl-distance=3`, `--quality`,
+  `--speed`, `--chroma` and `--jxl-lossless` with `--jxl-distance` are
+  rejected.
+- `cargo +1.98 check -p ferrisma -p ferrisma-kernels --features
+  jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,jpeg-xl-write,avif-write,icc`
+  and the same with `--all-targets` for the engine and the bridge succeed:
+  the feature stays stable-compatible.
+
+Not verified for lossy: x86-64 (the port's lossy parity is recorded on macOS
+AArch64 only), a C++ decoder on engine output, the encoder's actual peak
+allocation against the estimate, fuzzing of the encoder path, and any speed
+figure.
+
 ## Review when
 
-Review when the public encoder API admits lossy VarDCT (#118, #117) or alpha
-in VarDCT (#115); when the license review (#66) completes, to decide `cli`
-inclusion; if a non-sRGB or HDR output contract is needed (step 6, #113);
+Review when the port admits alpha in VarDCT (#115) or a patches-disabled
+or patch-encoding profile (step 5), to lift the two lossy rejections; when
+the license review (#66) completes, to confirm `cli` distribution; when the
+owner decides the default; if a measured peak allocation contradicts the lossy
+estimate; if a non-sRGB or HDR output contract is needed (step 6, #113);
 if serial encoding is too slow for the supported path (step 13, #106); or if
 a decoder rejects the unsignaled level or a byte mismatch against libjxl
 appears for this profile.
@@ -204,3 +306,20 @@ appears for this profile.
 
 - 2026-11-12 — Initial experimental decision: opt-in lossless effort-2 output
   through the port's verified fixed profile; `jxl-encoder` stays excluded.
+- 2026-11-12 — Lossy output (#27, #92). The port's public encoder API now
+  admits lossy VarDCT at effort 7 for distances 0.05 to below 3.0 (gray or
+  RGB without alpha, enum sRGB or linear sRGB, one frame, raw codestream,
+  serial, one-shot up to 8 groups and streaming above), byte-identical with
+  pinned libjxl on macOS AArch64. A new safe adapter crate
+  `ferrisma-jxl-encoder` wraps it (RAII encoder, typed errors separating
+  admission results from misuse and failures, bounded output), and
+  `JpegXlOptions::Lossy { distance }` uses it. Still rejected: lossy alpha
+  (typed "use lossless" error, no silent drop or fallback), content that
+  needs patches (typed error), distances of 3.0 and above, other efforts,
+  threads other than 1, ICC/HDR/wide gamut and metadata. **Default decision,
+  pending owner confirmation:** `JpegXlOptions::default()` is now lossy d1.0,
+  libjxl's own default and consistent with the lossy defaults of AVIF and
+  WebP; the cost is that transparent images and text-like content fail by
+  default instead of encoding losslessly. `jpeg-xl-write` joins `cli`
+  because the full feature set works end to end; the license gate for
+  distributed binaries is unchanged.

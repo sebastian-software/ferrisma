@@ -27,7 +27,7 @@ Compressed sizes come from the dry run below (`aarch64-apple-darwin`,
 | 1 | `libsharpyuv-core` | 0.1.0 | BSD-3-Clause | no | 21.2 KiB | Shared SharpYUV core |
 | 1 | `ferrisma-kernels` | 0.1.0 | MIT OR Apache-2.0 | no | 16.6 KiB | Engine SIMD kernels (unconditional dependency) |
 | 1 | JPEG port, today `libjpeg-turbo-rs` | 0.1.0 | IJG AND Zlib | no | 317.1 KiB | `jpeg-read` |
-| 1 | `libjxl-rs` | 0.1.0 | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | no | 723.4 KiB | `jpeg-xl-own-read`; future JPEG XL output |
+| 1 | `libjxl-rs` | 0.1.0 | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | no | 723.4 KiB | `jpeg-xl-own-read`, `jpeg-xl-write` |
 | 1 | `libavif-aom` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause AND MIT | yes | **16.4 MiB** | AVIF encode/decode |
 | 1 | `libavif-dav1d` | 0.1.0 | BSD-2-Clause | yes | 2.6 MiB | Normal dependency of `libavif-rs` |
 | 2 | `libwebp-rs` | 0.1.0 | BSD-3-Clause | no | 755.3 KiB | `webp-read`, `webp-write` |
@@ -36,11 +36,15 @@ Compressed sizes come from the dry run below (`aarch64-apple-darwin`,
 | 4 | `ferrisma-avif-read` | **0.0.0** | MIT OR Apache-2.0 | yes | 9.4 KiB | `avif-read` safe bridge |
 | 4 | `ferrisma-avif-write` | **0.0.0** | MIT OR Apache-2.0 | yes | 9.9 KiB | `avif-own-write` safe bridge |
 | 4 | `ferrisma-jxl-decoder` | 0.1.0 | MIT OR Apache-2.0 | no | 9.8 KiB | `jpeg-xl-own-read` safe bridge |
+| 4 | `ferrisma-jxl-encoder` | 0.1.0 | MIT OR Apache-2.0 | no | not packaged yet | `jpeg-xl-write` safe bridge (lossy), added 2026-11-12 |
 | 5 | `ferrisma` | 0.1.0 | MIT OR Apache-2.0 | only for `avif-read`, `avif-own-write`, `cli` | 204.1 KiB | Engine, facade, CLI binary |
 
-Packages within one order level do not depend on each other. Any future JPEG
-XL encoder bridge crate joins level 4 and must be published before
-`ferrisma`.
+Packages within one order level do not depend on each other. The JPEG XL
+encoder bridge `ferrisma-jxl-encoder` (2026-11-12) is at level 4: it depends
+only on `libjxl-rs` and must be published before `ferrisma`. Its manifest
+follows `ferrisma-jxl-decoder` (license expression, `include` list, license
+files as links to the root files). It was not part of the packaging run
+below; its `.crate` size is not measured.
 
 **Stay internal (never published):** `ferrisma-xtask` (workspace tooling),
 the isolated fuzz and benchmark workspaces, and `ferrisma-libavif`. The last
@@ -171,6 +175,7 @@ Run from a clean checkout of the release commit, with the pinned toolchain.
    cargo publish -p ferrisma-avif-read
    cargo publish -p ferrisma-avif-write
    cargo publish -p ferrisma-jxl-decoder
+   cargo publish -p ferrisma-jxl-encoder
    cargo publish -p ferrisma
    ```
 
