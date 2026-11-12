@@ -38,6 +38,10 @@ seed("transcode", "avif-alpha", 2,
      read("codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_irot.avif"))
 seed("transcode_own_avif", "avif-alpha", 2,
      read("codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_irot.avif"))
+# Retained regressions from earlier campaigns (inputs without their selector).
+hostile_jxl = read("tests/fixtures/hostile/jxl-unknown-colour-space.jxl")
+seed("transcode", "jxl-unknown-colour-space", 5, hostile_jxl)
+seed("transcode_own_jxl", "jxl-unknown-colour-space", 5, hostile_jxl)
 for orientation in range(1, 9):
     seed("transcode_own_jxl", f"orientation-{orientation}", 1, read(f"tests/fixtures/orientation/jxl-{orientation}.jxl"))
 

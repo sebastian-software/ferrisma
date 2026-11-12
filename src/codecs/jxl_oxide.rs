@@ -27,6 +27,7 @@ impl JxlSource {
         if image.image_header().metadata.animation.is_some() {
             return Err(Error::UnsupportedAnimation);
         }
+        reject_unrenderable_colour_encoding(&image)?;
         // jxl-oxide renders upright samples itself: `width()`/`height()` are
         // display dimensions, crop regions are display coordinates and the
         // pixel stream applies the header orientation (ADR-0019).
@@ -89,6 +90,32 @@ fn rendered_cicp(image: &JxlImage) -> Option<[u8; 4]> {
     };
     Some([primaries, reported[1], 0, 1])
 }
+
+/// jxl-color 0.11 synthesizes the rendered ICC profile from an enum colour
+/// encoding with `panic!`/`todo!` for an unknown or XYB colour space, an
+/// unknown transfer function, and divides by a zero gamma. The header is
+/// attacker-controlled, so reject those encodings before any accessor that
+/// synthesizes a profile or renders pixels. An embedded ICC profile is not
+/// synthesized: jxl-render either parses it into a known enum encoding or keeps
+/// the profile bytes, and it falls back to an sRGB enum encoding otherwise.
+fn reject_unrenderable_colour_encoding(image: &JxlImage) -> Result<(), Error> {
+    use jxl_oxide::color::{ColourEncoding, ColourSpace, TransferFunction};
+
+    let ColourEncoding::Enum(encoding) = &image.image_header().metadata.colour_encoding else {
+        return Ok(());
+    };
+    let known_space = matches!(encoding.colour_space, ColourSpace::Rgb | ColourSpace::Grey);
+    let known_transfer = !matches!(
+        encoding.tf,
+        TransferFunction::Unknown | TransferFunction::Gamma { g: 0, .. }
+    );
+    if known_space && known_transfer {
+        Ok(())
+    } else {
+        Err(Error::UnsupportedColorEncoding)
+    }
+}
+
 impl DecodeSource for JxlSource {
     fn info(&self) -> &DecoderInfo {
         &self.info

@@ -232,6 +232,68 @@ fn api_errors_carry_a_matchable_kind() {
 #[cfg(feature = "jpeg-xl-read")]
 #[test]
 fn interim_truncated_and_mutated_jxl_headers_never_panic_in_adapter_setup() {
+    interim_jxl_header_smoke();
+}
+
+// Minimized from the default Linux transcode campaign (run 43117625746,
+// crash-510ca0e9c63aeae240305a2f57956ff3f3f7db72 without its selector byte):
+// an enum colour encoding with an unknown colour space made jxl-color panic
+// while synthesizing the rendered ICC profile.
+#[cfg(feature = "jpeg-xl-read")]
+#[test]
+fn jxl_oxide_unknown_colour_space_is_a_controlled_error() {
+    use crate::codecs::jxl_oxide::JxlSource;
+    use crate::error::Error;
+
+    let hostile = include_bytes!("../tests/fixtures/hostile/jxl-unknown-colour-space.jxl");
+    let result = catch_unwind(AssertUnwindSafe(|| JxlSource::new(hostile)));
+    let result = result.expect("JPEG XL adapter setup must not panic");
+    assert!(matches!(result, Err(Error::UnsupportedColorEncoding)));
+}
+
+#[cfg(feature = "jpeg-xl-own-read")]
+#[test]
+fn workspace_jxl_unknown_colour_space_is_a_controlled_error() {
+    use crate::codecs::jxl::JxlSource;
+
+    let hostile = include_bytes!("../tests/fixtures/hostile/jxl-unknown-colour-space.jxl");
+    let result = catch_unwind(AssertUnwindSafe(|| JxlSource::new(hostile)));
+    assert!(result.expect("workspace JPEG XL setup must not panic").is_err());
+}
+
+#[cfg(all(feature = "jpeg-xl-read", feature = "webp-write"))]
+#[test]
+fn public_transcode_rejects_unknown_jxl_colour_space() {
+    use crate::pipeline::{
+        ImageFormat, InputProfilePolicy, OutputFormat, ProcessingErrorKind as Kind,
+        TransformOptions, transcode,
+    };
+
+    let hostile = include_bytes!("../tests/fixtures/hostile/jxl-unknown-colour-space.jxl");
+    for profile_policy in [
+        InputProfilePolicy::UseRenderedIcc,
+        InputProfilePolicy::Strict,
+        InputProfilePolicy::AssumeSrgbIfMissing,
+    ] {
+        let options = TransformOptions {
+            output_format: OutputFormat::WebP,
+            output_width: 2,
+            output_height: 2,
+            quality: 75.0,
+            speed: 6,
+            profile_policy,
+            ..TransformOptions::default()
+        };
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            transcode(hostile, ImageFormat::JpegXl, options)
+        }))
+        .expect("public JPEG XL processing must not panic");
+        assert_eq!(result.unwrap_err().kind(), Kind::UnsupportedColor);
+    }
+}
+
+#[cfg(feature = "jpeg-xl-read")]
+fn interim_jxl_header_smoke() {
     use crate::codecs::jxl_oxide::JxlSource;
 
     let complete = include_bytes!("../tests/fixtures/sample.jxl");
