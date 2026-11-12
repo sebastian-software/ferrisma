@@ -93,7 +93,7 @@ fn still_webp_outputs_decode_with_straight_alpha_and_srgb_metadata() {
         let icc = container.icc_profile().unwrap();
         assert_eq!(
             icc,
-            include_bytes!("../codecs/libavif-rs/upstream/libavif/tests/data/sRGB2014.icc")
+            include_bytes!("../assets/icc/sRGB2014.icc")
         );
         assert!(container.exif().is_none());
         let decoded = decode(&output.bytes, &DecodeConfig::new(ColorMode::Rgba)).unwrap();

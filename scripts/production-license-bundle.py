@@ -25,7 +25,7 @@ SPEC.loader.exec_module(AUDIT)
 NOTICE = re.compile(r"^(license|licence|copying|notice|patents?|authors|copyright)([._-].*)?$", re.I)
 TREE_LINE = re.compile(r"^([^ ]+) v([^ ]+)(?: .*)?$")
 EXTRA = {
-    "ferrisma": ["src/av1_tuning.rs", "THIRD-PARTY-NOTICES.md", "codecs/libavif-rs/upstream/libavif/tests/data/README.md", "codecs/libavif-rs/upstream/libavif/tests/data/sRGB2014.icc"],
+    "ferrisma": ["src/av1_tuning.rs", "THIRD-PARTY-NOTICES.md", "assets/icc/README.md", "assets/icc/sRGB2014.icc"],
     "libjpeg-turbo-rs": ["README.ijg", "src/jdcolext_neon.rs", "src/jsimdcpu.rs"],
 }
 
@@ -168,8 +168,10 @@ def build(target: str, features: str, output: Path) -> int:
             raise ValueError(f"Missing source checksum: {package['name']} {package['version']}")
         selected = notices(directory, recursive=not workspace)
         if workspace and package["name"] in {"ferrisma-kernels", "ferrisma-avif-read", "ferrisma-avif-write", "ferrisma-jxl-decoder"}:
-            # The project-owned workspace crates use the root's dual license.
-            selected.extend([ROOT / "LICENSE-MIT", ROOT / "LICENSE-APACHE"])
+            # The project-owned workspace crates use the root's dual license;
+            # packaged crates carry linked copies of the same texts.
+            selected.extend(ROOT / name for name in ("LICENSE-MIT", "LICENSE-APACHE")
+                            if not (directory / name).is_file())
         if workspace and directory != ROOT:
             # Retained source terms for imported ports, including nested LICENSES.
             for subdir in ("LICENSES", "licenses"):
