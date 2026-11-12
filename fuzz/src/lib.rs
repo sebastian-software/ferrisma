@@ -137,6 +137,8 @@ mod tests {
                 match format {
                     OutputFormat::Avif => assert_eq!(&output.bytes[4..8], b"ftyp"),
                     OutputFormat::WebP => assert_eq!(&output.bytes[..4], b"RIFF"),
+                    // `OutputFormat` is non-exhaustive (ADR-0040).
+                    other => panic!("unexpected output format {other:?}"),
                 }
             }
         }

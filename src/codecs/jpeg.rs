@@ -295,8 +295,7 @@ mod tests {
         use crate::memory::MemoryBudget;
 
         let jpeg = include_bytes!("../../tests/fixtures/sample.jpg");
-        let profile =
-            include_bytes!("../../assets/icc/sRGB2014.icc");
+        let profile = include_bytes!("../../assets/icc/sRGB2014.icc");
         let payload = [b"ICC_PROFILE\0\x01\x01".as_slice(), profile].concat();
         let length = u16::try_from(payload.len() + 2).unwrap().to_be_bytes();
         let tagged = [&jpeg[..2], &[0xff, 0xe2], &length, &payload, &jpeg[2..]].concat();
