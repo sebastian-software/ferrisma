@@ -1,0 +1,1744 @@
+{
+"baseline 4:2:0, RGB": {
+"c": [
+{
+"ms": 25.792,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 25.866,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 25.871,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 25.814,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 26.463,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 25.986,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.54
+},
+{
+"ms": 25.899,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.54
+}
+],
+"before": [
+{
+"ms": 40.395,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 41.083,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 40.834,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 40.822,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 40.889,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 40.599,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.54
+},
+{
+"ms": 40.279,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.54
+}
+],
+"after": [
+{
+"ms": 29.012,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 29.246,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 29.163,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 29.165,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 29.228,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 29.222,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.54
+},
+{
+"ms": 29.021,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.54
+}
+]
+},
+"baseline 4:2:2, RGB": {
+"c": [
+{
+"ms": 30.298,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 29.841,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 30.339,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 30.147,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 30.355,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 30.17,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 14.54
+},
+{
+"ms": 30.175,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 14.54
+}
+],
+"before": [
+{
+"ms": 47.788,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 47.379,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 47.47,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 47.516,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 47.39,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 47.687,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 14.54
+},
+{
+"ms": 47.579,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 14.54
+}
+],
+"after": [
+{
+"ms": 34.661,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 34.42,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 34.656,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 34.184,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 34.203,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 34.096,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 14.54
+},
+{
+"ms": 34.528,
+"checksum": "3a9f50a2e162fa7b",
+"dims": "3632,2384,3",
+"load": 14.54
+}
+]
+},
+"baseline 4:4:4, RGB": {
+"c": [
+{
+"ms": 36.814,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 36.121,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 36.243,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 36.214,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 36.421,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 36.341,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 14.54
+},
+{
+"ms": 36.463,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 14.54
+}
+],
+"before": [
+{
+"ms": 59.141,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 58.675,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 58.913,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 59.35,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 58.889,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 58.897,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 14.54
+},
+{
+"ms": 58.847,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 14.54
+}
+],
+"after": [
+{
+"ms": 42.865,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 43.429,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 42.36,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 42.894,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 42.822,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 42.752,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 14.54
+},
+{
+"ms": 42.56,
+"checksum": "dd249f7d1c4dafab",
+"dims": "3632,2384,3",
+"load": 14.54
+}
+]
+},
+"progressive 4:2:0, RGB": {
+"c": [
+{
+"ms": 64.641,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 65.084,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 64.377,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 65.05,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 65.028,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 64.947,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 64.654,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+],
+"before": [
+{
+"ms": 96.932,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.01
+},
+{
+"ms": 96.339,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 96.633,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 94.405,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 96.201,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 95.92,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 94.995,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+],
+"after": [
+{
+"ms": 95.951,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 95.962,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 97.962,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 18.59
+},
+{
+"ms": 100.02,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 16.02
+},
+{
+"ms": 95.689,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 97.783,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 95.042,
+"checksum": "de3036d9722df60f",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+]
+},
+"baseline 4:2:0, RGBX": {
+"c": [
+{
+"ms": 26.284,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 18.53
+},
+{
+"ms": 26.531,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 19.34
+},
+{
+"ms": 26.21,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 18.59
+},
+{
+"ms": 26.191,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 16.81
+},
+{
+"ms": 26.086,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 15.46
+},
+{
+"ms": 25.941,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 14.85
+},
+{
+"ms": 26.118,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 14.18
+}
+],
+"before": [
+{
+"ms": 40.822,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 18.53
+},
+{
+"ms": 41.231,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 19.34
+},
+{
+"ms": 40.5,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 18.59
+},
+{
+"ms": 40.694,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 16.81
+},
+{
+"ms": 40.599,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 15.46
+},
+{
+"ms": 40.602,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 14.85
+},
+{
+"ms": 40.858,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 14.18
+}
+],
+"after": [
+{
+"ms": 30.102,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 18.53
+},
+{
+"ms": 29.519,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 19.34
+},
+{
+"ms": 29.397,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 18.59
+},
+{
+"ms": 29.0,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 16.81
+},
+{
+"ms": 28.908,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 15.46
+},
+{
+"ms": 29.396,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 14.85
+},
+{
+"ms": 29.167,
+"checksum": "9ae06e6be461a345",
+"dims": "3632,2384,4",
+"load": 14.18
+}
+]
+},
+"baseline 4:2:0, fast IDCT": {
+"c": [
+{
+"ms": 24.8,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 24.877,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 19.34
+},
+{
+"ms": 24.711,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 24.521,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 24.765,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 24.78,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 24.72,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+],
+"before": [
+{
+"ms": 38.25,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 38.658,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 38.39,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 38.415,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 38.199,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 38.186,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 38.7,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+],
+"after": [
+{
+"ms": 26.996,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 27.31,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 27.263,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 26.716,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 26.602,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 27.115,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 27.008,
+"checksum": "9050722332d5710d",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+]
+},
+"baseline 4:2:0, float IDCT": {
+"c": [
+{
+"ms": 37.306,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 37.067,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 37.176,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 36.966,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 37.045,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 37.118,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 37.373,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+],
+"before": [
+{
+"ms": 50.485,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 51.039,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 50.328,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 50.12,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 50.831,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 15.46
+},
+{
+"ms": 50.359,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 50.493,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+],
+"after": [
+{
+"ms": 39.22,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 38.855,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 38.588,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 39.259,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 38.887,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 15.1
+},
+{
+"ms": 39.021,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 39.148,
+"checksum": "086d151be544b9ac",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+]
+},
+"baseline 4:2:0, merged upsampling": {
+"c": [
+{
+"ms": 24.598,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 24.429,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 24.222,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 24.111,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 24.475,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 15.1
+},
+{
+"ms": 24.488,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 24.441,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+],
+"before": [
+{
+"ms": 38.711,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 38.779,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 38.745,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 38.542,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 39.007,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 15.1
+},
+{
+"ms": 38.616,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 38.707,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+],
+"after": [
+{
+"ms": 27.633,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 27.189,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 26.98,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 27.136,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 27.223,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 15.1
+},
+{
+"ms": 27.283,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 27.082,
+"checksum": "a995fa198ac4be9b",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+]
+},
+"baseline 4:2:2, merged upsampling": {
+"c": [
+{
+"ms": 29.268,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 29.565,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 29.276,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 29.081,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 29.3,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 15.1
+},
+{
+"ms": 29.172,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 14.85
+},
+{
+"ms": 29.093,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+],
+"before": [
+{
+"ms": 46.615,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 52.033,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 46.239,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 46.534,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 46.912,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 15.1
+},
+{
+"ms": 46.432,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 15.1
+},
+{
+"ms": 46.484,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 14.18
+}
+],
+"after": [
+{
+"ms": 33.267,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 18.53
+},
+{
+"ms": 35.712,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 19.37
+},
+{
+"ms": 33.042,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 17.66
+},
+{
+"ms": 32.973,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 16.81
+},
+{
+"ms": 33.37,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 15.1
+},
+{
+"ms": 33.11,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 15.1
+},
+{
+"ms": 36.778,
+"checksum": "f2dc5d95a65f8b7b",
+"dims": "3632,2384,3",
+"load": 13.92
+}
+]
+},
+"baseline 4:2:0, scale 1/2": {
+"c": [
+{
+"ms": 21.724,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 18.53
+},
+{
+"ms": 23.254,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 19.37
+},
+{
+"ms": 21.644,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 17.66
+},
+{
+"ms": 21.519,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 16.81
+},
+{
+"ms": 21.503,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 15.1
+},
+{
+"ms": 21.755,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 15.1
+},
+{
+"ms": 21.613,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 13.92
+}
+],
+"before": [
+{
+"ms": 35.453,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 18.53
+},
+{
+"ms": 35.115,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 19.37
+},
+{
+"ms": 34.861,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 17.66
+},
+{
+"ms": 35.37,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 16.81
+},
+{
+"ms": 34.992,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 15.1
+},
+{
+"ms": 34.905,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 15.1
+},
+{
+"ms": 35.018,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 13.92
+}
+],
+"after": [
+{
+"ms": 37.85,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 18.53
+},
+{
+"ms": 23.204,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 19.37
+},
+{
+"ms": 23.357,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 17.66
+},
+{
+"ms": 23.176,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 16.81
+},
+{
+"ms": 23.518,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 15.1
+},
+{
+"ms": 23.501,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 15.1
+},
+{
+"ms": 23.708,
+"checksum": "2d71e2920accfc19",
+"dims": "1816,1192,3",
+"load": 13.92
+}
+]
+},
+"baseline 4:2:0, scale 1/4": {
+"c": [
+{
+"ms": 33.314,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 18.53
+},
+{
+"ms": 20.018,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 19.37
+},
+{
+"ms": 19.604,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 17.66
+},
+{
+"ms": 19.607,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 16.81
+},
+{
+"ms": 19.839,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 15.1
+},
+{
+"ms": 19.639,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 15.1
+},
+{
+"ms": 19.786,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 13.92
+}
+],
+"before": [
+{
+"ms": 36.455,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 18.53
+},
+{
+"ms": 32.439,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 19.37
+},
+{
+"ms": 32.248,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 17.66
+},
+{
+"ms": 32.391,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 16.81
+},
+{
+"ms": 32.285,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 15.1
+},
+{
+"ms": 32.495,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 15.1
+},
+{
+"ms": 32.87,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 13.92
+}
+],
+"after": [
+{
+"ms": 22.144,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 19.37
+},
+{
+"ms": 21.078,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 19.37
+},
+{
+"ms": 21.043,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 17.66
+},
+{
+"ms": 20.776,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 17.66
+},
+{
+"ms": 20.954,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 15.1
+},
+{
+"ms": 20.717,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 15.1
+},
+{
+"ms": 21.099,
+"checksum": "97a7bcf4bc8ad38e",
+"dims": "908,596,3",
+"load": 13.92
+}
+]
+},
+"baseline 4:2:0, scale 1/8": {
+"c": [
+{
+"ms": 18.655,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 19.37
+},
+{
+"ms": 17.942,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 19.37
+},
+{
+"ms": 18.522,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 17.66
+},
+{
+"ms": 17.941,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 17.66
+},
+{
+"ms": 17.971,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 15.1
+},
+{
+"ms": 18.027,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 15.1
+},
+{
+"ms": 18.012,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 13.92
+}
+],
+"before": [
+{
+"ms": 32.262,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 19.37
+},
+{
+"ms": 35.551,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 19.37
+},
+{
+"ms": 32.797,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 17.66
+},
+{
+"ms": 31.355,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 17.66
+},
+{
+"ms": 31.612,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 15.1
+},
+{
+"ms": 31.516,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 15.1
+},
+{
+"ms": 31.914,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 13.92
+}
+],
+"after": [
+{
+"ms": 19.136,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 19.37
+},
+{
+"ms": 19.368,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 19.37
+},
+{
+"ms": 19.198,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 17.66
+},
+{
+"ms": 20.504,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 17.66
+},
+{
+"ms": 19.08,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 15.1
+},
+{
+"ms": 19.118,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 15.1
+},
+{
+"ms": 19.256,
+"checksum": "ff410eb5bb43d2a9",
+"dims": "454,298,3",
+"load": 13.92
+}
+]
+},
+"testorig.jpg (227x149)": {
+"c": [
+{
+"ms": 0.08,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 19.37
+},
+{
+"ms": 0.079,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 19.37
+},
+{
+"ms": 0.081,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 17.66
+},
+{
+"ms": 0.081,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 17.66
+},
+{
+"ms": 0.083,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 15.1
+},
+{
+"ms": 0.081,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 15.1
+},
+{
+"ms": 0.081,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 13.92
+}
+],
+"before": [
+{
+"ms": 0.121,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 19.37
+},
+{
+"ms": 0.123,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 19.37
+},
+{
+"ms": 0.119,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 17.66
+},
+{
+"ms": 0.185,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 17.66
+},
+{
+"ms": 0.136,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 15.1
+},
+{
+"ms": 0.122,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 15.1
+},
+{
+"ms": 0.122,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 13.92
+}
+],
+"after": [
+{
+"ms": 0.111,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 19.37
+},
+{
+"ms": 0.109,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 19.37
+},
+{
+"ms": 0.111,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 17.66
+},
+{
+"ms": 0.112,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 17.66
+},
+{
+"ms": 0.111,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 15.1
+},
+{
+"ms": 0.113,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 15.1
+},
+{
+"ms": 0.11,
+"checksum": "ed0ca4d13b7ad15a",
+"dims": "227,149,3",
+"load": 13.92
+}
+]
+}
+}

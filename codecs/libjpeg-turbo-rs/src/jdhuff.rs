@@ -733,7 +733,15 @@ pub fn HUFF_DECODE(
 // upstream: src/jdhuff.h HUFF_DECODE_FAST
 /// Decodes the next Huffman-coded symbol from a buffer known to hold
 /// enough bytes, setting `nb` to its code length.
-#[inline]
+// C's HUFF_DECODE_FAST is a macro. With plain `#[inline]` LLVM keeps this
+// call out of line, so the `&mut` bit-buffer state lives in memory instead of
+// registers; forcing it inline made baseline decodes 23-40 % faster with
+// identical output (ADR 0004, 2026-11-12 amendment).
+#[inline(always)]
+#[expect(
+    clippy::inline_always,
+    reason = "measured: the hot Huffman fast path must inline like C's macro"
+)]
 #[expect(non_snake_case, reason = "C macro name")]
 #[expect(
     clippy::cast_possible_truncation,

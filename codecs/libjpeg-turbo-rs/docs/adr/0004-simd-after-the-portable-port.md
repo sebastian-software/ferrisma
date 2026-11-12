@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-06
-- Updated: 2026-11-09
+- Updated: 2026-11-12
 
 ## Context
 
@@ -48,6 +48,57 @@ estimates about 70 % on a 12 Mpx photo).
 The first usable decoder is portable and slower than libjpeg-turbo with SIMD.
 The x86-64 rewrite carries a performance risk against hand-written assembly; it
 is bounded by the share of decode time in SIMD code and is measured per kernel.
+
+## Amendment 2026-11-12: inline the Huffman fast path
+
+The serial Huffman decoder, not the SIMD kernels, held most of the remaining
+gap to libjpeg-turbo ([engine performance
+analysis](https://github.com/sebastian-software/ferrisma/blob/main/docs/benchmarks/v1.0-engine-performance-analysis-2026-11-12.md),
+issues [ferrisma#76](https://github.com/sebastian-software/ferrisma/issues/76)
+and [ferrisma#221](https://github.com/sebastian-software/ferrisma/issues/221)).
+Upstream's `HUFF_DECODE_FAST` is a macro; the port's function of that name
+takes the bit-buffer state by `&mut` and carried `#[inline]`, which LLVM did
+not follow, so the state lived in memory on every symbol. It is now
+`#[inline(always)]` (with a scoped `clippy::inline_always` expectation). No
+other code changed, and no `unsafe` was added.
+
+Correctness: `tools/bench.py`'s cases produce the same checksums in C, the
+previous port and the inlined port; upstream's in-scope bit tests pass against
+the `release` and `simd` oracles (79 of 79 each), and the differential tests
+pass with `LIBJPEG_ORACLE_DIR` set for the `release` oracle without default
+features and for the `simd` oracle in the `neon` and `none` modes. The T.83
+conformance tests did not run: their data is downloaded from ITU and was not
+fetched for this change.
+
+Speed, measured with `tools/bench.py`'s inputs (3632×2384 tiled photo, 5
+decodes per run) and the `simd` oracle's `wp9/bench`, 7 interleaved runs
+alternating the order of C, the previous port and the inlined port, medians.
+Apple M1 Ultra, macOS 27.0.1. **Indicative; loaded host** (1-minute load
+average 13.9–19.4, other builds running):
+
+| case | before ms | after ms | C ms | after / before | before / C | after / C |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| baseline 4:2:0, RGB | 40.82 | 29.16 | 25.87 | 0.71 | 1.58 | 1.13 |
+| baseline 4:2:2, RGB | 47.52 | 34.42 | 30.18 | 0.72 | 1.57 | 1.14 |
+| baseline 4:4:4, RGB | 58.90 | 42.82 | 36.34 | 0.73 | 1.62 | 1.18 |
+| progressive 4:2:0, RGB | 96.20 | 95.96 | 64.95 | 1.00 | 1.48 | 1.48 |
+| baseline 4:2:0, RGBX | 40.69 | 29.40 | 26.19 | 0.72 | 1.55 | 1.12 |
+| baseline 4:2:0, fast IDCT | 38.39 | 27.01 | 24.77 | 0.70 | 1.55 | 1.09 |
+| baseline 4:2:0, float IDCT | 50.48 | 39.02 | 37.12 | 0.77 | 1.36 | 1.05 |
+| baseline 4:2:0, merged upsampling | 38.71 | 27.19 | 24.44 | 0.70 | 1.58 | 1.11 |
+| baseline 4:2:2, merged upsampling | 46.53 | 33.27 | 29.27 | 0.71 | 1.59 | 1.14 |
+| baseline 4:2:0, scale 1/2 | 35.02 | 23.50 | 21.64 | 0.67 | 1.62 | 1.09 |
+| baseline 4:2:0, scale 1/4 | 32.44 | 21.04 | 19.79 | 0.65 | 1.64 | 1.06 |
+| baseline 4:2:0, scale 1/8 | 31.91 | 19.20 | 18.01 | 0.60 | 1.77 | 1.07 |
+| testorig.jpg (227×149) | 0.12 | 0.11 | 0.08 | 0.91 | 1.51 | 1.37 |
+
+Baseline (sequential Huffman) decodes are 23–40 % faster and 1.05–1.18× C.
+Progressive decoding uses the separate progressive entropy decoder and is
+unchanged at 1.48× C; it is the next Huffman target. The remaining baseline
+gap includes the IDCT pass-2 helpers, which `#[target_feature]` keeps out of
+line. The script and raw runs are in the analysis's evidence directory
+(`jpeg_ab.py`, `jpeg-ab-inline.json`). An idle-host and CI `bench` run should
+confirm the ratios.
 
 ## Review triggers
 
