@@ -57,7 +57,7 @@ fn wrapper(bytes: &[u8], prefix: &str) -> String {
     }
     let channels = if info.alpha { 4 } else { 3 };
     let samples = info.width as usize * info.height as usize * channels;
-    let decoded = if info.depth == 8 {
+    let raw_samples = if info.depth == 8 {
         let mut pixels = vec![0_u8; samples];
         decoder
             .decode_u8(&mut pixels, info.width, info.height, info.alpha)
@@ -68,7 +68,7 @@ fn wrapper(bytes: &[u8], prefix: &str) -> String {
             .decode_u16(&mut pixels, info.width, info.height, info.alpha)
             .map(|()| pixels.iter().flat_map(|v| v.to_ne_bytes()).collect())
     };
-    let decode = match decoded {
+    let decode = match raw_samples {
         Ok(raw) => {
             fs::write(format!("{prefix}.wrapper.raw"), raw).unwrap();
             "\"ok\"".to_owned()
