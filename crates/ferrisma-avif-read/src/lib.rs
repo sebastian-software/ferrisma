@@ -45,7 +45,17 @@ pub struct SequenceInfo {
     pub full_range: bool,
 }
 
-/// Owns one libavif decoder. The input slice must outlive its memory reader.
+/// Owns one libavif decoder. The input slice must outlive its memory reader;
+/// the borrow checker enforces that the decoder cannot outlive its input:
+///
+/// ```compile_fail,E0597
+/// let decoder = {
+///     let bytes = vec![0_u8; 16];
+///     ferrisma_avif_read::Decoder::parse(&bytes, 1).map(|(decoder, _)| decoder)
+/// };
+/// ```
+///
+/// The raw decoder pointer also keeps the type `!Send` and `!Sync`.
 pub struct Decoder<'a> {
     raw: NonNull<read::avifDecoder>,
     _input: PhantomData<&'a [u8]>,
@@ -327,7 +337,80 @@ impl<'a> Decoder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Decoder, ReadError};
+    use super::{Decoder, ReadError, api, read, reformat};
+    use std::mem::{align_of, offset_of, size_of};
+
+    /// The `rgb` pointer casts rely on each generated module's own copy of
+    /// these `repr(C)` structs having the same layout (issue #54).
+    #[test]
+    fn cross_module_image_layouts_match() {
+        macro_rules! same_layout {
+            ($a:ty, $b:ty, [$($field:ident),*]) => {
+                assert_eq!(size_of::<$a>(), size_of::<$b>());
+                assert_eq!(align_of::<$a>(), align_of::<$b>());
+                $(assert_eq!(offset_of!($a, $field), offset_of!($b, $field), stringify!($field));)*
+            };
+        }
+        macro_rules! image_fields {
+            ($a:ty, $b:ty) => {
+                same_layout!(
+                    $a,
+                    $b,
+                    [
+                        width,
+                        height,
+                        depth,
+                        yuvFormat,
+                        yuvRange,
+                        yuvChromaSamplePosition,
+                        yuvPlanes,
+                        yuvRowBytes,
+                        imageOwnsYUVPlanes,
+                        alphaPlane,
+                        alphaRowBytes,
+                        imageOwnsAlphaPlane,
+                        alphaPremultiplied,
+                        icc,
+                        colorPrimaries,
+                        transferCharacteristics,
+                        matrixCoefficients,
+                        clli,
+                        transformFlags,
+                        pasp,
+                        clap,
+                        irot,
+                        imir,
+                        exif,
+                        xmp,
+                        properties,
+                        numProperties,
+                        gainMap
+                    ]
+                );
+            };
+        }
+        image_fields!(read::avifImage, api::avifImage);
+        image_fields!(reformat::avifImage, api::avifImage);
+        same_layout!(
+            reformat::avifRGBImage,
+            api::avifRGBImage,
+            [
+                width,
+                height,
+                depth,
+                format,
+                chromaUpsampling,
+                chromaDownsampling,
+                avoidLibYUV,
+                ignoreAlpha,
+                alphaPremultiplied,
+                isFloat,
+                maxThreads,
+                pixels,
+                rowBytes
+            ]
+        );
+    }
 
     #[test]
     fn selected_grid_color_tiles_have_matching_sequence_headers() {

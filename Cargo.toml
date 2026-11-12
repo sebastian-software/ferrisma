@@ -149,3 +149,7 @@ required-features = ["cli"]
 [[example]]
 name = "jpeg_decode_bench"
 required-features = ["jpeg-read"]
+
+[[example]]
+name = "avif_reference_crosscheck"
+required-features = ["avif-read"]
