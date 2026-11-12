@@ -100,9 +100,10 @@ webp-write = ["dep:webp"]
 jpeg-xl-read = ["dep:jxl-oxide"]
 # Workspace libjxl-rs reader; the default JPEG XL reader when compiled in (ADR-0032).
 jpeg-xl-own-read = ["dep:ferrisma-jxl-decoder"]
-# Experimental lossless JPEG XL output through the workspace libjxl-rs
-# encoder's admitted fixed profile (ADR-0039); not part of `cli` yet.
-jpeg-xl-write = ["dep:jxl"]
+# Experimental JPEG XL output through the workspace libjxl-rs encoder's
+# admitted profiles (ADR-0039): lossless through the port's safe fixed-profile
+# entry point, lossy through the `ferrisma-jxl-encoder` safe bridge.
+jpeg-xl-write = ["dep:jxl", "dep:ferrisma-jxl-encoder"]
 # rav1e's `asm` is bit-exact and about 2.2x faster; `threading` lets the
 # encoder use `TransformOptions::encoder_threads` (M2 work package 2, ADR-0018).
 avif-write = ["dep:rav1e", "dep:avif-serialize", "rav1e/asm", "rav1e/threading"]
@@ -127,6 +128,8 @@ ferrisma-jxl-decoder = { path = "crates/ferrisma-jxl-decoder", version = "0.1.0"
 jxl-oxide = { version = "0.12.6", optional = true, default-features = false }
 # Safe fixed-profile encoder entry point of the workspace port (ADR-0039).
 jxl = { package = "libjxl-rs", path = "codecs/libjxl-rs", version = "0.1.0", optional = true }
+# Safe bridge to the port's public (raw-pointer) encoder API for lossy output.
+ferrisma-jxl-encoder = { path = "crates/ferrisma-jxl-encoder", version = "0.1.0", optional = true }
 
 [dev-dependencies]
 # Test-only: writes the identity-matrix AVIF fixture of the AVIF reader tests.

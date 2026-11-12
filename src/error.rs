@@ -78,6 +78,14 @@ pub(crate) enum Error {
     /// A request outside the admitted JPEG XL encoder profile (ADR-0039).
     #[cfg(feature = "jpeg-xl-write")]
     UnsupportedEncoderProfile(&'static str),
+    /// Lossy JPEG XL output of an image with alpha below 255; the admitted
+    /// lossy profile has no alpha channel (ADR-0039). Never dropped silently.
+    #[cfg(feature = "jpeg-xl-write")]
+    LossyJpegXlAlpha,
+    /// The lossy JPEG XL encoder found text-like patches, whose
+    /// reference-frame encode the workspace encoder cannot write yet.
+    #[cfg(feature = "jpeg-xl-write")]
+    JpegXlPatchesRequired,
     EncodeFailed,
     UnsupportedColorEncoding,
     /// CICP evidence beside the rendered ICC profile that the rendered-ICC
@@ -103,6 +111,7 @@ pub(crate) enum Error {
 }
 
 impl fmt::Display for Error {
+    #[allow(clippy::too_many_lines)] // One message per variant.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidDimensions => write!(f, "image dimensions must be nonzero"),
@@ -155,6 +164,18 @@ impl fmt::Display for Error {
             Self::UnsupportedEncoderProfile(reason) => {
                 write!(f, "JPEG XL encoder profile: {reason}")
             }
+            #[cfg(feature = "jpeg-xl-write")]
+            Self::LossyJpegXlAlpha => write!(
+                f,
+                "lossy JPEG XL with alpha is not supported yet; use lossless \
+                 (JpegXlOptions::Lossless, --jxl-lossless)"
+            ),
+            #[cfg(feature = "jpeg-xl-write")]
+            Self::JpegXlPatchesRequired => write!(
+                f,
+                "this content needs the JPEG XL encoder's patch path, which is not available \
+                 yet; use lossless or wait for the patches-disabled profile"
+            ),
             Self::EncodeFailed => write!(f, "encoder failed"),
             #[cfg(any(
                 feature = "avif-read",

@@ -9,8 +9,8 @@ use std::process::ExitCode;
 
 use crate::pipeline::{
     AvifEncoder, ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy,
-    JpegXlDecoder, KernelLevel, OutputFormat, ResizeFilter, TransformOptions, WebpOptions,
-    WorkingPrecision, transcode, transcode_with,
+    JpegXlDecoder, JpegXlOptions, KernelLevel, OutputFormat, ResizeFilter, TransformOptions,
+    WebpOptions, WorkingPrecision, transcode, transcode_with,
 };
 
 // Bound the stream itself: file metadata can be absent or change after opening.
@@ -80,7 +80,10 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
                 }
             },
             OutputFormat::JpegXl => {
-                return Err("--quality is unsupported for lossless JPEG XL".into());
+                return Err(
+                    "--quality is unsupported for JPEG XL; use --jxl-distance or --jxl-lossless"
+                        .into(),
+                );
             }
         },
         option if option.starts_with("--speed=") => match options.output_format {
@@ -97,7 +100,11 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
                 }
             },
             OutputFormat::JpegXl => {
-                return Err("--speed is unsupported for JPEG XL; only effort 2 is admitted".into());
+                return Err(
+                    "--speed is unsupported for JPEG XL; the admitted efforts are fixed \
+                     (7 lossy, 2 lossless)"
+                        .into(),
+                );
             }
         },
         "--kernel-level=scalar" => options.kernel_level_ceiling = Some(KernelLevel::Scalar),
@@ -117,6 +124,19 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
             }
         }
         "--webp-lossless" => return Err("--webp-lossless requires .webp output".into()),
+        "--jxl-lossless" if options.output_format == OutputFormat::JpegXl => {
+            options.jpeg_xl = JpegXlOptions::Lossless { effort: 2 };
+        }
+        "--jxl-lossless" => return Err("--jxl-lossless requires .jxl output".into()),
+        option if option.starts_with("--jxl-distance=") => {
+            if options.output_format != OutputFormat::JpegXl {
+                return Err("--jxl-distance requires .jxl output".into());
+            }
+            // The range is checked by the transcode, before decoding.
+            options.jpeg_xl = JpegXlOptions::Lossy {
+                distance: option[15..].parse()?,
+            };
+        }
         option
             if option.starts_with("--webp-level=")
                 && options.output_format == OutputFormat::WebP =>
@@ -183,7 +203,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=libjxl-rs (default)|jxl-oxide] [--area] [--reference] [--avif-encoder=libavif (default with avif-own-write)|rav1e] [--avif-depth=8|10 (libavif, default 10)] [--quality=75 (selected encoder's own scale; rav1e 1-100, libavif 0-100, not comparable)] [--speed=6 (rav1e 1-10, libavif 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=libjxl-rs (default)|jxl-oxide] [--area] [--reference] [--avif-encoder=libavif (default with avif-own-write)|rav1e] [--avif-depth=8|10 (libavif, default 10)] [--quality=75 (selected encoder's own scale; rav1e 1-100, libavif 0-100, not comparable)] [--speed=6 (rav1e 1-10, libavif 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }
@@ -193,7 +213,8 @@ pub fn run(
     let output_format = match output_extension {
         Some("avif") => OutputFormat::Avif,
         Some("webp") => OutputFormat::WebP,
-        // Lossless only; requires the jpeg-xl-write feature (ADR-0039).
+        // Lossy d1.0 by default, or --jxl-distance / --jxl-lossless;
+        // requires the jpeg-xl-write feature (ADR-0039).
         Some("jxl") => OutputFormat::JpegXl,
         _ => return Err("output must have a .avif, .webp or .jxl extension".into()),
     };
@@ -216,6 +237,14 @@ pub fn run(
         return Err(
             "--quality and --speed are unsupported for lossless WebP; use --webp-level".into(),
         );
+    }
+    if args.iter().skip(5).any(|arg| arg == "--jxl-lossless")
+        && args
+            .iter()
+            .skip(5)
+            .any(|arg| arg.starts_with("--jxl-distance="))
+    {
+        return Err("--jxl-distance and --jxl-lossless are mutually exclusive".into());
     }
     let mut avif_encoder = None;
     let mut avif_depth = None;
@@ -366,6 +395,50 @@ mod tests {
             read_input(Broken, 3).unwrap_err().kind(),
             io::ErrorKind::Other
         );
+    }
+
+    #[test]
+    fn selects_jpeg_xl_output_settings_and_rejects_foreign_ones() {
+        use crate::pipeline::{JpegXlOptions, OutputFormat};
+        let jxl = TransformOptions {
+            output_format: OutputFormat::JpegXl,
+            ..TransformOptions::default()
+        };
+        let mut options = jxl;
+        assert_eq!(options.jpeg_xl, JpegXlOptions::Lossy { distance: 1.0 });
+        apply_option(&mut options, "--jxl-distance=0.5").unwrap();
+        assert_eq!(options.jpeg_xl, JpegXlOptions::Lossy { distance: 0.5 });
+        assert!(apply_option(&mut options, "--jxl-distance=abc").is_err());
+        let mut options = jxl;
+        apply_option(&mut options, "--jxl-lossless").unwrap();
+        assert_eq!(options.jpeg_xl, JpegXlOptions::Lossless { effort: 2 });
+        for flag in ["--quality=80", "--speed=4", "--chroma=420", "--chroma=444"] {
+            let mut options = jxl;
+            let error = apply_option(&mut options, flag).unwrap_err();
+            assert!(error.to_string().contains("JPEG XL"), "{flag}: {error}");
+        }
+        // JPEG XL flags require .jxl output.
+        for flag in ["--jxl-lossless", "--jxl-distance=1"] {
+            let error = apply_option(&mut TransformOptions::default(), flag).unwrap_err();
+            assert!(error.to_string().contains(".jxl"), "{flag}: {error}");
+        }
+    }
+
+    #[test]
+    fn rejects_conflicting_jpeg_xl_modes() {
+        let args: Vec<String> = [
+            "ferrisma",
+            "missing.jpg",
+            "out.jxl",
+            "8",
+            "8",
+            "--jxl-lossless",
+            "--jxl-distance=1.5",
+        ]
+        .map(String::from)
+        .to_vec();
+        let error = super::run(&args, None).unwrap_err();
+        assert!(error.to_string().contains("mutually exclusive"), "{error}");
     }
 
     #[test]

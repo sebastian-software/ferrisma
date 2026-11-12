@@ -1,13 +1,23 @@
 //! Still JPEG XL output through the workspace libjxl-rs encoder (ADR-0039).
 //!
-//! The port's public encoder API admits no frame encode yet; its only
-//! complete, oracle-verified image path is the fixed lossless profile
-//! `LosslessThunderConfig`: Modular, effort 2 (libjxl "thunder"), level-10
-//! parameters, one-shot buffering, a raw codestream, enum sRGB color without
-//! ICC, 8-bit RGB with optional unassociated 8-bit alpha, orientation 1. This
-//! sink admits exactly that profile and rejects every other request with a
-//! typed error instead of falling back.
+//! Two admitted profiles, selected by [`JpegXlOptions`]:
+//!
+//! - **Lossless:** the port's fixed, oracle-verified `LosslessThunderConfig`
+//!   (Modular, effort 2, level-10 parameters, one-shot, raw codestream, enum
+//!   sRGB without ICC, 8-bit RGB with optional unassociated 8-bit alpha),
+//!   reached through its safe entry point.
+//! - **Lossy:** the port's public encoder API through the safe
+//!   `ferrisma-jxl-encoder` bridge: `VarDCT` in XYB at effort 7, distance
+//!   0.05 to below 3.0, 8-bit RGB with enum sRGB, no alpha, one frame, raw
+//!   codestream, serial; byte-identical with pinned libjxl in the port's
+//!   own oracle tests.
+//!
+//! Every other request is rejected with a typed error instead of falling
+//! back. Real alpha in lossy mode and content that needs the encoder's
+//! patch path are rejected with their own errors; alpha is never dropped
+//! silently.
 
+use ferrisma_jxl_encoder as bridge;
 use jxl::jxl::base::status::StatusCode;
 use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
 
@@ -24,7 +34,7 @@ const MAX_LEVEL5_DIMENSION: usize = 1 << 18;
 const MAX_LEVEL5_PIXELS: usize = 1 << 28;
 
 /// Codec-allocated planes that exist at the same time as the input frame in
-/// the admitted one-shot path (`ComputeEncodingData` and
+/// the admitted lossless one-shot path (`ComputeEncodingData` and
 /// `compute_encoding_data_lossless_thunder` in the port): an `Image3<f32>`
 /// color frame padded to whole 8x8 blocks, one `f32` plane per extra
 /// channel, and the Modular `i32` channels of every color and alpha plane.
@@ -52,6 +62,24 @@ pub(crate) fn known_codec_frame_bytes(
         .ok_or(Error::GeometryOverflow)
 }
 
+/// The lossy encoder's large buffers for an opaque RGB8 frame: an estimate
+/// derived from the port's source (input copy, padded XYB planes, masking
+/// plane, AC coefficients; see `ferrisma_jxl_encoder::estimated_codec_bytes`),
+/// not a measured bound.
+pub(crate) fn estimated_lossy_codec_bytes(width: usize, height: usize) -> Result<usize, Error> {
+    let image = bridge::ImageInfo::srgb8(
+        u32::try_from(width).map_err(|_| Error::GeometryOverflow)?,
+        u32::try_from(height).map_err(|_| Error::GeometryOverflow)?,
+    );
+    bridge::estimated_codec_bytes(&image).ok_or(Error::GeometryOverflow)
+}
+
+#[derive(Clone, Copy)]
+enum Mode {
+    Lossless,
+    Lossy { distance: f32 },
+}
+
 pub(crate) struct JxlSink {
     width: usize,
     height: usize,
@@ -60,17 +88,15 @@ pub(crate) struct JxlSink {
     frame: ManagedBuffer<u8>,
     budget: MemoryBudget,
     has_alpha: bool,
+    mode: Mode,
+    max_output_bytes: usize,
 }
 
 impl JxlSink {
-    /// Check the size-independent settings against the admitted profile;
+    /// Check the size-independent settings against the admitted profiles;
     /// the facade calls this before it opens the input.
     pub(crate) fn validate(options: &TransformOptions) -> Result<(), Error> {
-        if options.jpeg_xl != (JpegXlOptions::Lossless { effort: 2 }) {
-            return Err(Error::UnsupportedEncoderProfile(
-                "only lossless effort 2 is admitted by the workspace encoder",
-            ));
-        }
+        Self::mode(options)?;
         // The port has no parallel runner (encoder step 13); it is serial.
         if options.encoder_threads != 1 {
             return Err(Error::UnsupportedEncoderProfile(
@@ -84,6 +110,25 @@ impl JxlSink {
         Ok(())
     }
 
+    fn mode(options: &TransformOptions) -> Result<Mode, Error> {
+        match options.jpeg_xl {
+            JpegXlOptions::Lossless { effort: 2 } => Ok(Mode::Lossless),
+            JpegXlOptions::Lossless { .. } => Err(Error::UnsupportedEncoderProfile(
+                "only lossless effort 2 is admitted by the workspace encoder",
+            )),
+            // `contains` is false for NaN.
+            JpegXlOptions::Lossy { distance }
+                if (JpegXlOptions::MIN_LOSSY_DISTANCE..JpegXlOptions::MAX_LOSSY_DISTANCE)
+                    .contains(&distance) =>
+            {
+                Ok(Mode::Lossy { distance })
+            }
+            JpegXlOptions::Lossy { .. } => Err(Error::UnsupportedEncoderProfile(
+                "the lossy distance must be at least 0.05 and below 3.0",
+            )),
+        }
+    }
+
     /// Validate the request against the admitted profile and reserve the
     /// engine-owned input frame before any pixel is decoded.
     pub(crate) fn new(
@@ -92,6 +137,7 @@ impl JxlSink {
         budget: &MemoryBudget,
     ) -> Result<Self, Error> {
         Self::validate(&options)?;
+        let mode = Self::mode(&options)?;
         let width = usize::try_from(size.width).map_err(|_| Error::GeometryOverflow)?;
         let height = usize::try_from(size.height).map_err(|_| Error::GeometryOverflow)?;
         let pixels = width.checked_mul(height).ok_or(Error::GeometryOverflow)?;
@@ -103,9 +149,12 @@ impl JxlSink {
                 "output exceeds the JPEG XL level 5 dimension or pixel limit",
             ));
         }
-        // Size-header admission happens in the codec's own metadata setter.
-        LosslessThunderConfig::new(width, height, false, LosslessSampleDepth::Uint8)
-            .map_err(|_| Error::UnsupportedEncoderProfile("the encoder rejected the image size"))?;
+        if let Mode::Lossless = mode {
+            // Size-header admission happens in the codec's own metadata setter.
+            LosslessThunderConfig::new(width, height, false, LosslessSampleDepth::Uint8).map_err(
+                |_| Error::UnsupportedEncoderProfile("the encoder rejected the image size"),
+            )?;
+        }
         let samples = pixels.checked_mul(4).ok_or(Error::GeometryOverflow)?;
         Ok(Self {
             width,
@@ -114,6 +163,8 @@ impl JxlSink {
             frame: budget.allocate_typed::<u8>(samples)?,
             budget: budget.clone(),
             has_alpha: false,
+            mode,
+            max_output_bytes: options.max_output_bytes,
         })
     }
 
@@ -125,9 +176,14 @@ impl JxlSink {
         {
             return Err(Error::IncompleteOutput);
         }
+        let transparent = bytes.as_chunks::<4>().0.iter().any(|rgba| rgba[3] != 255);
+        if transparent && matches!(self.mode, Mode::Lossy { .. }) {
+            // Stop at the first transparent row; never drop alpha silently.
+            return Err(Error::LossyJpegXlAlpha);
+        }
         let start = self.next_y * row_bytes;
         self.frame.as_mut_slice()[start..start + row_bytes].copy_from_slice(bytes);
-        self.has_alpha |= bytes.as_chunks::<4>().0.iter().any(|rgba| rgba[3] != 255);
+        self.has_alpha |= transparent;
         self.next_y += 1;
         Ok(())
     }
@@ -146,6 +202,13 @@ impl JxlSink {
                 frame.copy_within(pixel * 4..pixel * 4 + 3, pixel * 3);
             }
         }
+        match self.mode {
+            Mode::Lossless => self.finish_lossless(pixels * channels),
+            Mode::Lossy { distance } => self.finish_lossy(pixels * 3, distance),
+        }
+    }
+
+    fn finish_lossless(&self, samples: usize) -> Result<EncodedImage, Error> {
         let codec_bytes = known_codec_frame_bytes(self.width, self.height, self.has_alpha)?;
         let _codec_frames: ExternalReservation = self.budget.reserve_external(codec_bytes)?;
         let mut config = if self.has_alpha {
@@ -160,7 +223,7 @@ impl JxlSink {
         }
         .map_err(|_| Error::UnsupportedEncoderProfile("the encoder rejected the image size"))?;
         let encoded = config
-            .encode_pixels(&frame[..pixels * channels], None)
+            .encode_pixels(&self.frame.as_slice()[..samples], None)
             .map_err(|status| match status {
                 StatusCode::Unsupported => {
                     Error::UnsupportedEncoderProfile("the encoder reported an unsupported request")
@@ -172,6 +235,43 @@ impl JxlSink {
             .try_reserve_exact(encoded.len())
             .map_err(|_| Error::AllocationFailed)?;
         bytes.extend_from_slice(encoded.as_slice());
+        Ok(EncodedImage::new(
+            OutputFormat::JpegXl,
+            bytes,
+            self.frame.as_slice().len() + codec_bytes,
+            true,
+        ))
+    }
+
+    fn finish_lossy(&self, samples: usize, distance: f32) -> Result<EncodedImage, Error> {
+        let codec_bytes = estimated_lossy_codec_bytes(self.width, self.height)?;
+        let _codec_frames: ExternalReservation = self.budget.reserve_external(codec_bytes)?;
+        let image = bridge::ImageInfo::srgb8(
+            u32::try_from(self.width).map_err(|_| Error::GeometryOverflow)?,
+            u32::try_from(self.height).map_err(|_| Error::GeometryOverflow)?,
+        );
+        let mut bytes = Vec::new();
+        bridge::encode(
+            image,
+            bridge::FrameOptions::with_distance(distance),
+            &self.frame.as_slice()[..samples],
+            &mut bytes,
+            self.max_output_bytes,
+        )
+        .map_err(|error| match error {
+            bridge::Error::NotAdmitted(bridge::Admission::PatchDictionary) => {
+                Error::JpegXlPatchesRequired
+            }
+            bridge::Error::NotAdmitted(_) => Error::UnsupportedEncoderProfile(
+                "the workspace encoder does not admit this lossy request",
+            ),
+            bridge::Error::OutputLimit { limit } => Error::BudgetExceeded {
+                requested: limit.saturating_add(1),
+                available: limit,
+            },
+            bridge::Error::OutOfMemory => Error::AllocationFailed,
+            _ => Error::EncodeFailed,
+        })?;
         Ok(EncodedImage::new(
             OutputFormat::JpegXl,
             bytes,

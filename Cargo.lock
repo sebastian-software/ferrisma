@@ -256,6 +256,7 @@ dependencies = [
  "ferrisma-avif-read",
  "ferrisma-avif-write",
  "ferrisma-jxl-decoder",
+ "ferrisma-jxl-encoder",
  "ferrisma-kernels",
  "jxl-oxide",
  "libjpeg-turbo-rs",

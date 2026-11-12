@@ -13,9 +13,11 @@ use crate::pipeline::{
     ChromaSubsampling, JpegXlOptions, OutputFormat, ProcessingErrorKind, TransformOptions,
 };
 
+/// Lossless output options; the lossy tests are in `jxl_lossy_tests`.
 fn options(width: u32, height: u32) -> TransformOptions {
     TransformOptions {
         output_format: OutputFormat::JpegXl,
+        jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
         output_width: width,
         output_height: height,
         ..TransformOptions::default()

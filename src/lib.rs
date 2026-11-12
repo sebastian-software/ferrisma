@@ -143,6 +143,9 @@ mod webp_output_tests;
 #[cfg(all(test, feature = "jpeg-xl-write"))]
 mod jxl_output_tests;
 
+#[cfg(all(test, feature = "jpeg-xl-write"))]
+mod jxl_lossy_tests;
+
 #[cfg(all(test, feature = "jpeg-read", not(feature = "avif-write")))]
 mod backend_only_tests;
 

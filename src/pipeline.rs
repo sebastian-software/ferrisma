@@ -57,9 +57,10 @@ pub enum OutputFormat {
 }
 
 /// Settings for the built-in JPEG XL encoder (ADR-0039). The workspace
-/// encoder admits one profile today, so every other value is rejected with
-/// [`ProcessingErrorKind::InvalidOptions`] instead of falling back.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// encoder admits two profiles today; every other value is rejected with
+/// [`ProcessingErrorKind::InvalidOptions`] before any pixel is decoded, and
+/// the encoder never falls back to another profile.
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum JpegXlOptions {
     /// Lossless Modular encoding. Only effort 2 (libjxl's "thunder") is
@@ -68,11 +69,35 @@ pub enum JpegXlOptions {
         /// libjxl effort level; only `2` is admitted today.
         effort: u8,
     },
+    /// Lossy `VarDCT` encoding in XYB at libjxl effort 7 ("squirrel").
+    ///
+    /// Images with alpha below 255 fail with
+    /// [`ProcessingErrorKind::UnsupportedInput`] (use `Lossless`), as does
+    /// text-like content for which the encoder would need patches, which
+    /// the workspace encoder cannot write yet.
+    Lossy {
+        /// Butteraugli distance, libjxl's quality target: the maximum
+        /// perceptual difference the encoder aims for, in units of a just
+        /// noticeable difference. `1.0` is libjxl's default ("visually
+        /// lossless"); lower is closer to the input and larger. Admitted:
+        /// `0.05 <= distance < 3.0` (dot detection starts at 3.0 and is not
+        /// translated yet).
+        distance: f32,
+    },
+}
+
+impl JpegXlOptions {
+    /// Smallest admitted lossy distance (libjxl's `kMinButteraugliDistance`).
+    pub const MIN_LOSSY_DISTANCE: f32 = 0.05;
+    /// Exclusive upper bound of the admitted lossy distance.
+    pub const MAX_LOSSY_DISTANCE: f32 = 3.0;
 }
 
 impl Default for JpegXlOptions {
+    /// Lossy at distance 1.0, libjxl's own default (ADR-0039; pending owner
+    /// confirmation).
     fn default() -> Self {
-        Self::Lossless { effort: 2 }
+        Self::Lossy { distance: 1.0 }
     }
 }
 
@@ -573,6 +598,8 @@ impl From<Error> for ProcessingError {
             Error::IncompleteOutput => Kind::Internal,
             #[cfg(feature = "jpeg-xl-write")]
             Error::UnsupportedEncoderProfile(_) => Kind::InvalidOptions,
+            #[cfg(feature = "jpeg-xl-write")]
+            Error::LossyJpegXlAlpha | Error::JpegXlPatchesRequired => Kind::UnsupportedInput,
             Error::UnknownNode
             | Error::PixelFormatMismatch
             | Error::SourceBindingMismatch
