@@ -96,6 +96,10 @@ fn num_non_zero_8x8_except_dc(block: &[i32], nzeros_pos: &mut i32) -> i32 {
 /// `orders` is one pass's order table. The number of nonzeros of each block
 /// is predicted from the top and the left blocks.
 #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+#[expect(
+    clippy::needless_range_loop,
+    reason = "Keep the source block index loop."
+)]
 pub fn tokenize_coefficients(
     orders: &[CoeffOrder],
     rect: Rect,

@@ -4,7 +4,8 @@
 //! Sample conversion and transform/tree helpers from lib/jxl/enc_modular.cc.
 //! Frame stream state uses the null-pool configuration. Pixel preparation is
 //! translated for enc_frame::LosslessThunderConfig's fixed source path; general
-//! pixel preparation and VarDCT entry points remain unported.
+//! pixel preparation remains unported. The VarDCT AddVarDCTDC and
+//! AddACMetadata are translated; their frame orchestration is not.
 //! Owning vectors replace their C++ owners;
 //! borrowed custom parameter views retain their original lifetime obligations.
 //! Disjoint slices replace the source's row pointers. Source-undefined floating
@@ -1105,6 +1106,10 @@ impl ModularFrameEncoder<'_> {
     /// the shared DC storage and quant_dc of `enc_state` receive the
     /// dequantized DC as in the source.
     #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+    #[expect(
+        clippy::needless_range_loop,
+        reason = "Keep the source sample index loops."
+    )]
     pub fn add_var_dct_dc(
         &mut self,
         frame_header: &FrameHeader<'_>,

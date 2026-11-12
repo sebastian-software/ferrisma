@@ -55,13 +55,8 @@ impl PatchColorspaceInfo {
         let mut scaled = val / self.channel_dequant[c];
         // Clamping allows values outside of target range (int8_t); caller should
         // deal with out-of-range values.
-        scaled = if scaled < -32768.0 {
-            -32768.0
-        } else if scaled > 32767.0 {
-            32767.0
-        } else {
-            scaled
-        };
+        // Clamp1 keeps NaN and orders its comparisons as f32::clamp does.
+        scaled = scaled.clamp(-32768.0, 32767.0);
         scaled.trunc() as i32
     }
     fn is_similar_v(&self, v1: [f32; 3], v2: [f32; 3], threshold: f32) -> bool {

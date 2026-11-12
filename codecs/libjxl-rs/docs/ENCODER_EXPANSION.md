@@ -800,6 +800,26 @@ Progress:
   ColorCorrelationEncodeDC belongs with that DC output;
   FindBestDequantMatrices, FindBestBlockEntropyModel and LossyFrameHeuristics
   itself remain for the integration PR.
+- PR 4 (coefficients and DC), 2026-11-12: `enc_group.rs`,
+  `enc_entropy_coder.rs`, the coefficient-order computation and
+  EncodeCoeffOrders in `enc_coeff_order.rs`, SplitACCoefficients,
+  InitializePassesEncoder without progressive DC and ComputeACMetadata in
+  `enc_cache.rs`, AddVarDCTDC/AddACMetadata in `enc_modular.rs`,
+  ColorCorrelationEncodeDC, DequantMatricesEncode for default matrices, and
+  FindBestBlockEntropyModel. `tools/oracle/encoder_coefficients.cc`'s
+  `ecf-chain` runs the original from sRGB samples through every one of these
+  units and the serialized DC-info, modular global, DC-group, AC-global and
+  AC-group sections; `tests/parity/encoder_coefficients.rs` compares 402
+  requests exactly (corpus sizes up to 512x1024, d0.5/d1/d1.5/d2.9). The
+  contraction map is `tools/encoder_coefficients_contraction.json` (31 sites).
+  See [PORT_STATUS.md](PORT_STATUS.md#encoder-coefficients-dc-streams-and-patch-detection-2026-11-12).
+- PR 5 (decoder in the loop and patch detection), partial: FindTextLikePatches
+  is translated and compared (`ecf-patches`, 101 requests, 12 with patches).
+  DecodeGroupForRoundtrip, ReconstructImage and ComputeARHeuristics remain;
+  the original runs them at every distance of at least 0.7 (epf_iters > 0 at
+  kSquirrel), including the default d1.0.
+- PR 6 (integration) has not started. Until it lands, every public frame
+  encode remains an admission result and no encode profile is admitted.
 
 Step 1 is done when PR 6's gate passes on native Linux and macOS against both
 oracle graphs, and [PORT_STATUS.md](PORT_STATUS.md) and this plan record the

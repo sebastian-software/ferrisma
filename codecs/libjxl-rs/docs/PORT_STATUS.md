@@ -67,7 +67,108 @@ setters" below); it encodes no pixels yet. The encoder's forward transforms,
 GaborishInverse and sRGB/linear-sRGB ToXYB are translated as standalone units
 (see "Encoder transforms, Gaborish and XYB" below), as are the kSquirrel
 quantization field, chroma-from-luma and AC strategy heuristics (see "Encoder
-quantization, CfL and AC strategy heuristics" below).
+quantization, CfL and AC strategy heuristics" below), and the VarDCT
+coefficient, order, DC, AC-metadata and text-like patch detection units (see
+"Encoder coefficients, DC streams and patch detection" below). No encode
+profile is admitted yet: every public frame encode is still an admission
+result at ProcessOneEnqueuedInput.
+
+## Encoder coefficients, DC streams and patch detection (2026-11-12)
+
+This is the fourth of the six pull requests of encoder step 1 in
+[ENCODER_EXPANSION.md](ENCODER_EXPANSION.md#first-step), plus the patch
+detection half of the fifth. The units are standalone; LossyFrameHeuristics,
+ComputeARHeuristics and the frame encode are not translated, so they are not
+connected to the public API.
+
+- `enc_group.rs`: one-lane QuantizeBlockAC, AdjustQuantBlockAC,
+  QuantizeRoundtripYBlockAC, ComputeCoefficients and
+  EncodeGroupTokenizedCoefficients.
+- `enc_entropy_coder.rs`: NumNonZeroExceptLLF (with the source's LLF mask
+  array, of which only four entries are set), NumNonZero8x8ExceptDC and
+  TokenizeCoefficients.
+- `enc_coeff_order.rs`: ComputeUsedOrders, ComputeCoeffOrder (xorshift
+  block sampling, zero counts, the libc++ sort over unique keys) and
+  EncodeCoeffOrders.
+- `enc_progressive_split.rs`: SplitACCoefficients<int32_t>.
+- `enc_cache.rs`: InitializePassesEncoder without the progressive-DC frame
+  (a kUseDcFrame header returns an error before any state change) and
+  ComputeACMetadata, serial.
+- `enc_modular.rs`: AddVarDCTDC with QuantizeWP and QuantizeGradient (all four
+  branches) and AddACMetadata.
+- `enc_chroma_from_luma.rs`: ColorCorrelationEncodeDC.
+- `enc_quant_weights.rs`: DequantMatricesEncode for all-default matrices (the
+  only matrices FindBestDequantMatrices produces in the step 1 profile);
+  custom encodings return an error before writing.
+- `enc_heuristics.rs`: FindBestBlockEntropyModel (its decoding-speed-tier
+  branch writes a local copy in the source and is a no-op here too).
+- `enc_patch_dictionary.rs`: FindTextLikePatches, serial and without the debug
+  dumps. The step 1 encoder needs only whether it finds patches; a non-empty
+  result enters the untranslated reference-frame encode (step 5).
+- `enc_ans_params.rs`: HistogramParams(SpeedTier, num_ctx).
+
+Contraction map (`tools/encoder_coefficients_contraction.json`, audited with
+`tools/encoder_transforms_contraction.py --map`): 31 front-end fmuladd sites in
+the nine archive objects. Translated sites: QuantizeBlockAC's `thresholds[i] -=
+0.00744f * xsize * ysize`, AdjustQuantBlockAC's `thresholds[i] += 0.01 *
+activity` (double) and its two `kMul1 * ... * kBlockDim + kMul2 *
+sum_of_vals` sums (the fused factor is the exact multiplication by kBlockDim),
+ComputeCoeffOrder's `num_zeros * inv_sqrt_sz + 0.1f`, the three AddVarDCTDC
+residuals `row[x] - quant_row_y[x] * (y_factor * cfl_factor)`, and
+FindTextLikePatches' `distance += |v1 - v2| * weight`; the inlined CfL ratios
+and AFV DC mixes are the existing translations. The other sites belong to
+untranslated code (general and lossy Modular, the 2x resampling helpers,
+ComputeBlockL2Distance of the AR heuristics, the patch bin packing and a debug
+random generator) and are recorded as such. The audit passes against the
+ordinary oracle graph on macOS AArch64 (31 sites, 106 fused instructions). A
+per-site sensitivity check (replacing each translated site by separate
+operations) was not run for these units.
+
+Evidence: `tools/oracle/encoder_coefficients.cc` (compiled with
+`-fno-access-control` to read the modular stream images) and
+`tests/parity/encoder_coefficients.rs`.
+- `ecf-chain` runs, from sRGB samples, ToXYB and padding, the kSquirrel
+  part of LossyFrameHeuristics as `eqh-chain` does plus
+  AcStrategyHeuristics::Finalize, the epf_sharpness fill and
+  FindBestBlockEntropyModel, then the archive's InitializePassesEncoder and
+  ComputeACMetadata, ComputeUsedOrders/ComputeCoeffOrder and
+  TokenizeCoefficients in the order of the (internal-linkage)
+  ComputeAllCoeffOrders and TokenizeAllCoefficients, the modular
+  ComputeTree/ComputeTokens, and the serialized sections: quantizer
+  parameters, block context map and ColorCorrelationEncodeDC; the modular
+  global info and stream; each DC group (extra precision, VarDCT DC stream,
+  AC-metadata size and stream); the AC global section (default matrices,
+  histogram count, used orders, EncodeCoeffOrders, AC histograms); and each
+  AC group (EncodeGroupTokenizedCoefficients). It compares quantizer state,
+  DC quant weights, AcStrategyImage, raw quant field, CfL maps, qm
+  multipliers, DC and quant_dc images, all coefficients, the modular DC and
+  AC-metadata images, the coefficient orders, all AC tokens and every
+  section's bit count and bytes. ComputeARHeuristics is not run on either
+  side, so the AC-metadata EPF channel holds the value 4 that
+  LossyFrameHeuristics stores; this equals the encoded output only where the
+  original also skips AR (distance below 0.7, where epf_iters is 0).
+  The x/b quantization-matrix scales are request parameters, because
+  ComputeChromacityAdjustments has internal linkage and is not translated.
+  Two groups, 402 requests: the corpus sizes up to 257x255 in gray and RGB
+  with all five contents at d1 (160) and, at d0.5, d1.5 and d2.9 with three
+  scale pairs plus the 512x1024 (8 groups) images at d1 (242).
+- `ecf-patches` runs the original FindBestPatchDictionary at kSquirrel and
+  reports whether its FindTextLikePatches found patches and how many
+  dictionary positions they cover: 101 requests on the corpus and on
+  repeated-glyph content at d0.5, d1 and d2.9, 12 of which find patches.
+
+Local results on native macOS AArch64 against the ordinary oracle: all three
+groups pass. Linux x86-64 and the hosted deep gate are not run.
+
+Remaining for step 1 (encoder step 1 is not complete and no profile is
+admitted): LossyFrameHeuristics itself (with FindSplines, empty at the pinned
+revision, and the empty-patch path of FindBestPatchDictionary),
+ComputeARHeuristics with ReconstructImage and DecodeGroupForRoundtrip (the
+decoder in the loop; reached at every distance of at least 0.7, where
+epf_iters is nonzero), ComputeChromacityAdjustments, the VarDCT branch of
+ComputeEncodingData and EncodeGroups, EncodeFrameOneShot for VarDCT, the
+EncodeFrame setting resolution and ProcessOneEnqueuedInput's raw-codestream
+branch, which removes the admission result for the admitted profile.
 
 ## Public encoder API admission and setters (2026-11-05)
 
@@ -940,9 +1041,9 @@ followed in PRs #46 to #50.
 | `image_metadata.h`, `.cc`, quantizer bias constants | `image_metadata.rs`, `image_metadata_weights.rs` | Bit depth, extra channels, opsin/custom weights, tone mapping, image/codec metadata, sample/alpha/orientation helpers, and metadata reading; diagnostic output unported |
 | `frame_header.h`, `.cc` | `frame_header.rs` | Frame fields, chroma subsampling, blending, animation, progressive passes, names, dimension/reference helpers, order field encoding, and parsing; diagnostic strings unported |
 | `enc_params.h` | `enc_params.rs` | All compression parameter storage/defaults, lossless predicates/setter, CMS descriptor setter, and borrowed custom inputs; encoding operations remain separate |
-| `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; coefficient splitting unported |
+| `enc_progressive_split.h` | `enc_progressive_split.rs` | Pass definitions/mode construction, splitter configuration, and InitPasses with original narrowing and reused-array state; SplitACCoefficients<int32_t> |
 | `enc_frame.h`, `.cc` | `enc_frame.rs` | FrameInfo, ParamsPostInit, group-size/count helpers, progressive selection, flags/filter policy, complete MakeFrameHeader, and fixed lossless Thunder color/alpha CopyColorChannels, buffer-backed CopyExtraChannels, ComputeEncodingData/EncodeFrameOneShot through byte-owner handoff; reached encode.cc metadata/padding block connects complete raw codestream output; general frame/image encoding, C output processors/containers, and remaining entry points unported |
-| `passes_state.h`, `.cc`, `enc_cache.h` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, retained indexed DC write owners/mapped DC access, same-owner DC/patch/frame bindings; remaining VarDCT methods unported |
+| `passes_state.h`, `.cc`, `enc_cache.h`, `enc_cache.cc` | `passes_state.rs`, `enc_cache.rs` | Complete shared/encoder storage and constructors, InitializePassesSharedState allocation/error order, four reference owners, retained indexed DC write owners/mapped DC access, same-owner DC/patch/frame bindings; ComputeACMetadata and InitializePassesEncoder without the progressive-DC frame (serial) |
 | `dec_cache.h`, InitForAC in `.cc`, callback typedefs in `lib/include/jxl/decode.h` | `dec_cache.rs` | Complete decoder-state storage/constructor/Init, own or borrowed shared selection, original coefficient owner, retained shared reference temporary, PixelCallback storage/presence/unsafe Init, ImageOutput carriers, null-pool InitForAC, complete GroupDecCache constructor storage and InitDCBufferOnce; fixed PreparePipeline is connected below, complete VarDCT GroupDecCache::InitOnce; general preparation, output lifecycle, and custom runners remain separate |
 | `dec_frame.h`, `.cc`, reached PreparePipeline in `dec_cache.cc` | `dec_frame.rs` | DecodeFrame and the complete public incremental FrameDecoder: InitFrame/InitFrameOutput, SectionInfo/TocEntry/SectionStatus, ProcessSections with partial and permuted input and progressive DC/pass pauses, Flush, FinalizeFrame, References/SavedAs, TOC/pass/DC accessors, SetPauseAtProgressive/NextNumPassesToPause, SetRenderSpotcolors/SetCoalescing, SetImageOutput/AddExtraChannelOutput with the original output-stage selection; the retained pool runs the DC/AC group and forced-draw RunOnPool sites (task bodies serialized under a runner; null for the internal profiles), with the constructor's simple/low-memory pipeline selection (fixed profiles select the simple pipeline), explicit profile admission; `decode.cc` orchestration remains separate |
 | DecodeFile in `render_pipeline/render_pipeline_test.cc`, CheckMetadata in `../extras/codec_in_out.h` | `dec_frame.rs`, private admission in `enc_frame.rs` | Whole fixed-profile codestream parsing, owned metadata, pre-padding output initialization, exact frame dispatch, EOF/bounds/metadata/close checks, and connected original integer export for gray/RGB and gray/alpha/RGBA; preview/animation/ICC/general profiles remain outside admission |
@@ -965,7 +1066,7 @@ followed in PRs #46 to #50.
 | `convolve.h`, `convolve_symmetric5.cc`, SlowSymmetric3 in `convolve_slow.cc` | `convolve.rs`, `convolve_symmetric5.rs`, `convolve_slow.rs` | Weight owners, one-lane Symmetric5 border/interior rows with mirrored and unchanged row wraps, and SlowSymmetric3 with the AArch64 contraction; SlowSeparable5, Separable5 and SIMD targets unported |
 | `enc_gaborish.h`, `.cc` | `enc_gaborish.rs` | Complete GaborishInverse |
 | `enc_adaptive_quantization.h`, `.cc` | `enc_adaptive_quantization.rs` | InitialQuantDC, InitialQuantField with the complete one-lane AdaptiveQuantizationMap (tiles, masks, FuzzyErosion, PerBlockModulations, Blur1x1Masking) and AdjustQuantField, with the AArch64 contractions; FindBestQuantizer's butteraugli loops (kKitten and slower), TileDistMap, RoundtripImage and debug heat maps unported |
-| `enc_chroma_from_luma.h`, `.cc` | `enc_chroma_from_luma.rs` | Complete CfLHeuristics (Init/InitDCStorage, PrepareForThreads, ComputeTile) and one-lane FindBestMultiplier; ColorCorrelationEncodeDC unported |
+| `enc_chroma_from_luma.h`, `.cc` | `enc_chroma_from_luma.rs` | Complete CfLHeuristics (Init/InitDCStorage, PrepareForThreads, ComputeTile) and one-lane FindBestMultiplier; ColorCorrelationEncodeDC |
 | `enc_ac_strategy.h`, `.cc` | `enc_ac_strategy.rs` | Complete AcStrategyHeuristics and one-lane ProcessRectACS with EstimateEntropy, FindBest8x8Transform, TryMergeAcs and FindBestFirstLevelDivisionForSquare; the disabled JXL_DEBUG_AC_STRATEGY dump unported |
 | `enc_transforms.h`, `.cc`, `enc_transforms-inl.h` | `enc_transforms.rs` | Complete scalar TransformFromPixels for all 27 strategies, DCFromLowestFrequencies with ReinterpretingIDCT, and AFVDCT4x4, with the AFV DC-mix contraction; vector kernels unported |
 | `enc_xyb.h`, `.cc` | `enc_xyb.rs` | ComputePremulAbsorb, LinearRGBRowToXYB, and ToXYB for linear sRGB and sRGB input (gray or color) with linear output; ApplyColorTransform inputs are not admitted by type; ScaleXYB, ScaleXYBRow, RgbToYcbcr and SIMD targets unported |
@@ -975,10 +1076,14 @@ followed in PRs #46 to #50.
 | `entropy_coder.h`, `.cc` | `entropy_coder.rs` | Complete scalar top/left prediction, threshold distributions, and BlockCtxMap parsing with original partial/reused state and validation order |
 | `dec_group.cc` (`DecodeACVarBlock`, `GetBlockFromBitstream`, group orchestration) | `dec_group.rs`, `dec_group_render.rs`, `quantizer_inl.rs` | Complete per-block quantized AC symbol loop with real entropy reader, nonzero prediction/row writes, custom order scatter, signed coefficient reconstruction, both coefficient widths, pass shifts/addition, and partial failure state; GetBlockFromBitstream, complete DecodeGroup (including the zero-pass 8x-upsampled DC draw and stored-coefficient forced draw used by Flush) and final ANS validation are connected to scalar dequantization/traversal in dec_group_render.rs |
 | `dec_modular.h`, selected functions in `dec_modular.cc` | `dec_modular.rs` | ModularStreamId constructors/index mapping, sample conversion, complete ModularFrameDecoder storage/constructor/Init/DecodeGlobalInfo/MaybeDropFullImage/DecodeGroup, modular-to-pipeline conversion, FinalizeDecoding with the frame's pool (inverse transforms and group conversion; small images use a null pool), and state accessors; complete DecodeVarDCTDC and DecodeAcMetadata connected to the first VarDCT frame profile; general frame orchestration and debug descriptions remain separate; quantization-table decoding is mapped below |
-| `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path; general pixel preparation, VarDCT, frame/section orchestration, and custom runners/allocators unported |
+| `enc_modular.h`, helpers and stream methods in `enc_modular.cc` | `enc_modular.rs` | Native stream-owner construction/init, group channel/crop selection, local palettes/RCT/WP selection, shared/custom/learned tree construction, token generation, global/local entropy output, stream cleanup/indexing, sample/transform helpers, and ComputeEncodingData including same-depth alpha for the fixed lossless Thunder path, and the VarDCT AddVarDCTDC (QuantizeWP, QuantizeGradient) and AddACMetadata; general pixel preparation, frame/section orchestration, and custom runners/allocators unported |
 | `EstimateCost` in `enc_modular_simd.cc` | `enc_modular_simd.rs` | Original scalar gradient residual cost, context histograms, integer/fractional accumulation, and final rounding; SIMD kernels/context-map table unported |
 | `quant_weights.h`, `.cc`; `dec_modular.cc` (`DecodeQuantTable`) | `quant_weights.rs`, `quant_weights_library.rs` | Distance-band and owning encoding constructors/copies/moves, strategy table mapping, DequantMatrices initialization/setters/DC APIs, all 17 coefficient-library entries, scalar AC matrix computation and aligned accessors, cached strategy aliases, and complete AC table decoding with local/shared modular RAW streams, allocating through the decoder's memory manager; non-owning raw base copies and SIMD targets remain separate |
-| DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; AC quantization encoding and whole-matrix round trips unported |
+| DC methods in `enc_quant_weights.cc` | `enc_quant_weights.rs` | Complete DC serialization, custom-DC encode/decode round trip, and DC scaling; DequantMatricesEncode for all-default matrices; custom AC quantization encoding (EncodeQuant) and whole-matrix round trips unported |
+| `enc_group.cc` | `enc_group.rs` | One-lane QuantizeBlockAC, AdjustQuantBlockAC, QuantizeRoundtripYBlockAC, ComputeCoefficients and EncodeGroupTokenizedCoefficients |
+| `enc_entropy_coder.cc` | `enc_entropy_coder.rs` | One-lane NumNonZeroExceptLLF, NumNonZero8x8ExceptDC and TokenizeCoefficients |
+| `enc_heuristics.cc` (part) | `enc_heuristics.rs` | FindBestBlockEntropyModel; LossyFrameHeuristics, ComputeARHeuristics, ReconstructImage and the downsampling helpers unported |
+| `enc_patch_dictionary.cc` (part) | `enc_patch_dictionary.rs` | Serial FindTextLikePatches without debug dumps; FindBestPatchDictionary bin packing, RoundtripPatchFrame and PatchDictionaryEncoder unported |
 | `dec_noise.h`, `.cc`, `xorshift128plus-inl.h`, `render_pipeline/stage_noise.h`, `.cc` | `dec_noise.rs`, `xorshift128plus.rs`, `render_pipeline/stage_noise.rs` | Complete scalar noise parsing/generation/convolution/application and admitted VarDCT file integration; frame-index and upsampling branches retain source seeds and geometry |
 | `dec_patch_dictionary.h`, `.cc`, `patch_dictionary_internal.h`, `render_pipeline/stage_patches.h`, `.cc` | `dec_patch_dictionary.rs`, `patch_dictionary_internal.rs`, `render_pipeline/stage_patches.rs` | Complete dictionary decoding/partial state, original libc++ interval tree, reference masks and clipped blending; borrowed/shared stages; complete saved-frame orchestration remains separate |
 | `alpha.h`, `.cc`, `blending.h`, `.cc` | `alpha.rs`, `blending.rs` | Complete scalar blending/alpha kernels and temporary-plane ownership; original pointer-identity branches and selected numeric configuration |
@@ -998,7 +1103,7 @@ followed in PRs #46 to #50.
 | `loop_filter.h`, `.cc` | `loop_filter.rs` | Gaborish/EPF parameter fields, defaults, validation, and padding; scalar decoder Gaborish stage tracked above, scalar EPF stages mapped above |
 | `lehmer_code.h` | `lehmer_code.rs` | Original Fenwick-tree encode/decode with u16/u32 permutation storage and caller-owned workspaces |
 | `coeff_order_fwd.h` | `coeff_order_fwd.rs` | Coefficient type, order count, and row/column layout helpers |
-| `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits/offsets, permutation context/tokenization/output/parsing, complete DecodeCoeffOrders with strategy aliases/natural defaults/unused encoded orders/final ANS validation; full coefficient-order encoder orchestration remains unported |
+| `coeff_order.h`, `.cc`, `enc_coeff_order.h`, `.cc` | `coeff_order.rs`, `enc_coeff_order.rs` | Coefficient storage-size limits/offsets, permutation context/tokenization/output/parsing, complete DecodeCoeffOrders with strategy aliases/natural defaults/unused encoded orders/final ANS validation; ComputeUsedOrders, ComputeCoeffOrder and EncodeCoeffOrders (encoder) |
 | `toc.h`, `.cc`, `enc_toc.h`, `.cc` | `toc.rs`, `enc_toc.rs` | Section size/permutation output, budget validation, entry cap, parsing, group offsets/reordering, and layer accounting |
 | `image.h`, `.cc` | `image.rs` | Plane/Image3 numeric storage through the owner's memory manager, padded row views, shrink/restore, swaps, native moves and source-header-preserving allocation transfer used by ImageBundle moves; MSan-only padding instrumentation unported |
 | `image_ops.h`, `.cc` | `image_ops.rs` | Plane/Image3 copies and fills, rectangular/padded copies, Mirror with the WrapMirror/WrapUnchanged modes, in-place block padding, and both original scalar downsampling overloads; other header-only arithmetic/conversion/min/max APIs unported |

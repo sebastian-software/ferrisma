@@ -4,7 +4,7 @@
 //! CfLHeuristics from lib/jxl/enc_chroma_from_luma.{h,cc}: Init with
 //! InitDCStorage, PrepareForThreads, ComputeTile, and the one-lane
 //! (HWY_SCALAR) CFLFunction and FindBestMultiplier search.
-//! ColorCorrelationEncodeDC remains unported.
+//! ColorCorrelationEncodeDC is at the end of the file.
 //!
 //! Highway's scalar Mul is the correctly rounded binary32 product, MulAdd
 //! adds it in a separate operation, and SumOfLanes of one lane is the lane.

@@ -107,6 +107,11 @@ pub fn quantize_block_ac(
 
 /// AdjustQuantBlockAC. `block_in` holds `xsize * ysize * 64` samples.
 #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+#[expect(
+    clippy::excessive_precision,
+    clippy::manual_clamp,
+    reason = "Keep the source constants and its Clamp1 and step limits."
+)]
 pub fn adjust_quant_block_ac(
     quantizer: &Quantizer,
     matrices: &DequantMatrices,
@@ -439,6 +444,10 @@ pub fn quantize_roundtrip_y_block_ac(
 
 /// ComputeCoefficients for one group. `opsin` is read in `rect`'s
 /// coordinates; `dc` receives the group's DC values.
+#[expect(
+    clippy::needless_range_loop,
+    reason = "Keep the source pass and channel index loops."
+)]
 pub fn compute_coefficients(
     group_idx: usize,
     enc_state: &mut PassesEncoderState<'_>,

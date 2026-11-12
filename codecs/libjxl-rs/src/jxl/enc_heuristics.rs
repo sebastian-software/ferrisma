@@ -30,6 +30,7 @@ fn clamp1(v: i32, lo: i32, hi: i32) -> i32 {
 }
 
 /// FindBestBlockEntropyModel.
+#[expect(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 pub fn find_best_block_entropy_model(
     cparams: &CompressParams<'_>,
     rqf: &Plane<i32>,
