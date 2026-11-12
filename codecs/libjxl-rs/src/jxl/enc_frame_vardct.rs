@@ -7,8 +7,8 @@
 //! for output modes 0 and 1 with ComputePermutationForStreaming, TOCBucket,
 //! TOCSize, ComputeGroupDataOffset, ComputeDcGlobalPadding, OutputGroups,
 //! RemoveUnusedHistograms and OutputAcGlobal, EncodeFrameOneShot,
-//! PermuteGroups' early return, GetBitDepth, general CopyColorChannels, the
-//! VarDCT branch of ComputeEncodingData, ComputeChromacityAdjustments with
+//! PermuteGroups' early return, GetBitDepth, general CopyColorChannels,
+//! CopyExtraChannels, SimplifyInvisible, the VarDCT branch of ComputeEncodingData, ComputeChromacityAdjustments with
 //! PixelStatsForChromacityAdjustment, the reached ComputeNoiseParams and
 //! DownsampleColorChannels branches, ComputeVarDCTEncodingData,
 //! ComputeAllCoeffOrders, TokenizeAllCoefficients, EncodeGlobalDCInfo,
@@ -24,11 +24,12 @@
 //!
 //! Contraction: PixelStatsForChromacityAdjustment's `cur_b - cur_y * 1.2`
 //! (enc_frame.cc 624:33) is one front-end fmuladd site in double precision,
-//! fused on AArch64 and separate on x86-64 (`mul_add_f64`). The other
-//! enc_frame.cc sites are in SimplifyInvisible (alpha), ComputeNoiseParams'
-//! noise estimate, the JPEG transcoding path, PermuteGroups' center-first
-//! order and ParamsPostInit (already mapped in `enc_frame.rs`); none of the
-//! first four is reached by the admitted profile.
+//! fused on AArch64 and separate on x86-64 (`mul_add_f64`); SimplifyInvisible
+//! has five f32 sites (see [`simplify_invisible`]). The other enc_frame.cc
+//! sites are in ComputeNoiseParams' noise estimate, the JPEG transcoding
+//! path, PermuteGroups' center-first order and ParamsPostInit (already mapped
+//! in `enc_frame.rs`); none of the first three is reached by the admitted
+//! profile.
 
 use super::ac_strategy::AcStrategyImage;
 use super::base::bits::ceil_log2_nonzero;
@@ -122,8 +123,8 @@ fn admission<T>(checkpoint: FrameAdmission) -> FrameResult<T> {
 /// parameters at the point where EncodeFrame chooses EncodeFrameStreaming or
 /// EncodeFrameOneShot:
 /// effort 7 (kSquirrel) lossy VarDCT with XYB at distances below
-/// kMinButteraugliForDots, gray or RGB enum sRGB or linear sRGB without extra
-/// channels, a single displayed full-size frame without blending, names or
+/// kMinButteraugliForDots, gray or RGB enum sRGB or linear sRGB with the
+/// extra channels of [`admitted_extra_channels`], a single displayed full-size frame without blending, names or
 /// references, the default memory manager, serial, raw codestream output and
 /// default perceptual and progressive options; the patches option at its
 /// default or off.
@@ -192,7 +193,7 @@ pub fn admitted_frame_profile(
         && frame_data.ysize() == metadata.ysize()
         // A stripped alpha channel keeps its input channel in the adapter;
         // CopyExtraChannels reads only the metadata's extra channels.
-        && frame_data.channels().len() >= 1 + m.num_extra_channels as usize
+        && frame_data.channels().len() > m.num_extra_channels as usize
 }
 
 /// The admitted extra channels (encoder step 4): none, or one alpha channel
@@ -1005,9 +1006,10 @@ fn encode_groups(
 }
 
 /// ComputeEncodingData for a VarDCT frame of the admitted profile, whole or
-/// one DC group in streaming mode. The original's other branches (JPEG input, extra channels,
-/// non-XYB or color-transformed input, streaming) are admission results at
-/// their checkpoints.
+/// one DC group in streaming mode, with its extra channels coded by the
+/// modular frame encoder. The original's other branches (JPEG input, a black
+/// channel, non-XYB or color-transformed input, extra-channel resampling,
+/// modular mode) are admission results at their checkpoints.
 #[expect(
     clippy::too_many_arguments,
     reason = "Preserve the source's ComputeEncodingData parameters"

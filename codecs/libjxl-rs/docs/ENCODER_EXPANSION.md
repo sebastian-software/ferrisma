@@ -369,6 +369,20 @@ RoundtripAlphaNonMultipleOf8, RoundtripAlpha16; the remaining
 `libcpp_sort` and the existing learning boundary must also cover the new
 callers.
 
+**Progress (2026-11-12).** The VarDCT side of this step is translated and
+admitted: CopyExtraChannels, SimplifyInvisible, the extra-channel parts of
+ComputeEncodingData in `enc_frame.cc` and the `do_color = false`
+ComputeEncodingData of `enc_modular.cc` (float_to_int, try_palettes,
+Squeeze and quantization of lossy extra channels, stream parameters), and
+the alpha stripping of `encode.cc` with IsAlphaBufferOpaque. Every
+extra-channel type except black, at `dim_shift` 0, lossless or lossy, straight
+or premultiplied alpha, interleaved or separate, encodes byte-exact through
+the one-shot and streaming paths (see
+[PORT_STATUS.md](PORT_STATUS.md#lossy-vardct-with-extra-channels-and-patches-off-2026-11-12)).
+Alpha or extra channels deeper than 12 bits require level 10 and therefore a
+container (step 3); `ec_resampling`, `dim_shift`, black channels and the
+upstream differential cases listed in the gate remain open.
+
 **Milestone B (steps 1–4).** A ferrisma-ready SDR output path with alpha and
 metadata boxes.
 
@@ -867,20 +881,28 @@ manager, serial, raw codestream output in buffer mode; effort 7 (kSquirrel),
 lossy VarDCT with XYB (`uses_original_profile = false`) at distances from 0.05
 to below kMinButteraugliForDots (3.0), the default d1.0 included
 (SetFrameDistance raises smaller positive requests to 0.05); gray or RGB
-without extra channels, enum sRGB or linear sRGB without ICC; `uint8`,
+with any number of extra channels of every type except black at full
+resolution (alpha straight or premultiplied, interleaved or separate,
+lossless or lossy, at most 12 bits each, any `keep_invisible` and strip-alpha
+setting; opaque alpha is stripped), enum sRGB or linear sRGB without ICC;
+`uint8`,
 `uint16`, `float16` and `float32` input at every endianness and alignment and
 every bit-depth source; basic-info orientation, intensity target and bit depth;
 one frame closed before ProcessOutput, without crop, blending, name, reference,
 animation or preview; default perceptual, progressive, patch, dot, noise,
-Gaborish, EPF and group-order options; any size, through the one-shot path (at
-most 8 groups, or buffering 0) or the streaming path (output modes 0 and 1).
-Text-like content that FindTextLikePatches turns into patches remains an
-admission result.
+Gaborish, EPF and group-order options, and the patches option at its default
+or 0; any size, through the one-shot path (at most 8 groups, or buffering 0)
+or the streaming path (output modes 0 and 1). With patches at the default,
+text-like content that FindTextLikePatches turns into patches remains an
+admission result; with `JXL_ENC_FRAME_SETTING_PATCHES` = 0 every image
+encodes.
 
 Evidence for this profile: 551 whole public-API histories (1x1 to 2049x300
 and 1024x1024, d0.001 to d2.9 with d0.5, 0.7, 1.0, 1.5, 2.0 and 2.9, both
 intensity targets) match the original byte for byte on macOS AArch64 against
 the ordinary oracle; 32 decode-back histories match the original decoder.
+The extra-channel and patches-off extensions add 456 exact histories (see
+[PORT_STATUS.md](PORT_STATUS.md#lossy-vardct-with-extra-channels-and-patches-off-2026-11-12)).
 Open for step 1: native Linux x86-64 runs, the upstream differential cases
 (`jxl_test`, `roundtrip_test`, `speed_tier_test`, `coeff_order_test`,
 `quant_weights_test`), checkpoint fixtures of LossyFrameHeuristics as a unit,

@@ -75,7 +75,81 @@ AR heuristics with the decoder in the loop" below). The public
 encoder encodes one lossy VarDCT frame at effort 7 and distances below 3.0,
 the default d1.0 included, byte for byte with the original, one-shot and
 streaming (see "Public lossy VarDCT encode below d0.7" below, which records
-the later extensions); other frame encodes remain admission results.
+the later extensions), with alpha and other extra channels and with the
+patches option off (see "Lossy VarDCT with extra channels and patches off"
+below); other frame encodes remain admission results.
+
+## Lossy VarDCT with extra channels and patches off (2026-11-12)
+
+Encoder step 4 (issue #115) and a patches setting under which every image
+encodes ([ENCODER_EXPANSION.md](ENCODER_EXPANSION.md#4-alpha-and-extra-channels-with-vardct)).
+
+Patches off. With `JXL_ENC_FRAME_SETTING_PATCHES` = 0 (`Override::kOff`)
+LossyFrameHeuristics skips FindBestPatchDictionary (its only use on this
+path; dots are found inside it and stay off below d3.0), and
+CanDoStreamingEncoding only tests `kOn`. The FrameProfile gate admits the
+patches option at its default or off; nothing else changes. At the default,
+text-like content still returns the PatchDictionary admission result.
+
+Extra channels. `enc_frame_vardct.rs` adds CopyExtraChannels (with GetBitDepth
+for the channel's metadata), SimplifyInvisible and the extra-channel parts of
+the VarDCT ComputeEncodingData (alpha into CopyColorChannels, the
+SimplifyInvisible condition with `keep_invisible`, `ec_resampling`, the call
+of the modular encoder). `enc_modular.rs` adds
+`compute_encoding_data_extra_channels`, the source ComputeEncodingData with
+`do_color = false`: float_to_int per extra channel, the level bit-depth check,
+the lossy option reset, global palettes (`try_palettes`), `move_to_front`,
+Squeeze and the per-channel quantization of lossy extra channels, the DC and
+AC stream parameters, PrepareStreamParams (global and groupwise) and the
+channel release. `encode.rs` replaces the alpha admission of
+ProcessOneEnqueuedInput with the alpha stripping decision (`kStripAlphaAuto`,
+`Force`, `IfOpaque`) and IsAlphaBufferOpaque over 2048x256 chunks, which
+removes an opaque alpha channel from the metadata, the basic info and every
+queued frame. The FrameProfile gate admits any number of extra channels of
+every type except black (CMYK, step 6) at `dim_shift` 0, lossless or lossy
+(JxlEncoderSetExtraChannelDistance), straight or premultiplied, with any
+`keep_invisible` and strip-alpha setting. Lossless extra channels keep
+CanDoStreamingEncoding's streaming path above 8 groups (its extra-channel
+check excludes only lossy or responsive modular parts); lossy ones take the
+one-shot path. Extra channels deeper than 12 bits clear
+`modular_16_bit_buffer_sufficient`, so VerifyLevelSettings requires level 10
+and the original writes a container: that remains the EnqueuedInput
+admission result (step 3). Type 15 (optional) fails in the original's
+ProcessOutput; the Rust encoder returns the same history.
+
+Evidence (macOS AArch64, ordinary oracle, checked profile). The epub-run
+content generator gains text-like content (content 5: repeated dark glyphs on
+a light background) and alpha modes (content + 16 * m: opaque, a ramp with
+transparent stripes, a ramp without zeros), for the interleaved alpha sample
+and for `E` extra-channel buffers; both drivers mirror it. Every admitted
+family also requires that the original's last ProcessOutput succeeds with a
+codestream. Whole histories match byte for byte:
+`public_encoder_lossy_vardct_patches_off_matches_original` (135: 1x1 to
+512x1024 and three streaming sizes, every sample type, contents 1 to 5),
+`..._text_like_default_admission_matches_original` (12 text-like histories:
+the Rust encoder returns PatchDictionary after an exact prefix, the
+original's default output differs from its patches-off output, and the 12
+patches-off histories are exact), `..._alpha_small_sizes_...` (96: 1x1 to
+48x15, RGBA and gray-alpha, 8-bit and 12-bit alpha from uint8 and uint16
+rows), `..._alpha_large_sizes_...` (16: 63x129 to 512x1024),
+`..._alpha_streaming_...` (16: 768x768 to 2049x300 at buffering -1 to 3),
+`..._alpha_variants_...` (121: opaque alpha stripped at auto and if-opaque,
+forced and disabled stripping, separate alpha planes, premultiplied alpha,
+float16 and float32 color rows with integer alpha, alpha depths 1, 4, 7 and
+12, text-like content with alpha and patches off), `..._alpha_settings_...`
+(30: keep_invisible on and off, alpha distances 0.5, 1.0 and 3.0) and
+`..._extra_channel_types_...` (30: depth, spot color, selection mask,
+thermal, CFA and second alpha channels, up to four extra channels).
+
+Contraction. SimplifyInvisible's five `row[x] += 2.f * v` sites
+(`tools/encoder_frame_contraction.json`) use `mul_add_f32`; float_to_int's two
+sites and try_palettes' two sites (`tools/encoder_coefficients_contraction.json`)
+were translated with their helpers and are now reached.
+`tools/contraction_inventory.py --check` passes.
+
+Not done: the patch reference-frame encode (patches at the default), 16-bit
+and float alpha (container output, step 3), black channels, `dim_shift`,
+extra-channel resampling, native Linux x86-64 runs.
 
 ## Public lossy VarDCT encode below d0.7 (2026-11-12)
 

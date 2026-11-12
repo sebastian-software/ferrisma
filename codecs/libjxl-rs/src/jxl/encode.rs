@@ -24,7 +24,8 @@
 //! JxlEncoderSetExtraChannelBuffer, JxlEncoderCloseFrames,
 //! JxlEncoderCloseBoxes, JxlEncoderCloseInput, JxlEncoderProcessOutput, the
 //! raw-codestream branch of JxlEncoder::ProcessOneEnqueuedInput with
-//! MustUseContainer and the frame index's AddFrame and StoreFrameIndexBox,
+//! MustUseContainer, the alpha stripping decision with IsAlphaBufferOpaque,
+//! and the frame index's AddFrame and StoreFrameIndexBox,
 //! JxlEncoderSetFrameHeader, JxlEncoderSetExtraChannelBlendInfo,
 //! JxlEncoderSetFrameName, JxlEncoderSetFrameBitDepth,
 //! JxlColorEncodingSetToSRGB, JxlColorEncodingSetToLinearSRGB and
@@ -35,9 +36,9 @@
 //! JXL_ENC_ERROR with JXL_ENC_ERR_NOT_SUPPORTED at that source checkpoint,
 //! after every check the original performs before it. The checkpoints are
 //! [`JxlEncoderAdmission`]: the fast-lossless branch of AddImageFrameInternal
-//! (enc_fast_lossless.cc); ProcessOneEnqueuedInput's alpha, ICC, container
-//! and box branches; and the frame encoder's checkpoints (streaming, the
-//! admitted one-shot profile, patches and the AR heuristics), see
+//! (enc_fast_lossless.cc); ProcessOneEnqueuedInput's ICC, container and box
+//! branches; and the frame encoder's checkpoints (streaming, the admitted
+//! frame profile and patches), see
 //! `enc_frame_vardct.rs`.
 //! Untranslated public functions are absent: AddJPEGFrame, AddChunkedFrame,
 //! FlushInput, SetOutputProcessor, SetParallelRunner, SetDebugImageCallback
@@ -183,7 +184,8 @@ pub enum JxlEncoderAdmission {
     /// AddImageFrameInternal when CanDoFastLossless selects enc_fast_lossless.
     FastLosslessFrame,
     /// ProcessOneEnqueuedInput at a branch outside raw codestream output:
-    /// alpha, an ICC profile, a container or a box.
+    /// an ICC profile, a container (including the level 10 that alpha or
+    /// extra channels deeper than 12 bits require) or a box.
     EnqueuedInput,
     /// EncodeFrame when CanDoStreamingEncoding selects the streaming encode.
     StreamingFrame,
@@ -2129,8 +2131,7 @@ fn strip_opaque_alpha(enc: &mut JxlEncoder) {
 /// JxlEncoder::ProcessOneEnqueuedInput for raw codestream output: the
 /// metadata header and one frame through EncodeFrame. The branches that
 /// enter untranslated units are admission results at their checkpoints:
-/// alpha (the opacity scan and extra-channel frames), ICC profiles
-/// (WriteICC), containers and boxes (step 3), and the frame encoder's own
+/// ICC profiles (WriteICC), containers and boxes (step 3), and the frame encoder's own
 /// checkpoints ([`FrameAdmission`]).
 fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputFailure> {
     let output_mode = enc.input_queue[0].output_mode; // resolved at queue time
