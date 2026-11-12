@@ -299,6 +299,42 @@ mod tests {
     }
 
     #[test]
+    fn rejects_layouts_outside_the_engine_contract_before_pixels() {
+        const DATA: &str = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../codecs/libjxl-rs/tests/data/"
+        );
+        // Float alpha (exponent bits), spot colors and several alpha/spot
+        // channels are each reported as Unsupported. The external conformance
+        // run covers animation and CMYK rejection.
+        for name in [
+            "modular-rgb-alpha-float24e7.jxl",
+            "extra-channel-spot-signed-extreme-binary-name.jxl",
+            "extra-channel-multiple-alpha-spots-float.jxl",
+        ] {
+            let bytes = std::fs::read(format!("{DATA}{name}")).unwrap();
+            assert_eq!(
+                inspect(&bytes, 1 << 30).unwrap_err(),
+                Error::Unsupported,
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn decode_rejects_info_from_another_image_without_registering_output() {
+        let info = inspect(SAMPLE, 35).unwrap();
+        let other = include_bytes!("../../../codecs/libjxl-rs/tests/data/effects_rgb_alpha8.jxl");
+        let mut output = vec![f32::NAN; info.sample_count().unwrap()];
+        assert_eq!(
+            decode_into(other, &info, &mut output, 1_000),
+            Err(Error::Decode)
+        );
+        // The mismatch is found at basic info, before any output buffer.
+        assert!(output.iter().all(|sample| sample.is_nan()));
+    }
+
+    #[test]
     fn preserves_grayscale_and_alpha_association() {
         let gray =
             include_bytes!("../../../codecs/libjxl-rs/tests/data/jpeg-reconstruction/gray.jxl");

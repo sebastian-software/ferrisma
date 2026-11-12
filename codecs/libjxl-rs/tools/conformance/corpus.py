@@ -107,7 +107,10 @@ def summarize(path):
             rmse = f"{max(f['actual_rmse'] for f in frames):.3g} / {frames[0]['rmse_limit']:g}"
             peak = f"{max(f['actual_peak_error'] for f in frames):.3g} / {frames[0]['peak_error']:g}"
         else:
-            rmse = peak = row.get("message", "-")
+            message = row.get("message", "-")
+            if message.startswith("Running the decoder"):
+                message = "decoder exited with an error"
+            rmse = peak = message
         exact = ", ".join(
             f"{name} {'identical' if row[f'compare_binary_{name}']['success'] else 'DIFFERS'}"
             for name in row.get("exact_tests", [])) or "-"
