@@ -119,3 +119,4 @@ Review the active dependency graph when libavif-rs or libjxl-rs meets the remain
   workspace libjxl-rs encoder's verified lossless effort-2 profile through a
   safe entry point. The AGPL-3.0/commercial `jxl-encoder` stays unapproved;
   the NOTICE review (#66) remains open, so the feature stays out of `cli`.
+- 2026-11-12 — Exact-distribution license bundles were regenerated for every adapter feature and `cli` on macOS ARM64 and GNU Linux x86-64 (93 packages for `cli` on both), and the native/unsafe boundaries were screened in the [unsafe review](../unsafe-review.md). New evidence: `libavif-rs` also carries BSD-3-Clause libyuv code; the reviewed JPEG source hash no longer matches `main`; `simd_helpers` still lacks a notice; published AVIF packages need consumer profile settings. The "Before Accepted" license and unsafe items stay open: third-party code was screened, not audited, and the independent legal review has not happened.

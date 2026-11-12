@@ -1,6 +1,6 @@
 # Third-party notices for Ferrisma
 
-This document covers specific material embedded in Ferrisma. It is not a
+This document covers specific material embedded in the `ferrisma` package. It is not a
 complete third-party license bundle; generate and review the target-specific
 bundle described in [the license audit](docs/license-audit.md) for each
 binary distribution. Do not remove upstream license, copyright, or patent
@@ -51,7 +51,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ## sRGB2014 profile
 
 The unchanged ICC sRGB2014 profile, copyright International Color Consortium,
-2015, is embedded when the WebP writer is enabled. Its SHA-256 is
+2015, is embedded when the WebP writer is enabled. The package-local copy is
+[assets/icc/sRGB2014.icc](assets/icc/sRGB2014.icc), with its provenance in
+[assets/icc/README.md](assets/icc/README.md). Its SHA-256 is
 `384b832de3412066743b52a75ee906b6fb9fb8d9e09e936fc2c43223815c6e0a`.
 The [ICC sRGB profiles page](https://registry.color.org/rgb-registry/srgbprofiles)
 identifies the profile and applies the [ICC profile library terms](https://registry.color.org/profile-library/#licensing):

@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None
 - **Related:** [ADR index](README.md), [Project thesis](0001-project-thesis.md)
 
@@ -50,3 +50,4 @@ Project ownership, contribution requirements, distribution strategy, or dependen
 ## Amendment log
 
 - 2026-10-31 — Accepted permissive dual licensing under MIT OR Apache-2.0.
+- 2026-11-12 — Proposed for maintainer confirmation (#136): standalone project-owned workspace packages use MIT OR Apache-2.0 and ship both texts; original additions inside an imported codec port are contributed under that port's upstream terms, so each port keeps one expression for all its files. Copied third-party code in project-owned packages keeps its notice in `THIRD-PARTY-NOTICES.md`. Details and the applied metadata are in the [license audit](../license-audit.md#policy-for-project-owned-code-and-per-crate-metadata-136). This amendment does not change the license of any existing file.
