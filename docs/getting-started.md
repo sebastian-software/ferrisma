@@ -23,13 +23,18 @@ cargo run --release --features cli -- \
 ```
 
 The `cli` feature enables JPEG, still WebP, JPEG XL and AVIF input, AVIF and
-still WebP output, and ICC support. The default AVIF encoder is `rav1e`;
-`--avif-encoder=libavif --avif-depth=8` selects the workspace AOM encoder
-through `avif-own-write` (depth defaults to 10; 8 and 10 are supported).
-Rust callers use `AvifEncoder::Libavif { depth: 8 }` in `TransformOptions`.
+still WebP output, and ICC support. Since 2026-11-12 the default AVIF encoder
+is the workspace libavif/AOM writer (`avif-own-write`, 10-bit unless
+`--avif-depth=8`); `--avif-encoder=rav1e` selects `rav1e` (`avif-write`)
+explicitly. Rust callers use `AvifEncoder::Rav1e` or
+`AvifEncoder::Libavif { depth: 8 }` in `TransformOptions`.
 The separate [`ferrisma-libavif` adapter](../crates/ferrisma-libavif/README.md)
-delegates to the same implementation. Quality and speed use each encoder's own
-scale; their numeric values do not establish equivalent image quality.
+delegates to the same implementation. `--quality` and `--speed` go unchanged to
+the selected encoder, on its own scale: rav1e accepts quality 1–100, libavif
+0–100 in 64 quantizer steps, and the numbers are **not** comparable. At equal
+SSIMULACRA2 on the recorded photographs, rav1e 70/80/90 matched roughly
+libavif 50/55/78, so a quality value tuned for rav1e gives larger files with
+libavif ([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)).
 The current `avif-read` uses the same
 workspace port's AOM decoder through an isolated safe wrapper, so the former
 `rav1d`/dav1d symbol collision is gone. Own AVIF reading and writing require the pinned
@@ -44,17 +49,23 @@ profile for the rendered samples and drops source EXIF orientation and XMP.
 `--max-output-mb` caps the retained file; the WebP writer checks it during
 encoding, while AVIF and external backends check after encoding.
 
-JPEG XL input uses `jxl-oxide` by default. To inspect the experimental local
-reference decoder, add `jpeg-xl-own-read` to the Cargo features and select it
-explicitly:
+JPEG XL input uses the workspace libjxl-rs reference decoder
+(`jpeg-xl-own-read`, part of `cli`) by default since 2026-11-12. `jxl-oxide`
+(`jpeg-xl-read`, also part of `cli`) stays available explicitly:
 
 ```sh
-cargo run --release --features cli,jpeg-xl-own-read -- \
-  photo.jxl scaled.avif 1600 900 --use-rendered-icc --jxl-decoder=libjxl-rs
+cargo run --release --features cli -- \
+  photo.jxl scaled.avif 1600 900 --use-rendered-icc
+cargo run --release --features cli -- \
+  photo.jxl scaled.avif 1600 900 --use-rendered-icc --jxl-decoder=jxl-oxide
 ```
 
-This decoder budgets a complete F32 input frame for every request, including
-crops. It remains opt-in after the [measured photo regression](benchmarks/M2-jxl-input-switch.md).
+The default decoder has no region request: it decodes and budgets a complete
+F32 input frame for every request, including crops, and reports a full-frame
+fallback. On the one [recorded photo comparison](benchmarks/M2-jxl-input-switch.md)
+it was about 3.6× slower than `jxl-oxide` for a full decode and 9.5× slower for
+a center crop; this is an accepted v1.0 trade-off pending owner confirmation
+([ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)).
 
 Use `--assume-srgb` only when you accept that assumption for the input. For a
 supported rendered RGB ICC profile, `--use-rendered-icc` selects the explicit

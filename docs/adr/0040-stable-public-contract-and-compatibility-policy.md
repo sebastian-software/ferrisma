@@ -258,3 +258,17 @@ reports that a stable item cannot express its use case.
 - 2026-11-12 — Proposed with the surface inventory, tiers, SemVer, Rust
   version, deprecation and upgrade policy, the applied `#[non_exhaustive]` and
   documentation changes, and fifteen recommendations.
+- 2026-11-12 — Default switch interaction (ADR-0032, ADR-0037, pending owner
+  confirmation): `JpegXlDecoder::default()` is now `LibjxlRs` whenever
+  `jpeg-xl-own-read` is compiled in (including `cli`), and
+  `AvifEncoder::default()` is `Libavif { depth: 10 }` whenever
+  `avif-own-write` is compiled in (including `cli`). The inventory above still
+  lists those variants and features as experimental and `JxlOxide`/`Rav1e` as
+  stable, so the stable `cli` feature now runs experimental backends by
+  default, and an unchanged AVIF `quality` value means a different encoder
+  scale. Before 1.0 the maintainer needs to either promote the two workspace
+  backends (with their nightly/native-target boundary) or state that the
+  stable promise for `cli` covers the capability, not the backend, as it
+  already does for `jpeg-xl-read` and `avif-write`. Under decision 2, a
+  default change that changes output semantics is breaking after 1.0; this
+  change happens before any functional release.

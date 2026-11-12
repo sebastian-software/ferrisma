@@ -14,7 +14,7 @@ and the M1 acceptance gates still apply. For the current pipeline, see [status](
 | AVIF encoder adapter | `ferrisma-libavif` | `crates/ferrisma-libavif` |
 | AVIF input adapter | `ferrisma-avif-read` | `crates/ferrisma-avif-read` |
 | AVIF output boundary | `ferrisma-avif-write` | `crates/ferrisma-avif-write` |
-| JPEG XL opt-in input adapter | `ferrisma-jxl-decoder` | `crates/ferrisma-jxl-decoder` |
+| JPEG XL input adapter (default reader) | `ferrisma-jxl-decoder` | `crates/ferrisma-jxl-decoder` |
 | JPEG | `libjpeg-turbo-rs` | `codecs/libjpeg-turbo-rs` |
 | WebP | `libwebp-rs` | `codecs/libwebp-rs` |
 | JPEG XL | `libjxl-rs` | `codecs/libjxl-rs` |

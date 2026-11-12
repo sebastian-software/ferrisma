@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None
 - **Partially superseded by:** [0026](0026-codecs-in-one-repository-and-workspace.md), repository/workspace placement and dependency pinning; [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), output result and feature coupling; [0031](0031-workspace-libavif-input-experiment.md), AVIF input and the former duplicate-symbol exclusion
 - **Related:** [0017](0017-minimal-public-facade-and-cli.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0022](0022-parallel-row-pipeline-and-engine.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 2, [Sharp comparison](../benchmarks/M2-sharp-comparison.md), [libavif-rs](../../codecs/libavif-rs), [libwebp-rs plan](../research/2026-11-05-libwebp-port-plan.md)
@@ -119,3 +119,12 @@ The remaining triggers are a stable libavif toolchain or safe API, material chan
   cycle that prevented regular selection, not the Rav1e default or the
   ADR-0025 comparison and selection gates. Known frame accounting and opaque
   codec/output limitations remain unchanged.
+
+- 2026-11-12 — The built-in workspace libavif/AOM writer (`avif-own-write`,
+  ADR-0037) becomes the default AVIF encoder whenever it is compiled in, under
+  the owner's v1.0 direction and pending owner confirmation. Rav1e
+  (`avif-write`) stays an explicit backend and the default only without
+  `avif-own-write`. External backends through `transcode_with` keep working
+  with default options; only a nondefault built-in selection conflicts with
+  them. Quality and speed stay on the selected encoder's native scale. The
+  ADR-0025 timing and peak-memory criteria remain open.

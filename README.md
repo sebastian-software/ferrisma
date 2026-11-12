@@ -26,7 +26,7 @@ image processing functionality. Build the engine from this repository; see
 | [CPU kernels](crates/ferrisma-kernels) | Scalar, NEON, AVX2, and AVX-512 resampling behind a safe API |
 | [JPEG port](codecs/libjpeg-turbo-rs) | In-scope 8-bit decoder with a safe row API, used by `jpeg-read` |
 | [WebP port](codecs/libwebp-rs) | Decoder, encoder, container, and SharpYUV APIs; still-image input and output are connected through `webp-read` and `webp-write` |
-| [JPEG XL port](codecs/libjxl-rs) | Reference decoder available as experimental opt-in engine input through a safe wrapper; encoder incomplete |
+| [JPEG XL port](codecs/libjxl-rs) | Reference decoder is the default engine JPEG XL input (`jpeg-xl-own-read`) through a safe wrapper; lossless effort-2 encoder profile behind `jpeg-xl-write`; full encoder incomplete |
 | [AVIF ports](codecs/libavif-rs) | libavif and its AOM, dav1d, and SharpYUV ports; `avif-read` uses the AOM reference decoder through an [isolated safe adapter](crates/ferrisma-avif-read), with a separate [optional encoder adapter](crates/ferrisma-libavif) |
 | [Shared SharpYUV core](crates/libsharpyuv-core) | One safe numeric conversion used by WebP and AVIF through their separate API and allocation boundaries |
 | [Validation tooling](docs/codecs.md) | One Rust runner, scoped PR checks, and deeper independent oracle suites |
@@ -34,10 +34,13 @@ image processing functionality. Build the engine from this repository; see
 The four codec ports share the Cargo workspace, but importing them does not
 automatically select them as engine backends. Ferrisma reads JPEG and WebP
 through the workspace `libjpeg-turbo-rs` and `libwebp-rs` ports, JPEG XL through
-`jxl-oxide` by default (with the local reference decoder selectable explicitly),
-and AVIF through the workspace libavif/AOM reader; it writes AVIF through `rav1e`
-by default or explicitly selected workspace libavif/AOM, and still WebP through
-the workspace `libwebp-rs` encoder ([ADR-0037](docs/adr/0037-selectable-workspace-avif-encoder.md)).
+the workspace libjxl-rs reference decoder by default (with `jxl-oxide` selectable
+explicitly), and AVIF through the workspace libavif/AOM reader; it writes AVIF
+through the workspace libavif/AOM encoder by default (with `rav1e` selectable
+explicitly; their quality scales differ), and still WebP through the workspace
+`libwebp-rs` encoder ([ADR-0032](docs/adr/0032-jpeg-xl-workspace-decoder-input.md),
+[ADR-0037](docs/adr/0037-selectable-workspace-avif-encoder.md)). These two
+defaults changed on 2026-11-12 and are pending owner confirmation.
 The own AVIF read/write features need the pinned nightly and a supported native
 target; features without `avif-read`, `avif-own-write`, or `cli` retain stable Rust 1.98 support.
 On one 2268×1512 photo the AOM input path took 8–14% longer and used about

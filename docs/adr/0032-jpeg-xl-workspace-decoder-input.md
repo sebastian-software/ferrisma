@@ -3,7 +3,7 @@
 - **Status:** Experimental
 - **Date:** 2026-11-11
 - **Last reviewed:** 2026-11-12
-- **Supersedes:** None; adds an explicit opt-in backend alongside the interim reader in [0018](0018-optional-codec-and-cms-dependencies.md)
+- **Supersedes:** None; adds a backend alongside the interim reader in [0018](0018-optional-codec-and-cms-dependencies.md), opt-in on 2026-11-11 and the default when compiled in since 2026-11-12 (pending owner confirmation)
 - **Related:** [0015](0015-typed-output-color-signals.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md)
 
 ## Context
@@ -11,6 +11,8 @@
 The local libjxl-rs port implements the pinned reference decoder and retained C++-oracle captures. Its public decoder API has no crop or ROI request. The interim jxl-oxide adapter requests a crop; that capability cannot be transferred to this decoder. JPEG XL remains an experimental input; the full external JPEG XL conformance corpus and codec-selection measurements remain open.
 
 ## Decision
+
+*The default selection in this paragraph was replaced on 2026-11-12; see [Default switch](#default-switch-2026-11-12-pending-owner-confirmation). The wrapper, rejection, color and memory rules stand.*
 
 Use a separate, private `ferrisma-jxl-decoder` crate to own libjxl's raw decoder pointer and input/output lifetimes. Keep `jxl-oxide` as the default `jpeg-xl-read` backend. The new `jpeg-xl-own-read` feature compiles the local decoder; `TransformOptions::jxl_decoder = JpegXlDecoder::LibjxlRs` or `--jxl-decoder=libjxl-rs` selects it explicitly. The selection does not change when both features compile, including `--all-features`; requesting a backend whose feature is missing yields `FeatureDisabled`. The engine remains `unsafe`-free and holds only a safe slice API. Inspect basic info and the `DATA` output ICC before allocating pixels; reject animation, unknown layouts, other extra channels, float/HDR exponent channels, zero or excessive dimensions, and profiles above 16 MiB. Preserve the decoder's default upright orientation. Report the emitted F32 color samples using the `DATA` ICC, not the codestream's `ORIGINAL` profile. Report alpha association from basic info. Existing color/HDR gates decide whether those samples can enter a requested transform; no ICC header is treated as a conversion.
 
@@ -43,11 +45,24 @@ The crop gap has an additional structural cause that neither issue removes: the 
 
 Recommendation: keep jxl-oxide as the default until a timing phase on an otherwise idle host, after #96 and #100, measures full and crop decode against jxl-oxide on the ADR-0025 corpus. Switch the default for v1.0 if the full-decode gap is within a bound the maintainer accepts and the full-frame crop cost is accepted as a documented JPEG XL limitation. Otherwise, record JPEG XL input as the v1.0 exception in #196 and #67. In either case, keep jxl-oxide available as a fallback until ADR-0025 point 4 is satisfied. Still open beside timing: conformance on x86-64 and Linux, binary size, and process-level peak memory on the selection corpus.
 
+## Default switch (2026-11-12, pending owner confirmation)
+
+The owner's direction for v1.0 (2026-11-12) is to ship the engine on the project's own four codec ports by default, to keep external backends selectable, and to treat known performance gaps as follow-up work rather than release blockers. Under that direction the assessment above is resolved in favor of the switch, and the recommendation to wait for the timing phase is not followed for the default:
+
+- `JpegXlDecoder::default()` is `LibjxlRs` whenever `jpeg-xl-own-read` is compiled in. `JxlOxide` is the default only in a build that enables `jpeg-xl-read` without `jpeg-xl-own-read`; with neither feature the default names `LibjxlRs` and reports `FeatureDisabled`. The `cli` feature enables both, so `--jxl-decoder=jxl-oxide` and `JpegXlDecoder::JxlOxide` remain explicit, tested backends. Cargo feature unification can therefore change the default of a build that enabled only `jpeg-xl-read`; callers that need a fixed backend select it explicitly.
+- **Evidence relied on:** the reference-port origin (ADR-0025 point 1); the pinned external conformance corpus, 27/27 level-10 and 24/24 level-5 list entries (51/51) on macOS ARM64 ([record](../../codecs/libjxl-rs/docs/CONFORMANCE.md)); the wrapper's application-mode run (32 accepted cases pass, 8 rejected by design); and the wrapper ownership/error review above.
+- **Accepted trade-off:** on the only recorded comparison ([photo-sized measurement](../benchmarks/M2-jxl-input-switch.md), one thread, Apple M1 Ultra) the workspace reader is about 3.6× slower than jxl-oxide for a full 2268×1512 decode and about 9.5× slower for a center crop. Every crop reconstructs and budgets the full upright F32 frame (no region API), and the report says so: `SourceAccess::FullFrameFallback`, one known full-frame buffer, and opaque, unbounded codec memory. A JPEG XL crop therefore costs a full decode in time and engine-managed memory. These numbers are older, single-host measurements and are not re-measured here.
+- **Gates that stay open:** the conformance run on x86-64 Linux; a timing phase on an otherwise idle host after #96 (SIMD) and #100 (pool tasks), on the ADR-0025 corpus; binary size and process-level peak memory; a codec-local region API. jxl-oxide is not removed (ADR-0025 point 4).
+- **Pending owner confirmation:** this switch implements the stated direction on a best estimate. The owner has not yet reviewed the specific trade-off above; it is reversible by restoring the `Default` implementation of `JpegXlDecoder` and removing `jpeg-xl-own-read` from `cli`.
+
+Tests: `pipeline_tests::default_jpeg_xl_decoder_follows_the_compiled_backends` checks the default end to end per feature set; `hardening_tests::missing_jpeg_xl_backends_report_feature_disabled` checks each backend's missing feature; jxl-oxide-specific tests (codec region request, animation, hostile color, decoder work) now select it explicitly.
+
 ## Review when
 
-Review after the conformance run on x86-64 and Linux, the timing phase after #96 and #100, realistic-image time/RSS comparisons, a libjxl region-decode API, a color or alpha mismatch, or a supported input that requires additional extra channels.
+Review after the conformance run on x86-64 and Linux, the timing phase after #96 and #100, realistic-image time/RSS comparisons, a libjxl region-decode API, a color or alpha mismatch, or a supported input that requires additional extra channels. Re-evaluate the default switch if the owner rejects the trade-off, if the idle-host timing shows a full-decode gap the owner does not accept, or if x86-64 conformance fails.
 
 ## Amendment log
 
 - 2026-11-11 — Added the independent safe wrapper and explicit full-frame experimental input path. The photo-sized time/RSS comparison retained jxl-oxide as the default under ADR-0025.
 - 2026-11-12 — Recorded the external conformance corpus (all level-10 and level-5 cases pass on macOS ARM64) and the wrapper's application-mode run (32 accepted cases pass, 8 rejected by design). Added the v1.0 assessment: correctness is no longer blocking; the measured performance gap blocks the switch pending #96 and #100. The default is unchanged.
+- 2026-11-12 — Under the owner's v1.0 direction (own ports by default, performance gaps as follow-ups), the workspace reader becomes the default whenever `jpeg-xl-own-read` is compiled in, and `cli` enables it. jxl-oxide stays an explicit backend. The 3.6× full / 9.5× crop regression and full-frame crops are recorded as the accepted trade-off, pending owner confirmation; x86-64 conformance, idle-host timing and the region API stay open. The earlier default rationale above is kept for history.
