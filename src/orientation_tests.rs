@@ -465,11 +465,14 @@ fn camera_size_orientation_costs_are_reported_exactly() {
                 assert_eq!(report.engine_buffer_bytes, frame);
                 assert_eq!(report.engine_copied_bytes, 2 * frame as u64);
                 let row = display.width as usize * 3;
-                // Sequential: the stored frame plus one display row. Parallel:
-                // at most 2 × threads + 1 blocks of 16 rows on top of the frame.
+                // Sequential: the stored frame plus one display row, or one
+                // block of 16 display rows for a transposing orientation (the
+                // tiled gather, ADR-0019 amendment 2026-11-12). Parallel: at
+                // most 2 × threads + 1 blocks of 16 rows on top of the frame.
                 let peak = budget.snapshot().peak;
                 if threads == 1 {
-                    assert_eq!(peak, frame + row, "{width}x{height} {value}");
+                    let held = if orientation.transpose { 16 } else { 1 };
+                    assert_eq!(peak, frame + held * row, "{width}x{height} {value}");
                 } else {
                     assert!(peak > frame + row && peak <= frame + (2 * threads + 1) * 16 * row);
                 }
