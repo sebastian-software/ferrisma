@@ -1,0 +1,489 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "candidates": [
+      {
+        "id": "kodim23-all-ferrisma-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/kodim23-all-rav1e.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim23.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/kodim23-all-rav1e.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=79.77",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--speed=6"
+        ]
+      },
+      {
+        "id": "kodim23-all-sharp",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/kodim23-all-sharp.avif",
+        "env": {
+          "NODE_PATH": "/private/tmp/ferramenta300-registry-consumer/node_modules"
+        },
+        "cmd": [
+          "node",
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/scripts/bench/sharp-avif.cjs",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim23.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/kodim23-all-sharp.avif",
+          "512",
+          "341",
+          "quality=57",
+          "icc=convert",
+          "threads=0",
+          "chroma=444"
+        ]
+      },
+      {
+        "id": "kodim23-all-ferrisma-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/kodim23-all-aom.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim23.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/kodim23-all-aom.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=58",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--speed=6"
+        ]
+      }
+    ]
+  },
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "uptime_before": "17:38  up 37 days,  4:59, 1 user, load averages: 4.92 6.16 7.55",
+  "uptime_after": "17:38  up 37 days,  4:59, 1 user, load averages: 5.01 6.15 7.54",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "summary": {
+    "kodim23-all-ferrisma-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.103747792,
+      "wall_min_s": 0.102691125,
+      "wall_max_s": 0.10532979200000003,
+      "rss_median_bytes": 20971520,
+      "rss_min_bytes": 19513344,
+      "rss_max_bytes": 21626880,
+      "load_min": 4.919921875,
+      "load_max": 5.00634765625,
+      "internal_median_ms": 95.328,
+      "internal_min_ms": 94.585,
+      "internal_max_ms": 96.864,
+      "output_sha256": [
+        "485c7c86bd3202fc31cf37a1402cc692fea8eb37057dd8a83e8a709c04a58a11"
+      ],
+      "output_bytes": [
+        14390
+      ]
+    },
+    "kodim23-all-sharp": {
+      "n": 7,
+      "wall_median_s": 0.1522540000000001,
+      "wall_min_s": 0.15016070900000011,
+      "wall_max_s": 0.156576292,
+      "rss_median_bytes": 101580800,
+      "rss_min_bytes": 98254848,
+      "rss_max_bytes": 104120320,
+      "load_min": 4.919921875,
+      "load_max": 5.00634765625,
+      "output_sha256": [
+        "fc42c43816ca92a3425d4ff8388029021d5e8f0ca9faa1ef06aba58d299f2e85"
+      ],
+      "output_bytes": [
+        13172
+      ]
+    },
+    "kodim23-all-ferrisma-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.06610445799999987,
+      "wall_min_s": 0.0656604999999999,
+      "wall_max_s": 0.06817808300000006,
+      "rss_median_bytes": 30130176,
+      "rss_min_bytes": 29933568,
+      "rss_max_bytes": 30507008,
+      "load_min": 5.00634765625,
+      "load_max": 5.00634765625,
+      "internal_median_ms": 57.253,
+      "internal_min_ms": 56.581,
+      "internal_max_ms": 59.244,
+      "output_sha256": [
+        "d951a5156ec95b501fcd469c2b8df88c417357a49522e60c12917ee51feb5ff4"
+      ],
+      "output_bytes": [
+        13750
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "kodim23-all-ferrisma-aom-s6",
+      "wall_s": 0.066177792,
+      "max_rss_bytes": 30261248,
+      "internal_ms": 57.481,
+      "stdout": [
+        "report: open_us=41 decode_us=2248 transform_us=1301 encode_us=52755 total_us=57481 output_bytes=13750 peak_managed_bytes=7173448 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 4.919921875,
+      "load_after": 4.919921875,
+      "output_bytes": 13750,
+      "output_sha256": "d951a5156ec95b501fcd469c2b8df88c417357a49522e60c12917ee51feb5ff4",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim23-all-sharp",
+      "wall_s": 0.15181666700000002,
+      "max_rss_bytes": 101122048,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 4.919921875,
+      "load_after": 4.919921875,
+      "output_bytes": 13172,
+      "output_sha256": "fc42c43816ca92a3425d4ff8388029021d5e8f0ca9faa1ef06aba58d299f2e85",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim23-all-ferrisma-rav1e-s6",
+      "wall_s": 0.10220174999999998,
+      "max_rss_bytes": 19529728,
+      "internal_ms": 94.274,
+      "stdout": [
+        "report: open_us=479 decode_us=2286 transform_us=1117 encode_us=89084 total_us=94274 output_bytes=14390 peak_managed_bytes=7370056 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 4.919921875,
+      "load_after": 4.919921875,
+      "output_bytes": 14390,
+      "output_sha256": "485c7c86bd3202fc31cf37a1402cc692fea8eb37057dd8a83e8a709c04a58a11",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim23-all-ferrisma-rav1e-s6",
+      "wall_s": 0.103747792,
+      "max_rss_bytes": 19628032,
+      "internal_ms": 95.489,
+      "stdout": [
+        "report: open_us=562 decode_us=2370 transform_us=1235 encode_us=90067 total_us=95489 output_bytes=14390 peak_managed_bytes=7355464 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 4.919921875,
+      "load_after": 4.919921875,
+      "output_bytes": 14390,
+      "output_sha256": "485c7c86bd3202fc31cf37a1402cc692fea8eb37057dd8a83e8a709c04a58a11",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-sharp",
+      "wall_s": 0.156576292,
+      "max_rss_bytes": 104120320,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 4.919921875,
+      "load_after": 5.00634765625,
+      "output_bytes": 13172,
+      "output_sha256": "fc42c43816ca92a3425d4ff8388029021d5e8f0ca9faa1ef06aba58d299f2e85",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-aom-s6",
+      "wall_s": 0.06817808300000006,
+      "max_rss_bytes": 30507008,
+      "internal_ms": 59.244,
+      "stdout": [
+        "report: open_us=39 decode_us=2278 transform_us=1242 encode_us=54431 total_us=59244 output_bytes=13750 peak_managed_bytes=7000136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13750,
+      "output_sha256": "d951a5156ec95b501fcd469c2b8df88c417357a49522e60c12917ee51feb5ff4",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-aom-s6",
+      "wall_s": 0.06600745899999994,
+      "max_rss_bytes": 30130176,
+      "internal_ms": 57.76,
+      "stdout": [
+        "report: open_us=41 decode_us=2305 transform_us=1104 encode_us=53026 total_us=57760 output_bytes=13750 peak_managed_bytes=7012936 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13750,
+      "output_sha256": "d951a5156ec95b501fcd469c2b8df88c417357a49522e60c12917ee51feb5ff4",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-sharp",
+      "wall_s": 0.151748667,
+      "max_rss_bytes": 100073472,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13172,
+      "output_sha256": "fc42c43816ca92a3425d4ff8388029021d5e8f0ca9faa1ef06aba58d299f2e85",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-rav1e-s6",
+      "wall_s": 0.10315495800000007,
+      "max_rss_bytes": 19513344,
+      "internal_ms": 95.29,
+      "stdout": [
+        "report: open_us=522 decode_us=2260 transform_us=1262 encode_us=89952 total_us=95290 output_bytes=14390 peak_managed_bytes=7381576 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 14390,
+      "output_sha256": "485c7c86bd3202fc31cf37a1402cc692fea8eb37057dd8a83e8a709c04a58a11",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-rav1e-s6",
+      "wall_s": 0.102691125,
+      "max_rss_bytes": 20103168,
+      "internal_ms": 94.585,
+      "stdout": [
+        "report: open_us=608 decode_us=2359 transform_us=1392 encode_us=89004 total_us=94585 output_bytes=14390 peak_managed_bytes=7647304 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 14390,
+      "output_sha256": "485c7c86bd3202fc31cf37a1402cc692fea8eb37057dd8a83e8a709c04a58a11",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-sharp",
+      "wall_s": 0.1522540000000001,
+      "max_rss_bytes": 101122048,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13172,
+      "output_sha256": "fc42c43816ca92a3425d4ff8388029021d5e8f0ca9faa1ef06aba58d299f2e85",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-aom-s6",
+      "wall_s": 0.06658991699999994,
+      "max_rss_bytes": 30392320,
+      "internal_ms": 57.311,
+      "stdout": [
+        "report: open_us=40 decode_us=2250 transform_us=1110 encode_us=52788 total_us=57311 output_bytes=13750 peak_managed_bytes=6922312 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13750,
+      "output_sha256": "d951a5156ec95b501fcd469c2b8df88c417357a49522e60c12917ee51feb5ff4",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-aom-s6",
+      "wall_s": 0.06646941699999998,
+      "max_rss_bytes": 29982720,
+      "internal_ms": 56.993,
+      "stdout": [
+        "report: open_us=41 decode_us=2221 transform_us=1036 encode_us=52530 total_us=56993 output_bytes=13750 peak_managed_bytes=6860104 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13750,
+      "output_sha256": "d951a5156ec95b501fcd469c2b8df88c417357a49522e60c12917ee51feb5ff4",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-sharp",
+      "wall_s": 0.1564064999999999,
+      "max_rss_bytes": 102416384,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13172,
+      "output_sha256": "fc42c43816ca92a3425d4ff8388029021d5e8f0ca9faa1ef06aba58d299f2e85",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-rav1e-s6",
+      "wall_s": 0.10411308399999997,
+      "max_rss_bytes": 21331968,
+      "internal_ms": 95.463,
+      "stdout": [
+        "report: open_us=542 decode_us=2266 transform_us=1195 encode_us=90186 total_us=95463 output_bytes=14390 peak_managed_bytes=7508296 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 14390,
+      "output_sha256": "485c7c86bd3202fc31cf37a1402cc692fea8eb37057dd8a83e8a709c04a58a11",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-rav1e-s6",
+      "wall_s": 0.10391537500000014,
+      "max_rss_bytes": 21200896,
+      "internal_ms": 95.328,
+      "stdout": [
+        "report: open_us=532 decode_us=2297 transform_us=1293 encode_us=89877 total_us=95328 output_bytes=14390 peak_managed_bytes=7465800 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 14390,
+      "output_sha256": "485c7c86bd3202fc31cf37a1402cc692fea8eb37057dd8a83e8a709c04a58a11",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-sharp",
+      "wall_s": 0.15123733300000008,
+      "max_rss_bytes": 98254848,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13172,
+      "output_sha256": "fc42c43816ca92a3425d4ff8388029021d5e8f0ca9faa1ef06aba58d299f2e85",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-aom-s6",
+      "wall_s": 0.0656604999999999,
+      "max_rss_bytes": 29999104,
+      "internal_ms": 56.857,
+      "stdout": [
+        "report: open_us=38 decode_us=2281 transform_us=942 encode_us=52470 total_us=56857 output_bytes=13750 peak_managed_bytes=6941768 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13750,
+      "output_sha256": "d951a5156ec95b501fcd469c2b8df88c417357a49522e60c12917ee51feb5ff4",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-aom-s6",
+      "wall_s": 0.06571900000000008,
+      "max_rss_bytes": 30408704,
+      "internal_ms": 56.581,
+      "stdout": [
+        "report: open_us=41 decode_us=2271 transform_us=929 encode_us=52197 total_us=56581 output_bytes=13750 peak_managed_bytes=6927432 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13750,
+      "output_sha256": "d951a5156ec95b501fcd469c2b8df88c417357a49522e60c12917ee51feb5ff4",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-sharp",
+      "wall_s": 0.15423879200000012,
+      "max_rss_bytes": 102760448,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13172,
+      "output_sha256": "fc42c43816ca92a3425d4ff8388029021d5e8f0ca9faa1ef06aba58d299f2e85",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-rav1e-s6",
+      "wall_s": 0.10283258400000017,
+      "max_rss_bytes": 20971520,
+      "internal_ms": 94.683,
+      "stdout": [
+        "report: open_us=516 decode_us=2256 transform_us=1064 encode_us=89707 total_us=94683 output_bytes=14390 peak_managed_bytes=7434056 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 14390,
+      "output_sha256": "485c7c86bd3202fc31cf37a1402cc692fea8eb37057dd8a83e8a709c04a58a11",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-rav1e-s6",
+      "wall_s": 0.10532979200000003,
+      "max_rss_bytes": 21626880,
+      "internal_ms": 96.864,
+      "stdout": [
+        "report: open_us=570 decode_us=2360 transform_us=1290 encode_us=91401 total_us=96864 output_bytes=14390 peak_managed_bytes=7394120 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 14390,
+      "output_sha256": "485c7c86bd3202fc31cf37a1402cc692fea8eb37057dd8a83e8a709c04a58a11",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-sharp",
+      "wall_s": 0.15016070900000011,
+      "max_rss_bytes": 101580800,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13172,
+      "output_sha256": "fc42c43816ca92a3425d4ff8388029021d5e8f0ca9faa1ef06aba58d299f2e85",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "kodim23-all-ferrisma-aom-s6",
+      "wall_s": 0.06610445799999987,
+      "max_rss_bytes": 29933568,
+      "internal_ms": 57.253,
+      "stdout": [
+        "report: open_us=42 decode_us=2262 transform_us=950 encode_us=52843 total_us=57253 output_bytes=13750 peak_managed_bytes=6913608 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.00634765625,
+      "load_after": 5.00634765625,
+      "output_bytes": 13750,
+      "output_sha256": "d951a5156ec95b501fcd469c2b8df88c417357a49522e60c12917ee51feb5ff4",
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}

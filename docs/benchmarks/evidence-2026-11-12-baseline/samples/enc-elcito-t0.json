@@ -1,0 +1,1520 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "candidates": [
+      {
+        "id": "elcito-q70-t0-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q70-t0-rav1e-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/corpus/elcito.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q70-t0-rav1e-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=70",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--budget-mb=2048"
+        ]
+      },
+      {
+        "id": "elcito-q70-t0-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q70-t0-aom-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/corpus/elcito.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q70-t0-aom-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=49",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--budget-mb=2048"
+        ]
+      },
+      {
+        "id": "elcito-q70-t0-aom-s7",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q70-t0-aom-s7.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/corpus/elcito.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q70-t0-aom-s7.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=49",
+          "--speed=7",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--budget-mb=2048"
+        ]
+      },
+      {
+        "id": "elcito-q80-t0-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q80-t0-rav1e-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/corpus/elcito.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q80-t0-rav1e-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=80",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--budget-mb=2048"
+        ]
+      },
+      {
+        "id": "elcito-q80-t0-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q80-t0-aom-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/corpus/elcito.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q80-t0-aom-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=55",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--budget-mb=2048"
+        ]
+      },
+      {
+        "id": "elcito-q80-t0-aom-s7",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q80-t0-aom-s7.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/corpus/elcito.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q80-t0-aom-s7.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=55",
+          "--speed=7",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--budget-mb=2048"
+        ]
+      },
+      {
+        "id": "elcito-q90-t0-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q90-t0-rav1e-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/corpus/elcito.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q90-t0-rav1e-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=90",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--budget-mb=2048"
+        ]
+      },
+      {
+        "id": "elcito-q90-t0-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q90-t0-aom-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/corpus/elcito.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q90-t0-aom-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=81",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--budget-mb=2048"
+        ]
+      },
+      {
+        "id": "elcito-q90-t0-aom-s7",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q90-t0-aom-s7.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/corpus/elcito.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-elcito/timing/elcito-q90-t0-aom-s7.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=81",
+          "--speed=7",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--budget-mb=2048"
+        ]
+      }
+    ]
+  },
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "uptime_before": "17:29  up 37 days,  4:51, 1 user, load averages: 7.06 6.71 8.28",
+  "uptime_after": "17:30  up 37 days,  4:51, 1 user, load averages: 7.81 6.96 8.29",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "summary": {
+    "elcito-q70-t0-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.6141653750000007,
+      "wall_min_s": 0.6067249160000046,
+      "wall_max_s": 0.6266108749999972,
+      "rss_median_bytes": 126435328,
+      "rss_min_bytes": 124698624,
+      "rss_max_bytes": 128253952,
+      "load_min": 6.81787109375,
+      "load_max": 8.314453125,
+      "internal_median_ms": 600.418,
+      "internal_min_ms": 593.128,
+      "internal_max_ms": 612.797,
+      "output_sha256": [
+        "9b4acef8e605fa7c5bf89d1bdea254486233bedf4f8cf97349b5a39f38fd66ee"
+      ],
+      "output_bytes": [
+        88571
+      ]
+    },
+    "elcito-q70-t0-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.6426295419999981,
+      "wall_min_s": 0.639856082999998,
+      "wall_max_s": 0.6461523749999998,
+      "rss_median_bytes": 150962176,
+      "rss_min_bytes": 150077440,
+      "rss_max_bytes": 151764992,
+      "load_min": 6.81787109375,
+      "load_max": 8.314453125,
+      "internal_median_ms": 628.874,
+      "internal_min_ms": 626.68,
+      "internal_max_ms": 631.11,
+      "output_sha256": [
+        "9cd4b166d4a300bbbbacc316768f197c60fcb4b3297ca8eec605a464a284ad66"
+      ],
+      "output_bytes": [
+        67475
+      ]
+    },
+    "elcito-q70-t0-aom-s7": {
+      "n": 7,
+      "wall_median_s": 0.5642952499999936,
+      "wall_min_s": 0.5613983340000033,
+      "wall_max_s": 0.5683498340000002,
+      "rss_median_bytes": 131497984,
+      "rss_min_bytes": 130777088,
+      "rss_max_bytes": 132104192,
+      "load_min": 6.81787109375,
+      "load_max": 8.314453125,
+      "internal_median_ms": 550.391,
+      "internal_min_ms": 547.801,
+      "internal_max_ms": 554.022,
+      "output_sha256": [
+        "4e79a2b9383a6585c2463c6378dd93f454dac0a15bf66489a83c8c69e3a42370"
+      ],
+      "output_bytes": [
+        71148
+      ]
+    },
+    "elcito-q80-t0-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.6138455839999999,
+      "wall_min_s": 0.606978416000004,
+      "wall_max_s": 0.6270194579999995,
+      "rss_median_bytes": 127860736,
+      "rss_min_bytes": 126320640,
+      "rss_max_bytes": 128843776,
+      "load_min": 6.81787109375,
+      "load_max": 8.314453125,
+      "internal_median_ms": 600.435,
+      "internal_min_ms": 593.737,
+      "internal_max_ms": 613.3,
+      "output_sha256": [
+        "d7ae4c1cabf67ace8af8e997ae1d198a46f165f17176cd591dac27ad8e443e29"
+      ],
+      "output_bytes": [
+        118057
+      ]
+    },
+    "elcito-q80-t0-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.6657832500000005,
+      "wall_min_s": 0.6614636250000032,
+      "wall_max_s": 0.6698810000000002,
+      "rss_median_bytes": 151224320,
+      "rss_min_bytes": 150749184,
+      "rss_max_bytes": 151732224,
+      "load_min": 6.81787109375,
+      "load_max": 8.314453125,
+      "internal_median_ms": 652.323,
+      "internal_min_ms": 647.622,
+      "internal_max_ms": 655.616,
+      "output_sha256": [
+        "db96636580e2df3c24e5c2816d25b63c15e16054de86d74dfba57ae348d9afd3"
+      ],
+      "output_bytes": [
+        91943
+      ]
+    },
+    "elcito-q80-t0-aom-s7": {
+      "n": 7,
+      "wall_median_s": 0.5691637909999994,
+      "wall_min_s": 0.5663816670000017,
+      "wall_max_s": 0.5696686660000001,
+      "rss_median_bytes": 131645440,
+      "rss_min_bytes": 131153920,
+      "rss_max_bytes": 132202496,
+      "load_min": 7.12353515625,
+      "load_max": 8.193359375,
+      "internal_median_ms": 554.847,
+      "internal_min_ms": 552.174,
+      "internal_max_ms": 556.011,
+      "output_sha256": [
+        "9f608a760ae544b4d908e3dedcf414edffc749fec13c1e57d867193f6f205c69"
+      ],
+      "output_bytes": [
+        95832
+      ]
+    },
+    "elcito-q90-t0-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.6524292499999973,
+      "wall_min_s": 0.6484974589999979,
+      "wall_max_s": 0.6667140000000007,
+      "rss_median_bytes": 132595712,
+      "rss_min_bytes": 131448832,
+      "rss_max_bytes": 134987776,
+      "load_min": 7.12353515625,
+      "load_max": 8.193359375,
+      "internal_median_ms": 639.115,
+      "internal_min_ms": 634.087,
+      "internal_max_ms": 653.133,
+      "output_sha256": [
+        "565310f0cd7a9f7da80d7440c699bc954d15a775a252934b9b432ed657a66331"
+      ],
+      "output_bytes": [
+        287363
+      ]
+    },
+    "elcito-q90-t0-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.832284833000001,
+      "wall_min_s": 0.8273465420000008,
+      "wall_max_s": 0.8341262090000043,
+      "rss_median_bytes": 152944640,
+      "rss_min_bytes": 151732224,
+      "rss_max_bytes": 153321472,
+      "load_min": 7.12353515625,
+      "load_max": 8.193359375,
+      "internal_median_ms": 818.127,
+      "internal_min_ms": 814.232,
+      "internal_max_ms": 819.174,
+      "output_sha256": [
+        "b716c4361b00203cd41cd8f9c6dd05709ac810665e581e9f8bc2a64242496666"
+      ],
+      "output_bytes": [
+        234023
+      ]
+    },
+    "elcito-q90-t0-aom-s7": {
+      "n": 7,
+      "wall_median_s": 0.5981701249999993,
+      "wall_min_s": 0.5970091670000013,
+      "wall_max_s": 0.5999390420000026,
+      "rss_median_bytes": 132300800,
+      "rss_min_bytes": 131186688,
+      "rss_max_bytes": 133169152,
+      "load_min": 7.12353515625,
+      "load_max": 8.193359375,
+      "internal_median_ms": 584.092,
+      "internal_min_ms": 583.119,
+      "internal_max_ms": 586.075,
+      "output_sha256": [
+        "e4dbf7c6d425b62548cddf2f30de42dc9d45cf81e1ec7c77db5995a939b499b3"
+      ],
+      "output_bytes": [
+        239588
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "elcito-q90-t0-aom-s7",
+      "wall_s": 0.6018791250000001,
+      "max_rss_bytes": 131366912,
+      "internal_ms": 587.406,
+      "stdout": [
+        "report: open_us=108 decode_us=441994 transform_us=16371 encode_us=125357 total_us=587406 output_bytes=239588 peak_managed_bytes=49485776 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.0634765625,
+      "load_after": 7.0634765625,
+      "output_bytes": 239588,
+      "output_sha256": "e4dbf7c6d425b62548cddf2f30de42dc9d45cf81e1ec7c77db5995a939b499b3",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "elcito-q90-t0-aom-s6",
+      "wall_s": 0.831540917,
+      "max_rss_bytes": 152616960,
+      "internal_ms": 817.435,
+      "stdout": [
+        "report: open_us=116 decode_us=442250 transform_us=16060 encode_us=355400 total_us=817435 output_bytes=234023 peak_managed_bytes=49484032 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.0634765625,
+      "load_after": 7.0634765625,
+      "output_bytes": 234023,
+      "output_sha256": "b716c4361b00203cd41cd8f9c6dd05709ac810665e581e9f8bc2a64242496666",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "elcito-q90-t0-rav1e-s6",
+      "wall_s": 0.6638238750000001,
+      "max_rss_bytes": 130646016,
+      "internal_ms": 650.15,
+      "stdout": [
+        "report: open_us=1589 decode_us=440550 transform_us=17994 encode_us=186505 total_us=650150 output_bytes=287363 peak_managed_bytes=45782816 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.0634765625,
+      "load_after": 7.0634765625,
+      "output_bytes": 287363,
+      "output_sha256": "565310f0cd7a9f7da80d7440c699bc954d15a775a252934b9b432ed657a66331",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "elcito-q80-t0-aom-s7",
+      "wall_s": 0.5738954999999999,
+      "max_rss_bytes": 130957312,
+      "internal_ms": 559.79,
+      "stdout": [
+        "report: open_us=113 decode_us=445021 transform_us=16005 encode_us=95002 total_us=559790 output_bytes=95832 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.0634765625,
+      "load_after": 7.0634765625,
+      "output_bytes": 95832,
+      "output_sha256": "9f608a760ae544b4d908e3dedcf414edffc749fec13c1e57d867193f6f205c69",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "elcito-q80-t0-aom-s6",
+      "wall_s": 0.6646137909999998,
+      "max_rss_bytes": 151093248,
+      "internal_ms": 651.204,
+      "stdout": [
+        "report: open_us=98 decode_us=441672 transform_us=16522 encode_us=189348 total_us=651204 output_bytes=91943 peak_managed_bytes=49461920 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.0634765625,
+      "load_after": 7.0634765625,
+      "output_bytes": 91943,
+      "output_sha256": "db96636580e2df3c24e5c2816d25b63c15e16054de86d74dfba57ae348d9afd3",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "elcito-q80-t0-rav1e-s6",
+      "wall_s": 0.63284625,
+      "max_rss_bytes": 128548864,
+      "internal_ms": 618.253,
+      "stdout": [
+        "report: open_us=1505 decode_us=440518 transform_us=17678 encode_us=154972 total_us=618253 output_bytes=118057 peak_managed_bytes=45837504 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.0634765625,
+      "load_after": 6.81787109375,
+      "output_bytes": 118057,
+      "output_sha256": "d7ae4c1cabf67ace8af8e997ae1d198a46f165f17176cd591dac27ad8e443e29",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "elcito-q70-t0-aom-s7",
+      "wall_s": 0.564797166,
+      "max_rss_bytes": 132644864,
+      "internal_ms": 550.081,
+      "stdout": [
+        "report: open_us=99 decode_us=441771 transform_us=16138 encode_us=88479 total_us=550081 output_bytes=71148 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.81787109375,
+      "load_after": 6.81787109375,
+      "output_bytes": 71148,
+      "output_sha256": "4e79a2b9383a6585c2463c6378dd93f454dac0a15bf66489a83c8c69e3a42370",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "elcito-q70-t0-aom-s6",
+      "wall_s": 0.6410042499999999,
+      "max_rss_bytes": 150093824,
+      "internal_ms": 626.526,
+      "stdout": [
+        "report: open_us=109 decode_us=439437 transform_us=16150 encode_us=167198 total_us=626526 output_bytes=67475 peak_managed_bytes=49436320 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.81787109375,
+      "load_after": 6.81787109375,
+      "output_bytes": 67475,
+      "output_sha256": "9cd4b166d4a300bbbbacc316768f197c60fcb4b3297ca8eec605a464a284ad66",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "elcito-q70-t0-rav1e-s6",
+      "wall_s": 0.6212210000000002,
+      "max_rss_bytes": 127533056,
+      "internal_ms": 608.324,
+      "stdout": [
+        "report: open_us=1548 decode_us=439909 transform_us=17181 encode_us=145989 total_us=608324 output_bytes=88571 peak_managed_bytes=45835760 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.81787109375,
+      "load_after": 6.81787109375,
+      "output_bytes": 88571,
+      "output_sha256": "9b4acef8e605fa7c5bf89d1bdea254486233bedf4f8cf97349b5a39f38fd66ee",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "elcito-q70-t0-rav1e-s6",
+      "wall_s": 0.6141653750000007,
+      "max_rss_bytes": 124698624,
+      "internal_ms": 600.418,
+      "stdout": [
+        "report: open_us=1542 decode_us=442087 transform_us=16317 encode_us=136913 total_us=600418 output_bytes=88571 peak_managed_bytes=45806672 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.81787109375,
+      "load_after": 6.81787109375,
+      "output_bytes": 88571,
+      "output_sha256": "9b4acef8e605fa7c5bf89d1bdea254486233bedf4f8cf97349b5a39f38fd66ee",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s6",
+      "wall_s": 0.6428561670000006,
+      "max_rss_bytes": 150077440,
+      "internal_ms": 628.961,
+      "stdout": [
+        "report: open_us=129 decode_us=442034 transform_us=16057 encode_us=167068 total_us=628961 output_bytes=67475 peak_managed_bytes=49485776 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.81787109375,
+      "load_after": 6.81787109375,
+      "output_bytes": 67475,
+      "output_sha256": "9cd4b166d4a300bbbbacc316768f197c60fcb4b3297ca8eec605a464a284ad66",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s7",
+      "wall_s": 0.5683498340000002,
+      "max_rss_bytes": 131907584,
+      "internal_ms": 554.022,
+      "stdout": [
+        "report: open_us=100 decode_us=444942 transform_us=16476 encode_us=88785 total_us=554022 output_bytes=71148 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.81787109375,
+      "load_after": 6.81787109375,
+      "output_bytes": 71148,
+      "output_sha256": "4e79a2b9383a6585c2463c6378dd93f454dac0a15bf66489a83c8c69e3a42370",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-rav1e-s6",
+      "wall_s": 0.619556124999999,
+      "max_rss_bytes": 128843776,
+      "internal_ms": 605.133,
+      "stdout": [
+        "report: open_us=1612 decode_us=440915 transform_us=16897 encode_us=141975 total_us=605133 output_bytes=118057 peak_managed_bytes=45806672 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.81787109375,
+      "load_after": 6.81787109375,
+      "output_bytes": 118057,
+      "output_sha256": "d7ae4c1cabf67ace8af8e997ae1d198a46f165f17176cd591dac27ad8e443e29",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s6",
+      "wall_s": 0.6657832500000005,
+      "max_rss_bytes": 150896640,
+      "internal_ms": 652.323,
+      "stdout": [
+        "report: open_us=112 decode_us=442219 transform_us=16349 encode_us=189980 total_us=652323 output_bytes=91943 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.81787109375,
+      "load_after": 8.193359375,
+      "output_bytes": 91943,
+      "output_sha256": "db96636580e2df3c24e5c2816d25b63c15e16054de86d74dfba57ae348d9afd3",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s7",
+      "wall_s": 0.5691637909999994,
+      "max_rss_bytes": 131694592,
+      "internal_ms": 555.716,
+      "stdout": [
+        "report: open_us=134 decode_us=441962 transform_us=16391 encode_us=93438 total_us=555716 output_bytes=95832 peak_managed_bytes=49436320 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.193359375,
+      "load_after": 8.193359375,
+      "output_bytes": 95832,
+      "output_sha256": "9f608a760ae544b4d908e3dedcf414edffc749fec13c1e57d867193f6f205c69",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-rav1e-s6",
+      "wall_s": 0.6667140000000007,
+      "max_rss_bytes": 134987776,
+      "internal_ms": 653.133,
+      "stdout": [
+        "report: open_us=1672 decode_us=440017 transform_us=17784 encode_us=190151 total_us=653133 output_bytes=287363 peak_managed_bytes=45782816 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.193359375,
+      "load_after": 8.193359375,
+      "output_bytes": 287363,
+      "output_sha256": "565310f0cd7a9f7da80d7440c699bc954d15a775a252934b9b432ed657a66331",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s6",
+      "wall_s": 0.832284833000001,
+      "max_rss_bytes": 151732224,
+      "internal_ms": 818.333,
+      "stdout": [
+        "report: open_us=120 decode_us=442687 transform_us=16571 encode_us=355195 total_us=818333 output_bytes=234023 peak_managed_bytes=49489264 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.193359375,
+      "load_after": 8.193359375,
+      "output_bytes": 234023,
+      "output_sha256": "b716c4361b00203cd41cd8f9c6dd05709ac810665e581e9f8bc2a64242496666",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s7",
+      "wall_s": 0.5970091670000013,
+      "max_rss_bytes": 131186688,
+      "internal_ms": 583.872,
+      "stdout": [
+        "report: open_us=146 decode_us=440123 transform_us=16140 encode_us=123818 total_us=583872 output_bytes=239588 peak_managed_bytes=49487520 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.193359375,
+      "load_after": 8.193359375,
+      "output_bytes": 239588,
+      "output_sha256": "e4dbf7c6d425b62548cddf2f30de42dc9d45cf81e1ec7c77db5995a939b499b3",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s7",
+      "wall_s": 0.5981701249999993,
+      "max_rss_bytes": 132300800,
+      "internal_ms": 584.092,
+      "stdout": [
+        "report: open_us=114 decode_us=440327 transform_us=16068 encode_us=123780 total_us=584092 output_bytes=239588 peak_managed_bytes=49434576 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.193359375,
+      "load_after": 8.193359375,
+      "output_bytes": 239588,
+      "output_sha256": "e4dbf7c6d425b62548cddf2f30de42dc9d45cf81e1ec7c77db5995a939b499b3",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s6",
+      "wall_s": 0.8290716249999992,
+      "max_rss_bytes": 153321472,
+      "internal_ms": 815.961,
+      "stdout": [
+        "report: open_us=119 decode_us=439891 transform_us=15571 encode_us=356516 total_us=815961 output_bytes=234023 peak_managed_bytes=49489264 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.193359375,
+      "load_after": 8.193359375,
+      "output_bytes": 234023,
+      "output_sha256": "b716c4361b00203cd41cd8f9c6dd05709ac810665e581e9f8bc2a64242496666",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-rav1e-s6",
+      "wall_s": 0.6485264169999994,
+      "max_rss_bytes": 133234688,
+      "internal_ms": 634.408,
+      "stdout": [
+        "report: open_us=1629 decode_us=440348 transform_us=17051 encode_us=171799 total_us=634408 output_bytes=287363 peak_managed_bytes=45832272 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.193359375,
+      "load_after": 7.857421875,
+      "output_bytes": 287363,
+      "output_sha256": "565310f0cd7a9f7da80d7440c699bc954d15a775a252934b9b432ed657a66331",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s7",
+      "wall_s": 0.5696686660000001,
+      "max_rss_bytes": 132202496,
+      "internal_ms": 554.649,
+      "stdout": [
+        "report: open_us=125 decode_us=440855 transform_us=15599 encode_us=94272 total_us=554649 output_bytes=95832 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.857421875,
+      "load_after": 7.857421875,
+      "output_bytes": 95832,
+      "output_sha256": "9f608a760ae544b4d908e3dedcf414edffc749fec13c1e57d867193f6f205c69",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s6",
+      "wall_s": 0.663685375,
+      "max_rss_bytes": 151486464,
+      "internal_ms": 650.716,
+      "stdout": [
+        "report: open_us=103 decode_us=442138 transform_us=16157 encode_us=188629 total_us=650716 output_bytes=91943 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.857421875,
+      "load_after": 7.857421875,
+      "output_bytes": 91943,
+      "output_sha256": "db96636580e2df3c24e5c2816d25b63c15e16054de86d74dfba57ae348d9afd3",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-rav1e-s6",
+      "wall_s": 0.6072857499999991,
+      "max_rss_bytes": 126631936,
+      "internal_ms": 594.039,
+      "stdout": [
+        "report: open_us=1460 decode_us=440596 transform_us=16548 encode_us=131829 total_us=594039 output_bytes=118057 peak_managed_bytes=45808416 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.857421875,
+      "load_after": 7.857421875,
+      "output_bytes": 118057,
+      "output_sha256": "d7ae4c1cabf67ace8af8e997ae1d198a46f165f17176cd591dac27ad8e443e29",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s7",
+      "wall_s": 0.561796790999999,
+      "max_rss_bytes": 131612672,
+      "internal_ms": 548.684,
+      "stdout": [
+        "report: open_us=105 decode_us=440321 transform_us=15857 encode_us=88821 total_us=548684 output_bytes=71148 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.857421875,
+      "load_after": 7.857421875,
+      "output_bytes": 71148,
+      "output_sha256": "4e79a2b9383a6585c2463c6378dd93f454dac0a15bf66489a83c8c69e3a42370",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s6",
+      "wall_s": 0.639856082999998,
+      "max_rss_bytes": 150405120,
+      "internal_ms": 626.892,
+      "stdout": [
+        "report: open_us=111 decode_us=441327 transform_us=15399 encode_us=166259 total_us=626892 output_bytes=67475 peak_managed_bytes=49461920 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.857421875,
+      "load_after": 7.857421875,
+      "output_bytes": 67475,
+      "output_sha256": "9cd4b166d4a300bbbbacc316768f197c60fcb4b3297ca8eec605a464a284ad66",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-rav1e-s6",
+      "wall_s": 0.6118650000000017,
+      "max_rss_bytes": 126976000,
+      "internal_ms": 597.851,
+      "stdout": [
+        "report: open_us=1490 decode_us=440265 transform_us=17299 encode_us=135137 total_us=597851 output_bytes=88571 peak_managed_bytes=45806672 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.857421875,
+      "load_after": 7.857421875,
+      "output_bytes": 88571,
+      "output_sha256": "9b4acef8e605fa7c5bf89d1bdea254486233bedf4f8cf97349b5a39f38fd66ee",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-rav1e-s6",
+      "wall_s": 0.6162766669999975,
+      "max_rss_bytes": 126156800,
+      "internal_ms": 602.814,
+      "stdout": [
+        "report: open_us=1681 decode_us=440109 transform_us=17494 encode_us=139766 total_us=602814 output_bytes=88571 peak_managed_bytes=45806672 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.857421875,
+      "load_after": 7.857421875,
+      "output_bytes": 88571,
+      "output_sha256": "9b4acef8e605fa7c5bf89d1bdea254486233bedf4f8cf97349b5a39f38fd66ee",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s6",
+      "wall_s": 0.6461523749999998,
+      "max_rss_bytes": 150585344,
+      "internal_ms": 631.11,
+      "stdout": [
+        "report: open_us=119 decode_us=444780 transform_us=16727 encode_us=165835 total_us=631110 output_bytes=67475 peak_managed_bytes=49538720 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.857421875,
+      "load_after": 7.54833984375,
+      "output_bytes": 67475,
+      "output_sha256": "9cd4b166d4a300bbbbacc316768f197c60fcb4b3297ca8eec605a464a284ad66",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s7",
+      "wall_s": 0.5643790000000024,
+      "max_rss_bytes": 131465216,
+      "internal_ms": 550.708,
+      "stdout": [
+        "report: open_us=118 decode_us=442168 transform_us=16035 encode_us=88640 total_us=550708 output_bytes=71148 peak_managed_bytes=49461920 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.54833984375,
+      "load_after": 7.54833984375,
+      "output_bytes": 71148,
+      "output_sha256": "4e79a2b9383a6585c2463c6378dd93f454dac0a15bf66489a83c8c69e3a42370",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-rav1e-s6",
+      "wall_s": 0.6270194579999995,
+      "max_rss_bytes": 127860736,
+      "internal_ms": 613.3,
+      "stdout": [
+        "report: open_us=1591 decode_us=441252 transform_us=17503 encode_us=149161 total_us=613300 output_bytes=118057 peak_managed_bytes=45806672 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.54833984375,
+      "load_after": 7.54833984375,
+      "output_bytes": 118057,
+      "output_sha256": "d7ae4c1cabf67ace8af8e997ae1d198a46f165f17176cd591dac27ad8e443e29",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s6",
+      "wall_s": 0.6665652500000014,
+      "max_rss_bytes": 151224320,
+      "internal_ms": 653.233,
+      "stdout": [
+        "report: open_us=112 decode_us=442299 transform_us=16391 encode_us=190764 total_us=653233 output_bytes=91943 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.54833984375,
+      "load_after": 7.54833984375,
+      "output_bytes": 91943,
+      "output_sha256": "db96636580e2df3c24e5c2816d25b63c15e16054de86d74dfba57ae348d9afd3",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s7",
+      "wall_s": 0.5663816670000017,
+      "max_rss_bytes": 131530752,
+      "internal_ms": 552.174,
+      "stdout": [
+        "report: open_us=106 decode_us=439072 transform_us=16404 encode_us=93001 total_us=552174 output_bytes=95832 peak_managed_bytes=49489264 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.54833984375,
+      "load_after": 7.54833984375,
+      "output_bytes": 95832,
+      "output_sha256": "9f608a760ae544b4d908e3dedcf414edffc749fec13c1e57d867193f6f205c69",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-rav1e-s6",
+      "wall_s": 0.6534309160000014,
+      "max_rss_bytes": 131973120,
+      "internal_ms": 639.444,
+      "stdout": [
+        "report: open_us=1502 decode_us=442511 transform_us=17143 encode_us=174623 total_us=639444 output_bytes=287363 peak_managed_bytes=45810160 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.54833984375,
+      "load_after": 7.54833984375,
+      "output_bytes": 287363,
+      "output_sha256": "565310f0cd7a9f7da80d7440c699bc954d15a775a252934b9b432ed657a66331",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s6",
+      "wall_s": 0.8317777089999971,
+      "max_rss_bytes": 152862720,
+      "internal_ms": 818.127,
+      "stdout": [
+        "report: open_us=102 decode_us=443183 transform_us=16267 encode_us=354798 total_us=818127 output_bytes=234023 peak_managed_bytes=49434576 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.54833984375,
+      "load_after": 7.54833984375,
+      "output_bytes": 234023,
+      "output_sha256": "b716c4361b00203cd41cd8f9c6dd05709ac810665e581e9f8bc2a64242496666",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s7",
+      "wall_s": 0.5972663750000002,
+      "max_rss_bytes": 131874816,
+      "internal_ms": 583.119,
+      "stdout": [
+        "report: open_us=101 decode_us=440517 transform_us=15622 encode_us=123237 total_us=583119 output_bytes=239588 peak_managed_bytes=49453776 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.54833984375,
+      "load_after": 7.54833984375,
+      "output_bytes": 239588,
+      "output_sha256": "e4dbf7c6d425b62548cddf2f30de42dc9d45cf81e1ec7c77db5995a939b499b3",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s7",
+      "wall_s": 0.5996911669999996,
+      "max_rss_bytes": 132890624,
+      "internal_ms": 585.325,
+      "stdout": [
+        "report: open_us=105 decode_us=443559 transform_us=15642 encode_us=122370 total_us=585325 output_bytes=239588 peak_managed_bytes=49461920 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.54833984375,
+      "load_after": 7.26416015625,
+      "output_bytes": 239588,
+      "output_sha256": "e4dbf7c6d425b62548cddf2f30de42dc9d45cf81e1ec7c77db5995a939b499b3",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s6",
+      "wall_s": 0.8325668750000013,
+      "max_rss_bytes": 152944640,
+      "internal_ms": 818.011,
+      "stdout": [
+        "report: open_us=98 decode_us=443220 transform_us=15904 encode_us=355170 total_us=818011 output_bytes=234023 peak_managed_bytes=49436320 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.26416015625,
+      "load_after": 7.26416015625,
+      "output_bytes": 234023,
+      "output_sha256": "b716c4361b00203cd41cd8f9c6dd05709ac810665e581e9f8bc2a64242496666",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-rav1e-s6",
+      "wall_s": 0.6520208330000017,
+      "max_rss_bytes": 132743168,
+      "internal_ms": 637.841,
+      "stdout": [
+        "report: open_us=1506 decode_us=443184 transform_us=17777 encode_us=171741 total_us=637841 output_bytes=287363 peak_managed_bytes=45808416 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.26416015625,
+      "load_after": 7.26416015625,
+      "output_bytes": 287363,
+      "output_sha256": "565310f0cd7a9f7da80d7440c699bc954d15a775a252934b9b432ed657a66331",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s7",
+      "wall_s": 0.5684617920000008,
+      "max_rss_bytes": 131645440,
+      "internal_ms": 554.399,
+      "stdout": [
+        "report: open_us=113 decode_us=439456 transform_us=16148 encode_us=94941 total_us=554399 output_bytes=95832 peak_managed_bytes=49463664 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.26416015625,
+      "load_after": 7.26416015625,
+      "output_bytes": 95832,
+      "output_sha256": "9f608a760ae544b4d908e3dedcf414edffc749fec13c1e57d867193f6f205c69",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s6",
+      "wall_s": 0.6698810000000002,
+      "max_rss_bytes": 151732224,
+      "internal_ms": 655.616,
+      "stdout": [
+        "report: open_us=117 decode_us=444547 transform_us=16234 encode_us=190801 total_us=655616 output_bytes=91943 peak_managed_bytes=49487520 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.26416015625,
+      "load_after": 7.26416015625,
+      "output_bytes": 91943,
+      "output_sha256": "db96636580e2df3c24e5c2816d25b63c15e16054de86d74dfba57ae348d9afd3",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-rav1e-s6",
+      "wall_s": 0.6117136250000001,
+      "max_rss_bytes": 127025152,
+      "internal_ms": 598.552,
+      "stdout": [
+        "report: open_us=1686 decode_us=439783 transform_us=16794 encode_us=136523 total_us=598552 output_bytes=118057 peak_managed_bytes=45834016 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.26416015625,
+      "load_after": 7.26416015625,
+      "output_bytes": 118057,
+      "output_sha256": "d7ae4c1cabf67ace8af8e997ae1d198a46f165f17176cd591dac27ad8e443e29",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s7",
+      "wall_s": 0.5649287919999999,
+      "max_rss_bytes": 131399680,
+      "internal_ms": 550.391,
+      "stdout": [
+        "report: open_us=122 decode_us=441870 transform_us=16307 encode_us=88370 total_us=550391 output_bytes=71148 peak_managed_bytes=49487520 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.26416015625,
+      "load_after": 7.26416015625,
+      "output_bytes": 71148,
+      "output_sha256": "4e79a2b9383a6585c2463c6378dd93f454dac0a15bf66489a83c8c69e3a42370",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s6",
+      "wall_s": 0.6415203749999989,
+      "max_rss_bytes": 150962176,
+      "internal_ms": 626.68,
+      "stdout": [
+        "report: open_us=114 decode_us=440120 transform_us=16492 encode_us=166135 total_us=626680 output_bytes=67475 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.26416015625,
+      "load_after": 7.26416015625,
+      "output_bytes": 67475,
+      "output_sha256": "9cd4b166d4a300bbbbacc316768f197c60fcb4b3297ca8eec605a464a284ad66",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-rav1e-s6",
+      "wall_s": 0.6266108749999972,
+      "max_rss_bytes": 128253952,
+      "internal_ms": 612.797,
+      "stdout": [
+        "report: open_us=1475 decode_us=443441 transform_us=17271 encode_us=147086 total_us=612797 output_bytes=88571 peak_managed_bytes=45853216 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.26416015625,
+      "load_after": 7.48291015625,
+      "output_bytes": 88571,
+      "output_sha256": "9b4acef8e605fa7c5bf89d1bdea254486233bedf4f8cf97349b5a39f38fd66ee",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-rav1e-s6",
+      "wall_s": 0.6103249169999998,
+      "max_rss_bytes": 126255104,
+      "internal_ms": 596.721,
+      "stdout": [
+        "report: open_us=1613 decode_us=440975 transform_us=16779 encode_us=133794 total_us=596721 output_bytes=88571 peak_managed_bytes=45834016 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.48291015625,
+      "load_after": 7.48291015625,
+      "output_bytes": 88571,
+      "output_sha256": "9b4acef8e605fa7c5bf89d1bdea254486233bedf4f8cf97349b5a39f38fd66ee",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s6",
+      "wall_s": 0.6426295419999981,
+      "max_rss_bytes": 151371776,
+      "internal_ms": 628.874,
+      "stdout": [
+        "report: open_us=98 decode_us=441580 transform_us=16849 encode_us=166738 total_us=628874 output_bytes=67475 peak_managed_bytes=49489264 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.48291015625,
+      "load_after": 7.48291015625,
+      "output_bytes": 67475,
+      "output_sha256": "9cd4b166d4a300bbbbacc316768f197c60fcb4b3297ca8eec605a464a284ad66",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s7",
+      "wall_s": 0.5617014999999981,
+      "max_rss_bytes": 132104192,
+      "internal_ms": 548.27,
+      "stdout": [
+        "report: open_us=122 decode_us=440548 transform_us=15419 encode_us=88310 total_us=548270 output_bytes=71148 peak_managed_bytes=49463664 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.48291015625,
+      "load_after": 7.48291015625,
+      "output_bytes": 71148,
+      "output_sha256": "4e79a2b9383a6585c2463c6378dd93f454dac0a15bf66489a83c8c69e3a42370",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-rav1e-s6",
+      "wall_s": 0.6138455839999999,
+      "max_rss_bytes": 128286720,
+      "internal_ms": 600.435,
+      "stdout": [
+        "report: open_us=1562 decode_us=440242 transform_us=17753 encode_us=137302 total_us=600435 output_bytes=118057 peak_managed_bytes=45806672 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.48291015625,
+      "load_after": 7.48291015625,
+      "output_bytes": 118057,
+      "output_sha256": "d7ae4c1cabf67ace8af8e997ae1d198a46f165f17176cd591dac27ad8e443e29",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s6",
+      "wall_s": 0.6627081669999981,
+      "max_rss_bytes": 151339008,
+      "internal_ms": 648.463,
+      "stdout": [
+        "report: open_us=111 decode_us=439591 transform_us=16054 encode_us=188791 total_us=648463 output_bytes=91943 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.48291015625,
+      "load_after": 7.48291015625,
+      "output_bytes": 91943,
+      "output_sha256": "db96636580e2df3c24e5c2816d25b63c15e16054de86d74dfba57ae348d9afd3",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s7",
+      "wall_s": 0.5691662079999986,
+      "max_rss_bytes": 131596288,
+      "internal_ms": 554.847,
+      "stdout": [
+        "report: open_us=107 decode_us=440146 transform_us=16517 encode_us=94440 total_us=554847 output_bytes=95832 peak_managed_bytes=49463664 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.48291015625,
+      "load_after": 7.48291015625,
+      "output_bytes": 95832,
+      "output_sha256": "9f608a760ae544b4d908e3dedcf414edffc749fec13c1e57d867193f6f205c69",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-rav1e-s6",
+      "wall_s": 0.6524292499999973,
+      "max_rss_bytes": 131448832,
+      "internal_ms": 639.115,
+      "stdout": [
+        "report: open_us=1528 decode_us=440083 transform_us=17138 encode_us=176788 total_us=639115 output_bytes=287363 peak_managed_bytes=45832272 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.48291015625,
+      "load_after": 7.48291015625,
+      "output_bytes": 287363,
+      "output_sha256": "565310f0cd7a9f7da80d7440c699bc954d15a775a252934b9b432ed657a66331",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s6",
+      "wall_s": 0.8341262090000043,
+      "max_rss_bytes": 152682496,
+      "internal_ms": 819.174,
+      "stdout": [
+        "report: open_us=109 decode_us=441474 transform_us=16999 encode_us=356851 total_us=819174 output_bytes=234023 peak_managed_bytes=49511376 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.48291015625,
+      "load_after": 7.12353515625,
+      "output_bytes": 234023,
+      "output_sha256": "b716c4361b00203cd41cd8f9c6dd05709ac810665e581e9f8bc2a64242496666",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s7",
+      "wall_s": 0.5989628339999982,
+      "max_rss_bytes": 131481600,
+      "internal_ms": 585.035,
+      "stdout": [
+        "report: open_us=122 decode_us=441122 transform_us=16745 encode_us=123322 total_us=585035 output_bytes=239588 peak_managed_bytes=49463664 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.12353515625,
+      "load_after": 7.12353515625,
+      "output_bytes": 239588,
+      "output_sha256": "e4dbf7c6d425b62548cddf2f30de42dc9d45cf81e1ec7c77db5995a939b499b3",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s7",
+      "wall_s": 0.5999390420000026,
+      "max_rss_bytes": 132382720,
+      "internal_ms": 586.075,
+      "stdout": [
+        "report: open_us=102 decode_us=441906 transform_us=16598 encode_us=123662 total_us=586075 output_bytes=239588 peak_managed_bytes=49461920 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.12353515625,
+      "load_after": 7.12353515625,
+      "output_bytes": 239588,
+      "output_sha256": "e4dbf7c6d425b62548cddf2f30de42dc9d45cf81e1ec7c77db5995a939b499b3",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s6",
+      "wall_s": 0.8273465420000008,
+      "max_rss_bytes": 153010176,
+      "internal_ms": 814.232,
+      "stdout": [
+        "report: open_us=119 decode_us=440768 transform_us=15977 encode_us=353570 total_us=814232 output_bytes=234023 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.12353515625,
+      "load_after": 7.12353515625,
+      "output_bytes": 234023,
+      "output_sha256": "b716c4361b00203cd41cd8f9c6dd05709ac810665e581e9f8bc2a64242496666",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-rav1e-s6",
+      "wall_s": 0.6484974589999979,
+      "max_rss_bytes": 132055040,
+      "internal_ms": 634.087,
+      "stdout": [
+        "report: open_us=1471 decode_us=441586 transform_us=17576 encode_us=169922 total_us=634087 output_bytes=287363 peak_managed_bytes=45808416 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.12353515625,
+      "load_after": 7.12353515625,
+      "output_bytes": 287363,
+      "output_sha256": "565310f0cd7a9f7da80d7440c699bc954d15a775a252934b9b432ed657a66331",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s7",
+      "wall_s": 0.5692477079999989,
+      "max_rss_bytes": 131153920,
+      "internal_ms": 555.599,
+      "stdout": [
+        "report: open_us=102 decode_us=440993 transform_us=16321 encode_us=94551 total_us=555599 output_bytes=95832 peak_managed_bytes=49487520 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.12353515625,
+      "load_after": 7.12353515625,
+      "output_bytes": 95832,
+      "output_sha256": "9f608a760ae544b4d908e3dedcf414edffc749fec13c1e57d867193f6f205c69",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s6",
+      "wall_s": 0.6665562920000028,
+      "max_rss_bytes": 150749184,
+      "internal_ms": 652.727,
+      "stdout": [
+        "report: open_us=103 decode_us=444087 transform_us=15867 encode_us=188975 total_us=652727 output_bytes=91943 peak_managed_bytes=49485776 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.12353515625,
+      "load_after": 7.12353515625,
+      "output_bytes": 91943,
+      "output_sha256": "db96636580e2df3c24e5c2816d25b63c15e16054de86d74dfba57ae348d9afd3",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-rav1e-s6",
+      "wall_s": 0.6159856250000004,
+      "max_rss_bytes": 126320640,
+      "internal_ms": 602.388,
+      "stdout": [
+        "report: open_us=1645 decode_us=440644 transform_us=16842 encode_us=139678 total_us=602388 output_bytes=118057 peak_managed_bytes=45835760 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.12353515625,
+      "load_after": 8.314453125,
+      "output_bytes": 118057,
+      "output_sha256": "d7ae4c1cabf67ace8af8e997ae1d198a46f165f17176cd591dac27ad8e443e29",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s7",
+      "wall_s": 0.5642952499999936,
+      "max_rss_bytes": 131497984,
+      "internal_ms": 550.622,
+      "stdout": [
+        "report: open_us=100 decode_us=441494 transform_us=16220 encode_us=89071 total_us=550622 output_bytes=71148 peak_managed_bytes=49485776 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.314453125,
+      "load_after": 8.314453125,
+      "output_bytes": 71148,
+      "output_sha256": "4e79a2b9383a6585c2463c6378dd93f454dac0a15bf66489a83c8c69e3a42370",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s6",
+      "wall_s": 0.6424474160000031,
+      "max_rss_bytes": 151126016,
+      "internal_ms": 627.972,
+      "stdout": [
+        "report: open_us=116 decode_us=441013 transform_us=16206 encode_us=167033 total_us=627972 output_bytes=67475 peak_managed_bytes=49461920 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.314453125,
+      "load_after": 8.314453125,
+      "output_bytes": 67475,
+      "output_sha256": "9cd4b166d4a300bbbbacc316768f197c60fcb4b3297ca8eec605a464a284ad66",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-rav1e-s6",
+      "wall_s": 0.6067249160000046,
+      "max_rss_bytes": 126435328,
+      "internal_ms": 593.128,
+      "stdout": [
+        "report: open_us=1800 decode_us=442182 transform_us=16730 encode_us=128827 total_us=593128 output_bytes=88571 peak_managed_bytes=45810160 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.314453125,
+      "load_after": 8.314453125,
+      "output_bytes": 88571,
+      "output_sha256": "9b4acef8e605fa7c5bf89d1bdea254486233bedf4f8cf97349b5a39f38fd66ee",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-rav1e-s6",
+      "wall_s": 0.6174510829999988,
+      "max_rss_bytes": 128188416,
+      "internal_ms": 603.756,
+      "stdout": [
+        "report: open_us=1624 decode_us=441433 transform_us=17508 encode_us=139516 total_us=603756 output_bytes=88571 peak_managed_bytes=45834016 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.314453125,
+      "load_after": 8.314453125,
+      "output_bytes": 88571,
+      "output_sha256": "9b4acef8e605fa7c5bf89d1bdea254486233bedf4f8cf97349b5a39f38fd66ee",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s6",
+      "wall_s": 0.6437284579999982,
+      "max_rss_bytes": 151764992,
+      "internal_ms": 629.57,
+      "stdout": [
+        "report: open_us=111 decode_us=442859 transform_us=15862 encode_us=167004 total_us=629570 output_bytes=67475 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.314453125,
+      "load_after": 8.314453125,
+      "output_bytes": 67475,
+      "output_sha256": "9cd4b166d4a300bbbbacc316768f197c60fcb4b3297ca8eec605a464a284ad66",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q70-t0-aom-s7",
+      "wall_s": 0.5613983340000033,
+      "max_rss_bytes": 130777088,
+      "internal_ms": 547.801,
+      "stdout": [
+        "report: open_us=107 decode_us=439530 transform_us=16468 encode_us=88204 total_us=547801 output_bytes=71148 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.314453125,
+      "load_after": 8.314453125,
+      "output_bytes": 71148,
+      "output_sha256": "4e79a2b9383a6585c2463c6378dd93f454dac0a15bf66489a83c8c69e3a42370",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-rav1e-s6",
+      "wall_s": 0.606978416000004,
+      "max_rss_bytes": 128450560,
+      "internal_ms": 593.737,
+      "stdout": [
+        "report: open_us=1799 decode_us=440095 transform_us=17133 encode_us=130870 total_us=593737 output_bytes=118057 peak_managed_bytes=45806672 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.314453125,
+      "load_after": 8.314453125,
+      "output_bytes": 118057,
+      "output_sha256": "d7ae4c1cabf67ace8af8e997ae1d198a46f165f17176cd591dac27ad8e443e29",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s6",
+      "wall_s": 0.6614636250000032,
+      "max_rss_bytes": 150749184,
+      "internal_ms": 647.622,
+      "stdout": [
+        "report: open_us=103 decode_us=439838 transform_us=16015 encode_us=188039 total_us=647622 output_bytes=91943 peak_managed_bytes=49458432 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 8.314453125,
+      "load_after": 7.80859375,
+      "output_bytes": 91943,
+      "output_sha256": "db96636580e2df3c24e5c2816d25b63c15e16054de86d74dfba57ae348d9afd3",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q80-t0-aom-s7",
+      "wall_s": 0.568992209000001,
+      "max_rss_bytes": 131792896,
+      "internal_ms": 556.011,
+      "stdout": [
+        "report: open_us=225 decode_us=441041 transform_us=15689 encode_us=95419 total_us=556011 output_bytes=95832 peak_managed_bytes=49434576 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.80859375,
+      "load_after": 7.80859375,
+      "output_bytes": 95832,
+      "output_sha256": "9f608a760ae544b4d908e3dedcf414edffc749fec13c1e57d867193f6f205c69",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-rav1e-s6",
+      "wall_s": 0.6639954589999988,
+      "max_rss_bytes": 132595712,
+      "internal_ms": 649.167,
+      "stdout": [
+        "report: open_us=1649 decode_us=445458 transform_us=16770 encode_us=181482 total_us=649167 output_bytes=287363 peak_managed_bytes=45810160 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.80859375,
+      "load_after": 7.80859375,
+      "output_bytes": 287363,
+      "output_sha256": "565310f0cd7a9f7da80d7440c699bc954d15a775a252934b9b432ed657a66331",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s6",
+      "wall_s": 0.8330974170000047,
+      "max_rss_bytes": 153239552,
+      "internal_ms": 818.766,
+      "stdout": [
+        "report: open_us=113 decode_us=443256 transform_us=17276 encode_us=354565 total_us=818766 output_bytes=234023 peak_managed_bytes=49460176 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.80859375,
+      "load_after": 7.80859375,
+      "output_bytes": 234023,
+      "output_sha256": "b716c4361b00203cd41cd8f9c6dd05709ac810665e581e9f8bc2a64242496666",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "elcito-q90-t0-aom-s7",
+      "wall_s": 0.5972862919999997,
+      "max_rss_bytes": 133169152,
+      "internal_ms": 583.168,
+      "stdout": [
+        "report: open_us=121 decode_us=440330 transform_us=16340 encode_us=122628 total_us=583168 output_bytes=239588 peak_managed_bytes=49487520 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=7952x5304+0+0 requested=7952x5304+0+0 codec_request=7952x5304+0+0 codec_output=7952x5304+0+0 overfetch_pixels=0 reconstructed_pixels=>=42177408 entropy_rows=5304 delivered_rows=5304 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.80859375,
+      "load_after": 7.80859375,
+      "output_bytes": 239588,
+      "output_sha256": "e4dbf7c6d425b62548cddf2f30de42dc9d45cf81e1ec7c77db5995a939b499b3",
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}

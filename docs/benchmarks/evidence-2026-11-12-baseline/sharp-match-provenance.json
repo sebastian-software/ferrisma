@@ -1,0 +1,54 @@
+{
+  "status": "complete",
+  "fingerprint": {
+    "image_set": "default",
+    "inputs": {
+      "dog": "fc67748b1f04aba4ae38476adae70bd9c6157ee0d86db1e93c05aca5815b42e4",
+      "flower": "6ad9a79e9f26d2723ef954a0dca774429606655ab7184f8ab400016f228ca2ce",
+      "kodim03": "e1a8006980f462bfb6e7c86ba203810da518bc526a4e5ceb75ccd9d8f86c5db8",
+      "kodim23": "7adec663a109811c74d89e3fcf2a3626c2812487f2c3262cf9c97cc20b7881f1"
+    },
+    "references": {
+      "dog": "e745ed1c81f01c6b154329fff4cf5ba10dc01c90b4751db97adc2cb6e770b9fc",
+      "flower": "bff2190d0528d54cdce7e90531161264a703524d35a1c7255698ff8aaf43849b",
+      "kodim03": "ec19888d210e3506e9e3b94b0d9d2017d662aedde63f0696846650b1f2852691",
+      "kodim23": "8f3ca73a61160224bd836443b7ab199177dd09ddfbf32345e7d016e25256a07a"
+    },
+    "ferrisma_sha256": "e949065660c5e3df087b5d8829caff6d2b6e996fc2a082616ec63cfcd0456142",
+    "quality_match_sha256": "3237feec1101c2c1c01473a3dbf27be15b0e7b8063b083a0af1db8e148c19251",
+    "sharp_script_sha256": "2898eb7fc4a98b8eed58c0e846f637cc1e95a4bd4a925b6626edd334ff73b200",
+    "harness_sha256": "6774ec4d599614d805b7a7105a8474935bf2dd81b294ec97f96b84eb18f42acf",
+    "sharp_versions": {
+      "aom": "3.15.1",
+      "archive": "3.8.9",
+      "cairo": "1.18.6",
+      "cgif": "0.5.4",
+      "exif": "0.6.26",
+      "expat": "2.8.5",
+      "ffi": "3.8.0",
+      "fontconfig": "2.18.3",
+      "freetype": "2.14.3",
+      "fribidi": "1.0.17",
+      "glib": "2.90.0",
+      "harfbuzz": "14.5.0",
+      "heif": "1.23.5",
+      "highway": "1.4.0",
+      "imagequant": "2.4.1",
+      "lcms": "2.19.1",
+      "mozjpeg": "0826579",
+      "pango": "1.58.2",
+      "pixman": "0.46.4",
+      "png": "1.6.58",
+      "proxy-libintl": "0.5",
+      "rsvg": "2.63.2",
+      "tiff": "4.7.2",
+      "uhdr": "2.0.2",
+      "vips": "8.18.7",
+      "webp": "1.6.0",
+      "xml2": "2.15.4",
+      "zlib-ng": "2.3.3",
+      "sharp": "0.35.5"
+    }
+  },
+  "matched_sha256": "c9b8b2c2bcafca55c44e8b7d0dda8c1876d038fde53ad2ef5eb72590800fa741"
+}

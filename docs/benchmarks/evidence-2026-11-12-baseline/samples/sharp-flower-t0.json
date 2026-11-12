@@ -1,0 +1,489 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "candidates": [
+      {
+        "id": "flower-all-ferrisma-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/flower-all-rav1e.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/flower-all-rav1e.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=79.77",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--speed=6"
+        ]
+      },
+      {
+        "id": "flower-all-sharp",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/flower-all-sharp.avif",
+        "env": {
+          "NODE_PATH": "/private/tmp/ferramenta300-registry-consumer/node_modules"
+        },
+        "cmd": [
+          "node",
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/scripts/bench/sharp-avif.cjs",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/flower-all-sharp.avif",
+          "1600",
+          "1067",
+          "quality=56",
+          "icc=convert",
+          "threads=0",
+          "chroma=444"
+        ]
+      },
+      {
+        "id": "flower-all-ferrisma-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/flower-all-aom.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/sharp-timing/flower-all-aom.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=55",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444",
+          "--speed=6"
+        ]
+      }
+    ]
+  },
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "uptime_before": "17:38  up 37 days,  4:59, 1 user, load averages: 3.61 5.92 7.47",
+  "uptime_after": "17:38  up 37 days,  4:59, 1 user, load averages: 4.92 6.16 7.55",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "summary": {
+    "flower-all-ferrisma-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.21759054199999994,
+      "wall_min_s": 0.20166845800000033,
+      "wall_max_s": 0.22563099999999991,
+      "rss_median_bytes": 99254272,
+      "rss_min_bytes": 98189312,
+      "rss_max_bytes": 100712448,
+      "load_min": 3.607421875,
+      "load_max": 4.919921875,
+      "internal_median_ms": 207.379,
+      "internal_min_ms": 192.284,
+      "internal_max_ms": 215.909,
+      "output_sha256": [
+        "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e"
+      ],
+      "output_bytes": [
+        126339
+      ]
+    },
+    "flower-all-sharp": {
+      "n": 7,
+      "wall_median_s": 0.4031150410000004,
+      "wall_min_s": 0.4021707919999997,
+      "wall_max_s": 0.40918362500000005,
+      "rss_median_bytes": 247971840,
+      "rss_min_bytes": 242581504,
+      "rss_max_bytes": 252166144,
+      "load_min": 3.607421875,
+      "load_max": 4.919921875,
+      "output_sha256": [
+        "43f441dfc70f70763014ad87a1b95e34ebc19f776b2e4ce8014a2956a42be3cc"
+      ],
+      "output_bytes": [
+        111772
+      ]
+    },
+    "flower-all-ferrisma-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.16028070900000002,
+      "wall_min_s": 0.15996512499999982,
+      "wall_max_s": 0.16227874999999958,
+      "rss_median_bytes": 123158528,
+      "rss_min_bytes": 122716160,
+      "rss_max_bytes": 123928576,
+      "load_min": 3.607421875,
+      "load_max": 4.919921875,
+      "internal_median_ms": 150.751,
+      "internal_min_ms": 150.001,
+      "internal_max_ms": 152.3,
+      "output_sha256": [
+        "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190"
+      ],
+      "output_bytes": [
+        112377
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "flower-all-ferrisma-aom-s6",
+      "wall_s": 0.16149924999999998,
+      "max_rss_bytes": 122880000,
+      "internal_ms": 152.406,
+      "stdout": [
+        "report: open_us=39 decode_us=12768 transform_us=3859 encode_us=133824 total_us=152406 output_bytes=112377 peak_managed_bytes=32700236 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-all-sharp",
+      "wall_s": 0.40658529200000004,
+      "max_rss_bytes": 244563968,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 111772,
+      "output_sha256": "43f441dfc70f70763014ad87a1b95e34ebc19f776b2e4ce8014a2956a42be3cc",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-all-ferrisma-rav1e-s6",
+      "wall_s": 0.22152054200000004,
+      "max_rss_bytes": 100286464,
+      "internal_ms": 211.638,
+      "stdout": [
+        "report: open_us=1481 decode_us=12774 transform_us=6550 encode_us=188951 total_us=211638 output_bytes=126339 peak_managed_bytes=28973908 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-all-ferrisma-rav1e-s6",
+      "wall_s": 0.21815204099999996,
+      "max_rss_bytes": 99254272,
+      "internal_ms": 208.19,
+      "stdout": [
+        "report: open_us=1510 decode_us=12758 transform_us=6425 encode_us=185616 total_us=208190 output_bytes=126339 peak_managed_bytes=29073948 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-sharp",
+      "wall_s": 0.40297066699999995,
+      "max_rss_bytes": 242581504,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 111772,
+      "output_sha256": "43f441dfc70f70763014ad87a1b95e34ebc19f776b2e4ce8014a2956a42be3cc",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-aom-s6",
+      "wall_s": 0.15996512499999982,
+      "max_rss_bytes": 122716160,
+      "internal_ms": 150.751,
+      "stdout": [
+        "report: open_us=40 decode_us=12772 transform_us=4338 encode_us=131836 total_us=150751 output_bytes=112377 peak_managed_bytes=32561456 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-aom-s6",
+      "wall_s": 0.16028070900000002,
+      "max_rss_bytes": 123158528,
+      "internal_ms": 151.306,
+      "stdout": [
+        "report: open_us=39 decode_us=12804 transform_us=4399 encode_us=132066 total_us=151306 output_bytes=112377 peak_managed_bytes=32619864 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-sharp",
+      "wall_s": 0.40918362500000005,
+      "max_rss_bytes": 244088832,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 111772,
+      "output_sha256": "43f441dfc70f70763014ad87a1b95e34ebc19f776b2e4ce8014a2956a42be3cc",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-rav1e-s6",
+      "wall_s": 0.21759054199999994,
+      "max_rss_bytes": 100155392,
+      "internal_ms": 207.379,
+      "stdout": [
+        "report: open_us=1501 decode_us=12682 transform_us=6396 encode_us=184955 total_us=207379 output_bytes=126339 peak_managed_bytes=28935912 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-rav1e-s6",
+      "wall_s": 0.2161185830000001,
+      "max_rss_bytes": 99254272,
+      "internal_ms": 205.714,
+      "stdout": [
+        "report: open_us=1448 decode_us=12631 transform_us=6399 encode_us=183279 total_us=205714 output_bytes=126339 peak_managed_bytes=28961512 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-sharp",
+      "wall_s": 0.4084156250000004,
+      "max_rss_bytes": 248201216,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 111772,
+      "output_sha256": "43f441dfc70f70763014ad87a1b95e34ebc19f776b2e4ce8014a2956a42be3cc",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-aom-s6",
+      "wall_s": 0.15999529200000007,
+      "max_rss_bytes": 123928576,
+      "internal_ms": 150.29,
+      "stdout": [
+        "report: open_us=45 decode_us=12789 transform_us=4603 encode_us=130953 total_us=150290 output_bytes=112377 peak_managed_bytes=32667024 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-aom-s6",
+      "wall_s": 0.1611381660000002,
+      "max_rss_bytes": 123011072,
+      "internal_ms": 151.865,
+      "stdout": [
+        "report: open_us=41 decode_us=12711 transform_us=4340 encode_us=132908 total_us=151865 output_bytes=112377 peak_managed_bytes=32624648 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-sharp",
+      "wall_s": 0.4021707919999997,
+      "max_rss_bytes": 246497280,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 111772,
+      "output_sha256": "43f441dfc70f70763014ad87a1b95e34ebc19f776b2e4ce8014a2956a42be3cc",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-rav1e-s6",
+      "wall_s": 0.2126148329999995,
+      "max_rss_bytes": 98451456,
+      "internal_ms": 202.479,
+      "stdout": [
+        "report: open_us=1502 decode_us=12702 transform_us=6576 encode_us=179873 total_us=202479 output_bytes=126339 peak_managed_bytes=28931936 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-rav1e-s6",
+      "wall_s": 0.22563099999999991,
+      "max_rss_bytes": 100073472,
+      "internal_ms": 215.909,
+      "stdout": [
+        "report: open_us=1424 decode_us=12775 transform_us=6144 encode_us=193721 total_us=215909 output_bytes=126339 peak_managed_bytes=28991960 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-sharp",
+      "wall_s": 0.40310000000000024,
+      "max_rss_bytes": 248676352,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 111772,
+      "output_sha256": "43f441dfc70f70763014ad87a1b95e34ebc19f776b2e4ce8014a2956a42be3cc",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-aom-s6",
+      "wall_s": 0.16065508400000006,
+      "max_rss_bytes": 123764736,
+      "internal_ms": 150.355,
+      "stdout": [
+        "report: open_us=42 decode_us=12658 transform_us=4247 encode_us=131391 total_us=150355 output_bytes=112377 peak_managed_bytes=32681440 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 3.607421875,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-aom-s6",
+      "wall_s": 0.16227874999999958,
+      "max_rss_bytes": 122814464,
+      "internal_ms": 152.3,
+      "stdout": [
+        "report: open_us=44 decode_us=12693 transform_us=4302 encode_us=133323 total_us=152300 output_bytes=112377 peak_managed_bytes=32722264 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 3.607421875,
+      "load_after": 4.919921875,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-sharp",
+      "wall_s": 0.4055279589999996,
+      "max_rss_bytes": 252166144,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 4.919921875,
+      "load_after": 4.919921875,
+      "output_bytes": 111772,
+      "output_sha256": "43f441dfc70f70763014ad87a1b95e34ebc19f776b2e4ce8014a2956a42be3cc",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-rav1e-s6",
+      "wall_s": 0.21878883300000052,
+      "max_rss_bytes": 98189312,
+      "internal_ms": 210.074,
+      "stdout": [
+        "report: open_us=1347 decode_us=12632 transform_us=6307 encode_us=187988 total_us=210074 output_bytes=126339 peak_managed_bytes=28913544 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 4.919921875,
+      "load_after": 4.919921875,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-rav1e-s6",
+      "wall_s": 0.20166845800000033,
+      "max_rss_bytes": 100712448,
+      "internal_ms": 192.284,
+      "stdout": [
+        "report: open_us=1629 decode_us=12653 transform_us=6152 encode_us=169940 total_us=192284 output_bytes=126339 peak_managed_bytes=28971144 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 4.919921875,
+      "load_after": 4.919921875,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-sharp",
+      "wall_s": 0.4031150410000004,
+      "max_rss_bytes": 247971840,
+      "internal_ms": null,
+      "stdout": [],
+      "load_before": 4.919921875,
+      "load_after": 4.919921875,
+      "output_bytes": 111772,
+      "output_sha256": "43f441dfc70f70763014ad87a1b95e34ebc19f776b2e4ce8014a2956a42be3cc",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "flower-all-ferrisma-aom-s6",
+      "wall_s": 0.1600203330000003,
+      "max_rss_bytes": 123650048,
+      "internal_ms": 150.001,
+      "stdout": [
+        "report: open_us=44 decode_us=12736 transform_us=4401 encode_us=131001 total_us=150001 output_bytes=112377 peak_managed_bytes=32671064 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 4.919921875,
+      "load_after": 4.919921875,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}

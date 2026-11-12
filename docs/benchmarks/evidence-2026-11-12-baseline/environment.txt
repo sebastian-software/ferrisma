@@ -1,0 +1,34 @@
+commit 4f96bbc667f27bb8eb00c78d085211fd0eb4a12f
+tracked_status: ''
+Apple M1 Ultra
+20
+68719476736
+Mac13,2
+ProductName:		macOS
+ProductVersion:		27.0.1
+BuildVersion:		26A434
+Darwin Mac-Studio-von-sebastianwerner-776.local 27.0.0 Darwin Kernel Version 27.0.0: Tue Aug 11 21:22:49 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T6000 arm64
+rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)
+binary: rustc
+commit-hash: 5a2be9f5f075d31e3ca5526b5b029881ce441253
+commit-date: 2026-09-06
+host: aarch64-apple-darwin
+release: 1.100.0-nightly
+LLVM version: 23.1.1
+cargo 1.100.0-nightly (3c0b53475 2026-09-04)
+v24.22.2
+hyperfine 2.0.0
+Version: ImageMagick 7.1.2-35 Q16-HDRI aarch64 acaf7e418:20261031 https://imagemagick.org
+libheif 1.23.7
+sharp 0.35.5 vips 8.18.7 aom 3.15.1 mozjpeg 0826579 heif 1.23.5
+e949065660c5e3df087b5d8829caff6d2b6e996fc2a082616ec63cfcd0456142  target/release/ferrisma
+0be1cd16c7b7ad00783e592d308bd1850afc8bd59c875a30692533b9560bb606  target/release/ferrisma-libavif
+f6ab10cfe92a8be5bab518ba93c8c0d1004426746bde0ef62e74548c72b5d9d4  target/release/examples/jxl_decode_compare
+1c4903b67c9736f9fde04c206b0ee348ce70fb5878d2cbb43b155598dd5a7f9e  target/jxlw/release/ferrisma
+3237feec1101c2c1c01473a3dbf27be15b0e7b8063b083a0af1db8e148c19251  scripts/bench/quality-match/target/release/ferrisma-quality-match
+-rwxr-xr-x@ 1 sebastian  staff   4274256 Nov 12 17:06 target/release/examples/jxl_decode_compare
+-rwxr-xr-x@ 1 sebastian  staff  15353104 Nov 12 17:10 target/release/ferrisma
+name = "jxl-oxide"
+version = "0.12.6"
+name = "rav1e"
+version = "0.8.1"

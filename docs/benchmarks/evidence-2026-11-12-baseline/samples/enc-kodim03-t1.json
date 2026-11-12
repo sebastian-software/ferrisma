@@ -1,0 +1,1511 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "candidates": [
+      {
+        "id": "kodim03-q70-t1-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q70-t1-rav1e-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim03.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q70-t1-rav1e-s6.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=70",
+          "--speed=6",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "kodim03-q70-t1-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q70-t1-aom-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim03.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q70-t1-aom-s6.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=49",
+          "--speed=6",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "kodim03-q70-t1-aom-s7",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q70-t1-aom-s7.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim03.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q70-t1-aom-s7.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=50",
+          "--speed=7",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "kodim03-q80-t1-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q80-t1-rav1e-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim03.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q80-t1-rav1e-s6.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=80",
+          "--speed=6",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "kodim03-q80-t1-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q80-t1-aom-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim03.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q80-t1-aom-s6.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=55",
+          "--speed=6",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "kodim03-q80-t1-aom-s7",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q80-t1-aom-s7.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim03.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q80-t1-aom-s7.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=56",
+          "--speed=7",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "kodim03-q90-t1-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q90-t1-rav1e-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim03.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q90-t1-rav1e-s6.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=90",
+          "--speed=6",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "kodim03-q90-t1-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q90-t1-aom-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim03.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q90-t1-aom-s6.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=78",
+          "--speed=6",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "kodim03-q90-t1-aom-s7",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q90-t1-aom-s7.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/kodim03.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/kodim03-q90-t1-aom-s7.avif",
+          "512",
+          "341",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=78",
+          "--speed=7",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--chroma=444"
+        ]
+      }
+    ]
+  },
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "uptime_before": "17:24  up 37 days,  4:45, 1 user, load averages: 5.18 7.25 9.23",
+  "uptime_after": "17:24  up 37 days,  4:45, 1 user, load averages: 5.41 7.22 9.20",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "summary": {
+    "kodim03-q70-t1-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.17420716699999872,
+      "wall_min_s": 0.1685347909999999,
+      "wall_max_s": 0.1760557079999998,
+      "rss_median_bytes": 18825216,
+      "rss_min_bytes": 17547264,
+      "rss_max_bytes": 19087360,
+      "load_min": 5.0087890625,
+      "load_max": 5.18408203125,
+      "internal_median_ms": 165.02,
+      "internal_min_ms": 160.884,
+      "internal_max_ms": 166.165,
+      "output_sha256": [
+        "2e6dc444212394848fbb1d816c319b303ad9d2b1bae8c259548f32a084516dc3"
+      ],
+      "output_bytes": [
+        11663
+      ]
+    },
+    "kodim03-q70-t1-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.11851599999999962,
+      "wall_min_s": 0.11612641700000004,
+      "wall_max_s": 0.11999062500000068,
+      "rss_median_bytes": 19955712,
+      "rss_min_bytes": 19906560,
+      "rss_max_bytes": 20234240,
+      "load_min": 5.0087890625,
+      "load_max": 5.18408203125,
+      "internal_median_ms": 109.373,
+      "internal_min_ms": 107.44,
+      "internal_max_ms": 111.471,
+      "output_sha256": [
+        "54439ab5776bb7bbe42eff9e48ef2c03a82268c8f37b3482e961e099d8d4a2ff"
+      ],
+      "output_bytes": [
+        10061
+      ]
+    },
+    "kodim03-q70-t1-aom-s7": {
+      "n": 7,
+      "wall_median_s": 0.06261729199999966,
+      "wall_min_s": 0.06214549999999974,
+      "wall_max_s": 0.06405866599999932,
+      "rss_median_bytes": 17432576,
+      "rss_min_bytes": 17350656,
+      "rss_max_bytes": 18087936,
+      "load_min": 5.0087890625,
+      "load_max": 5.18408203125,
+      "internal_median_ms": 53.939,
+      "internal_min_ms": 53.125,
+      "internal_max_ms": 54.789,
+      "output_sha256": [
+        "87df712748414d6dcc2b7d73c6011181fe291441750c8c6853a96a0ebe2db3e6"
+      ],
+      "output_bytes": [
+        11160
+      ]
+    },
+    "kodim03-q80-t1-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.19403441699999924,
+      "wall_min_s": 0.1905078330000003,
+      "wall_max_s": 0.19723858399999994,
+      "rss_median_bytes": 17924096,
+      "rss_min_bytes": 17563648,
+      "rss_max_bytes": 19202048,
+      "load_min": 5.0087890625,
+      "load_max": 5.18408203125,
+      "internal_median_ms": 185.595,
+      "internal_min_ms": 182.353,
+      "internal_max_ms": 188.055,
+      "output_sha256": [
+        "94baa885c201b775a2182d6f76fe1694e129c49cf0e7b165f92e4cfc1523f425"
+      ],
+      "output_bytes": [
+        14249
+      ]
+    },
+    "kodim03-q80-t1-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.1248639159999998,
+      "wall_min_s": 0.12248204200000012,
+      "wall_max_s": 0.1265594159999992,
+      "rss_median_bytes": 20267008,
+      "rss_min_bytes": 20185088,
+      "rss_max_bytes": 20692992,
+      "load_min": 5.0087890625,
+      "load_max": 5.18408203125,
+      "internal_median_ms": 116.58,
+      "internal_min_ms": 113.667,
+      "internal_max_ms": 117.609,
+      "output_sha256": [
+        "188f8c2505f33c0ecfa5e35baca02546c15f7d35fb8ae63515eee33a6decae2e"
+      ],
+      "output_bytes": [
+        12645
+      ]
+    },
+    "kodim03-q80-t1-aom-s7": {
+      "n": 7,
+      "wall_median_s": 0.06609604199999985,
+      "wall_min_s": 0.06407525000000014,
+      "wall_max_s": 0.0673957500000002,
+      "rss_median_bytes": 17498112,
+      "rss_min_bytes": 17350656,
+      "rss_max_bytes": 17825792,
+      "load_min": 5.0087890625,
+      "load_max": 5.18408203125,
+      "internal_median_ms": 57.664,
+      "internal_min_ms": 56.305,
+      "internal_max_ms": 58.255,
+      "output_sha256": [
+        "f90a11ddca29e991298d3118e9905c6fedc6f61fb99b02660fdba33300401785"
+      ],
+      "output_bytes": [
+        13807
+      ]
+    },
+    "kodim03-q90-t1-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.22984091599999967,
+      "wall_min_s": 0.2239635419999999,
+      "wall_max_s": 0.23284612500000001,
+      "rss_median_bytes": 18350080,
+      "rss_min_bytes": 17694720,
+      "rss_max_bytes": 18939904,
+      "load_min": 5.0087890625,
+      "load_max": 5.18408203125,
+      "internal_median_ms": 220.687,
+      "internal_min_ms": 215.374,
+      "internal_max_ms": 223.637,
+      "output_sha256": [
+        "56ba5025ccd61beba314df81557cf90201c0f721ab1a0b4fbb8ca141798c6bb2"
+      ],
+      "output_bytes": [
+        28640
+      ]
+    },
+    "kodim03-q90-t1-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.108409333,
+      "wall_min_s": 0.10831533399999982,
+      "wall_max_s": 0.11442045800000056,
+      "rss_median_bytes": 20086784,
+      "rss_min_bytes": 20004864,
+      "rss_max_bytes": 20348928,
+      "load_min": 5.0087890625,
+      "load_max": 5.18408203125,
+      "internal_median_ms": 100.287,
+      "internal_min_ms": 99.935,
+      "internal_max_ms": 103.026,
+      "output_sha256": [
+        "6ba84b2d25792dfdfad149a54e2cdb17414764a68eab11a15a9aa118cbf33661"
+      ],
+      "output_bytes": [
+        26400
+      ]
+    },
+    "kodim03-q90-t1-aom-s7": {
+      "n": 7,
+      "wall_median_s": 0.07807829199999983,
+      "wall_min_s": 0.07703099999999985,
+      "wall_max_s": 0.08015420799999973,
+      "rss_median_bytes": 17874944,
+      "rss_min_bytes": 17498112,
+      "rss_max_bytes": 18382848,
+      "load_min": 5.0087890625,
+      "load_max": 5.408203125,
+      "internal_median_ms": 68.911,
+      "internal_min_ms": 68.073,
+      "internal_max_ms": 70.149,
+      "output_sha256": [
+        "076c2ec4a3cdbca2c899a28fb1ab7a2d5651cea6741dbdbf6655d0ce969947ce"
+      ],
+      "output_bytes": [
+        26642
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "kodim03-q90-t1-aom-s7",
+      "wall_s": 0.076491833,
+      "max_rss_bytes": 17760256,
+      "internal_ms": 68.175,
+      "stdout": [
+        "report: open_us=40 decode_us=2116 transform_us=3282 encode_us=61979 total_us=68175 output_bytes=26642 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 26642,
+      "output_sha256": "076c2ec4a3cdbca2c899a28fb1ab7a2d5651cea6741dbdbf6655d0ce969947ce",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s6",
+      "wall_s": 0.10842262500000002,
+      "max_rss_bytes": 19939328,
+      "internal_ms": 99.349,
+      "stdout": [
+        "report: open_us=44 decode_us=2112 transform_us=3248 encode_us=93179 total_us=99349 output_bytes=26400 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 26400,
+      "output_sha256": "6ba84b2d25792dfdfad149a54e2cdb17414764a68eab11a15a9aa118cbf33661",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim03-q90-t1-rav1e-s6",
+      "wall_s": 0.22437775,
+      "max_rss_bytes": 19562496,
+      "internal_ms": 215.889,
+      "stdout": [
+        "report: open_us=279 decode_us=2158 transform_us=3516 encode_us=209199 total_us=215889 output_bytes=28640 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 28640,
+      "output_sha256": "56ba5025ccd61beba314df81557cf90201c0f721ab1a0b4fbb8ca141798c6bb2",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s7",
+      "wall_s": 0.0653935,
+      "max_rss_bytes": 17825792,
+      "internal_ms": 56.578,
+      "stdout": [
+        "report: open_us=35 decode_us=2165 transform_us=3373 encode_us=50291 total_us=56578 output_bytes=13807 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 13807,
+      "output_sha256": "f90a11ddca29e991298d3118e9905c6fedc6f61fb99b02660fdba33300401785",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s6",
+      "wall_s": 0.12166125000000005,
+      "max_rss_bytes": 20201472,
+      "internal_ms": 113.413,
+      "stdout": [
+        "report: open_us=35 decode_us=2134 transform_us=3310 encode_us=107185 total_us=113413 output_bytes=12645 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 12645,
+      "output_sha256": "188f8c2505f33c0ecfa5e35baca02546c15f7d35fb8ae63515eee33a6decae2e",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim03-q80-t1-rav1e-s6",
+      "wall_s": 0.19026341600000007,
+      "max_rss_bytes": 17612800,
+      "internal_ms": 182.484,
+      "stdout": [
+        "report: open_us=265 decode_us=2120 transform_us=3420 encode_us=175941 total_us=182484 output_bytes=14249 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 14249,
+      "output_sha256": "94baa885c201b775a2182d6f76fe1694e129c49cf0e7b165f92e4cfc1523f425",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s7",
+      "wall_s": 0.061395541,
+      "max_rss_bytes": 17465344,
+      "internal_ms": 52.98,
+      "stdout": [
+        "report: open_us=35 decode_us=2210 transform_us=3318 encode_us=46671 total_us=52980 output_bytes=11160 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 11160,
+      "output_sha256": "87df712748414d6dcc2b7d73c6011181fe291441750c8c6853a96a0ebe2db3e6",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s6",
+      "wall_s": 0.11556070800000007,
+      "max_rss_bytes": 19988480,
+      "internal_ms": 107.566,
+      "stdout": [
+        "report: open_us=36 decode_us=2170 transform_us=3370 encode_us=101245 total_us=107566 output_bytes=10061 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 10061,
+      "output_sha256": "54439ab5776bb7bbe42eff9e48ef2c03a82268c8f37b3482e961e099d8d4a2ff",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim03-q70-t1-rav1e-s6",
+      "wall_s": 0.1692435000000001,
+      "max_rss_bytes": 17612800,
+      "internal_ms": 160.617,
+      "stdout": [
+        "report: open_us=288 decode_us=2128 transform_us=3465 encode_us=153982 total_us=160617 output_bytes=11663 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 11663,
+      "output_sha256": "2e6dc444212394848fbb1d816c319b303ad9d2b1bae8c259548f32a084516dc3",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "kodim03-q70-t1-rav1e-s6",
+      "wall_s": 0.1685347909999999,
+      "max_rss_bytes": 18890752,
+      "internal_ms": 160.884,
+      "stdout": [
+        "report: open_us=286 decode_us=2083 transform_us=3361 encode_us=154365 total_us=160884 output_bytes=11663 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 11663,
+      "output_sha256": "2e6dc444212394848fbb1d816c319b303ad9d2b1bae8c259548f32a084516dc3",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s6",
+      "wall_s": 0.11612641700000004,
+      "max_rss_bytes": 19939328,
+      "internal_ms": 107.44,
+      "stdout": [
+        "report: open_us=44 decode_us=2258 transform_us=3350 encode_us=101043 total_us=107440 output_bytes=10061 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 10061,
+      "output_sha256": "54439ab5776bb7bbe42eff9e48ef2c03a82268c8f37b3482e961e099d8d4a2ff",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s7",
+      "wall_s": 0.062831042,
+      "max_rss_bytes": 17350656,
+      "internal_ms": 54.131,
+      "stdout": [
+        "report: open_us=50 decode_us=2251 transform_us=3348 encode_us=47713 total_us=54131 output_bytes=11160 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 11160,
+      "output_sha256": "87df712748414d6dcc2b7d73c6011181fe291441750c8c6853a96a0ebe2db3e6",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-rav1e-s6",
+      "wall_s": 0.19247637500000003,
+      "max_rss_bytes": 17924096,
+      "internal_ms": 184.125,
+      "stdout": [
+        "report: open_us=270 decode_us=2140 transform_us=3384 encode_us=177532 total_us=184125 output_bytes=14249 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 14249,
+      "output_sha256": "94baa885c201b775a2182d6f76fe1694e129c49cf0e7b165f92e4cfc1523f425",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s6",
+      "wall_s": 0.12474495800000018,
+      "max_rss_bytes": 20299776,
+      "internal_ms": 116.58,
+      "stdout": [
+        "report: open_us=36 decode_us=2172 transform_us=3390 encode_us=110242 total_us=116580 output_bytes=12645 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 12645,
+      "output_sha256": "188f8c2505f33c0ecfa5e35baca02546c15f7d35fb8ae63515eee33a6decae2e",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s7",
+      "wall_s": 0.06609291599999989,
+      "max_rss_bytes": 17727488,
+      "internal_ms": 58.204,
+      "stdout": [
+        "report: open_us=35 decode_us=2170 transform_us=3319 encode_us=51906 total_us=58204 output_bytes=13807 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 13807,
+      "output_sha256": "f90a11ddca29e991298d3118e9905c6fedc6f61fb99b02660fdba33300401785",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-rav1e-s6",
+      "wall_s": 0.22723454100000007,
+      "max_rss_bytes": 18350080,
+      "internal_ms": 218.612,
+      "stdout": [
+        "report: open_us=339 decode_us=2282 transform_us=3463 encode_us=211745 total_us=218612 output_bytes=28640 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 28640,
+      "output_sha256": "56ba5025ccd61beba314df81557cf90201c0f721ab1a0b4fbb8ca141798c6bb2",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s6",
+      "wall_s": 0.10840737500000008,
+      "max_rss_bytes": 20348928,
+      "internal_ms": 100.287,
+      "stdout": [
+        "report: open_us=38 decode_us=2187 transform_us=3424 encode_us=93871 total_us=100287 output_bytes=26400 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 26400,
+      "output_sha256": "6ba84b2d25792dfdfad149a54e2cdb17414764a68eab11a15a9aa118cbf33661",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s7",
+      "wall_s": 0.07891674999999987,
+      "max_rss_bytes": 18382848,
+      "internal_ms": 70.113,
+      "stdout": [
+        "report: open_us=38 decode_us=2290 transform_us=3473 encode_us=63453 total_us=70113 output_bytes=26642 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 26642,
+      "output_sha256": "076c2ec4a3cdbca2c899a28fb1ab7a2d5651cea6741dbdbf6655d0ce969947ce",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s7",
+      "wall_s": 0.08015420799999973,
+      "max_rss_bytes": 17498112,
+      "internal_ms": 70.149,
+      "stdout": [
+        "report: open_us=41 decode_us=2158 transform_us=3320 encode_us=63861 total_us=70149 output_bytes=26642 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 26642,
+      "output_sha256": "076c2ec4a3cdbca2c899a28fb1ab7a2d5651cea6741dbdbf6655d0ce969947ce",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s6",
+      "wall_s": 0.10831533399999982,
+      "max_rss_bytes": 20070400,
+      "internal_ms": 99.974,
+      "stdout": [
+        "report: open_us=55 decode_us=2132 transform_us=3308 encode_us=93616 total_us=99974 output_bytes=26400 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 26400,
+      "output_sha256": "6ba84b2d25792dfdfad149a54e2cdb17414764a68eab11a15a9aa118cbf33661",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-rav1e-s6",
+      "wall_s": 0.2239635419999999,
+      "max_rss_bytes": 17694720,
+      "internal_ms": 215.374,
+      "stdout": [
+        "report: open_us=267 decode_us=2073 transform_us=3347 encode_us=208973 total_us=215374 output_bytes=28640 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 28640,
+      "output_sha256": "56ba5025ccd61beba314df81557cf90201c0f721ab1a0b4fbb8ca141798c6bb2",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s7",
+      "wall_s": 0.0645550410000002,
+      "max_rss_bytes": 17760256,
+      "internal_ms": 56.579,
+      "stdout": [
+        "report: open_us=34 decode_us=2111 transform_us=3301 encode_us=50424 total_us=56579 output_bytes=13807 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 13807,
+      "output_sha256": "f90a11ddca29e991298d3118e9905c6fedc6f61fb99b02660fdba33300401785",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s6",
+      "wall_s": 0.12248204200000012,
+      "max_rss_bytes": 20185088,
+      "internal_ms": 113.667,
+      "stdout": [
+        "report: open_us=34 decode_us=2136 transform_us=3309 encode_us=107455 total_us=113667 output_bytes=12645 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 12645,
+      "output_sha256": "188f8c2505f33c0ecfa5e35baca02546c15f7d35fb8ae63515eee33a6decae2e",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-rav1e-s6",
+      "wall_s": 0.1905078330000003,
+      "max_rss_bytes": 17563648,
+      "internal_ms": 182.353,
+      "stdout": [
+        "report: open_us=263 decode_us=2093 transform_us=3385 encode_us=175787 total_us=182353 output_bytes=14249 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 14249,
+      "output_sha256": "94baa885c201b775a2182d6f76fe1694e129c49cf0e7b165f92e4cfc1523f425",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s7",
+      "wall_s": 0.062356499999999926,
+      "max_rss_bytes": 17645568,
+      "internal_ms": 53.125,
+      "stdout": [
+        "report: open_us=35 decode_us=2138 transform_us=3296 encode_us=46917 total_us=53125 output_bytes=11160 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 11160,
+      "output_sha256": "87df712748414d6dcc2b7d73c6011181fe291441750c8c6853a96a0ebe2db3e6",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s6",
+      "wall_s": 0.11738254200000009,
+      "max_rss_bytes": 20234240,
+      "internal_ms": 108.275,
+      "stdout": [
+        "report: open_us=37 decode_us=2130 transform_us=3301 encode_us=102060 total_us=108275 output_bytes=10061 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 10061,
+      "output_sha256": "54439ab5776bb7bbe42eff9e48ef2c03a82268c8f37b3482e961e099d8d4a2ff",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-rav1e-s6",
+      "wall_s": 0.16983537500000034,
+      "max_rss_bytes": 19087360,
+      "internal_ms": 161.215,
+      "stdout": [
+        "report: open_us=283 decode_us=2101 transform_us=3398 encode_us=154714 total_us=161215 output_bytes=11663 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 11663,
+      "output_sha256": "2e6dc444212394848fbb1d816c319b303ad9d2b1bae8c259548f32a084516dc3",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-rav1e-s6",
+      "wall_s": 0.1725460000000001,
+      "max_rss_bytes": 19054592,
+      "internal_ms": 162.398,
+      "stdout": [
+        "report: open_us=255 decode_us=2209 transform_us=3556 encode_us=155633 total_us=162398 output_bytes=11663 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 11663,
+      "output_sha256": "2e6dc444212394848fbb1d816c319b303ad9d2b1bae8c259548f32a084516dc3",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s6",
+      "wall_s": 0.11831729099999988,
+      "max_rss_bytes": 19906560,
+      "internal_ms": 108.434,
+      "stdout": [
+        "report: open_us=39 decode_us=2181 transform_us=3352 encode_us=102107 total_us=108434 output_bytes=10061 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 10061,
+      "output_sha256": "54439ab5776bb7bbe42eff9e48ef2c03a82268c8f37b3482e961e099d8d4a2ff",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s7",
+      "wall_s": 0.06214549999999974,
+      "max_rss_bytes": 18087936,
+      "internal_ms": 53.215,
+      "stdout": [
+        "report: open_us=37 decode_us=2098 transform_us=3264 encode_us=47100 total_us=53215 output_bytes=11160 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 11160,
+      "output_sha256": "87df712748414d6dcc2b7d73c6011181fe291441750c8c6853a96a0ebe2db3e6",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-rav1e-s6",
+      "wall_s": 0.19143449999999973,
+      "max_rss_bytes": 17580032,
+      "internal_ms": 183.604,
+      "stdout": [
+        "report: open_us=256 decode_us=2142 transform_us=3439 encode_us=177027 total_us=183604 output_bytes=14249 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 14249,
+      "output_sha256": "94baa885c201b775a2182d6f76fe1694e129c49cf0e7b165f92e4cfc1523f425",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s6",
+      "wall_s": 0.1265594159999992,
+      "max_rss_bytes": 20692992,
+      "internal_ms": 117.156,
+      "stdout": [
+        "report: open_us=42 decode_us=2138 transform_us=3302 encode_us=110636 total_us=117156 output_bytes=12645 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 12645,
+      "output_sha256": "188f8c2505f33c0ecfa5e35baca02546c15f7d35fb8ae63515eee33a6decae2e",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s7",
+      "wall_s": 0.06407525000000014,
+      "max_rss_bytes": 17350656,
+      "internal_ms": 56.305,
+      "stdout": [
+        "report: open_us=36 decode_us=2155 transform_us=3357 encode_us=50008 total_us=56305 output_bytes=13807 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.18408203125,
+      "output_bytes": 13807,
+      "output_sha256": "f90a11ddca29e991298d3118e9905c6fedc6f61fb99b02660fdba33300401785",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-rav1e-s6",
+      "wall_s": 0.23284612500000001,
+      "max_rss_bytes": 18841600,
+      "internal_ms": 223.637,
+      "stdout": [
+        "report: open_us=297 decode_us=2168 transform_us=3498 encode_us=216904 total_us=223637 output_bytes=28640 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.18408203125,
+      "load_after": 5.0087890625,
+      "output_bytes": 28640,
+      "output_sha256": "56ba5025ccd61beba314df81557cf90201c0f721ab1a0b4fbb8ca141798c6bb2",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s6",
+      "wall_s": 0.11442045800000056,
+      "max_rss_bytes": 20267008,
+      "internal_ms": 103.026,
+      "stdout": [
+        "report: open_us=41 decode_us=2227 transform_us=3505 encode_us=96467 total_us=103026 output_bytes=26400 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 26400,
+      "output_sha256": "6ba84b2d25792dfdfad149a54e2cdb17414764a68eab11a15a9aa118cbf33661",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s7",
+      "wall_s": 0.07807829199999983,
+      "max_rss_bytes": 17825792,
+      "internal_ms": 68.574,
+      "stdout": [
+        "report: open_us=40 decode_us=2195 transform_us=3398 encode_us=62184 total_us=68574 output_bytes=26642 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 26642,
+      "output_sha256": "076c2ec4a3cdbca2c899a28fb1ab7a2d5651cea6741dbdbf6655d0ce969947ce",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s7",
+      "wall_s": 0.07866212500000014,
+      "max_rss_bytes": 18251776,
+      "internal_ms": 68.911,
+      "stdout": [
+        "report: open_us=46 decode_us=2191 transform_us=3389 encode_us=62494 total_us=68911 output_bytes=26642 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 26642,
+      "output_sha256": "076c2ec4a3cdbca2c899a28fb1ab7a2d5651cea6741dbdbf6655d0ce969947ce",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s6",
+      "wall_s": 0.11018108299999962,
+      "max_rss_bytes": 20086784,
+      "internal_ms": 101.073,
+      "stdout": [
+        "report: open_us=37 decode_us=2203 transform_us=3414 encode_us=94570 total_us=101073 output_bytes=26400 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 26400,
+      "output_sha256": "6ba84b2d25792dfdfad149a54e2cdb17414764a68eab11a15a9aa118cbf33661",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-rav1e-s6",
+      "wall_s": 0.22992258299999957,
+      "max_rss_bytes": 18497536,
+      "internal_ms": 221.058,
+      "stdout": [
+        "report: open_us=289 decode_us=2172 transform_us=3539 encode_us=214309 total_us=221058 output_bytes=28640 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 28640,
+      "output_sha256": "56ba5025ccd61beba314df81557cf90201c0f721ab1a0b4fbb8ca141798c6bb2",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s7",
+      "wall_s": 0.0673957500000002,
+      "max_rss_bytes": 17498112,
+      "internal_ms": 58.255,
+      "stdout": [
+        "report: open_us=36 decode_us=2236 transform_us=3403 encode_us=51821 total_us=58255 output_bytes=13807 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 13807,
+      "output_sha256": "f90a11ddca29e991298d3118e9905c6fedc6f61fb99b02660fdba33300401785",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s6",
+      "wall_s": 0.12461733299999977,
+      "max_rss_bytes": 20267008,
+      "internal_ms": 115.775,
+      "stdout": [
+        "report: open_us=36 decode_us=2226 transform_us=3381 encode_us=109367 total_us=115775 output_bytes=12645 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 12645,
+      "output_sha256": "188f8c2505f33c0ecfa5e35baca02546c15f7d35fb8ae63515eee33a6decae2e",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-rav1e-s6",
+      "wall_s": 0.19442700000000013,
+      "max_rss_bytes": 18071552,
+      "internal_ms": 186.06,
+      "stdout": [
+        "report: open_us=310 decode_us=2151 transform_us=3453 encode_us=179360 total_us=186060 output_bytes=14249 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 14249,
+      "output_sha256": "94baa885c201b775a2182d6f76fe1694e129c49cf0e7b165f92e4cfc1523f425",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s7",
+      "wall_s": 0.06306004200000004,
+      "max_rss_bytes": 17383424,
+      "internal_ms": 54.364,
+      "stdout": [
+        "report: open_us=40 decode_us=2214 transform_us=3480 encode_us=47867 total_us=54364 output_bytes=11160 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 11160,
+      "output_sha256": "87df712748414d6dcc2b7d73c6011181fe291441750c8c6853a96a0ebe2db3e6",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s6",
+      "wall_s": 0.11892908400000035,
+      "max_rss_bytes": 20037632,
+      "internal_ms": 110.111,
+      "stdout": [
+        "report: open_us=36 decode_us=2224 transform_us=3466 encode_us=103633 total_us=110111 output_bytes=10061 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 10061,
+      "output_sha256": "54439ab5776bb7bbe42eff9e48ef2c03a82268c8f37b3482e961e099d8d4a2ff",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-rav1e-s6",
+      "wall_s": 0.1760557079999998,
+      "max_rss_bytes": 18825216,
+      "internal_ms": 166.165,
+      "stdout": [
+        "report: open_us=251 decode_us=2169 transform_us=3482 encode_us=159507 total_us=166165 output_bytes=11663 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 11663,
+      "output_sha256": "2e6dc444212394848fbb1d816c319b303ad9d2b1bae8c259548f32a084516dc3",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-rav1e-s6",
+      "wall_s": 0.17421583399999996,
+      "max_rss_bytes": 18628608,
+      "internal_ms": 165.02,
+      "stdout": [
+        "report: open_us=257 decode_us=2196 transform_us=3548 encode_us=158253 total_us=165020 output_bytes=11663 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 11663,
+      "output_sha256": "2e6dc444212394848fbb1d816c319b303ad9d2b1bae8c259548f32a084516dc3",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s6",
+      "wall_s": 0.11999062500000068,
+      "max_rss_bytes": 19988480,
+      "internal_ms": 111.471,
+      "stdout": [
+        "report: open_us=37 decode_us=2221 transform_us=3421 encode_us=105032 total_us=111471 output_bytes=10061 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 10061,
+      "output_sha256": "54439ab5776bb7bbe42eff9e48ef2c03a82268c8f37b3482e961e099d8d4a2ff",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s7",
+      "wall_s": 0.06261729199999966,
+      "max_rss_bytes": 17776640,
+      "internal_ms": 53.481,
+      "stdout": [
+        "report: open_us=37 decode_us=2134 transform_us=3305 encode_us=47262 total_us=53481 output_bytes=11160 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 11160,
+      "output_sha256": "87df712748414d6dcc2b7d73c6011181fe291441750c8c6853a96a0ebe2db3e6",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-rav1e-s6",
+      "wall_s": 0.19403441699999924,
+      "max_rss_bytes": 19120128,
+      "internal_ms": 185.595,
+      "stdout": [
+        "report: open_us=287 decode_us=2202 transform_us=3612 encode_us=178720 total_us=185595 output_bytes=14249 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 14249,
+      "output_sha256": "94baa885c201b775a2182d6f76fe1694e129c49cf0e7b165f92e4cfc1523f425",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s6",
+      "wall_s": 0.1248639159999998,
+      "max_rss_bytes": 20185088,
+      "internal_ms": 116.52,
+      "stdout": [
+        "report: open_us=35 decode_us=2236 transform_us=3400 encode_us=110112 total_us=116520 output_bytes=12645 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 12645,
+      "output_sha256": "188f8c2505f33c0ecfa5e35baca02546c15f7d35fb8ae63515eee33a6decae2e",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s7",
+      "wall_s": 0.06642629200000005,
+      "max_rss_bytes": 17416192,
+      "internal_ms": 57.863,
+      "stdout": [
+        "report: open_us=41 decode_us=2225 transform_us=3442 encode_us=51386 total_us=57863 output_bytes=13807 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 13807,
+      "output_sha256": "f90a11ddca29e991298d3118e9905c6fedc6f61fb99b02660fdba33300401785",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-rav1e-s6",
+      "wall_s": 0.22984091599999967,
+      "max_rss_bytes": 18120704,
+      "internal_ms": 220.687,
+      "stdout": [
+        "report: open_us=286 decode_us=2154 transform_us=3466 encode_us=214044 total_us=220687 output_bytes=28640 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 28640,
+      "output_sha256": "56ba5025ccd61beba314df81557cf90201c0f721ab1a0b4fbb8ca141798c6bb2",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s6",
+      "wall_s": 0.10951416700000038,
+      "max_rss_bytes": 20004864,
+      "internal_ms": 100.681,
+      "stdout": [
+        "report: open_us=37 decode_us=2222 transform_us=3447 encode_us=94178 total_us=100681 output_bytes=26400 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 26400,
+      "output_sha256": "6ba84b2d25792dfdfad149a54e2cdb17414764a68eab11a15a9aa118cbf33661",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s7",
+      "wall_s": 0.07770679199999986,
+      "max_rss_bytes": 18382848,
+      "internal_ms": 68.931,
+      "stdout": [
+        "report: open_us=36 decode_us=2225 transform_us=3433 encode_us=62479 total_us=68931 output_bytes=26642 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 26642,
+      "output_sha256": "076c2ec4a3cdbca2c899a28fb1ab7a2d5651cea6741dbdbf6655d0ce969947ce",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s7",
+      "wall_s": 0.07703099999999985,
+      "max_rss_bytes": 17842176,
+      "internal_ms": 68.073,
+      "stdout": [
+        "report: open_us=35 decode_us=2060 transform_us=3180 encode_us=62082 total_us=68073 output_bytes=26642 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 26642,
+      "output_sha256": "076c2ec4a3cdbca2c899a28fb1ab7a2d5651cea6741dbdbf6655d0ce969947ce",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s6",
+      "wall_s": 0.108409333,
+      "max_rss_bytes": 20070400,
+      "internal_ms": 99.935,
+      "stdout": [
+        "report: open_us=36 decode_us=2204 transform_us=3416 encode_us=93522 total_us=99935 output_bytes=26400 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 26400,
+      "output_sha256": "6ba84b2d25792dfdfad149a54e2cdb17414764a68eab11a15a9aa118cbf33661",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-rav1e-s6",
+      "wall_s": 0.22911500000000018,
+      "max_rss_bytes": 18939904,
+      "internal_ms": 220.466,
+      "stdout": [
+        "report: open_us=264 decode_us=2170 transform_us=3551 encode_us=213749 total_us=220466 output_bytes=28640 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 28640,
+      "output_sha256": "56ba5025ccd61beba314df81557cf90201c0f721ab1a0b4fbb8ca141798c6bb2",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s7",
+      "wall_s": 0.06654329099999945,
+      "max_rss_bytes": 17416192,
+      "internal_ms": 57.664,
+      "stdout": [
+        "report: open_us=51 decode_us=2113 transform_us=3270 encode_us=51410 total_us=57664 output_bytes=13807 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 13807,
+      "output_sha256": "f90a11ddca29e991298d3118e9905c6fedc6f61fb99b02660fdba33300401785",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s6",
+      "wall_s": 0.1260633750000002,
+      "max_rss_bytes": 20627456,
+      "internal_ms": 117.609,
+      "stdout": [
+        "report: open_us=38 decode_us=2203 transform_us=3460 encode_us=111115 total_us=117609 output_bytes=12645 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 12645,
+      "output_sha256": "188f8c2505f33c0ecfa5e35baca02546c15f7d35fb8ae63515eee33a6decae2e",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-rav1e-s6",
+      "wall_s": 0.19723858399999994,
+      "max_rss_bytes": 17793024,
+      "internal_ms": 188.055,
+      "stdout": [
+        "report: open_us=268 decode_us=2187 transform_us=3525 encode_us=181308 total_us=188055 output_bytes=14249 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 14249,
+      "output_sha256": "94baa885c201b775a2182d6f76fe1694e129c49cf0e7b165f92e4cfc1523f425",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s7",
+      "wall_s": 0.06405866599999932,
+      "max_rss_bytes": 17432576,
+      "internal_ms": 54.789,
+      "stdout": [
+        "report: open_us=36 decode_us=2219 transform_us=3386 encode_us=48391 total_us=54789 output_bytes=11160 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 11160,
+      "output_sha256": "87df712748414d6dcc2b7d73c6011181fe291441750c8c6853a96a0ebe2db3e6",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s6",
+      "wall_s": 0.11851599999999962,
+      "max_rss_bytes": 19955712,
+      "internal_ms": 109.373,
+      "stdout": [
+        "report: open_us=39 decode_us=2214 transform_us=3392 encode_us=102973 total_us=109373 output_bytes=10061 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 10061,
+      "output_sha256": "54439ab5776bb7bbe42eff9e48ef2c03a82268c8f37b3482e961e099d8d4a2ff",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-rav1e-s6",
+      "wall_s": 0.1744030830000014,
+      "max_rss_bytes": 17547264,
+      "internal_ms": 165.524,
+      "stdout": [
+        "report: open_us=274 decode_us=2176 transform_us=3521 encode_us=158789 total_us=165524 output_bytes=11663 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 11663,
+      "output_sha256": "2e6dc444212394848fbb1d816c319b303ad9d2b1bae8c259548f32a084516dc3",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-rav1e-s6",
+      "wall_s": 0.17420716699999872,
+      "max_rss_bytes": 18644992,
+      "internal_ms": 165.206,
+      "stdout": [
+        "report: open_us=354 decode_us=2188 transform_us=3509 encode_us=158387 total_us=165206 output_bytes=11663 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 11663,
+      "output_sha256": "2e6dc444212394848fbb1d816c319b303ad9d2b1bae8c259548f32a084516dc3",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s6",
+      "wall_s": 0.11989537500000047,
+      "max_rss_bytes": 19939328,
+      "internal_ms": 110.919,
+      "stdout": [
+        "report: open_us=36 decode_us=2177 transform_us=3387 encode_us=104562 total_us=110919 output_bytes=10061 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 10061,
+      "output_sha256": "54439ab5776bb7bbe42eff9e48ef2c03a82268c8f37b3482e961e099d8d4a2ff",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q70-t1-aom-s7",
+      "wall_s": 0.06253779200000054,
+      "max_rss_bytes": 17383424,
+      "internal_ms": 53.939,
+      "stdout": [
+        "report: open_us=36 decode_us=2217 transform_us=3427 encode_us=47495 total_us=53939 output_bytes=11160 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 11160,
+      "output_sha256": "87df712748414d6dcc2b7d73c6011181fe291441750c8c6853a96a0ebe2db3e6",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-rav1e-s6",
+      "wall_s": 0.19541949999999986,
+      "max_rss_bytes": 19202048,
+      "internal_ms": 186.387,
+      "stdout": [
+        "report: open_us=243 decode_us=2197 transform_us=3535 encode_us=179656 total_us=186387 output_bytes=14249 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 14249,
+      "output_sha256": "94baa885c201b775a2182d6f76fe1694e129c49cf0e7b165f92e4cfc1523f425",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s6",
+      "wall_s": 0.12635587499999978,
+      "max_rss_bytes": 20250624,
+      "internal_ms": 117.192,
+      "stdout": [
+        "report: open_us=36 decode_us=2222 transform_us=3389 encode_us=110785 total_us=117192 output_bytes=12645 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 12645,
+      "output_sha256": "188f8c2505f33c0ecfa5e35baca02546c15f7d35fb8ae63515eee33a6decae2e",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q80-t1-aom-s7",
+      "wall_s": 0.06609604199999985,
+      "max_rss_bytes": 17825792,
+      "internal_ms": 57.31,
+      "stdout": [
+        "report: open_us=38 decode_us=2186 transform_us=3417 encode_us=50905 total_us=57310 output_bytes=13807 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 13807,
+      "output_sha256": "f90a11ddca29e991298d3118e9905c6fedc6f61fb99b02660fdba33300401785",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-rav1e-s6",
+      "wall_s": 0.23062479099999855,
+      "max_rss_bytes": 17973248,
+      "internal_ms": 222.209,
+      "stdout": [
+        "report: open_us=348 decode_us=2193 transform_us=3515 encode_us=215360 total_us=222209 output_bytes=28640 peak_managed_bytes=6554696 encoder_frame_bytes=2196480 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 28640,
+      "output_sha256": "56ba5025ccd61beba314df81557cf90201c0f721ab1a0b4fbb8ca141798c6bb2",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s6",
+      "wall_s": 0.10837591599999996,
+      "max_rss_bytes": 20283392,
+      "internal_ms": 99.994,
+      "stdout": [
+        "report: open_us=37 decode_us=2178 transform_us=3413 encode_us=93610 total_us=99994 output_bytes=26400 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.0087890625,
+      "output_bytes": 26400,
+      "output_sha256": "6ba84b2d25792dfdfad149a54e2cdb17414764a68eab11a15a9aa118cbf33661",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "kodim03-q90-t1-aom-s7",
+      "wall_s": 0.07750024999999994,
+      "max_rss_bytes": 17874944,
+      "internal_ms": 68.625,
+      "stdout": [
+        "report: open_us=35 decode_us=2199 transform_us=3369 encode_us=62284 total_us=68625 output_bytes=26642 peak_managed_bytes=6104136 encoder_frame_bytes=1745920 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libavif-rs/aom",
+        "decoder_work: crop=768x512+0+0 requested=768x512+0+0 codec_request=768x512+0+0 codec_output=768x512+0+0 overfetch_pixels=0 reconstructed_pixels=>=393216 entropy_rows=512 delivered_rows=512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 5.0087890625,
+      "load_after": 5.408203125,
+      "output_bytes": 26642,
+      "output_sha256": "076c2ec4a3cdbca2c899a28fb1ab7a2d5651cea6741dbdbf6655d0ce969947ce",
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}

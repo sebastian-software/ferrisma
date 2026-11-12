@@ -1,0 +1,1511 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "candidates": [
+      {
+        "id": "flower-q70-t0-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q70-t0-rav1e-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q70-t0-rav1e-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=70",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "flower-q70-t0-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q70-t0-aom-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q70-t0-aom-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=49",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "flower-q70-t0-aom-s7",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q70-t0-aom-s7.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q70-t0-aom-s7.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=49",
+          "--speed=7",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "flower-q80-t0-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q80-t0-rav1e-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q80-t0-rav1e-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=80",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "flower-q80-t0-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q80-t0-aom-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q80-t0-aom-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=55",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "flower-q80-t0-aom-s7",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q80-t0-aom-s7.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q80-t0-aom-s7.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=55",
+          "--speed=7",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "flower-q90-t0-rav1e-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q90-t0-rav1e-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q90-t0-rav1e-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=rav1e",
+          "--quality=90",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "flower-q90-t0-aom-s6",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q90-t0-aom-s6.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q90-t0-aom-s6.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=78",
+          "--speed=6",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444"
+        ]
+      },
+      {
+        "id": "flower-q90-t0-aom-s7",
+        "output": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q90-t0-aom-s7.avif",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/ferrisma",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/corpus/flower.jpg",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/enc-default/timing/flower-q90-t0-aom-s7.avif",
+          "1600",
+          "1067",
+          "--assume-srgb",
+          "--avif-encoder=libavif",
+          "--quality=78",
+          "--speed=7",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--chroma=444"
+        ]
+      }
+    ]
+  },
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "uptime_before": "17:29  up 37 days,  4:50, 1 user, load averages: 7.03 6.67 8.31",
+  "uptime_after": "17:29  up 37 days,  4:51, 1 user, load averages: 7.34 6.75 8.31",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "summary": {
+    "flower-q70-t0-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.2073340409999993,
+      "wall_min_s": 0.1997242909999999,
+      "wall_max_s": 0.2290221250000002,
+      "rss_median_bytes": 98959360,
+      "rss_min_bytes": 97861632,
+      "rss_max_bytes": 100450304,
+      "load_min": 6.78271484375,
+      "load_max": 7.2001953125,
+      "internal_median_ms": 197.58,
+      "internal_min_ms": 189.979,
+      "internal_max_ms": 218.396,
+      "output_sha256": [
+        "68d3e9323afc5a3d55fba1bcb817f3da2531c20b6415268a748d6b5f2fd8e0cf"
+      ],
+      "output_bytes": [
+        104601
+      ]
+    },
+    "flower-q70-t0-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.15990525,
+      "wall_min_s": 0.1563237089999996,
+      "wall_max_s": 0.16197054199999972,
+      "rss_median_bytes": 123060224,
+      "rss_min_bytes": 122519552,
+      "rss_max_bytes": 123469824,
+      "load_min": 6.78271484375,
+      "load_max": 7.2001953125,
+      "internal_median_ms": 150.129,
+      "internal_min_ms": 146.17,
+      "internal_max_ms": 152.502,
+      "output_sha256": [
+        "342aaa2fcac1fb19452cb02963026c56a09622c33fe49e06397aaac53a5dba4b"
+      ],
+      "output_bytes": [
+        88892
+      ]
+    },
+    "flower-q70-t0-aom-s7": {
+      "n": 7,
+      "wall_median_s": 0.10505445900000066,
+      "wall_min_s": 0.10371491699999957,
+      "wall_max_s": 0.10586691700000017,
+      "rss_median_bytes": 98500608,
+      "rss_min_bytes": 98418688,
+      "rss_max_bytes": 98893824,
+      "load_min": 6.78271484375,
+      "load_max": 7.2001953125,
+      "internal_median_ms": 95.046,
+      "internal_min_ms": 94.178,
+      "internal_max_ms": 96.089,
+      "output_sha256": [
+        "1328a34a88c12fabee50088ce6dec4f54deb85b82cf84563a74441d7b1eaa95f"
+      ],
+      "output_bytes": [
+        96268
+      ]
+    },
+    "flower-q80-t0-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.2157782079999997,
+      "wall_min_s": 0.1933805830000006,
+      "wall_max_s": 0.22257641699999997,
+      "rss_median_bytes": 99975168,
+      "rss_min_bytes": 99647488,
+      "rss_max_bytes": 101466112,
+      "load_min": 6.78271484375,
+      "load_max": 7.2001953125,
+      "internal_median_ms": 206.608,
+      "internal_min_ms": 184.445,
+      "internal_max_ms": 213.159,
+      "output_sha256": [
+        "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e"
+      ],
+      "output_bytes": [
+        126339
+      ]
+    },
+    "flower-q80-t0-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.16436512500000067,
+      "wall_min_s": 0.159354542,
+      "wall_max_s": 0.1693075000000004,
+      "rss_median_bytes": 123322368,
+      "rss_min_bytes": 122880000,
+      "rss_max_bytes": 123650048,
+      "load_min": 6.78271484375,
+      "load_max": 7.2001953125,
+      "internal_median_ms": 154.381,
+      "internal_min_ms": 150.414,
+      "internal_max_ms": 158.81,
+      "output_sha256": [
+        "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190"
+      ],
+      "output_bytes": [
+        112377
+      ]
+    },
+    "flower-q80-t0-aom-s7": {
+      "n": 7,
+      "wall_median_s": 0.10711870799999978,
+      "wall_min_s": 0.10641595799999948,
+      "wall_max_s": 0.10889054199999926,
+      "rss_median_bytes": 98664448,
+      "rss_min_bytes": 98500608,
+      "rss_max_bytes": 98893824,
+      "load_min": 6.78271484375,
+      "load_max": 7.2001953125,
+      "internal_median_ms": 97.573,
+      "internal_min_ms": 96.348,
+      "internal_max_ms": 98.287,
+      "output_sha256": [
+        "5c34fff5bb1b7cc5900d2ea5f1efcfb054d390bff2c7bce9db869c011a31b570"
+      ],
+      "output_bytes": [
+        120215
+      ]
+    },
+    "flower-q90-t0-rav1e-s6": {
+      "n": 7,
+      "wall_median_s": 0.2511039159999999,
+      "wall_min_s": 0.22086166600000023,
+      "wall_max_s": 0.26144316700000125,
+      "rss_median_bytes": 103890944,
+      "rss_min_bytes": 102514688,
+      "rss_max_bytes": 105578496,
+      "load_min": 6.78271484375,
+      "load_max": 7.34423828125,
+      "internal_median_ms": 241.324,
+      "internal_min_ms": 211.966,
+      "internal_max_ms": 252.08,
+      "output_sha256": [
+        "d3767c27fcabff81004139869e7054d465157b18701e13fee63e9a9393ddc0b4"
+      ],
+      "output_bytes": [
+        265216
+      ]
+    },
+    "flower-q90-t0-aom-s6": {
+      "n": 7,
+      "wall_median_s": 0.14307254200000052,
+      "wall_min_s": 0.142124707999999,
+      "wall_max_s": 0.15317991600000003,
+      "rss_median_bytes": 123846656,
+      "rss_min_bytes": 123256832,
+      "rss_max_bytes": 124174336,
+      "load_min": 6.78271484375,
+      "load_max": 7.34423828125,
+      "internal_median_ms": 133.939,
+      "internal_min_ms": 131.8,
+      "internal_max_ms": 142.807,
+      "output_sha256": [
+        "c04298155762cfeb09604fd9a29995a2f7c5ca4c5d92dc0421d41ae9f65df885"
+      ],
+      "output_bytes": [
+        249032
+      ]
+    },
+    "flower-q90-t0-aom-s7": {
+      "n": 7,
+      "wall_median_s": 0.12082837500000032,
+      "wall_min_s": 0.11961162500000011,
+      "wall_max_s": 0.12153424999999984,
+      "rss_median_bytes": 98942976,
+      "rss_min_bytes": 98697216,
+      "rss_max_bytes": 99155968,
+      "load_min": 6.78271484375,
+      "load_max": 7.34423828125,
+      "internal_median_ms": 110.646,
+      "internal_min_ms": 110.01,
+      "internal_max_ms": 111.559,
+      "output_sha256": [
+        "2b6d2a55923580662aec6ed6bf583704a77daf47bed550af258eb6fec864eeab"
+      ],
+      "output_bytes": [
+        252780
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "flower-q90-t0-aom-s7",
+      "wall_s": 0.118905291,
+      "max_rss_bytes": 98975744,
+      "internal_ms": 109.562,
+      "stdout": [
+        "report: open_us=41 decode_us=12641 transform_us=4462 encode_us=90568 total_us=109562 output_bytes=252780 peak_managed_bytes=32715864 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.025390625,
+      "load_after": 7.025390625,
+      "output_bytes": 252780,
+      "output_sha256": "2b6d2a55923580662aec6ed6bf583704a77daf47bed550af258eb6fec864eeab",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-q90-t0-aom-s6",
+      "wall_s": 0.14556475000000002,
+      "max_rss_bytes": 123928576,
+      "internal_ms": 135.848,
+      "stdout": [
+        "report: open_us=40 decode_us=12740 transform_us=4873 encode_us=116219 total_us=135848 output_bytes=249032 peak_managed_bytes=32643848 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.025390625,
+      "load_after": 7.025390625,
+      "output_bytes": 249032,
+      "output_sha256": "c04298155762cfeb09604fd9a29995a2f7c5ca4c5d92dc0421d41ae9f65df885",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-q90-t0-rav1e-s6",
+      "wall_s": 0.270521375,
+      "max_rss_bytes": 104873984,
+      "internal_ms": 260.2,
+      "stdout": [
+        "report: open_us=1440 decode_us=12729 transform_us=6553 encode_us=237560 total_us=260200 output_bytes=265216 peak_managed_bytes=28871104 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.025390625,
+      "load_after": 7.025390625,
+      "output_bytes": 265216,
+      "output_sha256": "d3767c27fcabff81004139869e7054d465157b18701e13fee63e9a9393ddc0b4",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-q80-t0-aom-s7",
+      "wall_s": 0.10743487499999993,
+      "max_rss_bytes": 98222080,
+      "internal_ms": 97.881,
+      "stdout": [
+        "report: open_us=42 decode_us=12854 transform_us=4608 encode_us=78499 total_us=97881 output_bytes=120215 peak_managed_bytes=32733448 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.025390625,
+      "load_after": 7.025390625,
+      "output_bytes": 120215,
+      "output_sha256": "5c34fff5bb1b7cc5900d2ea5f1efcfb054d390bff2c7bce9db869c011a31b570",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-q80-t0-aom-s6",
+      "wall_s": 0.16154875000000002,
+      "max_rss_bytes": 122683392,
+      "internal_ms": 152.27,
+      "stdout": [
+        "report: open_us=39 decode_us=12742 transform_us=4360 encode_us=133134 total_us=152270 output_bytes=112377 peak_managed_bytes=32590628 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.025390625,
+      "load_after": 7.025390625,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-q80-t0-rav1e-s6",
+      "wall_s": 0.222315834,
+      "max_rss_bytes": 99565568,
+      "internal_ms": 213.501,
+      "stdout": [
+        "report: open_us=1449 decode_us=12740 transform_us=6054 encode_us=191347 total_us=213501 output_bytes=126339 peak_managed_bytes=28972760 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.025390625,
+      "load_after": 7.025390625,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-q70-t0-aom-s7",
+      "wall_s": 0.10586433299999998,
+      "max_rss_bytes": 99024896,
+      "internal_ms": 95.855,
+      "stdout": [
+        "report: open_us=48 decode_us=12775 transform_us=4481 encode_us=76623 total_us=95855 output_bytes=96268 peak_managed_bytes=32706636 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.025390625,
+      "load_after": 7.025390625,
+      "output_bytes": 96268,
+      "output_sha256": "1328a34a88c12fabee50088ce6dec4f54deb85b82cf84563a74441d7b1eaa95f",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-q70-t0-aom-s6",
+      "wall_s": 0.16157008299999998,
+      "max_rss_bytes": 122929152,
+      "internal_ms": 152.345,
+      "stdout": [
+        "report: open_us=39 decode_us=12774 transform_us=4474 encode_us=133226 total_us=152345 output_bytes=88892 peak_managed_bytes=32728664 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.025390625,
+      "load_after": 7.025390625,
+      "output_bytes": 88892,
+      "output_sha256": "342aaa2fcac1fb19452cb02963026c56a09622c33fe49e06397aaac53a5dba4b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-q70-t0-rav1e-s6",
+      "wall_s": 0.194985709,
+      "max_rss_bytes": 99713024,
+      "internal_ms": 185.517,
+      "stdout": [
+        "report: open_us=1480 decode_us=12650 transform_us=6086 encode_us=163588 total_us=185517 output_bytes=104601 peak_managed_bytes=28930724 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.025390625,
+      "load_after": 6.78271484375,
+      "output_bytes": 104601,
+      "output_sha256": "68d3e9323afc5a3d55fba1bcb817f3da2531c20b6415268a748d6b5f2fd8e0cf",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "flower-q70-t0-rav1e-s6",
+      "wall_s": 0.20593454200000005,
+      "max_rss_bytes": 97861632,
+      "internal_ms": 196.054,
+      "stdout": [
+        "report: open_us=1481 decode_us=12823 transform_us=5784 encode_us=174162 total_us=196054 output_bytes=104601 peak_managed_bytes=28912332 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 104601,
+      "output_sha256": "68d3e9323afc5a3d55fba1bcb817f3da2531c20b6415268a748d6b5f2fd8e0cf",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s6",
+      "wall_s": 0.15990525,
+      "max_rss_bytes": 123469824,
+      "internal_ms": 150.129,
+      "stdout": [
+        "report: open_us=41 decode_us=12669 transform_us=4325 encode_us=131254 total_us=150129 output_bytes=88892 peak_managed_bytes=32765448 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 88892,
+      "output_sha256": "342aaa2fcac1fb19452cb02963026c56a09622c33fe49e06397aaac53a5dba4b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s7",
+      "wall_s": 0.10423991700000013,
+      "max_rss_bytes": 98893824,
+      "internal_ms": 95.046,
+      "stdout": [
+        "report: open_us=40 decode_us=12727 transform_us=4542 encode_us=75663 total_us=95046 output_bytes=96268 peak_managed_bytes=32712228 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 96268,
+      "output_sha256": "1328a34a88c12fabee50088ce6dec4f54deb85b82cf84563a74441d7b1eaa95f",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-rav1e-s6",
+      "wall_s": 0.21577295800000007,
+      "max_rss_bytes": 100188160,
+      "internal_ms": 206.121,
+      "stdout": [
+        "report: open_us=1514 decode_us=12730 transform_us=6792 encode_us=183248 total_us=206121 output_bytes=126339 peak_managed_bytes=28930724 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s6",
+      "wall_s": 0.16587825,
+      "max_rss_bytes": 123011072,
+      "internal_ms": 156.116,
+      "stdout": [
+        "report: open_us=46 decode_us=12877 transform_us=4560 encode_us=136719 total_us=156116 output_bytes=112377 peak_managed_bytes=32703064 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s7",
+      "wall_s": 0.10705183299999987,
+      "max_rss_bytes": 98795520,
+      "internal_ms": 96.348,
+      "stdout": [
+        "report: open_us=42 decode_us=12844 transform_us=4385 encode_us=77177 total_us=96348 output_bytes=120215 peak_managed_bytes=32664260 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 120215,
+      "output_sha256": "5c34fff5bb1b7cc5900d2ea5f1efcfb054d390bff2c7bce9db869c011a31b570",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-rav1e-s6",
+      "wall_s": 0.24404591700000022,
+      "max_rss_bytes": 104382464,
+      "internal_ms": 234.602,
+      "stdout": [
+        "report: open_us=1465 decode_us=12745 transform_us=6660 encode_us=211732 total_us=234602 output_bytes=265216 peak_managed_bytes=28911524 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 265216,
+      "output_sha256": "d3767c27fcabff81004139869e7054d465157b18701e13fee63e9a9393ddc0b4",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s6",
+      "wall_s": 0.15317991600000003,
+      "max_rss_bytes": 124174336,
+      "internal_ms": 142.807,
+      "stdout": [
+        "report: open_us=46 decode_us=12722 transform_us=4417 encode_us=123768 total_us=142807 output_bytes=249032 peak_managed_bytes=32671064 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 249032,
+      "output_sha256": "c04298155762cfeb09604fd9a29995a2f7c5ca4c5d92dc0421d41ae9f65df885",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s7",
+      "wall_s": 0.11961162500000011,
+      "max_rss_bytes": 98975744,
+      "internal_ms": 110.227,
+      "stdout": [
+        "report: open_us=39 decode_us=12697 transform_us=4398 encode_us=91272 total_us=110227 output_bytes=252780 peak_managed_bytes=32715864 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 252780,
+      "output_sha256": "2b6d2a55923580662aec6ed6bf583704a77daf47bed550af258eb6fec864eeab",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s7",
+      "wall_s": 0.1197134580000001,
+      "max_rss_bytes": 98697216,
+      "internal_ms": 110.646,
+      "stdout": [
+        "report: open_us=39 decode_us=12794 transform_us=4285 encode_us=91676 total_us=110646 output_bytes=252780 peak_managed_bytes=32629432 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 252780,
+      "output_sha256": "2b6d2a55923580662aec6ed6bf583704a77daf47bed550af258eb6fec864eeab",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s6",
+      "wall_s": 0.14535775000000006,
+      "max_rss_bytes": 123600896,
+      "internal_ms": 135.894,
+      "stdout": [
+        "report: open_us=42 decode_us=12620 transform_us=4568 encode_us=116590 total_us=135894 output_bytes=249032 peak_managed_bytes=32776228 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 249032,
+      "output_sha256": "c04298155762cfeb09604fd9a29995a2f7c5ca4c5d92dc0421d41ae9f65df885",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-rav1e-s6",
+      "wall_s": 0.22086166600000023,
+      "max_rss_bytes": 104267776,
+      "internal_ms": 211.966,
+      "stdout": [
+        "report: open_us=1450 decode_us=12673 transform_us=6149 encode_us=189737 total_us=211966 output_bytes=265216 peak_managed_bytes=28991960 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 265216,
+      "output_sha256": "d3767c27fcabff81004139869e7054d465157b18701e13fee63e9a9393ddc0b4",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s7",
+      "wall_s": 0.10736908300000003,
+      "max_rss_bytes": 98549760,
+      "internal_ms": 97.316,
+      "stdout": [
+        "report: open_us=47 decode_us=12775 transform_us=4446 encode_us=78155 total_us=97316 output_bytes=120215 peak_managed_bytes=32760260 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 120215,
+      "output_sha256": "5c34fff5bb1b7cc5900d2ea5f1efcfb054d390bff2c7bce9db869c011a31b570",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s6",
+      "wall_s": 0.159354542,
+      "max_rss_bytes": 123650048,
+      "internal_ms": 150.414,
+      "stdout": [
+        "report: open_us=39 decode_us=12735 transform_us=4076 encode_us=131697 total_us=150414 output_bytes=112377 peak_managed_bytes=32722264 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-rav1e-s6",
+      "wall_s": 0.22231408399999975,
+      "max_rss_bytes": 99647488,
+      "internal_ms": 213.159,
+      "stdout": [
+        "report: open_us=1617 decode_us=12584 transform_us=6271 encode_us=190742 total_us=213159 output_bytes=126339 peak_managed_bytes=28938740 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s7",
+      "wall_s": 0.10584987499999965,
+      "max_rss_bytes": 98418688,
+      "internal_ms": 95.595,
+      "stdout": [
+        "report: open_us=39 decode_us=12631 transform_us=4937 encode_us=76129 total_us=95595 output_bytes=96268 peak_managed_bytes=32630644 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 96268,
+      "output_sha256": "1328a34a88c12fabee50088ce6dec4f54deb85b82cf84563a74441d7b1eaa95f",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s6",
+      "wall_s": 0.16174475000000044,
+      "max_rss_bytes": 123240448,
+      "internal_ms": 152.252,
+      "stdout": [
+        "report: open_us=43 decode_us=12693 transform_us=4387 encode_us=133152 total_us=152252 output_bytes=88892 peak_managed_bytes=32845480 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 88892,
+      "output_sha256": "342aaa2fcac1fb19452cb02963026c56a09622c33fe49e06397aaac53a5dba4b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-rav1e-s6",
+      "wall_s": 0.21026112499999972,
+      "max_rss_bytes": 98959360,
+      "internal_ms": 201.38,
+      "stdout": [
+        "report: open_us=1450 decode_us=12945 transform_us=6337 encode_us=178688 total_us=201380 output_bytes=104601 peak_managed_bytes=28939548 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 104601,
+      "output_sha256": "68d3e9323afc5a3d55fba1bcb817f3da2531c20b6415268a748d6b5f2fd8e0cf",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-rav1e-s6",
+      "wall_s": 0.2290221250000002,
+      "max_rss_bytes": 100237312,
+      "internal_ms": 218.396,
+      "stdout": [
+        "report: open_us=1533 decode_us=12747 transform_us=6020 encode_us=196174 total_us=218396 output_bytes=104601 peak_managed_bytes=29001932 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 104601,
+      "output_sha256": "68d3e9323afc5a3d55fba1bcb817f3da2531c20b6415268a748d6b5f2fd8e0cf",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s6",
+      "wall_s": 0.1563237089999996,
+      "max_rss_bytes": 123060224,
+      "internal_ms": 146.17,
+      "stdout": [
+        "report: open_us=42 decode_us=12708 transform_us=4071 encode_us=127403 total_us=146170 output_bytes=88892 peak_managed_bytes=32691412 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 88892,
+      "output_sha256": "342aaa2fcac1fb19452cb02963026c56a09622c33fe49e06397aaac53a5dba4b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s7",
+      "wall_s": 0.10505445900000066,
+      "max_rss_bytes": 98451456,
+      "internal_ms": 94.884,
+      "stdout": [
+        "report: open_us=41 decode_us=12769 transform_us=4549 encode_us=75707 total_us=94884 output_bytes=96268 peak_managed_bytes=32707444 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 96268,
+      "output_sha256": "1328a34a88c12fabee50088ce6dec4f54deb85b82cf84563a74441d7b1eaa95f",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-rav1e-s6",
+      "wall_s": 0.22130145800000012,
+      "max_rss_bytes": 99958784,
+      "internal_ms": 212.197,
+      "stdout": [
+        "report: open_us=1451 decode_us=12723 transform_us=6792 encode_us=189302 total_us=212197 output_bytes=126339 peak_managed_bytes=28835128 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s6",
+      "wall_s": 0.16240029099999997,
+      "max_rss_bytes": 123060224,
+      "internal_ms": 152.337,
+      "stdout": [
+        "report: open_us=49 decode_us=12854 transform_us=4316 encode_us=133208 total_us=152337 output_bytes=112377 peak_managed_bytes=32661836 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s7",
+      "wall_s": 0.10641595799999948,
+      "max_rss_bytes": 98500608,
+      "internal_ms": 96.974,
+      "stdout": [
+        "report: open_us=40 decode_us=12839 transform_us=4511 encode_us=77562 total_us=96974 output_bytes=120215 peak_managed_bytes=32716268 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 120215,
+      "output_sha256": "5c34fff5bb1b7cc5900d2ea5f1efcfb054d390bff2c7bce9db869c011a31b570",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-rav1e-s6",
+      "wall_s": 0.2511039159999999,
+      "max_rss_bytes": 102514688,
+      "internal_ms": 241.324,
+      "stdout": [
+        "report: open_us=1611 decode_us=12754 transform_us=6276 encode_us=218779 total_us=241324 output_bytes=265216 peak_managed_bytes=28991960 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 265216,
+      "output_sha256": "d3767c27fcabff81004139869e7054d465157b18701e13fee63e9a9393ddc0b4",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s6",
+      "wall_s": 0.14240104100000028,
+      "max_rss_bytes": 123846656,
+      "internal_ms": 131.92,
+      "stdout": [
+        "report: open_us=46 decode_us=12655 transform_us=4144 encode_us=113198 total_us=131920 output_bytes=249032 peak_managed_bytes=32619864 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 249032,
+      "output_sha256": "c04298155762cfeb09604fd9a29995a2f7c5ca4c5d92dc0421d41ae9f65df885",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s7",
+      "wall_s": 0.12082837500000032,
+      "max_rss_bytes": 98959360,
+      "internal_ms": 111.559,
+      "stdout": [
+        "report: open_us=40 decode_us=12659 transform_us=4717 encode_us=92163 total_us=111559 output_bytes=252780 peak_managed_bytes=32689860 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 252780,
+      "output_sha256": "2b6d2a55923580662aec6ed6bf583704a77daf47bed550af258eb6fec864eeab",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s7",
+      "wall_s": 0.12011158299999991,
+      "max_rss_bytes": 98942976,
+      "internal_ms": 110.01,
+      "stdout": [
+        "report: open_us=50 decode_us=12806 transform_us=4358 encode_us=90845 total_us=110010 output_bytes=252780 peak_managed_bytes=32683864 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 252780,
+      "output_sha256": "2b6d2a55923580662aec6ed6bf583704a77daf47bed550af258eb6fec864eeab",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s6",
+      "wall_s": 0.14446116600000014,
+      "max_rss_bytes": 124043264,
+      "internal_ms": 134.572,
+      "stdout": [
+        "report: open_us=42 decode_us=12820 transform_us=4447 encode_us=115360 total_us=134572 output_bytes=249032 peak_managed_bytes=32669852 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 249032,
+      "output_sha256": "c04298155762cfeb09604fd9a29995a2f7c5ca4c5d92dc0421d41ae9f65df885",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-rav1e-s6",
+      "wall_s": 0.22567408400000044,
+      "max_rss_bytes": 105578496,
+      "internal_ms": 216.071,
+      "stdout": [
+        "report: open_us=1518 decode_us=12651 transform_us=6451 encode_us=193611 total_us=216071 output_bytes=265216 peak_managed_bytes=29014328 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 6.78271484375,
+      "output_bytes": 265216,
+      "output_sha256": "d3767c27fcabff81004139869e7054d465157b18701e13fee63e9a9393ddc0b4",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s7",
+      "wall_s": 0.10711870799999978,
+      "max_rss_bytes": 98697216,
+      "internal_ms": 97.573,
+      "stdout": [
+        "report: open_us=46 decode_us=12679 transform_us=4394 encode_us=78664 total_us=97573 output_bytes=120215 peak_managed_bytes=32678612 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 6.78271484375,
+      "load_after": 7.2001953125,
+      "output_bytes": 120215,
+      "output_sha256": "5c34fff5bb1b7cc5900d2ea5f1efcfb054d390bff2c7bce9db869c011a31b570",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s6",
+      "wall_s": 0.16436512500000067,
+      "max_rss_bytes": 123322368,
+      "internal_ms": 154.381,
+      "stdout": [
+        "report: open_us=49 decode_us=12865 transform_us=4447 encode_us=135076 total_us=154381 output_bytes=112377 peak_managed_bytes=32761812 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-rav1e-s6",
+      "wall_s": 0.22257641699999997,
+      "max_rss_bytes": 99975168,
+      "internal_ms": 212.702,
+      "stdout": [
+        "report: open_us=1536 decode_us=12645 transform_us=6202 encode_us=190372 total_us=212702 output_bytes=126339 peak_managed_bytes=28977544 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s7",
+      "wall_s": 0.10586691700000017,
+      "max_rss_bytes": 98500608,
+      "internal_ms": 96.089,
+      "stdout": [
+        "report: open_us=43 decode_us=12767 transform_us=4647 encode_us=76604 total_us=96089 output_bytes=96268 peak_managed_bytes=32701448 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 96268,
+      "output_sha256": "1328a34a88c12fabee50088ce6dec4f54deb85b82cf84563a74441d7b1eaa95f",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s6",
+      "wall_s": 0.1565456669999996,
+      "max_rss_bytes": 122912768,
+      "internal_ms": 147.899,
+      "stdout": [
+        "report: open_us=39 decode_us=12622 transform_us=4503 encode_us=128825 total_us=147899 output_bytes=88892 peak_managed_bytes=32692624 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 88892,
+      "output_sha256": "342aaa2fcac1fb19452cb02963026c56a09622c33fe49e06397aaac53a5dba4b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-rav1e-s6",
+      "wall_s": 0.1997242909999999,
+      "max_rss_bytes": 98615296,
+      "internal_ms": 189.979,
+      "stdout": [
+        "report: open_us=1542 decode_us=12794 transform_us=5945 encode_us=167786 total_us=189979 output_bytes=104601 peak_managed_bytes=28961108 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 104601,
+      "output_sha256": "68d3e9323afc5a3d55fba1bcb817f3da2531c20b6415268a748d6b5f2fd8e0cf",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-rav1e-s6",
+      "wall_s": 0.2073340409999993,
+      "max_rss_bytes": 98910208,
+      "internal_ms": 197.58,
+      "stdout": [
+        "report: open_us=1444 decode_us=12648 transform_us=6337 encode_us=175295 total_us=197580 output_bytes=104601 peak_managed_bytes=28981924 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 104601,
+      "output_sha256": "68d3e9323afc5a3d55fba1bcb817f3da2531c20b6415268a748d6b5f2fd8e0cf",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s6",
+      "wall_s": 0.16197054199999972,
+      "max_rss_bytes": 122732544,
+      "internal_ms": 152.502,
+      "stdout": [
+        "report: open_us=45 decode_us=12734 transform_us=4613 encode_us=133235 total_us=152502 output_bytes=88892 peak_managed_bytes=32604236 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 88892,
+      "output_sha256": "342aaa2fcac1fb19452cb02963026c56a09622c33fe49e06397aaac53a5dba4b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s7",
+      "wall_s": 0.10544908299999989,
+      "max_rss_bytes": 98746368,
+      "internal_ms": 95.897,
+      "stdout": [
+        "report: open_us=40 decode_us=12741 transform_us=4640 encode_us=76401 total_us=95897 output_bytes=96268 peak_managed_bytes=32722264 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 96268,
+      "output_sha256": "1328a34a88c12fabee50088ce6dec4f54deb85b82cf84563a74441d7b1eaa95f",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-rav1e-s6",
+      "wall_s": 0.1933805830000006,
+      "max_rss_bytes": 100171776,
+      "internal_ms": 184.445,
+      "stdout": [
+        "report: open_us=1422 decode_us=12842 transform_us=5918 encode_us=162335 total_us=184445 output_bytes=126339 peak_managed_bytes=28969932 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s6",
+      "wall_s": 0.16442024999999916,
+      "max_rss_bytes": 122880000,
+      "internal_ms": 154.843,
+      "stdout": [
+        "report: open_us=46 decode_us=12748 transform_us=4617 encode_us=135552 total_us=154843 output_bytes=112377 peak_managed_bytes=32690264 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s7",
+      "wall_s": 0.10832649999999866,
+      "max_rss_bytes": 98549760,
+      "internal_ms": 98.287,
+      "stdout": [
+        "report: open_us=40 decode_us=12734 transform_us=4379 encode_us=79264 total_us=98287 output_bytes=120215 peak_managed_bytes=32645464 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 120215,
+      "output_sha256": "5c34fff5bb1b7cc5900d2ea5f1efcfb054d390bff2c7bce9db869c011a31b570",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-rav1e-s6",
+      "wall_s": 0.26144316700000125,
+      "max_rss_bytes": 103038976,
+      "internal_ms": 252.08,
+      "stdout": [
+        "report: open_us=1456 decode_us=12763 transform_us=6518 encode_us=229463 total_us=252080 output_bytes=265216 peak_managed_bytes=28895960 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 265216,
+      "output_sha256": "d3767c27fcabff81004139869e7054d465157b18701e13fee63e9a9393ddc0b4",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s6",
+      "wall_s": 0.14251724999999915,
+      "max_rss_bytes": 123502592,
+      "internal_ms": 131.8,
+      "stdout": [
+        "report: open_us=46 decode_us=12749 transform_us=4340 encode_us=112820 total_us=131800 output_bytes=249032 peak_managed_bytes=32707444 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 249032,
+      "output_sha256": "c04298155762cfeb09604fd9a29995a2f7c5ca4c5d92dc0421d41ae9f65df885",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s7",
+      "wall_s": 0.12137587500000002,
+      "max_rss_bytes": 99155968,
+      "internal_ms": 110.904,
+      "stdout": [
+        "report: open_us=46 decode_us=12902 transform_us=3914 encode_us=91966 total_us=110904 output_bytes=252780 peak_managed_bytes=32629432 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 252780,
+      "output_sha256": "2b6d2a55923580662aec6ed6bf583704a77daf47bed550af258eb6fec864eeab",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s7",
+      "wall_s": 0.12153424999999984,
+      "max_rss_bytes": 98893824,
+      "internal_ms": 110.63,
+      "stdout": [
+        "report: open_us=45 decode_us=12717 transform_us=4499 encode_us=91409 total_us=110630 output_bytes=252780 peak_managed_bytes=32641020 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 252780,
+      "output_sha256": "2b6d2a55923580662aec6ed6bf583704a77daf47bed550af258eb6fec864eeab",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s6",
+      "wall_s": 0.142124707999999,
+      "max_rss_bytes": 123846656,
+      "internal_ms": 132.74,
+      "stdout": [
+        "report: open_us=39 decode_us=12675 transform_us=4642 encode_us=113532 total_us=132740 output_bytes=249032 peak_managed_bytes=32745440 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 249032,
+      "output_sha256": "c04298155762cfeb09604fd9a29995a2f7c5ca4c5d92dc0421d41ae9f65df885",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-rav1e-s6",
+      "wall_s": 0.26009829199999857,
+      "max_rss_bytes": 103563264,
+      "internal_ms": 250.443,
+      "stdout": [
+        "report: open_us=1438 decode_us=13245 transform_us=5931 encode_us=227998 total_us=250443 output_bytes=265216 peak_managed_bytes=29099548 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 265216,
+      "output_sha256": "d3767c27fcabff81004139869e7054d465157b18701e13fee63e9a9393ddc0b4",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s7",
+      "wall_s": 0.10889054199999926,
+      "max_rss_bytes": 98893824,
+      "internal_ms": 97.764,
+      "stdout": [
+        "report: open_us=51 decode_us=12768 transform_us=4622 encode_us=78339 total_us=97764 output_bytes=120215 peak_managed_bytes=32680632 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 120215,
+      "output_sha256": "5c34fff5bb1b7cc5900d2ea5f1efcfb054d390bff2c7bce9db869c011a31b570",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s6",
+      "wall_s": 0.1693075000000004,
+      "max_rss_bytes": 123437056,
+      "internal_ms": 158.81,
+      "stdout": [
+        "report: open_us=46 decode_us=12784 transform_us=4656 encode_us=139438 total_us=158810 output_bytes=112377 peak_managed_bytes=32867444 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-rav1e-s6",
+      "wall_s": 0.20871108400000082,
+      "max_rss_bytes": 99926016,
+      "internal_ms": 198.196,
+      "stdout": [
+        "report: open_us=1477 decode_us=12816 transform_us=6694 encode_us=175328 total_us=198196 output_bytes=126339 peak_managed_bytes=28970740 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s7",
+      "wall_s": 0.10437758399999986,
+      "max_rss_bytes": 98467840,
+      "internal_ms": 94.178,
+      "stdout": [
+        "report: open_us=39 decode_us=12610 transform_us=4774 encode_us=74792 total_us=94178 output_bytes=96268 peak_managed_bytes=32559032 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 96268,
+      "output_sha256": "1328a34a88c12fabee50088ce6dec4f54deb85b82cf84563a74441d7b1eaa95f",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s6",
+      "wall_s": 0.1614493330000002,
+      "max_rss_bytes": 123060224,
+      "internal_ms": 152.308,
+      "stdout": [
+        "report: open_us=39 decode_us=12823 transform_us=4365 encode_us=133235 total_us=152308 output_bytes=88892 peak_managed_bytes=32675848 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 88892,
+      "output_sha256": "342aaa2fcac1fb19452cb02963026c56a09622c33fe49e06397aaac53a5dba4b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-rav1e-s6",
+      "wall_s": 0.22396870799999924,
+      "max_rss_bytes": 99991552,
+      "internal_ms": 214.396,
+      "stdout": [
+        "report: open_us=1463 decode_us=12685 transform_us=6224 encode_us=192224 total_us=214396 output_bytes=104601 peak_managed_bytes=28891516 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 104601,
+      "output_sha256": "68d3e9323afc5a3d55fba1bcb817f3da2531c20b6415268a748d6b5f2fd8e0cf",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-rav1e-s6",
+      "wall_s": 0.205146375,
+      "max_rss_bytes": 100450304,
+      "internal_ms": 196.471,
+      "stdout": [
+        "report: open_us=1403 decode_us=12906 transform_us=6566 encode_us=173680 total_us=196471 output_bytes=104601 peak_managed_bytes=28954708 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 104601,
+      "output_sha256": "68d3e9323afc5a3d55fba1bcb817f3da2531c20b6415268a748d6b5f2fd8e0cf",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s6",
+      "wall_s": 0.15869541700000056,
+      "max_rss_bytes": 122519552,
+      "internal_ms": 148.556,
+      "stdout": [
+        "report: open_us=43 decode_us=12740 transform_us=4655 encode_us=129206 total_us=148556 output_bytes=88892 peak_managed_bytes=32632664 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 88892,
+      "output_sha256": "342aaa2fcac1fb19452cb02963026c56a09622c33fe49e06397aaac53a5dba4b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "flower-q70-t0-aom-s7",
+      "wall_s": 0.10371491699999957,
+      "max_rss_bytes": 98615296,
+      "internal_ms": 94.702,
+      "stdout": [
+        "report: open_us=40 decode_us=12648 transform_us=4447 encode_us=75575 total_us=94702 output_bytes=96268 peak_managed_bytes=32655436 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 96268,
+      "output_sha256": "1328a34a88c12fabee50088ce6dec4f54deb85b82cf84563a74441d7b1eaa95f",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-rav1e-s6",
+      "wall_s": 0.2157782079999997,
+      "max_rss_bytes": 101466112,
+      "internal_ms": 206.608,
+      "stdout": [
+        "report: open_us=1595 decode_us=12908 transform_us=6323 encode_us=183925 total_us=206608 output_bytes=126339 peak_managed_bytes=28849544 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 126339,
+      "output_sha256": "7f0fbae4f57968fa3aea01f0ddcccfc6eaf282f059fed5cf4450e85e4baf823e",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s6",
+      "wall_s": 0.16274458300000028,
+      "max_rss_bytes": 123355136,
+      "internal_ms": 153.19,
+      "stdout": [
+        "report: open_us=43 decode_us=12766 transform_us=4738 encode_us=133722 total_us=153190 output_bytes=112377 peak_managed_bytes=32686224 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 112377,
+      "output_sha256": "9f1786eabeb33f7fda42258b4ac1d428bfb53c1ccca92c46471e5591d44fa190",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "flower-q80-t0-aom-s7",
+      "wall_s": 0.10703666599999906,
+      "max_rss_bytes": 98664448,
+      "internal_ms": 97.893,
+      "stdout": [
+        "report: open_us=39 decode_us=12811 transform_us=4522 encode_us=78684 total_us=97893 output_bytes=120215 peak_managed_bytes=32771040 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.2001953125,
+      "output_bytes": 120215,
+      "output_sha256": "5c34fff5bb1b7cc5900d2ea5f1efcfb054d390bff2c7bce9db869c011a31b570",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-rav1e-s6",
+      "wall_s": 0.2587422499999992,
+      "max_rss_bytes": 103890944,
+      "internal_ms": 248.765,
+      "stdout": [
+        "report: open_us=1715 decode_us=12620 transform_us=6660 encode_us=225941 total_us=248765 output_bytes=265216 peak_managed_bytes=28991960 encoder_frame_bytes=13418496 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=rav1e",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.2001953125,
+      "load_after": 7.34423828125,
+      "output_bytes": 265216,
+      "output_sha256": "d3767c27fcabff81004139869e7054d465157b18701e13fee63e9a9393ddc0b4",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s6",
+      "wall_s": 0.14307254200000052,
+      "max_rss_bytes": 123256832,
+      "internal_ms": 133.939,
+      "stdout": [
+        "report: open_us=41 decode_us=12815 transform_us=4394 encode_us=114752 total_us=133939 output_bytes=249032 peak_managed_bytes=32609424 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.34423828125,
+      "load_after": 7.34423828125,
+      "output_bytes": 249032,
+      "output_sha256": "c04298155762cfeb09604fd9a29995a2f7c5ca4c5d92dc0421d41ae9f65df885",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "flower-q90-t0-aom-s7",
+      "wall_s": 0.12151312499999989,
+      "max_rss_bytes": 98926592,
+      "internal_ms": 110.878,
+      "stdout": [
+        "report: open_us=42 decode_us=12682 transform_us=4651 encode_us=91564 total_us=110878 output_bytes=252780 peak_managed_bytes=32715864 encoder_frame_bytes=17072000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=20 kernel_level=neon transform_threads=20 encoder=libavif-rs/aom",
+        "decoder_work: crop=2268x1512+0+0 requested=2268x1512+0+0 codec_request=2268x1512+0+0 codec_output=2268x1512+0+0 overfetch_pixels=0 reconstructed_pixels=>=3429216 entropy_rows=1512 delivered_rows=1512 wrapper_copied_bytes=0"
+      ],
+      "load_before": 7.34423828125,
+      "load_after": 7.34423828125,
+      "output_bytes": 252780,
+      "output_sha256": "2b6d2a55923580662aec6ed6bf583704a77daf47bed550af258eb6fec864eeab",
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}

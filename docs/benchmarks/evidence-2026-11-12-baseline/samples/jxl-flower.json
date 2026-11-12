@@ -1,0 +1,529 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "candidates": [
+      {
+        "id": "own-full",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/examples/jxl_decode_compare",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/corpus/flower-jpegrecon.jxl",
+          "own",
+          "full",
+          "1"
+        ]
+      },
+      {
+        "id": "own-crop",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/examples/jxl_decode_compare",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/corpus/flower-jpegrecon.jxl",
+          "own",
+          "crop",
+          "1"
+        ]
+      },
+      {
+        "id": "oxide-full",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/examples/jxl_decode_compare",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/corpus/flower-jpegrecon.jxl",
+          "oxide",
+          "full",
+          "1"
+        ]
+      },
+      {
+        "id": "oxide-crop",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrixel/.claude/worktrees/agent-a5b9537dab7d91c10/target/release/examples/jxl_decode_compare",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferrixel--claude-worktrees-validate-issues-labels-v1-7aadd3/7d1a4515-4dbd-40f9-9bc7-0df0d4838873/scratchpad/corpus/flower-jpegrecon.jxl",
+          "oxide",
+          "crop",
+          "1"
+        ]
+      }
+    ]
+  },
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "uptime_before": "17:09  up 37 days,  4:31, 1 user, load averages: 20.46 17.16 12.62",
+  "uptime_after": "17:09  up 37 days,  4:31, 1 user, load averages: 19.86 17.09 12.62",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "summary": {
+    "own-full": {
+      "n": 7,
+      "wall_median_s": 0.29025104199999996,
+      "wall_min_s": 0.2893627910000003,
+      "wall_max_s": 0.29063212500000013,
+      "rss_median_bytes": 56623104,
+      "rss_min_bytes": 56541184,
+      "rss_max_bytes": 57360384,
+      "load_min": 19.86474609375,
+      "load_max": 20.46240234375,
+      "internal_median_ms": 281.068,
+      "internal_min_ms": 280.043,
+      "internal_max_ms": 281.624
+    },
+    "own-crop": {
+      "n": 7,
+      "wall_median_s": 0.2913050410000002,
+      "wall_min_s": 0.28844370799999997,
+      "wall_max_s": 0.2922437920000003,
+      "rss_median_bytes": 56606720,
+      "rss_min_bytes": 56557568,
+      "rss_max_bytes": 56639488,
+      "load_min": 19.86474609375,
+      "load_max": 20.46240234375,
+      "internal_median_ms": 281.485,
+      "internal_min_ms": 280.137,
+      "internal_max_ms": 283.45
+    },
+    "oxide-full": {
+      "n": 7,
+      "wall_median_s": 0.09652154200000052,
+      "wall_min_s": 0.09569520900000006,
+      "wall_max_s": 0.09764475000000017,
+      "rss_median_bytes": 99762176,
+      "rss_min_bytes": 99729408,
+      "rss_max_bytes": 99876864,
+      "load_min": 19.86474609375,
+      "load_max": 20.46240234375,
+      "internal_median_ms": 86.842,
+      "internal_min_ms": 85.928,
+      "internal_max_ms": 87.277
+    },
+    "oxide-crop": {
+      "n": 7,
+      "wall_median_s": 0.04027762499999987,
+      "wall_min_s": 0.03956208399999994,
+      "wall_max_s": 0.04064666699999986,
+      "rss_median_bytes": 35356672,
+      "rss_min_bytes": 35323904,
+      "rss_max_bytes": 35373056,
+      "load_min": 19.86474609375,
+      "load_max": 20.46240234375,
+      "internal_median_ms": 31.537,
+      "internal_min_ms": 30.947,
+      "internal_max_ms": 31.776
+    }
+  },
+  "samples": [
+    {
+      "id": "oxide-crop",
+      "wall_s": 0.04144666699999999,
+      "max_rss_bytes": 35356672,
+      "internal_ms": 31.846,
+      "stdout": [
+        "mode=oxide region=crop iterations=1 dimensions=2268x1512 elapsed_ms=31.846 checksum=562.64622605"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "oxide-full",
+      "wall_s": 0.09531412499999997,
+      "max_rss_bytes": 99762176,
+      "internal_ms": 85.95,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=2268x1512 elapsed_ms=85.950 checksum=724.50277920"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "own-crop",
+      "wall_s": 0.291340292,
+      "max_rss_bytes": 57442304,
+      "internal_ms": 282.73,
+      "stdout": [
+        "mode=own region=crop iterations=1 dimensions=2268x1512 elapsed_ms=282.730 checksum=562.64622557"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "own-full",
+      "wall_s": 0.2890155830000001,
+      "max_rss_bytes": 56573952,
+      "internal_ms": 279.801,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=2268x1512 elapsed_ms=279.801 checksum=724.50277990"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "own-full",
+      "wall_s": 0.29019150000000005,
+      "max_rss_bytes": 56623104,
+      "internal_ms": 280.535,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=2268x1512 elapsed_ms=280.535 checksum=724.50277990"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "own-crop",
+      "wall_s": 0.291693958,
+      "max_rss_bytes": 56557568,
+      "internal_ms": 282.429,
+      "stdout": [
+        "mode=own region=crop iterations=1 dimensions=2268x1512 elapsed_ms=282.429 checksum=562.64622557"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "oxide-full",
+      "wall_s": 0.09605341700000003,
+      "max_rss_bytes": 99729408,
+      "internal_ms": 85.928,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=2268x1512 elapsed_ms=85.928 checksum=724.50277920"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "oxide-crop",
+      "wall_s": 0.03985799999999995,
+      "max_rss_bytes": 35323904,
+      "internal_ms": 30.947,
+      "stdout": [
+        "mode=oxide region=crop iterations=1 dimensions=2268x1512 elapsed_ms=30.947 checksum=562.64622605"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "oxide-crop",
+      "wall_s": 0.04060533300000002,
+      "max_rss_bytes": 35373056,
+      "internal_ms": 31.721,
+      "stdout": [
+        "mode=oxide region=crop iterations=1 dimensions=2268x1512 elapsed_ms=31.721 checksum=562.64622605"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "oxide-full",
+      "wall_s": 0.09677329199999996,
+      "max_rss_bytes": 99778560,
+      "internal_ms": 86.842,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=2268x1512 elapsed_ms=86.842 checksum=724.50277920"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "own-crop",
+      "wall_s": 0.29215424999999984,
+      "max_rss_bytes": 56639488,
+      "internal_ms": 283.45,
+      "stdout": [
+        "mode=own region=crop iterations=1 dimensions=2268x1512 elapsed_ms=283.450 checksum=562.64622557"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "own-full",
+      "wall_s": 0.29025104199999996,
+      "max_rss_bytes": 56623104,
+      "internal_ms": 281.489,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=2268x1512 elapsed_ms=281.489 checksum=724.50277990"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "own-full",
+      "wall_s": 0.29060175,
+      "max_rss_bytes": 56541184,
+      "internal_ms": 281.624,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=2268x1512 elapsed_ms=281.624 checksum=724.50277990"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "own-crop",
+      "wall_s": 0.2913050410000002,
+      "max_rss_bytes": 56639488,
+      "internal_ms": 281.485,
+      "stdout": [
+        "mode=own region=crop iterations=1 dimensions=2268x1512 elapsed_ms=281.485 checksum=562.64622557"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "oxide-full",
+      "wall_s": 0.09569520900000006,
+      "max_rss_bytes": 99876864,
+      "internal_ms": 86.48,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=2268x1512 elapsed_ms=86.480 checksum=724.50277920"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "oxide-crop",
+      "wall_s": 0.04062120799999969,
+      "max_rss_bytes": 35340288,
+      "internal_ms": 31.776,
+      "stdout": [
+        "mode=oxide region=crop iterations=1 dimensions=2268x1512 elapsed_ms=31.776 checksum=562.64622605"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "oxide-crop",
+      "wall_s": 0.03956208399999994,
+      "max_rss_bytes": 35373056,
+      "internal_ms": 31.595,
+      "stdout": [
+        "mode=oxide region=crop iterations=1 dimensions=2268x1512 elapsed_ms=31.595 checksum=562.64622605"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "oxide-full",
+      "wall_s": 0.09764475000000017,
+      "max_rss_bytes": 99729408,
+      "internal_ms": 87.277,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=2268x1512 elapsed_ms=87.277 checksum=724.50277920"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "own-crop",
+      "wall_s": 0.2922437920000003,
+      "max_rss_bytes": 56573952,
+      "internal_ms": 283.181,
+      "stdout": [
+        "mode=own region=crop iterations=1 dimensions=2268x1512 elapsed_ms=283.181 checksum=562.64622557"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 20.46240234375,
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "own-full",
+      "wall_s": 0.29063212500000013,
+      "max_rss_bytes": 57360384,
+      "internal_ms": 281.609,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=2268x1512 elapsed_ms=281.609 checksum=724.50277990"
+      ],
+      "load_before": 20.46240234375,
+      "load_after": 19.86474609375,
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "own-full",
+      "wall_s": 0.29046379099999964,
+      "max_rss_bytes": 57344000,
+      "internal_ms": 281.03,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=2268x1512 elapsed_ms=281.030 checksum=724.50277990"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "own-crop",
+      "wall_s": 0.28900695899999995,
+      "max_rss_bytes": 56606720,
+      "internal_ms": 280.515,
+      "stdout": [
+        "mode=own region=crop iterations=1 dimensions=2268x1512 elapsed_ms=280.515 checksum=562.64622557"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "oxide-full",
+      "wall_s": 0.09652154200000052,
+      "max_rss_bytes": 99827712,
+      "internal_ms": 86.852,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=2268x1512 elapsed_ms=86.852 checksum=724.50277920"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "oxide-crop",
+      "wall_s": 0.0401399170000003,
+      "max_rss_bytes": 35356672,
+      "internal_ms": 31.338,
+      "stdout": [
+        "mode=oxide region=crop iterations=1 dimensions=2268x1512 elapsed_ms=31.338 checksum=562.64622605"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "oxide-crop",
+      "wall_s": 0.04064666699999986,
+      "max_rss_bytes": 35356672,
+      "internal_ms": 31.186,
+      "stdout": [
+        "mode=oxide region=crop iterations=1 dimensions=2268x1512 elapsed_ms=31.186 checksum=562.64622605"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "oxide-full",
+      "wall_s": 0.09662120900000026,
+      "max_rss_bytes": 99745792,
+      "internal_ms": 87.023,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=2268x1512 elapsed_ms=87.023 checksum=724.50277920"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "own-crop",
+      "wall_s": 0.28970033399999995,
+      "max_rss_bytes": 56639488,
+      "internal_ms": 280.569,
+      "stdout": [
+        "mode=own region=crop iterations=1 dimensions=2268x1512 elapsed_ms=280.569 checksum=562.64622557"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "own-full",
+      "wall_s": 0.2897232089999999,
+      "max_rss_bytes": 56573952,
+      "internal_ms": 281.068,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=2268x1512 elapsed_ms=281.068 checksum=724.50277990"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "own-full",
+      "wall_s": 0.2893627910000003,
+      "max_rss_bytes": 56541184,
+      "internal_ms": 280.043,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=2268x1512 elapsed_ms=280.043 checksum=724.50277990"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "own-crop",
+      "wall_s": 0.28844370799999997,
+      "max_rss_bytes": 56590336,
+      "internal_ms": 280.137,
+      "stdout": [
+        "mode=own region=crop iterations=1 dimensions=2268x1512 elapsed_ms=280.137 checksum=562.64622557"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "oxide-full",
+      "wall_s": 0.09630895899999992,
+      "max_rss_bytes": 99762176,
+      "internal_ms": 86.807,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=2268x1512 elapsed_ms=86.807 checksum=724.50277920"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "oxide-crop",
+      "wall_s": 0.04027762499999987,
+      "max_rss_bytes": 35373056,
+      "internal_ms": 31.537,
+      "stdout": [
+        "mode=oxide region=crop iterations=1 dimensions=2268x1512 elapsed_ms=31.537 checksum=562.64622605"
+      ],
+      "load_before": 19.86474609375,
+      "load_after": 19.86474609375,
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}
