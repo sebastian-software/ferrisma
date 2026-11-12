@@ -17,12 +17,15 @@ use crate::pipeline::{ChromaSubsampling, JpegXlOptions, OutputFormat, WebpOption
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct EncodeRequest {
+    /// Requested output format.
     pub format: OutputFormat,
     /// Format-specific settings when `format` is WebP.
     pub webp: WebpOptions,
     /// Format-specific settings when `format` is JPEG XL.
     pub jpeg_xl: JpegXlOptions,
+    /// Output width in pixels.
     pub width: u32,
+    /// Output height in pixels.
     pub height: u32,
     /// The rows carry straight alpha that may be below 255; when false
     /// every alpha byte is 255.
@@ -34,6 +37,7 @@ pub struct EncodeRequest {
     /// Encoder threads, resolved (at least 1); 1 means the caller asked
     /// for single-threaded encoding.
     pub threads: usize,
+    /// AVIF chroma layout.
     pub chroma: ChromaSubsampling,
 }
 
@@ -41,7 +45,9 @@ pub struct EncodeRequest {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct EncodedImage {
+    /// Format of `bytes`; must match the request.
     pub format: OutputFormat,
+    /// The complete encoded file.
     pub bytes: Vec<u8>,
     /// Bytes of input frames the backend materialized (for example a
     /// full RGBA or YUV frame), reported as `encoder_output_frame_bytes`.
@@ -52,6 +58,7 @@ pub struct EncodedImage {
 }
 
 impl EncodedImage {
+    /// Describe a finished encode.
     #[must_use]
     pub fn new(
         format: OutputFormat,
@@ -89,6 +96,7 @@ pub struct EncodeError {
 }
 
 impl EncodeError {
+    /// A failure of `kind` with a message for people.
     #[must_use]
     pub fn new(kind: EncodeErrorKind, message: impl Into<String>) -> Self {
         Self {
@@ -97,6 +105,7 @@ impl EncodeError {
         }
     }
 
+    /// The failure category.
     #[must_use]
     pub fn kind(&self) -> EncodeErrorKind {
         self.kind

@@ -32,6 +32,7 @@ pub use ferrisma_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelRe
 
 /// Chroma layout for AVIF output and AVIF encoder backends.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum ChromaSubsampling {
     /// Full-resolution chroma, the AVIF default.
     #[default]
@@ -43,9 +44,12 @@ pub enum ChromaSubsampling {
 /// The encoded container format. WebP and JPEG XL have no selectable chroma
 /// layout.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum OutputFormat {
+    /// Still AVIF; requires `avif-write`, `avif-own-write`, or an AVIF backend.
     #[default]
     Avif,
+    /// Still WebP; requires `webp-write` or a WebP backend.
     WebP,
     /// A raw JPEG XL codestream (ADR-0039); requires `jpeg-xl-write`.
     JpegXl,
@@ -70,11 +74,20 @@ impl Default for JpegXlOptions {
 
 /// Settings for the built-in still WebP encoder.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum WebpOptions {
     /// Quality is 1–100; speed is 1 (slowest) through 10 (fastest).
-    Lossy { quality: f32, speed: u8 },
+    Lossy {
+        /// Quality from 1 through 100.
+        quality: f32,
+        /// Speed from 1 (slowest) through 10 (fastest).
+        speed: u8,
+    },
     /// Level 0 is fastest; 9 gives the smallest lossless files.
-    Lossless { level: u8 },
+    Lossless {
+        /// Effort level from 0 through 9.
+        level: u8,
+    },
 }
 
 impl Default for WebpOptions {
@@ -89,26 +102,37 @@ impl Default for WebpOptions {
 /// Accepted input codecs. Compile the corresponding Cargo features to enable
 /// each adapter; no transitive codec dependencies are required by the core.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ImageFormat {
+    /// JPEG; requires `jpeg-read`.
     Jpeg,
+    /// Still WebP; requires `webp-read`.
     WebP,
+    /// JPEG XL; requires the backend feature selected by [`JpegXlDecoder`].
     JpegXl,
+    /// Still AVIF; requires `avif-read`.
     Avif,
 }
 
 /// Explicit AVIF output encoder. Quality and speed use the selected encoder's scale.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum AvifEncoder {
     /// The existing Rav1e encoder; the default.
     #[default]
     Rav1e,
     /// Workspace libavif/AOM; requires `avif-own-write` and depth 8 or 10.
-    Libavif { depth: u8 },
+    Libavif {
+        /// AV1 bit depth: 8 or 10.
+        depth: u8,
+    },
 }
 
 /// Source color handling policy; the default never guesses a color profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum InputProfilePolicy {
+    /// Require unambiguous decoder-reported sRGB; never assume or convert.
     #[default]
     Strict,
     /// Explicitly assume sRGB only when the decoder reports *no* output ICC
@@ -123,6 +147,7 @@ pub enum InputProfilePolicy {
 /// image within ADR-0021's bound; the reference exists for verification and
 /// before/after measurements, not for production use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum WorkingPrecision {
     /// Scalar `f32` executor with table-driven transfer functions.
     #[default]
@@ -131,20 +156,28 @@ pub enum WorkingPrecision {
     F64Reference,
 }
 
+/// A crop rectangle in upright display coordinates, after orientation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Crop {
+    /// Left edge in pixels.
     pub x: u32,
+    /// Top edge in pixels.
     pub y: u32,
+    /// Width in pixels; must be nonzero.
     pub width: u32,
+    /// Height in pixels; must be nonzero.
     pub height: u32,
 }
 
 /// Select the JPEG XL input backend explicitly. The interim reader remains
 /// the default until the reference port meets the selection gates (ADR-0032).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum JpegXlDecoder {
+    /// The interim `jxl-oxide` reader; requires `jpeg-xl-read`.
     #[default]
     JxlOxide,
+    /// The experimental workspace libjxl-rs reader; requires `jpeg-xl-own-read`.
     LibjxlRs,
 }
 
@@ -152,16 +185,23 @@ pub enum JpegXlDecoder {
 /// Encoder scratch allocations are opaque and not constrained by the budget.
 #[derive(Clone, Copy, Debug)]
 pub struct TransformOptions {
+    /// Encoded output format.
     pub output_format: OutputFormat,
     /// AVIF encoder selection; defaults to Rav1e.
     pub avif_encoder: AvifEncoder,
+    /// Settings for the built-in WebP encoder.
     pub webp: WebpOptions,
     /// JPEG XL settings; must stay at the default for other formats.
     pub jpeg_xl: JpegXlOptions,
+    /// Exact output width; ignored by [`transcode_resized`].
     pub output_width: u32,
+    /// Exact output height; ignored by [`transcode_resized`].
     pub output_height: u32,
+    /// Optional crop in upright display coordinates, applied before resizing.
     pub crop: Option<Crop>,
+    /// Resampling filter.
     pub filter: ResizeFilter,
+    /// Working precision of the resample chain.
     pub precision: WorkingPrecision,
     /// Highest SIMD kernel level to use; `None` picks the best the machine
     /// supports. Lowering it never changes the result beyond the ADR-0021
@@ -172,7 +212,9 @@ pub struct TransformOptions {
     /// values must be at most 256. The output is
     /// byte-identical for every value.
     pub transform_threads: usize,
+    /// How missing or rendered ICC color is handled.
     pub profile_policy: InputProfilePolicy,
+    /// JPEG XL input backend.
     pub jxl_decoder: JpegXlDecoder,
     /// AVIF quality on the selected encoder's scale; Rav1e accepts 1–100,
     /// while libavif accepts 0–100.
@@ -187,6 +229,8 @@ pub struct TransformOptions {
     pub encoder_threads: usize,
     /// Chroma layout of the AVIF output; 4:4:4 by default.
     pub chroma_subsampling: ChromaSubsampling,
+    /// Engine-managed memory budget in bytes. Opaque codec scratch memory is
+    /// not bounded by it; see [`ProcessingReport`].
     pub max_managed_bytes: usize,
     /// Maximum compressed input size, checked before initializing any codec.
     pub max_input_bytes: usize,
@@ -226,8 +270,12 @@ impl Default for TransformOptions {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+/// How the decoder delivered the requested source region.
 pub enum SourceAccess {
+    /// The decoder produced the full frame; the engine selected the region.
     FullFrameFallback,
+    /// The decoder honored a region request.
     CodecRegionRequest,
 }
 
@@ -235,6 +283,7 @@ pub enum SourceAccess {
 /// These are observations of one run on one machine, not throughput claims;
 /// the stages overlap only where documented on each field.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct StageTimings {
     /// Option validation, container and header parsing, orientation and ICC
     /// setup, graph construction: everything before the first decoded pixel.
@@ -253,10 +302,15 @@ pub struct StageTimings {
 
 /// Report known materializations separately from opaque codec memory.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct ProcessingReport {
+    /// How the source region was obtained.
     pub input_access: SourceAccess,
+    /// Number of region requests sent to the decoder.
     pub decoder_requests: u32,
+    /// Known full decoded frames materialized by the decoder adapter.
     pub decoder_full_frame_buffers: u32,
+    /// Full-frame intermediates materialized by the engine.
     pub engine_full_frame_intermediates: u32,
     /// Engine-managed bytes materialized to reorient the input; zero for
     /// upright input.
@@ -265,14 +319,18 @@ pub struct ProcessingReport {
     /// reports its larger color or alpha frame; libavif reports its concurrent
     /// RGBA and YUV(A) frames. Known bytes are charged to the managed budget.
     pub encoder_output_frame_bytes: usize,
+    /// Peak engine-managed bytes charged against `max_managed_bytes`.
     pub peak_managed_bytes: usize,
+    /// The decoder allocated memory that the engine cannot observe or bound.
     pub opaque_decoder_memory: bool,
+    /// The encoder allocated memory that the engine cannot observe or bound.
     pub opaque_encoder_memory: bool,
     /// The executor that produced the pixels.
     pub working_precision: WorkingPrecision,
     /// SIMD level of the resample kernels and why it was chosen; the `f64`
     /// reference executor always reports `Scalar`.
     pub kernel_level: KernelLevel,
+    /// Why `kernel_level` was selected.
     pub kernel_level_reason: KernelLevelReason,
     /// Encoder threads actually used (resolved when the option was 0).
     pub encoder_threads: usize,
@@ -282,16 +340,23 @@ pub struct ProcessingReport {
     /// The encoder that wrote the output, such as `"rav1e"` or
     /// `"libavif-rs/aom"` (ADR-0024).
     pub encoder_backend: &'static str,
+    /// Wall-clock observations per stage; not a performance claim.
     pub timings: StageTimings,
 }
 
+/// One encoded image and its processing report.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct Output {
+    /// Format of `bytes`.
     pub format: OutputFormat,
+    /// The complete encoded file.
     pub bytes: Vec<u8>,
     /// Actual encoded dimensions, which may be smaller than requested.
     pub width: u32,
+    /// Actual encoded height.
     pub height: u32,
+    /// Materialization, memory, backend, and timing observations.
     pub report: ProcessingReport,
 }
 
@@ -526,7 +591,9 @@ fn open_source<'a>(
 /// Limits applied before and after parsing a JPEG or WebP header.
 #[derive(Clone, Copy, Debug)]
 pub struct InspectionLimits {
+    /// Maximum compressed input size in bytes; must be nonzero.
     pub max_input_bytes: usize,
+    /// Maximum stored pixel count; must be nonzero.
     pub max_input_pixels: u64,
 }
 
@@ -544,13 +611,21 @@ impl Default for InspectionLimits {
 /// profile assumption or color transform. Dimensions distinguish stored from
 /// upright display coordinates; ICC and CICP are evidence, not a conversion.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct ImageMetadata {
+    /// Coded width before orientation.
     pub stored_width: u32,
+    /// Coded height before orientation.
     pub stored_height: u32,
+    /// Upright display width after orientation.
     pub width: u32,
+    /// Upright display height after orientation.
     pub height: u32,
+    /// The decoder emits an alpha channel.
     pub has_alpha: bool,
+    /// ICC profile describing the decoder's emitted samples, if any.
     pub rendered_icc: Option<Vec<u8>>,
+    /// CICP (primaries, transfer, matrix, full range) of the emitted samples, if any.
     pub rendered_cicp: Option<[u8; 4]>,
 }
 
@@ -1132,8 +1207,11 @@ fn run(
 /// One image of a batch: compressed bytes, their format and the options.
 #[derive(Clone, Copy, Debug)]
 pub struct BatchItem<'a> {
+    /// Compressed input bytes.
     pub encoded: &'a [u8],
+    /// Input format.
     pub format: ImageFormat,
+    /// Options; the engine overrides both thread counts with 1.
     pub options: TransformOptions,
 }
 

@@ -39,6 +39,7 @@ use std::sync::OnceLock;
 /// but this crate does not implement falls back to the next lower one
 /// (reason [`LevelReason::Fallback`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
 pub enum IsaLevel {
     /// Portable Rust, the reference body.
     Scalar,
@@ -82,6 +83,7 @@ impl fmt::Display for IsaLevel {
 
 /// Why a level was chosen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum LevelReason {
     /// The highest level of the machine, and it is implemented.
     Detected,
@@ -277,11 +279,13 @@ impl Kernels {
         .collect()
     }
 
+    /// The selected kernel level.
     #[must_use]
     pub fn level(&self) -> IsaLevel {
         self.level
     }
 
+    /// Why the level was selected.
     #[must_use]
     pub fn reason(&self) -> LevelReason {
         self.reason

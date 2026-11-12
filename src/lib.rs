@@ -7,6 +7,7 @@
 //! See `docs/architecture.md` and `docs/adr/` in the repository.
 
 #![forbid(unsafe_code)]
+#![warn(missing_docs)]
 // A backend-only build exposes the row encoder facade but has no built-in
 // sink; some experimental internals are unreachable outside tests. With a
 // built-in sink, dead code is reported, except scoped architecture experiments.

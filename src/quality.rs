@@ -2,9 +2,13 @@
 
 use crate::error::Error;
 
+/// Resampling filter, exported as `pipeline::ResizeFilter`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Filter {
+    /// Box/area averaging, suited to strong downscaling.
     Area,
+    /// Three-lobe Lanczos, the default.
     Lanczos3,
 }
 

@@ -4,6 +4,7 @@ use crate::geometry::{Rect, Size};
 
 /// How two requested dimensions relate to the selected upright source region.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ResizeFit {
     /// Preserve aspect ratio and fit within the requested bounds.
     #[default]
