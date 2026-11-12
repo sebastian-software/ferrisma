@@ -60,16 +60,19 @@ impl RenderPipelineStage for YCbCrStage {
         let cgcr = -0.299f32 * 1.402f32 / 0.587f32;
         let cbcb = 1.772f32;
         let rows: [_; 3] = std::array::from_fn(|c| self.get_input_row(input, c, 0));
+        // In place on three disjoint spans resolved once per row; each sample
+        // is read and written in the original order.
+        let [r0, r1, r2] = buffers.three_rows_mut(rows, width);
         for x in 0..width {
-            let y = add(buffers.row(rows[1])[x], c128);
-            let cb = buffers.row(rows[0])[x];
-            let cr = buffers.row(rows[2])[x];
+            let y = add(r1[x], c128);
+            let cb = r0[x];
+            let cr = r2[x];
             let r = ma(crcr, cr, y);
             let g = ma(cgcr, cr, ma(cgcb, cb, y));
             let b = ma(cbcb, cb, y);
-            buffers.row_mut(rows[0])[x] = r;
-            buffers.row_mut(rows[1])[x] = g;
-            buffers.row_mut(rows[2])[x] = b;
+            r0[x] = r;
+            r1[x] = g;
+            r2[x] = b;
         }
         Ok(())
     }
