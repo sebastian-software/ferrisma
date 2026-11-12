@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-10
+- Updated: 2026-11-12
 
 > **2026-11-10 amendment:** [Ferrisma ADR-0027](../../../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md) supersedes the ordinary PR C++ oracle and full local macOS check on every ported-code change. The rationale and evidence below remain historical; deep validation and platform acceptance still apply under that decision.
 
@@ -875,3 +875,30 @@ boundaries after a compiler, target or source change; a fused per-lane
 kernel would need its own codegen evidence (see section 9 of
 `docs/benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md` at the
 repository root).
+
+### Amendment: AArch64 only, 2026-11-12 (late evening)
+
+The row kernels above are not exact on x86-64. Hosted Linux x86-64 CI failed
+the `scalar_rows` unit test at `add_abs_diff` and the EPF competing-operand
+oracle parity test (208 mismatches, all NaN payloads). Under Rosetta 2,492
+of 15,625 adversarial triples differ, all of them in lanes where both words
+are NaNs. LLVM treats `fadd` as commutative and gave the fused loop's
+accumulator to `addps` as the second source, and x86 keeps the first
+source's NaN. The claim that loading both operands prevents commuting
+therefore held on AArch64 only. No Rust source form pins the operand order
+of an inlined `fadd`.
+
+Decision: the row kernels and the XYB row kernel are compiled only for
+`target_arch = "aarch64"`. Every other target calls the previous
+per-element `#[inline(never)]` helpers once per lane through the same kernel
+signatures, and XYB calls `xyb_to_rgb` per sample. Both are exact by
+construction. Upsampling's arithmetic pass and the FromLinear stages keep
+their pre-row-span loops off AArch64, because their arithmetic is inline.
+Noise, modular and RCT row spans stay on every target: their arithmetic is
+out of line or integer. Consequence: x86-64 does not get the R2 speedup.
+Evidence and the per-stage table are in the addendum to section 9 of
+`docs/benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md`.
+Re-evaluate when an x86-64 kernel has codegen evidence of its own (as
+section 10 of that record gathered for the per-size DCT), or after a
+compiler or target change. Hosted x86-64 CI (`codecs (jxl, ubuntu-24.04)` and the JXL deep
+check) is the acceptance gate for this amendment.
