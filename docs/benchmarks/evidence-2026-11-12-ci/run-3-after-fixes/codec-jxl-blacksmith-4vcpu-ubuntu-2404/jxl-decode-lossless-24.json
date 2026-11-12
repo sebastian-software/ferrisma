@@ -1,0 +1,607 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "group": "jxl/decode-lossless/photo24",
+    "candidates": [
+      {
+        "id": "c:t1",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" 2> >(awk '/^[0-9]+ x [0-9]+, / { h = $3; sub(/,$/, \"\", h); for (i = 4; i < NF; i++) if ($(i + 1) ~ /^MP\\/s/) { printf \"elapsed_ms=%.3f\\n\", $1 * h / 1e6 / $i * 1000; break } } { print > \"/dev/stderr\" }')",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/build-simd/tools/djxl",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "--disable_output",
+          "--num_threads=0"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode-lossless",
+          "input": "photo24-d0e7.jxl",
+          "impl": "c",
+          "threads": 1,
+          "notes": "djxl --disable_output: decode to interleaved F32; elapsed_ms from djxl's MP/s line (DecompressJxlToPackedPixelFile, file read excluded); --num_threads=0"
+        }
+      },
+      {
+        "id": "c:tN",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" 2> >(awk '/^[0-9]+ x [0-9]+, / { h = $3; sub(/,$/, \"\", h); for (i = 4; i < NF; i++) if ($(i + 1) ~ /^MP\\/s/) { printf \"elapsed_ms=%.3f\\n\", $1 * h / 1e6 / $i * 1000; break } } { print > \"/dev/stderr\" }')",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/build-simd/tools/djxl",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "--disable_output"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode-lossless",
+          "input": "photo24-d0e7.jxl",
+          "impl": "c",
+          "threads": 4,
+          "notes": "djxl --disable_output: decode to interleaved F32; elapsed_ms from djxl's MP/s line (DecompressJxlToPackedPixelFile, file read excluded); default runner"
+        }
+      },
+      {
+        "id": "port:t1",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/jxl_decode_compare",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "own",
+          "full",
+          "1"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode-lossless",
+          "input": "photo24-d0e7.jxl",
+          "impl": "port",
+          "threads": 1,
+          "notes": "libjxl-rs via ferrisma-jxl-decoder: inspect + decode_into F32 (file read excluded); serial"
+        }
+      },
+      {
+        "id": "oxide:t1",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/jxl_decode_compare",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "oxide",
+          "full",
+          "1"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode-lossless",
+          "input": "photo24-d0e7.jxl",
+          "impl": "oxide",
+          "threads": 1,
+          "notes": "jxl-oxide 0.12.6 (no rayon): render + stream rows to F32 (file read excluded)"
+        }
+      }
+    ]
+  },
+  "platform": "Linux-6.6.141-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "cpus": 4,
+  "uptime_before": "19:55:46 up 6 min,  0 user,  load average: 1.80, 2.20, 1.14",
+  "uptime_after": "19:57:41 up 8 min,  0 user,  load average: 1.84, 2.04, 1.19",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "complete": true,
+  "summary": {
+    "c:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 3.8120849460000272,
+      "wall_min_s": 3.283661266000024,
+      "wall_max_s": 4.052871627000002,
+      "load_min": 1.41552734375,
+      "load_max": 1.74755859375,
+      "rss_median_bytes": 317407232,
+      "rss_max_bytes": 317534208,
+      "internal_median_ms": 3771.213,
+      "internal_min_ms": 3262.199,
+      "internal_max_ms": 4010.025
+    },
+    "c:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 0.9659329080000134,
+      "wall_min_s": 0.8234724909999613,
+      "wall_max_s": 1.0657236019999914,
+      "load_min": 1.41552734375,
+      "load_max": 1.91552734375,
+      "rss_median_bytes": 324067328,
+      "rss_max_bytes": 324280320,
+      "internal_median_ms": 938.857,
+      "internal_min_ms": 800.293,
+      "internal_max_ms": 1031.194
+    },
+    "port:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 5.127274489999991,
+      "wall_min_s": 4.170503123000003,
+      "wall_max_s": 5.631604634000041,
+      "load_min": 1.4521484375,
+      "load_max": 1.91552734375,
+      "rss_median_bytes": 316170240,
+      "rss_max_bytes": 316301312,
+      "internal_median_ms": 5111.963,
+      "internal_min_ms": 4161.774,
+      "internal_max_ms": 5617.741
+    },
+    "oxide:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 4.849554513999976,
+      "wall_min_s": 3.951547524000034,
+      "wall_max_s": 5.370450204000008,
+      "load_min": 1.5048828125,
+      "load_max": 1.91552734375,
+      "rss_median_bytes": 192487424,
+      "rss_max_bytes": 192753664,
+      "internal_median_ms": 4799.437,
+      "internal_min_ms": 3934.981,
+      "internal_max_ms": 5323.061
+    }
+  },
+  "samples": [
+    {
+      "id": "oxide:t1",
+      "wall_s": 5.017834727000036,
+      "load_before": 1.79541015625,
+      "load_after": 1.7314453125,
+      "returncode": 0,
+      "max_rss_bytes": 192487424,
+      "internal_ms": 4982.424,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=6000x4000 elapsed_ms=4982.424 checksum=1528.52553032"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 5.008461178999994,
+      "load_before": 1.7314453125,
+      "load_after": 1.6728515625,
+      "returncode": 0,
+      "max_rss_bytes": 316035072,
+      "internal_ms": 4994.115,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=6000x4000 elapsed_ms=4994.115 checksum=1528.52557252"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.1383874649999939,
+      "load_before": 1.6728515625,
+      "load_after": 1.6728515625,
+      "returncode": 0,
+      "max_rss_bytes": 324190208,
+      "internal_ms": 1092.896,
+      "stdout": [
+        "elapsed_ms=1092.896"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 4.2341763809999975,
+      "load_before": 1.6728515625,
+      "load_after": 1.61865234375,
+      "returncode": 0,
+      "max_rss_bytes": 317534208,
+      "internal_ms": 4184.83,
+      "stdout": [
+        "elapsed_ms=4184.830"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 3.9566606299999876,
+      "load_before": 1.61865234375,
+      "load_after": 1.6494140625,
+      "returncode": 0,
+      "max_rss_bytes": 317534208,
+      "internal_ms": 3924.133,
+      "stdout": [
+        "elapsed_ms=3924.133"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.0378005819999885,
+      "load_before": 1.6494140625,
+      "load_after": 1.6494140625,
+      "returncode": 0,
+      "max_rss_bytes": 324280320,
+      "internal_ms": 1001.419,
+      "stdout": [
+        "elapsed_ms=1001.419"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 5.631604634000041,
+      "load_before": 1.6494140625,
+      "load_after": 1.59716796875,
+      "returncode": 0,
+      "max_rss_bytes": 316145664,
+      "internal_ms": 5617.741,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=6000x4000 elapsed_ms=5617.741 checksum=1528.52557252"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "oxide:t1",
+      "wall_s": 4.866396523999981,
+      "load_before": 1.59716796875,
+      "load_after": 1.54931640625,
+      "returncode": 0,
+      "max_rss_bytes": 192618496,
+      "internal_ms": 4839.615,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=6000x4000 elapsed_ms=4839.615 checksum=1528.52553032"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "oxide:t1",
+      "wall_s": 5.0464443300000426,
+      "load_before": 1.54931640625,
+      "load_after": 1.5048828125,
+      "returncode": 0,
+      "max_rss_bytes": 192622592,
+      "internal_ms": 5022.27,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=6000x4000 elapsed_ms=5022.270 checksum=1528.52553032"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 5.127274489999991,
+      "load_before": 1.5048828125,
+      "load_after": 1.46435546875,
+      "returncode": 0,
+      "max_rss_bytes": 316170240,
+      "internal_ms": 5111.963,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=6000x4000 elapsed_ms=5111.963 checksum=1528.52557252"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.0657236019999914,
+      "load_before": 1.46435546875,
+      "load_after": 1.74755859375,
+      "returncode": 0,
+      "max_rss_bytes": 324153344,
+      "internal_ms": 1031.194,
+      "stdout": [
+        "elapsed_ms=1031.194"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 3.8120849460000272,
+      "load_before": 1.74755859375,
+      "load_after": 1.74755859375,
+      "returncode": 0,
+      "max_rss_bytes": 317403136,
+      "internal_ms": 3771.213,
+      "stdout": [
+        "elapsed_ms=3771.213"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 4.052871627000002,
+      "load_before": 1.74755859375,
+      "load_after": 1.6875,
+      "returncode": 0,
+      "max_rss_bytes": 317403136,
+      "internal_ms": 4010.025,
+      "stdout": [
+        "elapsed_ms=4010.025"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.019884981999951,
+      "load_before": 1.6875,
+      "load_after": 1.6875,
+      "returncode": 0,
+      "max_rss_bytes": 323842048,
+      "internal_ms": 989.242,
+      "stdout": [
+        "elapsed_ms=989.242"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 5.480644859000051,
+      "load_before": 1.6875,
+      "load_after": 1.63232421875,
+      "returncode": 0,
+      "max_rss_bytes": 316166144,
+      "internal_ms": 5466.919,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=6000x4000 elapsed_ms=5466.919 checksum=1528.52557252"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "oxide:t1",
+      "wall_s": 5.370450204000008,
+      "load_before": 1.63232421875,
+      "load_after": 1.58154296875,
+      "returncode": 0,
+      "max_rss_bytes": 192360448,
+      "internal_ms": 5323.061,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=6000x4000 elapsed_ms=5323.061 checksum=1528.52553032"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "oxide:t1",
+      "wall_s": 4.849554513999976,
+      "load_before": 1.58154296875,
+      "load_after": 1.53466796875,
+      "returncode": 0,
+      "max_rss_bytes": 192753664,
+      "internal_ms": 4799.437,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=6000x4000 elapsed_ms=4799.437 checksum=1528.52553032"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 5.572290871999996,
+      "load_before": 1.53466796875,
+      "load_after": 1.4521484375,
+      "returncode": 0,
+      "max_rss_bytes": 316035072,
+      "internal_ms": 5553.52,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=6000x4000 elapsed_ms=5553.520 checksum=1528.52557252"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.9168984429999796,
+      "load_before": 1.4521484375,
+      "load_after": 1.4521484375,
+      "returncode": 0,
+      "max_rss_bytes": 324128768,
+      "internal_ms": 889.021,
+      "stdout": [
+        "elapsed_ms=889.021"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 4.027440451000018,
+      "load_before": 1.4521484375,
+      "load_after": 1.41552734375,
+      "returncode": 0,
+      "max_rss_bytes": 317534208,
+      "internal_ms": 3994.009,
+      "stdout": [
+        "elapsed_ms=3994.009"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 3.70493860900001,
+      "load_before": 1.41552734375,
+      "load_after": 1.41552734375,
+      "returncode": 0,
+      "max_rss_bytes": 317407232,
+      "internal_ms": 3676.471,
+      "stdout": [
+        "elapsed_ms=3676.471"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.9659329080000134,
+      "load_before": 1.41552734375,
+      "load_after": 1.78271484375,
+      "returncode": 0,
+      "max_rss_bytes": 323796992,
+      "internal_ms": 938.857,
+      "stdout": [
+        "elapsed_ms=938.857"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 4.414084728000034,
+      "load_before": 1.78271484375,
+      "load_after": 1.78271484375,
+      "returncode": 0,
+      "max_rss_bytes": 316297216,
+      "internal_ms": 4398.607,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=6000x4000 elapsed_ms=4398.607 checksum=1528.52557252"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "oxide:t1",
+      "wall_s": 4.006242901999997,
+      "load_before": 1.78271484375,
+      "load_after": 1.7197265625,
+      "returncode": 0,
+      "max_rss_bytes": 192487424,
+      "internal_ms": 3985.138,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=6000x4000 elapsed_ms=3985.138 checksum=1528.52553032"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "oxide:t1",
+      "wall_s": 4.0471088909999935,
+      "load_before": 1.7197265625,
+      "load_after": 1.66162109375,
+      "returncode": 0,
+      "max_rss_bytes": 192360448,
+      "internal_ms": 4026.859,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=6000x4000 elapsed_ms=4026.859 checksum=1528.52553032"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 4.254223072000002,
+      "load_before": 1.66162109375,
+      "load_after": 1.6083984375,
+      "returncode": 0,
+      "max_rss_bytes": 316297216,
+      "internal_ms": 4242.705,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=6000x4000 elapsed_ms=4242.705 checksum=1528.52557252"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.8740236730000106,
+      "load_before": 1.6083984375,
+      "load_after": 1.6083984375,
+      "returncode": 0,
+      "max_rss_bytes": 323846144,
+      "internal_ms": 850.461,
+      "stdout": [
+        "elapsed_ms=850.461"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 3.2998884620000126,
+      "load_before": 1.6083984375,
+      "load_after": 1.5595703125,
+      "returncode": 0,
+      "max_rss_bytes": 317534208,
+      "internal_ms": 3277.345,
+      "stdout": [
+        "elapsed_ms=3277.345"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 3.283661266000024,
+      "load_before": 1.5595703125,
+      "load_after": 1.5595703125,
+      "returncode": 0,
+      "max_rss_bytes": 317407232,
+      "internal_ms": 3262.199,
+      "stdout": [
+        "elapsed_ms=3262.199"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.8234724909999613,
+      "load_before": 1.5595703125,
+      "load_after": 1.91552734375,
+      "returncode": 0,
+      "max_rss_bytes": 324067328,
+      "internal_ms": 800.293,
+      "stdout": [
+        "elapsed_ms=800.293"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 4.170503123000003,
+      "load_before": 1.91552734375,
+      "load_after": 1.91552734375,
+      "returncode": 0,
+      "max_rss_bytes": 316301312,
+      "internal_ms": 4161.774,
+      "stdout": [
+        "mode=own region=full iterations=1 dimensions=6000x4000 elapsed_ms=4161.774 checksum=1528.52557252"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "oxide:t1",
+      "wall_s": 3.951547524000034,
+      "load_before": 1.91552734375,
+      "load_after": 1.841796875,
+      "returncode": 0,
+      "max_rss_bytes": 192360448,
+      "internal_ms": 3934.981,
+      "stdout": [
+        "mode=oxide region=full iterations=1 dimensions=6000x4000 elapsed_ms=3934.981 checksum=1528.52553032"
+      ],
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}

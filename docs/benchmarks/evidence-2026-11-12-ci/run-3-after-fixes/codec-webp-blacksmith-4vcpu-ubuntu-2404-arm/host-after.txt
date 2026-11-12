@@ -1,0 +1,51 @@
+phase: after
+2026-11-12T20:05:01Z
+runner: blacksmith-4vcpu-ubuntu-2404-arm-m375rlpammwz5v5f ubuntu24 20260819_202427 ARM64
+Linux ip-172-31-78-31 6.6.141 #1 SMP Wed Sep 23 21:05:37 UTC 2026 aarch64 aarch64 aarch64 GNU/Linux
+ 20:05:01 up 16 min,  0 user,  load average: 1.01, 1.03, 0.75
+cpus: 4
+Architecture:                            aarch64
+CPU op-mode(s):                          32-bit, 64-bit
+Byte Order:                              Little Endian
+CPU(s):                                  4
+On-line CPU(s) list:                     0-3
+Vendor ID:                               ARM
+Model name:                              Neoverse-N1
+Model:                                   1
+Thread(s) per core:                      1
+Core(s) per cluster:                     4
+Socket(s):                               -
+Cluster(s):                              1
+Stepping:                                r3p1
+BogoMIPS:                                50.00
+Flags:                                   fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-3
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Vulnerable
+Vulnerability Spectre v1:                Mitigation; __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; CSV2, but not BHB
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Not affected
+               total        used        free      shared  buff/cache   available
+Mem:           11940         559        8940          52        2702       11380
+Swap:          11263           0       11263
+rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)
+binary: rustc
+commit-hash: 5a2be9f5f075d31e3ca5526b5b029881ce441253
+commit-date: 2026-09-06
+host: aarch64-unknown-linux-gnu
+release: 1.100.0-nightly
+LLVM version: 23.1.1
+3051f0421fdcdd71c50f6671a4df91f6cfdcbde7

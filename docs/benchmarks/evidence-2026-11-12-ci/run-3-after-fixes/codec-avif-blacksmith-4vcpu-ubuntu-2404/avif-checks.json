@@ -1,0 +1,40 @@
+{
+  "encode_byte_identity": {
+    "photo12/t1": {
+      "c_sha256": "01fd17fec8e6a22690f13e85067fcaf25173d93bd8e365377ccf028a5071e5ae",
+      "port_sha256": "01fd17fec8e6a22690f13e85067fcaf25173d93bd8e365377ccf028a5071e5ae",
+      "c_bytes": 1759074,
+      "port_bytes": 1759074,
+      "identical": true
+    },
+    "photo12/tN": {
+      "c_sha256": "0652e70485d0b02415b615356415ccf9222ebd5ced774d2c2532580a86974cc0",
+      "port_sha256": "0652e70485d0b02415b615356415ccf9222ebd5ced774d2c2532580a86974cc0",
+      "c_bytes": 1758246,
+      "port_bytes": 1758246,
+      "identical": true
+    }
+  },
+  "decode_rgb_identity": {
+    "photo12": {
+      "sha256": {
+        "c-aom": "8601c317d8c9a14a98d2234ce8b64a7db9e638f101dffac1dbf981ed810aa4c6",
+        "c-dav1d": "8601c317d8c9a14a98d2234ce8b64a7db9e638f101dffac1dbf981ed810aa4c6",
+        "port": "8601c317d8c9a14a98d2234ce8b64a7db9e638f101dffac1dbf981ed810aa4c6",
+        "c-aom:tN": "8601c317d8c9a14a98d2234ce8b64a7db9e638f101dffac1dbf981ed810aa4c6",
+        "c-dav1d:tN": "8601c317d8c9a14a98d2234ce8b64a7db9e638f101dffac1dbf981ed810aa4c6"
+      },
+      "all_identical": true
+    },
+    "photo24": {
+      "sha256": {
+        "c-aom": "4f8c8ac06378e40e29c0c4171be1ccbdcca2f2dece27f178f2f05119b6c384d9",
+        "c-dav1d": "4f8c8ac06378e40e29c0c4171be1ccbdcca2f2dece27f178f2f05119b6c384d9",
+        "port": "4f8c8ac06378e40e29c0c4171be1ccbdcca2f2dece27f178f2f05119b6c384d9",
+        "c-aom:tN": "4f8c8ac06378e40e29c0c4171be1ccbdcca2f2dece27f178f2f05119b6c384d9",
+        "c-dav1d:tN": "4f8c8ac06378e40e29c0c4171be1ccbdcca2f2dece27f178f2f05119b6c384d9"
+      },
+      "all_identical": true
+    }
+  }
+}

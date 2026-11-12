@@ -1,0 +1,3252 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "group": "engine/decode/photo24",
+    "candidates": [
+      {
+        "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:t1",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-e7d1.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/libjxl-rs-webp-q75-r-t1.webp",
+          "2048",
+          "1365",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-decoder=libjxl-rs"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/libjxl-rs-webp-q75-r-t1.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-vardct/libjxl-rs",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "2048x1365",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1365
+          ]
+        }
+      },
+      {
+        "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:tN",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-e7d1.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/libjxl-rs-webp-q75-r-t0.webp",
+          "2048",
+          "1365",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-decoder=libjxl-rs"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/libjxl-rs-webp-q75-r-t0.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-vardct/libjxl-rs",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "2048x1365",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1365
+          ]
+        }
+      },
+      {
+        "id": "jxl-vardct/libjxl-rs>webp-q75:full:t1",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-e7d1.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/libjxl-rs-webp-q75-n-t1.webp",
+          "6000",
+          "4000",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-decoder=libjxl-rs"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/libjxl-rs-webp-q75-n-t1.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-vardct/libjxl-rs",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "none",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            6000,
+            4000
+          ]
+        }
+      },
+      {
+        "id": "jxl-vardct/libjxl-rs>webp-q75:full:tN",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-e7d1.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/libjxl-rs-webp-q75-n-t0.webp",
+          "6000",
+          "4000",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-decoder=libjxl-rs"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/libjxl-rs-webp-q75-n-t0.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-vardct/libjxl-rs",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "none",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            6000,
+            4000
+          ]
+        }
+      },
+      {
+        "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:t1",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-e7d1.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/jxl-oxide-webp-q75-r-t1.webp",
+          "2048",
+          "1365",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-decoder=jxl-oxide"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/jxl-oxide-webp-q75-r-t1.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-vardct/jxl-oxide",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "2048x1365",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1365
+          ]
+        }
+      },
+      {
+        "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:tN",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-e7d1.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/jxl-oxide-webp-q75-r-t0.webp",
+          "2048",
+          "1365",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-decoder=jxl-oxide"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/jxl-oxide-webp-q75-r-t0.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-vardct/jxl-oxide",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "2048x1365",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1365
+          ]
+        }
+      },
+      {
+        "id": "jxl-vardct/jxl-oxide>webp-q75:full:t1",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-e7d1.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/jxl-oxide-webp-q75-n-t1.webp",
+          "6000",
+          "4000",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-decoder=jxl-oxide"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/jxl-oxide-webp-q75-n-t1.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-vardct/jxl-oxide",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "none",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            6000,
+            4000
+          ]
+        }
+      },
+      {
+        "id": "jxl-vardct/jxl-oxide>webp-q75:full:tN",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-e7d1.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/jxl-oxide-webp-q75-n-t0.webp",
+          "6000",
+          "4000",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-decoder=jxl-oxide"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-vardct/jxl-oxide-webp-q75-n-t0.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-vardct/jxl-oxide",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "none",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            6000,
+            4000
+          ]
+        }
+      },
+      {
+        "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:t1",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/libjxl-rs-webp-q75-r-t1.webp",
+          "2048",
+          "1365",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-decoder=libjxl-rs"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/libjxl-rs-webp-q75-r-t1.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-lossless/libjxl-rs",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "2048x1365",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1365
+          ]
+        }
+      },
+      {
+        "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:tN",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/libjxl-rs-webp-q75-r-t0.webp",
+          "2048",
+          "1365",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-decoder=libjxl-rs"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/libjxl-rs-webp-q75-r-t0.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-lossless/libjxl-rs",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "2048x1365",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1365
+          ]
+        }
+      },
+      {
+        "id": "jxl-lossless/libjxl-rs>webp-q75:full:t1",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/libjxl-rs-webp-q75-n-t1.webp",
+          "6000",
+          "4000",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-decoder=libjxl-rs"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/libjxl-rs-webp-q75-n-t1.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-lossless/libjxl-rs",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "none",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            6000,
+            4000
+          ]
+        }
+      },
+      {
+        "id": "jxl-lossless/libjxl-rs>webp-q75:full:tN",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/libjxl-rs-webp-q75-n-t0.webp",
+          "6000",
+          "4000",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-decoder=libjxl-rs"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/libjxl-rs-webp-q75-n-t0.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-lossless/libjxl-rs",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "none",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            6000,
+            4000
+          ]
+        }
+      },
+      {
+        "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:t1",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/jxl-oxide-webp-q75-r-t1.webp",
+          "2048",
+          "1365",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-decoder=jxl-oxide"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/jxl-oxide-webp-q75-r-t1.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-lossless/jxl-oxide",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "2048x1365",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1365
+          ]
+        }
+      },
+      {
+        "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:tN",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/jxl-oxide-webp-q75-r-t0.webp",
+          "2048",
+          "1365",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-decoder=jxl-oxide"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/jxl-oxide-webp-q75-r-t0.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-lossless/jxl-oxide",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "2048x1365",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1365
+          ]
+        }
+      },
+      {
+        "id": "jxl-lossless/jxl-oxide>webp-q75:full:t1",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/jxl-oxide-webp-q75-n-t1.webp",
+          "6000",
+          "4000",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-decoder=jxl-oxide"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/jxl-oxide-webp-q75-n-t1.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-lossless/jxl-oxide",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "none",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            6000,
+            4000
+          ]
+        }
+      },
+      {
+        "id": "jxl-lossless/jxl-oxide>webp-q75:full:tN",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/photo24-d0e7.jxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/jxl-oxide-webp-q75-n-t0.webp",
+          "6000",
+          "4000",
+          "--use-rendered-icc",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-decoder=jxl-oxide"
+        ],
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/out/jxl-lossless/jxl-oxide-webp-q75-n-t0.webp",
+        "meta": {
+          "part": "decode-b",
+          "input": "jxl-lossless/jxl-oxide",
+          "output": "webp-q75",
+          "size": "24",
+          "resize": "none",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            6000,
+            4000
+          ]
+        }
+      }
+    ]
+  },
+  "platform": "Linux-7.0.0-1017-azure-aarch64-with-glibc2.39",
+  "machine": "aarch64",
+  "cpus": 4,
+  "uptime_before": "19:52:00 up 6 min,  0 user,  load average: 1.92, 1.30, 0.56",
+  "uptime_after": "20:04:04 up 18 min,  0 user,  load average: 1.34, 1.27, 0.95",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "complete": true,
+  "summary": {
+    "jxl-vardct/libjxl-rs>webp-q75:2048w:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 4.0097886519999975,
+      "wall_min_s": 4.004035499999986,
+      "wall_max_s": 4.021034200000031,
+      "load_min": 1.0732421875,
+      "load_max": 1.3916015625,
+      "rss_median_bytes": 351080448,
+      "rss_max_bytes": 351145984,
+      "internal_median_ms": 4003.325,
+      "internal_min_ms": 3997.624,
+      "internal_max_ms": 4014.298,
+      "report_median": {
+        "open_us": 3498,
+        "decode_us": 2686573,
+        "transform_us": 922281,
+        "encode_us": 387197,
+        "total_us": 4003325,
+        "output_bytes": 408652,
+        "peak_managed_bytes": 323370592,
+        "encoder_frame_bytes": 15376384,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 1,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6"
+      ],
+      "output_bytes": [
+        408652
+      ]
+    },
+    "jxl-vardct/libjxl-rs>webp-q75:2048w:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 3.365065049000009,
+      "wall_min_s": 3.34909625399996,
+      "wall_max_s": 3.419081203000019,
+      "load_min": 1.06689453125,
+      "load_max": 1.35986328125,
+      "rss_median_bytes": 351387648,
+      "rss_max_bytes": 351404032,
+      "internal_median_ms": 3358.608,
+      "internal_min_ms": 3342.896,
+      "internal_max_ms": 3412.154,
+      "report_median": {
+        "open_us": 3512,
+        "decode_us": 2691446,
+        "transform_us": 271074,
+        "encode_us": 387659,
+        "total_us": 3358608,
+        "output_bytes": 408652,
+        "peak_managed_bytes": 325444384,
+        "encoder_frame_bytes": 15376384,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 1,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6"
+      ],
+      "output_bytes": [
+        408652
+      ]
+    },
+    "jxl-vardct/libjxl-rs>webp-q75:full:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 6.857198627999992,
+      "wall_min_s": 6.836765947999993,
+      "wall_max_s": 6.884871582999949,
+      "load_min": 1.0615234375,
+      "load_max": 1.35986328125,
+      "rss_median_bytes": 435019776,
+      "rss_max_bytes": 435023872,
+      "internal_median_ms": 6850.874,
+      "internal_min_ms": 6830.666,
+      "internal_max_ms": 6878.684,
+      "report_median": {
+        "open_us": 27793,
+        "decode_us": 2679214,
+        "transform_us": 1068881,
+        "encode_us": 3070663,
+        "total_us": 6850874,
+        "output_bytes": 2036608,
+        "peak_managed_bytes": 415816112,
+        "encoder_frame_bytes": 132000000,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 1,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122"
+      ],
+      "output_bytes": [
+        2036608
+      ]
+    },
+    "jxl-vardct/libjxl-rs>webp-q75:full:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 6.1406797490000145,
+      "wall_min_s": 6.1256195729999945,
+      "wall_max_s": 6.187494624999999,
+      "load_min": 1.0615234375,
+      "load_max": 1.3037109375,
+      "rss_median_bytes": 435855360,
+      "rss_max_bytes": 435978240,
+      "internal_median_ms": 6134.303,
+      "internal_min_ms": 6118.99,
+      "internal_max_ms": 6180.059,
+      "report_median": {
+        "open_us": 28849,
+        "decode_us": 2695249,
+        "transform_us": 326051,
+        "encode_us": 3076118,
+        "total_us": 6134303,
+        "output_bytes": 2036608,
+        "peak_managed_bytes": 418912112,
+        "encoder_frame_bytes": 132000000,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 1,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122"
+      ],
+      "output_bytes": [
+        2036608
+      ]
+    },
+    "jxl-vardct/jxl-oxide>webp-q75:2048w:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 2.9051343249998354,
+      "wall_min_s": 2.864867178000054,
+      "wall_max_s": 2.907780128000013,
+      "load_min": 1.111328125,
+      "load_max": 1.310546875,
+      "rss_median_bytes": 612573184,
+      "rss_max_bytes": 612577280,
+      "internal_median_ms": 2870.245,
+      "internal_min_ms": 2833.206,
+      "internal_max_ms": 2872.624,
+      "report_median": {
+        "open_us": 4658,
+        "decode_us": 1551651,
+        "transform_us": 920722,
+        "encode_us": 386024,
+        "total_us": 2870245,
+        "output_bytes": 408710,
+        "peak_managed_bytes": 35442592,
+        "encoder_frame_bytes": 15376384,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302"
+      ],
+      "output_bytes": [
+        408710
+      ]
+    },
+    "jxl-vardct/jxl-oxide>webp-q75:2048w:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 2.0168193359999123,
+      "wall_min_s": 1.9718997060000447,
+      "wall_max_s": 2.0221127199999955,
+      "load_min": 1.111328125,
+      "load_max": 1.32373046875,
+      "rss_median_bytes": 612941824,
+      "rss_max_bytes": 612941824,
+      "internal_median_ms": 1979.217,
+      "internal_min_ms": 1942.781,
+      "internal_max_ms": 1988.309,
+      "report_median": {
+        "open_us": 4822,
+        "decode_us": 1556222,
+        "transform_us": 25959,
+        "encode_us": 385937,
+        "total_us": 1979217,
+        "output_bytes": 408710,
+        "peak_managed_bytes": 37642720,
+        "encoder_frame_bytes": 15376384,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302"
+      ],
+      "output_bytes": [
+        408710
+      ]
+    },
+    "jxl-vardct/jxl-oxide>webp-q75:full:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 5.734164974999999,
+      "wall_min_s": 5.719418455999971,
+      "wall_max_s": 5.789202666999984,
+      "load_min": 1.12109375,
+      "load_max": 1.33642578125,
+      "rss_median_bytes": 696578048,
+      "rss_max_bytes": 696582144,
+      "internal_median_ms": 5702.928,
+      "internal_min_ms": 5689.386,
+      "internal_max_ms": 5753.693,
+      "report_median": {
+        "open_us": 29547,
+        "decode_us": 1526320,
+        "transform_us": 1069798,
+        "encode_us": 3071750,
+        "total_us": 5702928,
+        "output_bytes": 2036056,
+        "peak_managed_bytes": 132000000,
+        "encoder_frame_bytes": 132000000,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5"
+      ],
+      "output_bytes": [
+        2036056
+      ]
+    },
+    "jxl-vardct/jxl-oxide>webp-q75:full:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 4.7187553769999795,
+      "wall_min_s": 4.694808734000162,
+      "wall_max_s": 4.738401500000009,
+      "load_min": 1.11767578125,
+      "load_max": 1.58056640625,
+      "rss_median_bytes": 697487360,
+      "rss_max_bytes": 697585664,
+      "internal_median_ms": 4683.683,
+      "internal_min_ms": 4658.918,
+      "internal_max_ms": 4704.359,
+      "report_median": {
+        "open_us": 32236,
+        "decode_us": 1530309,
+        "transform_us": 46045,
+        "encode_us": 3070978,
+        "total_us": 4683683,
+        "output_bytes": 2036056,
+        "peak_managed_bytes": 132664112,
+        "encoder_frame_bytes": 132000000,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5"
+      ],
+      "output_bytes": [
+        2036056
+      ]
+    },
+    "jxl-lossless/libjxl-rs>webp-q75:2048w:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 5.941788307000024,
+      "wall_min_s": 5.91566403700017,
+      "wall_max_s": 5.960417618999941,
+      "load_min": 1.09912109375,
+      "load_max": 1.6142578125,
+      "rss_median_bytes": 332455936,
+      "rss_max_bytes": 332472320,
+      "internal_median_ms": 5927.982,
+      "internal_min_ms": 5901.734,
+      "internal_max_ms": 5946.978,
+      "report_median": {
+        "open_us": 3551,
+        "decode_us": 4617785,
+        "transform_us": 913548,
+        "encode_us": 388862,
+        "total_us": 5927982,
+        "output_bytes": 411212,
+        "peak_managed_bytes": 323370592,
+        "encoder_frame_bytes": 15376384,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 1,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b"
+      ],
+      "output_bytes": [
+        411212
+      ]
+    },
+    "jxl-lossless/libjxl-rs>webp-q75:2048w:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 5.273438099000032,
+      "wall_min_s": 5.266287560000023,
+      "wall_max_s": 5.290907282000035,
+      "load_min": 1.09912109375,
+      "load_max": 1.6142578125,
+      "rss_median_bytes": 332640256,
+      "rss_max_bytes": 332660736,
+      "internal_median_ms": 5260.089,
+      "internal_min_ms": 5252.268,
+      "internal_max_ms": 5275.845,
+      "report_median": {
+        "open_us": 3735,
+        "decode_us": 4594121,
+        "transform_us": 268736,
+        "encode_us": 389228,
+        "total_us": 5260089,
+        "output_bytes": 411212,
+        "peak_managed_bytes": 325608224,
+        "encoder_frame_bytes": 15376384,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 1,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b"
+      ],
+      "output_bytes": [
+        411212
+      ]
+    },
+    "jxl-lossless/libjxl-rs>webp-q75:full:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 8.80026568900007,
+      "wall_min_s": 8.77197149899996,
+      "wall_max_s": 8.834841202999996,
+      "load_min": 1.154296875,
+      "load_max": 1.56494140625,
+      "rss_median_bytes": 416280576,
+      "rss_max_bytes": 416284672,
+      "internal_median_ms": 8785.63,
+      "internal_min_ms": 8758.525,
+      "internal_max_ms": 8819.856,
+      "report_median": {
+        "open_us": 30498,
+        "decode_us": 4604336,
+        "transform_us": 1026450,
+        "encode_us": 3119399,
+        "total_us": 8785630,
+        "output_bytes": 2089758,
+        "peak_managed_bytes": 415816112,
+        "encoder_frame_bytes": 132000000,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 1,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7"
+      ],
+      "output_bytes": [
+        2089758
+      ]
+    },
+    "jxl-lossless/libjxl-rs>webp-q75:full:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 8.072855749000041,
+      "wall_min_s": 8.061266434999993,
+      "wall_max_s": 8.089710331999981,
+      "load_min": 1.1298828125,
+      "load_max": 1.5234375,
+      "rss_median_bytes": 417128448,
+      "rss_max_bytes": 417579008,
+      "internal_median_ms": 8056.781,
+      "internal_min_ms": 8047.132,
+      "internal_max_ms": 8073.988,
+      "report_median": {
+        "open_us": 30008,
+        "decode_us": 4596680,
+        "transform_us": 313814,
+        "encode_us": 3117150,
+        "total_us": 8056781,
+        "output_bytes": 2089758,
+        "peak_managed_bytes": 419128112,
+        "encoder_frame_bytes": 132000000,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 1,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7"
+      ],
+      "output_bytes": [
+        2089758
+      ]
+    },
+    "jxl-lossless/jxl-oxide>webp-q75:2048w:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 5.687447805000147,
+      "wall_min_s": 5.657618292000052,
+      "wall_max_s": 5.6995081580000715,
+      "load_min": 1.119140625,
+      "load_max": 1.5234375,
+      "rss_median_bytes": 223301632,
+      "rss_max_bytes": 223301632,
+      "internal_median_ms": 5657.911,
+      "internal_min_ms": 5630.101,
+      "internal_max_ms": 5669.335,
+      "report_median": {
+        "open_us": 12560,
+        "decode_us": 4342266,
+        "transform_us": 914185,
+        "encode_us": 381854,
+        "total_us": 5657911,
+        "output_bytes": 411112,
+        "peak_managed_bytes": 35442592,
+        "encoder_frame_bytes": 15376384,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b"
+      ],
+      "output_bytes": [
+        411112
+      ]
+    },
+    "jxl-lossless/jxl-oxide>webp-q75:2048w:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 4.814753456999938,
+      "wall_min_s": 4.80436622600007,
+      "wall_max_s": 4.83655054999997,
+      "load_min": 1.109375,
+      "load_max": 1.4814453125,
+      "rss_median_bytes": 226107392,
+      "rss_max_bytes": 226439168,
+      "internal_median_ms": 4785.718,
+      "internal_min_ms": 4775.98,
+      "internal_max_ms": 4804.119,
+      "report_median": {
+        "open_us": 12687,
+        "decode_us": 4359409,
+        "transform_us": 27142,
+        "encode_us": 382513,
+        "total_us": 4785718,
+        "output_bytes": 411112,
+        "peak_managed_bytes": 37261600,
+        "encoder_frame_bytes": 15376384,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b"
+      ],
+      "output_bytes": [
+        411112
+      ]
+    },
+    "jxl-lossless/jxl-oxide>webp-q75:full:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 8.557995225000013,
+      "wall_min_s": 8.535602321000056,
+      "wall_max_s": 8.565897089000032,
+      "load_min": 1.1005859375,
+      "load_max": 1.44287109375,
+      "rss_median_bytes": 435589120,
+      "rss_max_bytes": 435589120,
+      "internal_median_ms": 8526.736,
+      "internal_min_ms": 8506.306,
+      "internal_max_ms": 8535.305,
+      "report_median": {
+        "open_us": 39842,
+        "decode_us": 4351390,
+        "transform_us": 1026607,
+        "encode_us": 3104543,
+        "total_us": 8526736,
+        "output_bytes": 2089758,
+        "peak_managed_bytes": 132000000,
+        "encoder_frame_bytes": 132000000,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7"
+      ],
+      "output_bytes": [
+        2089758
+      ]
+    },
+    "jxl-lossless/jxl-oxide>webp-q75:full:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 7.583056158999966,
+      "wall_min_s": 7.5733685870000045,
+      "wall_max_s": 7.611717285000054,
+      "load_min": 1.08447265625,
+      "load_max": 1.505859375,
+      "rss_median_bytes": 438988800,
+      "rss_max_bytes": 440692736,
+      "internal_median_ms": 7552.802,
+      "internal_min_ms": 7545.81,
+      "internal_max_ms": 7579.238,
+      "report_median": {
+        "open_us": 35625,
+        "decode_us": 4352117,
+        "transform_us": 48522,
+        "encode_us": 3112747,
+        "total_us": 7552802,
+        "output_bytes": 2089758,
+        "peak_managed_bytes": 132000000,
+        "encoder_frame_bytes": 132000000,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7"
+      ],
+      "output_bytes": [
+        2089758
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 7.602958424999997,
+      "load_before": 1.9208984375,
+      "load_after": 1.8466796875,
+      "returncode": 0,
+      "max_rss_bytes": 440430592,
+      "internal_ms": 7553.682,
+      "stdout": [
+        "report: open_us=37382 decode_us=4353869 transform_us=44346 encode_us=3114665 total_us=7553682 output_bytes=2089758 peak_managed_bytes=132184112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 8.533120888999974,
+      "load_before": 1.8466796875,
+      "load_after": 1.71630859375,
+      "returncode": 0,
+      "max_rss_bytes": 435580928,
+      "internal_ms": 8506.826,
+      "stdout": [
+        "report: open_us=37168 decode_us=4337518 transform_us=1027088 encode_us=3101859 total_us=8506826 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 4.808548673000018,
+      "load_before": 1.71630859375,
+      "load_after": 1.65869140625,
+      "returncode": 0,
+      "max_rss_bytes": 226209792,
+      "internal_ms": 4781.29,
+      "stdout": [
+        "report: open_us=11790 decode_us=4356294 transform_us=26413 encode_us=381555 total_us=4781290 output_bytes=411112 peak_managed_bytes=37605216 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 5.672914677000051,
+      "load_before": 1.65869140625,
+      "load_after": 1.60546875,
+      "returncode": 0,
+      "max_rss_bytes": 223297536,
+      "internal_ms": 5646.462,
+      "stdout": [
+        "report: open_us=11125 decode_us=4333190 transform_us=914922 encode_us=382031 total_us=5646462 output_bytes=411112 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 8.051540276000026,
+      "load_before": 1.60546875,
+      "load_after": 1.51171875,
+      "returncode": 0,
+      "max_rss_bytes": 419098624,
+      "internal_ms": 8037.378,
+      "stdout": [
+        "report: open_us=29083 decode_us=4583402 transform_us=313976 encode_us=3107504 total_us=8037378 output_bytes=2089758 peak_managed_bytes=420520112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 8.789692902000013,
+      "load_before": 1.51171875,
+      "load_after": 1.470703125,
+      "returncode": 0,
+      "max_rss_bytes": 416280576,
+      "internal_ms": 8775.743,
+      "stdout": [
+        "report: open_us=29852 decode_us=4598521 transform_us=1027062 encode_us=3117125 total_us=8775743 output_bytes=2089758 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 5.276687183999968,
+      "load_before": 1.470703125,
+      "load_after": 1.4326171875,
+      "returncode": 0,
+      "max_rss_bytes": 332328960,
+      "internal_ms": 5263.12,
+      "stdout": [
+        "report: open_us=3551 decode_us=4593712 transform_us=272112 encode_us=388518 total_us=5263120 output_bytes=411212 peak_managed_bytes=325542688 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 5.927473923000036,
+      "load_before": 1.4326171875,
+      "load_after": 1.36572265625,
+      "returncode": 0,
+      "max_rss_bytes": 332468224,
+      "internal_ms": 5913.418,
+      "stdout": [
+        "report: open_us=3802 decode_us=4599817 transform_us=915725 encode_us=388934 total_us=5913418 output_bytes=411212 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 4.729121992000046,
+      "load_before": 1.36572265625,
+      "load_after": 1.33642578125,
+      "returncode": 0,
+      "max_rss_bytes": 697487360,
+      "internal_ms": 4694.249,
+      "stdout": [
+        "report: open_us=28501 decode_us=1542237 transform_us=43628 encode_us=3076393 total_us=4694249 output_bytes=2036056 peak_managed_bytes=132280112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 5.739625117000003,
+      "load_before": 1.33642578125,
+      "load_after": 1.30908203125,
+      "returncode": 0,
+      "max_rss_bytes": 696578048,
+      "internal_ms": 5709.16,
+      "stdout": [
+        "report: open_us=29960 decode_us=1530059 transform_us=1070337 encode_us=3075644 total_us=5709160 output_bytes=2036056 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 1.9968110730000035,
+      "load_before": 1.30908203125,
+      "load_after": 1.30908203125,
+      "returncode": 0,
+      "max_rss_bytes": 612941824,
+      "internal_ms": 1964.771,
+      "stdout": [
+        "report: open_us=5134 decode_us=1542117 transform_us=26204 encode_us=386023 total_us=1964771 output_bytes=408710 peak_managed_bytes=37804832 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 2.8886177649999922,
+      "load_before": 1.30908203125,
+      "load_after": 1.36474609375,
+      "returncode": 0,
+      "max_rss_bytes": 612577280,
+      "internal_ms": 2856.294,
+      "stdout": [
+        "report: open_us=4443 decode_us=1538236 transform_us=922497 encode_us=385991 total_us=2856294 output_bytes=408710 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 6.1174086539999735,
+      "load_before": 1.36474609375,
+      "load_after": 1.416015625,
+      "returncode": 0,
+      "max_rss_bytes": 435875840,
+      "internal_ms": 6111.213,
+      "stdout": [
+        "report: open_us=26426 decode_us=2685299 transform_us=325075 encode_us=3070935 total_us=6111213 output_bytes=2036608 peak_managed_bytes=419584112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 6.877044726999998,
+      "load_before": 1.416015625,
+      "load_after": 1.462890625,
+      "returncode": 0,
+      "max_rss_bytes": 435019776,
+      "internal_ms": 6870.784,
+      "stdout": [
+        "report: open_us=28683 decode_us=2692507 transform_us=1068696 encode_us=3077699 total_us=6870784 output_bytes=2036608 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 3.4029416569999853,
+      "load_before": 1.462890625,
+      "load_after": 1.42578125,
+      "returncode": 0,
+      "max_rss_bytes": 351387648,
+      "internal_ms": 3396.361,
+      "stdout": [
+        "report: open_us=3293 decode_us=2728449 transform_us=271942 encode_us=387459 total_us=3396361 output_bytes=408652 peak_managed_bytes=325451296 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 4.037564040000007,
+      "load_before": 1.42578125,
+      "load_after": 1.3916015625,
+      "returncode": 0,
+      "max_rss_bytes": 351084544,
+      "internal_ms": 4031.257,
+      "stdout": [
+        "report: open_us=3344 decode_us=2712878 transform_us=922147 encode_us=387732 total_us=4031257 output_bytes=408652 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 4.008474745000001,
+      "load_before": 1.3916015625,
+      "load_after": 1.35986328125,
+      "returncode": 0,
+      "max_rss_bytes": 351080448,
+      "internal_ms": 4002.529,
+      "stdout": [
+        "report: open_us=3365 decode_us=2686288 transform_us=920888 encode_us=386819 total_us=4002529 output_bytes=408652 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 3.3701475469999878,
+      "load_before": 1.35986328125,
+      "load_after": 1.35986328125,
+      "returncode": 0,
+      "max_rss_bytes": 351379456,
+      "internal_ms": 3363.995,
+      "stdout": [
+        "report: open_us=3677 decode_us=2695356 transform_us=272372 encode_us=387232 total_us=3363995 output_bytes=408652 peak_managed_bytes=325411616 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 6.860965896000039,
+      "load_before": 1.35986328125,
+      "load_after": 1.3037109375,
+      "returncode": 0,
+      "max_rss_bytes": 435023872,
+      "internal_ms": 6854.752,
+      "stdout": [
+        "report: open_us=30151 decode_us=2679214 transform_us=1070202 encode_us=3071954 total_us=6854752 output_bytes=2036608 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 6.187494624999999,
+      "load_before": 1.3037109375,
+      "load_after": 1.279296875,
+      "returncode": 0,
+      "max_rss_bytes": 435855360,
+      "internal_ms": 6180.059,
+      "stdout": [
+        "report: open_us=29663 decode_us=2752311 transform_us=327228 encode_us=3067429 total_us=6180059 output_bytes=2036608 peak_managed_bytes=418960112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 2.907780128000013,
+      "load_before": 1.279296875,
+      "load_after": 1.279296875,
+      "returncode": 0,
+      "max_rss_bytes": 612573184,
+      "internal_ms": 2872.624,
+      "stdout": [
+        "report: open_us=4658 decode_us=1555256 transform_us=921936 encode_us=385626 total_us=2872624 output_bytes=408710 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 2.0221127199999955,
+      "load_before": 1.279296875,
+      "load_after": 1.2568359375,
+      "returncode": 0,
+      "max_rss_bytes": 612941824,
+      "internal_ms": 1982.262,
+      "stdout": [
+        "report: open_us=4599 decode_us=1560858 transform_us=25488 encode_us=385937 total_us=1982262 output_bytes=408710 peak_managed_bytes=37642720 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 5.789202666999984,
+      "load_before": 1.2568359375,
+      "load_after": 1.23583984375,
+      "returncode": 0,
+      "max_rss_bytes": 696578048,
+      "internal_ms": 5753.693,
+      "stdout": [
+        "report: open_us=33129 decode_us=1559289 transform_us=1072030 encode_us=3085953 total_us=5753693 output_bytes=2036056 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 4.720802697999943,
+      "load_before": 1.23583984375,
+      "load_after": 1.216796875,
+      "returncode": 0,
+      "max_rss_bytes": 697585664,
+      "internal_ms": 4686.939,
+      "stdout": [
+        "report: open_us=32442 decode_us=1531661 transform_us=48112 encode_us=3070978 total_us=4686939 output_bytes=2036056 peak_managed_bytes=132784112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 5.948838512000066,
+      "load_before": 1.216796875,
+      "load_after": 1.19921875,
+      "returncode": 0,
+      "max_rss_bytes": 332464128,
+      "internal_ms": 5934.525,
+      "stdout": [
+        "report: open_us=3712 decode_us=4622930 transform_us=914278 encode_us=388360 total_us=5934525 output_bytes=411212 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 5.290907282000035,
+      "load_before": 1.19921875,
+      "load_after": 1.18310546875,
+      "returncode": 0,
+      "max_rss_bytes": 332632064,
+      "internal_ms": 5275.845,
+      "stdout": [
+        "report: open_us=3980 decode_us=4601072 transform_us=276391 encode_us=388936 total_us=5275845 output_bytes=411212 peak_managed_bytes=325903136 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 8.820784617000072,
+      "load_before": 1.18310546875,
+      "load_after": 1.154296875,
+      "returncode": 0,
+      "max_rss_bytes": 416280576,
+      "internal_ms": 8806.109,
+      "stdout": [
+        "report: open_us=32060 decode_us=4626644 transform_us=1026153 encode_us=3118002 total_us=8806109 output_bytes=2089758 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 8.069079439000006,
+      "load_before": 1.154296875,
+      "load_after": 1.1298828125,
+      "returncode": 0,
+      "max_rss_bytes": 417300480,
+      "internal_ms": 8054.34,
+      "stdout": [
+        "report: open_us=30469 decode_us=4588150 transform_us=312400 encode_us=3119914 total_us=8054340 output_bytes=2089758 peak_managed_bytes=419152112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 5.671122169,
+      "load_before": 1.1298828125,
+      "load_after": 1.119140625,
+      "returncode": 0,
+      "max_rss_bytes": 223301632,
+      "internal_ms": 5640.946,
+      "stdout": [
+        "report: open_us=11982 decode_us=4328182 transform_us=913496 encode_us=381948 total_us=5640946 output_bytes=411112 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 4.814753456999938,
+      "load_before": 1.119140625,
+      "load_after": 1.109375,
+      "returncode": 0,
+      "max_rss_bytes": 226095104,
+      "internal_ms": 4785.718,
+      "stdout": [
+        "report: open_us=12822 decode_us=4359409 transform_us=26522 encode_us=381392 total_us=4785718 output_bytes=411112 peak_managed_bytes=37854432 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 8.535602321000056,
+      "load_before": 1.109375,
+      "load_after": 1.1005859375,
+      "returncode": 0,
+      "max_rss_bytes": 435572736,
+      "internal_ms": 8506.306,
+      "stdout": [
+        "report: open_us=38808 decode_us=4332718 transform_us=1028066 encode_us=3103441 total_us=8506306 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 7.57870367999999,
+      "load_before": 1.1005859375,
+      "load_after": 1.08447265625,
+      "returncode": 0,
+      "max_rss_bytes": 440168448,
+      "internal_ms": 7547.923,
+      "stdout": [
+        "report: open_us=34457 decode_us=4349738 transform_us=48522 encode_us=3111731 total_us=7547923 output_bytes=2089758 peak_managed_bytes=132088112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 7.583056158999966,
+      "load_before": 1.08447265625,
+      "load_after": 1.158203125,
+      "returncode": 0,
+      "max_rss_bytes": 438857728,
+      "internal_ms": 7552.802,
+      "stdout": [
+        "report: open_us=38930 decode_us=4352117 transform_us=46924 encode_us=3111417 total_us=7552802 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 8.547238394000033,
+      "load_before": 1.158203125,
+      "load_after": 1.2880859375,
+      "returncode": 0,
+      "max_rss_bytes": 435589120,
+      "internal_ms": 8516.925,
+      "stdout": [
+        "report: open_us=35717 decode_us=4348149 transform_us=1024662 encode_us=3105183 total_us=8516925 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 4.812099382000042,
+      "load_before": 1.2880859375,
+      "load_after": 1.2646484375,
+      "returncode": 0,
+      "max_rss_bytes": 226107392,
+      "internal_ms": 4784.159,
+      "stdout": [
+        "report: open_us=11869 decode_us=4355366 transform_us=28964 encode_us=382513 total_us=4784159 output_bytes=411112 peak_managed_bytes=37261600 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 5.684683975999974,
+      "load_before": 1.2646484375,
+      "load_after": 1.2431640625,
+      "returncode": 0,
+      "max_rss_bytes": 223301632,
+      "internal_ms": 5657.911,
+      "stdout": [
+        "report: open_us=11419 decode_us=4340881 transform_us=914386 encode_us=381854 total_us=5657911 output_bytes=411112 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 8.06967182699998,
+      "load_before": 1.2431640625,
+      "load_after": 1.20556640625,
+      "returncode": 0,
+      "max_rss_bytes": 417443840,
+      "internal_ms": 8055.273,
+      "stdout": [
+        "report: open_us=28750 decode_us=4588891 transform_us=315496 encode_us=3118735 total_us=8055273 output_bytes=2089758 peak_managed_bytes=419296112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 8.78847690300006,
+      "load_before": 1.20556640625,
+      "load_after": 1.173828125,
+      "returncode": 0,
+      "max_rss_bytes": 416280576,
+      "internal_ms": 8773.87,
+      "stdout": [
+        "report: open_us=30498 decode_us=4596898 transform_us=1026450 encode_us=3116821 total_us=8773870 output_bytes=2089758 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 5.271683982000013,
+      "load_before": 1.173828125,
+      "load_after": 1.15966796875,
+      "returncode": 0,
+      "max_rss_bytes": 332656640,
+      "internal_ms": 5257.076,
+      "stdout": [
+        "report: open_us=3680 decode_us=4584459 transform_us=274569 encode_us=389228 total_us=5257076 output_bytes=411212 peak_managed_bytes=325772064 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 5.960417618999941,
+      "load_before": 1.15966796875,
+      "load_after": 1.146484375,
+      "returncode": 0,
+      "max_rss_bytes": 332451840,
+      "internal_ms": 5946.978,
+      "stdout": [
+        "report: open_us=3523 decode_us=4636702 transform_us=912478 encode_us=389062 total_us=5946978 output_bytes=411212 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 4.738401500000009,
+      "load_before": 1.146484375,
+      "load_after": 1.13427734375,
+      "returncode": 0,
+      "max_rss_bytes": 697487360,
+      "internal_ms": 4704.359,
+      "stdout": [
+        "report: open_us=32770 decode_us=1546381 transform_us=49171 encode_us=3072617 total_us=4704359 output_bytes=2036056 peak_managed_bytes=132760112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 5.762981229999923,
+      "load_before": 1.13427734375,
+      "load_after": 1.123046875,
+      "returncode": 0,
+      "max_rss_bytes": 696582144,
+      "internal_ms": 5728.03,
+      "stdout": [
+        "report: open_us=28961 decode_us=1557461 transform_us=1069528 encode_us=3068902 total_us=5728030 output_bytes=2036056 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 2.0207748799999763,
+      "load_before": 1.123046875,
+      "load_after": 1.123046875,
+      "returncode": 0,
+      "max_rss_bytes": 612941824,
+      "internal_ms": 1988.309,
+      "stdout": [
+        "report: open_us=5190 decode_us=1566306 transform_us=25805 encode_us=385582 total_us=1988309 output_bytes=408710 peak_managed_bytes=37929440 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 2.906232632999945,
+      "load_before": 1.123046875,
+      "load_after": 1.11279296875,
+      "returncode": 0,
+      "max_rss_bytes": 612569088,
+      "internal_ms": 2870.245,
+      "stdout": [
+        "report: open_us=4649 decode_us=1554495 transform_us=919449 encode_us=386535 total_us=2870245 output_bytes=408710 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 6.14328764000004,
+      "load_before": 1.11279296875,
+      "load_after": 1.103515625,
+      "returncode": 0,
+      "max_rss_bytes": 435863552,
+      "internal_ms": 6136.356,
+      "stdout": [
+        "report: open_us=28849 decode_us=2706033 transform_us=321954 encode_us=3076118 total_us=6136356 output_bytes=2036608 peak_managed_bytes=418504112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 6.884871582999949,
+      "load_before": 1.103515625,
+      "load_after": 1.08740234375,
+      "returncode": 0,
+      "max_rss_bytes": 435019776,
+      "internal_ms": 6878.684,
+      "stdout": [
+        "report: open_us=27472 decode_us=2702432 transform_us=1070334 encode_us=3075213 total_us=6878684 output_bytes=2036608 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 3.3738252069999817,
+      "load_before": 1.08740234375,
+      "load_after": 1.08740234375,
+      "returncode": 0,
+      "max_rss_bytes": 351379456,
+      "internal_ms": 3367.453,
+      "stdout": [
+        "report: open_us=3588 decode_us=2700933 transform_us=269252 encode_us=388559 total_us=3367453 output_bytes=408652 peak_managed_bytes=325444384 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 4.021034200000031,
+      "load_before": 1.08740234375,
+      "load_after": 1.080078125,
+      "returncode": 0,
+      "max_rss_bytes": 351145984,
+      "internal_ms": 4014.298,
+      "stdout": [
+        "report: open_us=3565 decode_us=2694043 transform_us=923130 encode_us=388299 total_us=4014298 output_bytes=408652 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 4.004035499999986,
+      "load_before": 1.080078125,
+      "load_after": 1.0732421875,
+      "returncode": 0,
+      "max_rss_bytes": 351080448,
+      "internal_ms": 3997.624,
+      "stdout": [
+        "report: open_us=3540 decode_us=2678850 transform_us=922870 encode_us=387197 total_us=3997624 output_bytes=408652 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 3.364489490999972,
+      "load_before": 1.0732421875,
+      "load_after": 1.06689453125,
+      "returncode": 0,
+      "max_rss_bytes": 351379456,
+      "internal_ms": 3357.861,
+      "stdout": [
+        "report: open_us=3420 decode_us=2689904 transform_us=271529 encode_us=387791 total_us=3357861 output_bytes=408652 peak_managed_bytes=325243040 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 6.848645627999986,
+      "load_before": 1.06689453125,
+      "load_after": 1.0615234375,
+      "returncode": 0,
+      "max_rss_bytes": 435007488,
+      "internal_ms": 6842.79,
+      "stdout": [
+        "report: open_us=29207 decode_us=2674479 transform_us=1069638 encode_us=3066262 total_us=6842790 output_bytes=2036608 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 6.134740803,
+      "load_before": 1.0615234375,
+      "load_after": 1.13671875,
+      "returncode": 0,
+      "max_rss_bytes": 435818496,
+      "internal_ms": 6128.277,
+      "stdout": [
+        "report: open_us=27956 decode_us=2695249 transform_us=321827 encode_us=3079813 total_us=6128277 output_bytes=2036608 peak_managed_bytes=418600112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 2.9054157819999773,
+      "load_before": 1.13671875,
+      "load_after": 1.12548828125,
+      "returncode": 0,
+      "max_rss_bytes": 612573184,
+      "internal_ms": 2871.273,
+      "stdout": [
+        "report: open_us=4684 decode_us=1554706 transform_us=920405 encode_us=386255 total_us=2871273 output_bytes=408710 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 1.9718997060000447,
+      "load_before": 1.12548828125,
+      "load_after": 1.12548828125,
+      "returncode": 0,
+      "max_rss_bytes": 612937728,
+      "internal_ms": 1942.781,
+      "stdout": [
+        "report: open_us=4822 decode_us=1521095 transform_us=25959 encode_us=385703 total_us=1942781 output_bytes=408710 peak_managed_bytes=37497440 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 5.719418455999971,
+      "load_before": 1.12548828125,
+      "load_after": 1.19580078125,
+      "returncode": 0,
+      "max_rss_bytes": 696578048,
+      "internal_ms": 5690.5,
+      "stdout": [
+        "report: open_us=27617 decode_us=1519860 transform_us=1068100 encode_us=3071750 total_us=5690500 output_bytes=2036056 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 4.69951894899998,
+      "load_before": 1.19580078125,
+      "load_after": 1.58056640625,
+      "returncode": 0,
+      "max_rss_bytes": 697487360,
+      "internal_ms": 4667.27,
+      "stdout": [
+        "report: open_us=27766 decode_us=1520814 transform_us=46045 encode_us=3069247 total_us=4667270 output_bytes=2036056 peak_managed_bytes=132592112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 5.931738801000051,
+      "load_before": 1.58056640625,
+      "load_after": 1.6142578125,
+      "returncode": 0,
+      "max_rss_bytes": 332455936,
+      "internal_ms": 5917.523,
+      "stdout": [
+        "report: open_us=3551 decode_us=4606392 transform_us=913548 encode_us=388802 total_us=5917523 output_bytes=411212 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 5.280810450999979,
+      "load_before": 1.6142578125,
+      "load_after": 1.56494140625,
+      "returncode": 0,
+      "max_rss_bytes": 332660736,
+      "internal_ms": 5266.313,
+      "stdout": [
+        "report: open_us=3797 decode_us=4598685 transform_us=268736 encode_us=389869 total_us=5266313 output_bytes=411212 peak_managed_bytes=325870368 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 8.834841202999996,
+      "load_before": 1.56494140625,
+      "load_after": 1.4775390625,
+      "returncode": 0,
+      "max_rss_bytes": 416280576,
+      "internal_ms": 8819.856,
+      "stdout": [
+        "report: open_us=27653 decode_us=4625681 transform_us=1026178 encode_us=3137148 total_us=8819856 output_bytes=2089758 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 8.083667191000018,
+      "load_before": 1.4775390625,
+      "load_after": 1.40380859375,
+      "returncode": 0,
+      "max_rss_bytes": 417120256,
+      "internal_ms": 8068.014,
+      "stdout": [
+        "report: open_us=32618 decode_us=4605708 transform_us=312041 encode_us=3114214 total_us=8068014 output_bytes=2089758 peak_managed_bytes=419128112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 5.695239949999973,
+      "load_before": 1.40380859375,
+      "load_after": 1.37109375,
+      "returncode": 0,
+      "max_rss_bytes": 223301632,
+      "internal_ms": 5663.301,
+      "stdout": [
+        "report: open_us=12933 decode_us=4349439 transform_us=913260 encode_us=382423 total_us=5663301 output_bytes=411112 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 4.83655054999997,
+      "load_before": 1.37109375,
+      "load_after": 1.34130859375,
+      "returncode": 0,
+      "max_rss_bytes": 226426880,
+      "internal_ms": 4804.119,
+      "stdout": [
+        "report: open_us=12541 decode_us=4371877 transform_us=31313 encode_us=383159 total_us=4804119 output_bytes=411112 peak_managed_bytes=37894944 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 8.563124083000048,
+      "load_before": 1.34130859375,
+      "load_after": 1.28857421875,
+      "returncode": 0,
+      "max_rss_bytes": 435589120,
+      "internal_ms": 8532.458,
+      "stdout": [
+        "report: open_us=40844 decode_us=4357235 transform_us=1026607 encode_us=3104543 total_us=8532458 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 7.576741845000015,
+      "load_before": 1.28857421875,
+      "load_after": 1.505859375,
+      "returncode": 0,
+      "max_rss_bytes": 438988800,
+      "internal_ms": 7546.702,
+      "stdout": [
+        "report: open_us=35625 decode_us=4351038 transform_us=48743 encode_us=3107867 total_us=7546702 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 7.5733685870000045,
+      "load_before": 1.505859375,
+      "load_after": 1.427734375,
+      "returncode": 0,
+      "max_rss_bytes": 438730752,
+      "internal_ms": 7545.81,
+      "stdout": [
+        "report: open_us=34852 decode_us=4349478 transform_us=44036 encode_us=3113995 total_us=7545810 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 8.545100511999976,
+      "load_before": 1.427734375,
+      "load_after": 1.39306640625,
+      "returncode": 0,
+      "max_rss_bytes": 435585024,
+      "internal_ms": 8514.805,
+      "stdout": [
+        "report: open_us=37464 decode_us=4345915 transform_us=1026082 encode_us=3101851 total_us=8514805 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 4.80436622600007,
+      "load_before": 1.39306640625,
+      "load_after": 1.361328125,
+      "returncode": 0,
+      "max_rss_bytes": 226017280,
+      "internal_ms": 4775.98,
+      "stdout": [
+        "report: open_us=11778 decode_us=4349943 transform_us=27142 encode_us=381906 total_us=4775980 output_bytes=411112 peak_managed_bytes=36884768 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 5.688392630999942,
+      "load_before": 1.361328125,
+      "load_after": 1.33203125,
+      "returncode": 0,
+      "max_rss_bytes": 223301632,
+      "internal_ms": 5659.224,
+      "stdout": [
+        "report: open_us=13076 decode_us=4344891 transform_us=914185 encode_us=381764 total_us=5659224 output_bytes=411112 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 8.072855749000041,
+      "load_before": 1.33203125,
+      "load_after": 1.2802734375,
+      "returncode": 0,
+      "max_rss_bytes": 417124352,
+      "internal_ms": 8056.781,
+      "stdout": [
+        "report: open_us=29846 decode_us=4596680 transform_us=313107 encode_us=3113721 total_us=8056781 output_bytes=2089758 peak_managed_bytes=419008112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 8.793855991999976,
+      "load_before": 1.2802734375,
+      "load_after": 1.23681640625,
+      "returncode": 0,
+      "max_rss_bytes": 416276480,
+      "internal_ms": 8779.996,
+      "stdout": [
+        "report: open_us=28143 decode_us=4602696 transform_us=1026536 encode_us=3119399 total_us=8779996 output_bytes=2089758 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 5.266287560000023,
+      "load_before": 1.23681640625,
+      "load_after": 1.2177734375,
+      "returncode": 0,
+      "max_rss_bytes": 332640256,
+      "internal_ms": 5252.268,
+      "stdout": [
+        "report: open_us=4047 decode_us=4585364 transform_us=268592 encode_us=388932 total_us=5252268 output_bytes=411212 peak_managed_bytes=325509920 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 5.928721308000036,
+      "load_before": 1.2177734375,
+      "load_after": 1.2001953125,
+      "returncode": 0,
+      "max_rss_bytes": 332472320,
+      "internal_ms": 5915.123,
+      "stdout": [
+        "report: open_us=3879 decode_us=4604419 transform_us=912751 encode_us=388862 total_us=5915123 output_bytes=411212 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 4.7187553769999795,
+      "load_before": 1.2001953125,
+      "load_after": 1.2646484375,
+      "returncode": 0,
+      "max_rss_bytes": 697585664,
+      "internal_ms": 4683.683,
+      "stdout": [
+        "report: open_us=32236 decode_us=1527466 transform_us=47985 encode_us=3072578 total_us=4683683 output_bytes=2036056 peak_managed_bytes=132664112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 5.737190916000031,
+      "load_before": 1.2646484375,
+      "load_after": 1.32373046875,
+      "returncode": 0,
+      "max_rss_bytes": 696500224,
+      "internal_ms": 5706.111,
+      "stdout": [
+        "report: open_us=33463 decode_us=1528096 transform_us=1069798 encode_us=3071562 total_us=5706111 output_bytes=2036056 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 1.9782185390000677,
+      "load_before": 1.32373046875,
+      "load_after": 1.29736328125,
+      "returncode": 0,
+      "max_rss_bytes": 612941824,
+      "internal_ms": 1946.145,
+      "stdout": [
+        "report: open_us=4798 decode_us=1524130 transform_us=26613 encode_us=385357 total_us=1946145 output_bytes=408710 peak_managed_bytes=37942816 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 2.864867178000054,
+      "load_before": 1.29736328125,
+      "load_after": 1.29736328125,
+      "returncode": 0,
+      "max_rss_bytes": 612577280,
+      "internal_ms": 2833.206,
+      "stdout": [
+        "report: open_us=4689 decode_us=1517082 transform_us=920722 encode_us=385574 total_us=2833206 output_bytes=408710 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 6.1256195729999945,
+      "load_before": 1.29736328125,
+      "load_after": 1.2734375,
+      "returncode": 0,
+      "max_rss_bytes": 435830784,
+      "internal_ms": 6118.99,
+      "stdout": [
+        "report: open_us=27351 decode_us=2691135 transform_us=326934 encode_us=3070159 total_us=6118990 output_bytes=2036608 peak_managed_bytes=419296112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 6.857198627999992,
+      "load_before": 1.2734375,
+      "load_after": 1.23095703125,
+      "returncode": 0,
+      "max_rss_bytes": 435019776,
+      "internal_ms": 6850.874,
+      "stdout": [
+        "report: open_us=27793 decode_us=2680333 transform_us=1068881 encode_us=3070663 total_us=6850874 output_bytes=2036608 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 3.3633999720000247,
+      "load_before": 1.23095703125,
+      "load_after": 1.23095703125,
+      "returncode": 0,
+      "max_rss_bytes": 351404032,
+      "internal_ms": 3356.782,
+      "stdout": [
+        "report: open_us=3208 decode_us=2691446 transform_us=269578 encode_us=387421 total_us=3356782 output_bytes=408652 peak_managed_bytes=325542688 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 4.0097886519999975,
+      "load_before": 1.23095703125,
+      "load_after": 1.21240234375,
+      "returncode": 0,
+      "max_rss_bytes": 351080448,
+      "internal_ms": 4003.325,
+      "stdout": [
+        "report: open_us=3311 decode_us=2688137 transform_us=920389 encode_us=386406 total_us=4003325 output_bytes=408652 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 4.014531755000007,
+      "load_before": 1.21240234375,
+      "load_after": 1.1953125,
+      "returncode": 0,
+      "max_rss_bytes": 351080448,
+      "internal_ms": 4008.124,
+      "stdout": [
+        "report: open_us=3577 decode_us=2690070 transform_us=922185 encode_us=387137 total_us=4008124 output_bytes=408652 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 3.365065049000009,
+      "load_before": 1.1953125,
+      "load_after": 1.17919921875,
+      "returncode": 0,
+      "max_rss_bytes": 351404032,
+      "internal_ms": 3358.608,
+      "stdout": [
+        "report: open_us=3494 decode_us=2688988 transform_us=271700 encode_us=389088 total_us=3358608 output_bytes=408652 peak_managed_bytes=325637984 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 6.865925405999974,
+      "load_before": 1.17919921875,
+      "load_after": 1.16455078125,
+      "returncode": 0,
+      "max_rss_bytes": 435019776,
+      "internal_ms": 6859.235,
+      "stdout": [
+        "report: open_us=31387 decode_us=2685287 transform_us=1068828 encode_us=3070533 total_us=6859235 output_bytes=2036608 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 6.138639442999988,
+      "load_before": 1.16455078125,
+      "load_after": 1.1513671875,
+      "returncode": 0,
+      "max_rss_bytes": 435843072,
+      "internal_ms": 6131.933,
+      "stdout": [
+        "report: open_us=27512 decode_us=2699742 transform_us=326051 encode_us=3075227 total_us=6131933 output_bytes=2036608 peak_managed_bytes=418456112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 2.876206496000009,
+      "load_before": 1.1513671875,
+      "load_after": 1.13916015625,
+      "returncode": 0,
+      "max_rss_bytes": 612560896,
+      "internal_ms": 2841.224,
+      "stdout": [
+        "report: open_us=4595 decode_us=1524812 transform_us=920730 encode_us=385962 total_us=2841224 output_bytes=408710 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 2.0168193359999123,
+      "load_before": 1.13916015625,
+      "load_after": 1.13916015625,
+      "returncode": 0,
+      "max_rss_bytes": 612941824,
+      "internal_ms": 1979.217,
+      "stdout": [
+        "report: open_us=4927 decode_us=1556978 transform_us=26053 encode_us=385978 total_us=1979217 output_bytes=408710 peak_managed_bytes=37649184 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 5.734164974999999,
+      "load_before": 1.13916015625,
+      "load_after": 1.1279296875,
+      "returncode": 0,
+      "max_rss_bytes": 696500224,
+      "internal_ms": 5702.928,
+      "stdout": [
+        "report: open_us=29547 decode_us=1526320 transform_us=1070888 encode_us=3072955 total_us=5702928 output_bytes=2036056 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 4.725123273999998,
+      "load_before": 1.1279296875,
+      "load_after": 1.11767578125,
+      "returncode": 0,
+      "max_rss_bytes": 697483264,
+      "internal_ms": 4691.905,
+      "stdout": [
+        "report: open_us=33719 decode_us=1535290 transform_us=45696 encode_us=3073535 total_us=4691905 output_bytes=2036056 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 5.960399324000036,
+      "load_before": 1.11767578125,
+      "load_after": 1.09912109375,
+      "returncode": 0,
+      "max_rss_bytes": 332455936,
+      "internal_ms": 5946.467,
+      "stdout": [
+        "report: open_us=3526 decode_us=4633361 transform_us=915160 encode_us=389260 total_us=5946467 output_bytes=411212 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 5.287207181999975,
+      "load_before": 1.09912109375,
+      "load_after": 1.41162109375,
+      "returncode": 0,
+      "max_rss_bytes": 332632064,
+      "internal_ms": 5273.331,
+      "stdout": [
+        "report: open_us=3735 decode_us=4603850 transform_us=270456 encode_us=390019 total_us=5273331 output_bytes=411212 peak_managed_bytes=325608224 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 8.805552648000003,
+      "load_before": 1.41162109375,
+      "load_after": 1.37841796875,
+      "returncode": 0,
+      "max_rss_bytes": 416284672,
+      "internal_ms": 8789.769,
+      "stdout": [
+        "report: open_us=30889 decode_us=4607621 transform_us=1026649 encode_us=3121385 total_us=8789769 output_bytes=2089758 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 8.089710331999981,
+      "load_before": 1.37841796875,
+      "load_after": 1.3193359375,
+      "returncode": 0,
+      "max_rss_bytes": 417128448,
+      "internal_ms": 8073.988,
+      "stdout": [
+        "report: open_us=30959 decode_us=4608499 transform_us=313940 encode_us=3117150 total_us=8073988 output_bytes=2089758 peak_managed_bytes=418432112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 5.6995081580000715,
+      "load_before": 1.3193359375,
+      "load_after": 1.29345703125,
+      "returncode": 0,
+      "max_rss_bytes": 223301632,
+      "internal_ms": 5669.335,
+      "stdout": [
+        "report: open_us=12306 decode_us=4354756 transform_us=915700 encode_us=381323 total_us=5669335 output_bytes=411112 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 4.827616799999987,
+      "load_before": 1.29345703125,
+      "load_after": 1.26953125,
+      "returncode": 0,
+      "max_rss_bytes": 226246656,
+      "internal_ms": 4796.394,
+      "stdout": [
+        "report: open_us=13331 decode_us=4368316 transform_us=27082 encode_us=382242 total_us=4796394 output_bytes=411112 peak_managed_bytes=37195616 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 8.557995225000013,
+      "load_before": 1.26953125,
+      "load_after": 1.30810546875,
+      "returncode": 0,
+      "max_rss_bytes": 435589120,
+      "internal_ms": 8526.736,
+      "stdout": [
+        "report: open_us=39931 decode_us=4351390 transform_us=1026135 encode_us=3105887 total_us=8526736 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 7.611717285000054,
+      "load_before": 1.30810546875,
+      "load_after": 1.36376953125,
+      "returncode": 0,
+      "max_rss_bytes": 440692736,
+      "internal_ms": 7579.238,
+      "stdout": [
+        "report: open_us=36789 decode_us=4373619 transform_us=48559 encode_us=3116785 total_us=7579238 output_bytes=2089758 peak_managed_bytes=132472112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 7.605237794000004,
+      "load_before": 1.36376953125,
+      "load_after": 1.3076171875,
+      "returncode": 0,
+      "max_rss_bytes": 438988800,
+      "internal_ms": 7573.973,
+      "stdout": [
+        "report: open_us=39494 decode_us=4361442 transform_us=47398 encode_us=3122146 total_us=7573973 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 8.565897089000032,
+      "load_before": 1.3076171875,
+      "load_after": 1.259765625,
+      "returncode": 0,
+      "max_rss_bytes": 435589120,
+      "internal_ms": 8535.305,
+      "stdout": [
+        "report: open_us=39874 decode_us=4359777 transform_us=1027289 encode_us=3105131 total_us=8535305 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 4.812935478999975,
+      "load_before": 1.259765625,
+      "load_after": 1.23876953125,
+      "returncode": 0,
+      "max_rss_bytes": 225959936,
+      "internal_ms": 4783.906,
+      "stdout": [
+        "report: open_us=12720 decode_us=4356432 transform_us=26689 encode_us=382832 total_us=4783906 output_bytes=411112 peak_managed_bytes=36920544 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 5.657618292000052,
+      "load_before": 1.23876953125,
+      "load_after": 1.21923828125,
+      "returncode": 0,
+      "max_rss_bytes": 223301632,
+      "internal_ms": 5630.101,
+      "stdout": [
+        "report: open_us=12560 decode_us=4319548 transform_us=910968 encode_us=381648 total_us=5630101 output_bytes=411112 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 8.061266434999993,
+      "load_before": 1.21923828125,
+      "load_after": 1.20166015625,
+      "returncode": 0,
+      "max_rss_bytes": 417120256,
+      "internal_ms": 8047.132,
+      "stdout": [
+        "report: open_us=28363 decode_us=4586888 transform_us=313814 encode_us=3114567 total_us=8047132 output_bytes=2089758 peak_managed_bytes=418912112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 8.77197149899996,
+      "load_before": 1.20166015625,
+      "load_after": 1.169921875,
+      "returncode": 0,
+      "max_rss_bytes": 416280576,
+      "internal_ms": 8758.525,
+      "stdout": [
+        "report: open_us=28787 decode_us=4582100 transform_us=1024606 encode_us=3119834 total_us=8758525 output_bytes=2089758 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 5.269322036999938,
+      "load_before": 1.169921875,
+      "load_after": 1.15625,
+      "returncode": 0,
+      "max_rss_bytes": 332578816,
+      "internal_ms": 5255.379,
+      "stdout": [
+        "report: open_us=3559 decode_us=4588774 transform_us=268631 encode_us=389190 total_us=5255379 output_bytes=411212 peak_managed_bytes=325477152 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 5.941788307000024,
+      "load_before": 1.15625,
+      "load_after": 1.1435546875,
+      "returncode": 0,
+      "max_rss_bytes": 332472320,
+      "internal_ms": 5927.982,
+      "stdout": [
+        "report: open_us=3353 decode_us=4617785 transform_us=912483 encode_us=389205 total_us=5927982 output_bytes=411212 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 4.710205257000098,
+      "load_before": 1.1435546875,
+      "load_after": 1.1318359375,
+      "returncode": 0,
+      "max_rss_bytes": 697540608,
+      "internal_ms": 4679.713,
+      "stdout": [
+        "report: open_us=30729 decode_us=1530309 transform_us=45747 encode_us=3069459 total_us=4679713 output_bytes=2036056 peak_managed_bytes=132904112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 5.724296593000076,
+      "load_before": 1.1318359375,
+      "load_after": 1.12109375,
+      "returncode": 0,
+      "max_rss_bytes": 696569856,
+      "internal_ms": 5689.901,
+      "stdout": [
+        "report: open_us=28485 decode_us=1517713 transform_us=1069383 encode_us=3071142 total_us=5689901 output_bytes=2036056 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 1.989246761000004,
+      "load_before": 1.12109375,
+      "load_after": 1.111328125,
+      "returncode": 0,
+      "max_rss_bytes": 612937728,
+      "internal_ms": 1952.043,
+      "stdout": [
+        "report: open_us=4540 decode_us=1531877 transform_us=24154 encode_us=386194 total_us=1952043 output_bytes=408710 peak_managed_bytes=37431904 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 2.888448181000058,
+      "load_before": 1.111328125,
+      "load_after": 1.111328125,
+      "returncode": 0,
+      "max_rss_bytes": 612573184,
+      "internal_ms": 2857.128,
+      "stdout": [
+        "report: open_us=4456 decode_us=1542548 transform_us=918834 encode_us=386197 total_us=2857128 output_bytes=408710 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 6.1406797490000145,
+      "load_before": 1.111328125,
+      "load_after": 1.09375,
+      "returncode": 0,
+      "max_rss_bytes": 435978240,
+      "internal_ms": 6134.303,
+      "stdout": [
+        "report: open_us=29122 decode_us=2689439 transform_us=327426 encode_us=3084923 total_us=6134303 output_bytes=2036608 peak_managed_bytes=418912112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 6.845732257999998,
+      "load_before": 1.09375,
+      "load_after": 1.0859375,
+      "returncode": 0,
+      "max_rss_bytes": 435019776,
+      "internal_ms": 6839.746,
+      "stdout": [
+        "report: open_us=27727 decode_us=2668147 transform_us=1068500 encode_us=3072211 total_us=6839746 output_bytes=2036608 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 3.419081203000019,
+      "load_before": 1.0859375,
+      "load_after": 1.2392578125,
+      "returncode": 0,
+      "max_rss_bytes": 351387648,
+      "internal_ms": 3412.154,
+      "stdout": [
+        "report: open_us=3891 decode_us=2744376 transform_us=271074 encode_us=387659 total_us=3412154 output_bytes=408652 peak_managed_bytes=325542688 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 4.008087746000001,
+      "load_before": 1.2392578125,
+      "load_after": 1.2392578125,
+      "returncode": 0,
+      "max_rss_bytes": 351080448,
+      "internal_ms": 4001.945,
+      "stdout": [
+        "report: open_us=3498 decode_us=2683330 transform_us=922413 encode_us=387572 total_us=4001945 output_bytes=408652 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 4.010367452000082,
+      "load_before": 1.2392578125,
+      "load_after": 1.2197265625,
+      "returncode": 0,
+      "max_rss_bytes": 351080448,
+      "internal_ms": 4004.418,
+      "stdout": [
+        "report: open_us=3139 decode_us=2686573 transform_us=922281 encode_us=387301 total_us=4004418 output_bytes=408652 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 3.34909625399996,
+      "load_before": 1.2197265625,
+      "load_after": 1.20166015625,
+      "returncode": 0,
+      "max_rss_bytes": 351395840,
+      "internal_ms": 3342.896,
+      "stdout": [
+        "report: open_us=3512 decode_us=2677106 transform_us=270388 encode_us=386591 total_us=3342896 output_bytes=408652 peak_managed_bytes=325444384 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408652,
+      "output_sha256": "11dccc2a8e65ce0f281f60a9e033c50dac95c201dbcd3784e38de30599fedae6",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 6.836765947999993,
+      "load_before": 1.20166015625,
+      "load_after": 1.18505859375,
+      "returncode": 0,
+      "max_rss_bytes": 435023872,
+      "internal_ms": 6830.666,
+      "stdout": [
+        "report: open_us=27682 decode_us=2666279 transform_us=1068044 encode_us=3065458 total_us=6830666 output_bytes=2036608 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 6.141046394999876,
+      "load_before": 1.18505859375,
+      "load_after": 1.25048828125,
+      "returncode": 0,
+      "max_rss_bytes": 435859456,
+      "internal_ms": 6134.445,
+      "stdout": [
+        "report: open_us=29237 decode_us=2694991 transform_us=325130 encode_us=3081573 total_us=6134445 output_bytes=2036608 peak_managed_bytes=418912112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036608,
+      "output_sha256": "639db356b0e9a83f76ac6841c6e5ba3e56161b19b26684cc8a7c60adb9488122",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 2.9051343249998354,
+      "load_before": 1.25048828125,
+      "load_after": 1.310546875,
+      "returncode": 0,
+      "max_rss_bytes": 612573184,
+      "internal_ms": 2871.478,
+      "stdout": [
+        "report: open_us=4698 decode_us=1551651 transform_us=923873 encode_us=386024 total_us=2871478 output_bytes=408710 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 2.017654967999988,
+      "load_before": 1.310546875,
+      "load_after": 1.310546875,
+      "returncode": 0,
+      "max_rss_bytes": 612941824,
+      "internal_ms": 1981.038,
+      "stdout": [
+        "report: open_us=4866 decode_us=1556222 transform_us=27603 encode_us=387054 total_us=1981038 output_bytes=408710 peak_managed_bytes=37466400 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 408710,
+      "output_sha256": "cc2b4062ec3930017019f29d3e10ec1150fd4fc6385ad7b8019ef6fb7126b302",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 5.7195601700000225,
+      "load_before": 1.310546875,
+      "load_after": 1.33642578125,
+      "returncode": 0,
+      "max_rss_bytes": 696582144,
+      "internal_ms": 5689.386,
+      "stdout": [
+        "report: open_us=29965 decode_us=1510821 transform_us=1071015 encode_us=3074425 total_us=5689386 output_bytes=2036056 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-vardct/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 4.694808734000162,
+      "load_before": 1.33642578125,
+      "load_after": 1.30908203125,
+      "returncode": 0,
+      "max_rss_bytes": 697470976,
+      "internal_ms": 4658.918,
+      "stdout": [
+        "report: open_us=27756 decode_us=1516712 transform_us=45941 encode_us=3065108 total_us=4658918 output_bytes=2036056 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2036056,
+      "output_sha256": "f4b5f4f6f4ab442b5a5d6ca66676cf19086acfd33e8354e0c1d7fa872f42c8d5",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:t1",
+      "wall_s": 5.91566403700017,
+      "load_before": 1.30908203125,
+      "load_after": 1.2841796875,
+      "returncode": 0,
+      "max_rss_bytes": 332451840,
+      "internal_ms": 5901.734,
+      "stdout": [
+        "report: open_us=3749 decode_us=4590868 transform_us=914316 encode_us=387545 total_us=5901734 output_bytes=411212 peak_managed_bytes=323370592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:2048w:tN",
+      "wall_s": 5.273438099000032,
+      "load_before": 1.2841796875,
+      "load_after": 1.26123046875,
+      "returncode": 0,
+      "max_rss_bytes": 332640256,
+      "internal_ms": 5260.089,
+      "stdout": [
+        "report: open_us=3560 decode_us=4594121 transform_us=268014 encode_us=389250 total_us=5260089 output_bytes=411212 peak_managed_bytes=325542688 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411212,
+      "output_sha256": "ee79edf4b49cc40a272d067b9b66088d33e8ebc83da440e4062e1619a6aafd0b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:t1",
+      "wall_s": 8.80026568900007,
+      "load_before": 1.26123046875,
+      "load_after": 1.220703125,
+      "returncode": 0,
+      "max_rss_bytes": 416284672,
+      "internal_ms": 8785.63,
+      "stdout": [
+        "report: open_us=31199 decode_us=4604336 transform_us=1027432 encode_us=3119398 total_us=8785630 output_bytes=2089758 peak_managed_bytes=415816112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/libjxl-rs>webp-q75:full:tN",
+      "wall_s": 8.081431307999992,
+      "load_before": 1.220703125,
+      "load_after": 1.5234375,
+      "returncode": 0,
+      "max_rss_bytes": 417579008,
+      "internal_ms": 8066.382,
+      "stdout": [
+        "report: open_us=30008 decode_us=4598232 transform_us=315514 encode_us=3119213 total_us=8066382 output_bytes=2089758 peak_managed_bytes=419488112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=1 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:t1",
+      "wall_s": 5.687447805000147,
+      "load_before": 1.5234375,
+      "load_after": 1.4814453125,
+      "returncode": 0,
+      "max_rss_bytes": 223293440,
+      "internal_ms": 5657.87,
+      "stdout": [
+        "report: open_us=12569 decode_us=4342266 transform_us=915026 encode_us=382771 total_us=5657870 output_bytes=411112 peak_managed_bytes=35442592 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:2048w:tN",
+      "wall_s": 4.832215247000022,
+      "load_before": 1.4814453125,
+      "load_after": 1.44287109375,
+      "returncode": 0,
+      "max_rss_bytes": 226439168,
+      "internal_ms": 4801.18,
+      "stdout": [
+        "report: open_us=12687 decode_us=4369364 transform_us=31298 encode_us=382528 total_us=4801180 output_bytes=411112 peak_managed_bytes=37722912 encoder_frame_bytes=15376384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 411112,
+      "output_sha256": "5f5ff380de26b10ae2581029416afc0f73488ecbf55390582ef370356dac2b9b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:t1",
+      "wall_s": 8.558912853000038,
+      "load_before": 1.44287109375,
+      "load_after": 1.37451171875,
+      "returncode": 0,
+      "max_rss_bytes": 435589120,
+      "internal_ms": 8529.117,
+      "stdout": [
+        "report: open_us=39842 decode_us=4355776 transform_us=1027386 encode_us=3102868 total_us=8529117 output_bytes=2089758 peak_managed_bytes=132000000 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jxl-lossless/jxl-oxide>webp-q75:full:tN",
+      "wall_s": 7.58592957399992,
+      "load_before": 1.37451171875,
+      "load_after": 1.34423828125,
+      "returncode": 0,
+      "max_rss_bytes": 440565760,
+      "internal_ms": 7555.283,
+      "stdout": [
+        "report: open_us=35563 decode_us=4354938 transform_us=48619 encode_us=3112747 total_us=7555283 output_bytes=2089758 peak_managed_bytes=132232112 encoder_frame_bytes=132000000 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=6000x4000+0+0 requested=6000x4000+0+0 codec_request=6000x4000+0+0 codec_output=6000x4000+0+0 overfetch_pixels=0 reconstructed_pixels=>=24000000 entropy_rows=>=4000 delivered_rows=4000 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2089758,
+      "output_sha256": "0f53098e2cfae97a6bc99f0328754b265f13078eca703292b0e47c76bf1929b7",
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}

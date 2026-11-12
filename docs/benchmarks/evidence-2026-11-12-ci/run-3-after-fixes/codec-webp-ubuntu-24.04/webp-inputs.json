@@ -1,0 +1,30 @@
+{
+  "photo12.ppm": {
+    "bytes": 36578321,
+    "sha256": "35061de922fa21565b3f21d7d7ba413a2d9fb8e00b780fcc3da63e4b9a2b9aa7"
+  },
+  "photo12-q75.webp": {
+    "bytes": 762896,
+    "sha256": "ff5f2d22f158f5eab25c1dd5da475279bbea08677df467a9751eaf1877f02c11",
+    "made_with": "original cwebp -q 75 photo12.ppm"
+  },
+  "photo12-lossless.webp": {
+    "bytes": 9102584,
+    "sha256": "88595591b21f57a0a83e05a0a1fc71d3d084af1ba85986769407fd1034607872",
+    "made_with": "original cwebp -lossless photo12.ppm"
+  },
+  "photo24.ppm": {
+    "bytes": 72000017,
+    "sha256": "b7b3c0bae6fd47f682804ee485afc4ae0dd2fe1c17d7d771cfc7e77360c0a3a3"
+  },
+  "photo24-q75.webp": {
+    "bytes": 2090700,
+    "sha256": "def2482660ff1c97205c0faac11d49a7bc8d1f103abb5f987da5320df6c89f21",
+    "made_with": "original cwebp -q 75 photo24.ppm"
+  },
+  "photo24-lossless.webp": {
+    "bytes": 23246058,
+    "sha256": "5e1803a2e230a38cde2ca778f13d331d7e68583cdb3335c04388701a173dad74",
+    "made_with": "original cwebp -lossless photo24.ppm"
+  }
+}

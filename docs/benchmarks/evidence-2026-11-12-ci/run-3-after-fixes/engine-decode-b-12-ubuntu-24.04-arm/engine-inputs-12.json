@@ -1,0 +1,94 @@
+{
+  "size": "12",
+  "master": {
+    "width": 4032,
+    "height": 3024,
+    "sha256": "35061de922fa21565b3f21d7d7ba413a2d9fb8e00b780fcc3da63e4b9a2b9aa7"
+  },
+  "tool_versions": {
+    "cjpeg": "libjpeg-turbo version 2.1.5 (build 20240408)",
+    "cwebp": "1.3.2",
+    "cjxl": "cjxl v0.7.0 [NEON,NEON_WITHOUT_AES]",
+    "avifenc": "Version: 1.0.4 (dav1d [dec]:1.4.1, libgav1 [dec]:0.18.0, aom [enc/dec]:v3.8.2, rav1e [enc]:0.7.1 (UNKNOWN), svt [enc]:v1.7.0)"
+  },
+  "inputs": [
+    {
+      "name": "jpeg-q90",
+      "path": "/home/runner/work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+      "producer": "cjpeg -quality 90 (4:2:0 baseline)",
+      "display": [
+        4032,
+        3024
+      ],
+      "note": "",
+      "bytes": 2917970,
+      "sha256": "c183b702f37cbef87e3898d8f93943e330ffc47fe630c2cd19acf5e08aab88e0",
+      "policy": "--assume-srgb"
+    },
+    {
+      "name": "jpeg-camera",
+      "path": "/home/runner/work/ferrisma/ferrisma/bench/inputs/photo12-original.jpg",
+      "producer": "camera original (sRGB ICC, EXIF)",
+      "display": [
+        3024,
+        4032
+      ],
+      "note": "rendered sRGB ICC; dog has EXIF orientation 6",
+      "bytes": 3296423,
+      "sha256": "fc67748b1f04aba4ae38476adae70bd9c6157ee0d86db1e93c05aca5815b42e4",
+      "policy": "--use-rendered-icc"
+    },
+    {
+      "name": "webp-lossy",
+      "path": "/home/runner/work/ferrisma/ferrisma/bench/work/photo12-q75.webp",
+      "producer": "cwebp -q 75",
+      "display": [
+        4032,
+        3024
+      ],
+      "note": "",
+      "bytes": 762896,
+      "sha256": "ff5f2d22f158f5eab25c1dd5da475279bbea08677df467a9751eaf1877f02c11",
+      "policy": "--assume-srgb"
+    },
+    {
+      "name": "webp-lossless",
+      "path": "/home/runner/work/ferrisma/ferrisma/bench/work/photo12-lossless.webp",
+      "producer": "cwebp -lossless",
+      "display": [
+        4032,
+        3024
+      ],
+      "note": "",
+      "bytes": 9103430,
+      "sha256": "9f76986b60f4b88311885d53e9964de25f690c51c38eaebe7b1124244d3b61c8",
+      "policy": "--assume-srgb"
+    },
+    {
+      "name": "jxl-vardct",
+      "path": "/home/runner/work/ferrisma/ferrisma/bench/work/photo12-e7d1.jxl",
+      "producer": "cjxl -e 7 -d 1",
+      "display": [
+        4032,
+        3024
+      ],
+      "note": "",
+      "bytes": 1946313,
+      "sha256": "a8bc1931453bb794b3881d94b48f427ff11426434bf53c9f48ebbf710e2299fc",
+      "policy": "--use-rendered-icc"
+    },
+    {
+      "name": "jxl-lossless",
+      "path": "/home/runner/work/ferrisma/ferrisma/bench/work/photo12-d0e7.jxl",
+      "producer": "cjxl -e 7 -d 0",
+      "display": [
+        4032,
+        3024
+      ],
+      "note": "",
+      "bytes": 7690666,
+      "sha256": "20a30b205e25613691bf95d79f5759e84e76f60397edba22ddaf4ce63162075c",
+      "policy": "--use-rendered-icc"
+    }
+  ]
+}
