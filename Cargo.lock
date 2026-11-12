@@ -289,6 +289,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ferrisma-jxl-encoder"
+version = "0.1.0"
+dependencies = [
+ "jxl-oxide",
+ "libjxl-rs",
+]
+
+[[package]]
 name = "ferrisma-kernels"
 version = "0.1.0"
 

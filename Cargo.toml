@@ -7,6 +7,7 @@ members = [
     "crates/ferrisma-avif-read",
     "crates/ferrisma-avif-write",
     "crates/ferrisma-jxl-decoder",
+    "crates/ferrisma-jxl-encoder",
     "crates/libsharpyuv-core",
     "tools/xtask",
     "codecs/libjpeg-turbo-rs",

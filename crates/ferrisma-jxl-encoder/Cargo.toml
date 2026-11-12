@@ -1,0 +1,22 @@
+[package]
+name = "ferrisma-jxl-encoder"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+description = "Safe, bounded-output JPEG XL write bridge to the workspace libjxl-rs encoder"
+homepage = "https://ferrisma.dev"
+repository = "https://github.com/sebastian-software/ferrisma"
+include = ["/Cargo.toml", "/LICENSE-MIT", "/LICENSE-APACHE", "/src/**"]
+publish = false
+
+[dependencies]
+jxl = { package = "libjxl-rs", path = "../../codecs/libjxl-rs", version = "0.1.0" }
+
+[dev-dependencies]
+# Tests only: `take_admissions` observes the port's admission checkpoint, so the
+# bridge's classification is checked against the port's own record. The
+# feature adds observation hooks and changes no encoder or decoder behavior.
+jxl = { package = "libjxl-rs", path = "../../codecs/libjxl-rs", version = "0.1.0", features = ["cpp-oracle"] }
+# Independent decoder for the round-trip tests.
+jxl-oxide = { version = "0.12.6", default-features = false }
