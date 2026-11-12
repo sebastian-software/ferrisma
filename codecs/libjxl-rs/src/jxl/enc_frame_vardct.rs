@@ -169,7 +169,7 @@ pub fn admitted_frame_profile(
         && cparams.quant_ac_rescale == CompressParams::default().quant_ac_rescale
         && cparams.output_mode == 0
         && cparams.debug_image.is_none()
-        && admitted_extra_channels(cparams, m)
+        && admitted_extra_channels(m)
         && !m.have_animation
         && !m.have_preview
         && !m.color_encoding.want_icc()
@@ -196,9 +196,10 @@ pub fn admitted_frame_profile(
 }
 
 /// The admitted extra channels (encoder step 4): none, or one alpha channel
-/// at full resolution, coded losslessly (every extra-channel distance 0, the
-/// default) with the default `keep_invisible`.
-fn admitted_extra_channels(cparams: &CompressParams<'_>, m: &ImageMetadata) -> bool {
+/// at full resolution, straight or premultiplied, lossless (the default
+/// extra-channel distance 0) or lossy (JxlEncoderSetExtraChannelDistance),
+/// with any `keep_invisible`.
+fn admitted_extra_channels(m: &ImageMetadata) -> bool {
     if m.num_extra_channels == 0 {
         return true;
     }
@@ -206,8 +207,6 @@ fn admitted_extra_channels(cparams: &CompressParams<'_>, m: &ImageMetadata) -> b
         && m.extra_channel_info.len() == 1
         && m.extra_channel_info[0].channel_type == ExtraChannel::ALPHA
         && m.extra_channel_info[0].dim_shift == 0
-        && cparams.ec_distance.iter().all(|&d| d == 0.0)
-        && cparams.keep_invisible == Override::DEFAULT
 }
 
 /// GetBitDepth.
