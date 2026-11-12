@@ -91,7 +91,7 @@
         "column": 42,
         "type": "f64",
         "expression": "float_to_int: row_in[x] * dfactor + (row_in[x] < 0 ? -0.5 : 0.5)",
-        "rust": "outside this map: general Modular sample conversion (steps 4 and 5)"
+        "rust": "unported (outside this map: general Modular sample conversion (steps 4 and 5))"
       },
       {
         "file": "lib/jxl/enc_modular.cc",
@@ -99,7 +99,7 @@
         "column": 41,
         "type": "f32",
         "expression": "float_to_int: row_in[x] * factor + (row_in[x] < 0 ? -0.5f : 0.5f)",
-        "rust": "outside this map: general Modular sample conversion (steps 4 and 5)"
+        "rust": "unported (outside this map: general Modular sample conversion (steps 4 and 5))"
       },
       {
         "file": "lib/jxl/enc_modular.cc",
@@ -107,7 +107,7 @@
         "column": 50,
         "type": "f32",
         "expression": "try_palettes: cost_before * 0.0005f + nb_pixels / 128 + 128",
-        "rust": "outside this map: palette search (steps 4 and 5)"
+        "rust": "unported (outside this map: palette search (steps 4 and 5))"
       },
       {
         "file": "lib/jxl/enc_modular.cc",
@@ -115,7 +115,7 @@
         "column": 50,
         "type": "f32",
         "expression": "try_palettes: cost_before * 0.0005f + nb_pixels / 128 + 128",
-        "rust": "outside this map: palette search (steps 4 and 5)"
+        "rust": "unported (outside this map: palette search (steps 4 and 5))"
       },
       {
         "file": "lib/jxl/enc_modular.cc",
@@ -205,7 +205,7 @@
         "column": 17,
         "type": "f32",
         "expression": "ComputeBlockL2Distance: err2[i] += mask2 * diff * diff",
-        "rust": "unported (ComputeARHeuristics)"
+        "rust": "enc_heuristics_ar.rs compute_block_l2_distance mul_add_f32(mask2 * diff, diff, err2[i])"
       },
       {
         "file": "lib/jxl/enc_heuristics.cc",
@@ -213,7 +213,7 @@
         "column": 34,
         "type": "f64",
         "expression": "ComputeBlockL2Distance: kW[0] * err2[0] + kW[1] * err2[1]",
-        "rust": "unported (ComputeARHeuristics)"
+        "rust": "enc_heuristics_ar.rs compute_block_l2_distance mul_add_f64(W[0], err2[0], W[1] * err2[1])"
       },
       {
         "file": "lib/jxl/enc_heuristics.cc",
@@ -221,7 +221,7 @@
         "column": 52,
         "type": "f64",
         "expression": "ComputeBlockL2Distance: ... + kW[2] * err2[2]",
-        "rust": "unported (ComputeARHeuristics)"
+        "rust": "enc_heuristics_ar.rs compute_block_l2_distance mul_add_f64(W[2], err2[2], sum01)"
       },
       {
         "file": "lib/jxl/image_ops.h",
@@ -239,7 +239,7 @@
         "column": 39,
         "type": "f32",
         "expression": "inlined Rng::UniformF (debug connected-component painting)",
-        "rust": "not translated: the debug output is off without a debug callback"
+        "rust": "unported (the debug output is off without a debug callback)"
       },
       {
         "file": "lib/jxl/enc_patch_dictionary.cc",

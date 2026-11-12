@@ -20,6 +20,8 @@ Status: `recorded` = front-end `llvm.fmuladd` sites equal the recorded map; `unr
 | --- | --- | --- | ---: | ---: | --- | ---: |
 | `lib/jxl/convolve_slow.cc` | `convolve_slow.rs` | recorded | 2 | 2 (0) | 0 / 1 / 1 | 2 |
 | `lib/jxl/convolve_symmetric5.cc` | `convolve_symmetric5.rs` | recorded | 0 | 0 (0) | 0 / 0 / 0 | 3 |
+| `lib/jxl/dec_cache.cc` | `dec_cache.rs` | recorded | 37 | 37 (0) | 0 / 0 / 0 | 2 |
+| `lib/jxl/dec_group.cc` | `dec_group.rs` | recorded | 3 | 3 (0) | 0 / 0 / 0 | 18 |
 | `lib/jxl/enc_ac_strategy.cc` | `enc_ac_strategy.rs` | recorded | 11 | 11 (0) | 6 / 0 / 0 | 49 |
 | `lib/jxl/enc_adaptive_quantization.cc` | `enc_adaptive_quantization.rs` | recorded | 11 | 11 (2) | 7 / 0 / 0 | 54 |
 | `lib/jxl/enc_ans.cc` | `enc_ans.rs` | none | 0 | – | 0 / 0 / 0 | 17 |
@@ -27,42 +29,43 @@ Status: `recorded` = front-end `llvm.fmuladd` sites equal the recorded map; `unr
 | `lib/jxl/enc_aux_out.cc` | `enc_aux_out.rs` | none | 0 | – | 0 / 0 / 0 | 1 |
 | `lib/jxl/enc_bit_writer.cc` | `enc_bit_writer.rs` | none | 0 | – | 0 / 0 / 0 | 0 |
 | `lib/jxl/enc_butteraugli_comparator.cc` | unported | none | 0 | – | – | 0 |
-| `lib/jxl/enc_cache.cc` | `enc_cache.rs` | none | 0 | – | 0 / 0 / 0 | 0 |
+| `lib/jxl/enc_cache.cc` | `enc_cache.rs` | recorded | 0 | 0 (0) | 0 / 0 / 0 | 0 |
 | `lib/jxl/enc_chroma_from_luma.cc` | `enc_chroma_from_luma.rs` | recorded | 3 | 3 (0) | 1 / 0 / 0 | 29 |
 | `lib/jxl/enc_cluster.cc` | `enc_cluster.rs` | none | 0 | – | 0 / 0 / 0 | 0 |
-| `lib/jxl/enc_coeff_order.cc` | `enc_coeff_order.rs` | unrecorded | 1 | – | 0 / 0 / 0 | 3 |
+| `lib/jxl/enc_coeff_order.cc` | `enc_coeff_order.rs` | recorded | 1 | 1 (0) | 1 / 0 / 0 | 3 |
 | `lib/jxl/enc_comparator.cc` | unported | unrecorded | 1 | – | – | 0 |
 | `lib/jxl/enc_context_map.cc` | `enc_context_map.rs` | none | 0 | – | 0 / 0 / 0 | 4 |
 | `lib/jxl/enc_convolve_separable5.cc` | unported | unrecorded | 1 | – | – | 6 |
 | `lib/jxl/enc_debug_image.cc` | unported | none | 0 | – | – | 1 |
 | `lib/jxl/enc_detect_dots.cc` | unported | unrecorded | 25 | – | – | 19 |
 | `lib/jxl/enc_dot_dictionary.cc` | unported | unrecorded | 2 | – | – | 0 |
-| `lib/jxl/enc_entropy_coder.cc` | unported | none | 0 | – | – | 9 |
+| `lib/jxl/enc_entropy_coder.cc` | `enc_entropy_coder.rs` | recorded | 0 | 0 (0) | 0 / 0 / 0 | 9 |
 | `lib/jxl/enc_external_image.cc` | `enc_external_image.rs` | none | 0 | – | 0 / 0 / 0 | 1 |
 | `lib/jxl/enc_fast_lossless.cc` | unported | unrecorded | 8 | – | – | 71 |
 | `lib/jxl/enc_fields.cc` | `enc_fields.rs` | none | 0 | – | 0 / 0 / 0 | 0 |
 | `lib/jxl/enc_frame.cc` | `enc_frame.rs` | unrecorded | 13 | – | 1 / 0 / 0 | 49 |
 | `lib/jxl/enc_gaborish.cc` | `enc_gaborish.rs` | recorded | 1 | 1 (1) | 0 / 0 / 0 | 2 |
-| `lib/jxl/enc_group.cc` | unported | unrecorded | 8 | – | – | 15 |
-| `lib/jxl/enc_heuristics.cc` | unported | unrecorded | 7 | – | – | 25 |
+| `lib/jxl/enc_group.cc` | `enc_group.rs` | recorded | 8 | 8 (0) | 3 / 0 / 0 | 15 |
+| `lib/jxl/enc_heuristics.cc` | `enc_heuristics.rs` | recorded | 7 | 7 (0) | 0 / 0 / 0 | 25 |
 | `lib/jxl/enc_huffman.cc` | `enc_huffman.rs` | none | 0 | – | 0 / 0 / 0 | 1 |
 | `lib/jxl/enc_huffman_tree.cc` | `enc_huffman_tree.rs` | none | 0 | – | 0 / 0 / 0 | 3 |
 | `lib/jxl/enc_icc_codec.cc` | unported | none | 0 | – | – | 3 |
 | `lib/jxl/enc_image_bundle.cc` | unported | none | 0 | – | – | 10 |
 | `lib/jxl/enc_linalg.cc` | unported | unrecorded | 2 | – | – | 4 |
 | `lib/jxl/enc_lz77.cc` | `enc_lz77.rs` | unrecorded | 4 | – | 0 / 1 / 1 | 9 |
-| `lib/jxl/enc_modular.cc` | `enc_modular.rs` | unrecorded | 11 | – | 4 / 0 / 0 | 43 |
+| `lib/jxl/enc_modular.cc` | `enc_modular.rs` | recorded | 11 | 11 (0) | 5 / 0 / 0 | 43 |
 | `lib/jxl/enc_modular_simd.cc` | `enc_modular_simd.rs` | none | 0 | – | 0 / 0 / 0 | 3 |
 | `lib/jxl/enc_noise.cc` | unported | unrecorded | 17 | – | – | 22 |
-| `lib/jxl/enc_patch_dictionary.cc` | unported | unrecorded | 4 | – | – | 28 |
+| `lib/jxl/enc_patch_dictionary.cc` | `enc_patch_dictionary.rs` | recorded | 4 | 4 (0) | 1 / 0 / 0 | 28 |
 | `lib/jxl/enc_photon_noise.cc` | unported | none | 0 | – | – | 3 |
-| `lib/jxl/enc_progressive_split.cc` | `enc_progressive_split.rs` | none | 0 | – | 0 / 0 / 0 | 1 |
-| `lib/jxl/enc_quant_weights.cc` | `enc_quant_weights.rs` | none | 0 | – | 0 / 0 / 0 | 1 |
+| `lib/jxl/enc_progressive_split.cc` | `enc_progressive_split.rs` | recorded | 0 | 0 (0) | 0 / 0 / 0 | 1 |
+| `lib/jxl/enc_quant_weights.cc` | `enc_quant_weights.rs` | recorded | 0 | 0 (0) | 0 / 0 / 0 | 1 |
 | `lib/jxl/enc_splines.cc` | unported | none | 0 | – | – | 0 |
 | `lib/jxl/enc_toc.cc` | `enc_toc.rs` | none | 0 | – | 0 / 0 / 0 | 0 |
 | `lib/jxl/enc_transforms.cc` | `enc_transforms.rs` | recorded | 2 | 2 (0) | 0 / 1 / 1 | 67 |
 | `lib/jxl/enc_xyb.cc` | `enc_xyb.rs` | recorded | 0 | 0 (0) | 0 / 0 / 0 | 7 |
 | `lib/jxl/encode.cc` | `encode.rs` | unrecorded | 39 | – | 2 / 0 / 0 | 19 |
+| `lib/jxl/epf.cc` | `epf.rs` | recorded | 0 | 0 (0) | 0 / 0 / 0 | 10 |
 | `lib/jxl/jpeg/enc_jpeg_data.cc` | `enc_jpeg_data.rs` | none | 0 | – | 0 / 0 / 0 | 1 |
 | `lib/jxl/jpeg/enc_jpeg_data_reader.cc` | unported | none | 0 | – | – | 7 |
 | `lib/jxl/jpeg/enc_jpeg_huffman_decode.cc` | unported | none | 0 | – | – | 0 |
@@ -77,11 +80,9 @@ Status: `recorded` = front-end `llvm.fmuladd` sites equal the recorded map; `unr
 
 Ported units without a matching map, by the file of each fmuladd debug location (`line:column`):
 
-- `lib/jxl/enc_coeff_order.cc` → `lib/jxl/enc_coeff_order.cc`: 210:64
 - `lib/jxl/enc_frame.cc` → `lib/jxl/chroma_from_luma.h`: 52:32, 56:32
 - `lib/jxl/enc_frame.cc` → `lib/jxl/enc_frame.cc`: 115:66, 570:22, 574:22, 578:22, 583:20, 587:20, 624:33, 735:49, 932:66, 933:30, 1786:38
 - `lib/jxl/enc_lz77.cc` → `lib/jxl/enc_lz77.cc`: 67:20, 72:49, 165:42, 634:42
-- `lib/jxl/enc_modular.cc` → `lib/jxl/enc_modular.cc`: 164:42, 169:41, 364:50, 386:50, 765:36, 766:36, 767:36, 803:45, 1645:24, 1678:35, 1703:36
 - `lib/jxl/encode.cc` → `lib/jxl/base/matrix_ops.h`: 30:35, 30:55, 41:9, 52:65, 54:65, 56:65, 58:65, 60:65, 62:65, 64:65, 66:65, 68:65, 70:42, 70:70
 - `lib/jxl/encode.cc` → `lib/jxl/cms/jxl_cms_internal.h`: 169:18, 176:50, 188:47, 675:17
 - `lib/jxl/encode.cc` → `lib/jxl/cms/tone_mapping.h`: 38:26, 38:46, 46:48, 47:47, 71:23, 71:46, 72:19, 72:50, 73:24, 92:37, 112:25, 112:45, 135:60, 136:60, 166:80, 171:40
