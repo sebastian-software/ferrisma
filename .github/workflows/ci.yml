@@ -70,6 +70,7 @@ jobs:
       - run: cargo test -p ferrisma -p ferrisma-kernels --all-targets
       - run: cargo test -p ferrisma --lib --no-default-features --features jpeg-read backend_only_tests
       - run: cargo test -p ferrisma --lib --no-default-features --features webp-read,webp-write webp_output_tests
+      - run: cargo test -p ferrisma --lib --no-default-features --features jpeg-xl-write jxl_output_tests
       # A consumer outside the test suite exercises the facade's failure kinds and limits.
       - run: cargo run -p ferrisma --example consumer --no-default-features --features jpeg-read,webp-read,webp-write -- --self-check
       - run: cargo test -p ferrisma -p ferrisma-kernels --all-targets --all-features
@@ -79,7 +80,7 @@ jobs:
       - run: cargo clippy -p ferrisma -p ferrisma-kernels --all-targets --all-features --no-deps -- -D warnings
       - run: cargo clippy -p ferrisma-jxl-decoder -p ferrisma-avif-read -p ferrisma-avif-write --all-targets --no-deps --locked -- -D warnings
       - run: |
-          for feature in jpeg-read webp-read webp-write jpeg-xl-read jpeg-xl-own-read avif-read avif-write avif-own-write icc cli; do
+          for feature in jpeg-read webp-read webp-write jpeg-xl-read jpeg-xl-own-read jpeg-xl-write avif-read avif-write avif-own-write icc cli; do
             cargo check --no-default-features --features "$feature"
           done
       - name: Check license inventory contracts and dependency metadata

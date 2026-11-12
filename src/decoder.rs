@@ -167,6 +167,10 @@ impl CodecWork {
 
     /// A source that emits exactly the requested samples and whose internal
     /// work beyond them is not observed (synthetic sources and ROI codecs).
+    #[cfg_attr(
+        not(any(test, feature = "jpeg-xl-read")),
+        allow(dead_code, reason = "used by jxl-oxide and synthetic test sources")
+    )]
     pub(crate) fn region_at_least(request: Rect) -> Self {
         Self {
             request,
