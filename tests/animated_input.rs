@@ -46,8 +46,7 @@ fn kind(bytes: &[u8], format: ImageFormat, options: TransformOptions) -> Process
         ..options
     };
     transcode_with(bytes, format, options, &Discard)
-        .err()
-        .expect("animated input must be rejected")
+        .expect_err("animated input must be rejected")
         .kind()
 }
 

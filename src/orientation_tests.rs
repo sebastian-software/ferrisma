@@ -903,7 +903,7 @@ fn interim_jpeg_xl_orientations_are_rendered_upright_for_every_crop() {
     }
 }
 
-/// Lossy (VarDCT) JPEG XL files with every header orientation, written and
+/// Lossy (`VarDCT`) JPEG XL files with every header orientation, written and
 /// captured as upright RGBA8 by libjxl a16d32d (libjxl-rs
 /// `decoder-geometry-fixtures.json`). All eight carry the same stored
 /// codestream, so each upright output must be exactly the EXIF transform of

@@ -10,6 +10,9 @@
     feature = "jpeg-xl-own-read",
     feature = "avif-read"
 ))]
+// The JPEG XL tests also need `icc`; with a JPEG XL feature alone the shared
+// helpers are compiled but unused.
+#![allow(dead_code, unused_imports)]
 
 use ferrisma::pipeline::{
     Crop, DecoderWork, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,

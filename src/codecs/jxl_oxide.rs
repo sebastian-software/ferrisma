@@ -191,7 +191,7 @@ mod tests {
         read(corrupted, region).map_or(true, |samples| samples != read(clean, region).unwrap())
     }
 
-    /// #19: for multi-group VarDCT files, a crop that does not touch pass
+    /// #19: for multi-group `VarDCT` files, a crop that does not touch pass
     /// group 1 renders identically when every byte of that group is
     /// inverted, while the full frame and a crop over that group change or
     /// fail. jxl-oxide therefore skipped the group's entropy decoding here.

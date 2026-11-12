@@ -77,6 +77,37 @@ impl<'a> JpegSource<'a> {
         })
     }
 }
+/// Read to the end of the image and finish the decoder; returns the number
+/// of rows reconstructed below the request (0 or 1).
+///
+/// A small ROI still validates the encoded tail. `jpeg_skip_scanlines` to the
+/// last row marks EOI as reached without entropy-decoding the skipped tail,
+/// so a file truncated below the request would finish cleanly. Skipping all
+/// but the last row entropy-decodes the whole iMCU rows in between; reading
+/// that row reconstructs only the final iMCU row of the cropped columns and
+/// lets `finish` look for EOI.
+fn finish_with_tail(
+    mut scanlines: jpeg::decode::Scanlines<'_>,
+    row: &mut [u8],
+    height: u32,
+) -> Result<u64, Error> {
+    let remaining = height - scanlines.next_row();
+    let mut tail_rows = 0;
+    if remaining > 0 {
+        if scanlines
+            .skip_rows(remaining - 1)
+            .map_err(|_| Error::DecodeFailed)?
+            != remaining - 1
+            || scanlines.read_rows(row).map_err(|_| Error::DecodeFailed)? != 1
+        {
+            return Err(Error::DecodeFailed);
+        }
+        tail_rows = 1;
+    }
+    scanlines.finish().map_err(|_| Error::DecodeFailed)?;
+    Ok(tail_rows)
+}
+
 /// Pixel width of one RGB8 scanline of `row_bytes`.
 fn scanlines_width(row_bytes: usize) -> Result<u32, Error> {
     u32::try_from(row_bytes / 3).map_err(|_| Error::GeometryOverflow)
@@ -214,29 +245,7 @@ impl DecodeSource for JpegSource<'_> {
             )?;
             rows += 1;
         }
-        // A small ROI still validates the encoded tail. `jpeg_skip_scanlines`
-        // to the last row marks EOI as reached without entropy-decoding the
-        // skipped tail, so a file truncated below the request would finish
-        // cleanly. Skipping all but the last row entropy-decodes the whole
-        // iMCU rows in between; reading that row reconstructs only the final
-        // iMCU row of the cropped columns and lets `finish` look for EOI.
-        let remaining = self.info.size.height - scanlines.next_row();
-        let mut tail_rows = 0_u64;
-        if remaining > 0 {
-            if scanlines
-                .skip_rows(remaining - 1)
-                .map_err(|_| Error::DecodeFailed)?
-                != remaining - 1
-                || scanlines
-                    .read_rows(row.as_mut_slice())
-                    .map_err(|_| Error::DecodeFailed)?
-                    != 1
-            {
-                return Err(Error::DecodeFailed);
-            }
-            tail_rows = 1;
-        }
-        scanlines.finish().map_err(|_| Error::DecodeFailed)?;
+        let tail_rows = finish_with_tail(scanlines, row.as_mut_slice(), self.info.size.height)?;
         let decoded_width = scanlines_width(row_bytes)?;
         Ok(DecodeReport {
             requested: region,

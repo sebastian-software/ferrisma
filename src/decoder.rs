@@ -142,6 +142,10 @@ pub(crate) struct CodecWork {
 
 impl CodecWork {
     /// A codec that reconstructs the whole stored frame for every request.
+    #[cfg_attr(
+        not(any(feature = "jpeg-xl-own-read", feature = "avif-read")),
+        allow(dead_code, reason = "used by the full-frame codec adapters")
+    )]
     pub(crate) fn full_frame(request: Rect, size: Size) -> Self {
         Self {
             request,
