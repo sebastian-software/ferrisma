@@ -16,6 +16,7 @@ use super::base::float::{min_f32, mul_add_f32, mul_add_f64};
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode, StatusOr};
 use super::common::SpeedTier;
+use super::compressed_dc::dequant_dc;
 use super::dec_ans::HybridUintConfig;
 use super::dec_modular::ModularStreamId;
 use super::enc_ans::{
@@ -24,6 +25,7 @@ use super::enc_ans::{
 use super::enc_ans_params::{Histogram, HistogramParams};
 use super::enc_aux_out::{AuxOut, LayerType};
 use super::enc_bit_writer::BitWriter;
+use super::enc_cache::PassesEncoderState;
 use super::enc_frame::LosslessThunderConfig;
 use super::enc_modular_simd::estimate_cost;
 use super::enc_params::CompressParams;
@@ -33,7 +35,8 @@ use super::frame_dimensions::FrameDimensions;
 use super::frame_header::{ColorTransform, FrameHeader};
 use super::image::{Image3, Plane};
 use super::modular::encoding::context_predict::{
-    NUM_NONREF_PROPERTIES, predictor_has_weighted, weighted,
+    NUM_NONREF_PROPERTIES, PixelPosition, predict_no_tree_no_wp, predict_no_tree_wp,
+    predictor_has_weighted, weighted,
 };
 use super::modular::encoding::dec_ma::{PropertyDecisionNode, Tree};
 use super::modular::encoding::enc_encoding::{
@@ -1011,6 +1014,377 @@ impl<'a> ModularFrameEncoder<'a> {
                     .wrapping_add(ac_group_y)
                     .wrapping_mul(self.frame_dim.xsize_groups),
             )
+    }
+}
+
+// The VarDCT DC and AC-metadata streams: AddVarDCTDC with QuantizeWP and
+// QuantizeGradient, and AddACMetadata.
+//
+// Contraction map: the color-correlated DC residual `row[x] - quant_row_y[x]
+// * (y_factor * cfl_factor)` is one front-end fmuladd site in each of the
+// three 4:4:4 branches, fused on AArch64 and separate on x86-64. QuantizeWP's
+// and QuantizeGradient's `value * inv_factor` and the later subtraction are
+// separate statements.
+const Q_DEADZONE: f32 = 0.62;
+
+#[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+fn quantize_wp(
+    samples: &[i32],
+    position: usize,
+    onerow: usize,
+    x: usize,
+    y: usize,
+    w: usize,
+    wp_state: &mut weighted::State<'_>,
+    value: f32,
+    inv_factor: f32,
+    has_outliers: &mut bool,
+) -> i32 {
+    let mut svalue = value * inv_factor;
+    let pred = predict_no_tree_wp(
+        w,
+        PixelPosition::new(samples, position, onerow as isize),
+        x as i32,
+        y as i32,
+        Predictor::WEIGHTED,
+        wp_state,
+    );
+    svalue -= pred.guess as f32;
+    if svalue > -Q_DEADZONE && svalue < Q_DEADZONE {
+        svalue = 0.0;
+    }
+    let mut residual = 0i32;
+    if svalue.is_nan() || svalue > i32::MAX as f32 || svalue < i32::MIN as f32 {
+        *has_outliers = true;
+    } else {
+        residual = svalue.round() as i32;
+    }
+    if !(-2..=2).contains(&residual) {
+        residual = ((svalue * 0.5).round() as i32).wrapping_mul(2);
+    }
+    residual.wrapping_add(pred.guess as i32)
+}
+
+#[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+fn quantize_gradient(
+    samples: &[i32],
+    position: usize,
+    onerow: usize,
+    x: usize,
+    y: usize,
+    w: usize,
+    value: f32,
+    inv_factor: f32,
+) -> i32 {
+    let mut svalue = value * inv_factor;
+    let pred = predict_no_tree_no_wp(
+        w,
+        PixelPosition::new(samples, position, onerow as isize),
+        x as i32,
+        y as i32,
+        Predictor::GRADIENT,
+    );
+    svalue -= pred.guess as f32;
+    if svalue > -Q_DEADZONE && svalue < Q_DEADZONE {
+        svalue = 0.0;
+    }
+    let mut residual = svalue.round() as i32;
+    if !(-2..=2).contains(&residual) {
+        residual = ((svalue * 0.5).round() as i32).wrapping_mul(2);
+    }
+    residual.wrapping_add(pred.guess as i32)
+}
+
+/// `row - quant_y * factor`, one contracted expression in the source.
+fn dc_residual(row: f32, quant_y: i32, factor: f32) -> f32 {
+    mul_add_f32(-(quant_y as f32), factor, row)
+}
+
+impl ModularFrameEncoder<'_> {
+    /// ModularFrameEncoder::AddVarDCTDC. `dc` holds the frame's DC values;
+    /// the shared DC storage and quant_dc of `enc_state` receive the
+    /// dequantized DC as in the source.
+    #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+    pub fn add_var_dct_dc(
+        &mut self,
+        frame_header: &FrameHeader<'_>,
+        dc: &Image3<f32>,
+        r: Rect,
+        group_index: usize,
+        nl_dc: bool,
+        enc_state: &mut PassesEncoderState<'_>,
+        _jpeg_transcode: bool,
+    ) -> Status {
+        let memory_manager = dc.plane(0).memory_manager();
+        self.extra_dc_precision[group_index] = u8::from(nl_dc);
+        let mul = (1u32 << self.extra_dc_precision[group_index]) as f32;
+        let mut has_outliers = false;
+
+        let stream_id = ModularStreamId::var_dct_dc(group_index).id(&self.frame_dim);
+        {
+            let speed_tier = self.cparams.speed_tier;
+            let decoding_speed_tier = self.cparams.decoding_speed_tier;
+            let histogram_params = self.stream_options[0].histogram_params.clone();
+            let options = &mut self.stream_options[stream_id];
+            options.max_chan_size = 0xFFFFFF;
+            options.predictor = Predictor::WEIGHTED;
+            options.wp_tree_mode = TreeMode::WPOnly;
+            if speed_tier >= SpeedTier::Squirrel {
+                options.tree_kind = TreeKind::WPFixedDC;
+            }
+            if speed_tier < SpeedTier::Squirrel && !nl_dc {
+                options.predictor = if speed_tier < SpeedTier::Kitten {
+                    Predictor::VARIABLE
+                } else {
+                    Predictor::BEST
+                };
+                options.wp_tree_mode = TreeMode::Default;
+                options.tree_kind = TreeKind::Learn;
+            }
+            if decoding_speed_tier >= 1 {
+                options.tree_kind = TreeKind::GradientFixedDC;
+            }
+            options.histogram_params = histogram_params;
+        }
+
+        let mut image = Image::create_in(memory_manager, r.xsize(), r.ysize(), 8, 3)?;
+        let (dc_factors, y_dc_step, inv_dc_steps) = {
+            let quantizer = &enc_state.shared.quantizer;
+            let matrices = &enc_state.shared.matrices;
+            (
+                *enc_state.shared.cmap.base().dc_factors(),
+                quantizer.dc_step(matrices, 1),
+                [
+                    quantizer.inv_dc_step(matrices, 0),
+                    quantizer.inv_dc_step(matrices, 1),
+                    quantizer.inv_dc_step(matrices, 2),
+                ],
+            )
+        };
+        let tree_kind = self.stream_options[stream_id].tree_kind;
+        let read_dc = |c: usize, y: usize| -> &[f32] { &dc.plane_row(c, r.y0() + y)[r.x0()..] };
+        if nl_dc && tree_kind == TreeKind::GradientFixedDC {
+            if !frame_header.chroma_subsampling.is_444() {
+                return Err(StatusCode::GenericError);
+            }
+            for c in [1usize, 0, 2] {
+                let inv_factor = inv_dc_steps[c] * mul;
+                let y_factor = y_dc_step / mul;
+                let cfl_factor = dc_factors[c];
+                let ch = if c < 2 { c ^ 1 } else { c };
+                let stride = image.channel[ch].plane.pixels_per_row() as usize;
+                for y in 0..r.ysize() {
+                    let row = read_dc(c, y);
+                    for x in 0..r.xsize() {
+                        let value = if c == 1 {
+                            row[x]
+                        } else {
+                            let quant_y = image.channel[0].plane.row(y)[x];
+                            dc_residual(row[x], quant_y, y_factor * cfl_factor)
+                        };
+                        let samples = image.channel[ch]
+                            .plane
+                            .pixels()
+                            .ok_or(StatusCode::GenericError)?;
+                        let v = quantize_gradient(
+                            samples,
+                            y * stride + x,
+                            stride,
+                            x,
+                            y,
+                            r.xsize(),
+                            value,
+                            inv_factor,
+                        );
+                        image.channel[ch].plane.row_mut(y)[x] = v;
+                    }
+                }
+            }
+        } else if nl_dc {
+            if !frame_header.chroma_subsampling.is_444() {
+                return Err(StatusCode::GenericError);
+            }
+            for c in [1usize, 0, 2] {
+                let inv_factor = inv_dc_steps[c] * mul;
+                let y_factor = y_dc_step / mul;
+                let cfl_factor = dc_factors[c];
+                let header = weighted::Header::default();
+                let mut wp_state = weighted::State::new(&header, r.xsize(), r.ysize());
+                let ch = if c < 2 { c ^ 1 } else { c };
+                let stride = image.channel[ch].plane.pixels_per_row() as usize;
+                for y in 0..r.ysize() {
+                    let row = read_dc(c, y);
+                    for x in 0..r.xsize() {
+                        let value = if c == 1 {
+                            row[x]
+                        } else {
+                            let quant_y = image.channel[0].plane.row(y)[x];
+                            dc_residual(row[x], quant_y, y_factor * cfl_factor)
+                        };
+                        let samples = image.channel[ch]
+                            .plane
+                            .pixels()
+                            .ok_or(StatusCode::GenericError)?;
+                        let v = quantize_wp(
+                            samples,
+                            y * stride + x,
+                            stride,
+                            x,
+                            y,
+                            r.xsize(),
+                            &mut wp_state,
+                            value,
+                            inv_factor,
+                            &mut has_outliers,
+                        );
+                        image.channel[ch].plane.row_mut(y)[x] = v;
+                        wp_state.update_errors(i64::from(v), x, y, r.xsize());
+                    }
+                }
+            }
+        } else if frame_header.chroma_subsampling.is_444() {
+            for c in [1usize, 0, 2] {
+                let inv_factor = inv_dc_steps[c] * mul;
+                let y_factor = y_dc_step / mul;
+                let cfl_factor = dc_factors[c];
+                let ch = if c < 2 { c ^ 1 } else { c };
+                for y in 0..r.ysize() {
+                    let row = read_dc(c, y);
+                    for x in 0..r.xsize() {
+                        let v = if c == 1 {
+                            (row[x] * inv_factor).round() as i32
+                        } else {
+                            let quant_y = image.channel[0].plane.row(y)[x];
+                            (dc_residual(row[x], quant_y, y_factor * cfl_factor) * inv_factor)
+                                .round() as i32
+                        };
+                        image.channel[ch].plane.row_mut(y)[x] = v;
+                    }
+                }
+            }
+        } else {
+            for c in [1usize, 0, 2] {
+                let hs = frame_header.chroma_subsampling.h_shift(c);
+                let vs = frame_header.chroma_subsampling.v_shift(c);
+                let rect = Rect::new(r.x0() >> hs, r.y0() >> vs, r.xsize() >> hs, r.ysize() >> vs);
+                let inv_factor = inv_dc_steps[c] * mul;
+                let ys = rect.ysize();
+                let xs = rect.xsize();
+                let ch = &mut image.channel[if c < 2 { c ^ 1 } else { c }];
+                ch.w = xs;
+                ch.h = ys;
+                ch.shrink()?;
+                for y in 0..ys {
+                    let row = &dc.plane_row(c, rect.y0() + y)[rect.x0()..];
+                    let quant_row = ch.plane.row_mut(y);
+                    for x in 0..xs {
+                        quant_row[x] = (row[x] * inv_factor).round() as i32;
+                    }
+                }
+            }
+        }
+
+        if has_outliers {
+            return Err(StatusCode::GenericError);
+        }
+
+        let mul_dc = *enc_state.shared.quantizer.mul_dc();
+        let shared = &mut enc_state.shared;
+        dequant_dc(
+            r,
+            &mut shared.dc_storage,
+            &mut shared.quant_dc,
+            &image,
+            &mul_dc,
+            (1.0f64 / f64::from(mul)) as f32,
+            &dc_factors,
+            &frame_header.chroma_subsampling,
+            &shared.block_ctx_map,
+        );
+        self.stream_images[stream_id] = image;
+        Ok(())
+    }
+
+    /// ModularFrameEncoder::AddACMetadata.
+    pub fn add_ac_metadata(
+        &mut self,
+        r: Rect,
+        group_index: usize,
+        jpeg_transcode: bool,
+        enc_state: &mut PassesEncoderState<'_>,
+    ) -> Status {
+        let memory_manager = enc_state.shared.memory_manager();
+        let stream_id = ModularStreamId::ac_metadata(group_index).id(&self.frame_dim);
+        {
+            let speed_tier = self.cparams.speed_tier;
+            let force_cfl = self.cparams.force_cfl_jpeg_recompression;
+            let histogram_params = self.stream_options[0].histogram_params.clone();
+            let options = &mut self.stream_options[stream_id];
+            options.max_chan_size = 0xFFFFFF;
+            if options.predictor != Predictor::WEIGHTED {
+                options.wp_tree_mode = TreeMode::NoWP;
+            }
+            if jpeg_transcode {
+                options.tree_kind = TreeKind::JpegTranscodeACMeta;
+            } else if speed_tier >= SpeedTier::Falcon {
+                options.tree_kind = TreeKind::FalconACMeta;
+            } else if speed_tier > SpeedTier::Kitten {
+                options.tree_kind = TreeKind::ACMeta;
+            }
+            // If we are using a non-constant CfL field, and are in a slow enough mode,
+            // re-enable tree computation for it.
+            if speed_tier < SpeedTier::Squirrel && force_cfl {
+                options.tree_kind = TreeKind::Learn;
+            }
+            options.histogram_params = histogram_params;
+        }
+        // YToX, YToB, ACS + QF, EPF
+        let mut image = Image::create_in(memory_manager, r.xsize(), r.ysize(), 8, 4)?;
+        let cr = Rect::new(
+            r.x0() >> 3,
+            r.y0() >> 3,
+            (r.xsize() + 7) >> 3,
+            (r.ysize() + 7) >> 3,
+        );
+        image.channel[0] = Channel::create_in(memory_manager, cr.xsize(), cr.ysize(), 3, 3)?;
+        image.channel[1] = Channel::create_in(memory_manager, cr.xsize(), cr.ysize(), 3, 3)?;
+        image.channel[2] = Channel::create_in(memory_manager, r.xsize() * r.ysize(), 2, 0, 0)?;
+        let shared = &enc_state.shared;
+        for (ch, map) in [(0usize, &shared.cmap.ytox_map), (1, &shared.cmap.ytob_map)] {
+            let plane = &mut image.channel[ch].plane;
+            if (cr.xsize(), cr.ysize()) != (plane.xsize(), plane.ysize()) {
+                return Err(StatusCode::GenericError);
+            }
+            for y in 0..cr.ysize() {
+                let from = &map.row(cr.y0() + y)[cr.x0()..];
+                let to = plane.row_mut(y);
+                for x in 0..cr.xsize() {
+                    // ConvertPlaneAndClamp<int8_t, int32_t>: every source
+                    // value is in range.
+                    to[x] = i32::from(from[x]);
+                }
+            }
+        }
+        let mut num = 0usize;
+        for y in 0..r.ysize() {
+            let row_acs = shared.ac_strategy.const_rect_row(r, y);
+            let row_qf = &shared.raw_quant_field.row(r.y0() + y)[r.x0()..];
+            let row_epf = &shared.epf_sharpness.row(r.y0() + y)[r.x0()..];
+            for x in 0..r.xsize() {
+                image.channel[3].plane.row_mut(y)[x] = i32::from(row_epf[x]);
+                let acs = row_acs.get(x);
+                if !acs.is_first_block() {
+                    continue;
+                }
+                image.channel[2].plane.row_mut(0)[num] = i32::from(acs.raw_strategy());
+                image.channel[2].plane.row_mut(1)[num] = row_qf[x].wrapping_sub(1);
+                num += 1;
+            }
+        }
+        image.channel[2].w = num;
+        self.ac_metadata_size[group_index] = num;
+        self.stream_images[stream_id] = image;
+        Ok(())
     }
 }
 

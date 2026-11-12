@@ -2,11 +2,15 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! PassDefinition, ProgressiveMode, and splitter configuration/InitPasses from
-//! lib/jxl/enc_progressive_split.h. Coefficient splitting remains unported.
-//! Preserve unsigned narrowing and untouched reused Passes array entries.
+//! lib/jxl/enc_progressive_split.h, and SplitACCoefficients<int32_t> from
+//! enc_progressive_split.cc. Preserve unsigned narrowing and untouched reused
+//! Passes array entries.
 
+use super::ac_strategy::AcStrategy;
 use super::base::status::{Status, StatusCode};
+use super::coeff_order_fwd::coefficient_layout;
 use super::common::MAX_NUM_PASSES;
+use super::frame_dimensions::{BLOCK_DIM, DCT_BLOCK_SIZE};
 use super::frame_header::Passes;
 
 pub const NO_DOWNSAMPLING_FACTOR: usize = usize::MAX;
@@ -62,6 +66,67 @@ impl ProgressiveSplitter {
     }
     pub fn get_num_passes(&self) -> usize {
         self.mode.num_passes
+    }
+    /// SplitACCoefficients<int32_t> from enc_progressive_split.cc. `output`
+    /// holds one destination per pass, each at least the block's size.
+    pub fn split_ac_coefficients(
+        &self,
+        block: &[i32],
+        acs: AcStrategy,
+        _bx: usize,
+        _by: usize,
+        output: &mut [&mut [i32]],
+    ) {
+        let size = acs.covered_blocks_x() * acs.covered_blocks_y() * DCT_BLOCK_SIZE;
+        let shift_right_round0 = |v: i32, shift: i32| -> i32 {
+            let one_if_negative = ((v as u32) >> 31) as i32;
+            let add = (one_if_negative << shift).wrapping_sub(one_if_negative);
+            v.wrapping_add(add) >> shift
+        };
+        // Early quit for the simple case of only one pass.
+        if self.mode.num_passes == 1 {
+            output[0][..size].copy_from_slice(&block[..size]);
+            return;
+        }
+        let mut ncoeffs_all_done_from_earlier_passes = 1usize;
+
+        let mut previous_pass_shift = 0i32;
+        for num_pass in 0..self.mode.num_passes {
+            // Zero out output block.
+            output[num_pass][..size].fill(0);
+            let pass_shift = self.mode.passes[num_pass].shift as i32;
+            let frame_ncoeffs = self.mode.passes[num_pass].num_coefficients;
+            let mut xsize = acs.covered_blocks_x();
+            let mut ysize = acs.covered_blocks_y();
+            coefficient_layout(&mut ysize, &mut xsize);
+            for y in 0..ysize * frame_ncoeffs {
+                for x in 0..xsize * frame_ncoeffs {
+                    let pos = y * xsize * BLOCK_DIM + x;
+                    if x < xsize * ncoeffs_all_done_from_earlier_passes
+                        && y < ysize * ncoeffs_all_done_from_earlier_passes
+                    {
+                        // This coefficient was already included in an earlier pass,
+                        // which included a genuinely smaller set of coefficients.
+                        continue;
+                    }
+                    let mut v = block[pos];
+                    // Previous pass discarded some bits: do not encode them again.
+                    if previous_pass_shift != 0 {
+                        let previous_v = shift_right_round0(v, previous_pass_shift)
+                            .wrapping_mul(1 << previous_pass_shift);
+                        v = v.wrapping_sub(previous_v);
+                    }
+                    output[num_pass][pos] = shift_right_round0(v, pass_shift);
+                }
+            }
+            // We just finished a pass.
+            // Hence, we are now guaranteed to have included all coeffs up to
+            // frame_ncoeffs in every block, unless the current pass is shifted.
+            if self.mode.passes[num_pass].shift == 0 {
+                ncoeffs_all_done_from_earlier_passes = frame_ncoeffs;
+            }
+            previous_pass_shift = self.mode.passes[num_pass].shift as i32;
+        }
     }
     pub fn init_passes(&self, passes: &mut Passes) -> Status {
         passes.num_passes = self.get_num_passes() as u32;

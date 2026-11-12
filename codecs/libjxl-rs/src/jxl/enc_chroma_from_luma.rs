@@ -471,3 +471,45 @@ impl CfLHeuristics {
             + dc_scratch_size
     }
 }
+
+/// ColorCorrelationEncodeDC.
+pub fn color_correlation_encode_dc(
+    color_correlation: &super::chroma_from_luma::ColorCorrelation,
+    writer: &mut super::enc_bit_writer::BitWriter,
+    layer: super::enc_aux_out::LayerType,
+    aux_out: Option<&mut super::enc_aux_out::AuxOut>,
+) -> Status {
+    use super::chroma_from_luma::COLOR_FACTOR_DIST;
+    use super::enc_fields::{f16_coder, u32_coder};
+    let color_factor = color_correlation.color_factor();
+    let base_correlation_x = color_correlation.base_correlation_x();
+    let base_correlation_b = color_correlation.base_correlation_b();
+    let ytox_dc = color_correlation.y_to_x_dc();
+    let ytob_dc = color_correlation.y_to_b_dc();
+
+    writer.with_max_bits(
+        1 + 2 * 8 + 12 + 32,
+        layer,
+        aux_out,
+        |w, _| {
+            if ytox_dc == 0
+                && ytob_dc == 0
+                && color_factor == f32::from(DEFAULT_COLOR_FACTOR)
+                && base_correlation_x == 0.0
+                && base_correlation_b == Y_TO_B_RATIO
+            {
+                w.write(1, 1);
+                return Ok(());
+            }
+            w.write(1, 0);
+            // The float factor converts back to the stored integer.
+            u32_coder::write(COLOR_FACTOR_DIST, color_correlation.raw_color_factor(), w)?;
+            f16_coder::write(base_correlation_x, w)?;
+            f16_coder::write(base_correlation_b, w)?;
+            w.write(8, ytox_dc.wrapping_sub(i32::from(i8::MIN)) as u64);
+            w.write(8, ytob_dc.wrapping_sub(i32::from(i8::MIN)) as u64);
+            Ok(())
+        },
+        false,
+    )
+}
