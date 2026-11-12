@@ -319,8 +319,11 @@ fn upstream_libavif_corpus_returns_controlled_public_results() {
     assert!(paths.len() > 50, "upstream AVIF corpus is missing");
     let expected = |name: &str, policy: InputProfilePolicy| -> Option<Result<(), Kind>> {
         Some(match name {
-            // `clap` is rejected rather than silently ignored (ADR-0019).
-            "clap_irot_imir_non_essential.avif" => Err(Kind::UnsupportedInput),
+            // `clap` is rejected rather than silently ignored (ADR-0019), and
+            // animation is not accepted as a still image.
+            "clap_irot_imir_non_essential.avif" | "colors-animated-8bpc.avif" => {
+                Err(Kind::UnsupportedInput)
+            }
             // Grid and alpha stills reach the encoder.
             "abc_color_irot_alpha_irot.avif"
             | "color_grid_alpha_grid_shared_tiles.avif"
@@ -331,7 +334,6 @@ fn upstream_libavif_corpus_returns_controlled_public_results() {
             "paris_icc_exif_xmp.avif" if policy != InputProfilePolicy::UseRenderedIcc => {
                 Err(Kind::UnsupportedColor)
             }
-            "colors-animated-8bpc.avif" => Err(Kind::UnsupportedInput),
             _ => return None,
         })
     };
@@ -358,7 +360,10 @@ fn upstream_libavif_corpus_returns_controlled_public_results() {
                 transcode(&bytes, ImageFormat::Avif, options)
             }))
             .unwrap_or_else(|_| panic!("{name} panicked under {profile_policy:?}"));
-            let actual = result.as_ref().map(|_| ()).map_err(|error| error.kind());
+            let actual = result
+                .as_ref()
+                .map(|_| ())
+                .map_err(crate::pipeline::ProcessingError::kind);
             // Success is pinned only for the untagged-sRGB policy; the other
             // policies may reject the same file for its missing tag or alpha.
             if let Some(expected) = expected(&name, profile_policy)
