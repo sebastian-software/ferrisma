@@ -1262,3 +1262,198 @@ fn public_encoder_lossy_vardct_smoke_matches_original() {
     }
     compare("lossy-smoke", requests);
 }
+
+/// The codestream bytes of a history's ProcessOutput results (an observation
+/// line of either implementation).
+fn output_bytes(text: &str) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for field in text.split(' ') {
+        let Some(result) = field.strip_prefix("p:") else {
+            continue;
+        };
+        let parts: Vec<&str> = result.split(',').collect();
+        let Ok(written) = parts[1].parse::<usize>() else {
+            continue;
+        };
+        let hex = parts[3].split('/').next().unwrap();
+        for i in 0..written.min(hex.len() / 2) {
+            bytes.push(u8::from_str_radix(&hex[2 * i..2 * i + 2], 16).unwrap());
+        }
+    }
+    bytes
+}
+
+/// Diagnostics: for each history in the file that JXL_ENCODER_PUBLIC_REQUESTS
+/// names, the first divergence between the Rust and original observations:
+/// the call, and for output the codestream byte offset.
+#[test]
+#[ignore = "diagnostics for a request file"]
+fn public_encoder_first_divergence() {
+    let Some(path) = std::env::var_os("JXL_ENCODER_PUBLIC_REQUESTS") else {
+        return;
+    };
+    let requests: Vec<String> = std::fs::read_to_string(path)
+        .unwrap()
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(str::to_owned)
+        .collect();
+    let originals = super::original_observations(&requests);
+    for (request, cpp) in requests.iter().zip(&originals) {
+        let mut args = request.split_whitespace();
+        args.next();
+        let rust = driver::observe(&mut args);
+        let r: Vec<&str> = rust.text.split(' ').collect();
+        let c: Vec<&str> = cpp.split(' ').collect();
+        let call = r.iter().zip(&c).position(|(a, b)| a != b);
+        let (rb, cb) = (output_bytes(&rust.text), output_bytes(cpp));
+        let byte = rb.iter().zip(&cb).position(|(a, b)| a != b);
+        println!(
+            "{}: admission {:?} first differing call {:?} ({}) byte {:?} sizes {}/{}",
+            &request[..request.len().min(160)],
+            rust.admission,
+            call,
+            call.map_or("", |i| &r[i][..r[i].len().min(12)]),
+            byte,
+            rb.len(),
+            cb.len()
+        );
+    }
+}
+
+/// The patches option at 0 (JXL_ENC_FRAME_SETTING_PATCHES, Override::kOff):
+/// LossyFrameHeuristics skips FindBestPatchDictionary, so every image of the
+/// lossy profile encodes, including text-like content (content 5) that
+/// FindTextLikePatches turns into patches at the default.
+#[test]
+fn public_encoder_lossy_vardct_patches_off_matches_original() {
+    const PATCHES_OFF: &str = " o0,8,0";
+    let mut requests = Vec::new();
+    let mut variant = 0;
+    let mut sizes = vec![(1, 1), (7, 7), (8, 8), (9, 17)];
+    sizes.extend((41..=48).step_by(3).map(|x| (x, 15)));
+    for &(xsize, ysize) in &sizes {
+        for gray in [false, true] {
+            for type_index in 0..4 {
+                for content in [1 + variant % 4, 5] {
+                    let distance = LOSSY_DISTANCES[variant % LOSSY_DISTANCES.len()];
+                    requests.push(run(
+                        0,
+                        0,
+                        &lossy_history(
+                            xsize,
+                            ysize,
+                            gray,
+                            type_index,
+                            content,
+                            distance,
+                            variant,
+                            "",
+                            PATCHES_OFF,
+                        ),
+                    ));
+                    variant += 1;
+                }
+            }
+        }
+    }
+    for &(xsize, ysize) in &[(63, 129), (96, 64), (256, 256), (257, 255), (512, 1024)] {
+        for gray in [false, true] {
+            for content in [4, 5] {
+                let distance = [1.0, 2.9, 0.5, 1.5, 0.7][variant % 5];
+                requests.push(run(
+                    0,
+                    0,
+                    &lossy_history(
+                        xsize,
+                        ysize,
+                        gray,
+                        variant % 4,
+                        content,
+                        distance,
+                        variant,
+                        "",
+                        PATCHES_OFF,
+                    ),
+                ));
+                variant += 1;
+            }
+        }
+    }
+    // More than 8 groups: the streaming path (patches are never searched
+    // there), output modes 0 and 1.
+    for (xsize, ysize, buffering) in [(768, 768, -1), (1031, 517, 3), (2049, 300, 2)] {
+        let settings = if buffering == -1 {
+            PATCHES_OFF.to_string()
+        } else {
+            format!("{PATCHES_OFF} o0,34,{buffering}")
+        };
+        requests.push(run(
+            0,
+            0,
+            &lossy_history(xsize, ysize, false, 0, 5, 1.0, variant, "", &settings),
+        ));
+        variant += 1;
+    }
+    compare_admitted("lossy-patches-off", requests);
+}
+
+/// Text-like content at the default patches setting: FindTextLikePatches
+/// (compared with the original by `ecf-patches`) finds patches, and the
+/// encode returns the PatchDictionary admission result after an exact prefix.
+/// The same content with the patches option at 0 is exact (see
+/// [`public_encoder_lossy_vardct_patches_off_matches_original`]).
+#[test]
+fn public_encoder_lossy_vardct_text_like_default_admission_matches_original() {
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize)) in [(64, 64), (96, 64), (63, 129), (256, 256)]
+        .iter()
+        .enumerate()
+    {
+        for distance in [0.5f32, 1.0, 2.9] {
+            requests.push(run(
+                0,
+                0,
+                &lossy_history(xsize, ysize, index % 2 == 1, 0, 5, distance, index, "", ""),
+            ));
+        }
+    }
+    let patches = requests
+        .iter()
+        .filter(|request| {
+            let mut args = request.split_whitespace();
+            args.next();
+            driver::observe(&mut args)
+                .admission
+                .is_some_and(|(_, checkpoint)| checkpoint == JxlEncoderAdmission::PatchDictionary)
+        })
+        .count();
+    println!(
+        "text-like default: {patches} of {} histories found patches",
+        requests.len()
+    );
+    assert!(
+        patches > 0,
+        "text-like content must reach the patch dictionary"
+    );
+    // The original's evidence: with patches found, its default codestream
+    // (with the patch reference frame) differs from its codestream with the
+    // patches option at 0, which the Rust encoder matches exactly.
+    let off: Vec<String> = requests
+        .iter()
+        .map(|request| request.replacen(" s- ", " s- o0,8,0 ", 1))
+        .collect();
+    let (default_cpp, off_cpp) = (
+        super::original_observations(&requests),
+        super::original_observations(&off),
+    );
+    for ((request, default_cpp), off_cpp) in requests.iter().zip(&default_cpp).zip(&off_cpp) {
+        assert_ne!(
+            output_bytes(default_cpp),
+            output_bytes(off_cpp),
+            "the original codes patches: {request}"
+        );
+    }
+    compare_admitted("lossy-text-patches-off", off);
+    compare("lossy-text-default", requests);
+}

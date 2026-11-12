@@ -488,9 +488,12 @@ class Driver {
         bool null = f[5] == "~";
         size_t size = null ? 0 : std::stoul(f[5]);
         // Optional image content: a7,...,size,content,xsize,ysize.
+        size_t alpha_c = format.num_channels == 2 || format.num_channels == 4
+                             ? format.num_channels - 1
+                             : kNoAlpha;
         std::vector<uint8_t> pixels =
             f.size() > 6 ? Content(size, format, std::stoul(f[6]), std::stoul(f[7]),
-                                   std::stoul(f[8]))
+                                   std::stoul(f[8]), alpha_c)
                          : Pattern(size, 7, FloatFormat(format));
         o << JxlEncoderAddImageFrame(Settings(f[0]), &format, null ? nullptr : pixels.data(),
                                      size);
@@ -501,7 +504,12 @@ class Driver {
         bool null = f[5] == "~";
         size_t size = null ? 0 : std::stoul(f[5]);
         uint32_t index = uint32_t(std::stoul(f[6]));
-        std::vector<uint8_t> pixels = Pattern(size, 11 + index, FloatFormat(format));
+        // Optional content: E0,...,size,index,content,xsize,ysize; its single
+        // channel takes the alpha mode of the content.
+        std::vector<uint8_t> pixels =
+            f.size() > 7 ? Content(size, format, std::stoul(f[7]), std::stoul(f[8]),
+                                   std::stoul(f[9]), 0)
+                         : Pattern(size, 11 + index, FloatFormat(format));
         JxlEncoderStatus status = JxlEncoderSetExtraChannelBuffer(
             Settings(f[0]), &format, null ? nullptr : pixels.data(), size, index);
         if (status == JXL_ENC_SUCCESS) {
@@ -554,7 +562,12 @@ class Driver {
   // integer q in [0, 1024], from integer arithmetic only, stored exactly in
   // the requested type (uint8 and uint16 round q * max / 1024 to nearest),
   // byte order and row alignment. Content 1 is flat, 2 a gradient, 3 noise
-  // and 4 a photograph-like mix of smooth ramps, edges and fine texture.
+  // and 4 a photograph-like mix of smooth ramps, edges and fine texture,
+  // 5 text-like content: dark glyphs, repeated from a small set, on a flat
+  // light background. Content + 16 * m selects alpha mode m for the alpha
+  // channel `alpha_c`: 0 the color content, 1 opaque, 2 a ramp with fully
+  // transparent stripes, 3 a ramp without zeros.
+  static constexpr size_t kNoAlpha = ~size_t(0);
   static uint32_t ContentHash(uint32_t x, uint32_t y, uint32_t c) {
     uint32_t h = x * 0x9E3779B1u ^ (y + 0x7F4A7C15u) * 0x85EBCA77u ^ (c + 1) * 0xC2B2AE3Du;
     h ^= h >> 15;
@@ -569,6 +582,12 @@ class Driver {
       case 1: return 300 + 200 * c;
       case 2: return (x * 700) / std::max(xsize, 1u) + (y * 300) / std::max(ysize, 1u) + c * 10;
       case 3: return ContentHash(x, y, c) % 1025;
+      case 5: {
+        uint32_t gx = x % 10, gy = y % 14;
+        if (x < 4 || y < 4 || gx >= 7 || gy >= 10) return 960;
+        uint32_t glyph = (x / 10 * 7 + y / 14 * 3) % 5;
+        return ContentHash(gx, gy, glyph + 100) % 3 != 0 ? 80 + 5 * c : 960;
+      }
       default: {
         uint32_t q = 150 + tri(x * 3 + y * 2 + c * 40) + tri(x * 11 / 7 + 5 * c) / 2;
         if ((x / 13 + y / 9) % 5 == 0) q += 120;
@@ -577,8 +596,20 @@ class Driver {
       }
     }
   }
+  static uint32_t AlphaQ(uint32_t mode, uint32_t x, uint32_t y, uint32_t xsize) {
+    switch (mode) {
+      case 1: return 1024;
+      case 2:
+        if ((x + 2 * y) % 23 < 6) return 0;
+        return std::min(1024u, 40 + (x * 1024) / std::max(xsize, 1u) + ContentHash(x, y, 9) % 32);
+      default: return 200 + (x * 800) / std::max(xsize, 1u) + (y % 7) * 3;
+    }
+  }
   static std::vector<uint8_t> Content(size_t size, const JxlPixelFormat& format,
-                                      uint32_t content, uint32_t xsize, uint32_t ysize) {
+                                      uint32_t content, uint32_t xsize, uint32_t ysize,
+                                      size_t alpha_c) {
+    uint32_t alpha_mode = content / 16;
+    content %= 16;
     std::vector<uint8_t> data(size + 1, 0);
     size_t bytes = format.data_type == JXL_TYPE_UINT8 ? 1
                    : format.data_type == JXL_TYPE_FLOAT ? 4
@@ -593,7 +624,9 @@ class Driver {
         for (uint32_t c = 0; c < format.num_channels; ++c) {
           size_t at = y * stride + (size_t(x) * format.num_channels + c) * bytes;
           if (at + bytes > size) continue;
-          uint32_t q = ContentQ(content, x, y, c, xsize, ysize);
+          uint32_t q = alpha_mode != 0 && c == alpha_c
+                           ? AlphaQ(alpha_mode, x, y, xsize)
+                           : ContentQ(content, x, y, c, xsize, ysize);
           uint32_t word;
           if (format.data_type == JXL_TYPE_UINT8) {
             word = (q * 255 + 512) / 1024;

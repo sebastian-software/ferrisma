@@ -355,6 +355,18 @@ fn content_q(content: u32, x: u32, y: u32, c: u32, xsize: u32, ysize: u32) -> u3
         1 => 300 + 200 * c,
         2 => (x * 700) / xsize.max(1) + (y * 300) / ysize.max(1) + c * 10,
         3 => content_hash(x, y, c) % 1025,
+        5 => {
+            let (gx, gy) = (x % 10, y % 14);
+            if x < 4 || y < 4 || gx >= 7 || gy >= 10 {
+                return 960;
+            }
+            let glyph = (x / 10 * 7 + y / 14 * 3) % 5;
+            if content_hash(gx, gy, glyph + 100) % 3 != 0 {
+                80 + 5 * c
+            } else {
+                960
+            }
+        }
         _ => {
             let mut q = 150 + tri(x * 3 + y * 2 + c * 40) + tri(x * 11 / 7 + 5 * c) / 2;
             if (x / 13 + y / 9).is_multiple_of(5) {
@@ -366,7 +378,33 @@ fn content_q(content: u32, x: u32, y: u32, c: u32, xsize: u32, ysize: u32) -> u3
     }
 }
 
-fn content(size: usize, format: &JxlPixelFormat, content: u32, xsize: u32, ysize: u32) -> Vec<u8> {
+/// The oracle's AlphaQ: alpha mode 1 opaque, 2 a ramp with fully transparent
+/// stripes, 3 a ramp without zeros.
+fn alpha_q(mode: u32, x: u32, y: u32, xsize: u32) -> u32 {
+    match mode {
+        1 => 1024,
+        2 => {
+            if (x + 2 * y) % 23 < 6 {
+                return 0;
+            }
+            (40 + (x * 1024) / xsize.max(1) + content_hash(x, y, 9) % 32).min(1024)
+        }
+        _ => 200 + (x * 800) / xsize.max(1) + (y % 7) * 3,
+    }
+}
+
+/// The oracle's Content; `content + 16 * m` selects alpha mode `m` for the
+/// channel `alpha_c`.
+fn content(
+    size: usize,
+    format: &JxlPixelFormat,
+    content: u32,
+    xsize: u32,
+    ysize: u32,
+    alpha_c: Option<u32>,
+) -> Vec<u8> {
+    let alpha_mode = content / 16;
+    let content = content % 16;
     let mut data = vec![0u8; size + 1];
     let bytes = match format.data_type {
         JxlDataType::UINT8 => 1,
@@ -388,7 +426,11 @@ fn content(size: usize, format: &JxlPixelFormat, content: u32, xsize: u32, ysize
                 if at + bytes > size {
                     continue;
                 }
-                let q = content_q(content, x, y, c, xsize, ysize);
+                let q = if alpha_mode != 0 && Some(c) == alpha_c {
+                    alpha_q(alpha_mode, x, y, xsize)
+                } else {
+                    content_q(content, x, y, c, xsize, ysize)
+                };
                 let word = match format.data_type {
                     JxlDataType::UINT8 => (q * 255 + 512) / 1024,
                     JxlDataType::UINT16 => (q * 65535 + 512) / 1024,
@@ -829,6 +871,7 @@ impl Driver {
                 let null = f[5] == "~";
                 let size = if null { 0 } else { f[5].parse().unwrap() };
                 // Optional image content: a7,...,size,content,xsize,ysize.
+                let alpha_c = matches!(format.num_channels, 2 | 4).then(|| format.num_channels - 1);
                 let pixels = if f.len() > 6 {
                     content(
                         size,
@@ -836,6 +879,7 @@ impl Driver {
                         f[6].parse().unwrap(),
                         f[7].parse().unwrap(),
                         f[8].parse().unwrap(),
+                        alpha_c,
                     )
                 } else {
                     pattern(size, 7, float_format(&format))
@@ -852,7 +896,19 @@ impl Driver {
                 let null = f[5] == "~";
                 let size = if null { 0 } else { f[5].parse().unwrap() };
                 let index: u32 = f[6].parse().unwrap();
-                let pixels = pattern(size, 11 + index as usize, float_format(&format));
+                // Optional content: E0,...,size,index,content,xsize,ysize.
+                let pixels = if f.len() > 7 {
+                    content(
+                        size,
+                        &format,
+                        f[7].parse().unwrap(),
+                        f[8].parse().unwrap(),
+                        f[9].parse().unwrap(),
+                        Some(0),
+                    )
+                } else {
+                    pattern(size, 11 + index as usize, float_format(&format))
+                };
                 let buffer = (!null).then(|| &pixels[..size]);
                 let status = unsafe {
                     api::jxl_encoder_set_extra_channel_buffer(

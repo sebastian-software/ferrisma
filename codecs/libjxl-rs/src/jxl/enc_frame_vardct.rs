@@ -125,8 +125,8 @@ fn admission<T>(checkpoint: FrameAdmission) -> FrameResult<T> {
 /// kMinButteraugliForDots, gray or RGB enum sRGB or linear sRGB without extra
 /// channels, a single displayed full-size frame without blending, names or
 /// references, the default memory manager, serial, raw codestream output and
-/// default perceptual and progressive options. Distances from 0.7, where the
-/// original runs the AR heuristics, return the AR admission result later.
+/// default perceptual and progressive options; the patches option at its
+/// default or off.
 pub fn admitted_frame_profile(
     cparams: &CompressParams<'_>,
     frame_info: &FrameInfo,
@@ -147,7 +147,9 @@ pub fn admitted_frame_profile(
         && cparams.decoding_speed_tier == 0
         && cparams.noise == Override::DEFAULT
         && cparams.dots == Override::DEFAULT
-        && cparams.patches == Override::DEFAULT
+        // Patches off skips FindBestPatchDictionary in LossyFrameHeuristics
+        // (enc_heuristics.cc), its only use on this path.
+        && (cparams.patches == Override::DEFAULT || cparams.patches == Override::OFF)
         && cparams.gaborish == Override::DEFAULT
         && cparams.epf == -1
         && cparams.progressive_mode == Override::DEFAULT
