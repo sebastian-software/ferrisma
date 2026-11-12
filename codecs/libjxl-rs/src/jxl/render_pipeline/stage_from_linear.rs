@@ -59,13 +59,27 @@ impl RenderPipelineStage for SrgbFromLinearStage {
             return Err(StatusCode::GenericError);
         }
         let rows: [_; 3] = std::array::from_fn(|c| self.get_input_row(input, c, 0));
+        // Row spans on AArch64 only. The transfer functions are inlined here
+        // with inline arithmetic; other targets keep the previous per-sample
+        // addressing verbatim so that arithmetic is compiled from unchanged
+        // source (see `scalar_rows` on NaN operand order).
         // In place on three disjoint spans resolved once per row; samples are
         // converted in the original x-then-channel order.
+        #[cfg(target_arch = "aarch64")]
         let mut spans = buffers.three_rows_mut(rows, width);
+        #[cfg(target_arch = "aarch64")]
         for x in 0..width {
             for span in spans.iter_mut() {
                 span[x] =
                     crate::jxl::cms::transfer_functions_scalar::srgb_encoded_from_display(span[x]);
+            }
+        }
+        #[cfg(not(target_arch = "aarch64"))]
+        for x in 0..width {
+            for row in &rows {
+                let value = buffers.row(*row)[x];
+                buffers.row_mut(*row)[x] =
+                    crate::jxl::cms::transfer_functions_scalar::srgb_encoded_from_display(value);
             }
         }
         Ok(())
@@ -152,12 +166,24 @@ impl RenderPipelineStage for FromLinearStage {
             return Err(StatusCode::GenericError);
         }
         let rows: [_; 3] = std::array::from_fn(|c| self.get_input_row(input, c, 0));
+        // Row spans on AArch64 only; other targets keep the previous
+        // per-sample addressing verbatim (see the sRGB stage above).
         // In place on three disjoint spans resolved once per row.
+        #[cfg(target_arch = "aarch64")]
         let [r0, r1, r2] = buffers.three_rows_mut(rows, width);
+        #[cfg(target_arch = "aarch64")]
         for x in 0..width {
             let mut rgb = [r0[x], r1[x], r2[x]];
             self.op.transform(&mut rgb);
             [r0[x], r1[x], r2[x]] = rgb;
+        }
+        #[cfg(not(target_arch = "aarch64"))]
+        for x in 0..width {
+            let mut rgb = std::array::from_fn(|c| buffers.row(rows[c])[x]);
+            self.op.transform(&mut rgb);
+            for c in 0..3 {
+                buffers.row_mut(rows[c])[x] = rgb[c];
+            }
         }
         Ok(())
     }

@@ -159,6 +159,14 @@ impl UpsamplingStage {
             self.temp[0][thread].as_mut().unwrap().u32s_mut()[x] = max.to_bits();
         }
     }
+    // The row-span form runs on AArch64 only. Its inline Mul/Add chains
+    // (`scalar_mul_add`, `(acc1 + acc2) + acc0`) may receive both operands
+    // as NaNs with different payloads, and LLVM may commute an inline
+    // `fadd`/`fmul` differently once the surrounding code changes; on
+    // x86-64 that choice selects the surviving payload. Other targets keep
+    // the previous per-sample addressing below, verbatim, so their
+    // arithmetic is compiled from unchanged source.
+    #[cfg(target_arch = "aarch64")]
     fn process_row_impl<const N: usize>(
         &self,
         input: &RowInfo,
@@ -209,6 +217,50 @@ impl UpsamplingStage {
                 .get_output_row(output, self.c, oy)
                 .offset((x0 * N) as isize);
             buffers.row_mut(dst)[..staged.len()].copy_from_slice(staged);
+        }
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    fn process_row_impl<const N: usize>(
+        &self,
+        input: &RowInfo,
+        output: &RowInfo,
+        buffers: &mut RowBuffers<'_>,
+        x0: usize,
+        len: usize,
+        thread: usize,
+    ) {
+        let rows: [_; 25] = std::array::from_fn(|i| {
+            self.get_input_row(input, self.c, (i / 5) as i32 - 2)
+                .offset(x0 as isize + (i % 5) as isize - 2)
+        });
+        let mins = self.temp[2][thread].as_ref().unwrap().u32s();
+        let maxs = self.temp[0][thread].as_ref().unwrap().u32s();
+        for x in 0..len {
+            for oy in 0..N {
+                let mut ups = [0.0; N];
+                for (ox, up) in ups.iter_mut().enumerate() {
+                    let k = N * oy + ox;
+                    let kernel = &self.kernel[k * 25..];
+                    let mut acc0 = buffers.row(rows[0])[x] * kernel[0];
+                    let mut acc1 = buffers.row(rows[1])[x] * kernel[1];
+                    let mut acc2 = buffers.row(rows[2])[x] * kernel[2];
+                    for i in (3..24).step_by(3) {
+                        acc0 = scalar_mul_add(buffers.row(rows[i])[x], kernel[i], acc0);
+                        acc1 = scalar_mul_add(buffers.row(rows[i + 1])[x], kernel[i + 1], acc1);
+                        acc2 = scalar_mul_add(buffers.row(rows[i + 2])[x], kernel[i + 2], acc2);
+                    }
+                    acc0 = scalar_mul_add(buffers.row(rows[24])[x], kernel[24], acc0);
+                    let result = (acc1 + acc2) + acc0;
+                    *up = scalar_min(
+                        scalar_max(f32::from_bits(mins[x]), result),
+                        f32::from_bits(maxs[x]),
+                    );
+                }
+                let dst = self
+                    .get_output_row(output, self.c, oy)
+                    .offset((x0 * N + x * N) as isize);
+                buffers.row_mut(dst)[..N].copy_from_slice(&ups);
+            }
         }
     }
 }
