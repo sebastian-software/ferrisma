@@ -527,6 +527,121 @@ fn draw_upsampled_dc(
     Ok(())
 }
 
+/// GetBlockFromEncoder from dec_group.cc: the encoder's quantized AC images,
+/// one per pass, as the coefficient source of the decoder in the loop. Row
+/// slices replace the cached `rows[i][c]` pointers; `offset` advances over the
+/// group row exactly as the source member does.
+pub struct GetBlockFromEncoder<'a> {
+    rows: Vec<[&'a [i32]; 3]>,
+    offset: usize,
+    shift_for_pass: &'a [u32],
+}
+impl<'a> GetBlockFromEncoder<'a> {
+    /// The source Create(ac, group_idx, shift_for_pass): every pass image
+    /// must hold 32-bit coefficients, as its JXL_ENSURE requires.
+    pub fn create(
+        ac: &'a [Option<Box<super::dct_util::AcImage>>],
+        group_idx: usize,
+        shift_for_pass: &'a [u32],
+    ) -> super::base::status::StatusOr<Self> {
+        let mut rows = Vec::with_capacity(ac.len());
+        for image in ac {
+            let image = image
+                .as_deref()
+                .expect("source passes a non-null ACImage per pass");
+            if image.image_type() != super::dct_util::AcType::I32 {
+                return Err(StatusCode::GenericError);
+            }
+            rows.push(std::array::from_fn(|c| {
+                match image.plane_row(c, group_idx, 0) {
+                    super::dct_util::ConstAcPtr::I32(row) => row,
+                    super::dct_util::ConstAcPtr::I16(_) => unreachable!("type checked above"),
+                }
+            }));
+        }
+        Ok(Self {
+            rows,
+            offset: 0,
+            shift_for_pass,
+        })
+    }
+}
+impl GetBlock for GetBlockFromEncoder<'_> {
+    fn start_row(&mut self, _by: usize) {}
+    fn load_block(
+        &mut self,
+        _bx: usize,
+        _by: usize,
+        _acs: AcStrategy,
+        size: usize,
+        _log2_covered_blocks: usize,
+        block: &mut [AcPtrMut<'_>; 3],
+    ) -> Status {
+        // JXL_ENSURE(ac_type == ACType::k32): the traversal passes the decoder
+        // state's coefficient type as the block variant.
+        for c in 0..3 {
+            let AcPtrMut::I32(block) = &mut block[c] else {
+                return Err(StatusCode::GenericError);
+            };
+            for (i, rows) in self.rows.iter().enumerate() {
+                for k in 0..size {
+                    // The source's int32 product and sum; Clang's two's
+                    // complement lowering on the defined (non-overflowing)
+                    // domain the encoder's quantized values stay in.
+                    block[k] = block[k].wrapping_add(
+                        rows[c][self.offset + k].wrapping_mul(1i32 << self.shift_for_pass[i]),
+                    );
+                }
+            }
+        }
+        self.offset += size;
+        Ok(())
+    }
+}
+
+/// DecodeGroupForRoundtrip from dec_group.cc: decode one group of the
+/// encoder's own quantized coefficients into the prepared render-pipeline
+/// input, always drawing. The group cache is initialized for zero passes and
+/// every valid strategy, as in the source. Its unused `aux_out` argument is
+/// omitted; `state` supplies the PassesDecoderState fields DecodeGroupImpl
+/// reads (its ANS code and context map are not read on this path).
+#[allow(clippy::too_many_arguments)] // Preserve the reached source arguments.
+pub fn decode_group_for_roundtrip(
+    frame_header: &super::frame_header::FrameHeader<'_>,
+    ac: &[Option<Box<super::dct_util::AcImage>>],
+    group_idx: usize,
+    state: AcGroupDecoderState<'_, '_>,
+    group_dec_cache: &mut super::dec_cache::GroupDecCache,
+    render_pipeline_input: &mut super::render_pipeline::simple_render_pipeline::RenderPipelineInput<
+        '_,
+        '_,
+    >,
+    jpeg_data: Option<&mut super::jpeg::jpeg_data::JpegData>,
+) -> Status {
+    let memory_manager = state.shared.memory_manager();
+    let mut get_block = GetBlockFromEncoder::create(ac, group_idx, &frame_header.passes.shift[..])?;
+    group_dec_cache.init_once_in(
+        memory_manager,
+        0,
+        (1usize << super::ac_strategy::NUM_VALID_STRATEGIES) - 1,
+    )?;
+    let (buffers, _) = group_dec_cache.split_buffers();
+    super::dec_group_render::decode_group_impl(
+        frame_header,
+        &mut get_block,
+        buffers,
+        state.shared,
+        state.coefficients,
+        state.x_dm_multiplier,
+        state.b_dm_multiplier,
+        state.quant_biases,
+        group_idx,
+        render_pipeline_input,
+        jpeg_data,
+        DrawMode::Draw,
+    )
+}
+
 /// Original null-JPEG specialization retained for existing pixel callers.
 #[allow(clippy::too_many_arguments)]
 pub fn decode_ac_group_pixels(

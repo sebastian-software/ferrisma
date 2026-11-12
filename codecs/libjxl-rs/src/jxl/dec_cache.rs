@@ -534,3 +534,264 @@ pub unsafe fn add_output_color_stages<'a>(
     }
     Ok(cms_stage_added)
 }
+
+impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
+    /// PassesDecoderState::PreparePipeline from dec_cache.cc, for callers
+    /// outside FrameDecoder (the frame decoder keeps its own interleaved
+    /// preparation with write tracing in dec_frame.rs). Every branch is the
+    /// source's, in its order, except two admission results:
+    /// - `options.coalescing` with NeedsBlending: the blending stage retains
+    ///   the shared frame-header owner of the frame decoder's representation;
+    ///   both encoder callers (ReconstructImage and the adaptive-quantization
+    ///   round trip) pass `coalescing = false`, so the branch is unreached.
+    /// - A CMS stage with the simple pipeline, for the same undefined-source
+    ///   reason as in the frame decoder's preparation.
+    ///
+    /// The fast XYB-to-sRGB8 branch is compiled out at the pinned
+    /// JXL_HIGH_PRECISION=1. `decoded` is the source's non-owning ImageBundle
+    /// pointer; the write stage borrows it only per call.
+    ///
+    /// # Safety
+    /// The contract of `add_output_color_stages` applies to
+    /// `self.output_encoding_info`. When `self.main_output` has a callback or
+    /// buffer, the descriptors in `main_output` and `extra_output` and the
+    /// state's memory manager must satisfy `get_write_to_output_stage`'s
+    /// contract until the built pipeline is dropped. A state whose Init
+    /// cleared the outputs and whose CMS is not set needs nothing further.
+    pub unsafe fn prepare_pipeline<'h>(
+        &mut self,
+        frame_header: &'pipeline FrameHeader<'h>,
+        metadata: &'a super::image_metadata::ImageMetadata,
+        decoded: &'pipeline RefCell<ImageBundle<'a>>,
+        options: PipelineOptions,
+    ) -> Status
+    where
+        'a: 'pipeline,
+    {
+        use super::render_pipeline::render_pipeline_stage::{
+            WriteToImage3FStage, WriteToImageBundleStage,
+        };
+        use super::render_pipeline::stage_epf::{EpfStage, get_epf_stage_shared};
+        let memory_manager = self.memory_manager();
+        let nonserialized = frame_header
+            .nonserialized_metadata
+            .expect("source frame header carries its metadata");
+        let num_c = 3 + nonserialized.m.num_extra_channels as usize;
+        let render_noise =
+            options.render_noise && (frame_header.flags & super::frame_header::FLAG_NOISE) != 0;
+        let num_tmp_c = if render_noise { 3 } else { 0 };
+
+        if frame_header.can_be_referenced() {
+            // Necessary so that SetInputSizes() can allocate output buffers.
+            let _ = self
+                .frame_storage_for_referencing
+                .borrow_mut()
+                .move_from(&mut ImageBundle::new_in(memory_manager, Some(metadata)));
+        }
+
+        let mut builder: RenderPipelineBuilder<'pipeline> =
+            RenderPipelineBuilder::new_in(memory_manager, num_c + num_tmp_c);
+        if options.use_slow_render_pipeline {
+            builder.use_simple_implementation();
+        }
+        if !frame_header.chroma_subsampling.is_444() {
+            for c in 0..3 {
+                if frame_header.chroma_subsampling.h_shift(c) != 0 {
+                    builder.add_stage(Some(
+                        super::render_pipeline::stage_chroma_upsampling::get_chroma_upsampling_stage(
+                            c, true,
+                        ),
+                    ))?;
+                }
+                if frame_header.chroma_subsampling.v_shift(c) != 0 {
+                    builder.add_stage(Some(
+                        super::render_pipeline::stage_chroma_upsampling::get_chroma_upsampling_stage(
+                            c, false,
+                        ),
+                    ))?;
+                }
+            }
+        }
+        if frame_header.loop_filter.gab {
+            builder.add_stage(super::render_pipeline::stage_gaborish::get_gaborish_stage(
+                &frame_header.loop_filter,
+            ))?;
+        }
+        {
+            let lf = &frame_header.loop_filter;
+            if lf.epf_iters >= 3 {
+                builder.add_stage(get_epf_stage_shared(lf, self.sigma.clone(), EpfStage::Zero))?;
+            }
+            if lf.epf_iters >= 1 {
+                builder.add_stage(get_epf_stage_shared(lf, self.sigma.clone(), EpfStage::One))?;
+            }
+            if lf.epf_iters >= 2 {
+                builder.add_stage(get_epf_stage_shared(lf, self.sigma.clone(), EpfStage::Two))?;
+            }
+        }
+        let mut late_ec_upsample = frame_header.upsampling != 1;
+        for &ecups in &frame_header.extra_channel_upsampling {
+            if ecups != frame_header.upsampling {
+                // If patches are applied, either upsampling == 1 or
+                // late_ec_upsample is true.
+                late_ec_upsample = false;
+            }
+        }
+        if !late_ec_upsample {
+            for (ec, &up) in frame_header.extra_channel_upsampling.iter().enumerate() {
+                if up != 1 {
+                    builder.add_stage(get_upsampling_stage_in(
+                        memory_manager,
+                        &nonserialized.transform_data,
+                        3 + ec,
+                        super::base::bits::ceil_log2_nonzero(up),
+                    ))?;
+                }
+            }
+        }
+        if (frame_header.flags & super::frame_header::FLAG_PATCHES) != 0 {
+            builder.add_stage(Some(
+                super::render_pipeline::stage_patches::get_patches_stage_shared(
+                    self.shared().image_features.patches.clone(),
+                    self.shared().reference_frames.clone(),
+                    &nonserialized.m.extra_channel_info,
+                ),
+            ))?;
+        }
+        if (frame_header.flags & super::frame_header::FLAG_SPLINES) != 0 {
+            builder.add_stage(Some(Box::new(
+                super::render_pipeline::stage_splines::get_spline_stage_shared(
+                    self.shared().image_features.splines.clone(),
+                ),
+            )))?;
+        }
+        if frame_header.upsampling != 1 {
+            let nb_channels = 3 + if late_ec_upsample {
+                frame_header.extra_channel_upsampling.len()
+            } else {
+                0
+            };
+            for c in 0..nb_channels {
+                builder.add_stage(get_upsampling_stage_in(
+                    memory_manager,
+                    &nonserialized.transform_data,
+                    c,
+                    super::base::bits::ceil_log2_nonzero(frame_header.upsampling),
+                ))?;
+            }
+        }
+        // From here on all stages have zero xextra.
+        if render_noise {
+            builder.add_stage(Some(
+                super::render_pipeline::stage_noise::get_convolve_noise_stage(num_c),
+            ))?;
+            builder.add_stage(Some(
+                super::render_pipeline::stage_noise::get_add_noise_stage_shared(
+                    self.shared().image_features.noise_params.clone(),
+                    self.shared().cmap.base_shared(),
+                    num_c,
+                ),
+            ))?;
+        }
+        if frame_header.dc_level != 0 {
+            builder.add_stage(Some(Box::new(
+                WriteToImage3FStage::from_dc_frame(
+                    self.shared_storage.dc_frames.clone(),
+                    frame_header.dc_level as usize - 1,
+                )
+                .with_memory_manager(memory_manager),
+            )))?;
+        }
+        if frame_header.can_be_referenced() && frame_header.save_before_color_transform {
+            builder.add_stage(Some(Box::new(WriteToImageBundleStage::from_owned(
+                self.frame_storage_for_referencing.clone(),
+                &metadata.color_encoding,
+            ))))?;
+        }
+        let mut has_alpha = false;
+        let mut alpha_c = 0;
+        for (i, eci) in metadata.extra_channel_info.iter().enumerate() {
+            if eci.channel_type == super::image_metadata::ExtraChannel::ALPHA {
+                has_alpha = true;
+                alpha_c = 3 + i;
+                break;
+            }
+        }
+        // fast_xyb_srgb8_conversion is compiled out (JXL_HIGH_PRECISION=1).
+        let mut linear = add_color_transform_stage(
+            frame_header.color_transform,
+            &self.output_encoding_info,
+            &mut builder,
+        )?;
+        if options.coalescing && super::blending::needs_blending(frame_header) {
+            // Admission result; see the function documentation.
+            return Err(StatusCode::Unsupported);
+        }
+        if options.coalescing
+            && frame_header.can_be_referenced()
+            && !frame_header.save_before_color_transform
+        {
+            add_from_linear_stage_before_write(
+                &self.output_encoding_info,
+                &mut builder,
+                &mut linear,
+            )?;
+            builder.add_stage(Some(Box::new(WriteToImageBundleStage::from_owned(
+                self.frame_storage_for_referencing.clone(),
+                &metadata.color_encoding,
+            ))))?;
+        }
+        if options.render_spotcolors
+            && nonserialized
+                .m
+                .find(super::image_metadata::ExtraChannel::SPOT_COLOR)
+                .is_some()
+        {
+            for (i, eci) in metadata.extra_channel_info.iter().enumerate() {
+                // Not Find: there may be multiple spot color channels.
+                if eci.channel_type == super::image_metadata::ExtraChannel::SPOT_COLOR {
+                    builder.add_stage(Some(
+                        super::render_pipeline::stage_spot::get_spot_color_stage(
+                            i,
+                            &eci.spot_color,
+                        ),
+                    ))?;
+                }
+            }
+        }
+        // SAFETY: The caller supplies the CMS contract of this function.
+        let cms_stage = unsafe {
+            add_output_color_stages(&mut self.output_encoding_info, &mut builder, linear)
+        }?;
+        if cms_stage && options.use_slow_render_pipeline {
+            // Admission result; see the function documentation.
+            return Err(StatusCode::Unsupported);
+        }
+        if self.main_output.callback.is_present() || !self.main_output.buffer.is_null() {
+            // SAFETY: The caller guarantees the output descriptors and the
+            // memory manager for the lifetime of the built pipeline.
+            let stage = unsafe {
+                super::render_pipeline::stage_write::get_write_to_output_stage(
+                    &self.main_output,
+                    self.width,
+                    self.height,
+                    has_alpha,
+                    self.unpremul_alpha,
+                    alpha_c,
+                    self.undo_orientation,
+                    &self.extra_output,
+                    memory_manager.as_raw(),
+                )
+            };
+            builder.add_stage(Some(stage))?;
+        } else {
+            builder.add_stage(Some(Box::new(WriteToImageBundleStage::from_shared(
+                decoded,
+                &self.output_encoding_info.color_encoding,
+            ))))?;
+        }
+        let frame_dim = self.shared().frame_dim;
+        self.render_pipeline = Some(builder.finalize(frame_dim)?);
+        self.render_pipeline.as_ref().unwrap().is_initialized()
+    }
+}
