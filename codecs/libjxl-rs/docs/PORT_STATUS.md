@@ -120,9 +120,11 @@ and AFV DC mixes are the existing translations. The other sites belong to
 untranslated code (general and lossy Modular, the 2x resampling helpers,
 ComputeBlockL2Distance of the AR heuristics, the patch bin packing and a debug
 random generator) and are recorded as such. The audit passes against the
-ordinary oracle graph on macOS AArch64 (31 sites, 106 fused instructions). A
-per-site sensitivity check (replacing each translated site by separate
-operations) was not run for these units.
+ordinary oracle graph on macOS AArch64 (31 sites, 106 fused instructions) and
+the ASan/UBSan graph (31 sites, 54 fused instructions). A per-site
+sensitivity check was run only for QuantizeBlockAC's threshold site: with
+separate operations the 402 `ecf-chain` requests still match, so the corpus
+does not discriminate that site; the other translated sites were not checked.
 
 Evidence: `tools/oracle/encoder_coefficients.cc` (compiled with
 `-fno-access-control` to read the modular stream images) and
@@ -157,8 +159,11 @@ Evidence: `tools/oracle/encoder_coefficients.cc` (compiled with
   dictionary positions they cover: 101 requests on the corpus and on
   repeated-glyph content at d0.5, d1 and d2.9, 12 of which find patches.
 
-Local results on native macOS AArch64 against the ordinary oracle: all three
-groups pass. Linux x86-64 and the hosted deep gate are not run.
+Local results on native macOS AArch64: `python3 tools/check.py --stage test
+--filter encoder_` passes against the ordinary and the ASan/UBSan oracle (57
+encoder tests, including the three groups above and the existing encoder
+transform, heuristics and public API groups). Linux x86-64 and the hosted deep
+gate are not run.
 
 Remaining for step 1 (encoder step 1 is not complete and no profile is
 admitted): LossyFrameHeuristics itself (with FindSplines, empty at the pinned
