@@ -218,15 +218,17 @@ fn jpeg_xl_reports_full_frame_fallback_and_delivers_float_scanlines() {
         )
         .unwrap();
     let crop = graph.crop(id, rect(1, 1, 5, 3)).unwrap();
-    // The old ROI-sized allowance cannot hide a full-frame materialization.
+    // The codec still reconstructs the full frame, but since 2026-11-12 the
+    // wrapper retains only the requested region (ADR-0032): the managed
+    // charge is the 2×2 RGB F32 crop (48 bytes), not the 7×5 frame (420).
     assert_eq!(
         source.read_region(rect(2, 2, 2, 2), &MemoryBudget::new(24), &mut |_, _| Ok(())),
         Err(Error::BudgetExceeded {
-            requested: 420,
+            requested: 48,
             available: 24
         })
     );
-    let budget = MemoryBudget::new(420);
+    let budget = MemoryBudget::new(48);
     let mut ys = Vec::new();
     let report = execute_decoded(
         &graph,
@@ -244,10 +246,20 @@ fn jpeg_xl_reports_full_frame_fallback_and_delivers_float_scanlines() {
     .unwrap();
     assert_eq!(ys, vec![1, 2]);
     assert_eq!(report.requested, rect(2, 2, 2, 2));
-    assert_eq!(report.known_full_frame_buffers, 1);
+    assert_eq!(report.access, DecodeAccess::FullFrameFallback);
+    assert_eq!(report.work.codec_output, rect(0, 0, 7, 5));
+    assert_eq!(report.known_full_frame_buffers, 0);
     assert_eq!(report.output_sample_bytes, 48);
     assert_eq!(budget.snapshot().live, 0);
+    assert_eq!(budget.snapshot().peak, 48);
+    // A full-frame request is the one case that retains a full frame.
+    let budget = MemoryBudget::new(420);
+    let report = source
+        .read_region(rect(0, 0, 7, 5), &budget, &mut |_, _| Ok(()))
+        .unwrap();
+    assert_eq!(report.known_full_frame_buffers, 1);
     assert_eq!(budget.snapshot().peak, 420);
+    assert_eq!(budget.snapshot().live, 0);
     assert!(matches!(
         JxlSource::new(b"invalid"),
         Err(Error::DecodeFailed)
@@ -374,6 +386,61 @@ fn jpeg_xl_region_samples_match_full_render() {
             assert!((actual - expected).abs() <= 1.0e-4);
         }
     }
+}
+
+/// Error paths of the region-retaining read: a cancelling sink in the middle
+/// of row emission, a truncated codestream after the buffer is charged, and
+/// a budget that cannot hold the region. None leaves a live reservation, and
+/// a failed decode emits no rows.
+#[cfg(feature = "jpeg-xl-own-read")]
+#[test]
+fn jpeg_xl_region_errors_release_the_managed_buffer() {
+    use crate::codecs::jxl::JxlSource;
+    let bytes = include_bytes!("../tests/fixtures/sample.jxl");
+    let mut source = JxlSource::new(bytes).unwrap();
+    let budget = MemoryBudget::new(1 << 10);
+    let mut rows = 0;
+    let result = source.read_region(rect(1, 1, 5, 3), &budget, &mut |_, _| {
+        rows += 1;
+        if rows == 2 {
+            Err(Error::Cancelled)
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(result, Err(Error::Cancelled));
+    assert_eq!(rows, 2);
+    assert_eq!(budget.snapshot().live, 0);
+    assert_eq!(budget.snapshot().peak, 5 * 3 * 3 * 4);
+
+    // The header survives, so setup succeeds and the failure is mid-decode.
+    let truncated = &bytes[..bytes.len() * 3 / 4];
+    let mut source = JxlSource::new(truncated).unwrap();
+    let budget = MemoryBudget::new(1 << 10);
+    let mut rows = 0;
+    let result = source.read_region(rect(0, 2, 7, 2), &budget, &mut |_, _| {
+        rows += 1;
+        Ok(())
+    });
+    assert_eq!(result, Err(Error::DecodeFailed));
+    assert_eq!(rows, 0);
+    assert_eq!(budget.snapshot().live, 0);
+    assert_eq!(budget.snapshot().peak, 7 * 2 * 3 * 4);
+
+    // A 1-pixel corner crop needs 12 bytes; a 2×2 crop (48) exceeds 47.
+    let mut source = JxlSource::new(bytes).unwrap();
+    let budget = MemoryBudget::new(47);
+    source
+        .read_region(rect(6, 4, 1, 1), &budget, &mut |_, _| Ok(()))
+        .unwrap();
+    assert_eq!(
+        source.read_region(rect(5, 3, 2, 2), &budget, &mut |_, _| Ok(())),
+        Err(Error::BudgetExceeded {
+            requested: 48,
+            available: 47
+        })
+    );
+    assert_eq!(budget.snapshot().live, 0);
 }
 
 // Preserve the jxl-oxide backend contract while it remains selectable.

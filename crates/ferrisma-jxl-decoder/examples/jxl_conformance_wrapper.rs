@@ -5,14 +5,15 @@
 //! jxl_conformance_wrapper input.jxl out.npy --icc_out f --metadata_out f [ignored flags]
 //! ```
 //!
-//! It emits exactly what the engine receives: the upright F32 frame from
-//! `decode_into` and the DATA ICC from `inspect`. The runner transforms these
+//! It emits exactly what the engine receives: the upright F32 frame through
+//! `decode_region_into` (the engine's image-out callback path) with the full
+//! region, and the DATA ICC from `inspect`. The runner transforms these
 //! samples from that profile to the reference profile, so a profile that
 //! misdescribes the samples fails the tolerance check. Inputs the wrapper
 //! rejects by design (animation, non-alpha extra channels, float samples)
 //! exit with an error. The ORIGINAL profile and JPEG reconstruction are not
 //! part of the wrapper; the codec-level run in `codecs/libjxl-rs` checks them.
-use ferrisma_jxl_decoder::{decode_into, inspect};
+use ferrisma_jxl_decoder::{Region, decode_region_into, inspect};
 use std::process::ExitCode;
 
 const MAX_PIXELS: u64 = 100_000_000;
@@ -50,8 +51,10 @@ fn main() -> ExitCode {
         }
     };
     let mut samples = vec![0f32; info.sample_count().expect("sample count")];
-    if let Err(error) = decode_into(&bytes, &info, &mut samples, MAX_PIXELS) {
-        eprintln!("decode_into: {error:?}");
+    if let Err(error) =
+        decode_region_into(&bytes, &info, Region::full(&info), &mut samples, MAX_PIXELS)
+    {
+        eprintln!("decode_region_into: {error:?}");
         return ExitCode::FAILURE;
     }
     let header = format!(

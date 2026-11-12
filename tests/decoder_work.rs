@@ -226,7 +226,10 @@ fn jxl_oxide_crop_reports_only_a_lower_bound() {
 }
 
 /// The libjxl-rs backend (the default when compiled in) decodes the full
-/// frame for any crop.
+/// frame for any crop. Since 2026-11-12 (ADR-0032) its wrapper retains only
+/// the requested region through the decoder's image-out callback: the
+/// reconstruction work stays full-frame, but no full-frame buffer is held,
+/// and the full-request test below compares the managed peaks.
 #[cfg(all(feature = "jpeg-xl-own-read", feature = "icc"))]
 #[test]
 fn libjxl_rs_crop_reports_the_full_frame_fallback() {
@@ -244,7 +247,7 @@ fn libjxl_rs_crop_reports_the_full_frame_fallback() {
         },
     );
     assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
-    assert_eq!(output.report.decoder_full_frame_buffers, 1);
+    assert_eq!(output.report.decoder_full_frame_buffers, 0);
     assert_work(
         output.report.decoder_work,
         crop,
@@ -254,6 +257,35 @@ fn libjxl_rs_crop_reports_the_full_frame_fallback() {
         0,
     );
     assert_eq!(output.report.decoder_work.overfetch_pixels, 24 * 16 - 12);
+}
+
+/// A full-frame request is the one libjxl-rs read that still retains a
+/// full-frame buffer. A 4×3 crop of the same file needs at least the
+/// difference between the 24×16 and 4×3 RGB F32 buffers less managed memory
+/// (every other buffer of the crop run is also no larger).
+#[cfg(all(feature = "jpeg-xl-own-read", feature = "icc"))]
+#[test]
+fn libjxl_rs_full_request_retains_one_full_frame() {
+    let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
+    let options = || TransformOptions {
+        jxl_decoder: ferrisma::pipeline::JpegXlDecoder::LibjxlRs,
+        profile_policy: InputProfilePolicy::UseRenderedIcc,
+        ..TransformOptions::default()
+    };
+    let full = run(jxl, ImageFormat::JpegXl, rect(0, 0, 24, 16), options());
+    assert_eq!(full.report.input_access, SourceAccess::FullFrameFallback);
+    assert_eq!(full.report.decoder_full_frame_buffers, 1);
+    assert!(full.report.peak_managed_bytes >= 24 * 16 * 3 * 4);
+    assert_eq!(full.report.decoder_work.overfetch_pixels, 0);
+    let crop = run(jxl, ImageFormat::JpegXl, rect(1, 1, 4, 3), options());
+    assert_eq!(crop.report.decoder_full_frame_buffers, 0);
+    assert!(
+        full.report.peak_managed_bytes - crop.report.peak_managed_bytes
+            >= (24 * 16 - 4 * 3) * 3 * 4,
+        "full {} crop {}",
+        full.report.peak_managed_bytes,
+        crop.report.peak_managed_bytes
+    );
 }
 
 /// AVIF decodes and converts the whole frame for every request, then the

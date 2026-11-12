@@ -786,12 +786,19 @@ fn jpeg_xl_orientations_are_rendered_upright_for_every_crop() {
         let size = source.info().size;
         let width = size.width as usize;
         assert_eq!(reference.len(), width * size.height as usize * 3, "{name}");
-        // Lossless fixtures: every display crop must match exactly.
+        // Lossless fixtures: every display crop must match exactly. Since
+        // the region-retaining callback (ADR-0032, 2026-11-12) also 1-pixel
+        // crops at the corners, odd offsets and the far edges.
         let crops = [
             Rect::new(0, 0, size.width, size.height).unwrap(),
             Rect::new(3, 2, 5, 7).unwrap(),
             Rect::new(size.width - 6, size.height - 9, 6, 9).unwrap(),
             Rect::new(1, size.height - 1, size.width - 2, 1).unwrap(),
+            Rect::new(0, 0, 1, 1).unwrap(),
+            Rect::new(size.width - 1, size.height - 1, 1, 1).unwrap(),
+            Rect::new(size.width - 1, 0, 1, size.height).unwrap(),
+            Rect::new(5, 3, 3, 1).unwrap(),
+            Rect::new(1, 1, size.width - 1, size.height - 1).unwrap(),
         ];
         for crop in crops {
             let budget = MemoryBudget::new(1 << 20);

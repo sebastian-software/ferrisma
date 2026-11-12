@@ -1,5 +1,7 @@
 //! JPEG XL through the independent local libjxl wrapper. Its decoder has no
 //! crop request: each read reconstructs an upright, full-frame F32 image.
+//! The wrapper's image-out callback retains only the requested upright
+//! region, so the engine-managed buffer is region-sized (ADR-0032).
 
 use crate::color::AlphaMode;
 use crate::decoder::{
@@ -9,7 +11,7 @@ use crate::decoder::{
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
-use ferrisma_jxl_decoder::{ImageInfo, Transfer, decode_into, inspect};
+use ferrisma_jxl_decoder::{ImageInfo, Region, Transfer, decode_region_into, inspect};
 
 pub(crate) struct JxlSource<'a> {
     bytes: &'a [u8],
@@ -103,26 +105,32 @@ impl DecodeSource for JxlSource<'_> {
         if !region.fits(self.info.size) {
             return Err(Error::OutOfBounds);
         }
-        let samples = self.image.sample_count().map_err(map_error)?;
-        let mut frame = budget.allocate_typed::<f32>(samples)?;
-        decode_into(
+        // The decoder reconstructs the full frame; only the requested
+        // upright rows and columns are retained, in a budgeted buffer.
+        let wanted = Region {
+            x: region.x,
+            y: region.y,
+            width: region.width,
+            height: region.height,
+        };
+        let samples = self.image.region_sample_count(wanted).map_err(map_error)?;
+        let mut retained = budget.allocate_typed::<f32>(samples)?;
+        decode_region_into(
             self.bytes,
             &self.image,
-            frame.as_mut_slice(),
+            wanted,
+            retained.as_mut_slice(),
             self.max_pixels,
         )
         .map_err(map_error)?;
-        let channels = self.image.channels as usize;
-        let stride = self.image.width as usize * channels;
-        let row_start = region.x as usize * channels;
-        let row_len = region.width as usize * channels;
-        for y in region.y..region.bottom() {
-            let start = y as usize * stride + row_start;
-            sink(
-                y,
-                DecodedRow::F32(&frame.as_slice()[start..start + row_len]),
-            )?;
+        let row_len = region.width as usize * self.image.channels as usize;
+        for (y, row) in (region.y..).zip(retained.as_slice().chunks_exact(row_len)) {
+            sink(y, DecodedRow::F32(row))?;
         }
+        let full_frame = region.x == 0
+            && region.y == 0
+            && region.width == self.info.size.width
+            && region.height == self.info.size.height;
         Ok(DecodeReport {
             requested: region,
             access: DecodeAccess::FullFrameFallback,
@@ -131,7 +139,8 @@ impl DecodeSource for JxlSource<'_> {
                 * u64::from(region.height)
                 * u64::from(self.image.channels)
                 * 4,
-            known_full_frame_buffers: 1,
+            // Only a full-frame request retains a full-frame buffer.
+            known_full_frame_buffers: u32::from(full_frame),
             peak_engine_managed_bytes: budget.snapshot().peak,
             opaque_codec_memory_unbounded: true,
             engine_buffer_bytes: 0,
