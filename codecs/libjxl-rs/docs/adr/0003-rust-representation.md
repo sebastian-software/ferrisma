@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-11
+- Updated: 2026-11-12
 
 C++ pointer arithmetic, mutable visitors, and partially initialized storage
 cannot be copied literally into safe Rust. Preserve their defined behavior with
@@ -1054,6 +1054,29 @@ Another 24 exact requests place competing payloads at coefficients 2/16, which
 both enter that basis loop, across all four orientations. Retain every prior
 request and expected word. These changes leave the selected ARM operations,
 association, finite arithmetic, compiler flags, and original source unchanged.
+
+Update 2026-11-12 (performance, R3 of the root JPEG XL performance analysis):
+`dct.rs` now instantiates each transform size and block shape, as the
+original's `DCT1DImpl<N, 1>`, `IDCT1DImpl<N, 1>`, and
+`ComputeScaled(I)DCT<ROWS, COLS>` templates do, instead of recursing on a
+runtime size with slice offsets. Operations, operands, and scratch writes are
+unchanged. Inlining alone can still change which competing NaN payload
+survives: LLVM may swap the operands of a commutative `fadd` without
+fast-math, and AArch64 `FADD` returns its first NaN operand. A fully inlined
+version failed 36 forward-DCT competing-payload requests. The kept
+out-of-line boundaries (`idct_add`, every forward DCT level, the two-point
+strided IDCT column, and the IDCT running sum for halves of eight or more
+values) reproduce the former recursion word for word over every ordered pair
+of competing payloads for all shapes of up to 256 values, the
+LowestFrequencies blocks of up to 64 blocks and the small strategies, and a
+randomized corpus over all shapes, in the checked scalar profile and the root
+release profile. This is a native AArch64 mapping, so the instantiated form is
+compiled only for AArch64. Other targets keep the former runtime recursion
+verbatim: an x86_64 build of the instantiated form, run under Rosetta 2,
+selected different payloads than the former x86_64 build (IDCT shapes with a
+dimension of 16 or more and the IDCT-based strategies), and no bounded set of
+out-of-line boundaries reproduced it within the time box. Re-check the AArch64
+mapping after compiler or toolchain changes.
 
 ### Packed coefficient-order decoding
 
