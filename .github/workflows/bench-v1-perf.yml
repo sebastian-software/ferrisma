@@ -1,0 +1,160 @@
+name: v1.0 CI performance
+
+# Stage breakdown of the engine and port-versus-original timings per codec on
+# unloaded hosted runners (docs/benchmarks/v1.0-ci-performance-2026-11-12.md).
+# Runs only on throwaway bench/** branches or by hand; no secrets.
+on:
+  push:
+    branches: ["bench/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REPS: "7"
+  WARMUPS: "1"
+  CARGO_TERM_COLOR: never
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+jobs:
+  corpus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fetch and verify the 24 MP photograph once
+        run: |
+          mkdir -p corpus
+          for attempt in 1 2 3 4; do
+            if curl --fail --location --retry 2 --max-filesize 10000000 \
+                -A 'ferrisma-bench/1.0 (CI benchmark; +https://github.com/sebastian-software/ferrisma)' \
+                'https://upload.wikimedia.org/wikipedia/commons/d/d2/Grandiose_Landscape_of_Mountain_He-Huan%28WDPA_9287%29_by_WEI-FU-KUO_04.jpg' \
+                -o corpus/ferrisma-mountain.jpg; then break; fi
+            sleep $((attempt * 20))
+          done
+          echo "e1c73ee88188b350464d0b63599301c84585fc2ca0345416d84293f0fa5ba13b  corpus/ferrisma-mountain.jpg" | sha256sum -c
+      - uses: actions/upload-artifact@v4
+        with:
+          name: corpus
+          path: corpus/
+          retention-days: 7
+
+  engine:
+    needs: corpus
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, blacksmith-4vcpu-ubuntu-2404, blacksmith-4vcpu-ubuntu-2404-arm]
+        size: ["12", "24"]
+        part: [decode-a, decode-b, encode]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 50
+    defaults:
+      run:
+        shell: bash
+    env:
+      INPUTS: ${{ github.workspace }}/bench/inputs
+      WORK: ${{ github.workspace }}/bench/work
+      OUT: ${{ github.workspace }}/bench/out
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: corpus
+          path: bench/inputs/corpus
+      - name: Install tools
+        run: bash scripts/bench/ci-perf/setup.sh engine
+      - name: Record the host before
+        run: bash scripts/bench/ci-perf/host.sh before
+      - name: Build the release CLI
+        run: |
+          if [[ "$(uname -s)-$(uname -m)" == Linux-aarch64 ]]; then
+            # The generated libavif/AOM code does not build here (ADR-0026):
+            # no AVIF input and no workspace AOM writer.
+            cargo build --release --locked -p ferrisma --example cli_subset \
+              --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,jpeg-xl-write,avif-write,icc
+            echo "CLI=$PWD/target/release/examples/cli_subset" >> "$GITHUB_ENV"
+            echo "AVIF_FLAG=" >> "$GITHUB_ENV"
+          else
+            cargo build --release --locked -p ferrisma --features cli,jpeg-xl-write --bin ferrisma
+            echo "CLI=$PWD/target/release/ferrisma" >> "$GITHUB_ENV"
+            echo "AVIF_FLAG=--avif" >> "$GITHUB_ENV"
+          fi
+      - name: Make masters and inputs
+        run: |
+          CORPUS="$INPUTS/corpus" SIZES="${{ matrix.size }}" bash scripts/bench/ci-perf/make_masters.sh
+          python3 -I scripts/bench/ci-perf/engine.py inputs --cli "$CLI" --inputs "$INPUTS" \
+            --work "$WORK" --out "$OUT" --sizes "${{ matrix.size }}" $AVIF_FLAG
+      - name: Time the engine
+        run: |
+          python3 -I scripts/bench/ci-perf/engine.py run --cli "$CLI" --work "$WORK" --out "$OUT" \
+            --size "${{ matrix.size }}" --part "${{ matrix.part }}" --reps "$REPS" --warmups "$WARMUPS" \
+            $AVIF_FLAG --jxl-out
+      - name: Record the host after
+        if: always()
+        run: bash scripts/bench/ci-perf/host.sh after
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: engine-${{ matrix.part }}-${{ matrix.size }}-${{ matrix.runner }}
+          path: bench/out/
+          retention-days: 30
+
+  codec:
+    needs: corpus
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, blacksmith-4vcpu-ubuntu-2404, blacksmith-4vcpu-ubuntu-2404-arm]
+        codec: [jpeg, webp, jxl, avif]
+        exclude:
+          # The generated libavif/AOM/dav1d port builds only on macOS ARM64
+          # and GNU Linux x86-64.
+          - runner: ubuntu-24.04-arm
+            codec: avif
+          - runner: blacksmith-4vcpu-ubuntu-2404-arm
+            codec: avif
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 55
+    defaults:
+      run:
+        shell: bash
+    env:
+      INPUTS: ${{ github.workspace }}/bench/inputs
+      WORK: ${{ github.workspace }}/bench/work
+      OUT: ${{ github.workspace }}/bench/out
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: corpus
+          path: bench/inputs/corpus
+      - name: Install tools
+        run: bash scripts/bench/ci-perf/setup.sh ${{ matrix.codec }}
+      - name: Record the host before
+        run: bash scripts/bench/ci-perf/host.sh before
+      - name: Make masters
+        run: CORPUS="$INPUTS/corpus" SIZES="12 24" bash scripts/bench/ci-perf/make_masters.sh
+      - name: Build and time port versus original
+        run: JOBS=$(getconf _NPROCESSORS_ONLN) SIZES="12 24" bash scripts/bench/ci-perf/codec_${{ matrix.codec }}.sh
+      - name: Record the host after
+        if: always()
+        run: bash scripts/bench/ci-perf/host.sh after
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codec-${{ matrix.codec }}-${{ matrix.runner }}
+          path: bench/out/
+          retention-days: 30

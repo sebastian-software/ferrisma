@@ -1,0 +1,26 @@
+name: Blacksmith runner probe
+
+# One-off availability probe for the v1.0 CI performance work: does a
+# Blacksmith runner pick up jobs for this repository? Cancel if it queues.
+on:
+  push:
+    branches: ["bench/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 5
+    steps:
+      - run: |
+          uname -a
+          nproc
+          lscpu | head -20
+          uptime
