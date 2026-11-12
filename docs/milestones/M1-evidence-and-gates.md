@@ -19,9 +19,9 @@
 | --- | --- | --- |
 | 1. Real JPEG/JXL → AVIF | End-to-end test fixtures with optional features | Broad real-image corpus, output profile and orientation cases |
 | 2. Color fidelity | Known sRGB/P3 numeric oracles, alpha and crop tests; selected CC0 P3/Adobe ICC samples checked against LittleCMS 2.19, including out-of-gamut values (ADR-0023) | P3/ICC real-image quality, broader out-of-gamut and HDR rejection corpus, LUT/intent coverage |
-| 3. Codec capabilities | Reports ROI versus full-frame fallback | Measure internal decoder work and source overfetch on real formats |
+| 3. Codec capabilities | Reports ROI versus full-frame fallback, plus the codec request, codec output, overfetch and lower bounds of reconstruction and entropy work per adapter; pinned counts for JPEG, WebP, both JPEG XL backends and AVIF; jxl-oxide group-skipping probes ([2026-11-12](#2026-11-12-decoder-work-and-orientation-evidence), ADR-0012, ADR-0023) | Codec-internal work beyond the lower bounds, JPEG XL photographs at camera size, wall time and clean-host RSS |
 | 4. Engine memory | RAII frame, row and scratch reservations; conservative resize-plan admission before footprint construction; cancellation tests (ADR-0004) | Graph/allocator/runtime memory and opaque codec allocations remain outside the model; test representative process RSS and bombs |
-| 5. Correctness and errors | Geometry, invalid options, truncated headers, AVIF container/bitstream color conflicts; JPEG EXIF, JPEG XL and AVIF `irot`/`imir` orientation applied and checked against ImageMagick/libheif/libjxl fixtures (ADR-0019) | Larger malicious corpus, AVIF `clap`, alpha and ICC conflict cases |
+| 5. Correctness and errors | Geometry, invalid options, truncated headers and JPEG tails below a crop, AVIF container/bitstream color conflicts; JPEG EXIF, WebP EXIF, lossless and lossy JPEG XL and AVIF `irot`/`imir` orientation applied and checked against ImageMagick/libheif/libjxl fixtures; animated input rejected for every format that carries it (ADR-0019) | Larger malicious corpus, AVIF `clap`, alpha and ICC conflict cases |
 | 6. Quality/performance baseline | Initial synthetic CI smoke; subsequent [quality-matched Sharp comparison](../benchmarks/M2-sharp-comparison.md) and [libavif backend comparison](../benchmarks/M2-libavif-backend.md), each with a recorded corpus and host | Independent libvips CLI and Butteraugli evidence, larger photographs, broader color/corpus coverage, and representative latency distributions |
 | 7. Release/audit | MSRV and feature checks, metadata screening, and a bounded four-input/two-output fuzz smoke ([record](../fuzzing.md)) | Extended coverage-reviewed fuzz campaign, native/unsafe review, third-party license notices and release decision |
 
@@ -42,6 +42,95 @@
 
 These changes improve the experimental path's usability and failure behavior.
 They do not change the release decision below or establish general Sharp parity.
+
+## 2026-11-12 decoder work and orientation evidence
+
+Issues #19 and #68. Counts only; no timing was recorded because the host was
+under heavy parallel load. Maximum RSS below is an **indicative** observation
+from `/usr/bin/time -l` on that loaded host, not a measurement; a clean
+re-measurement of RSS and time is deferred.
+
+**Reporting.** `ProcessingReport::decoder_work` (CLI `decoder_work:` line) gives the
+upright crop, the executor request, the codec request in stored coordinates,
+the codec output rectangle, the overfetch, and `Exact`/`AtLeast` counts of
+reconstructed pixels and entropy-decoded rows (ADR-0012). The executor request
+equals the crop and each row is delivered once: there is no filter halo beyond
+the crop and no duplicated row.
+
+**Defects fixed.**
+
+- JPEG tail validation did not run: skipping to the last row marked EOI as
+  reached, so a top crop of a file truncated below it succeeded. Fixed and
+  covered by `codecs::jpeg::tests::a_top_crop_of_a_file_truncated_below_it_fails_closed`.
+- The jxl-oxide adapter rendered the first keyframe of an animated JPEG XL file.
+  It now rejects animation (`tests/animated_input.rs`).
+- The orientation gather rejected gray+alpha rows (latent; no current adapter
+  emits them with an orientation).
+
+**Deterministic tests.** `tests/decoder_work.rs` (JPEG 4:2:0 crop: 46×20 output
+for a 40×20 request, 120 pixels of overfetch, 302 of 302 rows entropy-decoded;
+EXIF-6 crop mapping and 1,080 copied bytes; lossy WebP: 96×49 output for a
+40×30 stored request; lossless WebP: 41×31 output, ≥ 3,936 reconstructed
+pixels; jxl-oxide: output equals request, lower bound only; libjxl-rs and AVIF:
+full frame), `tests/animated_input.rs`, the jxl-oxide probes in
+`codecs::jxl_oxide::tests`, `orientation::tests::lossy_jpeg_xl_*`,
+`every_orientation_keeps_channels_alpha_and_color_for_every_crop` and
+`camera_size_orientation_costs_are_reported_exactly`.
+
+**jxl-oxide 0.12.6 probes.** Inverting every byte of pass group 1 leaves a crop
+away from it bit-identical on two 257×129 multi-group VarDCT files, while the
+full frame and a crop over that group change or fail. A single-TOC frame and a
+patch reference frame are read for any crop. Noise and splines crops equal the
+full render. This is evidence for those files only.
+
+**Large inputs.** Release CLI at this branch, Apple M1 Ultra, macOS 27.0.1,
+`rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)`, `--assume-srgb --budget-mb=512`,
+WebP output, one transform thread unless noted. The inputs were generated from
+the libavif photograph `paris_exif_xmp_icc.jpg`:
+`magick paris_exif_xmp_icc.jpg -strip -filter Lanczos -resize 6000x4000! -attenuate 0.3 +noise Gaussian base24.png`
+(likewise 8000x6000), then encoded with `magick base.png -quality 90 -sampling-factor 2x2 out.jpg`
+and an EXIF APP1 (big-endian IFD0 `Orientation`) inserted after SOI;
+`magick base24.png -quality 85 webp24.webp` with `webpmux -set exif` for
+orientation 6; `magick base24.png -quality 60 -define heic:speed=9 [-orient RightTop] avif24.avif`
+(libheif 1.23.7, `irot`).
+
+| input (SHA-256 prefix) | request | codec output | overfetch px | entropy rows | buffer / copied bytes | managed peak | max RSS |
+| --- | --- | --- | ---: | --- | --- | ---: | ---: |
+| JPEG 6000×4000 o1 (`8987b123`) | full | full | 0 | 4000 | 0 / 0 | 21,430,112 | 13.5 MB |
+| JPEG 6000×4000 o2 (`90417369`) | full | full | 0 | 4000 | 72,000,000 / 144,000,000 | 93,430,112 | 87.5 MB |
+| JPEG 6000×4000 o6 (`276418bc`) | full | full | 0 | 4000 | 72,000,000 / 144,000,000 | 93,202,112 | 86.3 MB |
+| JPEG 8000×6000 o1 (`a6592acd`) | full | full | 0 | 6000 | 0 / 0 | 30,531,312 | 20.0 MB |
+| JPEG 8000×6000 o2 (`3e0c3646`) | full | full | 0 | 6000 | 144,000,000 / 288,000,000 | 174,531,312 | 166.1 MB |
+| JPEG 8000×6000 o6 (`39e05889`) | full | full | 0 | 6000 | 144,000,000 / 288,000,000 | 174,303,312 | 166.2 MB |
+| JPEG 8000×6000 o6, crop 2000×1500+1000+1000 | 1500×2000+1000+3000 | 1509×2000+992+3000 | 18,000 | 6000 | 9,000,000 / 18,000,000 | 17,081,312 | 26.3 MB |
+| JPEG 8000×6000 o2, same crop | 2000×1500+5000+1000 | 2009×1500+4992+1000 | 13,500 | 6000 | 9,000,000 / 18,000,000 | 17,081,339 | 26.2 MB |
+| WebP lossy 6000×4000 o1 (`51cf8137`) | full | full | 0 | ≥ 4000 | 0 / 0 | 93,412,112 | 84.2 MB |
+| WebP lossy 6000×4000 o6 (`d87eacaa`) | full | full | 0 | ≥ 4000 | 72,000,000 / 144,000,000 | 165,184,112 | 156.0 MB |
+| WebP lossy o6, same crop | 1500×2000+1000+1000 | 6000×3008+0+0 | 15,048,000 | ≥ 3008 | 9,000,000 / 18,000,000 | 71,219,312 | 74.8 MB |
+| AVIF 6000×4000 (`8c6d7944`) | full | full | 0 | ≥ 4000 | 0 / 0 | 93,412,112 | 415.1 MB |
+| AVIF 6000×4000 `irot` 3 (`54ac73d4`) | full | full | 0 | ≥ 4000 | 72,000,000 / 144,000,000 | 165,184,112 | 486.3 MB |
+| AVIF `irot` 3, same crop | 1500×2000+1000+1000 | full | 21,000,000 | ≥ 4000 | 9,000,000 / 18,000,000 | 89,075,312 | 422.1 MB |
+
+Full SHA-256 values: `8987b123822e30c8408a41a73070d6e0cf7df946dcc5bc0b36b8028cd8ffe2f5`,
+`904173690fe714505c2a749e7508014e55d6335104c35b6bfe7b8e132d94a4dc`,
+`276418bc349a8ec017eab1bb9e407b10b24f87b7597495de17a3da86473add9e`,
+`a6592acd5f4a36607da15aedc0ff880404f93bb5819bb846088c907f0256d96c`,
+`3e0c3646de7eb545aa8b896811fb2626b380b0619e79ec73951eb9768b7b5278`,
+`39e05889f03837e2450ac29b662892e4b66a9eedb8ade4eac34f78cb59e39d5b`,
+`51cf813740204bc5bc9eebc2e05c78ffe76cc2d4969ae511ec1ba7fb748a3a75`,
+`d87eacaaf13a08a3200b3d2b24e4218ed8450098b16a0a4c36176873dfe6160d`,
+`8c6d7944f6734bc7a5890f22cc15f99e5a952aa5e1643be7a82b504742fd5860`,
+`54ac73d4961915e7474c16108a0fc3c30b565b4b79bb354c059e5ae65971f602`.
+The magick-generated files are not retained; regenerating them with another
+ImageMagick or libheif build may change their hashes but not the geometry
+counts. Reconstructed-pixel lower bounds equal the codec-output area, plus one
+tail row for JPEG crops that end above the bottom (for example ≥ 3,019,509 for
+the 48 Mpx orientation-6 crop).
+
+Observations for follow-up: AVIF decode memory is mostly opaque (indicative RSS
+4–5× the managed peak); a low lossy-WebP crop holds most of the frame in
+managed memory; mirror-only orientation 2 costs as much as a rotation (ADR-0019
+keeps the materialization).
 
 ## Decision
 

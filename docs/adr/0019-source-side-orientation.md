@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0012](0012-codec-source-contract.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md)
 
@@ -54,3 +54,82 @@ The JPEG XL decoder changes again; a workload shows the region copy is significa
 - 2026-11-06 — The display-order gather copies pixels as fixed-size arrays per channel count instead of a variable-length slice copy, which compiled to one `memmove` call per pixel. The 12 Mpx EXIF-oriented phone photo's decode stage fell from 152 ms to 112 ms (ADR-0023). Buffer semantics and the reported `orientation_buffer_bytes` are unchanged.
 - 2026-11-06 — With more than one transform thread and at least 64 display rows, the gather runs in blocks of 16 rows on scoped worker threads and the rows reach the sink in order on the calling thread (ADR-0023). At most twice the thread count of blocks are in flight, budgeted as engine-managed memory on top of the stored-order buffer; a budget that fits the buffer but no block fails with `BudgetExceeded`. Rows are identical for every thread count. `orientation_buffer_bytes` still reports only the stored-order buffer.
 - 2026-11-11 — The opt-in local libjxl-rs decoder's default upright output matched the existing eight independent orientation fixtures for full frames and crops. The decoder's full-frame output cost is recorded in ADR-0032; jxl-oxide remains the default input backend.
+- 2026-11-12 — Recorded camera-size copy costs, lossy JPEG XL orientation, channel/alpha/color preservation and the animation policy; fixed gray+alpha gathering; kept the materialization for mirror-only orientations (issue #68). Status stays Experimental.
+
+
+## 2026-11-12: large, lossy and animated input (issue #68)
+
+**Copy and materialization costs, in bytes.** A reoriented request materializes
+its stored rectangle once (`orientation_buffer_bytes`) and copies every sample
+twice, once into that buffer and once into upright rows
+(`ProcessingReport::decoder_work.wrapper_copied_bytes`). Synthetic sources pin
+the exact accounting for full 6000×4000 and 8000×6000 RGB8 frames in a mirror
+and a rotation, sequential and with eight gather threads, without decoding
+pixels (`camera_size_orientation_costs_are_reported_exactly`): 72,000,000 and
+144,000,000 buffer bytes, twice that copied; the sequential managed peak is the
+buffer plus one upright row; the parallel gather adds at most 2 × threads + 1
+blocks of 16 rows. A budget one byte short of the buffer fails before decoding.
+
+Generated 4:2:0 JPEGs (quality 90) with injected EXIF orientation, a lossy WebP
+with orientation 6 and an AVIF with `irot` 3, all from one photograph,
+went through the release CLI on 2026-11-12 (Apple M1 Ultra, macOS 27.0.1,
+`rustc 1.100.0-nightly 2026-09-06`, one transform thread, WebP output). Counts
+are exact and repeat; maximum RSS comes from `/usr/bin/time -l` on a machine
+under heavy parallel load from other jobs, so it is **indicative only**:
+
+| input | orientation | buffer bytes | copied bytes | managed peak | max RSS (indicative) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| JPEG 6000×4000 | 1 | 0 | 0 | 21,430,112 | 13.5 MB |
+| JPEG 6000×4000 | 2 (mirror) | 72,000,000 | 144,000,000 | 93,430,112 | 87.5 MB |
+| JPEG 6000×4000 | 6 (rotation) | 72,000,000 | 144,000,000 | 93,202,112 | 86.3 MB |
+| JPEG 8000×6000 | 1 | 0 | 0 | 30,531,312 | 20.0 MB |
+| JPEG 8000×6000 | 2 | 144,000,000 | 288,000,000 | 174,531,312 | 166.1 MB |
+| JPEG 8000×6000 | 6 | 144,000,000 | 288,000,000 | 174,303,312 | 166.2 MB |
+| WebP 6000×4000 | 6 | 72,000,000 | 144,000,000 | 165,184,112 | 156.0 MB |
+| AVIF 6000×4000 | 6 | 72,000,000 | 144,000,000 | 165,184,112 | 486.3 MB |
+| JPEG 8000×6000, display crop 2000×1500 | 6 | 9,000,000 | 18,000,000 | 17,081,312 | 26.3 MB |
+
+The managed peak includes the conservative resize-plan allowance (ADR-0004),
+which is why it can exceed RSS for upright JPEG. With 20 transform threads the
+oriented 24 Mpx and 48 Mpx JPEG peaks rose by 10.2–15.3 MB and 15.3–20.4 MB
+(gather blocks and row-pipeline queue; upright input rose by 2.4–3.3 MB).
+Source hashes and the regeneration commands are in the
+[M1 evidence register](../milestones/M1-evidence-and-gates.md#2026-11-12-decoder-work-and-orientation-evidence).
+No wall-clock time was recorded: the machine load makes it invalid evidence.
+A clean re-measurement of time and RSS is deferred.
+
+**Mirror-only streaming: retained materialization (decision).** Orientation 2
+costs exactly as much as a rotation (the table above). A streamed horizontal
+mirror would drop the buffer and one of the two copies. Orientation 4 cannot
+stream from a top-down decoder: its first upright row is the last stored row,
+so it needs the same buffer. Only orientation 2 would benefit. Cameras record a
+rotation, not a mirror, and the project has no corpus showing orientation 2 in
+practice. The materialization therefore stays for both mirrors. Re-evaluate
+when a corpus or a memory-limited workload shows orientation-2 input, or when
+decoders emit rows bottom-up.
+
+**Lossy and animated JPEG XL.** Eight lossy VarDCT files with header
+orientations 1–8, written by libjxl a16d32d and captured upright by it
+(`codecs/libjxl-rs/tests/data/decoder-geometry/orientation-N.*`), match the
+captures exactly at 8 bits through both backends. All eight carry the same
+stored codestream, so each upright frame is checked exactly against the EXIF
+transform of the orientation-1 frame, and three crops per orientation exactly
+against slices of the upright frame. The earlier evidence was lossless only.
+Animated input is rejected as unsupported by every adapter that can carry
+animation; there is no first-frame policy. Before this change, the jxl-oxide
+adapter rendered the first keyframe silently. `tests/animated_input.rs` covers WebP
+(`img2webp` two-frame file), JPEG XL through both backends and AVIF (`avis`).
+JPEG has no animation; MPF secondary images are not read.
+
+**Crops, alpha and color after orientation.** For gray, gray+alpha, RGB and
+RGBA rows, U8 and F32, all eight orientations and every display crop of a 5×3
+image, each upright pixel keeps its channels together, alpha included. The
+alpha mode, ICC and CICP pass through unchanged. Gray+alpha rows previously failed with
+`UnsupportedCodecLayout` because the gather handled 1, 3 and 4 channels only.
+No current adapter emits gray+alpha with an orientation, so the defect was
+latent. Real-file crops are covered for JPEG, WebP and AVIF through the facade
+(`tests/decoder_work.rs`) and for JPEG XL in the adapter tests.
+
+Remaining before **Accepted**: a clean re-measurement of gather time and
+process RSS on an unloaded host, and a lossy JPEG XL photograph at camera size
+(no JPEG XL encoder for lossy output is available in the workspace).

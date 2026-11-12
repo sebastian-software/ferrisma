@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-10-31
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0004](0004-buffer-ownership-and-budget.md)
 
@@ -56,3 +56,18 @@ This is deliberately **not** a fixed scanline architecture contract: the logical
 
 - 2026-10-31 — Initial proposal.
 - 2026-10-31 — Added a bounded scalar vertical-slice experiment; unresolved contracts remain explicitly provisional.
+- 2026-11-12 — Requested versus decoded regions, overfetch and the absence of a filter halo beyond the crop are now reported and tested (ADR-0012).
+
+
+## 2026-11-12: requested versus decoded regions are reported
+
+The validation asked to track requested versus actually decoded pixels. Every
+transcode now reports the executor's request, the codec request in stored
+coordinates, the codec's output rectangle and lower bounds of its work
+(`ProcessingReport::decoder_work`; [ADR-0012](0012-codec-source-contract.md)).
+Facade tests across JPEG, WebP, both JPEG XL backends and AVIF show that a
+cropped Lanczos3 resize requests exactly the crop (the filters clamp at its
+edges, so there is no halo beyond it) in one decoder request that delivers each
+row once. Halo duplication therefore does not occur in the current executors;
+the overfetch that does occur is codec-side and is now visible. Bands with
+duplicated halos remain rejected (ADR-0022).

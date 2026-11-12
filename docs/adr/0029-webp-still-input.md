@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** The unimplemented `webp-read` target in [0018](0018-optional-codec-and-cms-dependencies.md); no prior implemented behavior
 - **Related:** [0012](0012-codec-source-contract.md), [0015](0015-typed-output-color-signals.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [WebP port plan](../research/2026-11-05-libwebp-port-plan.md)
 
@@ -43,3 +43,27 @@ Review if the port changes crop memory or row-work behavior, its color conversio
 ## Amendment log
 
 - 2026-11-11 — Adopted still-image input through the safe, local `libwebp-rs` API under the existing private source contract; retained explicit color, orientation, budget and opaque-memory gates.
+- 2026-11-12 — Recorded the measured row work of lossy and lossless crops (issue #19).
+
+
+## 2026-11-12: measured crop row work
+
+Both WebP bitstreams decode from the first row at full width: VP8 needs intra
+prediction and loop-filter context, VP8L its predictors and backward
+references. The adapter's reports now state this (ADR-0012). For lossy input it
+asks the codec for full-width rows from the top to eight rows below the
+request; that whole buffer is engine-managed. For lossless input it asks for an
+even-aligned crop, but VP8L still reconstructs every row above it internally at
+full width, outside the budget.
+
+Measured counts: a 30×40 display crop of a 96×72 orientation-5 lossy file
+(stored request 40×30 at (21, 11)) produced a 96×49 codec output, 3,504 pixels
+of overfetch; the lossless file produced a 41×31 output (71 pixels of
+overfetch) and at least 96 × 41 reconstructed pixels. On a generated 6000×4000
+lossy file with orientation 6, a 2000×1500 display crop requested 1500×2000
+stored pixels at (1000, 1000) and the codec wrote 6000×3008 pixels, 15,048,000
+pixels of overfetch held as 54,144,000 managed bytes. A full read reports one
+known full frame. The previous text says only that crop output is budgeted; it
+did not say how large the lossy crop buffer becomes for a low crop. A
+row-callback decode that keeps only the requested rows would remove most of that
+buffer; it is not implemented.

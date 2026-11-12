@@ -2,7 +2,7 @@
 
 - **Status:** Experimental (decisions 1 and 2 implemented; 3 and 4 open)
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None
 - **Related:** [0012](0012-codec-source-contract.md), [0014](0014-linear-srgb-straight-alpha.md), [0015](0015-typed-output-color-signals.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0021](0021-working-precision-policy.md), [0022](0022-parallel-row-pipeline-and-engine.md), [codec capability audit](../research/2026-11-05-decode-scaling-and-encoder-capabilities.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 5
 
@@ -82,3 +82,41 @@ The real photo's decode stage is now about the `zune-jpeg` decode itself, which 
 - 2026-11-06 — Decision 3's scaled IDCT comes from a JPEG decoder port under ADR-0025 (libjpeg-turbo or jpegli, both with libjpeg's `scale_num`/`scale_denom`), not from a `zune-jpeg` contribution or fork; the fork stays only as a fallback. The policy itself (opt-in, reported, quality measured) is unchanged.
 - 2026-11-10 — Corrected decision 2's ICC gamut limitation: enable moxcms 0.9.1's `extended_range` feature and `allow_extended_range_rgb_xyz` only for matrix-shaper RGB/XYZ sources without device-to-PCS LUT tags. The previous default clipped P3 blue at 1.0 instead of retaining approximately 1.098 linear; the changed regression failed before the option was set and now passes. Selected samples from CC0 Display P3 and Adobe-compatible ICC files and two independently generated variants agree with a LittleCMS 2.19 relative-colorimetric float transform within `8e-4` linear; the observed maximum was `6.54e-4`. U8 codes around the sRGB transfer knee agree within `1e-5` (observed maximum `1.12e-6`; fixture provenance and hashes in `tests/fixtures/icc/README.md`). LittleCMS reopens the exact ICC bytes consumed by the Rust test. The adapter's U8 and F32 row conversion, f32/f64 executor comparison, and deferred conversion on 1, 2, and 8 workers pass. This choice preserves moxcms's existing LUT/intent selection and adds no native CMS dependency; broader #17 real-image, arbitrary-LUT, and HDR evidence remains open. Re-evaluate if moxcms changes either branch or if the larger corpus exposes a mismatch.
 - 2026-11-11 — The JPEG adapter now uses the workspace libjpeg-turbo-rs decoder's safe scanlines (ADR-0012). The earlier zune SIMD and timing evidence remains historical. Full-resolution decoding stays the default; the port's scaled-IDCT capability is not enabled in the engine, and no shrink-on-load quality policy has been accepted. The adapter requests horizontal crop and leading-row skip without claiming skipped entropy work. Re-evaluate with measured image quality, wall time, and process memory before using scaled decode.
+- 2026-11-12 — Measured decoder work replaces inferred ROI savings: per-adapter counts, jxl-oxide group-skipping probes and corrected statements (issue #19).
+
+
+## 2026-11-12: measured decoder work (issue #19)
+
+The decoder work of each transcode is now reported as requested, codec-output
+and lower-bound work counts (ADR-0012). The measurements change or qualify
+earlier statements in this ADR:
+
+- **JPEG.** Every row is entropy-decoded for any request: whole skipped iMCU rows
+  call the entropy decoder with discarded coefficients, and a progressive file
+  decodes every scan at start. Reconstruction (IDCT, upsampling, color
+  conversion) covers the requested rows of libjpeg's column crop plus partial
+  iMCU and context rows that the API does not expose, and since 2026-11-12 one
+  final iMCU row for tail validation (ADR-0012). Crop/skip therefore saves
+  reconstruction, not entropy work. Scaled IDCT (shrink-on-load, #56) stays
+  unselected.
+- **jxl-oxide 0.12.6.** The Context said that jxl-oxide skips entropy decoding
+  outside a region for VarDCT and modular frames. Byte-inversion probes on
+  multi-group files support this in part. When every byte of pass group 1 of
+  two 257×129 multi-group VarDCT files is inverted, a 200×129 crop away from
+  that group renders identically, while the full frame and a crop over it change
+  or fail. A single-TOC frame stores everything in one group, so a 4×4 crop
+  still reads its bytes. Patches copy from a reference-only frame, and any crop
+  reads that frame. Crops of files with noise and splines equal the full render
+  pixel for pixel. These are probes on small libjxl test files, not a general
+  guarantee, so the adapter reports only `AtLeast` the returned rectangle.
+- **libjxl-rs, AVIF.** Full-frame reconstruction for every request, as declared.
+  On a 6000×4000 AVIF the managed peak was 93.4 MB while maximum RSS was
+  415–508 MB (indicative, loaded host): most AVIF decode memory is opaque to the
+  budget.
+- **WebP.** Both bitstreams reconstruct every row above the request at full
+  width (ADR-0029). A low lossy crop can hold most of the frame in managed
+  memory.
+
+No filter halo is requested beyond the crop and no row is decoded twice
+(ADR-0003). Timing and representative RSS on an unloaded host are deferred;
+the counts above do not depend on load.

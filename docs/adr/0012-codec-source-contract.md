@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0003](0003-demand-driven-regions.md), [0004](0004-buffer-ownership-and-budget.md), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0013](0013-sample-domain-resize.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0018](0018-optional-codec-and-cms-dependencies.md)
 
@@ -67,6 +67,7 @@ A source requires native planar output, push/pull access rather than callback ro
 - 2026-11-05 — Admitted resize/color consumers, added the AVIF adapter, and required adapters to report rendered color before decoding pixels.
 - 2026-11-11 — Replaced the JPEG full-frame adapter with the workspace libjpeg-turbo-rs safe scanline API. The JPEG-specific fallback and memory statements above are historical; the current behavior is recorded below.
 - 2026-11-11 — [ADR-0031](0031-workspace-libavif-input-experiment.md) replaces the 2026-11-05 `avif-decode` implementation described below with an isolated safe wrapper over workspace libavif/AOM. The full-frame source contract, rendered-color checks, and orientation semantics remain; the managed RGB frame and native/nightly boundary are now explicit.
+- 2026-11-12 — Every decode report carries the codec request, the codec output and lower bounds of codec work; the JPEG tail validation was repaired; jxl-oxide rejects animation. See the section below.
 
 ## 2026-11-05: transform consumers and the AVIF adapter
 
@@ -115,3 +116,65 @@ selected by this adapter; ADR-0023's quality policy is still required.
 reference decoder. It retains the same private source contract but reports
 `FullFrameFallback` and one budgeted F32 frame. The default jxl-oxide ROI
 request and row-only budget do not apply to this backend.
+
+## 2026-11-12: measured decoder work and the JPEG tail
+
+Issue #19 required the report to separate what was requested from what the
+codec produced and did. Each `DecodeReport` now carries a `CodecWork` for the
+innermost codec call, which wrappers (orientation, ICC, explicit sRGB) pass
+through unchanged, and the facade exposes it as `ProcessingReport::decoder_work`
+(`DecoderWork`) and the CLI as a `decoder_work:` line:
+
+- `codec_request`, the stored rectangle the adapter asked for, and
+  `codec_output`, the stored rectangle the codec actually wrote. Both are exact;
+  their area difference is the source overfetch.
+- `reconstructed_pixels` and `entropy_rows` as `WorkCount::Exact` or
+  `WorkCount::AtLeast`. Lower bounds come from the codec output and from work
+  the format cannot skip (sequential VP8/VP8L rows, the JPEG entropy pass).
+  An adapter reports `Exact` only for work it controls. A returned crop is never
+  an upper bound; the access class keeps its meaning.
+- `requested` and `crop`: resize filters clamp at the crop's edges, so the
+  executor's request equals the crop; there is no filter halo beyond it and the
+  one request delivers each row once (`delivered_rows`). The tests pin this.
+
+Per adapter (all pinned by `tests/decoder_work.rs` and the adapter tests):
+
+| Adapter | `codec_output` | reconstructed | entropy rows |
+| --- | --- | --- | --- |
+| JPEG (libjpeg-turbo-rs, port of 3.2.1) | requested rows × libjpeg's column crop: left edge of request − 1 aligned down to the iMCU width, right edge + 1 | ≥ output width × (rows + 1 tail row) | exactly the image height |
+| WebP lossy (libwebp-rs, port of 1.6.0) | full width, rows 0 to request bottom + 8 | ≥ full width × output rows | ≥ output rows |
+| WebP lossless | request expanded to even x/y | ≥ full width × output bottom | ≥ output bottom |
+| JPEG XL, jxl-oxide 0.12.6 | exactly the request | ≥ request | ≥ request rows |
+| JPEG XL, libjxl-rs (a16d32d) | full frame | ≥ full frame | ≥ height |
+| AVIF (libavif-rs 1.4.2 with its libaom decoder) | full frame | ≥ full frame | ≥ height |
+
+Measured on a 4:2:0 403×302 JPEG (`tests/fixtures/decoder-work/paris-420.jpg`),
+a 40×20 crop at (101, 50) returned a 46×20 codec output at x = 96: 120 pixels of
+overfetch, all 302 rows entropy-decoded. On a generated 8000×6000 4:2:0 JPEG with
+EXIF orientation 6, a 2000×1500 display crop became a 1500×2000 stored request
+and a 1509×2000 codec output (18,000 pixels of overfetch); all 6,000 rows were
+entropy-decoded. Source hashes and the full table are in the
+[M1 evidence register](../milestones/M1-evidence-and-gates.md#2026-11-12-decoder-work-and-orientation-evidence).
+
+**Defect corrected.** The 2026-11-11 JPEG amendment says the adapter
+validates the encoded tail by skipping the remaining rows and finishing.
+`jpeg_skip_scanlines` to the last row marks EOI as reached without parsing the
+skipped data, so `jpeg_finish_decompress` did not read it: a top crop of a file
+truncated in its lower half finished cleanly. The adapter now skips all but
+the last row (whole iMCU rows are entropy-decoded with discarded
+coefficients) and reads that row, which reconstructs one iMCU row of the
+cropped columns and lets `finish` consume the data up to EOI.
+`a_top_crop_of_a_file_truncated_below_it_fails_closed` fails on the previous
+code for both 4:4:4 and 4:2:0 fixtures. The cost is the tail's entropy
+decoding plus one iMCU row of reconstruction; no timing was recorded.
+
+**jxl-oxide animation.** The default JPEG XL adapter rendered keyframe 0 of an
+animated file silently. It now rejects any file whose header declares an
+animation with `UnsupportedAnimation`, matching WebP, AVIF and the libjxl-rs
+backend; a still keyframe composited from several frames remains accepted.
+
+What remains unmeasured: allocations and internal work inside the codecs
+(including which JPEG XL groups jxl-oxide decodes for a given crop beyond the
+probes recorded in ADR-0023), whole-process memory as a bound, and wall time.
+Re-evaluate when an adapter changes its codec call, when a codec exposes work
+counters, or when a measurement contradicts a lower bound above.
