@@ -72,10 +72,10 @@ coefficient, order, DC, AC-metadata and text-like patch detection units (see
 "Encoder coefficients, DC streams and patch detection" below), and the
 adaptive-reconstruction heuristics with the decoder in the loop (see "Encoder
 AR heuristics with the decoder in the loop" below). The public
-encoder encodes one lossy VarDCT frame at effort 7 and distances below 0.7
-byte for byte with the original (see "Public lossy VarDCT encode below d0.7"
-below); every other frame encode, the default d1.0 included, is still an
-admission result.
+encoder encodes one lossy VarDCT frame at effort 7 and distances below 3.0,
+the default d1.0 included, byte for byte with the original, one-shot and
+streaming (see "Public lossy VarDCT encode below d0.7" below, which records
+the later extensions); other frame encodes remain admission results.
 
 ## Public lossy VarDCT encode below d0.7 (2026-11-12)
 
@@ -145,10 +145,31 @@ lowering in the ordinary oracle graph. Of these, PixelStatsForChromacityAdjustme
 unreached alpha, noise, JPEG and center-first code. LossyFrameHeuristics has
 no fmuladd site of its own.
 
-Not verified: native Linux x86-64, the ASan/UBSan graphs, Debug and MSRV
-test runs, the upstream differential cases of step 1, checkpoint fixtures of
-LossyFrameHeuristics as one unit, and every distance from 0.7. No timing or
-memory measurement was taken.
+The same 16 encoder_public tests also pass against the ASan/UBSan oracle
+graph (macOS AArch64).
+
+Extensions later on 2026-11-12. (1) Streaming (encoder step 2, started):
+EncodeFrameStreaming for output modes 0 and 1 with
+ComputePermutationForStreaming, TOCBucket, TOCSize, ComputeGroupDataOffset,
+ComputeDcGlobalPadding, OutputGroups, RemoveUnusedHistograms and
+OutputAcGlobal, and the streaming branches of ComputeEncodingData,
+EncodeGroups and EncodeGlobalACInfo; frames with more than 8 groups in the
+profile encode instead of returning StreamingFrame.
+`public_encoder_lossy_vardct_streaming_matches_original` compares 16 histories
+(768x768, 768x769, 1000x700, 2049x300, 1031x517, 1024x1024; buffering -1 to 3,
+so output mode 1 with its seeks is covered). (2) The AR heuristics from the
+parallel PR 5 work (`enc_heuristics_ar.rs`, cherry-picked) are called from
+`compute_ar_heuristics_entry`; the ArHeuristics admission result is removed
+and the profile extends to every distance below 3.0. The history families now
+include d0.7, d1.0, d1.5, d2.0 and d2.9 (d1.0 at both intensity targets for
+every gate size): smoke 9, small 384, settings 84, large 32, streaming 16 and
+the admission family's 22 exact histories match byte for byte against the
+ordinary oracle; decode-back 32. The ASan/UBSan results for this final state
+are listed in the final report of the integration work, not here.
+
+Not verified: native Linux x86-64, Debug and MSRV test runs, the upstream
+differential cases of step 1 and checkpoint fixtures of LossyFrameHeuristics
+as one unit. No timing or memory measurement was taken.
 
 ## Encoder AR heuristics with the decoder in the loop (2026-11-12)
 

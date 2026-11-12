@@ -87,9 +87,10 @@ admission result there, even where the branches that follow are translated
 but not yet compared with the original (other efforts, option overrides,
 unclosed frames, crops, a custom memory manager). This is earlier than the
 first untranslated branch and therefore conservative; it widens only with
-oracle evidence. Branches that do enter untranslated units (streaming,
-patches, the AR heuristics, alpha, ICC, containers) keep their own checkpoints,
-and the original's branch evidence for each is recorded by `epub-probe`.
+oracle evidence. Branches that do enter untranslated units (patches, alpha,
+ICC, containers, and streaming frames outside the profile) keep their own
+checkpoints, and the original's branch evidence for each is recorded by
+`epub-probe`.
 
 This preserves traceability at the cost of a less idiomatic initial Rust API.
 Revisit this decision after the complete migration contract passes, or if a
