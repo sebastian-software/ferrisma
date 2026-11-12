@@ -189,7 +189,12 @@ def plan(args):
         if args.avif:
             outputs.insert(0, ("avif-aom", "avif", ["--avif-encoder=libavif"]))
         if args.jxl_out:
-            outputs.append(("jxl-lossless-e2", "jxl", []))
+            # The CLI's default .jxl output is lossy (distance 1.0), so each
+            # row names its mode. The serial lossy encoder takes about a
+            # minute or more per 24 MP sample, so that row runs at 12 MP only.
+            outputs.append(("jxl-lossless-e2", "jxl", ["--jxl-lossless"]))
+            if str(args.size) == "12":
+                outputs.append(("jxl-lossy-d1", "jxl", ["--jxl-distance=1.0"]))
         for label, ext, flags in outputs:
             for resize in (True, False):
                 for threads in (1, 0):
