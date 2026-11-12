@@ -113,3 +113,20 @@ measured, a supported host changes, or fixture and live oracle results diverge.
   failed to link `libavif-dav1d`/`libavif-aom` (`initializer pointer has no
   target`). With the cfg, all three lanes build and run locally on macOS ARM64
   ([fuzzing](../fuzzing.md#campaign-results)); a hosted rerun is pending.
+- 2026-11-12 — Stable Rust 1.100.0 was released today. The codec PR job
+  installs an unpinned `stable` for the JPEG, WebP and JXL static stages, and
+  the x86-64 jobs of
+  [run 43279859860](https://github.com/sebastian-software/ferrisma/actions/runs/43279859860)
+  failed without a source change: Clippy 1.100 widens `needless_range_loop`
+  (loops that index several tables), extends `needless_bool` to a trailing
+  `if cond { return false; } true`, reports `used_underscore_items` for
+  constants, and no longer fires `needless_range_loop` where some
+  `#[expect]` attributes relied on it. The ports now pass under both Clippy
+  1.99 and 1.100 with attribute-only changes: a lint whose result differs
+  between the two versions uses a function-scoped `#[allow(..., reason)]`
+  rather than `#[expect]`, because an expectation that only one version
+  fulfills fails the other. The AVIF stage uses the pinned nightly and is
+  unaffected. Options for the owner: pin the stable version used by the static
+  stages and raise it deliberately with its lint fixes, or keep floating
+  stable and accept drift fixes like this one when a release lands. The choice
+  remains the owner's; the workflow is unchanged.

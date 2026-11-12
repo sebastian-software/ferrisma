@@ -43,7 +43,10 @@ isolated test workspaces; all engine, adapter and codec packages share the root.
 
 The root pins the nightly required by generated AVIF code. JPEG, WebP and JXL
 retain stable Clippy, whose lint expectations differ from that older nightly;
-their check scripts select it explicitly. MSRV jobs also select their toolchain
+their check scripts select it explicitly. That stable floats, so a new release
+can change lint results without a source change; a lint that differs between
+supported stable versions takes a function-scoped `#[allow(..., reason)]`
+instead of an `#[expect]` (ADR-0027). MSRV jobs also select their toolchain
 explicitly. This is a verifier exception, not another workspace or dependency graph.
 The codec-free engine and features without `avif-read`, `avif-own-write`, or `cli` still build on stable Rust 1.98;
 enabling either own AVIF feature reaches generated libavif/AOM code and requires the pinned
