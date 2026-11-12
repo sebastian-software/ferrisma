@@ -258,7 +258,11 @@ fn workspace_jxl_unknown_colour_space_is_a_controlled_error() {
 
     let hostile = include_bytes!("../tests/fixtures/hostile/jxl-unknown-colour-space.jxl");
     let result = catch_unwind(AssertUnwindSafe(|| JxlSource::new(hostile)));
-    assert!(result.expect("workspace JPEG XL setup must not panic").is_err());
+    assert!(
+        result
+            .expect("workspace JPEG XL setup must not panic")
+            .is_err()
+    );
 }
 
 #[cfg(all(feature = "jpeg-xl-read", feature = "webp-write"))]
@@ -289,6 +293,83 @@ fn public_transcode_rejects_unknown_jxl_colour_space() {
         }))
         .expect("public JPEG XL processing must not panic");
         assert_eq!(result.unwrap_err().kind(), Kind::UnsupportedColor);
+    }
+}
+
+// Every upstream libavif test file, including grid, alpha, clap, gain-map,
+// animation, HDR and proof-of-concept inputs, must end in a controlled public
+// result under each explicit color policy. Selected files pin the expected
+// reason; the rest only must not panic.
+#[cfg(all(feature = "avif-read", feature = "webp-write"))]
+#[test]
+fn upstream_libavif_corpus_returns_controlled_public_results() {
+    use crate::pipeline::{
+        ImageFormat, InputProfilePolicy, OutputFormat, ProcessingErrorKind as Kind,
+        TransformOptions, transcode,
+    };
+
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("codecs/libavif-rs/upstream/libavif/tests/data");
+    let mut paths: Vec<_> = std::fs::read_dir(&root)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "avif"))
+        .collect();
+    paths.sort();
+    assert!(paths.len() > 50, "upstream AVIF corpus is missing");
+    let expected = |name: &str, policy: InputProfilePolicy| -> Option<Result<(), Kind>> {
+        Some(match name {
+            // `clap` is rejected rather than silently ignored (ADR-0019).
+            "clap_irot_imir_non_essential.avif" => Err(Kind::UnsupportedInput),
+            // Grid and alpha stills reach the encoder.
+            "abc_color_irot_alpha_irot.avif"
+            | "color_grid_alpha_grid_shared_tiles.avif"
+            | "sofa_grid1x5_420.avif" => Ok(()),
+            // PQ/HLG is never reinterpreted as sRGB.
+            "colors_hdr_rec2020.avif" | "seine_hdr_rec2020.avif" => Err(Kind::UnsupportedColor),
+            // A container ICC profile needs the rendered-ICC transform.
+            "paris_icc_exif_xmp.avif" if policy != InputProfilePolicy::UseRenderedIcc => {
+                Err(Kind::UnsupportedColor)
+            }
+            "colors-animated-8bpc.avif" => Err(Kind::UnsupportedInput),
+            _ => return None,
+        })
+    };
+    for path in paths {
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        let bytes = std::fs::read(&path).unwrap();
+        for profile_policy in [
+            InputProfilePolicy::Strict,
+            InputProfilePolicy::AssumeSrgbIfMissing,
+            InputProfilePolicy::UseRenderedIcc,
+        ] {
+            let options = TransformOptions {
+                output_format: OutputFormat::WebP,
+                output_width: 7,
+                output_height: 5,
+                quality: 75.0,
+                speed: 6,
+                transform_threads: 1,
+                profile_policy,
+                max_input_pixels: 4_000_000,
+                ..TransformOptions::default()
+            };
+            let result = catch_unwind(AssertUnwindSafe(|| {
+                transcode(&bytes, ImageFormat::Avif, options)
+            }))
+            .unwrap_or_else(|_| panic!("{name} panicked under {profile_policy:?}"));
+            let actual = result.as_ref().map(|_| ()).map_err(|error| error.kind());
+            // Success is pinned only for the untagged-sRGB policy; the other
+            // policies may reject the same file for its missing tag or alpha.
+            if let Some(expected) = expected(&name, profile_policy)
+                && (profile_policy == InputProfilePolicy::AssumeSrgbIfMissing || expected.is_err())
+            {
+                assert_eq!(actual, expected, "{name} under {profile_policy:?}");
+            }
+            if let Err(error) = &result {
+                assert_ne!(error.kind(), Kind::Internal, "{name}: {error}");
+            }
+        }
     }
 }
 
