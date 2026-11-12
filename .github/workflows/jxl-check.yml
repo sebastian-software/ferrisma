@@ -75,7 +75,7 @@ jobs:
     # limit (issue #119); completed shards have taken well under an hour.
     timeout-minutes: 120
     env:
-      PARTITION:${{ matrix.shard }}/${{ matrix.os == 'macos-latest' && matrix.oracle == 'ordinary' && 2 || 4 }}
+      PARTITION: ${{ matrix.shard }}/${{ matrix.os == 'macos-latest' && matrix.oracle == 'ordinary' && 2 || 4 }}
       ORACLE_FLAGS: ${{ matrix.oracle == 'sanitized' && '--sanitizers' || '' }}
       ORACLE_GRAPH: ${{ matrix.oracle == 'sanitized' && 'oracle-asan' || 'oracle' }}
     steps:
