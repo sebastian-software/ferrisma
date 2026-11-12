@@ -108,11 +108,17 @@ fn rejects_requests_outside_the_admitted_profile_before_allocating() {
 }
 
 #[test]
-fn input_frame_and_known_codec_planes_are_reserved() {
+fn input_frame_and_pinned_codec_plane_estimate_are_reserved() {
     let (width, height) = (9, 5);
     let frame = width * height * 4;
     let opaque = known_codec_frame_bytes(width, height, false).unwrap();
-    // Image3<f32> padded to 16x8, plus three i32 Modular channels.
+    // Regression pin, not evidence: these two equalities restate the sink's
+    // own formula (Image3<f32> padded to 16x8, plus three i32 Modular
+    // channels, plus two alpha planes) so an unintended change to it fails
+    // here. They do not show that the encoder allocates exactly these planes;
+    // that would need an allocation measurement inside libjxl-rs. The budget
+    // checks below do test real behavior: the sink reserves what the
+    // formula says before encoding.
     assert_eq!(opaque, 16 * 8 * 3 * 4 + width * height * 3 * 4);
     let alpha = known_codec_frame_bytes(width, height, true).unwrap();
     assert_eq!(alpha, opaque + width * height * 4 * 2);
