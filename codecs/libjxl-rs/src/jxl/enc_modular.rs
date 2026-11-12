@@ -55,6 +55,14 @@ use super::modular::transform::enc_transform::{compute_minmax, transform_forward
 use super::modular::transform::transform::{Transform, TransformId};
 use super::pack_signed::pack_signed;
 
+// Squeeze default quantization factors, as far as extra channels reach them.
+const SQUEEZE_QUALITY_FACTOR: f32 = 0.35;
+const SQUEEZE_LUMA_FACTOR: f32 = 1.1;
+const SQUEEZE_LUMA_QTABLE: [f32; 16] = [
+    163.84, 81.92, 40.96, 20.48, 10.24, 5.12, 2.56, 1.28, 0.64, 0.32, 0.16, 0.08, 0.04, 0.02, 0.01,
+    0.005,
+];
+
 /// Internal source state; these fields are exposed for differential fixtures,
 /// like other translated codec-internal storage. This is not the C API.
 pub struct ModularFrameEncoder<'a> {
@@ -524,6 +532,337 @@ impl<'a> ModularFrameEncoder<'a> {
             channel.plane = Plane::default();
         }
         validate_channel_dimensions(gi, &self.stream_options[0])
+    }
+
+    /// ComputeEncodingData with `do_color = false`: the extra channels of a
+    /// VarDCT frame (enc_frame.cc calls it when the frame has extra channels
+    /// and `modular_mode` is off). The color branches (Gaborish, patches,
+    /// XYB and RCT selection) need `do_color` and are not reached; custom
+    /// splines are outside the admitted profile. `groupwise` is the streaming
+    /// mode. RunOnPool without a runner: rows and stream parameters in index
+    /// order.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Preserve the source's ComputeEncodingData parameters"
+    )]
+    pub fn compute_encoding_data_extra_channels(
+        &mut self,
+        frame_header: &FrameHeader<'_>,
+        metadata: &super::image_metadata::ImageMetadata,
+        extra_channels: &[Plane<f32>],
+        group_rect: Rect,
+        patch_dim: &FrameDimensions,
+        frame_area_rect: Rect,
+        num_passes: usize,
+        groupwise: bool,
+    ) -> Status {
+        // Convert ImageBundle to modular Image object
+        let xsize = patch_dim.xsize;
+        let ysize = patch_dim.ysize;
+        // do_color is false: no color channels.
+        let nb_chans = extra_channels.len();
+        // in the non-float case, there is an implicit 0 sign bit
+        let mut max_bitdepth: i32 = 0;
+        self.stream_images[0] = Image::create(
+            xsize,
+            ysize,
+            metadata.bit_depth.bits_per_sample as i32,
+            nb_chans as i32,
+        )?;
+        let mut c = 0usize;
+        let bitdepth = self.stream_images[0].bitdepth;
+        let mut maxval: i32 = if bitdepth < 32 {
+            ((1u32 << bitdepth) - 1) as i32
+        } else {
+            0
+        };
+        for (ec, extra) in extra_channels.iter().enumerate() {
+            let eci = &metadata.extra_channel_info[ec];
+            let ecups = frame_header.extra_channel_upsampling[ec] as usize;
+            let ch = &mut self.stream_images[0].channel[c];
+            ch.shrink_to(
+                patch_dim.xsize_upsampled.div_ceil(ecups) as i32,
+                patch_dim.ysize_upsampled.div_ceil(ecups) as i32,
+            )?;
+            ch.hshift =
+                ceil_log2_nonzero(ecups) as i32 - ceil_log2_nonzero(frame_header.upsampling) as i32;
+            ch.vshift = ch.hshift;
+            let bits = eci.bit_depth.bits_per_sample;
+            let exp_bits = eci.bit_depth.exponent_bits_per_sample;
+            let ec_fp = eci.bit_depth.floating_point_sample;
+            let factor = if ec_fp {
+                1.0
+            } else {
+                f64::from((1u32 << bits) - 1)
+            };
+            if bits as i32 + i32::from(!ec_fp) > max_bitdepth {
+                max_bitdepth = bits as i32 + i32::from(!ec_fp);
+            }
+            for y in 0..ch.plane.ysize() {
+                let row_in = &extra.row(y + group_rect.y0())[group_rect.x0()..];
+                let width = ch.plane.xsize();
+                float_to_int(row_in, ch.row_mut(y), width, bits, exp_bits, ec_fp, factor)?;
+            }
+            c += 1;
+        }
+        if c != nb_chans {
+            return Err(StatusCode::GenericError);
+        }
+
+        let level_max_bitdepth = if self.cparams.level == 5 { 16 } else { 32 };
+        if max_bitdepth > level_max_bitdepth {
+            return Err(StatusCode::GenericError);
+        }
+
+        // Set options and apply transformations
+        if !self.cparams.modular_part_is_lossless() {
+            if self.cparams.color_transform == ColorTransform::XYB {
+                self.cparams.channel_colors_pre_transform_percent = 0.0;
+            }
+            self.cparams.channel_colors_percent = 0.0;
+            self.cparams.palette_colors = 0;
+            self.cparams.lossy_palette = false;
+        }
+
+        // Global palette transforms
+        let mut channel_colors_percent = 0.0f32;
+        // do_color is false: only the speed tier selects the percentage.
+        if !self.cparams.lossy_palette && self.cparams.speed_tier <= SpeedTier::Thunder {
+            channel_colors_percent = self.cparams.channel_colors_pre_transform_percent;
+        }
+        // Global palette causes bad progressive loading due to interpolation
+        // but lossy palette is still required for JXL art.
+        if !groupwise
+            && (self.cparams.lossy_palette
+                || !(self.cparams.responsive != 0 && self.cparams.modular_part_is_lossless()))
+        {
+            try_palettes(
+                &mut self.stream_images[0],
+                &mut max_bitdepth,
+                &mut maxval,
+                &self.cparams,
+                channel_colors_percent,
+            )?;
+        }
+
+        // The RCT needs do_color.
+
+        if self.cparams.move_to_front_from_channel > 0 {
+            let gi = &mut self.stream_images[0];
+            let mut tgt = 0usize;
+            while tgt + (self.cparams.move_to_front_from_channel as usize) < gi.channel.len() {
+                let mut pos = self.cparams.move_to_front_from_channel as usize;
+                while pos > 0 {
+                    let mut mv = Transform::new(TransformId::RCT);
+                    if pos == 1 {
+                        mv.begin_c = tgt as u32;
+                        mv.rct_type = 28; // RGB -> GRB
+                        pos -= 1;
+                    } else {
+                        mv.begin_c = (tgt + pos - 2) as u32;
+                        mv.rct_type = 14; // RGB -> BRG
+                        pos -= 2;
+                    }
+                    do_transform(gi, &mv, &weighted::Header::default(), false);
+                }
+                tgt += 1;
+            }
+        }
+
+        // don't do squeeze if we don't have some spare bits
+        if !groupwise
+            && self.cparams.responsive != 0
+            && !self.stream_images[0].channel.is_empty()
+            && max_bitdepth + 2 < level_max_bitdepth
+        {
+            let gi = &mut self.stream_images[0];
+            let mut t = Transform::new(TransformId::SQUEEZE);
+            // Check if default squeeze parameters are ok.
+            let mut params = Vec::new();
+            super::modular::transform::squeeze::default_squeeze_parameters(&mut params, gi);
+            // If image is smaller than group_dim, then default squeeze
+            // parameters are not going too far. Else, channel size don't turn
+            // zero. Thus we only check if tile does not go to zero-dim.
+            let shift_cap = 7 + frame_header.group_size_shift as usize;
+            let mut hshift = 0usize;
+            let mut vshift = 0usize;
+            for i in 0..params.len() {
+                if params[i].horizontal {
+                    hshift += 1;
+                } else {
+                    vshift += 1;
+                }
+                let dc_boost = if hshift.min(vshift) >= 3 { 3 } else { 0 };
+                // In case we squeeze too much, truncate squeeze script.
+                if hshift.max(vshift) > shift_cap + dc_boost {
+                    params.truncate(i.wrapping_sub(1));
+                    t.squeezes = params.clone();
+                    break;
+                }
+            }
+            do_transform(gi, &t, &weighted::Header::default(), false);
+            max_bitdepth += 2;
+        }
+
+        if max_bitdepth + 1 > level_max_bitdepth {
+            // force no group RCTs if we don't have a spare bit
+            self.cparams.colorspace = 0;
+        }
+        if max_bitdepth > level_max_bitdepth {
+            return Err(StatusCode::GenericError);
+        }
+
+        if !self.cparams.modular_part_is_lossless() {
+            let gi = &mut self.stream_images[0];
+            self.quants.resize(gi.channel.len(), 1);
+            let mut quantizer = 0.25f32;
+            if self.cparams.responsive == 0 {
+                quantizer *= 0.1f32;
+            }
+            let mut bitdepth_correction = 1.0f32;
+            if self.cparams.color_transform != ColorTransform::XYB {
+                bitdepth_correction = maxval as f32 / 255.0;
+            }
+            let mut quantizers: Vec<f32> = Vec::new();
+            for _ in 0..3 {
+                let dist = self.cparams.butteraugli_distance;
+                quantizers.push(quantizer * dist.powf(1.2) * bitdepth_correction);
+            }
+            for i in 0..extra_channels.len() {
+                let ec_bitdepth = metadata.extra_channel_info[i].bit_depth.bits_per_sample;
+                let ec_maxval: u32 = if ec_bitdepth < 32 {
+                    (1u32 << ec_bitdepth) - 1
+                } else {
+                    0
+                };
+                bitdepth_correction = ec_maxval as f32 / 255.0;
+                let mut dist = 0.0f32;
+                if i < self.cparams.ec_distance.len() {
+                    dist = self.cparams.ec_distance[i];
+                }
+                if dist < 0.0 {
+                    dist = self.cparams.butteraugli_distance;
+                }
+                quantizers.push(quantizer * dist * bitdepth_correction);
+            }
+            if self.cparams.options.nb_repeats == 0.0 {
+                return Err(StatusCode::GenericError);
+            }
+            for i in gi.nb_meta_channels..gi.channel.len() {
+                let ch = &mut gi.channel[i];
+                let mut shift = ch.hshift + ch.vshift; // number of pixel halvings
+                if shift > 16 {
+                    shift = 16;
+                }
+                if shift > 0 {
+                    shift -= 1;
+                }
+                // do_color is false: components start after the color ones.
+                let component = (3 + ch.component) as usize;
+                // Extra channels take the luma table (component >= 3).
+                let q = source_i32(
+                    (quantizers[component]
+                        * SQUEEZE_QUALITY_FACTOR
+                        * SQUEEZE_LUMA_FACTOR
+                        * SQUEEZE_LUMA_QTABLE[shift as usize]) as f64,
+                );
+                let q = q.max(1);
+                quantize_channel(ch, q);
+                self.quants[i] = q as u32;
+            }
+        }
+
+        // Fill other groups.
+        // DC
+        for group_id in 0..patch_dim.num_dc_groups {
+            let rgx = group_id % patch_dim.xsize_dc_groups;
+            let rgy = group_id / patch_dim.xsize_dc_groups;
+            let rect = Rect::new(
+                rgx * patch_dim.dc_group_dim,
+                rgy * patch_dim.dc_group_dim,
+                patch_dim.dc_group_dim,
+                patch_dim.dc_group_dim,
+            );
+            let gx = rgx + frame_area_rect.x0() / 2048;
+            let gy = rgy + frame_area_rect.y0() / 2048;
+            let real_group_id = gy * self.frame_dim.xsize_dc_groups + gx;
+            // minShift==3 because (frame_dim.dc_group_dim >> 3) == frame_dim.group_dim
+            // maxShift==1000 is infinity
+            self.stream_params.push(GroupParams {
+                rect,
+                min_shift: 3,
+                max_shift: 1000,
+                id: ModularStreamId::modular_dc(real_group_id),
+            });
+        }
+        // AC global -> nothing.
+        // AC
+        for group_id in 0..patch_dim.num_groups {
+            let rgx = group_id % patch_dim.xsize_groups;
+            let rgy = group_id / patch_dim.xsize_groups;
+            let mrect = Rect::new(
+                rgx * patch_dim.group_dim,
+                rgy * patch_dim.group_dim,
+                patch_dim.group_dim,
+                patch_dim.group_dim,
+            );
+            let gx = rgx + frame_area_rect.x0() / self.frame_dim.group_dim;
+            let gy = rgy + frame_area_rect.y0() / self.frame_dim.group_dim;
+            let real_group_id = gy * self.frame_dim.xsize_groups + gx;
+            for i in 0..num_passes {
+                let (min_shift, max_shift) = frame_header.passes.get_downsampling_bracket(i);
+                self.stream_params.push(GroupParams {
+                    rect: mrect,
+                    min_shift,
+                    max_shift,
+                    id: ModularStreamId::modular_ac(real_group_id, i),
+                });
+            }
+        }
+        // if there's only one group, everything ends up in GlobalModular
+        // in that case, also try RCTs/WP params for the one group
+        if self.stream_params.len() == 2 {
+            self.stream_params.push(GroupParams {
+                rect: Rect::new(0, 0, xsize, ysize),
+                min_shift: 0,
+                max_shift: 1000,
+                id: ModularStreamId::global(),
+            });
+        }
+        self.gi_channel
+            .resize_with(self.stream_images.len(), Vec::new);
+
+        for i in 0..self.stream_params.len() {
+            let group = self.stream_params[i];
+            let stream = group.id.id(&self.frame_dim);
+            if stream != 0 {
+                self.stream_options[stream] = self.stream_options[0].clone();
+            }
+            self.prepare_stream_params(
+                &group.rect,
+                group.min_shift,
+                group.max_shift,
+                &group.id,
+                false,
+                groupwise,
+            )?;
+        }
+        {
+            // Clear out channels that have been copied to groups.
+            let full_image = &mut self.stream_images[0];
+            let mut ch = full_image.nb_meta_channels;
+            while ch < full_image.channel.len() {
+                let fc = &full_image.channel[ch];
+                if fc.w > self.frame_dim.group_dim || fc.h > self.frame_dim.group_dim {
+                    break;
+                }
+                ch += 1;
+            }
+            for channel in &mut full_image.channel[ch..] {
+                channel.plane = Plane::default();
+            }
+        }
+        validate_channel_dimensions(&self.stream_images[0], &self.stream_options[0])
     }
 
     /// The source's private caller always passes its own cparams member.

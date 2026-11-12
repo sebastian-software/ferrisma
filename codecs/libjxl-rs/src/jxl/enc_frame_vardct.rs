@@ -32,8 +32,8 @@
 
 use super::ac_strategy::AcStrategyImage;
 use super::base::bits::ceil_log2_nonzero;
-use super::base::float::{max_f32, mul_add_f64};
-use super::base::override_option::Override;
+use super::base::float::{max_f32, mul_add_f32, mul_add_f64};
+use super::base::override_option::{Override, apply_override};
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode, StatusOr};
 use super::chroma_from_luma::ColorCorrelationMap;
@@ -169,7 +169,7 @@ pub fn admitted_frame_profile(
         && cparams.quant_ac_rescale == CompressParams::default().quant_ac_rescale
         && cparams.output_mode == 0
         && cparams.debug_image.is_none()
-        && m.num_extra_channels == 0
+        && admitted_extra_channels(cparams, m)
         && !m.have_animation
         && !m.have_preview
         && !m.color_encoding.want_icc()
@@ -190,7 +190,22 @@ pub fn admitted_frame_profile(
         && frame_info.name.is_empty()
         && frame_data.xsize() == metadata.xsize()
         && frame_data.ysize() == metadata.ysize()
-        && frame_data.channels().len() == 1
+        && frame_data.channels().len() == 1 + m.num_extra_channels as usize
+}
+
+/// The admitted extra channels (encoder step 4): none, or one alpha channel
+/// at full resolution, coded losslessly (every extra-channel distance 0, the
+/// default) with the default `keep_invisible`.
+fn admitted_extra_channels(cparams: &CompressParams<'_>, m: &ImageMetadata) -> bool {
+    if m.num_extra_channels == 0 {
+        return true;
+    }
+    m.num_extra_channels == 1
+        && m.extra_channel_info.len() == 1
+        && m.extra_channel_info[0].channel_type == ExtraChannel::ALPHA
+        && m.extra_channel_info[0].dim_shift == 0
+        && cparams.ec_distance.iter().all(|&d| d == 0.0)
+        && cparams.keep_invisible == Override::DEFAULT
 }
 
 /// GetBitDepth.
@@ -279,6 +294,135 @@ pub fn copy_color_channels(
         }
     }
     Ok(())
+}
+
+/// CopyExtraChannels with the buffer-backed input source.
+fn copy_extra_channels(
+    input: &JxlEncoderChunkedFrameAdapter<'_>,
+    rect: Rect,
+    frame_info: &FrameInfo,
+    metadata: &ImageMetadata,
+    mut has_interleaved_alpha: bool,
+    extra_channels: &mut [Plane<f32>],
+) -> Status {
+    for ec in 0..metadata.num_extra_channels as usize {
+        if has_interleaved_alpha
+            && metadata.extra_channel_info[ec].channel_type == ExtraChannel::ALPHA
+        {
+            // Skip this alpha channel, but still request additional alpha
+            // channels if they exist.
+            has_interleaved_alpha = false;
+            continue;
+        }
+        let mut ec_format = input.get_extra_channel_pixel_format(ec);
+        ec_format.num_channels = 1;
+        let mut row_offset = 0;
+        let buffer = input
+            .get_extra_channel_data_at(
+                ec,
+                rect.x0(),
+                rect.y0(),
+                rect.xsize(),
+                rect.ysize(),
+                &mut row_offset,
+            )
+            .ok_or(StatusCode::GenericError)?;
+        let bits_per_sample = get_bit_depth(
+            frame_info.image_bit_depth,
+            metadata.extra_channel_info[ec].bit_depth.bits_per_sample,
+            ec_format,
+        ) as usize;
+        convert_from_external_plane_no_size_check(
+            buffer,
+            rect.xsize(),
+            rect.ysize(),
+            row_offset,
+            bits_per_sample,
+            ec_format,
+            0,
+            &mut extra_channels[ec],
+        )
+        .map_err(|_| StatusCode::GenericError)?;
+    }
+    Ok(())
+}
+
+/// SimplifyInvisible. Contraction: the five `row[x] += 2.f * v` sums
+/// (enc_frame.cc 570, 574, 578, 583 and 587) are front-end fmuladd sites,
+/// fused on AArch64 and separate on x86-64 (`mul_add_f32`).
+fn simplify_invisible(image: &mut Image3F, alpha: &Plane<f32>, lossless: bool) {
+    let ysize = image.ysize();
+    let xsize = image.xsize();
+    for c in 0..3 {
+        let plane = image.plane_mut(c);
+        for y in 0..ysize {
+            // The rows above and below are read while this row is written:
+            // `prow` as already simplified, `nrow` as not yet simplified.
+            let above = (y > 0).then(|| plane.row(y - 1)[..xsize].to_vec());
+            let below = (y + 1 < ysize).then(|| plane.row(y + 1)[..xsize].to_vec());
+            let prow = above.as_deref();
+            let nrow = below.as_deref();
+            let row = &mut plane.row_mut(y)[..xsize];
+            let a = alpha.row(y);
+            let pa = (y > 0).then(|| alpha.row(y - 1));
+            let na = (y + 1 < ysize).then(|| alpha.row(y + 1));
+            for x in 0..xsize {
+                if a[x] == 0.0 {
+                    if lossless {
+                        row[x] = 0.0;
+                        continue;
+                    }
+                    let mut d = 0.0f32;
+                    row[x] = 0.0;
+                    if x > 0 {
+                        row[x] += row[x - 1];
+                        d += 1.0;
+                        if a[x - 1] > 0.0 {
+                            row[x] += row[x - 1];
+                            d += 1.0;
+                        }
+                    }
+                    if x + 1 < xsize {
+                        if let Some(prow) = prow {
+                            row[x] += prow[x + 1];
+                            d += 1.0;
+                        }
+                        if a[x + 1] > 0.0 {
+                            row[x] = mul_add_f32(2.0, row[x + 1], row[x]);
+                            d += 2.0;
+                        }
+                        if let (Some(prow), Some(pa)) = (prow, pa)
+                            && pa[x + 1] > 0.0
+                        {
+                            row[x] = mul_add_f32(2.0, prow[x + 1], row[x]);
+                            d += 2.0;
+                        }
+                        if let (Some(nrow), Some(na)) = (nrow, na)
+                            && na[x + 1] > 0.0
+                        {
+                            row[x] = mul_add_f32(2.0, nrow[x + 1], row[x]);
+                            d += 2.0;
+                        }
+                    }
+                    if let (Some(prow), Some(pa)) = (prow, pa)
+                        && pa[x] > 0.0
+                    {
+                        row[x] = mul_add_f32(2.0, prow[x], row[x]);
+                        d += 2.0;
+                    }
+                    if let (Some(nrow), Some(na)) = (nrow, na)
+                        && na[x] > 0.0
+                    {
+                        row[x] = mul_add_f32(2.0, nrow[x], row[x]);
+                        d += 2.0;
+                    }
+                    if d > 1.0 {
+                        row[x] /= d;
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// PixelStatsForChromacityAdjustment.
@@ -924,11 +1068,20 @@ fn compute_encoding_data<'m>(
     let frame_dim = enc_state.shared.frame_dim;
 
     let num_extra_channels = metadata.m.num_extra_channels as usize;
-    if num_extra_channels != 0 {
-        // CopyExtraChannels and the modular extra-channel encode are step 4.
+    let alpha_idx = metadata
+        .m
+        .extra_channel_info
+        .iter()
+        .position(|eci| eci.channel_type == ExtraChannel::ALPHA);
+    if metadata
+        .m
+        .extra_channel_info
+        .iter()
+        .any(|eci| eci.channel_type == ExtraChannel::BLACK)
+    {
+        // The black channel feeds ToXYB's CMYK branch (step 6).
         return admission(FrameAdmission::FrameProfile);
     }
-    let alpha_eci = metadata.m.find(ExtraChannel::ALPHA);
     let c_enc = metadata.m.color_encoding.clone();
 
     // Make the image patch bigger than the currently processed group in
@@ -954,16 +1107,32 @@ fn compute_encoding_data<'m>(
         memory_manager,
     )?;
     color.shrink_to(patch_rect.xsize(), patch_rect.ysize())?;
+    let mut extra_channels = Vec::with_capacity(num_extra_channels);
+    for _ in 0..num_extra_channels {
+        extra_channels.push(Plane::<f32>::create_in(
+            patch_rect.xsize(),
+            patch_rect.ysize(),
+            0,
+            memory_manager,
+        )?);
+    }
     let mut has_interleaved_alpha = false;
-    debug_assert!(alpha_eci.is_none());
     copy_color_channels(
         frame_data,
         patch_rect,
         frame_info,
         &metadata.m,
         &mut color,
-        None,
+        alpha_idx.map(|i| &mut extra_channels[i]),
         &mut has_interleaved_alpha,
+    )?;
+    copy_extra_channels(
+        frame_data,
+        patch_rect,
+        frame_info,
+        &metadata.m,
+        has_interleaved_alpha,
+        &mut extra_channels,
     )?;
 
     enc_state.cparams = cparams.clone();
@@ -995,7 +1164,18 @@ fn compute_encoding_data<'m>(
         // without the XYB transform is outside the profile.
         return admission(FrameAdmission::FrameProfile);
     }
-    // SimplifyInvisible needs alpha, which the profile excludes.
+    let lossless = cparams.is_lossless();
+    if let Some(alpha_idx) = alpha_idx
+        && !metadata.m.extra_channel_info[alpha_idx].alpha_associated
+        && mutable_frame_header.frame_type == FrameType::REGULAR
+        && !apply_override(cparams.keep_invisible, cparams.is_lossless())
+        && cparams.ec_resampling == cparams.resampling
+        && !cparams.disable_perceptual_optimizations
+    {
+        // simplify invisible pixels
+        simplify_invisible(&mut color, &extra_channels[alpha_idx], lossless);
+        // `linear` is null at the admitted speed tiers.
+    }
     pad_image_to_block_multiple_in_place(&mut color, BLOCK_DIM)?;
 
     // Rectangle within color that corresponds to the currently processed group
@@ -1020,8 +1200,9 @@ fn compute_encoding_data<'m>(
 
     downsample_color_channels(cparams, mutable_frame_header, false)?;
 
-    if cparams.ec_resampling != 1 && !cparams.already_downsampled {
-        // No extra channels: the loop has no iteration.
+    if cparams.ec_resampling != 1 && !cparams.already_downsampled && !extra_channels.is_empty() {
+        // DownsampleImage of the extra channels is not translated.
+        return admission(FrameAdmission::FrameProfile);
     }
 
     if !enc_state.streaming_mode {
@@ -1057,7 +1238,20 @@ fn compute_encoding_data<'m>(
     tokenize_all_coefficients(frame_header, enc_state)?;
 
     if cparams.modular_mode {
+        // The do_color branches of the modular ComputeEncodingData (step 5).
         return admission(FrameAdmission::FrameProfile);
+    }
+    if !extra_channels.is_empty() {
+        enc_modular.compute_encoding_data_extra_channels(
+            frame_header,
+            &metadata.m,
+            &extra_channels,
+            group_rect,
+            &frame_dim,
+            frame_area_rect,
+            num_passes,
+            enc_state.streaming_mode,
+        )?;
     }
 
     if !enc_state.streaming_mode {

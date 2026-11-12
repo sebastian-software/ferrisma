@@ -1263,6 +1263,153 @@ fn public_encoder_lossy_vardct_smoke_matches_original() {
     compare("lossy-smoke", requests);
 }
 
+/// Alpha bit-depth fields of the basic info for each lossy data type. Alpha
+/// deeper than 12 bits clears modular_16_bit_buffer_sufficient, so
+/// VerifyLevelSettings requires level 10 and the original writes a container
+/// (step 3); the raw-codestream profile keeps alpha at 12 bits or less.
+const ALPHA_DEPTHS: [&str; 4] = [",ab:8", ",ab:12", ",ab:8", ",ab:10"];
+
+/// One lossy history with an alpha channel: interleaved (gray-alpha or RGBA)
+/// or, with `separate`, color plus a JxlEncoderSetExtraChannelBuffer alpha
+/// plane. `alpha_mode` is the content generator's: 1 opaque, 2 a ramp with
+/// transparent stripes, 3 a ramp without zeros.
+#[expect(clippy::too_many_arguments, reason = "One history's fields")]
+fn alpha_history(
+    xsize: usize,
+    ysize: usize,
+    gray: bool,
+    type_index: usize,
+    content: usize,
+    alpha_mode: usize,
+    distance: f32,
+    variant: usize,
+    separate: bool,
+    extra_info: &str,
+    extra_settings: &str,
+) -> String {
+    let (data_type, bytes, depth) = LOSSY_TYPES[type_index];
+    let color_channels = if gray { 1 } else { 3 };
+    let channels = if separate {
+        color_channels
+    } else {
+        color_channels + 1
+    };
+    let endianness = variant % 3;
+    let align = [0, 1, 4, 16, 3][variant % 5];
+    let stride = |channels: usize| {
+        let row = xsize * channels * bytes;
+        let stride = if align < 2 || row.is_multiple_of(align) {
+            row
+        } else {
+            row + align - row % align
+        };
+        stride * (ysize - 1) + row
+    };
+    let size = stride(channels) + usize::from(variant % 4 == 3) * 5;
+    let mut info = format!(
+        "Bw:{xsize},h:{ysize}{depth},ec:1{}{extra_info}",
+        ALPHA_DEPTHS[type_index]
+    );
+    if gray {
+        info.push_str(",c:1");
+    }
+    if variant % 7 == 2 {
+        info.push_str(&format!(",it:{}", bits(100.0)));
+    }
+    let color = match variant % 3 {
+        0 => String::new(),
+        1 => format!(" G{}", u8::from(gray)),
+        _ => format!(" g{}", u8::from(gray)),
+    };
+    let content = content + 16 * alpha_mode;
+    let mut frame =
+        format!("a0,{channels},{data_type},{endianness},{align},{size},{content},{xsize},{ysize}");
+    if separate {
+        frame.push_str(&format!(
+            " E0,1,{data_type},{endianness},{align},{},0,{content},{xsize},{ysize}",
+            stride(1)
+        ));
+    }
+    let encoded_bound = xsize * ysize * (channels + 1) * 4 + 2048;
+    format!(
+        "{info}{color} s- d0,{}{extra_settings} {frame} Z {}",
+        bits(distance),
+        output_schedule(encoded_bound)
+    )
+}
+
+/// Encoder step 4: lossy VarDCT with one lossless alpha channel at the
+/// default settings, 8- and 16-bit integer input, interleaved RGBA and
+/// gray-alpha rows, transparent and translucent alpha (SimplifyInvisible),
+/// sizes from 1x1 to 512x1024 through the one-shot path.
+#[test]
+fn public_encoder_lossy_vardct_alpha_small_sizes_match_original() {
+    let mut sizes = vec![(1, 1), (7, 7), (8, 8), (9, 17)];
+    sizes.extend((41..=48).map(|x| (x, 15)));
+    let mut requests = Vec::new();
+    let mut variant = 0;
+    for &(xsize, ysize) in &sizes {
+        for gray in [false, true] {
+            for type_index in 0..2 {
+                for alpha_mode in [2, 3] {
+                    let distance = LOSSY_DISTANCES[variant % LOSSY_DISTANCES.len()];
+                    requests.push(run(
+                        0,
+                        0,
+                        &alpha_history(
+                            xsize,
+                            ysize,
+                            gray,
+                            type_index,
+                            1 + variant % 4,
+                            alpha_mode,
+                            distance,
+                            variant,
+                            false,
+                            "",
+                            "",
+                        ),
+                    ));
+                    variant += 1;
+                }
+            }
+        }
+    }
+    compare_admitted("alpha-small", requests);
+}
+
+#[test]
+fn public_encoder_lossy_vardct_alpha_large_sizes_match_original() {
+    let mut requests = Vec::new();
+    let mut variant = 0;
+    for &(xsize, ysize) in &[(63, 129), (256, 256), (257, 255), (512, 1024)] {
+        for gray in [false, true] {
+            for alpha_mode in [2, 3] {
+                let distance = [1.0, 2.9, 0.5, 1.5, 0.7][variant % 5];
+                requests.push(run(
+                    0,
+                    0,
+                    &alpha_history(
+                        xsize,
+                        ysize,
+                        gray,
+                        variant % 2,
+                        4,
+                        alpha_mode,
+                        distance,
+                        variant,
+                        false,
+                        "",
+                        "",
+                    ),
+                ));
+                variant += 1;
+            }
+        }
+    }
+    compare_admitted("alpha-large", requests);
+}
+
 /// The codestream bytes of a history's ProcessOutput results (an observation
 /// line of either implementation).
 fn output_bytes(text: &str) -> Vec<u8> {

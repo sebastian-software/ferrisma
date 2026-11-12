@@ -66,6 +66,7 @@
 //!   source distinguishes a null pointer; output pointers of ProcessOutput
 //!   stay raw because the output wrapper retains them.
 
+use super::base::byte_order::swap_endianness;
 use super::base::status::StatusCode;
 use super::cms::jxl_cms::get_default_cms;
 use super::cms_interface::JxlCmsInterface;
@@ -1907,6 +1908,224 @@ fn must_use_container(enc: &JxlEncoder, output_mode: i32) -> bool {
         || output_mode == 2
 }
 
+/// IsAlphaBufferOpaque.
+fn is_alpha_buffer_opaque(
+    buffer: Option<&[u8]>,
+    format: &JxlPixelFormat,
+    xsize: usize,
+    ysize: usize,
+    row_offset: usize,
+    alpha_c: usize,
+    alpha_bits: usize,
+) -> bool {
+    let Some(p) = buffer else {
+        return false;
+    };
+    if format.num_channels as usize <= alpha_c {
+        return false;
+    }
+    let bytes_per_pixel = super::encode_internal::bytes_per_pixel(*format);
+    if bytes_per_pixel == 0 {
+        return false;
+    }
+    let swap = swap_endianness(format.endianness);
+    if format.data_type == JxlDataType::UINT8 {
+        let offset = alpha_c;
+        let expected: u8 = if alpha_bits > 0 && alpha_bits <= 8 {
+            ((1u32 << alpha_bits) - 1) as u8
+        } else {
+            255
+        };
+        for y in 0..ysize {
+            let row = &p[y * row_offset..];
+            for x in 0..xsize {
+                if row[x * bytes_per_pixel + offset] != expected {
+                    return false;
+                }
+            }
+        }
+        true
+    } else if format.data_type == JxlDataType::UINT16 {
+        let offset = alpha_c * 2;
+        let expected: u16 = if alpha_bits > 0 && alpha_bits <= 16 {
+            ((1u32 << alpha_bits) - 1) as u16
+        } else {
+            65535
+        };
+        for y in 0..ysize {
+            let row = &p[y * row_offset..];
+            for x in 0..xsize {
+                let at = x * bytes_per_pixel + offset;
+                let mut val = u16::from_ne_bytes([row[at], row[at + 1]]);
+                if swap {
+                    val = val.swap_bytes();
+                }
+                if val != expected {
+                    return false;
+                }
+            }
+        }
+        true
+    } else if format.data_type == JxlDataType::FLOAT {
+        let offset = alpha_c * 4;
+        for y in 0..ysize {
+            let row = &p[y * row_offset..];
+            for x in 0..xsize {
+                let at = x * bytes_per_pixel + offset;
+                let mut bits = u32::from_ne_bytes(row[at..at + 4].try_into().unwrap());
+                if swap {
+                    bits = bits.swap_bytes();
+                }
+                if bits != 0x3F80_0000 {
+                    return false;
+                }
+            }
+        }
+        true
+    } else if format.data_type == JxlDataType::FLOAT16 {
+        let offset = alpha_c * 2;
+        for y in 0..ysize {
+            let row = &p[y * row_offset..];
+            for x in 0..xsize {
+                let at = x * bytes_per_pixel + offset;
+                let mut bits = u16::from_ne_bytes([row[at], row[at + 1]]);
+                if swap {
+                    bits = bits.swap_bytes();
+                }
+                if bits != 0x3C00 {
+                    return false;
+                }
+            }
+        }
+        true
+    } else {
+        false
+    }
+}
+
+/// The alpha stripping decision of ProcessOneEnqueuedInput before the first
+/// output: strip alpha when it is forced, or when the single extra channel of
+/// a single-frame still is fully opaque (IsAlphaBufferOpaque over chunks).
+fn strip_opaque_alpha(enc: &mut JxlEncoder) {
+    const STRIP_ALPHA_AUTO: i32 = -1;
+    const STRIP_ALPHA_IF_OPAQUE: i32 = 2;
+    let first_frame = enc.input_queue.iter().position(|qi| qi.frame.is_some());
+
+    if !enc.metadata.m.has_alpha() {
+        return;
+    }
+    let alpha_ec_idx = enc
+        .metadata
+        .m
+        .extra_channel_info
+        .iter()
+        .position(|eci| eci.channel_type == ExtraChannel::ALPHA)
+        .expect("HasAlpha");
+    let alpha_bits = enc.metadata.m.extra_channel_info[alpha_ec_idx]
+        .bit_depth
+        .bits_per_sample as usize;
+    let frame = first_frame.map(|i| enc.input_queue[i].frame.as_deref().expect("frame"));
+    let strip_alpha = frame.map_or(STRIP_ALPHA_AUTO, |f| f.option_values.strip_alpha);
+    let is_lossless = frame.is_some_and(|f| f.option_values.lossless);
+
+    // Only auto-strip alpha for single-frame images with exactly one extra
+    // channel.
+    let is_multiframe_or_animation = enc.metadata.m.have_animation
+        || !enc.frames_closed
+        || enc.num_queued_frames != 1
+        || enc.metadata.m.num_extra_channels != 1;
+
+    let mut should_strip =
+        strip_alpha == STRIP_ALPHA_FORCE && enc.metadata.m.num_extra_channels == 1;
+
+    // Check if alpha can be stripped because it is fully opaque.
+    if let Some(first_frame) = frame
+        && !should_strip
+        && !is_multiframe_or_animation
+        && alpha_ec_idx < first_frame.ec_initialized.len()
+        && first_frame.ec_initialized[alpha_ec_idx] != 0
+        && (strip_alpha == STRIP_ALPHA_IF_OPAQUE
+            || (strip_alpha == STRIP_ALPHA_AUTO && !is_lossless))
+    {
+        // The buffer-backed input source sets every callback.
+        let src = &first_frame.frame_data;
+        let color_fmt = src.get_color_channels_pixel_format();
+        let has_interleaved = color_fmt.num_channels == 2 || color_fmt.num_channels == 4;
+        let has_extra_channel = !has_interleaved;
+        if has_interleaved || has_extra_channel {
+            let ec_fmt = if has_extra_channel {
+                src.get_extra_channel_pixel_format(alpha_ec_idx)
+            } else {
+                color_fmt
+            };
+            let fmt = if has_interleaved { color_fmt } else { ec_fmt };
+            let alpha_c = if has_interleaved {
+                color_fmt.num_channels as usize - 1
+            } else {
+                0
+            };
+            let is_chunk_opaque = |x: usize, y: usize, xs: usize, ys: usize| -> bool {
+                let mut row_offset = 0;
+                let buf = if has_interleaved {
+                    src.get_color_channel_data_at(x, y, xs, ys, &mut row_offset)
+                } else {
+                    src.get_extra_channel_data_at(alpha_ec_idx, x, y, xs, ys, &mut row_offset)
+                };
+                buf.is_some()
+                    && is_alpha_buffer_opaque(buf, &fmt, xs, ys, row_offset, alpha_c, alpha_bits)
+            };
+
+            const CHUNK_DIM_Y: usize = 256;
+            const CHUNK_DIM_X: usize = 2048;
+            let xsize = enc.metadata.xsize();
+            let ysize = enc.metadata.ysize();
+            let mut all_opaque = true;
+
+            let mut y = 0;
+            while y < ysize && all_opaque {
+                let chunk_ysize = CHUNK_DIM_Y.min(ysize - y);
+                let mut x = 0;
+                while x < xsize {
+                    let chunk_xsize = CHUNK_DIM_X.min(xsize - x);
+                    if !is_chunk_opaque(x, y, chunk_xsize, chunk_ysize) {
+                        all_opaque = false;
+                        break;
+                    }
+                    x += CHUNK_DIM_X;
+                }
+                y += CHUNK_DIM_Y;
+            }
+            should_strip = all_opaque;
+        }
+    }
+
+    if should_strip {
+        enc.metadata.m.extra_channel_info.remove(alpha_ec_idx);
+        enc.metadata.m.num_extra_channels -= 1;
+        enc.basic_info.num_extra_channels = enc.metadata.m.num_extra_channels;
+        enc.basic_info.alpha_bits = 0;
+        enc.basic_info.alpha_exponent_bits = 0;
+        enc.basic_info.alpha_premultiplied = 0;
+
+        for qi in &mut enc.input_queue {
+            if let Some(frame) = qi.frame.as_deref_mut() {
+                if alpha_ec_idx < frame.ec_initialized.len() {
+                    frame.ec_initialized.remove(alpha_ec_idx);
+                }
+                if alpha_ec_idx < frame.option_values.extra_channel_blend_info.len() {
+                    frame
+                        .option_values
+                        .extra_channel_blend_info
+                        .remove(alpha_ec_idx);
+                }
+                if alpha_ec_idx < frame.option_values.cparams.ec_distance.len() {
+                    frame.option_values.cparams.ec_distance.remove(alpha_ec_idx);
+                }
+            }
+        }
+    }
+}
+
 /// JxlEncoder::ProcessOneEnqueuedInput for raw codestream output: the
 /// metadata header and one frame through EncodeFrame. The branches that
 /// enter untranslated units are admission results at their checkpoints:
@@ -1923,13 +2142,7 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
 
     let mut header_bytes: Vec<u8> = Vec::new();
     if !enc.wrote_bytes {
-        if enc.metadata.m.has_alpha() {
-            // The alpha stripping decision and its opacity scan, and the
-            // extra-channel frame encode after it, are step 4.
-            return Err(EnqueuedInputFailure::Admission(
-                JxlEncoderAdmission::EnqueuedInput,
-            ));
-        }
+        strip_opaque_alpha(enc);
 
         // First time encoding any data, verify the level 5 vs level 10 settings
         let required_level = verify_level_settings(enc);
