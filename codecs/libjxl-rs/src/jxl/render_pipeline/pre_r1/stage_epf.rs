@@ -80,6 +80,7 @@ impl RenderPipelineStage for EPFStage<'_> {
         clippy::manual_is_multiple_of,
         reason = "Mirror the source modulo test."
     )]
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     fn process_row(
         &mut self,
         input: &RowInfo,
