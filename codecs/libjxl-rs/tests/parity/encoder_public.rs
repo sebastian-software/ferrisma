@@ -1148,6 +1148,78 @@ fn public_encoder_lossy_vardct_admissions_and_rejections_match_original() {
     compare("lossy-admissions", requests);
 }
 
+/// The codestream bytes that one Rust history wrote through ProcessOutput.
+fn encoded_bytes(request: &str) -> Vec<u8> {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("epub-run"));
+    let observation = driver::observe(&mut args);
+    assert!(
+        observation.admission.is_none(),
+        "admitted history: {request}"
+    );
+    let mut bytes = Vec::new();
+    for field in observation.text.split(' ') {
+        let Some(result) = field.strip_prefix("p:") else {
+            continue;
+        };
+        let parts: Vec<&str> = result.split(',').collect();
+        let written: usize = parts[1].parse().unwrap();
+        let hex = parts[3].split('/').next().unwrap();
+        for i in 0..written {
+            bytes.push(u8::from_str_radix(&hex[2 * i..2 * i + 2], 16).unwrap());
+        }
+    }
+    bytes
+}
+
+/// Decode-back: the Rust encoder's codestreams, which equal the original's
+/// byte for byte (see the families above), decoded by the Rust public decoder
+/// and by the original decoder give identical events, metadata and pixels
+/// (float and uint8 output, whole-file and small input chunks).
+#[test]
+fn public_encoder_lossy_vardct_decode_back_matches_original_decoder() {
+    let mut sizes = vec![
+        (1, 1),
+        (7, 7),
+        (8, 8),
+        (9, 17),
+        (43, 15),
+        (63, 129),
+        (257, 255),
+    ];
+    sizes.push((512, 1024));
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize)) in sizes.iter().enumerate() {
+        for gray in [false, true] {
+            let variant = index * 3 + usize::from(gray);
+            let distance = LOSSY_DISTANCES[variant % LOSSY_DISTANCES.len()];
+            let history = run(
+                0,
+                0,
+                &lossy_history(
+                    xsize,
+                    ysize,
+                    gray,
+                    variant % 4,
+                    1 + variant % 4,
+                    distance,
+                    variant,
+                    "",
+                    "",
+                ),
+            );
+            let file = driver::hex(&encoded_bytes(&history));
+            requests.push(format!(
+                "dpub-run 0 0 {file} s5184 F3.0.0.0.0 L1,1000000,0,1000,1"
+            ));
+            requests.push(format!(
+                "dpub-run 0 0 {file} s5120 F4.2.0.0.0 L2,64,0,1000,1"
+            ));
+        }
+    }
+    super::decoder_public::compare("lossy-decode-back", requests);
+}
+
 #[test]
 fn public_encoder_lossy_vardct_smoke_matches_original() {
     let mut requests = Vec::new();
