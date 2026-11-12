@@ -189,7 +189,9 @@ def main():
                 'source_captures':36,'actual_registered_crate_library_sha256':sha(lib),
                 'rust_binary_sha256':sha(binary),'source_binary_sha256':sha(originals[graph]),
                 'observation_sha256':sha(out/f'rust-{profile}.txt')}
-    run('clippy',['cargo','clippy','--locked','--offline','--all-targets','--all-features','--','-D','warnings'],env)
+    # The port keeps stable Clippy (docs/codecs.md); the pinned nightly lints
+    # the mechanical translation differently, as tools/check.py also avoids.
+    run('clippy',['cargo','+stable','clippy','--locked','--offline','--all-targets','--all-features','--','-D','warnings'],env)
     report.update({'requests':6165,'encoder_requests':84,'capture_requests':36,
                    'observation_bytes':(out/'ordinary.txt').stat().st_size,
                    'observation_sha256':sha(out/'ordinary.txt'),
