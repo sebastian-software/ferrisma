@@ -872,6 +872,6 @@ triples (and assert that the corpus observes operand order and promotion);
 the existing exceptional-word stage comparisons and the complete test stage
 pass against the pinned original. Re-evaluate together with the other
 boundaries after a compiler, target or source change; a fused per-lane
-kernel would need its own codegen evidence (see section 8 of
+kernel would need its own codegen evidence (see section 9 of
 `docs/benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md` at the
 repository root).
