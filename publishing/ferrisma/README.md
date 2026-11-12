@@ -5,7 +5,9 @@ been published. Keep `npm/` and `crate/` as the source of those placeholder
 releases, including their original repository URLs. The commands below record
 the original publication procedure; version `0.0.0` must not be published again.
 Future functional releases come from the renamed engine or actual bindings,
-with a new version and their existing release gates.
+with a new version and their existing release gates. The crates.io
+dependency chain and release procedure for those releases are in
+[docs/publishing.md](../../docs/publishing.md).
 
 These temporary publication artifacts use the name `ferrisma` and version
 `0.0.0` on npm and crates.io. They identify the experimental image pipeline
