@@ -11,7 +11,7 @@ use crate::decoder::{
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
-use ferrisma_jxl_decoder::{ImageInfo, Region, Transfer, decode_region_into, inspect};
+use ferrisma_jxl_decoder::{ImageInfo, Region, Transfer, decode_into, decode_region_into, inspect};
 
 pub(crate) struct JxlSource<'a> {
     bytes: &'a [u8],
@@ -106,31 +106,40 @@ impl DecodeSource for JxlSource<'_> {
             return Err(Error::OutOfBounds);
         }
         // The decoder reconstructs the full frame; only the requested
-        // upright rows and columns are retained, in a budgeted buffer.
+        // upright rows and columns are retained, in a budgeted buffer. A
+        // full-frame request uses the output-buffer path, which yields the
+        // same samples without a callback per run (per pixel for the
+        // transposing orientations).
         let wanted = Region {
             x: region.x,
             y: region.y,
             width: region.width,
             height: region.height,
         };
+        let full_frame = wanted == Region::full(&self.image);
         let samples = self.image.region_sample_count(wanted).map_err(map_error)?;
         let mut retained = budget.allocate_typed::<f32>(samples)?;
-        decode_region_into(
-            self.bytes,
-            &self.image,
-            wanted,
-            retained.as_mut_slice(),
-            self.max_pixels,
-        )
+        if full_frame {
+            decode_into(
+                self.bytes,
+                &self.image,
+                retained.as_mut_slice(),
+                self.max_pixels,
+            )
+        } else {
+            decode_region_into(
+                self.bytes,
+                &self.image,
+                wanted,
+                retained.as_mut_slice(),
+                self.max_pixels,
+            )
+        }
         .map_err(map_error)?;
         let row_len = region.width as usize * self.image.channels as usize;
         for (y, row) in (region.y..).zip(retained.as_slice().chunks_exact(row_len)) {
             sink(y, DecodedRow::F32(row))?;
         }
-        let full_frame = region.x == 0
-            && region.y == 0
-            && region.width == self.info.size.width
-            && region.height == self.info.size.height;
         Ok(DecodeReport {
             requested: region,
             access: DecodeAccess::FullFrameFallback,

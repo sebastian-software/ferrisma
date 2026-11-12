@@ -5,9 +5,11 @@
 //! jxl_conformance_wrapper input.jxl out.npy --icc_out f --metadata_out f [ignored flags]
 //! ```
 //!
-//! It emits exactly what the engine receives: the upright F32 frame through
-//! `decode_region_into` (the engine's image-out callback path) with the full
-//! region, and the DATA ICC from `inspect`. The runner transforms these
+//! It emits exactly what the engine receives: the upright F32 frame and the
+//! DATA ICC from `inspect`. The frame goes through `decode_region_into` with
+//! the full region, so every case exercises the image-out callback that the
+//! engine uses for crops; for full-frame reads the engine uses `decode_into`,
+//! whose samples the wrapper tests prove bit-identical. The runner transforms these
 //! samples from that profile to the reference profile, so a profile that
 //! misdescribes the samples fails the tolerance check. Inputs the wrapper
 //! rejects by design (animation, non-alpha extra channels, float samples)
