@@ -1,0 +1,98 @@
+{
+  "codec": "avif",
+  "original": {
+    "libavif": {
+      "version": "1.4.2",
+      "revision": "9b07a9d7a874b159bb4e14b80a6f08bb469d06f7",
+      "source": "codecs/libavif-rs/upstream/libavif (tracked snapshot)",
+      "cmake_flags": "-G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/home/runner/_work/ferrisma/ferrisma/bench/work/c-prefix -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_PREFIX_PATH=/home/runner/_work/ferrisma/ferrisma/bench/work/c-prefix -DBUILD_SHARED_LIBS=OFF -DAVIF_CODEC_AOM=SYSTEM -DAVIF_CODEC_DAV1D=SYSTEM -DAVIF_LIBYUV=OFF -DAVIF_LIBSHARPYUV=OFF -DAVIF_BUILD_APPS=OFF -DAVIF_BUILD_TESTS=OFF -DAVIF_BUILD_EXAMPLES=OFF"
+    },
+    "libaom": {
+      "component": "libaom 3.15.2",
+      "revision": "af3dc9aadc793c1b00edc003e3fc19a44fdeb574",
+      "tag": "v3.15.2",
+      "source": "codecs/libavif-rs/upstream/aom (tracked snapshot)",
+      "cmake_flags": "-G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/home/runner/_work/ferrisma/ferrisma/bench/work/c-prefix -DCMAKE_INSTALL_LIBDIR=lib -DENABLE_TESTS=0 -DENABLE_TESTDATA=0 -DENABLE_EXAMPLES=0 -DENABLE_DOCS=0 -DENABLE_TOOLS=0 -DENABLE_APPS=0",
+      "config_simd": {
+        "AOM_ARCH_AARCH64": "0",
+        "AOM_ARCH_ARM": "0",
+        "AOM_ARCH_PPC": "0",
+        "AOM_ARCH_RISCV": "0",
+        "AOM_ARCH_X86": "0",
+        "AOM_ARCH_X86_64": "1",
+        "CONFIG_AV1_HIGHBITDEPTH": "1",
+        "CONFIG_MULTITHREAD": "1",
+        "CONFIG_REALTIME_ONLY": "0",
+        "CONFIG_RUNTIME_CPU_DETECT": "1",
+        "HAVE_ARM_CRC32": "0",
+        "HAVE_AVX": "1",
+        "HAVE_AVX2": "1",
+        "HAVE_AVX512": "1",
+        "HAVE_MMX": "1",
+        "HAVE_NEON": "0",
+        "HAVE_NEON_DOTPROD": "0",
+        "HAVE_NEON_I8MM": "0",
+        "HAVE_SSE": "1",
+        "HAVE_SSE2": "1",
+        "HAVE_SSE3": "1",
+        "HAVE_SSE4_1": "1",
+        "HAVE_SSE4_2": "1",
+        "HAVE_SSSE3": "1",
+        "HAVE_SVE": "0",
+        "HAVE_SVE2": "0"
+      },
+      "rtcd_selection": "upstream-release(runtime-cpu-detect)"
+    },
+    "dav1d": {
+      "component": "dav1d 1.5.4",
+      "revision": "54706fc6bc0cdecab7e9593974a4039cc038fca7",
+      "tag": "1.5.4",
+      "source": "codecs/libavif-rs/upstream/dav1d (tracked snapshot)",
+      "meson_flags": "--buildtype=release --default-library=static --prefix=/home/runner/_work/ferrisma/ferrisma/bench/work/c-prefix --libdir=lib -Denable_tools=false -Denable_tests=false -Denable_examples=false",
+      "config": {
+        "ARCH_AARCH64": "0",
+        "ARCH_ARM": "0",
+        "ARCH_LOONGARCH": "0",
+        "ARCH_LOONGARCH32": "0",
+        "ARCH_LOONGARCH64": "0",
+        "ARCH_PPC64LE": "0",
+        "ARCH_RISCV": "0",
+        "ARCH_RV32": "0",
+        "ARCH_RV64": "0",
+        "ARCH_X86": "1",
+        "ARCH_X86_32": "0",
+        "ARCH_X86_64": "1",
+        "CONFIG_16BPC": "1",
+        "CONFIG_8BPC": "1",
+        "CONFIG_LOG": "1",
+        "HAVE_ASM": "1",
+        "HAVE_DOTPROD": "0",
+        "HAVE_I8MM": "0",
+        "HAVE_SVE": "0",
+        "HAVE_SVE2": "0"
+      }
+    },
+    "repo_tooling": "not reused: tools/build_aom.py and tools/build.py build the portable AOM_TARGET_CPU=generic, -ffp-contract=off oracle (no SIMD); this script builds the upstream release configuration instead",
+    "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "cmake": "cmake version 3.31.6",
+    "meson": "1.3.2",
+    "drivers": {
+      "encode": "tools/encode_still.c + encode_us timer (copied)",
+      "decode": "decode_still.c written by codec_avif.sh",
+      "cflags": "-O2"
+    }
+  },
+  "port": {
+    "packages": [
+      "libavif-rs (lib avif)",
+      "libavif-aom",
+      "libavif-dav1d",
+      "ferrisma-avif-read"
+    ],
+    "build": "cargo build --release --locked -p libavif-rs --example encode_still; cargo build --release --locked -p ferrisma-avif-read --example decode_still",
+    "rustc": "rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)\nbinary: rustc\ncommit-hash: 5a2be9f5f075d31e3ca5526b5b029881ce441253\ncommit-date: 2026-09-06\nhost: x86_64-unknown-linux-gnu\nrelease: 1.100.0-nightly\nLLVM version: 23.1.1",
+    "simd": "AOM encoder: hand-translated Neon (macOS ARM64) or SSE2/SSE4.1/AVX2 (x86-64 Linux) kernels through translated RTCD (ADR 0056/0058); dav1d port and the AOM decoder paths without kernels are portable C translations (no assembly)",
+    "rtcd_selection": "simd(avx2)",
+    "decoder_backend": "ferrisma-avif-read pins AVIF_CODEC_CHOICE_AOM (the AOM decoder port)"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "photo12-e7d1.jxl": {
+    "made_by": "cjxl -e 7 -d 1 (VarDCT)",
+    "bytes": 2057280,
+    "sha256": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c"
+  },
+  "photo12-d0e7.jxl": {
+    "made_by": "cjxl -e 7 -d 0 (lossless modular)",
+    "bytes": 7762511,
+    "sha256": "ae0fe10b504c1d40890b405cbd824f78e5a432a925ab24fd5163d258a648df19"
+  },
+  "photo24-e7d1.jxl": {
+    "made_by": "cjxl -e 7 -d 1 (VarDCT)",
+    "bytes": 3755347,
+    "sha256": "92746275e8b9fa34f35ec5aeda932c60c76286702654d4e2c03cb5fc356d6ed5"
+  },
+  "photo24-d0e7.jxl": {
+    "made_by": "cjxl -e 7 -d 0 (lossless modular)",
+    "bytes": 21601913,
+    "sha256": "b105672b1426888a8478401c7082817cae3cde238e5e5405db1490265ff1f6df"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "scalar_reference": "built",
+  "encode": {
+    "photo12": {
+      "settings": "effort 7, distance 1, 8-bit sRGB RGB PPM, bare codestream",
+      "sha256": {
+        "port": "d65d5c60e5aac6394f594defdda683edf2852cf28db09221a27e74c1832f226f",
+        "c-t1": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+        "c-tN": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+        "scalar": "d65d5c60e5aac6394f594defdda683edf2852cf28db09221a27e74c1832f226f"
+      },
+      "bytes": {
+        "port": 2057281,
+        "c-t1": 2057280,
+        "c-tN": 2057280,
+        "scalar": 2057281
+      },
+      "port_equals_scalar_reference": true,
+      "port_equals_simd_release": false,
+      "simd_t1_equals_simd_tN": true,
+      "notes": "The byte-exact gate is the scalar reference (the repository's differential-oracle configuration); SIMD builds may choose differently in float-heavy heuristics (ENCODER_EXPANSION.md)."
+    }
+  },
+  "decode": {
+    "photo12": {
+      "port_vs_oxide_vardct": {
+        "raw": "samples=36578304 max_abs_diff=0.000166178 mean_abs_diff=0.000025739",
+        "max_abs_diff": 0.000166178,
+        "mean_abs_diff": 2.5739e-05,
+        "notes": "F32 samples, jxl_decode_compare compare mode"
+      },
+      "port_vs_oxide_lossless": {
+        "raw": "samples=36578304 max_abs_diff=0.000000060 mean_abs_diff=0.000000011",
+        "max_abs_diff": 6e-08,
+        "mean_abs_diff": 1.1e-08,
+        "notes": "F32 samples, jxl_decode_compare compare mode"
+      },
+      "c_lossless_roundtrip_identical": true
+    },
+    "photo24": {
+      "port_vs_oxide_vardct": {
+        "raw": "samples=72000000 max_abs_diff=0.000166297 mean_abs_diff=0.000023361",
+        "max_abs_diff": 0.000166297,
+        "mean_abs_diff": 2.3361e-05,
+        "notes": "F32 samples, jxl_decode_compare compare mode"
+      },
+      "port_vs_oxide_lossless": {
+        "raw": "samples=72000000 max_abs_diff=0.000000060 mean_abs_diff=0.000000018",
+        "max_abs_diff": 6e-08,
+        "mean_abs_diff": 1.8e-08,
+        "notes": "F32 samples, jxl_decode_compare compare mode"
+      },
+      "c_lossless_roundtrip_identical": true
+    }
+  }
+}

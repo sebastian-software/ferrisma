@@ -1,0 +1,3248 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "group": "engine/encode/photo12",
+    "candidates": [
+      {
+        "id": "jpeg-q90>webp-q75:2048w:t1",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-webp-q75-r-t1.webp",
+          "2048",
+          "1536",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-webp-q75-r-t1.webp",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "webp-q75",
+          "size": "12",
+          "resize": "2048x1536",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1536
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>webp-q75:2048w:tN",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-webp-q75-r-t0.webp",
+          "2048",
+          "1536",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-webp-q75-r-t0.webp",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "webp-q75",
+          "size": "12",
+          "resize": "2048x1536",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1536
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>webp-q75:full:t1",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-webp-q75-n-t1.webp",
+          "4032",
+          "3024",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-webp-q75-n-t1.webp",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "webp-q75",
+          "size": "12",
+          "resize": "none",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            4032,
+            3024
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>webp-q75:full:tN",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-webp-q75-n-t0.webp",
+          "4032",
+          "3024",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-webp-q75-n-t0.webp",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "webp-q75",
+          "size": "12",
+          "resize": "none",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            4032,
+            3024
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>avif-rav1e:2048w:t1",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-avif-rav1e-r-t1.avif",
+          "2048",
+          "1536",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--avif-encoder=rav1e"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-avif-rav1e-r-t1.avif",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "avif-rav1e",
+          "size": "12",
+          "resize": "2048x1536",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1536
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>avif-rav1e:2048w:tN",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-avif-rav1e-r-t0.avif",
+          "2048",
+          "1536",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--avif-encoder=rav1e"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-avif-rav1e-r-t0.avif",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "avif-rav1e",
+          "size": "12",
+          "resize": "2048x1536",
+          "threads": 0,
+          "encoder_threads": 0,
+          "dims_out": [
+            2048,
+            1536
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>avif-rav1e:full:t1",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-avif-rav1e-n-t1.avif",
+          "4032",
+          "3024",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--avif-encoder=rav1e"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-avif-rav1e-n-t1.avif",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "avif-rav1e",
+          "size": "12",
+          "resize": "none",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            4032,
+            3024
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>avif-rav1e:full:tN",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-avif-rav1e-n-t0.avif",
+          "4032",
+          "3024",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=0",
+          "--transform-threads=0",
+          "--avif-encoder=rav1e"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-avif-rav1e-n-t0.avif",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "avif-rav1e",
+          "size": "12",
+          "resize": "none",
+          "threads": 0,
+          "encoder_threads": 0,
+          "dims_out": [
+            4032,
+            3024
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>jxl-lossless-e2:2048w:t1",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossless-e2-r-t1.jxl",
+          "2048",
+          "1536",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-lossless"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossless-e2-r-t1.jxl",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "jxl-lossless-e2",
+          "size": "12",
+          "resize": "2048x1536",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1536
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>jxl-lossless-e2:2048w:tN",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossless-e2-r-t0.jxl",
+          "2048",
+          "1536",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-lossless"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossless-e2-r-t0.jxl",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "jxl-lossless-e2",
+          "size": "12",
+          "resize": "2048x1536",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1536
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>jxl-lossless-e2:full:t1",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossless-e2-n-t1.jxl",
+          "4032",
+          "3024",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-lossless"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossless-e2-n-t1.jxl",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "jxl-lossless-e2",
+          "size": "12",
+          "resize": "none",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            4032,
+            3024
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>jxl-lossless-e2:full:tN",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossless-e2-n-t0.jxl",
+          "4032",
+          "3024",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-lossless"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossless-e2-n-t0.jxl",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "jxl-lossless-e2",
+          "size": "12",
+          "resize": "none",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            4032,
+            3024
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>jxl-lossy-d1:2048w:t1",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossy-d1-r-t1.jxl",
+          "2048",
+          "1536",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-distance=1.0"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossy-d1-r-t1.jxl",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "jxl-lossy-d1",
+          "size": "12",
+          "resize": "2048x1536",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1536
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>jxl-lossy-d1:2048w:tN",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossy-d1-r-t0.jxl",
+          "2048",
+          "1536",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-distance=1.0"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossy-d1-r-t0.jxl",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "jxl-lossy-d1",
+          "size": "12",
+          "resize": "2048x1536",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            2048,
+            1536
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>jxl-lossy-d1:full:t1",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossy-d1-n-t1.jxl",
+          "4032",
+          "3024",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=1",
+          "--jxl-distance=1.0"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossy-d1-n-t1.jxl",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "jxl-lossy-d1",
+          "size": "12",
+          "resize": "none",
+          "threads": 1,
+          "encoder_threads": 1,
+          "dims_out": [
+            4032,
+            3024
+          ]
+        }
+      },
+      {
+        "id": "jpeg-q90>jxl-lossy-d1:full:tN",
+        "cmd": [
+          "/home/runner/_work/ferrisma/ferrisma/target/release/examples/cli_subset",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/photo12-q90.jpg",
+          "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossy-d1-n-t0.jxl",
+          "4032",
+          "3024",
+          "--assume-srgb",
+          "--budget-mb=4096",
+          "--max-output-mb=1024",
+          "--max-input-mb=1024",
+          "--encoder-threads=1",
+          "--transform-threads=0",
+          "--jxl-distance=1.0"
+        ],
+        "output": "/home/runner/_work/ferrisma/ferrisma/bench/work/out/jpeg-q90-jxl-lossy-d1-n-t0.jxl",
+        "meta": {
+          "part": "encode",
+          "input": "jpeg-q90",
+          "output": "jxl-lossy-d1",
+          "size": "12",
+          "resize": "none",
+          "threads": 0,
+          "encoder_threads": 1,
+          "dims_out": [
+            4032,
+            3024
+          ]
+        }
+      }
+    ]
+  },
+  "platform": "Linux-6.6.141-aarch64-with-glibc2.39",
+  "machine": "aarch64",
+  "cpus": 4,
+  "uptime_before": "20:47:41 up 3 min,  0 user,  load average: 1.95, 1.23, 0.50",
+  "uptime_after": "21:11:06 up 26 min,  0 user,  load average: 1.08, 1.06, 1.00",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "complete": true,
+  "summary": {
+    "jpeg-q90>webp-q75:2048w:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 0.748861659999875,
+      "wall_min_s": 0.7465505989999883,
+      "wall_max_s": 0.7512924560000442,
+      "load_min": 1.00634765625,
+      "load_max": 1.212890625,
+      "rss_median_bytes": 37990400,
+      "rss_max_bytes": 37990400,
+      "internal_median_ms": 741.372,
+      "internal_min_ms": 739.632,
+      "internal_max_ms": 743.877,
+      "report_median": {
+        "open_us": 4383,
+        "decode_us": 57737,
+        "transform_us": 137394,
+        "encode_us": 535729,
+        "total_us": 741372,
+        "output_bytes": 260984,
+        "peak_managed_bytes": 30956464,
+        "encoder_frame_bytes": 17301504,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b"
+      ],
+      "output_bytes": [
+        260984
+      ]
+    },
+    "jpeg-q90>webp-q75:2048w:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 0.6598811090000254,
+      "wall_min_s": 0.6581807519999074,
+      "wall_max_s": 0.6734495410000818,
+      "load_min": 1.00634765625,
+      "load_max": 1.212890625,
+      "rss_median_bytes": 40034304,
+      "rss_max_bytes": 40833024,
+      "internal_median_ms": 652.311,
+      "internal_min_ms": 650.688,
+      "internal_max_ms": 666.01,
+      "report_median": {
+        "open_us": 4589,
+        "decode_us": 58855,
+        "transform_us": 46526,
+        "encode_us": 535985,
+        "total_us": 652311,
+        "output_bytes": 260984,
+        "peak_managed_bytes": 31964912,
+        "encoder_frame_bytes": 17301504,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b"
+      ],
+      "output_bytes": [
+        260984
+      ]
+    },
+    "jpeg-q90>webp-q75:full:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 2.3935731849999797,
+      "wall_min_s": 2.3857232699999713,
+      "wall_max_s": 2.406397556999991,
+      "load_min": 1.00537109375,
+      "load_max": 1.2314453125,
+      "rss_median_bytes": 123600896,
+      "rss_max_bytes": 123600896,
+      "internal_median_ms": 2384.644,
+      "internal_min_ms": 2377.143,
+      "internal_max_ms": 2397.576,
+      "report_median": {
+        "open_us": 17115,
+        "decode_us": 57811,
+        "transform_us": 192011,
+        "encode_us": 2112991,
+        "total_us": 2384644,
+        "output_bytes": 980470,
+        "peak_managed_bytes": 71120560,
+        "encoder_frame_bytes": 67060224,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b"
+      ],
+      "output_bytes": [
+        980470
+      ]
+    },
+    "jpeg-q90>webp-q75:full:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 2.2724841709999737,
+      "wall_min_s": 2.264553302999957,
+      "wall_max_s": 2.285767953000004,
+      "load_min": 1.00537109375,
+      "load_max": 1.2314453125,
+      "rss_median_bytes": 125902848,
+      "rss_max_bytes": 126074880,
+      "internal_median_ms": 2263.857,
+      "internal_min_ms": 2255.117,
+      "internal_max_ms": 2277.433,
+      "report_median": {
+        "open_us": 17555,
+        "decode_us": 59583,
+        "transform_us": 65314,
+        "encode_us": 2117285,
+        "total_us": 2263857,
+        "output_bytes": 980470,
+        "peak_managed_bytes": 72572080,
+        "encoder_frame_bytes": 67060224,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b"
+      ],
+      "output_bytes": [
+        980470
+      ]
+    },
+    "jpeg-q90>avif-rav1e:2048w:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 4.1628067999999985,
+      "wall_min_s": 4.144808017000059,
+      "wall_max_s": 4.170719197000153,
+      "load_min": 1.0048828125,
+      "load_max": 1.251953125,
+      "rss_median_bytes": 135745536,
+      "rss_max_bytes": 135749632,
+      "internal_median_ms": 4154.589,
+      "internal_min_ms": 4136.748,
+      "internal_max_ms": 4162.891,
+      "report_median": {
+        "open_us": 8676,
+        "decode_us": 57812,
+        "transform_us": 144393,
+        "encode_us": 3936926,
+        "total_us": 4154589,
+        "output_bytes": 214458,
+        "peak_managed_bytes": 41382832,
+        "encoder_frame_bytes": 23009280,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "050fb5ffd71f155d8b9abc85f9bc688faafeee1d3cbb8de003719659447274a4"
+      ],
+      "output_bytes": [
+        214458
+      ]
+    },
+    "jpeg-q90>avif-rav1e:2048w:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 1.2450977020000664,
+      "wall_min_s": 1.2268320180000956,
+      "wall_max_s": 1.2580491299997902,
+      "load_min": 1.0048828125,
+      "load_max": 1.251953125,
+      "rss_median_bytes": 133611520,
+      "rss_max_bytes": 133693440,
+      "internal_median_ms": 1237.168,
+      "internal_min_ms": 1219.078,
+      "internal_max_ms": 1249.942,
+      "report_median": {
+        "open_us": 8741,
+        "decode_us": 58960,
+        "transform_us": 49436,
+        "encode_us": 1110053,
+        "total_us": 1237168,
+        "output_bytes": 222120,
+        "peak_managed_bytes": 42415856,
+        "encoder_frame_bytes": 23009280,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 4,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "d0079285ebd975ded856221ad7934b3574f74e064d9b1e73d0935185548b2d77"
+      ],
+      "output_bytes": [
+        222120
+      ]
+    },
+    "jpeg-q90>avif-rav1e:full:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 15.693397984,
+      "wall_min_s": 15.687090055999988,
+      "wall_max_s": 15.742111924000028,
+      "load_min": 1.00341796875,
+      "load_max": 1.3251953125,
+      "rss_median_bytes": 475082752,
+      "rss_max_bytes": 475095040,
+      "internal_median_ms": 15684.016,
+      "internal_min_ms": 15677.697,
+      "internal_max_ms": 15731.953,
+      "report_median": {
+        "open_us": 29089,
+        "decode_us": 57827,
+        "transform_us": 220705,
+        "encode_us": 15373692,
+        "total_us": 15684016,
+        "output_bytes": 933710,
+        "peak_managed_bytes": 103450288,
+        "encoder_frame_bytes": 81100800,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "7e204e9fc3b8092c6ac25b0f588ba99ae97a57d58910f67d87f40c42cbe420d1"
+      ],
+      "output_bytes": [
+        933710
+      ]
+    },
+    "jpeg-q90>avif-rav1e:full:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 4.507867899999951,
+      "wall_min_s": 4.476672448999807,
+      "wall_max_s": 4.537185657000009,
+      "load_min": 1.0,
+      "load_max": 1.64404296875,
+      "rss_median_bytes": 452280320,
+      "rss_max_bytes": 454209536,
+      "internal_median_ms": 4497.374,
+      "internal_min_ms": 4466.727,
+      "internal_max_ms": 4526.078,
+      "report_median": {
+        "open_us": 29102,
+        "decode_us": 59101,
+        "transform_us": 78514,
+        "encode_us": 4320027,
+        "total_us": 4497374,
+        "output_bytes": 940078,
+        "peak_managed_bytes": 104821168,
+        "encoder_frame_bytes": 81100800,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 4,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "532737e64cd2f23d3ee24ecb1d18def698041791088d5ec7e5cd1a8e6f1ebf4a"
+      ],
+      "output_bytes": [
+        940078
+      ]
+    },
+    "jpeg-q90>jxl-lossless-e2:2048w:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 0.5975044130000242,
+      "wall_min_s": 0.5891328840000369,
+      "wall_max_s": 0.6146972480000841,
+      "load_min": 1.0,
+      "load_max": 1.64404296875,
+      "rss_median_bytes": 229634048,
+      "rss_max_bytes": 229634048,
+      "internal_median_ms": 575.155,
+      "internal_min_ms": 567.034,
+      "internal_max_ms": 593.606,
+      "report_median": {
+        "open_us": 4434,
+        "decode_us": 57695,
+        "transform_us": 136648,
+        "encode_us": 370413,
+        "total_us": 575155,
+        "output_bytes": 3370319,
+        "peak_managed_bytes": 88080384,
+        "encoder_frame_bytes": 88080384,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9"
+      ],
+      "output_bytes": [
+        3370319
+      ]
+    },
+    "jpeg-q90>jxl-lossless-e2:2048w:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 0.5106597900000338,
+      "wall_min_s": 0.5067635660000178,
+      "wall_max_s": 0.5184336620000067,
+      "load_min": 1.0,
+      "load_max": 1.64404296875,
+      "rss_median_bytes": 231309312,
+      "rss_max_bytes": 231591936,
+      "internal_median_ms": 489.955,
+      "internal_min_ms": 487.198,
+      "internal_max_ms": 498.721,
+      "report_median": {
+        "open_us": 4529,
+        "decode_us": 58763,
+        "transform_us": 45121,
+        "encode_us": 377620,
+        "total_us": 489955,
+        "output_bytes": 3370319,
+        "peak_managed_bytes": 88080384,
+        "encoder_frame_bytes": 88080384,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9"
+      ],
+      "output_bytes": [
+        3370319
+      ]
+    },
+    "jpeg-q90>jxl-lossless-e2:full:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 1.80823297500001,
+      "wall_min_s": 1.7899397090000093,
+      "wall_max_s": 1.8320441289999962,
+      "load_min": 1.0,
+      "load_max": 1.59228515625,
+      "rss_median_bytes": 859312128,
+      "rss_max_bytes": 859312128,
+      "internal_median_ms": 1767.277,
+      "internal_min_ms": 1747.85,
+      "internal_max_ms": 1786.997,
+      "report_median": {
+        "open_us": 17674,
+        "decode_us": 57768,
+        "transform_us": 191864,
+        "encode_us": 1496477,
+        "total_us": 1767277,
+        "output_bytes": 10418381,
+        "peak_managed_bytes": 341397504,
+        "encoder_frame_bytes": 341397504,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb"
+      ],
+      "output_bytes": [
+        10418381
+      ]
+    },
+    "jpeg-q90>jxl-lossless-e2:full:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 1.7058669530000543,
+      "wall_min_s": 1.6860080179999386,
+      "wall_max_s": 1.7277518870000677,
+      "load_min": 1.0,
+      "load_max": 1.59228515625,
+      "rss_median_bytes": 861331456,
+      "rss_max_bytes": 861863936,
+      "internal_median_ms": 1661.812,
+      "internal_min_ms": 1641.076,
+      "internal_max_ms": 1679.39,
+      "report_median": {
+        "open_us": 17751,
+        "decode_us": 59054,
+        "transform_us": 67527,
+        "encode_us": 1511465,
+        "total_us": 1661812,
+        "output_bytes": 10418381,
+        "peak_managed_bytes": 341397504,
+        "encoder_frame_bytes": 341397504,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb"
+      ],
+      "output_bytes": [
+        10418381
+      ]
+    },
+    "jpeg-q90>jxl-lossy-d1:2048w:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 13.065936922999981,
+      "wall_min_s": 13.028483757000004,
+      "wall_max_s": 13.146453905000044,
+      "load_min": 1.0,
+      "load_max": 1.70068359375,
+      "rss_median_bytes": 212758528,
+      "rss_max_bytes": 212762624,
+      "internal_median_ms": 13052.093,
+      "internal_min_ms": 13014.664,
+      "internal_max_ms": 13132.203,
+      "report_median": {
+        "open_us": 4596,
+        "decode_us": 57912,
+        "transform_us": 137021,
+        "encode_us": 12845841,
+        "total_us": 13052093,
+        "output_bytes": 539604,
+        "peak_managed_bytes": 30956464,
+        "encoder_frame_bytes": 26254336,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822"
+      ],
+      "output_bytes": [
+        539604
+      ]
+    },
+    "jpeg-q90>jxl-lossy-d1:2048w:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 12.963486099999955,
+      "wall_min_s": 12.951801703000001,
+      "wall_max_s": 13.02871603299991,
+      "load_min": 1.0,
+      "load_max": 1.70068359375,
+      "rss_median_bytes": 214450176,
+      "rss_max_bytes": 214585344,
+      "internal_median_ms": 12950.494,
+      "internal_min_ms": 12938.242,
+      "internal_max_ms": 13014.704,
+      "report_median": {
+        "open_us": 4365,
+        "decode_us": 58839,
+        "transform_us": 48867,
+        "encode_us": 12833158,
+        "total_us": 12950494,
+        "output_bytes": 539604,
+        "peak_managed_bytes": 31845936,
+        "encoder_frame_bytes": 26254336,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822"
+      ],
+      "output_bytes": [
+        539604
+      ]
+    },
+    "jpeg-q90>jxl-lossy-d1:full:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 56.53280820600003,
+      "wall_min_s": 56.41706805700005,
+      "wall_max_s": 56.657415166999954,
+      "load_min": 1.0,
+      "load_max": 1.5927734375,
+      "rss_median_bytes": 358359040,
+      "rss_max_bytes": 358363136,
+      "internal_median_ms": 56511.226,
+      "internal_min_ms": 56397.216,
+      "internal_max_ms": 56638.018,
+      "report_median": {
+        "open_us": 17729,
+        "decode_us": 57710,
+        "transform_us": 192088,
+        "encode_us": 56239769,
+        "total_us": 56511226,
+        "output_bytes": 2070600,
+        "peak_managed_bytes": 93541696,
+        "encoder_frame_bytes": 93541696,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 1
+      },
+      "output_sha256": [
+        "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c"
+      ],
+      "output_bytes": [
+        2070600
+      ]
+    },
+    "jpeg-q90>jxl-lossy-d1:full:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 56.444689625000024,
+      "wall_min_s": 56.26208335499996,
+      "wall_max_s": 56.85716954399982,
+      "load_min": 1.001953125,
+      "load_max": 1.4453125,
+      "rss_median_bytes": 360898560,
+      "rss_max_bytes": 363368448,
+      "internal_median_ms": 56423.74,
+      "internal_min_ms": 56234.109,
+      "internal_max_ms": 56836.831,
+      "report_median": {
+        "open_us": 17915,
+        "decode_us": 58849,
+        "transform_us": 68018,
+        "encode_us": 56279483,
+        "total_us": 56423740,
+        "output_bytes": 2070600,
+        "peak_managed_bytes": 93541696,
+        "encoder_frame_bytes": 93541696,
+        "orientation_buffer_bytes": 0,
+        "decoder_requests": 1,
+        "decoder_full_frames": 0,
+        "encoder_threads": 1,
+        "transform_threads": 4
+      },
+      "output_sha256": [
+        "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c"
+      ],
+      "output_bytes": [
+        2070600
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:tN",
+      "wall_s": 57.03063073000001,
+      "load_before": 1.953125,
+      "load_after": 1.41357421875,
+      "returncode": 0,
+      "max_rss_bytes": 359661568,
+      "internal_ms": 57012.987,
+      "stdout": [
+        "report: open_us=18532 decode_us=59299 transform_us=65811 encode_us=56865086 total_us=57012987 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:t1",
+      "wall_s": 56.75773638299998,
+      "load_before": 1.41357421875,
+      "load_after": 1.16357421875,
+      "returncode": 0,
+      "max_rss_bytes": 358363136,
+      "internal_ms": 56741.369,
+      "stdout": [
+        "report: open_us=17905 decode_us=57827 transform_us=192288 encode_us=56469393 total_us=56741369 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:tN",
+      "wall_s": 13.026573739000014,
+      "load_before": 1.16357421875,
+      "load_after": 1.126953125,
+      "returncode": 0,
+      "max_rss_bytes": 214171648,
+      "internal_ms": 13013.501,
+      "stdout": [
+        "report: open_us=4779 decode_us=58422 transform_us=52159 encode_us=12891542 total_us=13013501 output_bytes=539604 peak_managed_bytes=31735536 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:t1",
+      "wall_s": 13.080995999000038,
+      "load_before": 1.126953125,
+      "load_after": 1.09814453125,
+      "returncode": 0,
+      "max_rss_bytes": 212758528,
+      "internal_ms": 13068.999,
+      "stdout": [
+        "report: open_us=4201 decode_us=57978 transform_us=137332 encode_us=12863338 total_us=13068999 output_bytes=539604 peak_managed_bytes=30956464 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:tN",
+      "wall_s": 1.6918223310000258,
+      "load_before": 1.09814453125,
+      "load_after": 1.09814453125,
+      "returncode": 0,
+      "max_rss_bytes": 862085120,
+      "internal_ms": 1670.654,
+      "stdout": [
+        "report: open_us=17591 decode_us=58992 transform_us=68734 encode_us=1521061 total_us=1670654 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:t1",
+      "wall_s": 1.8015726269999845,
+      "load_before": 1.09814453125,
+      "load_after": 1.09814453125,
+      "returncode": 0,
+      "max_rss_bytes": 859312128,
+      "internal_ms": 1779.309,
+      "stdout": [
+        "report: open_us=17781 decode_us=57790 transform_us=191624 encode_us=1508162 total_us=1779309 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:tN",
+      "wall_s": 0.513162834999946,
+      "load_before": 1.09814453125,
+      "load_after": 1.09814453125,
+      "returncode": 0,
+      "max_rss_bytes": 231460864,
+      "internal_ms": 498.278,
+      "stdout": [
+        "report: open_us=4799 decode_us=58616 transform_us=43782 encode_us=384568 total_us=498278 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:t1",
+      "wall_s": 0.5977506959999914,
+      "load_before": 1.09814453125,
+      "load_after": 1.08984375,
+      "returncode": 0,
+      "max_rss_bytes": 229634048,
+      "internal_ms": 580.682,
+      "stdout": [
+        "report: open_us=4164 decode_us=58488 transform_us=138304 encode_us=373509 total_us=580682 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:tN",
+      "wall_s": 4.5176315739999495,
+      "load_before": 1.08984375,
+      "load_after": 1.08984375,
+      "returncode": 0,
+      "max_rss_bytes": 452788224,
+      "internal_ms": 4508.207,
+      "stdout": [
+        "report: open_us=28260 decode_us=60231 transform_us=79988 encode_us=4335600 total_us=4508207 output_bytes=940078 peak_managed_bytes=106579120 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 940078,
+      "output_sha256": "532737e64cd2f23d3ee24ecb1d18def698041791088d5ec7e5cd1a8e6f1ebf4a",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:t1",
+      "wall_s": 15.709194846999992,
+      "load_before": 1.08984375,
+      "load_after": 1.0634765625,
+      "returncode": 0,
+      "max_rss_bytes": 475082752,
+      "internal_ms": 15699.544,
+      "stdout": [
+        "report: open_us=29242 decode_us=57724 transform_us=220500 encode_us=15388056 total_us=15699544 output_bytes=933710 peak_managed_bytes=103450288 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 933710,
+      "output_sha256": "7e204e9fc3b8092c6ac25b0f588ba99ae97a57d58910f67d87f40c42cbe420d1",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:tN",
+      "wall_s": 1.2765245250000135,
+      "load_before": 1.0634765625,
+      "load_after": 1.0634765625,
+      "returncode": 0,
+      "max_rss_bytes": 134123520,
+      "internal_ms": 1269.422,
+      "stdout": [
+        "report: open_us=7962 decode_us=58272 transform_us=44943 encode_us=1152156 total_us=1269422 output_bytes=222120 peak_managed_bytes=42239920 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 222120,
+      "output_sha256": "d0079285ebd975ded856221ad7934b3574f74e064d9b1e73d0935185548b2d77",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:t1",
+      "wall_s": 4.172677142999987,
+      "load_before": 1.0634765625,
+      "load_after": 1.05810546875,
+      "returncode": 0,
+      "max_rss_bytes": 135745536,
+      "internal_ms": 4165.828,
+      "stdout": [
+        "report: open_us=7724 decode_us=58179 transform_us=144802 encode_us=3948875 total_us=4165828 output_bytes=214458 peak_managed_bytes=41382832 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 214458,
+      "output_sha256": "050fb5ffd71f155d8b9abc85f9bc688faafeee1d3cbb8de003719659447274a4",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:tN",
+      "wall_s": 2.271797836000019,
+      "load_before": 1.05810546875,
+      "load_after": 1.05810546875,
+      "returncode": 0,
+      "max_rss_bytes": 126107648,
+      "internal_ms": 2265.082,
+      "stdout": [
+        "report: open_us=17284 decode_us=58885 transform_us=58224 encode_us=2126363 total_us=2265082 output_bytes=980470 peak_managed_bytes=73975216 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:t1",
+      "wall_s": 2.3960531580000293,
+      "load_before": 1.05810546875,
+      "load_after": 1.05322265625,
+      "returncode": 0,
+      "max_rss_bytes": 123600896,
+      "internal_ms": 2389.385,
+      "stdout": [
+        "report: open_us=18047 decode_us=58086 transform_us=192760 encode_us=2116541 total_us=2389385 output_bytes=980470 peak_managed_bytes=71120560 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:tN",
+      "wall_s": 0.6579425489999835,
+      "load_before": 1.05322265625,
+      "load_after": 1.05322265625,
+      "returncode": 0,
+      "max_rss_bytes": 40316928,
+      "internal_ms": 651.3,
+      "stdout": [
+        "report: open_us=4462 decode_us=58703 transform_us=44260 encode_us=537625 total_us=651300 output_bytes=260984 peak_managed_bytes=32369840 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:t1",
+      "wall_s": 0.7488025019999895,
+      "load_before": 1.05322265625,
+      "load_after": 1.05322265625,
+      "returncode": 0,
+      "max_rss_bytes": 37990400,
+      "internal_ms": 742.037,
+      "stdout": [
+        "report: open_us=4376 decode_us=57935 transform_us=137187 encode_us=536237 total_us=742037 output_bytes=260984 peak_managed_bytes=30956464 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:t1",
+      "wall_s": 0.7512924560000442,
+      "load_before": 1.05322265625,
+      "load_after": 1.05322265625,
+      "returncode": 0,
+      "max_rss_bytes": 37990400,
+      "internal_ms": 743.877,
+      "stdout": [
+        "report: open_us=4383 decode_us=58197 transform_us=138966 encode_us=536128 total_us=743877 output_bytes=260984 peak_managed_bytes=30956464 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:tN",
+      "wall_s": 0.6585278669999752,
+      "load_before": 1.05322265625,
+      "load_after": 1.05322265625,
+      "returncode": 0,
+      "max_rss_bytes": 39632896,
+      "internal_ms": 650.741,
+      "stdout": [
+        "report: open_us=4589 decode_us=58718 transform_us=46163 encode_us=534923 total_us=650741 output_bytes=260984 peak_managed_bytes=31784304 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:t1",
+      "wall_s": 2.3935731849999797,
+      "load_before": 1.05322265625,
+      "load_after": 1.048828125,
+      "returncode": 0,
+      "max_rss_bytes": 123600896,
+      "internal_ms": 2384.644,
+      "stdout": [
+        "report: open_us=17115 decode_us=58100 transform_us=192527 encode_us=2112991 total_us=2384644 output_bytes=980470 peak_managed_bytes=71120560 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:tN",
+      "wall_s": 2.272432535000007,
+      "load_before": 1.048828125,
+      "load_after": 1.048828125,
+      "returncode": 0,
+      "max_rss_bytes": 126074880,
+      "internal_ms": 2263.355,
+      "stdout": [
+        "report: open_us=16621 decode_us=59488 transform_us=65773 encode_us=2117296 total_us=2263355 output_bytes=980470 peak_managed_bytes=72426928 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:t1",
+      "wall_s": 4.1663314190000165,
+      "load_before": 1.048828125,
+      "load_after": 1.04443359375,
+      "returncode": 0,
+      "max_rss_bytes": 135745536,
+      "internal_ms": 4158.37,
+      "stdout": [
+        "report: open_us=7988 decode_us=57697 transform_us=144081 encode_us=3942567 total_us=4158370 output_bytes=214458 peak_managed_bytes=41382832 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 214458,
+      "output_sha256": "050fb5ffd71f155d8b9abc85f9bc688faafeee1d3cbb8de003719659447274a4",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:tN",
+      "wall_s": 1.2548244650000129,
+      "load_before": 1.04443359375,
+      "load_after": 1.04443359375,
+      "returncode": 0,
+      "max_rss_bytes": 133693440,
+      "internal_ms": 1246.64,
+      "stdout": [
+        "report: open_us=8553 decode_us=60397 transform_us=57487 encode_us=1113956 total_us=1246640 output_bytes=222120 peak_managed_bytes=42477104 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 222120,
+      "output_sha256": "d0079285ebd975ded856221ad7934b3574f74e064d9b1e73d0935185548b2d77",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:t1",
+      "wall_s": 15.693397984,
+      "load_before": 1.04443359375,
+      "load_after": 1.03369140625,
+      "returncode": 0,
+      "max_rss_bytes": 475095040,
+      "internal_ms": 15684.016,
+      "stdout": [
+        "report: open_us=28836 decode_us=57456 transform_us=220035 encode_us=15373692 total_us=15684016 output_bytes=933710 peak_managed_bytes=103450288 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 933710,
+      "output_sha256": "7e204e9fc3b8092c6ac25b0f588ba99ae97a57d58910f67d87f40c42cbe420d1",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:tN",
+      "wall_s": 4.513976033000006,
+      "load_before": 1.03369140625,
+      "load_after": 1.3515625,
+      "returncode": 0,
+      "max_rss_bytes": 454209536,
+      "internal_ms": 4503.949,
+      "stdout": [
+        "report: open_us=28881 decode_us=59717 transform_us=78286 encode_us=4332864 total_us=4503949 output_bytes=940078 peak_managed_bytes=104825200 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 940078,
+      "output_sha256": "532737e64cd2f23d3ee24ecb1d18def698041791088d5ec7e5cd1a8e6f1ebf4a",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:t1",
+      "wall_s": 0.592760726999984,
+      "load_before": 1.3515625,
+      "load_after": 1.3515625,
+      "returncode": 0,
+      "max_rss_bytes": 229634048,
+      "internal_ms": 569.339,
+      "stdout": [
+        "report: open_us=4367 decode_us=57625 transform_us=137012 encode_us=364254 total_us=569339 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:tN",
+      "wall_s": 0.5106597900000338,
+      "load_before": 1.3515625,
+      "load_after": 1.3515625,
+      "returncode": 0,
+      "max_rss_bytes": 231309312,
+      "internal_ms": 487.689,
+      "stdout": [
+        "report: open_us=4416 decode_us=60258 transform_us=48553 encode_us=368162 total_us=487689 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:t1",
+      "wall_s": 1.7942781160000436,
+      "load_before": 1.3515625,
+      "load_after": 1.3232421875,
+      "returncode": 0,
+      "max_rss_bytes": 859312128,
+      "internal_ms": 1752.58,
+      "stdout": [
+        "report: open_us=16523 decode_us=58109 transform_us=192390 encode_us=1481639 total_us=1752580 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:tN",
+      "wall_s": 1.697996078000017,
+      "load_before": 1.3232421875,
+      "load_after": 1.3232421875,
+      "returncode": 0,
+      "max_rss_bytes": 861679616,
+      "internal_ms": 1650.139,
+      "stdout": [
+        "report: open_us=17751 decode_us=59051 transform_us=61161 encode_us=1508023 total_us=1650139 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:t1",
+      "wall_s": 13.105451959999982,
+      "load_before": 1.3232421875,
+      "load_after": 1.2509765625,
+      "returncode": 0,
+      "max_rss_bytes": 212762624,
+      "internal_ms": 13091.865,
+      "stdout": [
+        "report: open_us=4627 decode_us=58057 transform_us=137411 encode_us=12885576 total_us=13091865 output_bytes=539604 peak_managed_bytes=30956464 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:tN",
+      "wall_s": 12.956214124000041,
+      "load_before": 1.2509765625,
+      "load_after": 1.2119140625,
+      "returncode": 0,
+      "max_rss_bytes": 214528000,
+      "internal_ms": 12943.05,
+      "stdout": [
+        "report: open_us=4120 decode_us=58337 transform_us=47305 encode_us=12827101 total_us=12943050 output_bytes=539604 peak_managed_bytes=31805360 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:t1",
+      "wall_s": 56.488595410000016,
+      "load_before": 1.2119140625,
+      "load_after": 1.4453125,
+      "returncode": 0,
+      "max_rss_bytes": 358363136,
+      "internal_ms": 56469.822,
+      "stdout": [
+        "report: open_us=17330 decode_us=57621 transform_us=192153 encode_us=56198814 total_us=56469822 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:tN",
+      "wall_s": 56.31404162600006,
+      "load_before": 1.4453125,
+      "load_after": 1.17529296875,
+      "returncode": 0,
+      "max_rss_bytes": 363307008,
+      "internal_ms": 56294.126,
+      "stdout": [
+        "report: open_us=17236 decode_us=58993 transform_us=70198 encode_us=56143376 total_us=56294126 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:tN",
+      "wall_s": 56.26208335499996,
+      "load_before": 1.17529296875,
+      "load_after": 1.06787109375,
+      "returncode": 0,
+      "max_rss_bytes": 363368448,
+      "internal_ms": 56234.109,
+      "stdout": [
+        "report: open_us=17495 decode_us=58845 transform_us=71996 encode_us=56081668 total_us=56234109 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:t1",
+      "wall_s": 56.53280820600003,
+      "load_before": 1.06787109375,
+      "load_after": 1.025390625,
+      "returncode": 0,
+      "max_rss_bytes": 358141952,
+      "internal_ms": 56511.226,
+      "stdout": [
+        "report: open_us=17729 decode_us=57855 transform_us=191980 encode_us=56239769 total_us=56511226 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:tN",
+      "wall_s": 13.02871603299991,
+      "load_before": 1.025390625,
+      "load_after": 1.01904296875,
+      "returncode": 0,
+      "max_rss_bytes": 214446080,
+      "internal_ms": 13014.704,
+      "stdout": [
+        "report: open_us=4765 decode_us=58139 transform_us=50750 encode_us=12894617 total_us=13014704 output_bytes=539604 peak_managed_bytes=31784688 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:t1",
+      "wall_s": 13.071614177000015,
+      "load_before": 1.01904296875,
+      "load_after": 1.01416015625,
+      "returncode": 0,
+      "max_rss_bytes": 212758528,
+      "internal_ms": 13056.547,
+      "stdout": [
+        "report: open_us=4548 decode_us=57912 transform_us=136647 encode_us=12851246 total_us=13056547 output_bytes=539604 peak_managed_bytes=30956464 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:tN",
+      "wall_s": 1.7058669530000543,
+      "load_before": 1.01416015625,
+      "load_after": 1.01416015625,
+      "returncode": 0,
+      "max_rss_bytes": 861863936,
+      "internal_ms": 1661.812,
+      "stdout": [
+        "report: open_us=18023 decode_us=58869 transform_us=68158 encode_us=1512610 total_us=1661812 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:t1",
+      "wall_s": 1.8187428539999928,
+      "load_before": 1.01416015625,
+      "load_after": 1.01416015625,
+      "returncode": 0,
+      "max_rss_bytes": 859312128,
+      "internal_ms": 1774.561,
+      "stdout": [
+        "report: open_us=17674 decode_us=57768 transform_us=192668 encode_us=1502519 total_us=1774561 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:tN",
+      "wall_s": 0.509995766999964,
+      "load_before": 1.01416015625,
+      "load_after": 1.01416015625,
+      "returncode": 0,
+      "max_rss_bytes": 231591936,
+      "internal_ms": 489.955,
+      "stdout": [
+        "report: open_us=4750 decode_us=58256 transform_us=45340 encode_us=375364 total_us=489955 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:t1",
+      "wall_s": 0.6146972480000841,
+      "load_before": 1.01416015625,
+      "load_after": 1.0126953125,
+      "returncode": 0,
+      "max_rss_bytes": 229634048,
+      "internal_ms": 593.606,
+      "stdout": [
+        "report: open_us=4467 decode_us=61412 transform_us=145209 encode_us=376371 total_us=593606 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:tN",
+      "wall_s": 4.507867899999951,
+      "load_before": 1.0126953125,
+      "load_after": 1.0126953125,
+      "returncode": 0,
+      "max_rss_bytes": 452698112,
+      "internal_ms": 4497.374,
+      "stdout": [
+        "report: open_us=29364 decode_us=58832 transform_us=86136 encode_us=4318809 total_us=4497374 output_bytes=940078 peak_managed_bytes=104821168 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 940078,
+      "output_sha256": "532737e64cd2f23d3ee24ecb1d18def698041791088d5ec7e5cd1a8e6f1ebf4a",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:t1",
+      "wall_s": 15.721918964999986,
+      "load_before": 1.0126953125,
+      "load_after": 1.00830078125,
+      "returncode": 0,
+      "max_rss_bytes": 475086848,
+      "internal_ms": 15712.266,
+      "stdout": [
+        "report: open_us=28724 decode_us=57891 transform_us=220914 encode_us=15400726 total_us=15712266 output_bytes=933710 peak_managed_bytes=103450288 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 933710,
+      "output_sha256": "7e204e9fc3b8092c6ac25b0f588ba99ae97a57d58910f67d87f40c42cbe420d1",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:tN",
+      "wall_s": 1.2506113019999248,
+      "load_before": 1.00830078125,
+      "load_after": 1.00830078125,
+      "returncode": 0,
+      "max_rss_bytes": 133632000,
+      "internal_ms": 1243.14,
+      "stdout": [
+        "report: open_us=8753 decode_us=58584 transform_us=56860 encode_us=1112596 total_us=1243140 output_bytes=222120 peak_managed_bytes=42382320 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 222120,
+      "output_sha256": "d0079285ebd975ded856221ad7934b3574f74e064d9b1e73d0935185548b2d77",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:t1",
+      "wall_s": 4.154953836000004,
+      "load_before": 1.00830078125,
+      "load_after": 1.00732421875,
+      "returncode": 0,
+      "max_rss_bytes": 135745536,
+      "internal_ms": 4147.122,
+      "stdout": [
+        "report: open_us=8803 decode_us=57546 transform_us=144393 encode_us=3930166 total_us=4147122 output_bytes=214458 peak_managed_bytes=41382832 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 214458,
+      "output_sha256": "050fb5ffd71f155d8b9abc85f9bc688faafeee1d3cbb8de003719659447274a4",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:tN",
+      "wall_s": 2.2724841709999737,
+      "load_before": 1.00732421875,
+      "load_after": 1.00732421875,
+      "returncode": 0,
+      "max_rss_bytes": 125902848,
+      "internal_ms": 2263.857,
+      "stdout": [
+        "report: open_us=17133 decode_us=59705 transform_us=67776 encode_us=2114912 total_us=2263857 output_bytes=980470 peak_managed_bytes=73410736 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:t1",
+      "wall_s": 2.3857232699999713,
+      "load_before": 1.00732421875,
+      "load_after": 1.00634765625,
+      "returncode": 0,
+      "max_rss_bytes": 123600896,
+      "internal_ms": 2377.143,
+      "stdout": [
+        "report: open_us=16738 decode_us=57855 transform_us=192213 encode_us=2106405 total_us=2377143 output_bytes=980470 peak_managed_bytes=71120560 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:tN",
+      "wall_s": 0.6607422270000143,
+      "load_before": 1.00634765625,
+      "load_after": 1.00634765625,
+      "returncode": 0,
+      "max_rss_bytes": 40312832,
+      "internal_ms": 653.255,
+      "stdout": [
+        "report: open_us=4759 decode_us=59091 transform_us=47119 encode_us=535893 total_us=653255 output_bytes=260984 peak_managed_bytes=31718384 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:t1",
+      "wall_s": 0.7465505989999883,
+      "load_before": 1.00634765625,
+      "load_after": 1.00634765625,
+      "returncode": 0,
+      "max_rss_bytes": 37990400,
+      "internal_ms": 739.632,
+      "stdout": [
+        "report: open_us=4114 decode_us=57737 transform_us=136805 encode_us=534808 total_us=739632 output_bytes=260984 peak_managed_bytes=30956464 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:t1",
+      "wall_s": 0.748374474000002,
+      "load_before": 1.00634765625,
+      "load_after": 1.00634765625,
+      "returncode": 0,
+      "max_rss_bytes": 37990400,
+      "internal_ms": 741.061,
+      "stdout": [
+        "report: open_us=4521 decode_us=57654 transform_us=136959 encode_us=535729 total_us=741061 output_bytes=260984 peak_managed_bytes=30956464 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:tN",
+      "wall_s": 0.6598811090000254,
+      "load_before": 1.00634765625,
+      "load_after": 1.00634765625,
+      "returncode": 0,
+      "max_rss_bytes": 39706624,
+      "internal_ms": 652.311,
+      "stdout": [
+        "report: open_us=4638 decode_us=58757 transform_us=46526 encode_us=535985 total_us=652311 output_bytes=260984 peak_managed_bytes=32042160 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:t1",
+      "wall_s": 2.3996983529999625,
+      "load_before": 1.00634765625,
+      "load_after": 1.00537109375,
+      "returncode": 0,
+      "max_rss_bytes": 123600896,
+      "internal_ms": 2390.81,
+      "stdout": [
+        "report: open_us=16398 decode_us=57686 transform_us=191861 encode_us=2120946 total_us=2390810 output_bytes=980470 peak_managed_bytes=71120560 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:tN",
+      "wall_s": 2.2777607360000047,
+      "load_before": 1.00537109375,
+      "load_after": 1.00537109375,
+      "returncode": 0,
+      "max_rss_bytes": 125833216,
+      "internal_ms": 2268.975,
+      "stdout": [
+        "report: open_us=16554 decode_us=60899 transform_us=68430 encode_us=2118751 total_us=2268975 output_bytes=980470 peak_managed_bytes=72684976 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:t1",
+      "wall_s": 4.167908601000022,
+      "load_before": 1.00537109375,
+      "load_after": 1.0048828125,
+      "returncode": 0,
+      "max_rss_bytes": 135749632,
+      "internal_ms": 4159.876,
+      "stdout": [
+        "report: open_us=8588 decode_us=57812 transform_us=144351 encode_us=3942997 total_us=4159876 output_bytes=214458 peak_managed_bytes=41382832 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 214458,
+      "output_sha256": "050fb5ffd71f155d8b9abc85f9bc688faafeee1d3cbb8de003719659447274a4",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:tN",
+      "wall_s": 1.2274273430000449,
+      "load_before": 1.0048828125,
+      "load_after": 1.0048828125,
+      "returncode": 0,
+      "max_rss_bytes": 133652480,
+      "internal_ms": 1219.689,
+      "stdout": [
+        "report: open_us=8564 decode_us=58467 transform_us=41609 encode_us=1104806 total_us=1219689 output_bytes=222120 peak_managed_bytes=42489200 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 222120,
+      "output_sha256": "d0079285ebd975ded856221ad7934b3574f74e064d9b1e73d0935185548b2d77",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:t1",
+      "wall_s": 15.742111924000028,
+      "load_before": 1.0048828125,
+      "load_after": 1.00341796875,
+      "returncode": 0,
+      "max_rss_bytes": 475082752,
+      "internal_ms": 15731.953,
+      "stdout": [
+        "report: open_us=29234 decode_us=57725 transform_us=220448 encode_us=15420531 total_us=15731953 output_bytes=933710 peak_managed_bytes=103450288 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 933710,
+      "output_sha256": "7e204e9fc3b8092c6ac25b0f588ba99ae97a57d58910f67d87f40c42cbe420d1",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:tN",
+      "wall_s": 4.537185657000009,
+      "load_before": 1.00341796875,
+      "load_after": 1.64404296875,
+      "returncode": 0,
+      "max_rss_bytes": 451764224,
+      "internal_ms": 4526.078,
+      "stdout": [
+        "report: open_us=30767 decode_us=59101 transform_us=78514 encode_us=4353546 total_us=4526078 output_bytes=940078 peak_managed_bytes=104688112 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 940078,
+      "output_sha256": "532737e64cd2f23d3ee24ecb1d18def698041791088d5ec7e5cd1a8e6f1ebf4a",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:t1",
+      "wall_s": 0.607398924999984,
+      "load_before": 1.64404296875,
+      "load_after": 1.64404296875,
+      "returncode": 0,
+      "max_rss_bytes": 229634048,
+      "internal_ms": 583.168,
+      "stdout": [
+        "report: open_us=4815 decode_us=57889 transform_us=137630 encode_us=376640 total_us=583168 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:tN",
+      "wall_s": 0.5184336620000067,
+      "load_before": 1.64404296875,
+      "load_after": 1.59228515625,
+      "returncode": 0,
+      "max_rss_bytes": 231309312,
+      "internal_ms": 498.721,
+      "stdout": [
+        "report: open_us=4803 decode_us=58805 transform_us=47921 encode_us=380934 total_us=498721 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:t1",
+      "wall_s": 1.8320441289999962,
+      "load_before": 1.59228515625,
+      "load_after": 1.59228515625,
+      "returncode": 0,
+      "max_rss_bytes": 859312128,
+      "internal_ms": 1786.997,
+      "stdout": [
+        "report: open_us=17935 decode_us=57773 transform_us=191762 encode_us=1515568 total_us=1786997 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:tN",
+      "wall_s": 1.7277518870000677,
+      "load_before": 1.59228515625,
+      "load_after": 1.59228515625,
+      "returncode": 0,
+      "max_rss_bytes": 861331456,
+      "internal_ms": 1679.39,
+      "stdout": [
+        "report: open_us=18376 decode_us=59444 transform_us=64430 encode_us=1532967 total_us=1679390 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:t1",
+      "wall_s": 13.065936922999981,
+      "load_before": 1.59228515625,
+      "load_after": 1.70068359375,
+      "returncode": 0,
+      "max_rss_bytes": 212758528,
+      "internal_ms": 13052.093,
+      "stdout": [
+        "report: open_us=4512 decode_us=58305 transform_us=137234 encode_us=12845841 total_us=13052093 output_bytes=539604 peak_managed_bytes=30956464 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:tN",
+      "wall_s": 12.997530685000015,
+      "load_before": 1.70068359375,
+      "load_after": 1.5927734375,
+      "returncode": 0,
+      "max_rss_bytes": 214097920,
+      "internal_ms": 12983.268,
+      "stdout": [
+        "report: open_us=4429 decode_us=58839 transform_us=51356 encode_us=12862298 total_us=12983268 output_bytes=539604 peak_managed_bytes=31742960 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:t1",
+      "wall_s": 56.55467485399993,
+      "load_before": 1.5927734375,
+      "load_after": 1.21630859375,
+      "returncode": 0,
+      "max_rss_bytes": 358141952,
+      "internal_ms": 56533.993,
+      "stdout": [
+        "report: open_us=17830 decode_us=58035 transform_us=192594 encode_us=56261582 total_us=56533993 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:tN",
+      "wall_s": 56.85591168799999,
+      "load_before": 1.21630859375,
+      "load_after": 1.08447265625,
+      "returncode": 0,
+      "max_rss_bytes": 360128512,
+      "internal_ms": 56834.829,
+      "stdout": [
+        "report: open_us=18022 decode_us=58849 transform_us=69144 encode_us=56684511 total_us=56834829 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:tN",
+      "wall_s": 56.444689625000024,
+      "load_before": 1.08447265625,
+      "load_after": 1.0322265625,
+      "returncode": 0,
+      "max_rss_bytes": 360460288,
+      "internal_ms": 56423.74,
+      "stdout": [
+        "report: open_us=18232 decode_us=58889 transform_us=62991 encode_us=56279483 total_us=56423740 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:t1",
+      "wall_s": 56.41706805700005,
+      "load_before": 1.0322265625,
+      "load_after": 1.009765625,
+      "returncode": 0,
+      "max_rss_bytes": 358359040,
+      "internal_ms": 56397.216,
+      "stdout": [
+        "report: open_us=17898 decode_us=57710 transform_us=191562 encode_us=56126148 total_us=56397216 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:tN",
+      "wall_s": 12.96151772199994,
+      "load_before": 1.009765625,
+      "load_after": 1.0078125,
+      "returncode": 0,
+      "max_rss_bytes": 214585344,
+      "internal_ms": 12947.366,
+      "stdout": [
+        "report: open_us=4339 decode_us=59121 transform_us=48867 encode_us=12828684 total_us=12947366 output_bytes=539604 peak_managed_bytes=31865456 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:t1",
+      "wall_s": 13.043843771999946,
+      "load_before": 1.0078125,
+      "load_after": 1.00537109375,
+      "returncode": 0,
+      "max_rss_bytes": 212758528,
+      "internal_ms": 13030.07,
+      "stdout": [
+        "report: open_us=4582 decode_us=57811 transform_us=136834 encode_us=12824676 total_us=13030070 output_bytes=539604 peak_managed_bytes=30956464 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:tN",
+      "wall_s": 1.7122128030000567,
+      "load_before": 1.00537109375,
+      "load_after": 1.00537109375,
+      "returncode": 0,
+      "max_rss_bytes": 861118464,
+      "internal_ms": 1666.177,
+      "stdout": [
+        "report: open_us=17387 decode_us=59321 transform_us=73746 encode_us=1511465 total_us=1666177 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:t1",
+      "wall_s": 1.80823297500001,
+      "load_before": 1.00537109375,
+      "load_after": 1.0048828125,
+      "returncode": 0,
+      "max_rss_bytes": 859312128,
+      "internal_ms": 1767.277,
+      "stdout": [
+        "report: open_us=17992 decode_us=57695 transform_us=191185 encode_us=1496477 total_us=1767277 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:tN",
+      "wall_s": 0.5067635660000178,
+      "load_before": 1.0048828125,
+      "load_after": 1.0048828125,
+      "returncode": 0,
+      "max_rss_bytes": 231485440,
+      "internal_ms": 487.198,
+      "stdout": [
+        "report: open_us=4177 decode_us=58763 transform_us=40325 encode_us=377620 total_us=487198 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:t1",
+      "wall_s": 0.5975044130000242,
+      "load_before": 1.0048828125,
+      "load_after": 1.0048828125,
+      "returncode": 0,
+      "max_rss_bytes": 229634048,
+      "internal_ms": 575.155,
+      "stdout": [
+        "report: open_us=4537 decode_us=57695 transform_us=136324 encode_us=370413 total_us=575155 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:tN",
+      "wall_s": 4.47872336599994,
+      "load_before": 1.0048828125,
+      "load_after": 1.3251953125,
+      "returncode": 0,
+      "max_rss_bytes": 452227072,
+      "internal_ms": 4468.123,
+      "stdout": [
+        "report: open_us=27717 decode_us=58747 transform_us=73848 encode_us=4303569 total_us=4468123 output_bytes=940078 peak_managed_bytes=104663920 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 940078,
+      "output_sha256": "532737e64cd2f23d3ee24ecb1d18def698041791088d5ec7e5cd1a8e6f1ebf4a",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:t1",
+      "wall_s": 15.727398804999893,
+      "load_before": 1.3251953125,
+      "load_after": 1.251953125,
+      "returncode": 0,
+      "max_rss_bytes": 475058176,
+      "internal_ms": 15717.5,
+      "stdout": [
+        "report: open_us=29511 decode_us=57827 transform_us=220705 encode_us=15405461 total_us=15717500 output_bytes=933710 peak_managed_bytes=103450288 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 933710,
+      "output_sha256": "7e204e9fc3b8092c6ac25b0f588ba99ae97a57d58910f67d87f40c42cbe420d1",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:tN",
+      "wall_s": 1.2268320180000956,
+      "load_before": 1.251953125,
+      "load_after": 1.251953125,
+      "returncode": 0,
+      "max_rss_bytes": 133611520,
+      "internal_ms": 1219.078,
+      "stdout": [
+        "report: open_us=8692 decode_us=58818 transform_us=45181 encode_us=1100169 total_us=1219078 output_bytes=222120 peak_managed_bytes=42415856 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 222120,
+      "output_sha256": "d0079285ebd975ded856221ad7934b3574f74e064d9b1e73d0935185548b2d77",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:t1",
+      "wall_s": 4.144808017000059,
+      "load_before": 1.251953125,
+      "load_after": 1.2314453125,
+      "returncode": 0,
+      "max_rss_bytes": 135745536,
+      "internal_ms": 4136.748,
+      "stdout": [
+        "report: open_us=8904 decode_us=58118 transform_us=145280 encode_us=3918210 total_us=4136748 output_bytes=214458 peak_managed_bytes=41382832 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 214458,
+      "output_sha256": "050fb5ffd71f155d8b9abc85f9bc688faafeee1d3cbb8de003719659447274a4",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:tN",
+      "wall_s": 2.264553302999957,
+      "load_before": 1.2314453125,
+      "load_after": 1.2314453125,
+      "returncode": 0,
+      "max_rss_bytes": 125992960,
+      "internal_ms": 2255.117,
+      "stdout": [
+        "report: open_us=17640 decode_us=58885 transform_us=61058 encode_us=2113315 total_us=2255117 output_bytes=980470 peak_managed_bytes=73281712 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:t1",
+      "wall_s": 2.3881921779998265,
+      "load_before": 1.2314453125,
+      "load_after": 1.212890625,
+      "returncode": 0,
+      "max_rss_bytes": 123600896,
+      "internal_ms": 2379.398,
+      "stdout": [
+        "report: open_us=17316 decode_us=57811 transform_us=191811 encode_us=2108524 total_us=2379398 output_bytes=980470 peak_managed_bytes=71120560 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:tN",
+      "wall_s": 0.6734495410000818,
+      "load_before": 1.212890625,
+      "load_after": 1.212890625,
+      "returncode": 0,
+      "max_rss_bytes": 40833024,
+      "internal_ms": 666.01,
+      "stdout": [
+        "report: open_us=4539 decode_us=61691 transform_us=52639 encode_us=540564 total_us=666010 output_bytes=260984 peak_managed_bytes=32542256 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:t1",
+      "wall_s": 0.7496066689998315,
+      "load_before": 1.212890625,
+      "load_after": 1.212890625,
+      "returncode": 0,
+      "max_rss_bytes": 37990400,
+      "internal_ms": 742.269,
+      "stdout": [
+        "report: open_us=4741 decode_us=57690 transform_us=137528 encode_us=536133 total_us=742269 output_bytes=260984 peak_managed_bytes=30956464 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:t1",
+      "wall_s": 0.7483104120001371,
+      "load_before": 1.212890625,
+      "load_after": 1.212890625,
+      "returncode": 0,
+      "max_rss_bytes": 37990400,
+      "internal_ms": 741.289,
+      "stdout": [
+        "report: open_us=4082 decode_us=58215 transform_us=137394 encode_us=535421 total_us=741289 output_bytes=260984 peak_managed_bytes=30956464 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:tN",
+      "wall_s": 0.6589357410000503,
+      "load_before": 1.212890625,
+      "load_after": 1.212890625,
+      "returncode": 0,
+      "max_rss_bytes": 40046592,
+      "internal_ms": 651.08,
+      "stdout": [
+        "report: open_us=4607 decode_us=58479 transform_us=45928 encode_us=535767 total_us=651080 output_bytes=260984 peak_managed_bytes=32009776 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:t1",
+      "wall_s": 2.388516116999881,
+      "load_before": 1.212890625,
+      "load_after": 1.19580078125,
+      "returncode": 0,
+      "max_rss_bytes": 123600896,
+      "internal_ms": 2379.528,
+      "stdout": [
+        "report: open_us=17326 decode_us=57758 transform_us=191404 encode_us=2109096 total_us=2379528 output_bytes=980470 peak_managed_bytes=71120560 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:tN",
+      "wall_s": 2.267161655000109,
+      "load_before": 1.19580078125,
+      "load_after": 1.19580078125,
+      "returncode": 0,
+      "max_rss_bytes": 125964288,
+      "internal_ms": 2258.275,
+      "stdout": [
+        "report: open_us=17957 decode_us=59058 transform_us=61033 encode_us=2115831 total_us=2258275 output_bytes=980470 peak_managed_bytes=72572080 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:t1",
+      "wall_s": 4.161501111000007,
+      "load_before": 1.19580078125,
+      "load_after": 1.1796875,
+      "returncode": 0,
+      "max_rss_bytes": 135745536,
+      "internal_ms": 4146.042,
+      "stdout": [
+        "report: open_us=8656 decode_us=57815 transform_us=144754 encode_us=3928625 total_us=4146042 output_bytes=214458 peak_managed_bytes=41382832 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 214458,
+      "output_sha256": "050fb5ffd71f155d8b9abc85f9bc688faafeee1d3cbb8de003719659447274a4",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:tN",
+      "wall_s": 1.2580491299997902,
+      "load_before": 1.1796875,
+      "load_after": 1.1796875,
+      "returncode": 0,
+      "max_rss_bytes": 133292032,
+      "internal_ms": 1249.942,
+      "stdout": [
+        "report: open_us=8741 decode_us=58985 transform_us=49436 encode_us=1126575 total_us=1249942 output_bytes=222120 peak_managed_bytes=42424048 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 222120,
+      "output_sha256": "d0079285ebd975ded856221ad7934b3574f74e064d9b1e73d0935185548b2d77",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:t1",
+      "wall_s": 15.688687193000078,
+      "load_before": 1.1796875,
+      "load_after": 1.1279296875,
+      "returncode": 0,
+      "max_rss_bytes": 475086848,
+      "internal_ms": 15679.375,
+      "stdout": [
+        "report: open_us=29023 decode_us=57943 transform_us=221128 encode_us=15367196 total_us=15679375 output_bytes=933710 peak_managed_bytes=103450288 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 933710,
+      "output_sha256": "7e204e9fc3b8092c6ac25b0f588ba99ae97a57d58910f67d87f40c42cbe420d1",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:tN",
+      "wall_s": 4.5106259769997905,
+      "load_before": 1.1279296875,
+      "load_after": 1.1279296875,
+      "returncode": 0,
+      "max_rss_bytes": 452280320,
+      "internal_ms": 4499.972,
+      "stdout": [
+        "report: open_us=29426 decode_us=59609 transform_us=86727 encode_us=4320027 total_us=4499972 output_bytes=940078 peak_managed_bytes=109365232 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 940078,
+      "output_sha256": "532737e64cd2f23d3ee24ecb1d18def698041791088d5ec7e5cd1a8e6f1ebf4a",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:t1",
+      "wall_s": 0.5972689329998957,
+      "load_before": 1.1279296875,
+      "load_after": 1.11767578125,
+      "returncode": 0,
+      "max_rss_bytes": 229634048,
+      "internal_ms": 574.839,
+      "stdout": [
+        "report: open_us=4434 decode_us=57610 transform_us=136345 encode_us=370267 total_us=574839 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:tN",
+      "wall_s": 0.5127380900000844,
+      "load_before": 1.11767578125,
+      "load_after": 1.11767578125,
+      "returncode": 0,
+      "max_rss_bytes": 231174144,
+      "internal_ms": 491.951,
+      "stdout": [
+        "report: open_us=4342 decode_us=58701 transform_us=43055 encode_us=379590 total_us=491951 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:t1",
+      "wall_s": 1.8130657420001626,
+      "load_before": 1.11767578125,
+      "load_after": 1.11767578125,
+      "returncode": 0,
+      "max_rss_bytes": 859312128,
+      "internal_ms": 1769.966,
+      "stdout": [
+        "report: open_us=17934 decode_us=57873 transform_us=192783 encode_us=1497457 total_us=1769966 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:tN",
+      "wall_s": 1.708040014000062,
+      "load_before": 1.11767578125,
+      "load_after": 1.11767578125,
+      "returncode": 0,
+      "max_rss_bytes": 861478912,
+      "internal_ms": 1663.825,
+      "stdout": [
+        "report: open_us=18211 decode_us=60752 transform_us=77163 encode_us=1503528 total_us=1663825 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:t1",
+      "wall_s": 13.146453905000044,
+      "load_before": 1.11767578125,
+      "load_after": 1.0908203125,
+      "returncode": 0,
+      "max_rss_bytes": 212758528,
+      "internal_ms": 13132.203,
+      "stdout": [
+        "report: open_us=4809 decode_us=57931 transform_us=137021 encode_us=12926011 total_us=13132203 output_bytes=539604 peak_managed_bytes=30956464 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:tN",
+      "wall_s": 12.998865338999849,
+      "load_before": 1.0908203125,
+      "load_after": 1.0703125,
+      "returncode": 0,
+      "max_rss_bytes": 214450176,
+      "internal_ms": 12984.863,
+      "stdout": [
+        "report: open_us=4365 decode_us=59138 transform_us=45665 encode_us=12869151 total_us=12984863 output_bytes=539604 peak_managed_bytes=31989488 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:t1",
+      "wall_s": 56.46901028100001,
+      "load_before": 1.0703125,
+      "load_after": 1.0263671875,
+      "returncode": 0,
+      "max_rss_bytes": 358359040,
+      "internal_ms": 56449.528,
+      "stdout": [
+        "report: open_us=17443 decode_us=57584 transform_us=192274 encode_us=56178300 total_us=56449528 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:tN",
+      "wall_s": 56.43151798500003,
+      "load_before": 1.0263671875,
+      "load_after": 1.0087890625,
+      "returncode": 0,
+      "max_rss_bytes": 360525824,
+      "internal_ms": 56411.116,
+      "stdout": [
+        "report: open_us=17915 decode_us=59238 transform_us=67057 encode_us=56262728 total_us=56411116 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:tN",
+      "wall_s": 56.58735299499995,
+      "load_before": 1.0087890625,
+      "load_after": 1.001953125,
+      "returncode": 0,
+      "max_rss_bytes": 360898560,
+      "internal_ms": 56564.611,
+      "stdout": [
+        "report: open_us=18370 decode_us=58759 transform_us=68018 encode_us=56415138 total_us=56564611 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:t1",
+      "wall_s": 56.54054808199999,
+      "load_before": 1.001953125,
+      "load_after": 1.0,
+      "returncode": 0,
+      "max_rss_bytes": 358359040,
+      "internal_ms": 56520.503,
+      "stdout": [
+        "report: open_us=18353 decode_us=57837 transform_us=192088 encode_us=56248233 total_us=56520503 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:tN",
+      "wall_s": 12.951801703000001,
+      "load_before": 1.0,
+      "load_after": 1.0,
+      "returncode": 0,
+      "max_rss_bytes": 214495232,
+      "internal_ms": 12938.242,
+      "stdout": [
+        "report: open_us=4697 decode_us=58281 transform_us=50686 encode_us=12818329 total_us=12938242 output_bytes=539604 peak_managed_bytes=34094448 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:t1",
+      "wall_s": 13.028483757000004,
+      "load_before": 1.0,
+      "load_after": 1.0,
+      "returncode": 0,
+      "max_rss_bytes": 212758528,
+      "internal_ms": 13014.664,
+      "stdout": [
+        "report: open_us=4596 decode_us=57677 transform_us=136991 encode_us=12809229 total_us=13014664 output_bytes=539604 peak_managed_bytes=30956464 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:tN",
+      "wall_s": 1.6860080179999386,
+      "load_before": 1.0,
+      "load_after": 1.0,
+      "returncode": 0,
+      "max_rss_bytes": 861208576,
+      "internal_ms": 1641.076,
+      "stdout": [
+        "report: open_us=17674 decode_us=59054 transform_us=67527 encode_us=1492500 total_us=1641076 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:t1",
+      "wall_s": 1.7899397090000093,
+      "load_before": 1.0,
+      "load_after": 1.0,
+      "returncode": 0,
+      "max_rss_bytes": 859312128,
+      "internal_ms": 1747.85,
+      "stdout": [
+        "report: open_us=16231 decode_us=57645 transform_us=191491 encode_us=1478550 total_us=1747850 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:tN",
+      "wall_s": 0.5095264649999081,
+      "load_before": 1.0,
+      "load_after": 1.0,
+      "returncode": 0,
+      "max_rss_bytes": 231321600,
+      "internal_ms": 488.952,
+      "stdout": [
+        "report: open_us=4662 decode_us=58239 transform_us=45121 encode_us=374747 total_us=488952 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:t1",
+      "wall_s": 0.6018089490000875,
+      "load_before": 1.0,
+      "load_after": 1.0,
+      "returncode": 0,
+      "max_rss_bytes": 229634048,
+      "internal_ms": 579.926,
+      "stdout": [
+        "report: open_us=4284 decode_us=57577 transform_us=136648 encode_us=375280 total_us=579926 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:tN",
+      "wall_s": 4.501149741000063,
+      "load_before": 1.0,
+      "load_after": 1.3203125,
+      "returncode": 0,
+      "max_rss_bytes": 452292608,
+      "internal_ms": 4490.993,
+      "stdout": [
+        "report: open_us=29102 decode_us=59274 transform_us=77253 encode_us=4321271 total_us=4490993 output_bytes=940078 peak_managed_bytes=104651824 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 940078,
+      "output_sha256": "532737e64cd2f23d3ee24ecb1d18def698041791088d5ec7e5cd1a8e6f1ebf4a",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:t1",
+      "wall_s": 15.687090055999988,
+      "load_before": 1.3203125,
+      "load_after": 1.24853515625,
+      "returncode": 0,
+      "max_rss_bytes": 475082752,
+      "internal_ms": 15677.697,
+      "stdout": [
+        "report: open_us=29089 decode_us=57818 transform_us=220322 encode_us=15366484 total_us=15677697 output_bytes=933710 peak_managed_bytes=103450288 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 933710,
+      "output_sha256": "7e204e9fc3b8092c6ac25b0f588ba99ae97a57d58910f67d87f40c42cbe420d1",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:tN",
+      "wall_s": 1.2339763330001006,
+      "load_before": 1.24853515625,
+      "load_after": 1.24853515625,
+      "returncode": 0,
+      "max_rss_bytes": 133005312,
+      "internal_ms": 1226.225,
+      "stdout": [
+        "report: open_us=9148 decode_us=58960 transform_us=45508 encode_us=1106252 total_us=1226225 output_bytes=222120 peak_managed_bytes=42214960 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 222120,
+      "output_sha256": "d0079285ebd975ded856221ad7934b3574f74e064d9b1e73d0935185548b2d77",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:t1",
+      "wall_s": 4.170719197000153,
+      "load_before": 1.24853515625,
+      "load_after": 1.228515625,
+      "returncode": 0,
+      "max_rss_bytes": 135745536,
+      "internal_ms": 4162.891,
+      "stdout": [
+        "report: open_us=8676 decode_us=57691 transform_us=144303 encode_us=3946089 total_us=4162891 output_bytes=214458 peak_managed_bytes=41382832 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 214458,
+      "output_sha256": "050fb5ffd71f155d8b9abc85f9bc688faafeee1d3cbb8de003719659447274a4",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:tN",
+      "wall_s": 2.285767953000004,
+      "load_before": 1.228515625,
+      "load_after": 1.228515625,
+      "returncode": 0,
+      "max_rss_bytes": 125386752,
+      "internal_ms": 2277.433,
+      "stdout": [
+        "report: open_us=17555 decode_us=59583 transform_us=65314 encode_us=2130649 total_us=2277433 output_bytes=980470 peak_managed_bytes=72555952 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:t1",
+      "wall_s": 2.394873288999861,
+      "load_before": 1.228515625,
+      "load_after": 1.2099609375,
+      "returncode": 0,
+      "max_rss_bytes": 123600896,
+      "internal_ms": 2386.428,
+      "stdout": [
+        "report: open_us=17120 decode_us=57791 transform_us=192377 encode_us=2115195 total_us=2386428 output_bytes=980470 peak_managed_bytes=71120560 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:tN",
+      "wall_s": 0.664825854000128,
+      "load_before": 1.2099609375,
+      "load_after": 1.2099609375,
+      "returncode": 0,
+      "max_rss_bytes": 40009728,
+      "internal_ms": 657.542,
+      "stdout": [
+        "report: open_us=4280 decode_us=60518 transform_us=48731 encode_us=537637 total_us=657542 output_bytes=260984 peak_managed_bytes=31927472 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:t1",
+      "wall_s": 0.7501737570000842,
+      "load_before": 1.2099609375,
+      "load_after": 1.2099609375,
+      "returncode": 0,
+      "max_rss_bytes": 37990400,
+      "internal_ms": 742.8,
+      "stdout": [
+        "report: open_us=4558 decode_us=57690 transform_us=137052 encode_us=537347 total_us=742800 output_bytes=260984 peak_managed_bytes=30956464 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:t1",
+      "wall_s": 0.748861659999875,
+      "load_before": 1.2099609375,
+      "load_after": 1.2099609375,
+      "returncode": 0,
+      "max_rss_bytes": 37990400,
+      "internal_ms": 741.372,
+      "stdout": [
+        "report: open_us=4367 decode_us=57742 transform_us=137410 encode_us=535644 total_us=741372 output_bytes=260984 peak_managed_bytes=30956464 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:2048w:tN",
+      "wall_s": 0.6581807519999074,
+      "load_before": 1.2099609375,
+      "load_after": 1.2099609375,
+      "returncode": 0,
+      "max_rss_bytes": 40034304,
+      "internal_ms": 650.688,
+      "stdout": [
+        "report: open_us=4359 decode_us=58855 transform_us=44489 encode_us=536645 total_us=650688 output_bytes=260984 peak_managed_bytes=31964912 encoder_frame_bytes=17301504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 260984,
+      "output_sha256": "6380b407221b107e6cfb0e9a93490d749b862e8246d0d12f401409751e64078b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:t1",
+      "wall_s": 2.406397556999991,
+      "load_before": 1.2099609375,
+      "load_after": 1.19287109375,
+      "returncode": 0,
+      "max_rss_bytes": 123600896,
+      "internal_ms": 2397.576,
+      "stdout": [
+        "report: open_us=16515 decode_us=58182 transform_us=192011 encode_us=2126986 total_us=2397576 output_bytes=980470 peak_managed_bytes=71120560 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>webp-q75:full:tN",
+      "wall_s": 2.276774117000059,
+      "load_before": 1.19287109375,
+      "load_after": 1.19287109375,
+      "returncode": 0,
+      "max_rss_bytes": 125755392,
+      "internal_ms": 2267.888,
+      "stdout": [
+        "report: open_us=19001 decode_us=61841 transform_us=64021 encode_us=2117285 total_us=2267888 output_bytes=980470 peak_managed_bytes=72539824 encoder_frame_bytes=67060224 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libwebp-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 980470,
+      "output_sha256": "76282b67a7d7a2aabfabc534ed8da6a25dc9fa579f73ebd2f4eb3b3fbcde637b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:t1",
+      "wall_s": 4.1628067999999985,
+      "load_before": 1.19287109375,
+      "load_after": 1.17724609375,
+      "returncode": 0,
+      "max_rss_bytes": 135749632,
+      "internal_ms": 4154.589,
+      "stdout": [
+        "report: open_us=8867 decode_us=58079 transform_us=144537 encode_us=3936926 total_us=4154589 output_bytes=214458 peak_managed_bytes=41382832 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 214458,
+      "output_sha256": "050fb5ffd71f155d8b9abc85f9bc688faafeee1d3cbb8de003719659447274a4",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:2048w:tN",
+      "wall_s": 1.2450977020000664,
+      "load_before": 1.17724609375,
+      "load_after": 1.16259765625,
+      "returncode": 0,
+      "max_rss_bytes": 132964352,
+      "internal_ms": 1237.168,
+      "stdout": [
+        "report: open_us=8913 decode_us=61116 transform_us=50820 encode_us=1110053 total_us=1237168 output_bytes=222120 peak_managed_bytes=42190768 encoder_frame_bytes=23009280 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 222120,
+      "output_sha256": "d0079285ebd975ded856221ad7934b3574f74e064d9b1e73d0935185548b2d77",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:t1",
+      "wall_s": 15.690431906999947,
+      "load_before": 1.16259765625,
+      "load_after": 1.1259765625,
+      "returncode": 0,
+      "max_rss_bytes": 475082752,
+      "internal_ms": 15681.169,
+      "stdout": [
+        "report: open_us=29177 decode_us=57969 transform_us=220916 encode_us=15369106 total_us=15681169 output_bytes=933710 peak_managed_bytes=103450288 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 933710,
+      "output_sha256": "7e204e9fc3b8092c6ac25b0f588ba99ae97a57d58910f67d87f40c42cbe420d1",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>avif-rav1e:full:tN",
+      "wall_s": 4.476672448999807,
+      "load_before": 1.1259765625,
+      "load_after": 1.11572265625,
+      "returncode": 0,
+      "max_rss_bytes": 452247552,
+      "internal_ms": 4466.727,
+      "stdout": [
+        "report: open_us=26703 decode_us=58818 transform_us=79237 encode_us=4297840 total_us=4466727 output_bytes=940078 peak_managed_bytes=105950128 encoder_frame_bytes=81100800 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=4 kernel_level=neon transform_threads=4 encoder=rav1e",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 940078,
+      "output_sha256": "532737e64cd2f23d3ee24ecb1d18def698041791088d5ec7e5cd1a8e6f1ebf4a",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:t1",
+      "wall_s": 0.5891328840000369,
+      "load_before": 1.11572265625,
+      "load_after": 1.11572265625,
+      "returncode": 0,
+      "max_rss_bytes": 229634048,
+      "internal_ms": 567.034,
+      "stdout": [
+        "report: open_us=4404 decode_us=57703 transform_us=136374 encode_us=362449 total_us=567034 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:2048w:tN",
+      "wall_s": 0.5122652770000968,
+      "load_before": 1.11572265625,
+      "load_after": 1.11572265625,
+      "returncode": 0,
+      "max_rss_bytes": 231186432,
+      "internal_ms": 492.657,
+      "stdout": [
+        "report: open_us=4529 decode_us=58863 transform_us=44551 encode_us=378411 total_us=492657 output_bytes=3370319 peak_managed_bytes=88080384 encoder_frame_bytes=88080384 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 3370319,
+      "output_sha256": "c1e990d14783ade08e677d4257d00b0bd4b423071a4cbda5e8557982d7b353c9",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:t1",
+      "wall_s": 1.798408646000098,
+      "load_before": 1.11572265625,
+      "load_after": 1.11572265625,
+      "returncode": 0,
+      "max_rss_bytes": 859308032,
+      "internal_ms": 1755.539,
+      "stdout": [
+        "report: open_us=17543 decode_us=57718 transform_us=191864 encode_us=1484484 total_us=1755539 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossless-e2:full:tN",
+      "wall_s": 1.6992012010000508,
+      "load_before": 1.11572265625,
+      "load_after": 1.11572265625,
+      "returncode": 0,
+      "max_rss_bytes": 861315072,
+      "internal_ms": 1655.457,
+      "stdout": [
+        "report: open_us=17538 decode_us=58807 transform_us=60732 encode_us=1513927 total_us=1655457 output_bytes=10418381 peak_managed_bytes=341397504 encoder_frame_bytes=341397504 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 10418381,
+      "output_sha256": "7c6f5dc88c3a32ca8ec79e39aca8710f8fa83679d6733bf57088628f2cbbbacb",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:t1",
+      "wall_s": 13.029522776000022,
+      "load_before": 1.11572265625,
+      "load_after": 1.08935546875,
+      "returncode": 0,
+      "max_rss_bytes": 212758528,
+      "internal_ms": 13016.317,
+      "stdout": [
+        "report: open_us=4717 decode_us=57662 transform_us=139761 encode_us=12807909 total_us=13016317 output_bytes=539604 peak_managed_bytes=30956464 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:2048w:tN",
+      "wall_s": 12.963486099999955,
+      "load_before": 1.08935546875,
+      "load_after": 1.06884765625,
+      "returncode": 0,
+      "max_rss_bytes": 214315008,
+      "internal_ms": 12950.494,
+      "stdout": [
+        "report: open_us=4225 decode_us=58888 transform_us=47877 encode_us=12833158 total_us=12950494 output_bytes=539604 peak_managed_bytes=31845936 encoder_frame_bytes=26254336 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 539604,
+      "output_sha256": "05a4aa03b55da8e7fbbcc18e70ea6b57169641d6ca4aba3dac664b68cd6f6822",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:t1",
+      "wall_s": 56.657415166999954,
+      "load_before": 1.06884765625,
+      "load_after": 1.025390625,
+      "returncode": 0,
+      "max_rss_bytes": 358359040,
+      "internal_ms": 56638.018,
+      "stdout": [
+        "report: open_us=16590 decode_us=57618 transform_us=191909 encode_us=56367952 total_us=56638018 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=1 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "jpeg-q90>jxl-lossy-d1:full:tN",
+      "wall_s": 56.85716954399982,
+      "load_before": 1.025390625,
+      "load_after": 1.07666015625,
+      "returncode": 0,
+      "max_rss_bytes": 360980480,
+      "internal_ms": 56836.831,
+      "stdout": [
+        "report: open_us=17393 decode_us=58662 transform_us=65641 encode_us=56691014 total_us=56836831 output_bytes=2070600 peak_managed_bytes=93541696 encoder_frame_bytes=93541696 orientation_buffer_bytes=0 decoder_requests=1 decoder_full_frames=0 precision=F32 encoder_threads=1 kernel_level=neon transform_threads=4 encoder=libjxl-rs",
+        "decoder_work: crop=4032x3024+0+0 requested=4032x3024+0+0 codec_request=4032x3024+0+0 codec_output=4032x3024+0+0 overfetch_pixels=0 reconstructed_pixels=>=12192768 entropy_rows=3024 delivered_rows=3024 wrapper_copied_bytes=0"
+      ],
+      "output_bytes": 2070600,
+      "output_sha256": "ddf72d4ad46c7d05d68384e5f3808c64f9dc406a559617956aecc320e666234c",
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}

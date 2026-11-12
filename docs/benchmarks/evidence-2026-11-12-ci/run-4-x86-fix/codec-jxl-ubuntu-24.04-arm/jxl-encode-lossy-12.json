@@ -1,0 +1,295 @@
+{
+  "plan": {
+    "reps": 3,
+    "warmups": 0,
+    "group": "jxl/encode-lossy/photo12",
+    "candidates": [
+      {
+        "id": "c:t1",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" 2> >(awk '/^[0-9]+ x [0-9]+, / { h = $3; sub(/,$/, \"\", h); for (i = 4; i < NF; i++) if ($(i + 1) ~ /^MP\\/s/) { printf \"elapsed_ms=%.3f\\n\", $1 * h / 1e6 / $i * 1000; break } } { print > \"/dev/stderr\" }')",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/build-simd/tools/cjxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/inputs/photo12.ppm",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/enc-c-t1-12.jxl",
+          "-e",
+          "7",
+          "-d",
+          "1",
+          "--num_threads=0"
+        ],
+        "env": {},
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/enc-c-t1-12.jxl",
+        "meta": {
+          "codec": "jxl",
+          "op": "encode-lossy",
+          "input": "photo12.ppm",
+          "impl": "c",
+          "threads": 1,
+          "notes": "cjxl -e 7 -d 1; elapsed_ms from cjxl's MP/s line (EncodeImageJXL; PPM parse and file write excluded); --num_threads=0"
+        }
+      },
+      {
+        "id": "c:tN",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" 2> >(awk '/^[0-9]+ x [0-9]+, / { h = $3; sub(/,$/, \"\", h); for (i = 4; i < NF; i++) if ($(i + 1) ~ /^MP\\/s/) { printf \"elapsed_ms=%.3f\\n\", $1 * h / 1e6 / $i * 1000; break } } { print > \"/dev/stderr\" }')",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/build-simd/tools/cjxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/inputs/photo12.ppm",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/enc-c-tN-12.jxl",
+          "-e",
+          "7",
+          "-d",
+          "1"
+        ],
+        "env": {},
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/enc-c-tN-12.jxl",
+        "meta": {
+          "codec": "jxl",
+          "op": "encode-lossy",
+          "input": "photo12.ppm",
+          "impl": "c",
+          "threads": 4,
+          "notes": "cjxl -e 7 -d 1; elapsed_ms from cjxl's MP/s line (EncodeImageJXL; PPM parse and file write excluded); default runner (context: the port has no runner)"
+        }
+      },
+      {
+        "id": "port:t1",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/encode_lossy",
+          "/home/runner/work/ferrisma/ferrisma/bench/inputs/photo12.ppm",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/enc-port-12.jxl",
+          "7",
+          "1"
+        ],
+        "env": {},
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/enc-port-12.jxl",
+        "meta": {
+          "codec": "jxl",
+          "op": "encode-lossy",
+          "input": "photo12.ppm",
+          "impl": "port",
+          "threads": 1,
+          "notes": "encode_lossy: public lossy VarDCT encoder, cjxl's PPM call sequence without the explicit PROGRESSIVE_AC=0 (outside the admitted profile); timer from JxlEncoderCreate to the last output byte; serial"
+        }
+      }
+    ]
+  },
+  "platform": "Linux-7.0.0-1017-azure-aarch64-with-glibc2.39",
+  "machine": "aarch64",
+  "cpus": 4,
+  "uptime_before": "20:53:45 up 9 min,  0 user,  load average: 1.51, 2.52, 1.59",
+  "uptime_after": "20:56:02 up 11 min,  0 user,  load average: 1.12, 2.00, 1.52",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "complete": true,
+  "summary": {
+    "c:t1": {
+      "n": 3,
+      "failed": 0,
+      "wall_median_s": 10.93892319400004,
+      "wall_min_s": 10.93586506500003,
+      "wall_max_s": 10.979006385999924,
+      "load_min": 1.22509765625,
+      "load_max": 1.5068359375,
+      "rss_median_bytes": 384794624,
+      "rss_max_bytes": 384802816,
+      "internal_median_ms": 10886.4,
+      "internal_min_ms": 10876.689,
+      "internal_max_ms": 10915.638,
+      "output_sha256": [
+        "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c"
+      ],
+      "output_bytes": [
+        2057280
+      ]
+    },
+    "c:tN": {
+      "n": 3,
+      "failed": 0,
+      "wall_median_s": 3.170557570999904,
+      "wall_min_s": 3.1574833339999486,
+      "wall_max_s": 3.1796905180000294,
+      "load_min": 1.20703125,
+      "load_max": 1.3935546875,
+      "rss_median_bytes": 386490368,
+      "rss_max_bytes": 386514944,
+      "internal_median_ms": 3112.782,
+      "internal_min_ms": 3105.646,
+      "internal_max_ms": 3123.148,
+      "output_sha256": [
+        "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c"
+      ],
+      "output_bytes": [
+        2057280
+      ]
+    },
+    "port:t1": {
+      "n": 3,
+      "failed": 0,
+      "wall_median_s": 31.699222544999998,
+      "wall_min_s": 31.687407787999973,
+      "wall_max_s": 31.703350606999948,
+      "load_min": 1.1240234375,
+      "load_max": 1.3935546875,
+      "rss_median_bytes": 343293952,
+      "rss_max_bytes": 343293952,
+      "internal_median_ms": 31665.371,
+      "internal_min_ms": 31651.57,
+      "internal_max_ms": 31665.577,
+      "output_sha256": [
+        "d65d5c60e5aac6394f594defdda683edf2852cf28db09221a27e74c1832f226f"
+      ],
+      "output_bytes": [
+        2057281
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "c:t1",
+      "wall_s": 10.93586506500003,
+      "load_before": 1.5068359375,
+      "load_after": 1.3935546875,
+      "returncode": 0,
+      "max_rss_bytes": 384794624,
+      "internal_ms": 10886.4,
+      "stdout": [
+        "elapsed_ms=10886.400"
+      ],
+      "output_bytes": 2057280,
+      "output_sha256": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 3.1574833339999486,
+      "load_before": 1.3935546875,
+      "load_after": 1.3935546875,
+      "returncode": 0,
+      "max_rss_bytes": 386514944,
+      "internal_ms": 3105.646,
+      "stdout": [
+        "elapsed_ms=3105.646"
+      ],
+      "output_bytes": 2057280,
+      "output_sha256": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 31.687407787999973,
+      "load_before": 1.3935546875,
+      "load_after": 1.29833984375,
+      "returncode": 0,
+      "max_rss_bytes": 343293952,
+      "internal_ms": 31651.57,
+      "stdout": [
+        "dimensions=4032x3024 effort=7 distance=1 bytes=2057281 elapsed_ms=31651.570"
+      ],
+      "output_bytes": 2057281,
+      "output_sha256": "d65d5c60e5aac6394f594defdda683edf2852cf28db09221a27e74c1832f226f",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 31.699222544999998,
+      "load_before": 1.29833984375,
+      "load_after": 1.34326171875,
+      "returncode": 0,
+      "max_rss_bytes": 343293952,
+      "internal_ms": 31665.371,
+      "stdout": [
+        "dimensions=4032x3024 effort=7 distance=1 bytes=2057281 elapsed_ms=31665.371"
+      ],
+      "output_bytes": 2057281,
+      "output_sha256": "d65d5c60e5aac6394f594defdda683edf2852cf28db09221a27e74c1832f226f",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 3.170557570999904,
+      "load_before": 1.34326171875,
+      "load_after": 1.34326171875,
+      "returncode": 0,
+      "max_rss_bytes": 386490368,
+      "internal_ms": 3112.782,
+      "stdout": [
+        "elapsed_ms=3112.782"
+      ],
+      "output_bytes": 2057280,
+      "output_sha256": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 10.93892319400004,
+      "load_before": 1.34326171875,
+      "load_after": 1.2666015625,
+      "returncode": 0,
+      "max_rss_bytes": 384802816,
+      "internal_ms": 10876.689,
+      "stdout": [
+        "elapsed_ms=10876.689"
+      ],
+      "output_bytes": 2057280,
+      "output_sha256": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 10.979006385999924,
+      "load_before": 1.2666015625,
+      "load_after": 1.22509765625,
+      "returncode": 0,
+      "max_rss_bytes": 384610304,
+      "internal_ms": 10915.638,
+      "stdout": [
+        "elapsed_ms=10915.638"
+      ],
+      "output_bytes": 2057280,
+      "output_sha256": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 3.1796905180000294,
+      "load_before": 1.22509765625,
+      "load_after": 1.20703125,
+      "returncode": 0,
+      "max_rss_bytes": 385835008,
+      "internal_ms": 3123.148,
+      "stdout": [
+        "elapsed_ms=3123.148"
+      ],
+      "output_bytes": 2057280,
+      "output_sha256": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 31.703350606999948,
+      "load_before": 1.20703125,
+      "load_after": 1.1240234375,
+      "returncode": 0,
+      "max_rss_bytes": 343293952,
+      "internal_ms": 31665.577,
+      "stdout": [
+        "dimensions=4032x3024 effort=7 distance=1 bytes=2057281 elapsed_ms=31665.577"
+      ],
+      "output_bytes": 2057281,
+      "output_sha256": "d65d5c60e5aac6394f594defdda683edf2852cf28db09221a27e74c1832f226f",
+      "rep": 2,
+      "warmup": false
+    }
+  ]
+}
