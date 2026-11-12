@@ -57,6 +57,46 @@ jobs:
             fuzz/corpus/transcode/
           if-no-files-found: ignore
 
+  jpeg-port:
+    # The JPEG port's own target over its safe decoding API (codec ADR 0009).
+    if: inputs.campaign != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CC: clang
+    defaults:
+      run:
+        working-directory: codecs/libjpeg-turbo-rs
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize the pinned JPEG reference
+        run: git submodule update --init upstream/libjpeg-turbo
+      - name: Install pinned fuzz driver
+        run: cargo install cargo-fuzz --version 0.13.2 --locked
+      - name: Write the bit-test inputs with the release oracle
+        run: |
+          python3 tools/build_oracle.py --variant release
+          python3 tools/bittests.py --run --variant release
+      - name: Seed the corpus from the existing test inputs
+        run: python3 fuzz/seed_corpus.py fuzz/corpus/decode --oracle build/oracle/release
+      - name: Verify every seed finishes a case
+        env:
+          LIBJPEG_FUZZ_SEEDS: ${{ github.workspace }}/codecs/libjpeg-turbo-rs/fuzz/corpus/decode
+        run: cargo test --locked --manifest-path fuzz/Cargo.toml --lib
+      - name: Run bounded JPEG port fuzz smoke
+        run: |
+          cargo fuzz run decode -- -runs=3000 -max_len=65536 -timeout=5 -rss_limit_mb=1024 \
+            -dict=upstream/libjpeg-turbo/fuzz/jpeg.dict
+      - name: Upload reproducible fuzz artifacts if the target crashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m1-fuzz-artifacts-jpeg-port
+          path: |
+            codecs/libjpeg-turbo-rs/fuzz/artifacts/decode/
+            codecs/libjpeg-turbo-rs/fuzz/corpus/decode/
+          if-no-files-found: ignore
+
   campaign:
     if: inputs.campaign == true
     uses: ./.github/workflows/m1-fuzz-campaign.yml

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-06
-- Updated: 2026-11-10
+- Updated: 2026-11-12
 
 ## Context
 
@@ -29,7 +29,12 @@ have: it serves Rust programs, and C compatibility is not a goal.
   an item-scoped `#[expect(clippy::<lint>, reason = "...")]` naming the C
   construct. Use `expect`, not `allow`, so a stale exception fails the check.
 - No runtime dependencies. Development dependencies need an amendment of this
-  record.
+  record; there are none.
+- The fuzz target lives in `fuzz/`, a separate crate (amended 2026-11-12,
+  [ADR 0009](0009-coverage-guided-fuzzing.md)). It declares its own workspace,
+  is never a dependency of the library, and depends only on the library and
+  `libfuzzer-sys` 0.4. cargo-fuzz builds it with the workspace's pinned
+  nightly; the library's stable, MSRV and oracle checks do not compile it.
 
 ## Consequences
 

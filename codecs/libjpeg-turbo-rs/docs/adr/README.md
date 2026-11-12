@@ -20,3 +20,4 @@ stops and reports it.
 - [0006: Offer a safe row-streaming decoder over the translated API](0006-safe-decoding-api.md)
 - [0007: Translate the NEON kernels with unsafe code only for memory access and entry](0007-neon-kernels-and-unsafe.md)
 - [0008: Rewrite the x86-64 kernels from NASM as SSE2 and AVX2 intrinsics](0008-x86-64-kernels-from-nasm.md)
+- [0009: Fuzz the safe decoding API with cargo-fuzz in a separate crate](0009-coverage-guided-fuzzing.md)

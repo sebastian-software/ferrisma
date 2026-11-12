@@ -123,3 +123,100 @@ jobs:
             codecs/libavif-rs/upstream/libavif/LICENSE
           if-no-files-found: warn
           retention-days: 30
+
+  jpeg-port:
+    # The JPEG port's own target over its safe decoding API (codec ADR 0009).
+    name: jpeg-port decode (${{ matrix.runner }}, ASan)
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
+    env:
+      CC: clang
+    defaults:
+      run:
+        shell: bash
+        working-directory: codecs/libjpeg-turbo-rs
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-15]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize the pinned JPEG reference
+        run: git submodule update --init upstream/libjpeg-turbo
+      - name: Install LLVM coverage tools
+        run: rustup component add llvm-tools-preview
+      - name: Install pinned fuzz driver
+        run: cargo install cargo-fuzz --version 0.13.2 --locked
+      - name: Fetch the pinned standalone dependency graph
+        run: cargo fetch --locked --manifest-path fuzz/Cargo.toml
+      - name: Record toolchain and source provenance
+        run: |
+          mkdir -p fuzz/campaign
+          {
+            echo "commit $(git rev-parse HEAD)"
+            echo "tree $(git rev-parse HEAD^{tree})"
+            echo "upstream $(git -C upstream/libjpeg-turbo rev-parse HEAD)"
+            echo "runner $RUNNER_OS $RUNNER_ARCH"
+            uname -a
+            rustup show active-toolchain
+            rustc -Vv
+            cargo -V
+            cargo fuzz --version
+            shasum -a 256 fuzz/Cargo.lock
+            shasum -a 256 fuzz/Cargo.lock > fuzz/campaign/lockfiles.sha256
+            echo "sanitizer=address; seed=1; max_total_time=1800; rss_limit_mb=2048"
+            echo "target=decode"
+          } | tee fuzz/campaign/provenance.txt
+      - name: Write the bit-test inputs with the release oracle
+        run: |
+          python3 tools/build_oracle.py --variant release
+          python3 tools/bittests.py --run --variant release
+      - name: Create and hash the starting corpus
+        run: python3 fuzz/seed_corpus.py fuzz/corpus/decode --oracle build/oracle/release | tee fuzz/campaign/seeds.sha256
+      - name: Verify and classify the starting seeds
+        env:
+          LIBJPEG_FUZZ_SEEDS: ${{ github.workspace }}/codecs/libjpeg-turbo-rs/fuzz/corpus/decode
+        run: |
+          set -o pipefail
+          cargo test --locked --manifest-path fuzz/Cargo.toml --lib -- --nocapture 2>&1 | tee fuzz/campaign/seed-results.log
+          shasum -a 256 -c fuzz/campaign/lockfiles.sha256
+      - name: Run 30-minute mutation campaign
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -o pipefail
+          mkdir -p fuzz/artifacts/decode
+          cargo fuzz run --sanitizer address decode -- \
+            -seed=1 -max_total_time=1800 -max_len=524288 -timeout=10 \
+            -rss_limit_mb=2048 -dict=upstream/libjpeg-turbo/fuzz/jpeg.dict \
+            -print_final_stats=1 2>&1 | tee fuzz/campaign/fuzz.log
+          shasum -a 256 -c fuzz/campaign/lockfiles.sha256
+      - name: Replay retained corpus for source coverage
+        timeout-minutes: 40
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -o pipefail
+          cargo fuzz coverage --sanitizer address -j 1 --target-dir "$GITHUB_WORKSPACE/codecs/libjpeg-turbo-rs/fuzz/coverage-build" decode -- \
+            -timeout=10 -rss_limit_mb=2048 2>&1 | tee fuzz/campaign/coverage.log
+          host=$(rustc -vV | sed -n 's/^host: //p')
+          llvm_cov="$(rustc --print sysroot)/lib/rustlib/$host/bin/llvm-cov"
+          "$llvm_cov" report "fuzz/coverage-build/$host/release/decode" \
+            -instr-profile="fuzz/coverage/decode/coverage.profdata" \
+            > fuzz/campaign/coverage-report.txt
+      - name: Upload logs, corpus, and crash artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m1-fuzz-campaign-${{ matrix.runner }}-jpeg-port-decode
+          path: |
+            codecs/libjpeg-turbo-rs/fuzz/campaign/
+            codecs/libjpeg-turbo-rs/fuzz/coverage/decode/coverage.profdata
+            codecs/libjpeg-turbo-rs/fuzz/artifacts/decode/
+            codecs/libjpeg-turbo-rs/fuzz/corpus/decode/
+            codecs/libjpeg-turbo-rs/fuzz/Cargo.lock
+            codecs/libjpeg-turbo-rs/upstream/libjpeg-turbo/testimages/LICENSE.txt
+            rust-toolchain.toml
+            docs/fuzzing.md
+          if-no-files-found: warn
+          retention-days: 30

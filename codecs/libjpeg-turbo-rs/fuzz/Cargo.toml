@@ -1,0 +1,31 @@
+# cargo-fuzz target for libjpeg-turbo-rs (ADR 0009). A separate crate: it is
+# not a member of the library's workspace and never a dependency of the
+# library. Its only dependency besides the library is libfuzzer-sys. Build it
+# with `cargo fuzz build` from `codecs/libjpeg-turbo-rs` (`fuzz/README.md`).
+[package]
+name = "libjpeg-turbo-rs-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "IJG AND Zlib"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.libjpeg-turbo-rs]
+path = ".."
+
+# Its own workspace, so that the library's and the monorepo's commands never
+# pick it up.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "decode"
+path = "fuzz_targets/decode.rs"
+test = false
+doc = false
+bench = false
