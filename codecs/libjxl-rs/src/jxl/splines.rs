@@ -155,6 +155,7 @@ impl QuantizedSpline {
         clippy::too_many_arguments,
         reason = "Retain the original dequantization and area-accounting boundary."
     )]
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn dequantize(
         &self,
         start: SplinePoint,

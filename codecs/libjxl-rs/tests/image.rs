@@ -131,6 +131,10 @@ fn copying_float_samples_keeps_bits_and_leaves_destination_padding_untouched() {
     }
 }
 #[test]
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 fn modular_clone_owns_distinct_samples_and_transform_storage() {
     let mut image = Image::create(19, 3, 8, 3).unwrap();
     for c in 0..3 {

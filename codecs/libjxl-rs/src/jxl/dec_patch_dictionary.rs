@@ -333,6 +333,7 @@ impl PatchDictionary {
             .iter()
             .fold(0, |result, r| result | (1 << r.reference))
     }
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     fn compute_patch_tree(&mut self) {
         self.patch_tree.clear();
         self.num_patches.clear();

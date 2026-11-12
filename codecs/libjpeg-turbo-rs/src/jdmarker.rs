@@ -443,6 +443,7 @@ fn get_sof(
     clippy::cast_sign_loss,
     reason = "component counts and indexes are nonnegative"
 )]
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn get_sos(cinfo: j_decompress_ptr<'_, '_>) -> Result<bool, ErrorExit> {
     let mut vars = INPUT_VARS(cinfo);
 

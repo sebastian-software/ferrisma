@@ -1820,6 +1820,10 @@ fn encode_frame_streaming(
 }
 
 /// CanDoStreamingEncoding.
+#[allow(
+    clippy::needless_bool,
+    reason = "Keep the source's early-return shape."
+)]
 pub fn can_do_streaming_encoding(
     cparams: &CompressParams<'_>,
     frame_info: &FrameInfo,

@@ -193,6 +193,7 @@ impl JxlToJpegDecoder {
     }
 
     /// Returns how many Exif app markers are present in the JPEG data.
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn num_exif_markers(jpeg_data: &JpegData) -> usize {
         let mut num = 0usize;
         for i in 0..jpeg_data.app_data.len() {
@@ -204,6 +205,7 @@ impl JxlToJpegDecoder {
     }
 
     /// Returns how many XMP app markers are present in the JPEG data.
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn num_xmp_markers(jpeg_data: &JpegData) -> usize {
         let mut num = 0usize;
         for i in 0..jpeg_data.app_data.len() {

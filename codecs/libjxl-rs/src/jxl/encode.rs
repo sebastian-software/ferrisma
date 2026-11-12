@@ -1539,6 +1539,10 @@ fn get_current_dimensions(
     clippy::manual_is_multiple_of,
     reason = "Mirror the source modulo test."
 )]
+#[allow(
+    clippy::needless_bool,
+    reason = "Keep the source's early-return shape."
+)]
 fn can_do_fast_lossless(
     frame_settings: &JxlEncoderFrameSettings,
     enc: &JxlEncoder,
@@ -2133,6 +2137,7 @@ fn strip_opaque_alpha(enc: &mut JxlEncoder) {
 /// enter untranslated units are admission results at their checkpoints:
 /// ICC profiles (WriteICC), containers and boxes (step 3), and the frame encoder's own
 /// checkpoints ([`FrameAdmission`]).
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputFailure> {
     let output_mode = enc.input_queue[0].output_mode; // resolved at queue time
 

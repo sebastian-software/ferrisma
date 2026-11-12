@@ -140,6 +140,7 @@ pub const SIZEOF_d_derived_tbl: usize = CLayout::structure(&[
 )]
 #[expect(clippy::too_many_lines, reason = "mirrors the C function")]
 #[expect(non_snake_case, reason = "C names")]
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 pub fn jpeg_make_d_derived_tbl(
     cinfo: j_decompress_ptr<'_, '_>,
     isDC: bool,
@@ -1040,6 +1041,7 @@ pub fn start_pass_huff_decoder(cinfo: j_decompress_ptr<'_, '_>) -> Result<(), Er
 ///
 /// What `read_restart_marker` reports.
 #[expect(clippy::cast_sign_loss, reason = "C's unsigned arithmetic")]
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn process_restart(
     cinfo: j_decompress_ptr<'_, '_>,
     entropy: &mut huff_entropy_decoder,

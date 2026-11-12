@@ -248,6 +248,7 @@ fn buffer_end_of_band<'a>(
         flush(s, bw, queue, ac);
     }
 }
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 fn build_huffman_code_table(huff: &JpegHuffmanCode, table: &mut HuffmanCodeTable) -> bool {
     let mut codes = [0i32; 256];
     let mut sizes = [0u32; 257];
@@ -341,6 +342,7 @@ fn encode_sos(jpg: &JpegData, scan: &JpegScanInfo, state: &mut SerializationStat
     data[pos + 2] = ((scan.ah << 4) | scan.al) as u8;
     true
 }
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 fn encode_dht(jpg: &JpegData, state: &mut SerializationState<'_>) -> bool {
     let mut len = 2;
     for huff in &jpg.huffman_code[state.dht_index as usize..] {

@@ -37,6 +37,10 @@ fn pad(writer: &mut BitWriter) {
 }
 
 #[test]
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 fn original_standalone_gray_and_palette_squeeze_streams_restore_samples() {
     // md-source 6 5 0 0 0 0 0 0: GradientFixedDC, Gradient, no transforms.
     let gray = bytes("22612c36483251297a00");

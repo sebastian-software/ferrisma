@@ -330,6 +330,7 @@ fn HUFF_EXTEND(x: i32, s: i32) -> i32 {
 ///
 /// What `read_restart_marker` reports.
 #[expect(clippy::cast_sign_loss, reason = "C's unsigned arithmetic")]
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn process_restart(
     cinfo: j_decompress_ptr<'_, '_>,
     entropy: &mut phuff_entropy_decoder,

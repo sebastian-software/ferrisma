@@ -119,6 +119,7 @@ impl ANSEncodingHistogram {
         self.cost
     }
 
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub(crate) fn compute_best(
         histo: &Histogram,
         strategy: ANSHistogramStrategy,

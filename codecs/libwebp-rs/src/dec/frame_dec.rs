@@ -522,6 +522,7 @@ fn filter_row(job: &mut VP8RowJob) {
 
 // upstream: src/dec/frame_dec.c PrecomputeFilterStrengths
 #[expect(clippy::similar_names, reason = "the C names level and ilevel")]
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn precompute_filter_strengths(dec: &mut VP8Decoder) {
     if dec.filter_type > 0 {
         let hdr = dec.filter_hdr;

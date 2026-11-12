@@ -464,6 +464,7 @@ fn value_i8(v: i32) -> i8 {
 // upstream: src/dec/vp8_dec.c ParseSegmentHeader
 /// Paragraph 9.3. C takes `br`, `hdr` and `proba` as separate pointers into
 /// the decoder; they are the fields of `dec` here.
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn parse_segment_header(dec: &mut VP8Decoder, data: &[u8]) -> bool {
     let VP8Decoder {
         br,
@@ -522,6 +523,7 @@ fn parse_segment_header(dec: &mut VP8Decoder, data: &[u8]) -> bool {
 /// If we don't even have the partitions' sizes, then `VP8_STATUS_NOT_ENOUGH_DATA`
 /// is returned, and this is an unrecoverable error.
 /// If the partitions were positioned ok, `VP8_STATUS_OK` is returned (`Ok`).
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn parse_partitions(
     dec: &mut VP8Decoder,
     data: &[u8],
@@ -570,6 +572,7 @@ fn parse_partitions(
     clippy::cast_possible_wrap,
     reason = "C assigns the unsigned values of at most 6 bits to ints"
 )]
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn parse_filter_header(dec: &mut VP8Decoder, data: &[u8]) -> bool {
     let VP8Decoder {
         br,
@@ -1198,6 +1201,7 @@ pub fn vp8_init_scanline(dec: &mut VP8Decoder) {
 // upstream: src/dec/vp8_dec.c ParseFrame
 /// Parses, reconstructs and emits every macroblock row. Returns false on error,
 /// which C does not record when the last threaded row fails in `put()`.
+#[allow(clippy::needless_bool, reason = "the C early return")]
 fn parse_frame(
     dec: &mut VP8Decoder,
     io: &mut VP8Io,

@@ -333,6 +333,7 @@ impl<'a> ModularFrameEncoder<'a> {
     /// The owning frame alone can call this method; its private parameters and
     /// metadata fix do_color=true, groupwise=false, integer samples, no effects,
     /// optional same-depth alpha, no XYB, no quantization, and no responsive squeeze.
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub(super) fn compute_encoding_data_lossless_thunder(
         &mut self,
         config: &LosslessThunderConfig,
@@ -868,6 +869,7 @@ impl<'a> ModularFrameEncoder<'a> {
 
     /// The source's private caller always passes its own cparams member.
     /// Borrow that field directly so the same owner need not be aliased or copied.
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn prepare_stream_params(
         &mut self,
         rect: &Rect,
@@ -1045,6 +1047,7 @@ impl<'a> ModularFrameEncoder<'a> {
         Ok(())
     }
 
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn compute_tree(&mut self) -> Status {
         let mut multiplier_info: Vec<ModularMultiplierInfo> = Vec::new();
         if !self.quants.is_empty() {
@@ -1873,6 +1876,10 @@ pub fn estimate_wp_cost(img: &Image, i: usize) -> f32 {
     histo_cost + extra_bits as f32
 }
 
+#[allow(
+    clippy::needless_bool,
+    reason = "Keep the source's early-return shape."
+)]
 pub fn do_transform(
     image: &mut Image,
     tr: &Transform,

@@ -8,6 +8,10 @@ use jxl::jxl::modular::transform::enc_rct::{fwd_rct, fwd_rct_channels};
 use jxl::jxl::modular::transform::rct::inv_rct;
 
 #[test]
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 fn all_42_color_transforms_round_trip_samples_and_keep_padding() {
     for kind in 0..42 {
         let mut image = Image::create(17, 3, 16, 6).unwrap();

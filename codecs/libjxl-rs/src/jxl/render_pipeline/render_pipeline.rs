@@ -185,6 +185,7 @@ impl<'a> RenderPipelineBuilder<'a> {
         RenderPipeline::init(&mut *res)?;
         Ok(res)
     }
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     fn finalize_base(self, frame_dimensions: FrameDimensions) -> StatusOr<RenderPipelineBase<'a>> {
         // Check that the last stage is not a kInOut stage for any channel, and
         // that there is at least one stage.

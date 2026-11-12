@@ -377,6 +377,10 @@ fn print_round(
 /// The probe's `Wp2PrintObject`. After `-abort` the probe leaves out the
 /// component layout, which C has released.
 #[expect(clippy::too_many_lines, reason = "one line per probe field")]
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 fn print_object(
     log: &Log,
     cinfo: &jpeg_decompress_struct<'_>,

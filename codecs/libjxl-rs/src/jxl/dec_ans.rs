@@ -1069,6 +1069,7 @@ impl<'a> ANSSymbolReader<'a> {
         *value = Self::read_hybrid_uint_config(self.code.uint_config[ctx], token, br);
     }
 
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn is_huff_rle_only(&self) -> bool {
         if self.lz77_window.is_none() || !self.use_prefix_code {
             return false;

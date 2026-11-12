@@ -263,6 +263,7 @@ fn get_mb_ssim(yuv1: &[u8], yuv2: &[u8]) -> f64 {
 /// # Panics
 ///
 /// Panics when the iterator expects filter statistics that the encoder lacks.
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 pub fn vp8_init_filter(it: &VP8EncIterator, enc: &mut VP8Encoder) {
     if it.lf_stats {
         let lf_stats = enc

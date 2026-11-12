@@ -44,6 +44,10 @@ use crate::wp4::{
 };
 
 /// `jdmaster.c`'s `use_merged_upsample` without lossless mode.
+#[allow(
+    clippy::needless_bool,
+    reason = "Keep the early-return shape; stable Clippy versions differ."
+)]
 pub fn use_merged_upsample(cinfo: &jpeg_decompress_struct<'_>) -> bool {
     use J_COLOR_SPACE as CS;
     if cinfo.do_fancy_upsampling || cinfo.CCIR601_sampling {

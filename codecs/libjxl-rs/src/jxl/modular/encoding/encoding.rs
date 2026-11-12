@@ -49,6 +49,7 @@ impl Default for GroupHeader {
     }
 }
 impl Fields for GroupHeader {
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     fn visit_fields(&mut self, visitor: &mut dyn Visitor) -> Status {
         visitor.bool(false, &mut self.use_global_tree)?;
         visitor.visit_nested(&mut self.wp_header)?;

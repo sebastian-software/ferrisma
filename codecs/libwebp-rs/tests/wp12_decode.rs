@@ -392,6 +392,10 @@ fn advanced_decoding_matches_with_options_and_caller_buffers() {
 }
 
 #[test]
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 fn validation_matches_on_boundary_options() {
     let mut commands = Vec::new();
     let mut expected = String::new();

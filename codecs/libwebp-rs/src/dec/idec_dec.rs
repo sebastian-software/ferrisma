@@ -433,6 +433,7 @@ fn need_compressed_alpha(idec: &WebPIDecoder<'_, '_>) -> bool {
 /// input's bytes (see the module documentation), and gives the last partition
 /// and the lossless reader the input up to `mem.end`. C also points `io.data`
 /// at the new input; here the input is passed per call.
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn do_remap(idec: &mut WebPIDecoder<'_, '_>, offset: isize) {
     let need_compressed_alpha = need_compressed_alpha(idec);
     let mem = &idec.mem;

@@ -45,6 +45,7 @@ fn invalid() -> Status {
 }
 
 impl Fields for JpegData {
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     fn visit_fields(&mut self, visitor: &mut dyn Visitor) -> Status {
         let mut is_gray = self.components.len() == 1;
         visitor.bool(false, &mut is_gray)?;

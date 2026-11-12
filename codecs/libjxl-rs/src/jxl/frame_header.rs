@@ -105,6 +105,7 @@ impl YCbCrChromaSubsampling {
     pub fn raw_v_shift(&self, c: usize) -> u8 {
         Self::VSHIFT[self.channel_mode[c] as usize]
     }
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn set(&mut self, hsample: &[u8; 3], vsample: &[u8; 3]) -> Status {
         for c in 0..3 {
             let jpeg = if c < 2 { c ^ 1 } else { c };

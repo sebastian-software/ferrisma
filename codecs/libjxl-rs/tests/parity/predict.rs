@@ -69,6 +69,10 @@ fn fixture_tree() -> FlatTree {
     }
     tree
 }
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
     match kind {
         "pred-one" => {

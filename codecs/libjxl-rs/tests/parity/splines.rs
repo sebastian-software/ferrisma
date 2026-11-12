@@ -300,6 +300,10 @@ fn sample(points: &[(f32, f32)], seed: u32, scale: f32) -> Spline {
     }
 }
 #[test]
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 fn spline_create_dequantize_preserve_quantization_rounding_correlation_and_partial_failures() {
     let mut cases = Vec::new();
     for a in [i32::MIN, -128, -8, -1, 0, 1, 8, 127, 1 << 20, i32::MAX] {
@@ -369,6 +373,10 @@ fn spline_create_dequantize_preserve_quantization_rounding_correlation_and_parti
     compare(cases);
 }
 #[test]
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 fn spline_cache_curves_ordered_scan_indices_pixels_subtraction_and_stage_match_original() {
     let mut cases = Vec::new();
     let paths = [

@@ -963,6 +963,7 @@ impl DequantMatrices {
         self.decode_in(MemoryManagerPtr::NATIVE, reader, decoder)
     }
     /// The source Decode(memory_manager, br, modular_frame_decoder).
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn decode_in(
         &mut self,
         memory_manager: MemoryManagerPtr,

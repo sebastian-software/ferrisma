@@ -840,6 +840,7 @@ impl ModularFrameDecoder {
     /// Original ModularImageToDecodedRect with a null pool. Its only decoder
     /// state read is shared->matrices; the actual shared owner is borrowed.
     /// Source input image rows are only read, so gi has an immutable borrow.
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn modular_image_to_decoded_rect(
         &self,
         header: &FrameHeader<'_>,

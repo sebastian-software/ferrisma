@@ -1102,6 +1102,7 @@ pub fn webp_get_info(data: &[u8], width: Option<&mut i32>, height: Option<&mut i
 /// the configuration. Returns false in case of version mismatch. C also
 /// returns 0 for a `NULL` configuration, which exists only at the C ABI.
 #[must_use]
+#[allow(clippy::needless_bool, reason = "the C early return")]
 pub fn webp_init_decoder_config_internal(config: &mut WebPDecoderConfig<'_>, version: i32) -> bool {
     if webp_abi_is_incompatible(version, WEBP_DECODER_ABI_VERSION) {
         return false; // version mismatch
@@ -1120,6 +1121,7 @@ pub fn webp_init_decoder_config_internal(config: &mut WebPDecoderConfig<'_>, ver
 /// against the dimensions. C returns 0 for a `NULL` configuration, which exists
 /// only at the C ABI.
 #[must_use]
+#[allow(clippy::needless_bool, reason = "the C early return")]
 pub fn webp_validate_decoder_config(config: &WebPDecoderConfig<'_>) -> bool {
     if !crate::dec::buffer_dec::is_valid_colorspace(config.output.colorspace.0.cast_signed()) {
         return false;

@@ -156,6 +156,7 @@ fn ordered_luma(color: &[i32], count: usize, threshold: f32) -> f32 {
     clippy::too_many_arguments,
     reason = "Preserve source palette fields and iteration state"
 )]
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 fn fwd_palette_iteration(
     input: &mut Image,
     begin_c: u32,

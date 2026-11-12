@@ -39,6 +39,10 @@ fn tag(out: &mut String, tag: &IccTag, base: *const u8) {
     write!(out, " {} {} {}", tag.signature, tag.kind, tag.size).unwrap();
     pointer(out, tag.buffer, base);
 }
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 pub fn observe(request: &str) -> String {
     let mut args = request.split_whitespace();
     let command = args.next().unwrap();

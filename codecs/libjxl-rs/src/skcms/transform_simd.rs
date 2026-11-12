@@ -631,6 +631,7 @@ unsafe fn load_pixels(op: Op, src: *const u8, rgba: &mut [F; 4]) {
 
 /// # Safety
 /// Destination has the source's writable four-pixel span and typed alignment.
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 unsafe fn store_pixels(op: Op, dst: *mut u8, rgba: [F; 4]) {
     use Op::*;
     #[cfg(target_arch = "aarch64")]

@@ -202,6 +202,10 @@ pub fn print_io(out: &mut String, io: &VP8Io) {
 }
 
 /// `Wp6PrintHeaders`.
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 pub fn print_headers(out: &mut String, dec: &VP8Decoder) {
     writeln!(out, "status={}", dec.status.0).unwrap();
     writeln!(out, "error={}", dec.error_msg.unwrap_or("(null)")).unwrap();

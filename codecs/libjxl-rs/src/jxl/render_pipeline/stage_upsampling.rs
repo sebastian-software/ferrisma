@@ -108,7 +108,7 @@ impl UpsamplingStage {
         }
         stage
     }
-    #[expect(
+    #[allow(
         clippy::needless_range_loop,
         reason = "Mirror the source loop over five parallel spans."
     )]

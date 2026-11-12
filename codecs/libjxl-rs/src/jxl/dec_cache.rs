@@ -102,6 +102,7 @@ impl GroupDecCache {
         self.init_once_in(MemoryManagerPtr::NATIVE, num_passes, used_acs)
     }
     /// The source InitOnce(memory_manager, num_passes, used_acs).
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn init_once_in(
         &mut self,
         memory_manager: MemoryManagerPtr,

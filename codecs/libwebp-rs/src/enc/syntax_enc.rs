@@ -251,6 +251,7 @@ fn put_webp_headers(
 
 // upstream: src/enc/syntax_enc.c PutSegmentHeader
 /// Segmentation header.
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn put_segment_header(bw: &mut VP8BitWriter, enc: &VP8Encoder) {
     let hdr = &enc.segment_hdr;
     let proba = &enc.proba;
@@ -424,6 +425,7 @@ pub fn vp8_enc_free_bit_writers(enc: &mut VP8Encoder) {
 /// # Errors
 ///
 /// Returns the code that the picture records.
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 pub fn vp8_enc_write(
     enc: &mut VP8Encoder,
     pic: &mut WebPPicture<'_>,

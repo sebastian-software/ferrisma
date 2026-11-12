@@ -32,6 +32,10 @@ fn samples(image: &Image) -> Vec<i32> {
         .flat_map(|c| (0..c.h).flat_map(|y| c.row(y)[..c.w].iter().copied()))
         .collect()
 }
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 fn patterned_rgb() -> Image {
     let mut im = Image::create(17, 9, 8, 3).unwrap();
     for c in 0..3 {

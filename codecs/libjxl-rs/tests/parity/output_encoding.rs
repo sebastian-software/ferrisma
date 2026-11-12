@@ -57,6 +57,10 @@ pub(super) fn observation(out: &mut String, s: &OutputEncodingInfo) {
     )
     .unwrap();
 }
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 fn custom(m: &mut OpsinInverseMatrix, mode: u32) {
     if mode == 0 {
         return;

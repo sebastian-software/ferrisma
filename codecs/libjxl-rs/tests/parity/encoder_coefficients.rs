@@ -152,6 +152,10 @@ fn tiles(xsize_blocks: usize, ysize_blocks: usize) -> Vec<Rect> {
         .collect()
 }
 
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 pub(super) fn observe(kind: &str, args: Args<'_, '_>) -> String {
     if kind == "ecf-patches" {
         return observe_patches(args);

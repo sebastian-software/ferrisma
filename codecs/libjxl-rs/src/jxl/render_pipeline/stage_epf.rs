@@ -85,6 +85,7 @@ impl RenderPipelineStage for EPFStage<'_> {
         clippy::manual_is_multiple_of,
         reason = "Mirror the source modulo test."
     )]
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     fn process_row(
         &mut self,
         input: &RowInfo,
@@ -440,6 +441,7 @@ fn mul_wide(out: &mut Vec<f32>, wa: &mut Vec<f64>, n: usize, a: &[f32], b: &[f64
 }
 
 impl EpfRows {
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     fn begin(&mut self, n: usize, tap: &Tap<'_>) {
         // inv_sigma = mul(sigma, scale), kept promoted for weight().
         let wa = lanes(&mut self.wa, n);

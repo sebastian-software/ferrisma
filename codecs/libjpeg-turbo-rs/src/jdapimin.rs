@@ -66,6 +66,7 @@ use crate::jpeglib::{
     clippy::cast_possible_wrap,
     reason = "the C casts of the struct sizes to int"
 )]
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 pub fn jpeg_CreateDecompress(
     cinfo: j_decompress_ptr<'_, '_>,
     version: i32,

@@ -104,6 +104,7 @@ fn range_limit_sample(range_limit: &[JSAMPLE], x: FAST_FLOAT) -> JSAMPLE {
 #[expect(clippy::erasing_op, reason = "C's DCTSIZE * k indexing")]
 #[expect(clippy::cast_possible_truncation, reason = "C's conversions")]
 #[expect(clippy::approx_constant, reason = "C's constants")]
+#[allow(clippy::used_underscore_items, reason = "the C constant name _0_125")]
 pub fn jpeg_idct_float(
     cinfo: &jpeg_decompress_struct<'_>,
     compptr: &jpeg_component_info,

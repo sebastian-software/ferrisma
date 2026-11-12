@@ -1223,6 +1223,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         }
     }
 
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     fn render_padding(&mut self, thread_id: usize, rect: Rect) -> Status {
         if rect.xsize() == 0 {
             return Ok(());

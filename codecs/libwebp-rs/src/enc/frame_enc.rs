@@ -358,6 +358,7 @@ fn reset_segments(enc: &mut VP8Encoder) {
     clippy::cast_sign_loss,
     reason = "the probabilities are in 0..=255"
 )]
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn set_segment_probas(enc: &mut VP8Encoder, pic: &mut WebPPicture<'_>) {
     let mut p = [0_i32; NUM_MB_SEGMENTS as usize];
 

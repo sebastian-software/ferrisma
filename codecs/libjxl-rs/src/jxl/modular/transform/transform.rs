@@ -188,6 +188,7 @@ impl Fields for Transform {
         Ok(())
     }
 }
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 pub fn check_equal_channels(image: &Image, c1: u32, c2: u32) -> Status {
     let begin = c1 as usize;
     let end = c2 as usize;

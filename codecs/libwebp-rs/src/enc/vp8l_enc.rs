@@ -621,6 +621,7 @@ const CRUNCH_CONFIGS_MAX: usize =
     reason = "the C function EncoderAnalyze is translated as one function"
 )]
 #[expect(clippy::float_cmp, reason = "the C comparison config->quality == 100")]
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 fn encoder_analyze(
     enc: &mut VP8LEncoder,
     pic: &WebPPicture<'_>,

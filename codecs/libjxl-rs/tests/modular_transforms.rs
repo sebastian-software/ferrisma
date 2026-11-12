@@ -140,6 +140,10 @@ fn metadata_failure_keeps_incremented_meta_count_and_completed_channel_change() 
     assert_eq!((image.channel[1].w, image.channel[2].w), (0, 1));
 }
 #[test]
+#[allow(
+    clippy::needless_range_loop,
+    reason = "Keep the index loops; stable Clippy versions differ."
+)]
 fn inverse_stack_pops_successes_retains_failure_and_restores_complete_rct_squeeze_chain() {
     let mut image = Image::create(17, 9, 16, 3).unwrap();
     for c in 0..3 {

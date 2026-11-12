@@ -859,6 +859,10 @@ impl Drop for JxlDecoder {
     }
 }
 
+#[allow(
+    clippy::needless_bool,
+    reason = "Keep the source's early-return shape."
+)]
 fn check_size_limit(xsize: usize, ysize: usize) -> bool {
     if xsize == 0 || ysize == 0 {
         return true;

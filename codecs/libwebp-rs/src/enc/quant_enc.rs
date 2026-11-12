@@ -451,6 +451,7 @@ fn simplify_segments(enc: &mut VP8Encoder) {
     reason = "C converts the double quantizer to int, in range for every quality"
 )]
 #[expect(clippy::similar_names, reason = "the C names dq_uv_ac and dq_uv_dc")]
+#[allow(clippy::needless_range_loop, reason = "the C index loops")]
 pub fn vp8_set_segment_params(enc: &mut VP8Encoder, config: &WebPConfig, quality: f32) {
     let num_segments = enc.segment_hdr.num_segments;
     let amp = SNS_TO_DQ * f64::from(config.sns_strength) / 100. / 128.;

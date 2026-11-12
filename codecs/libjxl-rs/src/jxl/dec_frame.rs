@@ -1977,6 +1977,7 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
     }
     /// SetPauseAtProgressive; returns the progressive detail effective for the
     /// frame. Pause points accumulate as in the source.
+    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn set_pause_at_progressive(
         &mut self,
         prog_detail: JxlProgressiveDetail,
