@@ -63,7 +63,10 @@ pub enum OutputFormat {
 pub enum JpegXlOptions {
     /// Lossless Modular encoding. Only effort 2 (libjxl's "thunder") is
     /// admitted by the workspace encoder.
-    Lossless { effort: u8 },
+    Lossless {
+        /// libjxl effort level; only `2` is admitted today.
+        effort: u8,
+    },
 }
 
 impl Default for JpegXlOptions {
