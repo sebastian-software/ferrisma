@@ -21,7 +21,10 @@ pub(super) struct InPlaceRows<'a> {
     input: [usize; 3],
     output: [usize; 3],
 }
+// Both accessors run once per sample; inline them into the row loop so the
+// permuted row selection is not a call per sample (integer code only).
 impl Rows for InPlaceRows<'_> {
+    #[inline(always)]
     fn get3(&self, x: usize) -> [Pixel; 3] {
         [
             self.rows[self.input[0]][x],
@@ -29,6 +32,7 @@ impl Rows for InPlaceRows<'_> {
             self.rows[self.input[2]][x],
         ]
     }
+    #[inline(always)]
     fn set3(&mut self, x: usize, values: [Pixel; 3]) {
         self.rows[self.output[0]][x] = values[0];
         self.rows[self.output[1]][x] = values[1];
@@ -56,9 +60,11 @@ pub(super) struct SeparateRows<'a> {
     pub output: [&'a mut [Pixel]; 3],
 }
 impl Rows for SeparateRows<'_> {
+    #[inline(always)]
     fn get3(&self, x: usize) -> [Pixel; 3] {
         [self.input[0][x], self.input[1][x], self.input[2][x]]
     }
+    #[inline(always)]
     fn set3(&mut self, x: usize, values: [Pixel; 3]) {
         self.output[0][x] = values[0];
         self.output[1][x] = values[1];
