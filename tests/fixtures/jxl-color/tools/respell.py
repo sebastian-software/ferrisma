@@ -67,8 +67,22 @@ class Writer:
             self.bits(2, 3)
             self.bits(6, value - 18)
 
+    def customxy(self, xy):
+        """Customxy: two signed U32 values, chromaticity times 1e6."""
+        for value in xy:
+            value = round(value * 1_000_000)
+            packed = 2 * value if value >= 0 else -2 * value - 1
+            for selector, (offset, n) in enumerate(CUSTOMXY):
+                if packed - offset < (1 << n):
+                    self.bits(2, selector)
+                    self.bits(n, packed - offset)
+                    break
+            else:
+                raise AssertionError("chromaticity out of range")
+
 
 ENUM = [("val", 0, 0), ("val", 1, 0), ("bits", 2, 4), ("bits", 18, 6)]
+CUSTOMXY = [(0, 19), (524288, 19), (1048576, 20), (2097152, 21)]
 SIZE = [("bits", 1, 9), ("bits", 1, 13), ("bits", 1, 18), ("bits", 1, 30)]
 
 
@@ -128,12 +142,20 @@ def find_colour_encoding(data):
 
 
 def encode_colour(space, white, primaries, transfer, intent):
+    """White point and primaries are an enum value or, for Custom (2), a
+    tuple `(2, xy...)` of CIE xy chromaticities: one pair for the white
+    point, red, green and blue pairs for the primaries."""
     w = Writer()
     w.bits(1, 0)  # not all_default
     w.bits(1, 0)  # want_icc = false
     w.enum(space)
-    w.enum(white)
-    w.enum(primaries)
+    for field in (white, primaries):
+        if isinstance(field, tuple):
+            w.enum(field[0])
+            for xy in field[1:]:
+                w.customxy(xy)
+        else:
+            w.enum(field)
     w.bits(1, 0)  # have_gamma = false
     w.enum(transfer)
     w.enum(intent)
@@ -183,7 +205,9 @@ def header_length(data, colour_end, xyb):
 # (output name, source, colour space, white point, primaries, transfer, intent)
 # Enum values (ISO/IEC 18181-1): space RGB 0; white D65 1, DCI 11;
 # primaries sRGB 1, BT.2100 9, P3 11; transfer BT.709 1, linear 8, sRGB 13,
-# PQ 16, DCI 17, HLG 18; intent perceptual 0, relative 1.
+# PQ 16, DCI 17, HLG 18; intent perceptual 0, relative 1. White point E is
+# 10. Custom (2) primaries carry red, green and blue CIE xy chromaticities.
+CUSTOM_PRIMARIES = (2, (0.70, 0.29), (0.17, 0.79), (0.13, 0.045))
 VARIANTS = [
     ("lossless-p3", "tests/fixtures/orientation/jxl-1.jxl", 0, 1, 11, 13, 1),
     ("lossless-pq", "tests/fixtures/orientation/jxl-1.jxl", 0, 1, 9, 16, 1),
@@ -192,6 +216,12 @@ VARIANTS = [
     ("lossless-dci-p3", "tests/fixtures/orientation/jxl-1.jxl", 0, 11, 11, 17, 1),
     ("xyb-p3", "tests/fixtures/sample.jxl", 0, 1, 11, 13, 1),
     ("xyb-pq", "tests/fixtures/sample.jxl", 0, 1, 9, 16, 1),
+    # HDR transfers without any CICP equivalent of the gamut (review of
+    # 2026-11-12): custom primaries, and libjxl's non-D65 white point.
+    ("lossless-custom-pq", "tests/fixtures/orientation/jxl-1.jxl", 0, 1, CUSTOM_PRIMARIES, 16, 1),
+    ("lossless-custom-hlg", "tests/fixtures/orientation/jxl-1.jxl", 0, 1, CUSTOM_PRIMARIES, 18, 1),
+    ("lossless-e-white-pq", "tests/fixtures/orientation/jxl-1.jxl", 0, 10, 9, 16, 1),
+    ("xyb-custom-pq", "tests/fixtures/sample.jxl", 0, 1, CUSTOM_PRIMARIES, 16, 1),
 ]
 
 

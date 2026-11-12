@@ -497,7 +497,12 @@ impl From<Error> for ProcessingError {
             | Error::UnsupportedCodecLayout
             | Error::UnsupportedPixelOperation
             | Error::ChromaPhaseRequiresResampling => Kind::UnsupportedInput,
-            #[cfg(any(feature = "webp-read", feature = "jpeg-xl-read"))]
+            #[cfg(any(
+                feature = "webp-read",
+                feature = "jpeg-xl-read",
+                feature = "jpeg-xl-own-read",
+                feature = "avif-read"
+            ))]
             Error::UnsupportedAnimation => Kind::UnsupportedInput,
             Error::UnsupportedImageTransform => Kind::UnsupportedInput,
             Error::UnsupportedColorEncoding => Kind::UnsupportedColor,

@@ -31,6 +31,7 @@ fn bridge_error(error: ReadError) -> Error {
         ReadError::Allocation => Error::AllocationFailed,
         ReadError::InvalidInput | ReadError::OutputSize => Error::DecodeFailed,
         ReadError::Unsupported => Error::UnsupportedCodecLayout,
+        ReadError::Animation => Error::UnsupportedAnimation,
         ReadError::PixelLimit { pixels, limit } => Error::InputPixelLimitExceeded { pixels, limit },
     }
 }
@@ -131,6 +132,9 @@ impl<'a> AvifSource<'a> {
         }
         let rendered_cicp = rendered_cicp(&properties, sequence)?;
         let has_alpha = decoded_info.alpha;
+        if decoded_info.image_count > 1 {
+            return Err(Error::UnsupportedAnimation);
+        }
         if decoded_info.width != width
             || decoded_info.height != height
             || decoded_info.depth != u32::from(sequence.bit_depth)

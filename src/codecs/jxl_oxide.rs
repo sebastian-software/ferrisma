@@ -28,6 +28,7 @@ impl JxlSource {
             return Err(Error::UnsupportedAnimation);
         }
         reject_unrenderable_colour_encoding(&image)?;
+        reject_hdr_transfer(&image)?;
         // jxl-oxide renders upright samples itself: `width()`/`height()` are
         // display dimensions, crop regions are display coordinates and the
         // pixel stream applies the header orientation (ADR-0019).
@@ -113,6 +114,34 @@ fn reject_unrenderable_colour_encoding(image: &JxlImage) -> Result<(), Error> {
         Ok(())
     } else {
         Err(Error::UnsupportedColorEncoding)
+    }
+}
+
+/// PQ and HLG need reference-white and tone-mapping decisions the engine does
+/// not make (ADR-0016 rule 7), so they are refused from the transfer function
+/// itself, whatever the primaries and white point. A check keyed on CICP is
+/// not enough: custom primaries have no H.273 code point, so neither
+/// `rendered_cicp` nor a `cicp` tag in the synthesized profile exists, and the
+/// profile's PQ/HLG approximation would otherwise be converted as SDR (review
+/// of 2026-11-12). For an ICC-signalled header, the encoding jxl-render
+/// recognized from the profile is checked as well; an unrecognized profile
+/// stays covered by the profile checks of the rendered-ICC stage.
+fn reject_hdr_transfer(image: &JxlImage) -> Result<(), Error> {
+    use jxl_oxide::color::{ColourEncoding, TransferFunction};
+
+    let header_hdr = match &image.image_header().metadata.colour_encoding {
+        ColourEncoding::Enum(encoding) => {
+            matches!(encoding.tf, TransferFunction::Pq | TransferFunction::Hlg)
+        }
+        ColourEncoding::IccProfile(_) => false,
+    };
+    let rendered_hdr = image
+        .rendered_cicp()
+        .is_some_and(|cicp| matches!(cicp[1], 16 | 18));
+    if header_hdr || rendered_hdr {
+        Err(Error::UnsupportedColorEncoding)
+    } else {
+        Ok(())
     }
 }
 

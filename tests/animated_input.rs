@@ -38,6 +38,13 @@ impl RowEncoder for DiscardRows {
     }
 }
 
+/// The animation-specific reason of the engine's `UnsupportedAnimation`
+/// error. The public kind alone (`UnsupportedInput`) is shared with unrelated
+/// layout errors, so every test also checks this message.
+const ANIMATION_REASON: &str = "animated input is not supported; only still images are decoded";
+
+/// Rejects with the public kind, and asserts that the reason is animation
+/// rather than an unrelated unsupported layout.
 fn kind(bytes: &[u8], format: ImageFormat, options: TransformOptions) -> ProcessingErrorKind {
     let options = TransformOptions {
         output_format: OutputFormat::WebP,
@@ -45,9 +52,10 @@ fn kind(bytes: &[u8], format: ImageFormat, options: TransformOptions) -> Process
         output_height: 4,
         ..options
     };
-    transcode_with(bytes, format, options, &Discard)
-        .expect_err("animated input must be rejected")
-        .kind()
+    let error = transcode_with(bytes, format, options, &Discard)
+        .expect_err("animated input must be rejected");
+    assert_eq!(error.to_string(), ANIMATION_REASON, "{format:?}");
+    error.kind()
 }
 
 fn srgb() -> TransformOptions {

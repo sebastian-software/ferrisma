@@ -12,7 +12,13 @@ pub enum ReadError {
     Allocation,
     InvalidInput,
     Unsupported,
-    PixelLimit { pixels: u64, limit: u64 },
+    /// An image sequence (`avis` tracks or several images); only still
+    /// images are decoded.
+    Animation,
+    PixelLimit {
+        pixels: u64,
+        limit: u64,
+    },
     OutputSize,
 }
 
@@ -117,7 +123,7 @@ impl<'a> Decoder<'a> {
             (*data).tracks.count != 0
         };
         if has_tracks {
-            return Err(ReadError::Unsupported);
+            return Err(ReadError::Animation);
         }
         // SAFETY: Parse succeeded; owner exclusively holds the decoder and
         // keeps the input memory reader alive for sample preparation.
@@ -179,6 +185,9 @@ impl<'a> Decoder<'a> {
                     pixels,
                     limit: max_pixels,
                 });
+            }
+            if decoder.imageCount > 1 {
+                return Err(ReadError::Animation);
             }
             if decoder.imageCount != 1 || image.depth != 8 && image.depth != 10 && image.depth != 12
             {
@@ -461,7 +470,7 @@ mod tests {
         );
         assert!(matches!(
             Decoder::parse(bytes, 100_000_000),
-            Err(ReadError::Unsupported)
+            Err(ReadError::Animation)
         ));
         // libavif AUTO would select tracks for `avis` and for this non-avif
         // major brand. Explicit primary selection must still reject both.
@@ -470,7 +479,7 @@ mod tests {
         other_brand[8..12].copy_from_slice(b"mif1");
         assert!(matches!(
             Decoder::parse(&other_brand, 100_000_000),
-            Err(ReadError::Unsupported)
+            Err(ReadError::Animation)
         ));
     }
 }

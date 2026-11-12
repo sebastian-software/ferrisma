@@ -3,6 +3,7 @@
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 use jxl::jxl::codestream_header::JxlBasicInfo;
+use jxl::jxl::color_encoding::{JxlColorEncoding, TransferFunction};
 use jxl::jxl::decode::{
     self as api, JxlColorProfileTarget, JxlDecoder, JxlDecoderStatus as Status,
 };
@@ -14,7 +15,12 @@ use std::ptr::NonNull;
 pub enum Error {
     Decode,
     Unsupported,
-    PixelLimit { pixels: u64, limit: u64 },
+    /// The codestream is an animation; only still images are decoded.
+    Animation,
+    PixelLimit {
+        pixels: u64,
+        limit: u64,
+    },
     BufferSize,
     Allocation,
 }
@@ -27,6 +33,20 @@ pub struct ImageInfo {
     pub alpha_premultiplied: bool,
     /// The DATA profile describes the decoder's emitted float samples.
     pub rendered_icc: Vec<u8>,
+    /// Transfer function of the DATA color encoding when it is enum-signalled;
+    /// `None` when the emitted samples are described only by an ICC profile.
+    pub data_transfer: Option<Transfer>,
+}
+
+/// Transfer function of an enum-signalled color encoding.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Transfer {
+    /// SMPTE ST 2084 perceptual quantizer (HDR).
+    Pq,
+    /// ARIB STD-B67 hybrid log-gamma (HDR).
+    Hlg,
+    /// Any other transfer function (sRGB, BT.709, linear, DCI, gamma, ...).
+    Other,
 }
 
 impl ImageInfo {
@@ -111,9 +131,11 @@ impl<'a> Decoder<'a> {
                 limit: max_pixels,
             });
         }
+        if basic.have_animation != 0 {
+            return Err(Error::Animation);
+        }
         if basic.exponent_bits_per_sample != 0
             || basic.alpha_exponent_bits != 0
-            || basic.have_animation != 0
             || basic.num_color_channels != 1 && basic.num_color_channels != 3
         {
             return Err(Error::Unsupported);
@@ -129,6 +151,25 @@ impl<'a> Decoder<'a> {
             channels,
             alpha_premultiplied: alpha && basic.alpha_premultiplied != 0,
             rendered_icc: Vec::new(),
+            data_transfer: None,
+        })
+    }
+
+    /// The transfer function of the enum DATA encoding, if there is one.
+    fn data_transfer(&mut self) -> Option<Transfer> {
+        let mut encoding = JxlColorEncoding::default();
+        if api::jxl_decoder_get_color_as_encoded_profile(
+            self.get(),
+            JxlColorProfileTarget::DATA,
+            Some(&mut encoding),
+        ) != Status::SUCCESS
+        {
+            return None;
+        }
+        Some(match encoding.transfer_function {
+            TransferFunction::PQ => Transfer::Pq,
+            TransferFunction::HLG => Transfer::Hlg,
+            _ => Transfer::Other,
         })
     }
 
@@ -183,6 +224,7 @@ pub fn inspect(input: &[u8], max_pixels: u64) -> Result<ImageInfo, Error> {
             Status::COLOR_ENCODING => {
                 let mut info = info.ok_or(Error::Decode)?;
                 info.rendered_icc = decoder.data_icc()?;
+                info.data_transfer = decoder.data_transfer();
                 return Ok(info);
             }
             Status::ERROR | Status::NEED_MORE_INPUT | Status::SUCCESS => return Err(Error::Decode),
@@ -264,7 +306,7 @@ pub fn decode_into(
 
 #[cfg(test)]
 mod tests {
-    use super::{Error, decode_into, inspect};
+    use super::{Error, Transfer, decode_into, inspect};
 
     const SAMPLE: &[u8] = include_bytes!("../../../tests/fixtures/sample.jxl");
 
@@ -318,6 +360,35 @@ mod tests {
                 Error::Unsupported,
                 "{name}"
             );
+        }
+    }
+
+    #[test]
+    fn reports_animation_as_its_own_reason() {
+        let animated = include_bytes!(
+            "../../../codecs/libjxl-rs/tests/data/decoder-geometry/sequence-reference-overwrite-animation-1.jxl"
+        );
+        assert_eq!(inspect(animated, 1 << 30).unwrap_err(), Error::Animation);
+    }
+
+    #[test]
+    fn exposes_the_data_transfer_of_enum_encodings() {
+        const COLOR: &str = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/jxl-color/"
+        );
+        for (name, transfer) in [
+            ("lossless-p3", Transfer::Other),
+            ("lossless-pq", Transfer::Pq),
+            ("lossless-hlg", Transfer::Hlg),
+            ("lossless-custom-pq", Transfer::Pq),
+            ("lossless-custom-hlg", Transfer::Hlg),
+            ("lossless-e-white-pq", Transfer::Pq),
+            ("xyb-custom-pq", Transfer::Pq),
+        ] {
+            let bytes = std::fs::read(format!("{COLOR}{name}.jxl")).unwrap();
+            let info = inspect(&bytes, 1 << 20).unwrap();
+            assert_eq!(info.data_transfer, Some(transfer), "{name}");
         }
     }
 

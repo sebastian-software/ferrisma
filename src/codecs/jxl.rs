@@ -9,7 +9,7 @@ use crate::decoder::{
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
-use ferrisma_jxl_decoder::{ImageInfo, decode_into, inspect};
+use ferrisma_jxl_decoder::{ImageInfo, Transfer, decode_into, inspect};
 
 pub(crate) struct JxlSource<'a> {
     bytes: &'a [u8],
@@ -25,6 +25,16 @@ impl<'a> JxlSource<'a> {
     }
     pub(crate) fn new_bounded(bytes: &'a [u8], max_pixels: u64) -> Result<Self, Error> {
         let image = inspect(bytes, max_pixels).map_err(map_error)?;
+        // PQ and HLG are refused from the transfer function itself (ADR-0016
+        // rule 7, review of 2026-11-12): a gamut without an H.273 code point,
+        // such as custom primaries or a white point other than D65 or DCI,
+        // gives the synthesized approximation profile no `cicp` tag, and the
+        // rendered-ICC stage would otherwise convert it as SDR. An
+        // ICC-signalled DATA encoding has no enum transfer; it stays covered
+        // by the profile checks of that stage.
+        if matches!(image.data_transfer, Some(Transfer::Pq | Transfer::Hlg)) {
+            return Err(Error::UnsupportedColorEncoding);
+        }
         let size = Size::new(image.width, image.height)?;
         let (layout, alpha) = match image.channels {
             1 => (ChannelLayout::Gray, AlphaMode::Opaque),
@@ -68,6 +78,7 @@ impl<'a> JxlSource<'a> {
 fn map_error(error: ferrisma_jxl_decoder::Error) -> Error {
     match error {
         ferrisma_jxl_decoder::Error::Unsupported => Error::UnsupportedCodecLayout,
+        ferrisma_jxl_decoder::Error::Animation => Error::UnsupportedAnimation,
         ferrisma_jxl_decoder::Error::PixelLimit { pixels, limit } => {
             Error::InputPixelLimitExceeded { pixels, limit }
         }

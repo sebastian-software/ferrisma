@@ -30,6 +30,18 @@ shasum -a 256 tests/fixtures/jxl-color/*.jxl
 | `lossless-dci-p3.jxl` | `jxl-1.jxl` | DCI white, P3 primaries, DCI transfer | `09f13bcab3fc7f78a848fed731e81bfe093e9cfbb045e38d0037281b873688b6` |
 | `xyb-p3.jxl` | `sample.jxl` | Display P3 | `5d7d01eb633e69e1789ad0a65bd60c9e3451ba627e910a96349fff10e129a007` |
 | `xyb-pq.jxl` | `sample.jxl` | D65, BT.2100 primaries, PQ | `9b49c29d490c53c4bbe672e1c069edf343fefdd73dad007adf60e51d8ee7dac0` |
+| `lossless-custom-pq.jxl` | `jxl-1.jxl` | D65, custom primaries, PQ | `b32ad33224a0b98ccc2805625ac48887af6e504bea9540541b8345b6ab1f8762` |
+| `lossless-custom-hlg.jxl` | `jxl-1.jxl` | D65, custom primaries, HLG | `adef0537414c83a7a3ab61237a2884afa0b674a6f456f662ca0bf0cc7f8fdd49` |
+| `lossless-e-white-pq.jxl` | `jxl-1.jxl` | white point E, BT.2100 primaries, PQ | `7d7ce5d242255ea6d6cdeee74f9653b8df1194083506213d47fdb41c729cd455` |
+| `xyb-custom-pq.jxl` | `sample.jxl` | D65, custom primaries, PQ | `03d913e3c1bfad714fa06232cfcfd84894e473ba71592a979372896fed7b2547` |
+
+The custom primaries are red (0.70, 0.29), green (0.17, 0.79) and blue
+(0.13, 0.045), written as `Customxy` chromaticities. These four files were
+added on 2026-11-12 for the independent review finding that PQ/HLG input
+without any H.273 code point for its gamut was converted as SDR under
+`UseRenderedIcc`: neither decoder reports CICP for them, and the
+synthesized ICC carries no `cicp` tag. The regenerated earlier files are
+byte-identical to their previous hashes.
 
 Both jxl-oxide 0.12.6 and the libjxl-rs port decode every file. No file
 carries an embedded ICC profile: writing one needs a JPEG XL ICC-stream

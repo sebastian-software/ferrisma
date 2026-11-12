@@ -11,6 +11,7 @@
 use std::sync::Mutex;
 
 use crate::decoder::DecodeSource;
+use crate::error::Error;
 use crate::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
     JpegXlDecoder, OutputFormat, ProcessingErrorKind, ResizeFilter, RowEncoder, TransformOptions,
@@ -45,22 +46,25 @@ fn decoders() -> Vec<JpegXlDecoder> {
     all
 }
 
-/// The rendered signals of one decoder: (CICP, the ICC's own `cicp` tag).
-fn signals(decoder: JpegXlDecoder, bytes: &[u8]) -> (Option<[u8; 4]>, Option<[u8; 4]>) {
-    let info = match decoder {
+/// What one decoder's adapter declares for a file, or why it refuses it.
+fn open(decoder: JpegXlDecoder, bytes: &[u8]) -> Result<crate::decoder::DecoderInfo, Error> {
+    match decoder {
         #[cfg(feature = "jpeg-xl-read")]
-        JpegXlDecoder::JxlOxide => crate::codecs::jxl_oxide::JxlSource::new(bytes)
-            .unwrap()
-            .info()
-            .clone(),
+        JpegXlDecoder::JxlOxide => {
+            crate::codecs::jxl_oxide::JxlSource::new(bytes).map(|source| source.info().clone())
+        }
         #[cfg(feature = "jpeg-xl-own-read")]
-        JpegXlDecoder::LibjxlRs => crate::codecs::jxl::JxlSource::new(bytes)
-            .unwrap()
-            .info()
-            .clone(),
+        JpegXlDecoder::LibjxlRs => {
+            crate::codecs::jxl::JxlSource::new(bytes).map(|source| source.info().clone())
+        }
         #[allow(unreachable_patterns)]
         _ => unreachable!(),
-    };
+    }
+}
+
+/// The rendered signals of one decoder: (CICP, the ICC's own `cicp` tag).
+fn signals(decoder: JpegXlDecoder, bytes: &[u8]) -> (Option<[u8; 4]>, Option<[u8; 4]>) {
+    let info = open(decoder, bytes).unwrap();
     let icc = info
         .rendered_icc
         .expect("JPEG XL adapters always render an ICC");
@@ -81,18 +85,28 @@ fn icc_cicp_tag(icc: &[u8]) -> Option<[u8; 4]> {
 
 /// The declared meaning of each fixture's samples, per decoder. jxl-oxide
 /// reports CICP beside its synthesized ICC; the libjxl-rs adapter reports
-/// only the ICC, whose `cicp` tag carries the same code points.
+/// only the ICC, whose `cicp` tag carries the same code points. PQ and HLG
+/// files are refused by both adapters before any profile is declared
+/// (review of 2026-11-12); before that change they declared `[9, 16, 0, 1]`
+/// and `[9, 18, 0, 1]` here and were rejected one stage later.
 #[test]
 fn adapters_declare_the_emitted_encoding() {
     for decoder in decoders() {
+        for name in ["lossless-pq", "lossless-hlg", "xyb-pq"]
+            .into_iter()
+            .chain(HDR_WITHOUT_CICP)
+        {
+            assert_eq!(
+                open(decoder, &fixture(name)).err(),
+                Some(Error::UnsupportedColorEncoding),
+                "{decoder:?} {name}"
+            );
+        }
         for (name, cicp) in [
             ("lossless-p3", [12, 13, 0, 1]),
-            ("lossless-pq", [9, 16, 0, 1]),
-            ("lossless-hlg", [9, 18, 0, 1]),
             ("lossless-linear-srgb", [1, 8, 0, 1]),
             ("lossless-dci-p3", [11, 17, 0, 1]),
             ("xyb-p3", [12, 13, 0, 1]),
-            ("xyb-pq", [9, 16, 0, 1]),
         ] {
             let (rendered, tagged) = signals(decoder, &fixture(name));
             match decoder {
@@ -294,5 +308,85 @@ fn hdr_and_unverifiable_encodings_are_rejected() {
                 "{decoder:?} {name} rendered ICC"
             );
         }
+    }
+}
+
+/// Review of 2026-11-12: PQ and HLG must be refused from the transfer
+/// function itself. With custom primaries (or, for libjxl, a white point
+/// other than D65 or DCI) no CICP code point exists, neither beside nor
+/// inside the rendered ICC, so a check keyed on CICP let the synthesized
+/// PQ/HLG approximation profile through `UseRenderedIcc` and converted it as
+/// SDR. Every decoder and every input profile policy must refuse these files.
+#[test]
+fn hdr_transfer_is_rejected_without_any_cicp_equivalent() {
+    #[allow(unused_mut)] // `UseRenderedIcc` needs the `icc` feature.
+    let mut policies = vec![
+        InputProfilePolicy::Strict,
+        InputProfilePolicy::AssumeSrgbIfMissing,
+    ];
+    #[cfg(feature = "icc")]
+    policies.push(InputProfilePolicy::UseRenderedIcc);
+    let mut accepted = Vec::new();
+    for decoder in decoders() {
+        for name in HDR_WITHOUT_CICP {
+            for &policy in &policies {
+                let result = run(&fixture(name), decoder, policy, (3, 2)).map(|_| ());
+                if result != Err(ProcessingErrorKind::UnsupportedColor) {
+                    accepted.push(format!("{decoder:?} {name} {policy:?}: {result:?}"));
+                }
+            }
+        }
+    }
+    assert!(accepted.is_empty(), "{accepted:#?}");
+}
+
+/// PQ/HLG fixtures whose gamut has no H.273 code point.
+const HDR_WITHOUT_CICP: [&str; 4] = [
+    "lossless-custom-pq",
+    "lossless-custom-hlg",
+    "lossless-e-white-pq",
+    "xyb-custom-pq",
+];
+
+/// The new fixtures declare what their names say, read by jxl-oxide's own
+/// header parser rather than by either adapter.
+#[cfg(feature = "jpeg-xl-read")]
+#[test]
+fn hdr_fixtures_without_cicp_declare_their_enum_encoding() {
+    use jxl_oxide::JxlImage;
+    use jxl_oxide::color::{ColourEncoding, Primaries, TransferFunction, WhitePoint};
+    for (name, custom, white, tf) in [
+        (
+            "lossless-custom-pq",
+            true,
+            WhitePoint::D65,
+            TransferFunction::Pq,
+        ),
+        (
+            "lossless-custom-hlg",
+            true,
+            WhitePoint::D65,
+            TransferFunction::Hlg,
+        ),
+        (
+            "lossless-e-white-pq",
+            false,
+            WhitePoint::E,
+            TransferFunction::Pq,
+        ),
+        ("xyb-custom-pq", true, WhitePoint::D65, TransferFunction::Pq),
+    ] {
+        let bytes = fixture(name);
+        let image = JxlImage::builder().read(bytes.as_slice()).unwrap();
+        let ColourEncoding::Enum(encoding) = &image.image_header().metadata.colour_encoding else {
+            panic!("{name}: enum encoding expected");
+        };
+        assert_eq!(
+            matches!(encoding.primaries, Primaries::Custom { .. }),
+            custom,
+            "{name}"
+        );
+        assert_eq!(encoding.white_point, white, "{name}");
+        assert_eq!(encoding.tf, tf, "{name}");
     }
 }
