@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-10
-- **Last reviewed:** 2026-11-10
+- **Last reviewed:** 2026-11-12
 - **Supersedes:** The cadence requirement in [0026](0026-codecs-in-one-repository-and-workspace.md), decision 7; the ordinary PR C++ oracle and every-change local macOS requirements in JXL's imported ADR-0002 and PR #61, as described below
 - **Related:** [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md)
 
@@ -94,3 +94,14 @@ measured, a supported host changes, or fixture and live oracle results diverge.
 - 2026-11-10 — Recorded local orchestration and workflow-lint evidence; hosted fast CI validation remains pending.
 
 - 2026-11-10 — Recorded two successful hosted PR runs; broad timing and deep-tier evidence remain separate.
+
+- 2026-11-12 — Issue #119: the JXL nightly shard `Tests (ubuntu-latest,
+  sanitized oracle, 3/4)` was cancelled after the hosted 360-minute job limit
+  on 2026-11-08 and 2026-11-11. The job log shows
+  `thread_parallel_runner_test_pool` hanging in the Rust thread runner's
+  readiness barrier, the duplicate-wake race fixed in commit `592a6b8b`
+  (libjxl-rs ADR 0003); both failing commits predate it, and the shard passed
+  at `90b638dd`. The JXL parity jobs now set a 120-minute timeout so a hang
+  fails fast. The remaining JXL nightly failure, the decoder-state audit, ran
+  workspace Clippy with the pinned nightly; it now uses the port's stable
+  Clippy like `tools/check.py`.
