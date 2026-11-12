@@ -232,10 +232,28 @@ libavif calls and links the original libavif baseline, the portable libaom
 reference (`_c` functions only, `-ffp-contract=off`) and the SharpYUV and
 dav1d references that root parity validation builds. All 62 C outputs equal
 the Rust golden outputs on GNU Linux x86-64 (clang 16.0.6, run 42611941653)
-and on macOS ARM64 (Apple clang 21.0.0, local, libavif without the dav1d
-decoder). Because the pull-request tier builds no C library, the C side runs
-in `aom-golden-c.yml` nightly, on dispatch and on pull requests that change
-the record; on Linux it takes 3 min 22 s.
+and on macOS ARM64 (Apple clang 21.0.0, Ferrisma run 43194200648; first
+recorded locally with libavif built without the dav1d decoder). Because the
+pull-request tier builds no C library, the C side runs in
+`aom-golden-c.yml` nightly, on dispatch and on pull requests that change the
+record; on Linux it takes 3 min 22 s.
+
+**Hosted macOS C confirmation (2026-11-12).** The scheduled Ferrisma nightly
+run [43194200648](https://github.com/sebastian-software/ferrisma/actions/runs/43194200648)
+at `90b638dd` ran `.github/workflows/avif-aom-golden-c.yml` with
+`macos: true`. Its job `AVIF: C reference (macos-26)` (job 131189094951,
+image `macos-26-arm64` 20261102.0473, macOS 26.7.2, Apple clang 21.0.0
+`clang-2100.1.1.101`, libaom `config_sha256` `c1acff87…` as recorded) reported
+"62 of 62 C reference outputs match … for macos-aarch64-release; 62 of 62
+equal the Rust golden outputs (C-confirmed)". Unlike the local recording,
+this build's libavif enables the dav1d decoder; encoding does not use it.
+The hosted report is the artifact `aom-golden-c-macos` (ID 13946296761) of
+that run. The provenance block under `c_reference.macos-aarch64-release` in
+`crates/aom/golden/release.json` still describes the local recording (its
+archive hashes and compiler build), so it keeps those values and lists the
+hosted run under `hosted_confirmation`; no expected output changed. The
+earlier nightly dispatch 42810092564 (job 129899769568) also passed on
+`macos-26`.
 
 ## Open questions
 

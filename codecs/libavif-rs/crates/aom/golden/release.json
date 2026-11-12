@@ -70,7 +70,16 @@
         "system": "macOS-27.0.1-arm64-arm-64bit",
         "machine": "arm64"
       },
-      "evidence": "local"
+      "evidence": "local",
+      "hosted_confirmation": {
+        "evidence": "https://github.com/sebastian-software/ferrisma/actions/runs/43194200648",
+        "job": 131189094951,
+        "commit": "90b638ddd4fdbf05d713c060973406480a845e9a",
+        "runner": "macos-26-arm64 20261102.0473 (macOS 26.7.2)",
+        "compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+        "libavif_dav1d_decoder": true,
+        "result": "62 of 62 C reference outputs match; 62 of 62 equal the Rust golden outputs"
+      }
     },
     "linux-x86_64-release": {
       "harness": "tools/encode_still.c",
