@@ -203,10 +203,10 @@ fn admitted_extra_channels(m: &ImageMetadata) -> bool {
     if m.num_extra_channels == 0 {
         return true;
     }
-    m.num_extra_channels == 1
-        && m.extra_channel_info.len() == 1
-        && m.extra_channel_info[0].channel_type == ExtraChannel::ALPHA
-        && m.extra_channel_info[0].dim_shift == 0
+    m.num_extra_channels as usize == m.extra_channel_info.len()
+        && m.extra_channel_info
+            .iter()
+            .all(|eci| eci.channel_type != ExtraChannel::BLACK && eci.dim_shift == 0)
 }
 
 /// GetBitDepth.

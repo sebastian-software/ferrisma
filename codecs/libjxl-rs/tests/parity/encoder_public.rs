@@ -861,9 +861,18 @@ fn lossy_history(
     )
 }
 
-/// Every history of an admitted lossy family must match without admission.
+/// Every history of an admitted lossy family must match without admission,
+/// and the original must encode it: the last ProcessOutput succeeds with a
+/// codestream.
 fn compare_admitted(family: &str, requests: Vec<String>) {
     let count = requests.len();
+    for (request, cpp) in requests.iter().zip(super::original_observations(&requests)) {
+        let last = cpp.rsplit(" p:").next().unwrap_or("");
+        assert!(
+            cpp.contains(" p:") && last.starts_with("0,") && !output_bytes(&cpp).is_empty(),
+            "the original encodes the history: {request}"
+        );
+    }
     let exact = compare_counted(family, requests);
     assert_eq!(exact, count, "{family}: every admitted history is exact");
 }
@@ -1321,6 +1330,12 @@ fn alpha_history(
         1 => format!(" G{}", u8::from(gray)),
         _ => format!(" g{}", u8::from(gray)),
     };
+    // JxlEncoderSetExtraChannelBuffer requires a set color encoding.
+    let color = if separate && color.is_empty() {
+        format!(" G{}", u8::from(gray))
+    } else {
+        color
+    };
     let content = content + 16 * alpha_mode;
     let mut frame =
         format!("a0,{channels},{data_type},{endianness},{align},{size},{content},{xsize},{ysize}");
@@ -1773,4 +1788,107 @@ fn public_encoder_lossy_vardct_text_like_default_admission_matches_original() {
     }
     compare_admitted("lossy-text-patches-off", off);
     compare("lossy-text-default", requests);
+}
+
+/// One lossy history with several extra channels: an optional alpha channel
+/// from the basic info (interleaved, or index 0 of `infos` as a separate
+/// plane), and the channels of `infos` (type, bits) set with
+/// JxlEncoderSetExtraChannelInfo and filled with
+/// JxlEncoderSetExtraChannelBuffer. 8-bit input.
+fn extra_channels_history(
+    xsize: usize,
+    ysize: usize,
+    gray: bool,
+    interleaved_alpha: bool,
+    infos: &[(u32, u32)],
+    distance: f32,
+    variant: usize,
+    extra_settings: &str,
+) -> String {
+    let color_channels = if gray { 1 } else { 3 };
+    let channels = color_channels + usize::from(interleaved_alpha);
+    let alpha = if interleaved_alpha { 1 } else { 0 };
+    let num_ec = alpha + infos.len();
+    let mut script = format!("Bw:{xsize},h:{ysize},ec:{num_ec}");
+    if interleaved_alpha {
+        script.push_str(",ab:8");
+    }
+    if gray {
+        script.push_str(",c:1");
+    }
+    // JxlEncoderSetExtraChannelBuffer requires a set color encoding.
+    script.push_str(&format!(" G{}", u8::from(gray)));
+    let spot = [bits(1.0), bits(0.25), 0, bits(0.5)];
+    for (k, &(ec_type, ec_bits)) in infos.iter().enumerate() {
+        script.push_str(&format!(
+            " K{},{ec_type},{ec_bits},0,0,0,0,{},{},{},{}",
+            alpha + k,
+            spot[0],
+            spot[1],
+            spot[2],
+            spot[3]
+        ));
+    }
+    script.push_str(&format!(" s- d0,{}{extra_settings}", bits(distance)));
+    script.push_str(&format!(
+        " a0,{channels},2,0,0,{},{},{xsize},{ysize}",
+        xsize * ysize * channels,
+        1 + variant % 4 + 16 * (2 + variant % 2)
+    ));
+    for k in 0..infos.len() {
+        script.push_str(&format!(
+            " E0,1,2,0,0,{},{},{},{xsize},{ysize}",
+            xsize * ysize,
+            alpha + k,
+            1 + (variant + k) % 4 + 16 * (2 + (variant + k) % 2)
+        ));
+    }
+    format!(
+        "{script} Z {}",
+        output_schedule(xsize * ysize * (channels + infos.len()) * 4 + 2048)
+    )
+}
+
+/// Encoder step 4, remaining extra-channel types: depth, spot color,
+/// selection mask, thermal, CFA, optional and a second alpha channel, up to
+/// four extra channels, beside interleaved or separate alpha, one-shot and
+/// streaming, lossless and lossy.
+#[test]
+fn public_encoder_lossy_vardct_extra_channel_types_match_original() {
+    let sets: [(bool, &[(u32, u32)]); 6] = [
+        (true, &[(1, 8), (2, 8)]),
+        (false, &[(6, 10)]),
+        (false, &[(0, 8), (3, 8)]),
+        (true, &[(0, 8)]),
+        (true, &[(5, 8), (6, 8), (1, 12)]),
+        (false, &[(2, 1)]),
+    ];
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize)) in [(1, 1), (9, 17), (63, 129), (257, 255), (768, 768)]
+        .iter()
+        .enumerate()
+    {
+        for (k, &(interleaved, infos)) in sets.iter().enumerate() {
+            let variant = index * 6 + k;
+            let settings = match variant % 5 {
+                3 => format!(" D0,0,{}", bits(1.0)),
+                _ => String::new(),
+            };
+            requests.push(run(
+                0,
+                0,
+                &extra_channels_history(
+                    xsize,
+                    ysize,
+                    variant % 2 == 1,
+                    interleaved,
+                    infos,
+                    [1.0, 0.5, 2.9, 1.5][variant % 4],
+                    variant,
+                    &settings,
+                ),
+            ));
+        }
+    }
+    compare_admitted("extra-channel-types", requests);
 }
