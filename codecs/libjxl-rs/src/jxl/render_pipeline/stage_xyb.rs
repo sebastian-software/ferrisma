@@ -12,11 +12,9 @@ use crate::jxl::color_encoding::ColorSpace;
 use crate::jxl::dec_xyb::{OpsinParams, OutputEncodingInfo};
 use crate::jxl::dec_xyb_scalar::mul;
 
-#[cfg(any(test, target_arch = "aarch64"))]
 use super::scalar_rows::{self as k, Broadcast, lanes};
 
 /// Scratch rows of the XYB row kernel.
-#[cfg(any(test, target_arch = "aarch64"))]
 #[derive(Default)]
 struct XybRows {
     f: [Vec<f32>; 8],
@@ -29,7 +27,6 @@ struct XybRows {
 pub struct XybStage {
     opsin_params: OpsinParams,
     output_is_xyb: bool,
-    #[cfg(target_arch = "aarch64")]
     rows: XybRows,
 }
 impl XybStage {
@@ -37,7 +34,6 @@ impl XybStage {
         Self {
             opsin_params: info.opsin_params.clone(),
             output_is_xyb: info.color_encoding.get_color_space() == ColorSpace::XYB,
-            #[cfg(target_arch = "aarch64")]
             rows: XybRows::default(),
         }
     }
@@ -83,17 +79,7 @@ impl RenderPipelineStage for XybStage {
                 r2[x] = out_b;
             }
         } else {
-            #[cfg(target_arch = "aarch64")]
             xyb_to_rgb_rows(&mut self.rows, [r0, r1, r2], &self.opsin_params);
-            // Other targets run the previous per-element helper, so every
-            // sample executes the previous code by construction (see
-            // `scalar_rows`); only the row spans are resolved once per row.
-            #[cfg(not(target_arch = "aarch64"))]
-            for x in 0..width {
-                let rgb =
-                    crate::jxl::dec_xyb_scalar::xyb_to_rgb(r0[x], r1[x], r2[x], &self.opsin_params);
-                [r0[x], r1[x], r2[x]] = rgb;
-            }
         }
         Ok(())
     }
@@ -103,7 +89,6 @@ pub fn get_xyb_stage(info: &OutputEncodingInfo) -> Box<dyn RenderPipelineStage> 
 }
 
 /// One output row with its three matrix entries and their broadcast rows.
-#[cfg(any(test, target_arch = "aarch64"))]
 type MatrixRow<'a> = (&'a mut [f32], [(&'a mut Broadcast, f32); 3]);
 
 /// XybToRgb (dec_xyb_scalar::xyb_to_rgb) over whole rows, in place.
@@ -111,7 +96,6 @@ type MatrixRow<'a> = (&'a mut [f32], [(&'a mut Broadcast, f32); 3]);
 /// Every lane performs the operations of `xyb_to_rgb` with the same operands
 /// in the same order; the row kernels of `scalar_rows` keep its out-of-line
 /// Add/promote/product boundaries per operation instead of per element.
-#[cfg(any(test, target_arch = "aarch64"))]
 fn xyb_to_rgb_rows(scratch: &mut XybRows, [r0, r1, r2]: [&mut [f32]; 3], params: &OpsinParams) {
     let n = r0.len();
     let XybRows { f, d, scalars } = scratch;

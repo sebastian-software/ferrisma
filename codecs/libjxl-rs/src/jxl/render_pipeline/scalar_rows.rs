@@ -24,18 +24,16 @@
 //! Every kernel processes `out.len()` lanes; the inputs must be at least as
 //! long.
 //!
-//! Only AArch64 runs these loops as written. On every other target each
-//! kernel calls the per-element `#[inline(never)]` helper below once per lane
-//! instead, so every lane executes the previous per-element code by
-//! construction. Reason: LLVM treats `fadd` as commutative and may pick
-//! either operand as the first source of the emitted instruction. On x86-64
-//! the fused `add_abs_diff` loop added the accumulator as the second operand
-//! (`addps` keeps the first source's NaN payload), so a lane with two NaN
-//! operands returned the payload of the absolute difference; the per-element
-//! helper returns the accumulator's. Rust cannot pin the operand order of an
-//! inlined `fadd`, only the out-of-line helper boundary can, so the other
-//! targets keep that boundary per element and receive only the row-span
-//! hoisting of the stages, not the arithmetic speedup of these loops.
+//! This module is compiled on AArch64 only. LLVM treats `fadd` as
+//! commutative and may pick either operand as the first source of the
+//! emitted instruction. On x86-64 the fused `add_abs_diff` loop added the
+//! accumulator as the second operand (`addps` keeps the first source's NaN
+//! payload), so a lane with two NaN operands returned the payload of the
+//! absolute difference. Rust cannot pin the operand order of an inlined
+//! `fadd`, and calling the per-element helper once per lane inside these
+//! kernels was exact but slower than the original stages. Every other
+//! target therefore compiles the pre-work stage sources of `pre_r1/`
+//! verbatim and does not use these kernels (see `render_pipeline/mod.rs`).
 // Copyright 2019 Google LLC
 // Copyright (c) The Highway Project Authors. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
@@ -44,7 +42,6 @@
 // licenses/HIGHWAY-BSD-3-Clause.txt.
 
 /// `out[i] = a[i] + b[i]` (Highway scalar Add, operand order retained).
-#[cfg(target_arch = "aarch64")]
 #[inline(never)]
 pub fn add(out: &mut [f32], a: &[f32], b: &[f32]) {
     let (a, b) = (&a[..out.len()], &b[..out.len()]);
@@ -54,7 +51,6 @@ pub fn add(out: &mut [f32], a: &[f32], b: &[f32]) {
 }
 
 /// `out[i] = a[i] - b[i]` (Highway scalar Sub).
-#[cfg(target_arch = "aarch64")]
 #[inline(never)]
 pub fn sub(out: &mut [f32], a: &[f32], b: &[f32]) {
     let (a, b) = (&a[..out.len()], &b[..out.len()]);
@@ -65,7 +61,6 @@ pub fn sub(out: &mut [f32], a: &[f32], b: &[f32]) {
 
 /// `out[i] = |a[i] - b[i]|`: Highway scalar AbsDiff, Sub followed by the
 /// sign-bit clear of Abs (no addition, so no operand can be reordered).
-#[cfg(target_arch = "aarch64")]
 #[inline(never)]
 pub fn abs_diff(out: &mut [f32], a: &[f32], b: &[f32]) {
     let (a, b) = (&a[..out.len()], &b[..out.len()]);
@@ -76,7 +71,6 @@ pub fn abs_diff(out: &mut [f32], a: &[f32], b: &[f32]) {
 
 /// `out[i] = acc[i] + |a[i] - b[i]|`: `add(acc, abs_diff(a, b))` with the
 /// accumulator as the first addition operand. All three operands are loads.
-#[cfg(target_arch = "aarch64")]
 #[inline(never)]
 pub fn add_abs_diff(out: &mut [f32], acc: &[f32], a: &[f32], b: &[f32]) {
     let (acc, a, b) = (&acc[..out.len()], &a[..out.len()], &b[..out.len()]);
@@ -86,7 +80,6 @@ pub fn add_abs_diff(out: &mut [f32], acc: &[f32], a: &[f32], b: &[f32]) {
 }
 
 /// `out[i] = f64::from(a[i])`: the promotion of Highway's scalar operator*.
-#[cfg(target_arch = "aarch64")]
 #[inline(never)]
 pub fn promote(out: &mut [f64], a: &[f32]) {
     let a = &a[..out.len()];
@@ -96,7 +89,6 @@ pub fn promote(out: &mut [f64], a: &[f32]) {
 }
 
 /// `out[i] = (a[i] * b[i]) as f32`: the double product and its narrowing.
-#[cfg(target_arch = "aarch64")]
 #[inline(never)]
 pub fn product(out: &mut [f32], a: &[f64], b: &[f64]) {
     let (a, b) = (&a[..out.len()], &b[..out.len()]);
@@ -105,77 +97,28 @@ pub fn product(out: &mut [f32], a: &[f64], b: &[f64]) {
     }
 }
 
-// The previous per-element helpers of the stages, verbatim. Other targets
-// call them once per lane; the tests compare every kernel against them.
-#[cfg(any(test, not(target_arch = "aarch64")))]
+// The previous per-element helpers of the stages, verbatim; the tests
+// compare every kernel against them.
+#[cfg(test)]
 #[inline(never)]
 pub(crate) fn add1(a: f32, b: f32) -> f32 {
     a + b
 }
-#[cfg(any(test, not(target_arch = "aarch64")))]
+#[cfg(test)]
 #[inline(never)]
 pub(crate) fn sub1(a: f32, b: f32) -> f32 {
     a - b
 }
-#[cfg(any(test, not(target_arch = "aarch64")))]
+#[cfg(test)]
 #[inline(never)]
 pub(crate) fn promote1(a: f32) -> f64 {
     f64::from(a)
 }
-#[cfg(any(test, not(target_arch = "aarch64")))]
+#[cfg(test)]
 #[inline(never)]
 pub(crate) fn product1(a: f64, b: f64) -> f32 {
     (a * b) as f32
 }
-
-/// The kernels for targets other than AArch64: the same signatures, each
-/// lane one call of the previous per-element helper with the same operands
-/// in the same order.
-#[cfg(not(target_arch = "aarch64"))]
-mod per_element {
-    use super::{add1, product1, promote1, sub1};
-
-    pub fn add(out: &mut [f32], a: &[f32], b: &[f32]) {
-        let (a, b) = (&a[..out.len()], &b[..out.len()]);
-        for ((o, &a), &b) in out.iter_mut().zip(a).zip(b) {
-            *o = add1(a, b);
-        }
-    }
-    pub fn sub(out: &mut [f32], a: &[f32], b: &[f32]) {
-        let (a, b) = (&a[..out.len()], &b[..out.len()]);
-        for ((o, &a), &b) in out.iter_mut().zip(a).zip(b) {
-            *o = sub1(a, b);
-        }
-    }
-    /// `diff(a, b) = sub(a, b).abs()` of the EPF stage.
-    pub fn abs_diff(out: &mut [f32], a: &[f32], b: &[f32]) {
-        let (a, b) = (&a[..out.len()], &b[..out.len()]);
-        for ((o, &a), &b) in out.iter_mut().zip(a).zip(b) {
-            *o = sub1(a, b).abs();
-        }
-    }
-    /// `add(acc, diff(a, b))` of the EPF stage.
-    pub fn add_abs_diff(out: &mut [f32], acc: &[f32], a: &[f32], b: &[f32]) {
-        let (acc, a, b) = (&acc[..out.len()], &a[..out.len()], &b[..out.len()]);
-        for (((o, &acc), &a), &b) in out.iter_mut().zip(acc).zip(a).zip(b) {
-            *o = add1(acc, sub1(a, b).abs());
-        }
-    }
-    pub fn promote(out: &mut [f64], a: &[f32]) {
-        let a = &a[..out.len()];
-        for (o, &a) in out.iter_mut().zip(a) {
-            *o = promote1(a);
-        }
-    }
-    pub fn product(out: &mut [f32], a: &[f64], b: &[f64]) {
-        let (a, b) = (&a[..out.len()], &b[..out.len()]);
-        for ((o, &a), &b) in out.iter_mut().zip(a).zip(b) {
-            *o = product1(a, b);
-        }
-    }
-}
-#[cfg(not(target_arch = "aarch64"))]
-pub use per_element::{abs_diff, add, add_abs_diff, product, promote, sub};
 
 /// A row of `value` with at least `len` lanes, refilled only when `value` or
 /// the required length changes. Filling is a copy, not arithmetic.
