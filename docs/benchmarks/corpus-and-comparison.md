@@ -1,7 +1,9 @@
 # Corpus and reproducible comparison inputs
 
 This inventory extends the historical [M2 comparison](M2-sharp-comparison.md);
-it does not replace or update its measurements. The question for a new run is
+it does not replace or update its measurements. The indicative, loaded-host
+[v1.0 baseline of 2026-11-12](v1.0-baseline-2026-11-12.md) uses this corpus
+for interleaved encoder, decoder and Sharp timings. The question for a new run is
 how current Ferrisma and Sharp compare on a specified output geometry, color
 intent, and matched visual quality. Results are limited to the measured files,
 implementations, presets, and host. There are no new timing results here.

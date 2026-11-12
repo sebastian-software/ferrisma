@@ -169,3 +169,12 @@ if hosted x86-64 golden evidence fails.
   change), AOM's alpha-follows-color quality is kept, cross-host byte identity
   is not required. Timing, peak RSS and hosted golden evidence stay open;
   pending owner confirmation. The earlier default rationale is kept above.
+- 2026-11-12 — Indicative loaded-host timing in the
+  [v1.0 baseline](../benchmarks/v1.0-baseline-2026-11-12.md#2-avif-encode-rav1e-speed-6-versus-workspace-aom-speed-67-53):
+  interleaved, 7 samples, six photos up to 60.2 MP, rav1e 70/80/90 and matched
+  AOM qualities. On one thread AOM speed 6 was faster than rav1e speed 6 in
+  every accepted cell except the 42.2 MP elcito photo (encode +5 % to +84 %);
+  AOM speed 7 was faster everywhere. AOM process RSS was higher on most images
+  with all cores. Nine cells were rejected by the 0.5 SSIMULACRA2 gate and
+  stay recorded. Idle-host ARM64/x86-64 timing remains open; the default is
+  unchanged.

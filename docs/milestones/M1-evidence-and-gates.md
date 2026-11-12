@@ -132,6 +132,19 @@ Observations for follow-up: AVIF decode memory is mostly opaque (indicative RSS
 4–5× the managed peak); a low lossy-WebP crop holds most of the frame in
 managed memory; mirror-only orientation 2 costs as much as a rotation (ADR-0019
 keeps the materialization).
+
+**Re-measurement, 2026-11-12 (indicative; loaded host).** The
+[v1.0 baseline](../benchmarks/v1.0-baseline-2026-11-12.md#3-decode-stage-times-rss-and-orientation-cost-at-12-and-24-mp-19-68)
+supersedes the 24 MP RSS entries above for JPEG, WebP and AVIF with interleaved
+7-sample runs (load average 6.5–8.9) on real 12.2 MP and 24 MP photographs
+instead of resized derivatives, and adds stage times. Max RSS, 24 MP, one
+transform thread: JPEG o1 35.3 MB, o6 107.0 MB, o2 107.3 MB; WebP 102.3 MB;
+AVIF 434.3 MB against 102.7 MB managed; lossless JPEG XL 639.7 MB (libjxl-rs)
+and 371.2 MB (jxl-oxide). Orientation gather at 24 MP: +87 ms (o6) and +30 ms
+(o2) wall on one thread, about +20 ms with all cores, plus the 72 MB stored-order
+buffer in both cases. These numbers stay indicative. The 48 MP rows above are
+not re-measured. The same run found that the `mountain` and `deer` corpus
+photographs are rejected because their EXIF `Orientation` is stored as LONG.
 ## 2026-11-12 independent color and resize evidence
 
 - **Resize (#18):** `tests/resize_oracle.rs` checks the facade's Area and Lanczos3 output against retained ImageMagick 7.1.2-35 Q16-HDRI linear-light results and a separately written direct 2D oracle: upscaling, 80x downscaling, odd crops, mixed axis scales, straight-alpha edges and fully transparent pixels, and a broader geometry sweep. The oracles agree within `1.7e-7` linear; the engine (`F32` and `F64Reference`) matches them on every compared RGB sample, with one-code alpha differences only at asserted rounding ties (ADR-0021 rule 4). One intentional difference, unassociation where Lanczos overshoot lifts alpha above one, is recorded in ADR-0014. Display P3 through the rendered-ICC policy keeps out-of-gamut values until the output step. Fixtures, commands and hashes: `tests/fixtures/resize/README.md`; evidence summary in ADR-0016.
