@@ -7,6 +7,7 @@ pub mod low_memory_render_pipeline;
 )]
 pub mod render_pipeline;
 pub mod render_pipeline_stage;
+pub mod scalar_rows;
 pub mod simple_render_pipeline;
 pub mod stage_blending;
 pub mod stage_chroma_upsampling;

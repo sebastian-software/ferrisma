@@ -121,6 +121,15 @@ aggregate scalars explicitly and retain partial state after errors. Pixel
 conversion is translated separately below; general image conversion and
 frame-profile integration remain separate boundaries.
 
+`render_pipeline/scalar_rows.rs` derives from Highway's one-lane Add, Sub and
+operator* (`hwy/ops/scalar-inl.h`; Highway BSD alternative). It applies one
+operation per lane over a row, out of line, with both operands loaded in the
+source order and promotion kept in a separate kernel from the product, so the
+render stages keep the per-element helpers' operand-order and promotion
+boundaries without a call per element (2026-11-12). Its unit tests compare
+each kernel and the XYB row kernel with the previous helpers bit for bit on
+competing NaN payloads, infinities, denormals and signed zeros.
+
 `dec_xyb-inl.h` and the normal stage/factory in
 `render_pipeline/stage_xyb.cc` supply the one-lane XybToRgb helper and XYBStage.
 `tools/oracle/xyb_stage.cc` includes `xyb_stage.inc`, which includes the pristine
