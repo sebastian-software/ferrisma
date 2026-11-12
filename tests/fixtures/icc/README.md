@@ -51,6 +51,46 @@ set were:
 | `display-p3-gamma22.icc` | `1.10e-4` | `5.93e-4` | not asserted |
 | `adobe-rgb-1998.icc` | `0` | `6.54e-4` | not asserted |
 
+## Real photograph (issue #17, 2026-11-12)
+
+`tests/icc_photo.rs` uses the libavif test photograph
+`codecs/libavif-rs/upstream/libavif/tests/data/paris_exif_xmp_icc.jpg`
+(403 x 302, SHA-256
+`a827613b7d2b44b62547a83452d5399f2f42d96b88738032a5fde933cf31263c`; see that
+directory's README for its source and license). Its embedded profile is a
+596-byte Google sRGB IEC61966-2.1 ICC v4 profile.
+
+```sh
+J=codecs/libavif-rs/upstream/libavif/tests/data/paris_exif_xmp_icc.jpg
+magick "$J" icc:tests/fixtures/icc/paris-srgb.icc
+magick "$J" -crop 96x64+150+100 +repage -depth 8 rgb:tests/fixtures/icc/paris-crop.rgb
+cc -O2 tests/fixtures/icc/tools/photo.c -o /tmp/ferrisma-icc-photo $(pkg-config --cflags --libs lcms2)
+/tmp/ferrisma-icc-photo
+```
+
+ImageMagick 7.1.2-35 decodes the JPEG with its own libjpeg-turbo, so the
+crop's samples are independent of the workspace decoder. `tools/photo.c`
+converts the crop with LittleCMS 2.19 (same settings as `generate.c`) once
+through the photo's own profile and once through `DisplayP3-v4.icc`, which
+gives real photographic content a wide-gamut meaning.
+
+| File | SHA-256 |
+| --- | --- |
+| `paris-srgb.icc` | `33c34ecfeb998459e0075ba26a0f1ea5042e20e2419c5962e495eba3208576f2` |
+| `paris-crop.rgb` | `eacf9a7468e8d0ac8c5bce44213ab2a14eb61c1898188b4b71e3a5d0cb896578` |
+| `paris-crop-srgb-icc.f32` | `2baf73706a5d3c96f276b4f8c302443e5c4b67a10a1b5ee23440d4340d4598c2` |
+| `paris-crop-as-p3.f32` | `3961758cf3985d5532e9a42debede411254bec04889300da2798d33d1b204800` |
+
+The engine output (JPEG adapter or lossless WebP with an `ICCP` chunk,
+rendered-ICC policy, identity geometry) must lie, per sample, between the
+sRGB8 encodings of the LittleCMS value plus and minus `8e-4` linear (the
+bound below). All 18,432 samples of each case do; 103 LittleCMS samples of
+the P3 case lie outside `[0, 1]`. This is one photograph and two
+matrix-shaper profiles, not a corpus, and no LUT-based profile or rendering
+intent other than relative colorimetric is covered.
+
+## Tolerances of the profile samples
+
 The tests allow `8e-4` linear on the selected general samples, above the
 measured `6.54e-4` maximum. They allow only `1e-5` on the real-profile knee
 samples, where a zero result or a gamma-only curve differs from the oracle by
