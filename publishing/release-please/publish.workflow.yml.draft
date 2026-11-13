@@ -1,0 +1,170 @@
+# INERT DRAFT (decision D10, 2026-11-13). GitHub loads workflows only from
+# `.github/workflows/*.yml`; this file lives elsewhere and has a different
+# extension on purpose. Activating it is an owner decision; see
+# docs/release-automation.md ("Activation") before moving it.
+#
+# Adapted from the organization blueprint: sebastian-software/ferromark
+# `.github/workflows/publish.yml` (ADR-0020), sebastian-software/ferriki and
+# sebastian-software/ferrugo `publish.yml`, and project-infra v0.3.0
+# `skills/project-infra/references/ci-and-releases.md`.
+#
+# One release signal. Every push to `main` runs Release Please, which keeps one
+# release pull request open. Merging it writes the version commit, creates the
+# tag(s) and the GitHub release(s), and the jobs below publish that commit to
+# crates.io. Merging the release pull request is what publishes.
+#
+# `workflow_dispatch` is the retry path only: it takes an existing release tag
+# and republishes from exactly that commit. The shared publish action skips
+# versions that are already on crates.io, so a retry is safe.
+
+name: publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)publish, for example ferrisma-v0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: release please
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the release branch, create tags and releases
+      pull-requests: write # open and update the release pull request
+      issues: write # create and move the `autorelease:` labels
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+    steps:
+      - id: release
+        # v5.0.0, peeled commit of the annotated `v5` tag (the organization's
+        # repositories pin the tag object 0dfd8538…, which resolves to this
+        # commit). Bundles release-please 17.6.0, the version the local
+        # rehearsal runs.
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # Events created with the built-in GITHUB_TOKEN start no workflow
+          # runs, so the release pull request would carry no CI checks.
+          # RELEASE_PLEASE_TOKEN is the organization secret; the fallback keeps
+          # forks and a revoked token from failing the workflow.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+  validate-release:
+    name: validate release source
+    needs: release-please
+    if: >-
+      ${{ !cancelled() && (
+        (github.event_name == 'push' && needs.release-please.outputs.releases_created == 'true') ||
+        github.event_name == 'workflow_dispatch'
+      ) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      source_sha: ${{ steps.source.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: source
+        name: Resolve the release commit
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          PUSH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "${RELEASE_TAG:-}" ]; then
+            sha="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          else
+            # On a push, the commit that triggered this run is the merged
+            # release pull request, which is the release commit.
+            sha="$PUSH_SHA"
+          fi
+          git checkout --quiet "$sha"
+          # Every tag at this commit must name a package and its version
+          # (`<component>-v<version>`), and that package must be publishable.
+          cargo metadata --no-deps --format-version 1 --locked > "$RUNNER_TEMP/meta.json"
+          tags="$(git tag --points-at "$sha")"
+          [ -n "$tags" ] || { echo "::error::no release tag at $sha"; exit 1; }
+          for tag in $tags; do
+            name="${tag%-v*}"; version="${tag##*-v}"
+            jq -e --arg n "$name" --arg v "$version" \
+              '[.packages[] | select(.name == $n and .version == $v and .publish == ["crates-io"])] | length == 1' \
+              "$RUNNER_TEMP/meta.json" > /dev/null ||
+              { echo "::error::$tag does not match a publishable package version"; exit 1; }
+          done
+          echo "source_sha=$sha" >> "$GITHUB_OUTPUT"
+
+  publish-crates:
+    name: publish to crates.io
+    needs: [release-please, validate-release]
+    if: ${{ !cancelled() && needs.validate-release.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      # crates.io Trusted Publishing exchanges this OIDC token for a
+      # short-lived registry token. No long-lived registry secret is stored.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate-release.outputs.source_sha }}
+
+      # The pinned nightly from rust-toolchain.toml: the AVIF packages need it
+      # (ADR-0026), and `cargo publish` verifies each package by building it.
+      # GNU Linux x86-64 is a supported target of the translated AVIF code.
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Package and verify the whole chain before the first upload
+        run: |
+          cargo package --locked \
+            -p libsharpyuv-core -p ferrisma-kernels -p libjpeg-turbo-rs \
+            -p libjxl-rs -p libavif-aom -p libavif-dav1d -p libwebp-rs \
+            -p libavif-sharpyuv -p libavif-rs -p ferrisma-avif-read \
+            -p ferrisma-avif-write -p ferrisma-jxl-decoder \
+            -p ferrisma-jxl-encoder -p ferrisma
+
+      # Leaves first, in the order of docs/publishing.md. The action skips
+      # versions already on crates.io and waits for the index between crates,
+      # so it publishes exactly what this release changed (configuration B)
+      # or everything (configuration A), and a retry is idempotent.
+      - uses: sebastian-software/project-infra/.github/actions/publish-crates@c97d8db475ce5abb7e7ab7b0ac22e249346b9fab # v0.3.0
+        with:
+          crates: |
+            libsharpyuv-core
+            ferrisma-kernels
+            libjpeg-turbo-rs
+            libjxl-rs
+            libavif-aom
+            libavif-dav1d
+            libwebp-rs
+            libavif-sharpyuv
+            libavif-rs
+            ferrisma-avif-read
+            ferrisma-avif-write
+            ferrisma-jxl-decoder
+            ferrisma-jxl-encoder
+            ferrisma
+          # A first-ever publish cannot use Trusted Publishing because the
+          # crate does not exist yet. For that one release only, pass a
+          # bootstrap token, then enable Trusted Publishing per crate and
+          # remove this line (project-infra guidance).
+          # token: ${{ secrets.CARGO_BOOTSTRAP_TOKEN }}

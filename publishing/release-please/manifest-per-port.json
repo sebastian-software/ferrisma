@@ -1,0 +1,17 @@
+{
+  "crates/ferrisma": "0.0.0",
+  "crates/ferrisma-kernels": "0.0.0",
+  "crates/ferrisma-avif-read": "0.0.0",
+  "crates/ferrisma-avif-write": "0.0.0",
+  "crates/ferrisma-jxl-decoder": "0.0.0",
+  "crates/ferrisma-jxl-encoder": "0.0.0",
+  "crates/libsharpyuv-core": "0.0.0",
+  "codecs/libjpeg-turbo-rs": "0.0.0",
+  "codecs/libwebp-rs": "0.0.0",
+  "codecs/libjxl-rs": "0.0.0",
+  "codecs/libavif-rs": "0.0.0",
+  "codecs/libavif-rs/crates/aom": "0.0.0",
+  "codecs/libavif-rs/crates/dav1d": "0.0.0",
+  "codecs/libavif-rs/crates/sharpyuv": "0.0.0",
+  "crates/ferrisma-libavif": "0.0.0"
+}

@@ -1,0 +1,198 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "rust",
+  "include-component-in-tag": true,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "prerelease": true,
+  "bootstrap-sha": "e4038a4a9adb4a4b92b9a9ba4c6441f58bbcbfbf",
+  "separate-pull-requests": false,
+  "plugins": [
+    {
+      "type": "cargo-workspace",
+      "merge": false
+    },
+    {
+      "type": "linked-versions",
+      "groupName": "ferrisma",
+      "components": [
+        "ferrisma",
+        "ferrisma-kernels",
+        "ferrisma-avif-read",
+        "ferrisma-avif-write",
+        "ferrisma-jxl-decoder",
+        "ferrisma-jxl-encoder",
+        "ferrisma-libavif"
+      ],
+      "merge": false
+    },
+    {
+      "type": "linked-versions",
+      "groupName": "libavif-rs",
+      "components": [
+        "libavif-rs",
+        "libavif-aom",
+        "libavif-dav1d",
+        "libavif-sharpyuv"
+      ],
+      "merge": false
+    }
+  ],
+  "packages": {
+    "crates/ferrisma": {
+      "component": "ferrisma",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='ferrisma' && !@.source)].version"
+        }
+      ]
+    },
+    "crates/ferrisma-kernels": {
+      "component": "ferrisma-kernels",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-kernels' && !@.source)].version"
+        }
+      ]
+    },
+    "crates/ferrisma-avif-read": {
+      "component": "ferrisma-avif-read",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-avif-read' && !@.source)].version"
+        }
+      ]
+    },
+    "crates/ferrisma-avif-write": {
+      "component": "ferrisma-avif-write",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-avif-write' && !@.source)].version"
+        }
+      ]
+    },
+    "crates/ferrisma-jxl-decoder": {
+      "component": "ferrisma-jxl-decoder",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-jxl-decoder' && !@.source)].version"
+        }
+      ]
+    },
+    "crates/ferrisma-jxl-encoder": {
+      "component": "ferrisma-jxl-encoder",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='ferrisma-jxl-encoder' && !@.source)].version"
+        }
+      ]
+    },
+    "crates/libsharpyuv-core": {
+      "component": "libsharpyuv-core",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='libsharpyuv-core' && !@.source)].version"
+        }
+      ]
+    },
+    "codecs/libjpeg-turbo-rs": {
+      "component": "libjpeg-turbo-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='libjpeg-turbo-rs' && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "/codecs/libjpeg-turbo-rs/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='libjpeg-turbo-rs' && !@.source)].version"
+        }
+      ]
+    },
+    "codecs/libwebp-rs": {
+      "component": "libwebp-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='libwebp-rs' && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "/codecs/libwebp-rs/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='libwebp-rs' && !@.source)].version"
+        }
+      ]
+    },
+    "codecs/libjxl-rs": {
+      "component": "libjxl-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='libjxl-rs' && !@.source)].version"
+        }
+      ]
+    },
+    "codecs/libavif-rs": {
+      "component": "libavif-rs",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='libavif-rs' && !@.source)].version"
+        }
+      ]
+    },
+    "codecs/libavif-rs/crates/aom": {
+      "component": "libavif-aom",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='libavif-aom' && !@.source)].version"
+        }
+      ]
+    },
+    "codecs/libavif-rs/crates/dav1d": {
+      "component": "libavif-dav1d",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='libavif-dav1d' && !@.source)].version"
+        }
+      ]
+    },
+    "codecs/libavif-rs/crates/sharpyuv": {
+      "component": "libavif-sharpyuv",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/fuzz/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value=='libavif-sharpyuv' && !@.source)].version"
+        }
+      ]
+    },
+    "crates/ferrisma-libavif": {
+      "component": "ferrisma-libavif",
+      "skip-github-release": true,
+      "skip-changelog": true
+    }
+  }
+}
