@@ -75,7 +75,14 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
             (if inverse { rows * stride } else { rows * cols }) + 4
         }
     ];
-    let mut scratch = vec![-123.25; rows * cols * 4 + 3 * (rows + cols) + 4];
+    // dct-llf: rows/cols count blocks; the caller's scratch_space holds
+    // 4 * max_block_area floats (dec_cache.cc), as tools/oracle/dct.cc.
+    let scratch_size = if kind == "dct-llf" {
+        rows * cols * 64 * 4 + 4
+    } else {
+        rows * cols * 4 + 3 * (rows + cols) + 4
+    };
+    let mut scratch = vec![-123.25; scratch_size];
     match kind {
         "dct-scaled" if inverse => {
             compute_scaled_idct(rows, cols, &mut input, &mut output, stride, &mut scratch)
