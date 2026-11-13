@@ -253,6 +253,14 @@ pub fn set_residual_coeffs_c<'a>(coeffs: &'a [i16], res: &mut VP8Residual<'a>) {
 /// `GetResidualCost_C`).
 #[must_use]
 pub fn vp8_get_residual_cost(ctx0: i32, res: &VP8Residual<'_>) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        // `VP8EncDspCostInit` selects the SSE2 variant when the query answers
+        // `kSSE2`.
+        if crate::dsp::cpu::features().sse2 {
+            return crate::dsp::cost_sse2::get_residual_cost(ctx0, res);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         // `VP8EncDspCostInit` selects the NEON variant by the query alone.
@@ -266,6 +274,14 @@ pub fn vp8_get_residual_cost(ctx0: i32, res: &VP8Residual<'_>) -> i32 {
 // upstream: src/dsp/cost.c VP8SetResidualCoeffs
 /// C: the `VP8SetResidualCoeffs` pointer, `SetResidualCoeffs_C`.
 pub fn vp8_set_residual_coeffs<'a>(coeffs: &'a [i16], res: &mut VP8Residual<'a>) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        // `VP8EncDspCostInit` selects the SSE2 variant when the query answers
+        // `kSSE2`.
+        if crate::dsp::cpu::features().sse2 {
+            return crate::dsp::cost_sse2::set_residual_coeffs(coeffs, res);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         // `VP8EncDspCostInit` selects the NEON variant by the query alone.
