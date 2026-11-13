@@ -184,6 +184,47 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
     Ok(())
 }
 
+/// True when `--version` or `-V` appears after the program name. It takes
+/// precedence over every other argument, and no input is read.
+fn is_version_request(args: &[String]) -> bool {
+    args.iter()
+        .skip(1)
+        .any(|arg| arg == "--version" || arg == "-V")
+}
+
+/// The `--version` report, one item per line: the package version, the
+/// target, the compiled-in engine features and the build identity (the
+/// `FERRISMA_BUILD_ID` set at compile time, or `unknown`).
+fn version_text(build_id: Option<&str>) -> String {
+    let features: Vec<&str> = [
+        (cfg!(feature = "jpeg-read"), "jpeg-read"),
+        (cfg!(feature = "webp-read"), "webp-read"),
+        (cfg!(feature = "webp-write"), "webp-write"),
+        (cfg!(feature = "jpeg-xl-read"), "jpeg-xl-read"),
+        (cfg!(feature = "jpeg-xl-own-read"), "jpeg-xl-own-read"),
+        (cfg!(feature = "jpeg-xl-write"), "jpeg-xl-write"),
+        (cfg!(feature = "avif-read"), "avif-read"),
+        (cfg!(feature = "avif-write"), "avif-write"),
+        (cfg!(feature = "avif-own-write"), "avif-own-write"),
+        (cfg!(feature = "icc"), "icc"),
+    ]
+    .into_iter()
+    .filter_map(|(enabled, name)| enabled.then_some(name))
+    .collect();
+    let features = if features.is_empty() {
+        "none".to_owned()
+    } else {
+        features.join(", ")
+    };
+    let build = build_id.filter(|id| !id.is_empty()).unwrap_or("unknown");
+    format!(
+        "ferrisma {}\ntarget: {}-{}\nfeatures: {features}\nbuild: {build}",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::ARCH,
+        std::env::consts::OS,
+    )
+}
+
 /// Run the command with `args` (the program name first), encoding with
 /// `backend`, or with the selected built-in sink when it is `None`. Explicit
 /// `--avif-encoder` or `--avif-depth` flags cannot accompany an external
@@ -197,6 +238,10 @@ pub fn run(
     args: &[String],
     backend: Option<&dyn EncoderBackend>,
 ) -> Result<ExitCode, Box<dyn Error>> {
+    if is_version_request(args) {
+        println!("{}", version_text(option_env!("FERRISMA_BUILD_ID")));
+        return Ok(ExitCode::SUCCESS);
+    }
     if args.len() < 5 {
         let program = args
             .first()
@@ -204,7 +249,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=libjxl-rs (default)|jxl-oxide] [--area] [--reference] [--avif-encoder=libavif (default with avif-own-write)|rav1e] [--avif-depth=8|10 (libavif, default 10)] [--quality=75 (selected encoder's own scale; rav1e 1-100, libavif 0-100, not comparable)] [--speed=6 (rav1e 1-10, libavif 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=libjxl-rs (default)|jxl-oxide] [--area] [--reference] [--avif-encoder=libavif (default with avif-own-write)|rav1e] [--avif-depth=8|10 (libavif, default 10)] [--quality=75 (selected encoder's own scale; rav1e 1-100, libavif 0-100, not comparable)] [--speed=6 (rav1e 1-10, libavif 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }
@@ -363,9 +408,49 @@ pub fn run(
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_option, read_input};
+    use super::{apply_option, is_version_request, read_input, version_text};
     use crate::pipeline::{JpegXlDecoder, TransformOptions};
     use std::io::{self, Cursor, Read};
+
+    #[test]
+    fn version_text_has_four_lines_in_order() {
+        let text = version_text(Some("abc123"));
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 4, "{text}");
+        assert_eq!(lines[0], format!("ferrisma {}", env!("CARGO_PKG_VERSION")));
+        assert_eq!(
+            lines[1],
+            format!(
+                "target: {}-{}",
+                std::env::consts::ARCH,
+                std::env::consts::OS
+            )
+        );
+        assert!(lines[2].starts_with("features: "), "{}", lines[2]);
+        assert_eq!(lines[3], "build: abc123");
+        assert_eq!(version_text(None).lines().last(), Some("build: unknown"));
+        assert_eq!(
+            version_text(Some("")).lines().last(),
+            Some("build: unknown")
+        );
+    }
+
+    #[test]
+    fn version_flags_are_recognized_anywhere_after_the_program_name() {
+        let owned = |list: &[&str]| {
+            list.iter()
+                .map(|s| (*s).to_owned())
+                .collect::<Vec<String>>()
+        };
+        assert!(is_version_request(&owned(&["ferrisma", "--version"])));
+        assert!(is_version_request(&owned(&["ferrisma", "-V"])));
+        assert!(is_version_request(&owned(&[
+            "ferrisma", "in.jpg", "out.webp", "8", "8", "-V"
+        ])));
+        assert!(!is_version_request(&owned(&["ferrisma", "--versions"])));
+        assert!(!is_version_request(&owned(&["--version"])));
+        assert!(!is_version_request(&owned(&["ferrisma", "-v"])));
+    }
 
     #[test]
     fn accepts_input_at_the_limit_and_rejects_one_byte_more() {
