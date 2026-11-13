@@ -32,8 +32,9 @@ items. Verification rejects symlinks in referenced bundle files. Passing
 verification establishes reproducibility, not license compliance. Ship the reviewed notices with the matching artifact only
 after the source and legal review below; include [specific embedded-material
 notices](../THIRD-PARTY-NOTICES.md). Generate separately for every target and
-feature combination: `cli` does not include the opt-in `jpeg-xl-own-read`. This
-tool selects the `ferrisma` package only; it does not inventory the separate
+feature combination. Since 2026-11-12 `cli` includes `jpeg-xl-own-read` and
+`jpeg-xl-write` (root `Cargo.toml`; `jpeg-xl-own-read` joined in `139a37d5`).
+This tool selects the `ferrisma` package only; it does not inventory the separate
 `ferrisma-libavif` compatibility adapter or its CLI as a root package. Audit
 those artifacts separately before distribution.
 
@@ -136,6 +137,18 @@ ADR-0039's license gate applies to every `cli` distribution.
 "None in metadata" means that every package passes the SPDX screen and
 supplied at least one notice file. It is not a completed legal review.
 
+> **Note (2026-11-13): feature set changed after this inventory.** The table
+> above was generated on top of `90b638dd`, where `cli` did not yet include
+> `jpeg-xl-own-read`; that is why it lists `cli` (93 packages) and
+> `cli,jpeg-xl-own-read` (95) separately. Since `139a37d5` (2026-11-12) the
+> root `Cargo.toml` `cli` feature includes `jpeg-xl-own-read`, and since
+> ADR-0039 also `jpeg-xl-write`. Only the macOS ARM64 `cli` bundle was
+> regenerated after that (the update paragraph above, 96 packages). The
+> `cli` rows of the table and the x86-64 `cli` row do not describe today's
+> `cli` and need a re-audit before any distribution
+> ([#66](https://github.com/sebastian-software/ferrisma/issues/66)). No
+> license conclusion is changed by this note.
+
 Workspace packages in the `cli` graph and their declared terms:
 
 | Package | Expression | Notice files bundled | Source of the terms |
@@ -149,9 +162,9 @@ Workspace packages in the `cli` graph and their declared terms:
 | `libavif-aom` | BSD-2-Clause AND BSD-3-Clause AND MIT | 11 | `LICENSES/` (libaom `LICENSE`, `PATENTS`, `AUTHORS`, fastfeat, vector) |
 | `libavif-dav1d` | BSD-2-Clause | 5 | `LICENSES/` (`COPYING`, `doc/PATENTS`) |
 | `libavif-sharpyuv` | BSD-3-Clause | 7 | `LICENSES/` (libwebp `COPYING`, `PATENTS`, `AUTHORS`) |
-| `ferrisma-jxl-decoder` (own-read only) | MIT OR Apache-2.0 | 2 | Project-owned |
+| `ferrisma-jxl-decoder` (`jpeg-xl-own-read`, in `cli` since 2026-11-12) | MIT OR Apache-2.0 | 2 | Project-owned |
 | `ferrisma-jxl-encoder` (`jpeg-xl-write`, in `cli` since 2026-11-12) | MIT OR Apache-2.0 | 2 | Project-owned |
-| `libjxl-rs` (own-read only) | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | 7 | `LICENSE`, `PATENTS`, `licenses/` (Brotli MIT, Highway BSD, skcms BSD, libc++ Apache-2.0 with LLVM exception) |
+| `libjxl-rs` (`jpeg-xl-own-read` and `jpeg-xl-write`, both in `cli`) | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | 7 | `LICENSE`, `PATENTS`, `licenses/` (Brotli MIT, Highway BSD, skcms BSD, libc++ Apache-2.0 with LLVM exception) |
 
 ### Findings from the 2026-11-12 review
 

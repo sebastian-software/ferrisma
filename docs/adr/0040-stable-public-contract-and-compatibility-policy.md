@@ -5,7 +5,6 @@
 - **Last reviewed:** 2026-11-13
 - **Supersedes:** None. Once accepted, it replaces decision 6 ("no stability promise") of [ADR-0017](0017-minimal-public-facade-and-cli.md) for the items it marks stable.
 - **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (when the version 1.0 may be used, and the release tooling)
-- **Related:** [0010](0010-dual-licensing.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0034](0034-thumbnail-geometry.md), [0037](0037-selectable-workspace-avif-encoder.md), [publishing](../publishing.md), [compatibility guide](../compatibility.md), tracker #196
 - **Related:** [0010](0010-dual-licensing.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0034](0034-thumbnail-geometry.md), [0037](0037-selectable-workspace-avif-encoder.md), [publishing](../publishing.md), [release automation](../release-automation.md), [compatibility guide](../compatibility.md), tracker #196
 
 ## Context
@@ -16,7 +15,9 @@ versioning policy, and upgrade guidance before stability is promised.
 ADR-0017 records a deliberately small facade, but its decision 6 says any
 part may change without deprecation. Nothing functional is published yet:
 crates.io and npm hold only `ferrisma` 0.0.0 placeholders (ADR-0038), and the
-workspace version is 0.1.0 with `publish = false` everywhere.
+workspace members are at 0.1.0 except `ferrisma-avif-read`,
+`ferrisma-avif-write` and `ferrisma-libavif` (0.0.0), with `publish = false`
+everywhere.
 
 Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 
@@ -295,3 +296,10 @@ reports that a stable item cannot express its use case.
   at AVX2 on x86-64 and NEON on AArch64; `KernelLevelReason` gains
   `DefaultCeiling` (the enum is `#[non_exhaustive]`), and
   `--kernel-level=avx512` is the opt-in. Both stay experimental.
+- 2026-11-13 — Corrections, no decision change: the version statement in the
+  context now names the three members at 0.0.0 (`ferrisma-avif-read`,
+  `ferrisma-avif-write`, `ferrisma-libavif`; their manifests), and a
+  duplicated "Related" line is removed. The default switch of 2026-11-12 is
+  confirmed by owner decision D1 ([ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md)
+  section 7); the tier question it raised for `cli` stays open with this
+  record's other recommendations.

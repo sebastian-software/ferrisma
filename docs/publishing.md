@@ -112,7 +112,8 @@ decision, and then after `ferrisma`.
 ## Dry-run evidence (2026-11-12)
 
 With temporary, uncommitted edits that removed `publish = false` from the
-13 packages above and renamed the JPEG package to `ferrisma-libjpeg-turbo`,
+13 packages above other than `ferrisma-jxl-encoder` (which was not part of
+this run, see above) and renamed the JPEG package to `ferrisma-libjpeg-turbo`,
 one multi-package invocation packaged and verified the whole chain through
 Cargo's local overlay registry:
 

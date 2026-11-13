@@ -75,8 +75,9 @@ repository already holds several versioned artifacts), `bump-minor-pre-major:
 true`, `bump-patch-for-minor-pre-major: false`, `prerelease: true` (so 0.x
 GitHub releases are marked as pre-releases, matching D10's wording), and a
 `bootstrap-sha` so the first changelog does not list the whole history. The
-`bootstrap-sha` in the drafts is `e4038a4a` (today's `main`); replace it with
-the activation commit.
+`bootstrap-sha` in the drafts is `e4038a4a`, the head of `main` when the
+drafts were written (2026-11-12, 23:15 +0100); replace it with the activation
+commit.
 
 ## Configuration A: one shared version
 
@@ -497,7 +498,7 @@ and the real `cargo publish` uploads.
 | 1 | The JPEG port's package name `libjpeg-turbo-rs` belongs to an unrelated crates.io crate; rename the package (both drafts, the workflow list, and the lockfile jsonpaths use today's name and must follow). | #207 (name pending, O5) |
 | 2 | `libavif-aom` is 16.4 MiB compressed, above crates.io's 10 MiB limit: request a limit increase or split the platform translations (codec ADR). | #208 |
 | 3 | AVIF packages need `overflow-checks = false` and `panic = "unwind"` that dependents do not inherit; exact `libc = "=0.2.191"` and `c2rust-bitfields = "=0.3.0"` pins. | #209 |
-| 4 | Renamed first-party dependency keys break Release Please's version updates (measured above). | none yet; proposed follow-up |
+| 4 | Renamed first-party dependency keys break Release Please's version updates (measured above). | #248 |
 | 5 | Every package is `publish = false`; first-publication versions (the AVIF bridges are 0.0.0) and the published set. | #137, [publishing](publishing.md) blockers 5 |
 | 6 | License review gates for redistributing source crates (IJG terms, `simd_helpers` notice, independent review; per-crate license metadata). | #66, #136 |
 | 7 | Configuration B only: move the engine package out of the workspace root. | none; decision with O3 |
