@@ -201,10 +201,6 @@ pub(crate) fn storel_epi64<T: Lane>(dst: &mut [T], value: __m128i) {
 /// Return the sum of all the 8b in the register.
 #[target_feature(enable = "sse2")]
 #[inline]
-#[expect(
-    dead_code,
-    reason = "only the encoder's enc_sse2.rs (WP19) uses it; WP19 removes this expectation"
-)]
 pub(crate) fn vp8_horizontal_add8b(a: &__m128i) -> i32 {
     let zero = _mm_setzero_si128();
     let sad8x2 = _mm_sad_epu8(*a, zero);

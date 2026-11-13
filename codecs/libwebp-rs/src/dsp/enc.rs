@@ -1005,6 +1005,28 @@ pub fn vp8_collect_histogram(
     end_block: i32,
     histo: &mut VP8Histogram,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::enc_sse41::collect_histogram(
+                ref_,
+                pred,
+                start_block,
+                end_block,
+                histo,
+            );
+        }
+        if features.sse2 {
+            return crate::dsp::enc_sse2::collect_histogram(
+                ref_,
+                pred,
+                start_block,
+                end_block,
+                histo,
+            );
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::collect_histogram(ref_, pred, start_block, end_block, histo);
@@ -1023,6 +1045,13 @@ pub fn vp8_collect_histogram(
 /// about 5,000 in magnitude follow upstream's NEON kernel, not the C function
 /// (`src/dsp/enc_neon.rs`, checks not applicable 9).
 pub fn vp8i_transform(ref_: &[u8], input: &[i16], dst: &mut [u8], do_two: bool) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::i_transform(ref_, input, dst, do_two);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::i_transform(ref_, input, dst, do_two);
@@ -1037,6 +1066,13 @@ pub fn vp8i_transform(ref_: &[u8], input: &[i16], dst: &mut [u8], do_two: bool) 
 // upstream: src/dsp/enc.c VP8FTransform
 /// C: the `VP8FTransform` pointer.
 pub fn vp8f_transform(src: &[u8], ref_: &[u8], out: &mut [i16]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::f_transform(src, ref_, out);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::f_transform(src, ref_, out);
@@ -1051,12 +1087,26 @@ pub fn vp8f_transform(src: &[u8], ref_: &[u8], out: &mut [i16]) {
 // upstream: src/dsp/enc.c VP8FTransform2
 /// Performs two transforms at a time (C: the `VP8FTransform2` pointer).
 pub fn vp8f_transform2(src: &[u8], ref_: &[u8], out: &mut [i16]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::f_transform2(src, ref_, out);
+        }
+    }
     f_transform2_c(src, ref_, out);
 }
 
 // upstream: src/dsp/enc.c VP8FTransformWHT
 /// C: the `VP8FTransformWHT` pointer.
 pub fn vp8f_transform_wht(input: &[i16], out: &mut [i16]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::f_transform_wht(input, out);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::f_transform_wht(input, out);
@@ -1072,6 +1122,13 @@ pub fn vp8f_transform_wht(input: &[i16], out: &mut [i16]) {
 /// The ten intra4 predictions of the block whose boundary `top[0]` is at
 /// position `top_pos` of `top` (C: the `VP8EncPredLuma4` pointer).
 pub fn vp8_enc_pred_luma4(dst: &mut [u8], top: &[u8], top_pos: usize) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::intra4_preds(dst, top, top_pos);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::intra4_preds(dst, top, top_pos);
@@ -1087,6 +1144,13 @@ pub fn vp8_enc_pred_luma4(dst: &mut [u8], top: &[u8], top_pos: usize) {
 /// The four intra16 predictions; `left` and `top` are `None` where C passes
 /// `NULL` (C: the `VP8EncPredLuma16` pointer).
 pub fn vp8_enc_pred_luma16(dst: &mut [u8], left: PredLeft<'_>, top: Option<&[u8]>) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::intra16_preds(dst, left, top);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::intra16_preds(dst, left, top);
@@ -1101,12 +1165,26 @@ pub fn vp8_enc_pred_luma16(dst: &mut [u8], left: PredLeft<'_>, top: Option<&[u8]
 // upstream: src/dsp/enc.c VP8EncPredChroma8
 /// The four chroma predictions of U and V (C: the `VP8EncPredChroma8` pointer).
 pub fn vp8_enc_pred_chroma8(dst: &mut [u8], left: PredLeft<'_>, top: Option<&[u8]>) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::intra_chroma_preds(dst, left, top);
+        }
+    }
     intra_chroma_preds_c(dst, left, top);
 }
 
 // upstream: src/dsp/enc.c VP8SSE16x16
 #[must_use]
 pub fn vp8sse16x16(a: &[u8], b: &[u8]) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::sse16x16(a, b);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::sse16x16(a, b);
@@ -1121,6 +1199,13 @@ pub fn vp8sse16x16(a: &[u8], b: &[u8]) -> i32 {
 // upstream: src/dsp/enc.c VP8SSE16x8
 #[must_use]
 pub fn vp8sse16x8(a: &[u8], b: &[u8]) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::sse16x8(a, b);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::sse16x8(a, b);
@@ -1135,6 +1220,13 @@ pub fn vp8sse16x8(a: &[u8], b: &[u8]) -> i32 {
 // upstream: src/dsp/enc.c VP8SSE8x8
 #[must_use]
 pub fn vp8sse8x8(a: &[u8], b: &[u8]) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::sse8x8(a, b);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::sse8x8(a, b);
@@ -1149,6 +1241,13 @@ pub fn vp8sse8x8(a: &[u8], b: &[u8]) -> i32 {
 // upstream: src/dsp/enc.c VP8SSE4x4
 #[must_use]
 pub fn vp8sse4x4(a: &[u8], b: &[u8]) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::sse4x4(a, b);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::sse4x4(a, b);
@@ -1166,6 +1265,16 @@ pub fn vp8sse4x4(a: &[u8], b: &[u8]) -> i32 {
 /// not the C function (`src/dsp/enc_neon.rs`, checks not applicable 8).
 #[must_use]
 pub fn vp8t_disto4x4(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::enc_sse41::disto4x4(a, b, w);
+        }
+        if features.sse2 {
+            return crate::dsp::enc_sse2::disto4x4(a, b, w);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::disto4x4(a, b, w);
@@ -1183,6 +1292,16 @@ pub fn vp8t_disto4x4(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
 /// not applicable 8).
 #[must_use]
 pub fn vp8t_disto16x16(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::enc_sse41::disto16x16(a, b, w);
+        }
+        if features.sse2 {
+            return crate::dsp::enc_sse2::disto16x16(a, b, w);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::disto16x16(a, b, w);
@@ -1198,12 +1317,29 @@ pub fn vp8t_disto16x16(a: &[u8], b: &[u8], w: &[u16; 16]) -> i32 {
 /// Compute the average (DC) of four 4x4 blocks. Each sub-4x4 block #i sum is
 /// stored in `dc[i]`.
 pub fn vp8_mean16x4(ref_: &[u8], dc: &mut [u32]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 {
+            return crate::dsp::enc_sse2::mean16x4(ref_, dc);
+        }
+    }
     mean16x4_c(ref_, dc);
 }
 
 // upstream: src/dsp/enc.c VP8EncQuantizeBlock
 /// Quantizes one block (C: the `VP8EncQuantizeBlock` pointer).
 pub fn vp8_enc_quantize_block(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::enc_sse41::quantize_block(input, out, mtx);
+        }
+        if features.sse2 {
+            return crate::dsp::enc_sse2::quantize_block(input, out, mtx);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::quantize_block(input, out, mtx);
@@ -1218,6 +1354,16 @@ pub fn vp8_enc_quantize_block(input: &mut [i16], out: &mut [i16], mtx: &VP8Matri
 // upstream: src/dsp/enc.c VP8EncQuantize2Blocks
 /// Same as `VP8EncQuantizeBlock`, but quantizes two consecutive blocks.
 pub fn vp8_enc_quantize2_blocks(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::enc_sse41::quantize2_blocks(input, out, mtx);
+        }
+        if features.sse2 {
+            return crate::dsp::enc_sse2::quantize2_blocks(input, out, mtx);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::quantize2_blocks(input, out, mtx);
@@ -1232,6 +1378,16 @@ pub fn vp8_enc_quantize2_blocks(input: &mut [i16], out: &mut [i16], mtx: &VP8Mat
 // upstream: src/dsp/enc.c VP8EncQuantizeBlockWHT
 /// Specific to 2nd transform; C assigns `QuantizeBlock_C` too.
 pub fn vp8_enc_quantize_block_wht(input: &mut [i16], out: &mut [i16], mtx: &VP8Matrix) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::enc_sse41::quantize_block_wht(input, out, mtx);
+        }
+        if features.sse2 {
+            return crate::dsp::enc_sse2::quantize_block_wht(input, out, mtx);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::enc_neon::quantize_block(input, out, mtx);
