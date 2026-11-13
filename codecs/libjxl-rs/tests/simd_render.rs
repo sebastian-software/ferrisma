@@ -8,6 +8,9 @@
 //! (decision D8).
 #![cfg(feature = "cpp-oracle-simd")]
 
+#[path = "common/output_stage.rs"]
+#[allow(dead_code, reason = "only the wo-run observer is used here")]
+mod rust_observer;
 mod simd_common;
 
 use jxl::jxl::color_encoding::{ColorSpace, TransferFunction};
@@ -297,5 +300,134 @@ fn simd_from_linear_rows_of_all_transfer_functions_match_the_original_target() {
         &requests,
         |r| (rs_fl(r, t), Box::new(|_| true)),
         |i| i > 0,
+    );
+}
+
+/// WriteToOutputStage through the existing `wo-run` observer
+/// (tools/oracle/output_stage.cc, tests/common/output_stage.rs), with the
+/// default memory manager so that only the output bytes (buffers and
+/// callback pixels) are observed, never the scratch blocks' padding lanes.
+/// The port's factory follows `hwy::decoder_target()`, here the SIMD target.
+#[test]
+fn simd_output_conversion_rows_match_the_original_target() {
+    let t = target();
+    jxl::jxl::hwy::set_decoder_simd_for_test(Some(true));
+    assert_eq!(
+        jxl::jxl::hwy::decoder_target().map(|d| d.name()),
+        Some(t.name())
+    );
+    let mut seed = 31;
+    let mut values: Vec<[u32; 9]> = vec![
+        [
+            0,
+            0x8000_0000,
+            0x3f80_0000,
+            0x3f00_0000,
+            0x7fc0_0000,
+            0xffa5_4321,
+            0x7f80_0000,
+            0xff80_0000,
+            0x0000_0001,
+        ],
+        [
+            0x3eff_ffff,
+            0x3f00_0001,
+            0x4f80_0000,
+            0xbf80_0000,
+            0x3f7f_ffff,
+            0x3f80_0001,
+            0x7f7f_ffff,
+            0x3b80_0000,
+            0x3b7f_ffff,
+        ],
+        // binary16 rounding, subnormal and overflow boundaries.
+        [
+            0x3380_0000,
+            0x3300_0000,
+            0x3880_0000,
+            0x387f_ffff,
+            0x477f_e000,
+            0x477f_f000,
+            0x4780_0000,
+            0x3f80_1000,
+            0x3f80_3000,
+        ],
+    ];
+    for _ in 0..3 {
+        values.push(std::array::from_fn(|_| {
+            ((next(&mut seed) % 1_200_001) as f32 / 1_000_000.0 - 0.1).to_bits()
+        }));
+    }
+    values.push(std::array::from_fn(|_| next(&mut seed) as u32));
+    let alpha_values: [u32; 9] = [
+        0x3f80_0000,
+        0x3f00_0000,
+        0,
+        0x8000_0000,
+        0x3380_0000,
+        0x7fc0_0000,
+        0x3dcc_cccd,
+        0x3f7f_ffff,
+        0x2000_0000,
+    ];
+    // (data type, bits): FLOAT, UINT8, UINT16, FLOAT16.
+    let types = [(2, 8), (2, 5), (3, 16), (3, 10), (5, 16), (0, 32)];
+    let mut requests = Vec::new();
+    for &(kind, bits) in &types {
+        for n in 1..=4u32 {
+            for (orientation, width, endian) in [
+                (1, 17usize, 0),
+                (2, 9, 2),
+                (3, 33, 0),
+                (5, 8, 0),
+                (1, 1030, 2),
+                (1, 5, 1),
+            ] {
+                let height = 3;
+                for (has_alpha, unpremul) in [(0, 0), (1, 0), (1, 1)] {
+                    for (vi, v) in values.iter().enumerate() {
+                        if width > 64 && vi % 3 != 0 {
+                            continue;
+                        }
+                        let v = if has_alpha == 1 && vi % 2 == 1 {
+                            alpha_values
+                        } else {
+                            *v
+                        };
+                        let mut actions = vec!["0 1".to_owned()];
+                        for y in 0..height {
+                            actions.push(format!("1 0 0 {width} 0 {y} 0"));
+                        }
+                        // A row that starts inside the image (dither phase,
+                        // flip offsets) and one past its right edge.
+                        actions.push(format!("1 0 0 {} 3 1 0", width.saturating_sub(3).max(1)));
+                        actions.push(format!("1 0 0 4 {width} 2 0"));
+                        for mode in [0, 1] {
+                            requests.push(format!(
+                                "wo-run {width} {height} {has_alpha} {unpremul} 3 {orientation} 1 1 \
+                                 {kind} {bits} {n} {mode} 0 {endian} \
+                                 {kind} {bits} 1 0 3 {endian} \
+                                 {} {} {}",
+                                actions.len(),
+                                actions.join(" "),
+                                join(v)
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    check_rows(
+        "wo-run (SIMD)",
+        &requests,
+        |r| {
+            let mut args = r.split_whitespace();
+            let kind = args.next().unwrap();
+            let out = rust_observer::observe(kind, &mut args);
+            assert!(args.next().is_none());
+            (out, Box::new(|_| true))
+        },
+        |_| false,
     );
 }

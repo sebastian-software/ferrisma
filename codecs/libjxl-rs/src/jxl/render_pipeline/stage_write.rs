@@ -112,6 +112,9 @@ pub struct WriteToOutputStage {
     memory_manager: *const JxlMemoryManager,
     temp_in: Vec<Option<CallbackAlignedMemory>>,
     temp_out: Vec<Option<CallbackAlignedMemory>>,
+    // render stages: HWY_DYNAMIC_DISPATCH(GetWriteToOutputStage) chose this
+    // SIMD target (port ADR 0004); None is the HWY_SCALAR translation.
+    simd: Option<crate::jxl::hwy::Target>,
 }
 impl WriteToOutputStage {
     /// Construct the original output stage with externally owned descriptors.
@@ -179,6 +182,7 @@ impl WriteToOutputStage {
             memory_manager,
             temp_in: Vec::new(),
             temp_out: Vec::new(),
+            simd: crate::jxl::hwy::decoder_target(),
         };
         for (ec, output) in extra_output.iter().enumerate() {
             if output.callback.is_present() || !output.buffer.is_null() {
@@ -220,20 +224,46 @@ impl WriteToOutputStage {
                 std::ptr::copy_nonoverlapping(source.address, target.address().cast::<f32>(), len);
             }
         }
-        for x in 0..len {
-            let alpha_ptr = self
-                .input_memory(thread, self.num_color)
-                .address()
-                .cast::<f32>();
-            // SAFETY: The preceding copy initialized this alpha element.
-            let alpha = unsafe { alpha_ptr.add(x).read() };
-            let mul = 1.0 / max(crate::jxl::alpha::SMALL_ALPHA, alpha);
-            for c in 0..self.num_color {
+        if let Some(target) = self.simd {
+            // render stages: the vector loop of the SIMD UnpremulAlpha.
+            let copy = |memory: &CallbackAlignedMemory| {
+                let ptr = memory.address().cast::<f32>();
+                // SAFETY: The preceding copy initialized these `len` words.
+                super::stage_write_simd::padded(target, len, |x| unsafe { ptr.add(x).read() })
+            };
+            let alpha = copy(self.input_memory(thread, self.num_color));
+            let mut colors: Vec<_> = (0..self.num_color)
+                .map(|c| copy(self.input_memory(thread, c)))
+                .collect();
+            super::stage_write_simd::unpremul(
+                target,
+                &mut colors,
+                &alpha,
+                crate::jxl::alpha::SMALL_ALPHA,
+            );
+            for (c, values) in colors.iter().enumerate() {
                 let ptr = self.input_memory(thread, c).address().cast::<f32>();
-                // SAFETY: These copied color words are initialized and the
-                // stage exclusively owns their live aligned scratch block.
-                unsafe {
-                    ptr.add(x).write(ptr.add(x).read() * mul);
+                for (x, &v) in values.iter().enumerate().take(len) {
+                    // SAFETY: In-bounds words of the stage's own scratch block.
+                    unsafe { ptr.add(x).write(v) };
+                }
+            }
+        } else {
+            for x in 0..len {
+                let alpha_ptr = self
+                    .input_memory(thread, self.num_color)
+                    .address()
+                    .cast::<f32>();
+                // SAFETY: The preceding copy initialized this alpha element.
+                let alpha = unsafe { alpha_ptr.add(x).read() };
+                let mul = 1.0 / max(crate::jxl::alpha::SMALL_ALPHA, alpha);
+                for c in 0..self.num_color {
+                    let ptr = self.input_memory(thread, c).address().cast::<f32>();
+                    // SAFETY: These copied color words are initialized and the
+                    // stage exclusively owns their live aligned scratch block.
+                    unsafe {
+                        ptr.add(x).write(ptr.add(x).read() * mul);
+                    }
                 }
             }
         }
@@ -332,10 +362,56 @@ impl WriteToOutputStage {
             .unwrap();
         assert!(bytes <= memory.size());
         let destination = memory.address();
+        // render stages: the SIMD MakeUnsigned/DemoteTo conversions, per
+        // channel; their interleaved stores are the loop below.
+        let converted: Option<Vec<Vec<u16>>> = match (self.simd, out.data_type) {
+            (Some(target), JxlDataType::UINT8 | JxlDataType::UINT16 | JxlDataType::FLOAT16) => {
+                Some(
+                    lines
+                        .iter()
+                        .take(out.num_channels)
+                        .enumerate()
+                        .map(|(c, line)| {
+                            let input = line.expect("source initialized conversion pointer");
+                            let row =
+                                super::stage_write_simd::padded(target, len, |x| input.value(x));
+                            if out.data_type == JxlDataType::FLOAT16 {
+                                super::stage_write_simd::float16_row(target, &row, len)
+                            } else {
+                                super::stage_write_simd::unsigned_row(
+                                    target,
+                                    &row,
+                                    len,
+                                    out.bits_per_sample,
+                                    out.data_type == JxlDataType::UINT8,
+                                    start,
+                                    y,
+                                    c,
+                                )
+                            }
+                        })
+                        .collect(),
+                )
+            }
+            _ => None,
+        };
         for x in 0..len {
             for (c, line) in lines.iter().enumerate().take(out.num_channels) {
                 let input = line.expect("source initialized conversion pointer");
                 let at = (x * out.num_channels + c) * sample_size;
+                if let Some(converted) = &converted {
+                    let v = converted[c][x];
+                    // SAFETY: As below: this private aligned block covers
+                    // `bytes` and each write initializes its sample bytes.
+                    unsafe {
+                        if sample_size == 1 {
+                            destination.add(at).write(v as u8);
+                        } else {
+                            destination.add(at).cast::<u16>().write(v);
+                        }
+                    }
+                    continue;
+                }
                 // SAFETY: This private callback-backed aligned block covers
                 // `bytes`; all selected input words are initialized. Each
                 // reached write initializes precisely its source sample bytes.

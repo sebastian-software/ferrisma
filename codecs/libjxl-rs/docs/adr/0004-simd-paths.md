@@ -184,6 +184,26 @@ factories on 128-byte aligned rows, and `tests/simd_render.rs`.
   sRGB, BT.709, PQ at five intensity targets, HLG at five display targets
   and two primaries, DCI and five explicit gammas; each function's
   thresholds with their neighbor words).
+- **Output conversion** (`stage_write_simd.rs`, called by
+  `WriteToOutputStage` when `GetWriteToOutputStage` dispatched to a SIMD
+  target): `MakeUnsigned` (Mul, dither Add, `Clamp(Zero, v, mul)` with its
+  swapped operands, `NearestInt`, saturating `DemoteTo`), `StoreFloat16Row`
+  (hardware `DemoteTo(df16)`) and `UnpremulAlpha` (`Div(1, Max(kSmallAlpha,
+  alpha))`). The interleaving stores, the 16-bit byte swap and
+  `StoreFloatRow` only move words and keep the scalar loops. The vector
+  loops' lanes past `len` read padding and are never copied to an output,
+  so the port computes them on zero padding and drops them. Parity reuses
+  the existing `wo-run` observer with the default memory manager, so that
+  only output buffers and callback pixels are compared, not scratch blocks.
+  NEON: 5,472 runs, 514,728 words matched (u8 at 8 and 5 bits, u16 at 16
+  and 10, f16, f32; one to four channels; identity, flips, rotation and
+  transpose; widths 1-1030 across the 1024-sample chunk; buffers and
+  callbacks; native, little and big endian; alpha with and without
+  unpremultiplication; binary16 rounding, subnormal and overflow words).
+  The scalar path fails the same requests, so they discriminate. The
+  whole-decode comparison does not reach this stage (`decode_vardct` writes
+  an ImageBundle and converts through `dec_external_image`), so its counts
+  are those of the FromLinear column.
 
 Whole-decode comparison after each stage (NEON, `whole_decodes_with_the_simd_stages_against_the_original_target`,
 differing float words with the SIMD stages selected / differing output

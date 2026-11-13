@@ -34,5 +34,6 @@ pub mod stage_gaborish_simd;
 // render stages: SIMD stages of ADR 0004 Plan item 1.
 mod simd_transfer;
 pub mod stage_from_linear_simd;
+mod stage_write_simd;
 pub mod stage_xyb_simd;
 // end render stages
