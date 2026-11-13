@@ -184,7 +184,9 @@ def build_libavif(arch):
         command += ['-G', 'Ninja']
     if not archive.exists():
         run(command, capture_output=True)
-        run(['cmake', '--build', build, '--target', 'avif_internal', '--parallel', '6'], capture_output=True)
+        # With static libraries `avif_internal` is only an alias of `avif`
+        # (output name libavif_internal.a), and Ninja cannot build an alias by name.
+        run(['cmake', '--build', build, '--target', 'avif', '--parallel', '6'], capture_output=True)
     return archive, dict(cmake_options=[str(item) for item in command[5:] if str(item).startswith('-DAVIF')],
                          c_flags=flags, archive_sha256=digest(archive.read_bytes()),
                          note=('libavif_internal.a: the libavif objects without the merged libaom, so each '
