@@ -2,7 +2,13 @@ name: v1.0 CI performance
 
 # Stage breakdown of the engine and port-versus-original timings per codec on
 # unloaded hosted runners (docs/benchmarks/v1.0-ci-performance-2026-11-12.md).
-# Runs only on throwaway bench/** branches or by hand; no secrets.
+# The codec jobs time the port against the three references of decision D2
+# (docs/benchmarks/v1.0-three-column-2026-11-13.md): the original built
+# scalar, its SIMD release build restricted to the v1.0 SIMD scope, both on
+# one thread, and that build with all threads.
+# Runs only on throwaway bench/** branches or by hand; no secrets. A pushed
+# head commit whose message contains "[bench codecs-only]" skips the engine
+# matrix.
 on:
   push:
     branches: ["bench/**"]
@@ -49,6 +55,7 @@ jobs:
 
   engine:
     needs: corpus
+    if: ${{ !contains(github.event.head_commit.message, '[bench codecs-only]') }}
     strategy:
       fail-fast: false
       matrix:

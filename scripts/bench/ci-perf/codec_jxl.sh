@@ -4,27 +4,37 @@
 # (codecs/libjxl-rs/upstream/libjxl, v0.12-snapshot-50-ga16d32d0, "v0.13.0").
 #
 #   INPUTS=dir [SIZES="12 24"] [WORK=dir] [OUT=dir] [REPS=7] [WARMUPS=1] [JOBS=n] \
-#     [JXL_ENCODE_SIZES=12] [JXL_ENCODE_REPS=3] [JXL_SCALAR_REF=1] \
+#     [JXL_ENCODE_SIZES=12] [JXL_ENCODE_REPS=3] [JXL_SCALAR_REF=1] [OPS=decode,encode] \
 #     bash scripts/bench/ci-perf/codec_jxl.sh
+#
+# Candidates follow decision D2 (three columns against the original):
+#   c-scalar:t1  (a) build-scalar (HWY_COMPILE_ONLY_SCALAR), --num_threads=0
+#   c:t1         (b) build-simd restricted to the D6 scope, --num_threads=0
+#   c:tN         (c) build-simd, default runner (one worker per CPU)
+#   port:t1      the port, serial
+#   oxide:t1     context: jxl-oxide 0.12.6 without rayon (decode only)
 #
 # Operations (all candidates of one operation and size in ONE interleaved plan):
 #   decode-vardct    photoN-e7d1.jxl (made by the original `cjxl -e 7 -d 1`)
 #   decode-lossless  photoN-d0e7.jxl (made by the original `cjxl -d 0 -e 7`)
-#     c:t1   djxl --num_threads=0 --disable_output
-#     c:tN   djxl --disable_output (default runner: one worker per CPU)
+#     C: djxl --disable_output [--num_threads=0]
 #     port:t1  jxl_decode_compare <in> own full 1  (crates/ferrisma-jxl-decoder,
 #              the safe bridge to libjxl-rs; the port decodes serially)
-#     oxide:t1 jxl_decode_compare <in> oxide full 1 (jxl-oxide 0.12.6 without
-#              its rayon feature, so single-threaded)
+#     oxide:t1 jxl_decode_compare <in> oxide full 1
 #   encode-lossy     photoN.ppm, effort 7, distance 1, bare codestream
-#     c:t1   cjxl -e 7 -d 1 --num_threads=0
-#     c:tN   cjxl -e 7 -d 1 (context only; the port encoder has no runner)
+#     C: cjxl -e 7 -d 1 [--num_threads=0]
 #     port:t1  codecs/libjxl-rs/examples/encode_lossy.rs (public lossy VarDCT
 #              encoder, cjxl's PPM call sequence)
 #   The port encoder is serial and much slower than the original, so the
 #   encode runs only for JXL_ENCODE_SIZES (default photo12; photo24 would take
 #   several minutes per sample on a 4-core runner) with JXL_ENCODE_REPS
 #   repetitions (default 3) and no warm-up.
+#   encode-lossless  photoN.ppm, effort 2, distance 0 (the engine's lossless
+#                    profile), every size, normal repetitions
+#     C: cjxl -d 0 -e 2 --codestream_level=10 --buffering=0 [--num_threads=0]
+#     port:t1  codecs/libjxl-rs/examples/encode_lossless.rs
+#              (LosslessThunderConfig, the same fixed configuration)
+#   OPS selects decode and/or encode operations (both by default).
 #
 # Timers. djxl and cjxl print only a throughput line on stderr
 # ("W x H, X MP/s ..."); a bash wrapper (`exec` keeps the tool as the measured
@@ -40,15 +50,15 @@
 # (all work on the calling thread), the port has no runner at all.
 #
 # Builds (in $WORK):
-#   build-simd    upstream CMake Release, default Highway dynamic dispatch, the
-#                 timed original. Only tool/dependency selection differs from
+#   build-simd    upstream CMake Release, Highway dynamic dispatch restricted
+#                 to D6 (HWY_V1_SCOPE below), columns (b) and (c). Only tool/dependency selection differs from
 #                 the defaults (no tests, benchmark, docs, JNI, sjpeg, OpenEXR,
 #                 tcmalloc, GIF/JPEG/PNG; static libraries). Clang when present.
 #   build-scalar  the differential-oracle configuration of
 #                 codecs/libjxl-rs/docs/ENCODER_EXPANSION.md "Reference
 #                 configuration": Clang, HWY_COMPILE_ONLY_SCALAR=1, upstream's
-#                 own -fno-slp-vectorize -fno-vectorize, libc++ on Linux. Used
-#                 only for the byte-exact encoder check, never timed. Skipped
+#                 own -fno-slp-vectorize -fno-vectorize, libc++ on Linux. Timed
+#                 as column (a) and used for the byte-exact checks. Skipped
 #                 (and recorded) without Clang, or with JXL_SCALAR_REF=0;
 #                 built with libstdc++ (recorded) when libc++ is missing.
 #                 tools/oracle/CMakeLists.txt itself builds an adapter
@@ -80,6 +90,7 @@ JOBS=${JOBS:-$(getconf _NPROCESSORS_ONLN)}
 ENCODE_SIZES=${JXL_ENCODE_SIZES:-12}
 ENCODE_REPS=${JXL_ENCODE_REPS:-3}
 SCALAR_REF=${JXL_SCALAR_REF:-1}
+OPS=${OPS:-decode,encode}
 mkdir -p "$WORK" "$OUT"
 WORK=$(cd "$WORK" && pwd)
 OUT=$(cd "$OUT" && pwd)
@@ -125,9 +136,19 @@ build_libjxl() { # variant extra-cmake-flags...
   echo $((SECONDS - start)) >"$WORK/$variant-build-seconds"
 }
 
-build_libjxl simd
+# Column (b) of D2: the release build restricted to the v1.0 SIMD scope (D6)
+# with libjxl's own Highway target switches: no AVX-512 (AVX3*) on x86-64; no
+# SVE/SVE2 or NEON_BF16 on AArch64, so NEON is the highest target there.
+# AVX3, AVX3_ZEN4 and AVX3_SPR are already off by upstream default; AVX3_DL
+# and NEON_BF16 are not, and Highway picks SVE2_128 on Neoverse-N2.
+HWY_V1_SCOPE=(-DJPEGXL_ENABLE_HWY_AVX3=OFF -DJPEGXL_ENABLE_HWY_AVX3_DL=OFF
+  -DJPEGXL_ENABLE_HWY_AVX3_ZEN4=OFF -DJPEGXL_ENABLE_HWY_AVX3_SPR=OFF
+  -DJPEGXL_ENABLE_HWY_SVE=OFF -DJPEGXL_ENABLE_HWY_SVE2=OFF -DJPEGXL_ENABLE_HWY_SVE_256=OFF
+  -DJPEGXL_ENABLE_HWY_SVE2_128=OFF -DJPEGXL_ENABLE_HWY_NEON_BF16=OFF)
+build_libjxl simd "${HWY_V1_SCOPE[@]}"
 CJXL=$WORK/build-simd/tools/cjxl
 DJXL=$WORK/build-simd/tools/djxl
+python3 -I "$ROOT/scripts/bench/ci-perf/cpu_features.py" "$OUT/cpu-features.json"
 
 SCALAR_FLAGS=()
 SCALAR_STATUS=skipped
@@ -151,23 +172,26 @@ elif [[ "$SCALAR_REF" == 1 ]]; then
   SCALAR_STATUS="skipped: the reference configuration needs Clang"
 fi
 CJXL_SCALAR=$WORK/build-scalar/tools/cjxl
+DJXL_SCALAR=$WORK/build-scalar/tools/djxl
 
 # 2. The port side: the repository release profile, no RUSTFLAGS.
-(cd "$ROOT" && cargo build --release --locked -p libjxl-rs --example encode_lossy)
+(cd "$ROOT" && cargo build --release --locked -p libjxl-rs --example encode_lossy --example encode_lossless)
 (cd "$ROOT" && cargo build --release --locked -p ferrisma-jxl-decoder --example jxl_decode_compare)
 TARGET=${CARGO_TARGET_DIR:-$ROOT/target}
 [[ "$TARGET" = /* ]] || TARGET=$ROOT/$TARGET
 PORT_ENC=$TARGET/release/examples/encode_lossy
+PORT_ENC_LOSSLESS=$TARGET/release/examples/encode_lossless
 PORT_DEC=$TARGET/release/examples/jxl_decode_compare
 
 python3 -I - "$OUT/jxl-build.json" "$WORK" "$UPSTREAM" "$CC_JXL" "$CXX_JXL" "$CJXL" \
-  "$SCALAR_STATUS" "$PORT_ENC" "$PORT_DEC" "${CMAKE_FLAGS[@]}" \
-  -- ${SCALAR_FLAGS[@]+"${SCALAR_FLAGS[@]}"} <<'EOF'
+  "$SCALAR_STATUS" "$PORT_ENC" "$PORT_DEC" "$OUT/cpu-features.json" "${CMAKE_FLAGS[@]}" \
+  "${HWY_V1_SCOPE[@]}" -- ${SCALAR_FLAGS[@]+"${SCALAR_FLAGS[@]}"} <<'EOF'
 import json, re, subprocess, sys
 from pathlib import Path
-out, work, upstream, cc, cxx, cjxl, scalar_status, port_enc, port_dec, *rest = sys.argv[1:]
+out, work, upstream, cc, cxx, cjxl, scalar_status, port_enc, port_dec, cpu_path, *rest = sys.argv[1:]
 split = rest.index("--")
 flags, scalar_flags = rest[:split], rest[split + 1:]
+cpu = json.loads(Path(cpu_path).read_text())
 def run(*cmd):
     try:
         r = subprocess.run(cmd, capture_output=True, text=True)
@@ -185,9 +209,33 @@ def seconds(variant):
     return int(p.read_text()) if p.exists() else None
 hwy = {k: cache("simd", f"JPEGXL_ENABLE_HWY_{k}") for k in
        ("SSE2", "SSE4", "AVX2", "AVX3", "AVX3_DL", "AVX3_ZEN4", "AVX3_SPR",
-        "NEON", "NEON_BF16", "SVE", "SVE2", "EMU128", "SCALAR")}
+        "NEON", "NEON_BF16", "SVE", "SVE2", "SVE_256", "SVE2_128", "EMU128", "SCALAR")}
+version = run(cjxl, "--version").splitlines()[:1]
+# cjxl --version lists the Highway targets this CPU supports and the build
+# compiled, best first, with the selected one in underscores ("[_AVX2_,...]").
+targets = re.search(r"\[([^\]]*)\]", version[0]) if version else None
+selected = None
+if targets:
+    names = [t.strip() for t in targets.group(1).split(",")]
+    marked = [t.strip("_") for t in names if t.startswith("_")]
+    selected = marked[0] if marked else names[0]
+scalar_version = (run(str(Path(work, "build-scalar/tools/cjxl")), "--version").splitlines()[:1]
+                  if scalar_status.startswith("built") else None)
 record = {
     "codec": "jxl",
+    "columns": {
+        "a": {"id": "c-scalar:t1", "build": "HWY_COMPILE_ONLY_SCALAR, -fno-slp-vectorize "
+              "-fno-vectorize (the differential-oracle configuration), --num_threads=0",
+              "simd_level": "none (Highway SCALAR target)", "status": scalar_status,
+              "cjxl_version": scalar_version},
+        "b": {"id": "c:t1", "build": "CMake Release, Highway dynamic dispatch restricted to "
+              "the D6 scope (no AVX3*, SVE*, NEON_BF16), --num_threads=0",
+              "simd_level": selected, "cjxl_version": version,
+              "cpu_v1_scope_level": cpu["v1_scope_level"],
+              "cpu_above_v1_scope": cpu["above_v1_scope"]},
+        "c": {"id": "c:tN", "threads": "all (default runner: one worker per CPU)"},
+        "context": {"oxide:t1": "jxl-oxide 0.12.6 without rayon (decode only)"},
+    },
     "original": {
         "project": "libjxl",
         "describe": run("git", "-C", upstream, "describe", "--tags", "--always"),
@@ -204,10 +252,11 @@ record = {
         "cmake_cxx_flags_release": cache("simd", "CMAKE_CXX_FLAGS_RELEASE"),
         "hwy_targets_enabled": hwy,
         "build_seconds": seconds("simd"),
-        "notes": "Upstream CMake Release, default Highway dynamic dispatch "
-                 "(runtime target selection; cjxl --version names the best "
-                 "target), static libraries, tools only. Not the repository "
-                 "oracle, which is scalar.",
+        "notes": "Upstream CMake Release, Highway dynamic dispatch restricted "
+                 "to the v1.0 SIMD scope (D6) with the JPEGXL_ENABLE_HWY_* "
+                 "switches in cmake_flags (runtime target selection; cjxl "
+                 "--version names the selected target), static libraries, "
+                 "tools only. Not the repository oracle, which is scalar.",
     },
     "scalar_reference": {
         "status": scalar_status,
@@ -218,7 +267,8 @@ record = {
         "notes": "Differential-oracle configuration (ENCODER_EXPANSION.md "
                  "'Reference configuration'): HWY_COMPILE_ONLY_SCALAR, upstream's "
                  "Clang -fno-slp-vectorize -fno-vectorize, libc++ on Linux. "
-                 "Used for the byte-exact encoder check only.",
+                 "Timed as column (a) of D2 and used for the byte-exact "
+                 "encoder checks.",
     },
     "port": {
         "encoder": {"package": "libjxl-rs", "example": "encode_lossy", "binary": port_enc,
@@ -276,17 +326,20 @@ EOF
   python3 -I "$ROOT/scripts/bench/ci-perf/run_interleaved.py" "$plan" "$OUT/jxl-$op-$size.json"
 }
 
-cand() { # id impl threads op input notes output cmd...
+cand() { # id impl column threads op input notes output cmd...
   python3 -I - "$@" <<'EOF'
 import json, sys
-id_, impl, threads, op, input_, notes, output, *cmd = sys.argv[1:]
+id_, impl, column, threads, op, input_, notes, output, *cmd = sys.argv[1:]
 print(json.dumps({"id": id_, "cmd": cmd, "env": {}, "output": output or None,
                   "meta": {"codec": "jxl", "op": op, "input": input_, "impl": impl,
-                           "threads": int(threads), "notes": notes}}))
+                           "column": column, "threads": int(threads), "notes": notes}}))
 EOF
 }
+HAVE_SCALAR=0
+[[ "$SCALAR_STATUS" == built* ]] && HAVE_SCALAR=1
 
 NCPU=$(getconf _NPROCESSORS_ONLN)
+if [[ "$OPS" == *decode* ]]; then
 for size in $SIZES; do
   for op in decode-vardct decode-lossless; do
     case $op in
@@ -295,35 +348,68 @@ for size in $SIZES; do
     esac
     in=$WORK/$input
     c_note="djxl --disable_output: decode to interleaved F32; elapsed_ms from djxl's MP/s line (DecompressJxlToPackedPixelFile, file read excluded)"
-    cands="[$(cand c:t1 c 1 "$op" "$input" "$c_note; --num_threads=0" "" \
+    scalar=""
+    if [[ $HAVE_SCALAR == 1 ]]; then
+      scalar="$(cand c-scalar:t1 c a 1 "$op" "$input" "$c_note; scalar build (HWY_COMPILE_ONLY_SCALAR); --num_threads=0" "" \
+        bash -c "$WRAP" "$DJXL_SCALAR" "$in" --disable_output --num_threads=0),"
+    fi
+    cands="[$scalar
+      $(cand c:t1 c b 1 "$op" "$input" "$c_note; --num_threads=0" "" \
         bash -c "$WRAP" "$DJXL" "$in" --disable_output --num_threads=0),
-      $(cand c:tN c "$NCPU" "$op" "$input" "$c_note; default runner" "" \
+      $(cand c:tN c c "$NCPU" "$op" "$input" "$c_note; default runner" "" \
         bash -c "$WRAP" "$DJXL" "$in" --disable_output),
-      $(cand port:t1 port 1 "$op" "$input" "libjxl-rs via ferrisma-jxl-decoder: inspect + decode_into F32 (file read excluded); serial" "" \
+      $(cand port:t1 port port 1 "$op" "$input" "libjxl-rs via ferrisma-jxl-decoder: inspect + decode_into F32 (file read excluded); serial" "" \
         "$PORT_DEC" "$in" own full 1),
-      $(cand oxide:t1 oxide 1 "$op" "$input" "jxl-oxide 0.12.6 (no rayon): render + stream rows to F32 (file read excluded)" "" \
+      $(cand oxide:t1 oxide context 1 "$op" "$input" "jxl-oxide 0.12.6 (no rayon): render + stream rows to F32 (file read excluded)" "" \
         "$PORT_DEC" "$in" oxide full 1)]"
     run_plan "$op" "$size" "$REPS" "$WARMUPS" "$cands"
   done
 done
+fi
 
+if [[ "$OPS" == *encode* ]]; then
 for size in $ENCODE_SIZES; do
   [[ " $SIZES " == *" $size "* ]] || continue
   master=$INPUTS/photo$size.ppm
   op=encode-lossy
   c_note="cjxl -e 7 -d 1; elapsed_ms from cjxl's MP/s line (EncodeImageJXL; PPM parse and file write excluded)"
-  cands="[$(cand c:t1 c 1 "$op" "photo$size.ppm" "$c_note; --num_threads=0" "$WORK/enc-c-t1-$size.jxl" \
+  scalar=""
+  if [[ $HAVE_SCALAR == 1 ]]; then
+    scalar="$(cand c-scalar:t1 c a 1 "$op" "photo$size.ppm" "$c_note; scalar build (HWY_COMPILE_ONLY_SCALAR); --num_threads=0" "$WORK/enc-scalar-$size.jxl" \
+      bash -c "$WRAP" "$CJXL_SCALAR" "$master" "$WORK/enc-scalar-$size.jxl" -e 7 -d 1 --num_threads=0),"
+  fi
+  cands="[$scalar
+    $(cand c:t1 c b 1 "$op" "photo$size.ppm" "$c_note; --num_threads=0" "$WORK/enc-c-t1-$size.jxl" \
       bash -c "$WRAP" "$CJXL" "$master" "$WORK/enc-c-t1-$size.jxl" -e 7 -d 1 --num_threads=0),
-    $(cand c:tN c "$NCPU" "$op" "photo$size.ppm" "$c_note; default runner (context: the port has no runner)" "$WORK/enc-c-tN-$size.jxl" \
+    $(cand c:tN c c "$NCPU" "$op" "photo$size.ppm" "$c_note; default runner" "$WORK/enc-c-tN-$size.jxl" \
       bash -c "$WRAP" "$CJXL" "$master" "$WORK/enc-c-tN-$size.jxl" -e 7 -d 1),
-    $(cand port:t1 port 1 "$op" "photo$size.ppm" "encode_lossy: public lossy VarDCT encoder, cjxl's PPM call sequence without the explicit PROGRESSIVE_AC=0 (outside the admitted profile); timer from JxlEncoderCreate to the last output byte; serial" "$WORK/enc-port-$size.jxl" \
+    $(cand port:t1 port port 1 "$op" "photo$size.ppm" "encode_lossy: public lossy VarDCT encoder, cjxl's PPM call sequence without the explicit PROGRESSIVE_AC=0 (outside the admitted profile); timer from JxlEncoderCreate to the last output byte; serial" "$WORK/enc-port-$size.jxl" \
       "$PORT_ENC" "$master" "$WORK/enc-port-$size.jxl" 7 1)]"
   run_plan "$op" "$size" "$ENCODE_REPS" 0 "$cands"
-  if [[ "$SCALAR_STATUS" == built* ]]; then
-    "$CJXL_SCALAR" "$master" "$WORK/enc-scalar-$size.jxl" -e 7 -d 1 --quiet ||
-      echo "scalar reference cjxl failed for photo$size" >&2
-  fi
 done
+
+# Lossless effort 2 (the engine's lossless JPEG XL profile, ADR-0039): cheap,
+# so every size with the normal repetitions.
+LOSSLESS_FLAGS=(-d 0 -e 2 --codestream_level=10 --buffering=0)
+for size in $SIZES; do
+  master=$INPUTS/photo$size.ppm
+  op=encode-lossless
+  c_note="cjxl -d 0 -e 2 --codestream_level=10 --buffering=0; elapsed_ms from cjxl's MP/s line (EncodeImageJXL; PPM parse and file write excluded)"
+  scalar=""
+  if [[ $HAVE_SCALAR == 1 ]]; then
+    scalar="$(cand c-scalar:t1 c a 1 "$op" "photo$size.ppm" "$c_note; scalar build (HWY_COMPILE_ONLY_SCALAR); --num_threads=0" "$WORK/encll-scalar-$size.jxl" \
+      bash -c "$WRAP" "$CJXL_SCALAR" "$master" "$WORK/encll-scalar-$size.jxl" "${LOSSLESS_FLAGS[@]}" --num_threads=0),"
+  fi
+  cands="[$scalar
+    $(cand c:t1 c b 1 "$op" "photo$size.ppm" "$c_note; --num_threads=0" "$WORK/encll-c-t1-$size.jxl" \
+      bash -c "$WRAP" "$CJXL" "$master" "$WORK/encll-c-t1-$size.jxl" "${LOSSLESS_FLAGS[@]}" --num_threads=0),
+    $(cand c:tN c c "$NCPU" "$op" "photo$size.ppm" "$c_note; default runner" "$WORK/encll-c-tN-$size.jxl" \
+      bash -c "$WRAP" "$CJXL" "$master" "$WORK/encll-c-tN-$size.jxl" "${LOSSLESS_FLAGS[@]}"),
+    $(cand port:t1 port port 1 "$op" "photo$size.ppm" "encode_lossless: LosslessThunderConfig (SetLossless, Thunder/effort 2, level 10, buffering 0, sRGB), the engine's lossless profile; timer around configuration + encode_pixels; serial" "$WORK/encll-port-$size.jxl" \
+      "$PORT_ENC_LOSSLESS" "$master" "$WORK/encll-port-$size.jxl")]"
+  run_plan "$op" "$size" "$REPS" "$WARMUPS" "$cands"
+done
+fi
 
 # 5. Correctness side checks (recorded, never fatal).
 for size in $SIZES; do
@@ -368,6 +454,25 @@ for size in encode_sizes.split():
         "notes": "The byte-exact gate is the scalar reference (the repository's "
                  "differential-oracle configuration); SIMD builds may choose "
                  "differently in float-heavy heuristics (ENCODER_EXPANSION.md).",
+    }
+checks["encode_lossless"] = {}
+for size in sizes.split():
+    files = {k: work / f"encll-{k}-{size}.jxl" for k in ("port", "c-t1", "c-tN", "scalar")}
+    hashes = {k: sha(p) for k, p in files.items()}
+    if not any(hashes.values()):
+        continue
+    checks["encode_lossless"][f"photo{size}"] = {
+        "settings": "effort 2, distance 0, codestream level 10, buffering 0, 8-bit sRGB RGB PPM",
+        "sha256": hashes,
+        "bytes": {k: (p.stat().st_size if p.exists() else None) for k, p in files.items()},
+        "port_equals_scalar_reference": (hashes["port"] == hashes["scalar"]
+                                         if hashes["port"] and hashes["scalar"] else None),
+        "port_equals_simd_release": (hashes["port"] == hashes["c-t1"]
+                                     if hashes["port"] and hashes["c-t1"] else None),
+        "simd_t1_equals_simd_tN": (hashes["c-t1"] == hashes["c-tN"]
+                                   if hashes["c-t1"] and hashes["c-tN"] else None),
+        "notes": "Recorded, not a gate: whether cjxl's flags reach the same "
+                 "one-shot path as LosslessThunderConfig is what this compares.",
     }
 for size in sizes.split():
     entry = {}
