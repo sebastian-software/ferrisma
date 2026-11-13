@@ -2880,6 +2880,86 @@ extern "C-unwind" {
         pred_ptr: *const uint8_t,
         pred_stride: ptrdiff_t,
     );
+    fn aom_lpf_vertical_14_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_vertical_14_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_vertical_14_dual_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_vertical_14_dual_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_vertical_14_quad_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_vertical_14_quad_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_vertical_8_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_vertical_8_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_vertical_8_dual_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_vertical_8_dual_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_vertical_8_quad_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_vertical_8_quad_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_vertical_6_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_vertical_6_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_vertical_6_dual_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_vertical_6_dual_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_vertical_6_quad_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_vertical_6_quad_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_vertical_4_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_vertical_4_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_vertical_4_dual_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_vertical_4_dual_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_vertical_4_quad_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_vertical_4_quad_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_horizontal_14_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_horizontal_14_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_horizontal_14_dual_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_horizontal_14_dual_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_horizontal_14_quad_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_horizontal_14_quad_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_horizontal_8_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_horizontal_8_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_horizontal_8_dual_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_horizontal_8_dual_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_horizontal_8_quad_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_horizontal_8_quad_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_horizontal_6_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_horizontal_6_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_horizontal_6_dual_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_horizontal_6_dual_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_horizontal_6_quad_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_horizontal_6_quad_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_horizontal_4_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_horizontal_4_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
+    fn aom_lpf_horizontal_4_dual_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_horizontal_4_dual_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t);
+    fn aom_lpf_horizontal_4_quad_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_lpf_horizontal_4_quad_neon(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
+    fn aom_highbd_lpf_horizontal_4_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_4_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_4_dual_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_4_dual_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_4_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_4_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_4_dual_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_4_dual_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_6_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_6_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_6_dual_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_6_dual_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_6_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_6_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_6_dual_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_6_dual_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_8_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_8_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_8_dual_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_8_dual_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_8_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_8_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_8_dual_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_8_dual_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_14_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_14_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_14_dual_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_horizontal_14_dual_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_14_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_14_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_14_dual_c(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
+    fn aom_highbd_lpf_vertical_14_dual_neon(s: *mut uint16_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t, blimit1: *const uint8_t, limit1: *const uint8_t, thresh1: *const uint8_t, bd: core::ffi::c_int);
     fn aom_arm_cpu_caps() -> core::ffi::c_int;
 }
 pub type ptrdiff_t = isize;
@@ -3848,6 +3928,38 @@ pub static mut aom_highbd_h_predictor_8x8: Option<
         core::ffi::c_int,
     ) -> (),
 > = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_horizontal_14: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_horizontal_14_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_horizontal_4: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_horizontal_4_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_horizontal_6: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_horizontal_6_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_horizontal_8: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_horizontal_8_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_vertical_14: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_vertical_14_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_vertical_4: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_vertical_4_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_vertical_6: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_vertical_6_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_vertical_8: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut aom_highbd_lpf_vertical_8_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()> = None;
 #[no_mangle]
 pub static mut aom_highbd_paeth_predictor_16x16: Option<
     unsafe extern "C-unwind" fn(
@@ -4913,6 +5025,54 @@ pub static mut aom_highbd_v_predictor_8x8: Option<
         core::ffi::c_int,
     ) -> (),
 > = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_14: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_14_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_14_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_4_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_4_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_6: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_6_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_6_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_8_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_horizontal_8_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_14: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_14_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_14_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_4_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_4_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_6: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_6_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_6_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_8_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_lpf_vertical_8_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
 pub static mut aom_subtract_block: Option<
     unsafe extern "C-unwind" fn(
@@ -8728,6 +8888,70 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                     core::ffi::c_int,
                 ) -> (),
             >;
+    }
+    aom_highbd_lpf_horizontal_14 = Some(aom_highbd_lpf_horizontal_14_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_horizontal_14 = Some(aom_highbd_lpf_horizontal_14_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_horizontal_14_dual = Some(aom_highbd_lpf_horizontal_14_dual_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_horizontal_14_dual = Some(aom_highbd_lpf_horizontal_14_dual_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_horizontal_4 = Some(aom_highbd_lpf_horizontal_4_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_horizontal_4 = Some(aom_highbd_lpf_horizontal_4_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_horizontal_4_dual = Some(aom_highbd_lpf_horizontal_4_dual_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_horizontal_4_dual = Some(aom_highbd_lpf_horizontal_4_dual_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_horizontal_6 = Some(aom_highbd_lpf_horizontal_6_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_horizontal_6 = Some(aom_highbd_lpf_horizontal_6_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_horizontal_6_dual = Some(aom_highbd_lpf_horizontal_6_dual_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_horizontal_6_dual = Some(aom_highbd_lpf_horizontal_6_dual_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_horizontal_8 = Some(aom_highbd_lpf_horizontal_8_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_horizontal_8 = Some(aom_highbd_lpf_horizontal_8_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_horizontal_8_dual = Some(aom_highbd_lpf_horizontal_8_dual_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_horizontal_8_dual = Some(aom_highbd_lpf_horizontal_8_dual_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_vertical_14 = Some(aom_highbd_lpf_vertical_14_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_vertical_14 = Some(aom_highbd_lpf_vertical_14_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_vertical_14_dual = Some(aom_highbd_lpf_vertical_14_dual_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_vertical_14_dual = Some(aom_highbd_lpf_vertical_14_dual_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_vertical_4 = Some(aom_highbd_lpf_vertical_4_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_vertical_4 = Some(aom_highbd_lpf_vertical_4_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_vertical_4_dual = Some(aom_highbd_lpf_vertical_4_dual_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_vertical_4_dual = Some(aom_highbd_lpf_vertical_4_dual_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_vertical_6 = Some(aom_highbd_lpf_vertical_6_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_vertical_6 = Some(aom_highbd_lpf_vertical_6_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_vertical_6_dual = Some(aom_highbd_lpf_vertical_6_dual_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_vertical_6_dual = Some(aom_highbd_lpf_vertical_6_dual_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_vertical_8 = Some(aom_highbd_lpf_vertical_8_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_vertical_8 = Some(aom_highbd_lpf_vertical_8_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    }
+    aom_highbd_lpf_vertical_8_dual = Some(aom_highbd_lpf_vertical_8_dual_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_highbd_lpf_vertical_8_dual = Some(aom_highbd_lpf_vertical_8_dual_neon as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
     }
     aom_highbd_paeth_predictor_16x16 = Some(
         aom_highbd_paeth_predictor_16x16_c
@@ -12988,6 +13212,102 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                     core::ffi::c_int,
                 ) -> (),
             >;
+    }
+    aom_lpf_horizontal_14 = Some(aom_lpf_horizontal_14_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_14 = Some(aom_lpf_horizontal_14_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_14_dual = Some(aom_lpf_horizontal_14_dual_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_14_dual = Some(aom_lpf_horizontal_14_dual_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_14_quad = Some(aom_lpf_horizontal_14_quad_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_14_quad = Some(aom_lpf_horizontal_14_quad_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_4 = Some(aom_lpf_horizontal_4_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_4 = Some(aom_lpf_horizontal_4_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_4_dual = Some(aom_lpf_horizontal_4_dual_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_4_dual = Some(aom_lpf_horizontal_4_dual_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_4_quad = Some(aom_lpf_horizontal_4_quad_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_4_quad = Some(aom_lpf_horizontal_4_quad_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_6 = Some(aom_lpf_horizontal_6_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_6 = Some(aom_lpf_horizontal_6_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_6_dual = Some(aom_lpf_horizontal_6_dual_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_6_dual = Some(aom_lpf_horizontal_6_dual_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_6_quad = Some(aom_lpf_horizontal_6_quad_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_6_quad = Some(aom_lpf_horizontal_6_quad_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_8 = Some(aom_lpf_horizontal_8_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_8 = Some(aom_lpf_horizontal_8_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_8_dual = Some(aom_lpf_horizontal_8_dual_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_8_dual = Some(aom_lpf_horizontal_8_dual_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_horizontal_8_quad = Some(aom_lpf_horizontal_8_quad_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_horizontal_8_quad = Some(aom_lpf_horizontal_8_quad_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_14 = Some(aom_lpf_vertical_14_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_14 = Some(aom_lpf_vertical_14_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_14_dual = Some(aom_lpf_vertical_14_dual_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_14_dual = Some(aom_lpf_vertical_14_dual_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_14_quad = Some(aom_lpf_vertical_14_quad_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_14_quad = Some(aom_lpf_vertical_14_quad_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_4 = Some(aom_lpf_vertical_4_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_4 = Some(aom_lpf_vertical_4_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_4_dual = Some(aom_lpf_vertical_4_dual_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_4_dual = Some(aom_lpf_vertical_4_dual_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_4_quad = Some(aom_lpf_vertical_4_quad_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_4_quad = Some(aom_lpf_vertical_4_quad_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_6 = Some(aom_lpf_vertical_6_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_6 = Some(aom_lpf_vertical_6_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_6_dual = Some(aom_lpf_vertical_6_dual_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_6_dual = Some(aom_lpf_vertical_6_dual_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_6_quad = Some(aom_lpf_vertical_6_quad_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_6_quad = Some(aom_lpf_vertical_6_quad_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_8 = Some(aom_lpf_vertical_8_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_8 = Some(aom_lpf_vertical_8_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_8_dual = Some(aom_lpf_vertical_8_dual_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_8_dual = Some(aom_lpf_vertical_8_dual_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_lpf_vertical_8_quad = Some(aom_lpf_vertical_8_quad_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        aom_lpf_vertical_8_quad = Some(aom_lpf_vertical_8_quad_neon as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
     }
     aom_subtract_block = Some(
         aom_subtract_block_c

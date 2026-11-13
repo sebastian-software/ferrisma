@@ -105,6 +105,22 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_highbd_h_predictor_8x32
   aom_highbd_h_predictor_8x4
   aom_highbd_h_predictor_8x8
+  aom_highbd_lpf_horizontal_14
+  aom_highbd_lpf_horizontal_14_dual
+  aom_highbd_lpf_horizontal_4
+  aom_highbd_lpf_horizontal_4_dual
+  aom_highbd_lpf_horizontal_6
+  aom_highbd_lpf_horizontal_6_dual
+  aom_highbd_lpf_horizontal_8
+  aom_highbd_lpf_horizontal_8_dual
+  aom_highbd_lpf_vertical_14
+  aom_highbd_lpf_vertical_14_dual
+  aom_highbd_lpf_vertical_4
+  aom_highbd_lpf_vertical_4_dual
+  aom_highbd_lpf_vertical_6
+  aom_highbd_lpf_vertical_6_dual
+  aom_highbd_lpf_vertical_8
+  aom_highbd_lpf_vertical_8_dual
   aom_highbd_paeth_predictor_16x16
   aom_highbd_paeth_predictor_16x32
   aom_highbd_paeth_predictor_16x4
@@ -207,6 +223,30 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_highbd_v_predictor_8x32
   aom_highbd_v_predictor_8x4
   aom_highbd_v_predictor_8x8
+  aom_lpf_horizontal_14
+  aom_lpf_horizontal_14_dual
+  aom_lpf_horizontal_14_quad
+  aom_lpf_horizontal_4
+  aom_lpf_horizontal_4_dual
+  aom_lpf_horizontal_4_quad
+  aom_lpf_horizontal_6
+  aom_lpf_horizontal_6_dual
+  aom_lpf_horizontal_6_quad
+  aom_lpf_horizontal_8
+  aom_lpf_horizontal_8_dual
+  aom_lpf_horizontal_8_quad
+  aom_lpf_vertical_14
+  aom_lpf_vertical_14_dual
+  aom_lpf_vertical_14_quad
+  aom_lpf_vertical_4
+  aom_lpf_vertical_4_dual
+  aom_lpf_vertical_4_quad
+  aom_lpf_vertical_6
+  aom_lpf_vertical_6_dual
+  aom_lpf_vertical_6_quad
+  aom_lpf_vertical_8
+  aom_lpf_vertical_8_dual
+  aom_lpf_vertical_8_quad
   aom_subtract_block
   av1_block_error
   av1_block_error_lp

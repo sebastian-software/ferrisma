@@ -170,15 +170,18 @@ def main():
         units = {u['rust']: u for u in manifest['units']}
         texts = {r: (ROOT / r).read_text() for r in units}
         original = dict(texts)
+        # Which units mention which `<name>_c`, computed once.
+        mentions = {r: set(re.findall(r'\b(\w+)_c\b', t)) for r, t in texts.items()}
         for name in NAMES:
             header = [h for h, t in headers.items() if re.search(r'\(\*' + name + r'\)\(', t)]
             if len(header) != 1:
                 raise SystemExit(f'{name}: not dispatched by the regenerated headers ({header})')
             rtcd_rel = f'crates/aom/src/macos/{profile}/' + RTCD_UNITS[header[0]]
-            params, ret = find_signature(texts, name)
+            candidates = {r: texts[r] for r in units if name in mentions[r]}
+            params, ret = find_signature(candidates, name)
             texts[rtcd_rel] = edit_rtcd_unit(texts[rtcd_rel], name, params, ret, header_order(headers[header[0]]))
             for rel, unit in units.items():
-                if rel == rtcd_rel or not re.search(r'\b' + name + r'_c\b', texts[rel]):
+                if rel == rtcd_rel or name not in mentions[rel]:
                     continue
                 csource = (ROOT / unit['source']).read_text()
                 texts[rel] = edit_caller(texts[rel], csource, name, params, ret, report, f'{profile}:{rel}')

@@ -22,9 +22,9 @@
       "--disable-sve2"
     ],
     "overlay": "crates/aom/rtcd/arm64.pl",
-    "overlay_sha256": "81b6c219ea594e7bbc50ac173ccefaa2ddd0b422697e43b978c78a2e408b3f34",
+    "overlay_sha256": "3bb43b0adaf62cd96e7f55ebdda3bf0d1150bd116f812083a3dc5e9db78d990c",
     "headers": {
-      "config/aom_dsp_rtcd.h": "a90ea5ce078fbc2382eeb308c8ac3685936602bbebd524fefbc0a5c1d3d2af0b",
+      "config/aom_dsp_rtcd.h": "2c259f3f11691847ff893a836867bb369b8f4815c401b2e7af0bd6b63f569290",
       "config/aom_scale_rtcd.h": "c570ff0504c001c33925ffb1897c9f45812db2d3dcb800c144d1fb5e8101d12c",
       "config/av1_rtcd.h": "54bb5a06dd4e9ebe6e6face983769b57c86883723b2ab216383c137ae372f042"
     }
@@ -96,8 +96,8 @@
       "source": "upstream/aom/aom_dsp/aom_dsp_rtcd.c",
       "rust": "crates/aom/src/macos/debug/aom_dsp/aom_dsp_rtcd.rs",
       "raw_sha256": "c2f18091c248f963abf018624ed384a10ed420496b9ac73138b01fd9c3939223",
-      "rust_sha256": "f77c0487a60e5a5976739803f8c41760428b0b1e1d92171058493ba4dde63162",
-      "production_rust_sha256": "f77c0487a60e5a5976739803f8c41760428b0b1e1d92171058493ba4dde63162",
+      "rust_sha256": "2a417e8ff2f03a5e788ee9acfb511805104ff2d8f73e39c8f064459c1acecb50",
+      "production_rust_sha256": "2a417e8ff2f03a5e788ee9acfb511805104ff2d8f73e39c8f064459c1acecb50",
       "corrections": {
         "target-libc-thread-storage": 1,
         "target-libc-once-initializer": 1,
@@ -821,8 +821,8 @@
       "source": "upstream/aom/av1/common/av1_loopfilter.c",
       "rust": "crates/aom/src/macos/debug/av1/common/av1_loopfilter.rs",
       "raw_sha256": "590f5da0cbdb556a52e74f9d7b26c310d8e31356364c4b926523b165cb30387a",
-      "rust_sha256": "e977e82572cbf92430bcb27371be12c24c373ebefe4b62b2c1762183b71ca98b",
-      "production_rust_sha256": "e977e82572cbf92430bcb27371be12c24c373ebefe4b62b2c1762183b71ca98b",
+      "rust_sha256": "8722bccb14f4a0770546f263e4c1e13c4af404d2e22c31bc27b8741fb42e0cf2",
+      "production_rust_sha256": "8722bccb14f4a0770546f263e4c1e13c4af404d2e22c31bc27b8741fb42e0cf2",
       "corrections": {
         "target-runtime-assertion": 45,
         "target-libc-thread-storage": 1,
