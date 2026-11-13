@@ -301,6 +301,10 @@ impl ANSEncodingHistogram {
         Ok(())
     }
 
+    #[allow(
+        clippy::manual_div_ceil,
+        reason = "Keep the source's rounded-up reciprocal expression; the lint fires only under newer stable Clippy."
+    )]
     pub(crate) fn ans_build_info_table(
         &self,
         table: &[Entry],
