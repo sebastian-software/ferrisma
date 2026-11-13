@@ -15,8 +15,9 @@ for an audited C ABI module and the SIMD modules. It is maintained alongside [li
 SharpYUV translations have differential evidence against libwebp v1.6.0.
 The C ABI is used to run upstream tools; safe Rust APIs cover decoding and
 encoding. SIMD implementations and their exceptions are documented in
-[ADR 0008](docs/adr/0008-simd-modules.md), including the NEON rescaler
-export rows that remain on the scalar path. Each module records its deviations
+[ADR 0008](docs/adr/0008-simd-modules.md): the scalar build matches libwebp's
+scalar build and the SIMD build matches libwebp's SIMD build at the same
+instruction-set level ([SIMD status](docs/SIMD-STATUS.md)). Each module records its deviations
 and excluded undefined behavior.
 
 **Engine integration:** Ferrisma does not currently provide WebP input or

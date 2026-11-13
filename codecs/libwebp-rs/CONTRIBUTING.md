@@ -74,24 +74,36 @@ tests print why they are skipped.
 python3 tools/check.py --oracle
 ```
 
-builds the `release` oracle (`tools/build_oracle.py`), checks that the
-dependencies, exceptions and reviewed includes in `tools/units.json` cover the
-oracle's cross-unit references (`tools/unit_dependencies.py --check`), points
-`LIBWEBP_ORACLE_DIR` at it and runs the tests with the `oracle` feature, so a
-test that cannot reach the oracle fails instead of skipping. Further flags:
+runs the quality gate of [ADR 0008](docs/adr/0008-simd-modules.md): it builds
+the `release` oracle (libwebp with `WEBP_ENABLE_SIMD=OFF`) and the
+`release-simd` oracle (libwebp with its SIMD code) with `tools/build_oracle.py`,
+checks that the dependencies, exceptions and reviewed includes in
+`tools/units.json` cover the oracle's cross-unit references
+(`tools/unit_dependencies.py --check`), points `LIBWEBP_ORACLE_DIR` at each and
+runs the tests with the `oracle` feature, so a test that cannot reach the oracle
+fails instead of skipping: the scalar build (`--no-default-features`) against
+`release`, and the SIMD build against `release-simd` once per instruction-set
+level of the target (`neon` on AArch64; `avx2`, `sse41` and `sse2` on x86-64),
+with `LIBWEBP_SIMD_LEVEL` capping the CPU query of both sides. Further flags:
 
-- `--oracle-variant asan-ubsan` (or `debug`) runs the differential tests against
-  that variant instead; `--baseline` also runs `tools/oracle_baseline.py`.
+- `--oracle-variant asan-ubsan` (or `debug`, `release`, `release-simd`) runs
+  only that variant; `--baseline` also runs `tools/oracle_baseline.py` for the
+  scalar variant.
+- `--arch x86_64` checks the x86-64 build on an ARM64 Mac under Rosetta 2
+  (`x86_64-apple-darwin`, oracles in `build/oracle/<variant>-x86_64`,
+  `ROSETTA_ADVERTISE_AVX=1`).
 - `--msrv` builds and tests with the toolchain named by `rust-version`.
 - `--no-simd` runs the test stage with `--no-default-features`: the scalar
-  translation without the SIMD modules ([ADR 0008](docs/adr/0008-simd-modules.md)).
+  translation without the SIMD modules; with `--oracle`, only against
+  `release`.
 - `--stage static` runs only the checks that need no C compiler.
 
 Focused commands:
 
 ```sh
 python3 tools/build_oracle.py --variant release --variant asan-ubsan
-python3 tools/build_oracle.py --variant release-simd   # diagnostic, upstream with SIMD
+python3 tools/build_oracle.py --variant gate --arch x86_64   # release and release-simd for Rosetta
+LIBWEBP_ORACLE_DIR=build/oracle/release-simd LIBWEBP_SIMD_LEVEL=neon cargo test --features oracle --test wp10_dsp
 LIBWEBP_ORACLE_DIR=build/oracle/release cargo test --features oracle --test wp0_features
 python3 tools/oracle_baseline.py --variant release
 python3 tools/units.py

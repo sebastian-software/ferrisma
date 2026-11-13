@@ -143,7 +143,8 @@ sides of the comparison, through each side's own mechanism: every oracle
 executable (probes, upstream's tools, the consumer builds) links
 `tools/oracle/probe_support/simd_level.c`, which wraps upstream's
 `VP8GetCPUInfo` pointer before `main` so that features above the level answer
-0; the port's x86 query (`vp8_get_cpu_info`) applies the same cap when the
+0 (and the C probes, which link upstream's libsharpyuv, wrap its own
+`SharpYuvGetCPUInfo` with `simd_level_sharpyuv.c`); the port's x86 query (`vp8_get_cpu_info`) applies the same cap when the
 crate's `oracle` feature is enabled, which no ordinary build enables.
 `tests/dispatch_features.rs` fails when the host reports less than the mode
 asks for. x86-64 runs on an ARM64 Mac under Rosetta 2 (`tools/check.py

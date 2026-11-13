@@ -76,6 +76,8 @@ jobs:
     - name: Differential tests of the scalar build against the release oracle
       if: matrix.os == 'ubuntu-latest'
       run: python3 tools/check.py --stage test --oracle-variant release --no-simd
+    - name: Differential tests of the SIMD build against the release-simd oracle per level
+      run: python3 tools/check.py --stage test --oracle-variant release-simd
     - name: Baseline of the debug oracle
       run: python3 tools/oracle_baseline.py --variant debug
     - name: Keep the oracle and baseline records
