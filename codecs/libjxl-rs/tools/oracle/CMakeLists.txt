@@ -368,3 +368,8 @@ endif()
 # item 1). The TU only calls the original's public stage factories.
 target_sources(jxl_oracle PRIVATE render_stages_simd.cc)
 # end render stages
+
+# public gate: whole decodes through the original public decoder (port ADR
+# 0004, "Decoder path" condition (b)). The TU only calls the public API.
+target_sources(jxl_oracle PRIVATE decoder_public_simd.cc)
+# end public gate

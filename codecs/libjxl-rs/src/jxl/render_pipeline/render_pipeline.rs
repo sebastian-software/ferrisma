@@ -163,6 +163,11 @@ impl<'a> RenderPipelineBuilder<'a> {
         self,
         frame_dimensions: FrameDimensions,
     ) -> StatusOr<Box<dyn RenderPipeline<'a> + 'a>> {
+        // public gate: test observation only (decode_trace.rs).
+        crate::jxl::decode_trace::note(|| {
+            let names: Vec<_> = self.stages.iter().map(|s| s.get_name()).collect();
+            format!("stages {}", names.join(" "))
+        });
         if self.use_simple_implementation {
             Ok(self.finalize_simple(frame_dimensions)?)
         } else {

@@ -242,13 +242,7 @@ static DECODER_TARGET_OVERRIDE: core::sync::atomic::AtomicU8 = core::sync::atomi
 /// `HWY_SCALAR` translation), otherwise [`Target::detect`] (NEON, or AVX2
 /// with Highway's complete group; never AVX-512 or SVE).
 pub fn decoder_target() -> Option<Target> {
-    use core::sync::atomic::Ordering;
-    match DECODER_TARGET_OVERRIDE.load(Ordering::Relaxed) {
-        1 => None,
-        2 => Target::detect(),
-        _ if DECODER_SELECTS_SIMD => Target::detect(),
-        _ => None,
-    }
+    decoder_target_for(DECODER_SELECTS_SIMD)
 }
 
 /// Restrict or widen the decoder's dispatch for tests, like Highway's
@@ -291,3 +285,44 @@ pub fn dispatch<K: Kernel>(target: Target, kernel: K) -> K::Output {
         Target::Avx2(d) => avx2::run(d, kernel),
     }
 }
+
+// public gate: condition (c) of ADR 0004 "Decoder path".
+/// [`decoder_target`] for a given default selection `selects_simd` (the
+/// value of [`DECODER_SELECTS_SIMD`]), so that a test can show what the
+/// selection would be if that switch were on. An explicit
+/// [`set_decoder_simd_for_test`] override wins; otherwise a test build that
+/// the scalar gate started with `JXL_DECODER_TARGET=scalar`
+/// ([`scalar_forced_by_environment`]) keeps the scalar path whatever the
+/// default is, so `tools/check.py --stage test` keeps comparing the scalar
+/// translation with the scalar oracle.
+#[doc(hidden)]
+pub fn decoder_target_for(selects_simd: bool) -> Option<Target> {
+    use core::sync::atomic::Ordering;
+    match DECODER_TARGET_OVERRIDE.load(Ordering::Relaxed) {
+        1 => None,
+        2 => Target::detect(),
+        _ if scalar_forced_by_environment() => None,
+        _ if selects_simd => Target::detect(),
+        _ => None,
+    }
+}
+
+/// Whether the environment forces the scalar decoder path: only in the
+/// oracle test builds (feature `cpp-oracle`), read once per process from
+/// `JXL_DECODER_TARGET=scalar`, which the scalar test stage of
+/// `tools/check.py` sets. Ordinary builds never read the environment.
+#[doc(hidden)]
+pub fn scalar_forced_by_environment() -> bool {
+    #[cfg(feature = "cpp-oracle")]
+    {
+        static FORCED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *FORCED.get_or_init(|| {
+            std::env::var_os("JXL_DECODER_TARGET").is_some_and(|value| value == "scalar")
+        })
+    }
+    #[cfg(not(feature = "cpp-oracle"))]
+    {
+        false
+    }
+}
+// end public gate

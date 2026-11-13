@@ -999,6 +999,25 @@ impl FrameDecoderScope<'_, '_, '_> {
                 FrameWriteTarget::Output,
             )))?;
         }
+        // public gate: test observation only (decode_trace.rs).
+        super::decode_trace::note(|| {
+            let h = &self.storage.header.0;
+            format!(
+                "frame encoding={} type={} flags={:#x} color_transform={} chroma444={} upsampling={} ec_upsampling={:?} blend={} ec_blend={:?}",
+                h.encoding.0,
+                h.frame_type.0,
+                h.flags,
+                h.color_transform.0,
+                h.chroma_subsampling.is_444(),
+                h.upsampling,
+                h.extra_channel_upsampling,
+                h.blending_info.mode.0,
+                h.extra_channel_blending_info
+                    .iter()
+                    .map(|b| b.mode.0)
+                    .collect::<Vec<_>>(),
+            )
+        });
         self.state.render_pipeline = Some(builder.finalize(self.state.shared().frame_dim)?);
         self.state
             .render_pipeline
