@@ -124,6 +124,15 @@ decoder and low-memory pipeline comparison, a scalar gate that forces the
 scalar path, real x86-64 evidence for AVX2).
 <!-- end vardct kernels -->
 
+<!-- stages2 -->
+Upsampling, noise, blending and splines stages of ADR 0004 Plan item 1
+(2026-11-13): the SIMD upsampling stage (`stage_upsampling_simd.rs`, 2x, 4x
+and 8x) matches the NEON oracle at row level and inside the simple and
+low-memory pipelines (`tests/simd_stages2.rs`, ADR 0004 "Upsampling, noise,
+blending and splines stages") and dispatches on `hwy::decoder_target()`.
+AVX2 is compile-checked only.
+<!-- end stages2 -->
+
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 
 Encoder step 4 (issue #115) and a patches setting under which every image
@@ -1390,7 +1399,7 @@ followed in PRs #46 to #50.
 | `render_pipeline/stage_gaborish.h`, `.cc` | `render_pipeline/stage_gaborish.rs` | Complete original one-lane stage/factory, channel-specific weight normalization, three-row 3x3 kernel, extra spans, symmetric border settings, and ignored extra channels; SIMD targets and general lossy frame integration unported; first VarDCT profile connected |
 | `render_pipeline/stage_ycbcr.h`, `.cc` | `render_pipeline/stage_ycbcr.rs` | Complete scalar YCbCr stage/factory with original coefficients, double promotion/product narrowing, ordered binary32 additions and extra-span guards; connected at the original sequence color-conversion checkpoint |
 | `render_pipeline/stage_chroma_upsampling.h`, `.cc` | `render_pipeline/stage_chroma_upsampling.rs` | Complete scalar horizontal/vertical stages, 3/4–1/4 interpolation, original borders/shifts/channel modes and factory; source-ordered channel stages precede filters in admitted YCbCr frames |
-| `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; SIMD specializations and sanitizer annotations unported |
+| `render_pipeline/stage_upsampling.h`, `.cc` | `render_pipeline/stage_upsampling.rs` | Complete original one-lane stage/factory, symmetric weight expansion, per-thread aligned workspaces, min/max preprocessing, chunked 2x/4x/8x interpolation/clamping, and original argument guards; NEON/AVX2 stage in `render_pipeline/stage_upsampling_simd.rs` (ADR 0004); sanitizer annotations unported |
 | `render_pipeline/stage_write.h`, `.cc` (WriteToOutputStage) | `render_pipeline/stage_write.rs`, `stage_write_dither.rs` | Complete scalar output factory, original buffer/callback conversions and lifecycle, 1,024-pixel chunks, all orientation/alpha/extra-output paths, byte/half/float words, actual callback-backed scratch, allocation and retry failures; public incremental decoder orchestration remains open |
 | `render_pipeline/stage_cms.h`, `.cc` | `render_pipeline/stage_cms.rs` | Complete factory/IsNeeded, profile copy/selection, input-size validation, transform preparation, RGB/gray/CMYK interleaving, run-status propagation, deinterleaving, and destruction; native unsafe construction carries the foreign callback contract, and source caller preconditions are checked before buffer access |
 | `render_pipeline/stage_tone_mapping.h`, `.cc` | `render_pipeline/stage_tone_mapping.rs` | Complete one-lane factory/stage, original no-op/guard order, PQ scaling, Rec. 2408/HLG selection, per-pixel tone/gamut mapping, and in-place RGB stores; other SIMD targets unported |

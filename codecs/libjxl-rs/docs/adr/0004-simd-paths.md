@@ -387,3 +387,37 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   with the SIMD target forced; the conditions for the default selection are
   in "Decoder path".
 <!-- end vardct kernels -->
+
+<!-- stages2 -->
+## Upsampling, noise, blending and splines stages (2026-11-13, Plan item 1)
+
+Each stage is a `Kernel` body generic over `SimdF32` in its own file,
+dispatched by the stage factory on `hwy::decoder_target()`; the scalar path
+is unchanged. Parity uses the `s2-*` requests of
+`tools/oracle/render_stages2_simd.cc` (the original's public factories and
+pipelines only) and `tests/simd_stages2.rs`.
+
+- **Upsampling** (`stage_upsampling_simd.rs`, 2x/4x/8x with the symmetric
+  kernel expansion, the 5x5 min/max preprocessing over the per-thread
+  scratch, the three-accumulator `Mul`/fused `MulAdd` sum,
+  `Clamp(result, mins, maxs)` and simd_util-inl.h's `StoreInterleaved`,
+  which only permutes lanes into `v0[0], v1[0], ...` order). The stage reads
+  and writes whole vectors as the original does: column extrema to
+  `RoundUpTo(len + 4, Lanes)`, output to `RoundUpTo(len, Lanes) * N`
+  samples per row. Comparison rule: on AVX2, when `len % 8` of the last
+  1024-sample chunk is 1 to 4, the extrema lanes from `RoundUpTo(len, 8) - 4`
+  on read scratch the chunk never wrote (uninitialized after
+  `PrepareForThreads`); the output samples they produce lie past
+  `xsize * N` and are excluded. No NEON word is excluded. Row requests
+  (`s2-ups`): every shift, the default, image-like, special-word and random
+  weight sets, widths 0-67 and 1023-2050 across the chunk boundary, special,
+  image-like and random samples in the two border rows and columns and past
+  the row (the stage's `Settings::Symmetric(shift, 2)` border), every output
+  sample including the over-written vector tail. Pipeline requests
+  (`s2-ups-pipe`): the stage in the simple and the low-memory pipeline,
+  which mirror the two-sample border at every image edge, eight image sizes
+  from 1x1 to 1030x2, every shift and channel. NEON: `s2-ups` 1,104
+  requests, 5,643,424 words; `s2-ups-pipe` 456 requests, 348,108 words; no
+  word differs. The scalar path fails both (first differing word 28 / 8).
+  AVX2: compiles; not run locally.
+<!-- end stages2 -->

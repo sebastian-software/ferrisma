@@ -10,7 +10,8 @@
 //! Row descriptors replace pointers. Aligned temporary owners retain the source
 //! allocation sizes; u32 views transfer float bits without new unsafe casts.
 //! Native storage initializes the source's unused kernel/temp entries. MSan
-//! poison annotations and SIMD specializations remain outside this scalar port.
+//! poison annotations remain outside this scalar port; the NEON/AVX2 stage is
+//! stage_upsampling_simd.rs.
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
 };
@@ -286,6 +287,16 @@ pub fn get_upsampling_stage_in(
 ) -> Option<Box<dyn RenderPipelineStage>> {
     if !(1..=3).contains(&shift) {
         return None;
+    }
+    // HWY_DYNAMIC_DISPATCH(GetUpsamplingStage) (port ADR 0004).
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return Some(super::stage_upsampling_simd::get_upsampling_stage_simd(
+            memory_manager,
+            factors,
+            c,
+            shift,
+            target,
+        ));
     }
     Some(Box::new(UpsamplingStage::new(
         memory_manager,
