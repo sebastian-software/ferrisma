@@ -5,6 +5,10 @@
 // oracle's single Highway target). This TU supplies no stage arithmetic.
 //   cl-tl <tf> <have_gamma> <gamma> <orig_it> <desired_it> <inverse_gamma>
 //         <lum0> <lum1> <lum2> <width> <origin> <n> <n words>
+//   cl-tm <orig_tf> <orig_have_gamma> <orig_gamma> <tf> <have_gamma> <gamma>
+//         <orig_it> <desired_it> <lum0> <lum1> <lum2> <width> <origin> <n>
+//         <n words>
+// cl-tm prints "null" when GetToneMappingStage returns no stage.
 // Each in-place request fills five channel rows with words[(c * 7 + x) % n],
 // runs ProcessRow(rows, {}, 0, 0, width, 19, 23, 0) and prints the status
 // followed by all five rows (len = origin + kRenderPipelineXOffset + width +
@@ -22,6 +26,7 @@
 #include "lib/jxl/image.h"
 #include "lib/jxl/render_pipeline/render_pipeline_stage.h"
 #include "lib/jxl/render_pipeline/stage_to_linear.h"
+#include "lib/jxl/render_pipeline/stage_tone_mapping.h"
 
 namespace {
 template <class T, class U> T CLBits(U value) {
@@ -90,6 +95,20 @@ bool ColorStagesSimdCommand(const std::string& command, std::istringstream& in,
     info.inverse_gamma = CLFloat(in);
     for (auto& l : info.luminances) l = CLFloat(in);
     stage = jxl::GetToLinearStage(info);
+  } else if (command == "cl-tm") {
+    CLTransfer(in, info.orig_color_encoding);
+    CLTransfer(in, info.color_encoding);
+    info.orig_intensity_target = CLFloat(in);
+    info.desired_intensity_target = CLFloat(in);
+    for (auto& l : info.luminances) l = CLFloat(in);
+    stage = jxl::GetToneMappingStage(info);
+    if (!stage) {
+      size_t width, origin;
+      in >> width >> origin;
+      CLWords(in);
+      std::cout << "null";
+      return true;
+    }
   } else {
     throw std::runtime_error("cl: unknown command " + command);
   }

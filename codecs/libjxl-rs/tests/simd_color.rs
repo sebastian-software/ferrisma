@@ -261,3 +261,95 @@ fn simd_to_linear_rows_of_all_transfer_functions_match_the_original_target() {
     check_family("cl-tl", &requests, cl_tl);
     set_decoder_simd_for_test(None);
 }
+
+/// cl-tm as tools/oracle/color_stages_simd.cc observes it, through the
+/// public factory `get_tone_mapping_stage` with the given selection.
+fn cl_tm(request: &str, simd: bool) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("cl-tm"));
+    let mut info = OutputEncodingInfo::default();
+    transfer(&mut info.orig_color_encoding, &mut args);
+    transfer(&mut info.color_encoding, &mut args);
+    info.orig_intensity_target = float(&mut args);
+    info.desired_intensity_target = float(&mut args);
+    for l in &mut info.luminances {
+        *l = float(&mut args);
+    }
+    select(simd);
+    match jxl::jxl::render_pipeline::stage_tone_mapping::get_tone_mapping_stage(&info) {
+        Some(mut stage) => in_place(stage.as_mut(), args),
+        None => "null".to_owned(),
+    }
+}
+
+#[test]
+fn simd_tone_mapping_rows_match_the_original_target() {
+    let _guard = DISPATCH.lock().unwrap_or_else(|e| e.into_inner());
+    // orig_tf og ogamma tf g gamma orig_it desired_it lum0 lum1 lum2
+    let mut variants = Vec::new();
+    let mut push = |orig_tf: u32, tf: u32, orig_it: f32, desired_it: f32, lum: [f32; 3]| {
+        variants.push(format!(
+            "{orig_tf} 0 0 {tf} 0 0 {} {} {}",
+            orig_it.to_bits(),
+            desired_it.to_bits(),
+            join(lum.map(f32::to_bits))
+        ));
+    };
+    // PQ to a lower intensity target: Rec2408ToneMapper and GamutMap, with
+    // the 10000-nit rescaling when the output is PQ too.
+    for (orig, desired) in [
+        (10000.0, 1000.0),
+        (10000.0, 203.0),
+        (4000.0, 300.0),
+        (1000.0, 255.0),
+        (1000.0, 100.0),
+        (1000.0, 999.0),
+    ] {
+        for tf in [16, 13, 8] {
+            for lum in [SRGB_LUMINANCES, BT2100_LUMINANCES] {
+                push(16, tf, orig, desired, lum);
+            }
+        }
+    }
+    // HLG to a non-HLG output: HlgOOTF, with GamutMap when its exponent is
+    // negative; 1001 nits gives no OOTF.
+    for desired in [300.0, 100.0, 2000.0, 1001.0, 4000.0] {
+        for tf in [16, 13, 8] {
+            for lum in [SRGB_LUMINANCES, BT2100_LUMINANCES] {
+                push(18, tf, 1000.0, desired, lum);
+            }
+        }
+    }
+    let null_variants = [
+        // Equal targets, HLG to HLG, PQ to a higher target, sRGB input.
+        (16, 16, 1000.0, 1000.0),
+        (18, 18, 1000.0, 300.0),
+        (16, 13, 300.0, 1000.0),
+        (13, 13, 1000.0, 300.0),
+    ];
+    let sets = word_sets(-0.1, 1.3, &[1e-6, 1e-4, 0.5, 1.0], 33);
+    let mut requests = Vec::new();
+    for v in &variants {
+        for words in &sets {
+            for &width in WIDTHS {
+                for &origin in ORIGINS {
+                    requests.push(format!(
+                        "cl-tm {v} {width} {origin} {} {}",
+                        words.len(),
+                        join(words.iter().copied())
+                    ));
+                }
+            }
+        }
+    }
+    for (orig_tf, tf, orig, desired) in null_variants {
+        requests.push(format!(
+            "cl-tm {orig_tf} 0 0 {tf} 0 0 {} {} {} 9 3 1 0",
+            f32::to_bits(orig),
+            f32::to_bits(desired),
+            join(SRGB_LUMINANCES.map(f32::to_bits))
+        ));
+    }
+    check_family("cl-tm", &requests, cl_tm);
+    set_decoder_simd_for_test(None);
+}

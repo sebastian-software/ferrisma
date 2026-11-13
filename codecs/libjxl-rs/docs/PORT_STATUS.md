@@ -127,8 +127,10 @@ scalar path, real x86-64 evidence for AVX2).
 <!-- color -->
 Color stages of ADR 0004 Plan item 1 (2026-11-13): the SIMD ToLinear stage
 (`stage_to_linear_simd.rs`, all seven operations, with the decode direction
-of the transfer functions in `simd_transfer.rs`) matches the NEON oracle at
-row level (`tests/simd_color.rs`) and dispatches like the stages above.
+of the transfer functions in `simd_transfer.rs`) and the SIMD tone-mapping
+stage (`stage_tone_mapping_simd.rs`, Rec. 2408 tone mapping, HLG OOTF and
+gamut mapping) match the NEON oracle at row level (`tests/simd_color.rs`)
+and dispatch like the stages above.
 AVX2 is compile-checked only.
 <!-- end color -->
 
