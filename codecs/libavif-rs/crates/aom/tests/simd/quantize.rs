@@ -3,7 +3,9 @@
 // and AVX2 instantiations, and of upstream/aom/test/av1_quantize_test.cc
 // (AV1QuantizeTest) for its AVX2 instantiation. Inputs, quantizer tables, scan
 // orders, and the exact-match assertions follow the original; only the
-// parameter tuples of kernels that the port implements are instantiated.
+// parameter tuples of kernels that the port implements are instantiated. The
+// Neon 8-bit tuples (kQParamArrayNEON, kLPQParamArrayNEON) cover
+// av1/encoder/arm/quantize_neon.c.
 use aom::av1__common__scan::av1_scan_orders;
 use aom::av1__encoder__av1_quantize::{av1_build_quantizer, Dequants, QUANTS};
 
@@ -231,6 +233,130 @@ macro_rules! quantize_c {
 quantize_c!(aom_highbd_quantize_b_c, aom_highbd_quantize_b_32x32_c, aom_highbd_quantize_b_64x64_c,
             aom_highbd_quantize_b_adaptive_c, aom_highbd_quantize_b_32x32_adaptive_c,
             aom_highbd_quantize_b_64x64_adaptive_c);
+quantize_c!(av1_quantize_fp_c, av1_quantize_fp_32x32_c, av1_quantize_fp_64x64_c, aom_quantize_b_c,
+            aom_quantize_b_32x32_c, aom_quantize_b_64x64_c);
+
+pub type LPQuantizeFunc = unsafe extern "C-unwind" fn(
+    *const i16, isize, *const i16, *const i16, *mut i16, *mut i16, *const i16, *mut u16,
+    *const i16, *const i16);
+
+extern "C-unwind" {
+    fn av1_quantize_lp_c(coeff_ptr: *const i16, n_coeffs: isize, round_ptr: *const i16,
+                         quant_ptr: *const i16, qcoeff_ptr: *mut i16, dqcoeff_ptr: *mut i16,
+                         dequant_ptr: *const i16, eob_ptr: *mut u16, scan: *const i16,
+                         iscan: *const i16);
+}
+
+/// LowPrecisionQuantizeTest: QuantizeTestBase<int16_t, LPQuantizeFunc> with
+/// the same fixture, cases and exact-match checks as the full-precision test.
+pub struct LowPrecisionQuantizeTest {
+    quant_ref: LPQuantizeFunc,
+    quant: LPQuantizeFunc,
+    tx_size: usize,
+    qtab_quant: Box<QUANTS>,
+    qtab_dequant: Box<Dequants>,
+    coeff: Vec<Aligned<[i16; 6 * 1024]>>,
+    rnd: ACMRandom,
+}
+
+impl LowPrecisionQuantizeTest {
+    pub fn new(quant_ref: LPQuantizeFunc, quant: LPQuantizeFunc, tx_size: usize) -> Self {
+        // SAFETY: as in FullPrecisionQuantizeTest::new; bit depth 8 (AOM_BITS_8).
+        let mut qtab_quant: Box<QUANTS> = unsafe { Box::new(core::mem::zeroed()) };
+        let mut qtab_dequant: Box<Dequants> = unsafe { Box::new(core::mem::zeroed()) };
+        // SAFETY: both tables are valid, exclusively borrowed outputs.
+        unsafe { av1_build_quantizer(8, 0, 0, 0, 0, 0, &mut *qtab_quant, &mut *qtab_dequant, 0) };
+        Self { quant_ref, quant, tx_size, qtab_quant, qtab_dequant,
+               coeff: vec![Aligned([0; 6 * 1024])], rnd: ACMRandom::new() }
+    }
+
+    fn n(&self) -> usize {
+        coeff_num(self.tx_size)
+    }
+
+    fn fill_coeff(&mut self, c: i16) {
+        let n = self.n();
+        self.coeff[0].0[..n].fill(c);
+    }
+
+    fn get_random_coeff(&mut self) -> i16 {
+        (self.rnd.rand16() as i16).clamp(i16::MIN + 1, i16::MAX)
+    }
+
+    fn fill_coeff_random(&mut self) {
+        let n = self.n();
+        self.fill_coeff(0);
+        let num = self.rnd.rand16() as usize % n;
+        let start = self.rnd.rand16() as usize % n;
+        let end = (start + num).min(n);
+        for i in start..end {
+            self.coeff[0].0[i] = self.get_random_coeff();
+        }
+    }
+
+    pub fn quantize_run(&mut self, is_loop: bool, q: usize, test_num: usize) {
+        let n = self.n();
+        let sc = unsafe { av1_scan_orders[self.tx_size][DCT_DCT] };
+        // TYPE_FP
+        let round = self.qtab_quant.y_round_fp[q].as_ptr();
+        let quant = self.qtab_quant.y_quant_fp[q].as_ptr();
+        let dequant = self.qtab_dequant.y_dequant_QTX[q].as_ptr();
+        for i in 0..test_num {
+            if is_loop {
+                self.fill_coeff_random();
+            }
+            let buf = &mut self.coeff[0].0;
+            buf[n..6 * n].fill(0);
+            let base = buf.as_mut_ptr();
+            // SAFETY: the output regions and the eob pair lie within the 6 * n
+            // element buffer; the scan tables cover n coefficients.
+            unsafe {
+                let coeff = base as *const i16;
+                let qcoeff_ref = base.add(n);
+                let dqcoeff_ref = qcoeff_ref.add(n);
+                let qcoeff = dqcoeff_ref.add(n);
+                let dqcoeff = qcoeff.add(n);
+                let eob = dqcoeff.add(n) as *mut u16;
+                (self.quant_ref)(coeff, n as isize, round, quant, qcoeff_ref, dqcoeff_ref, dequant,
+                                 eob, sc.scan, sc.iscan);
+                (self.quant)(coeff, n as isize, round, quant, qcoeff, dqcoeff, dequant, eob.add(1),
+                             sc.scan, sc.iscan);
+                for j in 0..n {
+                    assert_eq!(*qcoeff_ref.add(j), *qcoeff.add(j),
+                               "Q mismatch on test: {i} at position: {j} Q: {q}");
+                }
+                for j in 0..n {
+                    assert_eq!(*dqcoeff_ref.add(j), *dqcoeff.add(j),
+                               "Dq mismatch on test: {i} at position: {j} Q: {q}");
+                }
+                assert_eq!(*eob, *eob.add(1), "eobs mismatch on test: {i} Q: {q}");
+            }
+        }
+    }
+
+    pub fn run_all(&mut self) {
+        self.rnd.reset(ACMRandom::deterministic_seed());
+        self.fill_coeff(0);
+        self.quantize_run(false, 0, 1);
+        self.rnd.reset(ACMRandom::deterministic_seed());
+        self.fill_coeff(0);
+        self.coeff[0].0[0] = -8191;
+        self.quantize_run(false, 0, 1);
+        self.rnd.reset(ACMRandom::deterministic_seed());
+        self.fill_coeff(0);
+        self.coeff[0].0[0] = self.get_random_coeff();
+        self.quantize_run(false, 0, 1);
+        self.rnd.reset(ACMRandom::deterministic_seed());
+        self.quantize_run(true, 0, K_TEST_NUM);
+        self.rnd.reset(ACMRandom::deterministic_seed());
+        for q in 0..QINDEX_RANGE {
+            self.quantize_run(true, q, K_TEST_NUM);
+        }
+        self.rnd.reset(ACMRandom::deterministic_seed());
+        self.fill_coeff(16);
+        self.quantize_run(false, 25, 1);
+    }
+}
 
 extern "C-unwind" {
     fn av1_highbd_quantize_fp_c(coeff_ptr: *const i32, n_coeffs: isize, zbin_ptr: *const i16,
@@ -289,6 +415,46 @@ mod neon {
            aom_highbd_quantize_b_32x32_adaptive_neon, TX_32X32, QuantType::B, 12);
     plain!(highbd_quantize_b_64x64_adaptive, aom_highbd_quantize_b_64x64_adaptive_c,
            aom_highbd_quantize_b_64x64_adaptive_neon, TX_64X64, QuantType::B, 12);
+
+    // kQParamArrayNEON: the 8-bit tuples (av1/encoder/arm/quantize_neon.c).
+    mod lowbd {
+        use super::super::*;
+        use super::run;
+        use aom::simd::av1__encoder__arm__quantize_neon::*;
+
+        macro_rules! plain {
+            ($test:ident, $c:ident, $neon:ident, $tx:expr, $kind:expr) => {
+                #[test]
+                fn $test() {
+                    run(Kernel::Plain($c), Kernel::Plain($neon), $tx, $kind, 8);
+                }
+            };
+        }
+
+        plain!(quantize_fp_16x16, av1_quantize_fp_c, av1_quantize_fp_neon, TX_16X16, QuantType::Fp);
+        plain!(quantize_fp_4x16, av1_quantize_fp_c, av1_quantize_fp_neon, TX_4X16, QuantType::Fp);
+        plain!(quantize_fp_16x4, av1_quantize_fp_c, av1_quantize_fp_neon, TX_16X4, QuantType::Fp);
+        plain!(quantize_fp_8x32, av1_quantize_fp_c, av1_quantize_fp_neon, TX_8X32, QuantType::Fp);
+        plain!(quantize_fp_32x8, av1_quantize_fp_c, av1_quantize_fp_neon, TX_32X8, QuantType::Fp);
+        plain!(quantize_fp_32x32, av1_quantize_fp_32x32_c, av1_quantize_fp_32x32_neon, TX_32X32,
+               QuantType::Fp);
+        plain!(quantize_fp_64x64, av1_quantize_fp_64x64_c, av1_quantize_fp_64x64_neon, TX_64X64,
+               QuantType::Fp);
+        plain!(quantize_b, aom_quantize_b_c, aom_quantize_b_neon, TX_16X16, QuantType::B);
+        plain!(quantize_b_32x32, aom_quantize_b_32x32_c, aom_quantize_b_32x32_neon, TX_32X32,
+               QuantType::B);
+        plain!(quantize_b_64x64, aom_quantize_b_64x64_c, aom_quantize_b_64x64_neon, TX_64X64,
+               QuantType::B);
+
+        // kLPQParamArrayNEON
+        #[test]
+        fn quantize_lp() {
+            for tx_size in [TX_16X16, TX_8X8, TX_4X4] {
+                LowPrecisionQuantizeTest::new(av1_quantize_lp_c, av1_quantize_lp_neon, tx_size)
+                    .run_all();
+            }
+        }
+    }
 }
 
 /// av1_quantize_test.cc AV1QuantizeTest: BitExactCheck (RunQuantizeTest) and
