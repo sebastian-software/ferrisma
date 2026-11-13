@@ -242,6 +242,54 @@ internals) need the whole frame for any crop.
 | GNU Linux ARM64 | codec-free engine and kernels tested in CI | not supported | CI `kernels-arm` (`ubuntu-24.04-arm`: `cargo test -p ferrisma -p ferrisma-kernels --all-targets`, no codec features) |
 | Windows, other targets | not verified | not supported | out of v1.0 scope (#158, #159) |
 
+## SIMD instruction-set levels (v1.0)
+
+**Reviewed: 2026-11-13** (decision D6; [ADR-0020](adr/0020-kernel-crate-and-isa-dispatch.md)
+amendment of that date). v1.0 executes SIMD up to **AVX2 on x86-64**
+(including the SSE2/SSSE3/SSE4.1 kernels an original selects on an AVX2
+machine) and up to **baseline NEON on AArch64**. AVX-512 (any subset), SVE,
+SVE2, NEON DotProd, I8MM, BF16 and higher are post-v1.0: code that exists for
+them stays in the tree but does not run unless the opt-in of its component is
+used. Every place in the workspace that selects code at run time:
+
+| Component | Run-time selection | Above-scope code in the tree | v1.0 default | Opt-in | Upstream equivalent of the default |
+| --- | --- | --- | --- | --- | --- |
+| Engine kernels (`crates/ferrisma-kernels`) | `src/dispatch.rs` `supports`/`detect_machine`; `src/lib.rs` `select` | `Avx512` (`dispatch.rs` `mod avx512`, `lanes.rs`); `Sve2` detected only | `Avx2` / `Neon` (`DEFAULT_CEILING`); reason `DefaultCeiling` when capped | `kernel_level_ceiling = Some(KernelLevel::Avx512)`, `--kernel-level=avx512`, `Kernels::with_ceiling(IsaLevel::Avx512)` | first-party |
+| skcms in `libjxl-rs` (ICC transforms) | `src/skcms/transform.rs` `cpu_type` and `engine` | SKX engine, `src/skcms/transform_x86.rs` `run_program_skx` (AVX-512F/DQ/CD/BW/VL) | HSW (AVX2/F16C) on AVX-512 CPUs; baseline NEON on AArch64 | Cargo feature `libjxl-rs/skcms-skx` | skcms built with `-DSKCMS_DISABLE_SKX` |
+| `libjxl-rs` outside skcms | none at run time | none | as built | — | — |
+| AOM (`libavif-rs/crates/aom`) | translated RTCD: `x86_simd_caps()` (generated `src/linux/*/…_rtcd.rs`, reports `HAS_AVX512`), `aom_arm_cpu_caps()` (`src/simd/aom_ports/aarch64_cpudetect.rs`, reports DotProd and I8MM) | none: no AVX-512, DotProd, I8MM or SVE kernel is translated, and the RTCD generator runs with `--disable-avx512` and `--disable-neon_dotprod/neon_i8mm/sve/sve2`, so no table entry dispatches on those flags (`tests/dispatch_scope.rs`) | SSE2/SSE4.1/AVX2; Neon | none (nothing to opt into; `AOM_SIMD_CAPS`/`AOM_SIMD_CAPS_MASK` only lower the selection) | CMake `-DENABLE_AVX512=0` (x86-64); `-DENABLE_NEON_DOTPROD=0 -DENABLE_NEON_I8MM=0 -DENABLE_SVE=0 -DENABLE_SVE2=0` (arm64); at run time `AOM_SIMD_CAPS_MASK=0x1ff` (x86-64) or `0x3` (arm64) |
+| dav1d (`libavif-rs/crates/dav1d`) | none: no assembly, `dav1d_init_cpu` is empty | none | scalar | — | `-Denable_asm=false` |
+| SharpYUV (`libavif-rs/crates/sharpyuv`, `crates/libsharpyuv-core`) | CPU query translated, SIMD conversion disabled | none | scalar | — | — |
+| `libwebp-rs` | `src/dsp/cpu.rs` `vp8_get_cpu_info` | none (libwebp has nothing above `kAVX2`/`kNEON`) | up to AVX2 / NEON | — | — |
+| `libjpeg-turbo-rs` | `src/jsimdcpu.rs` `jpeg_simd_cpu_support` | none (libjpeg-turbo has nothing above AVX2/NEON) | up to AVX2 / NEON | — | — |
+| rav1e 0.8.1 (third-party; `avif-write`, non-default AVIF encoder, `asm` enabled) | `src/cpu_features/x86.rs` in the crate | AVX-512 and AVX512ICL assembly | **not capped by Ferrisma**: AVX-512 hosts run its AVX-512 assembly | — | set `RAV1E_CPU_TARGET=avx2` in the process environment to cap it |
+| moxcms 0.9.1 (third-party, `icc`) | crate-internal | `avx512` feature, not enabled | up to AVX2 / NEON | — | — |
+| jxl-oxide 0.12.6 (third-party, `jpeg-xl-read`) | crate-internal | none (its detection stops at AVX2/FMA/SSE4.1/NEON) | up to AVX2 / NEON | — | — |
+
+Comparisons against an original (D4) must use the original with the switch
+in the last column. The skcms reference tools (`tools/skcms_transform_reference.py`,
+`tools/default_cms_reference.py`) and `tools/check.py` build `libjxl-rs` with
+`--all-features`, which includes `skcms-skx`, so on an AVX-512 host they keep
+comparing SKX against the unchanged original's SKX; the default HSW selection
+is compared on AVX2 hosts. On hosts without AVX-512 (all local hosts,
+including Rosetta 2) the default and the opt-in select the same code.
+
+**Reproducibility across x86-64 hosts (issue #239).** Up to 2026-11-12,
+resized output of the `f32` executor depended on the host's kernel level: on
+GitHub's x86-64 runners, AVX2 and AVX-512 hosts produced different hashes for
+some resized outputs (JPEG XL inputs, AVIF outputs, a lossy WebP input), within
+ADR-0021's bound (one code after quantization), while full-size outputs and
+hosts at the same level agreed ([CI performance record](benchmarks/v1.0-ci-performance-2026-11-12.md),
+CI run 43293971731). With the default ceiling, every x86-64 host with AVX2
+runs `avx2` and produces the same bytes. An x86-64 host without AVX2 runs
+`scalar` and can still differ from AVX2 hosts within the same bound; AArch64
+runs `neon`, which is bit-identical to `scalar`. Setting
+`--kernel-level=avx2` (or `scalar`) pins the bytes explicitly; `--kernel-level=avx512`
+reintroduces the host dependence on purpose. Not yet confirmed on AVX-512
+hardware: the next hosted run on an AVX-512 runner must show
+`chosen level: avx2 (DefaultCeiling)` in the `ferrisma-kernels` `detect` step
+and resized-output hashes equal to those of an AVX2 runner.
+
 ## Examples
 
 Supported (output of the debug `cli` build on 2026-11-12, report line

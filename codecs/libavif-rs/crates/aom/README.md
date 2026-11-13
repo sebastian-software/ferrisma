@@ -37,6 +37,16 @@ an overlay only together with a regeneration.
   and V predictors for 4x4 to 32x32 exist upstream only as NASM and stay on `_c`,
   as do the high-bitdepth smooth and Paeth predictors, which have no x86
   specialization. AVX-512 is not dispatched.
+- Scope (Ferrisma decision D6, 2026-11-13): nothing above AVX2 on x86-64 or
+  above baseline Neon on Arm runs in v1.0, and none is translated, so there is
+  no opt-in. `x86_simd_caps()` still reports `HAS_AVX512` and
+  `aom_arm_cpu_caps()` still reports DotProd and I8MM, as the originals do, but
+  no table entry tests those flags; `tests/dispatch_scope.rs` scans all twelve
+  RTCD sources to keep it so. An original comparable with this port is built
+  with `-DENABLE_AVX512=0` (x86-64) or `-DENABLE_NEON_DOTPROD=0
+  -DENABLE_NEON_I8MM=0 -DENABLE_SVE=0 -DENABLE_SVE2=0` (arm64), the CMake
+  switches behind the generator's `--disable-*` options, or run with
+  `AOM_SIMD_CAPS_MASK=0x1ff` (x86-64) or `0x3` (arm64).
 - `x86_simd_caps()` is translated with the RTCD units. Only its CPUID lowering is
   replaced by `core::arch::x86_64::__cpuid_count` (correction
   `cpuid-register-mapping`, three sites per profile, `map_cpuid` in

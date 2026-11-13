@@ -97,7 +97,7 @@ binary's command line, not this function, is the stable CLI contract.
 | `--transform-threads=`, `--encoder-threads=` | Stable |
 | `--area` | Stable, see problem 15 |
 | `--avif-encoder=rav1e\|libavif`, `--avif-depth=8\|10`, `--jxl-decoder=jxl-oxide\|libjxl-rs` | Experimental (selects experimental backends) |
-| `--reference`, `--kernel-level=scalar\|neon\|avx2` | Experimental (verification and diagnostics) |
+| `--reference`, `--kernel-level=scalar\|neon\|avx2\|avx512` | Experimental (verification and diagnostics) |
 | `.jxl` output, `--jxl-distance=`, `--jxl-lossless` (ADR-0039) | Experimental |
 | Exit status 0 success, 2 usage (fewer than four positional arguments), 1 any other error (Rust's default `Error: …` on stderr) | Stable |
 | `report:` key=value line on stdout | Stable keys; new keys are additive; integer values |
@@ -210,7 +210,8 @@ cannot be fixed later without a major release.
     Recommendation: document the units (now in the compatibility guide) or
     rename with explicit units.
 15. **CLI filter and fit flags.** `--area` is a lone switch, the CLI cannot
-    express `ResizeFit`, and `--kernel-level` lacks `avx512`.
+    express `ResizeFit`, and `--kernel-level` lacks `avx512` (added 2026-11-13
+    as the AVX-512 opt-in, ADR-0020 decision D6).
     Recommendation: `--filter=area|lanczos3` and `--fit=inside|cover|fill`
     before 1.0, keeping `--area` as a deprecated alias.
 
@@ -290,3 +291,7 @@ reports that a stable item cannot express its use case.
   default changelog sections do not match decision 6's *Output changes* and
   *Toolchain* sections without extra commit types or curated notes; and with a
   shared version problem 7 disappears. Nothing was activated or published.
+- 2026-11-13 — ADR-0020 decision D6: `kernel_level_ceiling: None` now stops
+  at AVX2 on x86-64 and NEON on AArch64; `KernelLevelReason` gains
+  `DefaultCeiling` (the enum is `#[non_exhaustive]`), and
+  `--kernel-level=avx512` is the opt-in. Both stay experimental.

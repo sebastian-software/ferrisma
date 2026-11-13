@@ -172,6 +172,14 @@ checkpoints in an optimized Rust build with overflow checks and debug
 assertions. Missing oracle prerequisites are an error. All binary16 input
 patterns are compared against the original code.
 
+On x86_64 the skcms transform runs the HSW (AVX2/F16C) engine on AVX-512
+CPUs by default, as an original built with `-DSKCMS_DISABLE_SKX` does
+(Ferrisma decision D6: nothing above AVX2 runs in v1.0 by default; see the
+[supported matrix](../../docs/supported-matrix.md#simd-instruction-set-levels-v10)).
+The Cargo feature `skcms-skx` restores the original's default SKX selection.
+`tools/check.py` and the skcms reference tools build with `--all-features`, so
+on an AVX-512 host they compare SKX against the unchanged original's SKX.
+
 To link a C program against the decoder C ABI, `cargo build --release --lib`
 writes `../../target/release/libjxl.a` and the dynamic library in the workspace
 target directory. Compile against the

@@ -9,10 +9,12 @@ Runtime-dispatched SIMD kernels for Ferrisma behind a safe API, as decided in [A
 | `scalar` | implemented | Reference body; the oracle of the differential tests |
 | `neon` | implemented | One RGBA pixel per 128-bit vector; bit-identical to `scalar` |
 | `avx2` | implemented | Two pixels (taps) per 256-bit vector with FMA; reassociated horizontal sums, within the tested bound |
-| `avx512` | implemented | Four pixels (taps) per 512-bit vector with FMA; 1.35× over `avx2` on the hosted x86-64 runner |
+| `avx512` | implemented, opt-in | Four pixels (taps) per 512-bit vector with FMA; 1.35× over `avx2` on the hosted x86-64 runner. Not selected by default in v1.0 (decision D6): request it with an explicit ceiling |
 | `sve2` | detected, not implemented | The scalar body compiled for SVE2 was 3× slower than `neon` in the vertical pass on Neoverse; SVE2 machines run `neon` (`Fallback`) |
 
-`cargo run -p ferrisma-kernels --example detect` prints the machine level, the chosen level and the levels the tests exercise on this host; `cargo run --release -p ferrisma-kernels --example bench` times each level on the 24 Mpx to 1600 resample shape. CI runs both on every runner.
+`Kernels::best()` selects the highest supported level up to `DEFAULT_CEILING`: `avx2` on x86-64 and `neon` on aarch64 ([ADR-0020](../../docs/adr/0020-kernel-crate-and-isa-dispatch.md) amendment of 2026-11-13). On an AVX-512 machine it reports `avx2` with reason `DefaultCeiling`, so default output does not depend on AVX-512 (issue #239). `Kernels::with_ceiling(IsaLevel::Avx512)` (engine: `kernel_level_ceiling = Some(KernelLevel::Avx512)`, CLI: `--kernel-level=avx512`) is the opt-in. `Kernels::available()` and the differential tests still cover `avx512` where the host has it.
+
+`cargo run -p ferrisma-kernels --example detect` prints the machine level, the chosen level, the default ceiling and the levels the tests exercise on this host; `cargo run --release -p ferrisma-kernels --example bench` times each level on the 24 Mpx to 1600 resample shape. CI runs both on every runner.
 
 ## Kernels
 
