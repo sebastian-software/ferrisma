@@ -15,8 +15,10 @@
 
 //! Translation of `src/dsp/rescaler_neon.c` from libwebp v1.6.0.
 //!
-//! Work package: WP20 (NEON); admitted on 2026-11-13 under Ferrisma decision
-//! D4 (a SIMD path matches the original's SIMD build at the same level).
+//! Work package: WP20 (NEON).
+//!
+//! Admitted on 2026-11-13 under Ferrisma decision D4 (a SIMD path matches the
+//! original's SIMD build at the same level).
 //!
 //! The NEON variants of the row exports of `src/dsp/rescaler.c`. Each
 //! `_neon` function is the body that upstream's `WebPRescalerDspInitNEON`
