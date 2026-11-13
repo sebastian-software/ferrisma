@@ -26,6 +26,8 @@ mod lowbd_fwd_txfm;
 mod fwht4x4;
 #[path = "simd/sum_squares.rs"]
 mod sum_squares;
+#[path = "simd/encodetxb.rs"]
+mod encodetxb;
 #[path = "simd/intrapred.rs"]
 mod intrapred;
 #[path = "simd/lowbd_intrapred.rs"]

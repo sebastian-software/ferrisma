@@ -128,6 +128,10 @@ pub mod av1__encoder__arm__highbd_fwd_txfm_neon;
 pub mod av1__encoder__arm__highbd_rdopt_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/encodetxb_neon.rs"]
+pub mod av1__encoder__arm__encodetxb_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/hybrid_fwd_txfm_neon.rs"]
 pub mod av1__encoder__arm__hybrid_fwd_txfm_neon;
 
