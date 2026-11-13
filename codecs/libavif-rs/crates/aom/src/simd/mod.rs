@@ -96,6 +96,10 @@ pub mod av1__common__arm__av1_txfm_neon;
 pub mod av1__common__arm__cdef_block_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/cfl_neon.rs"]
+pub mod av1__common__arm__cfl_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/common/arm/highbd_inv_txfm_neon.rs"]
 pub mod av1__common__arm__highbd_inv_txfm_neon;
 

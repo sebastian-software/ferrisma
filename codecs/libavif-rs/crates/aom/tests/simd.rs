@@ -48,3 +48,5 @@ mod intra_edge;
 mod loopfilter;
 #[path = "simd/restoration.rs"]
 mod restoration;
+#[path = "simd/cfl.rs"]
+mod cfl;
