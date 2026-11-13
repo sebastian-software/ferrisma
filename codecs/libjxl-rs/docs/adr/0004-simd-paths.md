@@ -422,3 +422,179 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   8-lane loop bounds, `Part<4>` transforms, one-lane ranges and tails; it
   does not test AVX2's own instructions.
 <!-- end vardct kernels -->
+
+<!-- public gate -->
+## Public decoder gate (2026-11-13, "Decoder path" conditions (b) and (c))
+
+- **Comparison.** `tests/simd_public.rs`
+  `public_decodes_with_the_simd_target_against_the_original_target` decodes
+  each input through the port's public decoder (`JxlDecoder` API, the
+  low-memory render pipeline the Ferrisma engine reaches through
+  `crates/ferrisma-jxl-decoder`) with the SIMD target forced
+  (`set_decoder_simd_for_test(Some(true))`) and through the original's
+  public decoder in the single-target oracle (`dps-decode` of
+  `tools/oracle/decoder_public_simd.cc`, which calls only the public API).
+  Both run the engine's sequence (whole input, closed input, no runner, no
+  CMS, default coalescing and orientation) plus frame headers and every
+  extra channel buffer, for float, 8-bit and 16-bit output. Status, basic
+  and extra channel info, both color profiles (ICC bytes and encoding) and
+  frame headers must be equal; every output word is compared (any NaN equals
+  any NaN). Inputs: the 24 VarDCT files and the 4:2:0 JPEG recompression of
+  the `decode_vardct` gate, the scalar suite's public-decoder inputs (its
+  encoder specs, decode_test.cc codestreams and frame sequences, all
+  retained `.jxl` files in `tests/data`, the capture files) and, when
+  `JXL_CONFORMANCE_CORPUS` names the `corpus` directory of
+  `tools/conformance/corpus.py fetch` (docs/CONFORMANCE.md), the pinned
+  conformance inputs; identical inputs are compared once.
+- **Punch list in executable form.** `STILL_DIFFERS` names every file that
+  still differs with its reason. The test asserts zero differences for every
+  other file, that every listed file still differs, and fails with a
+  request to remove an entry (here and in the test) when a listed file
+  starts to match. `tools/check.py` runs the binary with the other SIMD
+  tests; it does not set `JXL_CONFORMANCE_CORPUS`, so the corpus entries are
+  checked only where the corpus has been fetched.
+- **Port change found by the gate.** In the low-memory pipeline the group
+  input rows start `kRenderPipelineXOffset - group_data_x_border` samples
+  into their plane row, and the SIMD EPF reads `RoundUpTo(xextra_left,
+  Lanes) + border` samples to the left: at `xextra_left = 1` that is before
+  the row (258x258, EPF 2, the last group column), where the original reads
+  the preceding row's padding. `simd_rows::read` panicked there; it now
+  returns 0.0 for samples outside the row slice. Those samples only reach
+  lanes left of `-xextra_left`, which no later stage or output uses; the
+  scalar path is unchanged.
+- **How the reasons were found.** `jxl::jxl::decode_trace` (test
+  observation only, inactive unless a test starts it) records the frame
+  header (encoding, flags, upsampling, extra channel upsampling, blending),
+  the stage names of every pipeline the decoder finalizes and the modular
+  inverse transforms; the test prints them for every differing file. Every
+  differing file reaches `Upsample`, `ConvNoise`/`AddNoise` or `Splines`,
+  whose exports (`stage_upsampling`, `stage_noise` with `dec_noise`,
+  `stage_splines` with `splines`) are still the scalar translation; no file
+  differs without one of them. The modular transforms these files also run
+  (RCT, palette, squeeze; integer arithmetic) are not the explanation as
+  far as this set shows: the extra-channel files of the same series without
+  upsampling (`extra-channel-alpha-*-up-1-*`) match, as do the lossless
+  conformance cases (`delta_palette`, `lossless_pfm`, `patches_lossless`);
+  their transforms were not traced, as the trace is printed for differing
+  files only. `Spot` and `Patches` have no Highway export in the original;
+  `Blending` is one (`GetBlendingStage`), but its rows go through
+  `PerformBlending` of `blending.cc`, which has none, and the blending
+  inputs (`blendmodes`, the animations without splines, the layered
+  `dpub` specs) match. No differing file reaches `ToLinear`, `ToneMapping` or `Cms`
+  (no CMS is set, as in the engine); this set therefore does not test
+  them.
+
+Results, NEON (native, against `target/oracle-neon`, 2026-11-13; corpus
+fetched at the pinned revision, inputs verified against
+`tools/conformance/MANIFEST.sha256`): 352 distinct inputs, 276 match
+word for word in all three formats, 76 still differ, all as listed.
+Differing words are "differing / compared" per format. AVX2 was not run
+(no Rosetta 2 here); the list is the NEON result and a hosted x86-64 run
+may need its own entries.
+
+| Input group | Files | Match (0 words in f32, u8 and u16) | Still differ |
+| --- | ---: | ---: | ---: |
+| `decode_vardct` gate files (24 VarDCT, JPEG 4:2:0) | 25 | 25 | 0 |
+| public-decoder encoder specs (`dpub`) | 38 | 35 | 3 |
+| decode_test.cc codestreams and frame sequences (`dti`) | 17 | 17 | 0 |
+| retained files in tests/data | 244 | 174 | 70 |
+| retained public-decoder captures | 1 | 1 | 0 |
+| conformance corpus (pinned, 40 inputs, 27 distinct after `_5` links) | 27 | 24 | 3 |
+
+| File | f32 | u8 | u16 | Reaches (still scalar) |
+| --- | ---: | ---: | ---: | --- |
+| `dpub w=64 h=48 c=3 lossless=0 opt=2:2` | 2489 / 9216 | 0 / 9216 | 28 / 9216 | **upsampling**: EPF1 EPF2 Upsample Upsample Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 2, ec [] |
+| `dpub w=300 h=280 c=3 a=1 bits=2 opt=26:0 opt=3:4` | 27084 / 420000 | 0 / 420000 | 84 / 420000 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular palette |
+| `dpub w=300 h=280 c=3 a=1 effort=3 opt=26:0 opt=3:4` | 52568 / 420000 | 1 / 420000 | 136 / 420000 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular RCT, palette |
+| `data/decoder-geometry/sequence-extra-alpha-xyb-0-1-up-2-shift-1.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [2] |
+| `data/decoder-geometry/sequence-extra-xyb-1-up-2-4.jxl` | 109 / 441 | 0 / 441 | 0 / 441 | **upsampling**: Upsample Upsample Upsample Upsample Upsample Upsample XYB Spot FromLinear WritePixelCB; flags 0x0, upsampling 2, ec [4, 4, 4]; modular squeeze |
+| `data/decoder-geometry/sequence-resampling-alpha-0-2-2.jxl` | 186 / 765 | 0 / 765 | 1 / 765 | **upsampling**: Upsample Upsample Upsample Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 2, ec [2] |
+| `data/decoder-geometry/sequence-resampling-alpha-1-4-4.jxl` | 236 / 765 | 0 / 765 | 2 / 765 | **upsampling**: Upsample Upsample Upsample Upsample WritePixelCB; flags 0x0, upsampling 4, ec [4]; modular palette |
+| `data/decoder-geometry/sequence-resampling-main-0-2.jxl` | 127 / 459 | 0 / 459 | 4 / 459 | **upsampling**: Upsample Upsample Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 2, ec [] |
+| `data/decoder-geometry/sequence-resampling-main-1-4.jxl` | 136 / 459 | 0 / 459 | 1 / 459 | **upsampling**: Upsample Upsample Upsample WritePixelCB; flags 0x0, upsampling 4, ec []; modular palette |
+| `data/effects_gray_alpha16.jxl` | 18 / 72 | 0 / 72 | 0 / 72 | **noise and splines**: Gab EPF0 EPF1 EPF2 Splines ConvNoise AddNoise XYB FromLinear WritePixelCB; flags 0x11, upsampling 1, ec [1] |
+| `data/effects_rgb_alpha8.jxl` | 56 / 120 | 0 / 120 | 1 / 120 | **noise and splines**: Gab EPF0 EPF1 EPF2 Splines ConvNoise AddNoise XYB FromLinear WritePixelCB; flags 0x11, upsampling 1, ec [1] |
+| `data/extra-channel-alpha-0-up-2-shift-0.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [2]; modular palette |
+| `data/extra-channel-alpha-0-up-2-shift-1.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [2]; modular palette |
+| `data/extra-channel-alpha-0-up-4-shift-0.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular palette |
+| `data/extra-channel-alpha-0-up-4-shift-1.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular palette |
+| `data/extra-channel-alpha-0-up-4-shift-2.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular palette |
+| `data/extra-channel-alpha-0-up-8-shift-0.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular palette |
+| `data/extra-channel-alpha-0-up-8-shift-1.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular palette |
+| `data/extra-channel-alpha-0-up-8-shift-2.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular palette |
+| `data/extra-channel-alpha-0-up-8-shift-3.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular palette |
+| `data/extra-channel-alpha-1-up-2-shift-0.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [2]; modular palette |
+| `data/extra-channel-alpha-1-up-2-shift-1.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [2]; modular palette |
+| `data/extra-channel-alpha-1-up-4-shift-0.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular palette |
+| `data/extra-channel-alpha-1-up-4-shift-1.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular palette |
+| `data/extra-channel-alpha-1-up-4-shift-2.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular palette |
+| `data/extra-channel-alpha-1-up-8-shift-0.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular palette |
+| `data/extra-channel-alpha-1-up-8-shift-1.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular palette |
+| `data/extra-channel-alpha-1-up-8-shift-2.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular palette |
+| `data/extra-channel-alpha-1-up-8-shift-3.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular palette |
+| `data/extra-channel-alpha-xyb-0-0-up-2-shift-0.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [2] |
+| `data/extra-channel-alpha-xyb-0-0-up-2-shift-1.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [2] |
+| `data/extra-channel-alpha-xyb-0-0-up-4-shift-0.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4] |
+| `data/extra-channel-alpha-xyb-0-0-up-4-shift-1.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4] |
+| `data/extra-channel-alpha-xyb-0-0-up-4-shift-2.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4] |
+| `data/extra-channel-alpha-xyb-0-0-up-8-shift-0.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8] |
+| `data/extra-channel-alpha-xyb-0-0-up-8-shift-1.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8] |
+| `data/extra-channel-alpha-xyb-0-0-up-8-shift-2.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8] |
+| `data/extra-channel-alpha-xyb-0-0-up-8-shift-3.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8] |
+| `data/extra-channel-alpha-xyb-0-1-up-2-shift-0.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [2] |
+| `data/extra-channel-alpha-xyb-0-1-up-4-shift-0.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4] |
+| `data/extra-channel-alpha-xyb-0-1-up-4-shift-1.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4] |
+| `data/extra-channel-alpha-xyb-0-1-up-4-shift-2.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4] |
+| `data/extra-channel-alpha-xyb-0-1-up-8-shift-0.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8] |
+| `data/extra-channel-alpha-xyb-0-1-up-8-shift-1.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8] |
+| `data/extra-channel-alpha-xyb-0-1-up-8-shift-2.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8] |
+| `data/extra-channel-alpha-xyb-0-1-up-8-shift-3.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8] |
+| `data/extra-channel-alpha-xyb-1-0-up-2-shift-0.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [2]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-0-up-2-shift-1.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [2]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-0-up-4-shift-0.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-0-up-4-shift-1.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-0-up-4-shift-2.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-0-up-8-shift-0.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-0-up-8-shift-1.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-0-up-8-shift-2.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-0-up-8-shift-3.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-1-up-2-shift-0.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [2]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-1-up-2-shift-1.jxl` | 34 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [2]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-1-up-4-shift-0.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-1-up-4-shift-1.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-1-up-4-shift-2.jxl` | 48 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [4]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-1-up-8-shift-0.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-1-up-8-shift-1.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-1-up-8-shift-2.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular squeeze |
+| `data/extra-channel-alpha-xyb-1-1-up-8-shift-3.jxl` | 12 / 315 | 0 / 315 | 0 / 315 | **upsampling**: Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 1, ec [8]; modular squeeze |
+| `data/extra-channel-xyb-0-up-2-2.jxl` | 124 / 441 | 0 / 441 | 1 / 441 | **upsampling**: Upsample Upsample Upsample Upsample Upsample Upsample XYB Spot FromLinear WritePixelCB; flags 0x0, upsampling 2, ec [2, 2, 2]; modular palette |
+| `data/extra-channel-xyb-0-up-2-4.jxl` | 105 / 441 | 0 / 441 | 0 / 441 | **upsampling**: Upsample Upsample Upsample Upsample Upsample Upsample XYB Spot FromLinear WritePixelCB; flags 0x0, upsampling 2, ec [4, 4, 4]; modular palette |
+| `data/extra-channel-xyb-0-up-4-4.jxl` | 112 / 441 | 0 / 441 | 3 / 441 | **upsampling**: Upsample Upsample Upsample Upsample Upsample Upsample XYB Spot FromLinear WritePixelCB; flags 0x0, upsampling 4, ec [4, 4, 4]; modular palette |
+| `data/extra-channel-xyb-0-up-4-8.jxl` | 87 / 441 | 0 / 441 | 0 / 441 | **upsampling**: Upsample Upsample Upsample Upsample Upsample Upsample XYB Spot FromLinear WritePixelCB; flags 0x0, upsampling 4, ec [8, 8, 8]; modular palette |
+| `data/extra-channel-xyb-0-up-8-8.jxl` | 58 / 441 | 0 / 441 | 1 / 441 | **upsampling**: Upsample Upsample Upsample Upsample Upsample Upsample XYB Spot FromLinear WritePixelCB; flags 0x0, upsampling 8, ec [8, 8, 8]; modular palette |
+| `data/extra-channel-xyb-1-up-2-2.jxl` | 129 / 441 | 0 / 441 | 0 / 441 | **upsampling**: Upsample Upsample Upsample Upsample Upsample Upsample XYB Spot FromLinear WritePixelCB; flags 0x0, upsampling 2, ec [2, 2, 2]; modular squeeze |
+| `data/extra-channel-xyb-1-up-4-4.jxl` | 104 / 441 | 0 / 441 | 0 / 441 | **upsampling**: Upsample Upsample Upsample Upsample Upsample Upsample XYB Spot FromLinear WritePixelCB; flags 0x0, upsampling 4, ec [4, 4, 4]; modular squeeze |
+| `data/extra-channel-xyb-1-up-4-8.jxl` | 80 / 441 | 0 / 441 | 1 / 441 | **upsampling**: Upsample Upsample Upsample Upsample Upsample Upsample XYB Spot FromLinear WritePixelCB; flags 0x0, upsampling 4, ec [8, 8, 8]; modular squeeze |
+| `data/extra-channel-xyb-1-up-8-8.jxl` | 56 / 441 | 0 / 441 | 0 / 441 | **upsampling**: Upsample Upsample Upsample Upsample Upsample Upsample XYB Spot FromLinear WritePixelCB; flags 0x0, upsampling 8, ec [8, 8, 8]; modular squeeze |
+| `conformance/animation_spline` | 191374 / 18432000 | 2 / 18432000 | 1406 / 18432000 | **splines**: Gab EPF1 Splines XYB FromLinear WritePixelCB; flags 0x10, upsampling 1, ec [] |
+| `conformance/noise` | 185761 / 909000 | 11 / 909000 | 2610 / 909000 | **noise**: Gab EPF1 ConvNoise AddNoise XYB FromLinear WritePixelCB; flags 0x1, upsampling 1, ec [] |
+| `conformance/upsampling` | 380366 / 2400000 | 23 / 2400000 | 5992 / 2400000 | **upsampling**: Gab EPF1 Upsample Upsample Upsample Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 4, ec [4]; modular squeeze |
+
+The selection stays off: condition (b) now has its comparison, which does
+not report zero yet; the punch list is empty only when upsampling, noise
+and splines are translated (and then on each target separately).
+
+- **Condition (c).** `hwy::decoder_target()` is `decoder_target_for(
+  DECODER_SELECTS_SIMD)`. In the oracle test builds (feature `cpp-oracle`)
+  `JXL_DECODER_TARGET=scalar` forces the scalar path whatever the default
+  is (`hwy::scalar_forced_by_environment`, read once); an explicit
+  `set_decoder_simd_for_test` still wins, so the SIMD binaries keep forcing
+  their target. `tools/check.py`'s test stage sets the variable for all
+  test invocations. `tests/simd_public.rs`
+  `the_scalar_gate_forces_the_scalar_decoder_path` asserts that the
+  variable is set whenever the oracle environment of `check.py` is, that
+  `decoder_target_for(true)` is the scalar path then (as if
+  `DECODER_SELECTS_SIMD` were on), that plane padding follows it
+  (`max_vector_size() == 4`), and that the explicit override still selects
+  either path. Ordinary builds never read the environment.
+<!-- end public gate -->
