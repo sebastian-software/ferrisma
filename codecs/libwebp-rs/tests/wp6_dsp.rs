@@ -24,6 +24,21 @@ use std::fmt::Write as _;
 use oracle::Oracle;
 use webp::abi::decode::{disable_cpu_query, use_builtin_cpu_query};
 use webp::dsp::dec::{
+    vp8_simple_h_filter16, vp8_simple_h_filter16i, vp8_simple_v_filter16, vp8_simple_v_filter16i,
+    vp8_transform, vp8_transform_ac3, vp8h_filter8, vp8h_filter8i, vp8h_filter16, vp8h_filter16i,
+    vp8v_filter8, vp8v_filter8i, vp8v_filter16, vp8v_filter16i,
+};
+
+/// Whether the oracle is `release-simd` (ADR 0008): the records then run the
+/// dispatch functions, which select the port's SIMD variants of the level the
+/// oracle selects, instead of the C translations that the scalar reference
+/// is compared with.
+static SIMD_ORACLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn simd_oracle() -> bool {
+    SIMD_ORACLE.load(std::sync::atomic::Ordering::Relaxed)
+}
+use webp::dsp::dec::{
     h_filter8_c, h_filter8i_c, h_filter16_c, h_filter16i_c, simple_h_filter16_c,
     simple_h_filter16i_c, simple_v_filter16_c, simple_v_filter16i_c, transform_ac3_c,
     transform_two_c, v_filter8_c, v_filter8i_c, v_filter16_c, v_filter16i_c, vp8_dither_combine8x8,
@@ -112,15 +127,23 @@ fn transforms(script: &mut Script, rng: &mut Rng) {
             // these records reach ±15000. `uv` is `TransformUV_C`: two
             // `VP8Transform` calls of two blocks each. `tests/wp20_dec.rs`
             // covers the NEON transforms (WP20, decided on issue #28).
-            match kind {
-                "two" => transform_two_c(&coeffs, &mut dst, true),
-                "one" => transform_two_c(&coeffs, &mut dst, false),
-                "ac3" => transform_ac3_c(&coeffs, &mut dst),
-                "uv" => {
+            // Against `release-simd` the dispatch functions run instead.
+            match (kind, simd_oracle()) {
+                ("two", false) => transform_two_c(&coeffs, &mut dst, true),
+                ("one", false) => transform_two_c(&coeffs, &mut dst, false),
+                ("ac3", false) => transform_ac3_c(&coeffs, &mut dst),
+                ("uv", false) => {
                     transform_two_c(&coeffs, &mut dst, true);
                     transform_two_c(&coeffs[2 * 16..], &mut dst[4 * BPS..], true);
                 }
-                "dc" => vp8_transform_dc(&coeffs, &mut dst),
+                ("two", true) => vp8_transform(&coeffs, &mut dst, true),
+                ("one", true) => vp8_transform(&coeffs, &mut dst, false),
+                ("ac3", true) => vp8_transform_ac3(&coeffs, &mut dst),
+                ("uv", true) => {
+                    vp8_transform(&coeffs, &mut dst, true);
+                    vp8_transform(&coeffs[2 * 16..], &mut dst[4 * BPS..], true);
+                }
+                ("dc", _) => vp8_transform_dc(&coeffs, &mut dst),
                 _ => vp8_transform_dcuv(&coeffs, &mut dst),
             }
             script.line("dst", &dst);
@@ -246,11 +269,15 @@ fn filters(script: &mut Script, rng: &mut Rng) {
             )
             .unwrap();
             let s = stride as i32;
-            match name {
-                "v16" => simple_v_filter16_c(&mut buf, pos, s, thresh),
-                "h16" => simple_h_filter16_c(&mut buf, pos, s, thresh),
-                "v16i" => simple_v_filter16i_c(&mut buf, pos, s, thresh),
-                _ => simple_h_filter16i_c(&mut buf, pos, s, thresh),
+            match (name, simd_oracle()) {
+                ("v16", false) => simple_v_filter16_c(&mut buf, pos, s, thresh),
+                ("h16", false) => simple_h_filter16_c(&mut buf, pos, s, thresh),
+                ("v16i", false) => simple_v_filter16i_c(&mut buf, pos, s, thresh),
+                (_, false) => simple_h_filter16i_c(&mut buf, pos, s, thresh),
+                ("v16", true) => vp8_simple_v_filter16(&mut buf, pos, s, thresh),
+                ("h16", true) => vp8_simple_h_filter16(&mut buf, pos, s, thresh),
+                ("v16i", true) => vp8_simple_v_filter16i(&mut buf, pos, s, thresh),
+                (_, true) => vp8_simple_h_filter16i(&mut buf, pos, s, thresh),
             }
             script.line("buf", &buf);
             script.cases += 1;
@@ -269,11 +296,15 @@ fn filters(script: &mut Script, rng: &mut Rng) {
             )
             .unwrap();
             let s = stride as i32;
-            match name {
-                "v16" => v_filter16_c(&mut buf, pos, s, thresh, ithresh, hev),
-                "h16" => h_filter16_c(&mut buf, pos, s, thresh, ithresh, hev),
-                "v16i" => v_filter16i_c(&mut buf, pos, s, thresh, ithresh, hev),
-                _ => h_filter16i_c(&mut buf, pos, s, thresh, ithresh, hev),
+            match (name, simd_oracle()) {
+                ("v16", false) => v_filter16_c(&mut buf, pos, s, thresh, ithresh, hev),
+                ("h16", false) => h_filter16_c(&mut buf, pos, s, thresh, ithresh, hev),
+                ("v16i", false) => v_filter16i_c(&mut buf, pos, s, thresh, ithresh, hev),
+                (_, false) => h_filter16i_c(&mut buf, pos, s, thresh, ithresh, hev),
+                ("v16", true) => vp8v_filter16(&mut buf, pos, s, thresh, ithresh, hev),
+                ("h16", true) => vp8h_filter16(&mut buf, pos, s, thresh, ithresh, hev),
+                ("v16i", true) => vp8v_filter16i(&mut buf, pos, s, thresh, ithresh, hev),
+                (_, true) => vp8h_filter16i(&mut buf, pos, s, thresh, ithresh, hev),
             }
             script.line("buf", &buf);
             script.cases += 1;
@@ -297,11 +328,15 @@ fn filters(script: &mut Script, rng: &mut Rng) {
             )
             .unwrap();
             let s = stride as i32;
-            match name {
-                "v8" => v_filter8_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
-                "h8" => h_filter8_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
-                "v8i" => v_filter8i_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
-                _ => h_filter8i_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+            match (name, simd_oracle()) {
+                ("v8", false) => v_filter8_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                ("h8", false) => h_filter8_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                ("v8i", false) => v_filter8i_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                (_, false) => h_filter8i_c(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                ("v8", true) => vp8v_filter8(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                ("h8", true) => vp8h_filter8(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                ("v8i", true) => vp8v_filter8i(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
+                (_, true) => vp8h_filter8i(&mut u, upos, &mut v, vpos, s, thresh, ithresh, hev),
             }
             script.line("u", &u);
             script.line("v", &v);
@@ -341,7 +376,12 @@ fn decoder_dsp_matches_the_c_functions() {
     let mut script = Script::new();
     // The C translation, as `-noasm` selects it: the inputs leave the domain of
     // upstream's SSE2 transform and filters (see the module documentation).
-    disable_cpu_query();
+    // Against `release-simd` the dispatch keeps the SIMD variants of the
+    // oracle's level, which the probe selects too (ADR 0008).
+    SIMD_ORACLE.store(oracle.simd(), std::sync::atomic::Ordering::Relaxed);
+    if !simd_oracle() {
+        disable_cpu_query();
+    }
     tables(&mut script);
     transforms(&mut script, &mut rng);
     predictors(&mut script, &mut rng);

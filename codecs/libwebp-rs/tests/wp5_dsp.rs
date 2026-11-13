@@ -9,8 +9,18 @@ mod oracle;
 
 use oracle::{Fields, Oracle};
 use webp::sharpyuv::sharpyuv_dsp::{
-    sharp_yuv_filter_row_c, sharp_yuv_update_rgb, sharp_yuv_update_y,
+    sharp_yuv_filter_row, sharp_yuv_filter_row_c, sharp_yuv_update_rgb, sharp_yuv_update_y,
 };
+
+/// Whether the oracle is `release-simd` (ADR 0008): the records then run the
+/// dispatch functions, which select the port's SIMD variants of the level the
+/// oracle selects, instead of the C translations that the scalar reference
+/// is compared with.
+static SIMD_ORACLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn simd_oracle() -> bool {
+    SIMD_ORACLE.load(std::sync::atomic::Ordering::Relaxed)
+}
 
 const CASES: u64 = 200;
 const MAX_LEN: usize = 40;
@@ -81,6 +91,7 @@ fn dispatch_functions_match_the_c_functions() {
     let Some(oracle) = Oracle::locate("dispatch_functions_match_the_c_functions") else {
         return;
     };
+    SIMD_ORACLE.store(oracle.simd(), std::sync::atomic::Ordering::Relaxed);
     let no_args: [&str; 0] = [];
     let output = oracle.probe("wp5", "dsp").run(&no_args, b"");
     let actual = output.success().fields();
@@ -125,7 +136,11 @@ fn dispatch_functions_match_the_c_functions() {
         // kernel, whose 16-bit filter (bit depth 10) wraps for chroma values
         // of this magnitude, which `SharpYuvConvert` never produces (WP20;
         // `tests/wp20_sharpyuv.rs` covers the NEON kernel).
-        sharp_yuv_filter_row_c(&a, &b, len, &best_y, &mut out, bit_depth);
+        if simd_oracle() {
+            sharp_yuv_filter_row(&a, &b, len, &best_y, &mut out, bit_depth);
+        } else {
+            sharp_yuv_filter_row_c(&a, &b, len, &best_y, &mut out, bit_depth);
+        }
         expected = expected
             .with("group", format!("filter-row-{case}"))
             .hex("out", &hex_u16(&out));

@@ -19,12 +19,22 @@ use webp::dsp::enc::{
     disto4x4_c, disto16x16_c, i_transform_c, vp8_collect_histogram, vp8_copy4x4, vp8_copy16x8,
     vp8_enc_pred_chroma8, vp8_enc_pred_luma4, vp8_enc_pred_luma16, vp8_enc_quantize_block,
     vp8_enc_quantize_block_wht, vp8_enc_quantize2_blocks, vp8_mean16x4, vp8_set_histogram_data,
-    vp8f_transform, vp8f_transform_wht, vp8f_transform2, vp8sse4x4, vp8sse8x8, vp8sse16x8,
-    vp8sse16x16,
+    vp8f_transform, vp8f_transform_wht, vp8f_transform2, vp8i_transform, vp8sse4x4, vp8sse8x8,
+    vp8sse16x8, vp8sse16x16, vp8t_disto4x4, vp8t_disto16x16,
 };
 use webp::dsp::quant::{is_flat, is_flat_source16};
 use webp::enc::vp8i_enc::{PRED_SIZE_ENC, VP8Matrix};
 use wp11_images::Rng;
+
+/// Whether the oracle is `release-simd` (ADR 0008): the records then run the
+/// dispatch functions, which select the port's SIMD variants of the level the
+/// oracle selects, instead of the C translations that the scalar reference
+/// is compared with.
+static SIMD_ORACLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn simd_oracle() -> bool {
+    SIMD_ORACLE.load(std::sync::atomic::Ordering::Relaxed)
+}
 
 const AREA: usize = 16 * BPS as usize;
 const BPS_U: usize = BPS as usize;
@@ -121,7 +131,11 @@ impl Record {
                 // these records contain and the encoder never passes (WP20;
                 // `tests/wp20_enc.rs` covers the NEON kernel).
                 let mut d = self.d.clone();
-                i_transform_c(&self.a, &self.input, &mut d, self.p[0] != 0);
+                if simd_oracle() {
+                    vp8i_transform(&self.a, &self.input, &mut d, self.p[0] != 0);
+                } else {
+                    i_transform_c(&self.a, &self.input, &mut d, self.p[0] != 0);
+                }
                 bytes(&mut r, &d[..4 * BPS_U]);
             }
             OP_SSE => {
@@ -137,8 +151,13 @@ impl Record {
                 // order and equal C only for the symmetric weights that
                 // `VP8TDisto4x4` documents and the encoder passes, not for
                 // these random ones (WP20; `tests/wp20_enc.rs` covers them).
-                i32s(&mut r, disto4x4_c(&self.a, &self.b, &self.w));
-                i32s(&mut r, disto16x16_c(&self.a, &self.b, &self.w));
+                if simd_oracle() {
+                    i32s(&mut r, vp8t_disto4x4(&self.a, &self.b, &self.w));
+                    i32s(&mut r, vp8t_disto16x16(&self.a, &self.b, &self.w));
+                } else {
+                    i32s(&mut r, disto4x4_c(&self.a, &self.b, &self.w));
+                    i32s(&mut r, disto16x16_c(&self.a, &self.b, &self.w));
+                }
             }
             OP_MEAN16X4 => {
                 let mut dc = [0_u32; 4];
@@ -297,6 +316,7 @@ fn encoder_dsp_matches_the_c_functions() {
     let Some(oracle) = Oracle::locate("encoder_dsp_matches_the_c_functions") else {
         return;
     };
+    SIMD_ORACLE.store(oracle.simd(), std::sync::atomic::Ordering::Relaxed);
     let mut rng = Rng(0x0010_d5b0_0001);
     let mut records = Vec::new();
     for op in [

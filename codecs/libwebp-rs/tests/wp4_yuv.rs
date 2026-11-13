@@ -21,10 +21,20 @@ use webp::dsp::yuv::{
     YUV_HALF, vp8_yuv_to_argb, vp8_yuv_to_bgr, vp8_yuv_to_bgra, vp8_yuv_to_rgb, vp8_yuv_to_rgb565,
     vp8_yuv_to_rgba, vp8_yuv_to_rgba4444, vp8rgb_to_u, vp8rgb_to_v, vp8rgb_to_y, vp8yuv_to_b,
     vp8yuv_to_g, vp8yuv_to_r, webp_convert_argb_to_uv, webp_convert_argb_to_y,
-    webp_convert_bgr24_to_y, webp_convert_rgb24_to_y, webp_convert_rgba32_to_uv_c,
-    webp_sampler_process_plane, webp_samplers,
+    webp_convert_bgr24_to_y, webp_convert_rgb24_to_y, webp_convert_rgba32_to_uv,
+    webp_convert_rgba32_to_uv_c, webp_sampler_process_plane, webp_samplers,
 };
 use webp::webp::decode::WEBP_CSP_MODE;
+
+/// Whether the oracle is `release-simd` (ADR 0008): the records then run the
+/// dispatch functions, which select the port's SIMD variants of the level the
+/// oracle selects, instead of the C translations that the scalar reference
+/// is compared with.
+static SIMD_ORACLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn simd_oracle() -> bool {
+    SIMD_ORACLE.load(std::sync::atomic::Ordering::Relaxed)
+}
 
 /// The sampler modes, RGB through `MODE_rgbA_4444`; the YUV modes have no sampler.
 const SAMPLER_MODES: u32 = 11;
@@ -229,7 +239,12 @@ fn rgba_uv_case(script: &mut Script, rng: &mut Rng, width: usize) {
     let mut u = vec![SENTINEL; width];
     let mut v = vec![SENTINEL; width];
     // Call the C translation directly: samples leave the SIMD converter domain.
-    webp_convert_rgba32_to_uv_c(&rgb, &mut u, &mut v, i32::try_from(width).expect("int"));
+    // Against `release-simd` the dispatch function runs, as the probe's does.
+    if simd_oracle() {
+        webp_convert_rgba32_to_uv(&rgb, &mut u, &mut v, i32::try_from(width).expect("int"));
+    } else {
+        webp_convert_rgba32_to_uv_c(&rgb, &mut u, &mut v, i32::try_from(width).expect("int"));
+    }
     let expected = field("u", &u) + &field("v", &v);
     script.push(&command, expected);
 }
@@ -380,6 +395,7 @@ fn yuv_conversions_match_the_c_functions() {
     let Some(oracle) = Oracle::locate("yuv_conversions_match_the_c_functions") else {
         return;
     };
+    SIMD_ORACLE.store(oracle.simd(), std::sync::atomic::Ordering::Relaxed);
     let script = script();
     let observations = script.expected.lines().count();
     assert!(
