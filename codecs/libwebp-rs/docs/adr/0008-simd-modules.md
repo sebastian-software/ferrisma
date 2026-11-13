@@ -2,7 +2,9 @@
 
 - Status: accepted
 - Created: 2026-11-09
-- Updated: 2026-11-10
+- Updated: 2026-11-13
+
+> **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** Parity rule 1 (Rust SIMD against the `_C` translation) no longer admits a variant by itself: the gate is equality with libwebp's own SIMD build on the same target, so the `release-simd` comparison of rule 4 becomes required and runs on AArch64 and x86-64. The ruling under "Upstream's own divergences" changes for valid inputs: where upstream's SIMD differs from its C, the port follows upstream's SIMD and matches its SIMD build. In particular the NEON rescaler export rows (`vqrdmulhq_s32` by `scale >> 1`, #79, #80) are translated and selected as upstream selects them on AArch64, instead of keeping the C translation. Mechanics change in separate work.
 
 ## Context
 

@@ -1,5 +1,7 @@
 # Freeze the libaom translation and gate owned code on golden outputs
 
+> **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** The golden outputs from the `_c`-only C reference become the scalar half of the v1.0 gate and a regression guard. The gate also requires the owned code's SIMD paths to equal libaom's own SIMD build at the v1.0 level (NEON on AArch64; AVX2 and lower levels on x86-64) on each target, so a second set of references from that build is needed. The freeze, the tiers and the rule against re-recording goldens to turn a failure green are unchanged. Mechanics change in separate work.
+
 This ends the mechanical phase that [ADR 0001](0001-mechanical-port.md),
 [ADR 0003](0003-automated-translation.md) and
 [ADR 0013](0013-separate-optimization-from-the-mechanical-port.md) set up for

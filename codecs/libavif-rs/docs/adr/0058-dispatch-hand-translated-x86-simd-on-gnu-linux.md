@@ -1,5 +1,7 @@
 # Dispatch hand-translated x86 SIMD on GNU Linux
 
+> **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** The reference for the x86 kernels becomes libaom's own SIMD build capped at AVX2 (`ENABLE_AVX512=0`; SSE2, SSSE3 and SSE4.1 kernels included where libaom selects them on an AVX2 machine), not the translated `_c` function. Kernels removed under `CONFIG_EXCLUDE_SIMD_MISMATCH` or kept on `_c` because libaom's SIMD differs from its C are in scope when they are on the still-image path (ADR-0041 O2) and are proven against libaom's SIMD build (#123); NASM-only kernels are ADR-0041 open question O4. AVX-512 stays excluded and must not be executed by default. x86-64 evidence may now also come from macOS under Rosetta 2 with `ROSETTA_ADVERTISE_AVX=1` (ADR-0041 section 5), once the port builds for `x86_64-apple-darwin`; one hosted Linux x86-64 run per release candidate remains. Mechanics change in separate work.
+
 This extends [ADR 0056](0056-dispatch-hand-translated-aom-simd-through-translated-rtcd.md)
 to x86-64 GNU Linux. Everything ADR 0056 says about dispatch, kernels and
 exactness applies; this ADR records only what differs on x86.

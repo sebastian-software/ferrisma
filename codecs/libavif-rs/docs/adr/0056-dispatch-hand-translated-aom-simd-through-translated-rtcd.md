@@ -1,5 +1,7 @@
 # Dispatch hand-translated AOM SIMD through translated RTCD headers
 
+> **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** The exactness reference for a dispatched kernel changes from the translated `_c` function to libaom's own SIMD build at the v1.0 level on the same target: on AArch64, libaom built with NEON and without DotProd, I8MM, SVE and SVE2. A Neon kernel that equals `_c` but not libaom's NEON build does not meet the v1.0 gate; a kernel whose original NEON variant differs from `_c` (for example the reordering Hadamard kernels, #123) is ported to match the original's NEON variant when it is on the still-image path (ADR-0041 O2). Byte identity between detection on and `AOM_SIMD_CAPS_MASK=0` remains a useful check only where the original's SIMD equals its C. Mechanics change in separate work.
+
 ADR 0013 kept SIMD out of the mechanical port. Profiling the portable Rust AOM
 encoder on a 1600x2133 photo (all-intra, 10-bit 4:2:0, one thread) shows that
 forward and inverse transforms, CDEF, quantization, and intra prediction take

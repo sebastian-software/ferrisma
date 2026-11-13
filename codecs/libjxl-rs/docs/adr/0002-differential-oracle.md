@@ -2,7 +2,9 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-12
+- Updated: 2026-11-13
+
+> **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** NaN payload bits are no longer part of the comparison: every finite word, infinity and signed zero stays bit-identical, a NaN must meet a NaN, and two NaNs compare equal whatever their sign and payload, except where the original only copies data (for example lossless float samples), where NaNs stay bit-exact. The competing-NaN-operand rules below (out-of-line accumulator-first additions, `-O0` observation units chosen to pin NaN payloads) are no longer required for the gate; the oracle's comparison changes accordingly. The oracle also gains a second half: a SIMD build of libjxl at the v1.0 level (NEON; AVX2 and the lower x86 levels) compared with the port's SIMD paths (#96), on AArch64 and on x86-64. Inputs that contain NaN or infinity follow ADR-0041's open question O1 (working rule pending owner confirmation). The mechanics change in separate work; the history below is unchanged.
 
 > **2026-11-10 amendment:** [Ferrisma ADR-0027](../../../../docs/adr/0027-tiered-validation-and-rust-test-orchestration.md) supersedes the ordinary PR C++ oracle and full local macOS check on every ported-code change. The rationale and evidence below remain historical; deep validation and platform acceptance still apply under that decision.
 

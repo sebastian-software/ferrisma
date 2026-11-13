@@ -2,7 +2,9 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-12
+- Updated: 2026-11-13
+
+> **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** Representations kept only to reproduce the original's NaN payloads or NaN operand order (out-of-line per-operation helpers, the AArch64-only row kernels and the `pre_r1` render stages off AArch64) are no longer required by the comparison: NaN payload bits are not part of the gate, except on copy-only paths, which keep bit-exact NaNs. Finite words, infinities and signed zeros stay bit-identical, and target-specific contraction stays as the original's. The decisions below remain until the code changes; each such change is checked against ADR-0041's gate on both targets.
 
 C++ pointer arithmetic, mutable visitors, and partially initialized storage
 cannot be copied literally into safe Rust. Preserve their defined behavior with

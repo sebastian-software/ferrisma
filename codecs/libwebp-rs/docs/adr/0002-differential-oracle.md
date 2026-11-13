@@ -2,7 +2,9 @@
 
 - Status: accepted
 - Created: 2026-11-05
-- Updated: 2026-11-10
+- Updated: 2026-11-13
+
+> **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** The reference oracle built with `WEBP_ENABLE_SIMD=OFF` becomes the scalar half of the v1.0 gate. The port's SIMD build must also equal libwebp's own SIMD build on the same target (`release-simd`, today a diagnostic only), on AArch64 and on x86-64; the latter needs an x86-64 oracle build under Rosetta 2. Mechanics change in separate work.
 
 ## Context
 
