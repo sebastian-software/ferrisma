@@ -128,9 +128,11 @@ scalar path, real x86-64 evidence for AVX2).
 Upsampling, noise, blending and splines stages of ADR 0004 Plan item 1
 (2026-11-13): the SIMD upsampling stage (`stage_upsampling_simd.rs`, 2x, 4x
 and 8x) matches the NEON oracle at row level and inside the simple and
-low-memory pipelines (`tests/simd_stages2.rs`, ADR 0004 "Upsampling, noise,
-blending and splines stages") and dispatches on `hwy::decoder_target()`.
-AVX2 is compile-checked only.
+low-memory pipelines; the SIMD noise generation and the AddNoise and
+ConvolveNoise stages (`dec_noise_simd.rs`, `stage_noise_simd.rs`) match at
+row level (`tests/simd_stages2.rs`, ADR 0004 "Upsampling, noise, blending
+and splines stages"). Both dispatch on `hwy::decoder_target()`; the layer
+has 69 operations. AVX2 is compile-checked only.
 <!-- end stages2 -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
@@ -1426,7 +1428,7 @@ followed in PRs #46 to #50.
 | `enc_entropy_coder.cc` | `enc_entropy_coder.rs` | One-lane NumNonZeroExceptLLF, NumNonZero8x8ExceptDC and TokenizeCoefficients |
 | `enc_heuristics.cc` (part) | `enc_heuristics.rs`, `enc_heuristics_lossy.rs`, `enc_heuristics_ar.rs` | FindBestBlockEntropyModel; LossyFrameHeuristics and FindBestDequantMatrices (default matrices; FindBestQuantizer reached only as its kSquirrel no-op); ReconstructImage, ComputeBlockL2Distance and ComputeARHeuristics (serial); the downsampling helpers unported |
 | `enc_patch_dictionary.cc` (part) | `enc_patch_dictionary.rs` | Serial FindTextLikePatches without debug dumps; FindBestPatchDictionary bin packing, RoundtripPatchFrame and PatchDictionaryEncoder unported |
-| `dec_noise.h`, `.cc`, `xorshift128plus-inl.h`, `render_pipeline/stage_noise.h`, `.cc` | `dec_noise.rs`, `xorshift128plus.rs`, `render_pipeline/stage_noise.rs` | Complete scalar noise parsing/generation/convolution/application and admitted VarDCT file integration; frame-index and upsampling branches retain source seeds and geometry |
+| `dec_noise.h`, `.cc`, `xorshift128plus-inl.h`, `render_pipeline/stage_noise.h`, `.cc` | `dec_noise.rs`, `xorshift128plus.rs`, `render_pipeline/stage_noise.rs` | Complete scalar noise parsing/generation/convolution/application and admitted VarDCT file integration; frame-index and upsampling branches retain source seeds and geometry; NEON/AVX2 generation and stages in `dec_noise_simd.rs`, `render_pipeline/stage_noise_simd.rs` (ADR 0004) |
 | `dec_patch_dictionary.h`, `.cc`, `patch_dictionary_internal.h`, `render_pipeline/stage_patches.h`, `.cc` | `dec_patch_dictionary.rs`, `patch_dictionary_internal.rs`, `render_pipeline/stage_patches.rs` | Complete dictionary decoding/partial state, original libc++ interval tree, reference masks and clipped blending; borrowed/shared stages; complete saved-frame orchestration remains separate |
 | `alpha.h`, `.cc`, `blending.h`, `.cc` | `alpha.rs`, `blending.rs` | Complete scalar blending/alpha kernels and temporary-plane ownership; original pointer-identity branches and selected numeric configuration |
 | `splines.h`, `.cc`, `render_pipeline/stage_splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization, entropy decoding, curve/cache generation and rendering, with borrowed/shared SplineStage |

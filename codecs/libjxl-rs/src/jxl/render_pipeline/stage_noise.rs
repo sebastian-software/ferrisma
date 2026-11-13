@@ -3,6 +3,7 @@
 //! Complete scalar AddNoiseStage/ConvolveNoiseStage and factories from
 //! lib/jxl/render_pipeline/stage_noise.cc. Borrowed parameter owners replace
 //! source references; row descriptors resolve under the pipeline's storage borrow.
+//! The NEON/AVX2 stages are stage_noise_simd.rs.
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
 };
@@ -157,6 +158,15 @@ pub fn get_add_noise_stage<'a>(
     color_correlation: &'a ColorCorrelation,
     first_c: usize,
 ) -> Box<dyn RenderPipelineStage + 'a> {
+    // HWY_DYNAMIC_DISPATCH(GetAddNoiseStage) (port ADR 0004).
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return super::stage_noise_simd::get_add_noise_stage_simd(
+            noise_params,
+            color_correlation,
+            first_c,
+            target,
+        );
+    }
     Box::new(AddNoiseStage {
         owners: NoiseOwners::Borrowed(noise_params, color_correlation),
         first_c,
@@ -171,6 +181,14 @@ pub fn get_add_noise_stage_shared(
     color_correlation: Rc<RefCell<ColorCorrelation>>,
     first_c: usize,
 ) -> Box<dyn RenderPipelineStage> {
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return super::stage_noise_simd::get_add_noise_stage_shared_simd(
+            noise_params,
+            color_correlation,
+            first_c,
+            target,
+        );
+    }
     Box::new(AddNoiseStage {
         owners: NoiseOwners::Shared(noise_params, color_correlation),
         first_c,
@@ -240,6 +258,10 @@ impl RenderPipelineStage for ConvolveNoiseStage {
     }
 }
 pub fn get_convolve_noise_stage(first_c: usize) -> Box<dyn RenderPipelineStage> {
+    // HWY_DYNAMIC_DISPATCH(GetConvolveNoiseStage) (port ADR 0004).
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return super::stage_noise_simd::get_convolve_noise_stage_simd(first_c, target);
+    }
     Box::new(ConvolveNoiseStage {
         first_c,
         scratch: Default::default(),

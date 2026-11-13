@@ -149,6 +149,12 @@ size_t RunOp(const std::string& op, const uint32_t* in, uint32_t* out) {
     return n;
   }
   // end render stages
+  // stages2
+  if (op == "mul_i32") return puti(hn::Mul(ai, bi));
+#if HWY_TARGET != HWY_SCALAR
+  if (op == "table_lookup_bytes") return puti(hn::TableLookupBytes(ai, bi));
+#endif
+  // end stages2
   return 0;
 }
 
