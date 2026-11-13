@@ -166,7 +166,8 @@ def build_oracle(sanitizers, target=None):
 def build_simd_oracle(rust_target=None):
     # The NEON (AArch64) or AVX2 (x86-64) variant of the original for the
     # SIMD paths (ADR 0004); tests/simd_parity.rs reads JXL_CPP_ORACLE_SIMD.
-    # x86-64 under Rosetta 2 needs ROSETTA_ADVERTISE_AVX=1 to report AVX2.
+    # x86-64 under Rosetta 2 reports AVX2 only with ROSETTA_ADVERTISE_AVX=1;
+    # check_tests sets it for tests/simd_parity.rs alone.
     import platform
     machine = "x86_64" if rust_target and rust_target.startswith("x86_64") else platform.machine()
     target = {"arm64": "NEON", "aarch64": "NEON", "x86_64": "AVX2", "AMD64": "AVX2"}.get(machine)
@@ -176,7 +177,10 @@ def build_simd_oracle(rust_target=None):
     build = ROOT / "target" / f"oracle-{target.lower()}"
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release", f"-DORACLE_HWY_TARGET={target}", *cross)
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
-    return {"JXL_CPP_ORACLE_SIMD": str(build / "jxl_oracle"), "ROSETTA_ADVERTISE_AVX": "1"}
+    return {"JXL_CPP_ORACLE_SIMD": str(build / "jxl_oracle")}
+
+
+SIMD_TESTS = "simd_parity"
 
 
 def check_tests(env, partition, filter, target=None, keep_going=False):
@@ -185,23 +189,45 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
         test += ["--target", target]
     if keep_going:
         test.append("--no-fail-fast")
+
+    def listed(*selection):
+        print(f"+ {' '.join([*test, *selection])} -- --list --format terse", flush=True)
+        listing = subprocess.run([*test, *selection, "--", "--list", "--format", "terse"], cwd=ROOT, env=env,
+                                 stdout=subprocess.PIPE, text=True, check=True).stdout
+        return sorted({line.removesuffix(": test") for line in listing.splitlines() if line.endswith(": test")})
+
+    # Under Rosetta 2 the SIMD parity tests need AVX2 reported to their own
+    # process, and every other test must run without it: the cross-built
+    # scalar references contain only the baseline skcms engine (upstream's
+    # third_party/skcms.cmake keys HSW on CMAKE_SYSTEM_PROCESSOR, the ARM64
+    # host), so a port that detects AVX2 would run HSW against baseline.
+    # The two groups therefore run as separate invocations. A test of the
+    # same name in another binary would move with the SIMD group.
+    simd = listed("--test", SIMD_TESTS) if target is not None else []
+    simd_env = dict(env, ROSETTA_ADVERTISE_AVX="1")
+    skip = [argument for name in simd for argument in ("--skip", name)]
     if filter is not None:
-        run(*test, "--", "--nocapture", filter, env=env)
+        run(*test, "--", "--nocapture", filter, *skip, env=env)
+        if any(filter in name for name in simd):
+            run(*test, "--test", SIMD_TESTS, "--", "--nocapture", filter, env=simd_env)
         return
     if partition is None:
-        run(*test, "--", "--nocapture", env=env)
+        run(*test, "--", "--nocapture", *skip, env=env)
+        if simd:
+            run(*test, "--test", SIMD_TESTS, "--", "--nocapture", env=simd_env)
         return
     index, count = partition
     # Every listed name belongs to exactly one partition. A name shared by
     # several test binaries runs in each of them within that partition.
-    print(f"+ {' '.join(test)} -- --list --format terse", flush=True)
-    listing = subprocess.run([*test, "--", "--list", "--format", "terse"], cwd=ROOT, env=env,
-                             stdout=subprocess.PIPE, text=True, check=True).stdout
-    names = sorted({line.removesuffix(": test") for line in listing.splitlines() if line.endswith(": test")})
+    names = listed()
     selected = names[index - 1::count]
     print(f"Partition {index}/{count}: {len(selected)} of {len(names)} test names", flush=True)
-    if selected:
-        run(*test, "--", "--nocapture", "--exact", *selected, env=env)
+    scalar_selected = [name for name in selected if name not in simd]
+    simd_selected = [name for name in selected if name in simd]
+    if scalar_selected:
+        run(*test, "--", "--nocapture", "--exact", *scalar_selected, env=env)
+    if simd_selected:
+        run(*test, "--test", SIMD_TESTS, "--", "--nocapture", "--exact", *simd_selected, env=simd_env)
 
 
 def partition(value):
