@@ -44,6 +44,16 @@ pub fn sharp_yuv_update_y(
     len: i32,
     bit_depth: i32,
 ) -> u64 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        // `SharpYuvInitDsp` selects the SSE2 variant when the query answers
+        // `kSSE2`.
+        if crate::dsp::cpu::features().sse2 {
+            return crate::sharpyuv::sharpyuv_sse2::sharp_yuv_update_y(
+                src, r#ref, dst, len, bit_depth,
+            );
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::sharpyuv::sharpyuv_neon::sharp_yuv_update_y(src, r#ref, dst, len, bit_depth);
@@ -57,6 +67,14 @@ pub fn sharp_yuv_update_y(
 
 // upstream: sharpyuv/sharpyuv_dsp.h SharpYuvUpdateRGB
 pub fn sharp_yuv_update_rgb(src: &[i16], r#ref: &[i16], dst: &mut [i16], len: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        // `SharpYuvInitDsp` selects the SSE2 variant when the query answers
+        // `kSSE2`.
+        if crate::dsp::cpu::features().sse2 {
+            return crate::sharpyuv::sharpyuv_sse2::sharp_yuv_update_rgb(src, r#ref, dst, len);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::sharpyuv::sharpyuv_neon::sharp_yuv_update_rgb(src, r#ref, dst, len);
@@ -80,6 +98,16 @@ pub fn sharp_yuv_filter_row(
     out: &mut [u16],
     bit_depth: i32,
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        // `SharpYuvInitDsp` selects the SSE2 variant when the query answers
+        // `kSSE2`.
+        if crate::dsp::cpu::features().sse2 {
+            return crate::sharpyuv::sharpyuv_sse2::sharp_yuv_filter_row(
+                a, b, len, best_y, out, bit_depth,
+            );
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::sharpyuv::sharpyuv_neon::sharp_yuv_filter_row(
