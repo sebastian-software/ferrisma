@@ -20,7 +20,7 @@ experiments.
 | Assess measured quality or performance | [M1 benchmark protocol](benchmarks/M1-protocol.md), [M2 baseline](benchmarks/M2-baseline.md), [Sharp comparison](benchmarks/M2-sharp-comparison.md), and [AVIF backend comparison](benchmarks/M2-libavif-backend.md) |
 | Reproduce corpus and comparison checks | [Corpus inventory and harness](benchmarks/corpus-and-comparison.md), [quality and large-region smoke](benchmarks/M2-corpus-smoke-2026-11-11.md), [current encoder procedure](benchmarks/encoder-adoption.md), and [2026-11-11 encoder smoke](benchmarks/M2-encoder-smoke-2026-11-11.md) |
 | Review safety and distribution boundaries | [Fuzzing](fuzzing.md), [license audit](license-audit.md), [unsafe boundary review](unsafe-review.md), and each codec's own notices and safety policy |
-| Depend on Ferrisma or plan a release | [Compatibility and stability](compatibility.md), [crates.io publishing chain](publishing.md), and the [consumer example](../examples/consumer.rs) |
+| Depend on Ferrisma or plan a release | [Compatibility and stability](compatibility.md), [crates.io publishing chain](publishing.md), [release automation draft](release-automation.md), and the [consumer example](../examples/consumer.rs) |
 
 ## Component guides
 
