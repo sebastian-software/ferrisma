@@ -112,3 +112,15 @@ ownership inventories are recorded again. Because a translation run takes about
 three hours, the kernel set is completed before the Linux profiles are
 regenerated, and later changes to the set regenerate them again. The macOS
 profiles and the portable C reference are unchanged.
+
+## Amendment: local x86-64 evidence (2026-11-13)
+
+The statement under Evidence that no emulation is used no longer holds for the
+SSE4.1 and scalar paths. Owner decision D7 makes local validation binding.
+The port's GNU Linux x86-64 build now runs on the ARM64 development host in an
+x86-64 container under Rosetta 2, and it is compared with the original's
+x86-64 builds (`check_aom_simd_original.py --x86-64`; see the ADR 0056
+amendment of 2026-11-13). Rosetta for Linux does not execute AVX, so the AVX2
+kernels still need native x86-64 runners. `x86_64-apple-darwin` stays
+excluded because both translation profiles depend on their platform: the macOS
+profile carries Arm RTCD, and the Linux profile uses glibc symbols and layouts.

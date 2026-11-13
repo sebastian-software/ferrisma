@@ -49,9 +49,17 @@ with the #203 settings.
     python3 tools/check_aom_simd_original.py                     # all levels
     python3 tools/check_aom_simd_original.py --level neon --corpus extended
 
-On macOS ARM64 the x86-64 originals can be built (`--x86-64`, `--simd avx2`)
-and run under Rosetta 2, but the port compiles only for macOS ARM64 and GNU
-Linux x86-64, so the x86-64 levels run on GNU Linux. Any difference fails.
+The port compiles only for macOS ARM64 and GNU Linux x86-64 (its translation
+profiles are platform-specific), so the x86-64 levels run natively on GNU
+Linux. On macOS ARM64, `--x86-64 --docker-image IMAGE` runs the port's GNU
+Linux build (cross-compiled, linked with `tools/docker_x86_64_linux_cc.sh`) in
+an x86-64 container and the x86-64 originals (`build_aom.py --x86-64`,
+`--simd avx2`) under Rosetta 2. Rosetta for Linux does not execute AVX, so that
+mode covers `sse4.1` and `scalar` only, and its originals use Darwin's libm:
+
+    python3 tools/check_aom_simd_original.py --x86-64 --docker-image IMAGE
+
+Any difference fails.
 """
 import argparse
 import concurrent.futures
