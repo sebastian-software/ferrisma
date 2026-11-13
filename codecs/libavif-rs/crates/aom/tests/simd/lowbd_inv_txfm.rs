@@ -155,6 +155,7 @@ enum Target {
 /// AV1LbdInvTxfm2d::RunAV1InvTxfm2dTest with run_times = 1; returns the
 /// number of compared blocks.
 fn run_av1_inv_txfm2d_test(target: Target, tx_type: u8, tx_size: u8, gt_int16: bool) -> usize {
+    super::scalar_round_shift_reference();
     let fwd_func = FWD_TXFM_FUNC_LS[tx_size as usize];
     let ref_func = INV_TXFM_FUNC_LS[tx_size as usize];
     let bd = 8;

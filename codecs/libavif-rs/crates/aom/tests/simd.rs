@@ -54,3 +54,23 @@ mod loopfilter;
 mod restoration;
 #[path = "simd/cfl.rs"]
 mod cfl;
+
+/// The original's C references (`av1_fwd_txfm2d_*_c`, the C inverse 2D
+/// transforms) call `av1_round_shift_array` through its RTCD pointer, which
+/// `av1_rtcd()` sets up in the original's test main. The transcriptions call
+/// those references without that setup, so they select the `_c` round shift,
+/// as `AOM_SIMD_CAPS_MASK=0` does, and keep the reference scalar throughout.
+/// The store is idempotent, so concurrent tests may repeat it. The x86-64
+/// overlay does not dispatch this function, so there is nothing to select.
+pub(crate) fn scalar_round_shift_reference() {
+    #[cfg(target_arch = "aarch64")]
+    {
+        extern "C-unwind" {
+            fn av1_round_shift_array_c(arr: *mut i32, size: i32, bit: i32);
+        }
+        // SAFETY: a plain store of the `_c` function into its RTCD pointer.
+        unsafe {
+            aom::av1__common__av1_rtcd::av1_round_shift_array = Some(av1_round_shift_array_c);
+        }
+    }
+}

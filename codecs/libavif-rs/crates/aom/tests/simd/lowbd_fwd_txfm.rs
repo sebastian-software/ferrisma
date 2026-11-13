@@ -26,6 +26,7 @@ struct Aligned<T>(T);
 
 /// AV1FwdTxfm2dMatchTest; returns the number of compared coefficients.
 fn av1_fwd_txfm2d_match_test(tx_size: usize, target_func: LowbdFwdTxfmFunc) -> usize {
+    super::scalar_round_shift_reference();
     let bd = 8;
     // SAFETY: TxfmParam is a plain C record; zero is the memset of the original.
     let mut param: TxfmParam = unsafe { core::mem::zeroed() };

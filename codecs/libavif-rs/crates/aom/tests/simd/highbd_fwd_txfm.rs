@@ -129,6 +129,7 @@ struct Aligned<T>(T);
 
 /// AV1HighbdFwdTxfm2dMatchTest; returns the number of compared coefficients.
 pub fn av1_highbd_fwd_txfm2d_match_test(tx_size: usize, target_func: FwdTxfm2dFunc) -> usize {
+    super::scalar_round_shift_reference();
     let bd_ar: [i32; 2] = [10, 12];
     let rows = tx_size_high[tx_size];
     let cols = tx_size_wide[tx_size];

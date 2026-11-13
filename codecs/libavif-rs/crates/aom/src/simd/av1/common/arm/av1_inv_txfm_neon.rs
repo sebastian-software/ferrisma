@@ -14,8 +14,9 @@
 // helper structure, and names follow the original; only the AOM_ARCH_AARCH64
 // branches are retained. C locals that the original leaves uninitialized
 // start zeroed here. The original calls the RTCD function
-// av1_round_shift_array; the port does not dispatch it, so the translated
-// av1_round_shift_array_c is called, as the port's RTCD header resolves it.
+// av1_round_shift_array, which the arm64 original resolves to
+// av1_round_shift_array_neon; the port calls its RTCD pointer, which selects
+// the same kernel whenever this Neon kernel runs.
 #![allow(non_snake_case, non_upper_case_globals, unused_assignments, unused_mut, unused_parens)]
 #![allow(unused_variables, dead_code, clippy::all)]
 
@@ -26,7 +27,8 @@ use crate::av1__common__av1_inv_txfm1d::{
     av1_idct8, av1_iidentity16_c, av1_iidentity4_c, av1_iidentity8_c,
 };
 use crate::av1__common__av1_inv_txfm2d::av1_inv_txfm_shift_ls;
-use crate::av1__common__av1_txfm::{av1_cospi_arr_data, av1_round_shift_array_c};
+use crate::av1__common__av1_rtcd::av1_round_shift_array;
+use crate::av1__common__av1_txfm::av1_cospi_arr_data;
 use crate::av1__common__idct::{av1_inv_txfm_add_c, TxfmParam};
 use crate::simd::aom_dsp__arm__transpose_neon::transpose_arrays_s16_8x8;
 use crate::simd::types::tran_low_t;
@@ -4204,7 +4206,7 @@ macro_rules! lowbd_inv_txfm2d_add_small_neon {
                 }
                 row_txfm.unwrap()(temp_in, buf_ptr, INV_COS_BIT as i8, stage_range.as_ptr());
                 if $row_shift {
-                    av1_round_shift_array_c(buf_ptr, txfm_size_col, -(*shift as i32));
+                    av1_round_shift_array.expect("non-null function pointer")(buf_ptr, txfm_size_col, -(*shift as i32));
                 }
                 input = input.add(1);
                 buf_ptr = buf_ptr.offset(txfm_size_col as isize);
@@ -4228,7 +4230,7 @@ macro_rules! lowbd_inv_txfm2d_add_small_neon {
                 }
                 clamp_buf(temp_in, txfm_size_row, 16);
                 col_txfm.unwrap()(temp_in, temp_out, INV_COS_BIT as i8, stage_range.as_ptr());
-                av1_round_shift_array_c(temp_out, txfm_size_row, -(*shift.add(1) as i32));
+                av1_round_shift_array.expect("non-null function pointer")(temp_out, txfm_size_row, -(*shift.add(1) as i32));
 
                 if ud_flip == 0 {
                     r = 0;
