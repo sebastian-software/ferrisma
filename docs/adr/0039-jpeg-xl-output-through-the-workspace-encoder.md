@@ -139,14 +139,20 @@ section writers and the encoded output (held by the encoder and copied once
 into the returned `Vec`) are opaque; the report sets
 `opaque_encoder_memory`.
 
-Lossless: it reserves the codec planes that the admitted one-shot path
-allocates at the same time: an `Image3<f32>` color frame padded to whole 8x8
+Lossless (amended 2026-11-13, #223): it reserves the **measured** peak of
+the admitted one-shot profile, `LOSSLESS_ONE_SHOT_PEAK_BYTES_PER_RGB_PIXEL`
+= 76 bytes per pixel including the input frame (the port's 75.8 B/px RSS
+at 3.4 MP, rounded up; the engine CLI measured 71-72 B/px at 24 MP; see the
+[performance analysis](../benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md#lossless-encode-28-bpx-reserved-about-70-bpx-used)).
+The codec reservation is that peak minus the 4-byte input frame, scaled by
+4/3 with alpha (four samples instead of three; derived, **not measured**),
+and never less than the planes known from the source path, which remain the
+floor for small images: an `Image3<f32>` color frame padded to whole 8x8
 blocks, one `f32` alpha plane, and one `i32` Modular channel per color and
-alpha plane. That is about 28 bytes per pixel opaque and 36 with alpha,
-including the input frame. The count is a lower bound taken from the source
-path. Row padding, Modular transforms, tree learning, tokens, section
-writers and the encoded output (held twice briefly, as the codec's buffer and
-the returned `Vec`) remain opaque, so the report sets
+alpha plane. Until 2026-11-13 that floor was the whole reservation, about
+28 bytes per pixel opaque and 36 with alpha including the input frame,
+which understated the measured peak by about 1 GB at 24 MP. The codec's
+allocations are still not individually tracked, so the report keeps
 `opaque_encoder_memory`. The encoded file is outside the managed budget, as
 for the other formats.
 
@@ -352,7 +358,8 @@ step 5), to measure patches on against off and revisit the patches-off
 policy; when the license review (#66) completes, to confirm `cli`
 distribution; when the owner decides the default or the patches-off policy;
 if a measured peak allocation contradicts the lossy
-estimate; if a non-sRGB or HDR output contract is needed (step 6, #113);
+estimate or the lossless reservation (in particular with alpha, whose 4/3
+scaling is not measured); if a non-sRGB or HDR output contract is needed (step 6, #113);
 if serial encoding is too slow for the supported path (step 13, #106); or if
 a decoder rejects the unsignaled level or a byte mismatch against libjxl
 appears for this profile.
@@ -402,3 +409,20 @@ appears for this profile.
 - 2026-11-13 — The engine reads its own transparent lossy output back
   through `UseRenderedIcc` with either decoder (#222); evidence and the
   open strict-policy question are in ADR-0015 (2026-11-13).
+- 2026-11-13 — Lossless reservation is the measured one-shot peak (#223,
+  ADR-0004). **Deliberate contract change:** the sink reserved about 28 B/px
+  (frame plus the planes known from the source path) while the admitted
+  one-shot profile was measured at 70-76 B/px (24 MP: 1.71 GB RSS against
+  672 MB reserved). It now reserves 76 B/px including the frame
+  (`LOSSLESS_ONE_SHOT_PEAK_BYTES_PER_RGB_PIXEL`, from the cited
+  measurement; no new measurement was taken), 4/3 of that with alpha
+  (derived), with the source-path planes as a floor. Consequence: lossless
+  output now fails with `BudgetExceeded` where it used to start and then
+  exceed the budget in opaque codec memory; under the default 256 MiB
+  budget the largest lossless output is about 3.5 MP instead of about
+  9.5 MP. `jxl_output_tests::input_frame_and_measured_one_shot_peak_are_reserved`
+  pins the new contract and checks that the reservation covers the cited
+  24 MP measurement. Open: admitting libjxl's chunked buffering for
+  lossless (about 27 B/px in C++, but different output bytes, so it needs
+  oracle evidence), a measured peak with alpha, and the lossy estimate
+  (`estimated_codec_bytes`, derived from the source, not measured).

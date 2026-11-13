@@ -38,13 +38,58 @@ use crate::pipeline::{ChromaSubsampling, JpegXlOptions, OutputFormat, TransformO
 const MAX_LEVEL5_DIMENSION: usize = 1 << 18;
 const MAX_LEVEL5_PIXELS: usize = 1 << 28;
 
+/// Measured peak memory of the admitted lossless one-shot profile, in bytes
+/// per pixel of opaque 8-bit RGB input, **including** the engine's input
+/// frame (issue #223, ADR-0004 and ADR-0039).
+///
+/// Source: `docs/benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md`,
+/// section 3 "Lossless encode": the port alone peaked at 69.7 B/px heap and
+/// 75.8 B/px RSS (flower, 3.4 MP), the engine CLI at 71-72 B/px RSS
+/// (1,707-1,719 MB, mountain JPEG to JPEG XL, 24 MP), and C++ `cjxl
+/// --buffering=0` in the same one-shot mode at 79 B/px. The largest
+/// measurement of this port, 75.8 B/px, is rounded up. What dominates it:
+/// one 8-byte token per sample for every group (about 24 B/px), the `f32`
+/// and Modular `i32` planes, and a second copy of the input. The figures
+/// were taken on a loaded host; they are memory, not timing, but they are
+/// one machine and two images, not a bound.
+pub(crate) const LOSSLESS_ONE_SHOT_PEAK_BYTES_PER_RGB_PIXEL: usize = 76;
+
+/// The budget reservation for the lossless codec, on top of the engine's
+/// RGBA8 input frame (4 B/px, reserved when the sink is created): the
+/// measured one-shot peak minus that frame, so frame plus reservation equal
+/// the measured peak (issue #223).
+///
+/// The measurement is opaque RGB. With alpha the per-sample costs (tokens,
+/// planes, input copy) apply to four samples instead of three, so the peak
+/// is scaled by 4/3; that scaling is derived, **not measured**. For small
+/// images, per-image costs dominate and the per-pixel figure does not hold,
+/// so the planes known from the source path (`known_codec_frame_bytes`)
+/// stay a floor.
+pub(crate) fn lossless_codec_reservation_bytes(
+    width: usize,
+    height: usize,
+    alpha: bool,
+) -> Result<usize, Error> {
+    let pixels = width.checked_mul(height).ok_or(Error::GeometryOverflow)?;
+    let samples = 3 + usize::from(alpha);
+    let peak = pixels
+        .checked_mul(LOSSLESS_ONE_SHOT_PEAK_BYTES_PER_RGB_PIXEL * samples)
+        .map(|bytes| bytes.div_ceil(3))
+        .ok_or(Error::GeometryOverflow)?;
+    let frame = pixels.checked_mul(4).ok_or(Error::GeometryOverflow)?;
+    let measured = peak.saturating_sub(frame);
+    Ok(measured.max(known_codec_frame_bytes(width, height, alpha)?))
+}
+
 /// Codec-allocated planes that exist at the same time as the input frame in
 /// the admitted lossless one-shot path (`ComputeEncodingData` and
 /// `compute_encoding_data_lossless_thunder` in the port): an `Image3<f32>`
 /// color frame padded to whole 8x8 blocks, one `f32` plane per extra
 /// channel, and the Modular `i32` channels of every color and alpha plane.
 /// This is a lower bound from the source path: row padding, Modular
-/// transforms, tree learning and tokens are opaque.
+/// transforms, tree learning and tokens are not in it. It is the floor of
+/// `lossless_codec_reservation_bytes`, no longer the reservation itself
+/// (issue #223: about 28 B/px reserved against about 72 B/px measured).
 pub(crate) fn known_codec_frame_bytes(
     width: usize,
     height: usize,
@@ -224,7 +269,8 @@ impl JxlSink {
     }
 
     fn finish_lossless(&self, samples: usize) -> Result<EncodedImage, Error> {
-        let codec_bytes = known_codec_frame_bytes(self.width, self.height, self.has_alpha)?;
+        let codec_bytes =
+            lossless_codec_reservation_bytes(self.width, self.height, self.has_alpha)?;
         let _codec_frames: ExternalReservation = self.budget.reserve_external(codec_bytes)?;
         let mut config = if self.has_alpha {
             LosslessThunderConfig::new_with_alpha(

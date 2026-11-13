@@ -7,7 +7,10 @@
 
 use crate::error::Error;
 use crate::geometry::Size;
-use crate::jxl_sink::{JxlSink, known_codec_frame_bytes};
+use crate::jxl_sink::{
+    JxlSink, LOSSLESS_ONE_SHOT_PEAK_BYTES_PER_RGB_PIXEL, known_codec_frame_bytes,
+    lossless_codec_reservation_bytes,
+};
 use crate::memory::MemoryBudget;
 use crate::pipeline::{
     ChromaSubsampling, JpegXlOptions, OutputFormat, ProcessingErrorKind, TransformOptions,
@@ -109,21 +112,49 @@ fn rejects_requests_outside_the_admitted_profile_before_allocating() {
     assert_eq!(budget.snapshot().peak, 0);
 }
 
+/// The lossless sink reserves the measured one-shot peak (issue #223,
+/// ADR-0004, ADR-0039).
+///
+/// **Contract change of 2026-11-13, not a refreshed pin.** Until then the
+/// sink reserved only the planes known from the source path
+/// (`known_codec_frame_bytes`: with the 4 B/px input frame about 28 B/px),
+/// while the admitted profile was measured at about 70-76 B/px; this test
+/// pinned that smaller reservation. It now pins the measured peak, scaled
+/// by 4/3 with alpha (derived, not measured), with the source-path planes
+/// as a floor for small images.
 #[test]
-fn input_frame_and_pinned_codec_plane_estimate_are_reserved() {
+fn input_frame_and_measured_one_shot_peak_are_reserved() {
     let (width, height) = (9, 5);
-    let frame = width * height * 4;
-    let opaque = known_codec_frame_bytes(width, height, false).unwrap();
-    // Regression pin, not evidence: these two equalities restate the sink's
-    // own formula (Image3<f32> padded to 16x8, plus three i32 Modular
-    // channels, plus two alpha planes) so an unintended change to it fails
-    // here. They do not show that the encoder allocates exactly these planes;
-    // that would need an allocation measurement inside libjxl-rs. The budget
-    // checks below do test real behavior: the sink reserves what the
-    // formula says before encoding.
-    assert_eq!(opaque, 16 * 8 * 3 * 4 + width * height * 3 * 4);
-    let alpha = known_codec_frame_bytes(width, height, true).unwrap();
-    assert_eq!(alpha, opaque + width * height * 4 * 2);
+    let pixels = width * height;
+    let frame = pixels * 4;
+    let peak = LOSSLESS_ONE_SHOT_PEAK_BYTES_PER_RGB_PIXEL;
+    // The source-path floor: Image3<f32> padded to 16x8 plus three i32
+    // Modular channels, plus two alpha planes. A regression pin of the
+    // formula, not evidence of the allocations.
+    let known = known_codec_frame_bytes(width, height, false).unwrap();
+    assert_eq!(known, 16 * 8 * 3 * 4 + pixels * 3 * 4);
+    assert_eq!(
+        known_codec_frame_bytes(width, height, true).unwrap(),
+        known + pixels * 4 * 2
+    );
+    // Frame plus reservation equal the measured peak per pixel.
+    let opaque = lossless_codec_reservation_bytes(width, height, false).unwrap();
+    assert_eq!(opaque, pixels * (peak - 4));
+    assert!(opaque > known);
+    let alpha = lossless_codec_reservation_bytes(width, height, true).unwrap();
+    assert_eq!(alpha, (pixels * peak * 4).div_ceil(3) - frame);
+    // Small images keep the source-path floor.
+    assert_eq!(
+        lossless_codec_reservation_bytes(1, 1, false).unwrap(),
+        known_codec_frame_bytes(1, 1, false).unwrap()
+    );
+    // The cited 24 MP measurement (engine CLI, mountain JPEG to JPEG XL,
+    // 1,707-1,719 MB RSS) fits in what is now reserved, read as MiB; the
+    // old reservation was 672 MB.
+    let (w, h) = (6000, 4000);
+    let reserved = w * h * 4 + lossless_codec_reservation_bytes(w, h, false).unwrap();
+    assert!(reserved >= 1_719 << 20, "{reserved}");
+    assert!(w * h * 4 + known_codec_frame_bytes(w, h, false).unwrap() < 1_707_000_000);
 
     let data = rows(width, height, false);
     assert!(matches!(
