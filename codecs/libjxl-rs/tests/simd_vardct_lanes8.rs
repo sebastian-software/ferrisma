@@ -652,3 +652,157 @@ fn eight_lane_dc_and_quant_weights_equal_four_lane_results() {
         "8-lane DC smoothing, DequantDC and quant weights: {cases} cases equal the 4-lane results"
     );
 }
+
+/// The transforms with exactly the buffer sizes of the `dct-*` parity
+/// requests (tools/oracle/dct.cc, tests/simd_vardct.rs) and DequantBlock's
+/// `dq-block` scratch, with eight lanes: 8-lane column groups need more
+/// transform temporaries than 4 lanes (`SZ * (3N - 4)` floats for an N-point
+/// DCT), so a request scratch sized for NEON overflows on AVX2. The first
+/// hosted AVX2 run panicked here (`mid > len`) for DCT128X64/DCT64X128,
+/// whose `dct-llf` scratch was then sized from block counts (588 floats,
+/// 608 needed) instead of the caller's 4 * max_block_area.
+#[test]
+fn eight_lane_transforms_fit_the_parity_requests_scratch() {
+    let mut seed = 0x0bad_5eed;
+    let scratch_size = |kind: &str, rows: usize, cols: usize| {
+        if kind == "dct-llf" {
+            rows * cols * 64 * 4 + 4
+        } else {
+            rows * cols * 4 + 3 * (rows + cols) + 4
+        }
+    };
+    let mut cases = 0;
+    for raw in 0..27 {
+        let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+        let (rows, cols) = (acs.covered_blocks_y(), acs.covered_blocks_x());
+        for pad in [0, 3] {
+            let stride = cols + pad;
+            let dc = values(rows * stride, 0, &mut seed);
+            let run = |eight: bool| {
+                let mut o = vec![-1.5f32; rows * cols * 64 + 4];
+                let mut s = vec![-2.5f32; scratch_size("dct-llf", rows, cols)];
+                if eight {
+                    lowest_frequencies_from_dc_d(
+                        Neon8(n4()),
+                        AcStrategyType(raw),
+                        &dc,
+                        stride,
+                        &mut o,
+                        &mut s,
+                    );
+                } else {
+                    lowest_frequencies_from_dc_d(
+                        n4(),
+                        AcStrategyType(raw),
+                        &dc,
+                        stride,
+                        &mut o,
+                        &mut s,
+                    );
+                }
+                o
+            };
+            assert_same(&format!("llf {raw} pad {pad}"), &run(false), &run(true));
+            // dct-pixels with the pixel dimensions of the strategy.
+            let (prows, pcols) = (rows * 8, cols * 8);
+            let pstride = pcols + pad;
+            let input = values(prows * pcols, 0, &mut seed);
+            let run = |eight: bool| {
+                let mut i = input.clone();
+                let mut o = vec![-1.5f32; prows * pstride + 4];
+                let mut s = vec![-2.5f32; scratch_size("dct-pixels", prows, pcols)];
+                if eight {
+                    transform_to_pixels_d(
+                        Neon8(n4()),
+                        AcStrategyType(raw),
+                        &mut i,
+                        &mut o,
+                        pstride,
+                        &mut s,
+                    );
+                } else {
+                    transform_to_pixels_d(
+                        n4(),
+                        AcStrategyType(raw),
+                        &mut i,
+                        &mut o,
+                        pstride,
+                        &mut s,
+                    );
+                }
+                o
+            };
+            assert_same(&format!("pixels {raw} pad {pad}"), &run(false), &run(true));
+            cases += 2;
+        }
+    }
+    // dct-scaled: every shape of the parity requests, both directions.
+    let shapes: Vec<(usize, usize)> = [1usize, 2, 4, 8, 16, 32]
+        .iter()
+        .flat_map(|&r| [1usize, 2, 4, 8, 16, 32].map(move |c| (r, c)))
+        .chain([
+            (64, 32),
+            (32, 64),
+            (64, 64),
+            (128, 64),
+            (64, 128),
+            (128, 128),
+            (256, 128),
+            (128, 256),
+            (256, 256),
+            (1, 256),
+            (256, 1),
+            (2, 128),
+            (128, 4),
+        ])
+        .collect();
+    for (rows, cols) in shapes {
+        for pad in [0, 3, 7] {
+            let stride = cols + pad;
+            let size = scratch_size("dct-scaled", rows, cols);
+            let input = values(rows * cols, 0, &mut seed);
+            let inv = |eight: bool| {
+                let mut i = input.clone();
+                let mut o = vec![-1.5f32; rows * stride + 4];
+                let mut s = vec![-2.5f32; size];
+                if eight {
+                    compute_scaled_idct_simd(
+                        Neon8(n4()),
+                        rows,
+                        cols,
+                        &mut i,
+                        &mut o,
+                        stride,
+                        &mut s,
+                    );
+                } else {
+                    compute_scaled_idct_simd(n4(), rows, cols, &mut i, &mut o, stride, &mut s);
+                }
+                o
+            };
+            assert_same(&format!("idct {rows}x{cols}"), &inv(false), &inv(true));
+            let samples = values(rows * stride, 0, &mut seed);
+            let fwd = |eight: bool| {
+                let mut o = vec![-1.5f32; rows * cols + 4];
+                let mut s = vec![-2.5f32; size];
+                if eight {
+                    compute_scaled_dct_simd(
+                        Neon8(n4()),
+                        rows,
+                        cols,
+                        &samples,
+                        stride,
+                        &mut o,
+                        &mut s,
+                    );
+                } else {
+                    compute_scaled_dct_simd(n4(), rows, cols, &samples, stride, &mut o, &mut s);
+                }
+                o
+            };
+            assert_same(&format!("dct {rows}x{cols}"), &fwd(false), &fwd(true));
+            cases += 2;
+        }
+    }
+    println!("8-lane transforms with the parity requests' buffers: {cases} cases fit and match");
+}

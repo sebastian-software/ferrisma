@@ -90,7 +90,11 @@ bool DctCommand(const std::string& command, std::istringstream& in) {
   for (size_t i = 0; i < count; ++i) input[i] = ReadFloat(in);
   OracleAlignedVector<float> output((inverse ? rows * stride : rows * cols) + 4, -123.25f);
   if(command == "dct-llf") output.resize(rows * cols * 64 + 4, -123.25f);
-  OracleAlignedVector<float> scratch(rows * cols * 4 + 3 * (rows + cols) + 4, -123.25f);
+  // dct-llf: rows/cols count blocks; LowestFrequenciesFromDC's caller hands
+  // it the group cache's scratch_space of 4 * max_block_area floats
+  // (dec_cache.cc), which the 8-lane transform temporaries need.
+  size_t scratch_size = command == "dct-llf" ? rows * cols * 64 * 4 + 4 : rows * cols * 4 + 3 * (rows + cols) + 4;
+  OracleAlignedVector<float> scratch(scratch_size, -123.25f);
   if(command == "dct-scaled") Rows(rows, cols, inverse, input.data(), stride, output.data(), scratch.data());
   else if(command == "dct-pixels") jxl::ORACLE_HWY_NS::TransformToPixels(static_cast<jxl::AcStrategyType>(option), input.data(), output.data(), stride, scratch.data());
   else jxl::ORACLE_HWY_NS::LowestFrequenciesFromDC(static_cast<jxl::AcStrategyType>(option), input.data(), stride, output.data(), scratch.data());
