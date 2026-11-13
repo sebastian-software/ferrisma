@@ -131,6 +131,7 @@ pub mod dec_group_simd;
 pub mod dec_transforms_simd;
 pub mod quant_weights_simd;
 // end vardct kernels
-// stages2: SIMD noise generation (ADR 0004 Plan item 1).
+// stages2: SIMD noise generation and spline rendering (ADR 0004 Plan item 1).
 pub mod dec_noise_simd;
+pub mod splines_simd;
 // end stages2

@@ -5,6 +5,9 @@
 //! access without copying cache state. Shared ownership removes a decoder
 //! self-reference; RefCell enforces exclusive mutation between row calls. Disjoint
 //! channel borrows replace its three restricted row pointers.
+//! The per-target stage of HWY_DYNAMIC_DISPATCH(GetSplineStage) has no
+//! Highway operation of its own; AddToRow dispatches DrawSegments
+//! (splines_simd.rs, port ADR 0004), so every target uses this one stage.
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
 };
