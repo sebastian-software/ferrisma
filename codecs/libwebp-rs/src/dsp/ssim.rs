@@ -241,6 +241,14 @@ pub fn vp8ssim_get_clipped(
 /// The SSIM of the full kernel window. The C dispatch pointer is `SSIMGet_C`.
 #[must_use]
 pub fn vp8ssim_get(src1: &[u8], stride1: i32, src2: &[u8], stride2: i32) -> f64 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        // `VP8SSIMDspInit` selects the SSE2 variant when the query answers
+        // `kSSE2`.
+        if crate::dsp::cpu::features().sse2 {
+            return crate::dsp::ssim_sse2::ssim_get(src1, stride1, src2, stride2);
+        }
+    }
     ssim_get_c(src1, stride1, src2, stride2)
 }
 
@@ -248,5 +256,13 @@ pub fn vp8ssim_get(src1: &[u8], stride1: i32, src2: &[u8], stride2: i32) -> f64 
 /// The sum of squared differences. The C dispatch pointer is `AccumulateSSE_C`.
 #[must_use]
 pub fn vp8_accumulate_sse(src1: &[u8], src2: &[u8], len: i32) -> u32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        // `VP8SSIMDspInit` selects the SSE2 variant when the query answers
+        // `kSSE2`.
+        if crate::dsp::cpu::features().sse2 {
+            return crate::dsp::ssim_sse2::accumulate_sse(src1, src2, len);
+        }
+    }
     accumulate_sse_c(src1, src2, len)
 }
