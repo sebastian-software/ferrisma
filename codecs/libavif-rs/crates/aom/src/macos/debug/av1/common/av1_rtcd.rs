@@ -758,6 +758,32 @@ extern "C-unwind" {
     fn av1_dr_prediction_z2_neon(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_above: core::ffi::c_int, upsample_left: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
     fn av1_dr_prediction_z3_c(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_left: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
     fn av1_dr_prediction_z3_neon(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_left: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
+    fn cfl_get_luma_subsampling_420_lbd_c(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_420_lbd_neon(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_422_lbd_c(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_422_lbd_neon(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_444_lbd_c(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_444_lbd_neon(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_420_hbd_c(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_420_hbd_neon(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_422_hbd_c(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_422_hbd_neon(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_444_hbd_c(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_444_hbd_neon(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_predict_lbd_fn_c(tx_size: TX_SIZE) -> cfl_predict_lbd_fn;
+    fn cfl_get_predict_lbd_fn_neon(tx_size: TX_SIZE) -> cfl_predict_lbd_fn;
+    fn cfl_get_predict_hbd_fn_c(tx_size: TX_SIZE) -> cfl_predict_hbd_fn;
+    fn cfl_get_predict_hbd_fn_neon(tx_size: TX_SIZE) -> cfl_predict_hbd_fn;
+    fn cfl_get_subtract_average_fn_c(tx_size: TX_SIZE) -> cfl_subtract_average_fn;
+    fn cfl_get_subtract_average_fn_neon(tx_size: TX_SIZE) -> cfl_subtract_average_fn;
+    fn av1_wiener_convolve_add_src_c(src: *const uint8_t, src_stride: ptrdiff_t, dst: *mut uint8_t, dst_stride: ptrdiff_t, filter_x: *const int16_t, x_step_q4: core::ffi::c_int, filter_y: *const int16_t, y_step_q4: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, conv_params: *const WienerConvolveParams);
+    fn av1_wiener_convolve_add_src_neon(src: *const uint8_t, src_stride: ptrdiff_t, dst: *mut uint8_t, dst_stride: ptrdiff_t, filter_x: *const int16_t, x_step_q4: core::ffi::c_int, filter_y: *const int16_t, y_step_q4: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, conv_params: *const WienerConvolveParams);
+    fn av1_highbd_wiener_convolve_add_src_c(src: *const uint8_t, src_stride: ptrdiff_t, dst: *mut uint8_t, dst_stride: ptrdiff_t, filter_x: *const int16_t, x_step_q4: core::ffi::c_int, filter_y: *const int16_t, y_step_q4: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, conv_params: *const WienerConvolveParams, bd: core::ffi::c_int);
+    fn av1_highbd_wiener_convolve_add_src_neon(src: *const uint8_t, src_stride: ptrdiff_t, dst: *mut uint8_t, dst_stride: ptrdiff_t, filter_x: *const int16_t, x_step_q4: core::ffi::c_int, filter_y: *const int16_t, y_step_q4: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, conv_params: *const WienerConvolveParams, bd: core::ffi::c_int);
+    fn av1_apply_selfguided_restoration_c(dat8: *const uint8_t, width: core::ffi::c_int, height: core::ffi::c_int, stride: core::ffi::c_int, eps: core::ffi::c_int, xqd: *const core::ffi::c_int, dst8: *mut uint8_t, dst_stride: core::ffi::c_int, tmpbuf: *mut int32_t, bit_depth: core::ffi::c_int, highbd: core::ffi::c_int) -> core::ffi::c_int;
+    fn av1_apply_selfguided_restoration_neon(dat8: *const uint8_t, width: core::ffi::c_int, height: core::ffi::c_int, stride: core::ffi::c_int, eps: core::ffi::c_int, xqd: *const core::ffi::c_int, dst8: *mut uint8_t, dst_stride: core::ffi::c_int, tmpbuf: *mut int32_t, bit_depth: core::ffi::c_int, highbd: core::ffi::c_int) -> core::ffi::c_int;
+    fn av1_selfguided_restoration_c(dgd8: *const uint8_t, width: core::ffi::c_int, height: core::ffi::c_int, dgd_stride: core::ffi::c_int, flt0: *mut int32_t, flt1: *mut int32_t, flt_stride: core::ffi::c_int, sgr_params_idx: core::ffi::c_int, bit_depth: core::ffi::c_int, highbd: core::ffi::c_int) -> core::ffi::c_int;
+    fn av1_selfguided_restoration_neon(dgd8: *const uint8_t, width: core::ffi::c_int, height: core::ffi::c_int, dgd_stride: core::ffi::c_int, flt0: *mut int32_t, flt1: *mut int32_t, flt_stride: core::ffi::c_int, sgr_params_idx: core::ffi::c_int, bit_depth: core::ffi::c_int, highbd: core::ffi::c_int) -> core::ffi::c_int;
     fn aom_arm_cpu_caps() -> core::ffi::c_int;
 }
 pub type ptrdiff_t = isize;
@@ -792,6 +818,8 @@ pub struct txfm_param {
 pub type TxfmParam = txfm_param;
 pub type pthread_once_t = libc::pthread_once_t;
 pub const _PTHREAD_ONCE_SIG_init: core::ffi::c_int = 0x30b1bcba as core::ffi::c_int;
+#[no_mangle]
+pub static mut av1_apply_selfguided_restoration: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const core::ffi::c_int, *mut uint8_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int> = None;
 #[no_mangle]
 pub static mut av1_block_error: Option<
     unsafe extern "C-unwind" fn(
@@ -1108,11 +1136,17 @@ pub static mut av1_highbd_upsample_intra_edge: Option<
     unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> (),
 > = None;
 #[no_mangle]
+pub static mut av1_highbd_wiener_convolve_add_src: Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
 pub static mut av1_inv_txfm_add: Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()> = None;
+#[no_mangle]
+pub static mut av1_selfguided_restoration: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int> = None;
 #[no_mangle]
 pub static mut av1_upsample_intra_edge: Option<
     unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int) -> (),
 > = None;
+#[no_mangle]
+pub static mut av1_wiener_convolve_add_src: Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams) -> ()> = None;
 #[no_mangle]
 pub static mut cdef_copy_rect8_16bit_to_16bit: Option<
     unsafe extern "C-unwind" fn(
@@ -1285,9 +1319,63 @@ pub static mut cdef_find_dir_dual: Option<
         *mut core::ffi::c_int,
     ) -> (),
 > = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_420_hbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_420_lbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_422_hbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_422_lbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_444_hbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_444_lbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_predict_hbd_fn: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_predict_lbd_fn: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_subtract_average_fn: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn> = None;
+pub type cfl_subsample_lbd_fn = Option<
+    unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *mut uint16_t) -> (),
+>;
+pub type cfl_subsample_hbd_fn = Option<
+    unsafe extern "C-unwind" fn(*const uint16_t, core::ffi::c_int, *mut uint16_t) -> (),
+>;
+pub type cfl_predict_hbd_fn = Option<
+    unsafe extern "C-unwind" fn(
+        *const int16_t,
+        *mut uint16_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type cfl_subtract_average_fn = Option<
+    unsafe extern "C-unwind" fn(*const uint16_t, *mut int16_t) -> (),
+>;
+pub type cfl_predict_lbd_fn = Option<
+    unsafe extern "C-unwind" fn(
+        *const int16_t,
+        *mut uint8_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct WienerConvolveParams {
+    pub round_0: core::ffi::c_int,
+    pub round_1: core::ffi::c_int,
+}
 pub const HAS_NEON: core::ffi::c_int = (1 as core::ffi::c_int) << 0 as core::ffi::c_int;
 unsafe extern "C-unwind" fn setup_rtcd_internal() {
     let mut flags: core::ffi::c_int = aom_arm_cpu_caps();
+    av1_apply_selfguided_restoration = Some(av1_apply_selfguided_restoration_c as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const core::ffi::c_int, *mut uint8_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const core::ffi::c_int, *mut uint8_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int>;
+    if flags & HAS_NEON != 0 {
+        av1_apply_selfguided_restoration = Some(av1_apply_selfguided_restoration_neon as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const core::ffi::c_int, *mut uint8_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const core::ffi::c_int, *mut uint8_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int>;
+    }
     av1_block_error = Some(
         av1_block_error_c
             as unsafe extern "C-unwind" fn(
@@ -2576,9 +2664,17 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                 ) -> (),
             >;
     }
+    av1_highbd_wiener_convolve_add_src = Some(av1_highbd_wiener_convolve_add_src_c as unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_highbd_wiener_convolve_add_src = Some(av1_highbd_wiener_convolve_add_src_neon as unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams, core::ffi::c_int) -> ()>;
+    }
     av1_inv_txfm_add = Some(av1_inv_txfm_add_c as unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
     if flags & HAS_NEON != 0 {
         av1_inv_txfm_add = Some(av1_inv_txfm_add_neon as unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
+    }
+    av1_selfguided_restoration = Some(av1_selfguided_restoration_c as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int>;
+    if flags & HAS_NEON != 0 {
+        av1_selfguided_restoration = Some(av1_selfguided_restoration_neon as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int>;
     }
     av1_upsample_intra_edge = Some(
         av1_upsample_intra_edge_c
@@ -2589,6 +2685,10 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
             av1_upsample_intra_edge_neon
                 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int) -> (),
         ) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int) -> ()>;
+    }
+    av1_wiener_convolve_add_src = Some(av1_wiener_convolve_add_src_c as unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_wiener_convolve_add_src = Some(av1_wiener_convolve_add_src_neon as unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams) -> ()>;
     }
     cdef_copy_rect8_16bit_to_16bit = Some(
         cdef_copy_rect8_16bit_to_16bit_c
@@ -3277,6 +3377,42 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                     *mut core::ffi::c_int,
                 ) -> (),
             >;
+    }
+    cfl_get_luma_subsampling_420_hbd = Some(cfl_get_luma_subsampling_420_hbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    if flags & HAS_NEON != 0 {
+        cfl_get_luma_subsampling_420_hbd = Some(cfl_get_luma_subsampling_420_hbd_neon as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    }
+    cfl_get_luma_subsampling_420_lbd = Some(cfl_get_luma_subsampling_420_lbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    if flags & HAS_NEON != 0 {
+        cfl_get_luma_subsampling_420_lbd = Some(cfl_get_luma_subsampling_420_lbd_neon as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    }
+    cfl_get_luma_subsampling_422_hbd = Some(cfl_get_luma_subsampling_422_hbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    if flags & HAS_NEON != 0 {
+        cfl_get_luma_subsampling_422_hbd = Some(cfl_get_luma_subsampling_422_hbd_neon as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    }
+    cfl_get_luma_subsampling_422_lbd = Some(cfl_get_luma_subsampling_422_lbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    if flags & HAS_NEON != 0 {
+        cfl_get_luma_subsampling_422_lbd = Some(cfl_get_luma_subsampling_422_lbd_neon as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    }
+    cfl_get_luma_subsampling_444_hbd = Some(cfl_get_luma_subsampling_444_hbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    if flags & HAS_NEON != 0 {
+        cfl_get_luma_subsampling_444_hbd = Some(cfl_get_luma_subsampling_444_hbd_neon as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    }
+    cfl_get_luma_subsampling_444_lbd = Some(cfl_get_luma_subsampling_444_lbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    if flags & HAS_NEON != 0 {
+        cfl_get_luma_subsampling_444_lbd = Some(cfl_get_luma_subsampling_444_lbd_neon as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    }
+    cfl_get_predict_hbd_fn = Some(cfl_get_predict_hbd_fn_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn>;
+    if flags & HAS_NEON != 0 {
+        cfl_get_predict_hbd_fn = Some(cfl_get_predict_hbd_fn_neon as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn>;
+    }
+    cfl_get_predict_lbd_fn = Some(cfl_get_predict_lbd_fn_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn>;
+    if flags & HAS_NEON != 0 {
+        cfl_get_predict_lbd_fn = Some(cfl_get_predict_lbd_fn_neon as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn>;
+    }
+    cfl_get_subtract_average_fn = Some(cfl_get_subtract_average_fn_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn>;
+    if flags & HAS_NEON != 0 {
+        cfl_get_subtract_average_fn = Some(cfl_get_subtract_average_fn_neon as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn>;
     }
 }
 unsafe extern "C-unwind" fn aom_once(mut func: Option<unsafe extern "C-unwind" fn() -> ()>) {

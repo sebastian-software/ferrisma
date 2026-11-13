@@ -95,18 +95,7 @@ extern "C-unwind" {
         unit_size: core::ffi::c_int,
         plane_size: core::ffi::c_int,
     ) -> core::ffi::c_int;
-    fn av1_selfguided_restoration_c(
-        dgd8: *const uint8_t,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-        dgd_stride: core::ffi::c_int,
-        flt0: *mut int32_t,
-        flt1: *mut int32_t,
-        flt_stride: core::ffi::c_int,
-        sgr_params_idx: core::ffi::c_int,
-        bit_depth: core::ffi::c_int,
-        highbd: core::ffi::c_int,
-    ) -> core::ffi::c_int;
+    static mut av1_selfguided_restoration: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int>;
     fn aom_count_primitive_refsubexpfin(
         n: uint16_t,
         k: uint16_t,
@@ -7016,7 +7005,7 @@ unsafe extern "C-unwind" fn apply_sgr(
             } else {
                 width - j
             };
-            if av1_selfguided_restoration_c(
+            if av1_selfguided_restoration.expect("non-null function pointer")(
                 dat8_row.offset(j as isize),
                 w,
                 h,

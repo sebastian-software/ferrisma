@@ -154,7 +154,27 @@ def edit_caller(text, csource, name, params, ret, report, rel):
     return text
 
 
+def rehash():
+    """Record the digests of hand-edited owned units (both macOS profiles)."""
+    for profile in ['release', 'debug']:
+        manifest_path = CRATE / f'TRANSLATION-macos-{profile}.json'
+        manifest = json.loads(manifest_path.read_text())
+        for unit in manifest['units']:
+            text = (ROOT / unit['rust']).read_text()
+            digest = hashlib.sha256(text.encode()).hexdigest()
+            if digest != unit['rust_sha256']:
+                print(f'rehash {unit["rust"]}')
+                unit['rust_sha256'] = digest
+                if 'production_rust_sha256' in unit:
+                    production = text.split('\n#[cfg(feature = "port-test-bridges")]', 1)[0]
+                    unit['production_rust_sha256'] = hashlib.sha256(production.encode()).hexdigest()
+        manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
+
+
 def main():
+    if NAMES == ['--rehash']:
+        rehash()
+        return
     update_overlay()
     report = []
     for profile in ['release', 'debug']:

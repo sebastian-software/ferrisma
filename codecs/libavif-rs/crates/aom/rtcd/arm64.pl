@@ -438,6 +438,7 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_v_predictor_8x32
   aom_v_predictor_8x4
   aom_v_predictor_8x8
+  av1_apply_selfguided_restoration
   av1_block_error
   av1_block_error_lp
   av1_dr_prediction_z1
@@ -472,8 +473,11 @@ my %ported_neon = map { $_ => 1 } qw/
   av1_highbd_inv_txfm_add
   av1_highbd_quantize_fp
   av1_highbd_upsample_intra_edge
+  av1_highbd_wiener_convolve_add_src
   av1_inv_txfm_add
+  av1_selfguided_restoration
   av1_upsample_intra_edge
+  av1_wiener_convolve_add_src
   cdef_copy_rect8_16bit_to_16bit
   cdef_copy_rect8_8bit_to_16bit
   cdef_filter_16_0
@@ -486,6 +490,15 @@ my %ported_neon = map { $_ => 1 } qw/
   cdef_filter_8_3
   cdef_find_dir
   cdef_find_dir_dual
+  cfl_get_luma_subsampling_420_hbd
+  cfl_get_luma_subsampling_420_lbd
+  cfl_get_luma_subsampling_422_hbd
+  cfl_get_luma_subsampling_422_lbd
+  cfl_get_luma_subsampling_444_hbd
+  cfl_get_luma_subsampling_444_lbd
+  cfl_get_predict_hbd_fn
+  cfl_get_predict_lbd_fn
+  cfl_get_subtract_average_fn
 /;
 foreach my $fn (keys %ALL_FUNCS) {
   undef ${"${fn}_neon"} unless $ported_neon{$fn};

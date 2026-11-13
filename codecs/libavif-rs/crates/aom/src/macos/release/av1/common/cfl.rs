@@ -13,6 +13,15 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
+    static mut cfl_get_subtract_average_fn: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn>;
+    static mut cfl_get_predict_hbd_fn: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn>;
+    static mut cfl_get_predict_lbd_fn: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn>;
+    static mut cfl_get_luma_subsampling_444_hbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    static mut cfl_get_luma_subsampling_422_hbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    static mut cfl_get_luma_subsampling_420_hbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    static mut cfl_get_luma_subsampling_444_lbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    static mut cfl_get_luma_subsampling_422_lbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    static mut cfl_get_luma_subsampling_420_lbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
 }
 pub type size_t = usize;
 pub type int8_t = i8;
@@ -2443,7 +2452,7 @@ pub unsafe extern "C-unwind" fn cfl_predict_hbd_8x32_c(
 unsafe extern "C-unwind" fn cfl_compute_parameters(xd: *mut MACROBLOCKD, mut tx_size: TX_SIZE) {
     let cfl: *mut CFL_CTX = &raw mut (*xd).cfl;
     cfl_pad(cfl, tx_size_wide[tx_size as usize], tx_size_high[tx_size as usize]);
-    (cfl_get_subtract_average_fn_c(tx_size))
+    (cfl_get_subtract_average_fn.expect("non-null function pointer")(tx_size))
         .expect(
             "non-null function pointer",
         )(((*cfl).recon_buf_q3).as_mut_ptr(), ((*cfl).ac_buf_q3).as_mut_ptr());
@@ -2470,13 +2479,13 @@ pub unsafe extern "C-unwind" fn av1_cfl_predict_block(
     if is_cur_buf_hbd(xd) != 0 {
         let mut dst_16: *mut uint16_t = ((dst as uintptr_t) << 1 as core::ffi::c_int)
             as *mut uint16_t;
-        (cfl_get_predict_hbd_fn_c(tx_size))
+        (cfl_get_predict_hbd_fn.expect("non-null function pointer")(tx_size))
             .expect(
                 "non-null function pointer",
             )(((*cfl).ac_buf_q3).as_mut_ptr(), dst_16, dst_stride, alpha_q3, (*xd).bd);
         return;
     }
-    (cfl_get_predict_lbd_fn_c(tx_size))
+    (cfl_get_predict_lbd_fn.expect("non-null function pointer")(tx_size))
         .expect(
             "non-null function pointer",
         )(((*cfl).ac_buf_q3).as_mut_ptr(), dst, dst_stride, alpha_q3);
@@ -4561,11 +4570,11 @@ unsafe extern "C-unwind" fn cfl_subsampling_hbd(
 ) -> cfl_subsample_hbd_fn {
     if sub_x == 1 as core::ffi::c_int {
         if sub_y == 1 as core::ffi::c_int {
-            return cfl_get_luma_subsampling_420_hbd_c(tx_size);
+            return cfl_get_luma_subsampling_420_hbd.expect("non-null function pointer")(tx_size);
         }
-        return cfl_get_luma_subsampling_422_hbd_c(tx_size);
+        return cfl_get_luma_subsampling_422_hbd.expect("non-null function pointer")(tx_size);
     }
-    return cfl_get_luma_subsampling_444_hbd_c(tx_size);
+    return cfl_get_luma_subsampling_444_hbd.expect("non-null function pointer")(tx_size);
 }
 #[inline]
 unsafe extern "C-unwind" fn cfl_subsampling_lbd(
@@ -4575,11 +4584,11 @@ unsafe extern "C-unwind" fn cfl_subsampling_lbd(
 ) -> cfl_subsample_lbd_fn {
     if sub_x == 1 as core::ffi::c_int {
         if sub_y == 1 as core::ffi::c_int {
-            return cfl_get_luma_subsampling_420_lbd_c(tx_size);
+            return cfl_get_luma_subsampling_420_lbd.expect("non-null function pointer")(tx_size);
         }
-        return cfl_get_luma_subsampling_422_lbd_c(tx_size);
+        return cfl_get_luma_subsampling_422_lbd.expect("non-null function pointer")(tx_size);
     }
-    return cfl_get_luma_subsampling_444_lbd_c(tx_size);
+    return cfl_get_luma_subsampling_444_lbd.expect("non-null function pointer")(tx_size);
 }
 unsafe extern "C-unwind" fn cfl_store(
     mut cfl: *mut CFL_CTX,

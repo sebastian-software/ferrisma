@@ -14,6 +14,7 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
+    static mut av1_apply_selfguided_restoration: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const core::ffi::c_int, *mut uint8_t, core::ffi::c_int, *mut int32_t, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int>;
     fn aom_yv12_partial_coloc_copy_u_c(
         src_bc: *const yv12_buffer_config,
         dst_bc: *mut yv12_buffer_config,
@@ -61,33 +62,8 @@ extern "C-unwind" {
         alloc_pyramid: bool,
         alloc_y_plane_only: core::ffi::c_int,
     ) -> core::ffi::c_int;
-    fn av1_highbd_wiener_convolve_add_src_c(
-        src: *const uint8_t,
-        src_stride: ptrdiff_t,
-        dst: *mut uint8_t,
-        dst_stride: ptrdiff_t,
-        filter_x: *const int16_t,
-        x_step_q4: core::ffi::c_int,
-        filter_y: *const int16_t,
-        y_step_q4: core::ffi::c_int,
-        w: core::ffi::c_int,
-        h: core::ffi::c_int,
-        conv_params: *const WienerConvolveParams,
-        bd: core::ffi::c_int,
-    );
-    fn av1_wiener_convolve_add_src_c(
-        src: *const uint8_t,
-        src_stride: ptrdiff_t,
-        dst: *mut uint8_t,
-        dst_stride: ptrdiff_t,
-        filter_x: *const int16_t,
-        x_step_q4: core::ffi::c_int,
-        filter_y: *const int16_t,
-        y_step_q4: core::ffi::c_int,
-        w: core::ffi::c_int,
-        h: core::ffi::c_int,
-        conv_params: *const WienerConvolveParams,
-    );
+    static mut av1_highbd_wiener_convolve_add_src: Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams, core::ffi::c_int) -> ()>;
+    static mut av1_wiener_convolve_add_src: Option<unsafe extern "C-unwind" fn(*const uint8_t, ptrdiff_t, *mut uint8_t, ptrdiff_t, *const int16_t, core::ffi::c_int, *const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *const WienerConvolveParams) -> ()>;
     fn av1_upscale_normative_rows(
         cm: *const AV1_COMMON,
         src: *const uint8_t,
@@ -2169,7 +2145,7 @@ unsafe extern "C-unwind" fn wiener_filter_stripe(
         };
         let mut src_p: *const uint8_t = src.offset(j as isize);
         let mut dst_p: *mut uint8_t = dst.offset(j as isize);
-        av1_wiener_convolve_add_src_c(
+        av1_wiener_convolve_add_src.expect("non-null function pointer")(
             src_p,
             src_stride as ptrdiff_t,
             dst_p,
@@ -3169,7 +3145,7 @@ unsafe extern "C-unwind" fn sgrproj_filter_stripe(
         } else {
             stripe_width - j
         };
-        if av1_apply_selfguided_restoration_c(
+        if av1_apply_selfguided_restoration.expect("non-null function pointer")(
             src.offset(j as isize),
             w,
             stripe_height,
@@ -3219,7 +3195,7 @@ unsafe extern "C-unwind" fn wiener_filter_stripe_highbd(
         };
         let mut src8_p: *const uint8_t = src8.offset(j as isize);
         let mut dst8_p: *mut uint8_t = dst8.offset(j as isize);
-        av1_highbd_wiener_convolve_add_src_c(
+        av1_highbd_wiener_convolve_add_src.expect("non-null function pointer")(
             src8_p,
             src_stride as ptrdiff_t,
             dst8_p,
@@ -3256,7 +3232,7 @@ unsafe extern "C-unwind" fn sgrproj_filter_stripe_highbd(
         } else {
             stripe_width - j
         };
-        if av1_apply_selfguided_restoration_c(
+        if av1_apply_selfguided_restoration.expect("non-null function pointer")(
             src8.offset(j as isize),
             w,
             stripe_height,
