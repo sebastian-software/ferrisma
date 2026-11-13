@@ -94,8 +94,8 @@ features = ["jpeg-read", "webp-read", "webp-write", "jpeg-xl-read", "jpeg-xl-own
 [features]
 default = []
 jpeg-read = ["dep:libjpeg-turbo-rs"]
-webp-read = ["dep:webp"]
-webp-write = ["dep:webp"]
+webp-read = ["dep:libwebp-rs"]
+webp-write = ["dep:libwebp-rs"]
 # jxl-oxide; the default JPEG XL reader only without `jpeg-xl-own-read`.
 jpeg-xl-read = ["dep:jxl-oxide"]
 # Workspace libjxl-rs reader; the default JPEG XL reader when compiled in (ADR-0032).
@@ -104,7 +104,7 @@ jpeg-xl-own-read = ["dep:ferrisma-jxl-decoder"]
 # admitted profiles (ADR-0039): lossless through the port's safe fixed-profile
 # entry point, lossy through the `ferrisma-jxl-encoder` safe bridge. Part of
 # `cli`; distributing a binary still requires the license review (#66).
-jpeg-xl-write = ["dep:jxl", "dep:ferrisma-jxl-encoder"]
+jpeg-xl-write = ["dep:libjxl-rs", "dep:ferrisma-jxl-encoder"]
 # rav1e's `asm` is bit-exact and about 2.2x faster; `threading` lets the
 # encoder use `TransformOptions::encoder_threads` (M2 work package 2, ADR-0018).
 avif-write = ["dep:rav1e", "dep:avif-serialize", "rav1e/asm", "rav1e/threading"]
@@ -124,11 +124,11 @@ ferrisma-avif-write = { path = "crates/ferrisma-avif-write", version = "0.0.0", 
 moxcms = { version = "0.9.1", optional = true, features = ["extended_range"] }
 # The workspace decoder exposes safe RGB scanlines; SIMD stays inside its codec boundary.
 libjpeg-turbo-rs = { path = "codecs/libjpeg-turbo-rs", version = "0.1.0", optional = true }
-webp = { package = "libwebp-rs", path = "codecs/libwebp-rs", version = "0.1.0", optional = true }
+libwebp-rs = { path = "codecs/libwebp-rs", version = "0.1.0", optional = true }
 ferrisma-jxl-decoder = { path = "crates/ferrisma-jxl-decoder", version = "0.1.0", optional = true }
 jxl-oxide = { version = "0.12.6", optional = true, default-features = false }
 # Safe fixed-profile encoder entry point of the workspace port (ADR-0039).
-jxl = { package = "libjxl-rs", path = "codecs/libjxl-rs", version = "0.1.0", optional = true }
+libjxl-rs = { path = "codecs/libjxl-rs", version = "0.1.0", optional = true }
 # Safe bridge to the port's public (raw-pointer) encoder API for lossy output.
 ferrisma-jxl-encoder = { path = "crates/ferrisma-jxl-encoder", version = "0.1.0", optional = true }
 
