@@ -110,8 +110,11 @@ VarDCT decode kernels (2026-11-13): the SIMD inverse/forward DCTs,
 TransformToPixels, LowestFrequenciesFromDC, DequantBlock with
 AdjustQuantBias and the quant tables (ComputeQuantTable) match the NEON
 oracle word for word (`tests/simd_vardct.rs`, ADR 0004 "VarDCT decode
-kernels") and dispatch on `hwy::decoder_target()`; on AVX2 the
-dequantization stays scalar (O4 working decision). AVX2 compiles but was not
+kernels") and dispatch on `hwy::decoder_target()` on both targets; on AVX2
+the dequantization executes the original's vendor-specific `rcpps`, so AVX2
+output can differ between CPU vendors as the original's does (identity per
+host, working decision 2026-11-13 evening, delegated, revisable by the
+owner; O4 #250 stays open for shipped defaults). AVX2 compiles but was not
 run. With the render stages and the SIMD AdaptiveDCSmoothing/DequantDC,
 all 24 admitted whole decodes of `decode_vardct` match the NEON oracle word
 for word and byte for byte; the whole-decode test now asserts that with the

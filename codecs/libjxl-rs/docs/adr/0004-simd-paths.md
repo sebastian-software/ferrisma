@@ -331,11 +331,18 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   per group, like `HWY_DYNAMIC_DISPATCH(DecodeGroupImpl)`; DequantBlock and
   TransformToPixels run the SIMD instantiation, the scalar path is
   unchanged. `DequantMatrices::ensure_computed_in` follows the same target
-  (`ensure_computed_for_target`). Working decision 2026-11-13 (delegated,
-  revisable by the owner), O4: on AVX2 the decoder keeps DequantBlock on the
-  scalar translation, because AdjustQuantBias uses the vendor-specific
-  `rcpps`; the AVX2 instantiation exists and its parity test compares it on
-  one host only. NEON's `vrecpe` is architecturally defined.
+  (`ensure_computed_for_target`). Working decision 2026-11-13 evening
+  (delegated, revisable by the owner; it replaces the earlier rule that kept
+  AVX2's DequantBlock scalar): both targets select the SIMD DequantBlock. On
+  AVX2, AdjustQuantBias executes the original's vendor-specific estimate
+  (`_mm256_rcp_ps` through the layer's `approximate_reciprocal`), so AVX2
+  output can differ between CPU vendors exactly as the original's AVX2 build
+  does; identity is claimed per host against the original (ADR-0041
+  section 2), never across hosts or vendors. NEON's `vrecpe` is
+  architecturally defined. The owner's open question O4 (#250) still covers
+  whether that is acceptable for shipped defaults; the default selection
+  stays off. No other kernel of this package takes a scalar detour on
+  AVX2.
 - **Evidence (NEON, native, against `target/oracle-neon`).**
   `tests/simd_vardct.rs`, reusing the scalar suite's `dct-*`, `dq-*` and
   `qac-compute` requests, whose adapters already call `ORACLE_HWY_NS`:
@@ -374,8 +381,7 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   With it, **all 24 admitted VarDCT files of the whole-decode comparison
   match the NEON oracle word for word** and no output byte differs. The
   selection is not turned on: this ADR requires the comparison on every
-  target in scope, AVX2 is not verified and keeps DequantBlock scalar under
-  the O4 working decision, and the one `DECODER_SELECTS_SIMD` switch would
+  target in scope, AVX2 is not verified (hosted run pending), and the one `DECODER_SELECTS_SIMD` switch would
   also move the AArch64 decoder off the scalar oracle that the scalar gate
   compares with. The whole-decode test now asserts these zero differences
   with the SIMD target forced; the conditions for the default selection are
