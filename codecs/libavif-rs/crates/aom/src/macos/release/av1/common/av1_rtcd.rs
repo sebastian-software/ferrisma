@@ -798,6 +798,8 @@ extern "C-unwind" {
     fn av1_fwht4x4_neon(input: *const int16_t, output: *mut tran_low_t, stride: core::ffi::c_int);
     fn av1_txb_init_levels_c(coeff: *const tran_low_t, width: core::ffi::c_int, height: core::ffi::c_int, levels: *mut uint8_t);
     fn av1_txb_init_levels_neon(coeff: *const tran_low_t, width: core::ffi::c_int, height: core::ffi::c_int, levels: *mut uint8_t);
+    fn av1_get_horver_correlation_full_c(diff: *const int16_t, stride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, hcorr: *mut core::ffi::c_float, vcorr: *mut core::ffi::c_float);
+    fn av1_get_horver_correlation_full_neon(diff: *const int16_t, stride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, hcorr: *mut core::ffi::c_float, vcorr: *mut core::ffi::c_float);
     fn aom_arm_cpu_caps() -> core::ffi::c_int;
 }
 pub type ptrdiff_t = isize;
@@ -1060,6 +1062,8 @@ pub static mut av1_fwd_txfm2d_8x8: Option<
 > = None;
 #[no_mangle]
 pub static mut av1_fwht4x4: Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut av1_get_horver_correlation_full: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()> = None;
 #[no_mangle]
 pub static mut av1_highbd_block_error: Option<
     unsafe extern "C-unwind" fn(
@@ -2307,6 +2311,10 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     av1_fwht4x4 = Some(av1_fwht4x4_c as unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()>;
     if flags & HAS_NEON != 0 {
         av1_fwht4x4 = Some(av1_fwht4x4_neon as unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()>;
+    }
+    av1_get_horver_correlation_full = Some(av1_get_horver_correlation_full_c as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_get_horver_correlation_full = Some(av1_get_horver_correlation_full_neon as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
     }
     av1_highbd_block_error = Some(
         av1_highbd_block_error_c

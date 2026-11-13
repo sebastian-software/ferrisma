@@ -28,6 +28,8 @@ mod fwht4x4;
 mod sum_squares;
 #[path = "simd/sse_sum.rs"]
 mod sse_sum;
+#[path = "simd/horver_correlation.rs"]
+mod horver_correlation;
 #[path = "simd/encodetxb.rs"]
 mod encodetxb;
 #[path = "simd/mse_16bit.rs"]

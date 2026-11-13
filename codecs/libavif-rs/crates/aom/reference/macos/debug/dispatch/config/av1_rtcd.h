@@ -317,7 +317,8 @@ uint32_t av1_get_crc32c_value_c(void *crc_calculator, const uint8_t *p, size_t l
 #define av1_get_crc32c_value av1_get_crc32c_value_c
 
 void av1_get_horver_correlation_full_c(const int16_t *diff, int stride, int w, int h, float *hcorr, float *vcorr);
-#define av1_get_horver_correlation_full av1_get_horver_correlation_full_c
+void av1_get_horver_correlation_full_neon(const int16_t *diff, int stride, int w, int h, float *hcorr, float *vcorr);
+RTCD_EXTERN void (*av1_get_horver_correlation_full)(const int16_t *diff, int stride, int w, int h, float *hcorr, float *vcorr);
 
 void av1_get_nz_map_contexts_c(const uint8_t *const levels, const int16_t *const scan, const int eob, const TX_SIZE tx_size, const TX_CLASS tx_class, int8_t *const coeff_contexts);
 #define av1_get_nz_map_contexts av1_get_nz_map_contexts_c
@@ -721,6 +722,8 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) av1_fwd_txfm2d_8x8 = av1_fwd_txfm2d_8x8_neon;
     av1_fwht4x4 = av1_fwht4x4_c;
     if (flags & HAS_NEON) av1_fwht4x4 = av1_fwht4x4_neon;
+    av1_get_horver_correlation_full = av1_get_horver_correlation_full_c;
+    if (flags & HAS_NEON) av1_get_horver_correlation_full = av1_get_horver_correlation_full_neon;
     av1_highbd_block_error = av1_highbd_block_error_c;
     if (flags & HAS_NEON) av1_highbd_block_error = av1_highbd_block_error_neon;
     av1_highbd_dr_prediction_z1 = av1_highbd_dr_prediction_z1_c;

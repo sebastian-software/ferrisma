@@ -47,14 +47,7 @@ extern "C-unwind" {
         p: *const uint8_t,
         length: size_t,
     ) -> uint32_t;
-    fn av1_get_horver_correlation_full_c(
-        diff: *const int16_t,
-        stride: core::ffi::c_int,
-        w: core::ffi::c_int,
-        h: core::ffi::c_int,
-        hcorr: *mut core::ffi::c_float,
-        vcorr: *mut core::ffi::c_float,
-    );
+    static mut av1_get_horver_correlation_full: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
     static mut av1_highbd_block_error: Option<
         unsafe extern "C-unwind" fn(
             *const tran_low_t,
@@ -20943,7 +20936,7 @@ unsafe extern "C-unwind" fn prune_tx_2D(
         hfeatures.as_mut_ptr(),
         vfeatures.as_mut_ptr(),
     );
-    av1_get_horver_correlation_full_c(
+    av1_get_horver_correlation_full.expect("non-null function pointer")(
         diff,
         diff_stride,
         bw,
