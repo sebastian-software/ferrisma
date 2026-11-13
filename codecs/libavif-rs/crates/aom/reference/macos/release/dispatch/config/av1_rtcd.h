@@ -207,13 +207,16 @@ void av1_dist_wtd_convolve_y_c(const uint8_t *src, int src_stride, uint8_t *dst,
 #define av1_dist_wtd_convolve_y av1_dist_wtd_convolve_y_c
 
 void av1_dr_prediction_z1_c(uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_above, int dx, int dy);
-#define av1_dr_prediction_z1 av1_dr_prediction_z1_c
+void av1_dr_prediction_z1_neon(uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_above, int dx, int dy);
+RTCD_EXTERN void (*av1_dr_prediction_z1)(uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_above, int dx, int dy);
 
 void av1_dr_prediction_z2_c(uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_above, int upsample_left, int dx, int dy);
-#define av1_dr_prediction_z2 av1_dr_prediction_z2_c
+void av1_dr_prediction_z2_neon(uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_above, int upsample_left, int dx, int dy);
+RTCD_EXTERN void (*av1_dr_prediction_z2)(uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_above, int upsample_left, int dx, int dy);
 
 void av1_dr_prediction_z3_c(uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_left, int dx, int dy);
-#define av1_dr_prediction_z3 av1_dr_prediction_z3_c
+void av1_dr_prediction_z3_neon(uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_left, int dx, int dy);
+RTCD_EXTERN void (*av1_dr_prediction_z3)(uint8_t *dst, ptrdiff_t stride, int bw, int bh, const uint8_t *above, const uint8_t *left, int upsample_left, int dx, int dy);
 
 double av1_estimate_noise_from_single_plane_c(const uint8_t *src, int height, int width, int stride, int edge_thresh);
 #define av1_estimate_noise_from_single_plane av1_estimate_noise_from_single_plane_c
@@ -642,6 +645,12 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) av1_block_error = av1_block_error_neon;
     av1_block_error_lp = av1_block_error_lp_c;
     if (flags & HAS_NEON) av1_block_error_lp = av1_block_error_lp_neon;
+    av1_dr_prediction_z1 = av1_dr_prediction_z1_c;
+    if (flags & HAS_NEON) av1_dr_prediction_z1 = av1_dr_prediction_z1_neon;
+    av1_dr_prediction_z2 = av1_dr_prediction_z2_c;
+    if (flags & HAS_NEON) av1_dr_prediction_z2 = av1_dr_prediction_z2_neon;
+    av1_dr_prediction_z3 = av1_dr_prediction_z3_c;
+    if (flags & HAS_NEON) av1_dr_prediction_z3 = av1_dr_prediction_z3_neon;
     av1_filter_intra_edge = av1_filter_intra_edge_c;
     if (flags & HAS_NEON) av1_filter_intra_edge = av1_filter_intra_edge_neon;
     av1_filter_intra_predictor = av1_filter_intra_predictor_c;

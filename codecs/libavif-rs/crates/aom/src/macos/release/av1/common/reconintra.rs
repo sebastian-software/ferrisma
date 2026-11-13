@@ -13,576 +13,104 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    fn aom_dc_128_predictor_16x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_16x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_16x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_16x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_16x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_32x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_32x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_32x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_32x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_4x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_4x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_4x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_64x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_64x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_64x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_8x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_8x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_8x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_128_predictor_8x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_16x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_16x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_16x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_16x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_16x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_32x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_32x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_32x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_32x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_4x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_4x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_4x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_64x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_64x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_64x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_8x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_8x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_8x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_left_predictor_8x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_16x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_16x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_16x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_16x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_16x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_32x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_32x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_32x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_32x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_4x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_4x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_4x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_64x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_64x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_64x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_8x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_8x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_8x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_predictor_8x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_16x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_16x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_16x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_16x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_16x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_32x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_32x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_32x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_32x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_4x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_4x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_4x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_64x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_64x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_64x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_8x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_8x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_8x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_dc_top_predictor_8x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_16x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_16x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_16x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_16x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_16x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_32x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_32x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_32x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_32x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_4x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_4x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_4x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_64x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_64x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_64x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_8x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_8x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_8x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_h_predictor_8x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
+    static mut av1_dr_prediction_z3: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    static mut av1_dr_prediction_z2: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    static mut av1_dr_prediction_z1: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    static mut aom_dc_128_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_128_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_left_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_dc_top_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_h_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     static mut aom_highbd_dc_128_predictor_16x16: Option<
         unsafe extern "C-unwind" fn(
             *mut uint16_t,
@@ -2293,576 +1821,101 @@ extern "C-unwind" {
             core::ffi::c_int,
         ) -> (),
     >;
-    fn aom_paeth_predictor_16x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_16x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_16x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_16x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_16x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_32x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_32x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_32x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_32x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_4x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_4x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_4x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_64x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_64x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_64x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_8x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_8x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_8x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_paeth_predictor_8x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_16x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_16x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_16x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_16x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_16x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_32x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_32x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_32x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_32x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_4x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_4x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_4x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_64x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_64x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_64x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_8x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_8x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_8x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_h_predictor_8x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_16x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_16x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_16x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_16x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_16x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_32x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_32x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_32x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_32x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_4x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_4x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_4x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_64x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_64x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_64x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_8x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_8x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_8x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_predictor_8x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_16x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_16x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_16x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_16x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_16x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_32x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_32x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_32x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_32x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_4x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_4x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_4x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_64x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_64x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_64x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_8x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_8x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_8x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_smooth_v_predictor_8x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_16x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_16x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_16x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_16x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_16x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_32x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_32x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_32x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_32x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_4x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_4x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_4x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_64x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_64x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_64x64_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_8x16_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_8x32_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_8x4_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
-    fn aom_v_predictor_8x8_c(
-        dst: *mut uint8_t,
-        y_stride: ptrdiff_t,
-        above: *const uint8_t,
-        left: *const uint8_t,
-    );
+    static mut aom_paeth_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_paeth_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_h_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_smooth_v_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_v_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     static mut av1_filter_intra_edge: Option<
         unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int) -> (),
     >;
@@ -6075,1924 +5128,404 @@ static mut dc_pred: [[[intra_pred_fn; 19]; 2]; 2] = [[[None; 19]; 2]; 2];
 static mut pred_high: [[intra_high_pred_fn; 19]; 13] = [[None; 19]; 13];
 static mut dc_pred_high: [[[intra_high_pred_fn; 19]; 2]; 2] = [[[None; 19]; 2]; 2];
 unsafe extern "C-unwind" fn init_intra_predictors_internal() {
-    pred[V_PRED as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_4x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_8x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_16X16 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_16x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_32X32 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_32x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_64X64 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_64x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_4x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_8x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_8X16 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_8x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_16X8 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_16x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_16X32 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_16x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_32X16 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_32x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_32X64 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_32x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_64X32 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_64x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_4X16 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_4x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_16X4 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_16x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_8X32 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_8x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_32X8 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_32x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_16X64 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_16x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[V_PRED as core::ffi::c_int as usize][TX_64X16 as core::ffi::c_int as usize] = Some(
-        aom_v_predictor_64x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_4x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_8x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_16X16 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_16x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_32X32 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_32x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_64X64 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_64x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_4x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_8x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_8X16 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_8x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_16X8 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_16x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_16X32 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_16x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_32X16 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_32x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_32X64 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_32x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_64X32 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_64x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_4X16 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_4x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_16X4 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_16x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_8X32 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_8x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_32X8 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_32x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_16X64 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_16x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[H_PRED as core::ffi::c_int as usize][TX_64X16 as core::ffi::c_int as usize] = Some(
-        aom_h_predictor_64x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[PAETH_PRED as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_4x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[PAETH_PRED as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_8x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = aom_v_predictor_4x4 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = aom_v_predictor_8x8 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_16X16 as core::ffi::c_int as usize] = aom_v_predictor_16x16 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_32X32 as core::ffi::c_int as usize] = aom_v_predictor_32x32 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_64X64 as core::ffi::c_int as usize] = aom_v_predictor_64x64 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = aom_v_predictor_4x8 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = aom_v_predictor_8x4 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_8X16 as core::ffi::c_int as usize] = aom_v_predictor_8x16 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_16X8 as core::ffi::c_int as usize] = aom_v_predictor_16x8 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_16X32 as core::ffi::c_int as usize] = aom_v_predictor_16x32 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_32X16 as core::ffi::c_int as usize] = aom_v_predictor_32x16 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_32X64 as core::ffi::c_int as usize] = aom_v_predictor_32x64 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_64X32 as core::ffi::c_int as usize] = aom_v_predictor_64x32 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_4X16 as core::ffi::c_int as usize] = aom_v_predictor_4x16 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_16X4 as core::ffi::c_int as usize] = aom_v_predictor_16x4 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_8X32 as core::ffi::c_int as usize] = aom_v_predictor_8x32 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_32X8 as core::ffi::c_int as usize] = aom_v_predictor_32x8 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_16X64 as core::ffi::c_int as usize] = aom_v_predictor_16x64 as intra_pred_fn;
+    pred[V_PRED as core::ffi::c_int as usize][TX_64X16 as core::ffi::c_int as usize] = aom_v_predictor_64x16 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = aom_h_predictor_4x4 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = aom_h_predictor_8x8 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_16X16 as core::ffi::c_int as usize] = aom_h_predictor_16x16 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_32X32 as core::ffi::c_int as usize] = aom_h_predictor_32x32 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_64X64 as core::ffi::c_int as usize] = aom_h_predictor_64x64 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = aom_h_predictor_4x8 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = aom_h_predictor_8x4 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_8X16 as core::ffi::c_int as usize] = aom_h_predictor_8x16 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_16X8 as core::ffi::c_int as usize] = aom_h_predictor_16x8 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_16X32 as core::ffi::c_int as usize] = aom_h_predictor_16x32 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_32X16 as core::ffi::c_int as usize] = aom_h_predictor_32x16 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_32X64 as core::ffi::c_int as usize] = aom_h_predictor_32x64 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_64X32 as core::ffi::c_int as usize] = aom_h_predictor_64x32 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_4X16 as core::ffi::c_int as usize] = aom_h_predictor_4x16 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_16X4 as core::ffi::c_int as usize] = aom_h_predictor_16x4 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_8X32 as core::ffi::c_int as usize] = aom_h_predictor_8x32 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_32X8 as core::ffi::c_int as usize] = aom_h_predictor_32x8 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_16X64 as core::ffi::c_int as usize] = aom_h_predictor_16x64 as intra_pred_fn;
+    pred[H_PRED as core::ffi::c_int as usize][TX_64X16 as core::ffi::c_int as usize] = aom_h_predictor_64x16 as intra_pred_fn;
+    pred[PAETH_PRED as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = aom_paeth_predictor_4x4 as intra_pred_fn;
+    pred[PAETH_PRED as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = aom_paeth_predictor_8x8 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_16X16 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_16x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X16 as core::ffi::c_int as usize] = aom_paeth_predictor_16x16 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_32X32 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_32x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X32 as core::ffi::c_int as usize] = aom_paeth_predictor_32x32 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_64X64 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_64x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[PAETH_PRED as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_4x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
-    pred[PAETH_PRED as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_8x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X64 as core::ffi::c_int as usize] = aom_paeth_predictor_64x64 as intra_pred_fn;
+    pred[PAETH_PRED as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = aom_paeth_predictor_4x8 as intra_pred_fn;
+    pred[PAETH_PRED as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = aom_paeth_predictor_8x4 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_8X16 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_8x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X16 as core::ffi::c_int as usize] = aom_paeth_predictor_8x16 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_16X8 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_16x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X8 as core::ffi::c_int as usize] = aom_paeth_predictor_16x8 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_16X32 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_16x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X32 as core::ffi::c_int as usize] = aom_paeth_predictor_16x32 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_32X16 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_32x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X16 as core::ffi::c_int as usize] = aom_paeth_predictor_32x16 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_32X64 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_32x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X64 as core::ffi::c_int as usize] = aom_paeth_predictor_32x64 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_64X32 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_64x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X32 as core::ffi::c_int as usize] = aom_paeth_predictor_64x32 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_4X16 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_4x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X16 as core::ffi::c_int as usize] = aom_paeth_predictor_4x16 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_16X4 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_16x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X4 as core::ffi::c_int as usize] = aom_paeth_predictor_16x4 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_8X32 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_8x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X32 as core::ffi::c_int as usize] = aom_paeth_predictor_8x32 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_32X8 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_32x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X8 as core::ffi::c_int as usize] = aom_paeth_predictor_32x8 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_16X64 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_16x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X64 as core::ffi::c_int as usize] = aom_paeth_predictor_16x64 as intra_pred_fn;
     pred[PAETH_PRED as core::ffi::c_int
-        as usize][TX_64X16 as core::ffi::c_int as usize] = Some(
-        aom_paeth_predictor_64x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X16 as core::ffi::c_int as usize] = aom_paeth_predictor_64x16 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_4X4 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_4x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X4 as core::ffi::c_int as usize] = aom_smooth_predictor_4x4 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_8X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_8x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X8 as core::ffi::c_int as usize] = aom_smooth_predictor_8x8 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_16X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_16x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X16 as core::ffi::c_int as usize] = aom_smooth_predictor_16x16 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_32X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_32x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X32 as core::ffi::c_int as usize] = aom_smooth_predictor_32x32 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_64X64 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_64x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X64 as core::ffi::c_int as usize] = aom_smooth_predictor_64x64 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_4X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_4x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X8 as core::ffi::c_int as usize] = aom_smooth_predictor_4x8 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_8X4 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_8x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X4 as core::ffi::c_int as usize] = aom_smooth_predictor_8x4 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_8X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_8x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X16 as core::ffi::c_int as usize] = aom_smooth_predictor_8x16 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_16X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_16x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X8 as core::ffi::c_int as usize] = aom_smooth_predictor_16x8 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_16X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_16x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X32 as core::ffi::c_int as usize] = aom_smooth_predictor_16x32 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_32X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_32x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X16 as core::ffi::c_int as usize] = aom_smooth_predictor_32x16 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_32X64 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_32x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X64 as core::ffi::c_int as usize] = aom_smooth_predictor_32x64 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_64X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_64x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X32 as core::ffi::c_int as usize] = aom_smooth_predictor_64x32 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_4X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_4x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X16 as core::ffi::c_int as usize] = aom_smooth_predictor_4x16 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_16X4 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_16x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X4 as core::ffi::c_int as usize] = aom_smooth_predictor_16x4 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_8X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_8x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X32 as core::ffi::c_int as usize] = aom_smooth_predictor_8x32 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_32X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_32x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X8 as core::ffi::c_int as usize] = aom_smooth_predictor_32x8 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_16X64 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_16x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X64 as core::ffi::c_int as usize] = aom_smooth_predictor_16x64 as intra_pred_fn;
     pred[SMOOTH_PRED as core::ffi::c_int
-        as usize][TX_64X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_predictor_64x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X16 as core::ffi::c_int as usize] = aom_smooth_predictor_64x16 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_4X4 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_4x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X4 as core::ffi::c_int as usize] = aom_smooth_v_predictor_4x4 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_8X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_8x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X8 as core::ffi::c_int as usize] = aom_smooth_v_predictor_8x8 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_16X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_16x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X16 as core::ffi::c_int as usize] = aom_smooth_v_predictor_16x16 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_32X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_32x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X32 as core::ffi::c_int as usize] = aom_smooth_v_predictor_32x32 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_64X64 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_64x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X64 as core::ffi::c_int as usize] = aom_smooth_v_predictor_64x64 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_4X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_4x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X8 as core::ffi::c_int as usize] = aom_smooth_v_predictor_4x8 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_8X4 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_8x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X4 as core::ffi::c_int as usize] = aom_smooth_v_predictor_8x4 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_8X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_8x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X16 as core::ffi::c_int as usize] = aom_smooth_v_predictor_8x16 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_16X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_16x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X8 as core::ffi::c_int as usize] = aom_smooth_v_predictor_16x8 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_16X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_16x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X32 as core::ffi::c_int as usize] = aom_smooth_v_predictor_16x32 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_32X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_32x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X16 as core::ffi::c_int as usize] = aom_smooth_v_predictor_32x16 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_32X64 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_32x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X64 as core::ffi::c_int as usize] = aom_smooth_v_predictor_32x64 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_64X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_64x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X32 as core::ffi::c_int as usize] = aom_smooth_v_predictor_64x32 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_4X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_4x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X16 as core::ffi::c_int as usize] = aom_smooth_v_predictor_4x16 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_16X4 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_16x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X4 as core::ffi::c_int as usize] = aom_smooth_v_predictor_16x4 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_8X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_8x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X32 as core::ffi::c_int as usize] = aom_smooth_v_predictor_8x32 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_32X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_32x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X8 as core::ffi::c_int as usize] = aom_smooth_v_predictor_32x8 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_16X64 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_16x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X64 as core::ffi::c_int as usize] = aom_smooth_v_predictor_16x64 as intra_pred_fn;
     pred[SMOOTH_V_PRED as core::ffi::c_int
-        as usize][TX_64X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_v_predictor_64x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X16 as core::ffi::c_int as usize] = aom_smooth_v_predictor_64x16 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_4X4 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_4x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X4 as core::ffi::c_int as usize] = aom_smooth_h_predictor_4x4 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_8X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_8x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X8 as core::ffi::c_int as usize] = aom_smooth_h_predictor_8x8 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_16X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_16x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X16 as core::ffi::c_int as usize] = aom_smooth_h_predictor_16x16 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_32X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_32x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X32 as core::ffi::c_int as usize] = aom_smooth_h_predictor_32x32 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_64X64 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_64x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X64 as core::ffi::c_int as usize] = aom_smooth_h_predictor_64x64 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_4X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_4x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X8 as core::ffi::c_int as usize] = aom_smooth_h_predictor_4x8 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_8X4 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_8x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X4 as core::ffi::c_int as usize] = aom_smooth_h_predictor_8x4 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_8X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_8x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X16 as core::ffi::c_int as usize] = aom_smooth_h_predictor_8x16 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_16X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_16x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X8 as core::ffi::c_int as usize] = aom_smooth_h_predictor_16x8 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_16X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_16x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X32 as core::ffi::c_int as usize] = aom_smooth_h_predictor_16x32 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_32X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_32x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X16 as core::ffi::c_int as usize] = aom_smooth_h_predictor_32x16 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_32X64 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_32x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X64 as core::ffi::c_int as usize] = aom_smooth_h_predictor_32x64 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_64X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_64x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X32 as core::ffi::c_int as usize] = aom_smooth_h_predictor_64x32 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_4X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_4x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X16 as core::ffi::c_int as usize] = aom_smooth_h_predictor_4x16 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_16X4 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_16x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X4 as core::ffi::c_int as usize] = aom_smooth_h_predictor_16x4 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_8X32 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_8x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X32 as core::ffi::c_int as usize] = aom_smooth_h_predictor_8x32 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_32X8 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_32x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X8 as core::ffi::c_int as usize] = aom_smooth_h_predictor_32x8 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_16X64 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_16x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X64 as core::ffi::c_int as usize] = aom_smooth_h_predictor_16x64 as intra_pred_fn;
     pred[SMOOTH_H_PRED as core::ffi::c_int
-        as usize][TX_64X16 as core::ffi::c_int as usize] = Some(
-        aom_smooth_h_predictor_64x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X16 as core::ffi::c_int as usize] = aom_smooth_h_predictor_64x16 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
-        as usize][0 as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_4x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][0 as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = aom_dc_128_predictor_4x4 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
-        as usize][0 as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_8x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][0 as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = aom_dc_128_predictor_8x8 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_16X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_16x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X16 as core::ffi::c_int as usize] = aom_dc_128_predictor_16x16 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_32X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_32x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X32 as core::ffi::c_int as usize] = aom_dc_128_predictor_32x32 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_64X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_64x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X64 as core::ffi::c_int as usize] = aom_dc_128_predictor_64x64 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
-        as usize][0 as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_4x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][0 as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = aom_dc_128_predictor_4x8 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
-        as usize][0 as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_8x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][0 as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = aom_dc_128_predictor_8x4 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_8X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_8x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X16 as core::ffi::c_int as usize] = aom_dc_128_predictor_8x16 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_16X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_16x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X8 as core::ffi::c_int as usize] = aom_dc_128_predictor_16x8 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_16X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_16x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X32 as core::ffi::c_int as usize] = aom_dc_128_predictor_16x32 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_32X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_32x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X16 as core::ffi::c_int as usize] = aom_dc_128_predictor_32x16 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_32X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_32x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X64 as core::ffi::c_int as usize] = aom_dc_128_predictor_32x64 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_64X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_64x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X32 as core::ffi::c_int as usize] = aom_dc_128_predictor_64x32 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_4X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_4x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X16 as core::ffi::c_int as usize] = aom_dc_128_predictor_4x16 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_16X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_16x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X4 as core::ffi::c_int as usize] = aom_dc_128_predictor_16x4 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_8X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_8x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X32 as core::ffi::c_int as usize] = aom_dc_128_predictor_8x32 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_32X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_32x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X8 as core::ffi::c_int as usize] = aom_dc_128_predictor_32x8 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_16X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_16x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X64 as core::ffi::c_int as usize] = aom_dc_128_predictor_16x64 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_64X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_128_predictor_64x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X16 as core::ffi::c_int as usize] = aom_dc_128_predictor_64x16 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
-        as usize][1 as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_4x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][1 as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = aom_dc_top_predictor_4x4 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
-        as usize][1 as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_8x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][1 as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = aom_dc_top_predictor_8x8 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_16X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_16x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X16 as core::ffi::c_int as usize] = aom_dc_top_predictor_16x16 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_32X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_32x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X32 as core::ffi::c_int as usize] = aom_dc_top_predictor_32x32 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_64X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_64x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X64 as core::ffi::c_int as usize] = aom_dc_top_predictor_64x64 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
-        as usize][1 as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_4x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][1 as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = aom_dc_top_predictor_4x8 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
-        as usize][1 as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_8x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][1 as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = aom_dc_top_predictor_8x4 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_8X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_8x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X16 as core::ffi::c_int as usize] = aom_dc_top_predictor_8x16 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_16X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_16x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X8 as core::ffi::c_int as usize] = aom_dc_top_predictor_16x8 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_16X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_16x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X32 as core::ffi::c_int as usize] = aom_dc_top_predictor_16x32 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_32X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_32x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X16 as core::ffi::c_int as usize] = aom_dc_top_predictor_32x16 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_32X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_32x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X64 as core::ffi::c_int as usize] = aom_dc_top_predictor_32x64 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_64X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_64x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X32 as core::ffi::c_int as usize] = aom_dc_top_predictor_64x32 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_4X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_4x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X16 as core::ffi::c_int as usize] = aom_dc_top_predictor_4x16 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_16X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_16x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X4 as core::ffi::c_int as usize] = aom_dc_top_predictor_16x4 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_8X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_8x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X32 as core::ffi::c_int as usize] = aom_dc_top_predictor_8x32 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_32X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_32x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X8 as core::ffi::c_int as usize] = aom_dc_top_predictor_32x8 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_16X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_16x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X64 as core::ffi::c_int as usize] = aom_dc_top_predictor_16x64 as intra_pred_fn;
     dc_pred[0 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_64X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_top_predictor_64x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X16 as core::ffi::c_int as usize] = aom_dc_top_predictor_64x16 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
-        as usize][0 as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_4x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][0 as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = aom_dc_left_predictor_4x4 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
-        as usize][0 as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_8x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][0 as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = aom_dc_left_predictor_8x8 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_16X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_16x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X16 as core::ffi::c_int as usize] = aom_dc_left_predictor_16x16 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_32X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_32x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X32 as core::ffi::c_int as usize] = aom_dc_left_predictor_32x32 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_64X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_64x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X64 as core::ffi::c_int as usize] = aom_dc_left_predictor_64x64 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
-        as usize][0 as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_4x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][0 as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = aom_dc_left_predictor_4x8 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
-        as usize][0 as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_8x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][0 as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = aom_dc_left_predictor_8x4 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_8X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_8x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X16 as core::ffi::c_int as usize] = aom_dc_left_predictor_8x16 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_16X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_16x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X8 as core::ffi::c_int as usize] = aom_dc_left_predictor_16x8 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_16X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_16x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X32 as core::ffi::c_int as usize] = aom_dc_left_predictor_16x32 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_32X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_32x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X16 as core::ffi::c_int as usize] = aom_dc_left_predictor_32x16 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_32X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_32x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X64 as core::ffi::c_int as usize] = aom_dc_left_predictor_32x64 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_64X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_64x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X32 as core::ffi::c_int as usize] = aom_dc_left_predictor_64x32 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_4X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_4x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X16 as core::ffi::c_int as usize] = aom_dc_left_predictor_4x16 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_16X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_16x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X4 as core::ffi::c_int as usize] = aom_dc_left_predictor_16x4 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_8X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_8x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X32 as core::ffi::c_int as usize] = aom_dc_left_predictor_8x32 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_32X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_32x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X8 as core::ffi::c_int as usize] = aom_dc_left_predictor_32x8 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_16X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_16x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X64 as core::ffi::c_int as usize] = aom_dc_left_predictor_16x64 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][0 as core::ffi::c_int
-        as usize][TX_64X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_left_predictor_64x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X16 as core::ffi::c_int as usize] = aom_dc_left_predictor_64x16 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
-        as usize][1 as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_4x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][1 as core::ffi::c_int as usize][TX_4X4 as core::ffi::c_int as usize] = aom_dc_predictor_4x4 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
-        as usize][1 as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_8x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][1 as core::ffi::c_int as usize][TX_8X8 as core::ffi::c_int as usize] = aom_dc_predictor_8x8 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_16X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_16x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X16 as core::ffi::c_int as usize] = aom_dc_predictor_16x16 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_32X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_32x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X32 as core::ffi::c_int as usize] = aom_dc_predictor_32x32 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_64X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_64x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X64 as core::ffi::c_int as usize] = aom_dc_predictor_64x64 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
-        as usize][1 as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_4x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][1 as core::ffi::c_int as usize][TX_4X8 as core::ffi::c_int as usize] = aom_dc_predictor_4x8 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
-        as usize][1 as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_8x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][1 as core::ffi::c_int as usize][TX_8X4 as core::ffi::c_int as usize] = aom_dc_predictor_8x4 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_8X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_8x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X16 as core::ffi::c_int as usize] = aom_dc_predictor_8x16 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_16X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_16x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X8 as core::ffi::c_int as usize] = aom_dc_predictor_16x8 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_16X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_16x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X32 as core::ffi::c_int as usize] = aom_dc_predictor_16x32 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_32X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_32x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X16 as core::ffi::c_int as usize] = aom_dc_predictor_32x16 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_32X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_32x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X64 as core::ffi::c_int as usize] = aom_dc_predictor_32x64 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_64X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_64x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X32 as core::ffi::c_int as usize] = aom_dc_predictor_64x32 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_4X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_4x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_4X16 as core::ffi::c_int as usize] = aom_dc_predictor_4x16 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_16X4 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_16x4_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X4 as core::ffi::c_int as usize] = aom_dc_predictor_16x4 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_8X32 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_8x32_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_8X32 as core::ffi::c_int as usize] = aom_dc_predictor_8x32 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_32X8 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_32x8_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_32X8 as core::ffi::c_int as usize] = aom_dc_predictor_32x8 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_16X64 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_16x64_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_16X64 as core::ffi::c_int as usize] = aom_dc_predictor_16x64 as intra_pred_fn;
     dc_pred[1 as core::ffi::c_int
         as usize][1 as core::ffi::c_int
-        as usize][TX_64X16 as core::ffi::c_int as usize] = Some(
-        aom_dc_predictor_64x16_c
-            as unsafe extern "C-unwind" fn(
-                *mut uint8_t,
-                ptrdiff_t,
-                *const uint8_t,
-                *const uint8_t,
-            ) -> (),
-    ) as intra_pred_fn;
+        as usize][TX_64X16 as core::ffi::c_int as usize] = aom_dc_predictor_64x16 as intra_pred_fn;
     pred_high[V_PRED as core::ffi::c_int
         as usize][TX_4X4 as core::ffi::c_int as usize] = aom_highbd_v_predictor_4x4
         as intra_high_pred_fn;
@@ -8812,9 +6345,9 @@ unsafe extern "C-unwind" fn dr_predictor(
     let bw: core::ffi::c_int = tx_size_wide[tx_size as usize];
     let bh: core::ffi::c_int = tx_size_high[tx_size as usize];
     if angle > 0 as core::ffi::c_int && angle < 90 as core::ffi::c_int {
-        av1_dr_prediction_z1_c(dst, stride, bw, bh, above, left, upsample_above, dx, dy);
+        av1_dr_prediction_z1.expect("non-null function pointer")(dst, stride, bw, bh, above, left, upsample_above, dx, dy);
     } else if angle > 90 as core::ffi::c_int && angle < 180 as core::ffi::c_int {
-        av1_dr_prediction_z2_c(
+        av1_dr_prediction_z2.expect("non-null function pointer")(
             dst,
             stride,
             bw,
@@ -8827,7 +6360,7 @@ unsafe extern "C-unwind" fn dr_predictor(
             dy,
         );
     } else if angle > 180 as core::ffi::c_int && angle < 270 as core::ffi::c_int {
-        av1_dr_prediction_z3_c(dst, stride, bw, bh, above, left, upsample_left, dx, dy);
+        av1_dr_prediction_z3.expect("non-null function pointer")(dst, stride, bw, bh, above, left, upsample_left, dx, dy);
     } else if angle == 90 as core::ffi::c_int {
         (pred[V_PRED as core::ffi::c_int as usize][tx_size as usize])
             .expect("non-null function pointer")(dst, stride, above, left);
