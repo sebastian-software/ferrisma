@@ -274,3 +274,110 @@ for macOS and run under Rosetta 2, at the `sse4.1` and `scalar` levels. The
 originals there use Darwin's libm, not glibc's. Building the original inside
 that container failed: GCC 9.4 crashed with SIGSEGV under Rosetta 2 on
 `palette.c` and `loopfilter.c`.
+## Amendment: still-image Neon kernels on the frozen translation (2026-11-13)
+
+Owner decisions D5 and D6 of 2026-11-13 make the original's Neon paths on the
+still-image path part of v1.0, each proven SIMD against SIMD (D4). This
+amendment adds the missing still-image Neon kernels on macOS ARM64. The x86
+overlay, the x86 kernels and every video-only kernel (SAD, sub-pixel, OBMC
+and masked variance, inter convolution, motion search, warp, temporal filter;
+open question O2) are unchanged.
+
+### Kernels
+
+Each file is a hand translation of the pinned libaom 3.15.2 source at the same
+path below `src/simd`, following the rules above. The arm64 overlay now
+dispatches 509 RTCD functions, 267 more than before:
+
+| Family | Original file(s) | C lines | Rust lines | RTCD functions |
+| --- | --- | ---: | ---: | ---: |
+| 8-bit inverse transform (#224) | `av1/common/arm/av1_inv_txfm_neon.c` (+ `.h`) | 4,391 | 4,451 | 1 (`av1_inv_txfm_add`) |
+| Loop filter | `aom_dsp/arm/loopfilter_neon.c`, `highbd_loopfilter_neon.c` | 2,210 | 2,381 | 40 (24 8-bit, 16 high-bitdepth) |
+| 8-bit intra prediction | `aom_dsp/arm/intrapred_neon.c` | 3,158 | 3,322 | 193 (190 predictors, `av1_dr_prediction_z1/z2/z3`) |
+| CfL | `av1/common/arm/cfl_neon.c` | 584 | 990 | 9 getters (5 8-bit, 4 high-bitdepth) |
+| Loop-restoration apply | `wiener_convolve_neon.c`, `highbd_wiener_convolve_neon.c`, `selfguided_neon.c` | 2,367 | 3,436 | 4 |
+| Quantization, 8-bit forward transform, SSE and distortion, txb | `quantize_neon.c`, `av1_fwd_txfm2d_neon.c`, `hybrid_fwd_txfm_neon.c`, `sse_neon.c`, `highbd_sse_neon.c`, `sum_squares_neon.c`, `blk_sse_sum_neon.c`, `encodetxb_neon.c`, `av1_txfm_neon.c`, still-image parts of `variance_neon.c` and `highbd_variance_neon.c` | 6,138 plus parts | 6,218 | 20 |
+
+The last row dispatches `av1_quantize_fp`, `av1_quantize_fp_32x32`,
+`av1_quantize_fp_64x64`, `av1_quantize_lp`, `aom_quantize_b`,
+`aom_quantize_b_32x32`, `aom_quantize_b_64x64`, `av1_lowbd_fwd_txfm`,
+`av1_fwht4x4`, `aom_sse`, `aom_highbd_sse`, `aom_sum_squares_2d_i16`,
+`aom_sum_squares_i16`, `aom_var_2d_u8`, `aom_var_2d_u16`,
+`aom_get_blk_sse_sum`, `aom_mse_wxh_16bit`, `aom_mse_16xh_16bit`,
+`aom_mse_wxh_16bit_highbd` and `av1_txb_init_levels`.
+
+Translated but **not** dispatched, because they do not return exactly what
+`_c` returns for the same arguments or have no original test:
+
+- `av1_get_nz_map_contexts_neon` writes every context position of the block;
+  `_c` writes only the scan positions below `eob`. The original test compares
+  only those positions.
+- `av1_round_shift_array_neon` wraps on left shifts where `_c` saturates to
+  `int32_t`; they agree only while the result fits. The 8-bit inverse
+  transform kernel therefore calls `av1_round_shift_array_c`, the function
+  this port's RTCD selects.
+- `aom_quantize_b_helper_neon` (libaom calls only the `_c` name) and
+  `aom_sum_sse_2d_i16_neon` (no original Neon test).
+
+Still on `_c` from the still-image list: `av1_get_horver_correlation_full`
+(its original test has a floating-point tolerance), the Hadamard and SATD
+kernels (coefficient order, see above), the floating-point NN and CNN
+predictors, `aom_fdct4x4` and `aom_fdct4x4_lp` (real-time only) and
+`aom_fdct8x8` (metrics only).
+
+No kernel of these families is inexact against `_c` in the original's own
+tests: every transcribed original test compares exactly.
+
+### Dispatch after the freeze
+
+ADR 0059 makes the RTCD units owned code. `tools/enable_aom_dispatch.py NAME...`
+makes the change that a regeneration would make, without C2Rust:
+
+1. It adds the names to `rtcd/arm64.pl`.
+2. It regenerates the dispatch headers with `dispatch_headers()` of
+   `tools/transpile_aom.py`, which runs the original `cmake/rtcd.pl` with the
+   overlay. It writes them to `reference/macos/<profile>/dispatch` and records
+   them and the overlay digest in the manifest's `rtcd_dispatch` block. With
+   the unchanged overlay this reproduced the committed headers byte for byte.
+3. In both macOS profiles it adds the RTCD pointer, its `_c` and `_neon`
+   declarations and the `setup_rtcd_internal()` assignment to the RTCD unit,
+   and replaces the macro uses in callers: `F_c(...)` becomes
+   `F.expect("non-null function pointer")(...)`, and `Some(F_c as ...)` table
+   entries become `F`. Calls that the C source writes with an explicit `_c`
+   name stay direct.
+4. It records the new `rust_sha256` and `production_rust_sha256` of every
+   changed unit. `--rehash` records them after a hand edit. The CfL
+   function-pointer types, `WienerConvolveParams`, and `int64_t`, `uint32_t`
+   and `uint64_t` were copied verbatim into the RTCD units from units that
+   already define them.
+
+`tools/check_translation.py` passes on the result. The edited lines keep the
+generated shape but not C2Rust's line wrapping, so a future regeneration would
+differ in layout only.
+
+### Gates (macOS ARM64, loaded host)
+
+Each family was dispatched only after all of these held, and committed
+separately:
+
+- `cargo test --release -p libavif-aom --test simd`, with new transcriptions
+  of `av1_inv_txfm2d_test.cc` (AV1LbdInvTxfm2d, plus a check of the
+  dispatched `av1_inv_txfm_add_neon` against `av1_inv_txfm_add_c`),
+  `lpf_test.cc`, `intrapred_test.cc` (LowbdIntraPredTest),
+  `dr_prediction_test.cc` (8-bit), `cfl_test.cc`, `hiprec_convolve_test.cc`,
+  `selfguided_filter_test.cc`, `quantize_func_test.cc`,
+  `av1_fwd_txfm2d_test.cc`, `sum_squares_test.cc` and `encodetxb_test.cc`,
+  with the original seeds and counts.
+- `tools/check_aom_simd_identity.py`: 76 of 76 cases byte-identical.
+- `tools/check_aom_golden.py`: 62 of 62 golden outputs, all C-confirmed.
+- A decode check that is not part of the repository: the AOM decoder through
+  `ferrisma-avif-read` produced identical RGB output with SIMD on and with
+  `AOM_SIMD_CAPS_MASK=0` for every file of a set encoded from the identity
+  corpus (8 to 12 bits, 4:2:0 and 4:4:4, quality 20 to lossless, speeds 6
+  and 4; all-intra keeps loop restoration only at speed 4 and below).
+
+**Pending:** the SIMD-against-SIMD confirmation of D4 (the port's Neon output
+against the original built with its own Neon kernels) waits for the Neon
+reference build of the original. Neon equal to `_c` is what the original's
+own tests require of these kernels, so it is the expected property, but it
+is not the D4 proof.

@@ -25,13 +25,22 @@ reached through the translated RTCD tables
 `rtcd/x86_64.pl` for GNU Linux x86-64 (run with `--arch=x86_64 --require-c` and
 every family other than SSE2, SSE4.1, and AVX2 disabled). The overlay withdraws
 every specialization the port does not implement, so the headers name only
-existing functions. The translation manifests record each overlay's hash; change
-an overlay only together with a regeneration.
+existing functions. The translation manifests record each overlay's hash. Since
+the freeze (ADR 0059), `tools/enable_aom_dispatch.py` changes the arm64 overlay
+together with the dispatch headers, the owned RTCD and caller units, and their
+recorded hashes (ADR 0056, amendment of 2026-11-13).
 
-- Arm: 242 RTCD functions dispatch to Neon kernels, 190 of them high-bitdepth
-  intra predictors. Only `av1_highbd_inv_txfm_add` is dispatched among the
-  inverse transforms, and the high-bitdepth Hadamard kernels are excluded because
-  their coefficient order differs from `_c`. `rtcd/arm64.pl` records the reasons.
+- Arm: 509 RTCD functions dispatch to Neon kernels: the high-bitdepth set (190
+  intra predictors, transforms, CDEF, quantization) and, since 2026-11-13, the
+  still-image 8-bit inverse transform `av1_inv_txfm_add`, the 40 loop filters,
+  the 190 8-bit intra predictors with `av1_dr_prediction_z1/z2/z3`, the 9 CfL
+  getters, the 4 loop-restoration kernels, and 20 quantization, 8-bit forward
+  transform, SSE/distortion and txb kernels. The per-size `av1_inv_txfm2d_add_*`
+  entry points are not dispatched (see `rtcd/arm64.pl`). Not dispatched because
+  they are not exact with `_c` for all arguments: the high-bitdepth Hadamard
+  kernels (coefficient order), `av1_get_nz_map_contexts` (writes positions `_c`
+  leaves untouched) and `av1_round_shift_array` (wraps where `_c` saturates).
+  ADR 0056 lists what remains on `_c`.
 - x86-64: 104 RTCD functions dispatch through 111 kernel assignments, because
   some functions have both an SSE4.1 and an AVX2 variant. The high-bitdepth DC
   and V predictors for 4x4 to 32x32 exist upstream only as NASM and stay on `_c`,
@@ -54,8 +63,8 @@ an overlay only together with a regeneration.
 
 Every dispatched `<name>_<extension>` must be bit-exact with `<name>_c` for the
 same arguments. `cargo test --release -p libavif-aom --test simd` runs
-supplementary transcriptions of the original exact-match SIMD tests (63 on Arm,
-79 on x86-64 at the last recorded run), and `tools/check_aom_simd_identity.py`
+supplementary transcriptions of the original exact-match SIMD tests (147 on Arm
+on 2026-11-13, 79 on x86-64 at the last recorded run), and `tools/check_aom_simd_identity.py`
 requires byte-identical AVIF output for every selection (`AOM_SIMD_CAPS`,
 `AOM_SIMD_CAPS_MASK=0`). The original libaom SIMD tests do not run against these
 kernels yet, because the original test build uses the generic configuration and
