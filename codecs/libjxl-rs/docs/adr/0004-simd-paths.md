@@ -432,4 +432,17 @@ original's exported `ORACLE_HWY_NS` functions).
   `vbsl`/`vbic`; `_mm256_mul_epi32` with `DupOdd` for `MulOdd`, the two
   `shuffle_ps` of `InterleaveOdd` below AVX3, `blendv_epi8`, `andnot`). The
   `hwy-op` test covers all 79 operations: 103,389 requests matched on NEON.
+- **dec_modular** (`dec_modular_simd.rs`): `MultiplySum` (wrapping
+  `Add` of the two `int32` rows), `RgbFromSingle` and `SingleFromSingle`
+  (`ConvertTo`, `Mul`), over whole vectors as the original;
+  `ModularImageToDecodedRect` selects them at its four
+  `HWY_DYNAMIC_DISPATCH` sites. `SingleFromSingleAccurate` and
+  `int_to_float` are not Highway code. NEON: 2,448 requests / 183,840
+  words (lengths 0-67, twelve factors including the decoder's `1/255`,
+  `1/65535`, `1/(2^22-1)`, negative, subnormal, maximal, infinite and NaN
+  factors; samples at the 32-bit limits, so that `Add` wraps, and around
+  2^24, where the conversion rounds). Below `xsize` the SIMD and scalar
+  results agree by construction (one exact-or-rounded conversion and one
+  product per sample); the scalar path fails 1,836 requests in the
+  whole-vector tail the original writes, which is what discriminates.
 <!-- end modular -->

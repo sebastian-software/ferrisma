@@ -134,4 +134,5 @@ pub mod quant_weights_simd;
 // modular: the SIMD modular and output-conversion kernels (port ADR 0004,
 // Plan item 2).
 pub mod dec_external_image_simd;
+pub mod dec_modular_simd;
 // end modular

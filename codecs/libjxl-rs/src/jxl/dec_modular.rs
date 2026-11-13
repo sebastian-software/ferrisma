@@ -25,9 +25,11 @@ use super::compressed_dc::dequant_dc;
 use super::dec_ans::{ANSCode, decode_histograms};
 use super::dec_bit_reader::BitReader;
 use super::dec_cache::{DecoderShared, PassesDecoderState};
+use super::dec_modular_simd::{multiply_sum_simd, rgb_from_single_simd, single_from_single_simd};
 use super::epf::compute_sigma;
 use super::frame_dimensions::FrameDimensions;
 use super::frame_header::{ColorTransform, FLAG_NOISE, FrameEncoding, FrameHeader};
+use super::hwy::decoder_target;
 use super::image::Plane;
 use super::image_ops::{convert_plane_and_clamp_i32_to_i8, copy_rect_to, zero_fill_image};
 use super::loop_filter::EPF_SHARP_ENTRIES;
@@ -930,7 +932,13 @@ impl ModularFrameDecoder {
                         let row_y = &gi.channel[0].row(mr.y0() + y)[mr.x0()..];
                         let (out, rect) = input.get_buffer_mut(c);
                         let row_out = &mut out.row_mut(rect.y0() + y)[rect.x0()..];
-                        multiply_sum(width, row_in, row_y, factor as f32, row_out);
+                        // HWY_DYNAMIC_DISPATCH(MultiplySum) (port ADR 0004).
+                        match decoder_target() {
+                            Some(t) => {
+                                multiply_sum_simd(t, width, row_in, row_y, factor as f32, row_out)
+                            }
+                            None => multiply_sum(width, row_in, row_y, factor as f32, row_out),
+                        }
                     }
                 } else if fp {
                     let bits = metadata.m.bit_depth.bits_per_sample as i32;
@@ -972,14 +980,29 @@ impl ModularFrameDecoder {
                                 let (r, rr) = buffers.next().expect("source RGB buffer");
                                 let (g, gr) = buffers.next().expect("source RGB buffer");
                                 let (b, br) = buffers.next().expect("source RGB buffer");
-                                rgb_from_single(
-                                    width,
-                                    row_in,
-                                    factor as f32,
-                                    &mut r.row_mut(rr.y0() + y)[rr.x0()..],
-                                    &mut g.row_mut(gr.y0() + y)[gr.x0()..],
-                                    &mut b.row_mut(br.y0() + y)[br.x0()..],
-                                );
+                                let out_r = &mut r.row_mut(rr.y0() + y)[rr.x0()..];
+                                let out_g = &mut g.row_mut(gr.y0() + y)[gr.x0()..];
+                                let out_b = &mut b.row_mut(br.y0() + y)[br.x0()..];
+                                // HWY_DYNAMIC_DISPATCH(RgbFromSingle) (port ADR 0004).
+                                match decoder_target() {
+                                    Some(t) => rgb_from_single_simd(
+                                        t,
+                                        width,
+                                        row_in,
+                                        factor as f32,
+                                        out_r,
+                                        out_g,
+                                        out_b,
+                                    ),
+                                    None => rgb_from_single(
+                                        width,
+                                        row_in,
+                                        factor as f32,
+                                        out_r,
+                                        out_g,
+                                        out_b,
+                                    ),
+                                }
                             } else {
                                 for cc in 0..3 {
                                     let (out, rect) = input.get_buffer_mut(cc);
@@ -995,7 +1018,19 @@ impl ModularFrameDecoder {
                             let (out, rect) = input.get_buffer_mut(c);
                             let row_out = &mut out.row_mut(rect.y0() + y)[rect.x0()..];
                             if self.full_image.bitdepth < 23 {
-                                single_from_single(width, row_in, factor as f32, row_out);
+                                // HWY_DYNAMIC_DISPATCH(SingleFromSingle) (port ADR 0004).
+                                match decoder_target() {
+                                    Some(t) => single_from_single_simd(
+                                        t,
+                                        width,
+                                        row_in,
+                                        factor as f32,
+                                        row_out,
+                                    ),
+                                    None => {
+                                        single_from_single(width, row_in, factor as f32, row_out)
+                                    }
+                                }
                             } else {
                                 single_from_single_accurate(width, row_in, factor, row_out);
                             }
@@ -1047,7 +1082,13 @@ impl ModularFrameDecoder {
                 if fp {
                     int_to_float(row_in, row_out, r.xsize(), bits, exp)?;
                 } else if self.full_image.bitdepth < 23 {
-                    single_from_single(r.xsize(), row_in, factor as f32, row_out);
+                    // HWY_DYNAMIC_DISPATCH(SingleFromSingle) (port ADR 0004).
+                    match decoder_target() {
+                        Some(t) => {
+                            single_from_single_simd(t, r.xsize(), row_in, factor as f32, row_out)
+                        }
+                        None => single_from_single(r.xsize(), row_in, factor as f32, row_out),
+                    }
                 } else {
                     single_from_single_accurate(r.xsize(), row_in, factor, row_out);
                 }
