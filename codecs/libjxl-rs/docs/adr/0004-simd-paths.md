@@ -176,6 +176,14 @@ factories on 128-byte aligned rows, and `tests/simd_render.rs`.
   parameters), fused `MulAdd`. NEON: 12,348 rows, 2,628,948 words matched
   (Init at four intensity targets, three custom parameter sets, RGB and XYB
   output, widths 0-67, seven origins, special words).
+- **FromLinear** (`stage_from_linear_simd.rs`, with `simd_transfer.rs`:
+  EvalRationalPolynomial, FastLog2f/FastPow2f/FastPowf, TF_SRGB (the
+  `JXL_HIGH_PRECISION` rational polynomial, not FastLinearToSRGB), TF_PQ,
+  TF_HLG, TF_709 and HlgOOTF::Apply, translated operation by operation):
+  all six operations. NEON: 21,168 rows, 4,506,768 words matched (linear,
+  sRGB, BT.709, PQ at five intensity targets, HLG at five display targets
+  and two primaries, DCI and five explicit gammas; each function's
+  thresholds with their neighbor words).
 
 Whole-decode comparison after each stage (NEON, `whole_decodes_with_the_simd_stages_against_the_original_target`,
 differing float words with the SIMD stages selected / differing output
@@ -183,20 +191,20 @@ bytes; the scalar path is unchanged). The counts barely move: the planes
 already differ before these stages, because dequantization and the inverse
 DCTs (Plan item 2) still run their `HWY_SCALAR` translation.
 
-| File | Before (Gaborish, EPF, YCbCr, chroma) | + XYB |
-| --- | --- | --- |
-| 65x33 gab=0 epf=0 | 6,271 / 5 | 6,256 / 4 |
-| 65x33 gab=0 epf=3 | 6,296 / 1 | 6,290 / 1 |
-| 65x33 gab=1 epf=0 | 6,353 / 2 | 6,327 / 2 |
-| 65x33 gab=1 epf=3 | 6,339 / 4 | 6,335 / 4 |
-| 258x258 gab=0 epf=0 | 198,499 / 261 | 198,403 / 260 |
-| 258x258 gab=0 epf=3 | 198,523 / 269 | 198,502 / 270 |
-| 258x258 gab=1 epf=0 | 198,573 / 257 | 198,530 / 258 |
-| 258x258 gab=1 epf=3 | 198,619 / 301 | 198,571 / 301 |
-| 513x257 gab=0 epf=0 | 393,670 / 580 | 393,733 / 584 |
-| 513x257 gab=0 epf=3 | 393,760 / 665 | 393,656 / 673 |
-| 513x257 gab=1 epf=0 | 393,821 / 641 | 393,768 / 647 |
-| 513x257 gab=1 epf=3 | 393,703 / 699 | 393,812 / 697 |
+| File | Before (Gaborish, EPF, YCbCr, chroma) | + XYB | + FromLinear |
+| --- | --- | --- | --- |
+| 65x33 gab=0 epf=0 | 6,271 / 5 | 6,256 / 4 | 6,123 / 6 |
+| 65x33 gab=0 epf=3 | 6,296 / 1 | 6,290 / 1 | 6,181 / 1 |
+| 65x33 gab=1 epf=0 | 6,353 / 2 | 6,327 / 2 | 6,281 / 2 |
+| 65x33 gab=1 epf=3 | 6,339 / 4 | 6,335 / 4 | 6,279 / 4 |
+| 258x258 gab=0 epf=0 | 198,499 / 261 | 198,403 / 260 | 197,730 / 262 |
+| 258x258 gab=0 epf=3 | 198,523 / 269 | 198,502 / 270 | 197,818 / 269 |
+| 258x258 gab=1 epf=0 | 198,573 / 257 | 198,530 / 258 | 197,824 / 258 |
+| 258x258 gab=1 epf=3 | 198,619 / 301 | 198,571 / 301 | 198,051 / 299 |
+| 513x257 gab=0 epf=0 | 393,670 / 580 | 393,733 / 584 | 392,754 / 582 |
+| 513x257 gab=0 epf=3 | 393,760 / 665 | 393,656 / 673 | 392,672 / 672 |
+| 513x257 gab=1 epf=0 | 393,821 / 641 | 393,768 / 647 | 392,817 / 649 |
+| 513x257 gab=1 epf=3 | 393,703 / 699 | 393,812 / 697 | 392,892 / 698 |
 
 (Of 6,435 / 199,692 / 395,523 float words; all 24 files are logged by the
 test, these rows are representative. No file reaches zero.)

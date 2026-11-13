@@ -106,6 +106,10 @@ impl HlgOotf {
     pub fn warrants_gamut_mapping(&self) -> bool {
         self.base.apply_ootf && self.base.exponent < 0.0
     }
+    /// The original base fields, for the SIMD `HlgOOTF::Apply` (port ADR 0004).
+    pub(crate) fn base(&self) -> &HlgOotfBase {
+        &self.base
+    }
 }
 pub fn gamut_map(rgb: &mut Color, p: Vector3, preserve: f32) {
     // The original contracts these products on AArch64 only (port ADR 0003).

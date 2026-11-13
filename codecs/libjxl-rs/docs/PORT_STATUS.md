@@ -96,8 +96,9 @@ The other Highway exports remain open (issues #96, #231). The row adapters of th
 AVX2 oracle fault on hosted x86-64 hardware (issue #252, ADR 0004 evidence).
 The fix is verified on AArch64 only; x86-64 cannot run on the local machine.
 <!-- render stages -->
-Render stages of ADR 0004 Plan item 1 (2026-11-13): the SIMD XYB stage
-(`stage_xyb_simd.rs`) matches the NEON oracle at row level
+Render stages of ADR 0004 Plan item 1 (2026-11-13): the SIMD XYB and
+FromLinear stages (`stage_xyb_simd.rs`, `stage_from_linear_simd.rs`, all six
+transfer operations) match the NEON oracle at row level
 (`tests/simd_render.rs`) and dispatches like the stages above; the layer
 has 67 operations. Whole decodes still differ (ADR 0004 table). AVX2 is
 compile-checked only.

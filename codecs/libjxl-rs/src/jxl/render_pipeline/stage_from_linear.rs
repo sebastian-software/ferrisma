@@ -169,6 +169,10 @@ pub fn get_from_linear_stage(
 ) -> Option<Box<dyn RenderPipelineStage>> {
     use crate::jxl::cms::tone_mapping_scalar::HlgOotf;
     use crate::jxl::cms::transfer_functions_scalar::TfPq;
+    // HWY_DYNAMIC_DISPATCH(GetFromLinearStage) (port ADR 0004).
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return super::stage_from_linear_simd::get_from_linear_stage_simd(info, target);
+    }
     let tf = info.color_encoding.tf();
     let op = if tf.is_linear() {
         Op::Linear
