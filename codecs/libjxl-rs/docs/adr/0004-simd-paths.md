@@ -424,4 +424,12 @@ original's exported `ORACLE_HWY_NS` functions).
   samples of these files are finite: the SIMD and scalar `FloatToU32` differ
   only for NaN input (above) and in the lanes past `num`, which the
   conversion never copies out.
+- **Signed 32-bit operations.** The layer gains, in its `modular` block,
+  `Set`, `Load`, `And`, `Xor`, `Abs`, `Neg`, `Ne` (as `Not(Eq)`),
+  `IfThenElse`, `IfThenZeroElse`, `MulEven`, `MulOdd` (the 64-bit products
+  bit-cast to 32-bit lanes) and `InterleaveOdd` on `int32` lanes, each the
+  instruction sequence Highway uses (`vmull_s32` after `vuzp1/2`, `vtrn2`,
+  `vbsl`/`vbic`; `_mm256_mul_epi32` with `DupOdd` for `MulOdd`, the two
+  `shuffle_ps` of `InterleaveOdd` below AVX3, `blendv_epi8`, `andnot`). The
+  `hwy-op` test covers all 79 operations: 103,389 requests matched on NEON.
 <!-- end modular -->

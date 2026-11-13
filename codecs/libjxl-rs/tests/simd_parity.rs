@@ -232,6 +232,20 @@ const OPS: &[(&str, usize, bool)] = &[
     ("broadcast_3", 1, false),
     ("demote_f16", 1, false),
     // end render stages
+    // modular
+    ("set_i32", 1, false),
+    ("load_i32", 1, false),
+    ("and_i32", 2, false),
+    ("xor_i32", 2, false),
+    ("abs_i32", 1, false),
+    ("neg_i32", 1, false),
+    ("ne_i32", 2, false),
+    ("if_i32_lt_then_else", 4, false),
+    ("if_i32_lt_then_zero_else", 3, false),
+    ("mul_even_i32", 2, false),
+    ("mul_odd_i32", 2, false),
+    ("interleave_odd_i32", 2, false),
+    // end modular
 ];
 
 struct Op<'a> {
@@ -350,6 +364,29 @@ impl Kernel for Op<'_> {
                 n
             }
             // end render stages
+            // modular
+            "set_i32" => puti(d.set_i32(self.input[0] as i32), &mut out),
+            "load_i32" => {
+                let ints: Vec<i32> = words[..n].iter().map(|&w| w as i32).collect();
+                puti(d.load_i32(&ints), &mut out)
+            }
+            "and_i32" => puti(d.and_i32(ai, bi), &mut out),
+            "xor_i32" => puti(d.xor_i32(ai, bi), &mut out),
+            "abs_i32" => puti(d.abs_i32(ai), &mut out),
+            "neg_i32" => puti(d.neg_i32(ai), &mut out),
+            "ne_i32" => puti(d.ne_i32(ai, bi), &mut out),
+            "if_i32_lt_then_else" => {
+                let [ci, ei] = [c, e].map(|v| d.bitcast_to_i32(v));
+                puti(d.if_then_else_i32(d.lt_i32(ai, bi), ci, ei), &mut out)
+            }
+            "if_i32_lt_then_zero_else" => {
+                let ci = d.bitcast_to_i32(c);
+                puti(d.if_then_zero_else_i32(d.lt_i32(ai, bi), ci), &mut out)
+            }
+            "mul_even_i32" => puti(d.mul_even_i32(ai, bi), &mut out),
+            "mul_odd_i32" => puti(d.mul_odd_i32(ai, bi), &mut out),
+            "interleave_odd_i32" => puti(d.interleave_odd_i32(ai, bi), &mut out),
+            // end modular
             other => panic!("unknown operation {other}"),
         };
         out.truncate(count);

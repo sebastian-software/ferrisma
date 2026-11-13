@@ -167,6 +167,35 @@ pub trait SimdF32: Copy + core::fmt::Debug + Send + Sync + 'static {
     /// words of the hardware conversion (`fcvtn`, `vcvtps2ph`).
     fn store_demote_to_f16(self, v: Self::V, dst: &mut [u16]);
     // end render stages
+    // modular: signed 32-bit lanes of the modular kernels (squeeze, RCT,
+    // modular-to-float conversion; port ADR 0004 Plan item 2). Masks are
+    // integer vectors with all-ones/all-zero lanes, as `VecFromMask`.
+    /// `Set(di, v)`.
+    fn set_i32(self, v: i32) -> Self::I;
+    /// `Load(di, p)` (alignment is not observable).
+    fn load_i32(self, src: &[i32]) -> Self::I;
+    /// `And(a, b)` on signed lanes.
+    fn and_i32(self, a: Self::I, b: Self::I) -> Self::I;
+    /// `Xor(a, b)` on signed lanes.
+    fn xor_i32(self, a: Self::I, b: Self::I) -> Self::I;
+    /// `Abs(v)`; `i32::MIN` stays `i32::MIN` on both targets.
+    fn abs_i32(self, v: Self::I) -> Self::I;
+    /// `Neg(v)`, wrapping.
+    fn neg_i32(self, v: Self::I) -> Self::I;
+    /// `VecFromMask(di, Ne(a, b))`, which Highway forms as `Not(Eq(a, b))`.
+    fn ne_i32(self, a: Self::I, b: Self::I) -> Self::I;
+    /// `IfThenElse(MaskFromVec(m), yes, no)`.
+    fn if_then_else_i32(self, m: Self::I, yes: Self::I, no: Self::I) -> Self::I;
+    /// `IfThenZeroElse(MaskFromVec(m), no)`.
+    fn if_then_zero_else_i32(self, m: Self::I, no: Self::I) -> Self::I;
+    /// `BitCast(di, MulEven(a, b))`: the signed 64-bit products of the even
+    /// lanes, each as its low and high 32-bit half.
+    fn mul_even_i32(self, a: Self::I, b: Self::I) -> Self::I;
+    /// `BitCast(di, MulOdd(a, b))`: as `mul_even_i32` for the odd lanes.
+    fn mul_odd_i32(self, a: Self::I, b: Self::I) -> Self::I;
+    /// `InterleaveOdd(di, a, b)`: a1 b1 a3 b3 ...
+    fn interleave_odd_i32(self, a: Self::I, b: Self::I) -> Self::I;
+    // end modular
 }
 
 /// The SIMD target a kernel runs on, capped at NEON/AVX2 (decision D6).
