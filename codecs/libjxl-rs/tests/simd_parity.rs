@@ -1171,25 +1171,17 @@ fn decode_differences(port: &WholeDecode, original: &WholeDecode) -> (usize, usi
     (words, bytes, first)
 }
 
-/// Whole decodes of the decoder with its SIMD selection on (port ADR 0004,
-/// "Decoder path") against the original's single-target SIMD build, which
-/// is the comparison that must report no difference before the decoder may
-/// select the SIMD stages by default (`hwy::DECODER_SELECTS_SIMD`).
-///
-/// Finding (2026-11-13, NEON): the decodes differ. The original's NEON
-/// build also runs its dequantization, inverse DCT, XYB, output conversion
-/// and other decode kernels as NEON (fused `MulAdd`, NEON rounding), which
-/// the port still runs as its `HWY_SCALAR` translation, so the stages the
-/// port already has (Gaborish, EPF, YCbCr, chroma upsampling) cannot make a
-/// whole decode identical on their own. The same comparison with the port's
-/// scalar path is printed next to it. The test therefore asserts that the
-/// selection stays off while any word differs (and fails once nothing
-/// differs, so that the selection is then turned on), and that every decode
-/// with the SIMD stages runs to the same status, frame size and output
-/// layout as the original.
+/// Whole decodes with the SIMD target forced (`set_decoder_simd_for_test`)
+/// against the original's single-target SIMD build: every admitted file
+/// must match word for word (any NaN equals any NaN) and byte for byte,
+/// independent of the default selection `hwy::DECODER_SELECTS_SIMD`
+/// (working decision 2026-11-13, delegated, revisable by the owner). The
+/// scalar path's differences are printed for reference only. A file the
+/// port's `decode_vardct` does not admit (the 4:2:0 JPEG recompression) is
+/// reported as not compared.
 #[test]
 fn whole_decodes_with_the_simd_stages_against_the_original_target() {
-    use jxl::jxl::hwy::{DECODER_SELECTS_SIMD, decoder_target, set_decoder_simd_for_test};
+    use jxl::jxl::hwy::{decoder_target, set_decoder_simd_for_test};
     let t = target();
     let files = whole_decode_inputs();
     let requests: Vec<_> = files
@@ -1237,17 +1229,14 @@ fn whole_decodes_with_the_simd_stages_against_the_original_target() {
         files.len(),
         not_admitted.len()
     );
-    if DECODER_SELECTS_SIMD {
-        assert!(
-            differing.is_empty(),
-            "the decoder selects SIMD but these whole decodes differ from the original's {} build: {differing:?}",
-            t.name()
-        );
-    } else {
-        assert!(
-            !differing.is_empty(),
-            "every whole decode matches the original's {} build: turn on hwy::DECODER_SELECTS_SIMD and update port ADR 0004",
-            t.name()
-        );
-    }
+    assert!(
+        files.len() > not_admitted.len(),
+        "no whole decode was compared"
+    );
+    assert!(
+        differing.is_empty(),
+        "these whole decodes with the {} target differ from the original's {} build: {differing:?}",
+        t.name(),
+        t.name()
+    );
 }

@@ -97,14 +97,32 @@ padding follows the selected target as `BytesPerRow` follows
 `MaxVectorSize()` (`hwy::max_vector_size()`: 4 bytes on the scalar path,
 16 on NEON, 32 on AVX2). `decoder_target()` is `None` unless
 `hwy::DECODER_SELECTS_SIMD` is on; tests switch it like Highway's
-`SetSupportedTargetsForTest` (`hwy::set_decoder_simd_for_test`). The
-selection is **off** (2026-11-13): the whole-decode comparison below
-differs, so the default decoder, its scalar gate and its outputs are
-unchanged. Turn it on only when
-`whole_decodes_with_the_simd_stages_against_the_original_target` reports no
-differing word on every target in scope; the test fails once nothing
-differs while the selection is still off, and fails on any difference once
-it is on.
+`SetSupportedTargetsForTest` (`hwy::set_decoder_simd_for_test`).
+
+The selection is **off**. Working decision 2026-11-13 (delegated,
+revisable by the owner): it is turned on per target, and only when on that
+target
+
+- (a) every decode-path Highway export of the Plan that an in-scope file
+  can reach is translated. Upsampling, noise, blending, splines,
+  `to_linear`, tone mapping, CMS, `dec_external_image`, `dec_modular`,
+  `rct` and `squeeze` are still scalar; a file that reaches a scalar kernel
+  while the rest runs SIMD matches neither reference build;
+- (b) a whole-decode comparison through the public decoder and its
+  low-memory pipeline exists and reports zero differences over the
+  conformance inputs;
+- (c) the scalar gate (`tools/check.py --stage test`) then forces the
+  scalar path explicitly, so that it still compares the scalar translation
+  with the scalar oracle;
+- (d) for AVX2, the same evidence exists from real x86-64 hardware.
+
+The gate is per target (ADR-0041): AArch64 may be turned on before x86-64
+when (a) to (c) hold there.
+`whole_decodes_with_the_simd_stages_against_the_original_target` is a
+parity gate of the simple pipeline of `decode_vardct`: it forces the SIMD
+target and asserts zero differing float words and output bytes for every
+admitted file, independently of the default selection (it passes on NEON
+since the `compressed_dc` translation; see "VarDCT decode kernels").
 
 ## Evidence (2026-11-13, macOS 27.0.1, M1 Ultra)
 
@@ -359,7 +377,7 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   target in scope, AVX2 is not verified and keeps DequantBlock scalar under
   the O4 working decision, and the one `DECODER_SELECTS_SIMD` switch would
   also move the AArch64 decoder off the scalar oracle that the scalar gate
-  compares with. `whole_decodes_with_the_simd_stages_against_the_original_target`
-  therefore fails on NEON as designed ("turn on the selection"); a
-  per-target selection or the AVX2 evidence is an owner/coordinator decision.
+  compares with. The whole-decode test now asserts these zero differences
+  with the SIMD target forced; the conditions for the default selection are
+  in "Decoder path".
 <!-- end vardct kernels -->

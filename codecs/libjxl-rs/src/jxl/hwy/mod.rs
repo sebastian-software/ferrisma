@@ -214,13 +214,22 @@ impl Target {
 }
 
 /// Whether the decoder selects the SIMD paths by default (port ADR 0004,
-/// "Decoder path"). Off: the whole-decode comparison with the original's
-/// single-target SIMD build (`tests/simd_parity.rs`,
-/// `whole_decodes_with_the_simd_stages_against_the_original_target`) still
-/// differs, because the original's NEON/AVX2 build also runs its other
-/// kernels (DCT, dequantization, XYB, upsampling, output conversion, ...) as
-/// SIMD, which the port does not yet translate. Turn it on only when that
-/// test reports no differing word.
+/// "Decoder path"). Off. Working decision 2026-11-13 (delegated, revisable
+/// by the owner): turn it on for a target only when, on that target,
+/// (a) every decode-path Highway export of ADR 0004's Plan that an in-scope
+/// file can reach is translated (a file that reaches a scalar kernel while
+/// the rest runs SIMD matches neither reference build); (b) a whole-decode
+/// comparison through the public decoder, including its low-memory
+/// pipeline, exists and reports zero differences over the conformance
+/// inputs; (c) the scalar gate (`tools/check.py --stage test`) forces the
+/// scalar path explicitly, so it still compares the scalar translation with
+/// the scalar oracle; and (d) for AVX2, the same evidence exists from real
+/// x86-64 hardware. The gate is per target (ADR-0041): AArch64 may be
+/// turned on before x86-64 once (a) to (c) hold there. The VarDCT
+/// whole-decode test of `decode_vardct`
+/// (`whole_decodes_with_the_simd_stages_against_the_original_target`)
+/// forces the SIMD target and asserts zero differences independently of
+/// this switch.
 pub const DECODER_SELECTS_SIMD: bool = false;
 
 /// [`decoder_target`] override, the counterpart of Highway's
