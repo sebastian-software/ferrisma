@@ -386,3 +386,40 @@ functions). Each case compares the AVIF bytes, the decoded planes and the
 RGB output; the port reports `simd(neon)` in the `neon` level. The x86-64
 levels have not run: the port's x86 kernels do not build for
 `x86_64-apple-darwin` yet, and the hosted Linux run is open (#241).
+
+## Amendment: the remaining still-image Neon kernels (2026-11-13)
+
+Four more kernels are dispatched on macOS ARM64, each in its own commit
+through `tools/enable_aom_dispatch.py` (working decision 2026-11-13,
+delegated, revisable by the owner). The arm64 overlay now dispatches 513
+RTCD functions. The criterion is the one D4 sets: the port's Neon level runs
+the kernel that the original's Neon build runs, and
+`tools/check_aom_simd_original.py` stays identical.
+
+| Kernel | Why it was on `_c` | Evidence |
+| --- | --- | --- |
+| `aom_sum_sse_2d_i16` | "no original Neon test", which was wrong: `test/sse_sum_test.cc` instantiates `SumSSETest` for Neon | transcribed as `tests/simd/sse_sum.rs`, exact |
+| `av1_get_horver_correlation_full` | not translated; the original test has a tolerance of 1e-6 | translated as `src/simd/av1/encoder/arm/rdopt_neon.rs`. It sums integers and ends with the same single-precision sequence as `_c`, so `tests/simd/horver_correlation.rs` requires the tolerance and bit equality, and both hold |
+| `av1_get_nz_map_contexts` | writes context positions that `_c` leaves untouched | the original's Neon build does the same; its callers read only the positions below `eob` |
+| `av1_round_shift_array` | wraps on left shifts where `_c` saturates | the original's arm64 build resolves every call to the Neon kernel, including those in `av1_inv_txfm_neon.c`; the translated inverse transform now calls the RTCD pointer as the original calls the RTCD name |
+
+The transform transcriptions call the C references without the
+`av1_rtcd()` of the original test main. With `av1_round_shift_array`
+dispatched, `scalar_round_shift_reference()` in `tests/simd.rs` selects the
+`_c` round shift for them, as `AOM_SIMD_CAPS_MASK=0` does.
+
+`aom_quantize_b_helper` stays on `_c`. The original declares it as an RTCD
+function with a Neon specialization, but libaom calls only
+`aom_quantize_b_helper_c` by name (`av1/encoder/av1_quantize.c`), so the
+original's Neon build never executes the Neon helper either. Dispatching it
+would add an unused pointer and change no arithmetic.
+
+Gates on macOS ARM64 (Apple clang 21, rustc 1.100.0-nightly 2026-09-06, loaded
+host), with the originals rebuilt in this tree by `tools/build_aom.py
+--library-only` and `--library-only --simd neon` (`config_sha256` `c1acff87…`
+and `44191d50…`): `neon` 82 of 82 after each kernel, and on the final tree
+`neon` 82 of 82 and `scalar` 82 of 82 cases identical to the original;
+`cargo test --release -p libavif-aom --test simd` 152 passed; the PR stage
+(`cargo xtask codecs --codec avif --stage pr`) passes, golden outputs 62 of
+62. The float `nn`/`cnn` kernels and all x86 counterparts are unchanged.
+

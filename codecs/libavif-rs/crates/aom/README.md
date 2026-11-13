@@ -30,16 +30,19 @@ the freeze (ADR 0059), `tools/enable_aom_dispatch.py` changes the arm64 overlay
 together with the dispatch headers, the owned RTCD and caller units, and their
 recorded hashes (ADR 0056, amendment of 2026-11-13).
 
-- Arm: 509 RTCD functions dispatch to Neon kernels: the high-bitdepth set (190
+- Arm: 513 RTCD functions dispatch to Neon kernels: the high-bitdepth set (190
   intra predictors, transforms, CDEF, quantization) and, since 2026-11-13, the
   still-image 8-bit inverse transform `av1_inv_txfm_add`, the 40 loop filters,
   the 190 8-bit intra predictors with `av1_dr_prediction_z1/z2/z3`, the 9 CfL
-  getters, the 4 loop-restoration kernels, and 20 quantization, 8-bit forward
-  transform, SSE/distortion and txb kernels. The per-size `av1_inv_txfm2d_add_*`
-  entry points are not dispatched (see `rtcd/arm64.pl`). Not dispatched because
-  they are not exact with `_c` for all arguments: the high-bitdepth Hadamard
-  kernels (coefficient order), `av1_get_nz_map_contexts` (writes positions `_c`
-  leaves untouched) and `av1_round_shift_array` (wraps where `_c` saturates).
+  getters, the 4 loop-restoration kernels, 20 quantization, 8-bit forward
+  transform, SSE/distortion and txb kernels, and `aom_sum_sse_2d_i16`,
+  `av1_get_horver_correlation_full`, `av1_get_nz_map_contexts` and
+  `av1_round_shift_array`. The last two are dispatched although they are not
+  exact with `_c` for every argument (extra context positions; wrapping where
+  `_c` saturates), because the original's Neon build runs them too and the
+  SIMD-against-original gate is identical. The per-size `av1_inv_txfm2d_add_*`
+  entry points are not dispatched (see `rtcd/arm64.pl`), nor are the
+  high-bitdepth Hadamard kernels (coefficient order).
   ADR 0056 lists what remains on `_c`.
 - x86-64: 104 RTCD functions dispatch through 111 kernel assignments, because
   some functions have both an SSE4.1 and an AVX2 variant. The high-bitdepth DC
