@@ -2,7 +2,8 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-13
+- **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (the comparison with rav1e is context, not a criterion)
 - **Related:** [0018](0018-optional-codec-and-cms-dependencies.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0031](0031-workspace-libavif-input-experiment.md)
 
 ## Context
@@ -196,3 +197,4 @@ if hosted x86-64 golden evidence fails.
   plane allocation, view creation and view destruction, documented in
   [the unsafe review](../unsafe-review.md) and at each block
   ([analysis](../benchmarks/v1.0-engine-performance-analysis-2026-11-12.md#applied-fixes-2026-11-12-evening)).
+- 2026-11-13 — Owner decision D1, recorded in [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md): the workspace codec ports are the default paths even where they are slower than third-party libraries. The libavif/AOM writer therefore stays the default whenever `avif-own-write` is compiled in, and the comparison with rav1e (time, RSS, bytes at matched quality) is context, not a criterion; rav1e stays an explicit backend. Quiet-host timing and peak RSS are no longer gates for the default (D3); speed is reported against C libavif + libaom in ADR-0041's three columns. Still open and not decided by this amendment: the default AVIF quality per encoder (#216) and the other confirmations listed as ADR-0041 O5. The quality gate now applies to the writer's AOM port: its output must equal libaom's own builds on each target, including libaom's NEON build on AArch64, where the [CI record](../benchmarks/v1.0-ci-performance-2026-11-12.md#correctness-side-checks-all-hosts) found a difference against the release build. The hosted golden evidence (#134) stays a regression guard.

@@ -2,8 +2,9 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-13
 - **Supersedes:** None. Once accepted, it replaces decision 6 ("no stability promise") of [ADR-0017](0017-minimal-public-facade-and-cli.md) for the items it marks stable.
+- **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (when the version 1.0 may be used, and the release tooling)
 - **Related:** [0010](0010-dual-licensing.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0034](0034-thumbnail-geometry.md), [0037](0037-selectable-workspace-avif-encoder.md), [publishing](../publishing.md), [compatibility guide](../compatibility.md), tracker #196
 
 ## Context
@@ -275,3 +276,4 @@ reports that a stable item cannot express its use case.
   already does for `jpeg-xl-read` and `avif-write`. Under decision 2, a
   default change that changes output semantics is breaking after 1.0; this
   change happens before any functional release.
+- 2026-11-13 — Owner decision D10, recorded in [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) section 8: pre-releases are published from `main` as 0.x; the version **1.0 is reserved** for the state that meets ADR-0041's quality gate completely (all four ports, AArch64 and x86-64, scalar and the v1.0 SIMD levels). Releases use Release Please as in the organization's other packages (`sebastian-software/ferromark` ADR-0020, `sebastian-software/ferrugo`). Whether all crates share one version is open (ADR-0041 O3). This adds a release condition; it does not accept this ADR's proposed tiers or decide its fifteen recommendations, which remain pending maintainer review. Under decision 2, 0.x minor releases may break, as Cargo treats them. The alternative "stay on 0.x indefinitely" is replaced by "stay on 0.x until the gate is met".

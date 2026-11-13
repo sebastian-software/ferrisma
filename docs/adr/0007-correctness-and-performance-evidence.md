@@ -2,8 +2,9 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-13
 - **Supersedes:** None
+- **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (what counts as release evidence for v1.0)
 - **Related:** [0001](0001-project-thesis.md), [0006](0006-cpu-first-gpu-capable-execution.md)
 
 ## Context
@@ -58,6 +59,7 @@ quality policy replaces it.
 
 ## Amendment log
 
+- 2026-11-13 — Owner decision, recorded in [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md): v1.0 has a quality gate (bit identity with the ported original per execution kind and target) and no performance gate. Performance is reported against the original in three columns (scalar one thread, SIMD one thread, SIMD all threads); third-party libraries are context only. This ADR still governs how a measurement is taken and reported (inputs, settings, hosts, repetitions, memory); it no longer makes a performance result a release criterion. "Reference equivalence" in the Validation section now means ADR-0041's gate. The rule "only add hand-written SIMD ... when measurements demonstrate a worthwhile win" no longer applies to a codec port's SIMD paths in the v1.0 scope (NEON, AVX2 and the lower x86 levels the original selects): ADR-0041 requires them for completeness, proven against the original's SIMD build. It still applies to SIMD that has no counterpart in an original, such as new engine kernels.
 - 2026-11-12 — Added a predeclared, bounded encoder-anchor calibration policy.
   The [fixed-anchor native run](https://github.com/sebastian-software/ferrisma/actions/runs/43090843352)
   completed 6/9 x86-64 and 5/9 ARM64 cells; integer-quality gaps prevented the

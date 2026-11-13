@@ -2,8 +2,9 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-10
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-13
 - **Supersedes:** The cadence requirement in [0026](0026-codecs-in-one-repository-and-workspace.md), decision 7; the ordinary PR C++ oracle and every-change local macOS requirements in JXL's imported ADR-0002 and PR #61, as described below
+- **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (the binding platforms for the v1.0 quality gate)
 - **Related:** [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md)
 
 ## Context
@@ -130,3 +131,4 @@ measured, a supported host changes, or fixture and live oracle results diverge.
   stages and raise it deliberately with its lint fixes, or keep floating
   stable and accept drift fixes like this one when a release lands. The choice
   remains the owner's; the workflow is unchanged.
+- 2026-11-13 — Owner decision D7, recorded in [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) section 5: validation for the v1.0 quality gate is **local first**. The binding proof is AArch64 natively and x86-64 under Rosetta 2 on the development Mac (`--target x86_64-apple-darwin`, originals built with `-arch x86_64`, `ROSETTA_ADVERTISE_AVX=1` so that run-time detection reports AVX2/FMA/BMI2/F16C). One hosted Linux x86-64 run per release candidate is the cross-check; Blacksmith and CI benchmark runs are for performance only. Every port's original must therefore build as an x86-64 oracle, scalar and SIMD. The tiers above (scoped PR checks, nightly and branch deep runs, manual exhaustive checks) and the rule against refreshing goldens are unchanged; they guard regressions between the local proofs. Where this record or a port ADR names native Linux x86-64 CI as the only x86 evidence (for example libavif-rs ADR 0058, "no emulation is used"), Rosetta is now an accepted x86-64 target for the gate; the hosted Linux run remains the release-candidate cross-check. [Quality gate guide](../quality-gate.md) lists the local commands per port.
