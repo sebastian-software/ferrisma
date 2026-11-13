@@ -140,6 +140,15 @@ list, each reaching a still-scalar `Upsample`, noise or splines stage (ADR
 start of the SIMD stages in the low-memory pipeline. The scalar gate now
 forces the scalar decoder path (`JXL_DECODER_TARGET=scalar`).
 <!-- end public gate -->
+<!-- modular -->
+Modular and output-conversion kernels (2026-11-13, branch `v1/jxl-modular`):
+the SIMD `FloatToU32`/`FloatToF16` of dec_external_image
+(`dec_external_image_simd.rs`) match the NEON oracle word for word
+(`tests/simd_modular.rs`) and `ConvertChannelsToExternal` selects them on
+`hwy::decoder_target()`. The whole-decode comparison still reports zero
+differing words and bytes on all 24 VarDCT files with the SIMD target
+forced. AVX2 compiles and is not yet run.
+<!-- end modular -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 

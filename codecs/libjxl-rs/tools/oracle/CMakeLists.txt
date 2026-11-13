@@ -373,3 +373,7 @@ target_sources(jxl_oracle PRIVATE render_stages_simd.cc)
 # 0004, "Decoder path" condition (b)). The TU only calls the public API.
 target_sources(jxl_oracle PRIVATE decoder_public_simd.cc)
 # end public gate
+# modular: requests of the SIMD modular and output-conversion kernels (port
+# ADR 0004 Plan item 2). The TU only calls the original's exported kernels.
+target_sources(jxl_oracle PRIVATE modular_simd.cc)
+# end modular

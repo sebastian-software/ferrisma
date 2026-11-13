@@ -186,6 +186,9 @@ SIMD_TESTS = ["simd_parity", "simd_render", "simd_vardct"]
 # public gate: whole decodes through the public decoder (ADR 0004 condition (b)).
 SIMD_TESTS += ["simd_public"]
 # end public gate
+# modular
+SIMD_TESTS += ["simd_modular"]
+# end modular
 SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 

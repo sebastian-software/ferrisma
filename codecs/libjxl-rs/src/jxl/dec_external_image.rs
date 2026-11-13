@@ -8,6 +8,8 @@
 use super::base::float::max_f32;
 use super::base::hwy_scalar::{clamp, nearest_int};
 use super::base::status::{Status, StatusCode};
+use super::dec_external_image_simd::{float_to_f16_simd, float_to_u32_simd};
+use super::hwy::decoder_target;
 use super::image::{Image3, Plane, Sample};
 use super::image_bundle::ImageBundle;
 use super::image_metadata::Orientation;
@@ -221,7 +223,11 @@ pub fn convert_uint_channels_to_buffer(
             }
         });
         for (c, input) in inputs.iter().enumerate().take(n) {
-            float_to_u32(input, cache.row_mut(c), w, mul, bits);
+            // HWY_DYNAMIC_DISPATCH(FloatToU32) (port ADR 0004).
+            match decoder_target() {
+                Some(target) => float_to_u32_simd(target, input, cache.row_mut(c), w, mul, bits),
+                None => float_to_u32(input, cache.row_mut(c), w, mul, bits),
+            }
         }
         // StoreUintRow retains its original x-major/channel-minor order.
         for x in 0..w {
@@ -387,7 +393,11 @@ pub fn convert_float_channels_to_buffer(
                 }
             });
             for (c, input) in inputs.iter().enumerate().take(n) {
-                float_to_f16(input, cache.row_mut(c), w);
+                // HWY_DYNAMIC_DISPATCH(FloatToF16) (port ADR 0004).
+                match decoder_target() {
+                    Some(target) => float_to_f16_simd(target, input, cache.row_mut(c), w),
+                    None => float_to_f16(input, cache.row_mut(c), w),
+                }
             }
             let row = &mut out[stride * y..stride * y + row_size];
             // The original writes native half words first, then swaps every

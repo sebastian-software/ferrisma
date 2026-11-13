@@ -549,6 +549,9 @@ bool RenderStagesSimdCommand(const std::string&,std::istringstream&,JxlMemoryMan
 // public gate
 bool DecoderPublicSimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 // end public gate
+// modular
+bool ModularSimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+// end modular
 
 int main() {
   try {
@@ -669,6 +672,9 @@ int main() {
       // public gate
       else if (DecoderPublicSimdCommand(command, in, &mm)) {}
       // end public gate
+      // modular
+      else if (ModularSimdCommand(command, in, &mm)) {}
+      // end modular
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
       else throw std::runtime_error("unknown command");
