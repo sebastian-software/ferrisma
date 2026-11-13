@@ -503,7 +503,7 @@ and the real `cargo publish` uploads.
 | 6 | License review gates for redistributing source crates (IJG terms, `simd_helpers` notice, independent review; per-crate license metadata). | #66, #136 |
 | 7 | Configuration B only: move the engine package out of the workspace root. | none; decision with O3 |
 | 8 | Repository setup outside Git: `RELEASE_PLEASE_TOKEN`, Trusted Publishing for each of the fourteen crates (after a one-time token bootstrap), crates.io team as co-owner, branch protection that lets the release pull request run CI. | #137 |
-| 9 | Release artifacts beyond crates: `--version` with build identity for binaries (not needed for a crates-only 0.1.0). | #237, #196 |
+| 9 | Release artifacts beyond crates. The CLI has `--version` since 2026-11-13; it prints the build identity only when `FERRISMA_BUILD_ID` is set at compile time, and no release workflow sets it yet (not needed for a crates-only 0.1.0). | #237, #196 |
 
 ## Decisions the owner still has to make
 
