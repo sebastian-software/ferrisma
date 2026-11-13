@@ -956,13 +956,17 @@ fn simd_dc_dequantization_matches_the_original_target() {
     for mode in 0..3 {
         for custom in [false, true] {
             for precision in 0..4 {
+                // Rectangles start where libjxl's DC groups do: x0 a
+                // multiple of kGroupDim (256), so `dc row + x0` and its
+                // chroma-shifted origin are vector-aligned as DequantDC's
+                // aligned Store (vmovaps on AVX2) requires; y0 is free.
                 for (w, h, x, y) in [
                     (2, 2, 0, 0),
-                    (4, 4, 2, 2),
-                    (8, 6, 2, 2),
+                    (4, 4, 256, 2),
+                    (8, 6, 256, 2),
                     (8, 8, 0, 0),
-                    (16, 4, 1, 3),
-                    (13, 5, 3, 1),
+                    (16, 4, 256, 3),
+                    (13, 5, 0, 1),
                 ] {
                     // An odd width with horizontal subsampling makes the
                     // (scalar) bucket loop read one quantized sample past

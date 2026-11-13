@@ -13,6 +13,7 @@
 #include "lib/jxl/dct_util.h"
 #include "lib/jxl/quantizer-inl.h"
 #include "lib/jxl/quantizer.h"
+#include "aligned_vector.h"
 
 namespace jxl { namespace ORACLE_HWY_NS { namespace OracleDequant {
 using D = HWY_FULL(float);
@@ -27,7 +28,8 @@ namespace {
 float DQFloat(std::istringstream& in) {
   uint32_t bits; in >> bits; float v; std::memcpy(&v, &bits, 4); return v;
 }
-void DQWords(const std::vector<float>& values) {
+template <class V>
+void DQWords(const V& values) {
   std::cout << " B";
   for (float v : values) { uint32_t bits; std::memcpy(&bits, &v, 4); std::cout << ' ' << bits; }
 }
@@ -45,10 +47,12 @@ bool DequantCommand(const std::string& command, std::istringstream& in, JxlMemor
   float xdm=DQFloat(in),bdm=DQFloat(in),xcc=DQFloat(in),bcc=DQFloat(in);
   float biases[4];for(float& b:biases)b=DQFloat(in);
   auto acs=jxl::AcStrategy::FromRawStrategy(static_cast<uint8_t>(raw));
-  std::vector<float> matrix(size*3);if(command=="dq-lane")for(float& v:matrix)v=DQFloat(in);
-  std::vector<int32_t> q32(size*3);std::vector<int16_t> q16(size*3);
+  OracleAlignedVector<float> matrix(size*3);if(command=="dq-lane")for(float& v:matrix)v=DQFloat(in);
+  // vardct kernels: qblock, block and scratch aligned like libjxl's
+  // coefficient storage and group cache (aligned Load/Store on AVX2).
+  OracleAlignedVector<int32_t> q32(size*3);OracleAlignedVector<int16_t> q16(size*3);
   jxl::ACPtr ptr[3];for(size_t c=0;c<3;++c){for(size_t k=0;k<size;++k){int32_t v;in>>v;q32[c*size+k]=v;q16[c*size+k]=static_cast<int16_t>(v);}if(type==0)ptr[c].ptr16=q16.data()+c*size;else ptr[c].ptr32=q32.data()+c*size;}
-  std::vector<float> block(size*3+4,-123.25f),scratch(size*4+260,-123.25f);
+  OracleAlignedVector<float> block(size*3+4,-123.25f),scratch(size*4+260,-123.25f);
   if(command=="dq-lane") {
     float scale=inv/quant;auto sx=hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,scale*xdm),sy=hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,scale),sb=hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,scale*bdm);
     for(size_t k=0;k<size;++k){if(type==0)jxl::ORACLE_HWY_NS::OracleDequant::DequantLane<jxl::ACType::k16>(sx,sy,sb,matrix.data(),size,k,hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,xcc),hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,bcc),biases,ptr,block.data());else jxl::ORACLE_HWY_NS::OracleDequant::DequantLane<jxl::ACType::k32>(sx,sy,sb,matrix.data(),size,k,hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,xcc),hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,bcc),biases,ptr,block.data());}

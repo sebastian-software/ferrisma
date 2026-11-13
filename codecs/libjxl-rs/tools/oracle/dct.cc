@@ -10,12 +10,14 @@
 #include <string>
 #include <vector>
 #include "lib/jxl/dec_transforms-inl.h"
+#include "aligned_vector.h"
 
 namespace {
 float ReadFloat(std::istringstream& in) {
   uint32_t bits; in >> bits; float v; std::memcpy(&v, &bits, sizeof(v)); return v;
 }
-void Words(const std::vector<float>& values, bool first = false) {
+template <class V>
+void Words(const V& values, bool first = false) {
   std::cout << (first ? "B" : " B");
   for (float v : values) { uint32_t bits; std::memcpy(&bits, &v, sizeof(bits)); std::cout << ' ' << bits; }
 }
@@ -81,11 +83,14 @@ bool DctCommand(const std::string& command, std::istringstream& in) {
   size_t count = command == "dct-llf" ? rows * stride : inverse ? rows * cols : rows * stride;
   // Owners are separate and retain a tail canary. All observed storage starts
   // initialized; the source's local uninitialized AFV/warm arrays are omitted.
-  std::vector<float> input(count + 4, -123.25f);
+  // vardct kernels: coefficients, pixels and scratch are aligned as
+  // libjxl's decoder allocates them (dec_group_block, the pipeline rows and
+  // scratch_space); the SIMD transforms Load/Store the scratch aligned.
+  OracleAlignedVector<float> input(count + 4, -123.25f);
   for (size_t i = 0; i < count; ++i) input[i] = ReadFloat(in);
-  std::vector<float> output((inverse ? rows * stride : rows * cols) + 4, -123.25f);
+  OracleAlignedVector<float> output((inverse ? rows * stride : rows * cols) + 4, -123.25f);
   if(command == "dct-llf") output.resize(rows * cols * 64 + 4, -123.25f);
-  std::vector<float> scratch(rows * cols * 4 + 3 * (rows + cols) + 4, -123.25f);
+  OracleAlignedVector<float> scratch(rows * cols * 4 + 3 * (rows + cols) + 4, -123.25f);
   if(command == "dct-scaled") Rows(rows, cols, inverse, input.data(), stride, output.data(), scratch.data());
   else if(command == "dct-pixels") jxl::ORACLE_HWY_NS::TransformToPixels(static_cast<jxl::AcStrategyType>(option), input.data(), output.data(), stride, scratch.data());
   else jxl::ORACLE_HWY_NS::LowestFrequenciesFromDC(static_cast<jxl::AcStrategyType>(option), input.data(), stride, output.data(), scratch.data());
