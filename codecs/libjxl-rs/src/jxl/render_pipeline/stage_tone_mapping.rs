@@ -108,6 +108,10 @@ impl RenderPipelineStage for ToneMappingStage {
     }
 }
 pub fn get_tone_mapping_stage(info: &OutputEncodingInfo) -> Option<Box<dyn RenderPipelineStage>> {
+    // HWY_DYNAMIC_DISPATCH(GetToneMappingStage) (port ADR 0004).
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return super::stage_tone_mapping_simd::get_tone_mapping_stage_simd(info, target);
+    }
     let stage = Box::new(ToneMappingStage::new(info.clone()));
     if !stage.is_needed() {
         None

@@ -4,15 +4,16 @@
 //! base/fast_math-inl.h (FastLog2f, FastPow2f, FastPowf),
 //! cms/transfer_functions-inl.h (TF_SRGB, TF_PQ, TF_HLG, TF_709) and
 //! cms/tone_mapping-inl.h (HlgOOTF::Apply) for the NEON and AVX2 targets
-//! (the decode direction `DisplayFromEncoded` of the transfer functions is
-//! in the `color` block at the end)
+//! (the decode direction `DisplayFromEncoded` of the transfer functions,
+//! `Rec2408ToneMapper` and `GamutMap` are in the `color` block at the end)
 //! (ADR 0004), written once against [`SimdF32`]. They are translated
 //! operation by operation: MulAdd is fused on both targets, and the
 //! `HWY_REP4` coefficient tables are `LoadDup128` of four equal words, that
 //! is `Set`. `HWY_FENCE` only orders the source's statements on x86 and has
 //! no vector counterpart. The scalar paths remain in `base::fast_math` and
 //! `cms::transfer_functions_scalar`.
-use crate::jxl::cms::tone_mapping::HlgOotfBase;
+use crate::jxl::base::matrix_ops::Vector3;
+use crate::jxl::cms::tone_mapping::{HlgOotfBase, Range, Rec2408ToneMapperBase};
 use crate::jxl::cms::transfer_functions::TfHlgBase;
 use crate::jxl::hwy::SimdF32;
 
@@ -308,4 +309,167 @@ pub fn rec709_display_from_encoded<D: SimdF32>(d: D, x: D::V) -> D::V {
     d.if_then_else(d.lt(x, d.set(0.081f64 as f32)), low, hi)
 }
 
+/// `Rec2408ToneMapper<HWY_FULL(float)>` of cms/tone_mapping-inl.h: the
+/// original base constructor's fields and its `TF_PQ(1.0)`.
+pub struct Rec2408ToneMapperSimd {
+    base: Rec2408ToneMapperBase,
+    tf_pq: TfPqSimd,
+}
+impl Rec2408ToneMapperSimd {
+    pub fn new(source_range: Range, target_range: Range, luminances: Vector3) -> Self {
+        Self {
+            base: Rec2408ToneMapperBase::new(source_range, target_range, luminances),
+            tf_pq: TfPqSimd::new(1.0),
+        }
+    }
+    /// `ToneMap(&red, &green, &blue)`.
+    #[inline(always)]
+    pub fn tone_map<D: SimdF32>(&self, df: D, rgb: &mut [D::V; 3]) {
+        let s = &self.base;
+        let [red_y, green_y, blue_y] = s.luminances;
+        let [red, green, blue] = *rgb;
+        let luminance = df.mul(
+            df.set(s.source[1]),
+            df.mul_add(
+                df.set(red_y),
+                red,
+                df.mul_add(df.set(green_y), green, df.mul(df.set(blue_y), blue)),
+            ),
+        );
+        let pq_mastering_min = df.set(s.pq_mastering_min);
+        let inv_pq_mastering_range = df.set(s.inv_pq_mastering_range);
+        let normalized_pq = df.min(
+            df.set(1.0),
+            df.mul(
+                df.sub(self.inv_eotf(df, luminance), pq_mastering_min),
+                inv_pq_mastering_range,
+            ),
+        );
+        let ks = df.set(s.ks);
+        let e2 = df.if_then_else(
+            df.lt(normalized_pq, ks),
+            normalized_pq,
+            self.p(df, normalized_pq),
+        );
+        let one_minus_e2 = df.sub(df.set(1.0), e2);
+        let one_minus_e2_2 = df.mul(one_minus_e2, one_minus_e2);
+        let one_minus_e2_4 = df.mul(one_minus_e2_2, one_minus_e2_2);
+        let b = df.set(s.min_lum);
+        let e3 = df.mul_add(b, one_minus_e2_4, e2);
+        let pq_mastering_range = df.set(s.pq_mastering_range);
+        let e4 = df.mul_add(e3, pq_mastering_range, pq_mastering_min);
+        let new_luminance = df.min(
+            df.set(s.target[1]),
+            df.zero_if_negative(self.tf_pq.display_from_encoded(df, e4)),
+        );
+        let min_luminance = df.set(1e-6f32);
+        let use_cap = df.le(luminance, min_luminance);
+        let ratio = df.div(new_luminance, df.max(luminance, min_luminance));
+        let cap = df.mul(new_luminance, df.set(s.inv_target_peak));
+        let normalizer = df.set(s.normalizer);
+        let multiplier = df.mul(ratio, normalizer);
+        for val in rgb {
+            *val = df.if_then_else(use_cap, cap, df.mul(*val, multiplier));
+        }
+    }
+    #[inline(always)]
+    fn inv_eotf<D: SimdF32>(&self, df: D, luminance: D::V) -> D::V {
+        self.tf_pq.encoded_from_display(df, luminance)
+    }
+    #[inline(always)]
+    fn t<D: SimdF32>(&self, df: D, a: D::V) -> D::V {
+        let ks = df.set(self.base.ks);
+        let inv_one_minus_ks = df.set(self.base.inv_one_minus_ks);
+        df.mul(df.sub(a, ks), inv_one_minus_ks)
+    }
+    #[inline(always)]
+    fn p<D: SimdF32>(&self, df: D, b: D::V) -> D::V {
+        let t_b = self.t(df, b);
+        let t_b_2 = df.mul(t_b, t_b);
+        let t_b_3 = df.mul(t_b_2, t_b);
+        let ks = df.set(self.base.ks);
+        let max_lum = df.set(self.base.max_lum);
+        df.mul_add(
+            df.mul_add(
+                df.set(2.0),
+                t_b_3,
+                df.mul_add(df.set(-3.0), t_b_2, df.set(1.0)),
+            ),
+            ks,
+            df.mul_add(
+                df.add(t_b_3, df.mul_add(df.set(-2.0), t_b_2, t_b)),
+                df.sub(df.set(1.0), ks),
+                df.mul(
+                    df.mul_add(df.set(-2.0), t_b_3, df.mul(df.set(3.0), t_b_2)),
+                    max_lum,
+                ),
+            ),
+        )
+    }
+}
+
+/// `GamutMap(&red, &green, &blue, primaries_luminances,
+/// preserve_saturation)` of cms/tone_mapping-inl.h.
+#[inline(always)]
+pub fn gamut_map<D: SimdF32>(
+    df: D,
+    rgb: &mut [D::V; 3],
+    primaries_luminances: &Vector3,
+    preserve_saturation: f32,
+) {
+    let [red, green, blue] = *rgb;
+    let luminance = df.mul_add(
+        df.set(primaries_luminances[0]),
+        red,
+        df.mul_add(
+            df.set(primaries_luminances[1]),
+            green,
+            df.mul(df.set(primaries_luminances[2]), blue),
+        ),
+    );
+    // Desaturate out-of-gamut pixels (see the source for the rationale).
+    let zero = df.zero();
+    let one = df.set(1.0);
+    let mut gray_mix_saturation = zero;
+    let mut gray_mix_luminance = zero;
+    for val in [red, green, blue] {
+        let val_minus_gray = df.sub(val, luminance);
+        let inv_val_minus_gray = df.div(
+            one,
+            df.if_then_else(df.eq(val_minus_gray, zero), one, val_minus_gray),
+        );
+        let val_over_val_minus_gray = df.mul(val, inv_val_minus_gray);
+        gray_mix_saturation = df.if_then_else(
+            df.ge(val_minus_gray, zero),
+            gray_mix_saturation,
+            df.max(gray_mix_saturation, val_over_val_minus_gray),
+        );
+        gray_mix_luminance = df.max(
+            gray_mix_luminance,
+            df.if_then_else(
+                df.le(val_minus_gray, zero),
+                gray_mix_saturation,
+                df.sub(val_over_val_minus_gray, inv_val_minus_gray),
+            ),
+        );
+    }
+    let gray_mix = df.clamp(
+        df.mul_add(
+            df.set(preserve_saturation),
+            df.sub(gray_mix_saturation, gray_mix_luminance),
+            gray_mix_luminance,
+        ),
+        zero,
+        one,
+    );
+    for val in &mut *rgb {
+        *val = df.mul_add(gray_mix, df.sub(luminance, *val), *val);
+    }
+    let [red, green, blue] = *rgb;
+    let max_clr = df.max(df.max(one, red), df.max(green, blue));
+    let normalizer = df.div(one, max_clr);
+    for val in rgb {
+        *val = df.mul(*val, normalizer);
+    }
+}
 // end color

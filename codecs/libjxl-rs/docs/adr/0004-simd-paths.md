@@ -806,4 +806,20 @@ path matches every word and the scalar path differs in at least one request.
   primaries, DCI and five explicit gammas; widths 0-67, seven origins,
   thresholds with their neighbor words, special words); the scalar path
   differs in 15,304 of them.
+- **Tone mapping** (`stage_tone_mapping_simd.rs`, with `Rec2408ToneMapper`
+  and `GamutMap` of cms/tone_mapping-inl.h appended to `simd_transfer.rs`;
+  `HlgOOTF::Apply` was already there): the stage keeps the original's
+  constructor selection, the 10000-nit rescaling for a PQ output and the
+  factory's null result. The base constructors (`Rec2408ToneMapperBase`,
+  `HlgOOTF_Base`) are the existing scalar translations; on AArch64 they
+  contract like the original. `GetToneMappingStage` dispatches on
+  `hwy::decoder_target()`. NEON: 58,216 requests, 19,379,056 words matched
+  (PQ to six lower targets and HLG at five display targets, each to PQ,
+  sRGB and linear output with two primaries' luminances, plus four
+  encodings that need no stage); the scalar path differs in 45,222.
+  AVX2 caveat: the original's AVX2 objects may contract the scalar base
+  constructors (`ks_ = 1.5f * max_lum_ - 0.5f`, the double PQ curve of
+  `InvEOTF`) where the port's x86-64 scalar translation does not, because
+  they are inlined into `HWY_ATTR` code with FMA; only a run against the
+  AVX2 oracle can show it.
 <!-- end color -->

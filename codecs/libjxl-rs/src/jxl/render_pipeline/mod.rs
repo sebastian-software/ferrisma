@@ -44,4 +44,5 @@ pub mod stage_upsampling_simd;
 // end stages2
 // color: SIMD color stages of ADR 0004 Plan item 1.
 pub mod stage_to_linear_simd;
+pub mod stage_tone_mapping_simd;
 // end color
