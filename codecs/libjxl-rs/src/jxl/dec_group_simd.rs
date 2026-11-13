@@ -7,11 +7,13 @@
 //!
 //! AdjustQuantBias uses `ApproximateReciprocal`: `vrecpe` on NEON, which
 //! the Arm architecture defines exactly, and the vendor-specific `rcpps` on
-//! AVX2 (open question O4). Working decision 2026-11-13 (delegated,
-//! revisable by the owner): the decoder keeps the dequantization on the
-//! scalar translation when the selected target is AVX2
-//! ([`dequant_selects_simd`]); the AVX2 instantiation exists for the parity
-//! test on one host only.
+//! AVX2. Working decision 2026-11-13 evening (delegated, revisable by the
+//! owner): both targets select this instantiation, and the AVX2 path executes
+//! the original's estimate (`_mm256_rcp_ps`), so AVX2 output can differ
+//! between CPU vendors exactly as the original's AVX2 build does. Identity is
+//! claimed per host against the original (ADR-0041), never across hosts. The
+//! owner's open question O4 (#250) still covers whether that is acceptable
+//! for shipped defaults; the default selection stays off.
 use super::ac_strategy::AcStrategyType;
 use super::dct_util::ConstAcPtr;
 use super::dec_transforms_simd::lowest_frequencies_from_dc_d;
@@ -19,17 +21,6 @@ use super::frame_dimensions::DCT_BLOCK_SIZE;
 use super::hwy::{Kernel, SimdF32, Target, dispatch};
 use super::quant_weights::DequantMatrices;
 use super::quantizer::Quantizer;
-
-/// Whether the decoder dispatches DequantBlock to `target` (see the module
-/// documentation: not on AVX2, whose `rcpps` is vendor-specific, O4).
-pub fn dequant_selects_simd(target: Target) -> bool {
-    match target {
-        #[cfg(target_arch = "aarch64")]
-        Target::Neon(_) => true,
-        #[cfg(target_arch = "x86_64")]
-        Target::Avx2(_) => false,
-    }
-}
 
 /// AdjustQuantBias(di, c, quant_i, biases) on full vectors.
 #[inline(always)]

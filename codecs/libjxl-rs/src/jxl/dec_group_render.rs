@@ -376,9 +376,11 @@ pub fn decode_group_impl(
                     bx += llf_x;
                     continue;
                 }
-                // vardct kernels: the SIMD DequantBlock where the target's
-                // reciprocal estimate is admitted (not AVX2, O4).
-                match simd.filter(|&t| super::dec_group_simd::dequant_selects_simd(t)) {
+                // vardct kernels: the SIMD DequantBlock on both targets; on
+                // AVX2 it executes the original's vendor-specific rcpps
+                // (working decision 2026-11-13 evening, delegated, revisable
+                // by the owner; port ADR 0004).
+                match simd {
                     Some(t) => super::dec_group_simd::dequant_block_simd(
                         t,
                         super::dec_group_simd::DequantBlockArgs {
