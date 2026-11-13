@@ -15,6 +15,8 @@
 //!   public function and so its `HWY_DYNAMIC_DISPATCH`).
 //! - dec_modular: `MultiplySum`, `RgbFromSingle`, `SingleFromSingle`
 //!   directly (`mx-msum`, `mx-rgb`, `mx-single`), every written word.
+//! - rct and squeeze: `InvRCT` and `InvSqueeze` through the decoder's
+//!   dispatch on whole modular images (`mx-rct`, `mx-squeeze`).
 #![cfg(feature = "cpp-oracle-simd")]
 
 mod simd_common;
@@ -30,6 +32,12 @@ use jxl::jxl::dec_modular_simd::{
 use jxl::jxl::hwy::set_decoder_simd_for_test;
 use jxl::jxl::image::Plane;
 use jxl::jxl::image_metadata::Orientation;
+use jxl::jxl::modular::modular_image::Image as ModularImage;
+use jxl::jxl::modular::transform::rct::inv_rct;
+use jxl::jxl::modular::transform::squeeze::{
+    default_squeeze_parameters, inv_squeeze, meta_squeeze,
+};
+use jxl::jxl::modular::transform::squeeze_params::SqueezeParams;
 use jxl::jxl::types::JxlEndianness;
 use simd_common::{check_rows, join, next, special_words, status, target};
 use std::fmt::Write as _;
@@ -507,4 +515,121 @@ fn modular_to_float_conversions_match_the_original_target_on_every_written_word(
         tail_differs.get()
     );
     assert!(tail_differs.get() > 0, "the requests must discriminate");
+}
+
+/// The port's observation of an `mx-rct`/`mx-squeeze` request
+/// (tools/oracle/modular_simd.cc) through the decoder's dispatch.
+fn observe_transform(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    let command = args.next().unwrap();
+    let rct = command == "mx-rct";
+    let kind: usize = number(&mut args);
+    let w: usize = number(&mut args);
+    let h: usize = number(&mut args);
+    let n: usize = number(&mut args);
+    let words: Vec<i32> = (0..n).map(|_| number::<u32>(&mut args) as i32).collect();
+    let mut image = ModularImage::create(w, h, 8, if rct { 3 } else { 1 }).unwrap();
+    let mut params = Vec::new();
+    let mut s = Ok(());
+    if !rct {
+        if kind == 0 {
+            default_squeeze_parameters(&mut params, &image);
+        } else {
+            for horizontal in [true, false] {
+                if (kind == 1 && !horizontal) || (kind == 2 && horizontal) {
+                    continue;
+                }
+                params.push(SqueezeParams {
+                    horizontal,
+                    in_place: true,
+                    begin_c: 0,
+                    num_c: 1,
+                });
+            }
+        }
+        s = meta_squeeze(&mut image, &mut params);
+    }
+    if s.is_ok() {
+        for (c, ch) in image.channel.iter_mut().enumerate() {
+            for y in 0..ch.h {
+                let width = ch.w;
+                let row = ch.row_mut(y);
+                for (x, v) in row.iter_mut().enumerate().take(width) {
+                    *v = words[(c * 7 + y * 13 + x) % n];
+                }
+            }
+        }
+        s = if rct {
+            inv_rct(&mut image, 0, kind, None)
+        } else {
+            inv_squeeze(&mut image, &params, None)
+        };
+    }
+    let mut out = format!("{} {}", status(&s), image.channel.len());
+    for ch in &image.channel {
+        write!(out, " {} {}", ch.w, ch.h).unwrap();
+        for y in 0..ch.h {
+            for &v in &ch.row(y)[..ch.w] {
+                write!(out, " {}", v as u32).unwrap();
+            }
+        }
+    }
+    out
+}
+
+/// Sample words for the transforms: small natural values (every
+/// SmoothTendency branch), the 32-bit limits and their neighbors (wrapping
+/// vector arithmetic, Abs(i32::MIN), the 64-bit scalar tails) and random
+/// words.
+fn transform_words(seed: &mut u64, natural: bool) -> Vec<u32> {
+    let mut words: Vec<u32> = if natural {
+        (0..61).map(|_| (next(seed) % 512) as u32).collect()
+    } else {
+        pixel_words(seed)
+    };
+    if natural {
+        words.extend([0, 255, 0, 255, 128, 3, 1, 0xffff_ffff, 0xffff_fff0, 7, 9]);
+    }
+    words
+}
+
+#[test]
+fn inverse_rct_matches_the_original_target() {
+    set_decoder_simd_for_test(Some(true));
+    let mut seed = 0x0_7c7_u64;
+    let mut requests = Vec::new();
+    for rct_type in 0..42usize {
+        for (w, h) in [
+            (1, 1),
+            (3, 2),
+            (4, 1),
+            (7, 3),
+            (8, 2),
+            (9, 1),
+            (16, 2),
+            (17, 3),
+            (33, 2),
+            (67, 1),
+        ] {
+            for natural in [true, false] {
+                let words = transform_words(&mut seed, natural);
+                requests.push(format!(
+                    "mx-rct {rct_type} {w} {h} {} {}",
+                    words.len(),
+                    join(words.iter().copied())
+                ));
+            }
+        }
+    }
+    check_rows(
+        "InvRCT",
+        &requests,
+        |request| {
+            (
+                observe_transform(request),
+                Box::new(|_| true) as Box<dyn Fn(usize) -> bool>,
+            )
+        },
+        |_| false,
+    );
 }
