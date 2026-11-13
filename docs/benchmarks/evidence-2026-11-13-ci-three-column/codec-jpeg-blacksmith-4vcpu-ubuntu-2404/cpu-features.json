@@ -1,0 +1,22 @@
+{
+  "machine": "x86_64",
+  "features": {
+    "sse2": true,
+    "ssse3": true,
+    "sse4_1": true,
+    "sse4_2": true,
+    "avx": true,
+    "avx2": true,
+    "fma": true,
+    "bmi2": true,
+    "f16c": true,
+    "avx512f": false,
+    "avx512bw": false,
+    "avx512vl": false,
+    "avx512vnni": false,
+    "avx512vbmi2": false
+  },
+  "v1_scope_level": "AVX2",
+  "above_v1_scope": [],
+  "notes": "v1_scope_level: the highest D6 level the CPU offers; above_v1_scope: extensions D6 excludes that column (b) must not use."
+}

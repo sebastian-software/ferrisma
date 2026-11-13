@@ -1,0 +1,21 @@
+phase: after
+2026-11-13T00:55:36Z
+runner: GitHub Actions 1000284019 macos15 20261104.0514.1 ARM64
+Darwin iad20-eo1212-65c674de-44e2-4e72-a622-57d13a445a41-5A0950E5A94B.local 24.6.0 Darwin Kernel Version 24.6.0: Sun Oct 11 23:44:11 PDT 2026; root:xnu-11417.140.69.713.47~2/RELEASE_ARM64_VMAPPLE arm64
+ 0:55  up 17 mins, 1 user, load averages: 9.83 13.06 13.68
+cpus: 3
+Apple M1 (Virtual)
+VirtualMac2,1
+3
+7516192768
+ProductName:		macOS
+ProductVersion:		15.8.2
+BuildVersion:		24H232
+rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)
+binary: rustc
+commit-hash: 5a2be9f5f075d31e3ca5526b5b029881ce441253
+commit-date: 2026-09-06
+host: aarch64-apple-darwin
+release: 1.100.0-nightly
+LLVM version: 23.1.1
+0e57bf4f8ee8640e3c876fbf436873bc5d62b3be

@@ -1,0 +1,148 @@
+{
+  "codec": "jxl",
+  "columns": {
+    "a": {
+      "id": "c-scalar:t1",
+      "build": "HWY_COMPILE_ONLY_SCALAR, -fno-slp-vectorize -fno-vectorize (the differential-oracle configuration), --num_threads=0",
+      "simd_level": "none (Highway SCALAR target)",
+      "status": "built",
+      "cjxl_version": [
+        "cjxl v0.13.0 a16d32d0 [_SCALAR_] {Clang 18.1.3}"
+      ]
+    },
+    "b": {
+      "id": "c:t1",
+      "build": "CMake Release, Highway dynamic dispatch restricted to the D6 scope (no AVX3*, SVE*, NEON_BF16), --num_threads=0",
+      "simd_level": "AVX2",
+      "cjxl_version": [
+        "cjxl v0.13.0 a16d32d0 [_AVX2_,SSE4,SSE2] {Clang 18.1.3}"
+      ],
+      "cpu_v1_scope_level": "AVX2",
+      "cpu_above_v1_scope": [
+        "avx512f"
+      ]
+    },
+    "c": {
+      "id": "c:tN",
+      "threads": "all (default runner: one worker per CPU)"
+    },
+    "context": {
+      "oxide:t1": "jxl-oxide 0.12.6 without rayon (decode only)"
+    }
+  },
+  "original": {
+    "project": "libjxl",
+    "describe": "v0.12-snapshot-50-ga16d32d0",
+    "commit": "a16d32d0ac113f5e54125e49bb571281c5d0b704",
+    "submodules": [
+      "db24a98aed38a16de78cc05ca15cdd8dc2a0d92d third_party/brotli (go/brotli/v1.1.1-rc0-109-gdb24a98)",
+      " 457c891775a7397bdb0376bb1031e6e027af1c48 third_party/highway (1.2.0)",
+      " 96d9171c94b937a1b5f0293de7309ac16311b722 third_party/skcms (2025_09_16)"
+    ],
+    "cjxl_version": [
+      "cjxl v0.13.0 a16d32d0 [_AVX2_,SSE4,SSE2] {Clang 18.1.3}"
+    ],
+    "cmake_flags": [
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+      "-DBUILD_TESTING=OFF",
+      "-DBUILD_SHARED_LIBS=OFF",
+      "-DJPEGXL_ENABLE_TOOLS=ON",
+      "-DJPEGXL_ENABLE_DEVTOOLS=OFF",
+      "-DJPEGXL_ENABLE_BENCHMARK=OFF",
+      "-DJPEGXL_ENABLE_EXAMPLES=OFF",
+      "-DJPEGXL_ENABLE_DOXYGEN=OFF",
+      "-DJPEGXL_ENABLE_MANPAGES=OFF",
+      "-DJPEGXL_ENABLE_JNI=OFF",
+      "-DJPEGXL_ENABLE_SJPEG=OFF",
+      "-DJPEGXL_ENABLE_OPENEXR=OFF",
+      "-DJPEGXL_ENABLE_SKCMS=ON",
+      "-DJPEGXL_ENABLE_VIEWERS=OFF",
+      "-DJPEGXL_ENABLE_PLUGINS=OFF",
+      "-DJPEGXL_ENABLE_FUZZERS=OFF",
+      "-DJPEGXL_ENABLE_TCMALLOC=OFF",
+      "-DJPEGXL_BUNDLE_LIBPNG=OFF",
+      "-DHWY_ENABLE_CONTRIB=OFF",
+      "-DHWY_ENABLE_EXAMPLES=OFF",
+      "-DCMAKE_DISABLE_FIND_PACKAGE_GIF=ON",
+      "-DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON",
+      "-DCMAKE_DISABLE_FIND_PACKAGE_PNG=ON",
+      "-DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON",
+      "-DJPEGXL_ENABLE_HWY_AVX3=OFF",
+      "-DJPEGXL_ENABLE_HWY_AVX3_DL=OFF",
+      "-DJPEGXL_ENABLE_HWY_AVX3_ZEN4=OFF",
+      "-DJPEGXL_ENABLE_HWY_AVX3_SPR=OFF",
+      "-DJPEGXL_ENABLE_HWY_SVE=OFF",
+      "-DJPEGXL_ENABLE_HWY_SVE2=OFF",
+      "-DJPEGXL_ENABLE_HWY_SVE_256=OFF",
+      "-DJPEGXL_ENABLE_HWY_SVE2_128=OFF",
+      "-DJPEGXL_ENABLE_HWY_NEON_BF16=OFF"
+    ],
+    "c_compiler": "/usr/bin/clang",
+    "cxx_compiler": "/usr/bin/clang++",
+    "compiler_version": [
+      "Ubuntu clang version 18.1.3 (1ubuntu1)"
+    ],
+    "cmake_version": [
+      "cmake version 3.31.6"
+    ],
+    "cmake_cxx_flags": "",
+    "cmake_cxx_flags_release": "-O3 -DNDEBUG",
+    "hwy_targets_enabled": {
+      "SSE2": "true",
+      "SSE4": "true",
+      "AVX2": "true",
+      "AVX3": "OFF",
+      "AVX3_DL": "OFF",
+      "AVX3_ZEN4": "OFF",
+      "AVX3_SPR": "OFF",
+      "NEON": "true",
+      "NEON_BF16": "OFF",
+      "SVE": "OFF",
+      "SVE2": "OFF",
+      "SVE_256": "OFF",
+      "SVE2_128": "OFF",
+      "EMU128": "true",
+      "SCALAR": "true"
+    },
+    "build_seconds": 70,
+    "notes": "Upstream CMake Release, Highway dynamic dispatch restricted to the v1.0 SIMD scope (D6) with the JPEGXL_ENABLE_HWY_* switches in cmake_flags (runtime target selection; cjxl --version names the selected target), static libraries, tools only. Not the repository oracle, which is scalar."
+  },
+  "scalar_reference": {
+    "status": "built",
+    "extra_cmake_flags": [
+      "-DCMAKE_C_FLAGS=-DHWY_COMPILE_ONLY_SCALAR=1",
+      "-DCMAKE_CXX_FLAGS=-DHWY_COMPILE_ONLY_SCALAR=1 -stdlib=libc++",
+      "-DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++"
+    ],
+    "cjxl_version": [
+      "cjxl v0.13.0 a16d32d0 [_SCALAR_] {Clang 18.1.3}"
+    ],
+    "build_seconds": 48,
+    "notes": "Differential-oracle configuration (ENCODER_EXPANSION.md 'Reference configuration'): HWY_COMPILE_ONLY_SCALAR, upstream's Clang -fno-slp-vectorize -fno-vectorize, libc++ on Linux. Timed as column (a) of D2 and used for the byte-exact encoder checks."
+  },
+  "port": {
+    "encoder": {
+      "package": "libjxl-rs",
+      "example": "encode_lossy",
+      "binary": "/home/runner/_work/ferrisma/ferrisma/target/release/examples/encode_lossy",
+      "cargo": "cargo build --release --locked -p libjxl-rs --example encode_lossy"
+    },
+    "decoder": {
+      "package": "ferrisma-jxl-decoder",
+      "example": "jxl_decode_compare",
+      "binary": "/home/runner/_work/ferrisma/ferrisma/target/release/examples/jxl_decode_compare",
+      "cargo": "cargo build --release --locked -p ferrisma-jxl-decoder --example jxl_decode_compare",
+      "notes": "modes own (libjxl-rs) and oxide (jxl-oxide 0.12.6, default-features = false: no rayon)"
+    },
+    "rustc": [
+      "rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)",
+      "binary: rustc",
+      "commit-hash: 5a2be9f5f075d31e3ca5526b5b029881ce441253",
+      "commit-date: 2026-09-06",
+      "host: x86_64-unknown-linux-gnu",
+      "release: 1.100.0-nightly",
+      "LLVM version: 23.1.1"
+    ]
+  }
+}

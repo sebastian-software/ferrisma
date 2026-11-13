@@ -1,0 +1,45 @@
+{
+  "encode_byte_identity": {
+    "photo12": {
+      "sha256": {
+        "c-scalar-t1": "532103dee5b0fbd863d89dd3bd41a435ace76047e7fba655caef96b69633d028",
+        "c-t1": "532103dee5b0fbd863d89dd3bd41a435ace76047e7fba655caef96b69633d028",
+        "c-tN": "06b4195afd70560a9338b36a35149e0d0e22526762ca67ae03495f6cbd8836f1",
+        "port-t1": "01fd17fec8e6a22690f13e85067fcaf25173d93bd8e365377ccf028a5071e5ae"
+      },
+      "bytes": {
+        "c-scalar-t1": 1758817,
+        "c-t1": 1758817,
+        "c-tN": 1758315,
+        "port-t1": 1759074
+      },
+      "port_equals_c_scalar": false,
+      "port_equals_c_simd": false,
+      "c_scalar_equals_c_simd": true
+    }
+  },
+  "decode_rgb_identity": {
+    "photo12": {
+      "sha256": {
+        "c-scalar-t1": "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06",
+        "c-t1": "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06",
+        "c-tN": "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06",
+        "port-t1": "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06",
+        "c-dav1d-t1": "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06",
+        "c-dav1d-tN": "82d87694438af1c5168f7271ae93b19a170c5456e68ed6f8919a6f9b74e73f06"
+      },
+      "all_identical": true
+    },
+    "photo24": {
+      "sha256": {
+        "c-scalar-t1": "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9",
+        "c-t1": "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9",
+        "c-tN": "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9",
+        "port-t1": "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9",
+        "c-dav1d-t1": "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9",
+        "c-dav1d-tN": "b9c4f89ae486d3c15cc4c598e6843eccb8b6640119747527976f764b9f03ecb9"
+      },
+      "all_identical": true
+    }
+  }
+}

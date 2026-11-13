@@ -7,6 +7,10 @@ for interleaved encoder, decoder and Sharp timings. The question for a new run i
 how current Ferrisma and Sharp compare on a specified output geometry, color
 intent, and matched visual quality. Results are limited to the measured files,
 implementations, presets, and host. There are no new timing results here.
+Per-codec timings of each workspace port against the original it translates
+(scalar, SIMD and all threads, decision D2) are in the
+[three-column record of 2026-11-13](v1.0-three-column-2026-11-13.md); it
+uses two of these photographs.
 
 ## Inventory
 

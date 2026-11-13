@@ -1,0 +1,62 @@
+[
+  {
+    "file": "jpeg-decode-photo12-original.json",
+    "checksums": {
+      "port:t1": [
+        "c12761645458e02e"
+      ],
+      "c:t1": [
+        "c12761645458e02e"
+      ],
+      "c-scalar:t1": [
+        "c12761645458e02e"
+      ]
+    },
+    "identical": true
+  },
+  {
+    "file": "jpeg-decode-photo12-q90.json",
+    "checksums": {
+      "port:t1": [
+        "99535a131e88756f"
+      ],
+      "c:t1": [
+        "99535a131e88756f"
+      ],
+      "c-scalar:t1": [
+        "99535a131e88756f"
+      ]
+    },
+    "identical": true
+  },
+  {
+    "file": "jpeg-decode-photo24-original.json",
+    "checksums": {
+      "port:t1": [
+        "90486c53b94d1542"
+      ],
+      "c:t1": [
+        "90486c53b94d1542"
+      ],
+      "c-scalar:t1": [
+        "90486c53b94d1542"
+      ]
+    },
+    "identical": true
+  },
+  {
+    "file": "jpeg-decode-photo24-q90.json",
+    "checksums": {
+      "port:t1": [
+        "a98e388fb88e9fa9"
+      ],
+      "c:t1": [
+        "a98e388fb88e9fa9"
+      ],
+      "c-scalar:t1": [
+        "a98e388fb88e9fa9"
+      ]
+    },
+    "identical": true
+  }
+]

@@ -1,0 +1,192 @@
+{
+  "codec": "jpeg",
+  "variants": {
+    "release": {
+      "directory": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/release",
+      "oracle": {
+        "variant": "release",
+        "reference": true,
+        "upstream_revision": "7b4993786d856cbccabfc0ed2f923ba000e326cc",
+        "host": "Darwin 24.6.0 arm64",
+        "arch": "aarch64",
+        "cmake": "cmake version 4.4.5",
+        "c_compiler": "/usr/bin/cc",
+        "c_compiler_version": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+        "build_type": "Release",
+        "cmake_options": [
+          "-DCMAKE_BUILD_TYPE=Release",
+          "-DWITH_SIMD=0",
+          "-DWITH_ARITH_DEC=1",
+          "-DWITH_ARITH_ENC=1",
+          "-DWITH_TURBOJPEG=1",
+          "-DENABLE_SHARED=0",
+          "-DENABLE_STATIC=1",
+          "-DFLOATTEST8=no-fp-contract",
+          "-DFLOATTEST12=no-fp-contract",
+          "-DCMAKE_C_FLAGS=-ffp-contract=off"
+        ],
+        "c_flags": "-ffp-contract=off",
+        "c_flags_release": "-O3 -DNDEBUG",
+        "exe_linker_flags": "",
+        "sanitizers": null,
+        "simd": false,
+        "floattest8": "no-fp-contract",
+        "floattest12": "no-fp-contract",
+        "jconfig_h": {
+          "BITS_IN_JSAMPLE": "8",
+          "C_ARITH_CODING_SUPPORTED": "1",
+          "D_ARITH_CODING_SUPPORTED": "1",
+          "JPEG_LIB_VERSION": "62",
+          "LIBJPEG_TURBO_VERSION": "3.2.1",
+          "LIBJPEG_TURBO_VERSION_NUMBER": "3002001",
+          "MEM_SRCDST_SUPPORTED": "1"
+        },
+        "jconfigint_h": {
+          "BITS_IN_JSAMPLE": "8",
+          "BUILD": "\"20261113\"",
+          "C_ARITH_CODING_SUPPORTED": "1",
+          "D_ARITH_CODING_SUPPORTED": "1",
+          "FALLTHROUGH": "__attribute__((fallthrough));",
+          "HAVE_BUILTIN_CTZL": "",
+          "HIDDEN": "__attribute__((visibility(\"hidden\")))",
+          "INLINE": "__inline__ __attribute__((always_inline))",
+          "PACKAGE_NAME": "\"libjpeg-turbo\"",
+          "SIMD_ARCHITECTURE": "NONE",
+          "SIZEOF_SIZE_T": "8",
+          "THREAD_LOCAL": "__thread",
+          "VERSION": "\"3.2.1\""
+        },
+        "library": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/release/libjpeg-turbo/libjpeg.a",
+        "tools": {
+          "djpeg": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/release/libjpeg-turbo/djpeg-static",
+          "cjpeg": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/release/libjpeg-turbo/cjpeg-static",
+          "jpegtran": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/release/libjpeg-turbo/jpegtran-static"
+        },
+        "probes": [
+          "wp0/read_header",
+          "wp1/memory",
+          "wp1/messages",
+          "wp1/sizes",
+          "wp10/color",
+          "wp10/idct",
+          "wp10/islow",
+          "wp10/merge",
+          "wp10/rng",
+          "wp10/sample",
+          "wp2/header",
+          "wp3/entropy",
+          "wp4/coefidct",
+          "wp4/idct",
+          "wp5/cmyk",
+          "wp5/decode",
+          "wp6/api",
+          "wp9/bench"
+        ]
+      }
+    },
+    "simd": {
+      "directory": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/simd",
+      "oracle": {
+        "variant": "simd",
+        "reference": false,
+        "upstream_revision": "7b4993786d856cbccabfc0ed2f923ba000e326cc",
+        "host": "Darwin 24.6.0 arm64",
+        "arch": "aarch64",
+        "cmake": "cmake version 4.4.5",
+        "c_compiler": "/usr/bin/cc",
+        "c_compiler_version": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+        "build_type": "Release",
+        "cmake_options": [
+          "-DCMAKE_BUILD_TYPE=Release",
+          "-DWITH_SIMD=1",
+          "-DWITH_ARITH_DEC=1",
+          "-DWITH_ARITH_ENC=1",
+          "-DWITH_TURBOJPEG=1",
+          "-DENABLE_SHARED=0",
+          "-DENABLE_STATIC=1",
+          "-DREQUIRE_SIMD=1",
+          "-DFLOATTEST8=no-fp-contract",
+          "-DFLOATTEST12=no-fp-contract",
+          "-DCMAKE_C_FLAGS=-ffp-contract=off"
+        ],
+        "c_flags": "-ffp-contract=off",
+        "c_flags_release": "-O3 -DNDEBUG",
+        "exe_linker_flags": "",
+        "sanitizers": null,
+        "simd": true,
+        "floattest8": "no-fp-contract",
+        "floattest12": "no-fp-contract",
+        "jconfig_h": {
+          "BITS_IN_JSAMPLE": "8",
+          "C_ARITH_CODING_SUPPORTED": "1",
+          "D_ARITH_CODING_SUPPORTED": "1",
+          "JPEG_LIB_VERSION": "62",
+          "LIBJPEG_TURBO_VERSION": "3.2.1",
+          "LIBJPEG_TURBO_VERSION_NUMBER": "3002001",
+          "MEM_SRCDST_SUPPORTED": "1",
+          "WITH_SIMD": "1"
+        },
+        "jconfigint_h": {
+          "BITS_IN_JSAMPLE": "8",
+          "BUILD": "\"20261113\"",
+          "C_ARITH_CODING_SUPPORTED": "1",
+          "D_ARITH_CODING_SUPPORTED": "1",
+          "FALLTHROUGH": "__attribute__((fallthrough));",
+          "HAVE_BUILTIN_CTZL": "",
+          "HIDDEN": "__attribute__((visibility(\"hidden\")))",
+          "INLINE": "__inline__ __attribute__((always_inline))",
+          "PACKAGE_NAME": "\"libjpeg-turbo\"",
+          "SIMD_ARCHITECTURE": "ARM64",
+          "SIZEOF_SIZE_T": "8",
+          "THREAD_LOCAL": "__thread",
+          "VERSION": "\"3.2.1\"",
+          "WITH_SIMD": "1"
+        },
+        "library": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/simd/libjpeg-turbo/libjpeg.a",
+        "tools": {
+          "djpeg": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/simd/libjpeg-turbo/djpeg-static",
+          "cjpeg": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/simd/libjpeg-turbo/cjpeg-static",
+          "jpegtran": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/simd/libjpeg-turbo/jpegtran-static"
+        },
+        "probes": [
+          "wp0/read_header",
+          "wp1/memory",
+          "wp1/messages",
+          "wp1/sizes",
+          "wp10/color",
+          "wp10/idct",
+          "wp10/islow",
+          "wp10/merge",
+          "wp10/rng",
+          "wp10/sample",
+          "wp2/header",
+          "wp3/entropy",
+          "wp4/coefidct",
+          "wp4/idct",
+          "wp5/cmyk",
+          "wp5/decode",
+          "wp6/api",
+          "wp9/bench"
+        ]
+      }
+    }
+  },
+  "directory": "/Users/runner/work/ferrisma/ferrisma/codecs/libjpeg-turbo-rs/build/oracle/simd",
+  "columns": {
+    "a": {
+      "id": "c-scalar:t1",
+      "build": "build_oracle.py release (WITH_SIMD=0)",
+      "simd_level": "none (C code only)"
+    },
+    "b": {
+      "id": "c:t1",
+      "build": "build_oracle.py simd (WITH_SIMD=1)",
+      "simd_level": "NEON",
+      "restriction": "none needed: libjpeg-turbo has no SIMD above AVX2 or NEON"
+    },
+    "c": {
+      "id": null,
+      "na": "libjpeg-turbo decodes on one thread"
+    }
+  }
+}

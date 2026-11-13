@@ -63,6 +63,18 @@ still applies. The [quality gate guide](../quality-gate.md) has a table template
 
 Do not mark M1 release-ready based only on a small set of passing unit tests.
 
+## Codec ports against their originals (decision D2)
+
+Per codec operation, each workspace port's single-thread time is reported
+against three references from the same CI job: the original built scalar on
+one thread, its SIMD release build at the v1.0 SIMD level on one thread, and
+that build with all threads. The method, the build switches per codec, and
+the first complete table per platform are in the
+[three-column record of 2026-11-13](v1.0-three-column-2026-11-13.md);
+`scripts/bench/ci-perf/three_column.py` regenerates the table from the
+workflow artifacts. These are same-machine ratios, not throughput claims and
+not a gate (decision D3).
+
 ## CI synthetic feasibility comparison (not parity)
 
 The separate [M1 Synthetic Performance Smoke](../../.github/workflows/m1-performance-smoke.yml) generates a deterministic 1280×853 JPEG, transcodes it to 640×427 AVIF with Ferrisma, and tries an analogous `vipsthumbnail --linear` libvips operation. It records two wall-time/peak-RSS/output-size observations per backend and captures environment details in downloadable workflow artifacts.
