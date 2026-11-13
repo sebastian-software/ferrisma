@@ -1,6 +1,6 @@
 # ADR-0041: v1.0 quality gate: equivalence with the ported original
 
-- **Status:** Accepted (decisions D1–D10). The [open questions](#open-questions-pending-owner-decision) O1–O5 are not decided.
+- **Status:** Accepted (decisions D1–D10). The [open questions](#open-questions-pending-owner-decision) O1–O9 and the further items listed with them are not decided.
 - **Date:** 2026-11-13
 - **Last reviewed:** 2026-11-13
 - **Source:** owner decision (structured interview, 2026-11-13)
@@ -220,7 +220,10 @@ version is open question O3.
 
 ## Per-port state on 2026-11-13
 
-What the repository records today, with its source. "Not available yet" names
+What the repository recorded when this record was accepted, with its source
+(the gate tooling before the work of the night of 2026-11-13; the
+[second table](#gate-tooling-on-main-at-dbf7b095-2026-11-13) gives the state
+after it). "Not available yet" names
 a missing capability, not a failed check. Ratios are port ÷ original, one
 thread unless noted, column (b) unless noted; they are indicative and carry
 the limits of their records.
@@ -238,6 +241,28 @@ sections 2 and 3 and the later re-checks; the
 each port's `tools/check.py`, `tools/build_oracle.py` and ADRs. The CI
 record's "C" columns are release builds with SIMD, so its ratios are
 column (b); column (a) exists only for JPEG XL on AArch64.
+
+### Gate tooling on `main` at `dbf7b095` (2026-11-13)
+
+After the work of the night of 2026-11-13. Commands and details are in the
+[quality gate guide](../quality-gate.md). Results are the recorded ones with
+their source; "never run" names a check that exists but has no result.
+
+| Port | Scalar gate | SIMD gate | x86-64 original under Rosetta | Recorded result |
+| --- | --- | --- | --- | --- |
+| libjpeg-turbo-rs | Unchanged (oracle variant `release`) | Unchanged (oracle variant `simd`) | Unchanged (`tools/check.py --arch x86_64`) | No change recorded in #196 or #241 |
+| libwebp-rs | `tools/check.py --oracle`: `--no-default-features` against `release` | `release-simd` is now part of `tools/check.py --oracle`, once per mode (`SIMD_MODES`: `neon`; `avx2`, `sse41`, `sse2`), with `LIBWEBP_SIMD_LEVEL` capping both sides; NEON rescaler export rows follow libwebp's NEON (#79, #80) | `tools/check.py --arch x86_64` with `tools/build_oracle.py --arch x86_64` | AArch64 2,331 passed, 0 failed; Rosetta 2, all modes and profiles, 4,488 passed, 0 failed on `54a0c458` (#196 status comments); hosted Linux `avx2` mode failed on the oracle side (#252) |
+| libjxl-rs | Pinned scalar oracle plus the second scalar reference `oracle-o3` (D8; O1 working rule) | NEON and AVX2 oracle variants (`-DORACLE_HWY_TARGET`, `JXL_CPP_ORACLE_SIMD`) and `tests/simd_parity.rs`: 63 Highway operations and the Gaborish, EPF, YCbCr and chroma upsampling stages proven at row level; **the decoder does not select the SIMD stages yet** (#96, #231) | `tools/check.py --target x86_64-apple-darwin`; the cross-built scalar references contain only skcms's baseline engine (O9) | AArch64 1,027 passed, 0 failed; Rosetta 2 1,023 passed, 0 failed (#196 status comment); hosted Linux SIMD stage tests failed on the oracle side (#252) |
+| libavif-rs (AOM) | Golden outputs of the `_c`-only C reference, and the `scalar` level against the generic build | `tools/build_aom.py --library-only --simd neon\|avx2` and `tools/check_aom_simd_original.py`; five still-image Neon kernel families dispatched (509 RTCD functions) | Generic and `--simd avx2` originals build for x86-64 under Rosetta 2; the port's x86 kernels build only for GNU Linux x86-64, not for `x86_64-apple-darwin` | AArch64 `neon` 82 of 82 and `scalar` 82 of 82 identical (port ADR 0056); x86-64 `sse4.1` and `scalar` 86 of 86 through an x86-64 Linux container (port ADR 0056); `avx2` never run; no workflow runs the check |
+
+Sources: the [quality gate guide](../quality-gate.md); libwebp-rs
+`tools/check.py`, `tools/build_oracle.py`, port ADR 0008 and
+`docs/SIMD-STATUS.md`; libjxl-rs `tools/check.py`, port ADR 0002 and 0004 and
+`docs/PORT_STATUS.md`; libavif-rs `tools/build_aom.py`,
+`tools/check_aom_simd_original.py` and port ADR 0056, 0058 and 0059; the
+status comments of 2026-11-13 on #196 and #241; #252 for the first hosted
+Linux x86-64 run (nightly 43401560676). No port meets the full gate on both
+targets.
 
 ## Consequences
 
@@ -349,6 +374,44 @@ These are **not** decided. Do not implement them beyond what is stated.
   additions inside a port (#136); the new package name for the JPEG port
   (#207).
 
+Added on 2026-11-13 from the work of that night; the source of each is
+[#250](https://github.com/sebastian-software/ferrisma/issues/250), which tracks
+all open questions:
+
+- **O6. JPEG.** Whether `macro_rules!` macros are acceptable as the Rust form
+  of upstream's `static INLINE` Neon helpers (port ADR 0007 amendment);
+  whether the kernels get an `unsafe` row-pointer boundary or roughly 1.1× of
+  C on Neon is accepted; whether the ITU T.83 conformance data may be
+  downloaded (#72).
+- **O7. WebP.** The `release` oracle now gates only the scalar build, and the
+  former run of the SIMD build against the scalar oracle is gone; a few test
+  domains are narrowed for the `release-simd` comparison only (wp11 sizes,
+  gradient unfilter with `prev == out`, the x86 rescaler with 2 or 3
+  channels); the `oracle` feature reads `LIBWEBP_SIMD_LEVEL` in the CPU
+  query; the full x86-64 gate (3 levels × 3 profiles) takes about two and a
+  half hours under Rosetta. Whether all of that is accepted.
+- **O8. AOM.** The frozen RTCD units were edited through
+  `tools/enable_aom_dispatch.py` with refreshed manifest hashes under port
+  ADR 0059's owned-code path instead of a C2Rust regeneration, which needs an
+  explicit yes because `AGENTS.md` asks to keep generated AVIF source hashes
+  intact. Also: `av1_get_nz_map_contexts` and `av1_round_shift_array` stay on
+  `_c` although the original dispatches Neon, and `aom_sse`/`aom_highbd_sse`
+  are dispatched globally, including video call sites.
+- **O9. JPEG XL on x86-64, local gate.** The originals cross-built for
+  Rosetta contain only skcms's baseline engine, because upstream's
+  `skcms.cmake` keys the HSW engine on `CMAKE_SYSTEM_PROCESSOR` (the arm64
+  host); the port's skcms HSW engine is therefore proven against the
+  original's only on hosted Linux x86-64. One option is passing
+  `-DCMAKE_SYSTEM_PROCESSOR=x86_64` to the cross builds.
+
+Also waiting for a decision (#250):
+
+- Whether the libavif/libaom reference keeps the compiler's default
+  floating-point contraction (root cause in #203).
+- rav1e's AVX-512 paths: rav1e is context only (D1), but it still runs them
+  when selected.
+- Argon conformance vectors for the AVIF reader (#54).
+
 ## Review when
 
 The owner decides any open question; an original is updated; a port cannot
@@ -362,3 +425,13 @@ planned.
 - 2026-11-13 — Accepted as owner decision D1–D10 of the 2026-11-13
   interview; open questions O1–O5 recorded with the O1 working rule pending
   owner confirmation.
+- 2026-11-13 — State refresh; decisions D1–D10 unchanged. Added the table
+  "Gate tooling on `main` at `dbf7b095`": libwebp-rs runs `release-simd` per
+  SIMD level as part of its gate and builds an x86-64 oracle; libjxl-rs has
+  NEON and AVX2 oracle variants, an x86-64 cross build and row-level SIMD
+  stages that the decoder does not select yet; libavif-rs builds Neon and
+  AVX2 originals and compares the port with them, with the `avx2` level never
+  run. The first hosted Linux x86-64 run (nightly 43401560676, #252) failed
+  for libwebp-rs and libjxl-rs on the original's side, so the hosted
+  cross-check has not passed for them. Open questions O6–O9 and three further
+  items copied from #250.

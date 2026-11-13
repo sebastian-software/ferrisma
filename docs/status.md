@@ -102,7 +102,7 @@ separate workspace members; they are grouped here by their shared port.
 | [`ferrisma-jxl-encoder`](../crates/ferrisma-jxl-encoder) | Safe, independent wrapper for the port's public JPEG XL encoder; lossy output of `jpeg-xl-write` | Admits only the port's lossy profile (straight 8-bit alpha; patches off by default, on only by request, then a typed `PatchDictionary` admission for text-like content); codec memory is a source-derived estimate; x86-64 parity and timing open |
 | [`libjpeg-turbo-rs`](../codecs/libjpeg-turbo-rs/README.md) | 8-bit decoder, scaled decode, crop/skip, metadata, safe scanlines, and SIMD; selected for engine JPEG input | Scaled-IDCT quality policy and deeper cross-platform adoption evidence remain open; encoding, lossless JPEG, and 12/16-bit samples are outside the port's scope |
 | [`libwebp-rs`](../codecs/libwebp-rs/README.md) | Safe decode/encode APIs, incremental decode, containers/animation, and SharpYUV | Still-image input and output adopted through `webp-read` and `webp-write`; SIMD paths are gated against libwebp's SIMD build per level ([status](../codecs/libwebp-rs/docs/SIMD-STATUS.md)) |
-| [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder, C-ABI surface, and reference comparison suites | Default engine JPEG XL input since 2026-11-12 (pending owner confirmation) and the lossy and lossless `jpeg-xl-write` profiles; public APIs are provisional, encoder incomplete (patch encoding, alpha deeper than 12 bits, other efforts), and deeper acceptance remains open |
+| [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder, C-ABI surface, and reference comparison suites | Default engine JPEG XL input since 2026-11-12, confirmed by the owner on 2026-11-13 ([ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1), and the lossy and lossless `jpeg-xl-write` profiles; public APIs are provisional, encoder incomplete (patch encoding, alpha deeper than 12 bits, other efforts), and deeper acceptance remains open |
 | [`libavif-rs`](../codecs/libavif-rs/README.md), `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | AVIF container and codec ports, using generated and owned Rust with C-ABI boundaries | No stable safe Rust API claim; validated native hosts are macOS ARM64 and GNU Linux x86-64; package-specific deep gates remain |
 | [`ferrisma-xtask`](../tools/xtask) | Standard-library Rust control plane, invoked as `cargo xtask`, for affected components and validation stages | Existing Python oracle harnesses migrate incrementally without losing evidence |
 
@@ -144,7 +144,16 @@ libraries are context. Validation is local first (AArch64 natively, x86-64
 under Rosetta 2) with one hosted Linux x86-64 run per release candidate.
 Until then, releases are 0.x pre-releases from `main`. No port meets the
 full gate on both targets yet; [the quality gate guide](quality-gate.md)
-lists what each port can check today.
+lists what each port can check today and the recorded results.
+
+**Hosted cross-check: open.** The first hosted Linux x86-64 run of the
+SIMD-against-SIMD gates (nightly run
+[43401560676](https://github.com/sebastian-software/ferrisma/actions/runs/43401560676)
+on `main` at `dbf7b095`) failed for libwebp-rs and libjxl-rs on the
+original's side of the comparison (the C and C++ oracle processes), so the
+hosted cross-check has not passed for those ports
+([#252](https://github.com/sebastian-software/ferrisma/issues/252)). No
+hosted run of the AOM comparison with the original's SIMD build exists.
 
 - Complete the independent image-quality, hardening, resource, and dependency
   evidence in the [M1 gate register](milestones/M1-evidence-and-gates.md).
@@ -152,14 +161,21 @@ lists what each port can check today.
   [ADR-0025](adr/0025-codec-selection-reference-conformance-and-image-scope.md),
   preserving rendered color, orientation, buffer ownership, and conformance.
   Workspace membership alone does not satisfy those gates.
-- Meet the quality gate above for each port on both targets: SIMD oracles
-  of the originals, x86-64 oracles under Rosetta, and the port changes that
-  ADR-0041 lists under Consequences. The workspace JPEG XL reader and AVIF
-  writer are the confirmed defaults (ADR-0041 D1); x86-64 JPEG XL conformance
-  stays open, and lossy d1.0 JPEG XL output (ADR-0039) is still pending owner
-  confirmation (ADR-0041 O5). The [supported matrix](supported-matrix.md)
-  lists the current defaults, their limits and the 2026-11-12 macOS ARM64
-  verification.
+- Meet the quality gate above for each port on both targets. The oracles of
+  the originals exist (scalar and SIMD; x86-64 builds under Rosetta for
+  libjpeg-turbo-rs, libwebp-rs, libjxl-rs and libaom). Still open: the
+  libjxl-rs SIMD stages are proven at row level but not selected by the
+  decoder, and most Highway exports are unported (#96, #231, #243); the AOM
+  x86 kernels build only for GNU Linux x86-64, and the `avx2` level against
+  the original has never run (#242, #125, #124, #122); the hosted Linux
+  x86-64 cross-check (#241, #252); the owner's open questions O1–O9
+  ([#250](https://github.com/sebastian-software/ferrisma/issues/250)). The
+  workspace JPEG XL reader and AVIF writer are the confirmed defaults
+  (ADR-0041 D1); x86-64 JPEG XL conformance stays open, and lossy d1.0 JPEG
+  XL output (ADR-0039) and the default AVIF quality (#216) are still pending
+  owner confirmation (ADR-0041 O5). The
+  [supported matrix](supported-matrix.md) lists the current defaults, their
+  limits and the 2026-11-12 macOS ARM64 verification.
 - Validate the extracted shared SharpYUV core with native Linux and macOS
   API, ABI, allocation, callback, and full original-consumer oracles. Preserve
   the independent C reference and review the measured AVIF kernel cost in
