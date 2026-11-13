@@ -1489,6 +1489,20 @@ pub fn vp8l_predictors_sub(
     num_pixels: i32,
     out: &mut [u32],
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_enc_avx2::PREDICTORS_SUB[mode](
+                data, in_pos, upper_pos, num_pixels, out,
+            );
+        }
+        if features.sse2 {
+            return crate::dsp::lossless_enc_sse2::PREDICTORS_SUB[mode](
+                data, in_pos, upper_pos, num_pixels, out,
+            );
+        }
+    }
     VP8L_PREDICTORS_SUB[mode](data, in_pos, upper_pos, num_pixels, out);
 }
 
@@ -1513,6 +1527,25 @@ pub fn vp8l_predictors_sub_c(
 // upstream: src/dsp/lossless_enc.c VP8LSubtractGreenFromBlueAndRed
 #[inline]
 pub fn vp8l_subtract_green_from_blue_and_red(argb_data: &mut [u32], num_pixels: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_enc_avx2::subtract_green_from_blue_and_red(
+                argb_data, num_pixels,
+            );
+        }
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::lossless_enc_sse41::subtract_green_from_blue_and_red(
+                argb_data, num_pixels,
+            );
+        }
+        if features.sse2 {
+            return crate::dsp::lossless_enc_sse2::subtract_green_from_blue_and_red(
+                argb_data, num_pixels,
+            );
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::lossless_enc_neon::subtract_green_from_blue_and_red(
@@ -1529,6 +1562,16 @@ pub fn vp8l_subtract_green_from_blue_and_red(argb_data: &mut [u32], num_pixels: 
 // upstream: src/dsp/lossless_enc.c VP8LTransformColor
 #[inline]
 pub fn vp8l_transform_color(m: &VP8LMultipliers, data: &mut [u32], num_pixels: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_enc_avx2::transform_color(m, data, num_pixels);
+        }
+        if features.sse2 {
+            return crate::dsp::lossless_enc_sse2::transform_color(m, data, num_pixels);
+        }
+    }
     #[cfg(all(feature = "simd", target_arch = "aarch64"))]
     {
         return crate::dsp::lossless_enc_neon::transform_color(m, data, num_pixels);
@@ -1551,6 +1594,43 @@ pub fn vp8l_collect_color_blue_transforms(
     red_to_blue: i32,
     histo: &mut [u32],
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_enc_avx2::collect_color_blue_transforms(
+                argb,
+                stride,
+                tile_width,
+                tile_height,
+                green_to_blue,
+                red_to_blue,
+                histo,
+            );
+        }
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::lossless_enc_sse41::collect_color_blue_transforms(
+                argb,
+                stride,
+                tile_width,
+                tile_height,
+                green_to_blue,
+                red_to_blue,
+                histo,
+            );
+        }
+        if features.sse2 {
+            return crate::dsp::lossless_enc_sse2::collect_color_blue_transforms(
+                argb,
+                stride,
+                tile_width,
+                tile_height,
+                green_to_blue,
+                red_to_blue,
+                histo,
+            );
+        }
+    }
     vp8l_collect_color_blue_transforms_c(
         argb,
         stride,
@@ -1572,6 +1652,40 @@ pub fn vp8l_collect_color_red_transforms(
     green_to_red: i32,
     histo: &mut [u32],
 ) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_enc_avx2::collect_color_red_transforms(
+                argb,
+                stride,
+                tile_width,
+                tile_height,
+                green_to_red,
+                histo,
+            );
+        }
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::lossless_enc_sse41::collect_color_red_transforms(
+                argb,
+                stride,
+                tile_width,
+                tile_height,
+                green_to_red,
+                histo,
+            );
+        }
+        if features.sse2 {
+            return crate::dsp::lossless_enc_sse2::collect_color_red_transforms(
+                argb,
+                stride,
+                tile_width,
+                tile_height,
+                green_to_red,
+                histo,
+            );
+        }
+    }
     vp8l_collect_color_red_transforms_c(argb, stride, tile_width, tile_height, green_to_red, histo);
 }
 
@@ -1593,6 +1707,13 @@ pub fn vp8l_fast_s_log2_slow(v: u32) -> u64 {
 #[must_use]
 #[inline]
 pub fn vp8l_extra_cost(population: &[u32], length: i32) -> u32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 {
+            return crate::dsp::lossless_enc_sse41::extra_cost(population, length);
+        }
+    }
     extra_cost_c(population, length)
 }
 
@@ -1601,6 +1722,16 @@ pub fn vp8l_extra_cost(population: &[u32], length: i32) -> u32 {
 #[must_use]
 #[inline]
 pub fn vp8l_combined_shannon_entropy(x: &[u32], y: &[u32]) -> u64 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_enc_avx2::combined_shannon_entropy(x, y);
+        }
+        if features.sse2 {
+            return crate::dsp::lossless_enc_sse2::combined_shannon_entropy(x, y);
+        }
+    }
     combined_shannon_entropy_c(x, y)
 }
 
@@ -1641,12 +1772,32 @@ pub fn vp8l_get_combined_entropy_unrefined(
 // upstream: src/dsp/lossless_enc.c VP8LAddVector
 #[inline]
 pub fn vp8l_add_vector(a: &[u32], b: &[u32], out: &mut [u32], size: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_enc_avx2::add_vector(a, b, out, size);
+        }
+        if features.sse2 {
+            return crate::dsp::lossless_enc_sse2::add_vector(a, b, out, size);
+        }
+    }
     add_vector_c(a, b, out, size);
 }
 
 // upstream: src/dsp/lossless_enc.c VP8LAddVectorEq
 #[inline]
 pub fn vp8l_add_vector_eq(a: &[u32], out: &mut [u32], size: i32) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_enc_avx2::add_vector_eq(a, out, size);
+        }
+        if features.sse2 {
+            return crate::dsp::lossless_enc_sse2::add_vector_eq(a, out, size);
+        }
+    }
     add_vector_eq_c(a, out, size);
 }
 
@@ -1655,11 +1806,31 @@ pub fn vp8l_add_vector_eq(a: &[u32], out: &mut [u32], size: i32) {
 #[must_use]
 #[inline]
 pub fn vp8l_vector_mismatch(array1: &[u32], array2: &[u32], length: i32) -> i32 {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_enc_avx2::vector_mismatch(array1, array2, length);
+        }
+        if features.sse2 {
+            return crate::dsp::lossless_enc_sse2::vector_mismatch(array1, array2, length);
+        }
+    }
     vector_mismatch_c(array1, array2, length)
 }
 
 // upstream: src/dsp/lossless_enc.c VP8LBundleColorMap
 #[inline]
 pub fn vp8l_bundle_color_map(row: &[u8], width: i32, xbits: i32, dst: &mut [u32]) {
+    #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        let features = crate::dsp::cpu::features();
+        if features.sse2 && features.sse4_1 && features.avx2 {
+            return crate::dsp::lossless_enc_avx2::bundle_color_map(row, width, xbits, dst);
+        }
+        if features.sse2 {
+            return crate::dsp::lossless_enc_sse2::bundle_color_map(row, width, xbits, dst);
+        }
+    }
     vp8l_bundle_color_map_c(row, width, xbits, dst);
 }
