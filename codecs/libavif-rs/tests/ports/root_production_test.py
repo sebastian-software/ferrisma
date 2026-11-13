@@ -114,13 +114,14 @@ class ProductionSourceProof(unittest.TestCase):
         compiled = {unit['rust']: unit['rust_sha256'] for unit in record['units']}
         compiled[record['selector']] = record['selector_sha256']
         compiled.update({'src/lib.rs': 'root', 'src/linux_profiles.rs': 'selection'})
+        compiled.update({name: production.digest(REPOSITORY / name) for name in production.OWNED})
         return compiled
 
     def test_linux_package_must_compile_exactly_the_profile(self):
         record = self.record('debug', 'mini-extended-pixi')
         compiled = self.linux_sources(record)
         self.assertEqual(production.match_profile(compiled, record, production.LINUX)['units'], 28)
-        for change in ['missing', 'extra', 'hash', 'release', 'selector']:
+        for change in ['missing', 'extra', 'hash', 'release', 'selector', 'owned']:
             with self.subTest(change=change):
                 altered = dict(compiled)
                 unit = record['units'][0]
@@ -132,20 +133,26 @@ class ProductionSourceProof(unittest.TestCase):
                     altered[unit['rust']] = '0' * 64
                 elif change == 'release':
                     altered = self.linux_sources(self.record('release', 'mini-extended-pixi'))
-                else:
+                elif change == 'selector':
                     del altered['src/linux_profiles.rs']
+                else:
+                    del altered[production.OWNED[0]]
                 with self.assertRaises(SystemExit):
                     production.match_profile(altered, record, production.LINUX)
 
     def test_macos_package_units_must_equal_the_profile_bytes(self):
         record = self.record('release', 'mini-extended-pixi', 'macos')
         compiled = {'src/lib.rs': 'root', 'src/modules.rs': 'selection'}
+        compiled.update({name: production.digest(REPOSITORY / name) for name in production.OWNED})
         for unit in record['units']:
             name = Path(unit['rust']).relative_to('src/profiles/macos/release/mini-extended-pixi')
             source = next(path for path in [Path('src/variants/mini-extended-pixi') / name, Path('src') / name]
                           if (REPOSITORY / path).is_file())
             compiled[str(source)] = production.digest(REPOSITORY / source)
         self.assertFalse(production.match_profile(compiled, record, production.MACOS)['exact_profile_paths'])
+        without_owned = {name: value for name, value in compiled.items() if name not in production.OWNED}
+        with self.assertRaises(SystemExit):
+            production.match_profile(without_owned, record, production.MACOS)
         compiled['src/read.rs'] = production.digest(REPOSITORY / 'src/read.rs')
         with self.assertRaises(SystemExit):
             production.match_profile(compiled, record, production.MACOS)
@@ -163,6 +170,17 @@ class ProductionSourceProof(unittest.TestCase):
                             f' {root}/src/lib.rs {root}/src/a\\ b.rs {root}/crates/aom/src/lib.rs\n\n'
                             f'{root}/src/lib.rs:\n')
             self.assertEqual(list(production.dependency_sources(info, root)), ['src/a b.rs', 'src/lib.rs'])
+
+    def test_every_selector_composes_each_declared_owned_source(self):
+        # The selectors name owned code only through package-relative includes,
+        # which the isolated profile crate resolves (check_root_profile.py).
+        selectors = [REPOSITORY / 'src/modules.rs', *sorted((REPOSITORY / 'src/profiles').glob('*/*/*/modules.rs'))]
+        self.assertTrue(selectors)
+        for selector in selectors:
+            text = selector.read_text()
+            for owned in production.OWNED:
+                with self.subTest(selector=str(selector.relative_to(REPOSITORY)), owned=owned):
+                    self.assertIn(f'include!(concat!(env!("CARGO_MANIFEST_DIR"), "/{owned}"));', text)
 
 
 class ProductionCommandGuards(unittest.TestCase):

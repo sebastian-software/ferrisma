@@ -32,3 +32,29 @@ generated macOS profile byte for byte. The same original suites, ABI probes,
 ownership audits, strict bytes, and shared-library smoke then run against that
 package. Isolated profiles remain the admission path for new configurations
 and sanitizer parity. Production sanitizer and AVM/AV2 claims remain separate.
+
+## Amendment: the owned read seam (2026-11-13)
+
+Commit `1ec31c68` (workspace AVIF input, Ferrisma ADR-0031) composes every
+`read` module from the unchanged generated `read.rs` and the handwritten
+`src/read_sample_access.rs`, through `CARGO_MANIFEST_DIR` includes that the
+generators (`tools/transpile_root.py`, `tools/update_modules.py`) now emit. The
+seam must share the module because it calls the file-local
+`avifDecoderPrepareSample`. No translated unit and no unit hash changed, but
+both root checks broke, and every root job of the nightly has failed since
+(issue #204):
+
+- The production check above counted the seam as a compiled unit outside the
+  profile ("The production package compiled a different translation than the
+  native profile" on Linux, "units differ" on macOS).
+- The isolated profile crate has its own manifest directory, so its
+  `CARGO_MANIFEST_DIR` includes named files that do not exist there.
+
+The seam is project-owned code, not translation. `root_production.OWNED`
+declares it: the check requires it to be compiled, excludes it from the
+translation equality by name, rejects it as a profile unit, and keeps its
+digest in the proof's compiled sources. The isolated crate links each file a
+selector includes this way to the same tracked file
+(`check_root_profile.link_manifest_includes`). Unit hashes and selector hashes
+are unchanged. Another owned file in a translated module is declared the same
+way. Working decision 2026-11-13 (delegated, revisable by the owner).

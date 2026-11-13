@@ -10,6 +10,14 @@ MACOS = 'aarch64-apple-darwin'
 # The crate root and the target-level selector that includes a profile's own
 # module selector. They contain no translated implementation.
 SELECTORS = {LINUX: 'src/linux_profiles.rs', MACOS: 'src/modules.rs'}
+# Project-owned code that every selector composes into a translated module and
+# that is therefore compiled beside the profile's units. It is not a
+# translation: it is excluded from the translation equality by name, must be
+# compiled, and its digest stays in the proof's compiled sources. The `read`
+# module joins the unchanged generated read.rs with this consumer seam
+# (tools/transpile_root.py, tools/update_modules.py), because the seam calls the
+# file-local `avifDecoderPrepareSample`.
+OWNED = ['src/read_sample_access.rs']
 
 
 def digest(path):
@@ -59,6 +67,11 @@ def match_profile(compiled, record, target):
         if compiled.pop(fixed, None) is None:
             raise SystemExit(f'The production package did not compile its selector: {fixed}')
     units = record['units']
+    if any(unit['rust'] in OWNED for unit in units):
+        raise SystemExit('A declared owned source is also a generated profile unit')
+    for owned in OWNED:
+        if compiled.pop(owned, None) is None:
+            raise SystemExit(f'The production package did not compile its declared owned source: {owned}')
     if target == LINUX:
         if compiled.pop(record['selector'], None) != record['selector_sha256']:
             raise SystemExit('The production package did not compile the generated profile selector')
@@ -70,7 +83,7 @@ def match_profile(compiled, record, target):
     if len(compiled) != record['original_translation_units']:
         raise SystemExit('The production package lacks the complete native profile closure')
     return dict(units=len(compiled), selector=record['selector'] if target == LINUX else SELECTORS[target],
-                exact_profile_paths=target == LINUX)
+                exact_profile_paths=target == LINUX, owned_sources=list(OWNED))
 
 
 def record_build(target_dir, rust_profile, features, command, manifest, target):

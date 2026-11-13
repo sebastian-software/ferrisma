@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 import os
 import platform
+import re
 import shlex
 import subprocess
 
@@ -62,6 +63,29 @@ def profile_work(record, sanitizer=None):
                    f'{record["preprocessing_profile"]}-{record["variant"]}' + (f'-{sanitizer}' if sanitizer else ''))
 
 
+MANIFEST_INCLUDE = re.compile(r'include!\(concat!\(env!\("CARGO_MANIFEST_DIR"\), "/([^"]+)"\)\);')
+
+
+def link_manifest_includes(selector, work):
+    """Resolve the selector's package-relative includes inside the isolated crate.
+
+    The `read` module joins the generated read.rs with the declared owned
+    seam `src/read_sample_access.rs` (root_production.OWNED) through
+    `CARGO_MANIFEST_DIR` includes, which name the libavif-rs package. The
+    isolated crate has its own manifest directory, so each named file is linked
+    to the same tracked file; nothing is copied or regenerated.
+    """
+    for relative in MANIFEST_INCLUDE.findall(selector.read_text()):
+        source = (ROOT / relative).resolve()
+        if not source.is_relative_to((ROOT / 'src').resolve()) or not source.is_file():
+            raise SystemExit(f'The native root selector includes an unknown package file: {relative}')
+        link = work / relative
+        link.parent.mkdir(parents=True, exist_ok=True)
+        if link.is_symlink() or link.exists():
+            link.unlink()
+        link.symlink_to(source)
+
+
 def profile_target(record, sanitizer=None):
     # A new feature or sanitizer configuration must not replace archives or
     # shared libraries referenced by an earlier native validation proof.
@@ -99,6 +123,7 @@ def main():
     work = profile_work(record, args.sanitizer)
     work.mkdir(parents=True, exist_ok=True)
     selector = ROOT / record['selector']
+    link_manifest_includes(selector, work)
     (work / 'lib.rs').write_text('#![feature(extern_types, c_variadic)]\n'
         + ('#![cfg_attr(libavif_rs_asan, feature(sanitize))]\n' if args.sanitizer else '')
         + '#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]\n'
