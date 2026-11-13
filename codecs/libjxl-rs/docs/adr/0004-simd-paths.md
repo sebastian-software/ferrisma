@@ -785,3 +785,25 @@ this package covers are translated; condition (a) of "Decoder path" still
 waits for the other agents' exports (`to_linear`, tone mapping, CMS,
 `dec_external_image`, `dec_modular`, `rct`, `squeeze`) and (b) to (d).
 <!-- end stages2 -->
+<!-- color -->
+## Color stages of Plan item 1 (2026-11-13, branch `v1/jxl-color`)
+
+Row parity uses the `cl-*` requests of `tools/oracle/color_stages_simd.cc`
+(only the original's public factories, on 128-byte aligned rows sized for
+eight lanes) and `tests/simd_color.rs`. The test reaches the port through
+the public factories with `hwy::set_decoder_simd_for_test`, and runs every
+request through the scalar path as well: a family passes only when the SIMD
+path matches every word and the scalar path differs in at least one request.
+
+- **ToLinear** (`stage_to_linear_simd.rs`, with the decode direction
+  `DisplayFromEncoded` of TF_SRGB, TF_PQ, TF_HLG and TF_709 appended to
+  `simd_transfer.rs`): all seven operations, including OpHlg's
+  `HlgOOTF::FromSceneLight(orig_intensity_target)` after the HLG decode and
+  the factory's initialized OpInvalid identity. `GetToLinearStage`
+  dispatches on `hwy::decoder_target()`. NEON: 22,050 rows, 7,340,550 words
+  matched (linear, sRGB, BT.709, an unknown transfer function, PQ at five
+  intensity targets, HLG at five original intensity targets and two
+  primaries, DCI and five explicit gammas; widths 0-67, seven origins,
+  thresholds with their neighbor words, special words); the scalar path
+  differs in 15,304 of them.
+<!-- end color -->

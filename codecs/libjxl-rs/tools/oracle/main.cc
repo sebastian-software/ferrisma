@@ -555,6 +555,9 @@ bool ModularSimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*
 // stages2
 bool RenderStages2SimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 // end stages2
+// color
+bool ColorStagesSimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+// end color
 
 int main() {
   try {
@@ -681,6 +684,9 @@ int main() {
       // stages2
       else if (RenderStages2SimdCommand(command, in, &mm)) {}
       // end stages2
+      // color
+      else if (ColorStagesSimdCommand(command, in, &mm)) {}
+      // end color
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
       else throw std::runtime_error("unknown command");

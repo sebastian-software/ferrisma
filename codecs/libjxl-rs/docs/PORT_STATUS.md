@@ -172,6 +172,13 @@ DrawSegments) dispatches on `hwy::decoder_target()` and matches the NEON
 oracle over the replayed scalar spline requests. AVX2 is compile-checked
 only.
 <!-- end stages2 -->
+<!-- color -->
+Color stages of ADR 0004 Plan item 1 (2026-11-13): the SIMD ToLinear stage
+(`stage_to_linear_simd.rs`, all seven operations, with the decode direction
+of the transfer functions in `simd_transfer.rs`) matches the NEON oracle at
+row level (`tests/simd_color.rs`) and dispatches like the stages above.
+AVX2 is compile-checked only.
+<!-- end color -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 

@@ -384,3 +384,7 @@ target_sources(jxl_oracle PRIVATE modular_simd.cc)
 target_sources(jxl_oracle PRIVATE render_stages2_simd.cc)
 set_source_files_properties(render_stages2_simd.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control")
 # end stages2
+# color: row requests of the SIMD color stages (port ADR 0004 Plan item 1).
+# The TU only calls the original's public stage factories.
+target_sources(jxl_oracle PRIVATE color_stages_simd.cc)
+# end color
