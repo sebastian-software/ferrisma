@@ -127,6 +127,27 @@ class RootProfileGuards(unittest.TestCase):
         self.manifest.write_text(json.dumps(self.record if record is None else record))
         return subject.validate_profile(self.manifest, 'x86_64-unknown-linux-gnu')
 
+    def test_isolated_crate_links_the_selector_package_includes(self):
+        owned = self.root / 'src/read_sample_access.rs'
+        owned.write_text('// Owned seam fixture.\n')
+        generated = self.root / 'src/profiles/linux/release/default/read.rs'
+        generated.write_text('// Generated reader fixture.\n')
+        selector = self.root / self.record['selector']
+        selector.write_text('pub mod read {\n'
+                            '    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/profiles/linux/release/default/read.rs"));\n'
+                            '    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/read_sample_access.rs"));\n}\n')
+        work = self.root / 'build/work'
+        for _ in range(2):  # A rerun replaces its own links.
+            subject.link_manifest_includes(selector, work)
+        for source in [generated, owned]:
+            link = work / source.relative_to(self.root)
+            self.assertTrue(link.is_symlink())
+            self.assertEqual(link.resolve(), source.resolve())
+        # An existing package file outside src/ is not a selector include.
+        selector.write_text('include!(concat!(env!("CARGO_MANIFEST_DIR"), "/TRANSLATION.json"));\n')
+        with self.assertRaises(SystemExit):
+            subject.link_manifest_includes(selector, work)
+
     def test_complete_matching_profile_is_readable(self):
         self.assertEqual(len(self.validate()['units']), 28)
 
