@@ -20,14 +20,38 @@ include disabled tests, so they are not executed-pass counts. Upstream selects
 and `tools/fetch_aom_test_data.py` also records SHA-256 and sizes. Never
 regenerate goldens. Linking a test executable alone does not prove that every
 original assertion exercises Rust.
+
+`--simd neon` and `--simd avx2` build the same sources as native SIMD
+references for the SIMD-against-SIMD gate of `tools/check_aom_simd_original.py`
+(owner decisions D4 and D6): `AOM_TARGET_CPU=arm64` restricted to Neon (no
+DotProd, I8MM, SVE or SVE2), or `AOM_TARGET_CPU=x86_64` up to AVX2 (no
+AVX-512), each with upstream's run-time CPU detection and RTCD. On macOS ARM64
+the x86-64 reference is built with `-DCMAKE_OSX_ARCHITECTURES=x86_64` and runs
+under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1` exposes AVX2). Both keep the
+declared noncontracting floating-point profile (`-ffp-contract=off`, ADR 0024);
+`--fp-contract on` builds the compiler default that upstream's own release
+build uses, only to explain differences. Every build records its configuration
+identity (options, flags, `HAVE_*` settings, configuration and RTCD header
+digests, archive digest) in `reference-profile.json`. Output directories:
+`build/aom-native-<profile>` (generic, unchanged),
+`build/aom-native-<simd>-<profile>`, with a `-contract` suffix for
+`--fp-contract on`, and `build/aom-native-x86_64-<profile>` for the generic
+reference built for Rosetta 2 with `--x86-64`. On macOS ARM64:
+
+    python3 tools/build_aom.py --library-only                   # generic, arm64
+    python3 tools/build_aom.py --library-only --simd neon       # Neon only
+    python3 tools/build_aom.py --library-only --x86-64          # generic, x86-64
+    python3 tools/build_aom.py --library-only --simd avx2       # up to AVX2, x86-64
 """
 import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import shlex
 import subprocess
+import sys
 
 from build_dav1d import copy_inputs
 
@@ -56,14 +80,35 @@ def test_names(listing):
     return names
 
 
-def library_entries(build):
+# Native SIMD references (module docstring). The levels are D6's v1.0 scope.
+SIMD_REFERENCES = {
+    'neon': dict(arch='arm64', options=['-DAOM_TARGET_CPU=arm64', '-DENABLE_NEON_DOTPROD=0',
+                                        '-DENABLE_NEON_I8MM=0', '-DENABLE_SVE=0', '-DENABLE_SVE2=0'],
+                 enabled=['HAVE_NEON'],
+                 disabled=['HAVE_NEON_DOTPROD', 'HAVE_NEON_I8MM', 'HAVE_SVE', 'HAVE_SVE2']),
+    'avx2': dict(arch='x86_64', options=['-DAOM_TARGET_CPU=x86_64', '-DENABLE_AVX512=0'],
+                 enabled=['HAVE_MMX', 'HAVE_SSE', 'HAVE_SSE2', 'HAVE_SSE3', 'HAVE_SSSE3',
+                          'HAVE_SSE4_1', 'HAVE_SSE4_2', 'HAVE_AVX', 'HAVE_AVX2'],
+                 disabled=['HAVE_AVX512']),
+}
+RTCD_HEADERS = ['config/aom_dsp_rtcd.h', 'config/aom_scale_rtcd.h', 'config/av1_rtcd.h']
+
+
+def reference_build(profile, simd='generic', contract=False, cross_x86_64=False):
+    """The build directory of a reference (see the module docstring)."""
+    name = ('aom-native' + ('' if simd == 'generic' else f'-{simd}')
+            + ('-x86_64' if cross_x86_64 and simd == 'generic' else '') + f'-{profile}')
+    return ROOT / 'build' / (name + ('-contract' if contract else ''))
+
+
+def library_entries(build, sources=('.c',)):
     line = next(line for line in (build / 'build.ninja').read_text().splitlines()
                 if line.startswith('build libaom.a:'))
     objects = shlex.split(line.split(' |')[0])[3:]
     database = json.loads((build / 'compile_commands.json').read_text())
     entries = [entry for entry in database
                if str((Path(entry['directory']) / entry['output']).relative_to(build)) in objects]
-    if len(entries) != len(objects) or not all(e['file'].endswith('.c') for e in entries):
+    if len(entries) != len(objects) or not all(e['file'].endswith(sources) for e in entries):
         raise SystemExit('Archive closure does not match the C compilation database')
     return entries
 
@@ -74,23 +119,47 @@ def main():
     parser.add_argument('--jobs', type=int, default=8)
     parser.add_argument('--library-only', action='store_true',
                         help=f'Build all {LIBRARY_UNITS} original library units for root validation without building standalone test binaries')
+    parser.add_argument('--simd', choices=['generic', *SIMD_REFERENCES], default='generic',
+                        help='generic (default): the portable reference; neon or avx2: a native '
+                             'SIMD reference at that level (requires --library-only)')
+    parser.add_argument('--fp-contract', choices=['off', 'on'], default='off',
+                        help='off (default): the declared noncontracting reference; on: the '
+                             "compiler default of upstream's release build, for diagnosis only")
+    parser.add_argument('--x86-64', action='store_true',
+                        help='On macOS ARM64, build the generic reference for x86-64 (Rosetta 2) '
+                             'into build/aom-native-x86_64-<profile>; requires --library-only')
     args = parser.parse_args()
+    simd = SIMD_REFERENCES.get(args.simd)
+    if args.x86_64 and (simd or not args.library_only):
+        parser.error('--x86-64 applies to the generic library-only reference; --simd avx2 implies it')
+    if simd and not args.library_only:
+        parser.error('SIMD references build the library only; pass --library-only')
+    if args.fp_contract == 'on' and not simd:
+        parser.error('--fp-contract on is a diagnostic SIMD reference; the generic reference stays noncontracting')
     subprocess.run(['python3', ROOT / 'tools/verify_upstream.py'], check=True)
     source = ROOT / 'build/aom-native-source'
     copy_inputs(json.loads((ROOT / 'provenance/aom-source.json').read_text()), source)
     profile = 'debug' if args.debug else 'release'
-    build = ROOT / f'build/aom-native-{profile}'
-    flags = f'-ffp-contract=off -fmacro-prefix-map={source}=upstream/aom'
-    options = ['-DAOM_TARGET_CPU=generic', '-DCONFIG_TUNE_VMAF=0',
+    host_arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'x86_64', 'AMD64': 'x86_64'}[platform.machine()]
+    target_arch = simd['arch'] if simd else ('x86_64' if args.x86_64 else host_arch)
+    cross = target_arch != host_arch
+    if cross and (sys.platform != 'darwin' or target_arch != 'x86_64'):
+        raise SystemExit(f'References build natively, or for x86-64 on macOS (Rosetta 2); not {target_arch} here')
+    build = reference_build(profile, args.simd, args.fp_contract == 'on', cross)
+    flags = (('-ffp-contract=off ' if args.fp_contract == 'off' else '')
+             + f'-fmacro-prefix-map={source}=upstream/aom')
+    options = [*(simd['options'] if simd else ['-DAOM_TARGET_CPU=generic']), '-DCONFIG_TUNE_VMAF=0',
                '-DCMAKE_POSITION_INDEPENDENT_CODE=ON', '-DENABLE_DOCS=OFF']
+    if cross:
+        options.append('-DCMAKE_OSX_ARCHITECTURES=x86_64')
     command = ['cmake', '-S', source, '-B', build, '-G', 'Ninja',
                f'-DCMAKE_BUILD_TYPE={profile.title()}',
                '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
                f'-DCMAKE_C_FLAGS={flags}', f'-DCMAKE_CXX_FLAGS={flags}', *options]
     subprocess.run([str(item) for item in command], check=True)
     subprocess.run(['ninja', '-C', build, '-j', str(args.jobs), *(['libaom.a'] if args.library_only else [])], check=True)
-    entries = library_entries(build)
-    if len(entries) != LIBRARY_UNITS:
+    entries = library_entries(build, ('.c', '.asm') if simd else ('.c',))
+    if not simd and len(entries) != LIBRARY_UNITS:
         raise SystemExit(f'Unexpected complete portable source closure: {len(entries)}')
     config = (build / 'config/aom_config.h').read_text()
     for setting in ['CONFIG_AV1_ENCODER 1', 'CONFIG_AV1_DECODER 1',
@@ -99,11 +168,21 @@ def main():
                     'CONFIG_REALTIME_ONLY 0', 'CONFIG_TUNE_VMAF 0']:
         if f'#define {setting}\n' not in config:
             raise SystemExit(f'Missing required configuration: {setting}')
+    have = {}
     for line in config.splitlines():
         if line.startswith('#define HAVE_') and any(word in line for word in
             ['NEON', 'SVE', 'SSE', 'AVX', 'MMX', 'VSX', 'RVV', 'ARM_CRC']):
-            if not line.endswith(' 0'):
+            name, value = line.split()[1:3]
+            have[name] = int(value)
+            if not simd and value != '0':
                 raise SystemExit(f'Unexpected optimized implementation: {line}')
+    if simd and (any(have.get(name) != 1 for name in simd['enabled'])
+                 or any(have.get(name, 0) != 0 for name in simd['disabled'])):
+        raise SystemExit(f'The {args.simd} reference has the wrong SIMD level: {have}')
+    for setting in (['CONFIG_RUNTIME_CPU_DETECT 1', 'CONFIG_EXCLUDE_SIMD_MISMATCH 0',
+                     'CONFIG_HIGHWAY 0'] if simd else []):
+        if f'#define {setting}\n' not in config:
+            raise SystemExit(f'Missing required configuration: {setting}')
     (build / 'library-compile-commands.json').write_text(json.dumps(entries, indent=2) + '\n')
     inventories = {}
     for name in ([] if args.library_only else ['test_libaom', 'test_aom_rc', 'test_intra_pred_speed']):
@@ -124,12 +203,20 @@ def main():
         name = values['AOM_TEST_FILE']
         data[name] = values['AOM_TEST_CHECKSUM']
     (build / 'test-data.json').write_text(json.dumps(data, indent=2, sort_keys=True) + '\n')
-    record = dict(reference='libaom 3.15.2 complete portable C', profile=profile,
+    archive = build / 'libaom.a'
+    record = dict(reference=('libaom 3.15.2 complete portable C' if not simd else
+                             f'libaom 3.15.2 native {args.simd} SIMD reference (run-time CPU detection)'),
+                  profile=profile, simd=args.simd, target_arch=target_arch,
+                  fp_contract=args.fp_contract, have=have,
+                  rtcd_headers_sha256={name: hashlib.sha256((build / name).read_bytes()).hexdigest()
+                                       for name in RTCD_HEADERS},
+                  archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
                   options=options, c_flags=flags.replace(str(source), '<source>'),
                   compiler=subprocess.check_output([os.environ.get('CC', 'cc'), '--version'],
                                                    text=True).splitlines()[0],
                   library_only_reference=args.library_only, original_tests_executed=False,
                   library_translation_units=len(entries), generated_units=3,
+                  assembly_units=sum(entry['file'].endswith('.asm') for entry in entries),
                   original_test_inventories=inventories, original_test_inputs=len(data),
                   config_sha256=hashlib.sha256(config.encode()).hexdigest(),
                   transitive_runtime_dependencies={})
