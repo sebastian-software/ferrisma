@@ -35,7 +35,7 @@ use jxl::jxl::image_metadata::Orientation;
 use jxl::jxl::modular::modular_image::Image as ModularImage;
 use jxl::jxl::modular::transform::rct::inv_rct;
 use jxl::jxl::modular::transform::squeeze::{
-    default_squeeze_parameters, inv_squeeze, meta_squeeze,
+    default_squeeze_parameters, inv_squeeze, inv_squeeze_for_target, meta_squeeze,
 };
 use jxl::jxl::modular::transform::squeeze_params::SqueezeParams;
 use jxl::jxl::types::JxlEndianness;
@@ -519,7 +519,7 @@ fn modular_to_float_conversions_match_the_original_target_on_every_written_word(
 
 /// The port's observation of an `mx-rct`/`mx-squeeze` request
 /// (tools/oracle/modular_simd.cc) through the decoder's dispatch.
-fn observe_transform(request: &str) -> String {
+fn observe_transform(request: &str, scalar: bool) -> String {
     let mut args = request.split_whitespace();
     let command = args.next().unwrap();
     let rct = command == "mx-rct";
@@ -561,6 +561,8 @@ fn observe_transform(request: &str) -> String {
         }
         s = if rct {
             inv_rct(&mut image, 0, kind, None)
+        } else if scalar {
+            inv_squeeze_for_target(None, &mut image, &params, None)
         } else {
             inv_squeeze(&mut image, &params, None)
         };
@@ -626,10 +628,72 @@ fn inverse_rct_matches_the_original_target() {
         &requests,
         |request| {
             (
-                observe_transform(request),
+                observe_transform(request, false),
                 Box::new(|_| true) as Box<dyn Fn(usize) -> bool>,
             )
         },
         |_| false,
     );
+}
+#[test]
+fn inverse_squeeze_matches_the_original_target() {
+    set_decoder_simd_for_test(Some(true));
+    let mut seed = 0x5_9ee2e_u64;
+    let mut requests = Vec::new();
+    // Horizontal SIMD blocks need a residual wider than 16 and eight rows;
+    // vertical ones eight columns per 64-column slice.
+    let sizes = [
+        (1, 1),
+        (2, 2),
+        (5, 3),
+        (8, 8),
+        (9, 9),
+        (16, 8),
+        (17, 16),
+        (33, 8),
+        (34, 8),
+        (35, 9),
+        (36, 17),
+        (51, 16),
+        (64, 24),
+        (67, 8),
+        (70, 13),
+        (130, 9),
+        (131, 32),
+    ];
+    for mode in 0..4usize {
+        for (w, h) in sizes {
+            for (wt, ht) in [(w, h), (h, w)] {
+                for natural in [true, false] {
+                    let words = transform_words(&mut seed, natural);
+                    requests.push(format!(
+                        "mx-squeeze {mode} {wt} {ht} {} {}",
+                        words.len(),
+                        join(words.iter().copied())
+                    ));
+                }
+            }
+        }
+    }
+    let scalar_differs = std::cell::Cell::new(0usize);
+    check_rows(
+        "InvSqueeze",
+        &requests,
+        |request| {
+            let simd = observe_transform(request, false);
+            let scalar = observe_transform(request, true);
+            if simd != scalar {
+                scalar_differs.set(scalar_differs.get() + 1);
+            }
+            (simd, Box::new(|_| true) as Box<dyn Fn(usize) -> bool>)
+        },
+        |_| false,
+    );
+    // FastUnsqueeze wraps at 32 bits where the scalar tails compute in
+    // 64 bits, so extreme words tell the paths apart.
+    println!(
+        "InvSqueeze: the scalar path differs on {} requests",
+        scalar_differs.get()
+    );
+    assert!(scalar_differs.get() > 0, "the requests must discriminate");
 }

@@ -454,4 +454,27 @@ original's exported `ORACLE_HWY_NS` functions).
   vector and scalar forms compute the same wrapping 32-bit sums, so the
   output cannot tell the SIMD path from the scalar one; the requests cover
   widths that run both the vector loop and the tail on each target.
+- **squeeze** (`modular/transform/squeeze_simd.rs`): the non-scalar
+  `InvHSqueeze`/`InvVSqueeze` with `FastUnsqueeze` (32-bit wrapping
+  lanes, the division by three as `MulEven`/`MulOdd` + `InterleaveOdd`),
+  the horizontal path's 8x8 transposes and `StoreInterleaved` as plain
+  word copies (data movement only, as `store_interleaved3`), the source's
+  64-bit scalar tails; `inv_squeeze` dispatches through
+  `inv_squeeze_for_target(hwy::decoder_target(), ...)`. NEON: `mx-squeeze`
+  with the default parameter list, one horizontal, one vertical and a
+  horizontal-then-vertical step, 34 sizes from 1x1 to 131x32 (horizontal
+  blocks need a residual wider than 16 and eight rows), small and extreme
+  samples: 272 requests / 180,096 words. The scalar path fails 78 of them
+  (it computes the tendency in 64 bits where `FastUnsqueeze` wraps).
+- **convolve_symmetric5 and simd_util: no decode path reaches them.**
+  `Symmetric5` is called only by the encoder (`enc_gaborish.cc`,
+  `enc_adaptive_quantization.cc`) and `MaxValue` only by `enc_ans.cc`.
+  `MaxVectorSize`, which the decoder's image and memory-manager row padding
+  use, is already the port's `hwy::max_vector_size()`. Both remain encoder
+  work (Plan item 3).
+- **Decoder path (a), status after this block.** Of the Plan item 2
+  exports, `dec_external_image`, `dec_modular`, `rct` and `squeeze` are now
+  translated and dispatched; the list of scalar kernels under "Decoder
+  path" (a) shrinks accordingly (the render-pipeline stages there belong to
+  other packages). AVX2 of all four compiles and has not been run.
 <!-- end modular -->

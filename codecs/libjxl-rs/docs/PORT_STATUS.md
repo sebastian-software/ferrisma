@@ -131,7 +131,12 @@ the SIMD `FloatToU32`/`FloatToF16` of dec_external_image
 (`tests/simd_modular.rs`) and `ConvertChannelsToExternal` selects them on
 `hwy::decoder_target()`. The whole-decode comparison still reports zero
 differing words and bytes on all 24 VarDCT files with the SIMD target
-forced. AVX2 compiles and is not yet run.
+forced. The SIMD `MultiplySum`/`RgbFromSingle`/`SingleFromSingle`
+(`dec_modular_simd.rs`), inverse RCT (`rct_simd.rs`) and inverse squeeze
+(`squeeze_simd.rs`, `FastUnsqueeze`) match the NEON oracle as well and are
+dispatched on the same target, with twelve new signed 32-bit layer
+operations. `convolve_symmetric5` and `simd_util`'s `MaxValue` are encoder
+only. AVX2 compiles and is not yet run.
 <!-- end modular -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
