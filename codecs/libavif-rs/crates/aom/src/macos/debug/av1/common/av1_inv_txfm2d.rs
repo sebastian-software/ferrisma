@@ -14,11 +14,7 @@
 extern "C-unwind" {
     static av1_txfm_type_ls: [[TXFM_TYPE; 4]; 5];
     static av1_txfm_stage_num_list: [int8_t; 12];
-    fn av1_round_shift_array_c(
-        arr: *mut int32_t,
-        size: core::ffi::c_int,
-        bit: core::ffi::c_int,
-    );
+    static mut av1_round_shift_array: Option<unsafe extern "C-unwind" fn(*mut int32_t, core::ffi::c_int, core::ffi::c_int) -> ()>;
     fn av1_idct4(
         input: *const int32_t,
         output: *mut int32_t,
@@ -1209,7 +1205,7 @@ unsafe extern "C-unwind" fn inv_txfm2d_add_c(
                     "non-null function pointer",
                 )(temp_in, buf_ptr, cos_bit_row, stage_range_row.as_mut_ptr());
         }
-        av1_round_shift_array_c(
+        av1_round_shift_array.expect("non-null function pointer")(
             buf_ptr,
             txfm_size_col,
             -(*shift.offset(0 as core::ffi::c_int as isize) as core::ffi::c_int),
@@ -1250,7 +1246,7 @@ unsafe extern "C-unwind" fn inv_txfm2d_add_c(
             .expect(
                 "non-null function pointer",
             )(temp_in, temp_out, cos_bit_col, stage_range_col.as_mut_ptr());
-        av1_round_shift_array_c(
+        av1_round_shift_array.expect("non-null function pointer")(
             temp_out,
             txfm_size_row,
             -(*shift.offset(1 as core::ffi::c_int as isize) as core::ffi::c_int),

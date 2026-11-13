@@ -133,6 +133,7 @@ const BLK_SIZE: usize = BLK_WIDTH * BLK_WIDTH;
 /// blocks.
 fn run_av1_inv_txfm2d_test(target_func: HighbdInvTxfm2dFunc, tx_type: u8, tx_size: u8,
                            run_times: i32, bit_depth: i32, gt_int16: bool) -> usize {
+    super::scalar_round_shift_reference();
     let fwd_func = FWD_TXFM_FUNC_LS[tx_size as usize];
     let mut input = Aligned([0i16; BLK_SIZE]);
     let mut inv_input = Aligned([0i32; BLK_SIZE]);
@@ -280,6 +281,7 @@ extern "C-unwind" {
 fn run_highbd_inv_ht_bitexact_check(txfm_ref: FwdTxfm2dFunc, inv_txfm: IHbdHtFunc,
                                     inv_txfm_ref: IHbdHtFunc, num_coeffs: usize, tx_type: u8,
                                     bit_depth: i32) {
+    super::scalar_round_shift_reference();
     // GetStride()
     let stride: i32 = match num_coeffs {
         16 => 4,

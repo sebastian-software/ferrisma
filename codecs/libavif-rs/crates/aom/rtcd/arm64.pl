@@ -497,6 +497,7 @@ my %ported_neon = map { $_ => 1 } qw/
   av1_quantize_fp_32x32
   av1_quantize_fp_64x64
   av1_quantize_lp
+  av1_round_shift_array
   av1_selfguided_restoration
   av1_txb_init_levels
   av1_upsample_intra_edge
