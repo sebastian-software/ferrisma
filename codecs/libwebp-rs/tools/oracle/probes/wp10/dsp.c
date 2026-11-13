@@ -21,6 +21,7 @@
 #include "src/dsp/dsp.h"
 #include "src/dsp/quant.h"
 #include "src/enc/vp8i_enc.h"
+#include "src/utils/utils.h"
 
 enum {
   OP_FTRANSFORM = 0,
@@ -172,10 +173,27 @@ int main(int argc, char* argv[]) {
       case OP_PRED16:
       case OP_PREDC8: {
         // left[-1..] is b[p[2] - 1 ..], top is b[p[3] ..]; p[0] and p[1] say
-        // whether each one is present.
+        // whether each one is present. libwebp's encoder passes 32-byte
+        // aligned rows (iterator_enc.c: y_left = WEBP_ALIGN(yuv_left_mem + 1);
+        // webp_enc.c: y_top = WEBP_ALIGN(mem)), and the SSE2 luma predictors
+        // read them with _mm_load_si128 (enc_sse2.c DC16_SSE2, VE16_SSE2,
+        // TM_SSE2), so the probe copies the same bytes to aligned rows.
+        // left[-1..31] and top[0..31] cover luma and both chroma blocks.
         static uint8_t dst[PRED_SIZE_ENC];
-        const uint8_t* const left = r.p[0] ? r.b + r.p[2] : NULL;
-        const uint8_t* const top = r.p[1] ? r.b + r.p[3] : NULL;
+        static uint8_t left_mem[1 + 32 + WEBP_ALIGN_CST];
+        static uint8_t top_mem[32 + WEBP_ALIGN_CST];
+        uint8_t* const left_row = (uint8_t*)WEBP_ALIGN(left_mem + 1);
+        uint8_t* const top_row = (uint8_t*)WEBP_ALIGN(top_mem);
+        const uint8_t* left = NULL;
+        const uint8_t* top = NULL;
+        if (r.p[0]) {
+          memcpy(left_row - 1, r.b + r.p[2] - 1, 1 + 32);
+          left = left_row;
+        }
+        if (r.p[1]) {
+          memcpy(top_row, r.b + r.p[3], 32);
+          top = top_row;
+        }
         memset(dst, 0x5a, sizeof(dst));
         if (r.op == OP_PRED16) {
           VP8EncPredLuma16(dst, left, top);
