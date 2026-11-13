@@ -88,10 +88,23 @@ the output row, EPF's `size_t` sigma index that wraps for negative
 array when `xpos` is not a lane multiple. `tests/simd_parity.rs`
 (`cpp-oracle-simd`) states each rule next to its use.
 
-**Decoder path.** The SIMD stages are not selected by the decoder yet.
-Wiring needs the whole-decode comparison against a NEON/AVX2 `djxl`, and the
-image planes must first carry the target's `MaxVectorSize()` row padding
-(`BytesPerRow`), which the port fixes at the scalar 4 bytes.
+**Decoder path.** The stage factories dispatch like upstream's
+`HWY_DYNAMIC_DISPATCH(GetGaborishStage)` and its siblings:
+`get_gaborish_stage`, `get_ycbcr_stage`, `get_chroma_upsampling_stage` and
+`get_epf_stage`/`get_epf_stage_shared` return the SIMD stage for
+`hwy::decoder_target()` and the scalar stage when it is `None`. Plane row
+padding follows the selected target as `BytesPerRow` follows
+`MaxVectorSize()` (`hwy::max_vector_size()`: 4 bytes on the scalar path,
+16 on NEON, 32 on AVX2). `decoder_target()` is `None` unless
+`hwy::DECODER_SELECTS_SIMD` is on; tests switch it like Highway's
+`SetSupportedTargetsForTest` (`hwy::set_decoder_simd_for_test`). The
+selection is **off** (2026-11-13): the whole-decode comparison below
+differs, so the default decoder, its scalar gate and its outputs are
+unchanged. Turn it on only when
+`whole_decodes_with_the_simd_stages_against_the_original_target` reports no
+differing word on every target in scope; the test fails once nothing
+differs while the selection is still off, and fails on any difference once
+it is on.
 
 ## Evidence (2026-11-13, macOS 27.0.1, M1 Ultra)
 
@@ -108,6 +121,27 @@ image planes must first carry the target's `MaxVectorSize()` row padding
   original's `premul_absorb` for one lane and passed unaligned rows to
   aligned `Load`; it now allocates full aligned vectors and prints the same
   words. The earlier fact-finding build's other two crashes did not recur.
+- Whole decode, NEON (2026-11-13). `tests/simd_parity.rs`
+  `whole_decodes_with_the_simd_stages_against_the_original_target` decodes
+  24 VarDCT/XYB files of the original's encoder (65x33, 258x258, 513x257;
+  Gaborish off/on; EPF 0-3) with the SIMD stages selected and with the
+  scalar path, and compares the float color planes and the integer output
+  with the NEON oracle's `vd-decode`. Status, frame size and output layout
+  match on all 24, and the SIMD stages run without fault in the decoder's
+  pipeline; the words do not match: 97.5-99.5 % of the float words differ
+  on every file, with or without the SIMD stages, including the files
+  without Gaborish and EPF (65x33: 6,271 of 6,435; 258x258: about 198,500
+  of 199,692; 513x257: about 393,700 of 395,523), and 1-699 output bytes
+  per file. The cause is outside these stages: the original's NEON build
+  also runs dequantization, the inverse DCTs, XYB and the output stages as
+  NEON code (fused `MulAdd`), which the port still runs as its
+  `HWY_SCALAR` translation (Plan items 1 and 2). A 4:2:0 JPEG recompression
+  (YCbCr, chroma upsampling) is not admitted by the port's `decode_vardct`
+  yet and is reported, not compared. The comparison uses the simple
+  pipeline of `decode_vardct`; the low-memory pipeline of the public decoder
+  with SIMD stages has no whole-decode comparison yet. x86-64 (AVX2) was not
+  run: the local machine has no Rosetta 2, and the hosted run of this test
+  is pending.
 - Row-request alignment (issue #252, 2026-11-13). The first hosted Linux
   x86-64 run failed the Gaborish, chroma/YCbCr and EPF row tests with a
   broken request pipe: the AVX2 oracle died at the first request whose

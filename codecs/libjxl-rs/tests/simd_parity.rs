@@ -1011,3 +1011,223 @@ fn simd_row_corpus_replay_matches_the_original_target() {
         (out, Box::new(move |i| defined_columns(i, len, border)))
     });
 }
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+fn unhex(text: &str) -> Vec<u8> {
+    (0..text.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).unwrap())
+        .collect()
+}
+
+/// Image-like 8-bit samples: smooth gradients with a little noise, so that
+/// the encoder produces AC detail for Gaborish and EPF to act on.
+fn test_image(w: usize, h: usize, channels: usize, seed: u64) -> Vec<u8> {
+    let mut seed = seed | 1;
+    let mut pixels = Vec::with_capacity(w * h * channels);
+    for y in 0..h {
+        for x in 0..w {
+            for c in 0..channels {
+                let base = (x * (3 + c) + y * (5 - c) + (x * y) / (7 + c)) % 256;
+                let noise = (next(&mut seed) % 24) as usize;
+                pixels.push(((base + noise) % 256) as u8);
+            }
+        }
+    }
+    pixels
+}
+
+/// Genuine inputs from the original's encoder (`vd-encode-effects`: VarDCT,
+/// XYB, Gaborish on/off, EPF iterations 0-3, no noise) and a 4:2:0 JPEG
+/// recompressed by the original (`ycc-jpeg-encode`: YCbCr and chroma
+/// upsampling; the port's `decode_vardct` does not admit it yet, so it is
+/// reported, not compared). Which encoder build produced a file does not matter: both
+/// decoders read the same bytes.
+fn whole_decode_inputs() -> Vec<(String, Vec<u8>)> {
+    let mut names = Vec::new();
+    let mut requests = Vec::new();
+    for (w, h) in [(65, 33), (258, 258), (513, 257)] {
+        for gab in [false, true] {
+            for epf in 0..=3 {
+                let (gray, alpha) = (false, false);
+                let pixels = test_image(w, h, 3, (w * 31 + h + epf) as u64);
+                names.push(format!("vardct {w}x{h} gab={} epf={epf}", u8::from(gab)));
+                requests.push(format!(
+                    "vd-encode-effects {w} {h} {} {} 8 7 {} 0 {epf} 0 {}",
+                    u8::from(gray),
+                    u8::from(alpha),
+                    u8::from(gab),
+                    hex(&pixels)
+                ));
+            }
+        }
+    }
+    let observed = oracle(&requests);
+    let mut files = Vec::new();
+    for (name, line) in names.into_iter().zip(observed) {
+        let fields: Vec<_> = line.split_whitespace().collect();
+        assert_eq!(fields[0], "0", "original encoder: {name}");
+        files.push((name, unhex(fields[1])));
+    }
+    let jpeg = std::fs::read(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/data/decode-test/flower.png.im_q85_420.jpg"),
+    )
+    .unwrap();
+    let line = oracle(&[format!("ycc-jpeg-encode {}", hex(&jpeg))]).remove(0);
+    let fields: Vec<_> = line.split_whitespace().collect();
+    let w = fields.iter().position(|f| *f == "W").unwrap();
+    assert_eq!(fields[w + 1], "0", "original JPEG recompression");
+    files.push((
+        "jpeg 4:2:0 ycbcr (flower q85)".to_owned(),
+        unhex(fields[w + 3]),
+    ));
+    files
+}
+
+/// One whole decode as `vd-decode` prints it: status, frame size and decoded
+/// bytes, the integer output, and the float color planes.
+struct WholeDecode {
+    status: String,
+    frame: String,
+    pixels: Vec<u8>,
+    floats: Vec<u32>,
+}
+fn parse_original_decode(line: &str) -> WholeDecode {
+    let fields: Vec<_> = line.split_whitespace().collect();
+    let f = fields.iter().position(|t| *t == "F").unwrap();
+    let o = fields.iter().position(|t| *t == "O").unwrap();
+    let r = fields.iter().position(|t| *t == "R").unwrap();
+    WholeDecode {
+        status: fields[0].to_owned(),
+        frame: fields[f + 1..o].join(" "),
+        pixels: if o + 1 < r {
+            unhex(fields[o + 1])
+        } else {
+            Vec::new()
+        },
+        floats: fields[r + 1..].iter().map(|w| w.parse().unwrap()).collect(),
+    }
+}
+fn port_decode(bytes: &[u8]) -> WholeDecode {
+    let d = jxl::jxl::dec_frame::decode_vardct(bytes);
+    WholeDecode {
+        status: status(&d.status).to_string(),
+        frame: format!(
+            "{} {} {}",
+            d.frame_size.0, d.frame_size.1, d.frame_decoded_bytes
+        ),
+        pixels: d.pixels,
+        floats: d.float_pixels.iter().map(|v| v.to_bits()).collect(),
+    }
+}
+
+/// Differing float words (any NaN equals any NaN) and integer output bytes.
+fn decode_differences(port: &WholeDecode, original: &WholeDecode) -> (usize, usize, Option<usize>) {
+    assert_eq!(port.status, original.status, "decode status");
+    assert_eq!(port.frame, original.frame, "frame size and decoded bytes");
+    assert_eq!(port.floats.len(), original.floats.len(), "float word count");
+    assert_eq!(
+        port.pixels.len(),
+        original.pixels.len(),
+        "output byte count"
+    );
+    let mut first = None;
+    let mut words = 0;
+    for (i, (a, b)) in port.floats.iter().zip(&original.floats).enumerate() {
+        if a != b && !(is_nan(*a) && is_nan(*b)) {
+            words += 1;
+            first.get_or_insert(i);
+        }
+    }
+    let bytes = port
+        .pixels
+        .iter()
+        .zip(&original.pixels)
+        .filter(|(a, b)| a != b)
+        .count();
+    (words, bytes, first)
+}
+
+/// Whole decodes of the decoder with its SIMD selection on (port ADR 0004,
+/// "Decoder path") against the original's single-target SIMD build, which
+/// is the comparison that must report no difference before the decoder may
+/// select the SIMD stages by default (`hwy::DECODER_SELECTS_SIMD`).
+///
+/// Finding (2026-11-13, NEON): the decodes differ. The original's NEON
+/// build also runs its dequantization, inverse DCT, XYB, output conversion
+/// and other decode kernels as NEON (fused `MulAdd`, NEON rounding), which
+/// the port still runs as its `HWY_SCALAR` translation, so the stages the
+/// port already has (Gaborish, EPF, YCbCr, chroma upsampling) cannot make a
+/// whole decode identical on their own. The same comparison with the port's
+/// scalar path is printed next to it. The test therefore asserts that the
+/// selection stays off while any word differs (and fails once nothing
+/// differs, so that the selection is then turned on), and that every decode
+/// with the SIMD stages runs to the same status, frame size and output
+/// layout as the original.
+#[test]
+fn whole_decodes_with_the_simd_stages_against_the_original_target() {
+    use jxl::jxl::hwy::{DECODER_SELECTS_SIMD, decoder_target, set_decoder_simd_for_test};
+    let t = target();
+    let files = whole_decode_inputs();
+    let requests: Vec<_> = files
+        .iter()
+        .map(|(_, bytes)| format!("vd-decode {}", hex(bytes)))
+        .collect();
+    let originals: Vec<_> = oracle(&requests)
+        .iter()
+        .map(|line| parse_original_decode(line))
+        .collect();
+    let mut differing = Vec::new();
+    let mut not_admitted = Vec::new();
+    println!(
+        "whole decode on {}: image | float words | differing words (SIMD stages, scalar path) | first | differing output bytes (SIMD stages, scalar path)",
+        t.name()
+    );
+    for ((name, bytes), original) in files.iter().zip(&originals) {
+        set_decoder_simd_for_test(Some(true));
+        assert_eq!(decoder_target().map(|d| d.name()), Some(t.name()));
+        let simd = port_decode(bytes);
+        set_decoder_simd_for_test(Some(false));
+        let scalar = port_decode(bytes);
+        set_decoder_simd_for_test(None);
+        if simd.status == "2" && scalar.status == "2" && original.status == "0" {
+            // The port's decode_vardct admission does not take this
+            // configuration yet (Unsupported) on either path: reported, not
+            // comparable here.
+            println!("  {name} | not admitted by the port's decode_vardct (status 2)");
+            not_admitted.push(name.clone());
+            continue;
+        }
+        let (words, out_bytes, first) = decode_differences(&simd, original);
+        let (scalar_words, scalar_bytes, _) = decode_differences(&scalar, original);
+        println!(
+            "  {name} | {} | {words}, {scalar_words} | {first:?} | {out_bytes}, {scalar_bytes}",
+            original.floats.len()
+        );
+        if words != 0 || out_bytes != 0 {
+            differing.push(name.clone());
+        }
+    }
+    println!(
+        "{} of {} whole decodes differ, {} not admitted by the port",
+        differing.len(),
+        files.len(),
+        not_admitted.len()
+    );
+    if DECODER_SELECTS_SIMD {
+        assert!(
+            differing.is_empty(),
+            "the decoder selects SIMD but these whole decodes differ from the original's {} build: {differing:?}",
+            t.name()
+        );
+    } else {
+        assert!(
+            !differing.is_empty(),
+            "every whole decode matches the original's {} build: turn on hwy::DECODER_SELECTS_SIMD and update port ADR 0004",
+            t.name()
+        );
+    }
+}

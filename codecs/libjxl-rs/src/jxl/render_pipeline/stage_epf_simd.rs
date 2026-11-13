@@ -37,11 +37,19 @@ impl EpfPass {
     }
 }
 
-pub struct EpfStageSimd {
+/// The sigma plane of a SIMD EPF stage: its own copy, the caller's plane,
+/// or the decoder's shared owner (the source keeps a pointer).
+enum SigmaOwner<'a> {
+    Owned(Plane<f32>),
+    Borrowed(&'a Plane<f32>),
+    Shared(std::rc::Rc<std::cell::RefCell<Plane<f32>>>),
+}
+
+pub struct EpfStageSimd<'a> {
     target: Target,
     pass: EpfPass,
     lf: LoopFilter,
-    sigma: Plane<f32>,
+    sigma: SigmaOwner<'a>,
 }
 
 /// Rows of one channel, each starting at sample `x_start - border`.
@@ -248,7 +256,7 @@ impl<'a> Kernel for EpfRow<'a> {
     }
 }
 
-impl RenderPipelineStage for EpfStageSimd {
+impl RenderPipelineStage for EpfStageSimd<'_> {
     fn settings(&self) -> Settings {
         Settings::symmetric_border_only(self.pass.border())
     }
@@ -279,7 +287,16 @@ impl RenderPipelineStage for EpfStageSimd {
                     .collect()
             })
             .collect();
-        let row_sigma = self.sigma.row(ypos / BLOCK_DIM + SIGMA_PADDING);
+        let shared = match &self.sigma {
+            SigmaOwner::Shared(owner) => Some(owner.borrow()),
+            _ => None,
+        };
+        let sigma = match &self.sigma {
+            SigmaOwner::Owned(plane) => plane,
+            SigmaOwner::Borrowed(plane) => *plane,
+            SigmaOwner::Shared(_) => shared.as_deref().unwrap(),
+        };
+        let row_sigma = sigma.row(ypos / BLOCK_DIM + SIGMA_PADDING);
         let mut outs = [vec![0.0; len], vec![0.0; len], vec![0.0; len]];
         {
             let [o0, o1, o2] = &mut outs;
@@ -328,6 +345,37 @@ pub fn get_epf_stage_simd(
         target,
         pass,
         lf: lf.clone(),
-        sigma,
+        sigma: SigmaOwner::Owned(sigma),
+    })
+}
+
+/// [`get_epf_stage_simd`] borrowing the caller's sigma plane, as the source.
+pub fn get_epf_stage_simd_borrowed<'a>(
+    lf: &LoopFilter,
+    sigma: &'a Plane<f32>,
+    pass: EpfPass,
+    target: Target,
+) -> Box<dyn RenderPipelineStage + 'a> {
+    Box::new(EpfStageSimd {
+        target,
+        pass,
+        lf: lf.clone(),
+        sigma: SigmaOwner::Borrowed(sigma),
+    })
+}
+
+/// [`get_epf_stage_simd`] sharing the decoder's sigma owner with its
+/// pipeline, like the scalar `get_epf_stage_shared`.
+pub fn get_epf_stage_simd_shared(
+    lf: &LoopFilter,
+    sigma: std::rc::Rc<std::cell::RefCell<Plane<f32>>>,
+    pass: EpfPass,
+    target: Target,
+) -> Box<dyn RenderPipelineStage> {
+    Box::new(EpfStageSimd {
+        target,
+        pass,
+        lf: lf.clone(),
+        sigma: SigmaOwner::Shared(sigma),
     })
 }

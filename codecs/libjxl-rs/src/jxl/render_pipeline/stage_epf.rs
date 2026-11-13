@@ -22,6 +22,16 @@ pub enum EpfStage {
     One,
     Two,
 }
+impl EpfStage {
+    fn simd(self) -> super::stage_epf_simd::EpfPass {
+        use super::stage_epf_simd::EpfPass;
+        match self {
+            Self::Zero => EpfPass::Zero,
+            Self::One => EpfPass::One,
+            Self::Two => EpfPass::Two,
+        }
+    }
+}
 
 // Copyright 2019 Google LLC
 // Copyright (c) The Highway Project Authors. All rights reserved.
@@ -307,6 +317,14 @@ pub fn get_epf_stage<'a>(
 ) -> Option<Box<dyn RenderPipelineStage + 'a>> {
     if lf.epf_iters == 0 {
         None
+    } else if let Some(target) = crate::jxl::hwy::decoder_target() {
+        // HWY_DYNAMIC_DISPATCH(GetEPFStage) (port ADR 0004).
+        Some(super::stage_epf_simd::get_epf_stage_simd_borrowed(
+            lf,
+            sigma,
+            pass.simd(),
+            target,
+        ))
     } else {
         Some(Box::new(EPFStage {
             lf: lf.clone(),
@@ -326,6 +344,14 @@ pub fn get_epf_stage_shared(
 ) -> Option<Box<dyn RenderPipelineStage>> {
     if lf.epf_iters == 0 {
         None
+    } else if let Some(target) = crate::jxl::hwy::decoder_target() {
+        // HWY_DYNAMIC_DISPATCH(GetEPFStage) (port ADR 0004).
+        Some(super::stage_epf_simd::get_epf_stage_simd_shared(
+            lf,
+            sigma,
+            pass.simd(),
+            target,
+        ))
     } else {
         Some(Box::new(EPFStage {
             lf: lf.clone(),

@@ -143,5 +143,9 @@ pub fn get_gaborish_stage(lf: &LoopFilter) -> Option<Box<dyn RenderPipelineStage
     if !lf.gab {
         return None;
     }
+    // HWY_DYNAMIC_DISPATCH(GetGaborishStage) (port ADR 0004).
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return super::stage_gaborish_simd::get_gaborish_stage_simd(lf, target);
+    }
     Some(Box::new(GaborishStage::new(lf)))
 }

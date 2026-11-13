@@ -85,9 +85,13 @@ below); other frame encodes remain admission results.
 operations for `HWY_NEON` and `HWY_AVX2`; the SIMD Gaborish, EPF (passes
 0–2), YCbCr and chroma upsampling stages are written against it. They match
 the NEON and AVX2 oracle variants at row level on both targets
-(`tests/simd_parity.rs`) and are **not** selected by the decoder. The other
-Highway exports, decoder wiring and the whole-decode SIMD comparison remain
-open (issues #96, #231). The row adapters of the oracle now hand the stages
+(`tests/simd_parity.rs`). The stage factories now dispatch on
+`hwy::decoder_target()` with target row padding, but the decoder does **not**
+select SIMD by default (`hwy::DECODER_SELECTS_SIMD` is off): the new
+whole-decode comparison with the NEON oracle differs on every VarDCT file,
+with or without the SIMD stages, because the original's NEON build also runs
+dequantization, IDCT, XYB and output kernels as SIMD (ADR 0004 evidence).
+The other Highway exports remain open (issues #96, #231). The row adapters of the oracle now hand the stages
 128-byte aligned rows, as libjxl's pipelines do; the misaligned rows made the
 AVX2 oracle fault on hosted x86-64 hardware (issue #252, ADR 0004 evidence).
 The fix is verified on AArch64 only; x86-64 cannot run on the local machine.

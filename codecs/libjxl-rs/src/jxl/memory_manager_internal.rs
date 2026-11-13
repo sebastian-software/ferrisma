@@ -7,8 +7,9 @@
 //! An owner allocates through the caller's JxlMemoryManager when one is
 //! supplied, or through the crate's native Rust allocator boundary otherwise;
 //! both zero-initialize the payload so safe slices never expose indeterminate
-//! bytes. Row sizing retains the scalar reference's four byte maximum vector
-//! size. See ADR 0003.
+//! bytes. Row sizing uses the selected target's maximum vector size: four
+//! bytes on the scalar path, as in the scalar reference (ADR 0003), the
+//! NEON/AVX2 vector when the decoder selects a SIMD target (ADR 0004).
 
 use super::base::status::{StatusCode, StatusOr};
 use super::memory_manager::{
@@ -39,7 +40,9 @@ pub fn bytes_per_row(xsize: usize, sizeof_t: usize) -> StatusOr<usize> {
     if xsize == 0 {
         return Ok(0);
     }
-    let vec_size = 4usize;
+    // MaxVectorSize(): 4 on the scalar path, the selected SIMD target's
+    // vector bytes otherwise (port ADR 0004).
+    let vec_size = super::hwy::max_vector_size();
     let mut valid = xsize
         .checked_mul(sizeof_t)
         .ok_or(StatusCode::GenericError)?;
