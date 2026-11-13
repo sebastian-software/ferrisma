@@ -24,9 +24,10 @@
 //! `cinfo`, and the output rows as separate slices, because the second row of
 //! the 2:1 vertical case may be the upsampler's spare row.
 
+use crate::jdcolext::{TABLE, table};
 use crate::jdmerge::{SCALEBITS, my_merged_upsampler};
 use crate::jmorecfg::{JDIMENSION, JSAMPLE, MAXJSAMPLE};
-use crate::jpegint::RIGHT_SHIFT;
+use crate::jpegint::{JLONG, RIGHT_SHIFT};
 use crate::jpeglib::{JSAMPROWS_AT, jpeg_decompress_struct};
 
 // upstream: src/jdmrgext.c h2v1_merged_upsample
@@ -59,41 +60,44 @@ pub fn h2v1_merged_upsample<
 ) {
     /* copy these pointers into registers if possible */
     let range_limit = cinfo.sample_range_limit_signed();
-    let Crrtab = upsample.Cr_r_tab.as_deref().expect("Cr_r_tab is NULL");
-    let Cbbtab = upsample.Cb_b_tab.as_deref().expect("Cb_b_tab is NULL");
-    let Crgtab = upsample.Cr_g_tab.as_deref().expect("Cr_g_tab is NULL");
-    let Cbgtab = upsample.Cb_g_tab.as_deref().expect("Cb_g_tab is NULL");
+    /* The tables as arrays, which a sample indexes without a bounds check. */
+    let Crrtab: &[i32; TABLE] = table(upsample.Cr_r_tab.as_deref(), "Cr_r_tab is NULL");
+    let Cbbtab: &[i32; TABLE] = table(upsample.Cb_b_tab.as_deref(), "Cb_b_tab is NULL");
+    let Crgtab: &[JLONG; TABLE] = table(upsample.Cr_g_tab.as_deref(), "Cr_g_tab is NULL");
+    let Cbgtab: &[JLONG; TABLE] = table(upsample.Cb_g_tab.as_deref(), "Cb_g_tab is NULL");
 
     let row = in_row_group_ctr as isize;
     let inptr0 = input_buf[0].row(row);
     let inptr1 = input_buf[1].row(row);
     let inptr2 = input_buf[2].row(row);
     let outptr = &mut *output_buf[0];
-    let (mut in0, mut in12, mut out) = (0, 0, 0);
-    /* Loop for each pair of output pixels */
-    let mut col = cinfo.output_width >> 1;
-    while col > 0 {
+    /* Loop for each pair of output pixels, over the rows split off once, as
+     * C's pointers need no bounds checks */
+    let col = (cinfo.output_width >> 1) as usize;
+    let pixel_pair = 2 * RGB_PIXELSIZE as usize;
+    for (((outpair, ys), &cb), &cr) in outptr[..col * pixel_pair]
+        .chunks_exact_mut(pixel_pair)
+        .zip(inptr0[..2 * col].as_chunks::<2>().0)
+        .zip(&inptr1[..col])
+        .zip(&inptr2[..col])
+    {
         /* Do the chroma part of the calculation */
-        let cb = usize::from(inptr1[in12]);
-        let cr = usize::from(inptr2[in12]);
-        in12 += 1;
+        let (cb, cr) = (usize::from(cb), usize::from(cr));
         let cred = Crrtab[cr];
         let cgreen = RIGHT_SHIFT(Cbgtab[cb] + Crgtab[cr], SCALEBITS) as i32;
         let cblue = Cbbtab[cb];
         /* Fetch 2 Y values and emit 2 pixels */
-        for _ in 0..2 {
-            let y = i32::from(inptr0[in0]);
-            in0 += 1;
-            outptr[out + RGB_RED as usize] = range_limit.at(y + cred);
-            outptr[out + RGB_GREEN as usize] = range_limit.at(y + cgreen);
-            outptr[out + RGB_BLUE as usize] = range_limit.at(y + cblue);
+        for (pixel, &y) in outpair.chunks_exact_mut(RGB_PIXELSIZE as usize).zip(ys) {
+            let y = i32::from(y);
+            pixel[RGB_RED as usize] = range_limit.at(y + cred);
+            pixel[RGB_GREEN as usize] = range_limit.at(y + cgreen);
+            pixel[RGB_BLUE as usize] = range_limit.at(y + cblue);
             if RGB_ALPHA >= 0 {
-                outptr[out + RGB_ALPHA as usize] = MAXJSAMPLE as JSAMPLE;
+                pixel[RGB_ALPHA as usize] = MAXJSAMPLE as JSAMPLE;
             }
-            out += RGB_PIXELSIZE as usize;
         }
-        col -= 1;
     }
+    let (in0, in12, out) = (2 * col, col, col * pixel_pair);
     /* If image width is odd, do the last output column separately */
     if cinfo.output_width & 1 != 0 {
         let cb = usize::from(inptr1[in12]);
@@ -144,10 +148,11 @@ pub fn h2v2_merged_upsample<
 ) {
     /* copy these pointers into registers if possible */
     let range_limit = cinfo.sample_range_limit_signed();
-    let Crrtab = upsample.Cr_r_tab.as_deref().expect("Cr_r_tab is NULL");
-    let Cbbtab = upsample.Cb_b_tab.as_deref().expect("Cb_b_tab is NULL");
-    let Crgtab = upsample.Cr_g_tab.as_deref().expect("Cr_g_tab is NULL");
-    let Cbgtab = upsample.Cb_g_tab.as_deref().expect("Cb_g_tab is NULL");
+    /* The tables as arrays, which a sample indexes without a bounds check. */
+    let Crrtab: &[i32; TABLE] = table(upsample.Cr_r_tab.as_deref(), "Cr_r_tab is NULL");
+    let Cbbtab: &[i32; TABLE] = table(upsample.Cb_b_tab.as_deref(), "Cb_b_tab is NULL");
+    let Crgtab: &[JLONG; TABLE] = table(upsample.Cr_g_tab.as_deref(), "Cr_g_tab is NULL");
+    let Cbgtab: &[JLONG; TABLE] = table(upsample.Cb_g_tab.as_deref(), "Cb_g_tab is NULL");
 
     let row = in_row_group_ctr as isize;
     let inptr00 = input_buf[0].row(row * 2);
@@ -157,35 +162,37 @@ pub fn h2v2_merged_upsample<
     let (outptr0, rest) = output_buf.split_at_mut(1);
     let outptr0 = &mut *outptr0[0];
     let outptr1 = &mut *rest[0];
-    let (mut in0, mut in12, mut out) = (0, 0, 0);
-    /* Loop for each group of output pixels */
-    let mut col = cinfo.output_width >> 1;
-    while col > 0 {
+    /* Loop for each group of output pixels, over the rows split off once, as
+     * C's pointers need no bounds checks */
+    let col = (cinfo.output_width >> 1) as usize;
+    let pixel_pair = 2 * RGB_PIXELSIZE as usize;
+    for (((((outpair0, outpair1), ys0), ys1), &cb), &cr) in outptr0[..col * pixel_pair]
+        .chunks_exact_mut(pixel_pair)
+        .zip(outptr1[..col * pixel_pair].chunks_exact_mut(pixel_pair))
+        .zip(inptr00[..2 * col].as_chunks::<2>().0)
+        .zip(inptr01[..2 * col].as_chunks::<2>().0)
+        .zip(&inptr1[..col])
+        .zip(&inptr2[..col])
+    {
         /* Do the chroma part of the calculation */
-        let cb = usize::from(inptr1[in12]);
-        let cr = usize::from(inptr2[in12]);
-        in12 += 1;
+        let (cb, cr) = (usize::from(cb), usize::from(cr));
         let cred = Crrtab[cr];
         let cgreen = RIGHT_SHIFT(Cbgtab[cb] + Crgtab[cr], SCALEBITS) as i32;
         let cblue = Cbbtab[cb];
         /* Fetch 4 Y values and emit 4 pixels */
-        for (inptr, outptr) in [(inptr00, &mut *outptr0), (inptr01, &mut *outptr1)] {
-            let mut o = out;
-            for k in 0..2 {
-                let y = i32::from(inptr[in0 + k]);
-                outptr[o + RGB_RED as usize] = range_limit.at(y + cred);
-                outptr[o + RGB_GREEN as usize] = range_limit.at(y + cgreen);
-                outptr[o + RGB_BLUE as usize] = range_limit.at(y + cblue);
+        for (ys, outpair) in [(ys0, outpair0), (ys1, outpair1)] {
+            for (pixel, &y) in outpair.chunks_exact_mut(RGB_PIXELSIZE as usize).zip(ys) {
+                let y = i32::from(y);
+                pixel[RGB_RED as usize] = range_limit.at(y + cred);
+                pixel[RGB_GREEN as usize] = range_limit.at(y + cgreen);
+                pixel[RGB_BLUE as usize] = range_limit.at(y + cblue);
                 if RGB_ALPHA >= 0 {
-                    outptr[o + RGB_ALPHA as usize] = MAXJSAMPLE as JSAMPLE;
+                    pixel[RGB_ALPHA as usize] = MAXJSAMPLE as JSAMPLE;
                 }
-                o += RGB_PIXELSIZE as usize;
             }
         }
-        in0 += 2;
-        out += 2 * RGB_PIXELSIZE as usize;
-        col -= 1;
     }
+    let (in0, in12, out) = (2 * col, col, col * pixel_pair);
     /* If image width is odd, do the last output column separately */
     if cinfo.output_width & 1 != 0 {
         let cb = usize::from(inptr1[in12]);

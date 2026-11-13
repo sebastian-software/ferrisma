@@ -533,16 +533,23 @@ pub fn h2v1_fancy_upsample(
         outptr[out + 1] = ((invalue * 3 + i32::from(inptr[inp]) + 2) >> 2) as JSAMPLE;
         out += 2;
 
-        let mut colctr = compptr.downsampled_width - 2;
-        while colctr > 0 {
+        let colctr = compptr.downsampled_width - 2;
+        /* The rows of the loop, split off once, as C's pointers need no
+         * bounds checks: inptr[-1], inptr[0] and inptr[1] of each column. */
+        let n = colctr as usize;
+        for (outpair, window) in outptr[out..out + 2 * n]
+            .as_chunks_mut::<2>()
+            .0
+            .iter_mut()
+            .zip(inptr[(inp - 1)..=(inp + n)].windows(3))
+        {
             /* General case: 3/4 * nearer component + 1/4 * further component */
-            invalue = i32::from(inptr[inp]) * 3;
-            inp += 1;
-            outptr[out] = ((invalue + i32::from(inptr[inp - 2]) + 1) >> 2) as JSAMPLE;
-            outptr[out + 1] = ((invalue + i32::from(inptr[inp]) + 2) >> 2) as JSAMPLE;
-            out += 2;
-            colctr -= 1;
+            invalue = i32::from(window[1]) * 3;
+            outpair[0] = ((invalue + i32::from(window[0]) + 1) >> 2) as JSAMPLE;
+            outpair[1] = ((invalue + i32::from(window[2]) + 2) >> 2) as JSAMPLE;
         }
+        inp += n;
+        out += 2 * n;
 
         /* Special case for last column */
         invalue = i32::from(inptr[inp]);
@@ -656,20 +663,28 @@ pub fn h2v2_fancy_upsample(
             let mut lastcolsum = thiscolsum;
             thiscolsum = nextcolsum;
 
-            let mut colctr = compptr.downsampled_width - 2;
-            while colctr > 0 {
+            let colctr = compptr.downsampled_width - 2;
+            /* The rows of the loop, split off once, as C's pointers need no
+             * bounds checks. */
+            let n = colctr as usize;
+            let (in0, in1) = (&inptr0[inp..inp + n], &inptr1[inp..inp + n]);
+            for ((outpair, &in0), &in1) in outptr[out..out + 2 * n]
+                .as_chunks_mut::<2>()
+                .0
+                .iter_mut()
+                .zip(in0)
+                .zip(in1)
+            {
                 /* General case: 3/4 * nearer component + 1/4 * further component in
                  * each dimension, thus 9/16, 3/16, 3/16, 1/16 overall
                  */
-                nextcolsum = i32::from(inptr0[inp]) * 3 + i32::from(inptr1[inp]);
-                inp += 1;
-                outptr[out] = ((thiscolsum * 3 + lastcolsum + 8) >> 4) as JSAMPLE;
-                outptr[out + 1] = ((thiscolsum * 3 + nextcolsum + 7) >> 4) as JSAMPLE;
-                out += 2;
+                nextcolsum = i32::from(in0) * 3 + i32::from(in1);
+                outpair[0] = ((thiscolsum * 3 + lastcolsum + 8) >> 4) as JSAMPLE;
+                outpair[1] = ((thiscolsum * 3 + nextcolsum + 7) >> 4) as JSAMPLE;
                 lastcolsum = thiscolsum;
                 thiscolsum = nextcolsum;
-                colctr -= 1;
             }
+            out += 2 * n;
 
             /* Special case for last column */
             outptr[out] = ((thiscolsum * 3 + lastcolsum + 8) >> 4) as JSAMPLE;
