@@ -122,38 +122,66 @@ SIMD package makes these additions in the portable modules without a further
 integrator decision; they change no signature and no scalar result. Function
 tables (`VP8PredLuma4` and the like) select per entry the same way.
 
-**Parity.** A SIMD function is admitted only with all of:
+**Parity (revised 2026-11-13, Ferrisma decision D4).** The quality gate is
+per execution kind and per target: the port's scalar build is bit-identical
+to upstream's scalar build, and the port's SIMD build is bit-identical to
+upstream's SIMD build at the same instruction-set level. `tools/check.py
+--oracle` runs both as its test stage:
+
+- the scalar build (`--no-default-features`) against the reference variant
+  `release` (`WEBP_ENABLE_SIMD=OFF`);
+- the SIMD build (default features) against the variant `release-simd`
+  (upstream with `WEBP_ENABLE_SIMD=ON`, no longer a diagnostic), once per
+  SIMD mode of the target: `neon` on AArch64; `avx2`, `sse41` and `sse2` on
+  x86-64. `avx2` is what an AVX2 machine selects, including the SSE2 and
+  SSE4.1 kernels upstream falls back to where it has no AVX2 variant;
+  `sse41` and `sse2` are what machines without AVX2 or without SSE4.1
+  select.
+
+The level is set by the environment variable `LIBWEBP_SIMD_LEVEL`, on both
+sides of the comparison, through each side's own mechanism: every oracle
+executable (probes, upstream's tools, the consumer builds) links
+`tools/oracle/probe_support/simd_level.c`, which wraps upstream's
+`VP8GetCPUInfo` pointer before `main` so that features above the level answer
+0; the port's x86 query (`vp8_get_cpu_info`) applies the same cap when the
+crate's `oracle` feature is enabled, which no ordinary build enables.
+`tests/dispatch_features.rs` fails when the host reports less than the mode
+asks for. x86-64 runs on an ARM64 Mac under Rosetta 2 (`tools/check.py
+--arch x86_64`, `tools/build_oracle.py --arch x86_64`), where
+`ROSETTA_ADVERTISE_AVX=1` makes Rosetta report AVX2.
+
+Beside the gate, a SIMD function keeps:
 
 1. a Rust-against-Rust parity test of the function against the `_C`
-   translation it replaces, over seeded inputs that cover every length and
-   shape the function accepts, unaligned offsets into the buffers, and the
-   saturation and sign edges of its arithmetic, compiled with `simd` so that
-   both are present (`tests/wp18_*.rs`, `wp19_*.rs`, `wp20_*.rs`);
-2. the whole differential suite against the reference oracle with `simd` on,
-   which CI already runs: every output stays byte-identical to C;
-3. the whole suite in the scalar build (`--no-simd`), which CI runs without
-   the oracle on both systems and against the release oracle on Linux;
-4. the diagnostic oracle variant `release-simd` (`tools/build_oracle.py
-   --variant release-simd`, upstream with `WEBP_ENABLE_SIMD=ON`), against
-   which the package runs the DSP probes of WP4, WP6, WP7, WP10 and WP11,
-   whose C side then calls upstream's SIMD functions through the dispatch
-   pointers, and its own tests; it is run locally and recorded in the pull
-   request description, not in CI, and it attributes any difference to
-   upstream's SIMD or to the port;
-5. upstream's test scripts through the Rust-linked tools, which compare the
+   translation it replaces, where upstream's SIMD is bit-exact with its C
+   (`tests/wp18_*.rs`, `wp19_*.rs`, `wp20_*.rs`);
+2. upstream's test scripts through the Rust-linked tools, which compare the
    default and `-noasm` runs by checksum (the existing baseline), and
    `tools/unit_dependencies.py --check --variant release-simd`, which sees
    the SIMD units' references (a portable unit's `Init` calling a SIMD
    unit's `Init` is the selection above, not a package reference).
 
+Records of the differential tests that the scalar reference compares with the
+`_c` translations because upstream's SIMD leaves upstream's C outside the
+valid input domain (the VP8 transforms and loop filters of `tests/wp6_dsp.rs`,
+the inverse transform and `TDisto` of `tests/wp10_dsp.rs`, the SharpYUV filter
+row of `tests/wp5_dsp.rs`, `WebPConvertRGBA32ToUV` of `tests/wp4_yuv.rs`) run
+the dispatch functions against `release-simd`. Where upstream's SIMD function
+has undefined behavior on such inputs (the C `assert`s of `AddVector_SSE2`,
+`AddVector_AVX2` and `ExtraCost_SSE41`), the record draws its inputs from the
+domain the encoder passes when the oracle is `release-simd`
+(`tests/wp11_lossless_enc.rs`).
+
 **Upstream's own divergences.** Where upstream's SIMD function does not give
-the C function's bytes, the `release-simd` run shows it, and the ruling
-depends on the inputs. On inputs that valid streams and ordinary API calls
-produce, the variant is not selected: the dispatch function keeps the C
-translation on that architecture, the SIMD module records the reason under
-`# Deviations from upstream`, and the translation is parked outside the tree
-(the NEON rescaler export rows, which multiply with `vqrdmulhq_s32` by
-`scale >> 1`: issues #37 and #38). On inputs that only corrupt streams or
+the C function's bytes, the port's SIMD build follows upstream's SIMD build
+and its scalar build follows upstream's scalar build (decision D4). Until
+2026-11-13 a variant that differed on inputs that valid streams and ordinary
+API calls produce was not selected; that rule is replaced. Its one case, the
+NEON rescaler export rows, which multiply with `vqrdmulhq_s32` by `scale >> 1`
+(issues #79 and #80), is now selected on AArch64 as upstream selects it
+(`src/dsp/rescaler_neon.rs`): scaled decoding and `WebPPictureRescale` on
+AArch64 give upstream's NEON bytes, which differ from the scalar build's in a
+few bytes by one. On inputs that only corrupt streams or
 probes outside the valid domain produce (the VP8 transform and `NeedsFilter`
 kernels in 16-bit lanes beyond coefficients of ±2048 and thresholds above
 255), the variant is selected as upstream selects it: the port then matches
@@ -178,6 +206,11 @@ slower than the C translation is recorded, not removed or tuned: this is the
 mechanical port; optimization is Ferrisma's later phase.
 
 ## Consequences
+
+The SIMD build on AArch64 and the scalar build no longer agree byte for byte
+on scaled output; each agrees with the corresponding upstream build. The test
+stage of `tools/check.py --oracle` runs one scalar and one (AArch64) or three
+(x86-64) SIMD passes.
 
 The library keeps `#![deny(unsafe_code)]` and a plain `cargo build`; the SIMD
 modules add `unsafe` of two kinds only, each argued locally, and

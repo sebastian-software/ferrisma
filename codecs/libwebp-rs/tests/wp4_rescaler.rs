@@ -190,6 +190,31 @@ fn script() -> (String, String) {
             );
         }
     }
+
+    // Random size pairs (ADR 0008): against `release-simd` on 64-bit ARM they
+    // compare upstream's NEON row exports, which round differently from the C
+    // functions on a few of these sizes (issue #80), with the port's faithful
+    // NEON translation; against the scalar reference, C with C.
+    for _ in 0..300 {
+        let mut below = |n: u64| usize::try_from(1 + rng.next_u64() % n).expect("small");
+        let (src_w, src_h, dst_w, dst_h, channels) =
+            (below(300), below(48), below(300), below(48), below(4));
+        let dst_stride = dst_w * channels + 2;
+        let src_stride = src_w * channels + 3;
+        let chunk = 1000;
+        let src = rng.bytes(src_stride * src_h);
+        commands.push_str(&format!(
+            "rescale {src_w} {src_h} {dst_w} {dst_h} {channels} {dst_stride} {src_stride} {chunk} {}\n",
+            hex_arg(&src)
+        ));
+        drive(
+            &mut expected,
+            (src_w, src_h, dst_w, dst_h, channels),
+            (dst_stride, src_stride, chunk),
+            &src,
+            false,
+        );
+    }
     (commands, expected)
 }
 

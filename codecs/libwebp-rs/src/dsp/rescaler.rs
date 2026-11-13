@@ -275,8 +275,8 @@ pub fn webp_rescaler_import_row_shrink(wrk: &mut WebPRescaler, src: &[u8]) {
 /// pointer is `WebPRescalerExportRowExpand_C`.
 ///
 /// On 64-bit ARM upstream selects `RescalerExportRowExpand_NEON`, which is not
-/// bit-exact with the C function; the port keeps the C function there
-/// (`src/dsp/rescaler_neon.rs`, deviation 1).
+/// bit-exact with the C function; the SIMD build selects its translation as
+/// upstream does (`src/dsp/rescaler_neon.rs`, Ferrisma decision D4).
 pub fn webp_rescaler_export_row_expand(wrk: &mut WebPRescaler, dst: &mut [u8]) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
@@ -284,6 +284,10 @@ pub fn webp_rescaler_export_row_expand(wrk: &mut WebPRescaler, dst: &mut [u8]) {
         if features.sse2 {
             return crate::dsp::rescaler_sse2::rescaler_export_row_expand(wrk, dst);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::rescaler_neon::rescaler_export_row_expand(wrk, dst);
     }
     #[allow(
         unreachable_code,
@@ -297,8 +301,8 @@ pub fn webp_rescaler_export_row_expand(wrk: &mut WebPRescaler, dst: &mut [u8]) {
 /// pointer is `WebPRescalerExportRowShrink_C`.
 ///
 /// On 64-bit ARM upstream selects `RescalerExportRowShrink_NEON`, which is not
-/// bit-exact with the C function; the port keeps the C function there
-/// (`src/dsp/rescaler_neon.rs`, deviation 1).
+/// bit-exact with the C function; the SIMD build selects its translation as
+/// upstream does (`src/dsp/rescaler_neon.rs`, Ferrisma decision D4).
 pub fn webp_rescaler_export_row_shrink(wrk: &mut WebPRescaler, dst: &mut [u8]) {
     #[cfg(all(feature = "simd", any(target_arch = "x86", target_arch = "x86_64")))]
     {
@@ -306,6 +310,10 @@ pub fn webp_rescaler_export_row_shrink(wrk: &mut WebPRescaler, dst: &mut [u8]) {
         if features.sse2 {
             return crate::dsp::rescaler_sse2::rescaler_export_row_shrink(wrk, dst);
         }
+    }
+    #[cfg(all(feature = "simd", target_arch = "aarch64"))]
+    {
+        return crate::dsp::rescaler_neon::rescaler_export_row_shrink(wrk, dst);
     }
     #[allow(
         unreachable_code,

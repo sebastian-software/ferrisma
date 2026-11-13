@@ -164,8 +164,9 @@
 //!   and `webp_get_line_pair_converter` per mode. `src/dsp/filters.rs`:
 //!   `webp_filters` and `webp_unfilters` per filter type.
 //!   `src/sharpyuv/sharpyuv_dsp.rs`: the three dispatch functions.
-//! - `src/dsp/rescaler.rs`: none; the NEON export rows are not selected
-//!   (`src/dsp/rescaler_neon.rs`).
+//! - `src/dsp/rescaler.rs`: `webp_rescaler_export_row_expand` and
+//!   `webp_rescaler_export_row_shrink` (since 2026-11-13, decision D4;
+//!   `src/dsp/rescaler_neon.rs`).
 //!
 //! The NEON entry points are `pub(crate)`, as WP18's are, so that only the
 //! dispatch functions run them; the parity tests and the benchmark reach them
@@ -189,9 +190,10 @@
 //! predictors, inverse transforms and color converters, and the lossless
 //! encoder's subtract-green and color transforms; the alpha dispatch,
 //! extraction and premultiplication; the RGB to YUV converters; the fancy
-//! upsamplers; the alpha-plane filters; and the `SharpYUV` kernels. The
-//! rescaler's export rows stay scalar (issue #38). Each NEON function gives
-//! the C function's bytes on the inputs the library passes; the recorded
+//! upsamplers; the alpha-plane filters; the `SharpYUV` kernels; and, since
+//! 2026-11-13, the rescaler's export rows, which give upstream's NEON bytes
+//! and differ from its C by one in a few bytes (issue #80). Each other NEON
+//! function gives the C function's bytes on the inputs the library passes; the recorded
 //! exceptions are corrupt or crafted streams whose transform coefficients
 //! leave `[-2048, 2047]` (checks not applicable 6), which decode as upstream's
 //! NEON build decodes them. `--no-default-features` builds the scalar
