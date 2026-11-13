@@ -4,6 +4,8 @@
 //! base/fast_math-inl.h (FastLog2f, FastPow2f, FastPowf),
 //! cms/transfer_functions-inl.h (TF_SRGB, TF_PQ, TF_HLG, TF_709) and
 //! cms/tone_mapping-inl.h (HlgOOTF::Apply) for the NEON and AVX2 targets
+//! (the decode direction `DisplayFromEncoded` of the transfer functions is
+//! in the `color` block at the end)
 //! (ADR 0004), written once against [`SimdF32`]. They are translated
 //! operation by operation: MulAdd is fused on both targets, and the
 //! `HWY_REP4` coefficient tables are `LoadDup128` of four equal words, that
@@ -135,7 +137,6 @@ pub fn srgb_encoded_from_display<D: SimdF32>(d: D, x: D::V) -> D::V {
 #[derive(Clone, Copy)]
 pub struct TfPqSimd {
     display_scaling_factor_to_10000_nits: f32,
-    #[allow(dead_code, reason = "used by DisplayFromEncoded (ToLinear)")]
     display_scaling_factor_from_10000_nits: f32,
 }
 impl TfPqSimd {
@@ -218,3 +219,93 @@ pub fn hlg_ootf_apply<D: SimdF32>(df: D, ootf: &HlgOotfBase, rgb: &mut [D::V; 3]
         df.mul(blue, ratio),
     ];
 }
+
+// color: the decode direction (`DisplayFromEncoded`) of the transfer
+// functions, used by the SIMD ToLinearStage (ADR 0004 Plan item 1).
+
+/// `TF_SRGB().DisplayFromEncoded(x)` (the `HWY_FULL(float)` overload).
+#[allow(clippy::excessive_precision, reason = "the source's binary32 literals")]
+#[inline(always)]
+pub fn srgb_display_from_encoded<D: SimdF32>(d: D, x: D::V) -> D::V {
+    let (x, original_sign, k_sign) = split_sign(d, x);
+    // Computed via af_cheb_rational (k=100); replicated 4x.
+    const P: [f32; 5] = [
+        2.200248328e-04,
+        1.043637593e-02,
+        1.624820318e-01,
+        7.961564959e-01,
+        8.210152774e-01,
+    ];
+    const Q: [f32; 5] = [
+        2.631846970e-01,
+        1.076976492e+00,
+        4.987528350e-01,
+        -5.512498495e-02,
+        6.521209011e-03,
+    ];
+    // kLowDivInv = 1.0f / kLowDiv, a binary32 constant expression.
+    let linear = d.mul(x, d.set(1.0f32 / 12.92f32));
+    let poly = eval_rational_polynomial(d, x, &P, &Q);
+    let magnitude = d.if_then_else(d.gt(x, d.set(0.04045f32)), poly, linear);
+    d.or(d.and_not(k_sign, magnitude), original_sign)
+}
+
+impl TfPqSimd {
+    /// `DisplayFromEncoded(d, x)` (maximum error 3e-6).
+    #[inline(always)]
+    pub fn display_from_encoded<D: SimdF32>(&self, d: D, x: D::V) -> D::V {
+        let (x, original_sign, k_sign) = split_sign(d, x);
+        // 4-over-4-degree rational polynomial approximation on x+x*x.
+        let xpxx = d.mul_add(x, x, x);
+        let bits = |w: [u32; 5]| w.map(f32::from_bits);
+        let p = bits([0x3989dfff, 0xbbcc536d, 0x3f3d150a, 0x40295064, 0x3f0ccf16]);
+        let q = bits([0x43d2acd0, 0xc3d65e50, 0x432e5d5b, 0xc207a1ad, 0x402b570b]);
+        let magnitude = eval_rational_polynomial(d, xpxx, &p, &q);
+        d.or(
+            d.and_not(
+                k_sign,
+                d.mul(
+                    magnitude,
+                    d.set(self.display_scaling_factor_from_10000_nits),
+                ),
+            ),
+            original_sign,
+        )
+    }
+}
+
+/// `TF_HLG().DisplayFromEncoded(d, x)`. Double `constexpr` expressions round
+/// to binary32 only at `Set`.
+#[inline(always)]
+pub fn hlg_display_from_encoded<D: SimdF32>(d: D, x: D::V) -> D::V {
+    let (x, original_sign, k_sign) = split_sign(d, x);
+    let below05 = d.le(x, d.set(0.5f64 as f32));
+    let lo = d.mul(x, d.mul(x, d.set((1.0f64 / 3.0) as f32)));
+    // kHiPow = kRA * log2(e), kHiMul = exp(-kC * kRA) * kInv12, kHiAdd =
+    // kB * kInv12.
+    let hi = d.mul_add(
+        fast_pow2f(d, d.mul(x, d.set(8.067285659607931f64 as f32))),
+        d.set(0.003639807079052639f64 as f32),
+        d.set((TfHlgBase::B * TfHlgBase::INV12) as f32),
+    );
+    let magnitude = d.if_then_else(below05, lo, hi);
+    d.or(d.and_not(k_sign, magnitude), original_sign)
+}
+
+/// `TF_709().DisplayFromEncoded(d, x)`.
+#[inline(always)]
+pub fn rec709_display_from_encoded<D: SimdF32>(d: D, x: D::V) -> D::V {
+    let low = d.mul(d.set((1.0f64 / 4.5) as f32), x);
+    let hi = fast_powf(
+        d,
+        d.mul_add(
+            x,
+            d.set((1.0f64 / 1.099) as f32),
+            d.set((0.099f64 * (1.0 / 1.099)) as f32),
+        ),
+        d.set((1.0f64 / 0.45) as f32),
+    );
+    d.if_then_else(d.lt(x, d.set(0.081f64 as f32)), low, hi)
+}
+
+// end color

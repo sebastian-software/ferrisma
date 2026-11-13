@@ -368,3 +368,8 @@ endif()
 # item 1). The TU only calls the original's public stage factories.
 target_sources(jxl_oracle PRIVATE render_stages_simd.cc)
 # end render stages
+
+# color: row requests of the SIMD color stages (port ADR 0004 Plan item 1).
+# The TU only calls the original's public stage factories.
+target_sources(jxl_oracle PRIVATE color_stages_simd.cc)
+# end color

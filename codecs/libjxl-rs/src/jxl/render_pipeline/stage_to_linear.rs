@@ -103,6 +103,10 @@ impl RenderPipelineStage for ToLinearStage {
 }
 /// Invalid target encoding selects the original initialized identity operation.
 pub fn get_to_linear_stage(info: &OutputEncodingInfo) -> Box<dyn RenderPipelineStage> {
+    // HWY_DYNAMIC_DISPATCH(GetToLinearStage) (port ADR 0004).
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return super::stage_to_linear_simd::get_to_linear_stage_simd(info, target);
+    }
     let tf = info.color_encoding.tf();
     let op = if tf.is_linear() {
         Op::Linear
