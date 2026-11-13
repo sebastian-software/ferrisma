@@ -415,19 +415,29 @@ fn consume_iMCU_row(
     arrays: &mut [jvirt_barray_control],
     buffer: &[(jvirt_barray_ptr, usize)],
 ) -> Result<bool, ErrorExit> {
+    /* The blocks that the unused entries of the MCU's list point to, as C's
+     * fixed-size coef->MCU_buffer[] has entries past blkn. */
+    let mut unused: [JBLOCK; D_MAX_BLOCKS_IN_MCU] = [[0; DCTSIZE2]; D_MAX_BLOCKS_IN_MCU];
     /* Loop to process one whole iMCU row */
     let mut yoffset = coef.MCU_vert_offset;
     while yoffset < coef.MCU_rows_per_iMCU_row {
         let mut MCU_col_num = coef.MCU_ctr; /* index of current MCU within row */
         while MCU_col_num < cinfo.MCUs_per_row {
             /* Construct list of pointers to DCT blocks belonging to this MCU */
-            let mut MCU_buffer = mcu_blocks(cinfo, arrays, buffer, yoffset as usize, MCU_col_num);
+            let (mut MCU_buffer, blkn) = mcu_blocks(
+                cinfo,
+                arrays,
+                buffer,
+                yoffset as usize,
+                MCU_col_num,
+                &mut unused,
+            );
             if !cinfo.entropy().insufficient_data {
                 cinfo.master_mut().pub_.last_good_iMCU_row = cinfo.input_iMCU_row;
             }
             /* Try to fetch the MCU. */
             let decode_mcu = cinfo.entropy().decode_mcu.expect("decode_mcu is NULL");
-            if !decode_mcu(cinfo, Some(&mut MCU_buffer[..]))? {
+            if !decode_mcu(cinfo, Some(&mut MCU_buffer[..blkn]))? {
                 /* Suspension forced; update state counters and exit */
                 coef.MCU_vert_offset = yoffset;
                 coef.MCU_ctr = MCU_col_num;
@@ -445,13 +455,16 @@ fn consume_iMCU_row(
 /// The blocks of the MCU at `MCU_col_num` and MCU row `yoffset` of the
 /// iMCU row, in C's `MCU_buffer[]` order: for each component of the scan,
 /// `MCU_height` rows of `MCU_width` blocks. `buffer[ci]` names the array of
-/// scan component `ci` and the index of its first row of the iMCU row. Not
-/// an upstream item.
+/// scan component `ci` and the index of its first row of the iMCU row.
+/// Returns C's fixed-size `MCU_buffer[]` and `blkn`, the number of its
+/// entries that the MCU fills; the others point into `unused`. Not an
+/// upstream item.
 ///
 /// # Panics
 ///
-/// When an array is unrealized, or two scan components share an array,
-/// which `get_sos` rules out.
+/// When an array is unrealized, two scan components share an array, which
+/// `get_sos` rules out, or the MCU has more than `D_MAX_BLOCKS_IN_MCU`
+/// blocks, which `per_scan_setup` rules out.
 #[expect(clippy::cast_sign_loss, reason = "C's nonnegative counts")]
 #[expect(non_snake_case, reason = "C names")]
 fn mcu_blocks<'a>(
@@ -460,7 +473,8 @@ fn mcu_blocks<'a>(
     buffer: &[(jvirt_barray_ptr, usize)],
     yoffset: usize,
     MCU_col_num: JDIMENSION,
-) -> Vec<&'a mut JBLOCK> {
+    unused: &'a mut [JBLOCK; D_MAX_BLOCKS_IN_MCU],
+) -> ([&'a mut JBLOCK; D_MAX_BLOCKS_IN_MCU], usize) {
     let mut controls: [Option<&'a mut jvirt_barray_control>; MAX_COMPS_IN_SCAN] =
         Default::default();
     for (index, control) in arrays.iter_mut().enumerate() {
@@ -469,7 +483,8 @@ fn mcu_blocks<'a>(
         }
     }
 
-    let mut MCU_buffer: Vec<&'a mut JBLOCK> = Vec::with_capacity(D_MAX_BLOCKS_IN_MCU);
+    let mut MCU_buffer = unused.each_mut();
+    let mut blkn = 0; /* index of current DCT block within MCU */
     for (ci, &(_, first_row)) in buffer.iter().enumerate() {
         let compptr =
             &cinfo.comp_info()[cinfo.cur_comp_info[ci].expect("cur_comp_info[ci] is NULL")];
@@ -490,12 +505,15 @@ fn mcu_blocks<'a>(
             let start = rows[first_row + yindex + yoffset] + start_col;
             let (_, tail) = core::mem::take(&mut rest).split_at_mut(start - consumed);
             let (blocks, tail) = tail.split_at_mut(MCU_width);
-            MCU_buffer.extend(blocks.iter_mut());
+            for buffer_ptr in blocks {
+                MCU_buffer[blkn] = buffer_ptr;
+                blkn += 1;
+            }
             rest = tail;
             consumed = start + MCU_width;
         }
     }
-    MCU_buffer
+    (MCU_buffer, blkn)
 }
 
 // upstream: src/jdcoefct.c decompress_data
