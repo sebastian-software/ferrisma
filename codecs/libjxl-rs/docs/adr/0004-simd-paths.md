@@ -757,4 +757,29 @@ pipelines only) and `tests/simd_stages2.rs`.
   The static AVX2 oracle compiles blending.cc with FMA (see
   "Consequences"), so an AVX2 comparison of `PerformBlending` against that
   oracle is not meaningful for an SSE2-baseline dispatch build.
+- **Splines** (`splines_simd.rs`). `SegmentsFromPoints` with
+  `ContinuousIDCT` (`HWY_CAPPED(float, 32)` is the full vector: 8 or 4
+  iterations, fused `MulAdd`, `FastCosf`, then `SumOfLanes` in the
+  target's order) and `DrawSegments` with both `DrawSegment` overloads
+  (whole vectors while they fit in the span, `Iota` as the int32
+  conversion of `x + x0` plus the lane index, fused `MulAdd`/`MulSub`,
+  `Sqrt`, `FastErff` with `Div` and `NegMulAdd`; the `HWY_CAPPED(float, 1)`
+  tail is computed in lane 0 of a full vector, since every operation is
+  lane-wise, and only that sample is loaded and stored). `ComputeSegments`
+  is scalar code in `HWY_NAMESPACE` without a contraction candidate and is
+  shared with the scalar path. `kPi`-based constants keep the source's
+  double expressions. The stage (`stage_splines`) has no Highway operation
+  of its own and serves every target. `Splines::initialize_draw_cache`
+  and `apply_to_row` dispatch on `hwy::decoder_target()`. Evidence: the
+  scalar suite's spline request families (tests/parity/splines.rs, included
+  unchanged: `sp-cache` draws curves through `InitializeDrawCache`, `AddTo`,
+  `SubtractFrom`, a sub-rectangle and the stage with extended rows) replayed
+  against the NEON oracle with the SIMD target selected: 6,253 requests,
+  2,423,179 words, no difference; the scalar path fails `sp-cache` (first
+  difference one ulp). AVX2: compiles; not run locally.
+
+With these four, the remaining decode-path exports of Plan item 1 that
+this package covers are translated; condition (a) of "Decoder path" still
+waits for the other agents' exports (`to_linear`, tone mapping, CMS,
+`dec_external_image`, `dec_modular`, `rct`, `squeeze`) and (b) to (d).
 <!-- end stages2 -->

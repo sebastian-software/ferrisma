@@ -534,14 +534,26 @@ impl<'a> Splines<'a> {
             if arc_length <= 0.0 {
                 continue;
             }
-            segments_from_points(
-                height,
-                spline,
-                &points_to_draw,
-                arc_length,
-                &mut self.segments,
-                &mut spans,
-            );
+            // HWY_DYNAMIC_DISPATCH(SegmentsFromPoints) (port ADR 0004).
+            match super::hwy::decoder_target() {
+                Some(target) => super::splines_simd::segments_from_points_simd(
+                    target,
+                    height,
+                    spline,
+                    &points_to_draw,
+                    arc_length,
+                    &mut self.segments,
+                    &mut spans,
+                ),
+                None => segments_from_points(
+                    height,
+                    spline,
+                    &points_to_draw,
+                    arc_length,
+                    &mut self.segments,
+                    &mut spans,
+                ),
+            }
         }
         // AlignedMemory::Create zero-initializes the source's memset range.
         let segment_y_start_num_bytes = height
@@ -604,6 +616,20 @@ impl<'a> Splines<'a> {
         }
         let starts = self.segment_y_start.as_ref().unwrap().isizes();
         let indices = self.segment_indices.as_ref().unwrap().usizes();
+        // HWY_DYNAMIC_DISPATCH(DrawSegments) (port ADR 0004).
+        if let Some(target) = super::hwy::decoder_target() {
+            return super::splines_simd::draw_segments_simd(
+                target,
+                rows,
+                y,
+                x0,
+                x1,
+                ADD,
+                &self.segments,
+                indices,
+                starts,
+            );
+        }
         for i in starts[y]..starts[y + 1] {
             draw_segment(
                 &self.segments[indices[i as usize]],
@@ -808,7 +834,7 @@ fn segments_from_points(
         compute_segments(height, point, multiplier, color, sigma, segments, spans);
     }
 }
-fn compute_segments(
+pub(crate) fn compute_segments(
     height: usize,
     center: SplinePoint,
     intensity: f32,

@@ -726,3 +726,4 @@ replay_module!(
     "parity/blending_stage.rs",
     "blendstage (SIMD replay)"
 );
+replay_module!(simd_splines, "parity/splines.rs", "sp (SIMD replay)");

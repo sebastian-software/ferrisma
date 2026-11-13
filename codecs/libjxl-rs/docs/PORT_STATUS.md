@@ -165,7 +165,10 @@ and splines stages"). Both dispatch on `hwy::decoder_target()`; the layer
 has 69 operations. The blending stage has no Highway arithmetic (it calls
 the non-Highway PerformBlending), so one stage serves every target; the
 scalar suite's blending requests replayed against the NEON oracle match.
-AVX2 is compile-checked only.
+Spline rendering (`splines_simd.rs`: SegmentsFromPoints/ContinuousIDCT and
+DrawSegments) dispatches on `hwy::decoder_target()` and matches the NEON
+oracle over the replayed scalar spline requests. AVX2 is compile-checked
+only.
 <!-- end stages2 -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
@@ -1467,7 +1470,7 @@ followed in PRs #46 to #50.
 | `splines.h`, `.cc`, `render_pipeline/stage_splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization, entropy decoding, curve/cache generation and rendering, with borrowed/shared SplineStage |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing, field serialization, and reconstruction unported |
 | `render_pipeline/stage_splines.h`, `.cc` | `render_pipeline/stage_splines.rs` | Complete scalar stage/factories with borrowed or shared cache identity and safe disjoint row spans; complete-file integration remains separate |
-| `splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization/dequantization, entropy decoding, curve generation, draw-cache construction and rendering; borrowed/shared SplineStage is mapped above |
+| `splines.h`, `.cc` | `splines.rs` | Complete scalar spline quantization/dequantization, entropy decoding, curve generation, draw-cache construction and rendering; borrowed/shared SplineStage is mapped above; NEON/AVX2 SegmentsFromPoints and DrawSegments in `splines_simd.rs` (ADR 0004) |
 | `jpeg/jpeg_data.h`, CalculateMcuSize in `.cc`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, complete MCU geometry, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing and field serialization unported |
 | `jpeg/dec_jpeg_data_writer.h`, `.cc`, `dec_jpeg_output_chunk.h`, `dec_jpeg_serialization_state.h` | `jpeg/dec_jpeg_data_writer.rs`, `jpeg/dec_jpeg_output_chunk.rs`, `jpeg/dec_jpeg_serialization_state.rs` | Complete WriteJpeg marker/Huffman/quantization serialization, sequential/progressive/refinement scan writing, restarts, padding, chunk ownership and output callback lifecycle; compressed reconstruction metadata and complete-file coefficient integration remain open |
 | `jpeg/jpeg_data.h`, header-selection helpers in `jpeg/enc_jpeg_data.cc` | `jpeg/jpeg_data.rs`, `jpeg/enc_jpeg_data.rs` | Parsed marker/component/coefficient storage, chroma selection, and JFIF/Adobe/component-ID color selection; JPEG parsing and reconstruction unported |
