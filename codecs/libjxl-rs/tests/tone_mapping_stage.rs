@@ -37,6 +37,10 @@ fn gamut_blend_keeps_original_add_operand_nan_payload() {
     if std::env::var_os("JXL_PARITY_STRICT").is_some_and(|v| v == "1") {
         assert_eq!(rgb.map(f32::to_bits), [0x7fe12345, 0x7fe12345, blue]);
     } else {
-        assert!(rgb.iter().all(|v| v.is_nan()), "{:x?}", rgb.map(f32::to_bits));
+        assert!(
+            rgb.iter().all(|v| v.is_nan()),
+            "{:x?}",
+            rgb.map(f32::to_bits)
+        );
     }
 }
