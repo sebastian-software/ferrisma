@@ -658,3 +658,71 @@ fn simd_noise_generation_matches_the_original_target() {
         |_| false,
     );
 }
+
+/// The scalar parity suite's request families of one module, replayed
+/// against the SIMD oracle with the port's SIMD dispatch selected: the
+/// module's own tests call this `compare`, which compares word by word with
+/// the NaN rule (D8) instead of the scalar oracle's.
+macro_rules! replay_module {
+    ($name:ident, $path:literal, $family:literal) => {
+        mod $name {
+            #![allow(dead_code, unused_imports, reason = "shared with the scalar suite")]
+            pub(super) use std::fmt::Write as _;
+            pub(super) use std::str::FromStr;
+            pub(super) fn number<T: FromStr>(args: &mut std::str::SplitWhitespace<'_>) -> T
+            where
+                T::Err: std::fmt::Debug,
+            {
+                args.next().expect("test argument").parse().unwrap()
+            }
+            pub(super) use jxl::jxl::dec_bit_reader::BitReader;
+            pub(super) fn hex(bytes: &[u8]) -> String {
+                if bytes.is_empty() {
+                    return "-".to_owned();
+                }
+                let mut result = String::new();
+                for byte in bytes {
+                    write!(result, "{byte:02x}").unwrap();
+                }
+                result
+            }
+            pub(super) fn unhex(hex: &str) -> Vec<u8> {
+                if hex == "-" {
+                    return Vec::new();
+                }
+                (0..hex.len())
+                    .step_by(2)
+                    .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+                    .collect()
+            }
+            /// Request generators of the module, answered by the SIMD oracle.
+            pub(super) fn original_observations(requests: &[String]) -> Vec<String> {
+                super::simd_common::oracle(requests)
+            }
+            pub(super) fn status_code(s: &jxl::jxl::base::status::Status) -> i32 {
+                jxl::jxl::base::status::status_code(s)
+            }
+            pub(super) fn compare(requests: Vec<String>) {
+                super::select_simd(super::target());
+                super::check_rows(
+                    $family,
+                    &requests,
+                    |r| {
+                        let mut args = r.split_whitespace();
+                        let kind = args.next().unwrap();
+                        (inner::observe(kind, &mut args), Box::new(|_| true))
+                    },
+                    |_| true,
+                );
+            }
+            mod inner {
+                include!($path);
+            }
+        }
+    };
+}
+replay_module!(
+    simd_blending,
+    "parity/blending_stage.rs",
+    "blendstage (SIMD replay)"
+);

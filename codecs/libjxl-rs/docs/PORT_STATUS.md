@@ -162,7 +162,10 @@ low-memory pipelines; the SIMD noise generation and the AddNoise and
 ConvolveNoise stages (`dec_noise_simd.rs`, `stage_noise_simd.rs`) match at
 row level (`tests/simd_stages2.rs`, ADR 0004 "Upsampling, noise, blending
 and splines stages"). Both dispatch on `hwy::decoder_target()`; the layer
-has 69 operations. AVX2 is compile-checked only.
+has 69 operations. The blending stage has no Highway arithmetic (it calls
+the non-Highway PerformBlending), so one stage serves every target; the
+scalar suite's blending requests replayed against the NEON oracle match.
+AVX2 is compile-checked only.
 <!-- end stages2 -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
