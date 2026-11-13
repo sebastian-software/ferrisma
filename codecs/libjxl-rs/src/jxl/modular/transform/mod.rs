@@ -13,4 +13,5 @@ pub mod squeeze_params;
 pub mod transform;
 // modular: the SIMD inverse transforms (port ADR 0004, Plan item 2).
 pub mod rct_simd;
+pub mod squeeze_simd;
 // end modular

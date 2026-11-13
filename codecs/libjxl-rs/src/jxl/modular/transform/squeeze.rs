@@ -10,6 +10,7 @@
 use super::squeeze_params::SqueezeParams;
 use crate::jxl::base::data_parallel::{ThreadPool, run_on_pool_exclusive_no_init};
 use crate::jxl::base::status::{Status, StatusCode};
+use crate::jxl::hwy::{Target, decoder_target};
 use crate::jxl::modular::modular_image::{Channel, Image};
 pub const MAX_FIRST_PREVIEW_SIZE: usize = 8;
 
@@ -180,6 +181,17 @@ pub fn inv_squeeze(
     parameters: &[SqueezeParams],
     pool: Option<&ThreadPool>,
 ) -> Status {
+    // HWY_DYNAMIC_DISPATCH(InvSqueeze) (port ADR 0004).
+    inv_squeeze_for_target(decoder_target(), input, parameters, pool)
+}
+/// `InvSqueeze` of one target: `None` is the `HWY_SCALAR` translation,
+/// otherwise the SIMD InvHSqueeze/InvVSqueeze of `squeeze_simd.rs`.
+pub fn inv_squeeze_for_target(
+    target: Option<Target>,
+    input: &mut Image,
+    parameters: &[SqueezeParams],
+    pool: Option<&ThreadPool>,
+) -> Status {
     let mut i = parameters.len().wrapping_sub(1) as i32;
     while i >= 0 {
         let parameter = &parameters[i as usize];
@@ -212,10 +224,11 @@ pub fn inv_squeeze(
             {
                 return Err(StatusCode::GenericError);
             }
-            if parameter.horizontal {
-                inv_h_squeeze(input, c, rc, pool)?;
-            } else {
-                inv_v_squeeze(input, c, rc, pool)?;
+            match (target, parameter.horizontal) {
+                (None, true) => inv_h_squeeze(input, c, rc, pool)?,
+                (None, false) => inv_v_squeeze(input, c, rc, pool)?,
+                (Some(t), true) => super::squeeze_simd::inv_h_squeeze_simd(t, input, c, rc, pool)?,
+                (Some(t), false) => super::squeeze_simd::inv_v_squeeze_simd(t, input, c, rc, pool)?,
             }
         }
         crate::jxl::base::libcpp_vector::erase(
