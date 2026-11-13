@@ -28,3 +28,5 @@ mod dr_prediction;
 mod filterintra;
 #[path = "simd/intra_edge.rs"]
 mod intra_edge;
+#[path = "simd/loopfilter.rs"]
+mod loopfilter;
