@@ -4,8 +4,11 @@
 //! Every kernel is written once ([`body`]) against the internal
 //! [`lanes::Lanes`] trait and instantiated per instruction-set level inside
 //! a `#[target_feature]` entry. [`Kernels::best`] picks the highest level the
-//! running machine supports; [`Kernels::for_level`] pins a lower one for
-//! differential tests, benchmarks and bug reports.
+//! running machine supports up to [`DEFAULT_CEILING`] (AVX2 on x86-64, NEON
+//! on aarch64; decision D6 of the ADR-0020 amendment of 2026-11-13);
+//! [`Kernels::with_ceiling`]`(IsaLevel::Avx512)` is the explicit opt-in to
+//! AVX-512. [`Kernels::for_level`] pins one level for differential tests,
+//! benchmarks and bug reports.
 //!
 //! `unsafe` is confined to two modules: [`lanes`] (intrinsics and their
 //! pointer loads and stores) and `dispatch` (calling a `#[target_feature]`
@@ -91,6 +94,56 @@ pub enum LevelReason {
     Fallback,
     /// Limited by a caller-supplied ceiling.
     Ceiling,
+    /// Limited by [`DEFAULT_CEILING`]: the machine supports an implemented
+    /// level above the v1.0 scope, which runs only on explicit request.
+    DefaultCeiling,
+}
+
+/// The highest level [`Kernels::best`] selects: `Avx2` on x86-64 and `Neon`
+/// on aarch64 (decision D6, ADR-0020 amendment of 2026-11-13). Higher levels
+/// stay compiled and tested, but run only through an explicit ceiling such
+/// as [`Kernels::with_ceiling`]`(IsaLevel::Avx512)`, so that default output
+/// does not depend on whether the host has AVX-512 (issue #239).
+pub const DEFAULT_CEILING: IsaLevel = if cfg!(target_arch = "aarch64") {
+    IsaLevel::Neon
+} else {
+    IsaLevel::Avx2
+};
+
+/// The highest implemented level not above `ceiling` that `supported`
+/// accepts. `supported` is injected so that tests can model machines this
+/// host is not.
+fn pick(ceiling: IsaLevel, supported: impl Fn(IsaLevel) -> bool) -> IsaLevel {
+    [
+        IsaLevel::Avx512,
+        IsaLevel::Avx2,
+        IsaLevel::Sve2,
+        IsaLevel::Neon,
+    ]
+    .into_iter()
+    .find(|&level| level <= ceiling && level.is_implemented() && supported(level))
+    .unwrap_or(IsaLevel::Scalar)
+}
+
+/// Level and reason for an explicit `ceiling`, or for [`DEFAULT_CEILING`]
+/// when `ceiling` is `None`, on a machine whose highest level is `machine`.
+fn select(
+    ceiling: Option<IsaLevel>,
+    machine: IsaLevel,
+    supported: impl Fn(IsaLevel) -> bool,
+) -> (IsaLevel, LevelReason) {
+    let explicit = ceiling.unwrap_or(IsaLevel::Avx512);
+    let level = pick(ceiling.unwrap_or(DEFAULT_CEILING), &supported);
+    let reason = if ceiling.is_none() && level != pick(explicit, &supported) {
+        LevelReason::DefaultCeiling
+    } else if explicit < machine {
+        LevelReason::Ceiling
+    } else if level == machine {
+        LevelReason::Detected
+    } else {
+        LevelReason::Fallback
+    };
+    (level, reason)
 }
 
 /// The highest level the running machine supports, implemented or not.
@@ -212,33 +265,24 @@ impl fmt::Debug for Kernels {
 }
 
 impl Kernels {
-    /// The highest implemented level this machine supports.
+    /// The highest implemented level this machine supports, up to
+    /// [`DEFAULT_CEILING`]. On an AVX-512 machine this is `Avx2` with reason
+    /// [`LevelReason::DefaultCeiling`].
     #[must_use]
     pub fn best() -> Self {
-        Self::with_ceiling(IsaLevel::Avx512)
+        Self::selected(None)
     }
 
-    /// The highest implemented, supported level not above `ceiling`.
+    /// The highest implemented, supported level not above `ceiling`. An
+    /// explicit ceiling may exceed [`DEFAULT_CEILING`]:
+    /// `with_ceiling(IsaLevel::Avx512)` is the opt-in to AVX-512.
     #[must_use]
     pub fn with_ceiling(ceiling: IsaLevel) -> Self {
-        let machine = machine_level();
-        let candidates = [
-            IsaLevel::Avx512,
-            IsaLevel::Avx2,
-            IsaLevel::Sve2,
-            IsaLevel::Neon,
-        ];
-        let level = candidates
-            .into_iter()
-            .find(|&level| level <= ceiling && level.is_implemented() && supports(level))
-            .unwrap_or(IsaLevel::Scalar);
-        let reason = if ceiling < machine {
-            LevelReason::Ceiling
-        } else if level == machine {
-            LevelReason::Detected
-        } else {
-            LevelReason::Fallback
-        };
+        Self::selected(Some(ceiling))
+    }
+
+    fn selected(ceiling: Option<IsaLevel>) -> Self {
+        let (level, reason) = select(ceiling, machine_level(), supports);
         Self {
             level,
             reason,
@@ -322,5 +366,112 @@ impl Kernels {
         }
         (self.table.axpy)(acc, row, weight);
         Ok(())
+    }
+}
+
+/// Selection logic against injected feature sets (decision D6): this host
+/// cannot execute AVX-512 or SVE2, so machines with those levels are
+/// modeled rather than detected.
+#[cfg(test)]
+mod selection_tests {
+    use super::{DEFAULT_CEILING, IsaLevel, LevelReason, select};
+
+    /// A machine supporting exactly `levels` (plus `Scalar`), whose highest
+    /// level is the last entry.
+    fn machine(levels: &[IsaLevel]) -> (IsaLevel, impl Fn(IsaLevel) -> bool + '_) {
+        let highest = levels.last().copied().unwrap_or(IsaLevel::Scalar);
+        (highest, move |level| {
+            level == IsaLevel::Scalar || levels.contains(&level)
+        })
+    }
+
+    const X86_AVX512: &[IsaLevel] = &[IsaLevel::Avx2, IsaLevel::Avx512];
+    const X86_AVX2: &[IsaLevel] = &[IsaLevel::Avx2];
+    const ARM_SVE2: &[IsaLevel] = &[IsaLevel::Neon, IsaLevel::Sve2];
+    const ARM_NEON: &[IsaLevel] = &[IsaLevel::Neon];
+
+    #[test]
+    fn the_default_ceiling_is_avx2_on_x86_64_and_neon_on_aarch64() {
+        if cfg!(target_arch = "aarch64") {
+            assert_eq!(DEFAULT_CEILING, IsaLevel::Neon);
+        } else {
+            assert_eq!(DEFAULT_CEILING, IsaLevel::Avx2);
+        }
+        assert!(DEFAULT_CEILING < IsaLevel::Avx512);
+        assert_ne!(DEFAULT_CEILING, IsaLevel::Sve2);
+    }
+
+    #[test]
+    fn an_avx512_machine_runs_avx2_by_default() {
+        let (highest, supported) = machine(X86_AVX512);
+        assert_eq!(
+            select(Some(IsaLevel::Avx2), highest, &supported),
+            (IsaLevel::Avx2, LevelReason::Ceiling)
+        );
+        if cfg!(target_arch = "x86_64") {
+            assert_eq!(
+                select(None, highest, &supported),
+                (IsaLevel::Avx2, LevelReason::DefaultCeiling)
+            );
+        }
+    }
+
+    #[test]
+    fn an_explicit_avx512_ceiling_restores_avx512() {
+        let (highest, supported) = machine(X86_AVX512);
+        assert_eq!(
+            select(Some(IsaLevel::Avx512), highest, &supported),
+            (IsaLevel::Avx512, LevelReason::Detected)
+        );
+    }
+
+    #[test]
+    fn an_avx2_machine_is_unaffected_by_the_default_ceiling() {
+        let (highest, supported) = machine(X86_AVX2);
+        let expected = (IsaLevel::Avx2, LevelReason::Detected);
+        assert_eq!(
+            select(Some(IsaLevel::Avx512), highest, &supported),
+            expected
+        );
+        if cfg!(target_arch = "x86_64") {
+            assert_eq!(select(None, highest, &supported), expected);
+        }
+    }
+
+    #[test]
+    fn aarch64_machines_run_neon_by_default_and_with_any_explicit_ceiling() {
+        for levels in [ARM_NEON, ARM_SVE2] {
+            let (highest, supported) = machine(levels);
+            let reason = if highest == IsaLevel::Neon {
+                LevelReason::Detected
+            } else {
+                // SVE2 is detected but not implemented.
+                LevelReason::Fallback
+            };
+            if cfg!(target_arch = "aarch64") {
+                assert_eq!(select(None, highest, &supported), (IsaLevel::Neon, reason));
+            }
+            assert_eq!(
+                select(Some(IsaLevel::Avx512), highest, &supported),
+                (IsaLevel::Neon, reason)
+            );
+            assert_eq!(
+                select(Some(IsaLevel::Neon), highest, &supported).0,
+                IsaLevel::Neon
+            );
+        }
+    }
+
+    #[test]
+    fn a_machine_without_simd_runs_scalar() {
+        let (highest, supported) = machine(&[]);
+        assert_eq!(
+            select(None, highest, &supported),
+            (IsaLevel::Scalar, LevelReason::Detected)
+        );
+        assert_eq!(
+            select(Some(IsaLevel::Avx512), highest, &supported),
+            (IsaLevel::Scalar, LevelReason::Detected)
+        );
     }
 }

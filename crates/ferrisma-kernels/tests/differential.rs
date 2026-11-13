@@ -2,7 +2,7 @@
 //! Levels the host cannot run are printed as untested, never skipped
 //! silently.
 
-use ferrisma_kernels::{IsaLevel, KernelError, Kernels, Taps};
+use ferrisma_kernels::{IsaLevel, KernelError, Kernels, LevelReason, Taps};
 
 struct Rng(u64);
 impl Rng {
@@ -183,4 +183,28 @@ fn best_reports_a_supported_level_and_honors_a_ceiling() {
         Kernels::with_ceiling(IsaLevel::Scalar).level(),
         IsaLevel::Scalar
     );
+}
+
+/// Decision D6: the default never exceeds AVX2 / NEON, even on a machine
+/// with AVX-512; an explicit `Avx512` ceiling selects the highest available
+/// level. On a host without AVX-512 both agree, so this test only proves
+/// the cap where the host has AVX-512 (the injected-feature tests in
+/// `src/lib.rs` cover the selection logic everywhere).
+#[test]
+fn best_stops_at_the_default_ceiling_and_avx512_is_opt_in() {
+    let best = Kernels::best();
+    assert!(best.level() <= ferrisma_kernels::DEFAULT_CEILING);
+    assert_ne!(best.level(), IsaLevel::Avx512);
+    let highest = Kernels::available()
+        .last()
+        .map_or(IsaLevel::Scalar, Kernels::level);
+    let opted_in = Kernels::with_ceiling(IsaLevel::Avx512);
+    assert_eq!(opted_in.level(), highest);
+    if highest == IsaLevel::Avx512 {
+        assert_eq!(best.level(), IsaLevel::Avx2);
+        assert_eq!(best.reason(), LevelReason::DefaultCeiling);
+    } else {
+        assert_eq!(best.level(), highest);
+        assert_ne!(best.reason(), LevelReason::DefaultCeiling);
+    }
 }

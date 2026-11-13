@@ -110,6 +110,7 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
         "--kernel-level=scalar" => options.kernel_level_ceiling = Some(KernelLevel::Scalar),
         "--kernel-level=neon" => options.kernel_level_ceiling = Some(KernelLevel::Neon),
         "--kernel-level=avx2" => options.kernel_level_ceiling = Some(KernelLevel::Avx2),
+        "--kernel-level=avx512" => options.kernel_level_ceiling = Some(KernelLevel::Avx512),
         "--chroma=444" | "--chroma=420" if options.output_format == OutputFormat::WebP => {
             return Err("--chroma is unsupported for WebP".into());
         }
@@ -395,6 +396,22 @@ mod tests {
             read_input(Broken, 3).unwrap_err().kind(),
             io::ErrorKind::Other
         );
+    }
+
+    #[test]
+    fn kernel_level_defaults_to_none_and_avx512_is_explicit() {
+        use crate::pipeline::KernelLevel;
+        assert_eq!(TransformOptions::default().kernel_level_ceiling, None);
+        for (flag, level) in [
+            ("--kernel-level=scalar", KernelLevel::Scalar),
+            ("--kernel-level=neon", KernelLevel::Neon),
+            ("--kernel-level=avx2", KernelLevel::Avx2),
+            ("--kernel-level=avx512", KernelLevel::Avx512),
+        ] {
+            let mut options = TransformOptions::default();
+            apply_option(&mut options, flag).unwrap();
+            assert_eq!(options.kernel_level_ceiling, Some(level), "{flag}");
+        }
     }
 
     #[test]

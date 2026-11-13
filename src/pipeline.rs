@@ -281,8 +281,12 @@ pub struct TransformOptions {
     /// Working precision of the resample chain.
     pub precision: WorkingPrecision,
     /// Highest SIMD kernel level to use; `None` picks the best the machine
-    /// supports. Lowering it never changes the result beyond the ADR-0021
-    /// bound; it exists for verification, benchmarks and bug reports.
+    /// supports up to AVX2 on x86-64 and NEON on aarch64
+    /// (`ferrisma_kernels::DEFAULT_CEILING`, decision D6 of ADR-0020), so
+    /// the default output does not depend on AVX-512. `Some(KernelLevel::Avx512)`
+    /// is the explicit opt-in to AVX-512. Changing it never changes the
+    /// result beyond the ADR-0021 bound; it exists for verification,
+    /// benchmarks and bug reports.
     pub kernel_level_ceiling: Option<KernelLevel>,
     /// Threads for the decode-transform row pipeline (ADR-0022): 0 means
     /// all available cores (capped at 256), 1 the sequential path; explicit
