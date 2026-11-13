@@ -154,3 +154,10 @@ mod hardening_tests;
 
 #[cfg(all(test, any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read")))]
 mod jxl_color_tests;
+
+#[cfg(all(
+    test,
+    feature = "jpeg-xl-write",
+    any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read")
+))]
+mod jxl_alpha_tests;

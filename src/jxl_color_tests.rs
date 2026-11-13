@@ -26,7 +26,7 @@ use crate::pipeline::{
     clippy::chunks_exact_to_as_chunks
 )]
 #[path = "../tests/support/resize_oracle.rs"]
-mod oracle;
+pub(crate) mod oracle;
 
 fn fixture(name: &str) -> Vec<u8> {
     std::fs::read(format!(

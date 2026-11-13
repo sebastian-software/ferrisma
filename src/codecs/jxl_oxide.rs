@@ -48,7 +48,7 @@ impl JxlSource {
             access: DecodeAccess::CodecRegionRequest,
             alpha: match layout {
                 ChannelLayout::GrayAlpha | ChannelLayout::Rgba | ChannelLayout::Cmyka => {
-                    AlphaMode::Unspecified
+                    rendered_alpha_mode(&image.image_header().metadata)
                 }
                 ChannelLayout::Gray | ChannelLayout::Rgb | ChannelLayout::Cmyk => AlphaMode::Opaque,
             },
@@ -56,6 +56,25 @@ impl JxlSource {
             rendered_cicp: rendered_cicp(&image),
         };
         Ok(Self { image, info })
+    }
+}
+
+/// The association of the alpha channel jxl-oxide emits (issue #222).
+///
+/// jxl-oxide 0.12.6 renders the *first* alpha extra channel (`fb.rs`, "Find
+/// alpha") and neither premultiplies nor divides the color by it, so the
+/// emitted samples carry the codestream's own association. Only an explicit
+/// `alpha_associated == false` is straight alpha (ADR-0014); associated
+/// alpha stays `Unspecified`, which every pixel path refuses, rather than
+/// being guessed as premultiplied output.
+fn rendered_alpha_mode(metadata: &jxl_oxide::image::ImageMetadata) -> AlphaMode {
+    let associated = metadata
+        .alpha()
+        .and_then(|index| metadata.ec_info.get(index))
+        .and_then(jxl_oxide::image::ExtraChannelInfo::alpha_associated);
+    match associated {
+        Some(false) => AlphaMode::Straight,
+        Some(true) | None => AlphaMode::Unspecified,
     }
 }
 

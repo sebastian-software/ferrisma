@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-13
 - **Supersedes:** None; settles the separate JPEG XL output gate left open by [0018](0018-optional-codec-and-cms-dependencies.md) and the [M1 plan](../milestones/M1-complete-image-pipeline.md)
 - **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0019](0019-source-side-orientation.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), [0032](0032-jpeg-xl-workspace-decoder-input.md), [0037](0037-selectable-workspace-avif-encoder.md), libjxl-rs [encoder plan](../../codecs/libjxl-rs/docs/ENCODER_EXPANSION.md) and [first image path](../../codecs/libjxl-rs/docs/FIRST_IMAGE.md), issues [#27](https://github.com/sebastian-software/ferrisma/issues/27), [#92](https://github.com/sebastian-software/ferrisma/issues/92), [#102](https://github.com/sebastian-software/ferrisma/issues/102), [#66](https://github.com/sebastian-software/ferrisma/issues/66)
 
@@ -335,7 +335,10 @@ Alpha and patches-off evidence, macOS ARM64, 2026-11-12, debug profile:
   engine cannot read back its own transparent lossy output yet: the
   rendered-ICC stage accepts only opaque RGB, and without it the XYB samples
   have no verifiable color (`UnsupportedColor`); this is an input-side
-  limitation, not an encoder one.
+  limitation, not an encoder one. (Amended 2026-11-13: the rendered-ICC stage
+  now accepts straight alpha, so the transparent output reads back through
+  `UseRenderedIcc` with either decoder; ADR-0015, #222. The strict policy
+  still refuses it.)
 
 Not measured: the size or quality cost of patches off against libjxl's
 default for text-like content (the port cannot encode patches, and the C++
@@ -396,3 +399,6 @@ appears for this profile.
   **unmeasured**. Re-evaluate when the patch reference-frame encode lands in
   the port. Color under fully transparent pixels is replaced in lossy mode
   (libjxl's `keep_invisible` default); lossless keeps it.
+- 2026-11-13 — The engine reads its own transparent lossy output back
+  through `UseRenderedIcc` with either decoder (#222); evidence and the
+  open strict-policy question are in ADR-0015 (2026-11-13).

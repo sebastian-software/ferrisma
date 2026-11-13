@@ -752,35 +752,80 @@ fn display_p3_icc_input_keeps_out_of_gamut_values_until_output() {
     assert!(clipped_outside > 0);
 }
 
-/// The rendered-ICC adapter is RGB-only and opaque-only today: an ICC-tagged
-/// RGBA input is a controlled `UnsupportedInput`, not a silent drop of alpha
-/// or of the profile.
+/// Display P3 input with straight alpha through the rendered-ICC policy
+/// (issue #222). Until 2026-11-13 the adapter was opaque-only and this
+/// test asserted the refusal (`UnsupportedInput`, no rows); the contract
+/// changed deliberately: the profile converts the three color channels,
+/// alpha bypasses the transform, and the chain associates alpha in linear
+/// light as for any straight input (ADR-0014). Neither alpha nor the
+/// profile is dropped silently.
+///
+/// Alpha is untouched by the color stage, so it must equal the
+/// independent oracle's alpha except at exact rounding ties, as in the
+/// sRGB sweeps above. Color uses the derived bound of
+/// `display_p3_icc_input_keeps_out_of_gamut_values_until_output` on the
+/// associated (premultiplied) linear value, which the output step divides
+/// by alpha: the engine's code must lie between the oracle encodings of
+/// `(v - bound) / alpha` and `(v + bound) / alpha`.
 #[cfg(feature = "icc")]
 #[test]
-fn icc_tagged_alpha_input_is_rejected_before_output() {
-    use ferrisma::pipeline::{ProcessingErrorKind, transcode_with};
-    let rgba = pixels(&ALPHA);
-    let mut encoded = with_icc(
-        &webp(&ALPHA, &rgba),
-        ALPHA.width,
-        ALPHA.height,
-        include_bytes!("fixtures/icc/DisplayP3-v4.icc"),
-    );
-    encoded[20] |= 0x10; // VP8X alpha flag
-    let capture = Capture(Mutex::new(Vec::new()));
-    let error = transcode_with(
-        &encoded,
-        ImageFormat::WebP,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            output_width: 4,
-            output_height: 3,
-            profile_policy: InputProfilePolicy::UseRenderedIcc,
-            ..TransformOptions::default()
-        },
-        &capture,
-    )
-    .unwrap_err();
-    assert_eq!(error.kind(), ProcessingErrorKind::UnsupportedInput);
-    assert!(capture.0.into_inner().unwrap().is_empty());
+fn icc_tagged_straight_alpha_input_converts_color_and_keeps_alpha() {
+    const BOUND: f64 = 1e-3 * 1.2857 * 1.2857;
+    let profile = include_bytes!("fixtures/icc/DisplayP3-v4.icc");
+    let geometry: &[(&Input, Option<(u32, u32, u32, u32)>, (u32, u32))] = &[
+        (&ALPHA, None, (40, 30)),
+        (&ALPHA, None, (60, 45)),
+        (&ALPHA, Some((3, 2, 31, 25)), (13, 9)),
+        (&LARGE_ALPHA, None, (37, 23)),
+    ];
+    let mut compared = 0_usize;
+    let mut translucent = 0_usize;
+    for &(input, crop, output) in geometry {
+        let rgba = pixels(input);
+        let mut encoded = with_icc(&webp(input, &rgba), input.width, input.height, profile);
+        encoded[20] |= 0x10; // VP8X alpha flag
+        for kernel in [Kernel::Area, Kernel::Lanczos3] {
+            let request = Request {
+                kernel,
+                primaries: Primaries::DisplayP3,
+                crop: crop.unwrap_or((0, 0, input.width, input.height)),
+                output,
+                alpha: true,
+                clip_before_filter: false,
+            };
+            let linear = resize_oracle::resize(&rgba, input.width, &request);
+            let oracle = resize_oracle::quantize(&linear);
+            for precision in [WorkingPrecision::F32, WorkingPrecision::F64Reference] {
+                let name = format!("{crop:?}->{output:?} {kernel:?} {precision:?}");
+                let actual = engine(
+                    &encoded,
+                    &request,
+                    precision,
+                    InputProfilePolicy::UseRenderedIcc,
+                );
+                assert_eq!(actual.len(), oracle.len(), "{name}");
+                assert_alpha_differences_are_ties(&name, &actual, &oracle, &linear);
+                for (a, l) in actual.chunks_exact(4).zip(linear.rgba.chunks_exact(4)) {
+                    if a[3] == 0 {
+                        assert_eq!(a[..3], [0, 0, 0], "{name}: transparent black");
+                        continue;
+                    }
+                    let alpha = l[3].clamp(0.0, 1.0);
+                    translucent += usize::from(a[3] < 255);
+                    for channel in 0..3 {
+                        let lo = resize_oracle::encode8((l[channel] - BOUND) / alpha);
+                        let hi = resize_oracle::encode8((l[channel] + BOUND) / alpha);
+                        assert!(
+                            (lo..=hi).contains(&a[channel]),
+                            "{name}: code {} outside {lo}..={hi} (alpha {alpha})",
+                            a[channel]
+                        );
+                        compared += 1;
+                    }
+                }
+            }
+        }
+    }
+    println!("{compared} samples, {translucent} translucent pixels");
+    assert!(translucent > 0);
 }

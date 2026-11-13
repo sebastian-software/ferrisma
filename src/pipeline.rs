@@ -194,7 +194,9 @@ pub enum InputProfilePolicy {
     /// and *no* output CICP. This must be an informed caller decision.
     AssumeSrgbIfMissing,
     /// Explicitly use the decoder-provided *rendered output* ICC as authoritative.
-    /// Requires the optional `icc` feature and currently supports RGB only.
+    /// Requires the optional `icc` feature and supports opaque RGB and RGB
+    /// with straight alpha (alpha passes through the color transform
+    /// unchanged; premultiplied or unspecified alpha is refused).
     UseRenderedIcc,
 }
 

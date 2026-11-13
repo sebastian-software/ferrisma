@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-13
 - **Supersedes:** None
 - **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0012](0012-codec-source-contract.md), [0013](0013-sample-domain-resize.md), [0014](0014-linear-srgb-straight-alpha.md)
 
@@ -62,6 +62,7 @@ A real decoder exposes a usable output-profile transform API; an ICC parser/CMM 
 - 2026-11-06 — CICP `[1, 8, 0, 1]` (sRGB primaries, linear transfer, full range) is classified as its own family, `LinearSrgb`, and is transfer-ready: it is the graph's working-space signal and what the ICC adapter now emits (ADR-0023). Limited range or other matrices with transfer 8 stay `UnknownSignal`.
 - 2026-11-12 — Verified what jxl-oxide emits without a CMS and corrected its reported CICP; CICP beside a rendered ICC is checked, not ignored (#41).
 - 2026-11-12 — Review of the v1.0 integration: PQ/HLG JPEG XL is refused from the transfer function, also without any CICP; AVIF `nclx` beside ICC is refused unless it agrees, with a named reason (pending owner confirmation).
+- 2026-11-13 — Straight alpha through the rendered-ICC stage (#222): RGBA with explicitly straight alpha converts its color channels and carries alpha unchanged; premultiplied and unspecified alpha stay refused; jxl-oxide declares straight alpha only from `alpha_associated == false`. The strict policy is unchanged; the question whether XYB-encoded enum sRGB should pass it is recorded below for the owner.
 
 ## 2026-11-12: JPEG XL emitted-sample evidence (#41)
 
@@ -114,3 +115,87 @@ fail-closed choice. Evidence: `tests/avif_icc_nclx.rs` with the two fixtures in
 `AssumeSrgbIfMissing` refuse both files, because neither treats an ICC-tagged
 file as sRGB. Re-evaluate when the owner confirms or changes this outcome, or
 when the report can name the color signal it used.
+
+## 2026-11-13: straight alpha through the rendered-ICC stage (#222)
+
+**Problem.** The engine writes lossy JPEG XL with straight alpha (ADR-0039)
+but could not read such a file back with either decoder. The rendered-ICC
+stage (`IccSrgbSource`, `src/cms.rs`) accepted only opaque RGB, so
+`UseRenderedIcc` failed with `UnsupportedInput`; the jxl-oxide adapter
+declared every alpha channel `Unspecified`; and without `UseRenderedIcc`
+both adapters describe XYB output with a rendered ICC profile, which the
+strict policy refuses.
+
+**Change.** The rendered-ICC stage accepts opaque RGB and RGBA whose alpha
+the decoder declares `Straight`. Only the three color channels go through
+the profile transform (the same per-channel table or moxcms evaluation as
+opaque RGB, bit for bit); the alpha sample bypasses it unchanged (8-bit
+alpha normalized to `[0, 1]` like the color channels, float alpha copied).
+The stage still emits linear-light sRGB `[1, 8, 0, 1]` with straight alpha,
+which the executors associate in linear light (ADR-0014). `Premultiplied`
+and `Unspecified` alpha are refused with `UnsupportedAlphaMode`: dividing
+premultiplied color before a nonlinear profile curve, or guessing an
+association, would be an unrecorded semantic decision. Other layouts stay
+`UnsupportedCodecLayout`. The jxl-oxide adapter now reads the association
+of the first alpha extra channel, the one jxl-oxide 0.12.6 renders (it
+neither premultiplies nor divides): `alpha_associated == false` is
+`Straight`, everything else stays `Unspecified`. The libjxl-rs adapter
+already reported association from basic info (ADR-0032).
+
+**Evidence.** `src/jxl_alpha_tests.rs`, every check with each compiled
+decoder: the engine writes translucent lossy JPEG XL (9x17, 300x260 and the
+streaming 800x700) and reads it back at identity geometry under
+`UseRenderedIcc` on one thread and in parallel (deferred conversion).
+Alpha equals the written alpha exactly; color over visible pixels lies
+within this ADR's `2e-3` linear bound around each decoder's own sRGB
+output (measured: at most 2 codes from the oracle encoding), and within
+ADR-0039's lossy pins against the written rows (measured max / mean 17 /
+3.74, 19 / 2.22, 18 / 2.11 with both decoders, the figures ADR-0039
+recorded for the direct jxl-oxide decode). The test failed before the change. Rejections: the strict
+policy refuses the engine's own opaque and transparent output with
+`UnsupportedColor` for both decoders, unchanged; a codestream whose alpha
+is rewritten to associated (a test helper rewrites only that header
+bundle) is declared `Unspecified` by jxl-oxide and `Premultiplied` by
+libjxl-rs and refused under every policy, under `UseRenderedIcc` as
+`UnsupportedInput`. Unit tests in `cms::tests` cover the 8-bit table, 8-bit
+moxcms and float paths against the opaque conversion bit for bit, alpha
+bit for bit, deferral and the refusals. The former
+`icc_tagged_alpha_input_is_rejected_before_output` in
+`tests/resize_oracle.rs` asserted the old refusal; it is replaced by
+`icc_tagged_straight_alpha_input_converts_color_and_keeps_alpha`, which
+checks Display P3 WebP with alpha through both filters and both precisions
+against the independent oracle: alpha equal except at exact rounding ties,
+color within the existing derived `1.66e-3` linear bound scaled by
+`1 / alpha` for the output division (41,814 samples, 8,396 translucent
+pixels).
+
+**Open: should XYB-encoded enum sRGB pass the strict policy?** Not
+decided here; the strict policy is unchanged. The engine still needs
+`UseRenderedIcc` to read its own JPEG XL output, opaque or transparent.
+Options:
+
+1. *Keep the refusal* (status quo). Fail-closed and consistent with rule 4,
+   but the default policy cannot read the engine's own output.
+2. *Describe enum-signalled output by its enum, not by a synthesized
+   profile.* When the codestream signals an enum encoding (no embedded ICC)
+   and the decoder renders into exactly that encoding, the adapter reports
+   the CICP of that encoding and no `rendered_icc`; the strict policy then
+   accepts exact sRGB `[1, 13, 0, 1]` (and the other ready families) as for
+   any CICP-tagged input. The synthesized profile is derived from the enum,
+   so it adds no independent evidence; reporting both is what turns one
+   signal into the refused ICC+CICP pair. Needs: per-decoder evidence that
+   the emitted samples equal the enum encoding (jxl-oxide by the source
+   review of 2026-11-12 above; libjxl-rs would need its DATA primaries and
+   white point exposed like `data_transfer`), a check that the strict float
+   path keeps XYB's slightly out-of-range values as the rendered-ICC path
+   does, and the PQ/HLG refusals kept in front.
+3. *Accept XYB enum sRGB as a special case of the strict policy* without
+   changing what the adapters report. Smaller, but it would make the
+   policy depend on codec internals rather than on the declared signal.
+
+Recommendation: option 2, limited to enum-signalled files, because it keeps
+the rule that the adapter declares what it emits and removes the artificial
+dual signal instead of adding an exception. It changes what `Strict`
+accepts, so it needs the owner's decision. Re-evaluate this entry with that
+decision, or if a decoder renders an enum-signalled file into another
+encoding.

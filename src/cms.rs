@@ -4,6 +4,13 @@
 //! into using the decoder's **rendered output ICC** signal. The transform
 //! operates on borrowed input rows and engine-budgeted f32 scratch buffers.
 //! The codec's own image allocations remain independently opaque.
+//!
+//! Opaque RGB and RGBA with **straight** alpha are accepted (issue #222).
+//! Only the three color channels go through the profile transform; the
+//! alpha sample passes through unchanged (8-bit alpha normalized to `[0, 1]`
+//! like the color channels, float alpha copied as is), so the output stays
+//! linear-light sRGB with straight alpha (ADR-0014). Premultiplied and
+//! unspecified alpha are refused rather than guessed (ADR-0015).
 
 use std::sync::Arc;
 
@@ -31,6 +38,9 @@ pub(crate) struct IccSrgbSource<'a> {
 pub(crate) struct IccConversion {
     transformer: Arc<TransformF32Executor>,
     input: SampleType,
+    /// Interleaved samples per pixel: 3 (opaque RGB) or 4 (RGB followed by
+    /// straight alpha, which bypasses the transform).
+    channels: usize,
     /// Per-channel contributions for 8-bit matrix-shaper input; `None`
     /// keeps every row on the moxcms transform.
     table: Option<ChannelTable>,
@@ -146,8 +156,15 @@ impl RowConversion for IccConversion {
         scratch: &mut [f32],
         out: &mut [f32],
     ) -> Result<(), Error> {
-        if row.len() != out.len() || row.len() != scratch.len() || row.sample_type() != self.input {
+        if row.len() != out.len()
+            || row.len() != scratch.len()
+            || row.sample_type() != self.input
+            || !row.len().is_multiple_of(self.channels)
+        {
             return Err(Error::IncompleteDecoderOutput);
+        }
+        if self.channels == 4 {
+            return self.convert_straight_rgba(row, scratch, out);
         }
         if let (Some(table), DecodedRow::U8(values)) = (&self.table, row) {
             for (dst, src) in out
@@ -175,12 +192,88 @@ impl RowConversion for IccConversion {
     }
 }
 
+impl IccConversion {
+    /// RGB plus straight alpha: the color channels are converted exactly as
+    /// opaque RGB is (the channel table for 8-bit matrix-shaper input,
+    /// moxcms otherwise), and the alpha sample is carried over unchanged.
+    /// The caller has checked the row length and sample type.
+    fn convert_straight_rgba(
+        &self,
+        row: DecodedRow<'_>,
+        scratch: &mut [f32],
+        out: &mut [f32],
+    ) -> Result<(), Error> {
+        let pixels = row.len() / 4;
+        if let (Some(table), DecodedRow::U8(values)) = (&self.table, row) {
+            for (dst, src) in out
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(values.as_chunks::<4>().0)
+            {
+                let [r, g, b] = table.apply([src[0], src[1], src[2]]);
+                *dst = [r, g, b, f32::from(src[3]) / 255.0];
+            }
+            return Ok(());
+        }
+        // Pack the color channels into the first three quarters of
+        // `scratch`, transform them into the first three quarters of `out`,
+        // then widen `out` to RGBA in place from the last pixel backwards:
+        // pixel `i` is written at `4i..4i + 4` after it was read at
+        // `3i..3i + 3`, and every pixel still to be read lies below `3i`.
+        let color = scratch
+            .get_mut(..pixels * 3)
+            .ok_or(Error::IncompleteDecoderOutput)?;
+        match row {
+            DecodedRow::U8(values) => {
+                for (dst, src) in color
+                    .as_chunks_mut::<3>()
+                    .0
+                    .iter_mut()
+                    .zip(values.as_chunks::<4>().0)
+                {
+                    *dst = [src[0], src[1], src[2]].map(|v| f32::from(v) / 255.0);
+                }
+            }
+            DecodedRow::F32(values) => {
+                for (dst, src) in color
+                    .as_chunks_mut::<3>()
+                    .0
+                    .iter_mut()
+                    .zip(values.as_chunks::<4>().0)
+                {
+                    *dst = [src[0], src[1], src[2]];
+                }
+            }
+        }
+        self.transformer
+            .transform(color, &mut out[..pixels * 3])
+            .map_err(|_| Error::UnsupportedColorEncoding)?;
+        for pixel in (0..pixels).rev() {
+            let alpha = match row {
+                DecodedRow::U8(values) => f32::from(values[pixel * 4 + 3]) / 255.0,
+                DecodedRow::F32(values) => values[pixel * 4 + 3],
+            };
+            let rgb = [out[pixel * 3], out[pixel * 3 + 1], out[pixel * 3 + 2]];
+            out[pixel * 4..pixel * 4 + 4].copy_from_slice(&[rgb[0], rgb[1], rgb[2], alpha]);
+        }
+        Ok(())
+    }
+}
+
 impl<'a> IccSrgbSource<'a> {
     pub(crate) fn new(source: Box<dyn DecodeSource + 'a>) -> Result<Self, Error> {
         let info = source.info();
-        if info.layout != ChannelLayout::Rgb || info.alpha != AlphaMode::Opaque {
-            return Err(Error::UnsupportedCodecLayout);
-        }
+        // Opaque RGB, or RGB with straight alpha whose sample bypasses the
+        // transform (issue #222). Premultiplied color would have to be
+        // divided by alpha before a nonlinear profile curve, and unspecified
+        // alpha has no defined meaning; neither is guessed (ADR-0015).
+        let channels = match (info.layout, info.alpha) {
+            (ChannelLayout::Rgb, AlphaMode::Opaque) => 3,
+            (ChannelLayout::Rgba, AlphaMode::Straight) => 4,
+            (ChannelLayout::Rgba, _) => return Err(Error::UnsupportedAlphaMode),
+            _ => return Err(Error::UnsupportedCodecLayout),
+        };
         let bytes = info
             .rendered_icc
             .as_deref()
@@ -250,6 +343,7 @@ impl<'a> IccSrgbSource<'a> {
         let conversion = Arc::new(IccConversion {
             transformer,
             input: info.sample,
+            channels,
             table,
         });
         let mut output = info.clone();
@@ -345,9 +439,10 @@ impl DecodeSource for IccSrgbSource<'_> {
         budget: &MemoryBudget,
         sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
     ) -> Result<DecodeReport, Error> {
+        let channels = self.conversion.channels;
         let len = usize::try_from(region.width)
             .map_err(|_| Error::GeometryOverflow)?
-            .checked_mul(3)
+            .checked_mul(channels)
             .ok_or(Error::GeometryOverflow)?;
         let expected_sample = self.source.info().sample;
         let mut report = if self.deferred {
@@ -366,10 +461,11 @@ impl DecodeSource for IccSrgbSource<'_> {
                 sink(y, DecodedRow::F32(output.as_slice()))
             })?
         };
+        let pixel_bytes = u64::try_from(4 * channels).map_err(|_| Error::GeometryOverflow)?;
         report.output_sample_bytes = report
             .rows
             .checked_mul(u64::from(region.width))
-            .and_then(|n| n.checked_mul(12))
+            .and_then(|n| n.checked_mul(pixel_bytes))
             .ok_or(Error::GeometryOverflow)?;
         report.peak_engine_managed_bytes = budget.snapshot().peak;
         Ok(report)
@@ -949,6 +1045,219 @@ mod tests {
             );
             assert!(actual.iter().any(|&v| v < -0.01));
             assert!(actual.iter().any(|&v| v > 1.01));
+        }
+    }
+
+    /// An 8-bit RGBA source with straight alpha in the Display P3 profile.
+    fn p3_rgba_grid(row: Vec<u8>) -> Grid {
+        let mut grid = p3_grid(row);
+        grid.info.size = Size::new(u32::try_from(grid.row.len() / 4).unwrap(), 1).unwrap();
+        grid.info.layout = ChannelLayout::Rgba;
+        grid.info.alpha = AlphaMode::Straight;
+        grid
+    }
+
+    /// RGBA test rows: every alpha class (0, partial, 255) against varied
+    /// color, including saturated color under zero alpha.
+    fn rgba_row() -> Vec<u8> {
+        (0..=255_u8)
+            .flat_map(|v| [v, 255 - v, v / 3, [0, 1, 128, 254, 255][usize::from(v) % 5]])
+            .collect()
+    }
+
+    /// The color of an RGBA row converted as opaque RGB.
+    fn rgb_reference(rgba: &[u8]) -> Vec<f32> {
+        let rgb: Vec<u8> = rgba
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .flat_map(|p| [p[0], p[1], p[2]])
+            .collect();
+        let width = u32::try_from(rgb.len() / 3).unwrap();
+        read_rows(
+            &mut IccSrgbSource::new(Box::new(p3_grid(rgb))).unwrap(),
+            width,
+        )
+        .pop()
+        .unwrap()
+    }
+
+    /// Issue #222: straight RGBA converts its color exactly as opaque RGB
+    /// does (bit for bit, on the 8-bit table path, the 8-bit moxcms path
+    /// and the float moxcms path) and carries alpha through unchanged; the
+    /// adapter still declares straight alpha, and deferral changes nothing.
+    #[test]
+    #[allow(clippy::too_many_lines)] // Three conversion paths, one fixture.
+    fn straight_rgba_converts_color_and_carries_alpha_unchanged() {
+        let row = rgba_row();
+        let width = u32::try_from(row.len() / 4).unwrap();
+        let reference = rgb_reference(&row);
+        let check = |out: &[f32], alpha: &dyn Fn(usize) -> f32, label: &str| {
+            assert_eq!(out.len(), row.len(), "{label}");
+            for (i, (pixel, rgb)) in out
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .zip(reference.as_chunks::<3>().0)
+                .enumerate()
+            {
+                assert_eq!(
+                    pixel[..3].iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                    rgb.iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                    "{label} pixel {i}"
+                );
+                assert_eq!(pixel[3].to_bits(), alpha(i).to_bits(), "{label} pixel {i}");
+            }
+        };
+        let alpha8 = |i: usize| f32::from(row[i * 4 + 3]) / 255.0;
+
+        // 8-bit input, channel-table path, direct and deferred.
+        let mut source = IccSrgbSource::new(Box::new(p3_rgba_grid(row.clone()))).unwrap();
+        assert!(source.conversion.table.is_some());
+        assert_eq!(source.info().layout, ChannelLayout::Rgba);
+        assert_eq!(source.info().alpha, AlphaMode::Straight);
+        assert_eq!(source.info().sample, SampleType::F32);
+        assert_eq!(source.info().rendered_cicp, Some([1, 8, 0, 1]));
+        let direct = read_rows(&mut source, width).pop().unwrap();
+        check(&direct, &alpha8, "u8 table");
+        let mut deferred = IccSrgbSource::new(Box::new(p3_rgba_grid(row.clone()))).unwrap();
+        let conversion = deferred.defer_conversion().unwrap();
+        let mut scratch = vec![0.0; row.len()];
+        let mut out = vec![0.0; row.len()];
+        conversion
+            .convert(DecodedRow::U8(&row), &mut scratch, &mut out)
+            .unwrap();
+        assert_eq!(out, direct);
+
+        // 8-bit input through moxcms (no table), as for LUT-based profiles.
+        let moxcms = super::IccConversion {
+            transformer: source.conversion.transformer.clone(),
+            input: SampleType::U8,
+            channels: 4,
+            table: None,
+        };
+        let mut scratch = vec![f32::NAN; row.len()];
+        let mut out = vec![f32::NAN; row.len()];
+        moxcms
+            .convert(DecodedRow::U8(&row), &mut scratch, &mut out)
+            .unwrap();
+        // Same moxcms evaluation as the opaque float path, so compare with
+        // a float RGB conversion of the same normalized samples.
+        let rgb_float: Vec<f32> = row
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .flat_map(|p| [p[0], p[1], p[2]].map(|v| f32::from(v) / 255.0))
+            .collect();
+        let mut expected = vec![0.0_f32; rgb_float.len()];
+        moxcms
+            .transformer
+            .transform(&rgb_float, &mut expected)
+            .unwrap();
+        for (i, (pixel, rgb)) in out
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(expected.as_chunks::<3>().0)
+            .enumerate()
+        {
+            assert_eq!(pixel[..3], rgb[..], "u8 moxcms pixel {i}");
+            assert_eq!(
+                pixel[3].to_bits(),
+                alpha8(i).to_bits(),
+                "u8 moxcms pixel {i}"
+            );
+        }
+
+        // Float input: moxcms path; alpha is copied bit for bit, including
+        // values the executor would later refuse (it validates, not this
+        // stage).
+        let float_alpha = [0.0_f32, 0.25, 1.0, 0.999, f32::MIN_POSITIVE, 0.5];
+        let float_row: Vec<f32> = rgb_float
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .enumerate()
+            .flat_map(|(i, p)| [p[0], p[1], p[2], float_alpha[i % float_alpha.len()]])
+            .collect();
+        let info = DecoderInfo {
+            size: Size::new(width, 1).unwrap(),
+            layout: ChannelLayout::Rgba,
+            sample: SampleType::F32,
+            access: DecodeAccess::CodecRegionRequest,
+            alpha: AlphaMode::Straight,
+            rendered_icc: Some(moxcms::ColorProfile::new_display_p3().encode().unwrap()),
+            rendered_cicp: None,
+        };
+        let float = read_rows(
+            &mut IccSrgbSource::new(Box::new(FloatRow {
+                info,
+                row: float_row,
+            }))
+            .unwrap(),
+            width,
+        )
+        .pop()
+        .unwrap();
+        for (i, (pixel, rgb)) in float
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(expected.as_chunks::<3>().0)
+            .enumerate()
+        {
+            assert_eq!(pixel[..3], rgb[..], "f32 pixel {i}");
+            assert_eq!(
+                pixel[3].to_bits(),
+                float_alpha[i % float_alpha.len()].to_bits(),
+                "f32 pixel {i}"
+            );
+        }
+
+        // A row that is not whole RGBA pixels is rejected.
+        assert_eq!(
+            conversion.convert(
+                DecodedRow::U8(&row[..row.len() - 2]),
+                &mut scratch[..row.len() - 2],
+                &mut out[..row.len() - 2]
+            ),
+            Err(Error::IncompleteDecoderOutput)
+        );
+    }
+
+    /// Issue #222: only straight alpha is admitted. Premultiplied color
+    /// would need division before the nonlinear profile curve and
+    /// unspecified alpha has no meaning; neither is guessed. Layouts other
+    /// than RGB and RGBA stay refused.
+    #[test]
+    fn non_straight_alpha_and_other_layouts_are_refused() {
+        for alpha in [
+            AlphaMode::Unspecified,
+            AlphaMode::Premultiplied,
+            AlphaMode::Opaque,
+        ] {
+            let mut grid = p3_rgba_grid(rgba_row());
+            grid.info.alpha = alpha;
+            assert_eq!(
+                IccSrgbSource::new(Box::new(grid)).map(|_| ()),
+                Err(Error::UnsupportedAlphaMode),
+                "{alpha:?}"
+            );
+        }
+        for (layout, alpha) in [
+            (ChannelLayout::Rgb, AlphaMode::Straight),
+            (ChannelLayout::Gray, AlphaMode::Opaque),
+            (ChannelLayout::GrayAlpha, AlphaMode::Straight),
+            (ChannelLayout::Cmyk, AlphaMode::Opaque),
+        ] {
+            let mut grid = p3_grid(vec![1, 2, 3]);
+            grid.info.layout = layout;
+            grid.info.alpha = alpha;
+            assert_eq!(
+                IccSrgbSource::new(Box::new(grid)).map(|_| ()),
+                Err(Error::UnsupportedCodecLayout),
+                "{layout:?} {alpha:?}"
+            );
         }
     }
 
