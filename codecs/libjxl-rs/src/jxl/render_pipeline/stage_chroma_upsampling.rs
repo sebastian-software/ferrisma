@@ -155,6 +155,12 @@ pub fn get_chroma_upsampling_stage(
     channel: usize,
     horizontal: bool,
 ) -> Box<dyn RenderPipelineStage> {
+    // HWY_DYNAMIC_DISPATCH(GetChromaUpsamplingStage) (port ADR 0004).
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return super::stage_chroma_simd::get_chroma_upsampling_stage_simd(
+            channel, horizontal, target,
+        );
+    }
     if horizontal {
         Box::new(HorizontalChromaUpsamplingStage {
             channel,

@@ -201,6 +201,58 @@ impl Target {
     }
 }
 
+/// Whether the decoder selects the SIMD paths by default (port ADR 0004,
+/// "Decoder path"). Off: the whole-decode comparison with the original's
+/// single-target SIMD build (`tests/simd_parity.rs`,
+/// `whole_decodes_with_the_simd_stages_against_the_original_target`) still
+/// differs, because the original's NEON/AVX2 build also runs its other
+/// kernels (DCT, dequantization, XYB, upsampling, output conversion, ...) as
+/// SIMD, which the port does not yet translate. Turn it on only when that
+/// test reports no differing word.
+pub const DECODER_SELECTS_SIMD: bool = false;
+
+/// [`decoder_target`] override, the counterpart of Highway's
+/// `SetSupportedTargetsForTest`: 0 follows [`DECODER_SELECTS_SIMD`], 1 is the
+/// scalar path, 2 is the detected SIMD target.
+static DECODER_TARGET_OVERRIDE: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(0);
+
+/// The target the decoder's dispatch selects, like `HWY_DYNAMIC_DISPATCH`
+/// choosing the best supported target: `None` is the scalar path (the
+/// `HWY_SCALAR` translation), otherwise [`Target::detect`] (NEON, or AVX2
+/// with Highway's complete group; never AVX-512 or SVE).
+pub fn decoder_target() -> Option<Target> {
+    use core::sync::atomic::Ordering;
+    match DECODER_TARGET_OVERRIDE.load(Ordering::Relaxed) {
+        1 => None,
+        2 => Target::detect(),
+        _ if DECODER_SELECTS_SIMD => Target::detect(),
+        _ => None,
+    }
+}
+
+/// Restrict or widen the decoder's dispatch for tests, like Highway's
+/// `SetSupportedTargetsForTest`: `Some(true)` selects the detected SIMD
+/// target, `Some(false)` the scalar path, `None` restores the default. It
+/// is process-wide; planes allocated afterwards use the selected target's
+/// row padding ([`max_vector_size`]).
+#[doc(hidden)]
+pub fn set_decoder_simd_for_test(simd: Option<bool>) {
+    use core::sync::atomic::Ordering;
+    let value = match simd {
+        None => 0,
+        Some(false) => 1,
+        Some(true) => 2,
+    };
+    DECODER_TARGET_OVERRIDE.store(value, Ordering::Relaxed);
+}
+
+/// libjxl's `MaxVectorSize()` (`simd_util.cc`, `HWY_DYNAMIC_DISPATCH` of
+/// `Lanes(HWY_FULL(float)) * sizeof(float)`): the vector bytes of the
+/// selected target, 4 for the scalar path as in the scalar reference build.
+pub fn max_vector_size() -> usize {
+    decoder_target().map_or(4, |t| 4 * t.lanes())
+}
+
 /// Run a generic kernel body for the target's descriptor, like Highway's
 /// `HWY_DYNAMIC_DISPATCH` of a `foreach_target` instantiation. On AVX2 the
 /// body runs inside a function compiled with Highway's AVX2 target features,

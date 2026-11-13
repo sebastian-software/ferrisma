@@ -77,5 +77,9 @@ impl RenderPipelineStage for YCbCrStage {
     }
 }
 pub fn get_ycbcr_stage() -> Box<dyn RenderPipelineStage> {
+    // HWY_DYNAMIC_DISPATCH(GetYCbCrStage) (port ADR 0004).
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return super::stage_chroma_simd::get_ycbcr_stage_simd(target);
+    }
     Box::new(YCbCrStage)
 }
