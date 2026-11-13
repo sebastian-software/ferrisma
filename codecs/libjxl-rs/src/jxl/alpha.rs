@@ -8,12 +8,12 @@ use super::base::float::clamp_f32;
 use super::base::float::mul_add_f32;
 pub const SMALL_ALPHA: f32 = 1.0 / (1u32 << 26) as f32;
 
-#[inline(never)]
+#[inline]
 fn mul(a: f32, b: f32) -> f32 {
     a * b
 }
 #[cfg(not(target_arch = "aarch64"))]
-#[inline(never)]
+#[inline]
 fn add(a: f32, b: f32) -> f32 {
     a + b
 }

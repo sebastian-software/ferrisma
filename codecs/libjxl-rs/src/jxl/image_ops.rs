@@ -240,15 +240,6 @@ pub fn pad_image_to_block_multiple_in_place(image: &mut Image3<f32>, block_dim: 
     Ok(())
 }
 
-// The reference x86 scalar loop keeps the accumulator as ADDSS's destination.
-// A separate call preserves that operand order in Rust debug and release;
-// inlining may commute the operands and select a different NaN payload.
-#[cfg(target_arch = "x86_64")]
-#[inline(never)]
-fn add_downsample_sample(accumulator: f32, sample: f32) -> f32 {
-    accumulator + sample
-}
-
 fn do_downsample_image(input: &Plane<f32>, factor: usize, output: &mut Plane<f32>) -> Status {
     if factor == 1 {
         return Err(StatusCode::GenericError);
@@ -273,14 +264,7 @@ fn do_downsample_image(input: &Plane<f32>, factor: usize, output: &mut Plane<f32
                     if ix + factor * x >= input.xsize() {
                         break;
                     }
-                    #[cfg(target_arch = "x86_64")]
-                    {
-                        sum = add_downsample_sample(sum, row_in[x * factor + ix]);
-                    }
-                    #[cfg(not(target_arch = "x86_64"))]
-                    {
-                        sum += row_in[x * factor + ix];
-                    }
+                    sum += row_in[x * factor + ix];
                     cnt += 1;
                 }
             }

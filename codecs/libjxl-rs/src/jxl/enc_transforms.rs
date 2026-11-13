@@ -412,11 +412,8 @@ const K4X4_AFV_BASIS_TRANSPOSE: [[f32; 16]; 16] = [
     ],
 ];
 
-// MulAdd(px, basis, scalar)'s binary32 addition. Keep the accumulator as the
-// first operand out of line: when it and the product hold different NaNs, the
-// stable reference instantiations select the accumulator's on native x86-64
-// (SSE keeps the first source) and on AArch64.
-#[inline(never)]
+// MulAdd(px, basis, scalar)'s binary32 addition, accumulator first.
+#[inline]
 fn afv_accumulate(scalar: f32, product: f32) -> f32 {
     scalar + product
 }

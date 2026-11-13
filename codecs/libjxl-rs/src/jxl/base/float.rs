@@ -138,3 +138,42 @@ pub(crate) fn clamp_f64(x: f64, low: f64, high: f64) -> f64 {
         x
     }
 }
+
+// Decision D8 leaves NaN payloads out of the gate, but a NaN's sign can reach
+// a sign test (Highway's ZeroIfNegative, `is_sign_negative`) and so decide
+// between a finite and a NaN result. LLVM may commute the operands of an
+// inlined `fadd`/`fmul`, while the original's scalar FADD/ADDSS/FMUL/MULSS
+// keep the NaN of their first source when both sources are quiet NaNs. These
+// helpers compute the source operation unchanged and only select the first
+// operand's quieted NaN when it is a NaN, so they inline without letting the
+// compiler's operand order pick the sign. Finite and infinite results, and
+// the default NaN of an invalid operation, are the plain operation's.
+/// The source's binary32 `a + b`, with first-operand NaN selection.
+#[inline]
+pub(crate) fn add_first_nan(a: f32, b: f32) -> f32 {
+    let sum = a + b;
+    if a.is_nan() { quiet_f32(a) } else { sum }
+}
+/// The source's binary32 `a - b`, with first-operand NaN selection.
+#[inline]
+pub(crate) fn sub_first_nan(a: f32, b: f32) -> f32 {
+    let difference = a - b;
+    if a.is_nan() { quiet_f32(a) } else { difference }
+}
+/// The source's binary32 `a * b`, with first-operand NaN selection.
+#[inline]
+pub(crate) fn mul_first_nan(a: f32, b: f32) -> f32 {
+    let product = a * b;
+    if a.is_nan() { quiet_f32(a) } else { product }
+}
+/// Highway scalar `operator*`: both operands promoted to binary64, the
+/// product narrowed to binary32, with first-operand NaN selection.
+#[inline]
+pub(crate) fn mul_promoted_first_nan(a: f32, b: f32) -> f32 {
+    let product = (f64::from(a) * f64::from(b)) as f32;
+    if a.is_nan() { quiet_f32(a) } else { product }
+}
+#[inline]
+fn quiet_f32(a: f32) -> f32 {
+    f32::from_bits(a.to_bits() | 0x0040_0000)
+}

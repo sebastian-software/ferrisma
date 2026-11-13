@@ -6,6 +6,7 @@
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
 };
+use crate::jxl::base::float::{add_first_nan, mul_promoted_first_nan, sub_first_nan};
 use crate::jxl::base::hwy_scalar::{floor, max, min, to_i32, zero_if_negative};
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::chroma_from_luma::ColorCorrelation;
@@ -19,25 +20,21 @@ use std::rc::Rc;
 // Derived scalar Add/Sub/operator* boundaries from hwy/ops/scalar-inl.h,
 // under licenses/HIGHWAY-BSD-3-Clause.txt. Multiplication explicitly promotes
 // both operands before narrowing, and MulAdd has separate product/add rounding.
-#[inline(never)]
+// StrengthEvalLut's ZeroIfNegative observes a NaN's sign, so these keep the
+// source's first-operand NaN selection while inlining (`base::float`).
+#[inline]
 fn add(a: f32, b: f32) -> f32 {
-    a + b
+    add_first_nan(a, b)
 }
-#[inline(never)]
+#[inline]
 fn sub(a: f32, b: f32) -> f32 {
-    a - b
+    sub_first_nan(a, b)
 }
-#[inline(never)]
-fn promote(a: f32) -> f64 {
-    f64::from(a)
-}
-#[inline(never)]
-fn multiply_and_demote(a: f64, b: f64) -> f32 {
-    (a * b) as f32
-}
+#[inline]
 fn mul(a: f32, b: f32) -> f32 {
-    multiply_and_demote(promote(a), promote(b))
+    mul_promoted_first_nan(a, b)
 }
+#[inline]
 fn mul_add(a: f32, b: f32, c: f32) -> f32 {
     add(mul(a, b), c)
 }

@@ -5,24 +5,9 @@
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
 };
-#[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
 use crate::jxl::base::float::mul_add_f32;
 use crate::jxl::base::status::{Status, StatusCode};
 use std::cell::Cell;
-
-// The selected pristine Linux x86-64 stage evaluates each scalar operation
-// separately. Keep that operand order across Rust optimization, including
-// competing NaNs, without changing the source's AArch64 contraction site.
-#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-#[inline(never)]
-fn mul(a: f32, b: f32) -> f32 {
-    a * b
-}
-#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-#[inline(never)]
-fn add(a: f32, b: f32) -> f32 {
-    a + b
-}
 
 enum Color<'a> {
     Borrowed(&'a [f32; 4]),
@@ -76,15 +61,7 @@ impl RenderPipelineStage for SpotColorStage<'_> {
             let p = self.get_input_row(input, c, 0);
             let s = self.get_input_row(input, self.spot_c, 0);
             for x in 0..width {
-                #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-                let value = {
-                    let mix = mul(scale, buffers.row(s)[x]);
-                    add(
-                        mul(mix, self.spot_color.get(c)),
-                        mul(1.0 - mix, buffers.row(p)[x]),
-                    )
-                };
-                #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
+                // The source contraction site (fused on AArch64 only).
                 let value = {
                     let mix = scale * buffers.row(s)[x];
                     mul_add_f32(mix, self.spot_color.get(c), (1.0 - mix) * buffers.row(p)[x])

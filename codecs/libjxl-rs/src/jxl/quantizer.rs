@@ -128,10 +128,9 @@ impl Quantizer {
         value
     }
     /// dequant is the same matrix owner supplied at construction.
-    // Preserve the reference's recomputation boundary. Specializing the default
-    // constructor across this call removes *1 arithmetic and retains signaling
-    // NaNs where the original recomputation quiets them. See ADR 0002.
-    #[inline(never)]
+    // Inlining may fold a *1 and keep a signaling NaN that the original
+    // recomputation quiets; NaN payloads are not gated (D8, port ADR 0002).
+    #[inline]
     pub fn recompute_from_global_scale(&mut self, dequant: &DequantMatrices) {
         self.global_scale_float =
             (self.global_scale as f64 * (1.0f64 / f64::from(GLOBAL_SCALE_DENOM))) as f32;

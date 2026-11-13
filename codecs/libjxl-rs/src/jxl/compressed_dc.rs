@@ -7,6 +7,7 @@
 //! `run_on_pool_exclusive` under a runner. Storage swaps remain explicit.
 use super::ac_context::BlockCtxMap;
 use super::base::data_parallel::{ThreadPool, run_on_pool_exclusive_no_init};
+use super::base::float::{add_first_nan, mul_promoted_first_nan};
 use super::base::rect::Rect;
 use super::base::status::Status;
 use super::frame_header::YCbCrChromaSubsampling;
@@ -23,20 +24,15 @@ const W0: f32 = 1.0 - 4.0 * (W1 + W2);
 // Use of these derived scalar helpers is governed by Highway's offered BSD
 // alternative in licenses/HIGHWAY-BSD-3-Clause.txt.
 // Scalar Mul promotes to binary64 before narrowing; MulAdd then adds separately.
-#[inline(never)]
+// The smoothing factor's ZeroIfNegative observes a NaN's sign, so these keep
+// the source's first-operand NaN selection while inlining (`base::float`).
+#[inline]
 fn add(a: f32, b: f32) -> f32 {
-    a + b
+    add_first_nan(a, b)
 }
-#[inline(never)]
-fn promote(a: f32) -> f64 {
-    f64::from(a)
-}
-#[inline(never)]
-fn multiply_and_demote(a: f64, b: f64) -> f32 {
-    (a * b) as f32
-}
+#[inline]
 fn mul(a: f32, b: f32) -> f32 {
-    multiply_and_demote(promote(a), promote(b))
+    mul_promoted_first_nan(a, b)
 }
 fn mul_add(a: f32, b: f32, c: f32) -> f32 {
     add(mul(a, b), c)

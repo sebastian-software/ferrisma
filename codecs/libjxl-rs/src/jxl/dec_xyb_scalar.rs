@@ -2,31 +2,30 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 //! One-lane XybToRgb from lib/jxl/dec_xyb-inl.h. Highway's scalar MulAdd
 //! rounds its multiplication separately, including on AArch64. The local
-//! Add/Mul/MulAdd primitives retain its source operand order across inlining.
+//! Add/Mul/MulAdd primitives keep its source operations and operand order.
+//! They inline freely: which NaN payload survives is not part of the gate
+//! (decision D8; port ADR 0002).
 // The one-lane primitives derive from hwy/ops/scalar-inl.h and
 // hwy/ops/generic_ops-inl.h: Copyright 2019 Google LLC; Copyright (c) The Highway
 // Project Authors. All rights reserved. BSD alternative notice is retained in
 // licenses/HIGHWAY-BSD-3-Clause.txt.
 use super::dec_xyb::OpsinParams;
 
-// Retain the source scalar Add/Mul operand order across native optimization.
-// These local call boundaries matter when both operands have NaN payloads.
-#[inline(never)]
+#[inline]
 fn add(a: f32, b: f32) -> f32 {
     a + b
 }
-#[inline(never)]
+#[inline]
 fn widen(value: f32) -> f64 {
     f64::from(value)
 }
-#[inline(never)]
+#[inline]
 fn mul_f64(a: f64, b: f64) -> f64 {
     a * b
 }
 // scalar-inl.h's floating operator* widens both operands to double and
-// narrows its product to the lane type. Keep these checkpoints even when
-// finite f32 products happen to round identically without the promotion.
-#[inline(never)]
+// narrows its product to the lane type, as written here.
+#[inline]
 pub(super) fn mul(a: f32, b: f32) -> f32 {
     let a = widen(a);
     let b = widen(b);
@@ -36,8 +35,7 @@ fn mul_add(a: f32, b: f32, c: f32) -> f32 {
     add(mul(a, b), c)
 }
 
-// Keep the original scalar arithmetic independent of caller inlining.
-#[inline(never)]
+#[inline]
 pub fn xyb_to_rgb(opsin_x: f32, opsin_y: f32, opsin_b: f32, params: &OpsinParams) -> [f32; 3] {
     let neg_bias_r = params.opsin_biases[0];
     let neg_bias_g = params.opsin_biases[1];

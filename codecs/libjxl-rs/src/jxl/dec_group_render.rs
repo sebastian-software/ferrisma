@@ -27,10 +27,10 @@ fn coefficient(block: &ConstAcPtr<'_>, k: usize) -> i32 {
     }
 }
 
-// Keep the selected original scalar addition's destination operand first.
-// AArch64 uses the X residual; x86_64 uses the CfL prediction for both sums.
-// The out-of-line boundary also preserves competing NaN payload selection.
-#[inline(never)]
+// The scalar addition of the dequantized residual and the CfL prediction. Its
+// operand order is that of the AArch64 mapping on every target; the order
+// only selects between competing NaN payloads, which are not gated (D8).
+#[inline]
 fn add_dequant(first: f32, second: f32) -> f32 {
     first + second
 }
@@ -57,12 +57,6 @@ pub fn dequant_lane(
     let dequant_x_cc = adjust_quant_bias(0, quantized_x_int, biases) * x_mul;
     let dequant_y = adjust_quant_bias(1, quantized_y_int, biases) * y_mul;
     let dequant_b_cc = adjust_quant_bias(2, quantized_b_int, biases) * b_mul;
-    #[cfg(target_arch = "x86_64")]
-    let (dequant_x, dequant_b) = (
-        add_dequant(x_cc_mul * dequant_y, dequant_x_cc),
-        add_dequant(b_cc_mul * dequant_y, dequant_b_cc),
-    );
-    #[cfg(not(target_arch = "x86_64"))]
     let (dequant_x, dequant_b) = (
         add_dequant(dequant_x_cc, x_cc_mul * dequant_y),
         b_cc_mul * dequant_y + dequant_b_cc,

@@ -6,9 +6,12 @@
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
 };
-use super::scalar_rows::{self as k, Broadcast, lanes};
 use crate::jxl::{
-    base::status::Status, dec_cache::SIGMA_PADDING, epf::MIN_SIGMA, image::Plane,
+    base::float::{add_first_nan, mul_first_nan, mul_promoted_first_nan},
+    base::status::Status,
+    dec_cache::SIGMA_PADDING,
+    epf::MIN_SIGMA,
+    image::Plane,
     loop_filter::LoopFilter,
 };
 
@@ -25,31 +28,30 @@ pub enum EpfStage {
 // SPDX-License-Identifier: BSD-3-Clause
 // Scalar Add, AbsDiff, MulAdd and operator* from hwy/ops/scalar-inl.h.
 // Each scalar multiplication explicitly promotes to double, then narrows.
-#[inline(never)]
+// The weights' ZeroIfNegative observes a NaN's sign, so Add and operator*
+// keep the source's first-operand NaN selection (`base::float`); AbsDiff
+// clears the sign and needs none.
+#[inline]
 fn add(a: f32, b: f32) -> f32 {
-    a + b
+    add_first_nan(a, b)
 }
-#[inline(never)]
+#[inline]
 fn sub(a: f32, b: f32) -> f32 {
     a - b
 }
-#[inline(never)]
-fn promote(a: f32) -> f64 {
-    f64::from(a)
-}
-#[inline(never)]
-fn product(a: f64, b: f64) -> f32 {
-    (a * b) as f32
-}
+#[inline]
 fn mul(a: f32, b: f32) -> f32 {
-    product(promote(a), promote(b))
+    mul_promoted_first_nan(a, b)
 }
+#[inline]
 fn ma(a: f32, b: f32, c: f32) -> f32 {
     add(mul(a, b), c)
 }
+#[inline]
 fn diff(a: f32, b: f32) -> f32 {
     sub(a, b).abs()
 }
+#[inline]
 fn weight(sad: f32, inv_sigma: f32) -> f32 {
     let v = ma(sad, inv_sigma, 1.0);
     if v.is_sign_negative() { 0.0 } else { v }
@@ -65,8 +67,6 @@ pub struct EPFStage<'a> {
     pass: EpfStage,
     /// Output rows of one call, written back after all samples are computed.
     scratch: [Vec<f32>; 3],
-    /// Intermediate rows of the row kernels (passes 1 and 2).
-    rows: EpfRows,
 }
 impl EPFStage<'_> {
     fn border(&self) -> usize {
@@ -113,7 +113,8 @@ impl RenderPipelineStage for EPFStage<'_> {
             EpfStage::One => 1.65f32,
             EpfStage::Two => (f64::from(self.lf.epf_pass2_sigma_scale) * 1.65) as f32,
         };
-        let bsm = sm * self.lf.epf_border_sad_mul;
+        // float bsm = sm * lf_.epf_border_sad_mul; its NaN sign reaches the weights.
+        let bsm = mul_first_nan(sm, self.lf.epf_border_sad_mul);
         let border = self.border() as i32;
         // Keep source row descriptors on the stack. Passes 1/2 use only the
         // first 5/3 slots; safely initialized unused slots are never observed.
@@ -128,9 +129,9 @@ impl RenderPipelineStage for EPFStage<'_> {
             }
         }
         let outs: [_; 3] = std::array::from_fn(|c| self.get_output_row(output, c, 0));
-        // Resolve every input row span once per call instead of once per tap,
-        // and stage outputs in scratch rows. Loaded values, their order and
-        // all arithmetic are unchanged; only addressing is hoisted.
+        // The original's row pointers: every input row span is resolved once
+        // per call. Outputs are staged in scratch rows because input and
+        // output rows may share a plane here.
         let spans: [[&[f32]; 7]; 3] = std::array::from_fn(|c| {
             std::array::from_fn(|i| buffers.row(Row { x: 0, ..rows[c][i] }))
         });
@@ -139,53 +140,7 @@ impl RenderPipelineStage for EPFStage<'_> {
             row.clear();
         }
         let x_begin = -(left as isize);
-        let x_end = width.wrapping_add(right) as isize;
-        if self.pass != EpfStage::Zero {
-            let n = x_end.wrapping_sub(x_begin) as usize;
-            let tap = |c: usize, y: i32, dx: isize| -> &[f32] {
-                let row = rows[c][(border + y) as usize];
-                &spans[c][(border + y) as usize][row.x.wrapping_add_signed(x_begin + dx)..]
-            };
-            let r = &mut self.rows;
-            // Per-lane copies of the sigma sample and its scale; no arithmetic.
-            let (sigma, scale) = (lanes(&mut r.sigma, n), lanes(&mut r.scale, n));
-            r.skip.clear();
-            for (i, x) in (x_begin..x_end).enumerate() {
-                let bx = (x as usize)
-                    .wrapping_add(xpos)
-                    .wrapping_add(SIGMA_PADDING * 8)
-                    / 8;
-                let ix = (x as usize).wrapping_add(xpos) % 8;
-                sigma[i] = row_sigma[bx];
-                scale[i] = if ypos % 8 == 0 || ypos % 8 == 7 || ix == 0 || ix == 7 {
-                    bsm
-                } else {
-                    sm
-                };
-                r.skip.push(row_sigma[bx] < MIN_SIGMA);
-            }
-            let scales = self.lf.epf_channel_scale;
-            match self.pass {
-                EpfStage::One => r.pass1(n, &tap, scales),
-                _ => r.pass2(n, &tap, scales),
-            }
-            for (c, out) in scratch.iter_mut().enumerate() {
-                let center = &tap(c, 0, 0)[..n];
-                let computed = &r.accum[c][..n];
-                out.extend(
-                    r.skip
-                        .iter()
-                        .zip(center.iter().zip(computed))
-                        .map(|(&skip, (&center, &value))| if skip { center } else { value }),
-                );
-            }
-        }
-        let per_sample_end = if self.pass == EpfStage::Zero {
-            x_end
-        } else {
-            x_begin
-        };
-        for x in x_begin..per_sample_end {
+        for x in x_begin..width.wrapping_add(right) as isize {
             let bx = (x as usize)
                 .wrapping_add(xpos)
                 .wrapping_add(SIGMA_PADDING * 8)
@@ -358,7 +313,6 @@ pub fn get_epf_stage<'a>(
             sigma: SigmaOwner::Borrowed(sigma),
             pass,
             scratch: Default::default(),
-            rows: EpfRows::default(),
         }))
     }
 }
@@ -378,188 +332,6 @@ pub fn get_epf_stage_shared(
             sigma: SigmaOwner::Shared(sigma),
             pass,
             scratch: Default::default(),
-            rows: EpfRows::default(),
         }))
-    }
-}
-
-/// Row form of EPF passes 1 and 2. Every lane performs the per-sample
-/// operations of `process_row` (Sub, Abs, Add, promotion and product, in the
-/// same order and with the same operands) through the out-of-line kernels of
-/// `scalar_rows`; lanes whose sigma is below `MIN_SIGMA` are computed too but
-/// replaced by their center sample, as the per-sample loop skips them.
-#[derive(Default)]
-struct EpfRows {
-    sigma: Vec<f32>,
-    scale: Vec<f32>,
-    skip: Vec<bool>,
-    /// Promoted inv_sigma = mul(sigma, scale).
-    inv_sigma: Vec<f64>,
-    sads: [Vec<f32>; 4],
-    sad_c: [Vec<f32>; 4],
-    t: Vec<f32>,
-    d: Vec<f32>,
-    tmp: Vec<f32>,
-    prod: Vec<f32>,
-    wa: Vec<f64>,
-    wb: Vec<f64>,
-    weight: Vec<f32>,
-    w: Vec<f32>,
-    accum: [Vec<f32>; 3],
-    /// 0.0, 1.0 and the three channel scales.
-    zero: Broadcast,
-    one: Broadcast,
-    channel_scale: [Broadcast; 3],
-}
-
-type Tap<'a> = dyn Fn(usize, i32, isize) -> &'a [f32] + 'a;
-
-/// `out = diff(a, b) = |a - b|`.
-fn diff_row(out: &mut Vec<f32>, n: usize, a: &[f32], b: &[f32]) {
-    k::abs_diff(lanes(out, n), a, b);
-}
-/// `acc = add(acc, diff(a, b))`.
-fn accumulate_diff(acc: &mut Vec<f32>, tmp: &mut Vec<f32>, n: usize, a: &[f32], b: &[f32]) {
-    k::add_abs_diff(lanes(tmp, n), &acc[..n], a, b);
-    std::mem::swap(acc, tmp);
-}
-/// `acc = add(acc, b)`.
-fn accumulate(acc: &mut Vec<f32>, tmp: &mut Vec<f32>, n: usize, b: &[f32]) {
-    k::add(lanes(tmp, n), &acc[..n], b);
-    std::mem::swap(acc, tmp);
-}
-/// `acc = add(product, acc)`, the addition of `ma(a, b, acc)`.
-fn accumulate_after(acc: &mut Vec<f32>, tmp: &mut Vec<f32>, n: usize, product: &[f32]) {
-    k::add(lanes(tmp, n), product, &acc[..n]);
-    std::mem::swap(acc, tmp);
-}
-/// `out = mul(a, b)` with `b` already promoted.
-fn mul_wide(out: &mut Vec<f32>, wa: &mut Vec<f64>, n: usize, a: &[f32], b: &[f64]) {
-    let wa = lanes(wa, n);
-    k::promote(wa, a);
-    k::product(lanes(out, n), wa, b);
-}
-
-impl EpfRows {
-    #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
-    fn begin(&mut self, n: usize, tap: &Tap<'_>) {
-        // inv_sigma = mul(sigma, scale), kept promoted for weight().
-        let wa = lanes(&mut self.wa, n);
-        k::promote(wa, &self.sigma);
-        let wb = lanes(&mut self.wb, n);
-        k::promote(wb, &self.scale);
-        let inv_sigma = lanes(&mut self.prod, n);
-        k::product(inv_sigma, wa, wb);
-        k::promote(lanes(&mut self.inv_sigma, n), inv_sigma);
-        lanes(&mut self.w, n).copy_from_slice(self.one.row(1.0, n));
-        for c in 0..3 {
-            lanes(&mut self.accum[c], n).copy_from_slice(&tap(c, 0, 0)[..n]);
-        }
-    }
-    /// weight = weight(sad, inv_sigma); w = add(w, weight);
-    /// accum[c] = ma(weight, candidate[c], accum[c]).
-    fn apply(&mut self, n: usize, sad: &[f32], candidate: [&[f32]; 3]) {
-        mul_wide(&mut self.t, &mut self.wa, n, sad, &self.inv_sigma);
-        let weight = lanes(&mut self.weight, n);
-        k::add(weight, &self.t, self.one.row(1.0, n));
-        for v in weight.iter_mut() {
-            if v.is_sign_negative() {
-                *v = 0.0;
-            }
-        }
-        accumulate(&mut self.w, &mut self.tmp, n, &self.weight);
-        k::promote(lanes(&mut self.wa, n), &self.weight);
-        for (c, candidate) in candidate.into_iter().enumerate() {
-            let wb = lanes(&mut self.wb, n);
-            k::promote(wb, candidate);
-            k::product(lanes(&mut self.prod, n), &self.wa, wb);
-            accumulate_after(&mut self.accum[c], &mut self.tmp, n, &self.prod);
-        }
-    }
-    /// accum[c] = mul(accum[c], 1.0 / w).
-    fn finish(&mut self, n: usize) {
-        let inv_w = lanes(&mut self.t, n);
-        for (inv, &w) in inv_w.iter_mut().zip(&self.w) {
-            *inv = 1.0 / w; // JXL_HIGH_PRECISION defaults to 1 in the pinned source.
-        }
-        let wb = lanes(&mut self.wb, n);
-        k::promote(wb, inv_w);
-        for c in 0..3 {
-            let wa = lanes(&mut self.wa, n);
-            k::promote(wa, &self.accum[c]);
-            k::product(&mut self.accum[c][..n], wa, wb);
-        }
-    }
-    fn pass1(&mut self, n: usize, tap: &Tap<'_>, scales: [f32; 3]) {
-        self.begin(n, tap);
-        for sad in &mut self.sads {
-            lanes(sad, n).copy_from_slice(self.zero.row(0.0, n));
-        }
-        for (c, &scale) in scales.iter().enumerate() {
-            let p = |dy: i32, dx: isize| &tap(c, dy, dx)[..n];
-            let (p20, p21, p11, p31) = (p(-2, 0), p(-1, 0), p(-1, -1), p(-1, 1));
-            let (p02, p12, p22, p32, p42) = (p(0, -2), p(0, -1), p(0, 0), p(0, 1), p(0, 2));
-            let (p13, p23, p33, p24) = (p(1, -1), p(1, 0), p(1, 1), p(2, 0));
-            let [s0, s1, s2, s3] = &mut self.sad_c;
-            let (t, tmp) = (&mut self.t, &mut self.tmp);
-            diff_row(s0, n, p20, p21);
-            diff_row(s1, n, p11, p21);
-            diff_row(s2, n, p31, p21);
-            accumulate_diff(s1, tmp, n, p02, p12);
-            accumulate_diff(s0, tmp, n, p11, p12);
-            diff_row(t, n, p12, p22);
-            accumulate(s1, tmp, n, t);
-            accumulate(s2, tmp, n, t);
-            diff_row(t, n, p22, p21);
-            lanes(s3, n).copy_from_slice(&t[..n]);
-            accumulate(s0, tmp, n, t);
-            accumulate_diff(s0, tmp, n, p31, p32);
-            diff_row(t, n, p22, p32);
-            accumulate(s1, tmp, n, t);
-            accumulate(s2, tmp, n, t);
-            accumulate_diff(s2, tmp, n, p42, p32);
-            accumulate_diff(s3, tmp, n, p13, p12);
-            diff_row(t, n, p22, p23);
-            accumulate(s0, tmp, n, t);
-            accumulate(s3, tmp, n, t);
-            accumulate_diff(s1, tmp, n, p13, p23);
-            accumulate_diff(s2, tmp, n, p33, p23);
-            accumulate_diff(s3, tmp, n, p33, p32);
-            accumulate_diff(s3, tmp, n, p24, p23);
-            // sads[i] = ma(sad_ic, channel_scale[c], sads[i])
-            let scale = self.channel_scale[c].promoted(scale, n);
-            for i in 0..4 {
-                mul_wide(&mut self.prod, &mut self.wa, n, &self.sad_c[i], scale);
-                accumulate_after(&mut self.sads[i], &mut self.tmp, n, &self.prod);
-            }
-        }
-        for (i, (dy, dx)) in [(-1, 0), (0, -1), (0, 1), (1, 0)].into_iter().enumerate() {
-            let sad = std::mem::take(&mut self.sads[i]);
-            self.apply(n, &sad, std::array::from_fn(|c| &tap(c, dy, dx)[..n]));
-            self.sads[i] = sad;
-        }
-        self.finish(n);
-    }
-    fn pass2(&mut self, n: usize, tap: &Tap<'_>, scales: [f32; 3]) {
-        self.begin(n, tap);
-        let center: [&[f32]; 3] = std::array::from_fn(|c| &tap(c, 0, 0)[..n]);
-        for (dy, dx) in [(-1, 0), (0, -1), (0, 1), (1, 0)] {
-            let candidate: [&[f32]; 3] = std::array::from_fn(|c| &tap(c, dy, dx)[..n]);
-            // sad = mul(diff(cand0, center0), scale0), then
-            // sad = ma(diff(cand_c, center_c), scale_c, sad) for c = 1, 2.
-            let mut sad = std::mem::take(&mut self.sads[0]);
-            diff_row(&mut self.d, n, candidate[0], center[0]);
-            let scale = self.channel_scale[0].promoted(scales[0], n);
-            mul_wide(&mut sad, &mut self.wa, n, &self.d, scale);
-            for c in 1..3 {
-                diff_row(&mut self.d, n, candidate[c], center[c]);
-                let scale = self.channel_scale[c].promoted(scales[c], n);
-                mul_wide(&mut self.prod, &mut self.wa, n, &self.d, scale);
-                accumulate_after(&mut sad, &mut self.tmp, n, &self.prod);
-            }
-            self.apply(n, &sad, candidate);
-            self.sads[0] = sad;
-        }
-        self.finish(n);
     }
 }

@@ -285,8 +285,8 @@ const AFV_BASIS: [[f32; 16]; 16] = [
         0.1135498731499429,
     ],
 ];
-// Preserve the selected original scalar AFV object's addition operands.
-#[inline(never)]
+// The original scalar AFV addition, in source operand order.
+#[inline]
 fn afv_add(first: f32, second: f32) -> f32 {
     first + second
 }
@@ -361,9 +361,8 @@ fn afv_transform_to_pixels(kind: usize, coefficients: &[f32], pixels: &mut [f32]
         &mut scratch,
     );
 }
-// Retain the original identity pixel addition's coefficient-first order when
-// both it and the DC residual contain different NaN payloads.
-#[inline(never)]
+// The original identity pixel addition, coefficient first as in the source.
+#[inline]
 fn identity_add(coefficient: f32, dc: f32) -> f32 {
     coefficient + dc
 }
