@@ -482,7 +482,8 @@ void av1_inv_txfm2d_add_8x8_c(const int32_t *input, uint16_t *output, int stride
 #define av1_inv_txfm2d_add_8x8 av1_inv_txfm2d_add_8x8_c
 
 void av1_inv_txfm_add_c(const tran_low_t *dqcoeff, uint8_t *dst, int stride, const TxfmParam *txfm_param);
-#define av1_inv_txfm_add av1_inv_txfm_add_c
+void av1_inv_txfm_add_neon(const tran_low_t *dqcoeff, uint8_t *dst, int stride, const TxfmParam *txfm_param);
+RTCD_EXTERN void (*av1_inv_txfm_add)(const tran_low_t *dqcoeff, uint8_t *dst, int stride, const TxfmParam *txfm_param);
 
 void av1_lowbd_fwd_txfm_c(const int16_t *src_diff, tran_low_t *coeff, int diff_stride, TxfmParam *txfm_param);
 #define av1_lowbd_fwd_txfm av1_lowbd_fwd_txfm_c
@@ -699,6 +700,8 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) av1_highbd_quantize_fp = av1_highbd_quantize_fp_neon;
     av1_highbd_upsample_intra_edge = av1_highbd_upsample_intra_edge_c;
     if (flags & HAS_NEON) av1_highbd_upsample_intra_edge = av1_highbd_upsample_intra_edge_neon;
+    av1_inv_txfm_add = av1_inv_txfm_add_c;
+    if (flags & HAS_NEON) av1_inv_txfm_add = av1_inv_txfm_add_neon;
     av1_upsample_intra_edge = av1_upsample_intra_edge_c;
     if (flags & HAS_NEON) av1_upsample_intra_edge = av1_upsample_intra_edge_neon;
     cdef_copy_rect8_16bit_to_16bit = cdef_copy_rect8_16bit_to_16bit_c;

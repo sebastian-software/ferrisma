@@ -41,12 +41,7 @@ extern "C-unwind" {
             *const TxfmParam,
         ) -> (),
     >;
-    fn av1_inv_txfm_add_c(
-        dqcoeff: *const tran_low_t,
-        dst: *mut uint8_t,
-        stride: core::ffi::c_int,
-        txfm_param: *const TxfmParam,
-    );
+    static mut av1_inv_txfm_add: Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
     static mut aom_highbd_subtract_block: Option<
         unsafe extern "C-unwind" fn(
             core::ffi::c_int,
@@ -9336,7 +9331,7 @@ unsafe extern "C-unwind" fn encode_block_pass1(
                 )(dqcoeff, dst, (*pd).dst.stride, &raw mut txfm_param);
             return;
         }
-        av1_inv_txfm_add_c(dqcoeff, dst, (*pd).dst.stride, &raw mut txfm_param);
+        av1_inv_txfm_add.expect("non-null function pointer")(dqcoeff, dst, (*pd).dst.stride, &raw mut txfm_param);
     }
 }
 #[no_mangle]

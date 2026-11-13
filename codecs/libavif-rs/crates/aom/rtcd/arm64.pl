@@ -239,6 +239,7 @@ my %ported_neon = map { $_ => 1 } qw/
   av1_highbd_inv_txfm_add
   av1_highbd_quantize_fp
   av1_highbd_upsample_intra_edge
+  av1_inv_txfm_add
   av1_upsample_intra_edge
   cdef_copy_rect8_16bit_to_16bit
   cdef_copy_rect8_8bit_to_16bit

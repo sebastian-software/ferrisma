@@ -13,6 +13,7 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
+    static mut av1_inv_txfm_add: Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
     pub type aom_internal_error_info;
     static mut av1_highbd_inv_txfm_add: Option<
         unsafe extern "C-unwind" fn(
@@ -1802,6 +1803,6 @@ pub unsafe extern "C-unwind" fn av1_inverse_transform_block(
         av1_highbd_inv_txfm_add
             .expect("non-null function pointer")(dqcoeff, dst, stride, &raw mut txfm_param);
     } else {
-        av1_inv_txfm_add_c(dqcoeff, dst, stride, &raw mut txfm_param);
+        av1_inv_txfm_add.expect("non-null function pointer")(dqcoeff, dst, stride, &raw mut txfm_param);
     };
 }

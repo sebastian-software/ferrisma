@@ -750,6 +750,8 @@ extern "C-unwind" {
         out1: *mut core::ffi::c_int,
         out2: *mut core::ffi::c_int,
     );
+    fn av1_inv_txfm_add_c(dqcoeff: *const tran_low_t, dst: *mut uint8_t, stride: core::ffi::c_int, txfm_param: *const TxfmParam);
+    fn av1_inv_txfm_add_neon(dqcoeff: *const tran_low_t, dst: *mut uint8_t, stride: core::ffi::c_int, txfm_param: *const TxfmParam);
     fn aom_arm_cpu_caps() -> core::ffi::c_int;
 }
 pub type ptrdiff_t = isize;
@@ -1093,6 +1095,8 @@ pub static mut av1_highbd_quantize_fp: Option<
 pub static mut av1_highbd_upsample_intra_edge: Option<
     unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> (),
 > = None;
+#[no_mangle]
+pub static mut av1_inv_txfm_add: Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()> = None;
 #[no_mangle]
 pub static mut av1_upsample_intra_edge: Option<
     unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int) -> (),
@@ -2547,6 +2551,10 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                     core::ffi::c_int,
                 ) -> (),
             >;
+    }
+    av1_inv_txfm_add = Some(av1_inv_txfm_add_c as unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_inv_txfm_add = Some(av1_inv_txfm_add_neon as unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
     }
     av1_upsample_intra_edge = Some(
         av1_upsample_intra_edge_c
