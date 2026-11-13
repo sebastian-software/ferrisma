@@ -377,3 +377,10 @@ target_sources(jxl_oracle PRIVATE decoder_public_simd.cc)
 # ADR 0004 Plan item 2). The TU only calls the original's exported kernels.
 target_sources(jxl_oracle PRIVATE modular_simd.cc)
 # end modular
+# stages2: requests of the SIMD upsampling, noise, blending and splines
+# stages (port ADR 0004 Plan item 1). The TU only calls the original's
+# public stage factories and pipelines; it calls the protected
+# PrepareForThreads of a single stage, as upsampling.inc does.
+target_sources(jxl_oracle PRIVATE render_stages2_simd.cc)
+set_source_files_properties(render_stages2_simd.cc PROPERTIES COMPILE_OPTIONS "-fno-access-control")
+# end stages2

@@ -37,3 +37,7 @@ pub mod stage_from_linear_simd;
 mod stage_write_simd;
 pub mod stage_xyb_simd;
 // end render stages
+// stages2: SIMD upsampling, noise, blending and splines stages of ADR 0004
+// Plan item 1.
+pub mod stage_upsampling_simd;
+// end stages2

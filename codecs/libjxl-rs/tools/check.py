@@ -189,6 +189,9 @@ SIMD_TESTS += ["simd_public"]
 # modular
 SIMD_TESTS += ["simd_modular"]
 # end modular
+# stages2
+SIMD_TESTS += ["simd_stages2"]
+# end stages2
 SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 
