@@ -86,6 +86,11 @@ LEVELS = {
     'scalar': ({'AOM_SIMD_CAPS_MASK': '0'}, 'c', 'generic', {}),
 }
 HOST_LEVELS = ['neon', 'scalar'] if MACOS else ['avx2', 'sse4.1', 'scalar']
+# On macOS ARM64, `--x86-64 --docker-image IMAGE` runs the port's GNU Linux
+# x86-64 build in an x86-64 container (Rosetta 2 for Linux) and the x86-64
+# originals under Rosetta 2 on macOS. Rosetta for Linux does not execute AVX
+# (an AVX2 kernel stops with SIGILL), so only these levels run there.
+CROSS_LEVELS = ['sse4.1', 'scalar']
 
 
 def case(speed=6, depth=10, yuv444=False, quality=56, threads=1, alpha=False):
@@ -153,9 +158,9 @@ def dog_photo(work):
                         purpose='photograph of issue #203 at its settings')
 
 
-def build_libavif():
+def build_libavif(arch):
     """The original C libavif (no libaom inside; linked per level)."""
-    build = ROOT / f'build/libavif-c-{ARCH}-release'
+    build = ROOT / f'build/libavif-c-{arch}-release'
     archive = build / 'libavif_internal.a'
     flags = '-ffp-contract=off'
     command = ['cmake', '-S', ROOT / 'upstream/libavif', '-B', build, '-DCMAKE_BUILD_TYPE=Release',
@@ -165,6 +170,8 @@ def build_libavif():
                '-DAVIF_BUILD_TESTS=OFF', '-DAVIF_BUILD_EXAMPLES=OFF',
                f'-DAOM_INCLUDE_DIR={ROOT / "build/aom-native-source"}',
                f'-DAOM_LIBRARY={reference_build("release") / "libaom.a"}']
+    if MACOS and arch == 'x86_64':
+        command.append('-DCMAKE_OSX_ARCHITECTURES=x86_64')
     if shutil.which('ninja'):
         command += ['-G', 'Ninja']
     if not archive.exists():
@@ -177,11 +184,13 @@ def build_libavif():
                                'neither is reached with the default chroma downsampling'))
 
 
-def original_tools(build_name, libavif):
-    profile_dir = reference_build('release', build_name)
+def original_tools(build_name, libavif, arch):
+    cross = MACOS and arch == 'x86_64'
+    profile_dir = reference_build('release', build_name, False, cross)
     profile_path = profile_dir / 'reference-profile.json'
     if not profile_path.exists():
-        option = [] if build_name == 'generic' else ['--simd', build_name]
+        option = (['--x86-64'] if cross and build_name == 'generic' else []) + (
+            [] if build_name == 'generic' else ['--simd', build_name])
         raise SystemExit(f'Missing original {build_name} reference: run '
                          f'python3 tools/build_aom.py --library-only {" ".join(option)}')
     profile = json.loads(profile_path.read_text())
@@ -189,9 +198,9 @@ def original_tools(build_name, libavif):
         raise SystemExit(f'{profile_dir} is not the noncontracting {build_name} reference')
     tools = {}
     for name in ['encode_still', 'decode_still']:
-        binary = WORK / 'bin' / f'{name}-{build_name}'
+        binary = WORK / 'bin' / f'{name}-{build_name}-{arch}'
         binary.parent.mkdir(parents=True, exist_ok=True)
-        run([os.environ.get('CC', 'cc'), '-O2', '-ffp-contract=off', '-I', ROOT / 'upstream/libavif/include',
+        run([os.environ.get('CC', 'cc'), *(['-arch', 'x86_64'] if cross else []), '-O2', '-ffp-contract=off', '-I', ROOT / 'upstream/libavif/include',
              ROOT / f'tools/{name}.c', libavif, profile_dir / 'libaom.a', '-lm', '-lpthread', '-o', binary])
         tools[name] = binary
     return tools, dict(build=str(profile_dir.relative_to(ROOT)), options=profile['options'],
@@ -203,6 +212,13 @@ def original_tools(build_name, libavif):
 def port_tools(args):
     if args.port_bin:
         return {name: args.port_bin / name for name in ['encode_still', 'decode_planes']}
+    if args.x86_64:
+        target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT.parents[1] / 'target'))
+        tools = {name: target / 'x86_64-unknown-linux-gnu/release/examples' / name
+                 for name in ['encode_still', 'decode_planes']}
+        if not all(path.exists() for path in tools.values()):
+            raise SystemExit('Build the port for x86-64 GNU Linux first; see tools/docker_x86_64_linux_cc.sh')
+        return tools
     run(['cargo', 'build', '--release', '--locked', '--example', 'encode_still', '--example', 'decode_planes'],
         cwd=ROOT)
     target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT.parents[1] / 'target'))
@@ -221,11 +237,21 @@ def arguments(settings):
             + (['--alpha'] if settings['alpha'] else []))
 
 
-def one_case(level, port, original, image, name, settings, directory):
+def in_container(image, command, env):
+    """The port command in an x86-64 GNU Linux container; Colima shares $HOME."""
+    if image is None:
+        return command
+    flags = [item for key, value in env.items() for item in ('-e', f'{key}={value}')]
+    return ['docker', 'run', '--rm', '--platform', 'linux/amd64', '-v', f'{Path.home()}:{Path.home()}',
+            '-w', ROOT, *flags, image, *command]
+
+
+def one_case(level, port, original, image, name, settings, directory, container=None):
     port_env, want_rtcd, _, original_env = LEVELS[level]
     directory.mkdir(parents=True, exist_ok=True)
     port_avif, c_avif = directory / 'port.avif', directory / 'c.avif'
-    result = run([port['encode_still'], image, port_avif, *arguments(settings), '--report-rtcd'],
+    result = run(in_container(container, [port['encode_still'], image, port_avif, *arguments(settings),
+                                          '--report-rtcd'], port_env),
                  env=environment(port_env), capture_output=True, text=True)
     rtcd = dict(line.split('=', 1) for line in result.stdout.split() if '=' in line)['rtcd']
     run([original['encode_still'], image, c_avif, *arguments(settings)], env=environment(original_env),
@@ -234,7 +260,8 @@ def one_case(level, port, original, image, name, settings, directory):
     decoded = {}
     for side, tool, env in [('port', port['decode_planes'], port_env), ('c', original['decode_still'], original_env)]:
         planes, rgb = directory / f'{side}.planes', directory / f'{side}.rgb'
-        run([tool, port_avif, planes, rgb], env=environment(env), capture_output=True)
+        run(in_container(container if side == 'port' else None, [tool, port_avif, planes, rgb], env),
+            env=environment(env), capture_output=True)
         decoded[side] = (digest(planes.read_bytes()), digest(rgb.read_bytes()))
     record = dict(level=level, image=name, **settings, port_rtcd=rtcd, port_bytes=len(port_bytes),
                   c_bytes=len(c_bytes), port_avif_sha256=digest(port_bytes), c_avif_sha256=digest(c_bytes),
@@ -261,24 +288,32 @@ def main():
     parser.add_argument('--image', type=Path, action='append', default=[],
                         help='Additional 24- or 32-bit BMP, encoded with the issue #203 settings')
     parser.add_argument('--port-bin', type=Path, help='Directory with already built encode_still and decode_planes')
+    parser.add_argument('--x86-64', action='store_true',
+                        help='On macOS ARM64: the x86-64 levels, with the port in --docker-image and the '
+                             'originals under Rosetta 2')
+    parser.add_argument('--docker-image', help='x86-64 GNU Linux image with glibc that runs the port (--x86-64)')
     parser.add_argument('--jobs', type=int, default=4)
     parser.add_argument('--output', type=Path, help='Report path (default: build/aom-simd-original-<host>.json)')
     args = parser.parse_args()
     if not (MACOS or LINUX):
         raise SystemExit('The port runs on macOS ARM64 and x86-64 GNU Linux only (crates/aom/src/lib.rs)')
-    levels = args.level or HOST_LEVELS
-    unsupported = [level for level in levels if level not in HOST_LEVELS]
+    if args.x86_64 and not (MACOS and args.docker_image):
+        raise SystemExit('--x86-64 runs on macOS ARM64 with --docker-image')
+    arch = 'x86_64' if args.x86_64 else ARCH
+    available = CROSS_LEVELS if args.x86_64 else HOST_LEVELS
+    levels = args.level or available
+    unsupported = [level for level in levels if level not in available]
     if unsupported:
-        raise SystemExit(f'Levels {unsupported} do not run on this host; it runs {HOST_LEVELS}')
+        raise SystemExit(f'Levels {unsupported} do not run on this host; it runs {available}')
 
     started = time.monotonic()
     WORK.mkdir(parents=True, exist_ok=True)
-    libavif, libavif_record = build_libavif()
+    libavif, libavif_record = build_libavif(arch)
     originals, provenance = {}, {}
     for level in levels:
         build_name = LEVELS[level][2]
         if build_name not in originals:
-            originals[build_name], provenance[build_name] = original_tools(build_name, libavif)
+            originals[build_name], provenance[build_name] = original_tools(build_name, libavif, arch)
     port = port_tools(args)
 
     images, corpus, cases = {}, [], []
@@ -309,8 +344,9 @@ def main():
         for level in levels:
             original = originals[LEVELS[level][2]]
             for index, (name, settings) in enumerate(cases):
-                directory = WORK / 'cases' / level / f'{index:03d}'
-                jobs.append(pool.submit(one_case, level, port, original, images[name], name, settings, directory))
+                directory = WORK / 'cases' / arch / level / f'{index:03d}'
+                jobs.append(pool.submit(one_case, level, port, original, images[name], name, settings, directory,
+                                        args.docker_image if args.x86_64 else None))
         records = []
         for job in jobs:
             record = job.result()
@@ -327,6 +363,9 @@ def main():
         check=('Port against the original at the same SIMD level (decision D4): AVIF bytes of a still encode, '
                'and decoded planes and RGB of the port AVIF, through the same libavif calls'),
         host=dict(system=platform.platform(), machine=platform.machine()),
+        target=dict(arch=arch, port=('x86-64 GNU Linux build in ' + args.docker_image + ' (Rosetta 2 for Linux)'
+                                     if args.x86_64 else 'native'),
+                    originals='x86-64 macOS under Rosetta 2' if args.x86_64 else 'native'),
         levels={level: dict(port_environment=LEVELS[level][0], port_rtcd=LEVELS[level][1],
                             original=LEVELS[level][2], original_environment=LEVELS[level][3])
                 for level in levels},
@@ -335,7 +374,9 @@ def main():
                   rustc=subprocess.run(['rustc', '--version'], capture_output=True, text=True).stdout.strip()),
         corpus=corpus, summary=summary, seconds=round(time.monotonic() - started, 1),
         cases=records, failed=[f'{r["level"]} {label(r["image"], r)}: {"; ".join(r["problems"])}' for r in failures])
-    output = args.output or ROOT / f'build/aom-simd-original-{"macos-aarch64" if MACOS else "linux-x86_64"}.json'
+    output = args.output or ROOT / ('build/aom-simd-original-'
+                                    + ('rosetta-x86_64' if args.x86_64 else 'macos-aarch64' if MACOS else 'linux-x86_64')
+                                    + '.json')
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2) + '\n')
     for level, counts in summary.items():

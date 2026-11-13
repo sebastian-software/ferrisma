@@ -76,6 +76,18 @@ python3 tools/check_abi.py --build build/baseline-aom-reference
 python3 tools/smoke_shared.py
 ```
 
+The SIMD-against-SIMD gate compares the AOM port with the original's own
+SIMD build at the same level: Neon against the Neon-only original and the
+scalar path against the generic original on macOS ARM64, AVX2, SSE4.1 and
+scalar on GNU Linux x86-64 (still encode bytes, decoded planes and RGB; see
+[ADR 0056](docs/adr/0056-dispatch-hand-translated-aom-simd-through-translated-rtcd.md)):
+
+```sh
+python3 tools/build_aom.py --library-only
+python3 tools/build_aom.py --library-only --simd neon   # --simd avx2 on x86-64
+python3 tools/check_aom_simd_original.py
+```
+
 The recorded default-configuration runs passed the same 64 upstream test registrations in C
 and Rust. The recorded complete supported-feature configuration passed 70 registrations
 containing 9,555 GoogleTest cases, plus the original C and shell integration
