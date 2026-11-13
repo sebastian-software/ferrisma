@@ -44,11 +44,10 @@ C by one in a few bytes and now match libwebp's NEON build. Modules:
 `lossless_neon`, `lossless_enc_neon`, `rescaler_neon`, `upsampling_neon`,
 `yuv_neon`, `sharpyuv_neon`.
 
-Proven in the `neon` mode (native, release profile, 2026-11-13): the whole
-differential suite, 410 tests passed, 0 failed (before the later
-test-domain commits; the changed tests `wp4_filters`, `wp4_rescaler`,
-`wp5_cpu`, `wp5_dsp`, `wp6_decode` and `wp11_lossless_enc` were rerun in the
-`neon` mode and pass). The scalar mode: 367 passed, 0 failed.
+Proven on AArch64 (native, my run of `python3 tools/check.py --stage test
+--oracle` on 2026-11-13, after the #252 probe fix): the `neon` mode 411 tests
+passed, 0 failed, and the scalar mode 368 passed, 0 failed, in each of the
+dev, release and checked profiles (2,337 in all).
 
 ## x86-64
 
@@ -71,19 +70,41 @@ No x86 SIMD file of libwebp v1.6.0 remains untranslated; libwebp has no
 AVX-512 code. The encoder variants also have the Rust-against-Rust parity test
 `tests/wp19_parity.rs`.
 
-Proven under Rosetta 2 (release profile, 2026-11-13): `avx2` 376 tests
-passed, 0 failed; `sse41` and `sse2` 375 passed and 1 failed each
-(`wp5_cpu`: the probe read libsharpyuv's own `SharpYuvGetCPUInfo`, which the
-level cap did not wrap yet). After `simd_level_sharpyuv.c` was added,
-`wp5_cpu`, `wp5_dsp` and `wp20_sharpyuv` pass in all three modes; the full
-suites were not rerun after that fix. The x86-64 scalar mode was interrupted
-after 71 passing tests and has no complete result.
+Proven under Rosetta 2, as reported in #89 on 2026-11-13 for `54a0c458`:
+the scalar, `avx2`, `sse41` and `sse2` modes pass in the dev, release and
+checked profiles, 4,488 tests passed, 0 failed. This replaces the earlier
+partial record (interrupted scalar mode, `wp5_cpu` failures before
+`simd_level_sharpyuv.c`). Rosetta 2 does not fault on misaligned SSE loads,
+so this result could not show #252 (below).
+
+Native Linux x86-64 (hosted nightly run 43401560676 on `dbf7b095`, Clang
+21.1.8, #252): the scalar variants pass; the `avx2` mode fails at once because
+the `wp10/dsp` probe crashes (SIGSEGV), so `sse41` and `sse2` did not run. The
+cause was the probe, not libwebp or the port: it handed libwebp's SSE2 luma
+predictors left and top rows at arbitrary byte offsets, which
+`enc_sse2.c` reads with `_mm_load_si128` (`movdqa`), while libwebp's encoder
+always passes 32-byte aligned rows. The probe now copies the same bytes into
+aligned rows (2026-11-13); no hosted rerun had finished when this was written.
+
+## Whole-pipeline gate
+
+`tests/wp13_tools.rs` runs in every gate mode, so in each `release-simd` mode
+it compares the Rust-linked `cwebp` (the port's SIMD build) with libwebp's
+SIMD `cwebp` at the same capped level: `test_cwebp.sh` in three option sets,
+by default and with `-noasm`, and an option matrix of files, reports and exit
+statuses. `the_cwebp_builds_follow_the_oracle_variant` fails if the
+Rust-linked `cwebp` was linked against the scalar build in a SIMD mode, or the
+reverse. Local run, `neon` mode (2026-11-13): 140 inputs,
+280 identical outputs in each of the three `test_cwebp.sh` sets and 405
+identical matrix runs; no difference from libwebp's SIMD build. The x86-64
+modes ran this test under Rosetta in the 4,488 above; natively it has not run
+yet (#252).
 
 ## Not covered
 
-- The gate ran the release profile per mode locally; `tools/check.py` runs the
-  dev, release and checked profiles. The hosted Linux x86-64 run of decision D7
-  (native AVX2) has not run yet.
+- Native x86-64: no complete hosted Linux run yet (#252, above). Until one
+  passes, the x86-64 SIMD result rests on Rosetta 2, which emulates AVX2 and
+  ignores SSE alignment faults.
 - On the x86-64 cross build on macOS the oracle's tools read no PNG, JPEG, TIFF
   or GIF (the host's libraries are ARM64 only); the tool tests pick their
   inputs by what the oracle's `cwebp` reads.
