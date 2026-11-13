@@ -95,6 +95,7 @@ file(GLOB PACKAGE_DIRS LIST_DIRECTORIES true CONFIGURE_DEPENDS "${CMAKE_CURRENT_
 # before probes/wp13/oracle.cmake uses them.
 list(SORT PACKAGE_DIRS)
 set(ALL_PROBES)
+set(C_PROBES)
 foreach(package_dir ${PACKAGE_DIRS})
   if(NOT IS_DIRECTORY "${package_dir}")
     continue()
@@ -118,6 +119,7 @@ foreach(package_dir ${PACKAGE_DIRS})
       OUTPUT_NAME ${name}
       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/probes/${package}")
     list(APPEND ALL_PROBES ${target})
+    list(APPEND C_PROBES ${target})
   endforeach()
   # A package may add further targets, for example a consumer build of an
   # upstream tool against the Rust library. The fragment sees package,
@@ -144,6 +146,15 @@ foreach(target ${ALL_PROBES})
   if(type STREQUAL "EXECUTABLE")
     target_link_libraries(${target} PRIVATE oracle_simd_level)
   endif()
+endforeach()
+# The C probes link upstream's libsharpyuv, whose own query pointer
+# SharpYuvGetCPUInfo simd_level_sharpyuv.c caps the same way.
+add_library(oracle_simd_level_sharpyuv OBJECT probe_support/simd_level_sharpyuv.c)
+target_include_directories(oracle_simd_level_sharpyuv PRIVATE
+  "${UPSTREAM}" "${CMAKE_BINARY_DIR}/libwebp" "${CMAKE_BINARY_DIR}/libwebp/src")
+target_compile_definitions(oracle_simd_level_sharpyuv PRIVATE ${UPSTREAM_DEFINITIONS})
+foreach(target ${C_PROBES})
+  target_link_libraries(${target} PRIVATE oracle_simd_level_sharpyuv)
 endforeach()
 
 add_custom_target(oracle_probes)
