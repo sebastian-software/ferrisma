@@ -4417,7 +4417,8 @@ uint64_t aom_sum_squares_i16_neon(const int16_t *src, uint32_t N);
 RTCD_EXTERN uint64_t (*aom_sum_squares_i16)(const int16_t *src, uint32_t N);
 
 uint64_t aom_sum_sse_2d_i16_c(const int16_t *src, int src_stride, int width, int height, int *sum);
-#define aom_sum_sse_2d_i16 aom_sum_sse_2d_i16_c
+uint64_t aom_sum_sse_2d_i16_neon(const int16_t *src, int src_stride, int width, int height, int *sum);
+RTCD_EXTERN uint64_t (*aom_sum_sse_2d_i16)(const int16_t *src, int src_stride, int width, int height, int *sum);
 
 void aom_v_predictor_16x16_c(uint8_t *dst, ptrdiff_t y_stride, const uint8_t *above, const uint8_t *left);
 void aom_v_predictor_16x16_neon(uint8_t *dst, ptrdiff_t y_stride, const uint8_t *above, const uint8_t *left);
@@ -5424,6 +5425,8 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) aom_sum_squares_2d_i16 = aom_sum_squares_2d_i16_neon;
     aom_sum_squares_i16 = aom_sum_squares_i16_c;
     if (flags & HAS_NEON) aom_sum_squares_i16 = aom_sum_squares_i16_neon;
+    aom_sum_sse_2d_i16 = aom_sum_sse_2d_i16_c;
+    if (flags & HAS_NEON) aom_sum_sse_2d_i16 = aom_sum_sse_2d_i16_neon;
     aom_v_predictor_16x16 = aom_v_predictor_16x16_c;
     if (flags & HAS_NEON) aom_v_predictor_16x16 = aom_v_predictor_16x16_neon;
     aom_v_predictor_16x32 = aom_v_predictor_16x32_c;

@@ -255,13 +255,7 @@ extern "C-unwind" {
     ) -> core::ffi::c_int;
     static mut aom_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
     static mut aom_sum_squares_2d_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
-    fn aom_sum_sse_2d_i16_c(
-        src: *const int16_t,
-        src_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-        sum: *mut core::ffi::c_int,
-    ) -> uint64_t;
+    static mut aom_sum_sse_2d_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t>;
     fn av1_cost_coeffs_txb(
         x: *const MACROBLOCK,
         plane: core::ffi::c_int,
@@ -19879,7 +19873,7 @@ unsafe extern "C-unwind" fn pixel_diff_stats(
         let mut diff: *const int16_t = (*x).plane[plane as usize].src_diff;
         diff = diff.offset((blk_row * diff_stride + blk_col << MI_SIZE_LOG2) as isize);
         let mut sum: core::ffi::c_int = 0 as core::ffi::c_int;
-        sse = aom_sum_sse_2d_i16_c(
+        sse = aom_sum_sse_2d_i16.expect("non-null function pointer")(
             diff,
             diff_stride,
             visible_cols,
