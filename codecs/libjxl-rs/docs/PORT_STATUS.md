@@ -122,6 +122,10 @@ SIMD target forced. The default selection stays off until the per-target
 conditions of ADR 0004 "Decoder path" hold (all reachable exports, public
 decoder and low-memory pipeline comparison, a scalar gate that forces the
 scalar path, real x86-64 evidence for AVX2).
+First hosted AVX2 run (2026-11-13): oracle adapters fixed to give the
+original aligned buffers and group-aligned DC rectangles as its callers do;
+the SIMD path now fuses the CfL ratio as the original's AVX2
+DecodeGroupImpl does (ADR 0004). AVX2 re-run pending.
 <!-- end vardct kernels -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)

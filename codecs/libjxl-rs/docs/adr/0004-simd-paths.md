@@ -386,4 +386,39 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   compares with. The whole-decode test now asserts these zero differences
   with the SIMD target forced; the conditions for the default selection are
   in "Decoder path".
+- **First native AVX2 run (2026-11-13, hosted Linux x86-64, run
+  43502660563).** The SIMD oracle crashed (SIGSEGV) in `dct-pixels`,
+  `dct-llf`, `dq-block` and `vdc-dequant`: the adapters handed the original
+  buffers that are not shaped like its callers'. The aligned moves of the
+  x86-64 AVX2 objects (`objdump`, inline frames by `llvm-dwarfdump
+  --lookup`) are CoeffBundle/DCT1DImpl's `Load`/`Store` on the transform
+  `tmp` (`dct-inl.h` 53-174; scratch, aligned `scratch_space` in libjxl),
+  DequantLane's `Load(di, qblock)` and `Store(block)` (`dec_group.cc`
+  136-138, 150-152; aligned coefficient storage and `dec_group_block`), and
+  DequantDC's `Store` at `dc row + r.x0()` (`compressed_dc.cc` 292-294,
+  311; DC-group rectangles start at multiples of 256). `dct.cc` and
+  `dequant.cc` now allocate their owners with `hwy::AllocateAligned`
+  (`aligned_vector.h`), and `vdc-dequant` requests start their rectangles at
+  x0 0 or 256; observed words are unchanged. `dct-scaled`, `dct-llf` share
+  `dct.cc`; `dq-bias` uses no memory; `qac-compute` and `vdc-smooth` use
+  libjxl's own owners (both passed on AVX2).
+- **Whole decode on AVX2 differed** in 1-5 % of the float words of the 16
+  larger files (the eight 65x33 files matched). Found by reading the code:
+  DecodeGroupImpl computes `YtoXRatio`/`YtoBRatio`
+  (`base + x_factor * color_scale`, chroma_from_luma.h) inside
+  `HWY_NAMESPACE`, so the AVX2 instantiation contracts it with FMA (as the
+  NEON one does); the port used the x86 scalar build's unfused form on the
+  SIMD path. The SIMD path now fuses it on both targets
+  (`y_to_x_ratio_simd`). It matters only where a tile's CfL factor is not
+  zero. AVX2 evidence is pending. Remaining risk on that gate: the AVX2
+  oracle is a static AVX2 build, so it also contracts scalar code outside
+  `HWY_NAMESPACE` (for example RecomputeDCFactors), which upstream's dispatch
+  build and the port do not (see "Consequences").
+- **8-lane structure, native.** `tests/simd_vardct_lanes8.rs` runs the
+  generic kernels with an 8-lane descriptor of two NEON halves (lane-wise
+  NEON semantics) against NEON's 4 lanes: transforms (all shapes and
+  strategies, LLF) 1,120 cases, DequantBlock 162, DC smoothing, DequantDC
+  rows and quant weights 929; equal words (NaN-equal). That covers the
+  8-lane loop bounds, `Part<4>` transforms, one-lane ranges and tails; it
+  does not test AVX2's own instructions.
 <!-- end vardct kernels -->

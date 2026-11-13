@@ -81,11 +81,12 @@ fn pixel<D: SimdF32>(
 
 /// One smoothed row of `rows.len()` channels into `out` (xsize samples
 /// each, borders copied).
-struct SmoothRow<'a> {
-    dc_factors: &'a [f32],
-    rows: &'a [[&'a [f32]; 3]],
-    xsize: usize,
-    out: &'a mut [Vec<f32>],
+#[doc(hidden)]
+pub struct SmoothRow<'a> {
+    pub dc_factors: &'a [f32],
+    pub rows: &'a [[&'a [f32]; 3]],
+    pub xsize: usize,
+    pub out: &'a mut [Vec<f32>],
 }
 impl Kernel for SmoothRow<'_> {
     type Output = ();
@@ -228,13 +229,14 @@ fn load_i32<D: SimdF32>(d: D, values: &[i32]) -> D::I {
 }
 
 /// One DequantDC row: `quant` rows (y, x, b order as `out`), `n` samples.
-struct DequantRow<'a> {
-    cfl: Option<[f32; 2]>,
-    factors: [f32; 3],
-    quant: [&'a [i32]; 3],
-    out: [&'a mut [f32]; 3],
-    n: usize,
-    channels: usize,
+#[doc(hidden)]
+pub struct DequantRow<'a> {
+    pub cfl: Option<[f32; 2]>,
+    pub factors: [f32; 3],
+    pub quant: [&'a [i32]; 3],
+    pub out: [&'a mut [f32]; 3],
+    pub n: usize,
+    pub channels: usize,
 }
 impl Kernel for DequantRow<'_> {
     type Output = ();

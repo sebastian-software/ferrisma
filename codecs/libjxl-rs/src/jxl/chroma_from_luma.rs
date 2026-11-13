@@ -59,6 +59,17 @@ impl ColorCorrelation {
     pub fn y_to_b_ratio(&self, factor: i32) -> f32 {
         mul_add_f32(factor as f32, self.color_scale, self.base_correlation_b)
     }
+    // vardct kernels: YtoXRatio/YtoBRatio inlined into a SIMD target's
+    // DecodeGroupImpl (HWY_NAMESPACE, whose target attributes include FMA on
+    // NEON and AVX2): Clang contracts `base + x_factor * color_scale` to one
+    // fused operation on both targets, also on x86-64 where the scalar
+    // build cannot (port ADR 0004).
+    pub fn y_to_x_ratio_simd(&self, factor: i32) -> f32 {
+        (factor as f32).mul_add(self.color_scale, self.base_correlation_x)
+    }
+    pub fn y_to_b_ratio_simd(&self, factor: i32) -> f32 {
+        (factor as f32).mul_add(self.color_scale, self.base_correlation_b)
+    }
     pub fn is_jpeg_compatible(&self) -> bool {
         self.base_correlation_x == 0.0
             && self.base_correlation_b == 0.0

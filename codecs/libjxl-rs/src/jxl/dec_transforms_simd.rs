@@ -138,8 +138,9 @@ fn idct2_top_block(s: usize, block: &mut [f32]) {
 
 /// TransformToPixels for the descriptor's target; the contract of
 /// [`super::dec_transforms::transform_to_pixels`].
+#[doc(hidden)]
 #[inline(always)]
-pub(crate) fn transform_to_pixels_d<D: SimdF32>(
+pub fn transform_to_pixels_d<D: SimdF32>(
     d: D,
     kind: AcStrategyType,
     coefficients: &mut [f32],
@@ -287,8 +288,9 @@ pub(crate) fn transform_to_pixels_d<D: SimdF32>(
 
 /// LowestFrequenciesFromDC for the descriptor's target; the contract of
 /// [`super::dec_transforms::lowest_frequencies_from_dc`].
+#[doc(hidden)]
 #[inline(always)]
-pub(crate) fn lowest_frequencies_from_dc_d<D: SimdF32>(
+pub fn lowest_frequencies_from_dc_d<D: SimdF32>(
     d: D,
     kind: AcStrategyType,
     dc: &[f32],

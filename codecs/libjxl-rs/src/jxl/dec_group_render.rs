@@ -237,8 +237,18 @@ pub fn decode_group_impl(
         let mut bx = 0;
         for tx in 0..xsize_blocks.div_ceil(COLOR_TILE_DIM_IN_BLOCKS) {
             let abs_tx = tx + block_rect.x0() / COLOR_TILE_DIM_IN_BLOCKS;
-            let x_cc_mul = color_correlation.y_to_x_ratio(i32::from(row_cmap_x[abs_tx]));
-            let b_cc_mul = color_correlation.y_to_b_ratio(i32::from(row_cmap_b[abs_tx]));
+            // vardct kernels: on a SIMD target the ratios are computed
+            // inside the target's DecodeGroupImpl, contracted (FMA).
+            let (x_cc_mul, b_cc_mul) = match simd {
+                Some(_) => (
+                    color_correlation.y_to_x_ratio_simd(i32::from(row_cmap_x[abs_tx])),
+                    color_correlation.y_to_b_ratio_simd(i32::from(row_cmap_b[abs_tx])),
+                ),
+                None => (
+                    color_correlation.y_to_x_ratio(i32::from(row_cmap_x[abs_tx])),
+                    color_correlation.y_to_b_ratio(i32::from(row_cmap_b[abs_tx])),
+                ),
+            };
             while bx < xsize_blocks && bx < (tx + 1) * COLOR_TILE_DIM_IN_BLOCKS {
                 let sbx = std::array::from_fn(|c| bx >> hshift[c]);
                 let acs = acs_row.get(bx);

@@ -72,9 +72,10 @@ fn fast_powf<D: SimdF32>(d: D, base: D::V, exponent: D::V) -> D::V {
 }
 
 /// The one-lane `FastPowf(float b, float e)` of fast_math-inl.h.
-struct Powf {
-    base: f32,
-    exponent: f32,
+#[doc(hidden)]
+pub struct Powf {
+    pub base: f32,
+    pub exponent: f32,
 }
 impl Kernel for Powf {
     type Output = f32;
@@ -91,12 +92,13 @@ pub fn fast_powf_simd(target: Target, base: f32, exponent: f32) -> f32 {
 
 /// GetQuantWeights' inner loop for one channel: `bands` are the channel's
 /// distance bands (`num_bands` of them), `out` the ROWS x COLS weights.
-struct Weights<'a> {
-    rows: usize,
-    cols: usize,
-    bands: &'a [f32],
-    num_bands: usize,
-    out: &'a mut [f32],
+#[doc(hidden)]
+pub struct Weights<'a> {
+    pub rows: usize,
+    pub cols: usize,
+    pub bands: &'a [f32],
+    pub num_bands: usize,
+    pub out: &'a mut [f32],
 }
 impl Kernel for Weights<'_> {
     type Output = ();

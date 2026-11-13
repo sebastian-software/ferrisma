@@ -528,8 +528,9 @@ fn dimensions(rows: usize, cols: usize) {
 
 /// ComputeScaledDCT<rows, cols> for the descriptor's target; the same
 /// contract as [`super::dct::compute_scaled_dct`].
+#[doc(hidden)]
 #[inline]
-pub(crate) fn compute_scaled_dct_simd<D: SimdF32>(
+pub fn compute_scaled_dct_simd<D: SimdF32>(
     d: D,
     rows: usize,
     cols: usize,
@@ -545,8 +546,9 @@ pub(crate) fn compute_scaled_dct_simd<D: SimdF32>(
 
 /// ComputeScaledIDCT<rows, cols> for the descriptor's target; the same
 /// contract as [`super::dct::compute_scaled_idct`].
+#[doc(hidden)]
 #[inline]
-pub(crate) fn compute_scaled_idct_simd<D: SimdF32>(
+pub fn compute_scaled_idct_simd<D: SimdF32>(
     d: D,
     rows: usize,
     cols: usize,
