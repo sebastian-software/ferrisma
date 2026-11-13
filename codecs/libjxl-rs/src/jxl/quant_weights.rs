@@ -375,7 +375,14 @@ fn mult(v: f32) -> f32 {
     if v > 0.0 { 1.0 + v } else { 1.0 / (1.0 - v) }
 }
 
-fn interpolate(pos: f32, max: f32, array: &[f32]) -> super::base::status::StatusOr<f32> {
+// vardct kernels: `target` selects the SIMD instantiation of the
+// HWY_NAMESPACE code (quant_weights_simd); None is the scalar translation.
+fn interpolate(
+    target: Option<super::hwy::Target>,
+    pos: f32,
+    max: f32,
+    array: &[f32],
+) -> super::base::status::StatusOr<f32> {
     let scaled_pos = pos * (array.len() - 1) as f32 / max;
     // Original size_t conversion is defined only for nonnegative finite input.
     assert!(scaled_pos.is_finite() && scaled_pos >= 0.0);
@@ -385,10 +392,15 @@ fn interpolate(pos: f32, max: f32, array: &[f32]) -> super::base::status::Status
     }
     let a = array[idx];
     let b = array[idx + 1];
-    Ok(a * super::base::fast_math::fast_powf(b / a, scaled_pos - idx as f32))
+    let pow = match target {
+        Some(t) => super::quant_weights_simd::fast_powf_simd(t, b / a, scaled_pos - idx as f32),
+        None => super::base::fast_math::fast_powf(b / a, scaled_pos - idx as f32),
+    };
+    Ok(a * pow)
 }
 
 fn get_quant_weights(
+    target: Option<super::hwy::Target>,
     rows: usize,
     cols: usize,
     params: &DctQuantWeightParams,
@@ -407,6 +419,17 @@ fn get_quant_weights(
             if bands[i] < ALMOST_ZERO {
                 return Err(StatusCode::GenericError);
             }
+        }
+        if let Some(t) = target {
+            super::quant_weights_simd::quant_weights_channel_simd(
+                t,
+                rows,
+                cols,
+                &bands,
+                num_bands,
+                &mut out[c * cols * rows..(c + 1) * cols * rows],
+            );
+            continue;
         }
         let scale = (num_bands - 1) as f32 / (f32::from_bits(0x3fb504f3) + 1e-6f32);
         let rcpcol = scale / (cols - 1) as f32;
@@ -438,6 +461,7 @@ fn get_quant_weights(
 }
 
 fn compute_quant_table(
+    target: Option<super::hwy::Target>,
     encoding: &QuantEncoding,
     table: &mut [f32],
     inv_table: &mut [f32],
@@ -500,7 +524,7 @@ fn compute_quant_table(
                 return Err(StatusCode::GenericError);
             }
             let mut small = [0.0; 3 * 16];
-            get_quant_weights(4, 4, &encoding.dct_params, &mut small)?;
+            get_quant_weights(target, 4, 4, &encoding.dct_params, &mut small)?;
             for (c, channel_weights) in w.iter().enumerate() {
                 for y in 0..8 {
                     for x in 0..8 {
@@ -517,7 +541,7 @@ fn compute_quant_table(
                 return Err(StatusCode::GenericError);
             }
             let mut small = [0.0; 3 * 32];
-            get_quant_weights(4, 8, &encoding.dct_params, &mut small)?;
+            get_quant_weights(target, 4, 8, &encoding.dct_params, &mut small)?;
             for (c, channel_weights) in w.iter().enumerate() {
                 for y in 0..8 {
                     for x in 0..8 {
@@ -528,7 +552,7 @@ fn compute_quant_table(
             }
         }
         _ if encoding.mode == QuantMode::Dct => {
-            get_quant_weights(wrows, wcols, &encoding.dct_params, &mut weights)?
+            get_quant_weights(target, wrows, wcols, &encoding.dct_params, &mut weights)?
         }
         QuantEncodingData::Raw { qtable, qtable_den } => {
             let Some(qtable) = qtable else {
@@ -561,9 +585,9 @@ fn compute_quant_table(
                 f32::from_bits(0x414f8bed),
             ];
             let mut small8 = [0.0; 3 * 32];
-            get_quant_weights(4, 8, &encoding.dct_params, &mut small8)?;
+            get_quant_weights(target, 4, 8, &encoding.dct_params, &mut small8)?;
             let mut small4 = [0.0; 3 * 16];
-            get_quant_weights(4, 4, &encoding.dct_params_afv_4x4, &mut small4)?;
+            get_quant_weights(target, 4, 4, &encoding.dct_params_afv_4x4, &mut small4)?;
             let lo = f32::from_bits(0x3f5a0e1e);
             let hi = f32::from_bits(0x414f8bed) - lo + 1e-6f32;
             for (c, channel_weights) in w.iter().enumerate() {
@@ -591,7 +615,7 @@ fn compute_quant_table(
                             continue;
                         }
                         weights[start + (2 * y) * 8 + 2 * x] =
-                            interpolate(FREQS[y * 4 + x] - lo, hi, &bands)?;
+                            interpolate(target, FREQS[y * 4 + x] - lo, hi, &bands)?;
                     }
                 }
                 for y in 0..4 {
@@ -682,11 +706,22 @@ impl DequantMatrices {
     pub fn ensure_computed(&mut self, acs_mask: u32) -> Status {
         self.ensure_computed_in(MemoryManagerPtr::NATIVE, acs_mask)
     }
-    /// The source EnsureComputed(memory_manager, acs_mask).
+    /// The source EnsureComputed(memory_manager, acs_mask), whose
+    /// HWY_DYNAMIC_DISPATCH(ComputeQuantTable) follows the decoder's target.
     pub fn ensure_computed_in(
         &mut self,
         memory_manager: MemoryManagerPtr,
         acs_mask: u32,
+    ) -> Status {
+        self.ensure_computed_for_target(memory_manager, acs_mask, super::hwy::decoder_target())
+    }
+    /// vardct kernels: EnsureComputed with ComputeQuantTable instantiated for
+    /// `target` (None: the scalar translation).
+    pub fn ensure_computed_for_target(
+        &mut self,
+        memory_manager: MemoryManagerPtr,
+        acs_mask: u32,
+        target: Option<super::hwy::Target>,
     ) -> Status {
         let library = Self::library();
         if self.table_storage.is_none() {
@@ -743,7 +778,7 @@ impl DequantMatrices {
             } else {
                 &self.encodings[kind]
             };
-            compute_quant_table(encoding, table, inv_table, kind, &mut offset)?;
+            compute_quant_table(target, encoding, table, inv_table, kind, &mut offset)?;
             if offset != offsets[kind * 3 + 3] {
                 return Err(StatusCode::GenericError);
             }

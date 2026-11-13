@@ -288,3 +288,61 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
 - The owner decides O4 or O1, or the Highway pin changes.
 - An adapter is made per-target (then switch the AVX2 oracle to a dispatch
   build) or a target beyond NEON/AVX2 enters scope.
+
+<!-- vardct kernels -->
+## VarDCT decode kernels (2026-11-13, Plan item 2)
+
+- **Translated.** `dct_simd.rs` (dct-inl.h, dct_block-inl.h,
+  transpose-inl.h), `dec_transforms_simd.rs` (TransformToPixels,
+  AFVIDCT4x4, LowestFrequenciesFromDC), `dec_group_simd.rs`
+  (DequantLane/DequantBlock with quantizer-inl.h's AdjustQuantBias) and
+  `quant_weights_simd.rs` (ComputeQuantTable's GetQuantWeights and
+  Interpolate with FastLog2f/FastPow2f/FastPowf and
+  EvalRationalPolynomial). `HWY_CAPPED(float, SZ)` with fewer lanes than
+  the target (DCT columns 1, 2 and, on AVX2, 4; quant weights' `DF4` on
+  AVX2 and the one-lane FastPowf) is computed lane by lane with the
+  operation the partial vector performs on that lane (fused `MulAdd`), since
+  every operation of these kernels is lane-wise; scratch keeps the
+  original's `SZ`-strided layout, so scratch words match too. The scalar
+  IDENTITY residual `block_dc - residual_sum * (1.0f / 16)` is fused on both
+  targets (FMA in the target attributes). Quant tables became part of this
+  package because the original's DequantMatrices are computed by the
+  `ComputeQuantTable` export: DequantBlock cannot match with scalar tables
+  (one ulp in the first `dq-block` request).
+- **Dispatch.** `decode_group_impl` selects `hwy::decoder_target()` once
+  per group, like `HWY_DYNAMIC_DISPATCH(DecodeGroupImpl)`; DequantBlock and
+  TransformToPixels run the SIMD instantiation, the scalar path is
+  unchanged. `DequantMatrices::ensure_computed_in` follows the same target
+  (`ensure_computed_for_target`). Working decision 2026-11-13 (delegated,
+  revisable by the owner), O4: on AVX2 the decoder keeps DequantBlock on the
+  scalar translation, because AdjustQuantBias uses the vendor-specific
+  `rcpps`; the AVX2 instantiation exists and its parity test compares it on
+  one host only. NEON's `vrecpe` is architecturally defined.
+- **Evidence (NEON, native, against `target/oracle-neon`).**
+  `tests/simd_vardct.rs`, reusing the scalar suite's `dct-*`, `dq-*` and
+  `qac-compute` requests, whose adapters already call `ORACLE_HWY_NS`:
+  `dct-scaled` 3,638 requests (every shape 1-32 squared, both directions,
+  strides, 24 value modes incl. subnormals, infinities and NaNs; the large
+  shapes up to 256x256), 17,445,440 words; `dct-pixels` all 27 strategies
+  and the IDENTITY rounding cases, 1,236 requests, 22,110,380 words;
+  `dct-llf` all strategies, 1,296 requests, 9,175,392 words; `dq-bias` 168
+  requests, 65,856 words; `dq-block` all strategies, both coefficient
+  widths, 648 requests, 29,698,008 words; `qac-compute` library and custom
+  tables of every mode, 649 requests, 16,588,372 words. No word differs
+  (any NaN equals any NaN). `dq-lane` is not used: its adapter calls
+  DequantLane at every `k`, so the original's full-vector loads read past
+  the request's matrix. AVX2: compiles (`cargo check --target
+  x86_64-apple-darwin`); not run locally (no Rosetta 2).
+- **Whole decode, NEON, after these kernels** (on top of the render stages
+  above; before both: 97.5-99.5 % differing float words). With the SIMD
+  path selected, 20 of the 24 VarDCT files match the original's NEON build
+  word for word: all 65x33 and 258x258 files and the four 513x257 files with
+  Gaborish. The four 513x257 files without Gaborish still differ in 146
+  (EPF 0, 1) and 182 (EPF 2, 3) of 395,523 float words, the first at word
+  369,961/369,936 (the third color plane); no output byte differs on any
+  file (scalar path: 1-696). With these kernels alone, on the earlier main
+  without the render stages, 81-84 % of the words differed. The
+  `DECODER_SELECTS_SIMD` selection stays off because not every file
+  matches; the remaining kernels on that path are the next candidates
+  (`compressed_dc`'s DC dequantization and adaptive smoothing, upsampling).
+<!-- end vardct kernels -->

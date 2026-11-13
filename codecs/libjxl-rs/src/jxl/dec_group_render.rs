@@ -145,6 +145,9 @@ pub fn decode_group_impl(
     mut jpeg_data: Option<&mut super::jpeg::jpeg_data::JpegData>,
     draw: DrawMode,
 ) -> Status {
+    // vardct kernels: HWY_DYNAMIC_DISPATCH(DecodeGroupImpl) selects the
+    // target once per group (port ADR 0004, "Decoder path").
+    let simd = super::hwy::decoder_target();
     let block_rect = shared.frame_dim.block_group_rect(group_idx);
     let xsize_blocks = block_rect.xsize();
     let ysize_blocks = block_rect.ysize();
@@ -373,26 +376,53 @@ pub fn decode_group_impl(
                     bx += llf_x;
                     continue;
                 }
-                dequant_block(
-                    inv_global_scale,
-                    row_quant[bx],
-                    x_dm_multiplier,
-                    b_dm_multiplier,
-                    x_cc_mul,
-                    b_cc_mul,
-                    acs.strategy(),
-                    size,
-                    &shared.quantizer,
-                    &shared.matrices,
-                    acs.covered_blocks_y() * acs.covered_blocks_x(),
-                    sbx,
-                    dc_rows,
-                    dc_stride,
-                    biases,
-                    &const_blocks(&qblock),
-                    buffers.block,
-                    buffers.scratch,
-                );
+                // vardct kernels: the SIMD DequantBlock where the target's
+                // reciprocal estimate is admitted (not AVX2, O4).
+                match simd.filter(|&t| super::dec_group_simd::dequant_selects_simd(t)) {
+                    Some(t) => super::dec_group_simd::dequant_block_simd(
+                        t,
+                        super::dec_group_simd::DequantBlockArgs {
+                            inv_global_scale,
+                            quant: row_quant[bx],
+                            x_dm_multiplier,
+                            b_dm_multiplier,
+                            x_cc_mul,
+                            b_cc_mul,
+                            kind: acs.strategy(),
+                            size,
+                            quantizer: &shared.quantizer,
+                            matrices: &shared.matrices,
+                            covered_blocks: acs.covered_blocks_y() * acs.covered_blocks_x(),
+                            sbx,
+                            dc_rows,
+                            dc_stride,
+                            biases,
+                            qblock: &const_blocks(&qblock),
+                            block: &mut *buffers.block,
+                            scratch: &mut *buffers.scratch,
+                        },
+                    ),
+                    None => dequant_block(
+                        inv_global_scale,
+                        row_quant[bx],
+                        x_dm_multiplier,
+                        b_dm_multiplier,
+                        x_cc_mul,
+                        b_cc_mul,
+                        acs.strategy(),
+                        size,
+                        &shared.quantizer,
+                        &shared.matrices,
+                        acs.covered_blocks_y() * acs.covered_blocks_x(),
+                        sbx,
+                        dc_rows,
+                        dc_stride,
+                        biases,
+                        &const_blocks(&qblock),
+                        buffers.block,
+                        buffers.scratch,
+                    ),
+                }
                 for c in [1, 0, 2] {
                     if (sbx[c] << hshift[c] != bx) || (sby[c] << vshift[c] != by) {
                         continue;
@@ -401,13 +431,26 @@ pub fn decode_group_impl(
                     let stride = plane.pixels_per_row() as usize;
                     let index =
                         (rect.y0() + sby[c] * BLOCK_DIM) * stride + rect.x0() + sbx[c] * BLOCK_DIM;
-                    transform_to_pixels(
-                        acs.strategy(),
-                        &mut buffers.block[c * size..],
-                        &mut plane.pixels_mut().expect("source pipeline allocation")[index..],
-                        stride,
-                        buffers.scratch,
-                    );
+                    let pixels =
+                        &mut plane.pixels_mut().expect("source pipeline allocation")[index..];
+                    // vardct kernels: the SIMD TransformToPixels.
+                    match simd {
+                        Some(t) => super::dec_transforms_simd::transform_to_pixels_simd(
+                            t,
+                            acs.strategy(),
+                            &mut buffers.block[c * size..],
+                            pixels,
+                            stride,
+                            buffers.scratch,
+                        ),
+                        None => transform_to_pixels(
+                            acs.strategy(),
+                            &mut buffers.block[c * size..],
+                            pixels,
+                            stride,
+                            buffers.scratch,
+                        ),
+                    }
                 }
                 bx += llf_x;
             }

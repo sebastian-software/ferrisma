@@ -105,6 +105,19 @@ stages above; the layer has 67 operations. Whole decodes still differ
 (ADR 0004 table). AVX2 is compile-checked only.
 <!-- end render stages -->
 
+<!-- vardct kernels -->
+VarDCT decode kernels (2026-11-13): the SIMD inverse/forward DCTs,
+TransformToPixels, LowestFrequenciesFromDC, DequantBlock with
+AdjustQuantBias and the quant tables (ComputeQuantTable) match the NEON
+oracle word for word (`tests/simd_vardct.rs`, ADR 0004 "VarDCT decode
+kernels") and dispatch on `hwy::decoder_target()`; on AVX2 the
+dequantization stays scalar (O4 working decision). AVX2 compiles but was not
+run. Together with the render stages, 20 of the 24 whole decodes of the
+SIMD comparison now match the NEON oracle word for word and no output byte
+differs; four 513x257 files without Gaborish still differ in 146-182 float
+words, so the decoder keeps the scalar default.
+<!-- end vardct kernels -->
+
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 
 Encoder step 4 (issue #115) and a patches setting under which every image

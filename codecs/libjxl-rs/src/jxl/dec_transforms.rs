@@ -9,7 +9,7 @@ use super::dct::{compute_scaled_dct, compute_scaled_idct, scalar_mul};
 use super::dct_scales::total_resample_scale;
 
 #[allow(clippy::excessive_precision, clippy::approx_constant)]
-const AFV_BASIS: [[f32; 16]; 16] = [
+pub(crate) const AFV_BASIS: [[f32; 16]; 16] = [
     [
         0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25,
         0.25,
