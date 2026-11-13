@@ -139,6 +139,16 @@ size_t RunOp(const std::string& op, const uint32_t* in, uint32_t* out) {
   if (op == "store_interleaved2") { hn::StoreInterleaved2(a, b, d, fo); return 2 * n; }
   if (op == "store_interleaved3") { hn::StoreInterleaved3(a, b, c, d, fo); return 3 * n; }
   if (op == "store_interleaved4") { hn::StoreInterleaved4(a, b, c, e, d, fo); return 4 * n; }
+  // render stages: the binary16 words of DemoteTo(df16, a), one per output word.
+  if (op == "demote_f16") {
+    const hn::Rebind<hwy::float16_t, decltype(d)> df16;
+    const hn::Rebind<uint16_t, decltype(d)> du16;
+    uint16_t half[64];
+    hn::StoreU(hn::BitCast(du16, hn::DemoteTo(df16, a)), du16, half);
+    for (size_t i = 0; i < n; ++i) out[i] = half[i];
+    return n;
+  }
+  // end render stages
   return 0;
 }
 

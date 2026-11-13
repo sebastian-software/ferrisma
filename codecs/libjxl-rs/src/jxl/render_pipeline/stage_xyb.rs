@@ -1,7 +1,8 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
-//! Normal scalar XYBStage and GetXYBStage from stage_xyb.cc. The NEON-specific
-//! FastXYBStage and SIMD conversions remain separate work. One-lane tails have
+//! Normal scalar XYBStage and GetXYBStage from stage_xyb.cc; the NEON/AVX2
+//! stage is stage_xyb_simd.rs. The NEON-specific FastXYBStage is compiled
+//! out by JXL_HIGH_PRECISION. One-lane tails have
 //! zero length, so the source MSan unpoison/poison annotations touch no storage.
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
@@ -74,5 +75,9 @@ impl RenderPipelineStage for XybStage {
     }
 }
 pub fn get_xyb_stage(info: &OutputEncodingInfo) -> Box<dyn RenderPipelineStage> {
+    // HWY_DYNAMIC_DISPATCH(GetXYBStage) (port ADR 0004).
+    if let Some(target) = crate::jxl::hwy::decoder_target() {
+        return super::stage_xyb_simd::get_xyb_stage_simd(info, target);
+    }
     Box::new(XybStage::new(info))
 }

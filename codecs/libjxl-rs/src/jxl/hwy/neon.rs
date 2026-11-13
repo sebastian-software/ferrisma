@@ -363,4 +363,35 @@ impl SimdF32 for Neon {
         // SAFETY: `dst` holds twelve writable f32 values, exclusively borrowed.
         unsafe { vst3q_f32(dst.as_mut_ptr(), float32x4x3_t(a, b, c)) }
     }
+
+    // render stages
+    // A full 128-bit vector: LoadDup128 is Load (vld1q).
+    #[inline(always)]
+    fn load_dup128(self, src: &[f32]) -> Self::V {
+        self.load(src)
+    }
+    #[inline(always)]
+    fn broadcast<const LANE: i32>(self, v: Self::V) -> Self::V {
+        neon!(vdupq_laneq_f32::<LANE>(v))
+    }
+    // HWY_NEON_HAVE_F16C: DemoteTo(df16, v) = vcvt_f16_f32, the FCVTN
+    // instruction (the f16 intrinsic types are not stable in Rust).
+    #[inline(always)]
+    fn store_demote_to_f16(self, v: Self::V, dst: &mut [u16]) {
+        let dst = &mut dst[..4];
+        let half: uint16x4_t;
+        // SAFETY: FCVTN is part of the AArch64 baseline floating point and
+        // reads/writes only the named vector registers; `dst` holds four
+        // writable, exclusively borrowed u16 values.
+        unsafe {
+            core::arch::asm!(
+                "fcvtn {0:v}.4h, {1:v}.4s",
+                out(vreg) half,
+                in(vreg) v,
+                options(pure, nomem, nostack, preserves_flags)
+            );
+            vst1_u16(dst.as_mut_ptr(), half);
+        }
+    }
+    // end render stages
 }

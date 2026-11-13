@@ -155,6 +155,18 @@ pub trait SimdF32: Copy + core::fmt::Debug + Send + Sync + 'static {
     fn store_interleaved2(self, a: Self::V, b: Self::V, dst: &mut [f32]);
     /// `StoreInterleaved3(a, b, c, d, dst)`: a0 b0 c0 a1 b1 c1 ...
     fn store_interleaved3(self, a: Self::V, b: Self::V, c: Self::V, dst: &mut [f32]);
+
+    // render stages: operations first used by the SIMD XYB, FromLinear and
+    // output stages (ADR 0004 Plan item 1).
+    /// `LoadDup128(d, p)`: the four floats at `src` in every 128-bit block.
+    fn load_dup128(self, src: &[f32]) -> Self::V;
+    /// `Broadcast<LANE>(v)`: lane `LANE` of each 128-bit block, broadcast
+    /// within that block.
+    fn broadcast<const LANE: i32>(self, v: Self::V) -> Self::V;
+    /// `StoreU(BitCast(du16, DemoteTo(df16, v)), du16, dst)`: the binary16
+    /// words of the hardware conversion (`fcvtn`, `vcvtps2ph`).
+    fn store_demote_to_f16(self, v: Self::V, dst: &mut [u16]);
+    // end render stages
 }
 
 /// The SIMD target a kernel runs on, capped at NEON/AVX2 (decision D6).

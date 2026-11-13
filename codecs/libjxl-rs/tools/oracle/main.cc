@@ -543,6 +543,9 @@ bool DecodeToJpegCommand(const std::string&,std::istringstream&,JxlMemoryManager
 bool ToLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool FromLinearCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool ColorOutputCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+// render stages
+bool RenderStagesSimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+// end render stages
 
 int main() {
   try {
@@ -657,6 +660,9 @@ int main() {
       else if (BlockContextCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
       else if (HwyOpsCommand(command, in)) {}
+      // render stages
+      else if (RenderStagesSimdCommand(command, in, &mm)) {}
+      // end render stages
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
       else throw std::runtime_error("unknown command");

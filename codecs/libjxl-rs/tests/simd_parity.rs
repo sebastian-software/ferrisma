@@ -226,6 +226,12 @@ const OPS: &[(&str, usize, bool)] = &[
     ("interleave_upper", 2, false),
     ("store_interleaved2", 2, false),
     ("store_interleaved3", 3, false),
+    // render stages
+    ("load_dup128", 1, false),
+    ("broadcast_0", 1, false),
+    ("broadcast_3", 1, false),
+    ("demote_f16", 1, false),
+    // end render stages
 ];
 
 struct Op<'a> {
@@ -330,6 +336,20 @@ impl Kernel for Op<'_> {
                 out = f.iter().map(|v| v.to_bits()).collect();
                 3 * n
             }
+            // render stages
+            "load_dup128" => {
+                let block: Vec<f32> = self.input[..4].iter().map(|&w| f32::from_bits(w)).collect();
+                put(d.load_dup128(&block), &mut out)
+            }
+            "broadcast_0" => put(d.broadcast::<0>(a), &mut out),
+            "broadcast_3" => put(d.broadcast::<3>(a), &mut out),
+            "demote_f16" => {
+                let mut half = vec![0u16; n];
+                d.store_demote_to_f16(a, &mut half);
+                out = half.iter().map(|&h| u32::from(h)).collect();
+                n
+            }
+            // end render stages
             other => panic!("unknown operation {other}"),
         };
         out.truncate(count);

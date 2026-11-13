@@ -363,3 +363,8 @@ if(NOT ORACLE_HWY_TARGET STREQUAL "SCALAR")
   set_property(SOURCE "${UPSTREAM}/lib/jxl/quantizer.cc" DIRECTORY "${UPSTREAM}/lib"
     PROPERTY COMPILE_OPTIONS "${options}")
 endif()
+
+# render stages: row requests of the SIMD render stages (port ADR 0004 Plan
+# item 1). The TU only calls the original's public stage factories.
+target_sources(jxl_oracle PRIVATE render_stages_simd.cc)
+# end render stages

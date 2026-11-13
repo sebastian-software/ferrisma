@@ -419,6 +419,38 @@ impl SimdF32 for Avx2 {
             }
         }
     }
+
+    // render stages
+    #[inline(always)]
+    fn load_dup128(self, src: &[f32]) -> Self::V {
+        let src = &src[..4];
+        // SAFETY: `src` holds four readable f32 values; loadu has no
+        // alignment requirement; AVX support as for every operation.
+        unsafe { _mm256_broadcast_ps(&*(src.as_ptr() as *const __m128)) }
+    }
+    #[inline(always)]
+    fn broadcast<const LANE: i32>(self, v: Self::V) -> Self::V {
+        // _mm256_shuffle_ps(v, v, 0x55 * LANE), per 128-bit block.
+        match LANE {
+            0 => avx!(_mm256_shuffle_ps::<0x00>(v, v)),
+            1 => avx!(_mm256_shuffle_ps::<0x55>(v, v)),
+            2 => avx!(_mm256_shuffle_ps::<0xaa>(v, v)),
+            3 => avx!(_mm256_shuffle_ps::<0xff>(v, v)),
+            _ => panic!("Broadcast lane {LANE} outside a 128-bit block"),
+        }
+    }
+    // x86_256 DemoteTo(df16, v): _mm256_cvtps_ph(v, _MM_FROUND_NO_EXC), that
+    // is round to nearest even with exceptions suppressed. Rust's immediate
+    // admits only the rounding bits; exceptions are masked in both builds, so
+    // 0 (round to nearest even) yields the same words.
+    #[inline(always)]
+    fn store_demote_to_f16(self, v: Self::V, dst: &mut [u16]) {
+        let dst = &mut dst[..8];
+        // SAFETY: `dst` holds eight writable, exclusively borrowed u16 values;
+        // F16C is part of Highway's AVX2 group, as for every operation.
+        unsafe { _mm_storeu_si128(dst.as_mut_ptr().cast(), _mm256_cvtps_ph::<0>(v)) }
+    }
+    // end render stages
 }
 
 #[inline(always)]

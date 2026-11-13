@@ -157,6 +157,51 @@ it is on.
   words and the compared domain are unchanged. The test helper reports the
   oracle's exit status and stderr before a write error.
 
+<!-- render stages -->
+## Render stages of Plan item 1 (2026-11-13)
+
+The decoder's first lossy stages follow the same pattern as the stages
+above: a `Kernel` body generic over `SimdF32` in its own file, dispatched by
+the stage factory on `hwy::decoder_target()`, the scalar path unchanged.
+The layer gains `LoadDup128`, `Broadcast<lane>` and the binary16 `DemoteTo`
+(`fcvtn` through inline assembly on AArch64, because Rust's f16 intrinsic
+types are not stable; `vcvtps2ph` on AVX2), each with its `hwy-op` test
+(67 operations). Row parity uses the `rs-*` requests of
+`tools/oracle/render_stages_simd.cc`, which only call the original's public
+factories on 128-byte aligned rows, and `tests/simd_render.rs`.
+
+- **XYB** (`stage_xyb_simd.rs`, `XybToRgb` of dec_xyb-inl.h): biases by
+  `LoadDup128` + `Broadcast`, each matrix entry by `LoadDup128` of its four
+  stored copies (lane `i` uses copy `i % 4`, observable with custom
+  parameters), fused `MulAdd`. NEON: 12,348 rows, 2,628,948 words matched
+  (Init at four intensity targets, three custom parameter sets, RGB and XYB
+  output, widths 0-67, seven origins, special words).
+
+Whole-decode comparison after each stage (NEON, `whole_decodes_with_the_simd_stages_against_the_original_target`,
+differing float words with the SIMD stages selected / differing output
+bytes; the scalar path is unchanged). The counts barely move: the planes
+already differ before these stages, because dequantization and the inverse
+DCTs (Plan item 2) still run their `HWY_SCALAR` translation.
+
+| File | Before (Gaborish, EPF, YCbCr, chroma) | + XYB |
+| --- | --- | --- |
+| 65x33 gab=0 epf=0 | 6,271 / 5 | 6,256 / 4 |
+| 65x33 gab=0 epf=3 | 6,296 / 1 | 6,290 / 1 |
+| 65x33 gab=1 epf=0 | 6,353 / 2 | 6,327 / 2 |
+| 65x33 gab=1 epf=3 | 6,339 / 4 | 6,335 / 4 |
+| 258x258 gab=0 epf=0 | 198,499 / 261 | 198,403 / 260 |
+| 258x258 gab=0 epf=3 | 198,523 / 269 | 198,502 / 270 |
+| 258x258 gab=1 epf=0 | 198,573 / 257 | 198,530 / 258 |
+| 258x258 gab=1 epf=3 | 198,619 / 301 | 198,571 / 301 |
+| 513x257 gab=0 epf=0 | 393,670 / 580 | 393,733 / 584 |
+| 513x257 gab=0 epf=3 | 393,760 / 665 | 393,656 / 673 |
+| 513x257 gab=1 epf=0 | 393,821 / 641 | 393,768 / 647 |
+| 513x257 gab=1 epf=3 | 393,703 / 699 | 393,812 / 697 |
+
+(Of 6,435 / 199,692 / 395,523 float words; all 24 files are logged by the
+test, these rows are representative. No file reaches zero.)
+<!-- end render stages -->
+
 ## Consequences
 
 - `rcpps` (open question O4). `_mm256_rcp_ps` and `rsqrtps` are

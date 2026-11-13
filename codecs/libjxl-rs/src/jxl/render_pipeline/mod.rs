@@ -31,3 +31,6 @@ mod simd_rows;
 pub mod stage_chroma_simd;
 pub mod stage_epf_simd;
 pub mod stage_gaborish_simd;
+// render stages: SIMD stages of ADR 0004 Plan item 1.
+pub mod stage_xyb_simd;
+// end render stages
