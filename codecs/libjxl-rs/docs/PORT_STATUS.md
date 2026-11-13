@@ -124,6 +124,19 @@ decoder and low-memory pipeline comparison, a scalar gate that forces the
 scalar path, real x86-64 evidence for AVX2).
 <!-- end vardct kernels -->
 
+<!-- public gate -->
+Public decoder gate (2026-11-13): `tests/simd_public.rs` compares whole
+decodes through the public decoder and its low-memory pipeline, SIMD target
+forced, with the original's public decoder at the same target (float, 8-
+and 16-bit output) over the `decode_vardct` gate files, the scalar suite's
+public-decoder inputs and the pinned conformance corpus. NEON: 276 of 352
+distinct inputs match word for word; the 76 others are the executable punch
+list, each reaching a still-scalar `Upsample`, noise or splines stage (ADR
+0004 "Public decoder gate"). The gate found and fixed a read before the row
+start of the SIMD stages in the low-memory pipeline. The scalar gate now
+forces the scalar decoder path (`JXL_DECODER_TARGET=scalar`).
+<!-- end public gate -->
+
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 
 Encoder step 4 (issue #115) and a patches setting under which every image
