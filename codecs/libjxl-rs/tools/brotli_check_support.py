@@ -110,9 +110,9 @@ def verify(build, name, sanitized):
             "live_symbol_bindings": bindings}
 
 
-def prepare(sanitized):
+def prepare(sanitized, arch=None):
     graph = "sanitized" if sanitized else "ordinary"
-    build = ROOT / "target/brotli-support" / graph
+    build = ROOT / "target/brotli-support" / (graph + ("" if arch is None else "-" + arch))
     build.mkdir(parents=True, exist_ok=True)
     source = ROOT / "upstream/libjxl/third_party/brotli"
     assert subprocess.check_output(["git", "-C", source, "rev-parse", "HEAD"], text=True).strip() == PIN
@@ -121,6 +121,9 @@ def prepare(sanitized):
                  "-DCMAKE_BUILD_TYPE=Release", f"-DCMAKE_C_COMPILER={shutil.which('clang')}",
                  f"-DCMAKE_CXX_COMPILER={shutil.which('clang++')}",
                  f"-DORACLE_SANITIZERS={'ON' if sanitized else 'OFF'}"]
+    if arch is not None:
+        # Another Apple architecture, run under Rosetta 2 (tools/check.py --target).
+        configure.append(f"-DCMAKE_OSX_ARCHITECTURES={arch}")
     def run(command):
         print("+ " + " ".join(map(str, command)), flush=True)
         subprocess.run(list(map(str, command)), cwd=ROOT, check=True)

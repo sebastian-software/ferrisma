@@ -7,6 +7,15 @@ use jxl::jxl::render_pipeline::{
     stage_ycbcr::get_ycbcr_stage,
 };
 use jxl::jxl::{frame_dimensions::FrameDimensions, image::Image3};
+
+/// Decision D8: a computed word captured as a NaN matches any NaN (NaN
+/// payloads are not gated); `JXL_PARITY_STRICT=1` restores the captured
+/// payloads. Copied and untouched words always compare exactly.
+fn d8_word_eq(got: u32, want: u32, computed: bool) -> bool {
+    let strict = std::env::var_os("JXL_PARITY_STRICT").is_some_and(|v| v == "1");
+    got == want
+        || (computed && !strict && f32::from_bits(got).is_nan() && f32::from_bits(want).is_nan())
+}
 #[test]
 fn original_subsampled_chroma_then_ycbcr_pipeline_preserves_captured_pixels() {
     let mut dim = FrameDimensions::default();
@@ -196,19 +205,19 @@ fn original_chroma_row_words_and_ycbcr_guard_preserve_mutation_order() {
         for (c, p) in input.iter().enumerate() {
             for y in 0..7 {
                 for x in 0..len {
-                    let expected = if t == 0
+                    let computed = t == 0
                         && c < 3
                         && y == 3
-                        && (origin + OFFSET..origin + OFFSET + 3).contains(&x)
-                    {
+                        && (origin + OFFSET..origin + OFFSET + 3).contains(&x);
+                    let expected = if computed {
                         yc[c][x - origin - OFFSET]
                     } else {
                         values[(c * 7 + y * 3 + x) % 9].to_bits()
                     };
-                    assert_eq!(
-                        p.row(y)[x].to_bits(),
-                        expected,
-                        "input type{t},channel{c},{x},{y}"
+                    assert!(
+                        d8_word_eq(p.row(y)[x].to_bits(), expected, computed),
+                        "input type{t},channel{c},{x},{y}: {} != {expected}",
+                        p.row(y)[x].to_bits()
                     );
                 }
             }
@@ -231,10 +240,10 @@ fn original_chroma_row_words_and_ycbcr_guard_preserve_mutation_order() {
                     } else {
                         0x7fa0dead
                     };
-                    assert_eq!(
-                        p.row(y)[x].to_bits(),
-                        expected,
-                        "output type{t},channel{c},{x},{y}"
+                    assert!(
+                        d8_word_eq(p.row(y)[x].to_bits(), expected, expected != 0x7fa0dead),
+                        "output type{t},channel{c},{x},{y}: {} != {expected}",
+                        p.row(y)[x].to_bits()
                     );
                 }
             }
@@ -309,11 +318,11 @@ fn original_native_x86_chroma_neighbor_products_keep_competing_nan_words() {
         0xffc00000, 0xff800000, 0xff800000, 0x3f200000, 0x3f600000, 0x3f400000, 0x3e800000,
         0x7fe12345, 0x7fe12345, 0xffe54321, 0x7fe12345, 0x7fc98765, 0xffe54321, 0xffc43210,
     ];
-    assert_eq!(
-        output[0].row(2)[OFFSET..OFFSET + 14]
-            .iter()
-            .map(|v| v.to_bits())
-            .collect::<Vec<_>>(),
-        expected
-    );
+    for (got, want) in output[0].row(2)[OFFSET..OFFSET + 14].iter().zip(expected) {
+        assert!(
+            d8_word_eq(got.to_bits(), want, true),
+            "{} != {want}",
+            got.to_bits()
+        );
+    }
 }

@@ -159,7 +159,7 @@ def build_oracle(sanitizers, target=None):
                JXL_DEFAULT_CMS_PRIVATE_ORACLE=str(default_cms_private),
                JXL_DEFAULT_CMS_CAPTURE=str(build / "default-cms-corpus"),
                JXL_DECODER_PUBLIC_CAPTURE=str(build / "decoder-public-corpus"))
-    env.update(prepare_brotli_observers(sanitizers))
+    env.update(prepare_brotli_observers(sanitizers, None if target is None else target.split("-")[0]))
     return env
 
 
@@ -225,8 +225,8 @@ def main():
                         help="Run only the tests whose names contain NAME, for example to write an audit's capture")
     parser.add_argument("--target", choices=["x86_64-apple-darwin"],
                         help="oracle and test stages only: build both scalar references for this Apple "
-                             "architecture and run the tests for it (under Rosetta 2 on an ARM64 host). "
-                             "The Brotli observers stay native")
+                             "architecture, with the Brotli observers, and run the tests for it "
+                             "(under Rosetta 2 on an ARM64 host)")
     parser.add_argument("--no-fail-fast", action="store_true",
                         help="test stage: run every test binary even after a failure (diagnosis)")
     args = parser.parse_args()

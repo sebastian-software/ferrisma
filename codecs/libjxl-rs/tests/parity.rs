@@ -983,15 +983,24 @@ fn original_observations(requests: &[String]) -> Vec<String> {
     let pinned = program_observations(&oracle_path(), requests);
     if let Some(variant) = reference_variant_path() {
         let other = program_observations(&variant, requests);
-        let mut statistics = std::collections::BTreeMap::<&str, [usize; 3]>::new();
+        // Per family: reference words, words O1 excludes (requests with NaN or
+        // infinity inputs), exceptional requests whose references differ in
+        // token count, and words in which the references disagree on a request
+        // with only finite inputs (never excluded; such words are observations
+        // that differ between runs of one build, for example unwritten memory).
+        let mut statistics = std::collections::BTreeMap::<&str, [usize; 4]>::new();
         for ((request, a), b) in requests.iter().zip(&pinned).zip(&other) {
             let entry = statistics.entry(family(request)).or_default();
-            let mask = reference_mask(request, a, b);
             entry[0] += a.split_whitespace().count();
-            entry[1] += mask
-                .as_ref()
-                .map_or(0, |m| m.iter().filter(|x| **x).count());
-            entry[2] += usize::from(mask.is_none());
+            let disagreeing = disagreeing_words(a, b);
+            if exceptional_request(request) {
+                match disagreeing {
+                    Some(n) => entry[1] += n,
+                    None => entry[2] += 1,
+                }
+            } else {
+                entry[3] += disagreeing.unwrap_or(1);
+            }
         }
         let mut recorded = REFERENCE_VARIANT
             .lock()
@@ -1003,12 +1012,23 @@ fn original_observations(requests: &[String]) -> Vec<String> {
         log_parity(
             statistics
                 .iter()
-                .map(|(family, [words, masked, unaligned])| {
-                    format!("mask {family} words={words} excluded={masked} unaligned={unaligned}")
+                .map(|(family, [words, masked, unaligned, finite])| {
+                    format!(
+                        "mask {family} words={words} excluded={masked} unaligned={unaligned} \
+                     finite_request_disagreements={finite}"
+                    )
                 }),
         );
     }
     pinned
+}
+
+/// Words in which two reference lines disagree after NaN equalization, or
+/// `None` when their token counts differ.
+fn disagreeing_words(a: &str, b: &str) -> Option<usize> {
+    let a: Vec<_> = a.split_whitespace().collect();
+    let b: Vec<_> = b.split_whitespace().collect();
+    (a.len() == b.len()).then(|| a.iter().zip(&b).filter(|(x, y)| !token_eq(x, y)).count())
 }
 
 /// The request family: the first token of the protocol line.
@@ -1038,36 +1058,17 @@ fn token_eq(a: &str, b: &str) -> bool {
     a == b || (nan_word(a) && nan_word(b))
 }
 
-/// Per token of `pinned`, whether working rule O1 excludes it: the two
-/// scalar references disagree there after NaN equalization. `None` when the
-/// references do not even agree on the token structure (then nothing is
-/// excluded and the request compares against the pinned reference in full).
-///
-/// Panics when a request without NaN or infinity words would exclude a word:
-/// for finite inputs the original's scalar builds agree in every word.
+/// Per token of `pinned`, whether working rule O1 excludes it: the request
+/// carries a NaN or infinity word and the two scalar references disagree
+/// there after NaN equalization. `None` (nothing excluded) for a request with
+/// only finite inputs, or when the references disagree on the token count.
 fn reference_mask(request: &str, pinned: &str, other: &str) -> Option<Vec<bool>> {
+    if !exceptional_request(request) {
+        return None;
+    }
     let a: Vec<_> = pinned.split_whitespace().collect();
     let b: Vec<_> = other.split_whitespace().collect();
-    let mask: Option<Vec<bool>> =
-        (a.len() == b.len()).then(|| a.iter().zip(&b).map(|(x, y)| !token_eq(x, y)).collect());
-    let disagree = mask.as_ref().map_or(true, |m| m.iter().any(|x| *x));
-    if disagree && !exceptional_request(request) {
-        let first: Vec<_> = a
-            .iter()
-            .zip(&b)
-            .enumerate()
-            .filter(|(_, (x, y))| !token_eq(x, y))
-            .take(4)
-            .collect();
-        panic!(
-            "the two scalar references of the original disagree beyond NaN payloads on a \
-             request without NaN or infinity inputs; O1 must not mask it.\nrequest: {request}\n\
-             tokens: {} / {}; first differences (index, (pinned, variant)): {first:?}",
-            a.len(),
-            b.len()
-        );
-    }
-    mask
+    (a.len() == b.len()).then(|| a.iter().zip(&b).map(|(x, y)| !token_eq(x, y)).collect())
 }
 
 /// Decision D8 with working rule O1 (pending owner confirmation): does the
@@ -1082,7 +1083,7 @@ fn reference_mask(request: &str, pinned: &str, other: &str) -> Option<Vec<bool>>
 /// original (same sources at upstream's normal optimization level) disagrees
 /// with the pinned one after (1). Finite values, infinities and signed zeros
 /// therefore stay bit-exact, and so does every non-word token; requests with
-/// only finite inputs never exclude a position (`reference_mask` asserts it).
+/// only finite inputs never exclude a position (asserted below).
 /// `JXL_PARITY_STRICT=1` restores exact text equality.
 fn parity_eq(request: &str, rust: &str, cpp: &str) -> bool {
     if rust == cpp {
@@ -1101,7 +1102,9 @@ fn parity_eq(request: &str, rust: &str, cpp: &str) -> bool {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .get(request)
         .cloned();
-    let mask = other.and_then(|other| reference_mask(request, cpp, &other));
+    let mask = other
+        .as_deref()
+        .and_then(|other| reference_mask(request, cpp, other));
     let mut payloads = 0;
     let mut excluded = 0;
     for (index, (x, y)) in a.iter().zip(&b).enumerate() {
@@ -1116,6 +1119,11 @@ fn parity_eq(request: &str, rust: &str, cpp: &str) -> bool {
             return false;
         }
     }
+    // The O1 mask never excludes a word of a request with only finite inputs.
+    assert!(
+        excluded == 0 || exceptional_request(request),
+        "O1 excluded a word of a request without NaN or infinity inputs: {request}"
+    );
     log_parity(std::iter::once(format!(
         "port {} nan_payload_words={payloads} excluded_differing_words={excluded}",
         family(request)

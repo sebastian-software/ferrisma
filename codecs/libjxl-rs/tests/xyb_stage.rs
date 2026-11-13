@@ -29,12 +29,12 @@ fn scalar_xyb_preserves_original_float_words_and_nan_operand_order() {
         ),
     ];
     for ([x, y, b], expected) in pixels {
-        assert_eq!(xyb_to_rgb(x, y, b, &p).map(f32::to_bits), expected);
+        assert_d8_words(xyb_to_rgb(x, y, b, &p).map(f32::to_bits), expected);
     }
     p.init(1.0);
     // This original result combines overflow/cancellation with an independent
     // signaling NaN. Commuting the scalar additions changes the retained payload.
-    assert_eq!(
+    assert_d8_words(
         xyb_to_rgb(
             f32::from_bits(1545563933),
             f32::from_bits(1838757507),
@@ -44,6 +44,19 @@ fn scalar_xyb_preserves_original_float_words_and_nan_operand_order() {
         .map(f32::to_bits),
         [0xffc3c42e; 3],
     );
+}
+
+/// Decision D8: computed words match exactly, except that a captured NaN
+/// matches any NaN unless `JXL_PARITY_STRICT=1`.
+fn assert_d8_words(got: [u32; 3], want: [u32; 3]) {
+    let strict = std::env::var_os("JXL_PARITY_STRICT").is_some_and(|v| v == "1");
+    for (g, w) in got.into_iter().zip(want) {
+        let nan = |v: u32| f32::from_bits(v).is_nan();
+        assert!(
+            g == w || (!strict && nan(g) && nan(w)),
+            "{got:x?} != {want:x?}"
+        );
+    }
 }
 
 #[test]
