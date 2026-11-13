@@ -394,4 +394,68 @@ impl SimdF32 for Neon {
         }
     }
     // end render stages
+    // modular
+    #[inline(always)]
+    fn set_i32(self, v: i32) -> Self::I {
+        neon!(vdupq_n_s32(v))
+    }
+    #[inline(always)]
+    fn load_i32(self, src: &[i32]) -> Self::I {
+        let src = &src[..4];
+        // SAFETY: `src` holds four readable i32 values; vld1q has no
+        // alignment requirement beyond that of i32.
+        unsafe { vld1q_s32(src.as_ptr()) }
+    }
+    #[inline(always)]
+    fn and_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        neon!(vandq_s32(a, b))
+    }
+    #[inline(always)]
+    fn xor_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        neon!(veorq_s32(a, b))
+    }
+    #[inline(always)]
+    fn abs_i32(self, v: Self::I) -> Self::I {
+        neon!(vabsq_s32(v))
+    }
+    #[inline(always)]
+    fn neg_i32(self, v: Self::I) -> Self::I {
+        neon!(vnegq_s32(v))
+    }
+    // Ne = Not(Eq): vmvn of vceq.
+    #[inline(always)]
+    fn ne_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        neon!(vreinterpretq_s32_u32(vmvnq_u32(vceqq_s32(a, b))))
+    }
+    #[inline(always)]
+    fn if_then_else_i32(self, m: Self::I, yes: Self::I, no: Self::I) -> Self::I {
+        neon!(vbslq_s32(vreinterpretq_u32_s32(m), yes, no))
+    }
+    // AndNot(VecFromMask(mask), no) = vbic(no, mask).
+    #[inline(always)]
+    fn if_then_zero_else_i32(self, m: Self::I, no: Self::I) -> Self::I {
+        neon!(vbicq_s32(no, m))
+    }
+    // ConcatEven(d, a, a) (vuzp1), then vmull_s32 of the lower halves.
+    #[inline(always)]
+    fn mul_even_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        neon!(vreinterpretq_s32_s64(vmull_s32(
+            vget_low_s32(vuzp1q_s32(a, a)),
+            vget_low_s32(vuzp1q_s32(b, b))
+        )))
+    }
+    // ConcatOdd(d, a, a) (vuzp2), then vmull_s32 of the lower halves.
+    #[inline(always)]
+    fn mul_odd_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        neon!(vreinterpretq_s32_s64(vmull_s32(
+            vget_low_s32(vuzp2q_s32(a, a)),
+            vget_low_s32(vuzp2q_s32(b, b))
+        )))
+    }
+    // AArch64: detail::InterleaveOdd = vtrn2.
+    #[inline(always)]
+    fn interleave_odd_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        neon!(vtrn2q_s32(a, b))
+    }
+    // end modular
 }

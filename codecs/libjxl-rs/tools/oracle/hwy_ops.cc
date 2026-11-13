@@ -149,6 +149,26 @@ size_t RunOp(const std::string& op, const uint32_t* in, uint32_t* out) {
     return n;
   }
   // end render stages
+  // modular: signed 32-bit operations of the modular kernels.
+#if HWY_TARGET != HWY_SCALAR
+  {
+    const auto ci = hn::BitCast(di, c);
+    const auto ei = hn::BitCast(di, e);
+    if (op == "set_i32") return puti(hn::Set(di, static_cast<int32_t>(in[0])));
+    if (op == "load_i32") return puti(hn::LoadU(di, reinterpret_cast<const int32_t*>(in)));
+    if (op == "and_i32") return puti(hn::And(ai, bi));
+    if (op == "xor_i32") return puti(hn::Xor(ai, bi));
+    if (op == "abs_i32") return puti(hn::Abs(ai));
+    if (op == "neg_i32") return puti(hn::Neg(ai));
+    if (op == "ne_i32") return puti(hn::VecFromMask(di, hn::Ne(ai, bi)));
+    if (op == "if_i32_lt_then_else") return puti(hn::IfThenElse(hn::Lt(ai, bi), ci, ei));
+    if (op == "if_i32_lt_then_zero_else") return puti(hn::IfThenZeroElse(hn::Lt(ai, bi), ci));
+    if (op == "mul_even_i32") return puti(hn::BitCast(di, hn::MulEven(ai, bi)));
+    if (op == "mul_odd_i32") return puti(hn::BitCast(di, hn::MulOdd(ai, bi)));
+    if (op == "interleave_odd_i32") return puti(hn::InterleaveOdd(di, ai, bi));
+  }
+#endif
+  // end modular
   return 0;
 }
 

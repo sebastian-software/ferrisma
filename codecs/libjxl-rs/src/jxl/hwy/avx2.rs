@@ -451,6 +451,76 @@ impl SimdF32 for Avx2 {
         unsafe { _mm_storeu_si128(dst.as_mut_ptr().cast(), _mm256_cvtps_ph::<0>(v)) }
     }
     // end render stages
+    // modular
+    #[inline(always)]
+    fn set_i32(self, v: i32) -> Self::I {
+        avx!(_mm256_set1_epi32(v))
+    }
+    #[inline(always)]
+    fn load_i32(self, src: &[i32]) -> Self::I {
+        let src = &src[..8];
+        // SAFETY: `src` holds eight readable i32 values; loadu has no
+        // alignment requirement; AVX support as for every operation.
+        unsafe { _mm256_loadu_si256(src.as_ptr().cast()) }
+    }
+    #[inline(always)]
+    fn and_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        avx!(_mm256_and_si256(a, b))
+    }
+    #[inline(always)]
+    fn xor_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        avx!(_mm256_xor_si256(a, b))
+    }
+    #[inline(always)]
+    fn abs_i32(self, v: Self::I) -> Self::I {
+        avx!(_mm256_abs_epi32(v))
+    }
+    // Neg = Sub(Zero(d), v).
+    #[inline(always)]
+    fn neg_i32(self, v: Self::I) -> Self::I {
+        avx!(_mm256_sub_epi32(_mm256_setzero_si256(), v))
+    }
+    // Ne = Not(Eq), Not = Xor with all ones below AVX3.
+    #[inline(always)]
+    fn ne_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        avx!(_mm256_xor_si256(
+            _mm256_cmpeq_epi32(a, b),
+            _mm256_set1_epi32(-1)
+        ))
+    }
+    #[inline(always)]
+    fn if_then_else_i32(self, m: Self::I, yes: Self::I, no: Self::I) -> Self::I {
+        avx!(_mm256_blendv_epi8(no, yes, m))
+    }
+    // AndNot(VecFromMask(mask), no).
+    #[inline(always)]
+    fn if_then_zero_else_i32(self, m: Self::I, no: Self::I) -> Self::I {
+        avx!(_mm256_andnot_si256(m, no))
+    }
+    #[inline(always)]
+    fn mul_even_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        avx!(_mm256_mul_epi32(a, b))
+    }
+    // x86_128 MulOdd for 32-bit lanes: MulEven(DupOdd(a), DupOdd(b)), with
+    // DupOdd = _mm256_shuffle_epi32(v, _MM_SHUFFLE(3, 3, 1, 1)).
+    #[inline(always)]
+    fn mul_odd_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        avx!(_mm256_mul_epi32(
+            _mm256_shuffle_epi32::<0xf5>(a),
+            _mm256_shuffle_epi32::<0xf5>(b)
+        ))
+    }
+    // Below AVX3: two _mm256_shuffle_ps, _MM_SHUFFLE(3, 1, 3, 1) of (a, b),
+    // then _MM_SHUFFLE(3, 1, 2, 0) of the result with itself.
+    #[inline(always)]
+    fn interleave_odd_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        avx!({
+            let b3_b1_a3_a1 =
+                _mm256_shuffle_ps::<0xdd>(_mm256_castsi256_ps(a), _mm256_castsi256_ps(b));
+            _mm256_castps_si256(_mm256_shuffle_ps::<0xd8>(b3_b1_a3_a1, b3_b1_a3_a1))
+        })
+    }
+    // end modular
 }
 
 #[inline(always)]
