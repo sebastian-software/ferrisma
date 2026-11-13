@@ -1453,13 +1453,24 @@ impl FrameDecoderScope<'_, '_, '_> {
             {
                 let memory_manager = self.state.memory_manager();
                 let shared = &mut self.state.shared_storage;
-                super::compressed_dc::adaptive_dc_smoothing_in(
-                    memory_manager,
-                    shared.quantizer.mul_dc(),
-                    &mut shared.dc_storage,
-                    &self.storage.header.0.chroma_subsampling,
-                    self.storage.pool(),
-                )?;
+                // vardct kernels: HWY_DYNAMIC_DISPATCH(AdaptiveDCSmoothing).
+                match super::hwy::decoder_target() {
+                    Some(t) => super::compressed_dc_simd::adaptive_dc_smoothing_simd(
+                        t,
+                        memory_manager,
+                        shared.quantizer.mul_dc(),
+                        &mut shared.dc_storage,
+                        &self.storage.header.0.chroma_subsampling,
+                        self.storage.pool(),
+                    )?,
+                    None => super::compressed_dc::adaptive_dc_smoothing_in(
+                        memory_manager,
+                        shared.quantizer.mul_dc(),
+                        &mut shared.dc_storage,
+                        &self.storage.header.0.chroma_subsampling,
+                        self.storage.pool(),
+                    )?,
+                }
             }
             self.storage.finalized_dc = true;
             self.allocate_output()?;
