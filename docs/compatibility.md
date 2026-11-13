@@ -15,16 +15,16 @@ else, including every private module, is outside the contract.
 | Area | Stable | Experimental (may change in a minor release) |
 | --- | --- | --- |
 | Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run` |
-| Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, quality, speed, chroma, threads, and the four resource limits; `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifEncoder::Libavif`, `JpegXlDecoder::LibjxlRs` |
+| Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, quality, speed, chroma, threads, and the four resource limits; `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifEncoder::Libavif`, `JpegXlDecoder::LibjxlRs`, `JpegXlOptions` |
 | Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `encoder_backend` strings, `KernelLevel`/`KernelLevelReason` |
-| Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `avif-write`, `icc`, `cli` | `jpeg-xl-own-read`, `avif-read`, `avif-own-write` |
-| CLI | Positional arguments, color policy, quality, speed, chroma, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-encoder`, `--avif-depth`, `--jxl-decoder`, `--reference`, `--kernel-level` |
+| Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `avif-write`, `icc`, `cli` | `jpeg-xl-own-read`, `jpeg-xl-write`, `avif-read`, `avif-own-write` |
+| CLI | Positional arguments, color policy, quality, speed, chroma, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-encoder`, `--avif-depth`, `--jxl-decoder`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
 
 `jpeg-xl-read` and `avif-write` promise the *capability* (JPEG XL input, AVIF
 output), not a particular backend: ADR-0025 may switch the backend behind them
 in a minor release when its evidence gates are met.
 
-Since 2026-11-12 (pending owner confirmation), the default backend follows the
+Since 2026-11-12 (confirmed by the owner on 2026-11-13, ADR-0041 D1), the default backend follows the
 compiled features: the workspace libjxl-rs reader whenever `jpeg-xl-own-read`
 is enabled, and the workspace libavif/AOM writer (10-bit) whenever
 `avif-own-write` is enabled. `cli` enables both, so it runs these experimental

@@ -64,8 +64,10 @@ The default decoder has no region request: it decodes and budgets a complete
 F32 input frame for every request, including crops, and reports a full-frame
 fallback. On the one [recorded photo comparison](benchmarks/M2-jxl-input-switch.md)
 it was about 3.6× slower than `jxl-oxide` for a full decode and 9.5× slower for
-a center crop; this is an accepted v1.0 trade-off pending owner confirmation
-([ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)).
+a center crop; the owner accepted the workspace decoder as the default even
+where it is slower on 2026-11-13
+([ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1,
+[ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)).
 
 Use `--assume-srgb` only when you accept that assumption for the input. For a
 supported rendered RGB ICC profile, `--use-rendered-icc` selects the explicit

@@ -40,7 +40,9 @@ through the workspace libavif/AOM encoder by default (with `rav1e` selectable
 explicitly; their quality scales differ), and still WebP through the workspace
 `libwebp-rs` encoder ([ADR-0032](docs/adr/0032-jpeg-xl-workspace-decoder-input.md),
 [ADR-0037](docs/adr/0037-selectable-workspace-avif-encoder.md)). These two
-defaults changed on 2026-11-12 and are pending owner confirmation.
+defaults changed on 2026-11-12; the owner confirmed them on 2026-11-13
+([ADR-0041](docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1).
+The default AVIF quality per encoder is still pending owner confirmation ([#216](https://github.com/sebastian-software/ferrisma/issues/216)).
 The own AVIF read/write features need the pinned nightly and a supported native
 target; features without `avif-read`, `avif-own-write`, or `cli` retain stable Rust 1.98 support.
 On one 2268×1512 photo the AOM input path took 8–14% longer and used about

@@ -12,11 +12,15 @@ test is marked **untested** and is a statement about the code path only. Header
 inspection alone is never treated as proof that a file decodes or is
 supported.
 
-Two defaults changed on 2026-11-12 under the owner's v1.0 direction and are
-**pending owner confirmation**: JPEG XL input now defaults to the workspace
-libjxl-rs reader ([ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)) and
-AVIF output to the workspace libavif/AOM writer
-([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)).
+Two defaults changed on 2026-11-12 under the owner's v1.0 direction, and the
+owner confirmed both on 2026-11-13
+([ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1):
+JPEG XL input defaults to the workspace libjxl-rs reader
+([ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)) and AVIF output to
+the workspace libavif/AOM writer
+([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)). The default AVIF
+quality per encoder (#216) and lossy d1.0 as the JPEG XL output default are
+still **pending owner confirmation** (ADR-0041 O5).
 
 ## Cargo features and builds
 
