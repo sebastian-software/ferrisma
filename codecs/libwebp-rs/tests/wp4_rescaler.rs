@@ -123,7 +123,7 @@ fn drive(
     out.push_str(&format!("dst={}\n", hex(&dst)));
 }
 
-fn script() -> (String, String) {
+fn script(simd: bool) -> (String, String) {
     let mut rng = Rng(0x5eed_0008);
     let mut commands = String::new();
     let mut expected = String::new();
@@ -199,6 +199,20 @@ fn script() -> (String, String) {
         let mut below = |n: u64| usize::try_from(1 + rng.next_u64() % n).expect("small");
         let (src_w, src_h, dst_w, dst_h, channels) =
             (below(300), below(48), below(300), below(48), below(4));
+        // `RescalerImportRowExpand_SSE2` walks a row of 2 or 3 channels as
+        // one channel of `dst_width * num_channels` samples and ends outside
+        // its own `assert(accum == 0)`. Upstream initializes rescalers with
+        // 1 or 4 channels only (io_dec.c, vp8l_dec.c, picture_rescale_enc.c),
+        // so against `release-simd` (ADR 0008) the x86 record leaves that
+        // form out; with fewer than 8 source pixels the function calls C.
+        if simd
+            && cfg!(target_arch = "x86_64")
+            && matches!(channels, 2 | 3)
+            && dst_w > src_w
+            && src_w >= 8
+        {
+            continue;
+        }
         let dst_stride = dst_w * channels + 2;
         let src_stride = src_w * channels + 3;
         let chunk = 1000;
@@ -239,7 +253,7 @@ fn rescaler_matches_the_c_functions() {
     let Some(oracle) = Oracle::locate("rescaler_matches_the_c_functions") else {
         return;
     };
-    let (commands, expected) = script();
+    let (commands, expected) = script(oracle.simd());
     let observations = expected.lines().count();
     assert!(
         observations > 1000,
