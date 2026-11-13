@@ -4,6 +4,11 @@
 //! The immutable header is borrowed or shared. Reference slots retain their
 //! existing owners; each row borrows them only for that call. PerformBlending's
 //! temporary plane separates foreground reads from its in-place output writes.
+//! HWY_DYNAMIC_DISPATCH(GetBlendingStage) selects a per-target copy of this
+//! stage, but its body has no Highway operation: it only clips the span and
+//! calls the non-Highway PerformBlending (blending.cc, alpha.cc). Every target
+//! therefore uses this one stage (port ADR 0004; replayed against the NEON
+//! oracle in tests/simd_stages2.rs).
 use super::render_pipeline_stage::{
     RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
 };

@@ -443,4 +443,18 @@ pipelines only) and `tests/simd_stages2.rs`.
   16-sample batch, three seeds, rectangles inside larger planes so the
   vector tail past the rectangle is observed). No word differs; the scalar
   path fails all three. AVX2: compiles; not run locally.
+- **Blending** (no translation needed). `GetBlendingStage` is a Highway
+  export, but the per-target `BlendingStage` contains no Highway operation:
+  it clips the span to the canvas and calls `PerformBlending`
+  (blending.cc, alpha.cc), which is compiled once outside `HWY_NAMESPACE`.
+  The port therefore uses its one stage on every target. Evidence: the
+  scalar suite's `blendstage-row`/`blendstage-simple` request families
+  (tests/parity/blending_stage.rs, included unchanged) replayed against the
+  NEON oracle with the SIMD target selected: 3,891 requests, 1,433,730
+  words, no difference. Because the stage has no SIMD arithmetic, the
+  scalar path passes the same replay; the replay shows that the NEON
+  build's blending equals the port, not that a SIMD body was translated.
+  The static AVX2 oracle compiles blending.cc with FMA (see
+  "Consequences"), so an AVX2 comparison of `PerformBlending` against that
+  oracle is not meaningful for an SSE2-baseline dispatch build.
 <!-- end stages2 -->
