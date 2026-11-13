@@ -10,6 +10,8 @@ mod acm_random;
 mod cdef;
 #[path = "simd/highbd_inv_txfm.rs"]
 mod highbd_inv_txfm;
+#[path = "simd/lowbd_inv_txfm.rs"]
+mod lowbd_inv_txfm;
 #[path = "simd/quantize.rs"]
 mod quantize;
 #[path = "simd/error_block.rs"]

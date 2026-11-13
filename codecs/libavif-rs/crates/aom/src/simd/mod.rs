@@ -48,6 +48,10 @@ pub mod aom_dsp__arm__transpose_neon;
 pub mod aom_ports__aarch64_cpudetect;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/av1_inv_txfm_neon.rs"]
+pub mod av1__common__arm__av1_inv_txfm_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/common/arm/cdef_block_neon.rs"]
 pub mod av1__common__arm__cdef_block_neon;
 
