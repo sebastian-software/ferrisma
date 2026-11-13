@@ -8,7 +8,8 @@
 //         <lum0> <lum1> <lum2> <width> <origin> <n> <n words>
 // Each in-place request fills five channel rows with words[(c * 7 + x) % n],
 // runs ProcessRow(rows, {}, 0, 0, width, 19, 23, 0) and prints the status
-// followed by all five rows (len = origin + width + 16 samples each).
+// followed by all five rows (len = origin + kRenderPipelineXOffset + width +
+// 16 samples each).
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -46,10 +47,14 @@ std::vector<float> RSWords(std::istringstream& in) {
 }
 
 // Five channel rows; the stage's row pointer (sample `origin`) lies on a
-// 128-byte boundary, as libjxl's own pipeline rows do (issue #252).
+// 128-byte boundary, as libjxl's own pipeline rows do (issue #252). A stage
+// processes the samples from GetInputRow = row + kRenderPipelineXOffset on,
+// whole vectors to RoundUpTo(width, Lanes(d)), so the row holds
+// kRenderPipelineXOffset + width + 16 samples after `origin`, as libjxl's
+// pipeline rows hold the offset, the group and vector padding.
 void RSInPlace(jxl::RenderPipelineStage& stage, size_t width, size_t origin,
                const std::vector<float>& words, JxlMemoryManager* mm) {
-  const size_t len = origin + width + 16;
+  const size_t len = origin + jxl::kRenderPipelineXOffset + width + 16;
   const size_t row_align = 128 / sizeof(float);
   const size_t shift = (row_align - origin % row_align) % row_align;
   std::vector<jxl::ImageF> planes;

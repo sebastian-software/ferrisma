@@ -18,7 +18,7 @@ use jxl::jxl::dec_xyb::{OpsinParams, OutputEncodingInfo};
 use jxl::jxl::hwy::Target;
 use jxl::jxl::image::Plane;
 use jxl::jxl::render_pipeline::render_pipeline_stage::{
-    RenderPipelineStage, Row, RowBuffers, RowStorage,
+    RENDER_PIPELINE_X_OFFSET as OFFSET, RenderPipelineStage, Row, RowBuffers, RowStorage,
 };
 use simd_common::{check_rows, join, next, special_words, status, target};
 use std::fmt::Write as _;
@@ -31,8 +31,9 @@ fn num(args: &mut std::str::SplitWhitespace<'_>) -> usize {
 }
 
 /// The rows of an in-place request, as `RSInPlace` fills and prints them:
-/// five channel rows of `origin + width + 16` samples, `words[(c * 7 + x) %
-/// n]`, the stage's row at sample `origin`.
+/// five channel rows of `origin + kRenderPipelineXOffset + width + 16`
+/// samples, `words[(c * 7 + x) % n]`, the stage's row at sample `origin`
+/// (`get_input_row` adds the offset, as `GetInputRow` does).
 fn in_place(
     stage: &mut dyn RenderPipelineStage,
     args: &mut std::str::SplitWhitespace<'_>,
@@ -42,7 +43,7 @@ fn in_place(
     let n = num(args);
     let words: Vec<f32> = (0..n).map(|_| float(args)).collect();
     assert!(args.next().is_none(), "trailing request words");
-    let len = origin + width + 16;
+    let len = origin + OFFSET + width + 16;
     let mut planes: Vec<_> = (0..5)
         .map(|c| {
             // Room for whole-vector reads past the row, as the source's
