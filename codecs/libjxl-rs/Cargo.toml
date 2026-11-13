@@ -21,3 +21,7 @@ crate-type = ["rlib", "staticlib", "cdylib"]
 # The C++ oracle is an executable used by integration tests, never a dependency
 # of the Rust library. Enabling this feature requires building it first.
 cpp-oracle = []
+# Opt-in to the translated skcms SKX (AVX-512) engine on x86_64. Off by
+# default (decision D6): an AVX-512 CPU runs the HSW engine, as an original
+# built with -DSKCMS_DISABLE_SKX does.
+skcms-skx = []

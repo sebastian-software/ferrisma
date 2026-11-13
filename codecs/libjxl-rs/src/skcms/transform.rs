@@ -556,7 +556,7 @@ pub unsafe fn transform(
 
 /// Original skcms.cc:2422-2480 engine classification.
 #[cfg(target_arch = "x86_64")]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CpuType {
     Baseline,
     Hsw,
@@ -599,6 +599,24 @@ fn cpu_type() -> CpuType {
     })
 }
 
+/// The engine the original switch at skcms.cc:3040-3055 runs for `cpu`.
+/// Ferrisma v1.0 builds the equivalent of `-DSKCMS_DISABLE_SKX` (decision
+/// D6, ADR-0020 amendment of 2026-11-13): an SKX CPU falls through to HSW,
+/// exactly as the original's `case CpuType::SKX` does without its `break`.
+/// The `skcms-skx` feature is the opt-in that restores the SKX engine; the
+/// translated SKX engine stays compiled either way.
+#[cfg(target_arch = "x86_64")]
+fn engine(cpu: CpuType) -> CpuType {
+    match cpu {
+        #[cfg(feature = "skcms-skx")]
+        CpuType::Skx => CpuType::Skx,
+        #[cfg(not(feature = "skcms-skx"))]
+        CpuType::Skx => CpuType::Hsw,
+        CpuType::Hsw => CpuType::Hsw,
+        CpuType::Baseline => CpuType::Baseline,
+    }
+}
+
 /// The original engine selection and call at skcms.cc:3039-3058. Targets
 /// other than x86_64 define SKCMS_DISABLE_HSW/SKX and use the baseline.
 ///
@@ -616,7 +634,7 @@ unsafe fn run_program(
 ) {
     type Run = unsafe fn(&[Op], &[*const ()], *const u8, *mut u8, i32, usize, usize);
     #[cfg(target_arch = "x86_64")]
-    let run: Run = match cpu_type() {
+    let run: Run = match engine(cpu_type()) {
         CpuType::Skx => super::transform_x86::run_program_skx,
         CpuType::Hsw => super::transform_x86::run_program_hsw,
         CpuType::Baseline => super::transform_simd::run_program,
@@ -890,5 +908,24 @@ pub unsafe fn oracle_program(
     // SAFETY: forwarded exact program/context/pixel contract, without a second implementation.
     unsafe {
         super::transform_simd::run_program(&ops, contexts, src, dst, n, src_bpp, dst_bpp);
+    }
+}
+
+/// Decision D6: SKX runs only with the `skcms-skx` opt-in. The CPU type is
+/// injected, because no local host has AVX-512.
+#[cfg(all(test, target_arch = "x86_64"))]
+mod engine_tests {
+    use super::{CpuType, engine};
+
+    #[test]
+    fn skx_cpus_run_hsw_unless_skcms_skx_is_enabled() {
+        let skx = if cfg!(feature = "skcms-skx") {
+            CpuType::Skx
+        } else {
+            CpuType::Hsw
+        };
+        assert_eq!(engine(CpuType::Skx), skx);
+        assert_eq!(engine(CpuType::Hsw), CpuType::Hsw);
+        assert_eq!(engine(CpuType::Baseline), CpuType::Baseline);
     }
 }
