@@ -17,9 +17,17 @@ against it; WP12 adds dwebp and webpinfo as probes/wp12/dwebp and
 probes/wp12/webpinfo. Without the option the build configures as before.
 
 Point LIBWEBP_ORACLE_DIR at a variant directory to run the differential tests
-against it. Variants: release (the reference), asan-ubsan (the same build
-instrumented with AddressSanitizer and UndefinedBehaviorSanitizer) and debug
-(assertions enabled).
+against it. Variants: release (the scalar reference), asan-ubsan (the same build
+instrumented with AddressSanitizer and UndefinedBehaviorSanitizer), debug
+(assertions enabled) and release-simd (upstream with its SIMD code, the
+reference of the port's SIMD build; ADR 0008).
+
+--arch x86_64 builds a variant for x86-64 on an ARM64 Mac, where Rosetta 2
+runs it, into build/oracle/<variant>-x86_64 (with --rust-lib, the Rust static
+library is built for x86_64-apple-darwin). Every executable of the oracle
+links tools/oracle/probe_support/simd_level.c, which caps the CPU query
+`VP8GetCPUInfo` at the level that LIBWEBP_SIMD_LEVEL names (sse2, sse41,
+avx2 or neon), the way the port caps its own query (ADR 0008).
 """
 
 import argparse
@@ -39,9 +47,10 @@ VARIANTS = {
     "release": {"build_type": "Release", "sanitizers": False},
     "asan-ubsan": {"build_type": "Release", "sanitizers": True},
     "debug": {"build_type": "Debug", "sanitizers": False},
-    # The diagnostic variant of ADR 0008: upstream with its SIMD code, for the
-    # SIMD packages' probes and the attribution of a difference to upstream's
-    # SIMD or to the port. Not a reference variant: --variant all skips it.
+    # Upstream with its SIMD code: the reference of the port's SIMD build at
+    # each instruction-set level (ADR 0008, Ferrisma decision D4). --variant
+    # all builds the scalar variants; --variant gate builds release and
+    # release-simd.
     "release-simd": {"build_type": "Release", "sanitizers": False, "simd": True},
 }
 # The reference configuration from Ferrisma's port plan, in the order it lists them.
@@ -54,6 +63,20 @@ REFERENCE = [
     "-DWEBP_BUILD_GIF2WEBP=OFF", "-DWEBP_BUILD_IMG2WEBP=ON", "-DWEBP_BUILD_VWEBP=OFF",
     "-DWEBP_BUILD_WEBPMUX=OFF", "-DWEBP_BUILD_EXTRAS=OFF", "-DCMAKE_C_FLAGS=-ffp-contract=off",
 ]
+# The architectures that --arch builds for on an ARM64 Mac: the CMake options
+# and the Rust target whose tests run against the variant. The host's image
+# libraries (Homebrew's libpng, libjpeg, libtiff, giflib, zlib) are ARM64
+# only, so the cross build does not look for them: the tools then read and
+# write only the formats that need no library (PAM, PGM, PPM, BMP, ...), and
+# the tests choose their inputs by what the oracle's cwebp reads.
+CROSS_ARCHES = {
+    "x86_64": {"cmake": ["-DCMAKE_OSX_ARCHITECTURES=x86_64",
+                         *(f"-DCMAKE_DISABLE_FIND_PACKAGE_{name}=ON"
+                           for name in ("PNG", "JPEG", "TIFF", "GIF", "ZLIB"))],
+               "rust_target": "x86_64-apple-darwin"},
+}
+# The SIMD code that a release-simd build must contain on each architecture.
+REQUIRED_SIMD = {"x86_64": {"SSE2", "SSE41", "AVX2"}, "aarch64": {"NEON"}}
 # config.h defines that would mean SIMD code was compiled into the oracle.
 SIMD_DEFINES = re.compile(r"#define WEBP_HAVE_(SSE2|SSE41|AVX2|NEON|NEON_RTCD|MIPS32|MIPS_DSP_R2|MSA)\b")
 
@@ -68,8 +91,32 @@ def output(*args):
                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True).stdout
 
 
-def variant_dir(variant):
-    return ROOT / "build/oracle" / variant
+def variant_dir(variant, arch=None):
+    """build/oracle/<variant>, or build/oracle/<variant>-<arch> for --arch."""
+    return ROOT / "build/oracle" / (variant if arch is None else f"{variant}-{arch}")
+
+
+def host_arch():
+    """The host's architecture with Rust's name (std::env::consts::ARCH)."""
+    machine = platform.machine().lower()
+    return {"amd64": "x86_64", "arm64": "aarch64"}.get(machine, machine)
+
+
+def target_arch(arch):
+    """The architecture that a variant built with --arch `arch` runs on."""
+    if arch is None:
+        return host_arch()
+    if arch not in CROSS_ARCHES:
+        raise SystemExit(f"--arch {arch}: unknown; choose from {', '.join(CROSS_ARCHES)}")
+    if platform.system() != "Darwin" or host_arch() != "aarch64":
+        raise SystemExit(f"--arch {arch} builds on an ARM64 Mac for Rosetta 2; "
+                         f"build natively on other hosts")
+    return arch
+
+
+def cargo_target(arch):
+    """Cargo's --target arguments for --arch, if any."""
+    return [] if arch is None else ["--target", CROSS_ARCHES[arch]["rust_target"]]
 
 
 def cache_value(build, name):
@@ -81,10 +128,21 @@ def cache_value(build, name):
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 
 
-def rust_staticlib():
-    """Build the Rust static library; return its path and native libraries."""
-    command = ["cargo", "--color", "never", "rustc", "--release", "--lib", "--",
-               "--print", "native-static-libs"]
+def rust_staticlib(arch=None, simd=True):
+    """Build the Rust static library; return its path and native libraries.
+
+    simd=False builds the scalar translation (--no-default-features) into the
+    separate target directory target/libwebp-scalar, so that the consumer
+    builds of the scalar variants link the scalar port and those of
+    release-simd the SIMD port, without the two builds replacing each other.
+    """
+    target = ROOT.parents[1] / "target"
+    features = []
+    if not simd:
+        target /= "libwebp-scalar"
+        features = ["--no-default-features", "--target-dir", str(target)]
+    command = ["cargo", "--color", "never", "rustc", *cargo_target(arch), *features, "--release",
+               "--lib", "--", "--print", "native-static-libs"]
     print("+ " + " ".join(command), flush=True)
     # CI may set CARGO_TERM_COLOR=always, which colors rustc's note; the
     # library list goes to the linker, so it must be plain text.
@@ -96,15 +154,18 @@ def rust_staticlib():
     native = re.findall(r"native-static-libs: (.*)$", plain, re.M)
     if not native:
         raise SystemExit("cargo did not report the native libraries of the static library")
-    library = ROOT.parents[1] / "target/release/libwebp.a"
+    if arch is not None:
+        target /= CROSS_ARCHES[arch]["rust_target"]
+    library = target / "release/libwebp.a"
     if not library.exists():
         raise SystemExit(f"{library} was not built")
     return {"path": str(library), "native_libs": native[-1].strip()}
 
 
-def build(variant, jobs, fresh, rust_lib=None):
+def build(variant, jobs, fresh, rust_lib=None, arch=None):
     settings = VARIANTS[variant]
-    directory = variant_dir(variant)
+    running = target_arch(arch)
+    directory = variant_dir(variant, arch)
     if fresh and directory.exists():
         shutil.rmtree(directory)
     reference = list(REFERENCE)
@@ -113,7 +174,8 @@ def build(variant, jobs, fresh, rust_lib=None):
         reference.append("-DORACLE_SIMD=ON")
     configure = ["cmake", "-S", SOURCE, "-B", directory,
                  f"-DCMAKE_BUILD_TYPE={settings['build_type']}", *reference,
-                 f"-DORACLE_SANITIZERS={'ON' if settings['sanitizers'] else 'OFF'}"]
+                 f"-DORACLE_SANITIZERS={'ON' if settings['sanitizers'] else 'OFF'}",
+                 *(CROSS_ARCHES[arch]["cmake"] if arch is not None else [])]
     if rust_lib:
         configure += [f"-DLIBWEBP_RS_STATICLIB={rust_lib['path']}",
                       f"-DLIBWEBP_RS_NATIVE_LIBS={rust_lib['native_libs']}"]
@@ -125,8 +187,10 @@ def build(variant, jobs, fresh, rust_lib=None):
     defines = sorted(set(re.findall(r"^#define (\w+)", config, re.M)))
     simd = SIMD_DEFINES.findall(config)
     if settings.get("simd"):
-        if not simd:
-            raise SystemExit(f"{variant}: the oracle was built without SIMD")
+        missing = REQUIRED_SIMD.get(running, set()) - set(simd)
+        if not simd or missing:
+            raise SystemExit(f"{variant}: the oracle was built without SIMD: missing "
+                             f"{sorted(missing) or 'all'}")
     elif simd:
         raise SystemExit(f"{variant}: the oracle was built with SIMD enabled: {simd}")
     flags = dict(line.split("=", 1) for line in
@@ -141,6 +205,8 @@ def build(variant, jobs, fresh, rust_lib=None):
         "simd": bool(settings.get("simd")),
         "upstream_revision": output("git", "-C", "upstream/libwebp", "rev-parse", "HEAD").strip(),
         "host": f"{platform.system()} {platform.release()} {platform.machine()}",
+        "arch": running,
+        "simd_defines": sorted(set(simd)),
         "cmake": output("cmake", "--version").splitlines()[0],
         "c_compiler": compiler,
         "c_compiler_version": output(compiler, "--version").splitlines()[0],
@@ -162,20 +228,30 @@ def build(variant, jobs, fresh, rust_lib=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--variant", choices=[*VARIANTS, "all"], action="append",
+    parser.add_argument("--variant", choices=[*VARIANTS, "all", "gate"], action="append",
                         help="variant to build (repeatable; default: release; all = the "
-                             "reference variants, without release-simd)")
+                             "scalar variants; gate = release and release-simd)")
     parser.add_argument("--jobs", default=str(os.cpu_count() or 4), help="parallel build jobs")
     parser.add_argument("--fresh", action="store_true", help="delete the variant directory first")
     parser.add_argument("--rust-lib", action="store_true",
                         help="build the Rust static library and the consumer builds against it")
+    parser.add_argument("--arch", choices=list(CROSS_ARCHES),
+                        help="build for this architecture on an ARM64 Mac (Rosetta 2)")
     args = parser.parse_args()
-    variants = args.variant or ["release"]
-    if "all" in variants:
-        variants = [name for name, settings in VARIANTS.items() if not settings.get("simd")]
-    rust_lib = rust_staticlib() if args.rust_lib else None
+    variants = []
+    for variant in args.variant or ["release"]:
+        if variant == "all":
+            names = [name for name, settings in VARIANTS.items() if not settings.get("simd")]
+        elif variant == "gate":
+            names = ["release", "release-simd"]
+        else:
+            names = [variant]
+        variants += [name for name in names if name not in variants]
     for variant in variants:
-        build(variant, args.jobs, args.fresh, rust_lib)
+        rust_lib = None
+        if args.rust_lib:
+            rust_lib = rust_staticlib(args.arch, simd=VARIANTS[variant].get("simd", False))
+        build(variant, args.jobs, args.fresh, rust_lib, args.arch)
 
 
 if __name__ == "__main__":

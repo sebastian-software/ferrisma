@@ -21,9 +21,10 @@ endif()
 
 # The reference configuration. tools/build_oracle.py passes the same values on
 # the command line; forcing them here keeps a manual configure from drifting.
-# ORACLE_SIMD builds upstream with its SIMD code: the diagnostic variant
-# release-simd of ADR 0008, never the reference configuration.
-option(ORACLE_SIMD "Build upstream with its SIMD code (diagnostic, ADR 0008)" OFF)
+# ORACLE_SIMD builds upstream with its SIMD code: the variant release-simd of
+# ADR 0008, the reference of the port's SIMD build, never the scalar
+# reference configuration.
+option(ORACLE_SIMD "Build upstream with its SIMD code (release-simd, ADR 0008)" OFF)
 if(ORACLE_SIMD)
   set(WEBP_ENABLE_SIMD ON CACHE BOOL "" FORCE)
 else()
@@ -124,6 +125,24 @@ foreach(package_dir ${PACKAGE_DIRS})
   # and appends the targets that oracle_probes should build to ALL_PROBES.
   if(EXISTS "${package_dir}/oracle.cmake")
     include("${package_dir}/oracle.cmake")
+  endif()
+endforeach()
+
+# Every executable, upstream's tools included, links simd_level.c, which caps
+# the CPU query at the level LIBWEBP_SIMD_LEVEL names (ADR 0008). Upstream's
+# tools use the plain target_link_libraries signature, the probes the keyword
+# one.
+add_library(oracle_simd_level OBJECT probe_support/simd_level.c)
+target_include_directories(oracle_simd_level PRIVATE
+  "${UPSTREAM}" "${CMAKE_BINARY_DIR}/libwebp" "${CMAKE_BINARY_DIR}/libwebp/src")
+target_compile_definitions(oracle_simd_level PRIVATE ${UPSTREAM_DEFINITIONS})
+foreach(tool dwebp cwebp webpinfo img2webp)
+  target_link_libraries(${tool} oracle_simd_level)
+endforeach()
+foreach(target ${ALL_PROBES})
+  get_target_property(type ${target} TYPE)
+  if(type STREQUAL "EXECUTABLE")
+    target_link_libraries(${target} PRIVATE oracle_simd_level)
   endif()
 endforeach()
 

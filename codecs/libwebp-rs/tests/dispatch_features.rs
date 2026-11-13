@@ -19,9 +19,45 @@ extern "C" fn no_features(_: CPUFeature) -> i32 {
     0
 }
 
+/// The gate level of `tools/check.py --oracle` (ADR 0008), with the `oracle`
+/// feature only: `LIBWEBP_SIMD_LEVEL` caps the query, and the host must
+/// report at least that level, or the mode would silently compare a lower one
+/// (on Rosetta 2, AVX2 needs `ROSETTA_ADVERTISE_AVX=1`).
+#[cfg(feature = "oracle")]
+fn gate_level() -> Option<String> {
+    std::env::var("LIBWEBP_SIMD_LEVEL")
+        .ok()
+        .filter(|level| !level.is_empty())
+}
+
+#[cfg(feature = "oracle")]
+#[test]
+fn the_gate_level_is_the_selected_level() {
+    let Some(level) = gate_level() else {
+        return;
+    };
+    let selected = features();
+    let expected = match level.as_str() {
+        "neon" => selected.neon && !selected.sse2,
+        "avx2" => selected.sse2 && selected.sse4_1 && selected.avx2,
+        "sse41" => selected.sse2 && selected.sse4_1 && !selected.avx && !selected.avx2,
+        "sse2" => selected.sse2 && !selected.sse3 && !selected.sse4_1 && !selected.avx2,
+        _ => panic!("LIBWEBP_SIMD_LEVEL={level}: unknown level"),
+    };
+    assert!(
+        expected,
+        "LIBWEBP_SIMD_LEVEL={level}, but the dispatch selects by {selected:?}"
+    );
+}
+
 #[test]
 fn features_follow_the_query_and_the_noasm_pointer() {
     let detected = features();
+    #[cfg(feature = "oracle")]
+    if gate_level().is_some() {
+        // The capped record is checked by the_gate_level_is_the_selected_level.
+        return;
+    }
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
         assert_eq!(detected.sse2, is_x86_feature_detected!("sse2"));

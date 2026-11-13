@@ -208,7 +208,30 @@ fn x86cpu_info(feature: CPUFeature) -> bool {
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[must_use]
 pub fn vp8_get_cpu_info(feature: CPUFeature) -> bool {
+    #[cfg(feature = "oracle")]
+    if !gate_level_allows(feature) {
+        return false;
+    }
     x86cpu_info(feature)
+}
+
+/// Whether the differential gate's instruction-set level lets the query
+/// report `feature` (ADR 0008). The environment variable `LIBWEBP_SIMD_LEVEL`
+/// names the level of a `tools/check.py --oracle` mode: unset, `avx2` and
+/// `neon` report every feature as the CPU does; `sse41` reports nothing above
+/// `kSSE4_1`; `sse2` reports `kSSE2` alone. The oracle's
+/// `tools/oracle/probe_support/simd_level.c` wraps upstream's `VP8GetCPUInfo`
+/// with the same rule before `main`, so both sides select the variants of the
+/// same level. Compiled only with the `oracle` feature, which no ordinary
+/// build enables; no C counterpart.
+#[cfg(all(feature = "oracle", any(target_arch = "x86", target_arch = "x86_64")))]
+fn gate_level_allows(feature: CPUFeature) -> bool {
+    match std::env::var("LIBWEBP_SIMD_LEVEL").as_deref() {
+        Err(_) | Ok("" | "avx2" | "neon") => true,
+        Ok("sse41") => feature <= CPUFeature::kSSE4_1,
+        Ok("sse2") => feature == CPUFeature::kSSE2,
+        Ok(level) => panic!("LIBWEBP_SIMD_LEVEL={level}: unknown level"),
+    }
 }
 
 // upstream: src/dsp/cpu.c armCPUInfo

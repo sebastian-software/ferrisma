@@ -95,6 +95,18 @@ impl Oracle {
         &self.directory
     }
 
+    /// Whether the variant is upstream with its SIMD code (`release-simd`,
+    /// ADR 0008), from `"simd": true` in its `oracle.json`. Against such a
+    /// variant a test compares the port's dispatch functions, which select
+    /// the SIMD variants of the same level, also where it compares the `_c`
+    /// translations against the scalar reference because upstream's SIMD
+    /// differs from upstream's C outside the valid input domain.
+    pub fn simd(&self) -> bool {
+        let manifest = std::fs::read_to_string(self.directory.join("oracle.json"))
+            .expect("the oracle manifest is readable");
+        manifest.contains("\"simd\": true")
+    }
+
     /// The probe built from `tools/oracle/probes/<package>/<name>.c`.
     ///
     /// Panics when the probe is missing, which means the oracle predates the
