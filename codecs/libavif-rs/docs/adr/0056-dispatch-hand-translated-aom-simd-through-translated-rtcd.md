@@ -376,8 +376,13 @@ separately:
   corpus (8 to 12 bits, 4:2:0 and 4:4:4, quality 20 to lossless, speeds 6
   and 4; all-intra keeps loop restoration only at speed 4 and below).
 
-**Pending:** the SIMD-against-SIMD confirmation of D4 (the port's Neon output
-against the original built with its own Neon kernels) waits for the Neon
-reference build of the original. Neon equal to `_c` is what the original's
-own tests require of these kernels, so it is the expected property, but it
-is not the D4 proof.
+**SIMD-against-SIMD confirmation of D4 (2026-11-13):** with the Neon and the
+generic reference builds of the original in place
+(`tools/build_aom.py --library-only --simd neon` and `--library-only`),
+`tools/check_aom_simd_original.py` on macOS ARM64 reports `neon: 82 of 82
+cases identical to the original` and `scalar: 82 of 82 cases identical to
+the original` on the tree with all five kernel families dispatched (509 RTCD
+functions). Each case compares the AVIF bytes, the decoded planes and the
+RGB output; the port reports `simd(neon)` in the `neon` level. The x86-64
+levels have not run: the port's x86 kernels do not build for
+`x86_64-apple-darwin` yet, and the hosted Linux run is open (#241).
