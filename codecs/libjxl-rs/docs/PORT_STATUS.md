@@ -140,6 +140,7 @@ list, each reaching a still-scalar `Upsample`, noise or splines stage (ADR
 start of the SIMD stages in the low-memory pipeline. The scalar gate now
 forces the scalar decoder path (`JXL_DECODER_TARGET=scalar`).
 <!-- end public gate -->
+
 <!-- modular -->
 Modular and output-conversion kernels (2026-11-13, branch `v1/jxl-modular`):
 the SIMD `FloatToU32`/`FloatToF16` of dec_external_image
@@ -154,6 +155,7 @@ dispatched on the same target, with twelve new signed 32-bit layer
 operations. `convolve_symmetric5` and `simd_util`'s `MaxValue` are encoder
 only. AVX2 compiles and is not yet run.
 <!-- end modular -->
+
 <!-- stages2 -->
 Upsampling, noise, blending and splines stages of ADR 0004 Plan item 1
 (2026-11-13): the SIMD upsampling stage (`stage_upsampling_simd.rs`, 2x, 4x

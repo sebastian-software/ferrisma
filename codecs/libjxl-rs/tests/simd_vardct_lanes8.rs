@@ -270,6 +270,62 @@ impl SimdF32 for Neon8 {
     fn store_demote_to_f16(self, _: Self::V, _: &mut [u16]) {
         unimplemented!("not used by the VarDCT kernels")
     }
+    // Signed 32-bit operations of the modular and stages2 packages, each half
+    // through the NEON implementation. The VarDCT kernels do not use them;
+    // they are here because the layer trait requires them.
+    fn set_i32(self, v: i32) -> Self::I {
+        [self.0.set_i32(v), self.0.set_i32(v)]
+    }
+    fn load_i32(self, src: &[i32]) -> Self::I {
+        let src = &src[..8];
+        [self.0.load_i32(src), self.0.load_i32(&src[4..])]
+    }
+    fn and_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        halves!(self, and_i32, a, b)
+    }
+    fn xor_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        halves!(self, xor_i32, a, b)
+    }
+    fn abs_i32(self, v: Self::I) -> Self::I {
+        halves!(self, abs_i32, v)
+    }
+    fn neg_i32(self, v: Self::I) -> Self::I {
+        halves!(self, neg_i32, v)
+    }
+    fn ne_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        halves!(self, ne_i32, a, b)
+    }
+    fn if_then_else_i32(self, m: Self::I, yes: Self::I, no: Self::I) -> Self::I {
+        halves!(self, if_then_else_i32, m, yes, no)
+    }
+    fn if_then_zero_else_i32(self, m: Self::I, no: Self::I) -> Self::I {
+        halves!(self, if_then_zero_else_i32, m, no)
+    }
+    fn mul_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        halves!(self, mul_i32, a, b)
+    }
+    // Block-wise on AVX2, so one NEON operation per 128-bit half gives the
+    // AVX2 block structure (Highway x86_256-inl.h at the pinned revision):
+    // MulEven is `_mm256_mul_epi32`, which multiplies the low 32 bits of each
+    // 64-bit element (lanes 0, 2 | 4, 6); MulOdd for 32-bit lanes is
+    // `MulEven(DupOdd(a), DupOdd(b))` (x86_128-inl.h), DupOdd shuffling
+    // within each block; InterleaveOdd (non-AVX3 path) is two
+    // `_mm256_shuffle_ps`, each per 128-bit lane, giving a1 b1 a3 b3 | a5 b5
+    // a7 b7; TableLookupBytes is `_mm256_shuffle_epi8`, which looks up within
+    // each 128-bit lane. Per half, the byte-index rule stays NEON's
+    // (`vqtbl1q_u8`), as every operation of this descriptor does.
+    fn mul_even_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        halves!(self, mul_even_i32, a, b)
+    }
+    fn mul_odd_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        halves!(self, mul_odd_i32, a, b)
+    }
+    fn interleave_odd_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        halves!(self, interleave_odd_i32, a, b)
+    }
+    fn table_lookup_bytes(self, bytes: Self::I, from: Self::I) -> Self::I {
+        halves!(self, table_lookup_bytes, bytes, from)
+    }
 }
 
 fn next(seed: &mut u64) -> u64 {

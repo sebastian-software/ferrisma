@@ -598,6 +598,7 @@ and splines are translated (and then on each target separately).
   (`max_vector_size() == 4`), and that the explicit override still selects
   either path. Ordinary builds never read the environment.
 <!-- end public gate -->
+
 <!-- modular -->
 ## Modular and output-conversion kernels (2026-11-13, Plan item 2)
 
@@ -688,6 +689,7 @@ original's exported `ORACLE_HWY_NS` functions).
   path" (a) shrinks accordingly (the render-pipeline stages there belong to
   other packages). AVX2 of all four compiles and has not been run.
 <!-- end modular -->
+
 <!-- stages2 -->
 ## Upsampling, noise, blending and splines stages (2026-11-13, Plan item 1)
 
