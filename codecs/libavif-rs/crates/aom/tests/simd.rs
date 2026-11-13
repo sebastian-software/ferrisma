@@ -32,6 +32,8 @@ mod encodetxb;
 mod mse_16bit;
 #[path = "simd/blk_sse_sum.rs"]
 mod blk_sse_sum;
+#[path = "simd/round_shift_array.rs"]
+mod round_shift_array;
 #[path = "simd/intrapred.rs"]
 mod intrapred;
 #[path = "simd/lowbd_intrapred.rs"]
