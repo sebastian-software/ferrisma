@@ -25,3 +25,6 @@ cpp-oracle = []
 # default (decision D6): an AVX-512 CPU runs the HSW engine, as an original
 # built with -DSKCMS_DISABLE_SKX does.
 skcms-skx = []
+# The NEON/AVX2 variant of the oracle for the SIMD paths (ADR 0004); its
+# tests read JXL_CPP_ORACLE_SIMD. tools/check.py builds it for the host.
+cpp-oracle-simd = ["cpp-oracle"]

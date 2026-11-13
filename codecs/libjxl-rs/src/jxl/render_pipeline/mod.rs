@@ -43,3 +43,9 @@ mod stage_write_dither;
 pub mod stage_xyb;
 #[cfg_attr(not(target_arch = "aarch64"), path = "pre_r1/stage_ycbcr.rs")]
 pub mod stage_ycbcr;
+// SIMD (NEON/AVX2) stages, compared only with the original's SIMD build at
+// the same target; not selected by the decoder yet (ADR 0004).
+mod simd_rows;
+pub mod stage_chroma_simd;
+pub mod stage_epf_simd;
+pub mod stage_gaborish_simd;

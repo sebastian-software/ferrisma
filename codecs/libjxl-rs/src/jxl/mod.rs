@@ -89,6 +89,8 @@ pub mod frame_dimensions;
 pub mod frame_header;
 pub mod headers;
 pub mod huffman_table;
+// Highway operations of the NEON and AVX2 SIMD paths (ADR 0004).
+pub mod hwy;
 pub mod icc_codec;
 pub mod icc_codec_common;
 pub mod image;
