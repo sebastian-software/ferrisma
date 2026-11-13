@@ -22,6 +22,8 @@ mod subtract;
 mod highbd_fwd_txfm;
 #[path = "simd/intrapred.rs"]
 mod intrapred;
+#[path = "simd/lowbd_intrapred.rs"]
+mod lowbd_intrapred;
 #[path = "simd/dr_prediction.rs"]
 mod dr_prediction;
 #[path = "simd/filterintra.rs"]

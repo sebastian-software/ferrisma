@@ -36,6 +36,10 @@ pub mod aom_dsp__arm__highbd_quantize_neon;
 pub mod aom_dsp__arm__loopfilter_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/intrapred_neon.rs"]
+pub mod aom_dsp__arm__intrapred_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "aom_dsp/arm/mem_neon.rs"]
 pub mod aom_dsp__arm__mem_neon;
 
