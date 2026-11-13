@@ -25,7 +25,9 @@
 //! domain. On AArch64, that pointer does not disable the unconditional NEON
 //! transforms, so `transform_matches_c` bounds the comparison domain. The
 //! scalar build still covers all defined mutated streams. Other streams run
-//! the host-selected SIMD variants (ADR 0008).
+//! the host-selected SIMD variants (ADR 0008). Against `release-simd` both
+//! sides run the SIMD transforms of the same level, so the mutated streams
+//! keep the selected variants and the NEON bound does not apply.
 
 #[path = "support/oracle.rs"]
 mod oracle;
@@ -401,8 +403,12 @@ fn transform_one_fits(block: &[i16]) -> bool {
 /// mutated stream against the reference oracle.
 fn transform_matches_c(block: &[i16]) -> bool {
     !cfg!(all(feature = "simd", target_arch = "aarch64"))
+        || SIMD_ORACLE.load(std::sync::atomic::Ordering::Relaxed)
         || block.iter().all(|&c| (-2048..=2047).contains(&c))
 }
+
+/// Whether the oracle is `release-simd` (ADR 0008).
+static SIMD_ORACLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Whether C's `TransformOne` stays within `int` on every block that the stream
 /// codes, and, with `simd` on 64-bit ARM, whether every block stays within the
@@ -474,6 +480,7 @@ fn vp8_decoder_matches_the_c_decoder() {
     let Some(oracle) = Oracle::locate("vp8_decoder_matches_the_c_decoder") else {
         return;
     };
+    SIMD_ORACLE.store(oracle.simd(), std::sync::atomic::Ordering::Relaxed);
     let probe = oracle.probe("wp6", "decode");
     let dir = oracle::test_data();
     let mut rng = Rng(0x5750_3644_4543);
@@ -640,7 +647,9 @@ fn vp8_decoder_matches_the_c_decoder() {
         }
         for case in &cases {
             commands.push_str(&case.command(&file));
-            let out = if case.mutated.is_some() {
+            let out = if case.mutated.is_some()
+                && !SIMD_ORACLE.load(std::sync::atomic::Ordering::Relaxed)
+            {
                 // The C translation, as `-noasm` selects it, for a stream whose
                 // coefficients can leave the domain of upstream's SSE2
                 // transform; the pointer comes back for the next case.

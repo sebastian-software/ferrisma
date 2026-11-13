@@ -116,6 +116,19 @@ fn lossless_encoder_dsp_matches_the_c_functions() {
     let mut rng = Rng(0xd5b0_11e5);
     let mut script = String::new();
     let mut expected = Fields::new();
+    // Against `release-simd` (ADR 0008) the histogram sums and the extra cost
+    // run on the sizes the encoder passes, which are the domain that upstream's
+    // SIMD variants assert: `AddVector_SSE2` and `AddVectorEq_SSE2` need an even
+    // size of at least 16 (`_AVX2` at least 32), and `ExtraCost_SSE41` a
+    // length that is a multiple of 8. The histogram sizes are
+    // `NUM_DISTANCE_CODES` (40) and `NUM_LITERAL_CODES + NUM_LENGTH_CODES`
+    // (280) plus a color cache of 0 or 2 to 2048 entries; the extra costs run
+    // over the 24 length and the 40 distance prefixes. Against the scalar
+    // reference the C functions run on every size.
+    let simd = oracle.simd();
+    const HISTOGRAM_SIZES: [usize; 13] = [
+        40, 280, 282, 284, 288, 296, 312, 344, 408, 536, 792, 1304, 2328,
+    ];
 
     // Tables.
     script.push_str("tables\n");
@@ -234,12 +247,20 @@ fn lossless_encoder_dsp_matches_the_c_functions() {
         vp8l_bundle_color_map(&bytes, width, xbits, &mut dst);
         expected = expected.with("bundle", hex32(&dst));
 
-        let length = [24, 40, 8, 12, 2 * (3 + rng.below(29) as i32)][rng.below(5) as usize];
+        let length = if simd {
+            [24, 40][rng.below(2) as usize]
+        } else {
+            [24, 40, 8, 12, 2 * (3 + rng.below(29) as i32)][rng.below(5) as usize]
+        };
         let pop = population(&mut rng, length as usize);
         writeln!(script, "extra {length} {}", hex32(&pop)).unwrap();
         expected = expected.with("extra", vp8l_extra_cost(&pop, length));
 
-        let size = rng.below(300) as usize;
+        let size = if simd {
+            HISTOGRAM_SIZES[rng.below(HISTOGRAM_SIZES.len() as u64) as usize]
+        } else {
+            rng.below(300) as usize
+        };
         let a: Vec<u32> = (0..size).map(|_| rng.u32()).collect();
         let mut b: Vec<u32> = (0..size).map(|_| rng.u32()).collect();
         writeln!(script, "addvec {} {}", hex32(&a), hex32(&b)).unwrap();

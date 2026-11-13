@@ -62,7 +62,7 @@ fn plane(rng: &mut Rng, len: usize, smooth: bool) -> Vec<u8> {
     }
 }
 
-fn script() -> (String, String) {
+fn script(simd: bool) -> (String, String) {
     let mut rng = Rng(0x5eed_0007);
     let mut commands = String::from("init\n");
     let mut expected = String::new();
@@ -107,6 +107,16 @@ fn script() -> (String, String) {
             for has_prev in [false, true] {
                 for alias in 0..=2_u32 {
                     if alias == 2 && !has_prev {
+                        continue;
+                    }
+                    // `GradientUnfilter_SSE2` reads `prev[i - 1]` after it
+                    // wrote `out[i - 1]`, so with `prev == out` it differs
+                    // from `GradientUnfilter_C`, which reads `prev[i]` first.
+                    // Upstream's callers never pass `prev == out` (the
+                    // previous row is another row), and a Rust slice cannot
+                    // alias the output, so against `release-simd` (ADR 0008)
+                    // the gradient runs without that form.
+                    if simd && alias == 2 && filter == 3 {
                         continue;
                     }
                     let prev = rng.bytes(width);
@@ -208,7 +218,7 @@ fn filters_match_the_c_functions() {
     let Some(oracle) = Oracle::locate("filters_match_the_c_functions") else {
         return;
     };
-    let (commands, expected) = script();
+    let (commands, expected) = script(oracle.simd());
     let observations = expected.lines().count();
     assert!(
         observations > 300,
