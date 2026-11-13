@@ -13,6 +13,7 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
+    static mut av1_get_nz_map_contexts: Option<unsafe extern "C-unwind" fn(*const uint8_t, *const int16_t, core::ffi::c_int, TX_SIZE, TX_CLASS, *mut int8_t) -> ()>;
     static mut av1_txb_init_levels: Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()>;
     pub type __sFILEX;
     pub type SB_FIRST_PASS_STATS;
@@ -8818,7 +8819,7 @@ pub unsafe extern "C-unwind" fn av1_write_coeffs_txb(
     let scan_order: *const SCAN_ORDER = get_scan(tx_size, tx_type) as *const SCAN_ORDER;
     let scan: *const int16_t = (*scan_order).scan;
     let mut coeff_contexts: crate::platform::Aligned16<[int8_t; 4096]> = crate::platform::Aligned16([0; 4096]);
-    av1_get_nz_map_contexts_c(
+    av1_get_nz_map_contexts.expect("non-null function pointer")(
         levels,
         scan,
         eob as core::ffi::c_int,
@@ -9359,7 +9360,7 @@ pub unsafe extern "C-unwind" fn av1_update_and_record_txb_context(
         (*td).rd_counts.tx_type_used[tx_size as usize][tx_type as usize] += 1;
         update_eob_context(eob, tx_size, tx_class, plane_type, ec_ctx, allow_update_cdf);
         let mut coeff_contexts: crate::platform::Aligned16<[int8_t; 4096]> = crate::platform::Aligned16([0; 4096]);
-        av1_get_nz_map_contexts_c(
+        av1_get_nz_map_contexts.expect("non-null function pointer")(
             levels,
             scan,
             eob,

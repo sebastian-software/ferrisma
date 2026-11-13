@@ -32,14 +32,7 @@ extern "C-unwind" {
         tx_size: TX_SIZE,
         tx_type: TX_TYPE,
     ) -> *const qm_val_t;
-    fn av1_get_nz_map_contexts_c(
-        levels: *const uint8_t,
-        scan: *const int16_t,
-        eob: core::ffi::c_int,
-        tx_size: TX_SIZE,
-        tx_class: TX_CLASS,
-        coeff_contexts: *mut int8_t,
-    );
+    static mut av1_get_nz_map_contexts: Option<unsafe extern "C-unwind" fn(*const uint8_t, *const int16_t, core::ffi::c_int, TX_SIZE, TX_CLASS, *mut int8_t) -> ()>;
     static mut av1_txb_init_levels: Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()>;
     static av1_eob_offset_bits: [int16_t; 12];
     static mut av1_nz_map_ctx_offset: [*const int8_t; 19];
@@ -8007,7 +8000,7 @@ unsafe extern "C-unwind" fn warehouse_efficients_txb(
     }
     cost += get_tx_type_cost(x, xd, plane, tx_size, tx_type, reduced_tx_set_used);
     cost += get_eob_cost(eob, eob_costs, coeff_costs, tx_class);
-    av1_get_nz_map_contexts_c(
+    av1_get_nz_map_contexts.expect("non-null function pointer")(
         levels,
         scan,
         eob,

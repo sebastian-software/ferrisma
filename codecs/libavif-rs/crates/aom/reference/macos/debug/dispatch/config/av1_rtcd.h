@@ -321,7 +321,8 @@ void av1_get_horver_correlation_full_neon(const int16_t *diff, int stride, int w
 RTCD_EXTERN void (*av1_get_horver_correlation_full)(const int16_t *diff, int stride, int w, int h, float *hcorr, float *vcorr);
 
 void av1_get_nz_map_contexts_c(const uint8_t *const levels, const int16_t *const scan, const int eob, const TX_SIZE tx_size, const TX_CLASS tx_class, int8_t *const coeff_contexts);
-#define av1_get_nz_map_contexts av1_get_nz_map_contexts_c
+void av1_get_nz_map_contexts_neon(const uint8_t *const levels, const int16_t *const scan, const int eob, const TX_SIZE tx_size, const TX_CLASS tx_class, int8_t *const coeff_contexts);
+RTCD_EXTERN void (*av1_get_nz_map_contexts)(const uint8_t *const levels, const int16_t *const scan, const int eob, const TX_SIZE tx_size, const TX_CLASS tx_class, int8_t *const coeff_contexts);
 
 void av1_highbd_apply_temporal_filter_c(const struct yv12_buffer_config *frame_to_filter, const struct macroblockd *mbd, const BLOCK_SIZE block_size, const int mb_row, const int mb_col, const int num_planes, const double *noise_levels, const MV *subblock_mvs, const int *subblock_mses, const int q_factor, const int filter_strength, int tf_wgt_calc_lvl, const uint8_t *pred, uint32_t *accum, uint16_t *count);
 #define av1_highbd_apply_temporal_filter av1_highbd_apply_temporal_filter_c
@@ -724,6 +725,8 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) av1_fwht4x4 = av1_fwht4x4_neon;
     av1_get_horver_correlation_full = av1_get_horver_correlation_full_c;
     if (flags & HAS_NEON) av1_get_horver_correlation_full = av1_get_horver_correlation_full_neon;
+    av1_get_nz_map_contexts = av1_get_nz_map_contexts_c;
+    if (flags & HAS_NEON) av1_get_nz_map_contexts = av1_get_nz_map_contexts_neon;
     av1_highbd_block_error = av1_highbd_block_error_c;
     if (flags & HAS_NEON) av1_highbd_block_error = av1_highbd_block_error_neon;
     av1_highbd_dr_prediction_z1 = av1_highbd_dr_prediction_z1_c;
