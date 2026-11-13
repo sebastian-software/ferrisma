@@ -69,6 +69,8 @@ impl Transform {
         wp_header: &weighted::Header,
         pool: Option<&ThreadPool>,
     ) -> Status {
+        // public gate: test observation only (decode_trace.rs).
+        crate::jxl::decode_trace::note(|| format!("modular inverse transform {}", self.id.0));
         match self.id {
             TransformId::RCT => inv_rct(input, self.begin_c as usize, self.rct_type as usize, pool),
             TransformId::SQUEEZE => inv_squeeze(input, &self.squeezes, pool),

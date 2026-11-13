@@ -183,10 +183,20 @@ def build_simd_oracle(rust_target=None):
 # The SIMD parity binaries (ADR 0004), which need the SIMD oracle and, under
 # Rosetta 2, ROSETTA_ADVERTISE_AVX.
 SIMD_TESTS = ["simd_parity", "simd_render", "simd_vardct"]
+# public gate: whole decodes through the public decoder (ADR 0004 condition (b)).
+SIMD_TESTS += ["simd_public"]
+# end public gate
 SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 
 def check_tests(env, partition, filter, target=None, keep_going=False):
+    # public gate: ADR 0004 "Decoder path" condition (c). The scalar gate
+    # forces the scalar decoder path, whatever hwy::DECODER_SELECTS_SIMD
+    # says; the oracle test builds read it (hwy::scalar_forced_by_environment)
+    # and only an explicit set_decoder_simd_for_test, as in the SIMD
+    # binaries, selects a SIMD target.
+    env = dict(env, JXL_DECODER_TARGET="scalar")
+    # end public gate
     test = ["cargo", "test", "--locked", "--offline", "--profile", "checked", "--all-features"]
     if target is not None:
         test += ["--target", target]

@@ -131,3 +131,8 @@ pub mod dec_group_simd;
 pub mod dec_transforms_simd;
 pub mod quant_weights_simd;
 // end vardct kernels
+
+// public gate: test observation of what a decode reaches (port ADR 0004).
+#[doc(hidden)]
+pub mod decode_trace;
+// end public gate
