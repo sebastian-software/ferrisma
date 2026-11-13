@@ -417,7 +417,7 @@ fn compare_located(requests: Vec<String>) -> usize {
     let mut ar_runs = 0;
     for (request, cpp) in requests.iter().zip(observations) {
         let rust = super::observe(request);
-        if rust != cpp {
+        if !super::parity_eq(request, &rust, &cpp) {
             let r: Vec<&str> = rust.split(' ').collect();
             let c: Vec<&str> = cpp.split(' ').collect();
             let first = r

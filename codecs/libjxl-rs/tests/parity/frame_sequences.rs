@@ -603,7 +603,7 @@ fn sequence_references_dc_animation_and_previews_match_original() {
                 }
             }
             let rust = super::observe(request);
-            if rust != cpp {
+            if !super::parity_eq(request, &rust, &cpp) {
                 let a: Vec<_> = rust.split_whitespace().collect();
                 let b: Vec<_> = cpp.split_whitespace().collect();
                 let differences: Vec<_> = a
@@ -716,7 +716,7 @@ fn original_section_reader_close_keeps_written_output_and_uncommitted_reference_
                 }
             }
         }
-        assert_eq!(super::observe(request), original, "request: {request}");
+        super::assert_parity(request, &super::observe(request), &original);
     }
     println!(
         "18 C++/Rust differential cases matched; 2 deferred close errors retain all written output and uncommitted reference pixels"
@@ -810,7 +810,7 @@ fn strict_sequence_cases(cases: Vec<String>) {
         let originals = original_observations(chunk);
         for (request, original) in chunk.iter().zip(originals) {
             let rust = super::observe(request);
-            if rust != original {
+            if !super::parity_eq(request, &rust, &original) {
                 let a: Vec<_> = rust.split_whitespace().collect();
                 let b: Vec<_> = original.split_whitespace().collect();
                 let differences: Vec<_> = a

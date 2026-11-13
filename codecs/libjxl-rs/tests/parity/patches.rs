@@ -495,7 +495,7 @@ fn chunks(cases: Vec<String>) {
         let original = original_observations(chunk);
         for (request, cpp) in chunk.iter().zip(original) {
             let rust = super::observe(request);
-            if rust != cpp {
+            if !super::parity_eq(request, &rust, &cpp) {
                 let a: Vec<_> = rust.split_whitespace().collect();
                 let b: Vec<_> = cpp.split_whitespace().collect();
                 let diffs: Vec<_> = a

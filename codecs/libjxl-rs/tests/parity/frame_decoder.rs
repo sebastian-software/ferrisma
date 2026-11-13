@@ -673,7 +673,7 @@ fn matches_original(requests: &[String]) -> Vec<String> {
     for chunk in requests.chunks(8) {
         for (request, cpp) in chunk.iter().zip(original_observations(chunk)) {
             let rust = super::observe(request);
-            if rust != cpp {
+            if !super::parity_eq(request, &rust, &cpp) {
                 let a: Vec<_> = rust.split_whitespace().collect();
                 let b: Vec<_> = cpp.split_whitespace().collect();
                 let first = a.iter().zip(&b).position(|(a, b)| a != b);

@@ -944,8 +944,210 @@ fn oracle_path() -> PathBuf {
         })
 }
 
+/// The second scalar reference of decision D8 / working rule O1: the same
+/// original sources and Highway scalar configuration at upstream's normal
+/// optimization level, without the pinned build's per-TU numeric pins
+/// (`tools/check.py` builds it as `target/oracle-o3/jxl_oracle`).
+fn reference_variant_path() -> Option<PathBuf> {
+    if strict_parity() {
+        return None;
+    }
+    let path = std::env::var_os("JXL_CPP_ORACLE_O3")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/oracle-o3/jxl_oracle")
+        });
+    assert!(
+        path.is_file(),
+        "second scalar reference missing: run python3 tools/check.py, or set \
+         JXL_PARITY_STRICT=1 for the strict word-exact diagnosis mode; expected {}",
+        path.display()
+    );
+    Some(path)
+}
+
+/// `JXL_PARITY_STRICT=1` restores the former gate for diagnosis: every
+/// observation must equal the pinned reference's text exactly, NaN payloads
+/// included, and the second reference is not consulted.
+fn strict_parity() -> bool {
+    std::env::var_os("JXL_PARITY_STRICT").is_some_and(|value| value == "1")
+}
+
+/// The second reference's line per request, recorded by
+/// `original_observations` for `parity_eq`.
+static REFERENCE_VARIANT: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<String, String>>,
+> = std::sync::LazyLock::new(Default::default);
+
 fn original_observations(requests: &[String]) -> Vec<String> {
-    program_observations(&oracle_path(), requests)
+    let pinned = program_observations(&oracle_path(), requests);
+    if let Some(variant) = reference_variant_path() {
+        let other = program_observations(&variant, requests);
+        let mut statistics = std::collections::BTreeMap::<&str, [usize; 3]>::new();
+        for ((request, a), b) in requests.iter().zip(&pinned).zip(&other) {
+            let entry = statistics.entry(family(request)).or_default();
+            let mask = reference_mask(request, a, b);
+            entry[0] += a.split_whitespace().count();
+            entry[1] += mask
+                .as_ref()
+                .map_or(0, |m| m.iter().filter(|x| **x).count());
+            entry[2] += usize::from(mask.is_none());
+        }
+        let mut recorded = REFERENCE_VARIANT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        for (request, b) in requests.iter().zip(other) {
+            recorded.insert(request.clone(), b);
+        }
+        drop(recorded);
+        log_parity(
+            statistics
+                .iter()
+                .map(|(family, [words, masked, unaligned])| {
+                    format!("mask {family} words={words} excluded={masked} unaligned={unaligned}")
+                }),
+        );
+    }
+    pinned
+}
+
+/// The request family: the first token of the protocol line.
+fn family(request: &str) -> &str {
+    request.split_whitespace().next().unwrap_or("")
+}
+
+/// A protocol token that is a 32-bit word encoding a binary32 NaN.
+fn nan_word(token: &str) -> bool {
+    token
+        .parse::<u32>()
+        .is_ok_and(|bits| f32::from_bits(bits).is_nan())
+}
+
+/// Whether a request carries a NaN or an infinity among its 32-bit word
+/// arguments (the exceptional inputs of working rule O1).
+fn exceptional_request(request: &str) -> bool {
+    request.split_whitespace().skip(1).any(|token| {
+        token
+            .parse::<u32>()
+            .is_ok_and(|bits| !f32::from_bits(bits).is_finite())
+    })
+}
+
+/// Tokens equal under D8: identical, or two NaN words.
+fn token_eq(a: &str, b: &str) -> bool {
+    a == b || (nan_word(a) && nan_word(b))
+}
+
+/// Per token of `pinned`, whether working rule O1 excludes it: the two
+/// scalar references disagree there after NaN equalization. `None` when the
+/// references do not even agree on the token structure (then nothing is
+/// excluded and the request compares against the pinned reference in full).
+///
+/// Panics when a request without NaN or infinity words would exclude a word:
+/// for finite inputs the original's scalar builds agree in every word.
+fn reference_mask(request: &str, pinned: &str, other: &str) -> Option<Vec<bool>> {
+    let a: Vec<_> = pinned.split_whitespace().collect();
+    let b: Vec<_> = other.split_whitespace().collect();
+    let mask: Option<Vec<bool>> =
+        (a.len() == b.len()).then(|| a.iter().zip(&b).map(|(x, y)| !token_eq(x, y)).collect());
+    let disagree = mask.as_ref().map_or(true, |m| m.iter().any(|x| *x));
+    if disagree && !exceptional_request(request) {
+        let first: Vec<_> = a
+            .iter()
+            .zip(&b)
+            .enumerate()
+            .filter(|(_, (x, y))| !token_eq(x, y))
+            .take(4)
+            .collect();
+        panic!(
+            "the two scalar references of the original disagree beyond NaN payloads on a \
+             request without NaN or infinity inputs; O1 must not mask it.\nrequest: {request}\n\
+             tokens: {} / {}; first differences (index, (pinned, variant)): {first:?}",
+            a.len(),
+            b.len()
+        );
+    }
+    mask
+}
+
+/// Decision D8 with working rule O1 (pending owner confirmation): does the
+/// port's observation `rust` match the pinned scalar reference's `cpp` for
+/// `request`?
+///
+/// Contract: both lines must have the same whitespace-separated tokens, and
+/// every token must be identical, with exactly two exceptions. (1) Two tokens
+/// that are both 32-bit words encoding a binary32 NaN are equal, whatever
+/// their sign and payload. (2) If `request` carries a NaN or infinity word,
+/// a token position is not compared where the second scalar reference of the
+/// original (same sources at upstream's normal optimization level) disagrees
+/// with the pinned one after (1). Finite values, infinities and signed zeros
+/// therefore stay bit-exact, and so does every non-word token; requests with
+/// only finite inputs never exclude a position (`reference_mask` asserts it).
+/// `JXL_PARITY_STRICT=1` restores exact text equality.
+fn parity_eq(request: &str, rust: &str, cpp: &str) -> bool {
+    if rust == cpp {
+        return true;
+    }
+    if strict_parity() {
+        return false;
+    }
+    let a: Vec<_> = rust.split_whitespace().collect();
+    let b: Vec<_> = cpp.split_whitespace().collect();
+    if a.len() != b.len() {
+        return false;
+    }
+    let other = REFERENCE_VARIANT
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(request)
+        .cloned();
+    let mask = other.and_then(|other| reference_mask(request, cpp, &other));
+    let mut payloads = 0;
+    let mut excluded = 0;
+    for (index, (x, y)) in a.iter().zip(&b).enumerate() {
+        if x == y {
+            continue;
+        }
+        if nan_word(x) && nan_word(y) {
+            payloads += 1;
+        } else if mask.as_ref().is_some_and(|m| m[index]) {
+            excluded += 1;
+        } else {
+            return false;
+        }
+    }
+    log_parity(std::iter::once(format!(
+        "port {} nan_payload_words={payloads} excluded_differing_words={excluded}",
+        family(request)
+    )));
+    true
+}
+
+/// Asserts `parity_eq` with the usual diagnostics.
+#[track_caller]
+fn assert_parity(request: &str, rust: &str, cpp: &str) {
+    assert!(
+        parity_eq(request, rust, cpp),
+        "request: {request}\n  left (Rust): {rust}\n right (C++): {cpp}"
+    );
+}
+
+/// Appends lines to `JXL_PARITY_LOG`, when set, for the per-family statistics.
+fn log_parity(lines: impl Iterator<Item = String>) {
+    let Some(path) = std::env::var_os("JXL_PARITY_LOG") else {
+        return;
+    };
+    let text: String = lines.map(|line| line + "\n").collect();
+    if text.is_empty() {
+        return;
+    }
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .expect("open JXL_PARITY_LOG");
+    file.write_all(text.as_bytes())
+        .expect("write JXL_PARITY_LOG");
 }
 
 /// One response line per request line from an oracle-tier program.
@@ -985,7 +1187,7 @@ fn program_observations(program: &std::path::Path, requests: &[String]) -> Vec<S
 fn compare(requests: Vec<String>) {
     let observations = original_observations(&requests);
     for (request, cpp) in requests.iter().zip(observations) {
-        assert_eq!(observe(request), cpp, "request: {request}");
+        assert_parity(request, &observe(request), &cpp);
     }
     println!("{} C++/Rust differential cases matched", requests.len());
 }

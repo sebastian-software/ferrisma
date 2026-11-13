@@ -347,7 +347,7 @@ fn compare_epf(requests: Vec<String>) {
     let mut failures = 0;
     for (request, cpp) in requests.iter().zip(observations) {
         let rust = super::observe(request);
-        if rust != cpp {
+        if !super::parity_eq(request, &rust, &cpp) {
             failures += 1;
             if failures <= 12 {
                 let differences: Vec<_> = rust

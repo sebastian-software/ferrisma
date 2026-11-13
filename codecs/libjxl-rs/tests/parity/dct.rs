@@ -258,7 +258,7 @@ pub(super) fn compare_competing_payloads(requests: Vec<String>) {
     let mut failures = 0usize;
     for (request, cpp) in requests.iter().zip(observations) {
         let rust = super::observe(request);
-        if rust != cpp {
+        if !super::parity_eq(request, &rust, &cpp) {
             failures += 1;
             let rust_words: Vec<_> = rust.split_whitespace().collect();
             let cpp_words: Vec<_> = cpp.split_whitespace().collect();

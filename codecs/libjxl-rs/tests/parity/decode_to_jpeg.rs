@@ -493,7 +493,7 @@ fn jxl_to_jpeg_reconstructs_original_files_with_exif_and_xmp() {
         assert_eq!(released_bytes(&chunk[2], 0), f.jpeg, "{}", f.name);
     }
     for (request, cpp) in requests.iter().zip(observed) {
-        assert_eq!(super::observe(request), cpp, "request: {request}");
+        super::assert_parity(request, &super::observe(request), &cpp);
     }
     println!("{} C++/Rust differential cases matched", requests.len());
 }

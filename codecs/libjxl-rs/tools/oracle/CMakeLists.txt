@@ -214,6 +214,32 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_
   target_sources(jxl_oracle PRIVATE skcms_concat.cc)
   set_source_files_properties(skcms_concat.cc PROPERTIES COMPILE_OPTIONS -O0)
 endif()
+# Decision D8 with working rule O1 (pending owner confirmation): NaN payloads
+# are not part of the gate, and for requests whose inputs contain NaN or
+# infinity a word is compared only where two scalar reference builds of the
+# original agree. ORACLE_REFERENCE_PINS=OFF builds the second one: the same
+# sources and Highway scalar configuration at upstream's normal optimization
+# level, without the per-TU numeric pins above (-O0, -fno-unroll-loops,
+# -fno-inline-functions, -ffp-model=strict). Adapter-only flags (-fno-rtti,
+# -fno-access-control) and the target-wide upstream flags stay. The default
+# (ON) is the pinned reference, unchanged.
+option(ORACLE_REFERENCE_PINS "Keep the per-TU numeric pins of the pinned reference build" ON)
+if(NOT ORACLE_REFERENCE_PINS)
+  set(oracle_numeric_pins -O0 -fno-unroll-loops -fno-inline-functions -ffp-model=strict)
+  get_target_property(oracle_sources jxl_oracle SOURCES)
+  foreach(source IN LISTS oracle_sources)
+    get_source_file_property(options "${source}" COMPILE_OPTIONS)
+    if(options)
+      list(REMOVE_ITEM options ${oracle_numeric_pins})
+      set_source_files_properties("${source}" PROPERTIES COMPILE_OPTIONS "${options}")
+    endif()
+  endforeach()
+  get_property(options SOURCE "${UPSTREAM}/lib/jxl/quantizer.cc"
+    DIRECTORY "${UPSTREAM}/lib" PROPERTY COMPILE_OPTIONS)
+  list(REMOVE_ITEM options ${oracle_numeric_pins})
+  set_property(SOURCE "${UPSTREAM}/lib/jxl/quantizer.cc"
+    DIRECTORY "${UPSTREAM}/lib" PROPERTY COMPILE_OPTIONS "${options}")
+endif()
 target_compile_features(jxl_oracle PRIVATE cxx_std_17)
 target_include_directories(jxl_oracle PRIVATE "${UPSTREAM}" "${UPSTREAM}/lib/include"
   "${UPSTREAM}/third_party/brotli/c/include" "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -273,11 +299,21 @@ if(ORACLE_RUST_PROFILE STREQUAL "dev")
 else()
   set(rust_profile_directory "${ORACLE_RUST_PROFILE}")
 endif()
+# Empty builds for the host; a triple (for example x86_64-apple-darwin, next
+# to -DCMAKE_OSX_ARCHITECTURES=x86_64) cross-builds the Rust library for it.
+set(ORACLE_RUST_TARGET "" CACHE STRING "Rust target triple of the library that jxl_abi_rust links")
+set(rust_target_arguments)
+set(rust_target_directory "")
+if(ORACLE_RUST_TARGET)
+  set(rust_target_arguments --target "${ORACLE_RUST_TARGET}")
+  set(rust_target_directory "${ORACLE_RUST_TARGET}/")
+endif()
 set(RUST_DECODER_ABI_LIBRARY
-  "${PORT_ROOT}/target/${rust_profile_directory}/${CMAKE_STATIC_LIBRARY_PREFIX}jxl${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  "${PORT_ROOT}/target/${rust_target_directory}${rust_profile_directory}/${CMAKE_STATIC_LIBRARY_PREFIX}jxl${CMAKE_STATIC_LIBRARY_SUFFIX}")
 add_custom_target(rust_decoder_abi
   COMMAND "${CARGO_EXECUTABLE}" build --locked --offline --lib
           --profile "${ORACLE_RUST_PROFILE}" --features cpp-oracle
+          ${rust_target_arguments}
           --target-dir "${PORT_ROOT}/target"
   WORKING_DIRECTORY "${PORT_ROOT}"
   BYPRODUCTS "${RUST_DECODER_ABI_LIBRARY}"

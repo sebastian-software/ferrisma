@@ -208,7 +208,7 @@ fn compare_chroma(cases: Vec<String>) {
     let mut failures = 0;
     for (request, cpp) in cases.iter().zip(observed) {
         let rust = super::observe(request);
-        if rust != cpp {
+        if !super::parity_eq(request, &rust, &cpp) {
             failures += 1;
             if failures <= 8 {
                 let diffs: Vec<_> = rust

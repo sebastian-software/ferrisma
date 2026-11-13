@@ -168,7 +168,7 @@ fn exact(cases: Vec<String>) {
         let originals = original_observations(chunk);
         for (request, original) in chunk.iter().zip(originals) {
             let rust = super::observe(request);
-            if rust != original {
+            if !super::parity_eq(request, &rust, &original) {
                 let a: Vec<_> = rust.split_whitespace().collect();
                 let b: Vec<_> = original.split_whitespace().collect();
                 let differences: Vec<_> = a

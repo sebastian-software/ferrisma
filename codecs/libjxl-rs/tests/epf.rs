@@ -182,7 +182,11 @@ fn original_epf_nan_payloads_and_skipped_sigma_keep_exact_words() {
         .unwrap();
     // Captured from the pristine selected ordinary and fully instrumented original
     // stage on native AArch64. The negative signaling word in column 2 is copied
-    // by the original sigma skip and must remain unquieted.
+    // by the original sigma skip and must remain unquieted. Columns 0 and 1 are
+    // computed from competing NaN operands: under decision D8 any NaN matches
+    // there (`JXL_PARITY_STRICT=1` restores the captured payloads). Copied and
+    // untouched words stay bit-exact.
+    let strict = std::env::var_os("JXL_PARITY_STRICT").is_some_and(|v| v == "1");
     let expected = [
         [0x7fe54321, 0x7fc98765, 0xffa54321],
         [0x7fe54321, 0x7fc98765, 0x80000000],
@@ -191,13 +195,19 @@ fn original_epf_nan_payloads_and_skipped_sigma_keep_exact_words() {
     for (c, plane) in output.iter().enumerate() {
         for y in 0..3 {
             for x in 0..len {
+                let computed =
+                    c < 3 && y == 1 && (origin + OFFSET - 1..origin + OFFSET + 1).contains(&x);
                 let wanted =
                     if c < 3 && y == 1 && (origin + OFFSET - 1..origin + OFFSET + 2).contains(&x) {
                         expected[c][x - (origin + OFFSET - 1)]
                     } else {
                         0x7fa0dead
                     };
-                assert_eq!(plane.row(y)[x].to_bits(), wanted, "channel{c}, {x},{y}");
+                let got = plane.row(y)[x];
+                if computed && !strict && got.is_nan() && f32::from_bits(wanted).is_nan() {
+                    continue;
+                }
+                assert_eq!(got.to_bits(), wanted, "channel{c}, {x},{y}");
             }
         }
     }

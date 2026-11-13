@@ -706,7 +706,7 @@ fn compare(requests: &[String]) -> Vec<String> {
     for chunk in requests.chunks(16) {
         for (request, original) in chunk.iter().zip(oracle(chunk)) {
             let rust = super::observe(request);
-            if rust != original {
+            if !super::parity_eq(request, &rust, &original) {
                 let a: Vec<_> = rust.split_whitespace().collect();
                 let b: Vec<_> = original.split_whitespace().collect();
                 let first = a.iter().zip(&b).position(|(a, b)| a != b);

@@ -180,7 +180,7 @@ fn sample_all_half_patterns_cross_original_decode_and_rust_encode() {
     let decoded = original_observations(&requests);
     let mut cases = Vec::new();
     for (request, cpp) in requests.iter().zip(decoded) {
-        assert_eq!(super::observe(request), cpp, "request: {request}");
+        super::assert_parity(request, &super::observe(request), &cpp);
         let mut args = cpp.split_whitespace();
         assert_eq!(number::<i32>(&mut args), 0);
         let input = words(&mut args, 64);

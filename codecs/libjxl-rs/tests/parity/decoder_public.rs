@@ -751,7 +751,7 @@ fn compare_observed(family: &str, requests: Vec<String>) {
     capture(family, &defined, &undefined);
     let originals = super::original_observations(&defined);
     for ((request, rust), cpp) in defined.iter().zip(&observed).zip(&originals) {
-        assert_eq!(rust, cpp, "request: {request}");
+        super::assert_parity(request, rust, cpp);
     }
     println!("{} C++/Rust differential cases matched", defined.len());
     super::decoder_abi::compare(family, &defined, &originals);

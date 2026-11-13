@@ -110,7 +110,7 @@ fn exact(cases: Vec<String>) {
     for chunk in cases.chunks(256) {
         let source = original_observations(chunk);
         for (request, actual) in chunk.iter().zip(source) {
-            assert_eq!(super::observe(request), actual, "request: {request}");
+            super::assert_parity(request, &super::observe(request), &actual);
         }
     }
     println!("{len} C++/Rust differential cases matched");
