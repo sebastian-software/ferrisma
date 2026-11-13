@@ -13,6 +13,8 @@
 //!   selecting the SIMD target (the scalar suite's `ue-channels`,
 //!   `fe-channels` and `fe-row` requests, whose adapters call the original's
 //!   public function and so its `HWY_DYNAMIC_DISPATCH`).
+//! - dec_modular: `MultiplySum`, `RgbFromSingle`, `SingleFromSingle`
+//!   directly (`mx-msum`, `mx-rgb`, `mx-single`), every written word.
 #![cfg(feature = "cpp-oracle-simd")]
 
 mod simd_common;
@@ -21,6 +23,10 @@ use jxl::jxl::dec_external_image::{
     convert_float_channels_to_buffer, convert_uint_channels_to_buffer, float_to_f16, float_to_u32,
 };
 use jxl::jxl::dec_external_image_simd::{float_to_f16_simd, float_to_u32_simd};
+use jxl::jxl::dec_modular::{multiply_sum, rgb_from_single, single_from_single};
+use jxl::jxl::dec_modular_simd::{
+    multiply_sum_simd, rgb_from_single_simd, single_from_single_simd,
+};
 use jxl::jxl::hwy::set_decoder_simd_for_test;
 use jxl::jxl::image::Plane;
 use jxl::jxl::image_metadata::Orientation;
@@ -366,4 +372,139 @@ fn channel_conversion_through_the_decoder_dispatch_matches_the_original_target()
         },
         |_| false,
     );
+}
+
+/// Signed sample words: zero, signs, the 32-bit limits and their
+/// neighbors (wrapping `Add` in MultiplySum), exact and inexact binary32
+/// conversions, and random words.
+fn pixel_words(seed: &mut u64) -> Vec<u32> {
+    let mut words = vec![
+        0,
+        1,
+        2,
+        3,
+        0xffff_ffff,
+        0xffff_fffe,
+        0x7fff_ffff,
+        0x7fff_fffe,
+        0x8000_0000,
+        0x8000_0001,
+        0x00ff_ffff,
+        0x0100_0000,
+        0x0100_0001,
+        0x0100_0003,
+        0xff00_0000,
+        0xfeff_ffff,
+        0x4000_0000,
+        0xc000_0000,
+        255,
+        256,
+        65535,
+        65536,
+        0x007f_ffff,
+        0xffff_ff01,
+    ];
+    for _ in 0..40 {
+        words.push(next(seed) as u32);
+    }
+    for _ in 0..24 {
+        words.push((next(seed) % 2048) as u32);
+    }
+    words
+}
+
+#[test]
+fn modular_to_float_conversions_match_the_original_target_on_every_written_word() {
+    let t = target();
+    let mut seed = 0x0d_ec_0d_e5_u64;
+    let pixels = pixel_words(&mut seed);
+    let factors = [
+        (1.0f32 / 255.0).to_bits(),
+        (1.0f32 / 65535.0).to_bits(),
+        ((1.0f64 / f64::from((1u32 << 22) - 1)) as f32).to_bits(),
+        0x3a80_8081,
+        0xbf80_0000,
+        0x0000_0001,
+        0x7f7f_ffff,
+        0x7f80_0000,
+        0x7fc0_0000,
+        0x7fa1_2345,
+        0x8000_0000,
+        0x3f80_0000,
+    ];
+    let mut requests = Vec::new();
+    for factor in factors {
+        for xsize in 0..=67usize {
+            let m = padded_len(xsize);
+            let row = |offset: usize| {
+                join((0..m).map(|i| pixels[(i * 5 + offset + xsize) % pixels.len()]))
+            };
+            requests.push(format!(
+                "mx-msum {xsize} {m} {factor} {} {}",
+                row(0),
+                row(17)
+            ));
+            requests.push(format!("mx-rgb {xsize} {m} {factor} {}", row(3)));
+            requests.push(format!("mx-single {xsize} {m} {factor} {}", row(11)));
+        }
+    }
+    let tail_differs = std::cell::Cell::new(0usize);
+    check_rows(
+        "MultiplySum/RgbFromSingle/SingleFromSingle",
+        &requests,
+        |request| {
+            let mut args = request.split_whitespace();
+            let kind = args.next().unwrap();
+            let xsize: usize = number(&mut args);
+            let m: usize = number(&mut args);
+            let factor = f32::from_bits(number(&mut args));
+            let inputs = if kind == "mx-msum" { 2 } else { 1 };
+            let rows: Vec<Vec<i32>> = (0..inputs)
+                .map(|_| (0..m).map(|_| number::<u32>(&mut args) as i32).collect())
+                .collect();
+            let outputs = if kind == "mx-rgb" { 3 } else { 1 };
+            let sentinel = f32::from_bits(0xdead_beef);
+            let mut out = vec![vec![sentinel; m]; outputs];
+            let mut scalar = out.clone();
+            match kind {
+                "mx-msum" => {
+                    multiply_sum_simd(t, xsize, &rows[0], &rows[1], factor, &mut out[0]);
+                    multiply_sum(xsize, &rows[0], &rows[1], factor, &mut scalar[0]);
+                }
+                "mx-rgb" => {
+                    let [r, g, b] = &mut out[..] else {
+                        unreachable!()
+                    };
+                    rgb_from_single_simd(t, xsize, &rows[0], factor, r, g, b);
+                    let [r, g, b] = &mut scalar[..] else {
+                        unreachable!()
+                    };
+                    rgb_from_single(xsize, &rows[0], factor, r, g, b);
+                }
+                _ => {
+                    single_from_single_simd(t, xsize, &rows[0], factor, &mut out[0]);
+                    single_from_single(xsize, &rows[0], factor, &mut scalar[0]);
+                }
+            }
+            let bits = |rows: &[Vec<f32>]| -> Vec<u32> {
+                rows.iter().flatten().map(|v| v.to_bits()).collect()
+            };
+            if bits(&out) != bits(&scalar) {
+                tail_differs.set(tail_differs.get() + 1);
+            }
+            (
+                join(bits(&out)),
+                Box::new(|_| true) as Box<dyn Fn(usize) -> bool>,
+            )
+        },
+        |_| true,
+    );
+    // Below xsize both paths convert exactly and multiply once; the scalar
+    // one-lane loop does not write the whole-vector tail, which the
+    // original's SIMD build writes, so the tail tells the paths apart.
+    println!(
+        "modular-to-float: the scalar path differs on {} requests",
+        tail_differs.get()
+    );
+    assert!(tail_differs.get() > 0, "the requests must discriminate");
 }

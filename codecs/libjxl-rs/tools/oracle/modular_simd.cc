@@ -8,6 +8,12 @@
 //   mx-u32 <bits> <num> <m> <m words>  FloatToU32(in, out, num,
 //                                      (1 << bits) - 1, bits)
 //   mx-f16 <num> <m> <m words>         FloatToF16(in, out, num)
+//   mx-msum <xsize> <m> <factor> <m words> <m words>
+//                                      MultiplySum(xsize, in, in_Y, factor, out)
+//   mx-rgb <xsize> <m> <factor> <m words>
+//                                      RgbFromSingle(xsize, in, factor, r, g, b)
+//   mx-single <xsize> <m> <factor> <m words>
+//                                      SingleFromSingle(xsize, in, factor, out)
 // `m` input words fill the input buffer (m >= RoundUpTo(num, 8), so whole
 // vectors read defined words on every target); the output buffer holds m
 // sentinel words (0xdeadbeef, 0xdead), and all m output words are printed.
@@ -28,6 +34,12 @@ namespace ORACLE_HWY_NS {
 void FloatToU32(const float* in, uint32_t* out, size_t num, float mul,
                 size_t bits_per_sample);
 void FloatToF16(const float* in, hwy::float16_t* out, size_t num);
+void MultiplySum(size_t xsize, const int32_t* row_in, const int32_t* row_in_Y,
+                 float factor, float* row_out);
+void RgbFromSingle(size_t xsize, const int32_t* row_in, float factor,
+                   float* out_r, float* out_g, float* out_b);
+void SingleFromSingle(size_t xsize, const int32_t* row_in, float factor,
+                      float* row_out);
 }  // namespace ORACLE_HWY_NS
 }  // namespace jxl
 
@@ -89,6 +101,39 @@ bool ModularSimdCommand(const std::string& command, std::istringstream& in,
                                    reinterpret_cast<hwy::float16_t*>(output.data()),
                                    num);
     for (size_t i = 0; i < m; ++i) std::cout << (i ? " " : "") << output.data()[i];
+    return true;
+  }
+  if (command == "mx-msum" || command == "mx-rgb" || command == "mx-single") {
+    size_t xsize = MXCount(in, 4096);
+    size_t m = MXCount(in, 4096);
+    if (m < xsize) throw std::runtime_error("mx: m < xsize");
+    uint32_t factor_bits;
+    in >> factor_bits;
+    float factor;
+    std::memcpy(&factor, &factor_bits, sizeof(factor));
+    const size_t inputs = command == "mx-msum" ? 2 : 1;
+    const size_t outputs = command == "mx-rgb" ? 3 : 1;
+    std::vector<MXAligned<uint32_t>> rows_in, rows_out;
+    for (size_t i = 0; i < inputs; ++i) {
+      rows_in.emplace_back(m);
+      MXWords(in, rows_in.back().data(), m);
+    }
+    for (size_t i = 0; i < outputs; ++i) {
+      rows_out.emplace_back(m);
+      for (size_t x = 0; x < m; ++x) rows_out.back().data()[x] = 0xdeadbeef;
+    }
+    auto in_row = [&](size_t i) { return reinterpret_cast<const int32_t*>(rows_in[i].data()); };
+    auto out_row = [&](size_t i) { return reinterpret_cast<float*>(rows_out[i].data()); };
+    if (command == "mx-msum") {
+      jxl::ORACLE_HWY_NS::MultiplySum(xsize, in_row(0), in_row(1), factor, out_row(0));
+    } else if (command == "mx-rgb") {
+      jxl::ORACLE_HWY_NS::RgbFromSingle(xsize, in_row(0), factor, out_row(0), out_row(1),
+                                        out_row(2));
+    } else {
+      jxl::ORACLE_HWY_NS::SingleFromSingle(xsize, in_row(0), factor, out_row(0));
+    }
+    for (size_t i = 0; i < outputs; ++i)
+      for (size_t x = 0; x < m; ++x) std::cout << (i || x ? " " : "") << rows_out[i].data()[x];
     return true;
   }
   return false;
