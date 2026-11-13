@@ -165,9 +165,9 @@ def build_oracle(sanitizers, target=None):
 
 def build_simd_oracle(rust_target=None):
     # The NEON (AArch64) or AVX2 (x86-64) variant of the original for the
-    # SIMD paths (ADR 0004); tests/simd_parity.rs reads JXL_CPP_ORACLE_SIMD.
+    # SIMD paths (ADR 0004); the SIMD_TESTS binaries read JXL_CPP_ORACLE_SIMD.
     # x86-64 under Rosetta 2 reports AVX2 only with ROSETTA_ADVERTISE_AVX=1;
-    # check_tests sets it for tests/simd_parity.rs alone.
+    # check_tests sets it for the SIMD_TESTS binaries alone.
     import platform
     machine = "x86_64" if rust_target and rust_target.startswith("x86_64") else platform.machine()
     target = {"arm64": "NEON", "aarch64": "NEON", "x86_64": "AVX2", "AMD64": "AVX2"}.get(machine)
@@ -180,7 +180,10 @@ def build_simd_oracle(rust_target=None):
     return {"JXL_CPP_ORACLE_SIMD": str(build / "jxl_oracle")}
 
 
-SIMD_TESTS = "simd_parity"
+# The SIMD parity binaries (ADR 0004), which need the SIMD oracle and, under
+# Rosetta 2, ROSETTA_ADVERTISE_AVX.
+SIMD_TESTS = ["simd_parity", "simd_render", "simd_vardct"]
+SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 
 def check_tests(env, partition, filter, target=None, keep_going=False):
@@ -203,18 +206,18 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
     # host), so a port that detects AVX2 would run HSW against baseline.
     # The two groups therefore run as separate invocations. A test of the
     # same name in another binary would move with the SIMD group.
-    simd = listed("--test", SIMD_TESTS) if target is not None else []
+    simd = listed(*SIMD_TEST_ARGS) if target is not None else []
     simd_env = dict(env, ROSETTA_ADVERTISE_AVX="1")
     skip = [argument for name in simd for argument in ("--skip", name)]
     if filter is not None:
         run(*test, "--", "--nocapture", filter, *skip, env=env)
         if any(filter in name for name in simd):
-            run(*test, "--test", SIMD_TESTS, "--", "--nocapture", filter, env=simd_env)
+            run(*test, *SIMD_TEST_ARGS, "--", "--nocapture", filter, env=simd_env)
         return
     if partition is None:
         run(*test, "--", "--nocapture", *skip, env=env)
         if simd:
-            run(*test, "--test", SIMD_TESTS, "--", "--nocapture", env=simd_env)
+            run(*test, *SIMD_TEST_ARGS, "--", "--nocapture", env=simd_env)
         return
     index, count = partition
     # Every listed name belongs to exactly one partition. A name shared by
@@ -227,7 +230,7 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
     if scalar_selected:
         run(*test, "--", "--nocapture", "--exact", *scalar_selected, env=env)
     if simd_selected:
-        run(*test, "--test", SIMD_TESTS, "--", "--nocapture", "--exact", *simd_selected, env=simd_env)
+        run(*test, *SIMD_TEST_ARGS, "--", "--nocapture", "--exact", *simd_selected, env=simd_env)
 
 
 def partition(value):
