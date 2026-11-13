@@ -66,7 +66,7 @@ const av1_ext_tx_used: [[i32; TX_TYPES]; 6] = [
 ];
 
 // libaom_test::IsTxSizeTypeValid (test/av1_txfm_test.h).
-fn is_tx_size_type_valid(tx_size: usize, tx_type: usize) -> bool {
+pub fn is_tx_size_type_valid(tx_size: usize, tx_type: usize) -> bool {
     let tx_size_sqr_up = txsize_sqr_up_map[tx_size];
     let tx_set_type = if tx_size_sqr_up > TX_32X32 {
         EXT_TX_SET_DCTONLY
