@@ -36,28 +36,35 @@ bool GaborishStageCommand(const std::string& command, std::istringstream& in,
     in >> left >> right >> width >> origin;
     auto values = SCRead<float>(in, 9);
     const size_t len = origin + jxl::kRenderPipelineXOffset + width + right + 3;
+    // The stage row pointers start where libjxl's own pipeline rows start: on a
+    // kAlignment (128-byte) boundary, so that the original's aligned vector
+    // Load/Store at row + kRenderPipelineXOffset + k * Lanes is aligned on every
+    // target (issue #252). `shift` moves the request's sample 0 so that sample
+    // `origin` lies on that boundary; observed words stay request-relative.
+    const size_t row_align = 128 / sizeof(float);
+    const size_t shift = (row_align - origin % row_align) % row_align;
     std::vector<jxl::ImageF> input, output;
     for (size_t c = 0; c < 5; ++c) {
-      auto ai = jxl::ImageF::Create(mm, len, 7);
-      auto ao = jxl::ImageF::Create(mm, len, 4);
+      auto ai = jxl::ImageF::Create(mm, len + row_align, 7);
+      auto ao = jxl::ImageF::Create(mm, len + row_align, 4);
       if (!ai.ok() || !ao.ok()) throw std::runtime_error("Gaborish row allocation");
       input.push_back(std::move(ai).value_()); output.push_back(std::move(ao).value_());
       for (size_t y = 0; y < 7; ++y)
-        for (size_t x = 0; x < len; ++x) input[c].Row(y)[x] = values[(c * 7 + y * 3 + x) % 9];
+        for (size_t x = 0; x < len; ++x) (input[c].Row(y) + shift)[x] = values[(c * 7 + y * 3 + x) % 9];
       for (size_t y = 0; y < 4; ++y)
         for (size_t x = 0; x < len; ++x)
-          output[c].Row(y)[x] = SCBits<float>(uint32_t(0x7fa00000 + c * 256 + y * 64 + x));
+          (output[c].Row(y) + shift)[x] = SCBits<float>(uint32_t(0x7fa00000 + c * 256 + y * 64 + x));
     }
     jxl::RenderPipelineStage::RowInfo ir(5), orows(5);
     for (size_t c = 0; c < 5; ++c) {
-      for (size_t y : {size_t{1}, size_t{3}, size_t{5}}) ir[c].push_back(input[c].Row(y) + origin);
-      orows[c].push_back(output[c].Row(2) + origin);
+      for (size_t y : {size_t{1}, size_t{3}, size_t{5}}) ir[c].push_back(input[c].Row(y) + shift + origin);
+      orows[c].push_back(output[c].Row(2) + shift + origin);
     }
     auto status = stage->ProcessRow(ir, orows, left, right, width, 23, 41, 17);
     std::cout << int(status.code());
     for (const auto& plane : output)
       for (size_t y = 0; y < 4; ++y)
-        for (size_t x = 0; x < len; ++x) std::cout << ' ' << SCBits<uint32_t>(plane.Row(y)[x]);
+        for (size_t x = 0; x < len; ++x) std::cout << ' ' << SCBits<uint32_t>((plane.Row(y) + shift)[x]);
     return true;
   }
   if (command != "gab-simple") throw std::runtime_error("unknown Gaborish command");

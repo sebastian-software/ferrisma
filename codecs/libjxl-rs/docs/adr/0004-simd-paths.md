@@ -108,6 +108,20 @@ image planes must first carry the target's `MaxVectorSize()` row padding
   original's `premul_absorb` for one lane and passed unaligned rows to
   aligned `Load`; it now allocates full aligned vectors and prints the same
   words. The earlier fact-finding build's other two crashes did not recur.
+- Row-request alignment (issue #252, 2026-11-13). The first hosted Linux
+  x86-64 run failed the Gaborish, chroma/YCbCr and EPF row tests with a
+  broken request pipe: the AVX2 oracle died at the first request whose
+  `origin` is not a multiple of eight. The adapters (`gaborish_stage.inc`,
+  `chroma_stages.cc`, `epf.cc`) handed the stages `Row(y) + origin`, while
+  libjxl's pipelines hand them 128-byte aligned rows (the stage comment in
+  `stage_gaborish.cc` relies on it) and the original's AVX2 objects store
+  with `vmovaps` (`Store`, x86_256-inl.h `_mm256_store_ps`) and load with
+  `vmovaps` in EPF; a misaligned `vmovaps` faults on x86-64 hardware. NEON's
+  `Store`/`Load` are the unaligned `StoreU`/`LoadU` (arm_neon-inl.h), and
+  Rosetta 2 did not fault. The adapters now shift each request's sample 0
+  so that sample `origin` lies on a 128-byte boundary; requests, observed
+  words and the compared domain are unchanged. The test helper reports the
+  oracle's exit status and stderr before a write error.
 
 ## Consequences
 
