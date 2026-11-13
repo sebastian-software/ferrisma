@@ -17,9 +17,9 @@ crate-type = ["staticlib", "rlib", "cdylib"]
 
 [dependencies]
 libc = "=0.2.191"
-sharpyuv = { package = "libavif-sharpyuv", path = "crates/sharpyuv", version = "0.1.0" }
-dav1d = { package = "libavif-dav1d", path = "crates/dav1d", version = "0.1.0" }
-aom = { package = "libavif-aom", path = "crates/aom", version = "0.1.0" }
+libavif-sharpyuv = { path = "crates/sharpyuv", version = "0.1.0" }
+libavif-dav1d = { path = "crates/dav1d", version = "0.1.0" }
+libavif-aom = { path = "crates/aom", version = "0.1.0" }
 
 [features]
 default = []
