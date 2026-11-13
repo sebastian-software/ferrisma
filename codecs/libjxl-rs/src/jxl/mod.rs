@@ -125,6 +125,7 @@ pub mod xorshift128plus;
 pub mod box_content_decoder;
 
 // vardct kernels: the SIMD VarDCT decode kernels (port ADR 0004, Plan item 2).
+pub mod compressed_dc_simd;
 pub mod dct_simd;
 pub mod dec_group_simd;
 pub mod dec_transforms_simd;

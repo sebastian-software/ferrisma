@@ -537,17 +537,32 @@ impl ModularFrameDecoder {
             DecoderShared::Own => &storage.block_ctx_map,
             DecoderShared::External(shared) => &shared.block_ctx_map,
         };
-        dequant_dc(
-            rect,
-            &mut storage.dc_storage,
-            &mut storage.quant_dc,
-            &image,
-            &factors,
-            multiplier,
-            &cfl_factors,
-            &header.chroma_subsampling,
-            block_context,
-        );
+        // vardct kernels: HWY_DYNAMIC_DISPATCH(DequantDC).
+        match super::hwy::decoder_target() {
+            Some(t) => super::compressed_dc_simd::dequant_dc_simd(
+                t,
+                rect,
+                &mut storage.dc_storage,
+                &mut storage.quant_dc,
+                &image,
+                &factors,
+                multiplier,
+                &cfl_factors,
+                &header.chroma_subsampling,
+                block_context,
+            ),
+            None => dequant_dc(
+                rect,
+                &mut storage.dc_storage,
+                &mut storage.quant_dc,
+                &image,
+                &factors,
+                multiplier,
+                &cfl_factors,
+                &header.chroma_subsampling,
+                block_context,
+            ),
+        }
         Ok(())
     }
     pub fn decode_ac_metadata(

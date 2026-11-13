@@ -239,6 +239,18 @@ pub fn dequant_dc(
             }
         }
     }
+    quant_dc_buckets(r, quant_dc, input, chroma, block_context);
+}
+
+/// The quantized-DC context buckets at the end of DequantDC (scalar code,
+/// shared by the SIMD instantiation).
+pub(crate) fn quant_dc_buckets(
+    r: Rect,
+    quant_dc: &mut Plane<u8>,
+    input: &Image,
+    chroma: &YCbCrChromaSubsampling,
+    block_context: &BlockCtxMap,
+) {
     if block_context.num_dc_ctxs <= 1 {
         for y in 0..r.ysize() {
             quant_dc.row_mut(r.y0() + y)[r.x0()..r.x1()].fill(0);

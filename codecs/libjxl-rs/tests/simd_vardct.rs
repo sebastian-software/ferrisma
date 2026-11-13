@@ -728,3 +728,331 @@ fn simd_quant_tables_match_the_original_target() {
         requests.len()
     );
 }
+
+fn dc_chroma(mode: u32) -> jxl::jxl::frame_header::YCbCrChromaSubsampling {
+    let mut result = jxl::jxl::frame_header::YCbCrChromaSubsampling::default();
+    if mode != 0 {
+        result
+            .set(&[2, 1, 1], &[if mode == 2 { 2 } else { 1 }, 1, 1])
+            .unwrap();
+    }
+    result
+}
+
+/// The port's `vdc-smooth` observation (tools/oracle/vardct_dc.cc).
+fn observe_dc_smooth(request: &str, t: Target) -> String {
+    use jxl::jxl::compressed_dc_simd::adaptive_dc_smoothing_simd;
+    use jxl::jxl::image::Image3;
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("vdc-smooth"));
+    let w: usize = number(&mut args);
+    let h: usize = number(&mut args);
+    let mode: u32 = number(&mut args);
+    let factors = [float(&mut args), float(&mut args), float(&mut args)];
+    let mut p = Image3::create(w, h).unwrap();
+    for c in 0..3 {
+        for y in 0..h {
+            for x in 0..w {
+                p.plane_row_mut(c, y)[x] = float(&mut args);
+            }
+        }
+    }
+    let cs = dc_chroma(mode);
+    let status =
+        adaptive_dc_smoothing_simd(t, MemoryManagerPtr::NATIVE, &factors, &mut p, &cs, None);
+    let mut out = jxl::jxl::base::status::status_code(&status).to_string();
+    for c in 0..3 {
+        let sub = w > 2 && h > 2 && !cs.is_444();
+        let width = if sub { w >> cs.h_shift(c) } else { w };
+        let height = if sub { h >> cs.v_shift(c) } else { h };
+        write!(out, " {width} {height}").unwrap();
+        for y in 0..height {
+            for x in 0..width {
+                write!(out, " {}", p.plane_row(c, y)[x].to_bits()).unwrap();
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn simd_adaptive_dc_smoothing_matches_the_original_target() {
+    let t = target();
+    let mut requests = Vec::new();
+    let mut seed = 0x0053_007e;
+    for mode in 0..3 {
+        for (w, h) in [
+            (1, 1),
+            (2, 9),
+            (9, 2),
+            (3, 3),
+            (4, 4),
+            (5, 5),
+            (7, 5),
+            (8, 8),
+            (9, 9),
+            (10, 4),
+            (17, 9),
+            (33, 7),
+            (65, 6),
+        ] {
+            for pattern in 0..13 {
+                let mut request = format!(
+                    "vdc-smooth {w} {h} {mode} {} {} {}",
+                    0.125f32.to_bits(),
+                    0.5f32.to_bits(),
+                    2.0f32.to_bits()
+                );
+                for c in 0..3 {
+                    for y in 0..h {
+                        for x in 0..w {
+                            let center = x == w / 2 && y == h / 2;
+                            let bits = match pattern {
+                                0 => 0,
+                                1 => 0x8000_0000,
+                                2 => ((x + y + c) as f32 / 1024.0).to_bits(),
+                                3 => (((x * 17 + y * 31 + c * 13) % 23) as f32 / 512.0).to_bits(),
+                                4 => {
+                                    if center {
+                                        0x7fc12345
+                                    } else {
+                                        0x3a012345
+                                    }
+                                }
+                                5 => {
+                                    if center {
+                                        0x7f800000
+                                    } else {
+                                        0x3a012345
+                                    }
+                                }
+                                6 => {
+                                    if center {
+                                        0x7f812345
+                                    } else {
+                                        0x3a012345
+                                    }
+                                }
+                                7 => {
+                                    if center {
+                                        0xffc98765
+                                    } else if x == w / 2 + 1 {
+                                        0x7fc12345
+                                    } else {
+                                        0x3a012345
+                                    }
+                                }
+                                8 => {
+                                    if center {
+                                        0xff812345
+                                    } else if y == h / 2 + 1 {
+                                        0x7fc98765
+                                    } else {
+                                        0x3a012345
+                                    }
+                                }
+                                9 => ((x + y + c) % 7) as u32,
+                                10 => (((next(&mut seed) % 20001) as f32 - 10000.0) / 4096.0)
+                                    .to_bits(),
+                                11 => {
+                                    (((next(&mut seed) % 2001) as f32 - 1000.0) / 65536.0).to_bits()
+                                }
+                                _ => next(&mut seed) as u32,
+                            };
+                            write!(request, " {bits}").unwrap();
+                        }
+                    }
+                }
+                requests.push(request);
+            }
+        }
+    }
+    check("vdc-smooth", &requests, |r| observe_dc_smooth(r, t));
+}
+
+/// The port's `vdc-dequant` observation (tools/oracle/vardct_dc.cc).
+fn observe_dc_dequant(request: &str, t: Target) -> String {
+    use jxl::jxl::ac_context::BlockCtxMap;
+    use jxl::jxl::base::rect::Rect;
+    use jxl::jxl::compressed_dc_simd::dequant_dc_simd;
+    use jxl::jxl::image::{Image3, Plane};
+    use jxl::jxl::modular::modular_image::Image;
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("vdc-dequant"));
+    let x: usize = number(&mut args);
+    let y: usize = number(&mut args);
+    let w: usize = number(&mut args);
+    let h: usize = number(&mut args);
+    let iw: usize = number(&mut args);
+    let ih: usize = number(&mut args);
+    let cs = dc_chroma(number(&mut args));
+    let factors = [float(&mut args), float(&mut args), float(&mut args)];
+    let mul = float(&mut args);
+    let cfl = [float(&mut args), 0.0, float(&mut args)];
+    let mut b = BlockCtxMap {
+        num_dc_ctxs: number(&mut args),
+        ..BlockCtxMap::default()
+    };
+    for th in &mut b.dc_thresholds {
+        let n: usize = number(&mut args);
+        *th = (0..n).map(|_| number(&mut args)).collect();
+    }
+    let mut dc = Image3::<f32>::create(iw, ih).unwrap();
+    let mut q = Plane::<u8>::create(iw, ih).unwrap();
+    let mut input = Image::create(w, h, 8, 3).unwrap();
+    for c in 0..3 {
+        for yy in 0..ih {
+            dc.plane_row_mut(c, yy)[..iw].fill(-19.0 - c as f32);
+        }
+        let ch = &mut input.channel[if c < 2 { c ^ 1 } else { c }];
+        ch.w >>= cs.h_shift(c);
+        ch.h >>= cs.v_shift(c);
+        ch.shrink().unwrap();
+        for yy in 0..ch.h {
+            for xx in 0..ch.w {
+                ch.row_mut(yy)[xx] = number(&mut args);
+            }
+        }
+    }
+    for yy in 0..ih {
+        q.row_mut(yy)[..iw].fill(199);
+    }
+    dequant_dc_simd(
+        t,
+        Rect::new(x, y, w, h),
+        &mut dc,
+        &mut q,
+        &input,
+        &factors,
+        mul,
+        &cfl,
+        &cs,
+        &b,
+    );
+    let mut out = String::from("D");
+    for c in 0..3 {
+        write!(out, " {iw} {ih}").unwrap();
+        for yy in 0..ih {
+            for xx in 0..iw {
+                write!(out, " {}", dc.plane_row(c, yy)[xx].to_bits()).unwrap();
+            }
+        }
+    }
+    write!(out, " {iw} {ih}").unwrap();
+    for yy in 0..ih {
+        for xx in 0..iw {
+            write!(out, " {}", q.row(yy)[xx]).unwrap();
+        }
+    }
+    out
+}
+
+#[test]
+fn simd_dc_dequantization_matches_the_original_target() {
+    let t = target();
+    let lanes = t.lanes();
+    let mut requests = Vec::new();
+    let mut seed = 0xdcdc;
+    for mode in 0..3 {
+        for custom in [false, true] {
+            for precision in 0..4 {
+                for (w, h, x, y) in [
+                    (2, 2, 0, 0),
+                    (4, 4, 2, 2),
+                    (8, 6, 2, 2),
+                    (8, 8, 0, 0),
+                    (16, 4, 1, 3),
+                    (13, 5, 3, 1),
+                ] {
+                    // An odd width with horizontal subsampling makes the
+                    // (scalar) bucket loop read one quantized sample past
+                    // the channel width, which the original never
+                    // initialized: outside the source's defined domain.
+                    if mode != 0 && w % 2 != 0 {
+                        continue;
+                    }
+                    for values in 0..3 {
+                        let mut request = format!(
+                            "vdc-dequant {x} {y} {w} {h} {} {} {mode} {} {} {} {} {} {} {}",
+                            w + x + 2 + lanes,
+                            h + y + 2,
+                            0.25f32.to_bits(),
+                            0.5f32.to_bits(),
+                            1.75f32.to_bits(),
+                            (1.0f32 / (1 << precision) as f32).to_bits(),
+                            (-0.75f32).to_bits(),
+                            1.25f32.to_bits(),
+                            if custom { 24 } else { 1 }
+                        );
+                        request.push_str(if custom {
+                            " 2 -7 13 1 0 3 -19 -3 17"
+                        } else {
+                            " 0 0 0"
+                        });
+                        let cs = dc_chroma(mode);
+                        for c in 0..3 {
+                            for iy in 0..h >> cs.v_shift(c) {
+                                for ix in 0..w >> cs.h_shift(c) {
+                                    let v = match values {
+                                        0 => (ix * 19 + iy * 7 + c * 11) as i32 - 29,
+                                        1 => next(&mut seed) as i32 >> (next(&mut seed) % 32),
+                                        _ => [i32::MIN, i32::MAX, 16777217, -16777217, 0, -1]
+                                            [(ix + iy + c) % 6],
+                                    };
+                                    write!(request, " {v}").unwrap();
+                                }
+                            }
+                        }
+                        requests.push(request);
+                    }
+                }
+            }
+        }
+    }
+    let observed = oracle(&requests);
+    let mut words = 0;
+    for (request, cpp) in requests.iter().zip(&observed) {
+        let f: Vec<usize> = request
+            .split_whitespace()
+            .skip(1)
+            .take(7)
+            .map(|v| v.parse().unwrap())
+            .collect();
+        let (x0, y0, w, h, iw, ih, mode) = (f[0], f[1], f[2], f[3], f[4], f[5], f[6] as u32);
+        let cs = dc_chroma(mode);
+        let plane_words = 2 + iw * ih;
+        // The original stores full vectors from quantized samples past the
+        // channel width that it never initialized: columns from the
+        // rectangle's width up to its next lane multiple are not comparable.
+        let defined = |i: usize| {
+            if i == 0 || i > 3 * plane_words {
+                return true;
+            }
+            let c = (i - 1) / plane_words;
+            let k = (i - 1) % plane_words;
+            if k < 2 {
+                return true;
+            }
+            let (yy, xx) = ((k - 2) / iw, (k - 2) % iw);
+            let (sx, sy, rw, rh) = if cs.is_444() {
+                (x0, y0, w, h)
+            } else {
+                (
+                    x0 >> cs.h_shift(c),
+                    y0 >> cs.v_shift(c),
+                    w >> cs.h_shift(c),
+                    h >> cs.v_shift(c),
+                )
+            };
+            !(yy >= sy && yy < sy + rh && xx >= sx + rw && xx < sx + rw.div_ceil(lanes) * lanes)
+        };
+        let rust = observe_dc_dequant(request, t);
+        words += same(&rust, cpp, |_| true, defined)
+            .unwrap_or_else(|e| panic!("vdc-dequant on {}: {e}\nrequest: {request}", t.name()));
+    }
+    println!(
+        "vdc-dequant on {}: {} requests, {words} words matched",
+        t.name(),
+        requests.len()
+    );
+}

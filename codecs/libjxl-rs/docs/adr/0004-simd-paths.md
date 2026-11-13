@@ -345,4 +345,21 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   `DECODER_SELECTS_SIMD` selection stays off because not every file
   matches; the remaining kernels on that path are the next candidates
   (`compressed_dc`'s DC dequantization and adaptive smoothing, upsampling).
+- **compressed_dc (2026-11-13, branch `v1/jxl-vardct-dc`).**
+  `compressed_dc_simd.rs` translates AdaptiveDCSmoothing (one-lane edge
+  pixels computed in lane 0 of a full vector) and DequantDC; the decoder
+  dispatches both on `hwy::decoder_target()`. NEON parity
+  (`tests/simd_vardct.rs`): `vdc-smooth` 507 requests / 94,796 words and
+  `vdc-dequant` 384 requests / 200,664 words match (DequantDC
+  columns past the rectangle width up to the next lane multiple are excluded:
+  the original stores them from quantized samples it never initialized).
+  With it, **all 24 admitted VarDCT files of the whole-decode comparison
+  match the NEON oracle word for word** and no output byte differs. The
+  selection is not turned on: this ADR requires the comparison on every
+  target in scope, AVX2 is not verified and keeps DequantBlock scalar under
+  the O4 working decision, and the one `DECODER_SELECTS_SIMD` switch would
+  also move the AArch64 decoder off the scalar oracle that the scalar gate
+  compares with. `whole_decodes_with_the_simd_stages_against_the_original_target`
+  therefore fails on NEON as designed ("turn on the selection"); a
+  per-target selection or the AVX2 evidence is an owner/coordinator decision.
 <!-- end vardct kernels -->
