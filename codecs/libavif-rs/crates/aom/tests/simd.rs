@@ -26,6 +26,8 @@ mod lowbd_fwd_txfm;
 mod fwht4x4;
 #[path = "simd/sum_squares.rs"]
 mod sum_squares;
+#[path = "simd/sse_sum.rs"]
+mod sse_sum;
 #[path = "simd/encodetxb.rs"]
 mod encodetxb;
 #[path = "simd/mse_16bit.rs"]

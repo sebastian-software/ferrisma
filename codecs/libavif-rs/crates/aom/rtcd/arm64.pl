@@ -430,6 +430,7 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_subtract_block
   aom_sum_squares_2d_i16
   aom_sum_squares_i16
+  aom_sum_sse_2d_i16
   aom_v_predictor_16x16
   aom_v_predictor_16x32
   aom_v_predictor_16x4

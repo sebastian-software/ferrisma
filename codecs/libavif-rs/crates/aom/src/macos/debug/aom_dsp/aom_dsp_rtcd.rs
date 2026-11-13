@@ -3366,6 +3366,8 @@ extern "C-unwind" {
     fn aom_mse_16xh_16bit_neon(dst: *mut uint8_t, dstride: core::ffi::c_int, src: *mut uint16_t, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
     fn aom_mse_wxh_16bit_highbd_c(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
     fn aom_mse_wxh_16bit_highbd_neon(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
+    fn aom_sum_sse_2d_i16_c(src: *const int16_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int, sum: *mut core::ffi::c_int) -> uint64_t;
+    fn aom_sum_sse_2d_i16_neon(src: *const int16_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int, sum: *mut core::ffi::c_int) -> uint64_t;
     fn aom_arm_cpu_caps() -> core::ffi::c_int;
 }
 pub type ptrdiff_t = isize;
@@ -5859,6 +5861,8 @@ pub static mut aom_subtract_block: Option<
 pub static mut aom_sum_squares_2d_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t> = None;
 #[no_mangle]
 pub static mut aom_sum_squares_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t> = None;
+#[no_mangle]
+pub static mut aom_sum_sse_2d_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t> = None;
 #[no_mangle]
 pub static mut aom_v_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
@@ -14903,6 +14907,10 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     aom_sum_squares_i16 = Some(aom_sum_squares_i16_c as unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t>;
     if flags & HAS_NEON != 0 {
         aom_sum_squares_i16 = Some(aom_sum_squares_i16_neon as unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t>;
+    }
+    aom_sum_sse_2d_i16 = Some(aom_sum_sse_2d_i16_c as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t>;
+    if flags & HAS_NEON != 0 {
+        aom_sum_sse_2d_i16 = Some(aom_sum_sse_2d_i16_neon as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t>;
     }
     aom_v_predictor_16x16 = Some(aom_v_predictor_16x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     if flags & HAS_NEON != 0 {
