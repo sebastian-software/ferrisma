@@ -18,6 +18,22 @@
 //!   to the lossless-alpha statistics, which C reads uninitialized
 //!   (`tests/wp13_encode.rs`, `# Excluded undefined behavior`, item 1).
 //!
+//! # The SIMD gate
+//!
+//! `tools/check.py --oracle` runs these tests against every oracle variant,
+//! so in each `release-simd` mode (ADR 0008; `neon` on AArch64, `avx2`,
+//! `sse41` and `sse2` on x86-64) they are the whole-pipeline gate of the
+//! SIMD build: the oracle's `cwebp` is libwebp's SIMD build, the Rust-linked
+//! `cwebp` links the port's SIMD build, and `simd_level.c`, linked into both,
+//! caps the `VP8GetCPUInfo` query that each one dispatches by at
+//! `LIBWEBP_SIMD_LEVEL`. The comparisons are the same as against the scalar
+//! variant: the two `cwebp` builds write the same bytes for every file of
+//! `test_cwebp.sh`, by default and with `-noasm`, and the same files, reports
+//! and exit statuses over the option matrix.
+//! `the_cwebp_builds_follow_the_oracle_variant` checks that the Rust-linked
+//! `cwebp` was linked against the build that the variant asks for, so that a
+//! SIMD mode cannot compare a scalar build without failing.
+//!
 //! # Checks not applicable
 //!
 //! These checks do not apply, or cannot be made, with the reason:
@@ -226,6 +242,46 @@ fn test_cwebp_script_passes_with_the_rust_library_mt_noalpha() {
     test_cwebp_set(
         "test_cwebp_script_passes_with_the_rust_library_mt_noalpha",
         2,
+    );
+}
+
+/// The value of `"rust_staticlib"` in the oracle's `oracle.json`: the Rust
+/// static library that the consumer build linked `cwebp` against.
+fn rust_staticlib(oracle: &Oracle) -> String {
+    let manifest = std::fs::read_to_string(oracle.directory().join("oracle.json"))
+        .expect("the oracle manifest is readable");
+    let key = "\"rust_staticlib\": \"";
+    let start = manifest
+        .find(key)
+        .map(|at| at + key.len())
+        .expect("oracle.json names the Rust static library; rebuild with --rust-lib");
+    let end = start + manifest[start..].find('"').expect("a JSON string");
+    manifest[start..end].to_owned()
+}
+
+#[test]
+fn the_cwebp_builds_follow_the_oracle_variant() {
+    let test = "the_cwebp_builds_follow_the_oracle_variant";
+    let Some(oracle) = Oracle::locate(test) else {
+        return;
+    };
+    rust_cwebp(&oracle);
+    // tools/build_oracle.py builds the scalar translation into
+    // target/libwebp-scalar and the SIMD build into the root target/.
+    let library = rust_staticlib(&oracle);
+    let scalar = Path::new(&library)
+        .components()
+        .any(|part| part.as_os_str() == "libwebp-scalar");
+    assert_eq!(
+        scalar,
+        !oracle.simd(),
+        "{test}: {} links {library}, but the oracle variant is {}",
+        rust_cwebp(&oracle).display(),
+        if oracle.simd() {
+            "libwebp's SIMD build"
+        } else {
+            "libwebp's scalar build"
+        }
     );
 }
 
