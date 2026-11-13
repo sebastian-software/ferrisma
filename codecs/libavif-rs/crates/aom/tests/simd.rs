@@ -28,6 +28,10 @@ mod fwht4x4;
 mod sum_squares;
 #[path = "simd/encodetxb.rs"]
 mod encodetxb;
+#[path = "simd/mse_16bit.rs"]
+mod mse_16bit;
+#[path = "simd/blk_sse_sum.rs"]
+mod blk_sse_sum;
 #[path = "simd/intrapred.rs"]
 mod intrapred;
 #[path = "simd/lowbd_intrapred.rs"]

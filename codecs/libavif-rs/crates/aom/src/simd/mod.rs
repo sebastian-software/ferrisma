@@ -20,6 +20,10 @@ pub mod types {
 }
 
 #[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/blk_sse_sum_neon.rs"]
+pub mod aom_dsp__arm__blk_sse_sum_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "aom_dsp/arm/highbd_intrapred_neon.rs"]
 pub mod aom_dsp__arm__highbd_intrapred_neon;
 
@@ -44,6 +48,10 @@ pub mod aom_dsp__arm__intrapred_neon;
 pub mod aom_dsp__arm__highbd_sse_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/highbd_variance_neon.rs"]
+pub mod aom_dsp__arm__highbd_variance_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "aom_dsp/arm/mem_neon.rs"]
 pub mod aom_dsp__arm__mem_neon;
 
@@ -66,6 +74,10 @@ pub mod aom_dsp__arm__sum_squares_neon;
 #[cfg(target_arch = "aarch64")]
 #[path = "aom_dsp/arm/transpose_neon.rs"]
 pub mod aom_dsp__arm__transpose_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "aom_dsp/arm/variance_neon.rs"]
+pub mod aom_dsp__arm__variance_neon;
 
 #[cfg(target_arch = "aarch64")]
 #[path = "aom_ports/aarch64_cpudetect.rs"]
