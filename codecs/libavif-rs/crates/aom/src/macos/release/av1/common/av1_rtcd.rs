@@ -784,6 +784,20 @@ extern "C-unwind" {
     fn av1_apply_selfguided_restoration_neon(dat8: *const uint8_t, width: core::ffi::c_int, height: core::ffi::c_int, stride: core::ffi::c_int, eps: core::ffi::c_int, xqd: *const core::ffi::c_int, dst8: *mut uint8_t, dst_stride: core::ffi::c_int, tmpbuf: *mut int32_t, bit_depth: core::ffi::c_int, highbd: core::ffi::c_int) -> core::ffi::c_int;
     fn av1_selfguided_restoration_c(dgd8: *const uint8_t, width: core::ffi::c_int, height: core::ffi::c_int, dgd_stride: core::ffi::c_int, flt0: *mut int32_t, flt1: *mut int32_t, flt_stride: core::ffi::c_int, sgr_params_idx: core::ffi::c_int, bit_depth: core::ffi::c_int, highbd: core::ffi::c_int) -> core::ffi::c_int;
     fn av1_selfguided_restoration_neon(dgd8: *const uint8_t, width: core::ffi::c_int, height: core::ffi::c_int, dgd_stride: core::ffi::c_int, flt0: *mut int32_t, flt1: *mut int32_t, flt_stride: core::ffi::c_int, sgr_params_idx: core::ffi::c_int, bit_depth: core::ffi::c_int, highbd: core::ffi::c_int) -> core::ffi::c_int;
+    fn av1_quantize_fp_c(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
+    fn av1_quantize_fp_neon(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
+    fn av1_quantize_fp_32x32_c(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
+    fn av1_quantize_fp_32x32_neon(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
+    fn av1_quantize_fp_64x64_c(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
+    fn av1_quantize_fp_64x64_neon(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
+    fn av1_quantize_lp_c(coeff_ptr: *const int16_t, n_coeffs: intptr_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, qcoeff_ptr: *mut int16_t, dqcoeff_ptr: *mut int16_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
+    fn av1_quantize_lp_neon(coeff_ptr: *const int16_t, n_coeffs: intptr_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, qcoeff_ptr: *mut int16_t, dqcoeff_ptr: *mut int16_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
+    fn av1_lowbd_fwd_txfm_c(src_diff: *const int16_t, coeff: *mut tran_low_t, diff_stride: core::ffi::c_int, txfm_param: *mut TxfmParam);
+    fn av1_lowbd_fwd_txfm_neon(src_diff: *const int16_t, coeff: *mut tran_low_t, diff_stride: core::ffi::c_int, txfm_param: *mut TxfmParam);
+    fn av1_fwht4x4_c(input: *const int16_t, output: *mut tran_low_t, stride: core::ffi::c_int);
+    fn av1_fwht4x4_neon(input: *const int16_t, output: *mut tran_low_t, stride: core::ffi::c_int);
+    fn av1_txb_init_levels_c(coeff: *const tran_low_t, width: core::ffi::c_int, height: core::ffi::c_int, levels: *mut uint8_t);
+    fn av1_txb_init_levels_neon(coeff: *const tran_low_t, width: core::ffi::c_int, height: core::ffi::c_int, levels: *mut uint8_t);
     fn aom_arm_cpu_caps() -> core::ffi::c_int;
 }
 pub type ptrdiff_t = isize;
@@ -1045,6 +1059,8 @@ pub static mut av1_fwd_txfm2d_8x8: Option<
     ) -> (),
 > = None;
 #[no_mangle]
+pub static mut av1_fwht4x4: Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
 pub static mut av1_highbd_block_error: Option<
     unsafe extern "C-unwind" fn(
         *const tran_low_t,
@@ -1140,7 +1156,19 @@ pub static mut av1_highbd_wiener_convolve_add_src: Option<unsafe extern "C-unwin
 #[no_mangle]
 pub static mut av1_inv_txfm_add: Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()> = None;
 #[no_mangle]
+pub static mut av1_lowbd_fwd_txfm: Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()> = None;
+#[no_mangle]
+pub static mut av1_quantize_fp: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()> = None;
+#[no_mangle]
+pub static mut av1_quantize_fp_32x32: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()> = None;
+#[no_mangle]
+pub static mut av1_quantize_fp_64x64: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()> = None;
+#[no_mangle]
+pub static mut av1_quantize_lp: Option<unsafe extern "C-unwind" fn(*const int16_t, intptr_t, *const int16_t, *const int16_t, *mut int16_t, *mut int16_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()> = None;
+#[no_mangle]
 pub static mut av1_selfguided_restoration: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int> = None;
+#[no_mangle]
+pub static mut av1_txb_init_levels: Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()> = None;
 #[no_mangle]
 pub static mut av1_upsample_intra_edge: Option<
     unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int) -> (),
@@ -2276,6 +2304,10 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                 ) -> (),
             >;
     }
+    av1_fwht4x4 = Some(av1_fwht4x4_c as unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_fwht4x4 = Some(av1_fwht4x4_neon as unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()>;
+    }
     av1_highbd_block_error = Some(
         av1_highbd_block_error_c
             as unsafe extern "C-unwind" fn(
@@ -2672,9 +2704,33 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     if flags & HAS_NEON != 0 {
         av1_inv_txfm_add = Some(av1_inv_txfm_add_neon as unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
     }
+    av1_lowbd_fwd_txfm = Some(av1_lowbd_fwd_txfm_c as unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_lowbd_fwd_txfm = Some(av1_lowbd_fwd_txfm_neon as unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()>;
+    }
+    av1_quantize_fp = Some(av1_quantize_fp_c as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_quantize_fp = Some(av1_quantize_fp_neon as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    }
+    av1_quantize_fp_32x32 = Some(av1_quantize_fp_32x32_c as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_quantize_fp_32x32 = Some(av1_quantize_fp_32x32_neon as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    }
+    av1_quantize_fp_64x64 = Some(av1_quantize_fp_64x64_c as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_quantize_fp_64x64 = Some(av1_quantize_fp_64x64_neon as unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    }
+    av1_quantize_lp = Some(av1_quantize_lp_c as unsafe extern "C-unwind" fn(*const int16_t, intptr_t, *const int16_t, *const int16_t, *mut int16_t, *mut int16_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, intptr_t, *const int16_t, *const int16_t, *mut int16_t, *mut int16_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_quantize_lp = Some(av1_quantize_lp_neon as unsafe extern "C-unwind" fn(*const int16_t, intptr_t, *const int16_t, *const int16_t, *mut int16_t, *mut int16_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, intptr_t, *const int16_t, *const int16_t, *mut int16_t, *mut int16_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    }
     av1_selfguided_restoration = Some(av1_selfguided_restoration_c as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int>;
     if flags & HAS_NEON != 0 {
         av1_selfguided_restoration = Some(av1_selfguided_restoration_neon as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int>;
+    }
+    av1_txb_init_levels = Some(av1_txb_init_levels_c as unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()>;
+    if flags & HAS_NEON != 0 {
+        av1_txb_init_levels = Some(av1_txb_init_levels_neon as unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()>;
     }
     av1_upsample_intra_edge = Some(
         av1_upsample_intra_edge_c

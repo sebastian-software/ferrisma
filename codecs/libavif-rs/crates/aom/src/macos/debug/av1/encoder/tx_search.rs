@@ -239,14 +239,7 @@ extern "C-unwind" {
         w: core::ffi::c_int,
         h: core::ffi::c_int,
     );
-    fn aom_get_blk_sse_sum_c(
-        data: *const int16_t,
-        stride: core::ffi::c_int,
-        bw: core::ffi::c_int,
-        bh: core::ffi::c_int,
-        x_sum: *mut core::ffi::c_int,
-        x2_sum: *mut int64_t,
-    );
+    static mut aom_get_blk_sse_sum: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int, *mut int64_t) -> ()>;
     fn aom_highbd_convolve_copy_c(
         src: *const uint16_t,
         src_stride: ptrdiff_t,
@@ -255,32 +248,13 @@ extern "C-unwind" {
         w: core::ffi::c_int,
         h: core::ffi::c_int,
     );
-    fn aom_highbd_sse_c(
-        a8: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b8: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
+    static mut aom_highbd_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
     fn aom_satd_c(
         coeff: *const tran_low_t,
         length: core::ffi::c_int,
     ) -> core::ffi::c_int;
-    fn aom_sse_c(
-        a: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
-    fn aom_sum_squares_2d_i16_c(
-        src: *const int16_t,
-        stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> uint64_t;
+    static mut aom_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
+    static mut aom_sum_squares_2d_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
     fn aom_sum_sse_2d_i16_c(
         src: *const int16_t,
         src_stride: core::ffi::c_int,
@@ -8477,7 +8451,7 @@ unsafe extern "C-unwind" fn calculate_sse(
     let mut sse: int64_t = 0 as int64_t;
     let shift: core::ffi::c_int = (*xd).bd - 8 as core::ffi::c_int;
     if is_cur_buf_hbd(xd) != 0 {
-        sse = aom_highbd_sse_c(
+        sse = aom_highbd_sse.expect("non-null function pointer")(
             (*p).src.buf,
             (*p).src.stride,
             (*pd).dst.buf,
@@ -8486,7 +8460,7 @@ unsafe extern "C-unwind" fn calculate_sse(
             bh,
         );
     } else {
-        sse = aom_sse_c(
+        sse = aom_sse.expect("non-null function pointer")(
             (*p).src.buf,
             (*p).src.stride,
             (*pd).dst.buf,
@@ -8530,7 +8504,7 @@ unsafe extern "C-unwind" fn pixel_dist_visible_only(
         if visible_rows % 4 as core::ffi::c_int == 0
             && visible_cols % 4 as core::ffi::c_int == 0
         {
-            sse64 = aom_highbd_sse_c(
+            sse64 = aom_highbd_sse.expect("non-null function pointer")(
                 src,
                 src_stride,
                 dst,
@@ -8559,7 +8533,7 @@ unsafe extern "C-unwind" fn pixel_dist_visible_only(
     if visible_rows % 4 as core::ffi::c_int == 0
         && visible_cols % 4 as core::ffi::c_int == 0
     {
-        sse = aom_sse_c(src, src_stride, dst, dst_stride, visible_cols, visible_rows)
+        sse = aom_sse.expect("non-null function pointer")(src, src_stride, dst, dst_stride, visible_cols, visible_rows)
             as core::ffi::c_uint;
     } else {
         sse = aom_sse_odd_size(
@@ -19856,7 +19830,7 @@ pub unsafe extern "C-unwind" fn av1_pixel_diff_dist(
             as core::ffi::c_int;
         let mut diff: *const int16_t = (*x).plane[plane as usize].src_diff;
         diff = diff.offset((blk_row * diff_stride + blk_col << MI_SIZE_LOG2) as isize);
-        sse = aom_sum_squares_2d_i16_c(diff, diff_stride, visible_cols, visible_rows);
+        sse = aom_sum_squares_2d_i16.expect("non-null function pointer")(diff, diff_stride, visible_cols, visible_rows);
         if !block_mse_q8.is_null() {
             *block_mse_q8 = (256 as uint64_t)
                 .wrapping_mul(sse)
@@ -21874,7 +21848,7 @@ unsafe extern "C-unwind" fn get_mean_dev_features(
         while col < bw {
             let mut x_sum: core::ffi::c_int = 0;
             let mut x2_sum: int64_t = 0;
-            aom_get_blk_sse_sum_c(
+            aom_get_blk_sse_sum.expect("non-null function pointer")(
                 data_ptr.offset((row * stride) as isize).offset(col as isize),
                 stride,
                 subw,
@@ -23481,7 +23455,7 @@ unsafe extern "C-unwind" fn get_blk_var_dev(
         while col < bw {
             let mut x_sum: core::ffi::c_int = 0;
             let mut x2_sum: int64_t = 0;
-            aom_get_blk_sse_sum_c(
+            aom_get_blk_sse_sum.expect("non-null function pointer")(
                 data_ptr.offset((row * stride) as isize).offset(col as isize),
                 stride,
                 subw,

@@ -52,22 +52,8 @@ extern "C-unwind" {
         w: core::ffi::c_int,
         h: core::ffi::c_int,
     ) -> uint64_t;
-    fn aom_highbd_sse_c(
-        a8: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b8: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
-    fn aom_sse_c(
-        a: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
+    static mut aom_highbd_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
+    static mut aom_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
     fn av1_enc_build_inter_predictor(
         cm: *const AV1_COMMON,
         xd: *mut MACROBLOCKD,
@@ -6099,7 +6085,7 @@ unsafe extern "C-unwind" fn calculate_sse(
     let mut sse: int64_t = 0 as int64_t;
     let shift: core::ffi::c_int = (*xd).bd - 8 as core::ffi::c_int;
     if is_cur_buf_hbd(xd) != 0 {
-        sse = aom_highbd_sse_c(
+        sse = aom_highbd_sse.expect("non-null function pointer")(
             (*p).src.buf,
             (*p).src.stride,
             (*pd).dst.buf,
@@ -6108,7 +6094,7 @@ unsafe extern "C-unwind" fn calculate_sse(
             bh,
         );
     } else {
-        sse = aom_sse_c(
+        sse = aom_sse.expect("non-null function pointer")(
             (*p).src.buf,
             (*p).src.stride,
             (*pd).dst.buf,
@@ -6152,7 +6138,7 @@ unsafe extern "C-unwind" fn pixel_dist_visible_only(
         if visible_rows % 4 as core::ffi::c_int == 0
             && visible_cols % 4 as core::ffi::c_int == 0
         {
-            sse64 = aom_highbd_sse_c(
+            sse64 = aom_highbd_sse.expect("non-null function pointer")(
                 src,
                 src_stride,
                 dst,
@@ -6181,7 +6167,7 @@ unsafe extern "C-unwind" fn pixel_dist_visible_only(
     if visible_rows % 4 as core::ffi::c_int == 0
         && visible_cols % 4 as core::ffi::c_int == 0
     {
-        sse = aom_sse_c(src, src_stride, dst, dst_stride, visible_cols, visible_rows)
+        sse = aom_sse.expect("non-null function pointer")(src, src_stride, dst, dst_stride, visible_cols, visible_rows)
             as core::ffi::c_uint;
     } else {
         sse = aom_sse_odd_size(

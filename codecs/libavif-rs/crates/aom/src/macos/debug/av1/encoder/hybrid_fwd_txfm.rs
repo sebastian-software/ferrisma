@@ -12,6 +12,8 @@
 // Mechanically translated from upstream/aom/av1/encoder/hybrid_fwd_txfm.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
+    static mut av1_fwht4x4: Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()>;
+    static mut av1_lowbd_fwd_txfm: Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int, *mut TxfmParam) -> ()>;
     static mut av1_fwd_txfm2d_16x16: Option<
         unsafe extern "C-unwind" fn(
             *const int16_t,
@@ -505,7 +507,7 @@ unsafe extern "C-unwind" fn highbd_fwd_txfm_4x4(
                 b"tx_type == DCT_DCT\0" as *const u8 as *const core::ffi::c_char,
             );
         } else {};
-        av1_fwht4x4_c(src_diff, coeff, diff_stride);
+        av1_fwht4x4.expect("non-null function pointer")(src_diff, coeff, diff_stride);
         return;
     }
     av1_fwd_txfm2d_4x4
@@ -822,7 +824,7 @@ pub unsafe extern "C-unwind" fn av1_fwd_txfm(
     mut txfm_param: *mut TxfmParam,
 ) {
     if (*txfm_param).bd == 8 as core::ffi::c_int {
-        av1_lowbd_fwd_txfm_c(src_diff, coeff, diff_stride, txfm_param);
+        av1_lowbd_fwd_txfm.expect("non-null function pointer")(src_diff, coeff, diff_stride, txfm_param);
     } else {
         av1_highbd_fwd_txfm(src_diff, coeff, diff_stride, txfm_param);
     };

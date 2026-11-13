@@ -13,6 +13,7 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
+    static mut av1_txb_init_levels: Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()>;
     pub type __sFILEX;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
@@ -8410,7 +8411,7 @@ pub unsafe extern "C-unwind" fn av1_write_coeffs_txb(
         );
     let mut tcoeff: *const tran_low_t = tcoeff_txb
         .offset((block << 4 as core::ffi::c_int) as isize);
-    av1_txb_init_levels_c(tcoeff, width, height, levels);
+    av1_txb_init_levels.expect("non-null function pointer")(tcoeff, width, height, levels);
     let scan_order: *const SCAN_ORDER = get_scan(tx_size, tx_type) as *const SCAN_ORDER;
     let scan: *const int16_t = (*scan_order).scan;
     let mut coeff_contexts: crate::platform::Aligned16<[int8_t; 4096]> = crate::platform::Aligned16([0; 4096]);
@@ -8859,7 +8860,7 @@ pub unsafe extern "C-unwind" fn av1_update_and_record_txb_context(
         let mut levels_buf: [uint8_t; 1312] = [0; 1312];
         let levels: *mut uint8_t = set_levels(levels_buf.as_mut_ptr(), height)
             as *mut uint8_t;
-        av1_txb_init_levels_c(tcoeff, width, height, levels);
+        av1_txb_init_levels.expect("non-null function pointer")(tcoeff, width, height, levels);
         update_tx_type_count(
             cpi,
             cm,

@@ -86,6 +86,7 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_dc_top_predictor_8x32
   aom_dc_top_predictor_8x4
   aom_dc_top_predictor_8x8
+  aom_get_blk_sse_sum
   aom_h_predictor_16x16
   aom_h_predictor_16x32
   aom_h_predictor_16x4
@@ -298,6 +299,7 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_highbd_smooth_v_predictor_8x32
   aom_highbd_smooth_v_predictor_8x4
   aom_highbd_smooth_v_predictor_8x8
+  aom_highbd_sse
   aom_highbd_subtract_block
   aom_highbd_v_predictor_16x16
   aom_highbd_v_predictor_16x32
@@ -342,6 +344,9 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_lpf_vertical_8
   aom_lpf_vertical_8_dual
   aom_lpf_vertical_8_quad
+  aom_mse_16xh_16bit
+  aom_mse_wxh_16bit
+  aom_mse_wxh_16bit_highbd
   aom_paeth_predictor_16x16
   aom_paeth_predictor_16x32
   aom_paeth_predictor_16x4
@@ -361,6 +366,9 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_paeth_predictor_8x32
   aom_paeth_predictor_8x4
   aom_paeth_predictor_8x8
+  aom_quantize_b
+  aom_quantize_b_32x32
+  aom_quantize_b_64x64
   aom_smooth_h_predictor_16x16
   aom_smooth_h_predictor_16x32
   aom_smooth_h_predictor_16x4
@@ -418,7 +426,10 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_smooth_v_predictor_8x32
   aom_smooth_v_predictor_8x4
   aom_smooth_v_predictor_8x8
+  aom_sse
   aom_subtract_block
+  aom_sum_squares_2d_i16
+  aom_sum_squares_i16
   aom_v_predictor_16x16
   aom_v_predictor_16x32
   aom_v_predictor_16x4
@@ -438,6 +449,8 @@ my %ported_neon = map { $_ => 1 } qw/
   aom_v_predictor_8x32
   aom_v_predictor_8x4
   aom_v_predictor_8x8
+  aom_var_2d_u16
+  aom_var_2d_u8
   av1_apply_selfguided_restoration
   av1_block_error
   av1_block_error_lp
@@ -465,6 +478,7 @@ my %ported_neon = map { $_ => 1 } qw/
   av1_fwd_txfm2d_8x32
   av1_fwd_txfm2d_8x4
   av1_fwd_txfm2d_8x8
+  av1_fwht4x4
   av1_highbd_block_error
   av1_highbd_dr_prediction_z1
   av1_highbd_dr_prediction_z2
@@ -475,7 +489,13 @@ my %ported_neon = map { $_ => 1 } qw/
   av1_highbd_upsample_intra_edge
   av1_highbd_wiener_convolve_add_src
   av1_inv_txfm_add
+  av1_lowbd_fwd_txfm
+  av1_quantize_fp
+  av1_quantize_fp_32x32
+  av1_quantize_fp_64x64
+  av1_quantize_lp
   av1_selfguided_restoration
+  av1_txb_init_levels
   av1_upsample_intra_edge
   av1_wiener_convolve_add_src
   cdef_copy_rect8_16bit_to_16bit

@@ -310,7 +310,8 @@ void av1_fwd_txfm2d_8x8_neon(const int16_t *input, int32_t *output, int stride, 
 RTCD_EXTERN void (*av1_fwd_txfm2d_8x8)(const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd);
 
 void av1_fwht4x4_c(const int16_t *input, tran_low_t *output, int stride);
-#define av1_fwht4x4 av1_fwht4x4_c
+void av1_fwht4x4_neon(const int16_t *input, tran_low_t *output, int stride);
+RTCD_EXTERN void (*av1_fwht4x4)(const int16_t *input, tran_low_t *output, int stride);
 
 uint32_t av1_get_crc32c_value_c(void *crc_calculator, const uint8_t *p, size_t length);
 #define av1_get_crc32c_value av1_get_crc32c_value_c
@@ -491,7 +492,8 @@ void av1_inv_txfm_add_neon(const tran_low_t *dqcoeff, uint8_t *dst, int stride, 
 RTCD_EXTERN void (*av1_inv_txfm_add)(const tran_low_t *dqcoeff, uint8_t *dst, int stride, const TxfmParam *txfm_param);
 
 void av1_lowbd_fwd_txfm_c(const int16_t *src_diff, tran_low_t *coeff, int diff_stride, TxfmParam *txfm_param);
-#define av1_lowbd_fwd_txfm av1_lowbd_fwd_txfm_c
+void av1_lowbd_fwd_txfm_neon(const int16_t *src_diff, tran_low_t *coeff, int diff_stride, TxfmParam *txfm_param);
+RTCD_EXTERN void (*av1_lowbd_fwd_txfm)(const int16_t *src_diff, tran_low_t *coeff, int diff_stride, TxfmParam *txfm_param);
 
 int64_t av1_lowbd_pixel_proj_error_c(const uint8_t *src8, int width, int height, int src_stride, const uint8_t *dat8, int dat_stride, int32_t *flt0, int flt0_stride, int32_t *flt1, int flt1_stride, int xq[2], const sgr_params_type *params);
 #define av1_lowbd_pixel_proj_error av1_lowbd_pixel_proj_error_c
@@ -506,16 +508,20 @@ void av1_quantize_b_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int1
 #define av1_quantize_b av1_quantize_b_c
 
 void av1_quantize_fp_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
-#define av1_quantize_fp av1_quantize_fp_c
+void av1_quantize_fp_neon(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
+RTCD_EXTERN void (*av1_quantize_fp)(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
 
 void av1_quantize_fp_32x32_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
-#define av1_quantize_fp_32x32 av1_quantize_fp_32x32_c
+void av1_quantize_fp_32x32_neon(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
+RTCD_EXTERN void (*av1_quantize_fp_32x32)(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
 
 void av1_quantize_fp_64x64_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
-#define av1_quantize_fp_64x64 av1_quantize_fp_64x64_c
+void av1_quantize_fp_64x64_neon(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
+RTCD_EXTERN void (*av1_quantize_fp_64x64)(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
 
 void av1_quantize_lp_c(const int16_t *coeff_ptr, intptr_t n_coeffs, const int16_t *round_ptr, const int16_t *quant_ptr, int16_t *qcoeff_ptr, int16_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
-#define av1_quantize_lp av1_quantize_lp_c
+void av1_quantize_lp_neon(const int16_t *coeff_ptr, intptr_t n_coeffs, const int16_t *round_ptr, const int16_t *quant_ptr, int16_t *qcoeff_ptr, int16_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
+RTCD_EXTERN void (*av1_quantize_lp)(const int16_t *coeff_ptr, intptr_t n_coeffs, const int16_t *round_ptr, const int16_t *quant_ptr, int16_t *qcoeff_ptr, int16_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
 
 void av1_resize_and_extend_frame_c(const YV12_BUFFER_CONFIG *src, YV12_BUFFER_CONFIG *dst, const InterpFilter filter, const int phase, const int num_planes);
 #define av1_resize_and_extend_frame av1_resize_and_extend_frame_c
@@ -540,7 +546,8 @@ RTCD_EXTERN int (*av1_selfguided_restoration)(const uint8_t *dgd8, int width, in
                                   int sgr_params_idx, int bit_depth, int highbd);
 
 void av1_txb_init_levels_c(const tran_low_t *const coeff, const int width, const int height, uint8_t *const levels);
-#define av1_txb_init_levels av1_txb_init_levels_c
+void av1_txb_init_levels_neon(const tran_low_t *const coeff, const int width, const int height, uint8_t *const levels);
+RTCD_EXTERN void (*av1_txb_init_levels)(const tran_low_t *const coeff, const int width, const int height, uint8_t *const levels);
 
 void av1_upsample_intra_edge_c(uint8_t *p, int sz);
 void av1_upsample_intra_edge_neon(uint8_t *p, int sz);
@@ -712,6 +719,8 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) av1_fwd_txfm2d_8x4 = av1_fwd_txfm2d_8x4_neon;
     av1_fwd_txfm2d_8x8 = av1_fwd_txfm2d_8x8_c;
     if (flags & HAS_NEON) av1_fwd_txfm2d_8x8 = av1_fwd_txfm2d_8x8_neon;
+    av1_fwht4x4 = av1_fwht4x4_c;
+    if (flags & HAS_NEON) av1_fwht4x4 = av1_fwht4x4_neon;
     av1_highbd_block_error = av1_highbd_block_error_c;
     if (flags & HAS_NEON) av1_highbd_block_error = av1_highbd_block_error_neon;
     av1_highbd_dr_prediction_z1 = av1_highbd_dr_prediction_z1_c;
@@ -732,8 +741,20 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) av1_highbd_wiener_convolve_add_src = av1_highbd_wiener_convolve_add_src_neon;
     av1_inv_txfm_add = av1_inv_txfm_add_c;
     if (flags & HAS_NEON) av1_inv_txfm_add = av1_inv_txfm_add_neon;
+    av1_lowbd_fwd_txfm = av1_lowbd_fwd_txfm_c;
+    if (flags & HAS_NEON) av1_lowbd_fwd_txfm = av1_lowbd_fwd_txfm_neon;
+    av1_quantize_fp = av1_quantize_fp_c;
+    if (flags & HAS_NEON) av1_quantize_fp = av1_quantize_fp_neon;
+    av1_quantize_fp_32x32 = av1_quantize_fp_32x32_c;
+    if (flags & HAS_NEON) av1_quantize_fp_32x32 = av1_quantize_fp_32x32_neon;
+    av1_quantize_fp_64x64 = av1_quantize_fp_64x64_c;
+    if (flags & HAS_NEON) av1_quantize_fp_64x64 = av1_quantize_fp_64x64_neon;
+    av1_quantize_lp = av1_quantize_lp_c;
+    if (flags & HAS_NEON) av1_quantize_lp = av1_quantize_lp_neon;
     av1_selfguided_restoration = av1_selfguided_restoration_c;
     if (flags & HAS_NEON) av1_selfguided_restoration = av1_selfguided_restoration_neon;
+    av1_txb_init_levels = av1_txb_init_levels_c;
+    if (flags & HAS_NEON) av1_txb_init_levels = av1_txb_init_levels_neon;
     av1_upsample_intra_edge = av1_upsample_intra_edge_c;
     if (flags & HAS_NEON) av1_upsample_intra_edge = av1_upsample_intra_edge_neon;
     av1_wiener_convolve_add_src = av1_wiener_convolve_add_src_c;

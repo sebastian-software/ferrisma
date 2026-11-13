@@ -40,12 +40,7 @@ extern "C-unwind" {
         tx_class: TX_CLASS,
         coeff_contexts: *mut int8_t,
     );
-    fn av1_txb_init_levels_c(
-        coeff: *const tran_low_t,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-        levels: *mut uint8_t,
-    );
+    static mut av1_txb_init_levels: Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()>;
     static av1_eob_offset_bits: [int16_t; 12];
     static mut av1_nz_map_ctx_offset: [*const int8_t; 19];
     static av1_scan_orders: [[SCAN_ORDER; 16]; 19];
@@ -7636,7 +7631,7 @@ pub unsafe extern "C-unwind" fn av1_optimize_txb(
     let levels: *mut uint8_t = set_levels(levels_buf.as_mut_ptr(), height)
         as *mut uint8_t;
     if eob > 1 as core::ffi::c_int {
-        av1_txb_init_levels_c(qcoeff, width, height, levels);
+        av1_txb_init_levels.expect("non-null function pointer")(qcoeff, width, height, levels);
     }
     let non_skip_cost: core::ffi::c_int = (*txb_costs)
         .txb_skip_cost[(*txb_ctx).txb_skip_ctx as usize][0 as core::ffi::c_int as usize];
@@ -8008,7 +8003,7 @@ unsafe extern "C-unwind" fn warehouse_efficients_txb(
     let mut cost: core::ffi::c_int = (*coeff_costs)
         .txb_skip_cost[txb_skip_ctx as usize][0 as core::ffi::c_int as usize];
     if eob > 1 as core::ffi::c_int {
-        av1_txb_init_levels_c(qcoeff, width, height, levels);
+        av1_txb_init_levels.expect("non-null function pointer")(qcoeff, width, height, levels);
     }
     cost += get_tx_type_cost(x, xd, plane, tx_size, tx_type, reduced_tx_set_used);
     cost += get_eob_cost(eob, eob_costs, coeff_costs, tx_class);

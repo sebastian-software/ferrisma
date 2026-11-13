@@ -13,6 +13,9 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
+    static mut av1_quantize_fp_64x64: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    static mut av1_quantize_fp_32x32: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    static mut av1_quantize_fp: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
     pub type __sFILEX;
     pub type SB_FIRST_PASS_STATS;
     pub type AVxWorkerImpl;
@@ -134,34 +137,8 @@ extern "C-unwind" {
             *const int16_t,
         ) -> (),
     >;
-    fn aom_quantize_b_c(
-        coeff_ptr: *const tran_low_t,
-        n_coeffs: intptr_t,
-        zbin_ptr: *const int16_t,
-        round_ptr: *const int16_t,
-        quant_ptr: *const int16_t,
-        quant_shift_ptr: *const int16_t,
-        qcoeff_ptr: *mut tran_low_t,
-        dqcoeff_ptr: *mut tran_low_t,
-        dequant_ptr: *const int16_t,
-        eob_ptr: *mut uint16_t,
-        scan: *const int16_t,
-        iscan: *const int16_t,
-    );
-    fn aom_quantize_b_32x32_c(
-        coeff_ptr: *const tran_low_t,
-        n_coeffs: intptr_t,
-        zbin_ptr: *const int16_t,
-        round_ptr: *const int16_t,
-        quant_ptr: *const int16_t,
-        quant_shift_ptr: *const int16_t,
-        qcoeff_ptr: *mut tran_low_t,
-        dqcoeff_ptr: *mut tran_low_t,
-        dequant_ptr: *const int16_t,
-        eob_ptr: *mut uint16_t,
-        scan: *const int16_t,
-        iscan: *const int16_t,
-    );
+    static mut aom_quantize_b: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    static mut aom_quantize_b_32x32: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
     fn aom_quantize_b_32x32_adaptive_c(
         coeff_ptr: *const tran_low_t,
         n_coeffs: intptr_t,
@@ -176,20 +153,7 @@ extern "C-unwind" {
         scan: *const int16_t,
         iscan: *const int16_t,
     );
-    fn aom_quantize_b_64x64_c(
-        coeff_ptr: *const tran_low_t,
-        n_coeffs: intptr_t,
-        zbin_ptr: *const int16_t,
-        round_ptr: *const int16_t,
-        quant_ptr: *const int16_t,
-        quant_shift_ptr: *const int16_t,
-        qcoeff_ptr: *mut tran_low_t,
-        dqcoeff_ptr: *mut tran_low_t,
-        dequant_ptr: *const int16_t,
-        eob_ptr: *mut uint16_t,
-        scan: *const int16_t,
-        iscan: *const int16_t,
-    );
+    static mut aom_quantize_b_64x64: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
     fn aom_quantize_b_64x64_adaptive_c(
         coeff_ptr: *const tran_low_t,
         n_coeffs: intptr_t,
@@ -6276,7 +6240,7 @@ pub unsafe extern "C-unwind" fn av1_quantize_fp_facade(
     } else {
         match (*qparam).log_scale {
             0 => {
-                av1_quantize_fp_c(
+                av1_quantize_fp.expect("non-null function pointer")(
                     coeff_ptr,
                     n_coeffs,
                     (*p).zbin_QTX,
@@ -6292,7 +6256,7 @@ pub unsafe extern "C-unwind" fn av1_quantize_fp_facade(
                 );
             }
             1 => {
-                av1_quantize_fp_32x32_c(
+                av1_quantize_fp_32x32.expect("non-null function pointer")(
                     coeff_ptr,
                     n_coeffs,
                     (*p).zbin_QTX,
@@ -6308,7 +6272,7 @@ pub unsafe extern "C-unwind" fn av1_quantize_fp_facade(
                 );
             }
             2 => {
-                av1_quantize_fp_64x64_c(
+                av1_quantize_fp_64x64.expect("non-null function pointer")(
                     coeff_ptr,
                     n_coeffs,
                     (*p).zbin_QTX,
@@ -6435,7 +6399,7 @@ pub unsafe extern "C-unwind" fn av1_quantize_b_facade(
     } else {
         match (*qparam).log_scale {
             0 => {
-                aom_quantize_b_c(
+                aom_quantize_b.expect("non-null function pointer")(
                     coeff_ptr,
                     n_coeffs,
                     (*p).zbin_QTX,
@@ -6451,7 +6415,7 @@ pub unsafe extern "C-unwind" fn av1_quantize_b_facade(
                 );
             }
             1 => {
-                aom_quantize_b_32x32_c(
+                aom_quantize_b_32x32.expect("non-null function pointer")(
                     coeff_ptr,
                     n_coeffs,
                     (*p).zbin_QTX,
@@ -6467,7 +6431,7 @@ pub unsafe extern "C-unwind" fn av1_quantize_b_facade(
                 );
             }
             2 => {
-                aom_quantize_b_64x64_c(
+                aom_quantize_b_64x64.expect("non-null function pointer")(
                     coeff_ptr,
                     n_coeffs,
                     (*p).zbin_QTX,

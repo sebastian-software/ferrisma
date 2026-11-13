@@ -117,14 +117,7 @@ extern "C-unwind" {
         intra_pred: *const uint8_t,
         intra_stride: core::ffi::c_int,
     );
-    fn aom_highbd_sse_c(
-        a8: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b8: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
+    static mut aom_highbd_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
     static mut aom_highbd_subtract_block: Option<
         unsafe extern "C-unwind" fn(
             core::ffi::c_int,
@@ -137,14 +130,7 @@ extern "C-unwind" {
             ptrdiff_t,
         ) -> (),
     >;
-    fn aom_sse_c(
-        a: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
+    static mut aom_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
     static mut aom_subtract_block: Option<
         unsafe extern "C-unwind" fn(
             core::ffi::c_int,
@@ -157,7 +143,7 @@ extern "C-unwind" {
             ptrdiff_t,
         ) -> (),
     >;
-    fn aom_sum_squares_i16_c(src: *const int16_t, N: uint32_t) -> uint64_t;
+    static mut aom_sum_squares_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t>;
     fn av1_interinter_compound_motion_search(
         cpi: *const AV1_COMP,
         x: *mut MACROBLOCK,
@@ -6464,7 +6450,7 @@ unsafe extern "C-unwind" fn calculate_sse(
     let mut sse: int64_t = 0 as int64_t;
     let shift: core::ffi::c_int = (*xd).bd - 8 as core::ffi::c_int;
     if is_cur_buf_hbd(xd) != 0 {
-        sse = aom_highbd_sse_c(
+        sse = aom_highbd_sse.expect("non-null function pointer")(
             (*p).src.buf,
             (*p).src.stride,
             (*pd).dst.buf,
@@ -6473,7 +6459,7 @@ unsafe extern "C-unwind" fn calculate_sse(
             bh,
         );
     } else {
-        sse = aom_sse_c(
+        sse = aom_sse.expect("non-null function pointer")(
             (*p).src.buf,
             (*p).src.stride,
             (*pd).dst.buf,
@@ -6517,7 +6503,7 @@ unsafe extern "C-unwind" fn pixel_dist_visible_only(
         if visible_rows % 4 as core::ffi::c_int == 0
             && visible_cols % 4 as core::ffi::c_int == 0
         {
-            sse64 = aom_highbd_sse_c(
+            sse64 = aom_highbd_sse.expect("non-null function pointer")(
                 src,
                 src_stride,
                 dst,
@@ -6546,7 +6532,7 @@ unsafe extern "C-unwind" fn pixel_dist_visible_only(
     if visible_rows % 4 as core::ffi::c_int == 0
         && visible_cols % 4 as core::ffi::c_int == 0
     {
-        sse = aom_sse_c(src, src_stride, dst, dst_stride, visible_cols, visible_rows)
+        sse = aom_sse.expect("non-null function pointer")(src, src_stride, dst, dst_stride, visible_cols, visible_rows)
             as core::ffi::c_uint;
     } else {
         sse = aom_sse_odd_size(
@@ -7323,10 +7309,10 @@ unsafe extern "C-unwind" fn pick_wedge(
             bw as ptrdiff_t,
         );
     }
-    let mut sign_limit: int64_t = (aom_sum_squares_i16_c(
+    let mut sign_limit: int64_t = (aom_sum_squares_i16.expect("non-null function pointer")(
         residual0.0.as_mut_ptr(),
         N as uint32_t,
-    ) as int64_t - aom_sum_squares_i16_c(residual1, N as uint32_t) as int64_t)
+    ) as int64_t - aom_sum_squares_i16.expect("non-null function pointer")(residual1, N as uint32_t) as int64_t)
         * ((1 as core::ffi::c_int) << WEDGE_WEIGHT_BITS) as int64_t / 2 as int64_t;
     let mut ds: *mut int16_t = residual0.0.as_mut_ptr();
     av1_wedge_compute_delta_squares_c(ds, residual0.0.as_mut_ptr(), residual1, N);

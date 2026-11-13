@@ -404,7 +404,8 @@ void aom_fft8x8_float_c(const float *input, float *temp, float *output);
 #define aom_fft8x8_float aom_fft8x8_float_c
 
 void aom_get_blk_sse_sum_c(const int16_t *data, int stride, int bw, int bh, int *x_sum, int64_t *x2_sum);
-#define aom_get_blk_sse_sum aom_get_blk_sse_sum_c
+void aom_get_blk_sse_sum_neon(const int16_t *data, int stride, int bw, int bh, int *x_sum, int64_t *x2_sum);
+RTCD_EXTERN void (*aom_get_blk_sse_sum)(const int16_t *data, int stride, int bw, int bh, int *x_sum, int64_t *x2_sum);
 
 unsigned int aom_get_mb_ss_c(const int16_t *);
 #define aom_get_mb_ss aom_get_mb_ss_c
@@ -3028,7 +3029,8 @@ void aom_highbd_smooth_v_predictor_8x8_neon(uint16_t *dst, ptrdiff_t y_stride, c
 RTCD_EXTERN void (*aom_highbd_smooth_v_predictor_8x8)(uint16_t *dst, ptrdiff_t y_stride, const uint16_t *above, const uint16_t *left, int bd);
 
 int64_t aom_highbd_sse_c(const uint8_t *a8, int a_stride, const uint8_t *b8,int b_stride, int width, int height);
-#define aom_highbd_sse aom_highbd_sse_c
+int64_t aom_highbd_sse_neon(const uint8_t *a8, int a_stride, const uint8_t *b8,int b_stride, int width, int height);
+RTCD_EXTERN int64_t (*aom_highbd_sse)(const uint8_t *a8, int a_stride, const uint8_t *b8,int b_stride, int width, int height);
 
 void aom_highbd_ssim_parms_8x8_c(const uint16_t *s, int sp, const uint16_t *r, int rp, uint32_t *sum_s, uint32_t *sum_r, uint32_t *sum_sq_s, uint32_t *sum_sq_r, uint32_t *sum_sxr);
 #define aom_highbd_ssim_parms_8x8 aom_highbd_ssim_parms_8x8_c
@@ -3381,13 +3383,16 @@ unsigned int aom_mse8x8_c(const uint8_t *src_ptr, int  source_stride, const uint
 #define aom_mse8x8 aom_mse8x8_c
 
 uint64_t aom_mse_16xh_16bit_c(uint8_t *dst, int dstride,uint16_t *src, int w, int h);
-#define aom_mse_16xh_16bit aom_mse_16xh_16bit_c
+uint64_t aom_mse_16xh_16bit_neon(uint8_t *dst, int dstride,uint16_t *src, int w, int h);
+RTCD_EXTERN uint64_t (*aom_mse_16xh_16bit)(uint8_t *dst, int dstride,uint16_t *src, int w, int h);
 
 uint64_t aom_mse_wxh_16bit_c(uint8_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
-#define aom_mse_wxh_16bit aom_mse_wxh_16bit_c
+uint64_t aom_mse_wxh_16bit_neon(uint8_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
+RTCD_EXTERN uint64_t (*aom_mse_wxh_16bit)(uint8_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
 
 uint64_t aom_mse_wxh_16bit_highbd_c(uint16_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
-#define aom_mse_wxh_16bit_highbd aom_mse_wxh_16bit_highbd_c
+uint64_t aom_mse_wxh_16bit_highbd_neon(uint16_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
+RTCD_EXTERN uint64_t (*aom_mse_wxh_16bit_highbd)(uint16_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
 
 unsigned int aom_obmc_sad128x128_c(const uint8_t *pre, int pre_stride, const int32_t *wsrc, const int32_t *mask);
 #define aom_obmc_sad128x128 aom_obmc_sad128x128_c
@@ -3664,16 +3669,19 @@ void aom_paeth_predictor_8x8_neon(uint8_t *dst, ptrdiff_t y_stride, const uint8_
 RTCD_EXTERN void (*aom_paeth_predictor_8x8)(uint8_t *dst, ptrdiff_t y_stride, const uint8_t *above, const uint8_t *left);
 
 void aom_quantize_b_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
-#define aom_quantize_b aom_quantize_b_c
+void aom_quantize_b_neon(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
+RTCD_EXTERN void (*aom_quantize_b)(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
 
 void aom_quantize_b_32x32_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
-#define aom_quantize_b_32x32 aom_quantize_b_32x32_c
+void aom_quantize_b_32x32_neon(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
+RTCD_EXTERN void (*aom_quantize_b_32x32)(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
 
 void aom_quantize_b_32x32_adaptive_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
 #define aom_quantize_b_32x32_adaptive aom_quantize_b_32x32_adaptive_c
 
 void aom_quantize_b_64x64_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
-#define aom_quantize_b_64x64 aom_quantize_b_64x64_c
+void aom_quantize_b_64x64_neon(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
+RTCD_EXTERN void (*aom_quantize_b_64x64)(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
 
 void aom_quantize_b_64x64_adaptive_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan);
 #define aom_quantize_b_64x64_adaptive aom_quantize_b_64x64_adaptive_c
@@ -4258,7 +4266,8 @@ void aom_smooth_v_predictor_8x8_neon(uint8_t *dst, ptrdiff_t y_stride, const uin
 RTCD_EXTERN void (*aom_smooth_v_predictor_8x8)(uint8_t *dst, ptrdiff_t y_stride, const uint8_t *above, const uint8_t *left);
 
 int64_t aom_sse_c(const uint8_t *a, int a_stride, const uint8_t *b,int b_stride, int width, int height);
-#define aom_sse aom_sse_c
+int64_t aom_sse_neon(const uint8_t *a, int a_stride, const uint8_t *b,int b_stride, int width, int height);
+RTCD_EXTERN int64_t (*aom_sse)(const uint8_t *a, int a_stride, const uint8_t *b,int b_stride, int width, int height);
 
 void aom_ssim_parms_8x8_c(const uint8_t *s, int sp, const uint8_t *r, int rp, uint32_t *sum_s, uint32_t *sum_r, uint32_t *sum_sq_s, uint32_t *sum_sq_r, uint32_t *sum_sxr);
 #define aom_ssim_parms_8x8 aom_ssim_parms_8x8_c
@@ -4400,10 +4409,12 @@ void aom_subtract_block_neon(int rows, int cols, int16_t *diff_ptr, ptrdiff_t di
 RTCD_EXTERN void (*aom_subtract_block)(int rows, int cols, int16_t *diff_ptr, ptrdiff_t diff_stride, const uint8_t *src_ptr, ptrdiff_t src_stride, const uint8_t *pred_ptr, ptrdiff_t pred_stride);
 
 uint64_t aom_sum_squares_2d_i16_c(const int16_t *src, int stride, int width, int height);
-#define aom_sum_squares_2d_i16 aom_sum_squares_2d_i16_c
+uint64_t aom_sum_squares_2d_i16_neon(const int16_t *src, int stride, int width, int height);
+RTCD_EXTERN uint64_t (*aom_sum_squares_2d_i16)(const int16_t *src, int stride, int width, int height);
 
 uint64_t aom_sum_squares_i16_c(const int16_t *src, uint32_t N);
-#define aom_sum_squares_i16 aom_sum_squares_i16_c
+uint64_t aom_sum_squares_i16_neon(const int16_t *src, uint32_t N);
+RTCD_EXTERN uint64_t (*aom_sum_squares_i16)(const int16_t *src, uint32_t N);
 
 uint64_t aom_sum_sse_2d_i16_c(const int16_t *src, int src_stride, int width, int height, int *sum);
 #define aom_sum_sse_2d_i16 aom_sum_sse_2d_i16_c
@@ -4485,10 +4496,12 @@ void aom_v_predictor_8x8_neon(uint8_t *dst, ptrdiff_t y_stride, const uint8_t *a
 RTCD_EXTERN void (*aom_v_predictor_8x8)(uint8_t *dst, ptrdiff_t y_stride, const uint8_t *above, const uint8_t *left);
 
 uint64_t aom_var_2d_u16_c(uint8_t *src, int src_stride, int width, int height);
-#define aom_var_2d_u16 aom_var_2d_u16_c
+uint64_t aom_var_2d_u16_neon(uint8_t *src, int src_stride, int width, int height);
+RTCD_EXTERN uint64_t (*aom_var_2d_u16)(uint8_t *src, int src_stride, int width, int height);
 
 uint64_t aom_var_2d_u8_c(uint8_t *src, int src_stride, int width, int height);
-#define aom_var_2d_u8 aom_var_2d_u8_c
+uint64_t aom_var_2d_u8_neon(uint8_t *src, int src_stride, int width, int height);
+RTCD_EXTERN uint64_t (*aom_var_2d_u8)(uint8_t *src, int src_stride, int width, int height);
 
 unsigned int aom_variance128x128_c(const uint8_t *src_ptr, int source_stride, const uint8_t *ref_ptr, int ref_stride, unsigned int *sse);
 #define aom_variance128x128 aom_variance128x128_c
@@ -4723,6 +4736,8 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) aom_dc_top_predictor_8x4 = aom_dc_top_predictor_8x4_neon;
     aom_dc_top_predictor_8x8 = aom_dc_top_predictor_8x8_c;
     if (flags & HAS_NEON) aom_dc_top_predictor_8x8 = aom_dc_top_predictor_8x8_neon;
+    aom_get_blk_sse_sum = aom_get_blk_sse_sum_c;
+    if (flags & HAS_NEON) aom_get_blk_sse_sum = aom_get_blk_sse_sum_neon;
     aom_h_predictor_16x16 = aom_h_predictor_16x16_c;
     if (flags & HAS_NEON) aom_h_predictor_16x16 = aom_h_predictor_16x16_neon;
     aom_h_predictor_16x32 = aom_h_predictor_16x32_c;
@@ -5147,6 +5162,8 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) aom_highbd_smooth_v_predictor_8x4 = aom_highbd_smooth_v_predictor_8x4_neon;
     aom_highbd_smooth_v_predictor_8x8 = aom_highbd_smooth_v_predictor_8x8_c;
     if (flags & HAS_NEON) aom_highbd_smooth_v_predictor_8x8 = aom_highbd_smooth_v_predictor_8x8_neon;
+    aom_highbd_sse = aom_highbd_sse_c;
+    if (flags & HAS_NEON) aom_highbd_sse = aom_highbd_sse_neon;
     aom_highbd_subtract_block = aom_highbd_subtract_block_c;
     if (flags & HAS_NEON) aom_highbd_subtract_block = aom_highbd_subtract_block_neon;
     aom_highbd_v_predictor_16x16 = aom_highbd_v_predictor_16x16_c;
@@ -5235,6 +5252,12 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) aom_lpf_vertical_8_dual = aom_lpf_vertical_8_dual_neon;
     aom_lpf_vertical_8_quad = aom_lpf_vertical_8_quad_c;
     if (flags & HAS_NEON) aom_lpf_vertical_8_quad = aom_lpf_vertical_8_quad_neon;
+    aom_mse_16xh_16bit = aom_mse_16xh_16bit_c;
+    if (flags & HAS_NEON) aom_mse_16xh_16bit = aom_mse_16xh_16bit_neon;
+    aom_mse_wxh_16bit = aom_mse_wxh_16bit_c;
+    if (flags & HAS_NEON) aom_mse_wxh_16bit = aom_mse_wxh_16bit_neon;
+    aom_mse_wxh_16bit_highbd = aom_mse_wxh_16bit_highbd_c;
+    if (flags & HAS_NEON) aom_mse_wxh_16bit_highbd = aom_mse_wxh_16bit_highbd_neon;
     aom_paeth_predictor_16x16 = aom_paeth_predictor_16x16_c;
     if (flags & HAS_NEON) aom_paeth_predictor_16x16 = aom_paeth_predictor_16x16_neon;
     aom_paeth_predictor_16x32 = aom_paeth_predictor_16x32_c;
@@ -5273,6 +5296,12 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) aom_paeth_predictor_8x4 = aom_paeth_predictor_8x4_neon;
     aom_paeth_predictor_8x8 = aom_paeth_predictor_8x8_c;
     if (flags & HAS_NEON) aom_paeth_predictor_8x8 = aom_paeth_predictor_8x8_neon;
+    aom_quantize_b = aom_quantize_b_c;
+    if (flags & HAS_NEON) aom_quantize_b = aom_quantize_b_neon;
+    aom_quantize_b_32x32 = aom_quantize_b_32x32_c;
+    if (flags & HAS_NEON) aom_quantize_b_32x32 = aom_quantize_b_32x32_neon;
+    aom_quantize_b_64x64 = aom_quantize_b_64x64_c;
+    if (flags & HAS_NEON) aom_quantize_b_64x64 = aom_quantize_b_64x64_neon;
     aom_smooth_h_predictor_16x16 = aom_smooth_h_predictor_16x16_c;
     if (flags & HAS_NEON) aom_smooth_h_predictor_16x16 = aom_smooth_h_predictor_16x16_neon;
     aom_smooth_h_predictor_16x32 = aom_smooth_h_predictor_16x32_c;
@@ -5387,8 +5416,14 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) aom_smooth_v_predictor_8x4 = aom_smooth_v_predictor_8x4_neon;
     aom_smooth_v_predictor_8x8 = aom_smooth_v_predictor_8x8_c;
     if (flags & HAS_NEON) aom_smooth_v_predictor_8x8 = aom_smooth_v_predictor_8x8_neon;
+    aom_sse = aom_sse_c;
+    if (flags & HAS_NEON) aom_sse = aom_sse_neon;
     aom_subtract_block = aom_subtract_block_c;
     if (flags & HAS_NEON) aom_subtract_block = aom_subtract_block_neon;
+    aom_sum_squares_2d_i16 = aom_sum_squares_2d_i16_c;
+    if (flags & HAS_NEON) aom_sum_squares_2d_i16 = aom_sum_squares_2d_i16_neon;
+    aom_sum_squares_i16 = aom_sum_squares_i16_c;
+    if (flags & HAS_NEON) aom_sum_squares_i16 = aom_sum_squares_i16_neon;
     aom_v_predictor_16x16 = aom_v_predictor_16x16_c;
     if (flags & HAS_NEON) aom_v_predictor_16x16 = aom_v_predictor_16x16_neon;
     aom_v_predictor_16x32 = aom_v_predictor_16x32_c;
@@ -5427,6 +5462,10 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_NEON) aom_v_predictor_8x4 = aom_v_predictor_8x4_neon;
     aom_v_predictor_8x8 = aom_v_predictor_8x8_c;
     if (flags & HAS_NEON) aom_v_predictor_8x8 = aom_v_predictor_8x8_neon;
+    aom_var_2d_u16 = aom_var_2d_u16_c;
+    if (flags & HAS_NEON) aom_var_2d_u16 = aom_var_2d_u16_neon;
+    aom_var_2d_u8 = aom_var_2d_u8_c;
+    if (flags & HAS_NEON) aom_var_2d_u8 = aom_var_2d_u8_neon;
 }
 #endif
 

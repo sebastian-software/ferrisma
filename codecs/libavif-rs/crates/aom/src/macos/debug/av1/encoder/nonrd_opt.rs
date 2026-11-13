@@ -106,32 +106,8 @@ extern "C-unwind" {
             core::ffi::c_int,
         ) -> int64_t,
     >;
-    fn av1_quantize_fp_c(
-        coeff_ptr: *const tran_low_t,
-        n_coeffs: intptr_t,
-        zbin_ptr: *const int16_t,
-        round_ptr: *const int16_t,
-        quant_ptr: *const int16_t,
-        quant_shift_ptr: *const int16_t,
-        qcoeff_ptr: *mut tran_low_t,
-        dqcoeff_ptr: *mut tran_low_t,
-        dequant_ptr: *const int16_t,
-        eob_ptr: *mut uint16_t,
-        scan: *const int16_t,
-        iscan: *const int16_t,
-    );
-    fn av1_quantize_lp_c(
-        coeff_ptr: *const int16_t,
-        n_coeffs: intptr_t,
-        round_ptr: *const int16_t,
-        quant_ptr: *const int16_t,
-        qcoeff_ptr: *mut int16_t,
-        dqcoeff_ptr: *mut int16_t,
-        dequant_ptr: *const int16_t,
-        eob_ptr: *mut uint16_t,
-        scan: *const int16_t,
-        iscan: *const int16_t,
-    );
+    static mut av1_quantize_fp: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    static mut av1_quantize_lp: Option<unsafe extern "C-unwind" fn(*const int16_t, intptr_t, *const int16_t, *const int16_t, *mut int16_t, *mut int16_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
     fn av1_predict_intra_block_facade(
         cm: *const AV1_COMMON,
         xd: *mut MACROBLOCKD,
@@ -8399,7 +8375,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
                 2 => {
                     if use_hbd != 0 {
                         aom_hadamard_16x16_c(src_diff, diff_stride as ptrdiff_t, coeff);
-                        av1_quantize_fp_c(
+                        av1_quantize_fp.expect("non-null function pointer")(
                             coeff,
                             (16 as core::ffi::c_int * 16 as core::ffi::c_int)
                                 as intptr_t,
@@ -8420,7 +8396,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
                             diff_stride as ptrdiff_t,
                             low_coeff,
                         );
-                        av1_quantize_lp_c(
+                        av1_quantize_lp.expect("non-null function pointer")(
                             low_coeff,
                             (16 as core::ffi::c_int * 16 as core::ffi::c_int)
                                 as intptr_t,
@@ -8438,7 +8414,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
                 1 => {
                     if use_hbd != 0 {
                         aom_hadamard_8x8_c(src_diff, diff_stride as ptrdiff_t, coeff);
-                        av1_quantize_fp_c(
+                        av1_quantize_fp.expect("non-null function pointer")(
                             coeff,
                             (8 as core::ffi::c_int * 8 as core::ffi::c_int) as intptr_t,
                             (*p).zbin_QTX,
@@ -8465,7 +8441,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
                                 low_coeff,
                             );
                         }
-                        av1_quantize_lp_c(
+                        av1_quantize_lp.expect("non-null function pointer")(
                             low_coeff,
                             (8 as core::ffi::c_int * 8 as core::ffi::c_int) as intptr_t,
                             (*p).round_fp_QTX,
@@ -8497,7 +8473,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
                     } else {};
                     if use_hbd != 0 {
                         aom_fdct4x4_c(src_diff, coeff, diff_stride);
-                        av1_quantize_fp_c(
+                        av1_quantize_fp.expect("non-null function pointer")(
                             coeff,
                             (4 as core::ffi::c_int * 4 as core::ffi::c_int) as intptr_t,
                             (*p).zbin_QTX,
@@ -8513,7 +8489,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd(
                         );
                     } else {
                         aom_fdct4x4_lp_c(src_diff, low_coeff, diff_stride);
-                        av1_quantize_lp_c(
+                        av1_quantize_lp.expect("non-null function pointer")(
                             low_coeff,
                             (4 as core::ffi::c_int * 4 as core::ffi::c_int) as intptr_t,
                             (*p).round_fp_QTX,
@@ -8801,7 +8777,7 @@ pub unsafe extern "C-unwind" fn av1_block_yrd_idtx(
                 .offset((r * diff_stride + c << 2 as core::ffi::c_int) as isize)
                 as *mut int16_t;
             scale_square_buf_vals(low_coeff, tx_wd, src_diff, diff_stride);
-            av1_quantize_lp_c(
+            av1_quantize_lp.expect("non-null function pointer")(
                 low_coeff,
                 (tx_wd * tx_wd) as intptr_t,
                 (*p).round_fp_QTX,

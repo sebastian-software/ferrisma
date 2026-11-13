@@ -26,37 +26,10 @@ extern "C-unwind" {
         delta: core::ffi::c_int,
         bit_depth: aom_bit_depth_t,
     ) -> int16_t;
-    fn aom_mse_16xh_16bit_c(
-        dst: *mut uint8_t,
-        dstride: core::ffi::c_int,
-        src: *mut uint16_t,
-        w: core::ffi::c_int,
-        h: core::ffi::c_int,
-    ) -> uint64_t;
-    fn aom_mse_wxh_16bit_c(
-        dst: *mut uint8_t,
-        dstride: core::ffi::c_int,
-        src: *mut uint16_t,
-        sstride: core::ffi::c_int,
-        w: core::ffi::c_int,
-        h: core::ffi::c_int,
-    ) -> uint64_t;
-    fn aom_mse_wxh_16bit_highbd_c(
-        dst: *mut uint16_t,
-        dstride: core::ffi::c_int,
-        src: *mut uint16_t,
-        sstride: core::ffi::c_int,
-        w: core::ffi::c_int,
-        h: core::ffi::c_int,
-    ) -> uint64_t;
-    fn aom_sse_c(
-        a: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
+    static mut aom_mse_16xh_16bit: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    static mut aom_mse_wxh_16bit: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    static mut aom_mse_wxh_16bit_highbd: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    static mut aom_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
     fn aom_internal_error(
         info: *mut aom_internal_error_info,
         error: aom_codec_err_t,
@@ -5971,7 +5944,7 @@ unsafe extern "C-unwind" fn compute_cdef_dist_highbd(
         bx = (*dlist.offset(bi as isize)).bx as core::ffi::c_int;
         sum = sum
             .wrapping_add(
-                aom_mse_wxh_16bit_highbd_c(
+                aom_mse_wxh_16bit_highbd.expect("non-null function pointer")(
                     &raw mut *dst_buff
                         .offset(
                             ((by << height_log2) * dstride + (bx << width_log2)) as isize,
@@ -6058,14 +6031,14 @@ unsafe extern "C-unwind" fn compute_cdef_dist(
         if is_dual_or_quad_applicable(dlist, width, cdef_count, bi, iter) != 0 {
             sum = sum
                 .wrapping_add(
-                    aom_mse_16xh_16bit_c(dst_tmp, dstride, src_tmp, width, height),
+                    aom_mse_16xh_16bit.expect("non-null function pointer")(dst_tmp, dstride, src_tmp, width, height),
                 );
             iter += num_blks;
             inc = num_blks;
         } else {
             sum = sum
                 .wrapping_add(
-                    aom_mse_wxh_16bit_c(
+                    aom_mse_wxh_16bit.expect("non-null function pointer")(
                         dst_tmp,
                         dstride,
                         src_tmp,
@@ -6259,7 +6232,7 @@ unsafe extern "C-unwind" fn get_filt_error(
             if pri_strength == 0 as core::ffi::c_int
                 && sec_strength == 0 as core::ffi::c_int
             {
-                curr_sse = aom_sse_c(
+                curr_sse = aom_sse.expect("non-null function pointer")(
                     &raw mut *ref_buffer.offset(buf_offset as isize),
                     ref_stride,
                     &raw mut *((*pd).dst.buf).offset(dst_offset as isize),
@@ -6288,7 +6261,7 @@ unsafe extern "C-unwind" fn get_filt_error(
                     (*cdef_search_ctx).damping,
                     coeff_shift,
                 );
-                curr_sse = aom_sse_c(
+                curr_sse = aom_sse.expect("non-null function pointer")(
                     &raw mut *ref_buffer.offset(buf_offset as isize),
                     ref_stride,
                     tmp_dst8.0.as_mut_ptr(),
@@ -6320,7 +6293,7 @@ unsafe extern "C-unwind" fn get_filt_error(
                 );
                 curr_sse = curr_sse
                     .wrapping_add(
-                        aom_sse_c(
+                        aom_sse.expect("non-null function pointer")(
                             &raw mut *ref_buffer.offset(buf_offset_0 as isize),
                             ref_stride,
                             &raw mut *((*pd).dst.buf).offset(dst_offset_0 as isize),
@@ -6375,7 +6348,7 @@ unsafe extern "C-unwind" fn get_filt_error(
                 );
                 curr_sse = curr_sse
                     .wrapping_add(
-                        aom_sse_c(
+                        aom_sse.expect("non-null function pointer")(
                             &raw mut *ref_buffer.offset(buf_offset_1 as isize),
                             ref_stride,
                             &raw mut *tmp_dst8_0.0
