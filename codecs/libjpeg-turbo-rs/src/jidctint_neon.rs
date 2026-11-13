@@ -226,6 +226,10 @@ fn islow_consts_x3() -> &'static [i16; 12] {
     clippy::erasing_op,
     reason = "C writes k * DCTSIZE row offsets with k = 0 and 1"
 )]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the pass-2 helpers' conversion of CENTERJSAMPLE to uint8_t"
+)]
 #[target_feature(enable = "neon")]
 pub fn jsimd_idct_islow_neon(
     dct_table: &multiplier_table,
@@ -411,11 +415,11 @@ pub fn jsimd_idct_islow_neon(
 
     /* If all coefficients in right 4x8 block are 0, use "sparse" second pass. */
     if right_ac_dc_bitmap == 0 {
-        jsimd_idct_islow_pass2_sparse(&workspace_l, output_buf.reborrow(), output_col, 0);
-        jsimd_idct_islow_pass2_sparse(&workspace_r, output_buf.reborrow(), output_col, 4);
+        jsimd_idct_islow_pass2_sparse!(&workspace_l, output_buf.reborrow(), output_col, 0);
+        jsimd_idct_islow_pass2_sparse!(&workspace_r, output_buf.reborrow(), output_col, 4);
     } else {
-        jsimd_idct_islow_pass2_regular(&workspace_l, output_buf.reborrow(), output_col, 0);
-        jsimd_idct_islow_pass2_regular(&workspace_r, output_buf.reborrow(), output_col, 4);
+        jsimd_idct_islow_pass2_regular!(&workspace_l, output_buf.reborrow(), output_col, 0);
+        jsimd_idct_islow_pass2_regular!(&workspace_r, output_buf.reborrow(), output_col, 4);
     }
 }
 
@@ -653,153 +657,150 @@ fn jsimd_idct_islow_pass1_sparse(
  */
 
 // upstream: simd/arm/jidctint-neon.c jsimd_idct_islow_pass2_regular
-#[expect(clippy::similar_names, reason = "C variable names")]
-#[expect(
-    clippy::identity_op,
-    clippy::erasing_op,
-    reason = "C writes k * DCTSIZE / 2 and buf_offset + k offsets with k = 0 and 1"
-)]
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "C's conversion of CENTERJSAMPLE to uint8_t"
-)]
-#[target_feature(enable = "neon")]
-#[inline]
-fn jsimd_idct_islow_pass2_regular(
-    workspace: &[i16],
-    mut output_buf: JSAMPROWS_MUT<'_, '_>,
-    output_col: JDIMENSION,
-    buf_offset: u32,
-) {
-    /* Load constants for IDCT computation. */
-    let consts: int16x4x3_t = vld1_s16_x3(islow_consts_x3());
+// C defines the helper `static INLINE`, which upstream's build makes
+// `__attribute__((always_inline))`. Rust rejects `#[inline(always)]` on a
+// `#[target_feature]` function, and LLVM keeps the `#[inline]` function out
+// of line, so the helper is a macro that expands in its caller's Neon
+// context, with the C parameters as `let` bindings (ADR 0004, 2026-11-13
+// amendment).
+macro_rules! jsimd_idct_islow_pass2_regular {
+    ($workspace:expr, $output_buf:expr, $output_col:expr, $buf_offset:expr) => {{
+        let workspace: &[i16] = $workspace;
+        let mut output_buf: JSAMPROWS_MUT<'_, '_> = $output_buf;
+        let output_col: JDIMENSION = $output_col;
+        let buf_offset: u32 = $buf_offset;
 
-    /* Even part */
-    let mut z2_s16 = vld1_s16(workspace[2 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
-    let mut z3_s16 = vld1_s16(workspace[6 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        /* Load constants for IDCT computation. */
+        let consts: int16x4x3_t = vld1_s16_x3(islow_consts_x3());
 
-    let mut tmp2 = vmull_lane_s16::<1>(z2_s16, consts.0);
-    let mut tmp3 = vmull_lane_s16::<2>(z2_s16, consts.1);
-    tmp2 = vmlal_lane_s16::<1>(tmp2, z3_s16, consts.2);
-    tmp3 = vmlal_lane_s16::<1>(tmp3, z3_s16, consts.0);
+        /* Even part */
+        let mut z2_s16 = vld1_s16(workspace[2 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        let mut z3_s16 = vld1_s16(workspace[6 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
 
-    z2_s16 = vld1_s16(workspace[0 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
-    z3_s16 = vld1_s16(workspace[4 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        let mut tmp2 = vmull_lane_s16::<1>(z2_s16, consts.0);
+        let mut tmp3 = vmull_lane_s16::<2>(z2_s16, consts.1);
+        tmp2 = vmlal_lane_s16::<1>(tmp2, z3_s16, consts.2);
+        tmp3 = vmlal_lane_s16::<1>(tmp3, z3_s16, consts.0);
 
-    let mut tmp0 = vshll_n_s16::<CONST_BITS>(vadd_s16(z2_s16, z3_s16));
-    let mut tmp1 = vshll_n_s16::<CONST_BITS>(vsub_s16(z2_s16, z3_s16));
+        z2_s16 = vld1_s16(workspace[0 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        z3_s16 = vld1_s16(workspace[4 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
 
-    let tmp10 = vaddq_s32(tmp0, tmp3);
-    let tmp13 = vsubq_s32(tmp0, tmp3);
-    let tmp11 = vaddq_s32(tmp1, tmp2);
-    let tmp12 = vsubq_s32(tmp1, tmp2);
+        let mut tmp0 = vshll_n_s16::<CONST_BITS>(vadd_s16(z2_s16, z3_s16));
+        let mut tmp1 = vshll_n_s16::<CONST_BITS>(vsub_s16(z2_s16, z3_s16));
 
-    /* Odd part */
-    let tmp0_s16 = vld1_s16(workspace[7 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
-    let tmp1_s16 = vld1_s16(workspace[5 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
-    let tmp2_s16 = vld1_s16(workspace[3 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
-    let tmp3_s16 = vld1_s16(workspace[1 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        let tmp10 = vaddq_s32(tmp0, tmp3);
+        let tmp13 = vsubq_s32(tmp0, tmp3);
+        let tmp11 = vaddq_s32(tmp1, tmp2);
+        let tmp12 = vsubq_s32(tmp1, tmp2);
 
-    z3_s16 = vadd_s16(tmp0_s16, tmp2_s16);
-    let z4_s16 = vadd_s16(tmp1_s16, tmp3_s16);
+        /* Odd part */
+        let tmp0_s16 = vld1_s16(workspace[7 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        let tmp1_s16 = vld1_s16(workspace[5 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        let tmp2_s16 = vld1_s16(workspace[3 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        let tmp3_s16 = vld1_s16(workspace[1 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
 
-    /* Implementation as per jpeg_idct_islow() in jidctint.c:
-     *   z5 = (z3 + z4) * 1.175875602;
-     *   z3 = z3 * -1.961570560;  z4 = z4 * -0.390180644;
-     *   z3 += z5;  z4 += z5;
-     *
-     * This implementation:
-     *   z3 = z3 * (1.175875602 - 1.961570560) + z4 * 1.175875602;
-     *   z4 = z3 * 1.175875602 + z4 * (1.175875602 - 0.390180644);
-     */
+        z3_s16 = vadd_s16(tmp0_s16, tmp2_s16);
+        let z4_s16 = vadd_s16(tmp1_s16, tmp3_s16);
 
-    let mut z3 = vmull_lane_s16::<3>(z3_s16, consts.2);
-    let mut z4 = vmull_lane_s16::<3>(z3_s16, consts.1);
-    z3 = vmlal_lane_s16::<3>(z3, z4_s16, consts.1);
-    z4 = vmlal_lane_s16::<0>(z4, z4_s16, consts.2);
+        /* Implementation as per jpeg_idct_islow() in jidctint.c:
+         *   z5 = (z3 + z4) * 1.175875602;
+         *   z3 = z3 * -1.961570560;  z4 = z4 * -0.390180644;
+         *   z3 += z5;  z4 += z5;
+         *
+         * This implementation:
+         *   z3 = z3 * (1.175875602 - 1.961570560) + z4 * 1.175875602;
+         *   z4 = z3 * 1.175875602 + z4 * (1.175875602 - 0.390180644);
+         */
 
-    /* Implementation as per jpeg_idct_islow() in jidctint.c:
-     *   z1 = tmp0 + tmp3;  z2 = tmp1 + tmp2;
-     *   tmp0 = tmp0 * 0.298631336;  tmp1 = tmp1 * 2.053119869;
-     *   tmp2 = tmp2 * 3.072711026;  tmp3 = tmp3 * 1.501321110;
-     *   z1 = z1 * -0.899976223;  z2 = z2 * -2.562915447;
-     *   tmp0 += z1 + z3;  tmp1 += z2 + z4;
-     *   tmp2 += z2 + z3;  tmp3 += z1 + z4;
-     *
-     * This implementation:
-     *   tmp0 = tmp0 * (0.298631336 - 0.899976223) + tmp3 * -0.899976223;
-     *   tmp1 = tmp1 * (2.053119869 - 2.562915447) + tmp2 * -2.562915447;
-     *   tmp2 = tmp1 * -2.562915447 + tmp2 * (3.072711026 - 2.562915447);
-     *   tmp3 = tmp0 * -0.899976223 + tmp3 * (1.501321110 - 0.899976223);
-     *   tmp0 += z3;  tmp1 += z4;
-     *   tmp2 += z3;  tmp3 += z4;
-     */
+        let mut z3 = vmull_lane_s16::<3>(z3_s16, consts.2);
+        let mut z4 = vmull_lane_s16::<3>(z3_s16, consts.1);
+        z3 = vmlal_lane_s16::<3>(z3, z4_s16, consts.1);
+        z4 = vmlal_lane_s16::<0>(z4, z4_s16, consts.2);
 
-    tmp0 = vmull_lane_s16::<3>(tmp0_s16, consts.0);
-    tmp1 = vmull_lane_s16::<1>(tmp1_s16, consts.1);
-    tmp2 = vmull_lane_s16::<2>(tmp2_s16, consts.2);
-    tmp3 = vmull_lane_s16::<0>(tmp3_s16, consts.1);
+        /* Implementation as per jpeg_idct_islow() in jidctint.c:
+         *   z1 = tmp0 + tmp3;  z2 = tmp1 + tmp2;
+         *   tmp0 = tmp0 * 0.298631336;  tmp1 = tmp1 * 2.053119869;
+         *   tmp2 = tmp2 * 3.072711026;  tmp3 = tmp3 * 1.501321110;
+         *   z1 = z1 * -0.899976223;  z2 = z2 * -2.562915447;
+         *   tmp0 += z1 + z3;  tmp1 += z2 + z4;
+         *   tmp2 += z2 + z3;  tmp3 += z1 + z4;
+         *
+         * This implementation:
+         *   tmp0 = tmp0 * (0.298631336 - 0.899976223) + tmp3 * -0.899976223;
+         *   tmp1 = tmp1 * (2.053119869 - 2.562915447) + tmp2 * -2.562915447;
+         *   tmp2 = tmp1 * -2.562915447 + tmp2 * (3.072711026 - 2.562915447);
+         *   tmp3 = tmp0 * -0.899976223 + tmp3 * (1.501321110 - 0.899976223);
+         *   tmp0 += z3;  tmp1 += z4;
+         *   tmp2 += z3;  tmp3 += z4;
+         */
 
-    tmp0 = vmlsl_lane_s16::<0>(tmp0, tmp3_s16, consts.0);
-    tmp1 = vmlsl_lane_s16::<2>(tmp1, tmp2_s16, consts.0);
-    tmp2 = vmlsl_lane_s16::<2>(tmp2, tmp1_s16, consts.0);
-    tmp3 = vmlsl_lane_s16::<0>(tmp3, tmp0_s16, consts.0);
+        tmp0 = vmull_lane_s16::<3>(tmp0_s16, consts.0);
+        tmp1 = vmull_lane_s16::<1>(tmp1_s16, consts.1);
+        tmp2 = vmull_lane_s16::<2>(tmp2_s16, consts.2);
+        tmp3 = vmull_lane_s16::<0>(tmp3_s16, consts.1);
 
-    tmp0 = vaddq_s32(tmp0, z3);
-    tmp1 = vaddq_s32(tmp1, z4);
-    tmp2 = vaddq_s32(tmp2, z3);
-    tmp3 = vaddq_s32(tmp3, z4);
+        tmp0 = vmlsl_lane_s16::<0>(tmp0, tmp3_s16, consts.0);
+        tmp1 = vmlsl_lane_s16::<2>(tmp1, tmp2_s16, consts.0);
+        tmp2 = vmlsl_lane_s16::<2>(tmp2, tmp1_s16, consts.0);
+        tmp3 = vmlsl_lane_s16::<0>(tmp3, tmp0_s16, consts.0);
 
-    /* Final output stage: descale and narrow to 16-bit. */
-    let cols_02_s16 = vcombine_s16(vaddhn_s32(tmp10, tmp3), vaddhn_s32(tmp12, tmp1));
-    let cols_13_s16 = vcombine_s16(vaddhn_s32(tmp11, tmp2), vaddhn_s32(tmp13, tmp0));
-    let cols_46_s16 = vcombine_s16(vsubhn_s32(tmp13, tmp0), vsubhn_s32(tmp11, tmp2));
-    let cols_57_s16 = vcombine_s16(vsubhn_s32(tmp12, tmp1), vsubhn_s32(tmp10, tmp3));
-    /* Descale and narrow to 8-bit. */
-    let cols_02_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_02_s16);
-    let cols_13_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_13_s16);
-    let cols_46_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_46_s16);
-    let cols_57_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_57_s16);
-    /* Clamp to range [0-255]. */
-    let cols_02_u8 = vadd_u8(
-        vreinterpret_u8_s8(cols_02_s8),
-        vdup_n_u8(CENTERJSAMPLE as u8),
-    );
-    let cols_13_u8 = vadd_u8(
-        vreinterpret_u8_s8(cols_13_s8),
-        vdup_n_u8(CENTERJSAMPLE as u8),
-    );
-    let cols_46_u8 = vadd_u8(
-        vreinterpret_u8_s8(cols_46_s8),
-        vdup_n_u8(CENTERJSAMPLE as u8),
-    );
-    let cols_57_u8 = vadd_u8(
-        vreinterpret_u8_s8(cols_57_s8),
-        vdup_n_u8(CENTERJSAMPLE as u8),
-    );
+        tmp0 = vaddq_s32(tmp0, z3);
+        tmp1 = vaddq_s32(tmp1, z4);
+        tmp2 = vaddq_s32(tmp2, z3);
+        tmp3 = vaddq_s32(tmp3, z4);
 
-    /* Transpose 4x8 block and store to memory.  (Zipping adjacent columns
-     * together allows us to store 16-bit elements.)
-     */
-    let cols_01_23 = vzip_u8(cols_02_u8, cols_13_u8);
-    let cols_45_67 = vzip_u8(cols_46_u8, cols_57_u8);
-    let cols_01_23_45_67 = uint16x4x4_t(
-        vreinterpret_u16_u8(cols_01_23.0),
-        vreinterpret_u16_u8(cols_01_23.1),
-        vreinterpret_u16_u8(cols_45_67.0),
-        vreinterpret_u16_u8(cols_45_67.1),
-    );
+        /* Final output stage: descale and narrow to 16-bit. */
+        let cols_02_s16 = vcombine_s16(vaddhn_s32(tmp10, tmp3), vaddhn_s32(tmp12, tmp1));
+        let cols_13_s16 = vcombine_s16(vaddhn_s32(tmp11, tmp2), vaddhn_s32(tmp13, tmp0));
+        let cols_46_s16 = vcombine_s16(vsubhn_s32(tmp13, tmp0), vsubhn_s32(tmp11, tmp2));
+        let cols_57_s16 = vcombine_s16(vsubhn_s32(tmp12, tmp1), vsubhn_s32(tmp10, tmp3));
+        /* Descale and narrow to 8-bit. */
+        let cols_02_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_02_s16);
+        let cols_13_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_13_s16);
+        let cols_46_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_46_s16);
+        let cols_57_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_57_s16);
+        /* Clamp to range [0-255]. */
+        let cols_02_u8 = vadd_u8(
+            vreinterpret_u8_s8(cols_02_s8),
+            vdup_n_u8(CENTERJSAMPLE as u8),
+        );
+        let cols_13_u8 = vadd_u8(
+            vreinterpret_u8_s8(cols_13_s8),
+            vdup_n_u8(CENTERJSAMPLE as u8),
+        );
+        let cols_46_u8 = vadd_u8(
+            vreinterpret_u8_s8(cols_46_s8),
+            vdup_n_u8(CENTERJSAMPLE as u8),
+        );
+        let cols_57_u8 = vadd_u8(
+            vreinterpret_u8_s8(cols_57_s8),
+            vdup_n_u8(CENTERJSAMPLE as u8),
+        );
 
-    /* VST4 of 16-bit elements completes the transpose. */
-    let outptr0 = &mut output_buf.row_mut((buf_offset + 0) as usize)[output_col as usize..];
-    vst4_lane_u16::<0>(outptr0.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
-    let outptr1 = &mut output_buf.row_mut((buf_offset + 1) as usize)[output_col as usize..];
-    vst4_lane_u16::<1>(outptr1.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
-    let outptr2 = &mut output_buf.row_mut((buf_offset + 2) as usize)[output_col as usize..];
-    vst4_lane_u16::<2>(outptr2.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
-    let outptr3 = &mut output_buf.row_mut((buf_offset + 3) as usize)[output_col as usize..];
-    vst4_lane_u16::<3>(outptr3.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
+        /* Transpose 4x8 block and store to memory.  (Zipping adjacent columns
+         * together allows us to store 16-bit elements.)
+         */
+        let cols_01_23 = vzip_u8(cols_02_u8, cols_13_u8);
+        let cols_45_67 = vzip_u8(cols_46_u8, cols_57_u8);
+        let cols_01_23_45_67 = uint16x4x4_t(
+            vreinterpret_u16_u8(cols_01_23.0),
+            vreinterpret_u16_u8(cols_01_23.1),
+            vreinterpret_u16_u8(cols_45_67.0),
+            vreinterpret_u16_u8(cols_45_67.1),
+        );
+
+        /* VST4 of 16-bit elements completes the transpose. */
+        let outptr0 = &mut output_buf.row_mut((buf_offset + 0) as usize)[output_col as usize..];
+        vst4_lane_u16::<0>(outptr0.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
+        let outptr1 = &mut output_buf.row_mut((buf_offset + 1) as usize)[output_col as usize..];
+        vst4_lane_u16::<1>(outptr1.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
+        let outptr2 = &mut output_buf.row_mut((buf_offset + 2) as usize)[output_col as usize..];
+        vst4_lane_u16::<2>(outptr2.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
+        let outptr3 = &mut output_buf.row_mut((buf_offset + 3) as usize)[output_col as usize..];
+        vst4_lane_u16::<3>(outptr3.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
+    }};
 }
+use jsimd_idct_islow_pass2_regular;
 
 /* Performs the second pass of the accurate inverse DCT on a 4x8 block
  * of coefficients.
@@ -810,106 +811,103 @@ fn jsimd_idct_islow_pass2_regular(
  */
 
 // upstream: simd/arm/jidctint-neon.c jsimd_idct_islow_pass2_sparse
-#[expect(clippy::similar_names, reason = "C variable names")]
-#[expect(
-    clippy::identity_op,
-    clippy::erasing_op,
-    reason = "C writes k * DCTSIZE / 2 and buf_offset + k offsets with k = 0 and 1"
-)]
-#[expect(
-    clippy::cast_possible_truncation,
-    reason = "C's conversion of CENTERJSAMPLE to uint8_t"
-)]
-#[target_feature(enable = "neon")]
-#[inline]
-fn jsimd_idct_islow_pass2_sparse(
-    workspace: &[i16],
-    mut output_buf: JSAMPROWS_MUT<'_, '_>,
-    output_col: JDIMENSION,
-    buf_offset: u32,
-) {
-    /* Load constants for IDCT computation. */
-    let consts: int16x4x3_t = vld1_s16_x3(islow_consts_x3());
+// C defines the helper `static INLINE`, which upstream's build makes
+// `__attribute__((always_inline))`. Rust rejects `#[inline(always)]` on a
+// `#[target_feature]` function, and LLVM keeps the `#[inline]` function out
+// of line, so the helper is a macro that expands in its caller's Neon
+// context, with the C parameters as `let` bindings (ADR 0004, 2026-11-13
+// amendment).
+macro_rules! jsimd_idct_islow_pass2_sparse {
+    ($workspace:expr, $output_buf:expr, $output_col:expr, $buf_offset:expr) => {{
+        let workspace: &[i16] = $workspace;
+        let mut output_buf: JSAMPROWS_MUT<'_, '_> = $output_buf;
+        let output_col: JDIMENSION = $output_col;
+        let buf_offset: u32 = $buf_offset;
 
-    /* Even part (z3 is all 0) */
-    let mut z2_s16 = vld1_s16(workspace[2 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        /* Load constants for IDCT computation. */
+        let consts: int16x4x3_t = vld1_s16_x3(islow_consts_x3());
 
-    let mut tmp2 = vmull_lane_s16::<1>(z2_s16, consts.0);
-    let mut tmp3 = vmull_lane_s16::<2>(z2_s16, consts.1);
+        /* Even part (z3 is all 0) */
+        let mut z2_s16 = vld1_s16(workspace[2 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
 
-    z2_s16 = vld1_s16(workspace[0 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
-    let mut tmp0 = vshll_n_s16::<CONST_BITS>(z2_s16);
-    let mut tmp1 = vshll_n_s16::<CONST_BITS>(z2_s16);
+        let mut tmp2 = vmull_lane_s16::<1>(z2_s16, consts.0);
+        let mut tmp3 = vmull_lane_s16::<2>(z2_s16, consts.1);
 
-    let tmp10 = vaddq_s32(tmp0, tmp3);
-    let tmp13 = vsubq_s32(tmp0, tmp3);
-    let tmp11 = vaddq_s32(tmp1, tmp2);
-    let tmp12 = vsubq_s32(tmp1, tmp2);
+        z2_s16 = vld1_s16(workspace[0 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        let mut tmp0 = vshll_n_s16::<CONST_BITS>(z2_s16);
+        let mut tmp1 = vshll_n_s16::<CONST_BITS>(z2_s16);
 
-    /* Odd part (tmp0 and tmp1 are both all 0) */
-    let tmp2_s16 = vld1_s16(workspace[3 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
-    let tmp3_s16 = vld1_s16(workspace[1 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        let tmp10 = vaddq_s32(tmp0, tmp3);
+        let tmp13 = vsubq_s32(tmp0, tmp3);
+        let tmp11 = vaddq_s32(tmp1, tmp2);
+        let tmp12 = vsubq_s32(tmp1, tmp2);
 
-    let z3_s16 = tmp2_s16;
-    let z4_s16 = tmp3_s16;
+        /* Odd part (tmp0 and tmp1 are both all 0) */
+        let tmp2_s16 = vld1_s16(workspace[3 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
+        let tmp3_s16 = vld1_s16(workspace[1 * DCTSIZE / 2..].first_chunk().expect(WORKSPACE));
 
-    let mut z3 = vmull_lane_s16::<3>(z3_s16, consts.2);
-    z3 = vmlal_lane_s16::<3>(z3, z4_s16, consts.1);
-    let mut z4 = vmull_lane_s16::<3>(z3_s16, consts.1);
-    z4 = vmlal_lane_s16::<0>(z4, z4_s16, consts.2);
+        let z3_s16 = tmp2_s16;
+        let z4_s16 = tmp3_s16;
 
-    tmp0 = vmlsl_lane_s16::<0>(z3, tmp3_s16, consts.0);
-    tmp1 = vmlsl_lane_s16::<2>(z4, tmp2_s16, consts.0);
-    tmp2 = vmlal_lane_s16::<2>(z3, tmp2_s16, consts.2);
-    tmp3 = vmlal_lane_s16::<0>(z4, tmp3_s16, consts.1);
+        let mut z3 = vmull_lane_s16::<3>(z3_s16, consts.2);
+        z3 = vmlal_lane_s16::<3>(z3, z4_s16, consts.1);
+        let mut z4 = vmull_lane_s16::<3>(z3_s16, consts.1);
+        z4 = vmlal_lane_s16::<0>(z4, z4_s16, consts.2);
 
-    /* Final output stage: descale and narrow to 16-bit. */
-    let cols_02_s16 = vcombine_s16(vaddhn_s32(tmp10, tmp3), vaddhn_s32(tmp12, tmp1));
-    let cols_13_s16 = vcombine_s16(vaddhn_s32(tmp11, tmp2), vaddhn_s32(tmp13, tmp0));
-    let cols_46_s16 = vcombine_s16(vsubhn_s32(tmp13, tmp0), vsubhn_s32(tmp11, tmp2));
-    let cols_57_s16 = vcombine_s16(vsubhn_s32(tmp12, tmp1), vsubhn_s32(tmp10, tmp3));
-    /* Descale and narrow to 8-bit. */
-    let cols_02_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_02_s16);
-    let cols_13_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_13_s16);
-    let cols_46_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_46_s16);
-    let cols_57_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_57_s16);
-    /* Clamp to range [0-255]. */
-    let cols_02_u8 = vadd_u8(
-        vreinterpret_u8_s8(cols_02_s8),
-        vdup_n_u8(CENTERJSAMPLE as u8),
-    );
-    let cols_13_u8 = vadd_u8(
-        vreinterpret_u8_s8(cols_13_s8),
-        vdup_n_u8(CENTERJSAMPLE as u8),
-    );
-    let cols_46_u8 = vadd_u8(
-        vreinterpret_u8_s8(cols_46_s8),
-        vdup_n_u8(CENTERJSAMPLE as u8),
-    );
-    let cols_57_u8 = vadd_u8(
-        vreinterpret_u8_s8(cols_57_s8),
-        vdup_n_u8(CENTERJSAMPLE as u8),
-    );
+        tmp0 = vmlsl_lane_s16::<0>(z3, tmp3_s16, consts.0);
+        tmp1 = vmlsl_lane_s16::<2>(z4, tmp2_s16, consts.0);
+        tmp2 = vmlal_lane_s16::<2>(z3, tmp2_s16, consts.2);
+        tmp3 = vmlal_lane_s16::<0>(z4, tmp3_s16, consts.1);
 
-    /* Transpose 4x8 block and store to memory.  (Zipping adjacent columns
-     * together allows us to store 16-bit elements.)
-     */
-    let cols_01_23 = vzip_u8(cols_02_u8, cols_13_u8);
-    let cols_45_67 = vzip_u8(cols_46_u8, cols_57_u8);
-    let cols_01_23_45_67 = uint16x4x4_t(
-        vreinterpret_u16_u8(cols_01_23.0),
-        vreinterpret_u16_u8(cols_01_23.1),
-        vreinterpret_u16_u8(cols_45_67.0),
-        vreinterpret_u16_u8(cols_45_67.1),
-    );
+        /* Final output stage: descale and narrow to 16-bit. */
+        let cols_02_s16 = vcombine_s16(vaddhn_s32(tmp10, tmp3), vaddhn_s32(tmp12, tmp1));
+        let cols_13_s16 = vcombine_s16(vaddhn_s32(tmp11, tmp2), vaddhn_s32(tmp13, tmp0));
+        let cols_46_s16 = vcombine_s16(vsubhn_s32(tmp13, tmp0), vsubhn_s32(tmp11, tmp2));
+        let cols_57_s16 = vcombine_s16(vsubhn_s32(tmp12, tmp1), vsubhn_s32(tmp10, tmp3));
+        /* Descale and narrow to 8-bit. */
+        let cols_02_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_02_s16);
+        let cols_13_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_13_s16);
+        let cols_46_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_46_s16);
+        let cols_57_s8 = vqrshrn_n_s16::<{ DESCALE_P2 - 16 }>(cols_57_s16);
+        /* Clamp to range [0-255]. */
+        let cols_02_u8 = vadd_u8(
+            vreinterpret_u8_s8(cols_02_s8),
+            vdup_n_u8(CENTERJSAMPLE as u8),
+        );
+        let cols_13_u8 = vadd_u8(
+            vreinterpret_u8_s8(cols_13_s8),
+            vdup_n_u8(CENTERJSAMPLE as u8),
+        );
+        let cols_46_u8 = vadd_u8(
+            vreinterpret_u8_s8(cols_46_s8),
+            vdup_n_u8(CENTERJSAMPLE as u8),
+        );
+        let cols_57_u8 = vadd_u8(
+            vreinterpret_u8_s8(cols_57_s8),
+            vdup_n_u8(CENTERJSAMPLE as u8),
+        );
 
-    /* VST4 of 16-bit elements completes the transpose. */
-    let outptr0 = &mut output_buf.row_mut((buf_offset + 0) as usize)[output_col as usize..];
-    vst4_lane_u16::<0>(outptr0.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
-    let outptr1 = &mut output_buf.row_mut((buf_offset + 1) as usize)[output_col as usize..];
-    vst4_lane_u16::<1>(outptr1.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
-    let outptr2 = &mut output_buf.row_mut((buf_offset + 2) as usize)[output_col as usize..];
-    vst4_lane_u16::<2>(outptr2.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
-    let outptr3 = &mut output_buf.row_mut((buf_offset + 3) as usize)[output_col as usize..];
-    vst4_lane_u16::<3>(outptr3.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
+        /* Transpose 4x8 block and store to memory.  (Zipping adjacent columns
+         * together allows us to store 16-bit elements.)
+         */
+        let cols_01_23 = vzip_u8(cols_02_u8, cols_13_u8);
+        let cols_45_67 = vzip_u8(cols_46_u8, cols_57_u8);
+        let cols_01_23_45_67 = uint16x4x4_t(
+            vreinterpret_u16_u8(cols_01_23.0),
+            vreinterpret_u16_u8(cols_01_23.1),
+            vreinterpret_u16_u8(cols_45_67.0),
+            vreinterpret_u16_u8(cols_45_67.1),
+        );
+
+        /* VST4 of 16-bit elements completes the transpose. */
+        let outptr0 = &mut output_buf.row_mut((buf_offset + 0) as usize)[output_col as usize..];
+        vst4_lane_u16::<0>(outptr0.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
+        let outptr1 = &mut output_buf.row_mut((buf_offset + 1) as usize)[output_col as usize..];
+        vst4_lane_u16::<1>(outptr1.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
+        let outptr2 = &mut output_buf.row_mut((buf_offset + 2) as usize)[output_col as usize..];
+        vst4_lane_u16::<2>(outptr2.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
+        let outptr3 = &mut output_buf.row_mut((buf_offset + 3) as usize)[output_col as usize..];
+        vst4_lane_u16::<3>(outptr3.first_chunk_mut().expect(OUTPUT), cols_01_23_45_67);
+    }};
 }
+use jsimd_idct_islow_pass2_sparse;
