@@ -353,3 +353,112 @@ fn simd_tone_mapping_rows_match_the_original_target() {
     check_family("cl-tm", &requests, cl_tm);
     set_decoder_simd_for_test(None);
 }
+
+/// An encoding from its enum fields through `create_icc`, as `CLEncoding`.
+fn encoding(
+    args: &mut std::str::SplitWhitespace<'_>,
+) -> jxl::jxl::color_encoding_internal::ColorEncoding {
+    use jxl::jxl::color_encoding_internal::{ColorEncoding, ColorSpace, Primaries, WhitePoint};
+    let mut c = ColorEncoding::default();
+    c.set_color_space(ColorSpace(num(args) as u32));
+    c.set_white_point_type(WhitePoint(num(args) as u32))
+        .expect("white point");
+    let primaries = Primaries(num(args) as u32);
+    if c.has_primaries() {
+        c.set_primaries_type(primaries).expect("primaries");
+    }
+    c.tf_mut()
+        .set_transfer_function(TransferFunction(num(args) as u32));
+    c.create_icc().expect("create_icc");
+    c
+}
+
+/// cl-cms as tools/oracle/color_stages_simd.cc observes it: the public
+/// `get_cms_stage` with the port's default CMS, whose row callback
+/// dispatches its pre- and post-processing on the given selection.
+fn cl_cms(request: &str, simd: bool) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("cl-cms"));
+    // Fields are evaluated in the written order, the request's order.
+    let info = OutputEncodingInfo {
+        orig_color_encoding: encoding(&mut args),
+        color_encoding: encoding(&mut args),
+        desired_intensity_target: float(&mut args),
+        cms_set: true,
+        color_management_system: *jxl::jxl::cms::jxl_cms::get_default_cms(),
+        ..Default::default()
+    };
+    select(simd);
+    // SAFETY: the port's default CMS obeys cms_interface.h and is static.
+    let stage = unsafe { jxl::jxl::render_pipeline::stage_cms::get_cms_stage(&info, false) };
+    let Some(mut stage) = stage else {
+        return "null".to_owned();
+    };
+    let mut probe = args.clone();
+    let width = num(&mut probe);
+    stage
+        .set_input_sizes(&[(width, 1); 3])
+        .expect("set_input_sizes");
+    stage.prepare_for_threads(1).expect("prepare_for_threads");
+    in_place(stage.as_mut(), args)
+}
+
+#[test]
+fn simd_cms_rows_match_the_original_target() {
+    let _guard = DISPATCH.lock().unwrap_or_else(|e| e.into_inner());
+    // cs wp primaries tf: RGB/gray, D65, sRGB/BT.2100/P3 primaries.
+    let rgb = |primaries: u32, tf: u32| format!("0 1 {primaries} {tf}");
+    let gray = |tf: u32| format!("1 1 1 {tf}");
+    let mut pairs = Vec::new();
+    for primaries in [1, 9, 11] {
+        // Decode (BeforeTransform) and encode (AfterTransform) of PQ and
+        // sRGB, and HLG (scalar in the source), within one color space:
+        // the CMS skips skcms.
+        for tf in [16, 13, 18] {
+            pairs.push((rgb(primaries, tf), rgb(primaries, 8)));
+            pairs.push((rgb(primaries, 8), rgb(primaries, tf)));
+        }
+        // Both directions in one call.
+        pairs.push((rgb(primaries, 16), rgb(primaries, 13)));
+        pairs.push((rgb(primaries, 13), rgb(primaries, 16)));
+        pairs.push((rgb(primaries, 18), rgb(primaries, 16)));
+        pairs.push((rgb(primaries, 16), rgb(primaries, 18)));
+    }
+    for tf in [16, 13] {
+        pairs.push((gray(tf), gray(8)));
+        pairs.push((gray(8), gray(tf)));
+    }
+    // Across color spaces: the skcms engine runs between the vector
+    // pre- and post-processing.
+    pairs.push((rgb(9, 16), rgb(1, 13)));
+    pairs.push((rgb(1, 13), rgb(9, 16)));
+    pairs.push((rgb(11, 13), rgb(1, 13)));
+    pairs.push((rgb(9, 18), rgb(11, 16)));
+    let sets = word_sets(-0.1, 1.3, &[0.04045, 0.0031308, 1e-4, 0.5, 1.0], 45);
+    let mut requests = Vec::new();
+    for (src, dst) in &pairs {
+        for intensity in [255.0f32, 1000.0, 10000.0] {
+            for words in &sets {
+                for &width in &WIDTHS[1..] {
+                    for &origin in &ORIGINS[..4] {
+                        requests.push(format!(
+                            "cl-cms {src} {dst} {} {width} {origin} {} {}",
+                            intensity.to_bits(),
+                            words.len(),
+                            join(words.iter().copied())
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    // Equal encodings need no stage.
+    requests.push(format!(
+        "cl-cms {} {} {} 9 3 1 0",
+        rgb(1, 13),
+        rgb(1, 13),
+        255.0f32.to_bits()
+    ));
+    check_family("cl-cms", &requests, cl_cms);
+    set_decoder_simd_for_test(None);
+}

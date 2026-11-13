@@ -822,4 +822,40 @@ path matches every word and the scalar path differs in at least one request.
   `InvEOTF`) where the port's x86-64 scalar translation does not, because
   they are inlined into `HWY_ATTR` code with FMA; only a run against the
   AVX2 oracle can show it.
+- **CMS: the decode-reachable Highway exports.** `stage_cms.cc` exports
+  `GetCmsStage`, whose stage contains no Highway operation (its
+  interleaving loops and `memcpy`s are scalar code compiled per target), so
+  its SIMD instantiation is the existing translation and the factory needs
+  no dispatch. `cms/jxl_cms.cc` has one export, `DoColorSpaceTransform`,
+  which the decoder reaches as the default CMS's `run` callback
+  (`ColorSpaceTransform::Run` from the CMS stage and the other callers of
+  the default CMS). It includes only `transfer_functions-inl.h`. Of its
+  body, only these branches execute vector operations: `BeforeTransform`
+  kPQ (`TF_PQ::DisplayFromEncoded`) and kSRGB (`TF_SRGB::DisplayFromEncoded`),
+  `AfterTransform` kPQ (`TF_PQ::EncodedFromDisplay`) and kSRGB
+  (`TF_SRGB::EncodedFromDisplay`), each over whole vectors with `Load`/
+  `Store` and one `LoadN`/`StoreN` tail. Scalar code in the export: the kHLG
+  branches (`TF_HLG_Base` in double; `ApplyHlgOotf` lies outside
+  `HWY_NAMESPACE`), the gray expansion and contraction around skcms, and
+  the skcms call (the skcms engines are separate translations, not part of
+  this export; the lcms2 branch is not built). `FastLinearToSRGB` is not
+  reached (`JXL_HIGH_PRECISION`).
+- **CMS: translated.** `cms/jxl_cms_simd.rs` holds the four vector branches
+  with the transfer functions of `simd_transfer.rs` (now `pub(crate)`); the
+  tail is computed in a zeroed full vector and only its `tail` lanes are
+  written back, which is what `LoadN`/`StoreN` observe for lane-wise
+  operations. The default CMS's `run` selects `hwy::decoder_target()` once
+  per call, like `HWY_DYNAMIC_DISPATCH(DoColorSpaceTransform)`, and keeps
+  the scalar HLG branches. NEON (`cl-cms`, the original's `GetCmsStage`
+  with `JxlGetDefaultCms` against the port's stage with its default CMS):
+  54,265 requests, 16,524,985 words matched (PQ, sRGB and HLG to and from
+  linear in sRGB, BT.2100 and P3 primaries, both directions in one call,
+  gray, four pairs across color spaces through skcms, three intensity
+  targets, widths 1-67 for every interleaved tail); the scalar path
+  differs in 30,481. The cross-space requests run the port's skcms engine
+  for AArch64 against the oracle's; on x86-64 they would depend on which
+  skcms engine runs (open question O9), and engine selection is unchanged.
+- **Decoder path (a), color part.** With these, `to_linear`, tone mapping
+  and CMS of the list in "Decoder path" (a) have SIMD translations on both
+  targets; NEON row parity holds, AVX2 is compile-checked only.
 <!-- end color -->
