@@ -1,6 +1,7 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
-//! Scalar noise decoding and generation from lib/jxl/dec_noise.cc.
+//! Scalar noise decoding and generation from lib/jxl/dec_noise.cc; the
+//! NEON/AVX2 generation is dec_noise_simd.rs.
 //! Owner-relative pipeline buffers replace the original non-owning plane/Rect
 //! pairs. The caller retains the original GetInputBuffers/Done lifecycle.
 use super::base::rect::Rect;
@@ -63,6 +64,17 @@ pub fn random_three_planes(
     y0: usize,
     planes: [(&mut Plane<f32>, Rect); 3],
 ) {
+    // HWY_DYNAMIC_DISPATCH(Random3Planes) (port ADR 0004).
+    if let Some(target) = super::hwy::decoder_target() {
+        return super::dec_noise_simd::random_three_planes_simd(
+            target,
+            visible_frame_index,
+            nonvisible_frame_index,
+            x0,
+            y0,
+            planes,
+        );
+    }
     let mut rng = Xorshift128Plus::from_seeds(
         visible_frame_index as u32,
         nonvisible_frame_index as u32,
@@ -92,6 +104,9 @@ pub fn prepare_noise_input(
         .unwrap()
         .m
         .num_extra_channels as usize;
+    // HWY_DYNAMIC_DISPATCH(Random3Planes) selects the same target for
+    // every call (port ADR 0004).
+    let target = super::hwy::decoder_target();
     for iy in 0..frame_header.upsampling as usize {
         for ix in 0..frame_header.upsampling as usize {
             let mut rng = Xorshift128Plus::from_seeds(
@@ -110,7 +125,12 @@ pub fn prepare_noise_input(
                     r.x1(),
                     r.y1(),
                 );
-                random_image(&mut rng, rect, plane);
+                match target {
+                    Some(target) => {
+                        super::dec_noise_simd::random_image_simd(target, &mut rng, rect, plane)
+                    }
+                    None => random_image(&mut rng, rect, plane),
+                }
             }
         }
     }

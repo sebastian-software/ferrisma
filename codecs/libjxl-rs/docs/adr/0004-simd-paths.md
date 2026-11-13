@@ -720,4 +720,27 @@ pipelines only) and `tests/simd_stages2.rs`.
   requests, 5,643,424 words; `s2-ups-pipe` 456 requests, 348,108 words; no
   word differs. The scalar path fails both (first differing word 28 / 8).
   AVX2: compiles; not run locally.
+- **Noise** (`stage_noise_simd.rs`, `dec_noise_simd.rs`). AddNoise with the
+  non-`HWY_SCALAR` StrengthEvalLut: the LUT as two 16-bit byte tables
+  (`LoadDup128`), indices built with 32-bit `Mul`/`Add` and read with
+  `TableLookupBytes`, then `And`/`Or` and the fused interpolation
+  (`HWY_CAPPED(float, 8)` is the full vector on both targets);
+  ConvolveNoise from `-xextra_left` in whole vectors; `Random3Planes` with
+  the same Xorshift128Plus words as the scalar path (its vector `Fill` is
+  integer and lane-wise) and `BitsToFloat` storing whole vectors, so the
+  last span of each row is written to `RoundUpTo(remaining, Lanes)`. The
+  layer gains `Mul` of 32-bit lanes (`vmulq_s32`, `vpmulld`) and
+  `TableLookupBytes` (`vqtbl1q_u8`, `vpshufb`), each with its `hwy-op` test
+  (69 operations, 2,145 requests each; the operands include indices of 16
+  and more and with bit 7 set). NEON: `s2-noise-add` 10,080 requests,
+  3,878,784 words (six LUTs including none, values past one, negative and
+  special words; five base correlations decoded through `DecodeDC`; LUT
+  knot neighbors; widths 0-67, five origins; every sample of every row,
+  including the vector tail); `s2-noise-conv` 2,880 requests, 537,480 words
+  (`xextra` 0-8 on each side, the two border rows and columns of
+  `Settings::SymmetricBorderOnly(2)` filled with special words);
+  `s2-noise-random` 153 requests, 126,261 words (widths 0-100 across the
+  16-sample batch, three seeds, rectangles inside larger planes so the
+  vector tail past the rectangle is observed). No word differs; the scalar
+  path fails all three. AVX2: compiles; not run locally.
 <!-- end stages2 -->

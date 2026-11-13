@@ -18,6 +18,21 @@
 //     Prints the statuses and the output image.
 // Weights: nw == 0 keeps CustomTransformData's defaults, otherwise weight i
 // of the 2x/4x/8x tables is wwords[(i + 5 * table) % nw].
+//   s2-noise-add <first_c> <origin> <width> <8 lut words> <x16> <b16> <n> <n words>
+//     AddNoiseStage::ProcessRow on first_c + 3 single rows (row c filled
+//     with words[(c * 7 + x) % n], the stage's row at sample `origin`, a
+//     128-byte boundary) with a ColorCorrelation decoded from base
+//     correlations x16/b16 (binary16; 65535 keeps the default). Prints the
+//     status and every sample of every row.
+//   s2-noise-conv <first_c> <origin> <width> <left> <right> <n> <n words>
+//     ConvolveNoiseStage::ProcessRow on five input rows per channel (row y
+//     of channel c filled with words[(c * 7 + y * 3 + x) % n]) and one
+//     output row per channel prefilled with 0xc1234567. Prints the status
+//     and every sample of every output row.
+//   s2-noise-random <visible> <nonvisible> <x0> <y0> <w> <h> <rx> <ry>
+//     Random3Planes of the oracle's target on three planes of rx + w + 24 by
+//     ry + h + 2 samples (prefilled with -17 - c) at Rect(rx, ry, w, h).
+//     Prints every sample of the three planes.
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -27,13 +42,27 @@
 #include <string>
 #include <vector>
 
+#include "lib/jxl/chroma_from_luma.h"
+#include "lib/jxl/dec_bit_reader.h"
 #include "lib/jxl/frame_dimensions.h"
 #include "lib/jxl/image.h"
 #include "lib/jxl/image_metadata.h"
+#include "lib/jxl/noise.h"
 #include "lib/jxl/render_pipeline/render_pipeline.h"
 #include "lib/jxl/render_pipeline/render_pipeline_stage.h"
+#include "lib/jxl/render_pipeline/stage_noise.h"
 #include "lib/jxl/render_pipeline/stage_upsampling.h"
 #include "lib/jxl/render_pipeline/stage_write.h"
+
+namespace jxl {
+namespace ORACLE_HWY_NS {
+// Defined by noise_render.cc's inclusion of the pristine dec_noise.cc.
+void Random3Planes(size_t visible_frame_index, size_t nonvisible_frame_index,
+                   size_t x0, size_t y0, const std::pair<ImageF*, Rect>& plane0,
+                   const std::pair<ImageF*, Rect>& plane1,
+                   const std::pair<ImageF*, Rect>& plane2);
+}  // namespace ORACLE_HWY_NS
+}  // namespace jxl
 
 namespace {
 template <class T, class U> T S2Bits(U value) {
@@ -148,6 +177,104 @@ void S2UpsPipe(std::istringstream& in, JxlMemoryManager* mm) {
       for (size_t x = 0; x < output.xsize(); ++x)
         std::cout << ' ' << S2Bits<uint32_t>(output.PlaneRow(cc, y)[x]);
 }
+// A row of `len` samples whose sample `origin` lies on a 128-byte boundary.
+struct S2Row {
+  jxl::ImageF plane;
+  float* row;
+};
+S2Row S2AlignedRow(JxlMemoryManager* mm, size_t len, size_t origin) {
+  const size_t row_align = 128 / sizeof(float);
+  const size_t shift = (row_align - origin % row_align) % row_align;
+  S2Row r{S2Plane(mm, len + row_align, 1), nullptr};
+  r.row = r.plane.Row(0) + shift;
+  return r;
+}
+
+// ColorCorrelation::DecodeDC of: not all default, color factor 84, base
+// correlations x16/b16 (binary16), ytox_dc = ytob_dc = 0.
+void S2Correlation(std::istringstream& in, jxl::ColorCorrelation& cc) {
+  uint32_t x16, b16;
+  in >> x16 >> b16;
+  if (x16 == 65535) return;
+  const uint64_t bits = (uint64_t{x16} << 3) | (uint64_t{b16} << 19) |
+                        (uint64_t{128} << 35) | (uint64_t{128} << 43);
+  uint8_t bytes[8];
+  for (size_t i = 0; i < 8; ++i) bytes[i] = uint8_t(bits >> (8 * i));
+  jxl::BitReader br(jxl::Span<const uint8_t>(bytes, 8));
+  auto status = cc.DecodeDC(&br);
+  auto closed = br.Close();
+  if (!status || !closed) throw std::runtime_error("s2: correlation");
+}
+
+void S2NoiseAdd(std::istringstream& in, JxlMemoryManager* mm) {
+  size_t first_c, origin, width;
+  in >> first_c >> origin >> width;
+  jxl::NoiseParams params;
+  for (float& v : params.lut) {
+    uint32_t bits;
+    in >> bits;
+    v = S2Bits<float>(bits);
+  }
+  jxl::ColorCorrelation correlation;
+  S2Correlation(in, correlation);
+  const auto words = S2Words(in, false);
+  const size_t channels = first_c + 3;
+  const size_t len = origin + jxl::kRenderPipelineXOffset + width + 16;
+  std::vector<S2Row> rows;
+  jxl::RenderPipelineStage::RowInfo input_rows(channels), unused;
+  for (size_t c = 0; c < channels; ++c) {
+    rows.push_back(S2AlignedRow(mm, len, origin));
+    for (size_t x = 0; x < len; ++x) rows[c].row[x] = words[(c * 7 + x) % words.size()];
+    input_rows[c].push_back(rows[c].row + origin);
+  }
+  auto stage = jxl::GetAddNoiseStage(params, correlation, first_c);
+  auto status = stage->ProcessRow(input_rows, unused, 0, 0, width, 19, 23, 0);
+  std::cout << int(status.code());
+  for (const auto& r : rows)
+    for (size_t x = 0; x < len; ++x) std::cout << ' ' << S2Bits<uint32_t>(r.row[x]);
+}
+
+void S2NoiseConv(std::istringstream& in, JxlMemoryManager* mm) {
+  size_t first_c, origin, width, left, right;
+  in >> first_c >> origin >> width >> left >> right;
+  const auto words = S2Words(in, false);
+  const size_t channels = first_c + 3;
+  const size_t len = origin + jxl::kRenderPipelineXOffset + width + right + 16;
+  std::vector<S2Row> rows, outs;
+  jxl::RenderPipelineStage::RowInfo input_rows(channels), output_rows(channels);
+  for (size_t c = first_c; c < channels; ++c) {
+    for (size_t y = 0; y < 5; ++y) {
+      rows.push_back(S2AlignedRow(mm, len, origin));
+      for (size_t x = 0; x < len; ++x)
+        rows.back().row[x] = words[(c * 7 + y * 3 + x) % words.size()];
+      input_rows[c].push_back(rows.back().row + origin);
+    }
+    outs.push_back(S2AlignedRow(mm, len, origin));
+    for (size_t x = 0; x < len; ++x) outs.back().row[x] = S2Bits<float>(uint32_t{0xc1234567});
+    output_rows[c].push_back(outs.back().row + origin);
+  }
+  auto stage = jxl::GetConvolveNoiseStage(first_c);
+  auto status = stage->ProcessRow(input_rows, output_rows, left, right, width, 19, 23, 0);
+  std::cout << int(status.code());
+  for (const auto& r : outs)
+    for (size_t x = 0; x < len; ++x) std::cout << ' ' << S2Bits<uint32_t>(r.row[x]);
+}
+
+void S2NoiseRandom(std::istringstream& in, JxlMemoryManager* mm) {
+  size_t visible, nonvisible, x0, y0, w, h, rx, ry;
+  in >> visible >> nonvisible >> x0 >> y0 >> w >> h >> rx >> ry;
+  std::vector<jxl::ImageF> planes;
+  for (size_t c = 0; c < 3; ++c) {
+    planes.push_back(S2Plane(mm, rx + w + 24, ry + h + 2));
+    jxl::FillImage(-17.0f - float(c), &planes.back());
+  }
+  const jxl::Rect r(rx, ry, w, h);
+  jxl::ORACLE_HWY_NS::Random3Planes(visible, nonvisible, x0, y0, {&planes[0], r},
+                                    {&planes[1], r}, {&planes[2], r});
+  for (const auto& p : planes)
+    for (size_t y = 0; y < p.ysize(); ++y)
+      for (size_t x = 0; x < p.xsize(); ++x) std::cout << ' ' << S2Bits<uint32_t>(p.Row(y)[x]);
+}
 }  // namespace
 
 bool RenderStages2SimdCommand(const std::string& command, std::istringstream& in,
@@ -156,6 +283,12 @@ bool RenderStages2SimdCommand(const std::string& command, std::istringstream& in
     S2Ups(in, mm);
   } else if (command == "s2-ups-pipe") {
     S2UpsPipe(in, mm);
+  } else if (command == "s2-noise-add") {
+    S2NoiseAdd(in, mm);
+  } else if (command == "s2-noise-conv") {
+    S2NoiseConv(in, mm);
+  } else if (command == "s2-noise-random") {
+    S2NoiseRandom(in, mm);
   } else {
     return false;
   }

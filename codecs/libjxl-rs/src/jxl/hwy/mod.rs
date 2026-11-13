@@ -196,6 +196,15 @@ pub trait SimdF32: Copy + core::fmt::Debug + Send + Sync + 'static {
     /// `InterleaveOdd(di, a, b)`: a1 b1 a3 b3 ...
     fn interleave_odd_i32(self, a: Self::I, b: Self::I) -> Self::I;
     // end modular
+    // stages2: operations first used by the SIMD noise stage (ADR 0004 Plan
+    // item 1).
+    /// `Mul(a, b)` of signed 32-bit lanes: the low 32 bits of the product.
+    fn mul_i32(self, a: Self::I, b: Self::I) -> Self::I;
+    /// `TableLookupBytes(bytes, from)`: byte `i` of the result is byte
+    /// `from[i]` of `bytes`' 128-bit block (`vqtbl1q_u8`: 0 for an index of
+    /// 16 or more; `vpshufb`: 0 when bit 7 is set, else the low four bits).
+    fn table_lookup_bytes(self, bytes: Self::I, from: Self::I) -> Self::I;
+    // end stages2
 }
 
 /// The SIMD target a kernel runs on, capped at NEON/AVX2 (decision D6).

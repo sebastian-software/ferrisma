@@ -10,15 +10,20 @@
 
 mod simd_common;
 
+use jxl::jxl::base::rect::Rect;
+use jxl::jxl::chroma_from_luma::ColorCorrelation;
+use jxl::jxl::dec_bit_reader::BitReader;
 use jxl::jxl::frame_dimensions::FrameDimensions;
 use jxl::jxl::hwy::Target;
 use jxl::jxl::image::{Image3, Plane};
 use jxl::jxl::image_metadata::CustomTransformData;
 use jxl::jxl::memory_manager_internal::MemoryManagerPtr;
+use jxl::jxl::noise::NoiseParams;
 use jxl::jxl::render_pipeline::render_pipeline::RenderPipelineBuilder;
 use jxl::jxl::render_pipeline::render_pipeline_stage::{
     RENDER_PIPELINE_X_OFFSET as OFFSET, Row, RowBuffers, RowStorage, WriteToImage3FStage,
 };
+use jxl::jxl::render_pipeline::stage_noise::{get_add_noise_stage, get_convolve_noise_stage};
 use simd_common::{check_rows, join, next, special_words, status, target};
 use std::fmt::Write as _;
 
@@ -349,5 +354,307 @@ fn simd_upsampling_in_both_pipelines_matches_the_original_target() {
         &requests,
         |r| (s2_ups_pipe(r), Box::new(|_| true)),
         |i| i > 0,
+    );
+}
+
+/// `S2Correlation`: base correlations from binary16 words through
+/// `ColorCorrelation::decode_dc` (65535 keeps the default).
+fn correlation(args: &mut std::str::SplitWhitespace<'_>) -> ColorCorrelation {
+    let x16 = num(args) as u64;
+    let b16 = num(args) as u64;
+    let mut cc = ColorCorrelation::default();
+    if x16 != 65535 {
+        let bits = (x16 << 3) | (b16 << 19) | (128 << 35) | (128 << 43);
+        let bytes = bits.to_le_bytes();
+        let mut br = BitReader::new(&bytes);
+        cc.decode_dc(&mut br).unwrap();
+        br.close().unwrap();
+    }
+    cc
+}
+
+/// One-row planes for `channels` channels of `rows` rows each.
+fn row_planes(channels: usize, rows: usize, len: usize) -> Vec<Plane<f32>> {
+    (0..channels)
+        .map(|_| Plane::<f32>::create(len + 32, rows).unwrap())
+        .collect()
+}
+fn rows_of(storage: RowStorage, channels: usize, rows: usize, x: usize) -> Vec<Vec<Row>> {
+    (0..channels)
+        .map(|channel| {
+            (0..rows)
+                .map(|y| Row {
+                    storage,
+                    channel,
+                    y,
+                    x,
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// s2-noise-add as tools/oracle/render_stages2_simd.cc observes it.
+fn s2_noise_add(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("s2-noise-add"));
+    let first_c = num(&mut args);
+    let origin = num(&mut args);
+    let width = num(&mut args);
+    let mut params = NoiseParams::default();
+    for v in &mut params.lut {
+        *v = float(&mut args);
+    }
+    let cc = correlation(&mut args);
+    let w = words(&mut args);
+    assert!(args.next().is_none(), "trailing request words");
+    let channels = first_c + 3;
+    let len = origin + OFFSET + width + 16;
+    let mut planes = row_planes(channels, 1, len);
+    for (c, p) in planes.iter_mut().enumerate() {
+        for x in 0..len {
+            p.row_mut(0)[x] = w[(c * 7 + x) % w.len()];
+        }
+    }
+    let mut stage = get_add_noise_stage(&params, &cc, first_c);
+    let s = stage.process_row(
+        &rows_of(RowStorage::Input, channels, 1, origin),
+        &vec![vec![]; channels],
+        &mut RowBuffers {
+            input: &mut planes,
+            output: &mut [],
+        },
+        0,
+        0,
+        width,
+        19,
+        23,
+        0,
+    );
+    let mut out = status(&s).to_string();
+    for p in &planes {
+        for x in 0..len {
+            write!(out, " {}", p.row(0)[x].to_bits()).unwrap();
+        }
+    }
+    out
+}
+
+/// s2-noise-conv as tools/oracle/render_stages2_simd.cc observes it.
+fn s2_noise_conv(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("s2-noise-conv"));
+    let first_c = num(&mut args);
+    let origin = num(&mut args);
+    let width = num(&mut args);
+    let left = num(&mut args);
+    let right = num(&mut args);
+    let w = words(&mut args);
+    assert!(args.next().is_none(), "trailing request words");
+    let channels = first_c + 3;
+    let len = origin + OFFSET + width + right + 16;
+    let mut input = row_planes(channels, 5, len);
+    let mut output = row_planes(channels, 1, len);
+    for c in first_c..channels {
+        for y in 0..5 {
+            for x in 0..len {
+                input[c].row_mut(y)[x] = w[(c * 7 + y * 3 + x) % w.len()];
+            }
+        }
+        output[c].row_mut(0)[..len].fill(f32::from_bits(0xc123_4567));
+    }
+    let mut stage = get_convolve_noise_stage(first_c);
+    let s = stage.process_row(
+        &rows_of(RowStorage::Input, channels, 5, origin),
+        &rows_of(RowStorage::Output, channels, 1, origin),
+        &mut RowBuffers {
+            input: &mut input,
+            output: &mut output,
+        },
+        left,
+        right,
+        width,
+        19,
+        23,
+        0,
+    );
+    let mut out = status(&s).to_string();
+    for p in &output[first_c..] {
+        for x in 0..len {
+            write!(out, " {}", p.row(0)[x].to_bits()).unwrap();
+        }
+    }
+    out
+}
+
+/// s2-noise-random as tools/oracle/render_stages2_simd.cc observes it.
+fn s2_noise_random(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("s2-noise-random"));
+    let [visible, nonvisible, x0, y0, w, h, rx, ry] = std::array::from_fn(|_| num(&mut args));
+    let mut planes: Vec<Plane<f32>> = (0..3)
+        .map(|c| {
+            let mut p = Plane::<f32>::create(rx + w + 24, ry + h + 2).unwrap();
+            for y in 0..p.ysize() {
+                let xsize = p.xsize();
+                p.row_mut(y)[..xsize].fill(-17.0 - c as f32);
+            }
+            p
+        })
+        .collect();
+    let r = Rect::new(rx, ry, w, h);
+    let [p0, p1, p2] = &mut planes[..] else {
+        unreachable!()
+    };
+    jxl::jxl::dec_noise::random_three_planes(
+        visible,
+        nonvisible,
+        x0,
+        y0,
+        [(p0, r), (p1, r), (p2, r)],
+    );
+    let mut out = String::new();
+    for p in &planes {
+        for y in 0..p.ysize() {
+            for x in 0..p.xsize() {
+                write!(out, " {}", p.row(y)[x].to_bits()).unwrap();
+            }
+        }
+    }
+    out
+}
+
+/// Noise LUTs: none (HasAny false), the encoder's typical range, a flat and
+/// a steep table, values past the clamp to one and negative values, special
+/// words.
+fn noise_luts() -> Vec<[u32; 8]> {
+    let f = |v: [f32; 8]| v.map(f32::to_bits);
+    let special = special_words();
+    vec![
+        [0; 8],
+        f([0.0, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1, 0.12]),
+        f([0.3; 8]),
+        f([0.0, 0.2, 0.5, 0.9, 1.3, 2.0, -0.4, 0.7]),
+        f([-0.5, -0.1, 0.0, 0.25, 0.5, 0.75, 1.0, 1.5]),
+        std::array::from_fn(|i| special[(i * 9 + 4) % special.len()]),
+    ]
+}
+
+/// Rows the noise strength sees across the LUT range: (Y + X) / 2 and
+/// (Y - X) / 2 from about -0.1 to 1.3, plus the LUT's knot positions.
+fn noise_sample_sets(seed: u64) -> Vec<Vec<u32>> {
+    let mut sets = sample_sets(seed);
+    let mut seed = seed | 1;
+    sets.push(
+        (0..67)
+            .map(|_| ((next(&mut seed) % 1_400_001) as f32 / 1_000_000.0 - 0.1).to_bits())
+            .collect(),
+    );
+    let mut knots = Vec::new();
+    for k in 0..=8 {
+        let b = (k as f32 / 3.0).to_bits();
+        knots.extend([b.wrapping_sub(1), b, b.wrapping_add(1)]);
+    }
+    sets.push(knots);
+    sets
+}
+
+const NOISE_WIDTHS: &[usize] = &[0, 1, 2, 3, 4, 5, 7, 8, 9, 12, 15, 16, 17, 31, 33, 67];
+const NOISE_ORIGINS: &[usize] = &[0, 1, 3, 8, 13];
+
+#[test]
+fn simd_add_noise_rows_match_the_original_target() {
+    let t = target();
+    select_simd(t);
+    // Base correlations (binary16 x, b): the default, zero, typical, extremes.
+    let correlations = [
+        (65535, 65535),
+        (0, 0),
+        (0x3400, 0x3c00), // 0.25, 1.0
+        (0xb800, 0x4000), // -0.5, 2.0
+        (0x43ff, 0xc3ff), // 3.998, -3.998
+    ];
+    let mut requests = Vec::new();
+    for (li, lut) in noise_luts().iter().enumerate() {
+        for (ci, &(x16, b16)) in correlations.iter().enumerate() {
+            for (si, samples) in noise_sample_sets(li as u64 * 13 + 5).iter().enumerate() {
+                if (li + ci + si) % 2 == 1 && ci > 1 {
+                    continue;
+                }
+                for &width in NOISE_WIDTHS {
+                    for &origin in NOISE_ORIGINS {
+                        let first_c = 3 + (width + origin) % 2;
+                        requests.push(format!(
+                            "s2-noise-add {first_c} {origin} {width} {} {x16} {b16} {} {}",
+                            join(lut.iter().copied()),
+                            samples.len(),
+                            join(samples.iter().copied())
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    check_rows(
+        "s2-noise-add",
+        &requests,
+        |r| (s2_noise_add(r), Box::new(|_| true)),
+        |i| i > 0,
+    );
+}
+
+/// The convolution reads two samples and two rows of border on each side
+/// (`Settings::SymmetricBorderOnly(2)`); the requests fill those borders
+/// and the extra columns `xextra_left`/`xextra_right` the pipelines pass.
+#[test]
+fn simd_convolve_noise_rows_match_the_original_target() {
+    let t = target();
+    select_simd(t);
+    let mut requests = Vec::new();
+    for (si, samples) in noise_sample_sets(91).iter().enumerate() {
+        for &width in NOISE_WIDTHS {
+            for &origin in NOISE_ORIGINS {
+                for (left, right) in [(0, 0), (1, 0), (0, 1), (2, 2), (3, 5), (8, 7)] {
+                    let first_c = 3 + (si + width) % 3;
+                    requests.push(format!(
+                        "s2-noise-conv {first_c} {origin} {width} {left} {right} {} {}",
+                        samples.len(),
+                        join(samples.iter().copied())
+                    ));
+                }
+            }
+        }
+    }
+    check_rows(
+        "s2-noise-conv",
+        &requests,
+        |r| (s2_noise_conv(r), Box::new(|_| true)),
+        |i| i > 0,
+    );
+}
+
+/// Random3Planes: whole batches of 16 samples, then the remainder in whole
+/// vectors, written past the rectangle into the planes' columns.
+#[test]
+fn simd_noise_generation_matches_the_original_target() {
+    let t = target();
+    select_simd(t);
+    let mut requests = Vec::new();
+    for (visible, nonvisible, x0, y0) in [(0, 0, 0, 0), (1, 0, 256, 0), (3, 2, 512, 768)] {
+        for w in [
+            0usize, 1, 3, 4, 5, 8, 9, 15, 16, 17, 20, 31, 32, 33, 47, 63, 100,
+        ] {
+            for (h, rx, ry) in [(1, 0, 0), (3, 2, 1), (2, 7, 3)] {
+                requests.push(format!(
+                    "s2-noise-random {visible} {nonvisible} {x0} {y0} {w} {h} {rx} {ry}"
+                ));
+            }
+        }
+    }
+    check_rows(
+        "s2-noise-random",
+        &requests,
+        |r| (s2_noise_random(r), Box::new(|_| true)),
+        |_| false,
     );
 }

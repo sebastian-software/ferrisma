@@ -246,6 +246,10 @@ const OPS: &[(&str, usize, bool)] = &[
     ("mul_odd_i32", 2, false),
     ("interleave_odd_i32", 2, false),
     // end modular
+    // stages2
+    ("mul_i32", 2, false),
+    ("table_lookup_bytes", 2, false),
+    // end stages2
 ];
 
 struct Op<'a> {
@@ -387,6 +391,10 @@ impl Kernel for Op<'_> {
             "mul_odd_i32" => puti(d.mul_odd_i32(ai, bi), &mut out),
             "interleave_odd_i32" => puti(d.interleave_odd_i32(ai, bi), &mut out),
             // end modular
+            // stages2
+            "mul_i32" => puti(d.mul_i32(ai, bi), &mut out),
+            "table_lookup_bytes" => puti(d.table_lookup_bytes(ai, bi), &mut out),
+            // end stages2
             other => panic!("unknown operation {other}"),
         };
         out.truncate(count);

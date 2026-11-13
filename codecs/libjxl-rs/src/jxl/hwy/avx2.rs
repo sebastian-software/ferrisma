@@ -521,6 +521,16 @@ impl SimdF32 for Avx2 {
         })
     }
     // end modular
+    // stages2
+    #[inline(always)]
+    fn mul_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        avx!(_mm256_mullo_epi32(a, b))
+    }
+    #[inline(always)]
+    fn table_lookup_bytes(self, bytes: Self::I, from: Self::I) -> Self::I {
+        avx!(_mm256_shuffle_epi8(bytes, from))
+    }
+    // end stages2
 }
 
 #[inline(always)]

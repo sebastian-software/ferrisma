@@ -458,4 +458,17 @@ impl SimdF32 for Neon {
         neon!(vtrn2q_s32(a, b))
     }
     // end modular
+    // stages2
+    #[inline(always)]
+    fn mul_i32(self, a: Self::I, b: Self::I) -> Self::I {
+        neon!(vmulq_s32(a, b))
+    }
+    #[inline(always)]
+    fn table_lookup_bytes(self, bytes: Self::I, from: Self::I) -> Self::I {
+        neon!(vreinterpretq_s32_u8(vqtbl1q_u8(
+            vreinterpretq_u8_s32(bytes),
+            vreinterpretq_u8_s32(from)
+        )))
+    }
+    // end stages2
 }

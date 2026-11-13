@@ -141,3 +141,6 @@ pub mod decode_trace;
 pub mod dec_external_image_simd;
 pub mod dec_modular_simd;
 // end modular
+// stages2: SIMD noise generation (ADR 0004 Plan item 1).
+pub mod dec_noise_simd;
+// end stages2
