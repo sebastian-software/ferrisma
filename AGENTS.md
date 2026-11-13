@@ -16,6 +16,8 @@ Ferrisma is in an intentionally **design-first** phase. Do not turn a proposed a
 - Keep output semantics explicit: crop coordinates, orientation, bit depth, color space, transfer function, chroma siting, alpha handling, precision and filtering all matter.
 - Codec color metadata must describe the **emitted samples**. ICC header inspection alone is not a color transform; never auto-prioritize ICC versus CICP or reinterpret P3/PQ/HLG as sRGB. See ADR-0015. In particular, [ADR-0011](docs/adr/0011-borrowed-planar-surface-contract.md) permits only even-origin YUV420P10 crops and no planar resize until a chroma-aware quality policy exists.
 - The plan must make materializations and CPU/GPU transfers observable.
+- **v1.0 quality gate** ([ADR-0041](docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md)): a port's scalar path must be bit-identical to the original's scalar build, and its SIMD path to the original's SIMD build at the same level (NEON; AVX2 and the lower x86 levels), per target. Only NaN payloads are exempt. AVX-512, SVE and DotProd/I8MM stay off by default. Never refresh an expected output, golden, tolerance or oracle pin to pass it.
+- **Validation is local first:** AArch64 natively and x86-64 under Rosetta 2 (`--target x86_64-apple-darwin`, `ROSETTA_ADVERTISE_AVX=1`), plus one hosted Linux x86-64 run per release candidate. Performance is reported against the original in three columns and is not a release gate. See [the quality gate guide](docs/quality-gate.md).
 
 ## Local checks
 

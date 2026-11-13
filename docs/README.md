@@ -13,7 +13,7 @@ experiments.
 | Understand what is included and what works today | [Current status](status.md): components, actual engine backends, and remaining gates; [supported matrix](supported-matrix.md): accepted and rejected inputs, outputs, backends, features, and toolchains |
 | Try the CLI or contribute a change | [Getting started](getting-started.md), [contributor guide](../CONTRIBUTING.md), then [codec development](codecs.md) for workspace setup and scoped checks |
 | Understand the pipeline and its constraints | [Architecture](architecture.md) and [color contract](design/color-management-contract.md) |
-| See what must happen before a release | [M1 acceptance plan](milestones/M1-complete-image-pipeline.md) and [evidence/gate register](milestones/M1-evidence-and-gates.md) |
+| See what must happen before a release | [v1.0 quality gate (ADR-0041)](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) and its [guide with local commands](quality-gate.md); [M1 acceptance plan](milestones/M1-complete-image-pipeline.md) and [evidence/gate register](milestones/M1-evidence-and-gates.md) |
 | Follow priorities and performance work | [Roadmap](roadmap.md) and [M2 plan with dated progress](milestones/M2-performance-architecture.md) |
 | Understand why a decision was made | [Engine ADR index](adr/README.md); Proposed and Experimental decisions do not imply completed features |
 | Work on a codec or inspect its coverage | The component guides below, plus [shared verification and provenance](codecs.md) |

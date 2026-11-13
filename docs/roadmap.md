@@ -2,7 +2,9 @@
 
 For the current implementation and navigation, see [status](status.md) and the [documentation guide](README.md).
 
-**Current acceptance milestone:** [M1 — First complete image pipeline](milestones/M1-complete-image-pipeline.md), with an experimental SDR JPEG/WebP/JPEG XL/AVIF → AVIF implementation under validation. [M2 — Performance architecture](milestones/M2-performance-architecture.md) remains a proposed milestone, although its `f32` executor, CPU dispatch, parallel execution, and initial decode improvements have landed. Broader benchmark and release evidence remains open. The milestone plans and their dated amendments own acceptance criteria; the earlier phases below remain research history.
+**Current release target (2026-11-13):** v1.0, defined by the quality gate of [ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md): every codec port's results 1:1 with its ported original, scalar and SIMD (NEON; AVX2 and the lower x86 levels), on AArch64 and x86-64. There is no performance gate; speed is reported against the original in three columns and optimized top-down. Until the gate is met, releases are 0.x pre-releases from `main`.
+
+**Current acceptance milestone:** [M1 — First complete image pipeline](milestones/M1-complete-image-pipeline.md), with an experimental SDR JPEG/WebP/JPEG XL/AVIF → AVIF implementation under validation. [M2 — Performance architecture](milestones/M2-performance-architecture.md) remains a proposed milestone, although its `f32` executor, CPU dispatch, parallel execution, and initial decode improvements have landed. Broader benchmark evidence remains open as reported context, not as a v1.0 release gate (ADR-0041). The milestone plans and their dated amendments own acceptance criteria; the earlier phases below remain research history.
 
 [Encoder/CMS candidates and licensing](research/2026-10-31-encoder-and-cms-candidates.md) identify a permissively licensed AVIF path, a candidate ICC backend, and a JPEG XL encoder license gate. See [ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md) (Proposed) for the working-color design contract.
 

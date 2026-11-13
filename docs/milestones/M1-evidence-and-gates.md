@@ -2,6 +2,8 @@
 
 **Status:** Implementation under validation, not M1-RC. This file records reproducible observations and outstanding work, not completion claims. See [current status](../status.md) and the [documentation guide](../README.md). Tracking: [M1 issue #8](https://github.com/sebastian-software/ferrisma/issues/8) and [PR #11](https://github.com/sebastian-software/ferrisma/pull/11).
 
+> **2026-11-13:** The v1.0 release gate is now [ADR-0041](../adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) (owner decision): bit identity of each codec port with its ported original, scalar and SIMD, on AArch64 and x86-64, and no performance gate. The M1 criteria below are unchanged and still describe M1's own acceptance; where gate 6 or the release decision ask for performance or Sharp/libvips comparisons, those are reported context for v1.0, not a release condition.
+
 ## Implemented experimental pipeline
 
 - Semantic color-conversion, quality-resample and output-encoding nodes, with region planning and bounded cache/row-buffer ownership.

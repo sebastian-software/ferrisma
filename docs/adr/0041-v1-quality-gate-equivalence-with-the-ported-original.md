@@ -189,7 +189,12 @@ operation against the original, in three columns:
 | --- | --- | --- | --- | --- |
 | (a) | scalar reference build | one | scalar path | the translation loss |
 | (b) | release build with SIMD (v1.0 levels) | one | SIMD path | translation plus missing SIMD |
-| (c) | release build with SIMD | all | SIMD path, all threads | everything, including threading |
+| (c) | release build with SIMD (v1.0 levels) | all | SIMD path, all threads | everything, including threading |
+
+Columns (b) and (c) cap the original at the v1.0 SIMD levels, so that port
+and original run comparable code; a run of the original at its full default
+level may be added as labeled context. (This cap is a best-estimate reading of
+D2 together with D6.)
 
 Optimization works top-down: close (a) first, then (b), then (c). Results for
 jxl-oxide, rav1e, Sharp or other third-party libraries are context only; they

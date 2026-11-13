@@ -16,6 +16,29 @@ FERRISMA_PROFILE=assume-srgb FERRISMA_FILTER=area \
 
 Collect multiple realistic images: small photos (hundreds of pixels), 12/24/48-Mpx images, transparent overlays, odd dimensions, P3, ICC-tagged JPEG, JPEG XL, AVIF, and adversarial extreme downscales. Record orientation. The tiny committed `sample.jpg` is a correctness fixture, **not** representative of throughput.
 
+## Codec ports: report against the original in three columns (2026-11-13)
+
+[ADR-0041](../adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md)
+(owner decision D2, D3) sets how codec port performance is reported for v1.0.
+It is reported, not gated. For each codec and operation, report the port's
+time and the ratio port ÷ original against three builds of the pinned
+original, measured in the same job on the same host, interleaved:
+
+| Column | Original | Threads | Port |
+| --- | --- | --- | --- |
+| (a) translation loss | scalar reference build | one | scalar path |
+| (b) | release build with SIMD at the v1.0 levels | one | SIMD path |
+| (c) | release build with SIMD | all | SIMD path, all threads |
+
+Optimize top-down: close (a) first, then (b), then (c). Name the SIMD level
+detected and selected on both sides; AVX-512, SVE and NEON DotProd/I8MM are
+outside the v1.0 levels and are disabled in the original's build for
+columns (b) and (c), so that the columns compare like with like; a run of the
+original at its full default level may be added as labeled context. Third-party libraries (jxl-oxide, rav1e, Sharp, libvips)
+may appear only as a separate, labeled context column. Every other
+requirement of this protocol and of [ADR-0007](../adr/0007-correctness-and-performance-evidence.md)
+still applies. The [quality gate guide](../quality-gate.md) has a table template.
+
 ## Comparative fairness requirements
 
 1. Verify **the same crop, resize geometry and orientation**, including border modes and antialiasing footprint.
