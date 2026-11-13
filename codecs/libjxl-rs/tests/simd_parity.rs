@@ -43,12 +43,19 @@ fn oracle(requests: &[String]) -> Vec<String> {
     lines.push('\n');
     let feed = std::thread::spawn(move || input.write_all(lines.as_bytes()));
     let output = child.wait_with_output().expect("wait for the SIMD oracle");
-    feed.join().unwrap().expect("write the oracle requests");
+    let fed = feed.join().unwrap();
+    // The exit status first: an oracle that dies early (a signal, an
+    // exception) also breaks the request pipe, and the write error alone
+    // would hide the cause (issue #252).
     assert!(
         output.status.success(),
-        "SIMD oracle failed: {}",
+        "SIMD oracle failed ({}) after {} response lines; write: {:?}; stderr: {}",
+        output.status,
+        output.stdout.iter().filter(|&&b| b == b'\n').count(),
+        fed.as_ref().err(),
         String::from_utf8_lossy(&output.stderr)
     );
+    fed.expect("write the oracle requests");
     let text = String::from_utf8(output.stdout).unwrap();
     let lines: Vec<_> = text.lines().map(str::to_owned).collect();
     assert_eq!(lines.len(), requests.len(), "oracle response count");

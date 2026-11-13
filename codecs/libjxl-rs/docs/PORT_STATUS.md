@@ -87,7 +87,10 @@ operations for `HWY_NEON` and `HWY_AVX2`; the SIMD Gaborish, EPF (passes
 the NEON and AVX2 oracle variants at row level on both targets
 (`tests/simd_parity.rs`) and are **not** selected by the decoder. The other
 Highway exports, decoder wiring and the whole-decode SIMD comparison remain
-open (issues #96, #231).
+open (issues #96, #231). The row adapters of the oracle now hand the stages
+128-byte aligned rows, as libjxl's pipelines do; the misaligned rows made the
+AVX2 oracle fault on hosted x86-64 hardware (issue #252, ADR 0004 evidence).
+The fix is verified on AArch64 only; x86-64 cannot run on the local machine.
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 

@@ -66,12 +66,18 @@ bool EPFCommand(const std::string& command,std::istringstream& in,JxlMemoryManag
  size_t left,right,width,origin,xpos,ypos;in>>left>>right>>width>>origin>>xpos>>ypos;
  std::array<float,9> values;for(float& v:values){uint32_t b;in>>b;v=Bits<float>(b);}std::array<float,3> sigmas;for(float& v:sigmas){uint32_t b;in>>b;v=Bits<float>(b);}
  for(size_t y=0;y<64;y++)for(size_t x=0;x<128;x++)sigma.Row(y)[x]=sigmas[(x+y)%3];
+// The stage row pointers start where libjxl's own pipeline rows start: on a
+// kAlignment (128-byte) boundary, so that the original's aligned vector
+// Load/Store at row + kRenderPipelineXOffset + k * Lanes is aligned on every
+// target (issue #252). `shift` moves the request's sample 0 so that sample
+// `origin` lies on that boundary; observed words stay request-relative.
  const size_t len=origin+jxl::kRenderPipelineXOffset+width+right+5;
+ const size_t row_align=128/sizeof(float),shift=(row_align-origin%row_align)%row_align;
  std::vector<jxl::ImageF> input,output;
- for(size_t c=0;c<5;c++){auto ai=jxl::ImageF::Create(mm,len,9);auto ao=jxl::ImageF::Create(mm,len,3);if(!ai.ok()||!ao.ok())throw std::runtime_error("row allocation");input.push_back(std::move(ai).value_());output.push_back(std::move(ao).value_());for(size_t y=0;y<9;y++)for(size_t x=0;x<len;x++)input[c].Row(y)[x]=values[(c*7+y*3+x)%9];for(size_t y=0;y<3;y++)for(size_t x=0;x<len;x++)output[c].Row(y)[x]=Bits<float>(uint32_t(0x7fa00000+c*4096+y*256+x));}
+ for(size_t c=0;c<5;c++){auto ai=jxl::ImageF::Create(mm,len+row_align,9);auto ao=jxl::ImageF::Create(mm,len+row_align,3);if(!ai.ok()||!ao.ok())throw std::runtime_error("row allocation");input.push_back(std::move(ai).value_());output.push_back(std::move(ao).value_());for(size_t y=0;y<9;y++)for(size_t x=0;x<len;x++)(input[c].Row(y)+shift)[x]=values[(c*7+y*3+x)%9];for(size_t y=0;y<3;y++)for(size_t x=0;x<len;x++)(output[c].Row(y)+shift)[x]=Bits<float>(uint32_t(0x7fa00000+c*4096+y*256+x));}
  jxl::RenderPipelineStage::RowInfo ir(5),out(5);const size_t border=3-pass;
- for(size_t c=0;c<5;c++){for(size_t y=0;y<2*border+1;y++)ir[c].push_back(input[c].Row(y+1)+origin);out[c].push_back(output[c].Row(1)+origin);}
+ for(size_t c=0;c<5;c++){for(size_t y=0;y<2*border+1;y++)ir[c].push_back(input[c].Row(y+1)+shift+origin);out[c].push_back(output[c].Row(1)+shift+origin);}
  auto status=stage->ProcessRow(ir,out,left,right,width,xpos,ypos,17);std::cout<<int(status.code());
- for(const auto& p:output)for(size_t y=0;y<3;y++)for(size_t x=0;x<len;x++)std::cout<<' '<<Bits<uint32_t>(p.Row(y)[x]);
+ for(const auto& p:output)for(size_t y=0;y<3;y++)for(size_t x=0;x<len;x++)std::cout<<' '<<Bits<uint32_t>((p.Row(y)+shift)[x]);
  return true;
 }
