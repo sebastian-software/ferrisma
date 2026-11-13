@@ -481,6 +481,7 @@ my %ported_neon = map { $_ => 1 } qw/
   av1_fwd_txfm2d_8x8
   av1_fwht4x4
   av1_get_horver_correlation_full
+  av1_get_nz_map_contexts
   av1_highbd_block_error
   av1_highbd_dr_prediction_z1
   av1_highbd_dr_prediction_z2
