@@ -130,7 +130,11 @@ Color stages of ADR 0004 Plan item 1 (2026-11-13): the SIMD ToLinear stage
 of the transfer functions in `simd_transfer.rs`) and the SIMD tone-mapping
 stage (`stage_tone_mapping_simd.rs`, Rec. 2408 tone mapping, HLG OOTF and
 gamut mapping) match the NEON oracle at row level (`tests/simd_color.rs`)
-and dispatch like the stages above.
+and dispatch like the stages above. The default CMS's `run`
+(`DoColorSpaceTransform`, the only Highway export of `cms/jxl_cms.cc`)
+runs its PQ and sRGB pre- and post-processing as SIMD on the selected
+target (`cms/jxl_cms_simd.rs`) and matches through the CMS stage;
+`GetCmsStage` has no vector code.
 AVX2 is compile-checked only.
 <!-- end color -->
 

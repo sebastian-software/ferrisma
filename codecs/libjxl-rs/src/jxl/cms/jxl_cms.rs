@@ -333,9 +333,18 @@ pub unsafe extern "C" fn run(
     // SAFETY: caller supplies a live stable owner and distinct per-thread mutable
     // sample extents. No mutable context/Vec reference spans concurrent runs.
     unsafe {
+        // HWY_DYNAMIC_DISPATCH(DoColorSpaceTransform) (port ADR 0004): the
+        // SIMD instantiation differs only in Before/AfterTransform.
+        let target = crate::jxl::hwy::decoder_target();
         if (*t).preprocess != ExtraTf::NONE {
             let buffer = *(&*ptr::addr_of!((*t).buf_src)).get_unchecked(thread);
-            if !before_transform(t, source, buffer, width.wrapping_mul((*t).channels_src)) {
+            let size = width.wrapping_mul((*t).channels_src);
+            if !match target {
+                Some(target) => {
+                    super::jxl_cms_simd::before_transform_simd(target, t, source, buffer, size)
+                }
+                None => before_transform(t, source, buffer, size),
+            } {
                 return 0;
             }
             input = buffer;
@@ -384,10 +393,16 @@ pub unsafe extern "C" fn run(
                 }
             }
         }
-        if (*t).postprocess != ExtraTf::NONE
-            && !after_transform(t, destination, width.wrapping_mul((*t).channels_dst))
-        {
-            return 0;
+        if (*t).postprocess != ExtraTf::NONE {
+            let size = width.wrapping_mul((*t).channels_dst);
+            if !match target {
+                Some(target) => {
+                    super::jxl_cms_simd::after_transform_simd(target, t, destination, size)
+                }
+                None => after_transform(t, destination, size),
+            } {
+                return 0;
+            }
         }
         1
     }

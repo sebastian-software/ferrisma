@@ -372,4 +372,7 @@ target_sources(jxl_oracle PRIVATE render_stages_simd.cc)
 # color: row requests of the SIMD color stages (port ADR 0004 Plan item 1).
 # The TU only calls the original's public stage factories.
 target_sources(jxl_oracle PRIVATE color_stages_simd.cc)
+# cl-cms calls the stage's protected SetInputSizes/PrepareForThreads, as
+# the render pipeline does.
+set_source_files_properties(color_stages_simd.cc PROPERTIES COMPILE_OPTIONS -fno-access-control)
 # end color

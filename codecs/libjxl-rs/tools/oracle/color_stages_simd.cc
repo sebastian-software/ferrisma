@@ -8,11 +8,19 @@
 //   cl-tm <orig_tf> <orig_have_gamma> <orig_gamma> <tf> <have_gamma> <gamma>
 //         <orig_it> <desired_it> <lum0> <lum1> <lum2> <width> <origin> <n>
 //         <n words>
-// cl-tm prints "null" when GetToneMappingStage returns no stage.
+//   cl-cms <src cs wp primaries tf> <dst cs wp primaries tf> <desired_it>
+//         <width> <origin> <n> <n words>
+// cl-tm and cl-cms print "null" when the factory returns no stage. cl-cms
+// runs GetCmsStage(info, false) with the original's default CMS
+// (JxlGetDefaultCms) after SetInputSizes(3 x {width, 1}) and
+// PrepareForThreads(1); both encodings come from their enum fields through
+// CreateICC.
 // Each in-place request fills five channel rows with words[(c * 7 + x) % n],
 // runs ProcessRow(rows, {}, 0, 0, width, 19, 23, 0) and prints the status
 // followed by all five rows (len = origin + kRenderPipelineXOffset + width +
 // 16 samples each), as the rs-* requests of render_stages_simd.cc do.
+#include <jxl/cms.h>
+
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -22,9 +30,11 @@
 #include <string>
 #include <vector>
 
+#include "lib/jxl/color_encoding_internal.h"
 #include "lib/jxl/dec_xyb.h"
 #include "lib/jxl/image.h"
 #include "lib/jxl/render_pipeline/render_pipeline_stage.h"
+#include "lib/jxl/render_pipeline/stage_cms.h"
 #include "lib/jxl/render_pipeline/stage_to_linear.h"
 #include "lib/jxl/render_pipeline/stage_tone_mapping.h"
 
@@ -81,6 +91,20 @@ void CLTransfer(std::istringstream& in, jxl::ColorEncoding& encoding) {
   encoding.Tf().have_gamma = have_gamma;
   encoding.Tf().gamma = gamma;
 }
+
+jxl::ColorEncoding CLEncoding(std::istringstream& in) {
+  unsigned cs, wp, primaries, tf;
+  in >> cs >> wp >> primaries >> tf;
+  jxl::ColorEncoding c;
+  c.SetColorSpace(static_cast<jxl::ColorSpace>(cs));
+  if (!c.SetWhitePointType(static_cast<jxl::WhitePoint>(wp)))
+    throw std::runtime_error("cl: white point");
+  if (c.HasPrimaries() && !c.SetPrimariesType(static_cast<jxl::Primaries>(primaries)))
+    throw std::runtime_error("cl: primaries");
+  c.Tf().SetTransferFunction(static_cast<jxl::TransferFunction>(tf));
+  if (!c.CreateICC()) throw std::runtime_error("cl: CreateICC");
+  return c;
+}
 }  // namespace
 
 bool ColorStagesSimdCommand(const std::string& command, std::istringstream& in,
@@ -109,6 +133,25 @@ bool ColorStagesSimdCommand(const std::string& command, std::istringstream& in,
       std::cout << "null";
       return true;
     }
+  } else if (command == "cl-cms") {
+    info.orig_color_encoding = CLEncoding(in);
+    info.color_encoding = CLEncoding(in);
+    info.desired_intensity_target = CLFloat(in);
+    info.cms_set = true;
+    info.color_management_system = *JxlGetDefaultCms();
+    stage = jxl::GetCmsStage(info, /*linear=*/false);
+    size_t width, origin;
+    in >> width >> origin;
+    const auto words = CLWords(in);
+    if (!stage) {
+      std::cout << "null";
+      return true;
+    }
+    std::vector<std::pair<size_t, size_t>> sizes(3, {width, 1});
+    if (!stage->SetInputSizes(sizes)) throw std::runtime_error("cl: SetInputSizes");
+    if (!stage->PrepareForThreads(1)) throw std::runtime_error("cl: PrepareForThreads");
+    CLInPlace(*stage, width, origin, words, mm);
+    return true;
   } else {
     throw std::runtime_error("cl: unknown command " + command);
   }
