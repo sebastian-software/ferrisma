@@ -3,9 +3,10 @@
 // and AVX2 instantiations). Angles, dx/dy derivation, edge-upsample selection,
 // buffer layout and padding, the Rand8() fill order, bit depths, and the
 // exact-match check follow the original. DISABLED_Speed is not transcribed.
-// The lowbd NEON and AVX2 instantiations (av1_dr_prediction_z{1,2,3}_neon,
-// _avx2) belong to aom_dsp/arm/intrapred_neon.c and the low-bitdepth half of
-// aom_dsp/x86/intrapred_avx2.c and are not part of this port.
+// LowbdDrPredTest.SaturatedValues and LowbdDrPredTest.OperationCheck are
+// transcribed for the NEON instantiation (av1_dr_prediction_z{1,2,3}_neon of
+// aom_dsp/arm/intrapred_neon.c, AOM_BITS_8). The lowbd SSE4_1 and AVX2
+// instantiations belong to x86 files that are not part of this port.
 #![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 use super::acm_random::ACMRandom;
 
@@ -277,6 +278,158 @@ mod neon {
     #[test]
     fn highbd_dr_pred_neon_operation_check() {
         run_all(neon_params(), false);
+    }
+}
+
+#[cfg(target_arch = "aarch64")]
+mod lowbd_neon {
+    use super::*;
+    use aom::simd::aom_dsp__arm__intrapred_neon::{
+        av1_dr_prediction_z1_neon, av1_dr_prediction_z2_neon, av1_dr_prediction_z3_neon,
+    };
+
+    extern "C-unwind" {
+        fn av1_dr_prediction_z1_c(dst: *mut u8, stride: isize, bw: i32, bh: i32, above: *const u8,
+                                  left: *const u8, upsample_above: i32, dx: i32, dy: i32);
+        fn av1_dr_prediction_z2_c(dst: *mut u8, stride: isize, bw: i32, bh: i32, above: *const u8,
+                                  left: *const u8, upsample_above: i32, upsample_left: i32, dx: i32,
+                                  dy: i32);
+        fn av1_dr_prediction_z3_c(dst: *mut u8, stride: isize, bw: i32, bh: i32, above: *const u8,
+                                  left: *const u8, upsample_left: i32, dx: i32, dy: i32);
+    }
+
+    type Z1Lbd = unsafe extern "C-unwind" fn(*mut u8, isize, i32, i32, *const u8, *const u8, i32, i32, i32);
+    type Z2Lbd =
+        unsafe extern "C-unwind" fn(*mut u8, isize, i32, i32, *const u8, *const u8, i32, i32, i32, i32);
+    type Z3Lbd = unsafe extern "C-unwind" fn(*mut u8, isize, i32, i32, *const u8, *const u8, i32, i32, i32);
+
+    /// The z{1,2,3}_wrapper adapters of the original.
+    #[derive(Clone, Copy)]
+    enum DrPred {
+        Z1(Z1Lbd),
+        Z2(Z2Lbd),
+        Z3(Z3Lbd),
+    }
+
+    impl DrPred {
+        #[allow(clippy::too_many_arguments)]
+        unsafe fn call(self, dst: *mut u8, stride: isize, bw: i32, bh: i32, above: *const u8, left: *const u8,
+                       upsample_above: i32, upsample_left: i32, dx: i32, dy: i32) {
+            match self {
+                DrPred::Z1(f) => f(dst, stride, bw, bh, above, left, upsample_above, dx, dy),
+                DrPred::Z2(f) => f(dst, stride, bw, bh, above, left, upsample_above, upsample_left, dx, dy),
+                DrPred::Z3(f) => f(dst, stride, bw, bh, above, left, upsample_left, dx, dy),
+            }
+        }
+    }
+
+    /// DrPredTest<uint8_t, DrPred> (LowbdDrPredTest) at AOM_BITS_8.
+    struct LowbdDrPredTest {
+        ref_fn: DrPred,
+        tst_fn: DrPred,
+        start_angle: i32,
+        stop_angle: i32,
+        rng: ACMRandom,
+        blocks: usize,
+    }
+
+    impl LowbdDrPredTest {
+        fn new(ref_fn: DrPred, tst_fn: DrPred, start_angle: i32) -> Self {
+            Self { ref_fn, tst_fn, start_angle, stop_angle: start_angle + 90, rng: ACMRandom::new(), blocks: 0 }
+        }
+
+        fn run_test(&mut self, needsaturation: bool, p_angle: i32, enable_upsample: i32, dx: i32, dy: i32) {
+            let bd = 8;
+            for tx in 0..TX_SIZES_ALL {
+                let bw = TX_SIZE_WIDE[tx];
+                let bh = TX_SIZE_HIGH[tx];
+                let (upsample_above, upsample_left) = if enable_upsample != 0 {
+                    (av1_use_intra_edge_upsample(bw, bh, p_angle - 90, 0),
+                     av1_use_intra_edge_upsample(bw, bh, p_angle - 180, 0))
+                } else {
+                    (0, 0)
+                };
+
+                let mut left_data = [0u8; K_NUM_INTRA_NEIGHBOUR_PIXELS];
+                let mut above_data = [0u8; K_NUM_INTRA_NEIGHBOUR_PIXELS];
+                if needsaturation {
+                    let sat = ((1 << bd) - 1) as u8;
+                    for i in 0..K_NUM_INTRA_NEIGHBOUR_PIXELS {
+                        left_data[i] = sat;
+                        above_data[i] = sat;
+                    }
+                } else {
+                    for i in 0..K_NUM_INTRA_NEIGHBOUR_PIXELS {
+                        left_data[i] = self.rng.rand8();
+                        above_data[i] = self.rng.rand8();
+                    }
+                }
+                // We need to allow reading some previous bytes from the input pointers.
+                let above = above_data[K_INTRA_PRED_INPUT_PADDING..].as_ptr();
+                let left = left_data[K_INTRA_PRED_INPUT_PADDING..].as_ptr();
+
+                // Add additional padding to allow detection of over reads/writes when
+                // the transform width is equal to MAX_TX_SIZE.
+                let dst_stride = MAX_TX_SIZE + 16;
+                let mut dst_ref = vec![0u8; dst_stride * bh as usize];
+                let mut dst_tst = vec![0u8; dst_stride * bh as usize];
+                // SAFETY: the edge buffers and destinations have the extents of the
+                // original test.
+                unsafe {
+                    self.ref_fn.call(dst_ref.as_mut_ptr(), dst_stride as isize, bw, bh, above, left,
+                                     upsample_above, upsample_left, dx, dy);
+                    self.tst_fn.call(dst_tst.as_mut_ptr(), dst_stride as isize, bw, bh, above, left,
+                                     upsample_above, upsample_left, dx, dy);
+                }
+                for r in 0..bh as usize {
+                    for c in 0..bw as usize {
+                        assert_eq!(dst_ref[r * dst_stride + c], dst_tst[r * dst_stride + c],
+                                   "{}x{} r: {} c: {} dx: {} dy: {} upsample_above: {} upsample_left: {}",
+                                   bw, bh, r, c, dx, dy, upsample_above, upsample_left);
+                    }
+                }
+                self.blocks += 1;
+            }
+        }
+
+        /// TEST_P(LowbdDrPredTest, SaturatedValues) and OperationCheck
+        /// (RundrPredTest(0)).
+        fn run(&mut self, needsaturation: bool) {
+            for enable_upsample in 0..2 {
+                for angle in self.start_angle..self.stop_angle {
+                    let dx = av1_get_dx(angle);
+                    let dy = av1_get_dy(angle);
+                    if dx != 0 && dy != 0 {
+                        self.run_test(needsaturation, angle, enable_upsample, dx, dy);
+                    }
+                }
+            }
+        }
+    }
+
+    fn run_lowbd(needsaturation: bool) {
+        let params = [
+            (DrPred::Z1(av1_dr_prediction_z1_c), DrPred::Z1(av1_dr_prediction_z1_neon), K_Z1_START),
+            (DrPred::Z2(av1_dr_prediction_z2_c), DrPred::Z2(av1_dr_prediction_z2_neon), K_Z2_START),
+            (DrPred::Z3(av1_dr_prediction_z3_c), DrPred::Z3(av1_dr_prediction_z3_neon), K_Z3_START),
+        ];
+        let mut blocks = 0;
+        for (r, t, start) in params {
+            let mut test = LowbdDrPredTest::new(r, t, start);
+            test.run(needsaturation);
+            blocks += test.blocks;
+        }
+        eprintln!("3 parameter sets, {} blocks compared", blocks);
+    }
+
+    #[test]
+    fn lowbd_dr_pred_neon_saturated_values() {
+        run_lowbd(true);
+    }
+
+    #[test]
+    fn lowbd_dr_pred_neon_operation_check() {
+        run_lowbd(false);
     }
 }
 
