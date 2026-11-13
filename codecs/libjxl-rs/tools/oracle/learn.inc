@@ -3,7 +3,7 @@
 // Actual RNG and tree sample APIs, including all quantization-map entries.
 #include "lib/jxl/base/random.h"
 #include <numeric>
-namespace jxl {namespace N_SCALAR {float EstimateBits(const int32_t*,size_t);}}
+namespace jxl {namespace ORACLE_HWY_NS {float EstimateBits(const int32_t*,size_t);}}
 
 template<class T> std::vector<T> LearnValues(std::istringstream& in) {
   size_t n;in>>n;std::vector<T> result(n);for(auto& v:result) in>>v;return result;
@@ -61,7 +61,7 @@ bool LearnCommand(const std::string& command,std::istringstream& in,JxlMemoryMan
       std::cout<<' '<<Code(status)<<' '<<br.TotalBitsConsumed()<<' '<<Code(br.Close());for(auto& t:decoded.transform) t.max_delta_error=77;ImageModularObservation(decoded);
     }
   } else if(command=="learn-estimate") {
-    auto counts=LearnValues<int32_t>(in);float value=jxl::N_SCALAR::EstimateBits(counts.data(),counts.size());uint32_t bits;memcpy(&bits,&value,4);std::cout<<bits;
+    auto counts=LearnValues<int32_t>(in);float value=jxl::ORACLE_HWY_NS::EstimateBits(counts.data(),counts.size());uint32_t bits;memcpy(&bits,&value,4);std::cout<<bits;
   } else if(command=="learn-rng") {
     uint64_t seed,bu,eu;int64_t bi,ei;uint32_t bf,ef,p;size_t count;in>>seed>>bi>>ei>>bu>>eu>>bf>>ef>>p>>count;
     float begin,end,prob;memcpy(&begin,&bf,4);memcpy(&end,&ef,4);memcpy(&prob,&p,4);jxl::Rng rng(seed);auto dist=jxl::Rng::MakeGeometric(prob);uint32_t bits;memcpy(&bits,&dist,4);std::cout<<bits;

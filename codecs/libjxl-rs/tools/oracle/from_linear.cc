@@ -27,16 +27,16 @@ void FLWord(float x){std::cout<<' '<<FLBits<uint32_t>(x);}
 }
 bool FromLinearCommand(const std::string& cmd,std::istringstream& in,JxlMemoryManager* mm){
  if(cmd!="fl-tf"&&cmd!="fl-row"&&cmd!="fl-simple")return false;
- const hwy::N_SCALAR::ScalableTag<float> d;
+ const hwy::ORACLE_HWY_NS::ScalableTag<float> d;
  if(cmd=="fl-tf"){
   unsigned op;in>>op;
-  if(op==4){uint64_t b;in>>b;std::cout<<FLBits<uint64_t>(jxl::N_SCALAR::TF_709::EncodedFromDisplay(FLBits<double>(b)));return true;}
-  auto x=hwy::N_SCALAR::Set(d,FLRead(in));auto result=x;
-  if(op==0)result=jxl::N_SCALAR::TF_HLG().EncodedFromDisplay(d,x);
-  else if(op==1)result=jxl::N_SCALAR::TF_HLG().DisplayFromEncoded(d,x);
-  else if(op==2)result=jxl::N_SCALAR::TF_709().EncodedFromDisplay(d,x);
-  else result=jxl::N_SCALAR::TF_709().DisplayFromEncoded(d,x);
-  std::cout<<FLBits<uint32_t>(hwy::N_SCALAR::GetLane(result));return true;
+  if(op==4){uint64_t b;in>>b;std::cout<<FLBits<uint64_t>(jxl::ORACLE_HWY_NS::TF_709::EncodedFromDisplay(FLBits<double>(b)));return true;}
+  auto x=hwy::ORACLE_HWY_NS::Set(d,FLRead(in));auto result=x;
+  if(op==0)result=jxl::ORACLE_HWY_NS::TF_HLG().EncodedFromDisplay(d,x);
+  else if(op==1)result=jxl::ORACLE_HWY_NS::TF_HLG().DisplayFromEncoded(d,x);
+  else if(op==2)result=jxl::ORACLE_HWY_NS::TF_709().EncodedFromDisplay(d,x);
+  else result=jxl::ORACLE_HWY_NS::TF_709().DisplayFromEncoded(d,x);
+  std::cout<<FLBits<uint32_t>(hwy::ORACLE_HWY_NS::GetLane(result));return true;
  }
  unsigned tf,have_gamma;uint32_t gamma;in>>tf>>have_gamma>>gamma;
  jxl::OutputEncodingInfo info{};info.color_encoding.Tf().SetTransferFunction(static_cast<jxl::TransferFunction>(tf));info.color_encoding.Tf().have_gamma=have_gamma;info.color_encoding.Tf().gamma=gamma;

@@ -27,10 +27,10 @@ void TLWord(float x){std::cout<<' '<<TLBits<uint32_t>(x);}
 }
 bool ToLinearCommand(const std::string& cmd,std::istringstream& in,JxlMemoryManager* mm){
  if(cmd!="tl-tf"&&cmd!="tl-row"&&cmd!="tl-simple")return false;
- const hwy::N_SCALAR::ScalableTag<float> d;
+ const hwy::ORACLE_HWY_NS::ScalableTag<float> d;
  if(cmd=="tl-tf"){
-  auto result=jxl::N_SCALAR::TF_SRGB().DisplayFromEncoded(hwy::N_SCALAR::Set(d,TLRead(in)));
-  std::cout<<TLBits<uint32_t>(hwy::N_SCALAR::GetLane(result));return true;
+  auto result=jxl::ORACLE_HWY_NS::TF_SRGB().DisplayFromEncoded(hwy::ORACLE_HWY_NS::Set(d,TLRead(in)));
+  std::cout<<TLBits<uint32_t>(hwy::ORACLE_HWY_NS::GetLane(result));return true;
  }
  unsigned tf,have_gamma;uint32_t gamma;in>>tf>>have_gamma>>gamma;
  jxl::OutputEncodingInfo info{};info.color_encoding.Tf().SetTransferFunction(static_cast<jxl::TransferFunction>(tf));info.color_encoding.Tf().have_gamma=have_gamma;info.color_encoding.Tf().gamma=gamma;

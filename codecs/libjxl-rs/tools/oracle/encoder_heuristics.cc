@@ -3,8 +3,8 @@
 // Call the original quantization heuristics in the complete archive:
 // Quantizer::ComputeGlobalScaleAndQuant, SetQuantField, SetQuantFieldRect and
 // SetQuant; InitialQuantDC, InitialQuantField and AdjustQuantField;
-// CfLHeuristics with the external N_SCALAR::FindBestMultiplier; and
-// AcStrategyHeuristics with the external N_SCALAR::EstimateEntropy and
+// CfLHeuristics with the external ORACLE_HWY_NS::FindBestMultiplier; and
+// AcStrategyHeuristics with the external ORACLE_HWY_NS::EstimateEntropy and
 // FindBest8x8Transform. The `eqh-chain` request runs these original
 // functions, with ToXYB, PadImageToBlockMultipleInPlace and GaborishInverse,
 // in LossyFrameHeuristics' kSquirrel order for one serial thread. This
@@ -43,7 +43,7 @@
 #include "lib/jxl/test_image.h"
 
 namespace jxl {
-namespace N_SCALAR {
+namespace ORACLE_HWY_NS {
 // External-linkage HWY_SCALAR definitions in enc_ac_strategy.cc and
 // enc_chroma_from_luma.cc.
 Status EstimateEntropy(const AcStrategy& acs, float entropy_mul, size_t x, size_t y,
@@ -58,7 +58,7 @@ Status FindBest8x8Transform(size_t x, size_t y, int encoding_speed_tier,
                             AcStrategyType& best_tx);
 int32_t FindBestMultiplier(const float* values_m, const float* values_s, size_t num,
                            float base, float distance_mul, bool fast);
-}  // namespace N_SCALAR
+}  // namespace ORACLE_HWY_NS
 }  // namespace jxl
 
 namespace {
@@ -284,7 +284,7 @@ bool EncoderHeuristicsCommand(const std::string& command, std::istringstream& in
     for (size_t i = 0; i < num; ++i) m[i] = EqhFloat(in);
     for (size_t i = 0; i < num; ++i) s[i] = EqhFloat(in);
     std::cout << "M "
-              << jxl::N_SCALAR::FindBestMultiplier(m.data(), s.data(), num, base, distance_mul,
+              << jxl::ORACLE_HWY_NS::FindBestMultiplier(m.data(), s.data(), num, base, distance_mul,
                                                    fast != 0);
     return true;
   }
@@ -387,7 +387,7 @@ bool EncoderHeuristicsCommand(const std::string& command, std::istringstream& in
       const jxl::AcStrategy strategy =
           jxl::AcStrategy::FromRawStrategy(static_cast<jxl::AcStrategyType>(raw));
       float entropy = -1;
-      status = jxl::N_SCALAR::EstimateEntropy(strategy, entropy_mul, x, y, heuristics.config,
+      status = jxl::ORACLE_HWY_NS::EstimateEntropy(strategy, entropy_mul, x, y, heuristics.config,
                                               cmap_factors, block, scratch, quantized, entropy);
       std::cout << " E " << int(status.code()) << ' ' << EqhBits(entropy);
       const size_t size = (1 << strategy.log2_covered_blocks()) * jxl::kDCTBlockSize;
@@ -398,7 +398,7 @@ bool EncoderHeuristicsCommand(const std::string& command, std::istringstream& in
     } else {
       float entropy = -1;
       jxl::AcStrategyType best = jxl::AcStrategyType::DCT128X256;
-      status = jxl::N_SCALAR::FindBest8x8Transform(
+      status = jxl::ORACLE_HWY_NS::FindBest8x8Transform(
           x, y, static_cast<int>(cparams.speed_tier), cparams.butteraugli_distance,
           heuristics.config, cmap_factors, &acs, block, scratch, quantized, &entropy, best);
       std::cout << " T " << int(status.code()) << ' ' << EqhBits(entropy) << ' '

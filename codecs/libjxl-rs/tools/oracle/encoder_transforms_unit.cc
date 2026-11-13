@@ -31,7 +31,7 @@ bool EncoderTransformsUnitCommand(const std::string& command, std::istringstream
     for (size_t i = 0; i < 16; ++i) {
       uint32_t bits; in >> bits; std::memcpy(&pixels[i], &bits, sizeof(bits));
     }
-    jxl::N_SCALAR::AFVDCT4x4(pixels.data(), coeffs.data());
+    jxl::ORACLE_HWY_NS::AFVDCT4x4(pixels.data(), coeffs.data());
     std::cout << "A"; words(pixels); words(coeffs);
     return true;
   }
@@ -44,7 +44,7 @@ bool EncoderTransformsUnitCommand(const std::string& command, std::istringstream
   }
   std::vector<float> coefficients(rows * cols + 4, kCanary);
   std::vector<float> scratch(rows * cols * 4 + 3 * (rows + cols) + 4, kCanary);
-  jxl::N_SCALAR::TransformFromPixels(static_cast<jxl::AcStrategyType>(raw), pixels.data(), stride,
+  jxl::ORACLE_HWY_NS::TransformFromPixels(static_cast<jxl::AcStrategyType>(raw), pixels.data(), stride,
                                      coefficients.data(), scratch.data());
   std::cout << "T"; words(pixels); words(coefficients); words(scratch);
   return true;

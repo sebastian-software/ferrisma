@@ -492,6 +492,7 @@ bool FloatOutputCommand(const std::string& command,std::istringstream& in,JxlMem
 bool UintOutputCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 bool ACGroupSymbolsCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool BlockContextCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
+bool HwyOpsCommand(const std::string& command, std::istringstream& in);
 bool WholeImageCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm);
 
 bool ModularImageCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
@@ -655,6 +656,7 @@ int main() {
       else if (ACGroupSymbolsCommand(command, in, &mm)) {}
       else if (BlockContextCommand(command, in, &mm)) {}
       else if (EntropyCommand(command, in, &mm)) {}
+      else if (HwyOpsCommand(command, in)) {}
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
       else throw std::runtime_error("unknown command");

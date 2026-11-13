@@ -12,6 +12,7 @@
 #include <jxl/color_encoding.h>
 #include <jxl/memory_manager.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -20,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include <hwy/aligned_allocator.h>
 #include <hwy/base.h>
 
 #include "lib/jxl/ac_strategy.h"
@@ -227,16 +229,25 @@ bool EncoderTransformsCommand(const std::string& command, std::istringstream& in
   if (command == "etx-row") {
     size_t xsize; in >> xsize;
     const float intensity = EtxFloat(in);
-    float premul[12];
+    // The original stores each of the 12 constants as one full vector and
+    // loads rows with aligned full-vector Load (enc_xyb.cc). Size and align
+    // for the widest Highway vector so SIMD oracle variants stay in bounds;
+    // the observed words (xsize + 4 per row) are the same for every target.
+    constexpr size_t kLanes = hwy::kMaxVectorSize / sizeof(float);
+    HWY_ALIGN_MAX float premul[12 * kLanes];
     jxl::ComputePremulAbsorb(intensity, premul);
-    std::vector<float> rows[3];
+    const size_t observed = xsize + 4;
+    const size_t padded = (xsize + kLanes - 1) / kLanes * kLanes + 4;
+    hwy::AlignedFreeUniquePtr<float[]> rows[3];
     for (auto& row : rows) {
-      row.assign(xsize + 4, kCanary);
+      row = hwy::AllocateAligned<float>(padded);
+      if (!row) throw std::runtime_error("encoder transform row allocation");
+      std::fill(row.get(), row.get() + padded, kCanary);
       for (size_t x = 0; x < xsize; ++x) row[x] = EtxFloat(in);
     }
-    jxl::LinearRGBRowToXYB(rows[0].data(), rows[1].data(), rows[2].data(), premul, xsize);
+    jxl::LinearRGBRowToXYB(rows[0].get(), rows[1].get(), rows[2].get(), premul, xsize);
     std::cout << "R";
-    for (const auto& row : rows) EtxWords(row.data(), row.size());
+    for (const auto& row : rows) EtxWords(row.get(), observed);
     return true;
   }
   if (command == "etx-xyb") {

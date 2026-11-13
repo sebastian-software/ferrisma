@@ -5,29 +5,29 @@
 #include "lib/jxl/render_pipeline/stage_tone_mapping.cc"
 float TMFloat(std::istringstream& in){uint32_t bits;in>>bits;return SCBits<float>(bits);}
 bool ToneMappingCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm){
-  const hwy::N_SCALAR::ScalableTag<float> d;
-  auto load=[&](){return hwy::N_SCALAR::Set(d,TMFloat(in));};
+  const hwy::ORACLE_HWY_NS::ScalableTag<float> d;
+  auto load=[&](){return hwy::ORACLE_HWY_NS::Set(d,TMFloat(in));};
   if(command=="tm-fast"){
     unsigned which;in>>which;float target=TMFloat(in);auto x=load(),e=load();auto result=x;
-    if(which==0)result=jxl::N_SCALAR::FastPow2f(d,x);
-    else if(which==1)result=jxl::N_SCALAR::FastPowf(d,x,e);
-    else if(which==2)result=jxl::N_SCALAR::TF_PQ(target).DisplayFromEncoded(d,x);
-    else result=jxl::N_SCALAR::TF_PQ(target).EncodedFromDisplay(d,x);
-    std::cout<<SCBits<uint32_t>(hwy::N_SCALAR::GetLane(result));return true;
+    if(which==0)result=jxl::ORACLE_HWY_NS::FastPow2f(d,x);
+    else if(which==1)result=jxl::ORACLE_HWY_NS::FastPowf(d,x,e);
+    else if(which==2)result=jxl::ORACLE_HWY_NS::TF_PQ(target).DisplayFromEncoded(d,x);
+    else result=jxl::ORACLE_HWY_NS::TF_PQ(target).EncodedFromDisplay(d,x);
+    std::cout<<SCBits<uint32_t>(hwy::ORACLE_HWY_NS::GetLane(result));return true;
   }
   if(command=="tm-color"){
     unsigned which;in>>which;jxl::Range source{TMFloat(in),TMFloat(in)},target{TMFloat(in),TMFloat(in)};jxl::Vector3 lum{TMFloat(in),TMFloat(in),TMFloat(in)};auto r=load(),g=load(),b=load();float preserve=TMFloat(in);bool gamut=false;
-    if(which==0)jxl::N_SCALAR::Rec2408ToneMapper<decltype(d)>(source,target,lum).ToneMap(&r,&g,&b);
-    else if(which==4)jxl::N_SCALAR::GamutMap(&r,&g,&b,lum,preserve);
-    else{auto ootf=which==1?jxl::N_SCALAR::HlgOOTF(source[1],target[1],lum):which==2?jxl::N_SCALAR::HlgOOTF::FromSceneLight(target[1],lum):jxl::N_SCALAR::HlgOOTF::ToSceneLight(target[1],lum);gamut=ootf.WarrantsGamutMapping();ootf.Apply(&r,&g,&b);}
-    std::cout<<gamut;for(auto v:{r,g,b})std::cout<<' '<<SCBits<uint32_t>(hwy::N_SCALAR::GetLane(v));return true;
+    if(which==0)jxl::ORACLE_HWY_NS::Rec2408ToneMapper<decltype(d)>(source,target,lum).ToneMap(&r,&g,&b);
+    else if(which==4)jxl::ORACLE_HWY_NS::GamutMap(&r,&g,&b,lum,preserve);
+    else{auto ootf=which==1?jxl::ORACLE_HWY_NS::HlgOOTF(source[1],target[1],lum):which==2?jxl::ORACLE_HWY_NS::HlgOOTF::FromSceneLight(target[1],lum):jxl::ORACLE_HWY_NS::HlgOOTF::ToSceneLight(target[1],lum);gamut=ootf.WarrantsGamutMapping();ootf.Apply(&r,&g,&b);}
+    std::cout<<gamut;for(auto v:{r,g,b})std::cout<<' '<<SCBits<uint32_t>(hwy::ORACLE_HWY_NS::GetLane(v));return true;
   }
   if(command!="tm-stage"&&command!="tm-simple")return false;
   unsigned orig,dest,mode;size_t w,h,left,right;in>>orig>>dest;jxl::OutputEncodingInfo info{};info.orig_intensity_target=TMFloat(in);info.desired_intensity_target=TMFloat(in);for(float& v:info.luminances)v=TMFloat(in);in>>w>>h>>left>>right>>mode;
   info.orig_color_encoding.Tf().SetTransferFunction(static_cast<jxl::TransferFunction>(orig));info.color_encoding.Tf().SetTransferFunction(static_cast<jxl::TransferFunction>(dest));
   auto factory=jxl::GetToneMappingStage(info);std::cout<<" H "<<bool(factory);
   if(command=="tm-stage"){
-    jxl::N_SCALAR::ToneMappingStage stage(info);auto settings=stage.settings_;std::cout<<' '<<stage.IsNeeded()<<' '<<stage.GetName()<<' '<<settings.shift_x<<' '<<settings.shift_y<<' '<<settings.border_x<<' '<<settings.border_y;for(size_t c=0;c<5;++c)std::cout<<' '<<int(stage.GetChannelMode(c));
+    jxl::ORACLE_HWY_NS::ToneMappingStage stage(info);auto settings=stage.settings_;std::cout<<' '<<stage.IsNeeded()<<' '<<stage.GetName()<<' '<<settings.shift_x<<' '<<settings.shift_y<<' '<<settings.border_x<<' '<<settings.border_y;for(size_t c=0;c<5;++c)std::cout<<' '<<int(stage.GetChannelMode(c));
     std::vector<jxl::ImageF> planes;jxl::RenderPipelineStage::RowInfo rows(4),unused;for(size_t c=0;c<4;++c){auto made=jxl::ImageF::Create(mm,64,1);if(!made.ok())throw std::runtime_error("tone row");planes.push_back(std::move(made).value_());for(size_t x=0;x<64;++x)planes.back().Row(0)[x]=RPValue(c,x,0,0,mode);rows[c].push_back(planes.back().Row(0));}
     auto status=stage.ProcessRow(rows,unused,left,right,w,19,23,0);std::cout<<" R "<<int(status.code());for(const auto& p:planes)for(size_t x=0;x<64;++x)std::cout<<' '<<SCBits<uint32_t>(p.Row(0)[x]);return true;
   }

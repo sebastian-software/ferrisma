@@ -65,11 +65,11 @@ bool SampleConversionCommand(const std::string& command, std::istringstream& in)
     auto b = SCRead<float>(in, n);
     const float factor = SCBits<float>(float_factor);
     if (mode == 0) {
-      jxl::N_SCALAR::MultiplySum(xsize, input.data(), y.data(), factor, r.data());
+      jxl::ORACLE_HWY_NS::MultiplySum(xsize, input.data(), y.data(), factor, r.data());
     } else if (mode == 1) {
-      jxl::N_SCALAR::RgbFromSingle(xsize, input.data(), factor, r.data(), g.data(), b.data());
+      jxl::ORACLE_HWY_NS::RgbFromSingle(xsize, input.data(), factor, r.data(), g.data(), b.data());
     } else if (mode == 2) {
-      jxl::N_SCALAR::SingleFromSingle(xsize, input.data(), factor, r.data());
+      jxl::ORACLE_HWY_NS::SingleFromSingle(xsize, input.data(), factor, r.data());
     } else if (mode == 3) {
       jxl::SingleFromSingleAccurate(xsize, input.data(), SCBits<double>(double_factor), r.data());
     } else {

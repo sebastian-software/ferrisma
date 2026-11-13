@@ -4,7 +4,7 @@
 #include "lib/jxl/dec_external_image.cc"
 bool UintOutputCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm){
   if(command=="ue-kernel"){
-    size_t bits,n;in>>bits>>n;auto values=SCRead<float>(in,n);values.resize(n+8,-11.0f);std::vector<uint32_t> output(n+5,0xdeadbeef);jxl::N_SCALAR::FloatToU32(values.data(),output.data(),n,float((uint64_t{1}<<bits)-1),bits);for(auto v:output)std::cout<<v<<' ';return true;
+    size_t bits,n;in>>bits>>n;auto values=SCRead<float>(in,n);values.resize(n+8,-11.0f);std::vector<uint32_t> output(n+5,0xdeadbeef);jxl::ORACLE_HWY_NS::FloatToU32(values.data(),output.data(),n,float((uint64_t{1}<<bits)-1),bits);for(auto v:output)std::cout<<v<<' ';return true;
   }
   if(command!="ue-channels"&&command!="ue-bundle")return false;
   size_t w,h,n,bits,stride,out_size;unsigned missing,orientation,endian,mode;bool gray=false,alpha=false,associated=false,unpremul=false;

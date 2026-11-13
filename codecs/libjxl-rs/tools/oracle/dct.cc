@@ -21,8 +21,8 @@ void Words(const std::vector<float>& values, bool first = false) {
 }
 template <size_t R, size_t C>
 void Scaled(bool inverse, float* in, size_t stride, float* out, float* scratch) {
-  if (inverse) jxl::N_SCALAR::ComputeScaledIDCT<R,C>()(in, jxl::N_SCALAR::DCTTo(out, stride), scratch);
-  else jxl::N_SCALAR::ComputeScaledDCT<R,C>()(jxl::N_SCALAR::DCTFrom(in, stride), out, scratch);
+  if (inverse) jxl::ORACLE_HWY_NS::ComputeScaledIDCT<R,C>()(in, jxl::ORACLE_HWY_NS::DCTTo(out, stride), scratch);
+  else jxl::ORACLE_HWY_NS::ComputeScaledDCT<R,C>()(jxl::ORACLE_HWY_NS::DCTFrom(in, stride), out, scratch);
 }
 template <size_t R>
 void Columns(size_t cols, bool inverse, float* in, size_t stride, float* out, float* scratch) {
@@ -87,7 +87,7 @@ bool DctCommand(const std::string& command, std::istringstream& in) {
   if(command == "dct-llf") output.resize(rows * cols * 64 + 4, -123.25f);
   std::vector<float> scratch(rows * cols * 4 + 3 * (rows + cols) + 4, -123.25f);
   if(command == "dct-scaled") Rows(rows, cols, inverse, input.data(), stride, output.data(), scratch.data());
-  else if(command == "dct-pixels") jxl::N_SCALAR::TransformToPixels(static_cast<jxl::AcStrategyType>(option), input.data(), output.data(), stride, scratch.data());
-  else jxl::N_SCALAR::LowestFrequenciesFromDC(static_cast<jxl::AcStrategyType>(option), input.data(), stride, output.data(), scratch.data());
+  else if(command == "dct-pixels") jxl::ORACLE_HWY_NS::TransformToPixels(static_cast<jxl::AcStrategyType>(option), input.data(), output.data(), stride, scratch.data());
+  else jxl::ORACLE_HWY_NS::LowestFrequenciesFromDC(static_cast<jxl::AcStrategyType>(option), input.data(), stride, output.data(), scratch.data());
   Words(input, true); Words(output); Words(scratch); return true;
 }

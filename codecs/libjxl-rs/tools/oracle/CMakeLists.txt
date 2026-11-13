@@ -25,7 +25,47 @@ if(NOT EXISTS "${UPSTREAM}/third_party/skcms/skcms.h")
 endif()
 
 option(ORACLE_SANITIZERS "Instrument the complete C++ reference with ASan and UBSan" OFF)
-add_compile_definitions(HWY_COMPILE_ONLY_SCALAR=1)
+# Highway target of the original (port ADR 0004). SCALAR is the scalar
+# reference and stays the default. NEON (AArch64) and AVX2 (x86-64) build the
+# same pristine sources restricted to exactly that one SIMD target; they are
+# compared only with the port's SIMD path at the same target, never with the
+# scalar reference. The adapters name the selected target's namespace through
+# ORACLE_HWY_NS; HWY_DYNAMIC_DISPATCH in the original selects the same one.
+set(ORACLE_HWY_TARGET "SCALAR" CACHE STRING "Highway target of the original: SCALAR, NEON or AVX2")
+set_property(CACHE ORACLE_HWY_TARGET PROPERTY STRINGS SCALAR NEON AVX2)
+if(ORACLE_HWY_TARGET STREQUAL "SCALAR")
+  set(ORACLE_HWY_DEFINITIONS HWY_COMPILE_ONLY_SCALAR=1 ORACLE_HWY_NS=N_SCALAR)
+  add_compile_definitions(HWY_COMPILE_ONLY_SCALAR=1)
+elseif(ORACLE_HWY_TARGET STREQUAL "NEON" OR ORACLE_HWY_TARGET STREQUAL "AVX2")
+  # Highway's own target knobs come from the forced include hwy_target.h
+  # (via CMAKE_CXX_FLAGS, so upstream's CMake sees HWY_DISABLED_TARGETS as
+  # forced and adds no default list). NEON: the AArch64 baseline already is
+  # HWY_NEON; excluding the higher Arm targets leaves HWY_TARGETS = HWY_NEON,
+  # identical to upstream's dispatch build on such a CPU. AVX2: every TU is
+  # compiled with exactly Highway's HWY_AVX2 attribute string
+  # (hwy/ops/set_macros-inl.h) and HWY_COMPILE_ONLY_STATIC, so HWY_AVX2 is the
+  # only target. Upstream's dispatch build instead keeps baseline code at the
+  # default x86-64 flags; the adapters that call target namespaces directly
+  # do not compile in a multi-target build yet (port ADR 0004). hwy_ops.cc
+  # asserts the target set and refuses to run where dispatch would select
+  # another target (Rosetta 2 needs ROSETTA_ADVERTISE_AVX=1).
+  string(APPEND CMAKE_CXX_FLAGS
+    " -DORACLE_HWY_TARGET_${ORACLE_HWY_TARGET}=1 -include ${CMAKE_CURRENT_SOURCE_DIR}/hwy_target.h")
+  if(ORACLE_HWY_TARGET STREQUAL "AVX2")
+    string(APPEND CMAKE_CXX_FLAGS
+      " -msse2 -mssse3 -msse4.1 -msse4.2 -mpclmul -maes -mavx -mavx2 -mbmi -mbmi2 -mfma -mf16c")
+  endif()
+  if(ORACLE_HWY_TARGET STREQUAL "NEON")
+    set(ORACLE_HWY_DEFINITIONS ORACLE_HWY_NS=N_NEON ORACLE_HWY_REQUIRED=HWY_NEON)
+  else()
+    set(ORACLE_HWY_DEFINITIONS ORACLE_HWY_NS=N_AVX2 ORACLE_HWY_REQUIRED=HWY_AVX2)
+  endif()
+else()
+  message(FATAL_ERROR "ORACLE_HWY_TARGET must be SCALAR, NEON or AVX2")
+endif()
+if(NOT ORACLE_HWY_TARGET STREQUAL "SCALAR" AND ORACLE_SANITIZERS)
+  message(FATAL_ERROR "The SIMD oracle variants are built without sanitizers")
+endif()
 if(ORACLE_SANITIZERS)
   add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
   add_link_options(-fsanitize=address,undefined)
@@ -177,8 +217,12 @@ endif()
 target_compile_features(jxl_oracle PRIVATE cxx_std_17)
 target_include_directories(jxl_oracle PRIVATE "${UPSTREAM}" "${UPSTREAM}/lib/include"
   "${UPSTREAM}/third_party/brotli/c/include" "${CMAKE_CURRENT_BINARY_DIR}/generated")
-target_compile_definitions(jxl_oracle PRIVATE HWY_COMPILE_ONLY_SCALAR=1 JXL_STATIC_DEFINE JXL_CMS_STATIC_DEFINE
+target_compile_definitions(jxl_oracle PRIVATE ${ORACLE_HWY_DEFINITIONS} JXL_STATIC_DEFINE JXL_CMS_STATIC_DEFINE
   JXL_THREADS_STATIC_DEFINE)
+# Generic Highway operation observer (hwy-op/hwy-target requests); it
+# compiles per target through foreach_target like the original's own TUs.
+target_sources(jxl_oracle PRIVATE hwy_ops.cc)
+target_include_directories(jxl_oracle PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 # The original thread runners: decode_test.cc histories also run with them.
 target_link_libraries(jxl_oracle PRIVATE jxl-internal jxl_threads)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT WIN32)
@@ -209,7 +253,10 @@ add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/skcms_parser_private"
   VERBATIM)
 add_custom_target(skcms_parser_private_observer
   DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/skcms_parser_private")
-add_dependencies(jxl_oracle skcms_parser_private_observer)
+# The private skcms observer and the C ABI drivers serve scalar requests only.
+if(ORACLE_HWY_TARGET STREQUAL "SCALAR")
+  add_dependencies(jxl_oracle skcms_parser_private_observer)
+endif()
 
 # The decoder C ABI drivers. One driver, written against the pinned public
 # headers only, links either the original archive (jxl_abi_original) or the
@@ -254,4 +301,29 @@ if(NOT APPLE)
   find_package(Threads REQUIRED)
   target_link_libraries(jxl_abi_rust PRIVATE Threads::Threads ${CMAKE_DL_LIBS} m)
 endif()
-add_dependencies(jxl_oracle jxl_abi_original jxl_abi_rust)
+if(ORACLE_HWY_TARGET STREQUAL "SCALAR")
+  add_dependencies(jxl_oracle jxl_abi_original jxl_abi_rust)
+endif()
+
+# SIMD variants: build like upstream's release library. The per-TU pins above
+# (-O0, -fno-unroll-loops, -fno-inline-functions, -ffp-model=strict) only keep
+# the scalar reference's competing-NaN operand order stable between ordinary
+# and sanitized builds (port ADR 0002); vector intrinsics do not depend on
+# them, and the SIMD variants have no sanitized twin. Remove them here, keeping
+# -fno-rtti and -fno-access-control, which only let adapters compile.
+if(NOT ORACLE_HWY_TARGET STREQUAL "SCALAR")
+  set(oracle_scalar_pins -O0 -fno-unroll-loops -fno-inline-functions -ffp-model=strict)
+  get_target_property(oracle_sources jxl_oracle SOURCES)
+  foreach(source IN LISTS oracle_sources)
+    get_source_file_property(options "${source}" COMPILE_OPTIONS)
+    if(options)
+      list(REMOVE_ITEM options ${oracle_scalar_pins})
+      set_source_files_properties("${source}" PROPERTIES COMPILE_OPTIONS "${options}")
+    endif()
+  endforeach()
+  get_property(options SOURCE "${UPSTREAM}/lib/jxl/quantizer.cc" DIRECTORY "${UPSTREAM}/lib"
+    PROPERTY COMPILE_OPTIONS)
+  list(REMOVE_ITEM options ${oracle_scalar_pins})
+  set_property(SOURCE "${UPSTREAM}/lib/jxl/quantizer.cc" DIRECTORY "${UPSTREAM}/lib"
+    PROPERTY COMPILE_OPTIONS "${options}")
+endif()

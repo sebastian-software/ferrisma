@@ -21,11 +21,11 @@ jxl::OpsinParams XYBParams(std::istringstream& in) {
 // Keep the original inline helper's arithmetic independent of the much larger
 // protocol parser, just as the native scalar boundary is kept out of line.
 HWY_NOINLINE std::array<float, 3> XYBConvert(float x, float y, float b, const jxl::OpsinParams& params) {
-  const hwy::N_SCALAR::ScalableTag<float> d;
-  auto r = hwy::N_SCALAR::Undefined(d), g = r, out_b = r;
-  jxl::N_SCALAR::XybToRgb(d, hwy::N_SCALAR::Set(d, x), hwy::N_SCALAR::Set(d, y),
-                         hwy::N_SCALAR::Set(d, b), params, &r, &g, &out_b);
-  return {hwy::N_SCALAR::GetLane(r), hwy::N_SCALAR::GetLane(g), hwy::N_SCALAR::GetLane(out_b)};
+  const hwy::ORACLE_HWY_NS::ScalableTag<float> d;
+  auto r = hwy::ORACLE_HWY_NS::Undefined(d), g = r, out_b = r;
+  jxl::ORACLE_HWY_NS::XybToRgb(d, hwy::ORACLE_HWY_NS::Set(d, x), hwy::ORACLE_HWY_NS::Set(d, y),
+                         hwy::ORACLE_HWY_NS::Set(d, b), params, &r, &g, &out_b);
+  return {hwy::ORACLE_HWY_NS::GetLane(r), hwy::ORACLE_HWY_NS::GetLane(g), hwy::ORACLE_HWY_NS::GetLane(out_b)};
 }
 bool XybStageCommand(const std::string& command, std::istringstream& in, JxlMemoryManager* mm) {
   if (command != "xyb-helper" && command != "xyb-stage" && command != "xyb-simple") return false;

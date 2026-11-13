@@ -7,7 +7,7 @@
 #endif
 bool FloatOutputCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm){
   if(command=="fe-kernel"){
-    size_t n;in>>n;auto values=SCRead<float>(in,n);values.resize(n+8,-11.0f);std::vector<hwy::float16_t> output(n+5,hwy::float16_t::FromBits(0xdead));jxl::N_SCALAR::FloatToF16(values.data(),output.data(),n);for(auto v:output)std::cout<<hwy::BitCastScalar<uint16_t>(v)<<' ';return true;
+    size_t n;in>>n;auto values=SCRead<float>(in,n);values.resize(n+8,-11.0f);std::vector<hwy::float16_t> output(n+5,hwy::float16_t::FromBits(0xdead));jxl::ORACLE_HWY_NS::FloatToF16(values.data(),output.data(),n);for(auto v:output)std::cout<<hwy::BitCastScalar<uint16_t>(v)<<' ';return true;
   }
   if(command=="fe-row"){
     size_t n,bits,w,stride,size;unsigned endian;in>>n>>bits>>endian>>w>>stride>>size;

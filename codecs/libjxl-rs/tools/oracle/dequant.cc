@@ -14,10 +14,10 @@
 #include "lib/jxl/quantizer-inl.h"
 #include "lib/jxl/quantizer.h"
 
-namespace jxl { namespace N_SCALAR { namespace OracleDequant {
+namespace jxl { namespace ORACLE_HWY_NS { namespace OracleDequant {
 using D = HWY_FULL(float);
 using DI = HWY_FULL(int32_t);
-using DI16 = hwy::N_SCALAR::Rebind<int16_t, DI>;
+using DI16 = hwy::ORACLE_HWY_NS::Rebind<int16_t, DI>;
 constexpr D d;
 constexpr DI di;
 constexpr DI16 di16;
@@ -36,7 +36,7 @@ bool DequantCommand(const std::string& command, std::istringstream& in, JxlMemor
   if (command == "dq-bias") {
     size_t c, n; in >> c >> n; float biases[4]; for(float& b : biases) b=DQFloat(in);
     std::cout << "B";
-    for(size_t i=0;i<n;++i) { int32_t v; in >> v; auto result=jxl::N_SCALAR::AdjustQuantBias(jxl::N_SCALAR::OracleDequant::di,c,hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::di,v),biases); uint32_t bits; float f=hwy::N_SCALAR::GetLane(result); std::memcpy(&bits,&f,4); std::cout << ' ' << bits; }
+    for(size_t i=0;i<n;++i) { int32_t v; in >> v; auto result=jxl::ORACLE_HWY_NS::AdjustQuantBias(jxl::ORACLE_HWY_NS::OracleDequant::di,c,hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::di,v),biases); uint32_t bits; float f=hwy::ORACLE_HWY_NS::GetLane(result); std::memcpy(&bits,&f,4); std::cout << ' ' << bits; }
     return true;
   }
   if(command!="dq-lane" && command!="dq-block")return false;
@@ -50,14 +50,14 @@ bool DequantCommand(const std::string& command, std::istringstream& in, JxlMemor
   jxl::ACPtr ptr[3];for(size_t c=0;c<3;++c){for(size_t k=0;k<size;++k){int32_t v;in>>v;q32[c*size+k]=v;q16[c*size+k]=static_cast<int16_t>(v);}if(type==0)ptr[c].ptr16=q16.data()+c*size;else ptr[c].ptr32=q32.data()+c*size;}
   std::vector<float> block(size*3+4,-123.25f),scratch(size*4+260,-123.25f);
   if(command=="dq-lane") {
-    float scale=inv/quant;auto sx=hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,scale*xdm),sy=hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,scale),sb=hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,scale*bdm);
-    for(size_t k=0;k<size;++k){if(type==0)jxl::N_SCALAR::OracleDequant::DequantLane<jxl::ACType::k16>(sx,sy,sb,matrix.data(),size,k,hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,xcc),hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,bcc),biases,ptr,block.data());else jxl::N_SCALAR::OracleDequant::DequantLane<jxl::ACType::k32>(sx,sy,sb,matrix.data(),size,k,hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,xcc),hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,bcc),biases,ptr,block.data());}
+    float scale=inv/quant;auto sx=hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,scale*xdm),sy=hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,scale),sb=hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,scale*bdm);
+    for(size_t k=0;k<size;++k){if(type==0)jxl::ORACLE_HWY_NS::OracleDequant::DequantLane<jxl::ACType::k16>(sx,sy,sb,matrix.data(),size,k,hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,xcc),hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,bcc),biases,ptr,block.data());else jxl::ORACLE_HWY_NS::OracleDequant::DequantLane<jxl::ACType::k32>(sx,sy,sb,matrix.data(),size,k,hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,xcc),hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,bcc),biases,ptr,block.data());}
   } else {
     size_t dc_stride;in>>dc_stride;size_t sbx[3];for(auto& x:sbx)in>>x;
     std::vector<float> dc[3];const float* rows[3];for(size_t c=0;c<3;++c){dc[c].resize(acs.covered_blocks_y()*dc_stride+4);for(auto& v:dc[c])v=DQFloat(in);rows[c]=dc[c].data();}
     jxl::DequantMatrices matrices;if(!matrices.EnsureComputed(mm,1u<<raw))throw std::runtime_error("dequant matrices");jxl::Quantizer q(matrices);
-    if(type==0)jxl::N_SCALAR::OracleDequant::DequantBlock<jxl::ACType::k16>(inv,quant,xdm,bdm,hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,xcc),hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,bcc),acs.Strategy(),size,q,acs.covered_blocks_x()*acs.covered_blocks_y(),sbx,rows,dc_stride,biases,ptr,block.data(),scratch.data());
-    else jxl::N_SCALAR::OracleDequant::DequantBlock<jxl::ACType::k32>(inv,quant,xdm,bdm,hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,xcc),hwy::N_SCALAR::Set(jxl::N_SCALAR::OracleDequant::d,bcc),acs.Strategy(),size,q,acs.covered_blocks_x()*acs.covered_blocks_y(),sbx,rows,dc_stride,biases,ptr,block.data(),scratch.data());
+    if(type==0)jxl::ORACLE_HWY_NS::OracleDequant::DequantBlock<jxl::ACType::k16>(inv,quant,xdm,bdm,hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,xcc),hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,bcc),acs.Strategy(),size,q,acs.covered_blocks_x()*acs.covered_blocks_y(),sbx,rows,dc_stride,biases,ptr,block.data(),scratch.data());
+    else jxl::ORACLE_HWY_NS::OracleDequant::DequantBlock<jxl::ACType::k32>(inv,quant,xdm,bdm,hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,xcc),hwy::ORACLE_HWY_NS::Set(jxl::ORACLE_HWY_NS::OracleDequant::d,bcc),acs.Strategy(),size,q,acs.covered_blocks_x()*acs.covered_blocks_y(),sbx,rows,dc_stride,biases,ptr,block.data(),scratch.data());
   }
   std::cout << "O";DQWords(block);DQWords(scratch);return true;
 }

@@ -31,15 +31,15 @@
 #include "lib/jxl/render_pipeline/stage_write.h"
 // Keep every original implementation body unchanged while the surrounding
 // test-only namespace prevents this observer from replacing archive symbols.
-namespace jxl { namespace N_SCALAR { namespace OracleGroup {
+namespace jxl { namespace ORACLE_HWY_NS { namespace OracleGroup {
 #include "original_group_get_block.inc"
-using hwy::N_SCALAR::AllFalse;
-using hwy::N_SCALAR::Gt;
-using hwy::N_SCALAR::Le;
-using hwy::N_SCALAR::MaskFromVec;
-using hwy::N_SCALAR::Or;
-using hwy::N_SCALAR::Rebind;
-using hwy::N_SCALAR::ShiftRight;
+using hwy::ORACLE_HWY_NS::AllFalse;
+using hwy::ORACLE_HWY_NS::Gt;
+using hwy::ORACLE_HWY_NS::Le;
+using hwy::ORACLE_HWY_NS::MaskFromVec;
+using hwy::ORACLE_HWY_NS::Or;
+using hwy::ORACLE_HWY_NS::Rebind;
+using hwy::ORACLE_HWY_NS::ShiftRight;
 using D = HWY_FULL(float);
 using DI = HWY_FULL(int32_t);
 using DI16 = Rebind<int16_t, DI>;
@@ -53,7 +53,7 @@ constexpr DI16_FULL di16_full;
 #include "original_decode_group_impl.inc"
 }}}
 namespace {
-struct GRGetBlock : jxl::N_SCALAR::OracleGroup::GetBlock {
+struct GRGetBlock : jxl::ORACLE_HWY_NS::OracleGroup::GetBlock {
  size_t calls=0;std::vector<size_t> rows;int fail=-1;bool jpeg=false;int seed=0;
  void StartRow(size_t by) override {rows.push_back(by);}
  jxl::Status LoadBlock(size_t bx,size_t by,const jxl::AcStrategy& acs,size_t size,size_t log,jxl::ACPtr block[3],jxl::ACType type) override {
@@ -97,7 +97,7 @@ bool GroupRenderCommand(const std::string& command,std::istringstream& in,JxlMem
  else{if(type==0)state.coefficients=std::make_unique<jxl::ACImageT<int16_t>>();else state.coefficients=std::make_unique<jxl::ACImageT<int32_t>>();}
  jxl::GroupDecCache cache;if(!cache.InitOnce(mm,1,1u<<raw))throw std::runtime_error("group cache");size_t area=cx*cy*64;std::fill(cache.dec_group_block,cache.dec_group_block+area*7,-123.25f);std::fill(cache.dec_group_qblock,cache.dec_group_qblock+area*3,1234);std::fill(cache.dec_group_qblock16,cache.dec_group_qblock16+area*3,1234);
  jxl::Image3F output;jxl::RenderPipeline::Builder builder(mm,3);builder.UseSimpleImplementation();if(!builder.AddStage(jxl::GetWriteToImage3FStage(mm,&output)))throw std::runtime_error("group write stage");auto made=std::move(builder).Finalize(shared.frame_dim);if(!made.ok())throw std::runtime_error("group pipeline");auto pipeline=std::move(made).value_();if(!pipeline->PrepareForThreads(1,false))throw std::runtime_error("group pipeline prepare");auto input=pipeline->GetInputBuffers(group_idx,0);for(size_t c=0;c<3;++c){auto buffer=input.GetBuffer(c);for(size_t y=0;y<buffer.first->ysize();++y)std::fill(buffer.first->Row(y),buffer.first->Row(y)+buffer.first->xsize(),-123.25f);}
- GRGetBlock get;get.fail=fail;get.jpeg=jpeg_output;get.seed=seed;auto draw=(mode&2)?jxl::N_SCALAR::OracleGroup::kDontDraw:jxl::N_SCALAR::OracleGroup::kDraw;auto status=jxl::N_SCALAR::OracleGroup::DecodeGroupImpl(header,&get,&cache,&state,0,group_idx,input,jpeg_output?&jpeg:nullptr,draw);std::cout<<int(status.code())<<' '<<get.calls<<" R";for(auto y:get.rows)std::cout<<' '<<y;
+ GRGetBlock get;get.fail=fail;get.jpeg=jpeg_output;get.seed=seed;auto draw=(mode&2)?jxl::ORACLE_HWY_NS::OracleGroup::kDontDraw:jxl::ORACLE_HWY_NS::OracleGroup::kDraw;auto status=jxl::ORACLE_HWY_NS::OracleGroup::DecodeGroupImpl(header,&get,&cache,&state,0,group_idx,input,jpeg_output?&jpeg:nullptr,draw);std::cout<<int(status.code())<<' '<<get.calls<<" R";for(auto y:get.rows)std::cout<<' '<<y;
  std::cout<<" C";if(accumulate)for(size_t c=0;c<3;++c){auto ptr=state.coefficients->PlaneRow(c,group_idx,0);for(size_t k=0;k<count;++k)std::cout<<' '<<(type==0?ptr.ptr16[k]:ptr.ptr32[k]);}
  std::cout<<" P";for(size_t c=0;c<3;++c){auto buffer=input.GetBuffer(c);auto r=buffer.second;for(size_t y=0;y<r.ysize();++y)for(size_t x=0;x<r.xsize();++x){float value=r.ConstRow(*buffer.first,y)[x];uint32_t bits;std::memcpy(&bits,&value,4);std::cout<<' '<<bits;}}
  if(jpeg_output){std::cout<<" J";for(const auto& component:jpeg.components){std::cout<<' '<<component.coeffs.size();for(auto v:component.coeffs)std::cout<<' '<<v;}std::cout<<" B";for(size_t i=0;i<area*3;++i)std::cout<<' '<<cache.dec_group_qblock[i];}
