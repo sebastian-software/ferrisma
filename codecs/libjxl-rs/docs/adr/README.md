@@ -13,3 +13,4 @@ status belongs in [PORT_STATUS.md](../PORT_STATUS.md), not in an ADR.
 - [0001: Preserve pinned upstream behavior before redesign](0001-mechanical-port.md)
 - [0002: Compare against the original C++ implementation](0002-differential-oracle.md)
 - [0003: Map ownership and storage explicitly](0003-rust-representation.md)
+- [0004: Port the original's Highway SIMD paths per target](0004-simd-paths.md)

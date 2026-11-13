@@ -79,6 +79,16 @@ the later extensions), with alpha and other extra channels and with the
 patches option off (see "Lossy VarDCT with extra channels and patches off"
 below); other frame encodes remain admission results.
 
+## SIMD foundation: NEON/AVX2 layer and first stages (2026-11-13)
+
+[ADR 0004](adr/0004-simd-paths.md). `src/jxl/hwy` translates 63 Highway
+operations for `HWY_NEON` and `HWY_AVX2`; the SIMD Gaborish, EPF (passes
+0–2), YCbCr and chroma upsampling stages are written against it. They match
+the NEON and AVX2 oracle variants at row level on both targets
+(`tests/simd_parity.rs`) and are **not** selected by the decoder. The other
+Highway exports, decoder wiring and the whole-decode SIMD comparison remain
+open (issues #96, #231).
+
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 
 Encoder step 4 (issue #115) and a patches setting under which every image

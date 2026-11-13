@@ -129,6 +129,20 @@ def build_oracle(sanitizers):
     return env
 
 
+def build_simd_oracle():
+    # The NEON (AArch64) or AVX2 (x86-64) variant of the original for the
+    # SIMD paths (ADR 0004); tests/simd_parity.rs reads JXL_CPP_ORACLE_SIMD.
+    # x86-64 under Rosetta 2 needs ROSETTA_ADVERTISE_AVX=1 to report AVX2.
+    import platform
+    target = {"arm64": "NEON", "aarch64": "NEON", "x86_64": "AVX2", "AMD64": "AVX2"}.get(platform.machine())
+    if target is None:
+        raise SystemExit(f"No SIMD oracle target for {platform.machine()}")
+    build = ROOT / "target" / f"oracle-{target.lower()}"
+    run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release", f"-DORACLE_HWY_TARGET={target}")
+    run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
+    return {"JXL_CPP_ORACLE_SIMD": str(build / "jxl_oracle"), "ROSETTA_ADVERTISE_AVX": "1"}
+
+
 def check_tests(env, partition, filter):
     test = ["cargo", "test", "--locked", "--offline", "--profile", "checked", "--all-features"]
     if filter is not None:
@@ -177,6 +191,8 @@ def main():
         check_static(args.msrv)
     if args.stage in ("all", "oracle", "test"):
         env = build_oracle(args.sanitizers)
+        # The SIMD variant has no sanitized twin (ADR 0004).
+        env.update(build_simd_oracle())
     if args.stage in ("all", "test"):
         check_tests(env, args.partition, args.filter)
     run("git", "diff", "--check")
