@@ -655,4 +655,13 @@ original's exported `ORACLE_HWY_NS` functions).
   results agree by construction (one exact-or-rounded conversion and one
   product per sample); the scalar path fails 1,836 requests in the
   whole-vector tail the original writes, which is what discriminates.
+- **rct** (`modular/transform/rct_simd.rs`): `InvRCTRow` for all seven
+  transform kinds, the vector loop while `x + N - 1 < w` and the source's
+  scalar `PixelAdd` tail; `InvRCT` takes it on `hwy::decoder_target()`
+  (permute-only types keep the shared channel moves). NEON: `mx-rct`, all
+  42 RCT types at widths 1-67 with small and extreme samples, 840 requests
+  / 75,516 words (status, channel order, every sample). The original's
+  vector and scalar forms compute the same wrapping 32-bit sums, so the
+  output cannot tell the SIMD path from the scalar one; the requests cover
+  widths that run both the vector loop and the tail on each target.
 <!-- end modular -->

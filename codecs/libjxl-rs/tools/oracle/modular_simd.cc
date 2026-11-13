@@ -14,11 +14,19 @@
 //                                      RgbFromSingle(xsize, in, factor, r, g, b)
 //   mx-single <xsize> <m> <factor> <m words>
 //                                      SingleFromSingle(xsize, in, factor, out)
+//   mx-rct, mx-squeeze: InvRCT and InvSqueeze through the original's
+//   HWY_DYNAMIC_DISPATCH on whole modular images (see the handler).
 // `m` input words fill the input buffer (m >= RoundUpTo(num, 8), so whole
 // vectors read defined words on every target); the output buffer holds m
 // sentinel words (0xdeadbeef, 0xdead), and all m output words are printed.
 #include <hwy/base.h>
 #include <jxl/memory_manager.h>
+
+#include "lib/jxl/modular/modular_image.h"
+#include "lib/jxl/modular/transform/rct.h"
+#include "lib/jxl/modular/transform/squeeze.h"
+#include "lib/jxl/modular/transform/squeeze_params.h"
+#include "lib/jxl/modular/transform/transform.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -72,7 +80,7 @@ void MXWords(std::istringstream& in, uint32_t* words, size_t m) {
 }  // namespace
 
 bool ModularSimdCommand(const std::string& command, std::istringstream& in,
-                        JxlMemoryManager*) {
+                        JxlMemoryManager* mm) {
   if (command == "mx-u32") {
     size_t bits = MXCount(in, 31);
     size_t num = MXCount(in, 4096);
@@ -134,6 +142,65 @@ bool ModularSimdCommand(const std::string& command, std::istringstream& in,
     }
     for (size_t i = 0; i < outputs; ++i)
       for (size_t x = 0; x < m; ++x) std::cout << (i || x ? " " : "") << rows_out[i].data()[x];
+    return true;
+  }
+  if (command == "mx-rct" || command == "mx-squeeze") {
+    // mx-rct <rct_type> <w> <h> <n> <n words>: three w x h channels filled
+    // with words[(c * 7 + y * 13 + x) % n], then InvRCT(image, 0, rct_type).
+    // mx-squeeze <mode> <w> <h> <n> <n words>: one w x h channel, squeeze
+    // parameters by mode (0: default list, 1: one horizontal step, 2: one
+    // vertical step, 3: horizontal then vertical), MetaSqueeze, every
+    // channel filled as above, then InvSqueeze. Both print the status and
+    // every channel's w, h and samples.
+    const bool rct = command == "mx-rct";
+    size_t kind = MXCount(in, 41);
+    size_t w = MXCount(in, 4096);
+    size_t h = MXCount(in, 4096);
+    size_t n = MXCount(in, 4096);
+    if (n == 0) throw std::runtime_error("mx: no words");
+    std::vector<int32_t> words(n);
+    for (int32_t& v : words) {
+      uint32_t bits;
+      in >> bits;
+      v = static_cast<int32_t>(bits);
+    }
+    auto created = jxl::Image::Create(mm, w, h, 8, rct ? 3 : 1);
+    if (!created.ok()) throw std::runtime_error("mx: image");
+    jxl::Image image = std::move(created).value_();
+    std::vector<jxl::SqueezeParams> params;
+    jxl::Status status = true;
+    if (!rct) {
+      if (kind == 0) {
+        jxl::DefaultSqueezeParameters(&params, image);
+      } else {
+        for (bool horizontal : {true, false}) {
+          if ((kind == 1 && !horizontal) || (kind == 2 && horizontal)) continue;
+          jxl::SqueezeParams p;
+          p.horizontal = horizontal;
+          p.in_place = true;
+          p.begin_c = 0;
+          p.num_c = 1;
+          params.push_back(p);
+        }
+      }
+      status = jxl::MetaSqueeze(image, &params);
+    }
+    if (status) {
+      for (size_t c = 0; c < image.channel.size(); ++c) {
+        jxl::Channel& ch = image.channel[c];
+        for (size_t y = 0; y < ch.h; ++y)
+          for (size_t x = 0; x < ch.w; ++x)
+            ch.Row(y)[x] = words[(c * 7 + y * 13 + x) % n];
+      }
+      status = rct ? jxl::InvRCT(image, 0, kind, nullptr)
+                   : jxl::InvSqueeze(image, params, nullptr);
+    }
+    std::cout << int(status.code()) << ' ' << image.channel.size();
+    for (const jxl::Channel& ch : image.channel) {
+      std::cout << ' ' << ch.w << ' ' << ch.h;
+      for (size_t y = 0; y < ch.h; ++y)
+        for (size_t x = 0; x < ch.w; ++x) std::cout << ' ' << static_cast<uint32_t>(ch.Row(y)[x]);
+    }
     return true;
   }
   return false;

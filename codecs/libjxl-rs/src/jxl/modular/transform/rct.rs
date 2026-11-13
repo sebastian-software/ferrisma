@@ -11,6 +11,7 @@ use super::super::modular_image::{Channel, Image, Pixel};
 use super::transform::check_equal_channels;
 use crate::jxl::base::data_parallel::{ThreadPool, run_on_pool_exclusive_no_init};
 use crate::jxl::base::status::{Status, StatusCode};
+use crate::jxl::hwy::decoder_target;
 
 pub(super) trait Rows {
     fn get3(&self, x: usize) -> [Pixel; 3];
@@ -163,6 +164,10 @@ pub fn inv_rct(
         ((permutation + 1 + permutation / 3) % 3) as usize,
         ((permutation + 2 - permutation / 3) % 3) as usize,
     ];
+    // HWY_DYNAMIC_DISPATCH(InvRCT) (port ADR 0004).
+    if let Some(target) = decoder_target() {
+        return super::rct_simd::inverse_rows_simd(target, image, begin, custom, dest, w, h, pool);
+    }
     match custom {
         0 => inverse_rows::<0>(image, begin, dest, w, h, pool)?,
         1 => inverse_rows::<1>(image, begin, dest, w, h, pool)?,
