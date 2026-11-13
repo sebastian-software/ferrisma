@@ -498,7 +498,7 @@ and the real `cargo publish` uploads.
 | 1 | The JPEG port's package name `libjpeg-turbo-rs` belongs to an unrelated crates.io crate; rename the package (both drafts, the workflow list, and the lockfile jsonpaths use today's name and must follow). | #207 (name pending, O5) |
 | 2 | `libavif-aom` is 16.4 MiB compressed, above crates.io's 10 MiB limit: request a limit increase or split the platform translations (codec ADR). | #208 |
 | 3 | AVIF packages need `overflow-checks = false` and `panic = "unwind"` that dependents do not inherit; exact `libc = "=0.2.191"` and `c2rust-bitfields = "=0.3.0"` pins. | #209 |
-| 4 | Renamed first-party dependency keys break Release Please's version updates (measured above). | #248 |
+| 4 | Renamed first-party dependency keys break Release Please's version updates (measured above). Applied on `main` on 2026-11-13: the manifests key those dependencies by package name. The rehearsal has not been repeated against the changed manifests. | #248 |
 | 5 | Every package is `publish = false`; first-publication versions (the AVIF bridges are 0.0.0) and the published set. | #137, [publishing](publishing.md) blockers 5 |
 | 6 | License review gates for redistributing source crates (IJG terms, `simd_helpers` notice, independent review; per-crate license metadata). | #66, #136 |
 | 7 | Configuration B only: move the engine package out of the workspace root. | none; decision with O3 |
