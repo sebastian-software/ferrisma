@@ -1080,6 +1080,24 @@ dimension of 16 or more and the IDCT-based strategies), and no bounded set of
 out-of-line boundaries reproduced it within the time box. Re-check the AArch64
 mapping after compiler or toolchain changes.
 
+Update 2026-11-13 (owner decision D8: NaN payloads are not part of the gate;
+port ADR 0002): the instantiated `dct.rs` is now the only implementation, on
+every target. The runtime-size recursion is deleted, and no level is kept out
+of line: levels up to 32 points are `#[inline(always)]` as the templates
+unroll, larger levels and the per-shape `ComputeScaled(I)DCT` instantiations
+are left to the compiler, and `idct_add`, the two-point strided IDCT column
+and the IDCT running sum are ordinary inlinable code. Operations, operands
+and scratch writes are unchanged, so every finite result is unchanged; only
+the selection between competing NaN payloads may differ, which the gate no
+longer observes. The same update returns the render stages to one per-row
+implementation per stage (row spans resolved once per row, inlinable
+Highway-scalar helpers) and removes the operand-order-only `cfg` splits listed
+in ADR 0002; the target-specific contraction splits stay. Evidence: decoded
+F32 sample hashes of the five analysis inputs and the e7 d1 encoder bytes are
+unchanged on AArch64 and on x86-64 under Rosetta, and the test stage passes
+under the new comparison rule (2026-11-13 section of the root JPEG XL
+performance analysis).
+
 ### Packed coefficient-order decoding
 
 The original CoeffOrderOffset macro is a const function over the unchanged

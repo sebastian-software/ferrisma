@@ -937,3 +937,72 @@ after a compiler or target change. Evidence for this amendment: addendum
 `docs/benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md`. Hosted x86-64
 CI (`codecs (jxl, ubuntu-24.04)`, the JXL deep check and the v1.0 CI
 performance workflow) is the acceptance gate.
+
+## NaN payloads leave the gate; one scalar path, 2026-11-13
+
+Owner decision D8 (2026-11-13) supersedes the payload part of the
+operand-order contract above and the three amendments of 2026-11-12: **NaN
+payload bits are not part of the gate.** Every finite value, every infinity
+and every signed zero must stay bit-identical to the pinned scalar original on
+each target; where the original only copies data (lossless float samples, the
+EPF sigma skip, float export), NaNs stay bit-exact. Evidence: the pinned
+libjxl itself changes NaN payloads between its own scalar builds that differ
+only in optimization level (123,110 words on arm64 and 116,971 on x86-64 in
+the fact-finding replay of the captured oracle corpus, with no finite
+difference for finite inputs); Highway's own test harness treats all NaNs as
+equal; libjxl's encoder API forbids NaN and infinity input samples.
+
+**Comparison rule** (`parity_eq` in `tests/parity.rs`). Two lines match when
+they have the same tokens and every token is identical, except that (1) two
+tokens that are both 32-bit words encoding a binary32 NaN are equal, and
+(2) for a request that carries a NaN or infinity word, a token position is
+not compared where the second scalar reference disagrees with the pinned one
+after (1). Rule (2) is the owner's working rule O1, **pending owner
+confirmation**: for NaN or infinity inputs the original's own builds disagree
+even on NaN versus number (EPF: 23,880 words on arm64 between the pinned and
+the O3 build). The second reference is `tools/oracle` configured with
+`-DORACLE_REFERENCE_PINS=OFF`: the same sources and Highway scalar
+configuration at upstream's normal optimization level, without the per-TU
+`-O0`, `-fno-unroll-loops`, `-fno-inline-functions` and `-ffp-model=strict`
+pins; adapter-only flags and upstream's target-wide numeric flags stay.
+`tools/check.py` builds it as `target/oracle-o3` next to `target/oracle`
+(and as `target/oracle-o3-x86_64` with `--target x86_64-apple-darwin`). A
+request without NaN or infinity words never excludes a position: the mask is
+built only for exceptional requests, and `parity_eq` asserts that no word of
+another request was excluded. Where the two references disagree on a request
+with only finite inputs, the statistics record it; the first runs found such
+words only in an `fs-decode` observation that also differs between two runs
+of the same pinned build (unwritten memory in a simple-pipeline request that
+the low-memory test does not compare to Rust). `JXL_PARITY_STRICT=1`
+restores exact text comparison for diagnosis, and `JXL_PARITY_LOG=<file>`
+records per-family mask and payload statistics. Unit tests with captured
+NaN words compare computed NaN positions NaN-equal under the same switch and
+keep copied and untouched words exact.
+
+**NaN signs that reach a sign test are not payloads.** A NaN's sign decides
+Highway's ZeroIfNegative (EPF weights, noise strength, DC smoothing factor),
+so it can turn into a finite-versus-NaN output. The first full run under the
+new rule showed this in EPF: with competing NaN channel scales, the inlined
+SAD accumulation took the other NaN, whose sign kept a weight that the
+original zeroed (117 requests). Those three stages therefore use
+`base::float`'s `add_first_nan`/`sub_first_nan`/`mul_first_nan`/
+`mul_promoted_first_nan`: the unchanged operation, plus a select of the first
+operand's quieted NaN when that operand is a NaN, which is the result a scalar
+FADD/ADDSS/FMUL/MULSS gives for two quiet NaNs in the source's operand order.
+They inline; they change no finite or infinite result.
+
+**What was removed** (the scalar path is now one implementation per stage on
+every target; details in ADR 0003 and the 2026-11-13 section of the root
+JPEG XL performance analysis): `render_pipeline/pre_r1/` and
+`render_pipeline/scalar_rows.rs`; the `#[inline(never)]` per-element
+helpers of XYB, Gaborish, EPF, YCbCr, chroma upsampling, noise, compressed DC,
+alpha, AFV/identity IDCT additions, AFV DCT accumulation, quantizer
+recomputation and dequantization; the x86-64-only and Linux-x86-64-only
+operand-order splits (Gaborish weight normalization, YCbCr and chroma
+`MulAdd`, spot color, downsampling sum, DC scale, gamut map, dequantization
+CfL addition); the AArch64-only DCT/IDCT instantiation and the runtime-size
+recursion of other targets. Contraction splits (`mul_add_f32`, the recorded
+contraction maps) and every floating-point operation are unchanged.
+
+Re-evaluate when the owner decides O1, after a compiler or target change, or
+if a stage gains a new sign test on a computed value.
