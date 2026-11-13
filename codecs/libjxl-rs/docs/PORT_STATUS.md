@@ -124,6 +124,16 @@ decoder and low-memory pipeline comparison, a scalar gate that forces the
 scalar path, real x86-64 evidence for AVX2).
 <!-- end vardct kernels -->
 
+<!-- modular -->
+Modular and output-conversion kernels (2026-11-13, branch `v1/jxl-modular`):
+the SIMD `FloatToU32`/`FloatToF16` of dec_external_image
+(`dec_external_image_simd.rs`) match the NEON oracle word for word
+(`tests/simd_modular.rs`) and `ConvertChannelsToExternal` selects them on
+`hwy::decoder_target()`. The whole-decode comparison still reports zero
+differing words and bytes on all 24 VarDCT files with the SIMD target
+forced. AVX2 compiles and is not yet run.
+<!-- end modular -->
+
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 
 Encoder step 4 (issue #115) and a patches setting under which every image

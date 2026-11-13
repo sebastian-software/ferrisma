@@ -183,6 +183,9 @@ def build_simd_oracle(rust_target=None):
 # The SIMD parity binaries (ADR 0004), which need the SIMD oracle and, under
 # Rosetta 2, ROSETTA_ADVERTISE_AVX.
 SIMD_TESTS = ["simd_parity", "simd_render", "simd_vardct"]
+# modular
+SIMD_TESTS += ["simd_modular"]
+# end modular
 SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 

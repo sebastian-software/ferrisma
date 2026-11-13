@@ -368,3 +368,7 @@ endif()
 # item 1). The TU only calls the original's public stage factories.
 target_sources(jxl_oracle PRIVATE render_stages_simd.cc)
 # end render stages
+# modular: requests of the SIMD modular and output-conversion kernels (port
+# ADR 0004 Plan item 2). The TU only calls the original's exported kernels.
+target_sources(jxl_oracle PRIVATE modular_simd.cc)
+# end modular

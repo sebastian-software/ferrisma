@@ -387,3 +387,41 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   with the SIMD target forced; the conditions for the default selection are
   in "Decoder path".
 <!-- end vardct kernels -->
+
+<!-- modular -->
+## Modular and output-conversion kernels (2026-11-13, Plan item 2)
+
+Branch `v1/jxl-modular`. Each export is a `Kernel` body generic over
+`SimdF32` in its own file and dispatched on `hwy::decoder_target()` where
+the original calls `HWY_DYNAMIC_DISPATCH`; the scalar path is unchanged.
+Parity: `tests/simd_modular.rs` with the requests of
+`tools/oracle/modular_simd.cc` (128-byte aligned buffers; the TU calls the
+original's exported `ORACLE_HWY_NS` functions).
+
+- **dec_external_image** (`dec_external_image_simd.rs`): `FloatToU32`
+  (`Clamp(v, Zero, one)`, `NearestInt(Mul(v, scale))`, the bits stored as
+  `uint32_t`) and `FloatToF16` (hardware `DemoteTo`), both over whole
+  vectors to `RoundUpTo(num, Lanes)` as the original; where the caller's
+  slice ends earlier the missing input lanes read zero and the missing
+  output lanes are dropped (lane-wise operations). `ConvertChannelsToExternal`
+  selects them, so `decode_vardct`'s integer output now runs the SIMD
+  conversion. NEON: `mx-u32` 1,184 requests / 58,816 words (bits 1-16, the
+  special words, every scale's rounding ties and neighbors, lengths 0-67,
+  the whole-vector tail and the sentinel words after it), `mx-f16` 80
+  requests / 3,920 words (binary16 rounding, subnormal and overflow words),
+  and through the decoder's dispatch the scalar suite's `ue-channels`,
+  `fe-channels` and `fe-row` requests at widths 1-33 (11,692 requests,
+  35,076 words: status and every byte of the 1,024-byte buffer). The scalar
+  path fails 208 `mx-u32` requests below `num` (a signaling NaN: scalar
+  `Clamp` keeps 0, NEON's `fmaxnm` quiets it and `fminnm` returns 1; on AVX2
+  `maxps`/`minps` give 1 for every NaN) and the `ue-channels` replay, so
+  the requests discriminate. AVX2: compiles; not run locally (no Rosetta 2).
+- **Whole decode after dec_external_image (NEON).** Rerun of
+  `whole_decodes_with_the_simd_stages_against_the_original_target` with the
+  SIMD target forced: all 24 admitted VarDCT files still have zero differing
+  float words and zero differing output bytes (scalar path: 1-696 bytes).
+  The integer output already matched before this change because the decoded
+  samples of these files are finite: the SIMD and scalar `FloatToU32` differ
+  only for NaN input (above) and in the lanes past `num`, which the
+  conversion never copies out.
+<!-- end modular -->
