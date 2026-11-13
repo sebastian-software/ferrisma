@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-08
-- Updated: 2026-11-09
+- Updated: 2026-11-13
 
 ## Context
 
@@ -152,8 +152,24 @@ record is falsified if a Neon decode differs from the `simd` oracle, if a
 kernel panics on a conversion where the C code reads within its allocation,
 or if a load or store wrapper touches memory outside its array.
 
+## Amendment 2026-11-13: `static INLINE` helpers
+
+Decision 2 makes each C kernel one `#[target_feature(enable = "neon")]`
+function. A helper that upstream declares `static INLINE`, which its build
+defines as `always_inline`, may instead be a `macro_rules!` macro with the
+helper's body, the C parameters as `let` bindings and its `// upstream:`
+marker, expanded in the calling kernel, where LLVM does not inline the
+`#[inline]` function. Rust rejects `#[inline(always)]` together with
+`#[target_feature]`, and a helper without the attribute would need `unsafe`
+for every intrinsic. The macro adds no `unsafe` code. This applies to
+`jsimd_idct_islow_pass2_regular` and `_sparse`
+([ADR 0004](0004-simd-after-the-portable-port.md), amendment 2026-11-13);
+helpers that LLVM inlines stay functions.
+
 ## Review when
 
+- Rust accepts `#[inline(always)]` on `#[target_feature]` functions, which
+  would let the pass-2 macros become functions again.
 - Work package 10 adds the x86-64 kernels and runtime feature detection.
 - A Rust release makes pointer loads and stores of `core::arch` safe, or
   stabilizes `std::simd`.
