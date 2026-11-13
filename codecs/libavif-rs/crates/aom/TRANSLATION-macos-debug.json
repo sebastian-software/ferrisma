@@ -22,11 +22,11 @@
       "--disable-sve2"
     ],
     "overlay": "crates/aom/rtcd/arm64.pl",
-    "overlay_sha256": "428f40b9ef320708cd82369cd182562a683f3a354059c336bd6862fe632f0242",
+    "overlay_sha256": "277356f45d4d2e0d3864ea8891b09ad812595b482e701dd6e8c8481f51e5c9fe",
     "headers": {
       "config/aom_dsp_rtcd.h": "1d1b4740705aa350cf4eb98f529a68e45a841304245102493dec13da61ee06b1",
       "config/aom_scale_rtcd.h": "c570ff0504c001c33925ffb1897c9f45812db2d3dcb800c144d1fb5e8101d12c",
-      "config/av1_rtcd.h": "ac31df910826645f317f7af4a81ff5e6cdf942919b388d1b8de681183d64691e"
+      "config/av1_rtcd.h": "d5d066fd8fdf3a360ae92d0eae101e03eb4aa9a0542a290574d35c50302118b8"
     }
   },
   "optional_inline_test_bridges": [
@@ -124,8 +124,8 @@
       "source": "upstream/aom/av1/common/av1_rtcd.c",
       "rust": "crates/aom/src/macos/debug/av1/common/av1_rtcd.rs",
       "raw_sha256": "845c3229b8f587dc62b595f2640a20099921cde75a03f49058e1ee805ab2fc19",
-      "rust_sha256": "b09a9ab53746d54b1b6e318f369950f03ec4d550dfaa6cbc2c001f4dc70af611",
-      "production_rust_sha256": "b09a9ab53746d54b1b6e318f369950f03ec4d550dfaa6cbc2c001f4dc70af611",
+      "rust_sha256": "514793160674580a87c64a1e37662bdb4025973904f32a4d32cc1992900eb282",
+      "production_rust_sha256": "514793160674580a87c64a1e37662bdb4025973904f32a4d32cc1992900eb282",
       "corrections": {
         "target-libc-thread-storage": 1,
         "target-libc-once-initializer": 1,
@@ -2383,8 +2383,8 @@
       "source": "upstream/aom/av1/encoder/tx_search.c",
       "rust": "crates/aom/src/macos/debug/av1/encoder/tx_search.rs",
       "raw_sha256": "239dfad08d2d477e9558ac1c23aed4c081d7cc62b80cd38393aa6aac5d93a913",
-      "rust_sha256": "ef4ecdb7cc89023c5414704121c32c9482b7aceece35bca078403d8219c9dfac",
-      "production_rust_sha256": "ef4ecdb7cc89023c5414704121c32c9482b7aceece35bca078403d8219c9dfac",
+      "rust_sha256": "df20c7060c6f17fe1ed3f1c299cc4282a09e680524dc144da53e228c24dd5983",
+      "production_rust_sha256": "df20c7060c6f17fe1ed3f1c299cc4282a09e680524dc144da53e228c24dd5983",
       "corrections": {
         "static-raw-address": 127,
         "target-runtime-assertion": 76,

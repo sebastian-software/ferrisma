@@ -160,6 +160,10 @@ pub mod av1__encoder__arm__hybrid_fwd_txfm_neon;
 pub mod av1__encoder__arm__quantize_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "av1/encoder/arm/rdopt_neon.rs"]
+pub mod av1__encoder__arm__rdopt_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/encoder/arm/shift_neon.rs"]
 pub mod av1__encoder__arm__shift_neon;
 
