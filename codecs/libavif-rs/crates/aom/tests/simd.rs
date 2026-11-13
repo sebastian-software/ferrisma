@@ -32,3 +32,5 @@ mod filterintra;
 mod intra_edge;
 #[path = "simd/loopfilter.rs"]
 mod loopfilter;
+#[path = "simd/restoration.rs"]
+mod restoration;

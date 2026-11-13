@@ -76,8 +76,20 @@ pub mod av1__common__arm__highbd_inv_txfm_neon;
 pub mod av1__common__arm__highbd_reconintra_neon;
 
 #[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/highbd_wiener_convolve_neon.rs"]
+pub mod av1__common__arm__highbd_wiener_convolve_neon;
+
+#[cfg(target_arch = "aarch64")]
 #[path = "av1/common/arm/reconintra_neon.rs"]
 pub mod av1__common__arm__reconintra_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/selfguided_neon.rs"]
+pub mod av1__common__arm__selfguided_neon;
+
+#[cfg(target_arch = "aarch64")]
+#[path = "av1/common/arm/wiener_convolve_neon.rs"]
+pub mod av1__common__arm__wiener_convolve_neon;
 
 #[cfg(target_arch = "aarch64")]
 #[path = "av1/common/av1_txfm.rs"]
