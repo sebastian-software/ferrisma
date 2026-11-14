@@ -1,0 +1,95 @@
+{
+  "reps": 9,
+  "warmups": 1,
+  "group": "rows/bike",
+  "candidates": [
+    {
+      "id": "c:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/jxl_decode_bench-simd",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/bike/input.jxl",
+        "0"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "input": "bike"
+      }
+    },
+    {
+      "id": "port0:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-base",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/bike/input.jxl",
+        "0",
+        "default"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "input": "bike",
+        "bin": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-base"
+      }
+    },
+    {
+      "id": "port1:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-c1",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/bike/input.jxl",
+        "0",
+        "default"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "input": "bike",
+        "bin": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-c1"
+      }
+    },
+    {
+      "id": "port2:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-A",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/bike/input.jxl",
+        "0",
+        "default"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "input": "bike",
+        "bin": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-A"
+      }
+    },
+    {
+      "id": "port3:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-AB",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/bike/input.jxl",
+        "0",
+        "default"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "input": "bike",
+        "bin": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-AB"
+      }
+    },
+    {
+      "id": "port4:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-ABC",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/bike/input.jxl",
+        "0",
+        "default"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "input": "bike",
+        "bin": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-ABC"
+      }
+    }
+  ]
+}

@@ -1,0 +1,1032 @@
+{
+  "plan": {
+    "reps": 9,
+    "warmups": 1,
+    "group": "rows/photo24-e7d1",
+    "candidates": [
+      {
+        "id": "c:t1",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/jxl_decode_bench-simd",
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/photo24-e7d1.jxl",
+          "0"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "input": "photo24-e7d1"
+        }
+      },
+      {
+        "id": "port0:t1",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-base",
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/photo24-e7d1.jxl",
+          "0",
+          "default"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "input": "photo24-e7d1",
+          "bin": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-base"
+        }
+      },
+      {
+        "id": "port1:t1",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-c1",
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/photo24-e7d1.jxl",
+          "0",
+          "default"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "input": "photo24-e7d1",
+          "bin": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-c1"
+        }
+      },
+      {
+        "id": "port2:t1",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-A",
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/photo24-e7d1.jxl",
+          "0",
+          "default"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "input": "photo24-e7d1",
+          "bin": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-A"
+        }
+      },
+      {
+        "id": "port3:t1",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-AB",
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/photo24-e7d1.jxl",
+          "0",
+          "default"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "input": "photo24-e7d1",
+          "bin": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-AB"
+        }
+      },
+      {
+        "id": "port4:t1",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-ABC",
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/photo24-e7d1.jxl",
+          "0",
+          "default"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "input": "photo24-e7d1",
+          "bin": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-modular/target/ci-perf/rows-work/r-ABC"
+        }
+      }
+    ]
+  },
+  "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "cpus": 10,
+  "uptime_before": "11:41  up 22:33, 1 user, load averages: 5.17 8.89 9.88",
+  "uptime_after": "11:41  up 22:33, 1 user, load averages: 6.13 8.58 9.71",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "complete": true,
+  "summary": {
+    "c:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 0.4844127090036636,
+      "wall_min_s": 0.47671200000331737,
+      "wall_max_s": 0.48947779199806973,
+      "load_min": 5.060546875,
+      "load_max": 5.8798828125,
+      "rss_median_bytes": 343457792,
+      "rss_max_bytes": 344162304,
+      "internal_median_ms": 473.649,
+      "internal_min_ms": 466.028,
+      "internal_max_ms": 478.559
+    },
+    "port0:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 1.095086708010058,
+      "wall_min_s": 1.0720153339934768,
+      "wall_max_s": 1.110496790992329,
+      "load_min": 5.060546875,
+      "load_max": 5.8798828125,
+      "rss_median_bytes": 347996160,
+      "rss_max_bytes": 349257728,
+      "internal_median_ms": 1084.419,
+      "internal_min_ms": 1061.143,
+      "internal_max_ms": 1100.362
+    },
+    "port1:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 0.7562400000024354,
+      "wall_min_s": 0.7413165000034496,
+      "wall_max_s": 0.7618706669891253,
+      "load_min": 5.060546875,
+      "load_max": 5.8798828125,
+      "rss_median_bytes": 348618752,
+      "rss_max_bytes": 348962816,
+      "internal_median_ms": 745.769,
+      "internal_min_ms": 730.654,
+      "internal_max_ms": 750.884
+    },
+    "port2:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 0.7493910420016618,
+      "wall_min_s": 0.744226874987362,
+      "wall_max_s": 0.7576465409947559,
+      "load_min": 5.060546875,
+      "load_max": 6.12939453125,
+      "rss_median_bytes": 348618752,
+      "rss_max_bytes": 349257728,
+      "internal_median_ms": 737.923,
+      "internal_min_ms": 734.175,
+      "internal_max_ms": 746.954
+    },
+    "port3:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 0.6957249580009375,
+      "wall_min_s": 0.6792941249877913,
+      "wall_max_s": 0.7052819999953499,
+      "load_min": 5.060546875,
+      "load_max": 6.12939453125,
+      "rss_median_bytes": 347865088,
+      "rss_max_bytes": 349356032,
+      "internal_median_ms": 684.674,
+      "internal_min_ms": 668.611,
+      "internal_max_ms": 692.907
+    },
+    "port4:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 0.6153188750031404,
+      "wall_min_s": 0.6020810420013731,
+      "wall_max_s": 0.6244860830047401,
+      "load_min": 5.060546875,
+      "load_max": 6.12939453125,
+      "rss_median_bytes": 348602368,
+      "rss_max_bytes": 349224960,
+      "internal_median_ms": 604.674,
+      "internal_min_ms": 591.883,
+      "internal_max_ms": 614.052
+    }
+  },
+  "samples": [
+    {
+      "id": "port4:t1",
+      "wall_s": 0.6376067920064088,
+      "load_before": 5.17431640625,
+      "load_after": 5.17431640625,
+      "returncode": 0,
+      "max_rss_bytes": 348651520,
+      "internal_ms": 616.2,
+      "stdout": [
+        "elapsed_ms=616.200 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "port3:t1",
+      "wall_s": 0.9109027499944204,
+      "load_before": 5.17431640625,
+      "load_after": 5.17431640625,
+      "returncode": 0,
+      "max_rss_bytes": 347832320,
+      "internal_ms": 690.629,
+      "stdout": [
+        "elapsed_ms=690.629 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "port2:t1",
+      "wall_s": 0.932097333992715,
+      "load_before": 5.17431640625,
+      "load_after": 5.17431640625,
+      "returncode": 0,
+      "max_rss_bytes": 348995584,
+      "internal_ms": 739.832,
+      "stdout": [
+        "elapsed_ms=739.832 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "port1:t1",
+      "wall_s": 0.9456174580118386,
+      "load_before": 5.17431640625,
+      "load_after": 5.080078125,
+      "returncode": 0,
+      "max_rss_bytes": 349290496,
+      "internal_ms": 744.103,
+      "stdout": [
+        "elapsed_ms=744.103 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "port0:t1",
+      "wall_s": 1.1255254590068944,
+      "load_before": 5.080078125,
+      "load_after": 5.080078125,
+      "returncode": 0,
+      "max_rss_bytes": 349257728,
+      "internal_ms": 1104.552,
+      "stdout": [
+        "elapsed_ms=1104.552 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.499425792004331,
+      "load_before": 5.080078125,
+      "load_after": 5.080078125,
+      "returncode": 0,
+      "max_rss_bytes": 344014848,
+      "internal_ms": 479.649,
+      "stdout": [
+        "elapsed_ms=479.649 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.47671200000331737,
+      "load_before": 5.080078125,
+      "load_after": 5.080078125,
+      "returncode": 0,
+      "max_rss_bytes": 344162304,
+      "internal_ms": 466.028,
+      "stdout": [
+        "elapsed_ms=466.028 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port0:t1",
+      "wall_s": 1.095086708010058,
+      "load_before": 5.080078125,
+      "load_after": 5.080078125,
+      "returncode": 0,
+      "max_rss_bytes": 348110848,
+      "internal_ms": 1084.419,
+      "stdout": [
+        "elapsed_ms=1084.419 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port1:t1",
+      "wall_s": 0.7562400000024354,
+      "load_before": 5.080078125,
+      "load_after": 5.080078125,
+      "returncode": 0,
+      "max_rss_bytes": 348618752,
+      "internal_ms": 745.769,
+      "stdout": [
+        "elapsed_ms=745.769 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port2:t1",
+      "wall_s": 0.7493910420016618,
+      "load_before": 5.080078125,
+      "load_after": 5.1533203125,
+      "returncode": 0,
+      "max_rss_bytes": 349208576,
+      "internal_ms": 737.923,
+      "stdout": [
+        "elapsed_ms=737.923 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port3:t1",
+      "wall_s": 0.6792941249877913,
+      "load_before": 5.1533203125,
+      "load_after": 5.1533203125,
+      "returncode": 0,
+      "max_rss_bytes": 349110272,
+      "internal_ms": 668.611,
+      "stdout": [
+        "elapsed_ms=668.611 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port4:t1",
+      "wall_s": 0.6079129169957014,
+      "load_before": 5.1533203125,
+      "load_after": 5.1533203125,
+      "returncode": 0,
+      "max_rss_bytes": 349224960,
+      "internal_ms": 597.72,
+      "stdout": [
+        "elapsed_ms=597.720 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port4:t1",
+      "wall_s": 0.6244860830047401,
+      "load_before": 5.1533203125,
+      "load_after": 5.1533203125,
+      "returncode": 0,
+      "max_rss_bytes": 349143040,
+      "internal_ms": 614.052,
+      "stdout": [
+        "elapsed_ms=614.052 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "port3:t1",
+      "wall_s": 0.6972349999996368,
+      "load_before": 5.1533203125,
+      "load_after": 5.1533203125,
+      "returncode": 0,
+      "max_rss_bytes": 347865088,
+      "internal_ms": 686.051,
+      "stdout": [
+        "elapsed_ms=686.051 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "port2:t1",
+      "wall_s": 0.744226874987362,
+      "load_before": 5.1533203125,
+      "load_after": 5.1533203125,
+      "returncode": 0,
+      "max_rss_bytes": 348438528,
+      "internal_ms": 734.175,
+      "stdout": [
+        "elapsed_ms=734.175 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "port1:t1",
+      "wall_s": 0.7417328340088716,
+      "load_before": 5.1533203125,
+      "load_after": 5.1533203125,
+      "returncode": 0,
+      "max_rss_bytes": 348160000,
+      "internal_ms": 731.783,
+      "stdout": [
+        "elapsed_ms=731.783 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "port0:t1",
+      "wall_s": 1.1000149169994984,
+      "load_before": 5.1533203125,
+      "load_after": 5.060546875,
+      "returncode": 0,
+      "max_rss_bytes": 347078656,
+      "internal_ms": 1089.077,
+      "stdout": [
+        "elapsed_ms=1089.077 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.4844127090036636,
+      "load_before": 5.060546875,
+      "load_after": 5.060546875,
+      "returncode": 0,
+      "max_rss_bytes": 342835200,
+      "internal_ms": 473.649,
+      "stdout": [
+        "elapsed_ms=473.649 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.48009137499320786,
+      "load_before": 5.060546875,
+      "load_after": 5.060546875,
+      "returncode": 0,
+      "max_rss_bytes": 343457792,
+      "internal_ms": 469.264,
+      "stdout": [
+        "elapsed_ms=469.264 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port0:t1",
+      "wall_s": 1.0808265829982702,
+      "load_before": 5.060546875,
+      "load_after": 5.060546875,
+      "returncode": 0,
+      "max_rss_bytes": 347832320,
+      "internal_ms": 1070.442,
+      "stdout": [
+        "elapsed_ms=1070.442 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port1:t1",
+      "wall_s": 0.7618706669891253,
+      "load_before": 5.060546875,
+      "load_after": 5.060546875,
+      "returncode": 0,
+      "max_rss_bytes": 348618752,
+      "internal_ms": 750.884,
+      "stdout": [
+        "elapsed_ms=750.884 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port2:t1",
+      "wall_s": 0.7477429589926032,
+      "load_before": 5.060546875,
+      "load_after": 5.060546875,
+      "returncode": 0,
+      "max_rss_bytes": 348618752,
+      "internal_ms": 736.661,
+      "stdout": [
+        "elapsed_ms=736.661 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port3:t1",
+      "wall_s": 0.6868533750093775,
+      "load_before": 5.060546875,
+      "load_after": 5.060546875,
+      "returncode": 0,
+      "max_rss_bytes": 348323840,
+      "internal_ms": 675.716,
+      "stdout": [
+        "elapsed_ms=675.716 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port4:t1",
+      "wall_s": 0.6020810420013731,
+      "load_before": 5.060546875,
+      "load_after": 5.1357421875,
+      "returncode": 0,
+      "max_rss_bytes": 348389376,
+      "internal_ms": 592.006,
+      "stdout": [
+        "elapsed_ms=592.006 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port4:t1",
+      "wall_s": 0.6179963339964161,
+      "load_before": 5.1357421875,
+      "load_after": 5.1357421875,
+      "returncode": 0,
+      "max_rss_bytes": 348602368,
+      "internal_ms": 607.594,
+      "stdout": [
+        "elapsed_ms=607.594 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "port3:t1",
+      "wall_s": 0.6890792910126038,
+      "load_before": 5.1357421875,
+      "load_after": 5.1357421875,
+      "returncode": 0,
+      "max_rss_bytes": 349339648,
+      "internal_ms": 678.234,
+      "stdout": [
+        "elapsed_ms=678.234 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "port2:t1",
+      "wall_s": 0.752444124998874,
+      "load_before": 5.1357421875,
+      "load_after": 5.1357421875,
+      "returncode": 0,
+      "max_rss_bytes": 348782592,
+      "internal_ms": 741.525,
+      "stdout": [
+        "elapsed_ms=741.525 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "port1:t1",
+      "wall_s": 0.74181687500095,
+      "load_before": 5.1357421875,
+      "load_after": 5.1357421875,
+      "returncode": 0,
+      "max_rss_bytes": 348700672,
+      "internal_ms": 731.585,
+      "stdout": [
+        "elapsed_ms=731.585 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "port0:t1",
+      "wall_s": 1.110496790992329,
+      "load_before": 5.1357421875,
+      "load_after": 5.1357421875,
+      "returncode": 0,
+      "max_rss_bytes": 348487680,
+      "internal_ms": 1100.362,
+      "stdout": [
+        "elapsed_ms=1100.362 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.48837775000720285,
+      "load_before": 5.1357421875,
+      "load_after": 5.1357421875,
+      "returncode": 0,
+      "max_rss_bytes": 344129536,
+      "internal_ms": 477.754,
+      "stdout": [
+        "elapsed_ms=477.754 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.4846137090062257,
+      "load_before": 5.1357421875,
+      "load_after": 5.20458984375,
+      "returncode": 0,
+      "max_rss_bytes": 342310912,
+      "internal_ms": 473.678,
+      "stdout": [
+        "elapsed_ms=473.678 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port0:t1",
+      "wall_s": 1.0720153339934768,
+      "load_before": 5.20458984375,
+      "load_after": 5.20458984375,
+      "returncode": 0,
+      "max_rss_bytes": 348356608,
+      "internal_ms": 1061.143,
+      "stdout": [
+        "elapsed_ms=1061.143 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port1:t1",
+      "wall_s": 0.7614199590025237,
+      "load_before": 5.20458984375,
+      "load_after": 5.20458984375,
+      "returncode": 0,
+      "max_rss_bytes": 347832320,
+      "internal_ms": 750.559,
+      "stdout": [
+        "elapsed_ms=750.559 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port2:t1",
+      "wall_s": 0.7505968330078758,
+      "load_before": 5.20458984375,
+      "load_after": 5.20458984375,
+      "returncode": 0,
+      "max_rss_bytes": 348553216,
+      "internal_ms": 739.557,
+      "stdout": [
+        "elapsed_ms=739.557 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port3:t1",
+      "wall_s": 0.6952746669994667,
+      "load_before": 5.20458984375,
+      "load_after": 5.20458984375,
+      "returncode": 0,
+      "max_rss_bytes": 349356032,
+      "internal_ms": 684.592,
+      "stdout": [
+        "elapsed_ms=684.592 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port4:t1",
+      "wall_s": 0.6022412499878556,
+      "load_before": 5.20458984375,
+      "load_after": 5.20458984375,
+      "returncode": 0,
+      "max_rss_bytes": 348045312,
+      "internal_ms": 591.883,
+      "stdout": [
+        "elapsed_ms=591.883 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port4:t1",
+      "wall_s": 0.6155668330029584,
+      "load_before": 5.20458984375,
+      "load_after": 5.20458984375,
+      "returncode": 0,
+      "max_rss_bytes": 348012544,
+      "internal_ms": 605.736,
+      "stdout": [
+        "elapsed_ms=605.736 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "port3:t1",
+      "wall_s": 0.6957249580009375,
+      "load_before": 5.20458984375,
+      "load_after": 5.26806640625,
+      "returncode": 0,
+      "max_rss_bytes": 346996736,
+      "internal_ms": 684.674,
+      "stdout": [
+        "elapsed_ms=684.674 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "port2:t1",
+      "wall_s": 0.7487768340070033,
+      "load_before": 5.26806640625,
+      "load_after": 5.26806640625,
+      "returncode": 0,
+      "max_rss_bytes": 348536832,
+      "internal_ms": 737.741,
+      "stdout": [
+        "elapsed_ms=737.741 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "port1:t1",
+      "wall_s": 0.7413165000034496,
+      "load_before": 5.26806640625,
+      "load_after": 5.26806640625,
+      "returncode": 0,
+      "max_rss_bytes": 348635136,
+      "internal_ms": 730.654,
+      "stdout": [
+        "elapsed_ms=730.654 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "port0:t1",
+      "wall_s": 1.0863717920001363,
+      "load_before": 5.26806640625,
+      "load_after": 5.26806640625,
+      "returncode": 0,
+      "max_rss_bytes": 347996160,
+      "internal_ms": 1076.279,
+      "stdout": [
+        "elapsed_ms=1076.279 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.48172599999816157,
+      "load_before": 5.26806640625,
+      "load_after": 5.26806640625,
+      "returncode": 0,
+      "max_rss_bytes": 343506944,
+      "internal_ms": 471.569,
+      "stdout": [
+        "elapsed_ms=471.569 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.4799195840023458,
+      "load_before": 5.26806640625,
+      "load_after": 5.26806640625,
+      "returncode": 0,
+      "max_rss_bytes": 344014848,
+      "internal_ms": 469.289,
+      "stdout": [
+        "elapsed_ms=469.289 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port0:t1",
+      "wall_s": 1.0889117079932475,
+      "load_before": 5.26806640625,
+      "load_after": 5.08642578125,
+      "returncode": 0,
+      "max_rss_bytes": 347176960,
+      "internal_ms": 1078.278,
+      "stdout": [
+        "elapsed_ms=1078.278 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port1:t1",
+      "wall_s": 0.751997624989599,
+      "load_before": 5.08642578125,
+      "load_after": 5.08642578125,
+      "returncode": 0,
+      "max_rss_bytes": 348143616,
+      "internal_ms": 741.907,
+      "stdout": [
+        "elapsed_ms=741.907 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port2:t1",
+      "wall_s": 0.7576465409947559,
+      "load_before": 5.08642578125,
+      "load_after": 5.08642578125,
+      "returncode": 0,
+      "max_rss_bytes": 348651520,
+      "internal_ms": 746.954,
+      "stdout": [
+        "elapsed_ms=746.954 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port3:t1",
+      "wall_s": 0.7010609169956297,
+      "load_before": 5.08642578125,
+      "load_after": 5.08642578125,
+      "returncode": 0,
+      "max_rss_bytes": 347865088,
+      "internal_ms": 690.33,
+      "stdout": [
+        "elapsed_ms=690.330 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port4:t1",
+      "wall_s": 0.6154220410098787,
+      "load_before": 5.08642578125,
+      "load_after": 5.08642578125,
+      "returncode": 0,
+      "max_rss_bytes": 349011968,
+      "internal_ms": 604.674,
+      "stdout": [
+        "elapsed_ms=604.674 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port4:t1",
+      "wall_s": 0.6153188750031404,
+      "load_before": 5.08642578125,
+      "load_after": 5.08642578125,
+      "returncode": 0,
+      "max_rss_bytes": 348749824,
+      "internal_ms": 604.889,
+      "stdout": [
+        "elapsed_ms=604.889 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "port3:t1",
+      "wall_s": 0.7052819999953499,
+      "load_before": 5.08642578125,
+      "load_after": 5.08642578125,
+      "returncode": 0,
+      "max_rss_bytes": 346767360,
+      "internal_ms": 692.907,
+      "stdout": [
+        "elapsed_ms=692.907 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "port2:t1",
+      "wall_s": 0.7557128329935949,
+      "load_before": 5.08642578125,
+      "load_after": 5.8798828125,
+      "returncode": 0,
+      "max_rss_bytes": 347766784,
+      "internal_ms": 744.078,
+      "stdout": [
+        "elapsed_ms=744.078 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "port1:t1",
+      "wall_s": 0.7578151670022635,
+      "load_before": 5.8798828125,
+      "load_after": 5.8798828125,
+      "returncode": 0,
+      "max_rss_bytes": 348651520,
+      "internal_ms": 746.958,
+      "stdout": [
+        "elapsed_ms=746.958 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "port0:t1",
+      "wall_s": 1.1031807499966817,
+      "load_before": 5.8798828125,
+      "load_after": 5.8798828125,
+      "returncode": 0,
+      "max_rss_bytes": 349257728,
+      "internal_ms": 1092.209,
+      "stdout": [
+        "elapsed_ms=1092.209 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.48947779199806973,
+      "load_before": 5.8798828125,
+      "load_after": 5.8798828125,
+      "returncode": 0,
+      "max_rss_bytes": 343392256,
+      "internal_ms": 478.559,
+      "stdout": [
+        "elapsed_ms=478.559 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.4883282500086352,
+      "load_before": 5.8798828125,
+      "load_after": 5.8798828125,
+      "returncode": 0,
+      "max_rss_bytes": 342638592,
+      "internal_ms": 477.886,
+      "stdout": [
+        "elapsed_ms=477.886 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "port0:t1",
+      "wall_s": 1.0961683750065276,
+      "load_before": 5.8798828125,
+      "load_after": 5.8798828125,
+      "returncode": 0,
+      "max_rss_bytes": 347078656,
+      "internal_ms": 1085.266,
+      "stdout": [
+        "elapsed_ms=1085.266 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "port1:t1",
+      "wall_s": 0.7581387919926783,
+      "load_before": 5.8798828125,
+      "load_after": 5.8798828125,
+      "returncode": 0,
+      "max_rss_bytes": 348962816,
+      "internal_ms": 746.563,
+      "stdout": [
+        "elapsed_ms=746.563 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "port2:t1",
+      "wall_s": 0.7492736670101294,
+      "load_before": 5.8798828125,
+      "load_after": 6.12939453125,
+      "returncode": 0,
+      "max_rss_bytes": 349257728,
+      "internal_ms": 737.594,
+      "stdout": [
+        "elapsed_ms=737.594 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "port3:t1",
+      "wall_s": 0.70236645899422,
+      "load_before": 6.12939453125,
+      "load_after": 6.12939453125,
+      "returncode": 0,
+      "max_rss_bytes": 346423296,
+      "internal_ms": 690.241,
+      "stdout": [
+        "elapsed_ms=690.241 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "port4:t1",
+      "wall_s": 0.6096904170117341,
+      "load_before": 6.12939453125,
+      "load_after": 6.12939453125,
+      "returncode": 0,
+      "max_rss_bytes": 348438528,
+      "internal_ms": 598.363,
+      "stdout": [
+        "elapsed_ms=598.363 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019"
+      ],
+      "rep": 8,
+      "warmup": false
+    }
+  ]
+}
