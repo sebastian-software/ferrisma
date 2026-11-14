@@ -163,6 +163,30 @@ was not downloaded. `cargo xtask codecs --codec jpeg --stage pr` did not run. Th
 [evidence directory](https://github.com/sebastian-software/ferrisma/tree/main/docs/benchmarks/evidence-2026-11-13-jpeg-port)
 has the gate script and its step list.
 
+**Gate runs of 2026-11-14 on this machine.** Each run is `tools/check.py`'s
+test stage, which runs the dev, release and checked profiles in every SIMD
+mode. Counts are the passed and failed tests of each profile's `cargo test`,
+the same in all three profiles unless noted; bit tests are the CTest cases of
+the in-scope djpeg tests. The x86-64 runs used Rosetta 2 (ARM64 Mac, not native
+x86-64 hardware); Rosetta does not fault on misaligned aligned-moves, and no
+timing was taken.
+
+| Run | Command | Exit | Mode | Tests passed / failed per profile | Bit tests |
+| --- | --- | ---: | --- | --- | --- |
+| 1 AArch64, scalar | `python3 tools/check.py --stage test --oracle-variant release` | 0 | none | 95 / 0 | 79 / 79 |
+| 2 AArch64, SIMD | `python3 tools/check.py --stage test --oracle-variant simd` | 0 | neon | 96 / 0 | 79 / 79 |
+| 2 AArch64, SIMD | (same run) | 0 | none (`JSIMD_FORCENONE=1`) | 96 / 0 | (same run) |
+| 3 x86-64 Rosetta, scalar | `python3 tools/check.py --stage test --oracle-variant release --arch x86_64` | 0 | none | 95 / 0 | 79 / 79 |
+| 4 x86-64 Rosetta, SIMD | `python3 tools/check.py --stage test --oracle-variant simd --arch x86_64` | 0 | avx2 | 114 / 0 | 79 / 79 |
+| 4 x86-64 Rosetta, SIMD | (same run) | 0 | sse2 (`JSIMD_FORCESSE2=1`) | 114 / 0 | (same run) |
+| 4 x86-64 Rosetta, SIMD | (same run) | 0 | none (`JSIMD_FORCENONE=1`) | 114 / 0 | (same run) |
+
+The output does not print the SIMD level detected or selected. The dispatch
+test `kernels_are_dispatched` checks the selected kernels against
+`LIBJPEG_EXPECT_SIMD` in each mode, and it passed in every SIMD mode.
+The checked profile is part of the test stage, so the checked runs of the SIMD
+modes are included in runs 2 and 4 and needed no separate command.
+
 **Speed.** `tools/bench.py`'s inputs (3632×2384 tiled photo), the C bench
 probe of the named oracle against the port before (`e4038a4a`) and after the
 three changes, 7 interleaved runs of 5 decodes, order reversed every other
