@@ -237,6 +237,19 @@ until hosted AVX2 evidence exists. `ToLinear` and `ToneMapping` are covered
 by row-level parity only (no gate input reaches them; ADR 0004 "Default
 selection per target").
 <!-- end enable -->
+<!-- avx2 oracle -->
+AVX2 reference (2026-11-14, working decision, delegated and revisable by
+the owner): the AVX2 oracle variant is upstream's dispatch build capped at
+`HWY_AVX2` (baseline x86-64 flags for every TU, `HWY_NAMESPACE` code per
+target), the SIMD reference build ADR-0041 defines, instead of a static
+AVX2 build that also contracted code outside `HWY_NAMESPACE`. Upstream
+source, pins and expected values are unchanged; SCALAR and NEON variants
+are unchanged. The four failures of the first complete hosted AVX2 run came
+from baseline functions the static build contracted (ADR 0004, "AVX2
+reference"); AVX2 results against the new reference are pending a hosted
+run. `tools/check.py` now runs every SIMD test binary even when another
+test fails.
+<!-- end avx2 oracle -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 

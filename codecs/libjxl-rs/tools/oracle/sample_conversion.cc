@@ -98,7 +98,16 @@ bool SampleConversionCommand(const std::string& command, std::istringstream& in)
 #include "output_encoding.inc"
 #include "decoder_state.inc"
 #include "cms_stage.inc"
+// The AVX2 dispatch variant does not serve the scalar suite's tone mapping
+// requests: the pristine stage_tone_mapping.cc would follow dec_modular.cc's
+// foreach_target in this TU and compile only the static target
+// (oracle_target.h), and would replace the archive's dispatch factory. No
+// SIMD test sends them; cl-tm reaches the stage through the archive.
+#if defined(ORACLE_HWY_DISPATCH)
+bool ToneMappingCommand(const std::string&, std::istringstream&, JxlMemoryManager*) { return false; }
+#else
 #include "tone_mapping.inc"
+#endif
 #include "decode_frame.inc"
 #include "uint_output.inc"
 #include "float_output.inc"

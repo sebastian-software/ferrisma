@@ -17,7 +17,17 @@
 #include <string>
 #include <vector>
 
+#if defined(ORACLE_HWY_DISPATCH)
+// The AVX2 dispatch variant compiles the header for every target (port ADR
+// 0004, oracle_target.h); the other variants have one static target.
+#undef HWY_TARGET_INCLUDE
+#define HWY_TARGET_INCLUDE "lib/jxl/enc_transforms-inl.h"
+#include <hwy/foreach_target.h>  // IWYU pragma: keep
+#endif
 #include "lib/jxl/enc_transforms-inl.h"
+#include "oracle_target.h"
+
+ORACLE_TARGET_BEGIN
 
 bool EncoderTransformsUnitCommand(const std::string& command, std::istringstream& in) {
   if (command != "etx-unit-pixels" && command != "etx-unit-afv") return false;
@@ -49,3 +59,4 @@ bool EncoderTransformsUnitCommand(const std::string& command, std::istringstream
   std::cout << "T"; words(pixels); words(coefficients); words(scratch);
   return true;
 }
+ORACLE_TARGET_END
