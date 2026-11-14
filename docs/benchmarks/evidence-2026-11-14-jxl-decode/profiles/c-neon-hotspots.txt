@@ -1,0 +1,45 @@
+Sort by top of stack, same collapsed (when >= 5):
+        jxl::(anonymous namespace)::DecodeACVarBlock<(jxl::ACType)1, false>(unsigned long, unsigned long, int*, int const*, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, jxl::AcStrategy, unsigned int const*, jxl::BitReader*, jxl::ANSSymbolReader*, std::vector<unsigned char> const&, unsigned char const*, int const*, jxl::BlockCtxMap const&, jxl::ACPtr, unsigned long)  (in prof-c-simd)        990
+        jxl::ANSSymbolReader::ReadHybridUintClustered<false>(unsigned long, jxl::BitReader*)  (in prof-c-simd)        971
+        jxl::N_NEON::EPF1Stage::ProcessRow(std::vector<std::vector<float*>> const&, std::vector<std::vector<float*>> const&, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long) const  (in prof-c-simd)        457
+        jxl::detail::DecodeModularChannelMAANS<false>(jxl::BitReader*, jxl::ANSSymbolReader*, std::vector<unsigned char> const&, std::vector<jxl::PropertyDecisionNode> const&, jxl::weighted::Header const&, int, unsigned long, jxl::TreeLut<unsigned char, false, false>&, jxl::Image*, unsigned int&, unsigned int&)  (in prof-c-simd)        441
+        jxl::N_NEON::GaborishStage::ProcessRow(std::vector<std::vector<float*>> const&, std::vector<std::vector<float*>> const&, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long) const  (in prof-c-simd)        410
+        jxl::N_NEON::(anonymous namespace)::FromLinearStage<jxl::N_NEON::(anonymous namespace)::OpRgb>::ProcessRow(std::vector<std::vector<float*>> const&, std::vector<std::vector<float*>> const&, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long) const  (in prof-c-simd)        353
+        _platform_memmove  (in libsystem_platform.dylib)        315
+        jxl::N_NEON::DequantBlock<(jxl::ACType)1>(float, int, float, float, hwy::N_NEON::Vec128<float, 4ul>, hwy::N_NEON::Vec128<float, 4ul>, jxl::AcStrategyType, unsigned long, jxl::Quantizer const&, unsigned long, unsigned long const*, float const* restrict*, unsigned long, float const*, jxl::ACPtr*, float*, float*)  (in prof-c-simd)        248
+        jxl::N_NEON::(anonymous namespace)::IDCT1DImpl<16ul, 4ul>::operator()(float const*, unsigned long, float*, unsigned long, float*)  (in prof-c-simd)        238
+        jxl::N_NEON::XYBStage::ProcessRow(std::vector<std::vector<float*>> const&, std::vector<std::vector<float*>> const&, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long) const  (in prof-c-simd)        175
+        jxl::N_NEON::(anonymous namespace)::IDCT1DImpl<32ul, 4ul>::operator()(float const*, unsigned long, float*, unsigned long, float*)  (in prof-c-simd)        160
+        jxl::N_NEON::(anonymous namespace)::IDCT1DWrapper<8ul, 4ul, false, jxl::N_NEON::(anonymous namespace)::DCTFrom, jxl::N_NEON::(anonymous namespace)::DCTTo>(jxl::N_NEON::(anonymous namespace)::DCTFrom const&, jxl::N_NEON::(anonymous namespace)::DCTTo const&, unsigned long, float*)  (in prof-c-simd)        137
+        jxl::N_NEON::(anonymous namespace)::IDCT1DImpl<64ul, 4ul>::operator()(float const*, unsigned long, float*, unsigned long, float*)  (in prof-c-simd)        84
+        jxl::LowMemoryRenderPipeline::RenderRect(unsigned long, std::vector<jxl::Plane<float>>&, jxl::RectT<unsigned long>, jxl::RectT<unsigned long>)  (in prof-c-simd)        81
+        jxl::N_NEON::WriteToOutputStage::OutputBuffers(jxl::N_NEON::WriteToOutputStage::Output const&, unsigned long, unsigned long, unsigned long, unsigned long, float const**) const  (in prof-c-simd)        77
+        jxl::N_NEON::(anonymous namespace)::TransformToPixels(jxl::AcStrategyType, float*, float*, unsigned long, float*)  (in prof-c-simd)        68
+        jxl::N_NEON::(anonymous namespace)::GenericTransposeBlock<0ul, 0ul, jxl::N_NEON::(anonymous namespace)::DCTFrom, jxl::N_NEON::(anonymous namespace)::DCTTo>(jxl::N_NEON::(anonymous namespace)::TransposeSimdTag<true>, jxl::N_NEON::(anonymous namespace)::DCTFrom const&, jxl::N_NEON::(anonymous namespace)::DCTTo const&, unsigned long, unsigned long)  (in prof-c-simd)        55
+        jxl::PredictTreeNoWP(std::vector<int>*, unsigned long, int const*, long, int, int, jxl::MATreeLookup const&, jxl::Channel const&)  (in prof-c-simd)        55
+        jxl::LowMemoryRenderPipeline::RenderRect(unsigned long, std::vector<jxl::Plane<float>>&, jxl::RectT<unsigned long>, jxl::RectT<unsigned long>)::$_0::operator()(int, unsigned long) const::'lambda'(unsigned long, long)::operator()(unsigned long, long) const  (in prof-c-simd)        46
+        jxl::N_NEON::DecodeGroupImpl(jxl::FrameHeader const&, jxl::GetBlock*, jxl::GroupDecCache*, jxl::PassesDecoderState*, unsigned long, unsigned long, jxl::RenderPipelineInput&, jxl::jpeg::JPEGData*, jxl::DrawMode)  (in prof-c-simd)        39
+        __bzero  (in libsystem_platform.dylib)        36
+        _platform_memset  (in libsystem_platform.dylib)        33
+        jxl::(anonymous namespace)::GetBlockFromBitstream::LoadBlock(unsigned long, unsigned long, jxl::AcStrategy const&, unsigned long, unsigned long, jxl::ACPtr*, jxl::ACType)  (in prof-c-simd)        27
+        jxl::N_NEON::(anonymous namespace)::LowestFrequenciesFromDC(jxl::AcStrategyType, float const*, unsigned long, float*, float*)  (in prof-c-simd)        20
+        jxl::N_NEON::WriteToOutputStage::ProcessRow(std::vector<std::vector<float*>> const&, std::vector<std::vector<float*>> const&, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long) const  (in prof-c-simd)        17
+        jxl::ComputeSigma(jxl::LoopFilter const&, jxl::RectT<unsigned long> const&, jxl::PassesDecoderState*)  (in prof-c-simd)        12
+        jxl::LowMemoryRenderPipeline::LoadBorders(unsigned long, unsigned long, jxl::RectT<unsigned long> const&, jxl::Plane<float>*)  (in prof-c-simd)        10
+        jxl::ModularFrameDecoder::DecodeAcMetadata(jxl::FrameHeader const&, unsigned long, jxl::BitReader*, jxl::PassesDecoderState*)  (in prof-c-simd)        10
+        jxl::N_NEON::(anonymous namespace)::DCT1DWrapper<8ul, 4ul, false, jxl::N_NEON::(anonymous namespace)::DCTFrom, jxl::N_NEON::(anonymous namespace)::DCTTo>(jxl::N_NEON::(anonymous namespace)::DCTFrom const&, jxl::N_NEON::(anonymous namespace)::DCTTo const&, unsigned long, float*)  (in prof-c-simd)        10
+        DYLD-STUB$$memmove  (in prof-c-simd)        8
+        jxl::LowMemoryRenderPipeline::SaveBorders(unsigned long, unsigned long, jxl::Plane<float> const&)  (in prof-c-simd)        8
+        jxl::ThreadPool::RunCallState<jxl::Status jxl::RunOnPool<jxl::N_NEON::AdaptiveDCSmoothing(JxlMemoryManagerStruct*, float const*, jxl::Image3<float>*, jxl::YCbCrChromaSubsampling const&, jxl::ThreadPool*)::$_0>(jxl::ThreadPool*, unsigned int, unsigned int, jxl::ThreadPoolNoInit const&, jxl::N_NEON::AdaptiveDCSmoothing(JxlMemoryManagerStruct*, float const*, jxl::Image3<float>*, jxl::YCbCrChromaSubsampling const&, jxl::ThreadPool*)::$_0 const&, char const*)::'lambda'(unsigned long), jxl::N_NEON::AdaptiveDCSmoothing(JxlMemoryManagerStruct*, float const*, jxl::Image3<float>*, jxl::YCbCrChromaSubsampling const&, jxl::ThreadPool*)::$_0>::CallDataFunc(void*, unsigned int, unsigned long)  (in prof-c-simd)        8
+        jxl::N_NEON::DequantDC(jxl::RectT<unsigned long> const&, jxl::Image3<float>*, jxl::Plane<unsigned char>*, jxl::Image const&, float const*, float, float const*, jxl::YCbCrChromaSubsampling const&, jxl::BlockCtxMap const&)  (in prof-c-simd)        6
+        DYLD-STUB$$memcpy  (in prof-c-simd)        5
+        jxl::InitAliasTable(std::vector<int>, unsigned int, unsigned long, jxl::AliasTable::Entry*)  (in prof-c-simd)        5
+
+Binary Images:
+       0x102460000 -        0x10253421f +prof-c-simd (0) <2A743F22-40BE-3371-B815-5BA19AF4F9EB> /Users/*/prof-c-simd
+       0x180d08000 -        0x180d57657  libobjc.A.dylib (973.1) <1FF743DE-675D-30F9-82EC-A3B6801513D7> /usr/lib/libobjc.A.dylib
+       0x180d58000 -        0x180d6223f  libsharedcache.dylib (0) <CC10ABDC-ED8D-3926-B9DE-AC253B79A2CD> /usr/lib/libsharedcache.dylib
+       0x180d63000 -        0x180d8ad23  libdyld.dylib (27104) <7ADDD814-2C61-3D07-B047-E6FDD97BA360> /usr/lib/system/libdyld.dylib
+       0x180d8b000 -        0x180e4ac83  dyld (1.0.0 - 27104) <D8104ED6-185E-3A2F-AD71-B91EDDBE2598> /usr/lib/dyld
+       0x180e4b000 -        0x180e89a5b  libsystem_kernel.dylib (13432.41.4) <F2BCEB9A-0FEC-3C92-B6EA-8E37157050A8> /usr/lib/system/libsystem_kernel.dylib
+       0x180e8a000 -        0x180e968ab  libsystem_pthread.dylib (553.40.2) <D5E656B3-84B5-368D-A6E7-CCC1A736FB75> /usr/lib/system/libsystem_pthread.dylib

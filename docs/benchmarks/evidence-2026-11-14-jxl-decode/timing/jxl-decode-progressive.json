@@ -1,0 +1,1224 @@
+{
+  "plan": {
+    "reps": 9,
+    "warmups": 1,
+    "group": "jxl/decode/progressive",
+    "candidates": [
+      {
+        "id": "c-scalar:t1",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/jxl_decode_bench-scalar",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+          "0"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode",
+          "input": "progressive",
+          "column": "a",
+          "threads": 1
+        }
+      },
+      {
+        "id": "port-scalar:t1",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-bench-target/release/jxl-decode-bench",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+          "0",
+          "scalar"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode",
+          "input": "progressive",
+          "column": "a",
+          "threads": 1
+        }
+      },
+      {
+        "id": "c:t1",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/jxl_decode_bench-simd",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+          "0"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode",
+          "input": "progressive",
+          "column": "b",
+          "threads": 1
+        }
+      },
+      {
+        "id": "port:t1",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-bench-target/release/jxl-decode-bench",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+          "0",
+          "default"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode",
+          "input": "progressive",
+          "column": "b",
+          "threads": 1
+        }
+      },
+      {
+        "id": "c:tN",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/jxl_decode_bench-simd",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+          "10"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode",
+          "input": "progressive",
+          "column": "c",
+          "threads": 10
+        }
+      },
+      {
+        "id": "port:tN",
+        "cmd": [
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-bench-target/release/jxl-decode-bench",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+          "10",
+          "default"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode",
+          "input": "progressive",
+          "column": "c",
+          "threads": 10
+        }
+      },
+      {
+        "id": "djxl:t1",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" 2> >(awk '/^[0-9]+ x [0-9]+, / { h = $3; sub(/,$/, \"\", h); for (i = 4; i < NF; i++) if ($(i + 1) ~ /^MP\\/s/) { printf \"elapsed_ms=%.3f\\n\", $1 * h / 1e6 / $i * 1000; break } } { print > \"/dev/stderr\" }')",
+          "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/build-simd/tools/djxl",
+          "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+          "--disable_output",
+          "--num_threads=0"
+        ],
+        "env": {},
+        "output": null,
+        "meta": {
+          "codec": "jxl",
+          "op": "decode",
+          "input": "progressive",
+          "column": "context",
+          "threads": 1
+        }
+      }
+    ]
+  },
+  "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "cpus": 10,
+  "uptime_before": "9:31  up 20:23, 1 user, load averages: 4.01 3.99 6.38",
+  "uptime_after": "9:32  up 20:24, 1 user, load averages: 3.71 3.87 6.10",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "complete": true,
+  "summary": {
+    "c-scalar:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 1.2393674999912037,
+      "wall_min_s": 1.2241208749910584,
+      "wall_max_s": 1.2637857919908129,
+      "load_min": 3.40869140625,
+      "load_max": 3.91650390625,
+      "rss_median_bytes": 246480896,
+      "rss_max_bytes": 248578048,
+      "internal_median_ms": 1230.673,
+      "internal_min_ms": 1214.201,
+      "internal_max_ms": 1253.909
+    },
+    "port-scalar:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 3.715542458012351,
+      "wall_min_s": 3.7029098750062985,
+      "wall_max_s": 3.7398687079985393,
+      "load_min": 3.19140625,
+      "load_max": 3.93505859375,
+      "rss_median_bytes": 256409600,
+      "rss_max_bytes": 258506752,
+      "internal_median_ms": 3706.282,
+      "internal_min_ms": 3693.133,
+      "internal_max_ms": 3730.073
+    },
+    "c:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 0.41035283300152514,
+      "wall_min_s": 0.4040272080019349,
+      "wall_max_s": 0.42134833299496677,
+      "load_min": 3.19140625,
+      "load_max": 3.93505859375,
+      "rss_median_bytes": 248250368,
+      "rss_max_bytes": 249151488,
+      "internal_median_ms": 401.17,
+      "internal_min_ms": 394.86,
+      "internal_max_ms": 410.841
+    },
+    "port:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 1.1728979999898002,
+      "wall_min_s": 1.1634230420022504,
+      "wall_max_s": 1.1902762499958044,
+      "load_min": 3.19140625,
+      "load_max": 3.93505859375,
+      "rss_median_bytes": 255770624,
+      "rss_max_bytes": 257441792,
+      "internal_median_ms": 1163.87,
+      "internal_min_ms": 1154.598,
+      "internal_max_ms": 1180.174
+    },
+    "c:tN": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 0.0852425420016516,
+      "wall_min_s": 0.07738820801023394,
+      "wall_max_s": 0.09025049999763723,
+      "load_min": 3.19140625,
+      "load_max": 3.93505859375,
+      "rss_median_bytes": 258572288,
+      "rss_max_bytes": 263208960,
+      "internal_median_ms": 76.798,
+      "internal_min_ms": 68.383,
+      "internal_max_ms": 79.321
+    },
+    "port:tN": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 1.1793814590055263,
+      "wall_min_s": 1.1613597499963362,
+      "wall_max_s": 1.1878397499967832,
+      "load_min": 3.19140625,
+      "load_max": 3.93505859375,
+      "rss_median_bytes": 266764288,
+      "rss_max_bytes": 271548416,
+      "internal_median_ms": 1169.373,
+      "internal_min_ms": 1151.94,
+      "internal_max_ms": 1178.062
+    },
+    "djxl:t1": {
+      "n": 9,
+      "failed": 0,
+      "wall_median_s": 0.4259597920026863,
+      "wall_min_s": 0.4074056250101421,
+      "wall_max_s": 0.43428579199826345,
+      "load_min": 3.29541015625,
+      "load_max": 3.93505859375,
+      "rss_median_bytes": 249200640,
+      "rss_max_bytes": 249331712,
+      "internal_median_ms": 412.843,
+      "internal_min_ms": 396.23,
+      "internal_max_ms": 420.746
+    }
+  },
+  "samples": [
+    {
+      "id": "djxl:t1",
+      "wall_s": 0.4353758749930421,
+      "load_before": 4.01220703125,
+      "load_after": 4.1708984375,
+      "returncode": 0,
+      "max_rss_bytes": 249348096,
+      "internal_ms": 421.974,
+      "stdout": [
+        "elapsed_ms=421.974"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "port:tN",
+      "wall_s": 1.1810342500102706,
+      "load_before": 4.1708984375,
+      "load_after": 4.1708984375,
+      "returncode": 0,
+      "max_rss_bytes": 270303232,
+      "internal_ms": 1171.738,
+      "stdout": [
+        "elapsed_ms=1171.738 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.07981345799635164,
+      "load_before": 4.1708984375,
+      "load_after": 4.1708984375,
+      "returncode": 0,
+      "max_rss_bytes": 260767744,
+      "internal_ms": 71.244,
+      "stdout": [
+        "elapsed_ms=71.244 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 1.1636474580009235,
+      "load_before": 4.1708984375,
+      "load_after": 4.1708984375,
+      "returncode": 0,
+      "max_rss_bytes": 255721472,
+      "internal_ms": 1154.417,
+      "stdout": [
+        "elapsed_ms=1154.417 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.4230956669925945,
+      "load_before": 4.1708984375,
+      "load_after": 4.1708984375,
+      "returncode": 0,
+      "max_rss_bytes": 247087104,
+      "internal_ms": 413.647,
+      "stdout": [
+        "elapsed_ms=413.647 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "port-scalar:t1",
+      "wall_s": 3.744787165996968,
+      "load_before": 4.1708984375,
+      "load_after": 3.91650390625,
+      "returncode": 0,
+      "max_rss_bytes": 256753664,
+      "internal_ms": 3735.184,
+      "stdout": [
+        "elapsed_ms=3735.184 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 1.2285582080075983,
+      "load_before": 3.91650390625,
+      "load_after": 3.91650390625,
+      "returncode": 0,
+      "max_rss_bytes": 247054336,
+      "internal_ms": 1219.555,
+      "stdout": [
+        "elapsed_ms=1219.555 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365"
+      ],
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 1.2609163339948282,
+      "load_before": 3.91650390625,
+      "load_after": 3.91650390625,
+      "returncode": 0,
+      "max_rss_bytes": 247808000,
+      "internal_ms": 1252.421,
+      "stdout": [
+        "elapsed_ms=1252.421 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port-scalar:t1",
+      "wall_s": 3.718814250009018,
+      "load_before": 3.91650390625,
+      "load_after": 3.8427734375,
+      "returncode": 0,
+      "max_rss_bytes": 255524864,
+      "internal_ms": 3709.63,
+      "stdout": [
+        "elapsed_ms=3709.630 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.4040272080019349,
+      "load_before": 3.8427734375,
+      "load_after": 3.8427734375,
+      "returncode": 0,
+      "max_rss_bytes": 248266752,
+      "internal_ms": 394.86,
+      "stdout": [
+        "elapsed_ms=394.860 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 1.1728979999898002,
+      "load_before": 3.8427734375,
+      "load_after": 3.8427734375,
+      "returncode": 0,
+      "max_rss_bytes": 255655936,
+      "internal_ms": 1163.87,
+      "stdout": [
+        "elapsed_ms=1163.870 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.08791362500051036,
+      "load_before": 3.8427734375,
+      "load_after": 3.8427734375,
+      "returncode": 0,
+      "max_rss_bytes": 258572288,
+      "internal_ms": 77.129,
+      "stdout": [
+        "elapsed_ms=77.129 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port:tN",
+      "wall_s": 1.187417417007964,
+      "load_before": 3.8427734375,
+      "load_after": 3.93505859375,
+      "returncode": 0,
+      "max_rss_bytes": 270008320,
+      "internal_ms": 1178.062,
+      "stdout": [
+        "elapsed_ms=1178.062 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "djxl:t1",
+      "wall_s": 0.4208035410119919,
+      "load_before": 3.93505859375,
+      "load_after": 3.93505859375,
+      "returncode": 0,
+      "max_rss_bytes": 249315328,
+      "internal_ms": 406.972,
+      "stdout": [
+        "elapsed_ms=406.972"
+      ],
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "djxl:t1",
+      "wall_s": 0.4074056250101421,
+      "load_before": 3.93505859375,
+      "load_after": 3.93505859375,
+      "returncode": 0,
+      "max_rss_bytes": 246743040,
+      "internal_ms": 396.23,
+      "stdout": [
+        "elapsed_ms=396.230"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "port:tN",
+      "wall_s": 1.1827993749902816,
+      "load_before": 3.93505859375,
+      "load_after": 3.93505859375,
+      "returncode": 0,
+      "max_rss_bytes": 269598720,
+      "internal_ms": 1173.973,
+      "stdout": [
+        "elapsed_ms=1173.973 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.08635625000169966,
+      "load_before": 3.93505859375,
+      "load_after": 3.93505859375,
+      "returncode": 0,
+      "max_rss_bytes": 263208960,
+      "internal_ms": 76.931,
+      "stdout": [
+        "elapsed_ms=76.931 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 1.1855347500095377,
+      "load_before": 3.93505859375,
+      "load_after": 3.93505859375,
+      "returncode": 0,
+      "max_rss_bytes": 255754240,
+      "internal_ms": 1175.958,
+      "stdout": [
+        "elapsed_ms=1175.958 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.40804270800435916,
+      "load_before": 3.93505859375,
+      "load_after": 3.93505859375,
+      "returncode": 0,
+      "max_rss_bytes": 249151488,
+      "internal_ms": 398.858,
+      "stdout": [
+        "elapsed_ms=398.858 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "port-scalar:t1",
+      "wall_s": 3.7029098750062985,
+      "load_before": 3.93505859375,
+      "load_after": 3.69970703125,
+      "returncode": 0,
+      "max_rss_bytes": 256606208,
+      "internal_ms": 3694.127,
+      "stdout": [
+        "elapsed_ms=3694.127 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 1.2637857919908129,
+      "load_before": 3.69970703125,
+      "load_after": 3.69970703125,
+      "returncode": 0,
+      "max_rss_bytes": 248578048,
+      "internal_ms": 1253.909,
+      "stdout": [
+        "elapsed_ms=1253.909 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365"
+      ],
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 1.2316927920037415,
+      "load_before": 3.69970703125,
+      "load_after": 3.7236328125,
+      "returncode": 0,
+      "max_rss_bytes": 245809152,
+      "internal_ms": 1222.518,
+      "stdout": [
+        "elapsed_ms=1222.518 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port-scalar:t1",
+      "wall_s": 3.7134609170025215,
+      "load_before": 3.7236328125,
+      "load_after": 3.7236328125,
+      "returncode": 0,
+      "max_rss_bytes": 255737856,
+      "internal_ms": 3704.57,
+      "stdout": [
+        "elapsed_ms=3704.570 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.4209714579919819,
+      "load_before": 3.7236328125,
+      "load_after": 3.66552734375,
+      "returncode": 0,
+      "max_rss_bytes": 248201216,
+      "internal_ms": 409.544,
+      "stdout": [
+        "elapsed_ms=409.544 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 1.1902762499958044,
+      "load_before": 3.66552734375,
+      "load_after": 3.66552734375,
+      "returncode": 0,
+      "max_rss_bytes": 256524288,
+      "internal_ms": 1180.174,
+      "stdout": [
+        "elapsed_ms=1180.174 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.07738820801023394,
+      "load_before": 3.66552734375,
+      "load_after": 3.66552734375,
+      "returncode": 0,
+      "max_rss_bytes": 261177344,
+      "internal_ms": 68.383,
+      "stdout": [
+        "elapsed_ms=68.383 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port:tN",
+      "wall_s": 1.1613597499963362,
+      "load_before": 3.66552734375,
+      "load_after": 3.66552734375,
+      "returncode": 0,
+      "max_rss_bytes": 265273344,
+      "internal_ms": 1151.94,
+      "stdout": [
+        "elapsed_ms=1151.940 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "djxl:t1",
+      "wall_s": 0.43428579199826345,
+      "load_before": 3.66552734375,
+      "load_after": 3.66552734375,
+      "returncode": 0,
+      "max_rss_bytes": 249266176,
+      "internal_ms": 420.746,
+      "stdout": [
+        "elapsed_ms=420.746"
+      ],
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "djxl:t1",
+      "wall_s": 0.4328172499954235,
+      "load_before": 3.66552734375,
+      "load_after": 3.66552734375,
+      "returncode": 0,
+      "max_rss_bytes": 249200640,
+      "internal_ms": 419.894,
+      "stdout": [
+        "elapsed_ms=419.894"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "port:tN",
+      "wall_s": 1.1793814590055263,
+      "load_before": 3.66552734375,
+      "load_after": 3.66552734375,
+      "returncode": 0,
+      "max_rss_bytes": 264601600,
+      "internal_ms": 1169.373,
+      "stdout": [
+        "elapsed_ms=1169.373 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.08672420799848624,
+      "load_before": 3.66552734375,
+      "load_after": 3.66552734375,
+      "returncode": 0,
+      "max_rss_bytes": 260669440,
+      "internal_ms": 78.169,
+      "stdout": [
+        "elapsed_ms=78.169 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 1.1698161250096746,
+      "load_before": 3.66552734375,
+      "load_after": 3.53173828125,
+      "returncode": 0,
+      "max_rss_bytes": 255770624,
+      "internal_ms": 1160.368,
+      "stdout": [
+        "elapsed_ms=1160.368 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.41854087499086745,
+      "load_before": 3.53173828125,
+      "load_after": 3.53173828125,
+      "returncode": 0,
+      "max_rss_bytes": 248250368,
+      "internal_ms": 410.605,
+      "stdout": [
+        "elapsed_ms=410.605 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "port-scalar:t1",
+      "wall_s": 3.7141420830012066,
+      "load_before": 3.53173828125,
+      "load_after": 3.53173828125,
+      "returncode": 0,
+      "max_rss_bytes": 258506752,
+      "internal_ms": 3703.657,
+      "stdout": [
+        "elapsed_ms=3703.657 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 1.2330363750079414,
+      "load_before": 3.53173828125,
+      "load_after": 3.40869140625,
+      "returncode": 0,
+      "max_rss_bytes": 246071296,
+      "internal_ms": 1221.622,
+      "stdout": [
+        "elapsed_ms=1221.622 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365"
+      ],
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 1.2512910829973407,
+      "load_before": 3.40869140625,
+      "load_after": 3.40869140625,
+      "returncode": 0,
+      "max_rss_bytes": 246235136,
+      "internal_ms": 1241.966,
+      "stdout": [
+        "elapsed_ms=1241.966 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port-scalar:t1",
+      "wall_s": 3.7031146670051385,
+      "load_before": 3.40869140625,
+      "load_after": 3.29541015625,
+      "returncode": 0,
+      "max_rss_bytes": 256606208,
+      "internal_ms": 3693.133,
+      "stdout": [
+        "elapsed_ms=3693.133 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.40593591700599063,
+      "load_before": 3.29541015625,
+      "load_after": 3.29541015625,
+      "returncode": 0,
+      "max_rss_bytes": 246890496,
+      "internal_ms": 396.602,
+      "stdout": [
+        "elapsed_ms=396.602 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 1.165408374989056,
+      "load_before": 3.29541015625,
+      "load_after": 3.29541015625,
+      "returncode": 0,
+      "max_rss_bytes": 257441792,
+      "internal_ms": 1156.71,
+      "stdout": [
+        "elapsed_ms=1156.710 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.08466491699800827,
+      "load_before": 3.29541015625,
+      "load_after": 3.29541015625,
+      "returncode": 0,
+      "max_rss_bytes": 259801088,
+      "internal_ms": 75.055,
+      "stdout": [
+        "elapsed_ms=75.055 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port:tN",
+      "wall_s": 1.1878397499967832,
+      "load_before": 3.29541015625,
+      "load_after": 3.29541015625,
+      "returncode": 0,
+      "max_rss_bytes": 267862016,
+      "internal_ms": 1177.931,
+      "stdout": [
+        "elapsed_ms=1177.931 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "djxl:t1",
+      "wall_s": 0.42883066600188613,
+      "load_before": 3.29541015625,
+      "load_after": 3.29541015625,
+      "returncode": 0,
+      "max_rss_bytes": 247906304,
+      "internal_ms": 415.23,
+      "stdout": [
+        "elapsed_ms=415.230"
+      ],
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "djxl:t1",
+      "wall_s": 0.4102097080030944,
+      "load_before": 3.29541015625,
+      "load_after": 3.29541015625,
+      "returncode": 0,
+      "max_rss_bytes": 247824384,
+      "internal_ms": 398.486,
+      "stdout": [
+        "elapsed_ms=398.486"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "port:tN",
+      "wall_s": 1.1775469170097494,
+      "load_before": 3.29541015625,
+      "load_after": 3.19140625,
+      "returncode": 0,
+      "max_rss_bytes": 264257536,
+      "internal_ms": 1168.029,
+      "stdout": [
+        "elapsed_ms=1168.029 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.09025049999763723,
+      "load_before": 3.19140625,
+      "load_after": 3.19140625,
+      "returncode": 0,
+      "max_rss_bytes": 256770048,
+      "internal_ms": 79.321,
+      "stdout": [
+        "elapsed_ms=79.321 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 1.186786749996827,
+      "load_before": 3.19140625,
+      "load_after": 3.19140625,
+      "returncode": 0,
+      "max_rss_bytes": 256868352,
+      "internal_ms": 1176.658,
+      "stdout": [
+        "elapsed_ms=1176.658 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.41035283300152514,
+      "load_before": 3.19140625,
+      "load_after": 3.19140625,
+      "returncode": 0,
+      "max_rss_bytes": 248446976,
+      "internal_ms": 401.17,
+      "stdout": [
+        "elapsed_ms=401.170 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "port-scalar:t1",
+      "wall_s": 3.7256392919953214,
+      "load_before": 3.19140625,
+      "load_after": 3.65625,
+      "returncode": 0,
+      "max_rss_bytes": 256409600,
+      "internal_ms": 3715.469,
+      "stdout": [
+        "elapsed_ms=3715.469 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 1.2510758340067696,
+      "load_before": 3.65625,
+      "load_after": 3.65625,
+      "returncode": 0,
+      "max_rss_bytes": 246480896,
+      "internal_ms": 1241.244,
+      "stdout": [
+        "elapsed_ms=1241.244 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365"
+      ],
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 1.231775792010012,
+      "load_before": 3.65625,
+      "load_after": 3.65625,
+      "returncode": 0,
+      "max_rss_bytes": 247922688,
+      "internal_ms": 1222.742,
+      "stdout": [
+        "elapsed_ms=1222.742 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port-scalar:t1",
+      "wall_s": 3.7363352910033427,
+      "load_before": 3.65625,
+      "load_after": 3.68359375,
+      "returncode": 0,
+      "max_rss_bytes": 255606784,
+      "internal_ms": 3726.044,
+      "stdout": [
+        "elapsed_ms=3726.044 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.42134833299496677,
+      "load_before": 3.68359375,
+      "load_after": 3.68359375,
+      "returncode": 0,
+      "max_rss_bytes": 246956032,
+      "internal_ms": 409.961,
+      "stdout": [
+        "elapsed_ms=409.961 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 1.17754745799175,
+      "load_before": 3.68359375,
+      "load_after": 3.68359375,
+      "returncode": 0,
+      "max_rss_bytes": 256081920,
+      "internal_ms": 1167.383,
+      "stdout": [
+        "elapsed_ms=1167.383 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.08246554200013634,
+      "load_before": 3.68359375,
+      "load_after": 3.68359375,
+      "returncode": 0,
+      "max_rss_bytes": 256655360,
+      "internal_ms": 73.009,
+      "stdout": [
+        "elapsed_ms=73.009 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port:tN",
+      "wall_s": 1.1668922499957262,
+      "load_before": 3.68359375,
+      "load_after": 3.62841796875,
+      "returncode": 0,
+      "max_rss_bytes": 266764288,
+      "internal_ms": 1158.146,
+      "stdout": [
+        "elapsed_ms=1158.146 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "djxl:t1",
+      "wall_s": 0.4292226249963278,
+      "load_before": 3.62841796875,
+      "load_after": 3.62841796875,
+      "returncode": 0,
+      "max_rss_bytes": 249200640,
+      "internal_ms": 415.434,
+      "stdout": [
+        "elapsed_ms=415.434"
+      ],
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "djxl:t1",
+      "wall_s": 0.4259597920026863,
+      "load_before": 3.62841796875,
+      "load_after": 3.62841796875,
+      "returncode": 0,
+      "max_rss_bytes": 249331712,
+      "internal_ms": 412.843,
+      "stdout": [
+        "elapsed_ms=412.843"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "port:tN",
+      "wall_s": 1.1812947500002338,
+      "load_before": 3.62841796875,
+      "load_after": 3.62841796875,
+      "returncode": 0,
+      "max_rss_bytes": 271548416,
+      "internal_ms": 1172.057,
+      "stdout": [
+        "elapsed_ms=1172.057 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.0818487499927869,
+      "load_before": 3.62841796875,
+      "load_after": 3.62841796875,
+      "returncode": 0,
+      "max_rss_bytes": 258539520,
+      "internal_ms": 73.308,
+      "stdout": [
+        "elapsed_ms=73.308 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 1.1685500830062665,
+      "load_before": 3.62841796875,
+      "load_after": 3.62841796875,
+      "returncode": 0,
+      "max_rss_bytes": 255672320,
+      "internal_ms": 1159.626,
+      "stdout": [
+        "elapsed_ms=1159.626 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.42015508300391957,
+      "load_before": 3.62841796875,
+      "load_after": 3.62841796875,
+      "returncode": 0,
+      "max_rss_bytes": 248512512,
+      "internal_ms": 410.841,
+      "stdout": [
+        "elapsed_ms=410.841 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "port-scalar:t1",
+      "wall_s": 3.7398687079985393,
+      "load_before": 3.62841796875,
+      "load_after": 3.65771484375,
+      "returncode": 0,
+      "max_rss_bytes": 257392640,
+      "internal_ms": 3730.073,
+      "stdout": [
+        "elapsed_ms=3730.073 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 1.2241208749910584,
+      "load_before": 3.65771484375,
+      "load_after": 3.65771484375,
+      "returncode": 0,
+      "max_rss_bytes": 246431744,
+      "internal_ms": 1214.201,
+      "stdout": [
+        "elapsed_ms=1214.201 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365"
+      ],
+      "rep": 7,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 1.2393674999912037,
+      "load_before": 3.65771484375,
+      "load_after": 3.68505859375,
+      "returncode": 0,
+      "max_rss_bytes": 247005184,
+      "internal_ms": 1230.673,
+      "stdout": [
+        "elapsed_ms=1230.673 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "port-scalar:t1",
+      "wall_s": 3.715542458012351,
+      "load_before": 3.68505859375,
+      "load_after": 3.68505859375,
+      "returncode": 0,
+      "max_rss_bytes": 255262720,
+      "internal_ms": 3706.282,
+      "stdout": [
+        "elapsed_ms=3706.282 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 0.4081039159937063,
+      "load_before": 3.68505859375,
+      "load_after": 3.68505859375,
+      "returncode": 0,
+      "max_rss_bytes": 246939648,
+      "internal_ms": 398.038,
+      "stdout": [
+        "elapsed_ms=398.038 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 1.1634230420022504,
+      "load_before": 3.68505859375,
+      "load_after": 3.7099609375,
+      "returncode": 0,
+      "max_rss_bytes": 255655936,
+      "internal_ms": 1154.598,
+      "stdout": [
+        "elapsed_ms=1154.598 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 0.0852425420016516,
+      "load_before": 3.7099609375,
+      "load_after": 3.7099609375,
+      "returncode": 0,
+      "max_rss_bytes": 257916928,
+      "internal_ms": 76.798,
+      "stdout": [
+        "elapsed_ms=76.798 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "port:tN",
+      "wall_s": 1.1782852079923032,
+      "load_before": 3.7099609375,
+      "load_after": 3.7099609375,
+      "returncode": 0,
+      "max_rss_bytes": 266502144,
+      "internal_ms": 1168.877,
+      "stdout": [
+        "elapsed_ms=1168.877 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666"
+      ],
+      "rep": 8,
+      "warmup": false
+    },
+    {
+      "id": "djxl:t1",
+      "wall_s": 0.42156733298907056,
+      "load_before": 3.7099609375,
+      "load_after": 3.7099609375,
+      "returncode": 0,
+      "max_rss_bytes": 247693312,
+      "internal_ms": 407.002,
+      "stdout": [
+        "elapsed_ms=407.002"
+      ],
+      "rep": 8,
+      "warmup": false
+    }
+  ]
+}

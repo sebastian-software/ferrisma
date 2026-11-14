@@ -1,0 +1,386 @@
+{
+  "photo12-e7d1": {
+    "file": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo12-e7d1.jxl",
+    "bytes": 2057280,
+    "sha256": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+    "runs": {
+      "c-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=520.302 width=4032 height=3024 channels=3 workers=0 impl=libjxl checksum=4169.996455",
+        "sha256": "3f96bce315fd0ecd5915e737bce575c3a275d39dce4c9a72fa68f4ffc970e6e2",
+        "bytes": 146313216
+      },
+      "port-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=802.002 width=4032 height=3024 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=4169.996455",
+        "sha256": "3f96bce315fd0ecd5915e737bce575c3a275d39dce4c9a72fa68f4ffc970e6e2",
+        "bytes": 146313216
+      },
+      "c:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=249.976 width=4032 height=3024 channels=3 workers=0 impl=libjxl checksum=4169.996262",
+        "sha256": "a2ca03f76b57843798cb460040b2bc75255579626ca20600ba6ebc1ad8aa9879",
+        "bytes": 146313216
+      },
+      "port:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=524.613 width=4032 height=3024 channels=3 workers=0 impl=port path=NEON simd_selections=276 checksum=4169.996262",
+        "sha256": "a2ca03f76b57843798cb460040b2bc75255579626ca20600ba6ebc1ad8aa9879",
+        "bytes": 146313216
+      },
+      "c:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=43.659 width=4032 height=3024 channels=3 workers=10 impl=libjxl checksum=4169.996262",
+        "sha256": "a2ca03f76b57843798cb460040b2bc75255579626ca20600ba6ebc1ad8aa9879",
+        "bytes": 146313216
+      },
+      "port:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=535.970 width=4032 height=3024 channels=3 workers=10 impl=port path=NEON simd_selections=118 checksum=4169.996262",
+        "sha256": "a2ca03f76b57843798cb460040b2bc75255579626ca20600ba6ebc1ad8aa9879",
+        "bytes": 146313216
+      }
+    },
+    "a_scalar_port_equals_original": true,
+    "b_neon_port_equals_original": true,
+    "c_threads_port_equals_original": true,
+    "original_tN_equals_t1": true,
+    "port_tN_equals_t1": true
+  },
+  "photo12-d0e7": {
+    "file": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo12-d0e7.jxl",
+    "bytes": 7762511,
+    "sha256": "ae0fe10b504c1d40890b405cbd824f78e5a432a925ab24fd5163d258a648df19",
+    "runs": {
+      "c-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=1586.622 width=4032 height=3024 channels=3 workers=0 impl=libjxl checksum=4171.188438",
+        "sha256": "ffa9b04532f5c42cd9e6cc70310f05b84ea3e4dccc0670d0febd3326a40204d5",
+        "bytes": 146313216
+      },
+      "port-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=2077.709 width=4032 height=3024 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=4171.188438",
+        "sha256": "ffa9b04532f5c42cd9e6cc70310f05b84ea3e4dccc0670d0febd3326a40204d5",
+        "bytes": 146313216
+      },
+      "c:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=1540.011 width=4032 height=3024 channels=3 workers=0 impl=libjxl checksum=4171.188438",
+        "sha256": "ffa9b04532f5c42cd9e6cc70310f05b84ea3e4dccc0670d0febd3326a40204d5",
+        "bytes": 146313216
+      },
+      "port:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=2092.397 width=4032 height=3024 channels=3 workers=0 impl=port path=NEON simd_selections=145955 checksum=4171.188438",
+        "sha256": "ffa9b04532f5c42cd9e6cc70310f05b84ea3e4dccc0670d0febd3326a40204d5",
+        "bytes": 146313216
+      },
+      "c:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=255.086 width=4032 height=3024 channels=3 workers=10 impl=libjxl checksum=4171.188438",
+        "sha256": "ffa9b04532f5c42cd9e6cc70310f05b84ea3e4dccc0670d0febd3326a40204d5",
+        "bytes": 146313216
+      },
+      "port:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=2076.097 width=4032 height=3024 channels=3 workers=10 impl=port path=NEON simd_selections=48 checksum=4171.188438",
+        "sha256": "ffa9b04532f5c42cd9e6cc70310f05b84ea3e4dccc0670d0febd3326a40204d5",
+        "bytes": 146313216
+      }
+    },
+    "a_scalar_port_equals_original": true,
+    "b_neon_port_equals_original": true,
+    "c_threads_port_equals_original": true,
+    "original_tN_equals_t1": true,
+    "port_tN_equals_t1": true
+  },
+  "photo24-e7d1": {
+    "file": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo24-e7d1.jxl",
+    "bytes": 3755347,
+    "sha256": "92746275e8b9fa34f35ec5aeda932c60c76286702654d4e2c03cb5fc356d6ed5",
+    "runs": {
+      "c-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=1057.804 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.292878",
+        "sha256": "17bc186d1e47a524cdebb190ac5bca53f33018b334d47e123e0c1462fdbd6079",
+        "bytes": 288000000
+      },
+      "port-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=1827.340 width=6000 height=4000 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=8223.292878",
+        "sha256": "17bc186d1e47a524cdebb190ac5bca53f33018b334d47e123e0c1462fdbd6079",
+        "bytes": 288000000
+      },
+      "c:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=452.324 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8223.293019",
+        "sha256": "a1fa063e9068bd895bdac3583ee4083a221c71739c4582b90d9c9e76da60b2b2",
+        "bytes": 288000000
+      },
+      "port:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=1094.967 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=490 checksum=8223.293019",
+        "sha256": "a1fa063e9068bd895bdac3583ee4083a221c71739c4582b90d9c9e76da60b2b2",
+        "bytes": 288000000
+      },
+      "c:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=77.149 width=6000 height=4000 channels=3 workers=10 impl=libjxl checksum=8223.293019",
+        "sha256": "a1fa063e9068bd895bdac3583ee4083a221c71739c4582b90d9c9e76da60b2b2",
+        "bytes": 288000000
+      },
+      "port:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=1084.705 width=6000 height=4000 channels=3 workers=10 impl=port path=NEON simd_selections=118 checksum=8223.293019",
+        "sha256": "a1fa063e9068bd895bdac3583ee4083a221c71739c4582b90d9c9e76da60b2b2",
+        "bytes": 288000000
+      }
+    },
+    "a_scalar_port_equals_original": true,
+    "b_neon_port_equals_original": true,
+    "c_threads_port_equals_original": true,
+    "original_tN_equals_t1": true,
+    "port_tN_equals_t1": true
+  },
+  "photo24-d0e7": {
+    "file": "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo24-d0e7.jxl",
+    "bytes": 21601913,
+    "sha256": "b105672b1426888a8478401c7082817cae3cde238e5e5405db1490265ff1f6df",
+    "runs": {
+      "c-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=2783.219 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8218.325974",
+        "sha256": "98ce59b445a7af9af32156eb0015b1ab41810c367f58ae85e7776dfe5efa6d59",
+        "bytes": 288000000
+      },
+      "port-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=3790.402 width=6000 height=4000 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=8218.325974",
+        "sha256": "98ce59b445a7af9af32156eb0015b1ab41810c367f58ae85e7776dfe5efa6d59",
+        "bytes": 288000000
+      },
+      "c:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=2773.366 width=6000 height=4000 channels=3 workers=0 impl=libjxl checksum=8218.325974",
+        "sha256": "98ce59b445a7af9af32156eb0015b1ab41810c367f58ae85e7776dfe5efa6d59",
+        "bytes": 288000000
+      },
+      "port:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=3794.077 width=6000 height=4000 channels=3 workers=0 impl=port path=NEON simd_selections=289900 checksum=8218.325974",
+        "sha256": "98ce59b445a7af9af32156eb0015b1ab41810c367f58ae85e7776dfe5efa6d59",
+        "bytes": 288000000
+      },
+      "c:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=456.293 width=6000 height=4000 channels=3 workers=10 impl=libjxl checksum=8218.325974",
+        "sha256": "98ce59b445a7af9af32156eb0015b1ab41810c367f58ae85e7776dfe5efa6d59",
+        "bytes": 288000000
+      },
+      "port:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=3787.179 width=6000 height=4000 channels=3 workers=10 impl=port path=NEON simd_selections=48 checksum=8218.325974",
+        "sha256": "98ce59b445a7af9af32156eb0015b1ab41810c367f58ae85e7776dfe5efa6d59",
+        "bytes": 288000000
+      }
+    },
+    "a_scalar_port_equals_original": true,
+    "b_neon_port_equals_original": true,
+    "c_threads_port_equals_original": true,
+    "original_tN_equals_t1": true,
+    "port_tN_equals_t1": true
+  },
+  "bike": {
+    "file": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/bike/input.jxl",
+    "bytes": 388268,
+    "sha256": "639efe13b89868688234ebb9ec36a0ed848ba01bde43681d3d37438d2e0c0370",
+    "runs": {
+      "c-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=500.450 width=2048 height=2560 channels=3 workers=0 impl=libjxl checksum=2695.799424",
+        "sha256": "5f4ac71cbebbfcba55ff3de20222140dacccda8baa27eccbc2777de4edf154db",
+        "bytes": 62914560
+      },
+      "port-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=1196.031 width=2048 height=2560 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=2695.799424",
+        "sha256": "5f4ac71cbebbfcba55ff3de20222140dacccda8baa27eccbc2777de4edf154db",
+        "bytes": 62914560
+      },
+      "c:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=153.167 width=2048 height=2560 channels=3 workers=0 impl=libjxl checksum=2695.799453",
+        "sha256": "59cd0ae85bb1dadae64149d3b157c14179fa2ac9c0c66d2ad6246add8750a40e",
+        "bytes": 62914560
+      },
+      "port:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=423.515 width=2048 height=2560 channels=3 workers=0 impl=port path=NEON simd_selections=440 checksum=2695.799453",
+        "sha256": "59cd0ae85bb1dadae64149d3b157c14179fa2ac9c0c66d2ad6246add8750a40e",
+        "bytes": 62914560
+      },
+      "c:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=29.312 width=2048 height=2560 channels=3 workers=10 impl=libjxl checksum=2695.799453",
+        "sha256": "59cd0ae85bb1dadae64149d3b157c14179fa2ac9c0c66d2ad6246add8750a40e",
+        "bytes": 62914560
+      },
+      "port:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=439.658 width=2048 height=2560 channels=3 workers=10 impl=port path=NEON simd_selections=268 checksum=2695.799453",
+        "sha256": "59cd0ae85bb1dadae64149d3b157c14179fa2ac9c0c66d2ad6246add8750a40e",
+        "bytes": 62914560
+      }
+    },
+    "a_scalar_port_equals_original": true,
+    "b_neon_port_equals_original": true,
+    "c_threads_port_equals_original": true,
+    "original_tN_equals_t1": true,
+    "port_tN_equals_t1": true
+  },
+  "progressive": {
+    "file": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+    "bytes": 467605,
+    "sha256": "bb4722ab780dce609a7b007fe7fe235962b351691f60ffb2cde7b4808c8601e1",
+    "runs": {
+      "c-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=1244.673 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.369365",
+        "sha256": "b4aa6dc0ce4369fe3b171d302d9b4bf5feee9f6fae02ee684d3794d7aa2a883e",
+        "bytes": 131868672
+      },
+      "port-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=3702.091 width=4064 height=2704 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=1428.369365",
+        "sha256": "b4aa6dc0ce4369fe3b171d302d9b4bf5feee9f6fae02ee684d3794d7aa2a883e",
+        "bytes": 131868672
+      },
+      "c:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=398.446 width=4064 height=2704 channels=3 workers=0 impl=libjxl checksum=1428.370666",
+        "sha256": "3099360921288be3b8fedbae666caa9a40c34c981273dbbacacf8de8eb7ef059",
+        "bytes": 131868672
+      },
+      "port:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=1178.106 width=4064 height=2704 channels=3 workers=0 impl=port path=NEON simd_selections=2829 checksum=1428.370666",
+        "sha256": "3099360921288be3b8fedbae666caa9a40c34c981273dbbacacf8de8eb7ef059",
+        "bytes": 131868672
+      },
+      "c:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=74.262 width=4064 height=2704 channels=3 workers=10 impl=libjxl checksum=1428.370666",
+        "sha256": "3099360921288be3b8fedbae666caa9a40c34c981273dbbacacf8de8eb7ef059",
+        "bytes": 131868672
+      },
+      "port:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=1157.959 width=4064 height=2704 channels=3 workers=10 impl=port path=NEON simd_selections=464 checksum=1428.370666",
+        "sha256": "3099360921288be3b8fedbae666caa9a40c34c981273dbbacacf8de8eb7ef059",
+        "bytes": 131868672
+      }
+    },
+    "a_scalar_port_equals_original": true,
+    "b_neon_port_equals_original": true,
+    "c_threads_port_equals_original": true,
+    "original_tN_equals_t1": true,
+    "port_tN_equals_t1": true
+  },
+  "grayscale_public_university": {
+    "file": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/grayscale_public_university/input.jxl",
+    "bytes": 63377,
+    "sha256": "b1c6fe79167858f86a23e0f32c1c5ee7602dae6f82991c1dd53bcb89a7d78606",
+    "runs": {
+      "c-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=629.851 width=2880 height=1620 channels=1 workers=0 impl=libjxl checksum=443.809817",
+        "sha256": "c2942fa860e7d782ce45883c9ab0948aae24374ef0de5c0e11a33ce0824a93e8",
+        "bytes": 18662400
+      },
+      "port-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=2050.775 width=2880 height=1620 channels=1 workers=0 impl=port path=scalar simd_selections=0 checksum=443.809817",
+        "sha256": "c2942fa860e7d782ce45883c9ab0948aae24374ef0de5c0e11a33ce0824a93e8",
+        "bytes": 18662400
+      },
+      "c:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=203.112 width=2880 height=1620 channels=1 workers=0 impl=libjxl checksum=443.809818",
+        "sha256": "9e9f3510eb2e1f54e49d9989d01e3d2e97a25e2c581a66739a3f867b114e6029",
+        "bytes": 18662400
+      },
+      "port:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=583.763 width=2880 height=1620 channels=1 workers=0 impl=port path=NEON simd_selections=19965 checksum=443.809818",
+        "sha256": "9e9f3510eb2e1f54e49d9989d01e3d2e97a25e2c581a66739a3f867b114e6029",
+        "bytes": 18662400
+      },
+      "c:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=45.302 width=2880 height=1620 channels=1 workers=10 impl=libjxl checksum=443.809818",
+        "sha256": "9e9f3510eb2e1f54e49d9989d01e3d2e97a25e2c581a66739a3f867b114e6029",
+        "bytes": 18662400
+      },
+      "port:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=589.055 width=2880 height=1620 channels=1 workers=10 impl=port path=NEON simd_selections=346 checksum=443.809818",
+        "sha256": "9e9f3510eb2e1f54e49d9989d01e3d2e97a25e2c581a66739a3f867b114e6029",
+        "bytes": 18662400
+      }
+    },
+    "a_scalar_port_equals_original": true,
+    "b_neon_port_equals_original": true,
+    "c_threads_port_equals_original": true,
+    "original_tN_equals_t1": true,
+    "port_tN_equals_t1": true
+  },
+  "lossless_pfm": {
+    "file": "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/lossless_pfm/input.jxl",
+    "bytes": 774294,
+    "sha256": "61ae52b5851ab2e156aec1d22502e8e1ec0cdf6bc0d6a3956ac6d7d6d2969d5e",
+    "runs": {
+      "c-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=31.799 width=500 height=500 channels=3 workers=0 impl=libjxl checksum=44.459338",
+        "sha256": "596361db36ec0aca44d1a22c7d6d7fd1d5b141cc837e172cca09d3aaa3fd1bcf",
+        "bytes": 3000000
+      },
+      "port-scalar:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=42.125 width=500 height=500 channels=3 workers=0 impl=port path=scalar simd_selections=0 checksum=44.459338",
+        "sha256": "596361db36ec0aca44d1a22c7d6d7fd1d5b141cc837e172cca09d3aaa3fd1bcf",
+        "bytes": 3000000
+      },
+      "c:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=31.430 width=500 height=500 channels=3 workers=0 impl=libjxl checksum=44.459338",
+        "sha256": "596361db36ec0aca44d1a22c7d6d7fd1d5b141cc837e172cca09d3aaa3fd1bcf",
+        "bytes": 3000000
+      },
+      "port:t1": {
+        "returncode": 0,
+        "line": "elapsed_ms=42.494 width=500 height=500 channels=3 workers=0 impl=port path=NEON simd_selections=35 checksum=44.459338",
+        "sha256": "596361db36ec0aca44d1a22c7d6d7fd1d5b141cc837e172cca09d3aaa3fd1bcf",
+        "bytes": 3000000
+      },
+      "c:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=12.633 width=500 height=500 channels=3 workers=10 impl=libjxl checksum=44.459338",
+        "sha256": "596361db36ec0aca44d1a22c7d6d7fd1d5b141cc837e172cca09d3aaa3fd1bcf",
+        "bytes": 3000000
+      },
+      "port:tN": {
+        "returncode": 0,
+        "line": "elapsed_ms=42.157 width=500 height=500 channels=3 workers=10 impl=port path=NEON simd_selections=30 checksum=44.459338",
+        "sha256": "596361db36ec0aca44d1a22c7d6d7fd1d5b141cc837e172cca09d3aaa3fd1bcf",
+        "bytes": 3000000
+      }
+    },
+    "a_scalar_port_equals_original": true,
+    "b_neon_port_equals_original": true,
+    "c_threads_port_equals_original": true,
+    "original_tN_equals_t1": true,
+    "port_tN_equals_t1": true
+  }
+}

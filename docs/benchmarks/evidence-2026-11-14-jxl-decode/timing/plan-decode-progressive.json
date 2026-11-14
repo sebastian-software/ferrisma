@@ -1,0 +1,133 @@
+{
+  "reps": 9,
+  "warmups": 1,
+  "group": "jxl/decode/progressive",
+  "candidates": [
+    {
+      "id": "c-scalar:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/jxl_decode_bench-scalar",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+        "0"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "progressive",
+        "column": "a",
+        "threads": 1
+      }
+    },
+    {
+      "id": "port-scalar:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-bench-target/release/jxl-decode-bench",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+        "0",
+        "scalar"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "progressive",
+        "column": "a",
+        "threads": 1
+      }
+    },
+    {
+      "id": "c:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/jxl_decode_bench-simd",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+        "0"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "progressive",
+        "column": "b",
+        "threads": 1
+      }
+    },
+    {
+      "id": "port:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-bench-target/release/jxl-decode-bench",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+        "0",
+        "default"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "progressive",
+        "column": "b",
+        "threads": 1
+      }
+    },
+    {
+      "id": "c:tN",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/jxl_decode_bench-simd",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+        "10"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "progressive",
+        "column": "c",
+        "threads": 10
+      }
+    },
+    {
+      "id": "port:tN",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-bench-target/release/jxl-decode-bench",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+        "10",
+        "default"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "progressive",
+        "column": "c",
+        "threads": 10
+      }
+    },
+    {
+      "id": "djxl:t1",
+      "cmd": [
+        "bash",
+        "-c",
+        "exec \"$0\" \"$@\" 2> >(awk '/^[0-9]+ x [0-9]+, / { h = $3; sub(/,$/, \"\", h); for (i = 4; i < NF; i++) if ($(i + 1) ~ /^MP\\/s/) { printf \"elapsed_ms=%.3f\\n\", $1 * h / 1e6 / $i * 1000; break } } { print > \"/dev/stderr\" }')",
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/build-simd/tools/djxl",
+        "/private/tmp/claude-501/-Users-sebastian-Workspace-ferramenta--claude-worktrees-prisma-release-review-0f93b7/88d9f815-1b98-4162-a337-0d4852da4fb0/scratchpad/conformance/corpus/testcases/progressive/input.jxl",
+        "--disable_output",
+        "--num_threads=0"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "progressive",
+        "column": "context",
+        "threads": 1
+      }
+    }
+  ]
+}

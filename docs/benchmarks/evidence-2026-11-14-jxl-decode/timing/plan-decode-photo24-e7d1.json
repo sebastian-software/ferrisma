@@ -1,0 +1,133 @@
+{
+  "reps": 9,
+  "warmups": 1,
+  "group": "jxl/decode/photo24-e7d1",
+  "candidates": [
+    {
+      "id": "c-scalar:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/jxl_decode_bench-scalar",
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo24-e7d1.jxl",
+        "0"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "photo24-e7d1",
+        "column": "a",
+        "threads": 1
+      }
+    },
+    {
+      "id": "port-scalar:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-bench-target/release/jxl-decode-bench",
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo24-e7d1.jxl",
+        "0",
+        "scalar"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "photo24-e7d1",
+        "column": "a",
+        "threads": 1
+      }
+    },
+    {
+      "id": "c:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/jxl_decode_bench-simd",
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo24-e7d1.jxl",
+        "0"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "photo24-e7d1",
+        "column": "b",
+        "threads": 1
+      }
+    },
+    {
+      "id": "port:t1",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-bench-target/release/jxl-decode-bench",
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo24-e7d1.jxl",
+        "0",
+        "default"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "photo24-e7d1",
+        "column": "b",
+        "threads": 1
+      }
+    },
+    {
+      "id": "c:tN",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/jxl_decode_bench-simd",
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo24-e7d1.jxl",
+        "10"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "photo24-e7d1",
+        "column": "c",
+        "threads": 10
+      }
+    },
+    {
+      "id": "port:tN",
+      "cmd": [
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-bench-target/release/jxl-decode-bench",
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo24-e7d1.jxl",
+        "10",
+        "default"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "photo24-e7d1",
+        "column": "c",
+        "threads": 10
+      }
+    },
+    {
+      "id": "djxl:t1",
+      "cmd": [
+        "bash",
+        "-c",
+        "exec \"$0\" \"$@\" 2> >(awk '/^[0-9]+ x [0-9]+, / { h = $3; sub(/,$/, \"\", h); for (i = 4; i < NF; i++) if ($(i + 1) ~ /^MP\\/s/) { printf \"elapsed_ms=%.3f\\n\", $1 * h / 1e6 / $i * 1000; break } } { print > \"/dev/stderr\" }')",
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/build-simd/tools/djxl",
+        "/Users/sebastian/Workspace/ferrisma/.claude/worktrees/prisma-release-review-419bce/.wt/jxl-public/target/ci-perf/jxl-work/photo24-e7d1.jxl",
+        "--disable_output",
+        "--num_threads=0"
+      ],
+      "env": {},
+      "output": null,
+      "meta": {
+        "codec": "jxl",
+        "op": "decode",
+        "input": "photo24-e7d1",
+        "column": "context",
+        "threads": 1
+      }
+    }
+  ]
+}

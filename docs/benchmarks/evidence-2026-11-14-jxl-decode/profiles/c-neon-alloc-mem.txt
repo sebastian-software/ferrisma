@@ -1,0 +1,14 @@
+   14.6 ms/decode  mem   jxl::N_NEON::WriteToOutputStage::ProcessRow
+    2.7 ms/decode  mem   jxl::LowMemoryRenderPipeline::SaveBorders
+    2.3 ms/decode  mem   jxl::N_NEON::DecodeGroupImpl
+    2.2 ms/decode  mem   jxl::LowMemoryRenderPipeline::LoadBorders
+    1.9 ms/decode  mem   ?
+    1.1 ms/decode  mem   jxl::LowMemoryRenderPipeline::RenderRect
+    0.3 ms/decode  alloc jxl::LowMemoryRenderPipeline::RenderRect
+    0.1 ms/decode  alloc jxl::DecodeGroup
+    0.1 ms/decode  mem   jxl::DecodeGroup
+    0.1 ms/decode  alloc std::vector<jxl::RectT<unsigned long>>::resize
+    0.1 ms/decode  mem   jxl::LowMemoryRenderPipeline::PrepareBuffers
+    0.1 ms/decode  mem   jxl::N_NEON::DequantDC
+    0.1 ms/decode  alloc jxl::DecodeContextMap
+    0.1 ms/decode  alloc jxl::DecodeANSCodes

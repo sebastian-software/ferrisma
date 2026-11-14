@@ -1,0 +1,21 @@
+phase: after
+2026-11-14T08:33:16Z
+runner:    
+Darwin Sebastians-MacBook-Pro.local 27.2.0 Darwin Kernel Version 27.2.0: Thu Oct 15 00:02:46 PDT 2026; root:xnu-13432.41.4~25/RELEASE_ARM64_T6000 arm64
+ 9:33  up 20:25, 1 user, load averages: 4.50 4.04 6.05
+cpus: 10
+Apple M1 Pro
+MacBookPro18,1
+10
+34359738368
+ProductName:		macOS
+ProductVersion:		27.2.1
+BuildVersion:		26B131
+rustc 1.100.0-nightly (5a2be9f5f 2026-09-06)
+binary: rustc
+commit-hash: 5a2be9f5f075d31e3ca5526b5b029881ce441253
+commit-date: 2026-09-06
+host: aarch64-apple-darwin
+release: 1.100.0-nightly
+LLVM version: 23.1.1
+7152fb41bae2b2e4e4353f3d97e84ec8da5c1004

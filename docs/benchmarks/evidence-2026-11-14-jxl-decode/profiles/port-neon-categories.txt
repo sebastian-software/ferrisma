@@ -1,0 +1,14 @@
+total samples 6837, per decode 855 (1 ms interval)
+entropy (ANS/AC tokens, load_block, bit reader)                                                   160.2 ms/decode  18.8%
+pipeline row plumbing (simd_rows::read, prepare_io_rows, RenderRect, process_buffers, borders)    149.2 ms/decode  17.5%
+EPF                                                                                               110.6 ms/decode  12.9%
+memmove/memset                                                                                     95.9 ms/decode  11.2%
+dequant + IDCT                                                                                     90.9 ms/decode  10.6%
+malloc/free                                                                                        69.9 ms/decode   8.2%
+write to output                                                                                    58.8 ms/decode   6.9%
+Gaborish                                                                                           28.1 ms/decode   3.3%
+FromLinear                                                                                         27.1 ms/decode   3.2%
+modular (DC/AC metadata, MA tree)                                                                  22.1 ms/decode   2.6%
+timer (mach_absolute_time)                                                                         15.5 ms/decode   1.8%
+other                                                                                              14.9 ms/decode   1.7%
+XYB                                                                                                11.4 ms/decode   1.3%

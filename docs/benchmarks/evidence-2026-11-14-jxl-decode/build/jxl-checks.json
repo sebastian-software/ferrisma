@@ -1,0 +1,57 @@
+{
+  "scalar_reference": "built",
+  "encode": {
+    "photo12": {
+      "settings": "effort 7, distance 1, 8-bit sRGB RGB PPM, bare codestream",
+      "sha256": {
+        "port": null,
+        "c-t1": null,
+        "c-tN": null,
+        "scalar": null
+      },
+      "bytes": {
+        "port": null,
+        "c-t1": null,
+        "c-tN": null,
+        "scalar": null
+      },
+      "port_equals_scalar_reference": null,
+      "port_equals_simd_release": null,
+      "simd_t1_equals_simd_tN": null,
+      "notes": "The byte-exact gate is the scalar reference (the repository's differential-oracle configuration); SIMD builds may choose differently in float-heavy heuristics (ENCODER_EXPANSION.md)."
+    }
+  },
+  "decode": {
+    "photo12": {
+      "port_vs_oxide_vardct": {
+        "raw": "samples=36578304 max_abs_diff=0.000172496 mean_abs_diff=0.000025756",
+        "max_abs_diff": 0.000172496,
+        "mean_abs_diff": 2.5756e-05,
+        "notes": "F32 samples, jxl_decode_compare compare mode"
+      },
+      "port_vs_oxide_lossless": {
+        "raw": "samples=36578304 max_abs_diff=0.000000060 mean_abs_diff=0.000000011",
+        "max_abs_diff": 6e-08,
+        "mean_abs_diff": 1.1e-08,
+        "notes": "F32 samples, jxl_decode_compare compare mode"
+      },
+      "c_lossless_roundtrip_identical": true
+    },
+    "photo24": {
+      "port_vs_oxide_vardct": {
+        "raw": "samples=72000000 max_abs_diff=0.000172496 mean_abs_diff=0.000023420",
+        "max_abs_diff": 0.000172496,
+        "mean_abs_diff": 2.342e-05,
+        "notes": "F32 samples, jxl_decode_compare compare mode"
+      },
+      "port_vs_oxide_lossless": {
+        "raw": "samples=72000000 max_abs_diff=0.000000060 mean_abs_diff=0.000000018",
+        "max_abs_diff": 6e-08,
+        "mean_abs_diff": 1.8e-08,
+        "notes": "F32 samples, jxl_decode_compare compare mode"
+      },
+      "c_lossless_roundtrip_identical": true
+    }
+  },
+  "encode_lossless": {}
+}
