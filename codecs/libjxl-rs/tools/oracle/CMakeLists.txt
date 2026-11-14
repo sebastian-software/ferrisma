@@ -46,7 +46,7 @@ elseif(ORACLE_HWY_TARGET STREQUAL "NEON" OR ORACLE_HWY_TARGET STREQUAL "AVX2")
   # the original and of the adapters, keeps upstream's baseline x86-64 flags
   # (no -m flag, Clang's default -ffp-contract=on); only HWY_NAMESPACE code is
   # compiled per target with Highway's target attributes, and every target
-  # above HWY_AVX2 is disabled (working decision 2026-11-14, port ADR 0004).
+  # above HWY_AVX2 is disabled (owner decision 2026-11-14, port ADR 0004).
   # hwy_ops.cc asserts the target set and refuses to run where dispatch
   # selects another target (Rosetta 2 needs ROSETTA_ADVERTISE_AVX=1).
   string(APPEND CMAKE_CXX_FLAGS
