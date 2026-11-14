@@ -84,7 +84,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     let factory = get_tone_mapping_stage(&info);
     let mut out = format!(" H {}", u32::from(factory.is_some()));
     if kind == "tm-stage" {
-        let mut stage = ToneMappingStage::new(info);
+        let stage = ToneMappingStage::new(info);
         let s = stage.settings();
         write!(
             out,

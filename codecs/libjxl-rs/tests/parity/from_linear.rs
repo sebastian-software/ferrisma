@@ -106,7 +106,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     info.color_encoding
         .tf_mut()
         .set_transfer_function(TransferFunction::UNKNOWN);
-    let Some(mut stage) = stage else {
+    let Some(stage) = stage else {
         return "0".into();
     };
     let s = stage.settings();

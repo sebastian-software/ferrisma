@@ -79,11 +79,14 @@ impl Kernel for GabRow<'_> {
 }
 
 impl RenderPipelineStage for GaborishStageSimd {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::symmetric_border_only(1)
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,

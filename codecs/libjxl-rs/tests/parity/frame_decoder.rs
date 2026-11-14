@@ -198,7 +198,9 @@ pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> 
             out.push_str(" @N");
             break;
         }
-        let ib = Rc::new(RefCell::new(ImageBundle::new(Some(&m.m))));
+        let ib = std::sync::Arc::new(jxl::jxl::base::sync_cell::SyncRefCell::new(
+            ImageBundle::new(Some(&m.m)),
+        ));
         // SAFETY: Every output descriptor installed below addresses a `keep`
         // buffer that outlives `state` and therefore every pipeline. The
         // manager is a live initialized local default manager, and the state

@@ -95,7 +95,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     info.color_encoding.tf_mut().set_transfer_function(tf);
     info.color_encoding.tf_mut().have_gamma = have_gamma;
     info.color_encoding.tf_mut().gamma = gamma;
-    let mut stage = get_to_linear_stage(&info);
+    let stage = get_to_linear_stage(&info);
     info.orig_intensity_target = 7.0;
     info.desired_intensity_target = 3.0;
     info.inverse_gamma = 2.0;

@@ -13,7 +13,6 @@ use jxl::jxl::{
         simple_render_pipeline::SimpleRenderPipelineBuilder,
     },
 };
-use std::rc::Rc;
 
 #[test]
 fn decoder_owned_pipeline_writes_the_selected_live_dc_slot_after_owner_move() {
@@ -32,7 +31,10 @@ fn decoder_owned_pipeline_writes_the_selected_live_dc_slot_after_owner_move() {
         dimensions.set(9, 3, 0, 0, 0, true, 1);
         state.render_pipeline = Some(builder.finalize(dimensions).unwrap());
         let mut state = std::convert::identity(state);
-        assert!(Rc::ptr_eq(&owner, &state.shared_storage.dc_frames));
+        assert!(std::sync::Arc::ptr_eq(
+            &owner,
+            &state.shared_storage.dc_frames
+        ));
         // Replacing the selected allocation after stage construction must be
         // visible through both the retained stage and the source DC selector.
         owner.borrow_mut()[slot] = Image3::create(9, 3).unwrap();
@@ -118,7 +120,10 @@ fn reference_write_stage_and_final_move_keep_existing_reference_bundle_identity(
         assert_eq!(bundle.name, b"retained frame");
         assert_eq!(bundle.color().plane_row(0, 0)[0], -7.0);
     }
-    assert!(Rc::ptr_eq(&references, &shared.reference_frames));
+    assert!(std::sync::Arc::ptr_eq(
+        &references,
+        &shared.reference_frames
+    ));
 }
 
 #[test]
@@ -172,7 +177,10 @@ fn decoder_retains_the_reference_temporary_until_final_move_into_existing_slot()
     dimensions.set(1, 1, 0, 0, 0, true, 1);
     state.render_pipeline = Some(builder.finalize(dimensions).unwrap());
     let mut state = std::convert::identity(state);
-    assert!(Rc::ptr_eq(&temporary, &state.frame_storage_for_referencing));
+    assert!(std::sync::Arc::ptr_eq(
+        &temporary,
+        &state.frame_storage_for_referencing
+    ));
     let pipeline = state.render_pipeline.as_mut().unwrap();
     pipeline.prepare_for_threads(1, false).unwrap();
     let mut input = pipeline.get_input_buffers(0, 0);

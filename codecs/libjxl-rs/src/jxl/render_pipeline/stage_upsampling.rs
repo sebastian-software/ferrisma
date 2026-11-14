@@ -13,7 +13,8 @@
 //! poison annotations remain outside this scalar port; the NEON/AVX2 stage is
 //! stage_upsampling_simd.rs.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+    PerThread, RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo,
+    Settings,
 };
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::image_metadata::CustomTransformData;
@@ -48,9 +49,60 @@ fn scalar_max(a: f32, b: f32) -> f32 {
     if a > b { a } else { b }
 }
 
+/// The stages' `temp_[3][thread]` aligned buffers, one slot per thread
+/// holding that thread's three buffers (port ADR 0003, "Concurrent decoder
+/// tasks").
+pub(crate) type UpsamplingTemp = PerThread<[Option<AlignedMemory>; 3]>;
+
+/// PrepareForThreads' `temp_[i].resize(num_threads)` and allocation loop, in
+/// the source's order: buffer index outermost, then thread.
+pub(crate) fn prepare_upsampling_temp(
+    temp: &UpsamplingTemp,
+    num_threads: usize,
+    alloc_size: usize,
+    memory_manager: MemoryManagerPtr,
+) -> Status {
+    temp.slots_mut(|slots| {
+        for i in 0..3 {
+            // resize_with: a shrink drops the tail in order, a growth adds
+            // empty owners.
+            for slot in slots.iter_mut().skip(num_threads) {
+                slot.get_mut()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)[i] = None;
+            }
+            if slots.len() > num_threads && i == 2 {
+                slots.truncate(num_threads);
+            }
+            while slots.len() < num_threads {
+                slots.push(std::sync::Mutex::new([None, None, None]));
+            }
+            for slot in slots.iter_mut().take(num_threads) {
+                slot.get_mut()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)[i] =
+                    Some(AlignedMemory::create(memory_manager, alloc_size, 0)?);
+            }
+        }
+        Ok(())
+    })
+}
+
+/// The implicit destructor of `temp_`: the array last first, each vector
+/// last first.
+pub(crate) fn drop_upsampling_temp(temp: &UpsamplingTemp) {
+    temp.slots_mut(|slots| {
+        for i in (0..3).rev() {
+            for slot in slots.iter_mut().rev() {
+                slot.get_mut()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)[i] = None;
+            }
+        }
+        slots.clear();
+    });
+}
+
 pub struct UpsamplingStage {
     settings: Settings,
-    temp: [Vec<Option<AlignedMemory>>; 3],
+    temp: UpsamplingTemp,
     c: usize,
     kernel: [f32; 64 * 25],
     memory_manager: MemoryManagerPtr,
@@ -59,9 +111,7 @@ impl Drop for UpsamplingStage {
     /// The implicit destructor: the temp_ array last first, each vector
     /// last first.
     fn drop(&mut self) {
-        for temp in self.temp.iter_mut().rev() {
-            crate::jxl::base::libcpp_vector::clear(temp);
-        }
+        drop_upsampling_temp(&self.temp);
     }
 }
 impl UpsamplingStage {
@@ -74,7 +124,7 @@ impl UpsamplingStage {
         let mut stage = Self {
             memory_manager,
             settings: Settings::symmetric(shift, 2),
-            temp: std::array::from_fn(|_| Vec::new()),
+            temp: PerThread::new(),
             c,
             kernel: [0.0; 64 * 25],
         };
@@ -114,12 +164,12 @@ impl UpsamplingStage {
         reason = "Mirror the source loop over five parallel spans."
     )]
     fn pre_process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         buffers: &RowBuffers<'_>,
         x0: usize,
         len: usize,
-        thread: usize,
+        temp: &mut [Option<AlignedMemory>; 3],
     ) {
         let rows: [_; 5] = std::array::from_fn(|i| {
             self.get_input_row(input, self.c, i as i32 - 2)
@@ -140,24 +190,24 @@ impl UpsamplingStage {
             let v4 = spans[4][x];
             let min2 = scalar_min(min0, min1);
             let max2 = scalar_max(max0, max1);
-            self.temp[0][thread].as_mut().unwrap().u32s_mut()[x] = scalar_min(v4, min2).to_bits();
-            self.temp[1][thread].as_mut().unwrap().u32s_mut()[x] = scalar_max(v4, max2).to_bits();
+            temp[0].as_mut().unwrap().u32s_mut()[x] = scalar_min(v4, min2).to_bits();
+            temp[1].as_mut().unwrap().u32s_mut()[x] = scalar_max(v4, max2).to_bits();
         }
         for x in 0..len {
-            let col = self.temp[0][thread].as_ref().unwrap().u32s();
+            let col = temp[0].as_ref().unwrap().u32s();
             let min0 = scalar_min(f32::from_bits(col[x]), f32::from_bits(col[x + 1]));
             let min1 = scalar_min(f32::from_bits(col[x + 2]), f32::from_bits(col[x + 3]));
             let min2 = scalar_min(min0, min1);
             let min = scalar_min(f32::from_bits(col[x + 4]), min2);
-            self.temp[2][thread].as_mut().unwrap().u32s_mut()[x] = min.to_bits();
+            temp[2].as_mut().unwrap().u32s_mut()[x] = min.to_bits();
         }
         for x in 0..len {
-            let col = self.temp[1][thread].as_ref().unwrap().u32s();
+            let col = temp[1].as_ref().unwrap().u32s();
             let max0 = scalar_max(f32::from_bits(col[x]), f32::from_bits(col[x + 1]));
             let max1 = scalar_max(f32::from_bits(col[x + 2]), f32::from_bits(col[x + 3]));
             let max2 = scalar_max(max0, max1);
             let max = scalar_max(f32::from_bits(col[x + 4]), max2);
-            self.temp[0][thread].as_mut().unwrap().u32s_mut()[x] = max.to_bits();
+            temp[0].as_mut().unwrap().u32s_mut()[x] = max.to_bits();
         }
     }
     fn process_row_impl<const N: usize>(
@@ -167,14 +217,14 @@ impl UpsamplingStage {
         buffers: &mut RowBuffers<'_>,
         x0: usize,
         len: usize,
-        thread: usize,
+        temp: &[Option<AlignedMemory>; 3],
     ) {
         let rows: [_; 25] = std::array::from_fn(|i| {
             self.get_input_row(input, self.c, (i / 5) as i32 - 2)
                 .offset(x0 as isize + (i % 5) as isize - 2)
         });
-        let mins = self.temp[2][thread].as_ref().unwrap().u32s();
-        let maxs = self.temp[0][thread].as_ref().unwrap().u32s();
+        let mins = temp[2].as_ref().unwrap().u32s();
+        let maxs = temp[0].as_ref().unwrap().u32s();
         // Resolve the 25 input spans once per call and stage the N output
         // rows, which are written back after all samples are computed (input
         // and output rows may share a plane). Values, order and arithmetic
@@ -214,6 +264,9 @@ impl UpsamplingStage {
     }
 }
 impl RenderPipelineStage for UpsamplingStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         self.settings
     }
@@ -227,18 +280,12 @@ impl RenderPipelineStage for UpsamplingStage {
     fn get_name(&self) -> &str {
         "Upsample"
     }
-    fn prepare_for_threads(&mut self, num_threads: usize) -> Status {
+    fn prepare_for_threads(&self, num_threads: usize) -> Status {
         let alloc_size = 4 * (CHUNK_SIZE + 4);
-        for i in 0..3 {
-            self.temp[i].resize_with(num_threads, || None);
-            for t in 0..num_threads {
-                self.temp[i][t] = Some(AlignedMemory::create(self.memory_manager, alloc_size, 0)?);
-            }
-        }
-        Ok(())
+        prepare_upsampling_temp(&self.temp, num_threads, alloc_size, self.memory_manager)
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -254,20 +301,22 @@ impl RenderPipelineStage for UpsamplingStage {
         if left != 0 || right != 0 {
             return Err(StatusCode::GenericError);
         }
-        for x in (0..width).step_by(CHUNK_SIZE) {
-            let end = (x + CHUNK_SIZE).min(width);
-            let len = end - x;
-            self.pre_process_row(input, buffers, x, len, thread);
-            if n == 2 {
-                self.process_row_impl::<2>(input, output, buffers, x, len, thread);
+        self.temp.with(thread, |temp| {
+            for x in (0..width).step_by(CHUNK_SIZE) {
+                let end = (x + CHUNK_SIZE).min(width);
+                let len = end - x;
+                self.pre_process_row(input, buffers, x, len, temp);
+                if n == 2 {
+                    self.process_row_impl::<2>(input, output, buffers, x, len, temp);
+                }
+                if n == 4 {
+                    self.process_row_impl::<4>(input, output, buffers, x, len, temp);
+                }
+                if n == 8 {
+                    self.process_row_impl::<8>(input, output, buffers, x, len, temp);
+                }
             }
-            if n == 4 {
-                self.process_row_impl::<4>(input, output, buffers, x, len, thread);
-            }
-            if n == 8 {
-                self.process_row_impl::<8>(input, output, buffers, x, len, thread);
-            }
-        }
+        });
         Ok(())
     }
 }

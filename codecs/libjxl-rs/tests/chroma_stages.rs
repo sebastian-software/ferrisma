@@ -125,7 +125,7 @@ fn original_chroma_row_words_and_ycbcr_guard_preserve_mutation_order() {
                     .collect()
             })
             .collect();
-        let mut stage = if t == 0 {
+        let stage = if t == 0 {
             get_ycbcr_stage()
         } else {
             get_chroma_upsampling_stage(2, t == 1)

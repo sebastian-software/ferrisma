@@ -64,7 +64,7 @@ impl RenderPipelineStage for ToneMappingStage {
         "ToneMapping"
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,

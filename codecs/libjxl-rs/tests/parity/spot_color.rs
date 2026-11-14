@@ -102,7 +102,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     let owner = number::<u32>(args);
     let plain = color(args);
     let cells = plain.map(Cell::new);
-    let mut stage = if owner == 0 {
+    let stage = if owner == 0 {
         get_spot_color_stage(offset, &plain)
     } else {
         get_spot_color_stage_cells(offset, &cells)

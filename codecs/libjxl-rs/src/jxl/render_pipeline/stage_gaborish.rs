@@ -5,7 +5,8 @@
 //! Highway loads/stores have one lane, so rounding the left extra span retains
 //! its original value. SIMD specializations remain a separate boundary.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
+    PerThread, RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo,
+    Settings,
 };
 use crate::jxl::base::float::mul_add_f32;
 use crate::jxl::base::status::Status;
@@ -40,7 +41,7 @@ fn mul(a: f32, b: f32) -> f32 {
 pub struct GaborishStage {
     weights: [f32; 9],
     /// One output row, written back after the row's samples are computed.
-    scratch: Vec<f32>,
+    scratch: PerThread<Vec<f32>>,
 }
 impl GaborishStage {
     fn new(lf: &LoopFilter) -> Self {
@@ -70,16 +71,19 @@ impl GaborishStage {
         }
         Self {
             weights,
-            scratch: Vec::new(),
+            scratch: PerThread::new(),
         }
     }
 }
 impl RenderPipelineStage for GaborishStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::symmetric_border_only(1)
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -88,7 +92,7 @@ impl RenderPipelineStage for GaborishStage {
         width: usize,
         _x: usize,
         _y: usize,
-        _thread: usize,
+        thread: usize,
     ) -> Status {
         let x_start = -(left as isize);
         let x_end = width.wrapping_add(right) as isize;
@@ -108,7 +112,8 @@ impl RenderPipelineStage for GaborishStage {
             let m_row = buffers.row(Row { x: 0, ..row_m });
             let b_row = buffers.row(Row { x: 0, ..row_b });
             let at = |x0: usize, x: isize| x0.wrapping_add_signed(x);
-            self.scratch.clear();
+            let mut scratch = self.scratch.with(thread, std::mem::take);
+            scratch.clear();
             for x in x_start..x_end {
                 let t = t_row[at(tx, x)];
                 let tl = t_row[at(tx, x - 1)];
@@ -125,10 +130,11 @@ impl RenderPipelineStage for GaborishStage {
                 // Literal original MulAdd(sum2,w2,MulAdd(sum1,w1,Mul(sum0,w0))).
                 // Each scalar multiply and add retains its own rounding.
                 let pixels = add(mul(sum2, w2), add(mul(sum1, w1), mul(sum0, w0)));
-                self.scratch.push(pixels);
+                scratch.push(pixels);
             }
             let out = buffers.row_mut(row_out.offset(x_start));
-            out[..self.scratch.len()].copy_from_slice(&self.scratch);
+            out[..scratch.len()].copy_from_slice(&scratch);
+            self.scratch.with(thread, |slot| *slot = scratch);
         }
         Ok(())
     }

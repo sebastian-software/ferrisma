@@ -20,7 +20,7 @@ use super::simd_rows::with_spans;
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::hwy::{Kernel, SimdF32, Target, dispatch};
 use crate::jxl::image_metadata::CustomTransformData;
-use crate::jxl::memory_manager_internal::{AlignedMemory, MemoryManagerPtr};
+use crate::jxl::memory_manager_internal::MemoryManagerPtr;
 
 const CHUNK_SIZE: usize = 1024;
 
@@ -163,7 +163,7 @@ fn store_interleaved<D: SimdF32, const N: usize>(df: D, v: &[D::V; N], mem: &mut
 pub struct UpsamplingStageSimd {
     target: Target,
     settings: Settings,
-    temp: [Vec<Option<AlignedMemory>>; 3],
+    temp: super::stage_upsampling::UpsamplingTemp,
     c: usize,
     kernel: [f32; 64 * 25],
     memory_manager: MemoryManagerPtr,
@@ -172,9 +172,7 @@ impl Drop for UpsamplingStageSimd {
     /// The implicit destructor: the temp_ array last first, each vector
     /// last first.
     fn drop(&mut self) {
-        for temp in self.temp.iter_mut().rev() {
-            crate::jxl::base::libcpp_vector::clear(temp);
-        }
+        super::stage_upsampling::drop_upsampling_temp(&self.temp);
     }
 }
 impl UpsamplingStageSimd {
@@ -189,7 +187,7 @@ impl UpsamplingStageSimd {
             target,
             memory_manager,
             settings: Settings::symmetric(shift, 2),
-            temp: std::array::from_fn(|_| Vec::new()),
+            temp: super::render_pipeline_stage::PerThread::new(),
             c,
             kernel: [0.0; 64 * 25],
         };
@@ -226,7 +224,7 @@ impl UpsamplingStageSimd {
     }
 
     fn process_chunk<const N: usize>(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -254,32 +252,36 @@ impl UpsamplingStageSimd {
         });
         let target = self.target;
         let kernel = &self.kernel;
-        let [t0, t1, t2] = &mut self.temp;
-        with_spans(buffers, reads, writes, |rows, out| {
-            let temp = [
-                t0[thread].as_mut().unwrap().f32s_mut(),
-                t1[thread].as_mut().unwrap().f32s_mut(),
-                t2[thread].as_mut().unwrap().f32s_mut(),
-            ];
-            dispatch(target, PreProcess { rows, len, temp });
-            let maxs = t0[thread].as_mut().unwrap().f32s_mut();
-            let mins = t2[thread].as_mut().unwrap().f32s_mut();
-            dispatch(
-                target,
-                Process::<N> {
-                    rows,
-                    len,
-                    kernel,
-                    mins,
-                    maxs,
-                    out,
-                },
-            );
+        self.temp.with(thread, |[t0, t1, t2]| {
+            with_spans(buffers, reads, writes, |rows, out| {
+                let temp = [
+                    t0.as_mut().unwrap().f32s_mut(),
+                    t1.as_mut().unwrap().f32s_mut(),
+                    t2.as_mut().unwrap().f32s_mut(),
+                ];
+                dispatch(target, PreProcess { rows, len, temp });
+                let maxs = t0.as_mut().unwrap().f32s_mut();
+                let mins = t2.as_mut().unwrap().f32s_mut();
+                dispatch(
+                    target,
+                    Process::<N> {
+                        rows,
+                        len,
+                        kernel,
+                        mins,
+                        maxs,
+                        out,
+                    },
+                );
+            });
         });
     }
 }
 
 impl RenderPipelineStage for UpsamplingStageSimd {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         self.settings
     }
@@ -293,19 +295,18 @@ impl RenderPipelineStage for UpsamplingStageSimd {
     fn get_name(&self) -> &str {
         "Upsample"
     }
-    fn prepare_for_threads(&mut self, num_threads: usize) -> Status {
+    fn prepare_for_threads(&self, num_threads: usize) -> Status {
         // sizeof(float) * (kChunkSize + std::max(size_t{4}, Lanes(df)))
         let alloc_size = 4 * (CHUNK_SIZE + self.target.lanes().max(4));
-        for i in 0..3 {
-            self.temp[i].resize_with(num_threads, || None);
-            for t in 0..num_threads {
-                self.temp[i][t] = Some(AlignedMemory::create(self.memory_manager, alloc_size, 0)?);
-            }
-        }
-        Ok(())
+        super::stage_upsampling::prepare_upsampling_temp(
+            &self.temp,
+            num_threads,
+            alloc_size,
+            self.memory_manager,
+        )
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,

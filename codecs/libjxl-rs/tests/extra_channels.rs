@@ -75,7 +75,7 @@ fn moving_a_multichannel_sequence_retains_the_metadata_and_reference_owners() {
     first.status.unwrap();
     assert!(!first.header.unwrap().is_last);
     offset += decoder.output().decoded_bytes();
-    let owner = std::rc::Rc::downgrade(&decoder.state().frame_storage_for_referencing);
+    let owner = std::sync::Arc::downgrade(&decoder.state().frame_storage_for_referencing);
     let mut decoder = std::convert::identity(decoder);
     assert!(owner.upgrade().is_some());
     let second = decoder.decode_frame(&bytes[offset..], false);

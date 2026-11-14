@@ -6,13 +6,18 @@
 //! same single Highway target (port ADR 0003, "Concurrent decoder tasks";
 //! ADR 0004, "Scope of the selection").
 //!
-//! The decoder's AC group tasks decode concurrently on the runner's threads,
-//! so every output word must be independent of the worker count. The inputs
+//! The decoder's AC group tasks decode and render concurrently on the
+//! runner's threads, so every output word must be independent of the worker
+//! count. The inputs
 //! are multi-group lossy (VarDCT, with Gaborish and every EPF iteration
 //! count) and lossless (modular) files that the oracle encodes, and, when
 //! `JXL_CONFORMANCE_CORPUS` names the conformance corpus
-//! (docs/CONFORMANCE.md), its 40 inputs. Output samples are compared word for
-//! word, any NaN equal to any NaN (decision D8). The original runs without a
+//! (docs/CONFORMANCE.md), its 40 inputs (noise, splines, patches, blending
+//! with reference frames, upsampling, extra channels, progressive and
+//! animated files). Float, 8-bit and 16-bit output through caller buffers
+//! are compared word for word, any NaN equal to any NaN (decision D8); the
+//! image-out callback, which runner threads call at once, must give the
+//! buffer output's float words. The original runs without a
 //! runner (`dps-decode`); its output does not depend on the runner either
 //! (the record of 2026-11-14, column (c)).
 #![cfg(feature = "cpp-oracle-simd")]
@@ -167,7 +172,58 @@ fn original_outputs(line: &str) -> Vec<Vec<u8>> {
 /// The decode of `dps-decode` (whole input, closed input, no CMS), with an
 /// optional thread runner of `workers` workers. Returns the image and extra
 /// channel outputs at every full image, in the original's order.
+/// The pixels the image-out callback receives: (x, y, bytes) per call.
+type CallbackRows = std::sync::Mutex<Vec<(usize, usize, Vec<u8>)>>;
+
+struct CallbackSink {
+    rows: CallbackRows,
+    pixel_size: usize,
+}
+
+/// JxlImageOutCallback: records the pixels; runner threads call it at once.
+unsafe extern "C" fn record_pixels(
+    opaque: *mut std::ffi::c_void,
+    x: usize,
+    y: usize,
+    num_pixels: usize,
+    pixels: *const std::ffi::c_void,
+) {
+    // SAFETY: `opaque` is the decode's live sink, shared read-only.
+    let sink = unsafe { &*opaque.cast::<CallbackSink>() };
+    // SAFETY: decode.h: `pixels` holds `num_pixels` pixels of the format.
+    let bytes =
+        unsafe { std::slice::from_raw_parts(pixels.cast::<u8>(), num_pixels * sink.pixel_size) };
+    sink.rows.lock().unwrap().push((x, y, bytes.to_vec()));
+}
+
+/// The image the callback rows of one frame describe, row-major.
+fn assemble(rows: Vec<(usize, usize, Vec<u8>)>, pixel_size: usize) -> Vec<u8> {
+    let width = rows
+        .iter()
+        .map(|(x, _, b)| x + b.len() / pixel_size)
+        .max()
+        .unwrap_or(0);
+    let height = rows.iter().map(|(_, y, _)| y + 1).max().unwrap_or(0);
+    let mut image = vec![0; width * height * pixel_size];
+    for (x, y, bytes) in rows {
+        let at = (y * width + x) * pixel_size;
+        image[at..at + bytes.len()].copy_from_slice(&bytes);
+    }
+    image
+}
+
 fn port_decode(data_type: u32, file: &[u8], workers: Option<usize>) -> Vec<Vec<u8>> {
+    port_decode_mode(data_type, file, workers, false)
+}
+
+/// As `port_decode`; with `callback` the main image goes through the
+/// image-out callback instead of a buffer.
+fn port_decode_mode(
+    data_type: u32,
+    file: &[u8],
+    workers: Option<usize>,
+    callback: bool,
+) -> Vec<Vec<u8>> {
     // SAFETY: A null manager selects the default allocator.
     let raw = unsafe { api::jxl_decoder_create(std::ptr::null()) };
     assert!(!raw.is_null());
@@ -206,6 +262,15 @@ fn port_decode(data_type: u32, file: &[u8], workers: Option<usize>) -> Vec<Vec<u
         ..format
     };
     let mut extras = 0;
+    let sample_size = match data_type {
+        0 => 4,
+        2 => 1,
+        _ => 2,
+    };
+    let mut sink = Box::new(CallbackSink {
+        rows: std::sync::Mutex::new(Vec::new()),
+        pixel_size: 0,
+    });
     let mut image: Vec<u8> = Vec::new();
     let mut extra: Vec<Vec<u8>> = Vec::new();
     let mut outputs = Vec::new();
@@ -223,20 +288,35 @@ fn port_decode(data_type: u32, file: &[u8], workers: Option<usize>) -> Vec<Vec<u
             extras = info.num_extra_channels;
         } else if status == Status::NEED_IMAGE_OUT_BUFFER {
             let mut size = 0usize;
-            let s = api::jxl_decoder_image_out_buffer_size(dec, Some(&format), Some(&mut size));
-            assert_eq!(s, Status::SUCCESS);
-            image = vec![0; size];
-            // SAFETY: `image` holds `size` writable bytes and stays unmoved
-            // while the decoder may write it.
-            let s = unsafe {
-                api::jxl_decoder_set_image_out_buffer(
-                    dec,
-                    Some(&format),
-                    image.as_mut_ptr().cast(),
-                    size,
-                )
-            };
-            assert_eq!(s, Status::SUCCESS);
+            if callback {
+                sink.pixel_size = sample_size * format.num_channels as usize;
+                // SAFETY: The boxed sink outlives the decoder; the callback
+                // only reads its pixel argument and locks the sink.
+                let s = unsafe {
+                    api::jxl_decoder_set_image_out_callback(
+                        dec,
+                        Some(&format),
+                        Some(record_pixels),
+                        std::ptr::from_mut(&mut *sink).cast(),
+                    )
+                };
+                assert_eq!(s, Status::SUCCESS);
+            } else {
+                let s = api::jxl_decoder_image_out_buffer_size(dec, Some(&format), Some(&mut size));
+                assert_eq!(s, Status::SUCCESS);
+                image = vec![0; size];
+                // SAFETY: `image` holds `size` writable bytes and stays
+                // unmoved while the decoder may write it.
+                let s = unsafe {
+                    api::jxl_decoder_set_image_out_buffer(
+                        dec,
+                        Some(&format),
+                        image.as_mut_ptr().cast(),
+                        size,
+                    )
+                };
+                assert_eq!(s, Status::SUCCESS);
+            }
             extra = vec![Vec::new(); extras as usize];
             for i in 0..extras {
                 let s = api::jxl_decoder_extra_channel_buffer_size(
@@ -261,7 +341,12 @@ fn port_decode(data_type: u32, file: &[u8], workers: Option<usize>) -> Vec<Vec<u
                 }
             }
         } else if status == Status::FULL_IMAGE {
-            outputs.push(image.clone());
+            if callback {
+                let rows = std::mem::take(&mut *sink.rows.lock().unwrap());
+                outputs.push(assemble(rows, sink.pixel_size));
+            } else {
+                outputs.push(image.clone());
+            }
             outputs.extend(extra.iter().cloned());
         } else if status == Status::COLOR_ENCODING || status == Status::FRAME {
         } else {
@@ -315,7 +400,7 @@ fn worker_counts_give_the_single_thread_and_the_original_output() {
     }
     let mut failures = Vec::new();
     let mut words = 0usize;
-    for (data_type, word, float) in [(0u32, 4usize, true), (2, 1, false)] {
+    for (data_type, word, float) in [(0u32, 4usize, true), (2, 1, false), (3, 2, false)] {
         let requests: Vec<_> = files
             .iter()
             .map(|(_, bytes)| format!("dps-decode {data_type} 0 {}", hex(bytes)))
@@ -329,7 +414,28 @@ fn worker_counts_give_the_single_thread_and_the_original_output() {
                 .iter()
                 .map(|&workers| port_decode(data_type, bytes, workers))
                 .collect();
+            // The image-out callback, called by the runner's threads at once,
+            // must see the same pixels (float output).
+            let callbacks: Vec<_> = if data_type == 0 {
+                [None, Some(2), Some(8)]
+                    .iter()
+                    .map(|&workers| (workers, port_decode_mode(data_type, bytes, workers, true)))
+                    .collect()
+            } else {
+                Vec::new()
+            };
             set_decoder_simd_for_test(None);
+            for (workers, decode) in &callbacks {
+                let differs = differing_words(decode, &decodes[0], word, float);
+                println!(
+                    "  {name} callback workers {workers:?}: {differs:?} differing words against the buffer output"
+                );
+                if differs != Some(0) {
+                    failures.push(format!(
+                        "{name} callback workers {workers:?}: {differs:?} differing words against the buffer output"
+                    ));
+                }
+            }
             words += decodes[0].iter().map(|o| o.len() / word).sum::<usize>();
             let mut cells = Vec::new();
             for (workers, decode) in WORKERS.iter().zip(&decodes) {

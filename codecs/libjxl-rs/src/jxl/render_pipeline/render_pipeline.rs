@@ -78,6 +78,19 @@ pub trait RenderPipeline<'a> {
     fn take_input_planes(&mut self, _set: usize) -> Option<Vec<Plane<f32>>> {
         None
     }
+    /// Whether this pipeline can render groups on several threads at once:
+    /// see `split_concurrent`.
+    fn renders_concurrently(&self) -> bool {
+        false
+    }
+    /// The low-memory pipeline split into a `Sync` render view and its
+    /// storage, when `renders_concurrently` (port ADR 0003, "Concurrent
+    /// decoder tasks").
+    fn split_concurrent(
+        &mut self,
+    ) -> Option<super::low_memory_render_pipeline::ConcurrentRender<'_>> {
+        None
+    }
     /// Returns planes lent by `take_input_planes`.
     fn restore_input_planes(&mut self, _set: usize, _planes: Vec<Plane<f32>>) {
         unreachable!("only a pipeline that lends input planes receives them back");
@@ -380,6 +393,28 @@ impl RenderPipelineInput<'_, '_> {
                 .input_plane_mut(set, channel),
             r,
         )
+    }
+    /// An input whose buffer set `set` was lent as `planes`, bound to no
+    /// pipeline.
+    pub(crate) fn lent(
+        group_id: usize,
+        thread_id: usize,
+        buffers: Vec<InputBuffer>,
+        set: usize,
+        planes: Vec<Plane<f32>>,
+    ) -> Self {
+        Self {
+            pipeline: None,
+            group_id,
+            thread_id,
+            buffers,
+            lent: Some((set, planes)),
+        }
+    }
+    /// The group, the thread and the lent buffer set with its planes.
+    pub(crate) fn into_lent(mut self) -> (usize, usize, usize, Vec<Plane<f32>>) {
+        let (set, planes) = self.lent.take().expect("a lent input");
+        (self.group_id, self.thread_id, set, planes)
     }
     /// Whether the buffers were lent by `lend_input_buffers`.
     pub fn is_lent(&self) -> bool {

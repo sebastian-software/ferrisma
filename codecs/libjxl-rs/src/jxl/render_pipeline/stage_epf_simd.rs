@@ -42,7 +42,7 @@ impl EpfPass {
 enum SigmaOwner<'a> {
     Owned(Plane<f32>),
     Borrowed(&'a Plane<f32>),
-    Shared(std::rc::Rc<std::cell::RefCell<Plane<f32>>>),
+    Shared(crate::jxl::base::sync_cell::SharedSigma),
 }
 
 pub struct EpfStageSimd<'a> {
@@ -405,11 +405,14 @@ impl EpfStageSimd<'_> {
 }
 
 impl RenderPipelineStage for EpfStageSimd<'_> {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::symmetric_border_only(self.pass.border())
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -482,7 +485,7 @@ pub fn get_epf_stage_simd_borrowed<'a>(
 /// pipeline, like the scalar `get_epf_stage_shared`.
 pub fn get_epf_stage_simd_shared(
     lf: &LoopFilter,
-    sigma: std::rc::Rc<std::cell::RefCell<Plane<f32>>>,
+    sigma: crate::jxl::base::sync_cell::SharedSigma,
     pass: EpfPass,
     target: Target,
 ) -> Box<dyn RenderPipelineStage> {

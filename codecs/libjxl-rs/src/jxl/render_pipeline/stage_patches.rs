@@ -8,16 +8,15 @@ use super::render_pipeline_stage::{
 use crate::jxl::base::status::Status;
 use crate::jxl::dec_patch_dictionary::{PatchDictionary, ReferenceFrame};
 use crate::jxl::image_metadata::ExtraChannelInfo;
-use std::cell::RefCell;
-use std::rc::Rc;
 enum PatchSources<'a, 'm> {
     Borrowed {
         patches: &'a PatchDictionary,
         references: &'a [ReferenceFrame<'m>; 4],
     },
     Shared {
-        patches: Rc<RefCell<PatchDictionary>>,
-        references: Rc<RefCell<[ReferenceFrame<'m>; 4]>>,
+        patches: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<PatchDictionary>>,
+        references:
+            std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<[ReferenceFrame<'m>; 4]>>,
     },
 }
 pub struct PatchDictionaryStage<'a, 'm> {
@@ -25,11 +24,14 @@ pub struct PatchDictionaryStage<'a, 'm> {
     extra_channel_info: &'a [ExtraChannelInfo],
 }
 impl RenderPipelineStage for PatchDictionaryStage<'_, '_> {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -100,8 +102,8 @@ pub fn get_patches_stage<'a, 'm>(
 /// owner. Handles retain identity; all dictionary/reference reads happen under
 /// local immutable borrows, so later frame replacement remains visible.
 pub fn get_patches_stage_shared<'a, 'm: 'a>(
-    patches: Rc<RefCell<PatchDictionary>>,
-    references: Rc<RefCell<[ReferenceFrame<'m>; 4]>>,
+    patches: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<PatchDictionary>>,
+    references: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<[ReferenceFrame<'m>; 4]>>,
     extra_channel_info: &'a [ExtraChannelInfo],
 ) -> Box<dyn RenderPipelineStage + 'a> {
     Box::new(PatchDictionaryStage {

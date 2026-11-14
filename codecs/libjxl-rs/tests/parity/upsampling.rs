@@ -37,7 +37,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         let left = number(args);
         let right = number(args);
         let width = number(args);
-        let mut stage = get_upsampling_stage(&CustomTransformData::default(), 0, 1).unwrap();
+        let stage = get_upsampling_stage(&CustomTransformData::default(), 0, 1).unwrap();
         let mut input = [Plane::create(64, 8).unwrap()];
         let mut output = [Plane::create(64, 8).unwrap()];
         for y in 0..8 {

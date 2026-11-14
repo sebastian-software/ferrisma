@@ -85,7 +85,7 @@ fn s2_ups(request: &str) -> String {
     let width = num(&mut args);
     let w = words(&mut args);
     assert!(args.next().is_none(), "trailing request words");
-    let mut stage = jxl::jxl::render_pipeline::stage_upsampling::get_upsampling_stage_in(
+    let stage = jxl::jxl::render_pipeline::stage_upsampling::get_upsampling_stage_in(
         MemoryManagerPtr::NATIVE,
         &factors,
         c,
@@ -416,7 +416,7 @@ fn s2_noise_add(request: &str) -> String {
             p.row_mut(0)[x] = w[(c * 7 + x) % w.len()];
         }
     }
-    let mut stage = get_add_noise_stage(&params, &cc, first_c);
+    let stage = get_add_noise_stage(&params, &cc, first_c);
     let s = stage.process_row(
         &rows_of(RowStorage::Input, channels, 1, origin),
         &vec![vec![]; channels],
@@ -463,7 +463,7 @@ fn s2_noise_conv(request: &str) -> String {
         }
         output[c].row_mut(0)[..len].fill(f32::from_bits(0xc123_4567));
     }
-    let mut stage = get_convolve_noise_stage(first_c);
+    let stage = get_convolve_noise_stage(first_c);
     let s = stage.process_row(
         &rows_of(RowStorage::Input, channels, 5, origin),
         &rows_of(RowStorage::Output, channels, 1, origin),

@@ -14,7 +14,6 @@ use jxl::jxl::{
     jpeg::jpeg_data::JpegData,
     passes_state::{PassesSharedState, SharedDcFrames, SharedReferenceFrames},
 };
-use std::{cell::RefCell, rc::Rc};
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("ow-")
 }
@@ -116,9 +115,9 @@ fn init(
     }
 }
 enum Target<'a> {
-    Image(Rc<RefCell<Image3<f32>>>),
+    Image(std::sync::Arc<jxl::jxl::base::sync_cell::SyncRefCell<Image3<f32>>>),
     Dc(SharedDcFrames, usize),
-    Bundle(Rc<RefCell<ImageBundle<'a>>>),
+    Bundle(std::sync::Arc<jxl::jxl::base::sync_cell::SyncRefCell<ImageBundle<'a>>>),
     Reference(SharedReferenceFrames<'a>, usize),
 }
 impl<'a> Target<'a> {
@@ -273,9 +272,13 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         *r.frame.as_deref_mut().unwrap() = ImageBundle::new(Some(&metadata));
     }
     let target = match kind {
-        0 => Target::Image(Rc::new(RefCell::new(Image3::default()))),
+        0 => Target::Image(std::sync::Arc::new(
+            jxl::jxl::base::sync_cell::SyncRefCell::new(Image3::default()),
+        )),
         1 => Target::Dc(shared.dc_frames.clone(), slot),
-        2 => Target::Bundle(Rc::new(RefCell::new(ImageBundle::new(Some(&metadata))))),
+        2 => Target::Bundle(std::sync::Arc::new(
+            jxl::jxl::base::sync_cell::SyncRefCell::new(ImageBundle::new(Some(&metadata))),
+        )),
         _ => Target::Reference(shared.reference_frames.clone(), slot),
     };
     let write_profile = if guard == 6 {

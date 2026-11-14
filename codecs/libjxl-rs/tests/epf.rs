@@ -10,7 +10,6 @@ use jxl::jxl::{
     image::{Image3, Plane},
     loop_filter::LoopFilter,
 };
-use std::{cell::RefCell, rc::Rc};
 #[test]
 fn original_epf_three_pass_words_and_late_sigma_owner_are_preserved() {
     // Captured from the pinned original scalar archive in its real simple
@@ -46,7 +45,9 @@ fn original_epf_three_pass_words_and_late_sigma_owner_are_preserved() {
         .into_iter()
         .enumerate()
     {
-        let sigma = Rc::new(RefCell::new(Plane::<f32>::create(64, 64).unwrap()));
+        let sigma = std::sync::Arc::new(jxl::jxl::base::sync_cell::SyncRefCell::new(
+            Plane::<f32>::create(64, 64).unwrap(),
+        ));
         let stage = get_epf_stage_shared(&lf, sigma.clone(), pass);
         // A stage holds the same sigma owner, not a snapshot captured at creation.
         for y in 0..64 {

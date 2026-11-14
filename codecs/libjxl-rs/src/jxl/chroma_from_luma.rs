@@ -15,8 +15,6 @@ use super::frame_dimensions::BLOCK_DIM;
 use super::image::Plane;
 use super::image_ops::zero_fill_image;
 use super::memory_manager_internal::MemoryManagerPtr;
-use std::cell::{Ref, RefCell};
-use std::rc::Rc;
 
 pub const COLOR_TILE_DIM: usize = 64;
 pub const COLOR_TILE_DIM_IN_BLOCKS: usize = COLOR_TILE_DIM / BLOCK_DIM;
@@ -148,7 +146,7 @@ impl ColorCorrelation {
 pub struct ColorCorrelationMap {
     pub ytox_map: Plane<i8>,
     pub ytob_map: Plane<i8>,
-    base: Rc<RefCell<ColorCorrelation>>,
+    base: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ColorCorrelation>>,
 }
 impl ColorCorrelationMap {
     pub fn create(xsize: usize, ysize: usize, xyb: bool) -> StatusOr<Self> {
@@ -174,11 +172,13 @@ impl ColorCorrelationMap {
         result.base.borrow_mut().recompute_dc_factors();
         Ok(result)
     }
-    pub fn base(&self) -> Ref<'_, ColorCorrelation> {
+    pub fn base(&self) -> std::sync::RwLockReadGuard<'_, ColorCorrelation> {
         self.base.borrow()
     }
-    pub fn base_shared(&self) -> Rc<RefCell<ColorCorrelation>> {
-        Rc::clone(&self.base)
+    pub fn base_shared(
+        &self,
+    ) -> std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ColorCorrelation>> {
+        std::sync::Arc::clone(&self.base)
     }
     pub fn decode_dc(&mut self, reader: &mut BitReader<'_>) -> Status {
         self.base.borrow_mut().decode_dc(reader)

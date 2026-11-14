@@ -13,22 +13,23 @@ use super::render_pipeline_stage::{
 };
 use crate::jxl::base::status::Status;
 use crate::jxl::splines::Splines;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 enum SplineOwner<'a, 'data> {
     Borrowed(&'a Splines<'data>),
-    Shared(Rc<RefCell<Splines<'data>>>),
+    Shared(std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<Splines<'data>>>),
 }
 pub struct SplineStage<'a, 'data> {
     splines: SplineOwner<'a, 'data>,
 }
 impl RenderPipelineStage for SplineStage<'_, '_> {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -78,7 +79,7 @@ pub fn get_spline_stage<'a, 'data>(splines: &'a Splines<'data>) -> SplineStage<'
 /// The shared owner stays identical to the decoder's owner; the stage holds an
 /// immutable runtime borrow only while processing a row.
 pub fn get_spline_stage_shared<'data>(
-    splines: Rc<RefCell<Splines<'data>>>,
+    splines: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<Splines<'data>>>,
 ) -> SplineStage<'data, 'data> {
     SplineStage {
         splines: SplineOwner::Shared(splines),

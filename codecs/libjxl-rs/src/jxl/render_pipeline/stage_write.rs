@@ -101,6 +101,29 @@ impl InputSpan {
     }
 }
 
+/// What WriteToOutputStage::PrepareForThreads sets: the main and extra
+/// callbacks' run opaque values and the per-thread scratch, `temp_out[t]`
+/// and `temp_in[t * channels + c]`.
+#[derive(Default)]
+struct Prepared {
+    main_run_opaque: *mut c_void,
+    extra_run_opaque: Vec<*mut c_void>,
+    temp_in: Vec<Option<CallbackAlignedMemory>>,
+    temp_out: Vec<Option<CallbackAlignedMemory>>,
+}
+impl Prepared {
+    fn output_memory(&self, thread: usize) -> &CallbackAlignedMemory {
+        self.temp_out[thread]
+            .as_ref()
+            .expect("source prepared output scratch")
+    }
+    fn input_memory(&self, num_channels: usize, thread: usize, c: usize) -> &CallbackAlignedMemory {
+        self.temp_in[thread.wrapping_mul(num_channels).wrapping_add(c)]
+            .as_ref()
+            .expect("source prepared input scratch")
+    }
+}
+
 pub struct WriteToOutputStage {
     width: usize,
     height: usize,
@@ -116,8 +139,9 @@ pub struct WriteToOutputStage {
     extra_channels: Vec<Output>,
     opaque_alpha: Vec<f32>,
     memory_manager: *const JxlMemoryManager,
-    temp_in: Vec<Option<CallbackAlignedMemory>>,
-    temp_out: Vec<Option<CallbackAlignedMemory>>,
+    // What PrepareForThreads sets: the callbacks' run opaque values and the
+    // per-thread scratch. Rows read it shared; see `Prepared`.
+    prepared: std::sync::RwLock<Prepared>,
     // render stages: HWY_DYNAMIC_DISPATCH(GetWriteToOutputStage) chose this
     // SIMD target (port ADR 0004); None is the HWY_SCALAR translation.
     simd: Option<crate::jxl::hwy::Target>,
@@ -186,8 +210,7 @@ impl WriteToOutputStage {
             extra_channels: Vec::new(),
             opaque_alpha: vec![1.0; CHUNK_SIZE],
             memory_manager,
-            temp_in: Vec::new(),
-            temp_out: Vec::new(),
+            prepared: std::sync::RwLock::new(Prepared::default()),
             simd: crate::jxl::hwy::decoder_target(),
         };
         for (ec, output) in extra_output.iter().enumerate() {
@@ -208,21 +231,17 @@ impl WriteToOutputStage {
         }
         storage.resize_with(size, || None);
     }
-    fn output_memory(&self, thread: usize) -> &CallbackAlignedMemory {
-        self.temp_out[thread]
-            .as_ref()
-            .expect("source prepared output scratch")
-    }
-    fn input_memory(&self, thread: usize, c: usize) -> &CallbackAlignedMemory {
-        self.temp_in[thread.wrapping_mul(self.main.num_channels).wrapping_add(c)]
-            .as_ref()
-            .expect("source prepared input scratch")
-    }
-    fn unpremul(&mut self, thread: usize, len: usize, lines: &mut [Option<InputSpan>; 4]) {
+    fn unpremul(
+        &self,
+        prepared: &Prepared,
+        thread: usize,
+        len: usize,
+        lines: &mut [Option<InputSpan>; 4],
+    ) {
         for (c, line) in lines.iter().enumerate().take(self.main.num_channels) {
             let source = line.expect("source initialized line pointer");
             assert!(len <= source.initialized);
-            let target = self.input_memory(thread, c);
+            let target = prepared.input_memory(self.main.num_channels, thread, c);
             assert!(len * 4 <= target.size());
             // SAFETY: Live source input/scratch spans are initialized and
             // disjoint from this private target. No callback runs in the copy.
@@ -237,9 +256,9 @@ impl WriteToOutputStage {
                 // SAFETY: The preceding copy initialized these `len` words.
                 super::stage_write_simd::padded(target, len, |x| unsafe { ptr.add(x).read() })
             };
-            let alpha = copy(self.input_memory(thread, self.num_color));
+            let alpha = copy(prepared.input_memory(self.main.num_channels, thread, self.num_color));
             let mut colors: Vec<_> = (0..self.num_color)
-                .map(|c| copy(self.input_memory(thread, c)))
+                .map(|c| copy(prepared.input_memory(self.main.num_channels, thread, c)))
                 .collect();
             super::stage_write_simd::unpremul(
                 target,
@@ -248,7 +267,10 @@ impl WriteToOutputStage {
                 crate::jxl::alpha::SMALL_ALPHA,
             );
             for (c, values) in colors.iter().enumerate() {
-                let ptr = self.input_memory(thread, c).address().cast::<f32>();
+                let ptr = prepared
+                    .input_memory(self.main.num_channels, thread, c)
+                    .address()
+                    .cast::<f32>();
                 for (x, &v) in values.iter().enumerate().take(len) {
                     // SAFETY: In-bounds words of the stage's own scratch block.
                     unsafe { ptr.add(x).write(v) };
@@ -256,15 +278,18 @@ impl WriteToOutputStage {
             }
         } else {
             for x in 0..len {
-                let alpha_ptr = self
-                    .input_memory(thread, self.num_color)
+                let alpha_ptr = prepared
+                    .input_memory(self.main.num_channels, thread, self.num_color)
                     .address()
                     .cast::<f32>();
                 // SAFETY: The preceding copy initialized this alpha element.
                 let alpha = unsafe { alpha_ptr.add(x).read() };
                 let mul = 1.0 / max(crate::jxl::alpha::SMALL_ALPHA, alpha);
                 for c in 0..self.num_color {
-                    let ptr = self.input_memory(thread, c).address().cast::<f32>();
+                    let ptr = prepared
+                        .input_memory(self.main.num_channels, thread, c)
+                        .address()
+                        .cast::<f32>();
                     // SAFETY: These copied color words are initialized and the
                     // stage exclusively owns their live aligned scratch block.
                     unsafe {
@@ -275,13 +300,17 @@ impl WriteToOutputStage {
         }
         for (c, line) in lines.iter_mut().enumerate().take(self.main.num_channels) {
             *line = Some(InputSpan {
-                address: self.input_memory(thread, c).address().cast(),
+                address: prepared
+                    .input_memory(self.main.num_channels, thread, c)
+                    .address()
+                    .cast(),
                 initialized: len,
             });
         }
     }
     fn flip(
-        &mut self,
+        &self,
+        prepared: &Prepared,
         out: Output,
         thread: usize,
         len: usize,
@@ -290,7 +319,7 @@ impl WriteToOutputStage {
     ) {
         for (c, line) in lines.iter().enumerate().take(out.num_channels) {
             let source = line.expect("source initialized flip pointer");
-            let target = self.input_memory(thread, c);
+            let target = prepared.input_memory(self.main.num_channels, thread, c);
             assert!(len <= source.initialized && len * 4 <= target.size());
             if target.address().cast_const().cast::<f32>() != source.address {
                 // SAFETY: Source pointer inequality is the original identity
@@ -307,7 +336,10 @@ impl WriteToOutputStage {
         let last = len.wrapping_sub(1);
         for i in 0..len / 2 {
             for c in 0..out.num_channels {
-                let target = self.input_memory(thread, c).address().cast::<u32>();
+                let target = prepared
+                    .input_memory(self.main.num_channels, thread, c)
+                    .address()
+                    .cast::<u32>();
                 // SAFETY: The preceding copy (or identity branch) proves both
                 // initialized in-bounds words. Swapping bits preserves sNaNs.
                 unsafe {
@@ -317,7 +349,10 @@ impl WriteToOutputStage {
         }
         for (c, line) in lines.iter_mut().enumerate().take(out.num_channels) {
             *line = Some(InputSpan {
-                address: self.input_memory(thread, c).address().cast(),
+                address: prepared
+                    .input_memory(self.main.num_channels, thread, c)
+                    .address()
+                    .cast(),
                 initialized: len,
             });
         }
@@ -342,8 +377,13 @@ impl WriteToOutputStage {
         }) as u16
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "The source's OutputBuffers parameters plus the prepared state."
+    )]
     fn output_buffers(
-        &mut self,
+        &self,
+        prepared: &Prepared,
         out: Output,
         thread: usize,
         y: usize,
@@ -352,7 +392,7 @@ impl WriteToOutputStage {
         lines: &mut [Option<InputSpan>; 4],
     ) {
         if self.flip_x {
-            self.flip(out, thread, len, &mut start, lines);
+            self.flip(prepared, out, thread, len, &mut start, lines);
         }
         let sample_size = match out.data_type {
             JxlDataType::UINT8 => 1,
@@ -361,7 +401,7 @@ impl WriteToOutputStage {
             _ => return,
         };
         assert!(out.num_channels <= 4, "source channel-array precondition");
-        let memory = self.output_memory(thread);
+        let memory = prepared.output_memory(thread);
         let bytes = len
             .checked_mul(out.num_channels)
             .and_then(|n| n.checked_mul(sample_size))
@@ -600,7 +640,27 @@ impl WriteToOutputStage {
     }
 }
 
+// SAFETY: The stage's raw values are the caller's output buffers, pixel
+// callbacks with their opaque values, the memory manager, and its own
+// callback-allocated scratch. `WriteToOutputStage::new`'s caller guarantees
+// that the buffers, callbacks and manager stay valid for the stage's
+// lifetime and, as decode.h requires of a multithreaded runner, that the
+// callbacks and manager may be called from any thread. Shared use from
+// several threads is the source's: PrepareForThreads (under `prepared`'s
+// write lock) runs before any row; a row call reads the prepared values
+// under the read lock and writes only (a) the scratch slots of its own
+// thread id, which no other thread uses while that thread runs a row, and
+// (b) the output pixels of its row span, which the pipeline renders exactly
+// once (each rect is finalized by one group's task, ADR 0003 "Concurrent
+// decoder tasks"), so two threads never write the same output bytes.
+unsafe impl Send for WriteToOutputStage {}
+// SAFETY: As for Send above.
+unsafe impl Sync for WriteToOutputStage {}
+
 impl RenderPipelineStage for WriteToOutputStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
@@ -620,14 +680,38 @@ impl RenderPipelineStage for WriteToOutputStage {
             RenderPipelineChannelMode::Ignored
         }
     }
-    fn prepare_for_threads(&mut self, threads: usize) -> Status {
-        self.main.prepare_for_threads(threads)?;
-        for extra in &mut self.extra_channels {
-            extra.prepare_for_threads(threads)?;
+    fn prepare_for_threads(&self, threads: usize) -> Status {
+        let mut prepared = self
+            .prepared
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let prepared = &mut *prepared;
+        let mut main = Output {
+            run_opaque: prepared.main_run_opaque,
+            ..self.main
+        };
+        let status = main.prepare_for_threads(threads);
+        prepared.main_run_opaque = main.run_opaque;
+        status?;
+        prepared
+            .extra_run_opaque
+            .resize(self.extra_channels.len(), std::ptr::null_mut());
+        for (extra, opaque) in self
+            .extra_channels
+            .iter()
+            .zip(prepared.extra_run_opaque.iter_mut())
+        {
+            let mut extra = Output {
+                run_opaque: *opaque,
+                ..*extra
+            };
+            let status = extra.prepare_for_threads(threads);
+            *opaque = extra.run_opaque;
+            status?;
         }
-        Self::resize_storage(&mut self.temp_out, threads);
+        Self::resize_storage(&mut prepared.temp_out, threads);
         let alloc_size = std::mem::size_of::<f32>() * CHUNK_SIZE;
-        for memory in &mut self.temp_out {
+        for memory in &mut prepared.temp_out {
             // SAFETY: The constructor's lifelong callback/manager protocol
             // holds. A failed create leaves the previous owner unchanged.
             let next = unsafe {
@@ -642,10 +726,10 @@ impl RenderPipelineStage for WriteToOutputStage {
         }
         if (self.has_alpha && self.want_alpha && self.unpremul_alpha) || self.flip_x {
             Self::resize_storage(
-                &mut self.temp_in,
+                &mut prepared.temp_in,
                 threads.wrapping_mul(self.main.num_channels),
             );
-            for memory in &mut self.temp_in {
+            for memory in &mut prepared.temp_in {
                 // SAFETY: The same original manager owns this actual block.
                 let next =
                     unsafe { CallbackAlignedMemory::create(self.memory_manager, alloc_size, 0)? };
@@ -656,7 +740,7 @@ impl RenderPipelineStage for WriteToOutputStage {
         Ok(())
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -670,7 +754,15 @@ impl RenderPipelineStage for WriteToOutputStage {
         if left != 0 || right != 0 {
             return Err(StatusCode::GenericError);
         }
-        if self.main.run_opaque.is_null() && self.main.buffer.is_null() {
+        let prepared = self
+            .prepared
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let main = Output {
+            run_opaque: prepared.main_run_opaque,
+            ..self.main
+        };
+        if main.run_opaque.is_null() && main.buffer.is_null() {
             return Err(StatusCode::GenericError);
         }
         if y >= self.height {
@@ -713,11 +805,14 @@ impl RenderPipelineStage for WriteToOutputStage {
                 }
             });
             if self.has_alpha && self.want_alpha && self.unpremul_alpha {
-                self.unpremul(thread, len, &mut lines);
+                self.unpremul(&prepared, thread, len, &mut lines);
             }
-            self.output_buffers(self.main, thread, y, start, len, &mut lines);
+            self.output_buffers(&prepared, main, thread, y, start, len, &mut lines);
             for ec in 0..self.extra_channels.len() {
-                let extra = self.extra_channels[ec];
+                let extra = Output {
+                    run_opaque: prepared.extra_run_opaque[ec],
+                    ..self.extra_channels[ec]
+                };
                 let row = self
                     .get_input_row(
                         input,
@@ -731,7 +826,7 @@ impl RenderPipelineStage for WriteToOutputStage {
                     address: values.as_ptr(),
                     initialized: values.len(),
                 });
-                self.output_buffers(extra, thread, y, start, len, &mut lines);
+                self.output_buffers(&prepared, extra, thread, y, start, len, &mut lines);
             }
         }
         Ok(())
@@ -739,16 +834,26 @@ impl RenderPipelineStage for WriteToOutputStage {
 }
 impl Drop for WriteToOutputStage {
     fn drop(&mut self) {
+        let prepared = self
+            .prepared
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        self.main.run_opaque = prepared.main_run_opaque;
         self.main.destroy();
-        for extra in &mut self.extra_channels {
+        for (extra, opaque) in self
+            .extra_channels
+            .iter_mut()
+            .zip(&prepared.extra_run_opaque)
+        {
+            extra.run_opaque = *opaque;
             extra.destroy();
         }
         // Original destructor body precedes reverse member destruction. libc++
         // destroys each AlignedMemory vector's elements from end to beginning.
-        while let Some(memory) = self.temp_out.pop() {
+        while let Some(memory) = prepared.temp_out.pop() {
             drop(memory);
         }
-        while let Some(memory) = self.temp_in.pop() {
+        while let Some(memory) = prepared.temp_in.pop() {
             drop(memory);
         }
     }

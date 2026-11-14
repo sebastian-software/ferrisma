@@ -115,11 +115,11 @@ pub enum SectionStatus {
 }
 
 enum FrameOutput<'p, 'm> {
-    Borrowed(&'p RefCell<ImageBundle<'m>>),
-    Owned(Rc<RefCell<ImageBundle<'m>>>),
+    Borrowed(&'p crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>),
+    Owned(std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>>),
 }
 impl<'m> std::ops::Deref for FrameOutput<'_, 'm> {
-    type Target = RefCell<ImageBundle<'m>>;
+    type Target = crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>;
     fn deref(&self) -> &Self::Target {
         match self {
             Self::Borrowed(output) => output,
@@ -132,7 +132,7 @@ impl<'m> std::ops::Deref for FrameOutput<'_, 'm> {
 // decoder processes a header only after its profile predicate succeeds.
 // Fixed configurations own their metadata; sequential metadata is borrowed
 // immutably for the decoder lifetime.
-struct AdmittedHeader<'m>(Rc<FrameHeader<'m>>);
+struct AdmittedHeader<'m>(std::sync::Arc<FrameHeader<'m>>);
 impl AdmittedHeader<'_> {
     // FrameHeader::VisitFields reads the complete U64 flag field. The original
     // decoder tests individual known bits and accepts reserved bits unchanged;
@@ -308,7 +308,7 @@ impl super::render_pipeline::render_pipeline_stage::RenderPipelineStage for Trac
         Ok(())
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &super::render_pipeline::render_pipeline_stage::RowInfo,
         output: &super::render_pipeline::render_pipeline_stage::RowInfo,
         buffers: &mut super::render_pipeline::render_pipeline_stage::RowBuffers<'_>,
@@ -361,7 +361,7 @@ impl super::render_pipeline::render_pipeline_stage::RenderPipelineStage for Trac
         Ok(())
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &super::render_pipeline::render_pipeline_stage::RowInfo,
         output: &super::render_pipeline::render_pipeline_stage::RowInfo,
         buffers: &mut super::render_pipeline::render_pipeline_stage::RowBuffers<'_>,
@@ -406,7 +406,7 @@ impl super::render_pipeline::render_pipeline_stage::RenderPipelineStage for Trac
     fn is_initialized(&self) -> Status {
         self.original.is_initialized()
     }
-    fn prepare_for_threads(&mut self, n: usize) -> Status {
+    fn prepare_for_threads(&self, n: usize) -> Status {
         self.original.prepare_for_threads(n)
     }
 }
@@ -479,7 +479,7 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
         // unmoved while this decoder is used, and never mutates it meanwhile.
         unsafe { self.pool.as_ref() }
     }
-    fn decoded(&self) -> &RefCell<ImageBundle<'m>> {
+    fn decoded(&self) -> &crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>> {
         self.output
             .as_deref()
             .expect("source InitFrame sets the decoded bundle")
@@ -1209,7 +1209,7 @@ impl FrameDecoderScope<'_, '_, '_> {
             output_encoding_info,
             ..
         } = &mut *self.state;
-        let decoded: &RefCell<ImageBundle<'_>> = output
+        let decoded: &crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'_>> = output
             .as_deref()
             .expect("source InitFrame sets the decoded bundle");
         let is_jpeg = decoded.borrow().jpeg_data.is_some();
@@ -1227,6 +1227,24 @@ impl FrameDecoderScope<'_, '_, '_> {
         let dc = dc_frame.is_none().then(|| shared_storage.dc());
         let cmap_base = shared_storage.cmap.base();
         let (modular, full_image) = modular.split_for_groups();
+        let serial = is_jpeg || !coefficients.is_empty() || dc_frame.is_some();
+        // Rendering runs on the tasks' threads when every stage may (port ADR
+        // 0003, "Concurrent decoder tasks"): the pipeline is then split into
+        // its shared render view and the storage the tasks lock.
+        let concurrent_render = !serial
+            && render_pipeline
+                .as_deref()
+                .is_some_and(|p| p.renders_concurrently());
+        let (pipeline, render, render_storage) = if concurrent_render {
+            let split = render_pipeline
+                .as_deref_mut()
+                .unwrap()
+                .split_concurrent()
+                .expect("a pipeline that renders concurrently splits");
+            (None, Some(split.cx), Some(split.storage))
+        } else {
+            (render_pipeline.as_deref_mut(), None, None)
+        };
         let shared = AcGroupShared {
             header: &header.0,
             dim,
@@ -1242,12 +1260,14 @@ impl FrameDecoderScope<'_, '_, '_> {
             visible_frame_index: *visible_frame_index,
             nonvisible_frame_index: *nonvisible_frame_index,
             is_jpeg,
-            serial: is_jpeg || !coefficients.is_empty() || dc_frame.is_some(),
+            serial,
             coefficient_type: coefficients.image_type(),
+            render,
         };
         let mut exclusive = AcGroupExclusive {
             dc_frame,
-            pipeline: render_pipeline.as_deref_mut(),
+            pipeline,
+            render_storage,
             upsampler8x: upsampler8x.as_deref_mut(),
             coefficients,
             decoded,
@@ -1585,16 +1605,29 @@ struct AcGroupShared<'s, 'm> {
     // groups run their whole body in the exclusive section.
     serial: bool,
     coefficient_type: AcType,
+    /// The low-memory pipeline's render view when the tasks render
+    /// concurrently; its storage is `AcGroupExclusive::render_storage`.
+    render: Option<
+        super::render_pipeline::low_memory_render_pipeline::RenderCx<
+            's,
+            dyn RenderPipelineStage + Sync + 's,
+        >,
+    >,
 }
 
 /// The frame state AC group tasks write, entered one section at a time.
 struct AcGroupExclusive<'e, 'm, 'p, 'r, 'b> {
     /// The DC frames' cell and index when the DC image is a DC frame's.
     dc_frame: Option<(&'e super::passes_state::SharedDcFrames, usize)>,
+    /// The pipeline, unless the tasks render concurrently.
     pipeline: Option<&'e mut (dyn RenderPipeline<'p> + 'p)>,
+    /// The concurrent render's storage (input planes, per-thread buffers,
+    /// borders, completed passes).
+    render_storage:
+        Option<super::render_pipeline::low_memory_render_pipeline::ConcurrentStorage<'e>>,
     upsampler8x: Option<&'e mut (dyn RenderPipelineStage + 'static)>,
     coefficients: &'e mut AcImage,
-    decoded: &'e RefCell<ImageBundle<'m>>,
+    decoded: &'e crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>,
     group_caches: &'e mut Vec<GroupDecCache>,
     use_task_id: &'e mut bool,
     passes: &'e mut Vec<u8>,
@@ -1630,10 +1663,16 @@ fn prepare_storage(
     }
     *exclusive.use_task_id = threads > tasks;
     // Original full-image VarDCT/noise paths retain group input owners.
-    if let Some(p) = &mut exclusive.pipeline {
-        let use_group_ids = shared.modular.use_full_image()
-            && (shared.header.encoding == FrameEncoding::VAR_DCT
-                || shared.header.flags & super::frame_header::FLAG_NOISE != 0);
+    let use_group_ids = shared.modular.use_full_image()
+        && (shared.header.encoding == FrameEncoding::VAR_DCT
+            || shared.header.flags & super::frame_header::FLAG_NOISE != 0);
+    if let Some(storage) = &mut exclusive.render_storage {
+        shared
+            .render
+            .as_ref()
+            .unwrap()
+            .prepare_for_threads(size, use_group_ids, storage.s)?;
+    } else if let Some(p) = &mut exclusive.pipeline {
         p.prepare_for_threads(size, use_group_ids)?;
     }
     exclusive
@@ -1697,6 +1736,8 @@ struct AcGroupOwned<'x, 'p, 'b> {
     readers: Vec<BitReader<'b>>,
     location: usize,
     pass0: usize,
+    /// The body's result when it ran in the lending section.
+    decoded: Option<StatusOr<(bool, bool)>>,
 }
 
 // ProcessACGroup. `sections[indices[pass]]` supplies each new pass reader;
@@ -1731,6 +1772,49 @@ fn process_ac_group(
             && num_passes == 0
             && pass0 == 0
             && (num_passes + pass0 == total || force_draw);
+        if let Some(storage) = &mut e.render_storage {
+            // Concurrent rendering: lend the input from the split pipeline.
+            // The 8x-upsampled first draw needs the shared upsampler, so its
+            // body runs here, in this section.
+            let render = shared.render.as_ref().unwrap();
+            storage.check_group(g);
+            let buffers = render.prepare_buffers_impl(g, location, storage.s.use_group_ids());
+            let set = buffers.first().map_or(0, |b| b.0);
+            let planes = storage.s.take_input_planes(set);
+            let mut input = RenderPipelineInput::lent(g, location, buffers, set, planes);
+            let mut readers: Vec<_> = (pass0..pass0 + num_passes)
+                .map(|i| std::mem::take(&mut *e.sections[indices[i]].br))
+                .collect();
+            let mut cache = std::mem::take(&mut e.group_caches[location]);
+            let decoded = draws_upsampled_dc.then(|| {
+                let full_image = &mut *e.full_image;
+                decode_ac_group_body(
+                    shared,
+                    &shared.group,
+                    g,
+                    &mut readers,
+                    num_passes,
+                    location,
+                    pass0,
+                    force_draw,
+                    dc_only,
+                    &mut cache,
+                    &mut input,
+                    e.coefficients,
+                    e.upsampler8x.as_deref_mut(),
+                    None,
+                    &mut |pending| pending.write_to(full_image),
+                )
+            });
+            return Ok(AcGroupOwned {
+                input,
+                cache,
+                readers,
+                location,
+                pass0,
+                decoded,
+            });
+        }
         let input = if shared.serial || draws_upsampled_dc {
             None
         } else {
@@ -1750,6 +1834,7 @@ fn process_ac_group(
             readers,
             location,
             pass0,
+            decoded: None,
         })
     });
     let mut owned = match lent {
@@ -1757,23 +1842,31 @@ fn process_ac_group(
         Err(status) => return status,
     };
     let mut coefficients = AcImage::empty(shared.coefficient_type);
-    let decoded = decode_ac_group_body(
-        shared,
-        &shared.group,
-        g,
-        &mut owned.readers,
-        num_passes,
-        owned.location,
-        owned.pass0,
-        force_draw,
-        dc_only,
-        &mut owned.cache,
-        &mut owned.input,
-        &mut coefficients,
-        None,
-        None,
-        &mut |pending| exclusive.with(|e| pending.write_to(e.full_image)),
-    );
+    let decoded = match owned.decoded.take() {
+        Some(decoded) => decoded,
+        None => decode_ac_group_body(
+            shared,
+            &shared.group,
+            g,
+            &mut owned.readers,
+            num_passes,
+            owned.location,
+            owned.pass0,
+            force_draw,
+            dc_only,
+            &mut owned.cache,
+            &mut owned.input,
+            &mut coefficients,
+            None,
+            None,
+            &mut |pending| exclusive.with(|e| pending.write_to(e.full_image)),
+        ),
+    };
+    if shared.render.is_some() {
+        return finish_ac_group_concurrent(
+            shared, exclusive, g, indices, num_passes, force_draw, owned, decoded,
+        );
+    }
     exclusive.with(|e| {
         let AcGroupOwned {
             input,
@@ -1781,6 +1874,7 @@ fn process_ac_group(
             readers,
             location,
             pass0,
+            ..
         } = owned;
         for (i, reader) in (pass0..pass0 + num_passes).zip(readers) {
             *e.sections[indices[i]].br = reader;
@@ -1809,6 +1903,77 @@ fn process_ac_group(
         }
         Ok(())
     })
+}
+
+/// The end of ProcessACGroup under concurrent rendering: one section returns
+/// the readers and the cache and counts the pass; the group then renders on
+/// this thread through the shared render view, entering the pipeline's
+/// storage only for its border copies and buffer lending; a last section
+/// returns its input planes.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Keep the original group, reader, pass and draw parameters."
+)]
+fn finish_ac_group_concurrent<'p, 'b>(
+    shared: &AcGroupShared<'_, '_>,
+    exclusive: &ExclusiveSection<'_, AcGroupExclusive<'_, '_, 'p, '_, 'b>>,
+    g: usize,
+    indices: &[usize],
+    num_passes: usize,
+    force_draw: bool,
+    owned: AcGroupOwned<'_, 'p, 'b>,
+    decoded: StatusOr<(bool, bool)>,
+) -> Status {
+    let AcGroupOwned {
+        input,
+        cache,
+        readers,
+        location,
+        pass0,
+        ..
+    } = owned;
+    let (_, thread, set, mut planes) = input.into_lent();
+    let render = shared.render.as_ref().unwrap();
+    let ready = exclusive.with(|e| {
+        for (i, reader) in (pass0..pass0 + num_passes).zip(readers) {
+            *e.sections[indices[i]].br = reader;
+        }
+        e.group_caches[location] = cache;
+        let storage = e.render_storage.as_mut().unwrap();
+        let (should_run_pipeline, modular_ready) = decoded?;
+        e.passes[g] = e.passes[g].wrapping_add(num_passes as u8);
+        let done = !shared.modular.use_full_image()
+            && !shared.is_jpeg
+            && should_run_pipeline
+            && modular_ready;
+        if done {
+            // RenderPipelineInput::Done: InputReady's count, then
+            // ProcessBuffers below.
+            storage.input_ready(g)?;
+        }
+        Ok((done, should_run_pipeline && modular_ready))
+    });
+    let status = match ready {
+        Ok((true, _)) => render.process_buffers_with(g, thread, &mut planes, &mut |f| {
+            exclusive.with(|e| f(e.render_storage.as_mut().unwrap().s))
+        }),
+        Ok((false, ready)) => {
+            if !shared.modular.use_full_image() && !shared.is_jpeg && !ready && force_draw {
+                Err(StatusCode::GenericError)
+            } else {
+                Ok(())
+            }
+        }
+        Err(status) => Err(status),
+    };
+    exclusive.with(|e| {
+        e.render_storage
+            .as_mut()
+            .unwrap()
+            .s
+            .restore_input_planes(set, planes)
+    });
+    status
 }
 
 /// ProcessACGroup with every step in the caller's exclusive section.
@@ -2010,7 +2175,7 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
             metadata,
             pool,
             output: None,
-            header: AdmittedHeader(Rc::new(FrameHeader::new(Some(metadata)))),
+            header: AdmittedHeader(std::sync::Arc::new(FrameHeader::new(Some(metadata)))),
             admitted: false,
             dim: FrameDimensions::default(),
             modular: ModularFrameDecoder::new_in(modular_memory_manager),
@@ -2104,7 +2269,7 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
         &mut self,
         state: &mut PassesDecoderState<'m, 'p>,
         br: &mut BitReader<'_>,
-        decoded: Rc<RefCell<ImageBundle<'m>>>,
+        decoded: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>>,
         is_preview: bool,
     ) -> Status {
         self.init_frame_source(state, br, FrameOutput::Owned(decoded), is_preview)?;
@@ -2133,7 +2298,7 @@ impl<'m, 'p> FrameDecoder<'m, 'p> {
         let mut header = FrameHeader::new(Some(self.metadata));
         header.nonserialized_is_preview = is_preview;
         let read = read_frame_header(br, &mut header);
-        self.header = AdmittedHeader(Rc::new(header));
+        self.header = AdmittedHeader(std::sync::Arc::new(header));
         read?;
         let header = &self.header.0;
         self.dim = header.to_frame_dimensions();
@@ -2502,7 +2667,9 @@ impl LosslessThunderConfig {
         super::hwy::decoding(|| self.decode_frame_in_scope(bytes))
     }
     fn decode_frame_in_scope<'m>(&'m self, bytes: &[u8]) -> LosslessThunderFrameDecode<'m> {
-        let output = RefCell::new(ImageBundle::new(Some(&self.metadata().m)));
+        let output = crate::jxl::base::sync_cell::SyncRefCell::new(ImageBundle::new(Some(
+            &self.metadata().m,
+        )));
         let mut copied_header = None;
         let mut state = PassesDecoderState::new();
         let status = state
@@ -2520,7 +2687,7 @@ impl LosslessThunderConfig {
         &'m self,
         bytes: &[u8],
         state: &mut PassesDecoderState<'m, 'p>,
-        output: &'p RefCell<ImageBundle<'m>>,
+        output: &'p crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>,
         copied_header: &mut Option<FrameHeader<'m>>,
     ) -> Status {
         decode_profile_frame_into(
@@ -2577,7 +2744,7 @@ pub struct SequenceFrameDecode<'m> {
 /// pipeline (`with_rendering_pipeline(metadata, false)`) admits such frames.
 pub struct SequenceDecoder<'m> {
     state: PassesDecoderState<'m, 'm>,
-    output: Rc<RefCell<ImageBundle<'m>>>,
+    output: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>>,
     metadata: &'m super::image_metadata::CodecMetadata,
     use_slow_rendering_pipeline: bool,
 }
@@ -2610,7 +2777,9 @@ impl<'m> SequenceDecoder<'m> {
         state.output_encoding_info.set_from_metadata(metadata)?;
         Ok(Self {
             state,
-            output: Rc::new(RefCell::new(ImageBundle::new(Some(&metadata.m)))),
+            output: std::sync::Arc::new(crate::jxl::base::sync_cell::SyncRefCell::new(
+                ImageBundle::new(Some(&metadata.m)),
+            )),
             metadata,
             use_slow_rendering_pipeline,
         })
@@ -2671,7 +2840,7 @@ impl<'m> SequenceDecoder<'m> {
             trace,
         }
     }
-    pub fn output(&self) -> std::cell::Ref<'_, ImageBundle<'m>> {
+    pub fn output(&self) -> std::sync::RwLockReadGuard<'_, ImageBundle<'m>> {
         self.output.borrow()
     }
     pub fn state(&self) -> &PassesDecoderState<'m, 'm> {
@@ -2703,7 +2872,7 @@ fn decode_profile_frame_into<'m, 'p>(
     metadata: &'m super::image_metadata::CodecMetadata,
     bytes: &[u8],
     state: &mut PassesDecoderState<'m, 'p>,
-    output: &'p RefCell<ImageBundle<'m>>,
+    output: &'p crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>,
     copied_header: &mut Option<FrameHeader<'m>>,
     profile: DecodeProfile,
 ) -> Status {
@@ -2949,9 +3118,9 @@ fn decode_lossless_thunder_in_scope(bytes: &[u8]) -> LosslessThunderImageDecode 
     } else {
         None
     };
-    let output = config
-        .as_ref()
-        .map(|cfg| RefCell::new(ImageBundle::new(Some(&cfg.metadata().m))));
+    let output = config.as_ref().map(|cfg| {
+        crate::jxl::base::sync_cell::SyncRefCell::new(ImageBundle::new(Some(&cfg.metadata().m)))
+    });
     let body = (|| {
         parsed?;
         let cfg = config.as_ref().ok_or(StatusCode::Unsupported)?;
@@ -3100,7 +3269,7 @@ impl VarDctConfig {
         &'m self,
         bytes: &[u8],
         state: &mut PassesDecoderState<'m, 'p>,
-        output: &'p RefCell<ImageBundle<'m>>,
+        output: &'p crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>,
         header: &mut Option<FrameHeader<'m>>,
     ) -> Status {
         decode_profile_frame_into(
@@ -3166,9 +3335,9 @@ fn decode_vardct_in_scope(bytes: &[u8]) -> VarDctImageDecode {
     } else {
         None
     };
-    let output = config
-        .as_ref()
-        .map(|cfg| RefCell::new(ImageBundle::new(Some(&cfg.metadata().m))));
+    let output = config.as_ref().map(|cfg| {
+        crate::jxl::base::sync_cell::SyncRefCell::new(ImageBundle::new(Some(&cfg.metadata().m)))
+    });
     let body = (|| {
         parsed?;
         let cfg = config.as_ref().ok_or(StatusCode::Unsupported)?;
@@ -3338,7 +3507,7 @@ impl ModularConfig {
         &'m self,
         bytes: &[u8],
         state: &mut PassesDecoderState<'m, 'p>,
-        output: &'p RefCell<ImageBundle<'m>>,
+        output: &'p crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>,
         header: &mut Option<FrameHeader<'m>>,
     ) -> Status {
         decode_profile_frame_into(
@@ -3388,9 +3557,9 @@ fn decode_modular_in_scope(bytes: &[u8], output_format: ModularOutput) -> Modula
     } else {
         None
     };
-    let output = config
-        .as_ref()
-        .map(|cfg| RefCell::new(ImageBundle::new(Some(&cfg.metadata().m))));
+    let output = config.as_ref().map(|cfg| {
+        crate::jxl::base::sync_cell::SyncRefCell::new(ImageBundle::new(Some(&cfg.metadata().m)))
+    });
     let body = (|| {
         parsed?;
         let cfg = config.as_ref().ok_or(StatusCode::Unsupported)?;
@@ -3531,7 +3700,7 @@ fn decode_jpeg_frame_in_scope<'m>(
     bytes: &[u8],
     jpeg_data: Box<super::jpeg::jpeg_data::JpegData>,
 ) -> JpegFrameDecode<'m> {
-    let output = RefCell::new(ImageBundle::new(Some(&metadata.m)));
+    let output = crate::jxl::base::sync_cell::SyncRefCell::new(ImageBundle::new(Some(&metadata.m)));
     output.borrow_mut().jpeg_data = Some(jpeg_data);
     let mut state = PassesDecoderState::new();
     let mut header = None;

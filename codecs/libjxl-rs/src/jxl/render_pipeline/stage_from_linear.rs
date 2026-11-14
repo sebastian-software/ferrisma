@@ -34,6 +34,9 @@ pub fn fast_linear_to_srgb(v: f32) -> f32 {
 
 pub struct SrgbFromLinearStage;
 impl RenderPipelineStage for SrgbFromLinearStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
@@ -44,7 +47,7 @@ impl RenderPipelineStage for SrgbFromLinearStage {
         "FromLinear"
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -127,6 +130,9 @@ pub struct FromLinearStage {
     op: Op,
 }
 impl RenderPipelineStage for FromLinearStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
@@ -137,7 +143,7 @@ impl RenderPipelineStage for FromLinearStage {
         "FromLinear"
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,

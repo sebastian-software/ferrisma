@@ -37,9 +37,7 @@ use super::render_pipeline::stage_upsampling::get_upsampling_stage_in;
 use super::render_pipeline::stage_xyb::get_xyb_stage;
 use super::render_pipeline::stage_ycbcr::get_ycbcr_stage;
 use super::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
-use std::cell::RefCell;
 use std::ffi::c_void;
-use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 pub const SIGMA_BORDER: usize = 1;
@@ -315,7 +313,7 @@ pub struct PassesDecoderState<'a, 'pipeline> {
     pub context_map: Vec<Vec<u8>>,
     pub x_dm_multiplier: f32,
     pub b_dm_multiplier: f32,
-    pub sigma: Rc<RefCell<Plane<f32>>>,
+    pub sigma: crate::jxl::base::sync_cell::SharedSigma,
     pub width: usize,
     pub height: usize,
     pub main_output: ImageOutput,
@@ -328,7 +326,8 @@ pub struct PassesDecoderState<'a, 'pipeline> {
     pub used_acs: AtomicU32,
     pub coefficients: Option<Box<AcImage>>,
     pub render_pipeline: Option<Box<dyn RenderPipeline<'pipeline> + 'pipeline>>,
-    pub frame_storage_for_referencing: Rc<RefCell<ImageBundle<'a>>>,
+    pub frame_storage_for_referencing:
+        std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'a>>>,
     pub output_encoding_info: OutputEncodingInfo,
 }
 impl Default for PassesDecoderState<'_, '_> {
@@ -350,7 +349,9 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
             context_map: Vec::new(),
             x_dm_multiplier: 0.0,
             b_dm_multiplier: 0.0,
-            sigma: Rc::new(RefCell::new(Plane::default())),
+            sigma: std::sync::Arc::new(crate::jxl::base::sync_cell::SyncRefCell::new(
+                Plane::default(),
+            )),
             width: 0,
             height: 0,
             main_output: ImageOutput::default(),
@@ -363,10 +364,12 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
             used_acs: AtomicU32::new(0),
             coefficients: Some(Box::new(AcImage::empty(AcType::I32))),
             render_pipeline: None,
-            frame_storage_for_referencing: Rc::new(RefCell::new(ImageBundle::new_in(
-                memory_manager,
-                None,
-            ))),
+            frame_storage_for_referencing: std::sync::Arc::new(
+                crate::jxl::base::sync_cell::SyncRefCell::new(ImageBundle::new_in(
+                    memory_manager,
+                    None,
+                )),
+            ),
             output_encoding_info: OutputEncodingInfo::default(),
         }
     }
@@ -563,7 +566,7 @@ impl<'a, 'pipeline> PassesDecoderState<'a, 'pipeline> {
         &mut self,
         frame_header: &'pipeline FrameHeader<'h>,
         metadata: &'a super::image_metadata::ImageMetadata,
-        decoded: &'pipeline RefCell<ImageBundle<'a>>,
+        decoded: &'pipeline crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'a>>,
         options: PipelineOptions,
     ) -> Status
     where

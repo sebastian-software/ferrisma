@@ -55,12 +55,17 @@ const GROUP_X_ALIGN: usize = 16;
 /// minimal amount of buffers.
 pub struct LowMemoryRenderPipeline<'a> {
     base: RenderPipelineBase<'a>,
-    use_group_ids: bool,
-    // Storage for borders between groups. Borders of adjacent groups are
-    // stacked together, e.g. bottom border of current group is followed by top
-    // border of next group.
-    borders_horizontal: Vec<ImageF>,
-    borders_vertical: Vec<ImageF>,
+    // The storage that rendering writes, apart from the tables Init computes
+    // (port ADR 0003, "Concurrent decoder tasks").
+    s: LmStorage,
+    // What Init computes; read only while rendering.
+    t: LmTables,
+}
+
+/// The low-memory pipeline's tables, computed by Init and read only while
+/// rendering.
+#[derive(Default)]
+pub(crate) struct LmTables {
     // Manages the status of borders.
     group_border_assigner: GroupBorderAssigner,
     // Size (in color-channel-pixels) of the border around each group that
@@ -69,18 +74,9 @@ pub struct LowMemoryRenderPipeline<'a> {
     // base_color_shift defines the size of groups in terms of final image
     // pixels.
     base_color_shift: usize,
-    // Buffer for decoded pixel data for a group, indexed by [thread][channel]
-    // or [group][channel] depending on `use_group_ids`.
-    group_data: Vec<Vec<ImageF>>,
     // Borders for storing group data.
     group_data_x_border: usize,
     group_data_y_border: usize,
-    // Buffers for intermediate rows for the various stages, indexed by
-    // [thread][channel][stage].
-    stage_data: Vec<Vec<Vec<ImageF>>>,
-    // Buffers for out-of-frame data, indexed by [thread]; every row is a
-    // different channel.
-    out_of_frame_data: Vec<ImageF>,
     // For each stage, a non-kIgnored channel.
     anyc: Vec<i32>,
     // Size of the image at each stage.
@@ -104,18 +100,38 @@ pub struct LowMemoryRenderPipeline<'a> {
     first_image_dim_stage: usize,
 }
 
+/// The low-memory pipeline's storage that rendering writes.
+#[derive(Default)]
+pub(crate) struct LmStorage {
+    use_group_ids: bool,
+    // Storage for borders between groups. Borders of adjacent groups are
+    // stacked together, e.g. bottom border of current group is followed by top
+    // border of next group.
+    borders_horizontal: Vec<ImageF>,
+    borders_vertical: Vec<ImageF>,
+    // Buffer for decoded pixel data for a group, indexed by [thread][channel]
+    // or [group][channel] depending on `use_group_ids`.
+    group_data: Vec<Vec<ImageF>>,
+    // Buffers for intermediate rows for the various stages, indexed by
+    // [thread][channel][stage].
+    stage_data: Vec<Vec<Vec<ImageF>>>,
+    // Buffers for out-of-frame data, indexed by [thread]; every row is a
+    // different channel.
+    out_of_frame_data: Vec<ImageF>,
+}
+
 impl Drop for LowMemoryRenderPipeline<'_> {
     /// The implicit destructors: the derived buffers in reverse member order,
     /// each vector last first, then the base's stages.
     fn drop(&mut self) {
         use crate::jxl::base::libcpp_vector::{clear, clear_nested};
-        clear(&mut self.out_of_frame_data);
-        while let Some(mut per_thread) = self.stage_data.pop() {
+        clear(&mut self.s.out_of_frame_data);
+        while let Some(mut per_thread) = self.s.stage_data.pop() {
             clear_nested(&mut per_thread);
         }
-        clear_nested(&mut self.group_data);
-        clear(&mut self.borders_vertical);
-        clear(&mut self.borders_horizontal);
+        clear_nested(&mut self.s.group_data);
+        clear(&mut self.s.borders_vertical);
+        clear(&mut self.s.borders_horizontal);
         clear(&mut self.base.stages);
     }
 }
@@ -125,30 +141,349 @@ impl<'a> LowMemoryRenderPipeline<'a> {
     pub(crate) fn new(base: RenderPipelineBase<'a>) -> Self {
         Self {
             base,
-            use_group_ids: false,
-            borders_horizontal: Vec::new(),
-            borders_vertical: Vec::new(),
-            group_border_assigner: GroupBorderAssigner::default(),
-            group_border: (0, 0),
-            base_color_shift: 0,
-            group_data: Vec::new(),
-            group_data_x_border: 0,
-            group_data_y_border: 0,
-            stage_data: Vec::new(),
-            out_of_frame_data: Vec::new(),
-            anyc: Vec::new(),
-            image_rect: Vec::new(),
-            stage_input_for_channel: Vec::new(),
-            virtual_ypadding_for_output: Vec::new(),
-            xpadding_for_output: Vec::new(),
-            first_trailing_stage: 0,
-            frame_origin: FrameOrigin { x0: 0, y0: 0 },
-            full_image_xsize: 0,
-            full_image_ysize: 0,
-            first_image_dim_stage: 0,
+            s: LmStorage::default(),
+            t: LmTables::default(),
         }
     }
 
+    /// The render view of this pipeline with its stage objects.
+    fn cx(&self) -> RenderCx<'_, dyn super::render_pipeline_stage::RenderPipelineStage + 'a> {
+        render_cx(
+            &self.base,
+            &self.t,
+            self.base.stages.iter().map(|s| &**s).collect(),
+        )
+    }
+    fn border_to_store(&self, c: usize) -> (usize, usize) {
+        self.cx().border_to_store(c)
+    }
+
+    /// The tables and the storage of this pipeline as one `Sync` render view
+    /// and its exclusive storage, if every stage may process rows on several
+    /// threads at once (port ADR 0003, "Concurrent decoder tasks"); None
+    /// otherwise, and rendering then stays on one thread at a time.
+    pub(crate) fn split_concurrent(&mut self) -> Option<ConcurrentRender<'_>> {
+        let RenderPipelineBase {
+            stages,
+            channel_shifts,
+            padding,
+            frame_dimensions,
+            group_completed_passes,
+            memory_manager,
+        } = &mut self.base;
+        let stages: &Vec<_> = stages;
+        let stages = stages
+            .iter()
+            .map(|s| s.as_concurrent())
+            .collect::<Option<Vec<_>>>()?;
+        Some(ConcurrentRender {
+            cx: RenderCx {
+                base: BaseView {
+                    stages,
+                    channel_shifts,
+                    padding,
+                    frame_dimensions: *frame_dimensions,
+                    memory_manager: *memory_manager,
+                },
+                t: &self.t,
+            },
+            storage: ConcurrentStorage {
+                s: &mut self.s,
+                group_completed_passes,
+            },
+        })
+    }
+
+    fn ensure_borders_storage(&mut self) -> Status {
+        let num_shifts = self.base.channel_shifts[0].len();
+        if self.s.borders_horizontal.len() < num_shifts {
+            self.s
+                .borders_horizontal
+                .resize_with(num_shifts, ImageF::default);
+            self.s
+                .borders_vertical
+                .resize_with(num_shifts, ImageF::default);
+        }
+        for c in 0..num_shifts {
+            let shifts = self.base.channel_shifts[0][c];
+            let borders = self.border_to_store(c);
+            let borderx = borders.0;
+            let bordery = borders.1;
+            let fd = &self.base.frame_dimensions;
+            if fd.xsize_groups == 0 {
+                return Err(StatusCode::GenericError);
+            }
+            let num_xborders = (fd.xsize_groups - 1).wrapping_mul(2);
+            if fd.ysize_groups == 0 {
+                return Err(StatusCode::GenericError);
+            }
+            let num_yborders = (fd.ysize_groups - 1).wrapping_mul(2);
+            let downsampled_xsize = div_ceil(fd.xsize_upsampled_padded, 1 << shifts.0);
+            let downsampled_ysize = div_ceil(fd.ysize_upsampled_padded, 1 << shifts.1);
+            let horizontal = Rect::new(0, 0, downsampled_xsize, bordery.wrapping_mul(num_yborders));
+            if !same_size(horizontal, &self.s.borders_horizontal[c]) {
+                self.s.borders_horizontal[c] = ImageF::create_in(
+                    horizontal.xsize(),
+                    horizontal.ysize(),
+                    0,
+                    self.base.memory_manager,
+                )?;
+            }
+            let vertical = Rect::new(0, 0, borderx.wrapping_mul(num_xborders), downsampled_ysize);
+            if !same_size(vertical, &self.s.borders_vertical[c]) {
+                self.s.borders_vertical[c] = ImageF::create_in(
+                    vertical.xsize(),
+                    vertical.ysize(),
+                    0,
+                    self.base.memory_manager,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    fn init_impl(&mut self) -> Status {
+        self.t.group_border = (0, 0);
+        self.t.base_color_shift = ceil_log2_nonzero(
+            self.base.frame_dimensions.xsize_upsampled_padded
+                / self.base.frame_dimensions.xsize_padded,
+        );
+
+        let num_shifts = self.base.channel_shifts[0].len();
+        let bcs = self.t.base_color_shift;
+
+        // Ensure that each channel has enough many border pixels.
+        for c in 0..num_shifts {
+            let shift = self.base.channel_shifts[0][c];
+            let padding = self.base.padding[0][c];
+            self.t.group_border.0 = self
+                .t
+                .group_border
+                .0
+                .max(div_ceil(padding.0 << shift.0, 1 << bcs));
+            self.t.group_border.1 = self
+                .t
+                .group_border
+                .1
+                .max(div_ceil(padding.1 << shift.1, 1 << bcs));
+        }
+
+        // Ensure that all channels have an integer number of border pixels in
+        // the input.
+        for c in 0..num_shifts {
+            let shift = self.base.channel_shifts[0][c];
+            if shift.0 >= bcs {
+                self.t.group_border.0 = round_up_to(self.t.group_border.0, 1 << (shift.0 - bcs));
+            }
+            if shift.1 >= bcs {
+                self.t.group_border.1 = round_up_to(self.t.group_border.1, 1 << (shift.1 - bcs));
+            }
+        }
+        self.t.group_border.0 = round_up_to(self.t.group_border.0, GROUP_X_ALIGN);
+        // Allocate borders in group images that are just enough for storing the
+        // borders to be copied in, plus any rounding to ensure alignment.
+        let mut max_border = (0usize, 0usize);
+        for c in 0..num_shifts {
+            max_border.0 = self.border_to_store(c).0.max(max_border.0);
+            max_border.1 = self.border_to_store(c).1.max(max_border.1);
+        }
+        self.t.group_data_x_border = round_up_to(max_border.0, GROUP_X_ALIGN);
+        self.t.group_data_y_border = max_border.1;
+
+        self.ensure_borders_storage()?;
+        self.t
+            .group_border_assigner
+            .init(&self.base.frame_dimensions);
+
+        let num_stages = self.base.stages.len();
+        self.t.first_trailing_stage = num_stages;
+        while self.t.first_trailing_stage > 0 {
+            let mut has_inout_c = false;
+            for c in 0..num_shifts {
+                if self.base.stages[self.t.first_trailing_stage - 1].get_channel_mode(c)
+                    == Mode::InOut
+                {
+                    has_inout_c = true;
+                }
+            }
+            if has_inout_c {
+                break;
+            }
+            self.t.first_trailing_stage -= 1;
+        }
+
+        self.t.first_image_dim_stage = num_stages;
+        for i in 0..num_stages {
+            let mut input_sizes = vec![(0usize, 0usize); num_shifts];
+            for (c, size) in input_sizes.iter_mut().enumerate() {
+                let shift = self.base.channel_shifts[i][c];
+                *size = (
+                    div_ceil(self.base.frame_dimensions.xsize_upsampled, 1 << shift.0),
+                    div_ceil(self.base.frame_dimensions.ysize_upsampled, 1 << shift.1),
+                );
+            }
+            self.base.stages[i].set_input_sizes(&input_sizes)?;
+            if self.base.stages[i].switch_to_image_dimensions() {
+                // We don't allow kInOut after switching to image dimensions.
+                if i < self.t.first_trailing_stage {
+                    return Err(StatusCode::GenericError);
+                }
+                self.t.first_image_dim_stage = i + 1;
+                self.base.stages[i].get_image_dimensions(
+                    &mut self.t.full_image_xsize,
+                    &mut self.t.full_image_ysize,
+                    &mut self.t.frame_origin,
+                );
+                break;
+            }
+        }
+        for i in self.t.first_image_dim_stage..num_stages {
+            if self.base.stages[i].switch_to_image_dimensions() {
+                // JXL_UNREACHABLE is JXL_FAILURE in the NDEBUG reference.
+                return Err(StatusCode::GenericError);
+            }
+            let input_sizes = vec![(self.t.full_image_xsize, self.t.full_image_ysize); num_shifts];
+            self.base.stages[i].set_input_sizes(&input_sizes)?;
+        }
+
+        self.t.anyc.resize(num_stages, 0);
+        for i in 0..num_stages {
+            for c in 0..num_shifts {
+                if self.base.stages[i].get_channel_mode(c) != Mode::Ignored {
+                    self.t.anyc[i] = c as i32;
+                }
+            }
+        }
+
+        self.t.stage_input_for_channel = vec![vec![0i32; num_shifts]; num_stages];
+        for c in 0..num_shifts {
+            let mut input = -1i32;
+            for i in 0..num_stages {
+                self.t.stage_input_for_channel[i][c] = input;
+                if self.base.stages[i].get_channel_mode(c) == Mode::InOut {
+                    input = i as i32;
+                }
+            }
+        }
+
+        self.t.image_rect.resize(num_stages, Rect::default());
+        for i in 0..num_stages {
+            let shift = self.base.channel_shifts[i][self.t.anyc[i] as usize];
+            let x1 = div_ceil(self.base.frame_dimensions.xsize_upsampled, 1 << shift.0);
+            let y1 = div_ceil(self.base.frame_dimensions.ysize_upsampled, 1 << shift.1);
+            self.t.image_rect[i] = Rect::new(0, 0, x1, y1);
+        }
+
+        self.t.virtual_ypadding_for_output.resize(num_stages, 0);
+        // How many "xextra" pixels to be processed by the stage to have enough
+        // "xextra" plus "border_x" pixels initialized for the next stage(s).
+        self.t.xpadding_for_output.resize(num_stages, 0);
+        for c in 0..num_shifts {
+            let mut ypad: i32 = 0;
+            let mut xpad: i32 = 0;
+            for i in (0..num_stages).rev() {
+                let y_sampling = 1usize << self.base.channel_shifts[i][c].1;
+                let aligned_y_pad = round_up_to(ypad as usize, y_sampling);
+                let mode = self.base.stages[i].get_channel_mode(c);
+                if mode != Mode::Ignored {
+                    self.t.virtual_ypadding_for_output[i] =
+                        self.t.virtual_ypadding_for_output[i].max(aligned_y_pad as i32);
+                    self.t.xpadding_for_output[i] = xpad.max(self.t.xpadding_for_output[i]);
+                }
+                if mode == Mode::InOut {
+                    let settings = self.base.stages[i].settings();
+                    ypad = aligned_y_pad.wrapping_add(settings.border_y.wrapping_mul(y_sampling))
+                        as i32;
+                    let d = 1i32 << settings.shift_x;
+                    xpad = (((xpad + d - 1) / d) as usize).wrapping_add(settings.border_x) as i32;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// The tables and stages one render call reads: the base tables, the
+/// stages as `St` (a stage object, or a `Sync` one for concurrent
+/// rendering) and the Init tables (port ADR 0003, "Concurrent decoder
+/// tasks"). Rendering writes only the storage passed to each call.
+pub(crate) struct RenderCx<'v, St: ?Sized> {
+    base: BaseView<'v, St>,
+    t: &'v LmTables,
+}
+fn render_cx<'v, 'a, St: ?Sized>(
+    base: &'v RenderPipelineBase<'a>,
+    t: &'v LmTables,
+    stages: Vec<&'v St>,
+) -> RenderCx<'v, St> {
+    RenderCx {
+        base: BaseView {
+            stages,
+            channel_shifts: &base.channel_shifts,
+            padding: &base.padding,
+            frame_dimensions: base.frame_dimensions,
+            memory_manager: base.memory_manager,
+        },
+        t,
+    }
+}
+
+/// A low-memory pipeline split for concurrent rendering: the `Sync` view
+/// every task reads and the storage the tasks enter in exclusive sections.
+pub struct ConcurrentRender<'v> {
+    pub(crate) cx: RenderCx<'v, dyn super::render_pipeline_stage::RenderPipelineStage + Sync + 'v>,
+    pub(crate) storage: ConcurrentStorage<'v>,
+}
+/// The storage a concurrent render writes, entered under a lock.
+pub(crate) struct ConcurrentStorage<'v> {
+    pub(crate) s: &'v mut LmStorage,
+    group_completed_passes: &'v mut Vec<u8>,
+}
+impl ConcurrentStorage<'_> {
+    /// The base GetInputBuffers' group bound check.
+    pub(crate) fn check_group(&self, group_id: usize) {
+        assert!(group_id < self.group_completed_passes.len());
+    }
+    /// The base InputReady's count of the group's completed passes.
+    pub(crate) fn input_ready(&mut self, group_id: usize) -> Status {
+        let passes = &mut *self.group_completed_passes;
+        if group_id >= passes.len() {
+            return Err(StatusCode::GenericError);
+        }
+        passes[group_id] = passes[group_id].wrapping_add(1);
+        Ok(())
+    }
+}
+impl LmStorage {
+    pub(crate) fn use_group_ids(&self) -> bool {
+        self.use_group_ids
+    }
+    /// PrepareBuffers' buffer set of a group on a thread.
+    pub(crate) fn input_set(&self, group_id: usize, thread_id: usize) -> usize {
+        if self.use_group_ids {
+            group_id
+        } else {
+            thread_id
+        }
+    }
+    /// Lends a buffer set's planes; see `RenderPipeline::take_input_planes`.
+    pub(crate) fn take_input_planes(&mut self, set: usize) -> Vec<Plane<f32>> {
+        std::mem::take(&mut self.group_data[set])
+    }
+    pub(crate) fn restore_input_planes(&mut self, set: usize, planes: Vec<Plane<f32>>) {
+        self.group_data[set] = planes;
+    }
+}
+
+/// The RenderPipelineBase members rendering reads, with the stages as `St`.
+struct BaseView<'v, St: ?Sized> {
+    stages: Vec<&'v St>,
+    channel_shifts: &'v [Vec<(usize, usize)>],
+    padding: &'v [Vec<(usize, usize)>],
+    frame_dimensions: crate::jxl::frame_dimensions::FrameDimensions,
+    memory_manager: crate::jxl::memory_manager_internal::MemoryManagerPtr,
+}
+impl<St: super::render_pipeline_stage::RenderPipelineStage + ?Sized> RenderCx<'_, St> {
     fn color_dimensions_to_channel_dimensions(
         &self,
         input: (usize, usize),
@@ -157,11 +492,11 @@ impl<'a> LowMemoryRenderPipeline<'a> {
     ) -> (usize, usize) {
         let shift = self.base.channel_shifts[stage][c];
         (
-            (input.0 << self.base_color_shift)
+            (input.0 << self.t.base_color_shift)
                 .wrapping_add(1usize << shift.0)
                 .wrapping_sub(1)
                 >> shift.0,
-            (input.1 << self.base_color_shift)
+            (input.1 << self.t.base_color_shift)
                 .wrapping_add(1usize << shift.1)
                 .wrapping_sub(1)
                 >> shift.1,
@@ -169,14 +504,14 @@ impl<'a> LowMemoryRenderPipeline<'a> {
     }
 
     fn border_to_store(&self, c: usize) -> (usize, usize) {
-        let mut ret = self.color_dimensions_to_channel_dimensions(self.group_border, c, 0);
+        let mut ret = self.color_dimensions_to_channel_dimensions(self.t.group_border, c, 0);
         ret.0 = ret.0.wrapping_add(self.base.padding[0][c].0);
         ret.1 = ret.1.wrapping_add(self.base.padding[0][c].1);
         ret
     }
 
-    /// `input_set` selects `group_data[input_set]`, the source's `in`.
-    fn save_borders(&mut self, group_id: usize, c: usize, input_set: usize) -> Status {
+    /// `input` is the group's input plane of channel `c`, the source's `in`.
+    fn save_borders(&self, group_id: usize, c: usize, input: &ImageF, s: &mut LmStorage) -> Status {
         let fd = &self.base.frame_dimensions;
         let gy = group_id / fd.xsize_groups;
         let gx = group_id % fd.xsize_groups;
@@ -196,9 +531,8 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         let borders = self.border_to_store(c);
         let borderx_write = borders.0;
         let bordery_write = borders.1;
-        let gdxb = self.group_data_x_border;
-        let gdyb = self.group_data_y_border;
-        let input = &self.group_data[input_set][c];
+        let gdxb = self.t.group_data_x_border;
+        let gdyb = self.t.group_data_y_border;
 
         if gy > 0 {
             let from = Rect::new(gdxb, gdyb, x1.wrapping_sub(x0), bordery_write);
@@ -208,7 +542,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                 x1.wrapping_sub(x0),
                 bordery_write,
             );
-            copy_rect_to(from, input, to, &mut self.borders_horizontal[c])?;
+            copy_rect_to(from, input, to, &mut s.borders_horizontal[c])?;
         }
         if gy + 1 < ysize_groups {
             let from = Rect::new(
@@ -225,7 +559,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                 x1.wrapping_sub(x0),
                 bordery_write,
             );
-            copy_rect_to(from, input, to, &mut self.borders_horizontal[c])?;
+            copy_rect_to(from, input, to, &mut s.borders_horizontal[c])?;
         }
         if gx > 0 {
             let from = Rect::new(gdxb, gdyb, borderx_write, y1.wrapping_sub(y0));
@@ -235,7 +569,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                 borderx_write,
                 y1.wrapping_sub(y0),
             );
-            copy_rect_to(from, input, to, &mut self.borders_vertical[c])?;
+            copy_rect_to(from, input, to, &mut s.borders_vertical[c])?;
         }
         if gx + 1 < xsize_groups {
             let from = Rect::new(
@@ -252,13 +586,20 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                 borderx_write,
                 y1.wrapping_sub(y0),
             );
-            copy_rect_to(from, input, to, &mut self.borders_vertical[c])?;
+            copy_rect_to(from, input, to, &mut s.borders_vertical[c])?;
         }
         Ok(())
     }
 
-    /// `output_set` selects `group_data[output_set]`, the source's `out`.
-    fn load_borders(&mut self, group_id: usize, c: usize, r: Rect, output_set: usize) -> Status {
+    /// `out` is the group's input plane of channel `c`, the source's `out`.
+    fn load_borders(
+        &self,
+        group_id: usize,
+        c: usize,
+        r: Rect,
+        out: &mut ImageF,
+        s: &LmStorage,
+    ) -> Status {
         let fd = &self.base.frame_dimensions;
         let gy = group_id / fd.xsize_groups;
         let gx = group_id % fd.xsize_groups;
@@ -284,9 +625,9 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         let borders = self.border_to_store(c);
         let borderx_write = borders.0;
         let bordery_write = borders.1;
-        let gdxb = self.group_data_x_border;
-        let gdyb = self.group_data_y_border;
-        let bcs = self.base_color_shift;
+        let gdxb = self.t.group_data_x_border;
+        let gdyb = self.t.group_data_y_border;
+        let bcs = self.t.base_color_shift;
 
         // Limits of the area to copy from, in image coordinates.
         if !(r.x0() == 0 || (r.x0() << bcs) >= paddingx) {
@@ -316,7 +657,6 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             .wrapping_add(paddingy)
             .min(div_ceil(ysize_upsampled, 1 << vshift));
 
-        let out = &mut self.group_data[output_set][c];
         // Copy other groups' borders from the border storage.
         if y0src < y0 {
             if gy == 0 {
@@ -329,7 +669,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                     x1src.wrapping_sub(x0src),
                     bordery_write,
                 ),
-                &self.borders_horizontal[c],
+                &s.borders_horizontal[c],
                 Rect::new(
                     gdxb.wrapping_add(x0src).wrapping_sub(x0),
                     gdyb.wrapping_sub(bordery_write),
@@ -351,7 +691,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                     x1src.wrapping_sub(x0src),
                     bordery_write,
                 ),
-                &self.borders_horizontal[c],
+                &s.borders_horizontal[c],
                 Rect::new(
                     gdxb.wrapping_add(x0src).wrapping_sub(x0),
                     gdyb.wrapping_add(y1).wrapping_sub(y0),
@@ -372,7 +712,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                     borderx_write,
                     y1src.wrapping_sub(y0src),
                 ),
-                &self.borders_vertical[c],
+                &s.borders_vertical[c],
                 Rect::new(
                     gdxb.wrapping_sub(borderx_write),
                     gdyb.wrapping_add(y0src).wrapping_sub(y0),
@@ -395,7 +735,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                     borderx_write,
                     y1src.wrapping_sub(y0src),
                 ),
-                &self.borders_vertical[c],
+                &s.borders_vertical[c],
                 Rect::new(
                     gdxb.wrapping_add(x1).wrapping_sub(x0),
                     gdyb.wrapping_add(y0src).wrapping_sub(y0),
@@ -409,215 +749,13 @@ impl<'a> LowMemoryRenderPipeline<'a> {
     }
 
     fn group_input_x_size(&self, c: usize) -> usize {
-        (self.base.frame_dimensions.group_dim << self.base_color_shift)
+        (self.base.frame_dimensions.group_dim << self.t.base_color_shift)
             >> self.base.channel_shifts[0][c].0
     }
 
     fn group_input_y_size(&self, c: usize) -> usize {
-        (self.base.frame_dimensions.group_dim << self.base_color_shift)
+        (self.base.frame_dimensions.group_dim << self.t.base_color_shift)
             >> self.base.channel_shifts[0][c].1
-    }
-
-    fn ensure_borders_storage(&mut self) -> Status {
-        let num_shifts = self.base.channel_shifts[0].len();
-        if self.borders_horizontal.len() < num_shifts {
-            self.borders_horizontal
-                .resize_with(num_shifts, ImageF::default);
-            self.borders_vertical
-                .resize_with(num_shifts, ImageF::default);
-        }
-        for c in 0..num_shifts {
-            let shifts = self.base.channel_shifts[0][c];
-            let borders = self.border_to_store(c);
-            let borderx = borders.0;
-            let bordery = borders.1;
-            let fd = &self.base.frame_dimensions;
-            if fd.xsize_groups == 0 {
-                return Err(StatusCode::GenericError);
-            }
-            let num_xborders = (fd.xsize_groups - 1).wrapping_mul(2);
-            if fd.ysize_groups == 0 {
-                return Err(StatusCode::GenericError);
-            }
-            let num_yborders = (fd.ysize_groups - 1).wrapping_mul(2);
-            let downsampled_xsize = div_ceil(fd.xsize_upsampled_padded, 1 << shifts.0);
-            let downsampled_ysize = div_ceil(fd.ysize_upsampled_padded, 1 << shifts.1);
-            let horizontal = Rect::new(0, 0, downsampled_xsize, bordery.wrapping_mul(num_yborders));
-            if !same_size(horizontal, &self.borders_horizontal[c]) {
-                self.borders_horizontal[c] = ImageF::create_in(
-                    horizontal.xsize(),
-                    horizontal.ysize(),
-                    0,
-                    self.base.memory_manager,
-                )?;
-            }
-            let vertical = Rect::new(0, 0, borderx.wrapping_mul(num_xborders), downsampled_ysize);
-            if !same_size(vertical, &self.borders_vertical[c]) {
-                self.borders_vertical[c] = ImageF::create_in(
-                    vertical.xsize(),
-                    vertical.ysize(),
-                    0,
-                    self.base.memory_manager,
-                )?;
-            }
-        }
-        Ok(())
-    }
-
-    fn init_impl(&mut self) -> Status {
-        self.group_border = (0, 0);
-        self.base_color_shift = ceil_log2_nonzero(
-            self.base.frame_dimensions.xsize_upsampled_padded
-                / self.base.frame_dimensions.xsize_padded,
-        );
-
-        let num_shifts = self.base.channel_shifts[0].len();
-        let bcs = self.base_color_shift;
-
-        // Ensure that each channel has enough many border pixels.
-        for c in 0..num_shifts {
-            let shift = self.base.channel_shifts[0][c];
-            let padding = self.base.padding[0][c];
-            self.group_border.0 = self
-                .group_border
-                .0
-                .max(div_ceil(padding.0 << shift.0, 1 << bcs));
-            self.group_border.1 = self
-                .group_border
-                .1
-                .max(div_ceil(padding.1 << shift.1, 1 << bcs));
-        }
-
-        // Ensure that all channels have an integer number of border pixels in
-        // the input.
-        for c in 0..num_shifts {
-            let shift = self.base.channel_shifts[0][c];
-            if shift.0 >= bcs {
-                self.group_border.0 = round_up_to(self.group_border.0, 1 << (shift.0 - bcs));
-            }
-            if shift.1 >= bcs {
-                self.group_border.1 = round_up_to(self.group_border.1, 1 << (shift.1 - bcs));
-            }
-        }
-        self.group_border.0 = round_up_to(self.group_border.0, GROUP_X_ALIGN);
-        // Allocate borders in group images that are just enough for storing the
-        // borders to be copied in, plus any rounding to ensure alignment.
-        let mut max_border = (0usize, 0usize);
-        for c in 0..num_shifts {
-            max_border.0 = self.border_to_store(c).0.max(max_border.0);
-            max_border.1 = self.border_to_store(c).1.max(max_border.1);
-        }
-        self.group_data_x_border = round_up_to(max_border.0, GROUP_X_ALIGN);
-        self.group_data_y_border = max_border.1;
-
-        self.ensure_borders_storage()?;
-        self.group_border_assigner.init(&self.base.frame_dimensions);
-
-        let num_stages = self.base.stages.len();
-        self.first_trailing_stage = num_stages;
-        while self.first_trailing_stage > 0 {
-            let mut has_inout_c = false;
-            for c in 0..num_shifts {
-                if self.base.stages[self.first_trailing_stage - 1].get_channel_mode(c)
-                    == Mode::InOut
-                {
-                    has_inout_c = true;
-                }
-            }
-            if has_inout_c {
-                break;
-            }
-            self.first_trailing_stage -= 1;
-        }
-
-        self.first_image_dim_stage = num_stages;
-        for i in 0..num_stages {
-            let mut input_sizes = vec![(0usize, 0usize); num_shifts];
-            for (c, size) in input_sizes.iter_mut().enumerate() {
-                let shift = self.base.channel_shifts[i][c];
-                *size = (
-                    div_ceil(self.base.frame_dimensions.xsize_upsampled, 1 << shift.0),
-                    div_ceil(self.base.frame_dimensions.ysize_upsampled, 1 << shift.1),
-                );
-            }
-            self.base.stages[i].set_input_sizes(&input_sizes)?;
-            if self.base.stages[i].switch_to_image_dimensions() {
-                // We don't allow kInOut after switching to image dimensions.
-                if i < self.first_trailing_stage {
-                    return Err(StatusCode::GenericError);
-                }
-                self.first_image_dim_stage = i + 1;
-                self.base.stages[i].get_image_dimensions(
-                    &mut self.full_image_xsize,
-                    &mut self.full_image_ysize,
-                    &mut self.frame_origin,
-                );
-                break;
-            }
-        }
-        for i in self.first_image_dim_stage..num_stages {
-            if self.base.stages[i].switch_to_image_dimensions() {
-                // JXL_UNREACHABLE is JXL_FAILURE in the NDEBUG reference.
-                return Err(StatusCode::GenericError);
-            }
-            let input_sizes = vec![(self.full_image_xsize, self.full_image_ysize); num_shifts];
-            self.base.stages[i].set_input_sizes(&input_sizes)?;
-        }
-
-        self.anyc.resize(num_stages, 0);
-        for i in 0..num_stages {
-            for c in 0..num_shifts {
-                if self.base.stages[i].get_channel_mode(c) != Mode::Ignored {
-                    self.anyc[i] = c as i32;
-                }
-            }
-        }
-
-        self.stage_input_for_channel = vec![vec![0i32; num_shifts]; num_stages];
-        for c in 0..num_shifts {
-            let mut input = -1i32;
-            for i in 0..num_stages {
-                self.stage_input_for_channel[i][c] = input;
-                if self.base.stages[i].get_channel_mode(c) == Mode::InOut {
-                    input = i as i32;
-                }
-            }
-        }
-
-        self.image_rect.resize(num_stages, Rect::default());
-        for i in 0..num_stages {
-            let shift = self.base.channel_shifts[i][self.anyc[i] as usize];
-            let x1 = div_ceil(self.base.frame_dimensions.xsize_upsampled, 1 << shift.0);
-            let y1 = div_ceil(self.base.frame_dimensions.ysize_upsampled, 1 << shift.1);
-            self.image_rect[i] = Rect::new(0, 0, x1, y1);
-        }
-
-        self.virtual_ypadding_for_output.resize(num_stages, 0);
-        // How many "xextra" pixels to be processed by the stage to have enough
-        // "xextra" plus "border_x" pixels initialized for the next stage(s).
-        self.xpadding_for_output.resize(num_stages, 0);
-        for c in 0..num_shifts {
-            let mut ypad: i32 = 0;
-            let mut xpad: i32 = 0;
-            for i in (0..num_stages).rev() {
-                let y_sampling = 1usize << self.base.channel_shifts[i][c].1;
-                let aligned_y_pad = round_up_to(ypad as usize, y_sampling);
-                let mode = self.base.stages[i].get_channel_mode(c);
-                if mode != Mode::Ignored {
-                    self.virtual_ypadding_for_output[i] =
-                        self.virtual_ypadding_for_output[i].max(aligned_y_pad as i32);
-                    self.xpadding_for_output[i] = xpad.max(self.xpadding_for_output[i]);
-                }
-                if mode == Mode::InOut {
-                    let settings = self.base.stages[i].settings();
-                    ypad = aligned_y_pad.wrapping_add(settings.border_y.wrapping_mul(y_sampling))
-                        as i32;
-                    let d = 1i32 << settings.shift_x;
-                    xpad = (((xpad + d - 1) / d) as usize).wrapping_add(settings.border_x) as i32;
-                }
-            }
-        }
-        Ok(())
     }
 
     /// Number of rows of output of `stage` for channel `c` that must be kept
@@ -641,7 +779,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         // periods of all sampling factors, and measure it.
         let stages = &self.base.stages;
         let input_shift =
-            |i: usize| -> usize { self.base.channel_shifts[i][self.anyc[i] as usize].1 };
+            |i: usize| -> usize { self.base.channel_shifts[i][self.t.anyc[i] as usize].1 };
         let bundle: isize = 1isize << stages[stage].settings().shift_y;
 
         // The consumers of this output are the stages after `stage` that do not
@@ -649,7 +787,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         // there is no such stage, the trailing stages read the rows one by one.
         let mut consumers = Vec::new();
         let mut read_by_trailing_stages = true;
-        for k in stage + 1..self.first_trailing_stage {
+        for k in stage + 1..self.t.first_trailing_stage {
             let mode = stages[k].get_channel_mode(c);
             if mode == Mode::Ignored {
                 continue;
@@ -664,16 +802,16 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         let mut max_shift: i32 = 0;
         let mut max_vpad: i32 = 0;
         let mut max_border: i32 = 0;
-        for k in 0..self.first_trailing_stage {
+        for k in 0..self.t.first_trailing_stage {
             max_shift = max_shift.max(input_shift(k) as i32);
-            max_vpad = max_vpad.max(self.virtual_ypadding_for_output[k]);
+            max_vpad = max_vpad.max(self.t.virtual_ypadding_for_output[k]);
             max_border = max_border.max(stages[k].settings().border_y as i32);
         }
         let num_virtual_rows: i32 = 2 * max_vpad + (4 + 2 * max_border) * (1 << max_shift);
 
         // Same conditions as in RenderRect, with `vy` relative to the first row.
         let runs_at = |k: usize, vy: i32, y: &mut i32| -> bool {
-            let stage_vy = vy + self.virtual_ypadding_for_output[k];
+            let stage_vy = vy + self.t.virtual_ypadding_for_output[k];
             if stage_vy % (1i32 << input_shift(k)) != 0 {
                 return false;
             }
@@ -707,34 +845,39 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         clippy::needless_range_loop,
         reason = "Retain the source's indexed loops over parallel stage/channel tables."
     )]
-    fn prepare_for_threads_impl(&mut self, num: usize, use_group_ids: bool) -> Status {
+    fn prepare_for_threads_impl(
+        &self,
+        num: usize,
+        use_group_ids: bool,
+        s: &mut LmStorage,
+    ) -> Status {
         let num_shifts = self.base.channel_shifts[0].len();
         let num_stages = self.base.stages.len();
-        self.use_group_ids = use_group_ids;
-        let num_buffers = if self.use_group_ids {
+        s.use_group_ids = use_group_ids;
+        let num_buffers = if s.use_group_ids {
             self.base.frame_dimensions.num_groups
         } else {
             num
         };
-        for t in self.group_data.len()..num_buffers {
-            self.group_data.push(Vec::new());
-            self.group_data[t].resize_with(num_shifts, ImageF::default);
+        for t in s.group_data.len()..num_buffers {
+            s.group_data.push(Vec::new());
+            s.group_data[t].resize_with(num_shifts, ImageF::default);
             for c in 0..num_shifts {
-                self.group_data[t][c] = ImageF::create_in(
+                s.group_data[t][c] = ImageF::create_in(
                     self.group_input_x_size(c)
-                        .wrapping_add(self.group_data_x_border * 2),
+                        .wrapping_add(self.t.group_data_x_border * 2),
                     self.group_input_y_size(c)
-                        .wrapping_add(self.group_data_y_border * 2),
+                        .wrapping_add(self.t.group_data_y_border * 2),
                     X_OFFSET,
                     self.base.memory_manager,
                 )?;
             }
         }
         // TODO(veluca): avoid reallocating buffers if not needed.
-        self.stage_data.resize_with(num, Vec::new);
-        let upsampling = 1usize << self.base_color_shift;
+        s.stage_data.resize_with(num, Vec::new);
+        let upsampling = 1usize << self.t.base_color_shift;
         let group_dim = self.base.frame_dimensions.group_dim * upsampling;
-        let padding = 2 * self.group_data_x_border * upsampling // maximum size of a rect
+        let padding = 2 * self.t.group_data_x_border * upsampling // maximum size of a rect
             + 2 * X_OFFSET; // extra padding for processing
         let stage_buffer_xsize = group_dim + padding;
         let mut stage_buffer_ysize = vec![vec![0usize; num_stages]; num_shifts];
@@ -748,12 +891,12 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             }
         }
         for t in 0..num {
-            self.stage_data[t].resize_with(num_shifts, Vec::new);
+            s.stage_data[t].resize_with(num_shifts, Vec::new);
             for c in 0..num_shifts {
-                self.stage_data[t][c].resize_with(num_stages, ImageF::default);
+                s.stage_data[t][c].resize_with(num_stages, ImageF::default);
                 for i in (0..num_stages).rev() {
                     if self.base.stages[i].get_channel_mode(c) == Mode::InOut {
-                        self.stage_data[t][c][i] = ImageF::create_in(
+                        s.stage_data[t][c][i] = ImageF::create_in(
                             stage_buffer_xsize,
                             stage_buffer_ysize[c][i],
                             0,
@@ -763,14 +906,14 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                 }
             }
         }
-        if self.first_image_dim_stage != num_stages {
+        if self.t.first_image_dim_stage != num_stages {
             let fd = &self.base.frame_dimensions;
             let mut image_rect = SignedRect::new(0, 0, fd.xsize_upsampled, fd.ysize_upsampled);
             let full_image_rect =
-                SignedRect::new(0, 0, self.full_image_xsize, self.full_image_ysize);
+                SignedRect::new(0, 0, self.t.full_image_xsize, self.t.full_image_ysize);
             image_rect = image_rect.translate(
-                i64::from(self.frame_origin.x0),
-                i64::from(self.frame_origin.y0),
+                i64::from(self.t.frame_origin.x0),
+                i64::from(self.t.frame_origin.y0),
             );
             image_rect = image_rect.intersection(full_image_rect);
             if image_rect.xsize() == 0 || image_rect.ysize() == 0 {
@@ -778,42 +921,46 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             }
             let left_padding = image_rect.x0() as usize;
             let middle_padding = group_dim;
-            let right_padding = self.full_image_xsize.wrapping_sub(image_rect.x1() as usize);
+            let right_padding = self
+                .t
+                .full_image_xsize
+                .wrapping_sub(image_rect.x1() as usize);
             let out_of_frame_xsize =
                 padding.wrapping_add(left_padding.max(middle_padding.max(right_padding)));
-            self.out_of_frame_data.resize_with(num, ImageF::default);
+            s.out_of_frame_data.resize_with(num, ImageF::default);
             for t in 0..num {
-                self.out_of_frame_data[t] =
+                s.out_of_frame_data[t] =
                     ImageF::create_in(out_of_frame_xsize, num_shifts, 0, self.base.memory_manager)?;
             }
         }
         Ok(())
     }
 
-    fn prepare_buffers_impl(&mut self, group_id: usize, thread_id: usize) -> Vec<InputBuffer> {
+    pub(crate) fn prepare_buffers_impl(
+        &self,
+        group_id: usize,
+        thread_id: usize,
+        use_group_ids: bool,
+    ) -> Vec<InputBuffer> {
         let fd = &self.base.frame_dimensions;
         let num_shifts = self.base.channel_shifts[0].len();
         let gx = group_id % fd.xsize_groups;
         let gy = group_id / fd.xsize_groups;
-        let set = if self.use_group_ids {
-            group_id
-        } else {
-            thread_id
-        };
+        let set = if use_group_ids { group_id } else { thread_id };
         (0..num_shifts)
             .map(|c| {
                 let shift = self.base.channel_shifts[0][c];
                 let rect = Rect::new_clamped(
-                    self.group_data_x_border,
-                    self.group_data_y_border,
+                    self.t.group_data_x_border,
+                    self.t.group_data_y_border,
                     self.group_input_x_size(c),
                     self.group_input_y_size(c),
                     div_ceil(fd.xsize_upsampled, 1 << shift.0)
                         .wrapping_sub(gx.wrapping_mul(self.group_input_x_size(c)))
-                        .wrapping_add(self.group_data_x_border),
+                        .wrapping_add(self.t.group_data_x_border),
                     div_ceil(fd.ysize_upsampled, 1 << shift.1)
                         .wrapping_sub(gy.wrapping_mul(self.group_input_y_size(c)))
-                        .wrapping_add(self.group_data_y_border),
+                        .wrapping_add(self.t.group_data_y_border),
                 );
                 (set, c, rect)
             })
@@ -828,9 +975,10 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         reason = "Retain the source's indexed loops over parallel stage/channel tables."
     )]
     fn render_rect(
-        &mut self,
+        &self,
         thread_id: usize,
-        input_set: usize,
+        input: &mut [ImageF],
+        stage_data: &mut [Vec<ImageF>],
         data_max_color_channel_rect: Rect,
         image_max_color_channel_rect: Rect,
     ) -> Status {
@@ -840,14 +988,14 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         // scaling factor that that stage has).
         let mut group_rect = vec![Rect::default(); num_stages];
         let image_area_rect = image_max_color_channel_rect
-            .shift_left(self.base_color_shift, self.base_color_shift)
+            .shift_left(self.t.base_color_shift, self.t.base_color_shift)
             .crop(
                 self.base.frame_dimensions.xsize_upsampled,
                 self.base.frame_dimensions.ysize_upsampled,
             );
         for i in 0..num_stages {
             group_rect[i] = image_area_rect
-                .ceil_shift_right(self.base.channel_shifts[i][self.anyc[i] as usize])?;
+                .ceil_shift_right(self.base.channel_shifts[i][self.t.anyc[i] as usize])?;
         }
 
         // Compute actual x-axis bounds for the current image area in the
@@ -858,43 +1006,43 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         // - full_image_x0 - x_pixels_skip is the position of the current frame
         //   area in the full image.
         let mut full_image_x0: isize =
-            (self.frame_origin.x0 as isize).wrapping_add(image_area_rect.x0() as isize);
+            (self.t.frame_origin.x0 as isize).wrapping_add(image_area_rect.x0() as isize);
         let mut x_pixels_skip: isize = 0;
         if full_image_x0 < 0 {
             x_pixels_skip = -full_image_x0;
             full_image_x0 = 0;
         }
         let full_image_x1: isize =
-            (self.frame_origin.x0 as isize).wrapping_add(image_area_rect.x1() as isize);
+            (self.t.frame_origin.x0 as isize).wrapping_add(image_area_rect.x1() as isize);
 
         let mut span = vec![Rect::default(); num_stages];
         for i in 0..num_stages {
-            if i < self.first_image_dim_stage {
+            if i < self.t.first_image_dim_stage {
                 span[i] = Rect::new(
                     group_rect[i].x0(),
                     0,
                     group_rect[i].xsize(),
-                    self.image_rect[i].ysize(),
+                    self.t.image_rect[i].ysize(),
                 );
             } else {
                 let x0 = full_image_x0 as usize;
                 let x1 = full_image_x1 as usize;
-                let x_max = self.full_image_xsize;
+                let x_max = self.t.full_image_xsize;
                 let cropped_x1 = (x1 as isize).min(x_max as isize) as usize;
                 span[i] = Rect::new(
                     x0,
                     0,
                     0isize.max(cropped_x1.wrapping_sub(x0) as isize) as usize,
-                    self.full_image_ysize,
+                    self.t.full_image_ysize,
                 );
             }
         }
 
         // Data structures to hold information about input/output rows and
         // their buffers (Rows::Create's checks precede any buffer use).
-        let num_channels = self.group_data[input_set].len();
+        let num_channels = input.len();
         {
-            let thread_data = &self.stage_data[thread_id];
+            let thread_data = &*stage_data;
             if thread_data.len() != num_channels
                 || self.base.channel_shifts[0].len() != num_channels
             {
@@ -907,10 +1055,10 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             }
         }
         let mut arena: Vec<ImageF> = Vec::with_capacity(num_channels * (num_stages + 1));
-        for plane in self.group_data[input_set].iter_mut() {
+        for plane in input.iter_mut() {
             arena.push(std::mem::take(plane));
         }
-        for per_channel in self.stage_data[thread_id].iter_mut() {
+        for per_channel in stage_data.iter_mut() {
             for plane in per_channel.iter_mut() {
                 arena.push(std::mem::take(plane));
             }
@@ -925,10 +1073,10 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             x_pixels_skip,
         );
         let mut planes = arena.into_iter();
-        for plane in self.group_data[input_set].iter_mut() {
+        for plane in input.iter_mut() {
             *plane = planes.next().unwrap();
         }
-        for per_channel in self.stage_data[thread_id].iter_mut() {
+        for per_channel in stage_data.iter_mut() {
             for plane in per_channel.iter_mut() {
                 *plane = planes.next().unwrap();
             }
@@ -945,7 +1093,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         reason = "Retain RenderRect's locals across the lent-storage boundary."
     )]
     fn render_rect_rows(
-        &mut self,
+        &self,
         thread_id: usize,
         arena: &mut [ImageF],
         data_max_color_channel_rect: Rect,
@@ -959,15 +1107,15 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         let rows = Rows::create(
             &self.base.stages,
             data_max_color_channel_rect,
-            self.group_data_x_border as i32,
-            self.group_data_y_border as i32,
+            self.t.group_data_x_border as i32,
+            self.t.group_data_y_border as i32,
             &self.base.channel_shifts[0],
-            self.base_color_shift,
+            self.t.base_color_shift,
             arena,
             num_channels,
         )?;
 
-        let first_trailing_stage = self.first_trailing_stage;
+        let first_trailing_stage = self.t.first_trailing_stage;
         let mut input_rows: Vec<RowInfo> = vec![Vec::new(); first_trailing_stage + 1];
         for rows_i in input_rows.iter_mut().take(first_trailing_stage) {
             rows_i.resize(num_channels, Vec::new());
@@ -983,18 +1131,18 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         // correspond to an actual row of the current processing stage; actual
         // processing happens when vy % (1<<vshift) == 0.
 
-        let num_extra_rows: i32 = *self.virtual_ypadding_for_output.iter().max().unwrap();
+        let num_extra_rows: i32 = *self.t.virtual_ypadding_for_output.iter().max().unwrap();
 
         for vy in -num_extra_rows..image_area_rect.ysize() as i32 + num_extra_rows {
             for i in 0..first_trailing_stage {
-                let stage_vy = vy - num_extra_rows + self.virtual_ypadding_for_output[i];
-                let shift_y = self.base.channel_shifts[i][self.anyc[i] as usize].1;
+                let stage_vy = vy - num_extra_rows + self.t.virtual_ypadding_for_output[i];
+                let shift_y = self.base.channel_shifts[i][self.t.anyc[i] as usize].1;
 
                 if stage_vy % (1i32 << shift_y) != 0 {
                     continue;
                 }
 
-                if stage_vy < -self.virtual_ypadding_for_output[i] {
+                if stage_vy < -self.t.virtual_ypadding_for_output[i] {
                     continue;
                 }
 
@@ -1027,12 +1175,12 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                 }
                 let xpos = span[i].x0();
                 let xsize = span[i].xsize();
-                let xdata_right = self.image_rect[i]
+                let xdata_right = self.t.image_rect[i]
                     .xsize()
                     .wrapping_sub(xpos)
                     .wrapping_sub(xsize);
-                let xextra_left = xpos.min(self.xpadding_for_output[i] as usize);
-                let xextra_right = xdata_right.min(self.xpadding_for_output[i] as usize);
+                let xextra_left = xpos.min(self.t.xpadding_for_output[i] as usize);
+                let xextra_right = xdata_right.min(self.t.xpadding_for_output[i] as usize);
                 let mut buffers = RowBuffers {
                     input: arena,
                     output: &mut [],
@@ -1066,13 +1214,13 @@ impl<'a> LowMemoryRenderPipeline<'a> {
 
             for c in 0..num_channels {
                 input_rows[first_trailing_stage][c][0] = rows.get_input_buffer(
-                    self.stage_input_for_channel[first_trailing_stage][c],
+                    self.t.stage_input_for_channel[first_trailing_stage][c],
                     y,
                     c,
                 );
             }
 
-            for i in first_trailing_stage..self.first_image_dim_stage {
+            for i in first_trailing_stage..self.t.first_image_dim_stage {
                 if span[i].xsize() == 0 {
                     continue;
                 }
@@ -1097,7 +1245,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                 )?;
             }
 
-            if self.first_image_dim_stage == num_stages {
+            if self.t.first_image_dim_stage == num_stages {
                 continue;
             }
 
@@ -1110,14 +1258,14 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             // image area. As trailing stages have no borders, this is a free
             // optimization (and may be necessary for correctness, as some
             // stages assume coordinates are within bounds).
-            let full_image_y: isize = (self.frame_origin.y0 as isize)
+            let full_image_y: isize = (self.t.frame_origin.y0 as isize)
                 .wrapping_add(image_area_rect.y0() as isize)
                 .wrapping_add(y as isize);
             if full_image_y < 0 {
                 continue;
             }
 
-            for i in self.first_image_dim_stage..num_stages {
+            for i in self.t.first_image_dim_stage..num_stages {
                 if span[i].xsize() == 0 {
                     continue;
                 }
@@ -1176,17 +1324,17 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             let mirrored_y = get_mirrored_y(
                 (y as isize + iy - bordery) as i32,
                 group_rect[i].y0() as isize,
-                self.image_rect[i].ysize() as isize,
+                self.t.image_rect[i].ysize() as isize,
             ) as usize;
             let row =
-                rows.get_input_buffer(self.stage_input_for_channel[i][c], mirrored_y as i32, c);
+                rows.get_input_buffer(self.t.stage_input_for_channel[i][c], mirrored_y as i32, c);
             apply_x_mirroring(
                 arena,
                 row,
                 stage.settings().border_x as isize,
                 group_rect[i].x0() as isize,
                 group_rect[i].xsize() as isize,
-                self.image_rect[i].xsize() as isize,
+                self.t.image_rect[i].xsize() as isize,
             );
             row
         };
@@ -1224,7 +1372,7 @@ impl<'a> LowMemoryRenderPipeline<'a> {
     }
 
     #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
-    fn render_padding(&mut self, thread_id: usize, rect: Rect) -> Status {
+    fn render_padding(&self, thread_id: usize, out_of_frame: &mut ImageF, rect: Rect) -> Status {
         if rect.xsize() == 0 {
             return Ok(());
         }
@@ -1240,9 +1388,9 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             })
             .collect();
         let output_rows: RowInfo = Vec::new();
-        let first_image_dim_stage = self.first_image_dim_stage;
+        let first_image_dim_stage = self.t.first_image_dim_stage;
         let num_stages = self.base.stages.len();
-        let input = std::slice::from_mut(&mut self.out_of_frame_data[thread_id]);
+        let input = std::slice::from_mut(out_of_frame);
 
         for y in 0..rect.ysize() {
             let mut buffers = RowBuffers {
@@ -1277,25 +1425,98 @@ impl<'a> LowMemoryRenderPipeline<'a> {
         Ok(())
     }
 
-    fn process_buffers_impl(&mut self, group_id: usize, thread_id: usize) -> Status {
-        let input_set = if self.use_group_ids {
-            group_id
-        } else {
-            thread_id
-        };
-        let num_channels = self.group_data[input_set].len();
+    /// RenderPipeline::PrepareForThreads: the stages', then the pipeline's.
+    pub(crate) fn prepare_for_threads(
+        &self,
+        num: usize,
+        use_group_ids: bool,
+        s: &mut LmStorage,
+    ) -> Status {
+        for stage in &self.base.stages {
+            stage.prepare_for_threads(num)?;
+        }
+        self.prepare_for_threads_impl(num, use_group_ids, s)
+    }
+
+    /// ProcessBuffers for the group's input planes `input`. `storage` runs
+    /// its argument with the pipeline's storage; a concurrent caller enters
+    /// it under a lock, so the border copies and the lending of this
+    /// thread's stage and out-of-frame buffers are the only steps that touch
+    /// shared storage (port ADR 0003, "Concurrent decoder tasks"). The
+    /// thread's buffers are returned before this returns, on error too.
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "Retain the source's indexed channel loop."
+    )]
+    pub(crate) fn process_buffers_with(
+        &self,
+        group_id: usize,
+        thread_id: usize,
+        input: &mut [ImageF],
+        storage: StorageAccess<'_>,
+    ) -> Status {
+        let num_channels = input.len();
 
         // Copy the group borders to the border storage.
-        for c in 0..num_channels {
-            self.save_borders(group_id, c, input_set)?;
-        }
+        storage(&mut |s| {
+            for c in 0..num_channels {
+                self.save_borders(group_id, c, &input[c], s)?;
+            }
+            Ok(())
+        })?;
+
+        // This thread's buffers, the source's stage_data_[thread_id] and
+        // out_of_frame_data_[thread_id], lent for the rest of the call.
+        let mut thread_data: Option<Vec<Vec<ImageF>>> = None;
+        let mut out_of_frame: Option<ImageF> = None;
+        storage(&mut |s| {
+            thread_data = s.stage_data.get_mut(thread_id).map(std::mem::take);
+            out_of_frame = s.out_of_frame_data.get_mut(thread_id).map(std::mem::take);
+            Ok(())
+        })?;
+        let status = self.process_buffers_rects(
+            group_id,
+            thread_id,
+            input,
+            &mut thread_data,
+            &mut out_of_frame,
+            storage,
+        );
+        let restored = storage(&mut |s| {
+            if let Some(data) = thread_data.take() {
+                s.stage_data[thread_id] = data;
+            }
+            if let Some(data) = out_of_frame.take() {
+                s.out_of_frame_data[thread_id] = data;
+            }
+            Ok(())
+        });
+        status.and(restored)
+    }
+
+    /// The rest of ProcessBuffers after the border copy, with this thread's
+    /// lent buffers.
+    #[allow(
+        clippy::needless_range_loop,
+        reason = "Retain the source's indexed channel loop."
+    )]
+    fn process_buffers_rects(
+        &self,
+        group_id: usize,
+        thread_id: usize,
+        input: &mut [ImageF],
+        thread_data: &mut Option<Vec<Vec<ImageF>>>,
+        out_of_frame: &mut Option<ImageF>,
+        storage: StorageAccess<'_>,
+    ) -> Status {
+        let num_channels = input.len();
 
         let fd = self.base.frame_dimensions;
         let gy = group_id / fd.xsize_groups;
         let gx = group_id % fd.xsize_groups;
 
-        if self.first_image_dim_stage != self.base.stages.len() {
-            let group_dim = fd.group_dim << self.base_color_shift;
+        if self.t.first_image_dim_stage != self.base.stages.len() {
+            let group_dim = fd.group_dim << self.t.base_color_shift;
             let mut group_rect = SignedRect::new(
                 gx.wrapping_mul(group_dim) as isize,
                 gy.wrapping_mul(group_dim) as isize,
@@ -1304,9 +1525,9 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             );
             let mut image_rect = SignedRect::new(0, 0, fd.xsize_upsampled, fd.ysize_upsampled);
             let full_image_rect =
-                SignedRect::new(0, 0, self.full_image_xsize, self.full_image_ysize);
-            let ox = i64::from(self.frame_origin.x0);
-            let oy = i64::from(self.frame_origin.y0);
+                SignedRect::new(0, 0, self.t.full_image_xsize, self.t.full_image_ysize);
+            let ox = i64::from(self.t.frame_origin.x0);
+            let oy = i64::from(self.t.frame_origin.y0);
             group_rect = group_rect.translate(ox, oy);
             image_rect = image_rect.translate(ox, oy);
             image_rect = image_rect.intersection(full_image_rect);
@@ -1315,13 +1536,17 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             let y0 = group_rect.y0() as usize;
             let x1 = group_rect.x1() as usize;
             let y1 = group_rect.y1() as usize;
-            let full_x = self.full_image_xsize;
-            let full_y = self.full_image_ysize;
+            let full_x = self.t.full_image_xsize;
+            let full_y = self.t.full_image_ysize;
 
             if group_id == 0 && (image_rect.xsize() == 0 || image_rect.ysize() == 0) {
                 // If this frame does not intersect with the full image, we have
                 // to initialize the whole image area with RenderPadding.
-                self.render_padding(thread_id, Rect::new(0, 0, full_x, full_y))?;
+                self.render_padding(
+                    thread_id,
+                    lent(out_of_frame),
+                    Rect::new(0, 0, full_x, full_y),
+                )?;
             }
 
             // Render padding for groups that intersect with the full image. The
@@ -1330,35 +1555,54 @@ impl<'a> LowMemoryRenderPipeline<'a> {
                 let last_x = gx + 1 == fd.xsize_groups;
                 let last_y = gy + 1 == fd.ysize_groups;
                 if gx == 0 && gy == 0 {
-                    self.render_padding(thread_id, Rect::new(0, 0, x0, y0))?;
+                    self.render_padding(thread_id, lent(out_of_frame), Rect::new(0, 0, x0, y0))?;
                 }
                 if gy == 0 {
-                    self.render_padding(thread_id, Rect::new(x0, 0, x1.wrapping_sub(x0), y0))?;
+                    self.render_padding(
+                        thread_id,
+                        lent(out_of_frame),
+                        Rect::new(x0, 0, x1.wrapping_sub(x0), y0),
+                    )?;
                 }
                 if gx == 0 {
-                    self.render_padding(thread_id, Rect::new(0, y0, x0, y1.wrapping_sub(y0)))?;
+                    self.render_padding(
+                        thread_id,
+                        lent(out_of_frame),
+                        Rect::new(0, y0, x0, y1.wrapping_sub(y0)),
+                    )?;
                 }
                 if gx == 0 && last_y {
-                    self.render_padding(thread_id, Rect::new(0, y1, x0, full_y.wrapping_sub(y1)))?;
+                    self.render_padding(
+                        thread_id,
+                        lent(out_of_frame),
+                        Rect::new(0, y1, x0, full_y.wrapping_sub(y1)),
+                    )?;
                 }
                 if last_y {
                     self.render_padding(
                         thread_id,
+                        lent(out_of_frame),
                         Rect::new(x0, y1, x1.wrapping_sub(x0), full_y.wrapping_sub(y1)),
                     )?;
                 }
                 if gy == 0 && last_x {
-                    self.render_padding(thread_id, Rect::new(x1, 0, full_x.wrapping_sub(x1), y0))?;
+                    self.render_padding(
+                        thread_id,
+                        lent(out_of_frame),
+                        Rect::new(x1, 0, full_x.wrapping_sub(x1), y0),
+                    )?;
                 }
                 if last_x {
                     self.render_padding(
                         thread_id,
+                        lent(out_of_frame),
                         Rect::new(x1, y0, full_x.wrapping_sub(x1), y1.wrapping_sub(y0)),
                     )?;
                 }
                 if last_y && last_x {
                     self.render_padding(
                         thread_id,
+                        lent(out_of_frame),
                         Rect::new(x1, y1, full_x.wrapping_sub(x1), full_y.wrapping_sub(y1)),
                     )?;
                 }
@@ -1367,22 +1611,27 @@ impl<'a> LowMemoryRenderPipeline<'a> {
 
         let mut ready_rects = [Rect::default(); GroupBorderAssigner::MAX_TO_FINALIZE];
         let mut num_ready_rects = 0;
-        self.group_border_assigner.group_done(
+        self.t.group_border_assigner.group_done(
             group_id,
-            self.group_border.0,
-            self.group_border.1,
+            self.t.group_border.0,
+            self.t.group_border.1,
             &mut ready_rects,
             &mut num_ready_rects,
         );
         for &image_max_color_channel_rect in ready_rects.iter().take(num_ready_rects) {
-            for c in 0..num_channels {
-                self.load_borders(group_id, c, image_max_color_channel_rect, input_set)?;
-            }
+            storage(&mut |s| {
+                for c in 0..num_channels {
+                    self.load_borders(group_id, c, image_max_color_channel_rect, &mut input[c], s)?;
+                }
+                Ok(())
+            })?;
             let data_max_color_channel_rect = Rect::new(
-                self.group_data_x_border
+                self.t
+                    .group_data_x_border
                     .wrapping_add(image_max_color_channel_rect.x0())
                     .wrapping_sub(gx.wrapping_mul(fd.group_dim)),
-                self.group_data_y_border
+                self.t
+                    .group_data_y_border
                     .wrapping_add(image_max_color_channel_rect.y0())
                     .wrapping_sub(gy.wrapping_mul(fd.group_dim)),
                 image_max_color_channel_rect.xsize(),
@@ -1390,7 +1639,8 @@ impl<'a> LowMemoryRenderPipeline<'a> {
             );
             self.render_rect(
                 thread_id,
-                input_set,
+                input,
+                lent(thread_data),
                 data_max_color_channel_rect,
                 image_max_color_channel_rect,
             )?;
@@ -1410,37 +1660,59 @@ impl<'a> RenderPipeline<'a> for LowMemoryRenderPipeline<'a> {
         self
     }
     fn prepare_buffers(&mut self, group_id: usize, thread_id: usize) -> Vec<InputBuffer> {
-        self.prepare_buffers_impl(group_id, thread_id)
+        self.cx()
+            .prepare_buffers_impl(group_id, thread_id, self.s.use_group_ids)
     }
     fn process_buffers(&mut self, group_id: usize, thread_id: usize) -> Status {
-        self.process_buffers_impl(group_id, thread_id)
+        let set = self.s.input_set(group_id, thread_id);
+        let mut input = std::mem::take(&mut self.s.group_data[set]);
+        let cx = render_cx(
+            &self.base,
+            &self.t,
+            self.base.stages.iter().map(|s| &**s).collect(),
+        );
+        let storage = &mut self.s;
+        let status = cx.process_buffers_with(group_id, thread_id, &mut input, &mut |f| f(storage));
+        self.s.group_data[set] = input;
+        status
     }
     fn prepare_for_threads_internal(&mut self, num: usize, use_group_ids: bool) -> Status {
-        self.prepare_for_threads_impl(num, use_group_ids)
+        let cx = render_cx(
+            &self.base,
+            &self.t,
+            self.base.stages.iter().map(|s| &**s).collect(),
+        );
+        cx.prepare_for_threads_impl(num, use_group_ids, &mut self.s)
     }
     fn init(&mut self) -> Status {
         self.init_impl()
     }
     fn clear_done(&mut self, i: usize) {
-        self.group_border_assigner.clear_done(i);
+        self.t.group_border_assigner.clear_done(i);
     }
     fn input_plane(&self, set: usize, channel: usize) -> &Plane<f32> {
-        &self.group_data[set][channel]
+        &self.s.group_data[set][channel]
     }
     fn input_plane_mut(&mut self, set: usize, channel: usize) -> &mut Plane<f32> {
-        &mut self.group_data[set][channel]
+        &mut self.s.group_data[set][channel]
     }
     fn input_planes_mut(&mut self, set: usize) -> &mut [Plane<f32>] {
-        &mut self.group_data[set]
+        &mut self.s.group_data[set]
+    }
+    fn renders_concurrently(&self) -> bool {
+        self.base.stages.iter().all(|s| s.as_concurrent().is_some())
+    }
+    fn split_concurrent(&mut self) -> Option<ConcurrentRender<'_>> {
+        LowMemoryRenderPipeline::split_concurrent(self)
     }
     // Each buffer set belongs to one thread (or group) while a task uses it,
     // so its planes can be lent to that task (port ADR 0003, "Concurrent
     // decoder tasks").
     fn take_input_planes(&mut self, set: usize) -> Option<Vec<Plane<f32>>> {
-        Some(std::mem::take(&mut self.group_data[set]))
+        Some(std::mem::take(&mut self.s.group_data[set]))
     }
     fn restore_input_planes(&mut self, set: usize, planes: Vec<Plane<f32>>) {
-        self.group_data[set] = planes;
+        self.s.group_data[set] = planes;
     }
 }
 
@@ -1453,6 +1725,17 @@ const NULL_ROW: Row = Row {
     y: 0,
     x: 0,
 };
+
+/// Runs its argument with the pipeline's storage: directly, or under a
+/// concurrent caller's lock.
+pub(crate) type StorageAccess<'x> =
+    &'x mut dyn FnMut(&mut dyn FnMut(&mut LmStorage) -> Status) -> Status;
+
+/// A buffer lent for this thread: its slot existed when the call started.
+fn lent<T>(slot: &mut Option<T>) -> &mut T {
+    slot.as_mut()
+        .expect("source requires per-thread storage for this thread id")
+}
 
 fn get_mirrored_y(y: i32, group_y0: isize, image_ysize: isize) -> i32 {
     if group_y0 == 0 && (y < 0 || y as isize + group_y0 >= image_ysize) {
@@ -1551,8 +1834,8 @@ impl Rows {
         clippy::too_many_arguments,
         reason = "Retain the original Rows::Create parameter list."
     )]
-    fn create(
-        stages: &[Box<dyn super::render_pipeline_stage::RenderPipelineStage + '_>],
+    fn create<St: super::render_pipeline_stage::RenderPipelineStage + ?Sized>(
+        stages: &[&St],
         data_max_color_channel_rect: Rect,
         group_data_x_border: i32,
         group_data_y_border: i32,

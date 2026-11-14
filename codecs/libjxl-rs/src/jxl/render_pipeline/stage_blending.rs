@@ -20,12 +20,10 @@ use crate::jxl::dec_patch_dictionary::{PatchBlendMode, PatchBlending, ReferenceF
 use crate::jxl::frame_header::{BlendMode, BlendingInfo, FrameHeader, FrameOrigin};
 use crate::jxl::image_metadata::ExtraChannelInfo;
 use crate::jxl::memory_manager_internal::MemoryManagerPtr;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 enum Header<'a, 'm> {
     Borrowed(&'a FrameHeader<'m>),
-    Shared(Rc<FrameHeader<'m>>),
+    Shared(std::sync::Arc<FrameHeader<'m>>),
 }
 impl<'m> Header<'_, 'm> {
     fn get(&self) -> &FrameHeader<'m> {
@@ -37,7 +35,7 @@ impl<'m> Header<'_, 'm> {
 }
 enum References<'a, 'm> {
     Borrowed(&'a [ReferenceFrame<'m>; 4]),
-    Shared(Rc<RefCell<[ReferenceFrame<'m>; 4]>>),
+    Shared(std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<[ReferenceFrame<'m>; 4]>>),
 }
 impl<'m> References<'_, 'm> {
     fn with<R>(&self, f: impl FnOnce(&[ReferenceFrame<'m>; 4]) -> R) -> R {
@@ -179,6 +177,9 @@ impl<'a, 'm> BlendingStage<'a, 'm> {
     }
 }
 impl RenderPipelineStage for BlendingStage<'_, '_> {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
@@ -186,7 +187,7 @@ impl RenderPipelineStage for BlendingStage<'_, '_> {
         self.initialized
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -277,7 +278,7 @@ impl RenderPipelineStage for BlendingStage<'_, '_> {
         *origin = self.frame_header.get().frame_origin;
     }
     fn process_padding_row(
-        &mut self,
+        &self,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
         width: usize,
@@ -346,7 +347,7 @@ pub fn get_blending_stage_borrowed<'a, 'm: 'a>(
     ))
 }
 pub fn get_blending_stage_shared<'m>(
-    header: Rc<FrameHeader<'m>>,
+    header: std::sync::Arc<FrameHeader<'m>>,
     state: &PassesDecoderState<'m, '_>,
     frame_color_encoding: &ColorEncoding,
 ) -> Box<BlendingStage<'m, 'm>> {
