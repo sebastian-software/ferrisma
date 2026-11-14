@@ -1326,8 +1326,8 @@ streaming path reached on a 403x302 and a 2268x1512 photograph.
 
 Decode-path exports the lossy encoder runs as well: `convolve_symmetric5`
 (`Symmetric5`, from `enc_gaborish`'s inverse Gaborish and the
-`enc_adaptive_quantization` mask; **not translated**: the decoder never
-calls it, so it has no SIMD version and no dispatch point yet),
+`enc_adaptive_quantization` mask; the decoder never calls it; translated
+since, see "Encoder path: chroma from luma"),
 `quant_weights` (`ComputeQuantTable`), `dec_group` (`DecodeGroupImpl`, the
 AR round trip, distance 0.5 and above), the AR reconstruction pipeline's
 factories `GetGaborishStage`, `GetEPFStage0..2`, `GetUpsamplingStage` (the
@@ -1611,4 +1611,25 @@ Translated further, on the encoder's dispatch point `hwy::encoder_target()`
   that both searches equal a model of the per-lane accumulation for 4 and
   8 lanes; over its domain the rounded multipliers of 4 and 8 lanes never
   differ, so the 8-lane reduction itself rests on the AVX2 oracle run.
+- `convolve_symmetric5` Symmetric5 (`convolve_symmetric5_simd.rs`), the
+  decode-path export the lossy encoder runs (inverse Gaborish, the
+  adaptive-quantization mask) and the decoder never calls: it now has a
+  dispatch point, on `hwy::encoder_target()` in `symmetric5`. Each row runs
+  the target's Symmetric5Row: Symmetric5Border for the first
+  `RoundUpTo(kRadius, Lanes)` pixels and the tail, Symmetric5Interior in
+  whole vectors (LoadU around the center, LoadDup128 of each four-word
+  weight array, separate Mul and Add). Neither SIMD object of the file
+  contains a fused operation, so the border is the scalar translation's
+  `symmetric5_border` and the interior lanes round as the scalar
+  interior; SIMD and scalar differ only where a weight array's four copies
+  differ (the interior reads all four, the border the first), which the
+  encoder's own weights never do. `ecf-sym5` calls the original's
+  dispatching `Symmetric5` (no pool) on whole planes of every width from 1
+  to 20 and around the vector multiples up to 129, heights 1 to 9 (all
+  rows mirrored up to 4), rects inside larger planes into offset rects of
+  other planes, five weight sets (Gaborish-like, mask-like, random, and
+  copies that differ per lane) and value kinds with special words, and
+  compares every word of the sentinel-filled output plane; the scalar path
+  differs in the requests with differing copies. The `lanes8` module
+  compares 8-lane rows (AVX2's LoadDup128) with 4-lane rows word for word.
 <!-- end encoder cfl -->

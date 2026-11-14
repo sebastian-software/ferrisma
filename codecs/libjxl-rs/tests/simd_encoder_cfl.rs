@@ -144,7 +144,7 @@ fn enc_cfl_simd_init_dc_storage_through_the_encoder_dispatch_matches_the_origina
 use jxl::jxl::ac_strategy::{AcStrategy, AcStrategyImage, AcStrategyType, NUM_VALID_STRATEGIES};
 use jxl::jxl::chroma_from_luma::ColorCorrelationMap;
 use jxl::jxl::enc_chroma_from_luma_simd::find_best_multiplier_simd;
-use jxl::jxl::image::{Image3F, ImageI};
+use jxl::jxl::image::{Image3F, ImageF, ImageI};
 use jxl::jxl::quant_weights::DequantMatrices;
 use jxl::jxl::quantizer::Quantizer;
 use simd_common::{next, special_words};
@@ -500,6 +500,177 @@ fn enc_cfl_simd_compute_tile_through_the_encoder_dispatch_matches_the_original_t
     check_through_dispatch("ecf-tile", &tile_requests(), observe_tile);
 }
 
+// Symmetric5 ------------------------------------------------------------------
+
+use jxl::jxl::convolve::WeightsSymmetric5;
+use jxl::jxl::convolve_symmetric5::symmetric5;
+
+/// Weight sets: Gaborish-like and mask-like normalized kernels, random
+/// ones, and one whose four copies per weight differ (the interior reads
+/// all four with LoadDup128, the border the first).
+fn sym5_weights(set: usize) -> [f32; 24] {
+    let mut seed = (set as u64 + 1) * 0x51_7cc1;
+    let mut w = [0.0f32; 24];
+    let base: [f32; 6] = match set {
+        0 => [
+            1.0,
+            0.115_169_525,
+            0.061_248_592,
+            0.025_877_43,
+            0.006_208_9,
+            0.002_184_5,
+        ],
+        1 => [0.25, 0.125, 0.0625, 0.125, 0.0625, 0.03125],
+        _ => std::array::from_fn(|_| uniform(&mut seed, -0.5, 1.0)),
+    };
+    for (k, &v) in base.iter().enumerate() {
+        for i in 0..4 {
+            w[k * 4 + i] = if set == 3 {
+                v * (1.0 + 0.01 * i as f32)
+            } else {
+                v
+            };
+        }
+    }
+    w
+}
+
+fn observe_sym5(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("ecf-sym5"));
+    let n: Vec<usize> = (0..10).map(|_| number(&mut args)).collect();
+    let [ixs, iys, rx, ry, rxs, rys, oxs, oys, ox, oy] = n[..] else {
+        unreachable!()
+    };
+    let mut weights = WeightsSymmetric5::default();
+    for w in [
+        &mut weights.c,
+        &mut weights.r,
+        &mut weights.R,
+        &mut weights.d,
+        &mut weights.D,
+        &mut weights.L,
+    ] {
+        for v in w.iter_mut() {
+            *v = float(&mut args);
+        }
+    }
+    let mut input = ImageF::create(ixs, iys).unwrap();
+    for y in 0..iys {
+        for x in 0..ixs {
+            input.row_mut(y)[x] = float(&mut args);
+        }
+    }
+    let mut out = ImageF::create(oxs, oys).unwrap();
+    for y in 0..oys {
+        for x in 0..oxs {
+            out.row_mut(y)[x] = sentinel(8, y * 4096 + x);
+        }
+    }
+    let status = symmetric5(
+        &input,
+        Rect::new(rx, ry, rxs, rys),
+        &weights,
+        None,
+        &mut out,
+        Rect::new(ox, oy, rxs, rys),
+    );
+    let mut s = format!("S {}", status_code(&status));
+    for y in 0..oys {
+        s.push_str(" R");
+        for &v in &out.row(y)[..oxs] {
+            word(&mut s, v);
+        }
+    }
+    s
+}
+
+fn sym5_request(
+    plane: (usize, usize),
+    rect: (usize, usize, usize, usize),
+    out: (usize, usize, usize, usize),
+    set: usize,
+    kind: usize,
+    seed: u64,
+) -> String {
+    let specials = special_words();
+    let mut r = format!(
+        "ecf-sym5 {} {} {} {} {} {} {} {} {} {}",
+        plane.0, plane.1, rect.0, rect.1, rect.2, rect.3, out.0, out.1, out.2, out.3
+    );
+    for w in sym5_weights(set) {
+        write!(r, " {}", w.to_bits()).unwrap();
+    }
+    let mut seed = seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1;
+    for i in 0..plane.0 * plane.1 {
+        let v = match kind {
+            0 => uniform(&mut seed, -0.1, 1.1),
+            1 => ((i * 7) % 13) as f32 / 12.0,
+            2 => uniform(&mut seed, -1.0, 1.0) * 10f32.powi((next(&mut seed) % 13) as i32 - 6),
+            _ => {
+                if i % 5 == 2 {
+                    f32::from_bits(specials[(i / 5 + kind) % specials.len()])
+                } else {
+                    uniform(&mut seed, 0.0, 1.0)
+                }
+            }
+        };
+        write!(r, " {}", v.to_bits()).unwrap();
+    }
+    r
+}
+
+#[test]
+fn enc_cfl_simd_symmetric5_through_the_encoder_dispatch_matches_the_original_target() {
+    let mut requests = Vec::new();
+    // Whole planes: every width up to 20 and around the vector multiples,
+    // every height from one row (all rows mirrored) to nine.
+    let widths: Vec<usize> = (1..=20)
+        .chain([23, 24, 25, 31, 32, 33, 63, 64, 65, 129])
+        .collect();
+    for (wi, &w) in widths.iter().enumerate() {
+        for (hi, h) in [1usize, 2, 3, 4, 5, 6, 9].into_iter().enumerate() {
+            let set = (wi + hi) % 5;
+            let kind = (wi * 3 + hi) % 5;
+            requests.push(sym5_request(
+                (w, h),
+                (0, 0, w, h),
+                (w, h, 0, 0),
+                set,
+                kind,
+                (wi * 16 + hi) as u64,
+            ));
+        }
+    }
+    // Rects inside larger planes (the encoder's padded planes and its
+    // streaming rects), into offset rects of other planes.
+    let mut seed = 0x5e45_0001u64;
+    for rx in [0usize, 1, 2, 3, 5, 8, 11] {
+        for ry in [0usize, 1, 2, 4] {
+            for rxs in [1usize, 4, 7, 9, 16, 21, 30] {
+                let rys = 1 + (next(&mut seed) % 7) as usize;
+                let plane = (rx + rxs + (next(&mut seed) % 4) as usize, ry + rys + 3);
+                let (ox, oy) = (
+                    (next(&mut seed) % 4) as usize,
+                    (next(&mut seed) % 3) as usize,
+                );
+                let out = (ox + rxs + 2, oy + rys + 1, ox, oy);
+                let set = (next(&mut seed) % 5) as usize;
+                let kind = (next(&mut seed) % 5) as usize;
+                requests.push(sym5_request(
+                    plane,
+                    (rx, ry, rxs, rys),
+                    out,
+                    set,
+                    kind,
+                    next(&mut seed),
+                ));
+            }
+        }
+    }
+    check_through_dispatch("ecf-sym5", &requests, observe_sym5);
+}
+
 // The 8-lane structure, natively on AArch64 -------------------------------
 
 /// The 8-lane structure of the chroma-from-luma kernels (port ADR 0004):
@@ -762,8 +933,10 @@ mod lanes8 {
         fn store_interleaved3(self, _: Self::V, _: Self::V, _: Self::V, _: &mut [f32]) {
             unimplemented!("lane-crossing")
         }
-        fn load_dup128(self, _: &[f32]) -> Self::V {
-            unimplemented!("lane-crossing")
+        // AVX2's LoadDup128 (`_mm256_broadcast_ps`): the 128-bit block in
+        // both halves.
+        fn load_dup128(self, src: &[f32]) -> Self::V {
+            [self.0.load(src), self.0.load(src)]
         }
         fn broadcast<const LANE: i32>(self, _: Self::V) -> Self::V {
             unimplemented!("lane-crossing")
@@ -1168,5 +1341,92 @@ mod lanes8 {
                 );
             }
         }
+    }
+
+    #[test]
+    fn eight_lane_symmetric5_rows_equal_four_lane_rows() {
+        use jxl::jxl::base::rect::Rect;
+        use jxl::jxl::convolve::WeightsSymmetric5;
+        use jxl::jxl::convolve_symmetric5_simd::symmetric5_row_d;
+        use jxl::jxl::image_ops::{WrapMirror, WrapUnchanged};
+        // Identical copies per weight: with them the interior lanes, the
+        // border pixels and the 4- and 8-lane split of each row compute the
+        // same unfused sums, so any difference is a lane-count defect (the
+        // aligned prefix `RoundUpTo(2, Lanes)`, the interior bound, the tail).
+        let mut seed = 0x5e45_8888u64;
+        let mut cases = 0;
+        for xsize in 1..=45usize {
+            for ysize in [1usize, 3, 6] {
+                let mut input = ImageF::create(xsize, ysize).unwrap();
+                for y in 0..ysize {
+                    for x in 0..xsize {
+                        input.row_mut(y)[x] = uniform(&mut seed, -1.0, 1.0);
+                    }
+                }
+                let v: [f32; 6] = std::array::from_fn(|_| uniform(&mut seed, -0.5, 1.0));
+                let weights = WeightsSymmetric5 {
+                    c: [v[0]; 4],
+                    r: [v[1]; 4],
+                    R: [v[2]; 4],
+                    d: [v[3]; 4],
+                    D: [v[4]; 4],
+                    L: [v[5]; 4],
+                };
+                for x0 in [0usize, 1, 3] {
+                    if x0 >= xsize {
+                        continue;
+                    }
+                    let rect = Rect::new(x0, 0, xsize - x0, ysize);
+                    for iy in 0..ysize as i64 {
+                        let mirror = iy < 2 || iy >= ysize as i64 - 2;
+                        let run = |eight: bool| {
+                            let mut out = vec![-3.5f32; xsize + 8];
+                            match (eight, mirror) {
+                                (false, true) => symmetric5_row_d::<_, WrapMirror>(
+                                    n4(),
+                                    &input,
+                                    rect,
+                                    iy,
+                                    &weights,
+                                    &mut out,
+                                ),
+                                (false, false) => symmetric5_row_d::<_, WrapUnchanged>(
+                                    n4(),
+                                    &input,
+                                    rect,
+                                    iy,
+                                    &weights,
+                                    &mut out,
+                                ),
+                                (true, true) => symmetric5_row_d::<_, WrapMirror>(
+                                    Neon8(n4()),
+                                    &input,
+                                    rect,
+                                    iy,
+                                    &weights,
+                                    &mut out,
+                                ),
+                                (true, false) => symmetric5_row_d::<_, WrapUnchanged>(
+                                    Neon8(n4()),
+                                    &input,
+                                    rect,
+                                    iy,
+                                    &weights,
+                                    &mut out,
+                                ),
+                            }
+                            out
+                        };
+                        assert_same(
+                            &format!("symmetric5 row {xsize}x{ysize} x0 {x0} y {iy}"),
+                            &run(false),
+                            &run(true),
+                        );
+                        cases += 1;
+                    }
+                }
+            }
+        }
+        println!("8-lane Symmetric5: {cases} rows match");
     }
 }

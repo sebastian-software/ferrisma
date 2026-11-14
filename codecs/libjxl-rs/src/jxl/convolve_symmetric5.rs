@@ -8,7 +8,7 @@
 //! C++ arithmetic. Each original statement is a separate rounding: the
 //! pinned AArch64 and x86-64 objects contain no fused operation here. Rows are
 //! slices of the caller's planes; the source's row pointer offsets become
-//! indices. SIMD targets are unported.
+//! indices. The NEON and AVX2 targets are in `convolve_symmetric5_simd`.
 use super::base::data_parallel::{ThreadPool, run_on_pool_exclusive_no_init};
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode};
@@ -66,7 +66,9 @@ fn weighted_sum<WrapY: Wrap>(
     sum_2 + (sum_1 + sum_0)
 }
 
-fn symmetric5_border<WrapY: Wrap>(
+/// Symmetric5Border; the SIMD targets' border pixels too
+/// (`convolve_symmetric5_simd`).
+pub(super) fn symmetric5_border<WrapY: Wrap>(
     input: &ImageF,
     ix: i64,
     iy: i64,
@@ -169,6 +171,13 @@ pub fn symmetric5(
     }
     if in_rect.ysize() != out_rect.ysize() {
         return Err(StatusCode::GenericError);
+    }
+    // HWY_DYNAMIC_DISPATCH(Symmetric5): the encoder is its only caller
+    // (port ADR 0004, "Encoder path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::convolve_symmetric5_simd::symmetric5_simd(
+            target, input, in_rect, weights, pool, out, out_rect,
+        );
     }
     let ysize = in_rect.ysize();
     let process_row = |out: &mut ImageF, task: u32, _thread: usize| -> Status {
