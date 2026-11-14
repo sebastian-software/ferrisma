@@ -510,3 +510,8 @@ planned.
   O8 notes that its two `_c` kernels are now dispatched; new section
   "Decided since 2026-11-13" with the owner's AVX2 reference decision for
   libjxl-rs (on branch `v1/jxl-avx2-merge`, not yet on `main`).
+- 2026-11-14 (later) — The libjxl-rs dispatch-build AVX2 oracle named in
+  "Decided since 2026-11-13" and in the 2026-11-14 table is on `main` since
+  `81d2adab`; where this record says "on branch `v1/jxl-avx2-merge`", read
+  "on `main`". Hosted run 43599382021 of that tree passed the four
+  ordinary-oracle test shards on AVX2.

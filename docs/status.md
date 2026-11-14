@@ -168,20 +168,20 @@ sized like the originals' own) and are fixed on `main`.
   [43533597186](https://github.com/sebastian-software/ferrisma/actions/runs/43533597186)
   (branch `v1/jxl-merge7` at `718b32d6`) four row tests (CMS, tone mapping,
   splines, blending) differed from the static AVX2 oracle in single
-  words (one to three units in the last place, once the sign of a zero); the analysis on branch `v1/jxl-avx2-merge` traces each to a
+  words (one to three units in the last place, once the sign of a zero); the analysis in port ADR 0004 traces each to a
   function outside Highway's per-target code that the static build
   contracts with FMA and upstream's release build does not.
   The owner decided on 2026-11-14 that the AVX2 reference is upstream's
   dispatch build capped at AVX2 (ADR-0041 section 1). That oracle is on
-  branch `v1/jxl-avx2-merge` (port ADR 0004, "AVX2 reference: upstream's
-  dispatch build", commit `d68e9a6d`), **not on `main`**; `main` still
-  builds the static AVX2 oracle. With it, run
+  `main` since `81d2adab` (port ADR 0004, "AVX2 reference: upstream's
+  dispatch build"), with two follow-up fixes. With it, run
   [43558043274](https://github.com/sebastian-software/ferrisma/actions/runs/43558043274)
   (branch `v1/jxl-avx2-fixes`, based on `718b32d6`, before the NEON default
-  and the threading and row changes) passed every job; the run of
-  `v1/jxl-avx2-merge`
-  ([43599382021](https://github.com/sebastian-software/ferrisma/actions/runs/43599382021))
-  was still queued when this was written. The decoder keeps the scalar path
+  and the threading and row changes) passed every job, and in run
+  [43599382021](https://github.com/sebastian-software/ferrisma/actions/runs/43599382021)
+  (the merged tree, with those changes) all four ordinary-oracle test shards
+  passed on AVX2; its sanitized shards had not finished when this was
+  written. The decoder keeps the scalar path
   on x86-64 until a hosted x86-64 run of the combined decoder passes (port
   ADR 0004, "Decoder path" condition (d); #96).
 - **AOM:** no workflow runs the comparison with the original's SIMD build

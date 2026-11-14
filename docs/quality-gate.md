@@ -213,8 +213,8 @@ python3 tools/check.py --stage test --target x86_64-apple-darwin
   code outside Highway's per-target code with FMA. The owner decided on
   2026-11-14 that the AVX2 reference is upstream's dynamic-dispatch release
   build capped at `HWY_AVX2`, as ADR-0041 section 1 defines it; that build
-  is on branch `v1/jxl-avx2-merge` (port ADR 0004 there, "AVX2 reference:
-  upstream's dispatch build"), not yet on `main`.
+  is on `main` since `81d2adab` (port ADR 0004, "AVX2 reference: upstream's
+  dispatch build"); the sentence above describes `main` before that commit.
 - **Under Rosetta**, `tools/check.py` sets `ROSETTA_ADVERTISE_AVX=1` only for
   the SIMD test binaries. The other tests run without it, because the
   cross-built scalar references contain only skcms's baseline engine
@@ -256,16 +256,17 @@ python3 tools/check.py --stage test --target x86_64-apple-darwin
   (branch `v1/jxl-merge7` at `718b32d6`, static AVX2 oracle) failed four row
   tests (CMS, tone mapping, splines, blending), each in one word: by one to
   three units in the last place, and once in the sign of a zero (the table
-  in port ADR 0004 on branch `v1/jxl-avx2-merge`). Run
+  in port ADR 0004). Run
   [43558043274](https://github.com/sebastian-software/ferrisma/actions/runs/43558043274)
   (branch `v1/jxl-avx2-fixes`, based on `718b32d6`, with the dispatch-build
   oracle) passed every job of `JXL: Checks`, including the SIMD test
   binaries and the public-decoder gate on AVX2; that branch predates the
-  NEON default, the concurrent AC group decode and the row changes. The
-  run of `v1/jxl-avx2-merge`
-  ([43599382021](https://github.com/sebastian-software/ferrisma/actions/runs/43599382021))
-  was queued when this page was written. **No passing hosted AVX2 run of
-  the state on `main` exists.**
+  NEON default, the concurrent AC group decode and the row changes. In
+  run
+  [43599382021](https://github.com/sebastian-software/ferrisma/actions/runs/43599382021)
+  (the tree merged to `main` as `81d2adab`, with all of those changes) the
+  four ordinary-oracle test shards passed on AVX2; its sanitized shards had
+  not finished when this page was written.
 - **Open:** x86-64 default selection (port ADR 0004 condition (d), #96);
   the dispatch-build AVX2 oracle on `main`; the encoder's Highway exports
   (#231, #243); `ToLinear` and `ToneMapping` in a whole decode (no HDR input
