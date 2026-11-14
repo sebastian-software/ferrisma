@@ -73,15 +73,108 @@ fn weight<D: SimdF32>(d: D, sad: D::V, inv_sigma: D::V) -> D::V {
     d.zero_if_negative(v)
 }
 
-impl<'a> Kernel for EpfRow<'a> {
+/// The accumulators `X`, `Y`, `B` and `w` of the source's x loop.
+struct Acc<D: SimdF32> {
+    x: D::V,
+    y: D::V,
+    b: D::V,
+    w: D::V,
+}
+
+/// `Load`/`LoadU(df, rows[c][r] + x + dx)`: `w` is the row's window of
+/// `Lanes + 2 * B` samples from `x - B`, so every load of an iteration is
+/// inside it.
+#[inline(always)]
+fn ld<D: SimdF32, const B: usize>(df: D, w: &[f32], dx: isize) -> D::V {
+    df.load(&w[(B as isize + dx) as usize..])
+}
+
+/// EPF0Stage/EPF1Stage::AddPixel (stage_epf.cc:62-80 and 213-231): `r` is
+/// the source's `border + row`.
+#[inline(always)]
+fn add_pixel<D: SimdF32, const B: usize>(
+    df: D,
+    w: &[[&[f32]; 7]; 3],
+    r: usize,
+    dx: isize,
+    sad: D::V,
+    inv_sigma: D::V,
+    acc: &mut Acc<D>,
+) {
+    let cx = ld::<D, B>(df, w[0][r], dx);
+    let cy = ld::<D, B>(df, w[1][r], dx);
+    let cb = ld::<D, B>(df, w[2][r], dx);
+    let weight = weight(df, sad, inv_sigma);
+    acc.w = df.add(acc.w, weight);
+    acc.x = df.mul_add(weight, cx, acc.x);
+    acc.y = df.mul_add(weight, cy, acc.y);
+    acc.b = df.mul_add(weight, cb, acc.b);
+}
+
+/// EPF2Stage::AddPixel: the SAD of the plus-shaped neighbor against the
+/// center, then the same accumulation.
+#[inline(always)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "The source's AddPixel arguments."
+)]
+fn add_pixel2<D: SimdF32, const B: usize>(
+    df: D,
+    w: &[[&[f32]; 7]; 3],
+    r: usize,
+    dx: isize,
+    cc: [D::V; 3],
+    scales: [f32; 3],
+    inv_sigma: D::V,
+    acc: &mut Acc<D>,
+) {
+    let cx = ld::<D, B>(df, w[0][r], dx);
+    let cy = ld::<D, B>(df, w[1][r], dx);
+    let cb = ld::<D, B>(df, w[2][r], dx);
+    let mut sad = df.mul(df.abs_diff(cx, cc[0]), df.set(scales[0]));
+    sad = df.mul_add(df.abs_diff(cy, cc[1]), df.set(scales[1]), sad);
+    sad = df.mul_add(df.abs_diff(cb, cc[2]), df.set(scales[2]), sad);
+    let weight = weight(df, sad, inv_sigma);
+    acc.w = df.add(acc.w, weight);
+    acc.x = df.mul_add(weight, cx, acc.x);
+    acc.y = df.mul_add(weight, cy, acc.y);
+    acc.b = df.mul_add(weight, cb, acc.b);
+}
+
+const SADS_OFF: [[isize; 2]; 12] = [
+    [-2, 0],
+    [-1, -1],
+    [-1, 0],
+    [-1, 1],
+    [0, -2],
+    [0, -1],
+    [0, 1],
+    [0, 2],
+    [1, -1],
+    [1, 0],
+    [1, 1],
+    [2, 0],
+];
+const PLUS_OFF: [[isize; 2]; 5] = [[0, 0], [-1, 0], [0, -1], [1, 0], [0, 1]];
+
+impl Kernel for EpfRow<'_> {
     type Output = ();
     #[inline(always)]
     fn run<D: SimdF32>(self, df: D) {
-        let b = self.pass.border();
+        match self.pass {
+            EpfPass::Zero => self.row::<D, 3>(df),
+            EpfPass::One => self.row::<D, 2>(df),
+            EpfPass::Two => self.row::<D, 1>(df),
+        }
+    }
+}
+
+impl EpfRow<'_> {
+    /// The x loop of EPF{0,1,2}Stage::ProcessRow with border `B`.
+    #[inline(always)]
+    fn row<D: SimdF32, const B: usize>(self, df: D) {
+        let b = B;
         let lanes = D::LANES;
-        // Sample `x` (relative to the row) of a row, as a slice from there.
-        let origin = self.x_start - b as isize;
-        let at = |row: &'a [f32], x: isize| -> &'a [f32] { &row[(x - origin) as usize..] };
         let lf = self.lf;
         let sm = match self.pass {
             EpfPass::Zero => (f64::from(lf.epf_pass0_sigma_scale) * 1.65) as f32,
@@ -99,122 +192,122 @@ impl<'a> Kernel for EpfRow<'a> {
             } else {
                 &sad_mul_center
             };
-        let rows = &self.rows;
-        let [out0, out1, out2] = self.out;
-        let outs = [out0, out1, out2];
-        for i in 0..self.iterations {
+        // Every row holds the loop's `iterations * Lanes + 2 * B` samples
+        // from `x_start - B`, and every output row `iterations * Lanes`.
+        let n = self.iterations;
+        let row_len = n * lanes + 2 * B;
+        let mut rows: [[&[f32]; 7]; 3] = [[&[]; 7]; 3];
+        for (rows_c, from_c) in rows.iter_mut().zip(&self.rows) {
+            for (row, from) in rows_c.iter_mut().zip(from_c).take(2 * B + 1) {
+                *row = &from[..row_len];
+            }
+        }
+        let [out0, out1, out2] = self.out.map(|out| &mut out[..n * lanes]);
+        for i in 0..n {
             let x = self.x_start + (i * lanes) as isize;
             let o = i * lanes;
             let bx = (x + self.xpos as isize + (SIGMA_PADDING * BLOCK_DIM) as isize) as usize
                 / BLOCK_DIM;
             let ix = (x + self.xpos as isize) as usize % BLOCK_DIM;
-            if self.row_sigma[bx] < MIN_SIGMA {
-                for c in 0..3 {
-                    let px = df.load(at(rows[c][b], x));
-                    df.store(px, &mut outs[c][o..]);
+            // rows[c][i] + x - B to + x + Lanes + B: each row's samples from
+            // `o` on, the same memory as the source's row pointers.
+            let mut w: [[&[f32]; 7]; 3] = [[&[]; 7]; 3];
+            for (w_c, rows_c) in w.iter_mut().zip(&rows) {
+                for (w_r, row) in w_c.iter_mut().zip(rows_c).take(2 * B + 1) {
+                    *w_r = &row[o..o + lanes + 2 * B];
                 }
+            }
+            if self.row_sigma[bx] < MIN_SIGMA {
+                df.store(ld::<D, B>(df, w[0][b], 0), &mut out0[o..]);
+                df.store(ld::<D, B>(df, w[1][b], 0), &mut out1[o..]);
+                df.store(ld::<D, B>(df, w[2][b], 0), &mut out2[o..]);
                 continue;
             }
             // Load(df, sad_mul + ix): lanes past the 8-entry source array are
             // never used by an output lane of this block; see the ADR note.
             let vsm = df.load(&sad_mul[ix..]);
             let inv_sigma = df.mul(df.set(self.row_sigma[bx]), vsm);
-            let (mut x_acc, mut y_acc, mut b_acc);
-            let mut w = df.set(1.0);
-            let cc = [0, 1, 2].map(|c| df.load(at(rows[c][b], x)));
-            x_acc = cc[0];
-            y_acc = cc[1];
-            b_acc = cc[2];
-            let mut add_pixel = |row: isize, xx: isize, sad: D::V| {
-                let r = (b as isize + row) as usize;
-                let cx = df.load(at(rows[0][r], xx));
-                let cy = df.load(at(rows[1][r], xx));
-                let cb = df.load(at(rows[2][r], xx));
-                let weight = weight(df, sad, inv_sigma);
-                w = df.add(w, weight);
-                x_acc = df.mul_add(weight, cx, x_acc);
-                y_acc = df.mul_add(weight, cy, y_acc);
-                b_acc = df.mul_add(weight, cb, b_acc);
+            let x_cc = ld::<D, B>(df, w[0][b], 0);
+            let y_cc = ld::<D, B>(df, w[1][b], 0);
+            let b_cc = ld::<D, B>(df, w[2][b], 0);
+            let mut acc = Acc::<D> {
+                x: x_cc,
+                y: y_cc,
+                b: b_cc,
+                w: df.set(1.0),
             };
             match self.pass {
                 EpfPass::Zero => {
-                    const SADS_OFF: [[isize; 2]; 12] = [
-                        [-2, 0],
-                        [-1, -1],
-                        [-1, 0],
-                        [-1, 1],
-                        [0, -2],
-                        [0, -1],
-                        [0, 1],
-                        [0, 2],
-                        [1, -1],
-                        [1, 0],
-                        [1, 1],
-                        [2, 0],
-                    ];
-                    const PLUS_OFF: [[isize; 2]; 5] = [[0, 0], [-1, 0], [0, -1], [1, 0], [0, 1]];
                     let mut sads = [df.zero(); 12];
-                    for (c, rows_c) in rows.iter().enumerate() {
+                    for (c, rows_c) in w.iter().enumerate() {
                         let scale = df.set(lf.epf_channel_scale[c]);
                         for (i, sad_off) in SADS_OFF.iter().enumerate() {
                             let mut sad = df.zero();
                             for off in PLUS_OFF {
-                                let r11 = df.load(at(rows_c[(3 + off[0]) as usize], x + off[1]));
-                                let c11 = df.load(at(
+                                let r11 = ld::<D, B>(df, rows_c[(3 + off[0]) as usize], off[1]);
+                                let c11 = ld::<D, B>(
+                                    df,
                                     rows_c[(3 + sad_off[0] + off[0]) as usize],
-                                    x + sad_off[1] + off[1],
-                                ));
+                                    sad_off[1] + off[1],
+                                );
                                 sad = df.add(sad, df.abs_diff(r11, c11));
                             }
                             sads[i] = df.mul_add(sad, scale, sads[i]);
                         }
                     }
                     for (i, sad_off) in SADS_OFF.iter().enumerate() {
-                        add_pixel(sad_off[0], x + sad_off[1], sads[i]);
+                        add_pixel::<D, B>(
+                            df,
+                            &w,
+                            (3 + sad_off[0]) as usize,
+                            sad_off[1],
+                            sads[i],
+                            inv_sigma,
+                            &mut acc,
+                        );
                     }
                 }
                 EpfPass::One => {
                     let (mut sad0, mut sad1, mut sad2, mut sad3) =
                         (df.zero(), df.zero(), df.zero(), df.zero());
-                    for (c, rows_c) in rows.iter().enumerate() {
-                        let p =
-                            |dy: isize, dx: isize| df.load(at(rows_c[(2 + dy) as usize], x + dx));
-                        let p20 = p(-2, 0);
-                        let p21 = p(-1, 0);
+                    for (c, rows_c) in w.iter().enumerate() {
+                        let [r0, r1, r2, r3, r4, ..] = *rows_c;
+                        let p20 = ld::<D, B>(df, r0, 0);
+                        let p21 = ld::<D, B>(df, r1, 0);
                         let mut sad0c = df.abs_diff(p20, p21);
-                        let p11 = p(-1, -1);
+                        let p11 = ld::<D, B>(df, r1, -1);
                         let mut sad1c = df.abs_diff(p11, p21);
-                        let p31 = p(-1, 1);
+                        let p31 = ld::<D, B>(df, r1, 1);
                         let mut sad2c = df.abs_diff(p31, p21);
-                        let p02 = p(0, -2);
-                        let p12 = p(0, -1);
+                        let p02 = ld::<D, B>(df, r2, -2);
+                        let p12 = ld::<D, B>(df, r2, -1);
                         sad1c = df.add(sad1c, df.abs_diff(p02, p12));
                         sad0c = df.add(sad0c, df.abs_diff(p11, p12));
-                        let p22 = p(0, 0);
+                        let p22 = ld::<D, B>(df, r2, 0);
                         let mut t = df.abs_diff(p12, p22);
                         sad1c = df.add(sad1c, t);
                         sad2c = df.add(sad2c, t);
                         t = df.abs_diff(p22, p21);
                         let mut sad3c = t;
                         sad0c = df.add(sad0c, t);
-                        let p32 = p(0, 1);
+                        let p32 = ld::<D, B>(df, r2, 1);
                         sad0c = df.add(sad0c, df.abs_diff(p31, p32));
                         t = df.abs_diff(p22, p32);
                         sad1c = df.add(sad1c, t);
                         sad2c = df.add(sad2c, t);
-                        let p42 = p(0, 2);
+                        let p42 = ld::<D, B>(df, r2, 2);
                         sad2c = df.add(sad2c, df.abs_diff(p42, p32));
-                        let p13 = p(1, -1);
+                        let p13 = ld::<D, B>(df, r3, -1);
                         sad3c = df.add(sad3c, df.abs_diff(p13, p12));
-                        let p23 = p(1, 0);
+                        let p23 = ld::<D, B>(df, r3, 0);
                         t = df.abs_diff(p22, p23);
                         sad0c = df.add(sad0c, t);
                         sad3c = df.add(sad3c, t);
                         sad1c = df.add(sad1c, df.abs_diff(p13, p23));
-                        let p33 = p(1, 1);
+                        let p33 = ld::<D, B>(df, r3, 1);
                         sad2c = df.add(sad2c, df.abs_diff(p33, p23));
                         sad3c = df.add(sad3c, df.abs_diff(p33, p32));
-                        let p24 = p(2, 0);
+                        let p24 = ld::<D, B>(df, r4, 0);
                         sad3c = df.add(sad3c, df.abs_diff(p24, p23));
                         let scale = df.set(lf.epf_channel_scale[c]);
                         sad0 = df.mul_add(sad0c, scale, sad0);
@@ -222,37 +315,24 @@ impl<'a> Kernel for EpfRow<'a> {
                         sad2 = df.mul_add(sad2c, scale, sad2);
                         sad3 = df.mul_add(sad3c, scale, sad3);
                     }
-                    add_pixel(-1, x, sad0);
-                    add_pixel(0, x - 1, sad1);
-                    add_pixel(0, x + 1, sad2);
-                    add_pixel(1, x, sad3);
+                    add_pixel::<D, B>(df, &w, 1, 0, sad0, inv_sigma, &mut acc);
+                    add_pixel::<D, B>(df, &w, 2, -1, sad1, inv_sigma, &mut acc);
+                    add_pixel::<D, B>(df, &w, 2, 1, sad2, inv_sigma, &mut acc);
+                    add_pixel::<D, B>(df, &w, 3, 0, sad3, inv_sigma, &mut acc);
                 }
                 EpfPass::Two => {
+                    let cc = [x_cc, y_cc, b_cc];
                     let scales = lf.epf_channel_scale;
-                    let mut add_pixel2 = |row: isize, xx: isize| {
-                        let r = (1 + row) as usize;
-                        let cx = df.load(at(rows[0][r], xx));
-                        let cy = df.load(at(rows[1][r], xx));
-                        let cb = df.load(at(rows[2][r], xx));
-                        let mut sad = df.mul(df.abs_diff(cx, cc[0]), df.set(scales[0]));
-                        sad = df.mul_add(df.abs_diff(cy, cc[1]), df.set(scales[1]), sad);
-                        sad = df.mul_add(df.abs_diff(cb, cc[2]), df.set(scales[2]), sad);
-                        let weight = weight(df, sad, inv_sigma);
-                        w = df.add(w, weight);
-                        x_acc = df.mul_add(weight, cx, x_acc);
-                        y_acc = df.mul_add(weight, cy, y_acc);
-                        b_acc = df.mul_add(weight, cb, b_acc);
-                    };
-                    add_pixel2(-1, x);
-                    add_pixel2(0, x - 1);
-                    add_pixel2(0, x + 1);
-                    add_pixel2(1, x);
+                    add_pixel2::<D, B>(df, &w, 0, 0, cc, scales, inv_sigma, &mut acc);
+                    add_pixel2::<D, B>(df, &w, 1, -1, cc, scales, inv_sigma, &mut acc);
+                    add_pixel2::<D, B>(df, &w, 1, 1, cc, scales, inv_sigma, &mut acc);
+                    add_pixel2::<D, B>(df, &w, 2, 0, cc, scales, inv_sigma, &mut acc);
                 }
             }
-            let inv_w = df.div(df.set(1.0), w);
-            df.store(df.mul(x_acc, inv_w), &mut outs[0][o..]);
-            df.store(df.mul(y_acc, inv_w), &mut outs[1][o..]);
-            df.store(df.mul(b_acc, inv_w), &mut outs[2][o..]);
+            let inv_w = df.div(df.set(1.0), acc.w);
+            df.store(df.mul(acc.x, inv_w), &mut out0[o..]);
+            df.store(df.mul(acc.y, inv_w), &mut out1[o..]);
+            df.store(df.mul(acc.b, inv_w), &mut out2[o..]);
         }
     }
 }
