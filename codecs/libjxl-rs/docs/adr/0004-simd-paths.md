@@ -882,6 +882,52 @@ path matches every word and the scalar path differs in at least one request.
 - **Decoder path (a), color part.** With these, `to_linear`, tone mapping
   and CMS of the list in "Decoder path" (a) have SIMD translations on both
   targets; NEON row parity holds, AVX2 is compile-checked only.
+- **AVX2 CMS contraction (2026-11-14, branch `v1/jxl-avx2-fixes`).** Hosted
+  run 43544974125 (dispatch-build AVX2 oracle) failed one `cl-cms` request
+  with an HLG destination by one ulp (word 295, 1065407993 vs 1065407992).
+  `objdump -d` of upstream's `jxl_cms.cc` compiled for x86-64 with
+  upstream's own flags (the cross-compiled dispatch object of the AVX2
+  oracle work): of all functions in that object only
+  `N_AVX2::DoColorSpaceTransform` contains FMAs, 82 packed (the Highway
+  `MulAdd`s of the PQ/sRGB branches, already fused in the port) and 4
+  scalar. The 4 scalar ones are `AfterTransform`'s kHLG branch, which the
+  compiler inlined from code outside the Highway types but inside
+  `HWY_NAMESPACE`'s AVX2 attributes: the inverse `ApplyHlgOotf`
+  (`forward = false`, recognizable by `1 / gamma`) with its luminance
+  `fma(b, Yb, fma(r, Yr, g * Yg))`, and `TF_HLG_Base::OETF` as
+  `fma(kA, log(fma(12, s, -kB)), kC)`. `BeforeTransform`'s kHLG branch
+  calls the out-of-line `ApplyHlgOotf` (baseline code, no FMA) and its
+  inverse OETF has no contractible expression; the gamma, `powf` ratio,
+  1-channel OOTF and low OETF branch have none either; the PQ/sRGB branches
+  have no scalar arithmetic. The port's SIMD CMS path now runs, on x86-64
+  only, `after_transform_hlg_avx2` (`jxl_cms_simd.rs`) with exactly those
+  two expressions fused (`f32::mul_add`/`f64::mul_add`, correctly rounded
+  like `vfmadd`); the forward direction keeps the unfused scalar
+  translation, AArch64 and the scalar path are unchanged (AArch64's scalar
+  translation already contracts like the original's NEON build).
+  Robustness: the fusion follows from one inlining decision of one compiler
+  (Apple Clang cross-compiling with upstream's flags) and agrees with the
+  hosted failure, whose request takes exactly this branch; another Clang
+  or GCC could inline differently, and only a hosted run proves the fix.
+  The other two color stages have no such pattern: in the same scan
+  `N_AVX2::ToLinearStage<Op*>::ProcessRow` and
+  `N_AVX2::ToneMappingStage::ProcessRow` have only packed FMAs (the
+  Highway `MulAdd`s), and the tone mapper's base constructor, which the
+  static oracle contracted (the caveat above), has none in the dispatch
+  build; both passed in run 43544974125.
+- **`s2-noise-random` adapter (2026-11-14, test scaffolding).** The same
+  hosted run's AVX2 oracle died with SIGSEGV at the fifth request of
+  `simd_noise_generation_matches_the_original_target` (`w = 1`, `rx = 2`),
+  the first with a nonzero width and an `rx` off a vector boundary.
+  Upstream's `N_AVX2::Random3Planes` (dispatch object of `dec_noise.cc`,
+  which `noise_render.cc` includes unchanged) inlines `BitsToFloat` and
+  stores to `row + x` with `vmovdqa`, which requires 32-byte alignment;
+  libjxl's noise input rects start at `kRenderPipelineXOffset` of 128-byte
+  aligned rows. The adapter (`render_stages2_simd.cc`) now places column
+  `rx` on a 128-byte boundary by allocating `shift` unprinted samples before
+  it and passes `Rect(shift + rx, ry, w, h)`; it prints exactly the same
+  `rx + w + 24` by `ry + h + 2` samples per plane as before. Requests,
+  observed words and the Rust side are unchanged.
 <!-- end color -->
 
 <!-- avx2 oracle -->
