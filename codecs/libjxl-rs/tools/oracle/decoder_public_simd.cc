@@ -5,9 +5,12 @@
 // file with the original JxlDecoder, as the Ferrisma engine calls the port's
 // (one call with the whole input, closed input, no parallel runner, no CMS,
 // default coalescing and orientation), and prints the image info and every
-// output byte. tests/simd_public.rs mirrors this sequence token for token on
+// output byte. `dps-decode <type> 1 <file>` additionally sets the default CMS
+// and, at the color encoding event, a Rec. 2020 PQ output profile, so that
+// the decoder reaches its color stages (CMS, ToLinear). tests/simd_public.rs mirrors this sequence token for token on
 // the port. It calls only the public API declared by the pinned
 // lib/include/jxl headers and implements no decoder algorithm.
+#include <jxl/cms.h>
 #include <jxl/codestream_header.h>
 #include <jxl/color_encoding.h>
 #include <jxl/decode.h>
@@ -103,12 +106,13 @@ void FrameHeader(JxlDecoder* dec, std::ostream& out) {
       << l.save_as_reference;
 }
 
-void Decode(uint32_t type, const std::vector<uint8_t>& file, std::ostream& out) {
+void Decode(uint32_t type, uint32_t mode, const std::vector<uint8_t>& file, std::ostream& out) {
   JxlDecoder* dec = JxlDecoderCreate(nullptr);
   out << "create:" << (dec ? 1 : 0);
   if (!dec) return;
   int events = JXL_DEC_BASIC_INFO | JXL_DEC_COLOR_ENCODING | JXL_DEC_FRAME | JXL_DEC_FULL_IMAGE;
   out << " s:" << JxlDecoderSubscribeEvents(dec, events);
+  if (mode == 1) out << " C:" << JxlDecoderSetCms(dec, *JxlGetDefaultCms());
   out << " I:" << JxlDecoderSetInput(dec, file.data(), file.size());
   JxlDecoderCloseInput(dec);
   JxlPixelFormat format{0, JxlDataType(type), JXL_NATIVE_ENDIAN, 0};
@@ -128,6 +132,17 @@ void Decode(uint32_t type, const std::vector<uint8_t>& file, std::ostream& out) 
       }
     } else if (status == JXL_DEC_COLOR_ENCODING) {
       Color(dec, out);
+      if (mode == 1) {
+        // Rec. 2020 primaries, D65, PQ, relative intent; gray keeps gray.
+        JxlColorEncoding color;
+        memset(&color, 0, sizeof(color));
+        color.color_space = format.num_channels < 3 ? JXL_COLOR_SPACE_GRAY : JXL_COLOR_SPACE_RGB;
+        color.white_point = JXL_WHITE_POINT_D65;
+        color.primaries = JXL_PRIMARIES_2100;
+        color.transfer_function = JXL_TRANSFER_FUNCTION_PQ;
+        color.rendering_intent = JXL_RENDERING_INTENT_RELATIVE;
+        out << " R:" << JxlDecoderSetOutputColorProfile(dec, &color, nullptr, 0);
+      }
     } else if (status == JXL_DEC_FRAME) {
       FrameHeader(dec, out);
     } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
@@ -160,10 +175,10 @@ void Decode(uint32_t type, const std::vector<uint8_t>& file, std::ostream& out) 
 bool DecoderPublicSimdCommand(const std::string& command, std::istringstream& in,
                               JxlMemoryManager*) {
   if (command != "dps-decode") return false;
-  uint32_t type;
+  uint32_t type, mode;
   std::string hex;
-  in >> type >> hex;
+  in >> type >> mode >> hex;
   if (!in) throw std::runtime_error("dps-decode arguments");
-  Decode(type, Unhex(hex), std::cout);
+  Decode(type, mode, Unhex(hex), std::cout);
   return true;
 }

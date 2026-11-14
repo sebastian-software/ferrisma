@@ -50,227 +50,10 @@ static OVERRIDE: Mutex<()> = Mutex::new(());
 /// the still-scalar stage or kernel that explains it (found from the frame
 /// headers and the pipeline the decoder builds, printed by the test for each
 /// differing file). Remove an entry when the work on its reason lands and the
-/// file matches; the test fails until then.
-const STILL_DIFFERS: &[(&str, &str)] = &[
-    ("dpub w=64 h=48 c=3 lossless=0 opt=2:2", UPSAMPLING),
-    (
-        "dpub w=300 h=280 c=3 a=1 bits=2 opt=26:0 opt=3:4",
-        UPSAMPLING,
-    ),
-    (
-        "dpub w=300 h=280 c=3 a=1 effort=3 opt=26:0 opt=3:4",
-        UPSAMPLING,
-    ),
-    (
-        "data/decoder-geometry/sequence-extra-alpha-xyb-0-1-up-2-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/decoder-geometry/sequence-extra-xyb-1-up-2-4.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/decoder-geometry/sequence-resampling-alpha-0-2-2.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/decoder-geometry/sequence-resampling-alpha-1-4-4.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/decoder-geometry/sequence-resampling-main-0-2.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/decoder-geometry/sequence-resampling-main-1-4.jxl",
-        UPSAMPLING,
-    ),
-    ("data/effects_gray_alpha16.jxl", NOISE_SPLINES),
-    ("data/effects_rgb_alpha8.jxl", NOISE_SPLINES),
-    ("data/extra-channel-alpha-0-up-2-shift-0.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-0-up-2-shift-1.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-0-up-4-shift-0.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-0-up-4-shift-1.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-0-up-4-shift-2.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-0-up-8-shift-0.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-0-up-8-shift-1.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-0-up-8-shift-2.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-0-up-8-shift-3.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-1-up-2-shift-0.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-1-up-2-shift-1.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-1-up-4-shift-0.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-1-up-4-shift-1.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-1-up-4-shift-2.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-1-up-8-shift-0.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-1-up-8-shift-1.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-1-up-8-shift-2.jxl", UPSAMPLING),
-    ("data/extra-channel-alpha-1-up-8-shift-3.jxl", UPSAMPLING),
-    (
-        "data/extra-channel-alpha-xyb-0-0-up-2-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-0-up-2-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-0-up-4-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-0-up-4-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-0-up-4-shift-2.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-0-up-8-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-0-up-8-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-0-up-8-shift-2.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-0-up-8-shift-3.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-1-up-2-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-1-up-4-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-1-up-4-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-1-up-4-shift-2.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-1-up-8-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-1-up-8-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-1-up-8-shift-2.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-0-1-up-8-shift-3.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-0-up-2-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-0-up-2-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-0-up-4-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-0-up-4-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-0-up-4-shift-2.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-0-up-8-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-0-up-8-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-0-up-8-shift-2.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-0-up-8-shift-3.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-1-up-2-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-1-up-2-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-1-up-4-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-1-up-4-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-1-up-4-shift-2.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-1-up-8-shift-0.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-1-up-8-shift-1.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-1-up-8-shift-2.jxl",
-        UPSAMPLING,
-    ),
-    (
-        "data/extra-channel-alpha-xyb-1-1-up-8-shift-3.jxl",
-        UPSAMPLING,
-    ),
-    ("data/extra-channel-xyb-0-up-2-2.jxl", UPSAMPLING),
-    ("data/extra-channel-xyb-0-up-2-4.jxl", UPSAMPLING),
-    ("data/extra-channel-xyb-0-up-4-4.jxl", UPSAMPLING),
-    ("data/extra-channel-xyb-0-up-4-8.jxl", UPSAMPLING),
-    ("data/extra-channel-xyb-0-up-8-8.jxl", UPSAMPLING),
-    ("data/extra-channel-xyb-1-up-2-2.jxl", UPSAMPLING),
-    ("data/extra-channel-xyb-1-up-4-4.jxl", UPSAMPLING),
-    ("data/extra-channel-xyb-1-up-4-8.jxl", UPSAMPLING),
-    ("data/extra-channel-xyb-1-up-8-8.jxl", UPSAMPLING),
-    ("conformance/animation_spline", SPLINES),
-    ("conformance/noise", NOISE),
-    ("conformance/upsampling", UPSAMPLING),
-];
-
-/// The frame upsamples color (`upsampling` > 1, resampling) or extra
-/// channels (`ec_upsampling`): the pipeline has `Upsample` stages, whose
-/// `stage_upsampling` export is still the scalar translation.
-const UPSAMPLING: &str = "upsampling: Upsample stages (stage_upsampling) still scalar";
-/// The frame has the noise flag: `ConvNoise`/`AddNoise` (`stage_noise` with
-/// `dec_noise`'s random generator) are still the scalar translation.
-const NOISE: &str = "noise: ConvNoise/AddNoise (stage_noise, dec_noise) still scalar";
-/// The frame has the splines flag: the `Splines` stage (`stage_splines` with
-/// `splines`' DrawSegment) is still the scalar translation.
-const SPLINES: &str = "splines: Splines stage (stage_splines, splines) still scalar";
-/// Both noise and splines (also Gaborish and EPF, which match).
-const NOISE_SPLINES: &str = "noise and splines: ConvNoise/AddNoise and Splines (stage_noise, dec_noise, stage_splines, splines) still scalar";
+/// file matches; the test fails until then. Empty on NEON since the
+/// upsampling, noise and splines stages (2026-11-14; the 76 earlier entries
+/// are in ADR 0004 "Public decoder gate").
+const STILL_DIFFERS: &[(&str, &str)] = &[];
 
 fn hex(bytes: &[u8]) -> String {
     if bytes.is_empty() {
@@ -711,7 +494,7 @@ fn frame_header(dec: &api::JxlDecoder, out: &mut Vec<Token>) {
 }
 
 /// The port's public decoder on the decoder target selected now.
-fn port_decode(data_type: u32, file: &[u8]) -> Vec<Token> {
+fn port_decode(data_type: u32, mode: u32, file: &[u8]) -> Vec<Token> {
     let mut out = Vec::new();
     // SAFETY: A null manager selects the default allocator; the decoder is
     // destroyed below and `file` outlives it.
@@ -728,6 +511,12 @@ fn port_decode(data_type: u32, file: &[u8]) -> Vec<Token> {
         "s:{}",
         api::jxl_decoder_subscribe_events(dec, events as i32).0
     )));
+    if mode == 1 {
+        // SAFETY: The translated default CMS is a static interface.
+        let s =
+            unsafe { api::jxl_decoder_set_cms(dec, *jxl::jxl::cms::jxl_cms::get_default_cms()) };
+        out.push(Token::Text(format!("C:{}", s.0)));
+    }
     // SAFETY: `file` is immutable and outlives the decoder.
     let s = unsafe { api::jxl_decoder_set_input(dec, file.as_ptr(), file.len()) };
     out.push(Token::Text(format!("I:{}", s.0)));
@@ -759,6 +548,12 @@ fn port_decode(data_type: u32, file: &[u8]) -> Vec<Token> {
             }
         } else if status == Status::COLOR_ENCODING {
             color(dec, &mut out);
+            if mode == 1 {
+                out.push(Token::Text(format!(
+                    "R:{}",
+                    set_pq_output(dec, format.num_channels < 3).0
+                )));
+            }
         } else if status == Status::FRAME {
             frame_header(dec, &mut out);
         } else if status == Status::NEED_IMAGE_OUT_BUFFER {
@@ -881,12 +676,35 @@ fn short(token: &Token) -> String {
     }
 }
 
-/// The frame headers, pipelines and modular inverse transforms of a decode
-/// (jxl::jxl::decode_trace), deduplicated in order.
-fn reach(file: &[u8]) -> String {
-    jxl::jxl::decode_trace::start();
-    let _ = port_decode(0, file);
-    let events = jxl::jxl::decode_trace::stop();
+/// Mode 1's output profile: Rec. 2020 primaries, D65, PQ, relative intent
+/// (gray keeps gray), with the other fields zero as the oracle's memset.
+fn set_pq_output(dec: &mut api::JxlDecoder, gray: bool) -> Status {
+    use jxl::jxl::color_encoding::{
+        ColorSpace, Primaries, RenderingIntent, TransferFunction, WhitePoint,
+    };
+    let color = JxlColorEncoding {
+        color_space: if gray {
+            ColorSpace::GRAY
+        } else {
+            ColorSpace::RGB
+        },
+        white_point: WhitePoint::D65,
+        white_point_xy: [0.0; 2],
+        primaries: Primaries::BT2100,
+        primaries_red_xy: [0.0; 2],
+        primaries_green_xy: [0.0; 2],
+        primaries_blue_xy: [0.0; 2],
+        transfer_function: TransferFunction::PQ,
+        gamma: 0.0,
+        rendering_intent: RenderingIntent::RELATIVE,
+    };
+    // SAFETY: A null profile with size zero; the CMS is static.
+    unsafe { api::jxl_decoder_set_output_color_profile(dec, Some(&color), std::ptr::null(), 0) }
+}
+
+/// The frame headers, pipelines and modular inverse transforms recorded by
+/// jxl::jxl::decode_trace, deduplicated in order.
+fn reach(events: Vec<String>) -> String {
     let mut seen = HashSet::new();
     events
         .into_iter()
@@ -894,6 +712,14 @@ fn reach(file: &[u8]) -> String {
         .collect::<Vec<_>>()
         .join("; ")
 }
+
+/// The decode modes: the engine's sequence with every format, and the same
+/// with the default CMS and a Rec. 2020 PQ output profile (float only),
+/// which reaches the decoder's color stages.
+const MODES: [(u32, &str, usize); 2] = [(0, "", 3), (1, " [cms pq]", 1)];
+
+/// Stages whose reach the test counts (the color package's stages).
+const COUNTED_STAGES: [&str; 3] = ["ToLinear", "ToneMapping", "Cms"];
 
 /// Whole decodes through the public decoder with the SIMD target forced
 /// (`set_decoder_simd_for_test`) against the original's public decoder built
@@ -937,18 +763,31 @@ fn public_decodes_with_the_simd_target_against_the_original_target() {
     let mut unexpected = Vec::new();
     let mut now_matching = Vec::new();
     let mut still = 0;
-    for (name, bytes) in &files {
-        let requests: Vec<_> = FORMATS
+    let mut compared = 0;
+    let mut stage_reach: BTreeMap<(&str, &str), usize> = BTreeMap::new();
+    for ((base, bytes), (mode, suffix, formats)) in
+        files.iter().flat_map(|f| MODES.iter().map(move |m| (f, m)))
+    {
+        let name = &format!("{base}{suffix}");
+        compared += 1;
+        let requests: Vec<_> = FORMATS[..*formats]
             .iter()
-            .map(|(ty, _, _)| format!("dps-decode {ty} {}", hex(bytes)))
+            .map(|(ty, _, _)| format!("dps-decode {ty} {mode} {}", hex(bytes)))
             .collect();
         let originals = run_oracle(&oracle, &requests);
         set_decoder_simd_for_test(Some(true));
         assert_eq!(decoder_target().map(|d| d.name()), Some(t.name()));
         let mut cells = Vec::new();
         let mut differs = false;
-        for ((ty, _, word), line) in FORMATS.iter().zip(&originals) {
-            let port = port_decode(*ty, bytes);
+        let mut events = Vec::new();
+        for (k, ((ty, _, word), line)) in FORMATS.iter().zip(&originals).enumerate() {
+            if k == 0 {
+                jxl::jxl::decode_trace::start();
+            }
+            let port = port_decode(*ty, *mode, bytes);
+            if k == 0 {
+                events = jxl::jxl::decode_trace::stop();
+            }
             match compare(&port, &parse_original(line), *word) {
                 Ok((0, total)) => cells.push(format!("0 ({total})")),
                 Ok((n, total)) => {
@@ -961,7 +800,15 @@ fn public_decodes_with_the_simd_target_against_the_original_target() {
                 }
             }
         }
-        let reached = if differs { reach(bytes) } else { String::new() };
+        for stage in COUNTED_STAGES {
+            if events
+                .iter()
+                .any(|e| e.starts_with("stages ") && e.split(' ').any(|s| s == stage))
+            {
+                *stage_reach.entry((suffix, stage)).or_default() += 1;
+            }
+        }
+        let reached = reach(events);
         set_decoder_simd_for_test(None);
         let reason = listed.get(name.as_str());
         println!(
@@ -981,11 +828,26 @@ fn public_decodes_with_the_simd_target_against_the_original_target() {
             (false, None) => {}
         }
     }
+    for (_, suffix, _) in MODES {
+        let counts: Vec<_> = COUNTED_STAGES
+            .iter()
+            .map(|stage| {
+                format!(
+                    "{stage} {}",
+                    stage_reach.get(&(suffix, stage)).unwrap_or(&0)
+                )
+            })
+            .collect();
+        println!(
+            "decodes{suffix} reaching the color stages: {}",
+            counts.join(", ")
+        );
+    }
     println!(
-        "{} files compared on {}: {} match, {still} still differ as listed, {} differ unexpectedly, {} listed now match",
+        "{compared} decodes of {} files compared on {}: {} match, {still} still differ as listed, {} differ unexpectedly, {} listed now match",
         files.len(),
         t.name(),
-        files.len() - still - unexpected.len() - now_matching.len(),
+        compared - still - unexpected.len() - now_matching.len(),
         unexpected.len(),
         now_matching.len()
     );
