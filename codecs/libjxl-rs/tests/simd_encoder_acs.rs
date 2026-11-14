@@ -20,9 +20,12 @@ use jxl::jxl::base::rect::Rect;
 use jxl::jxl::base::status::status_code;
 use jxl::jxl::enc_ac_strategy::{
     AcsConfig, AcsConfigScalars, AcsPlanes, estimate_entropy, find_best_8x8_transform,
+    find_best_first_level_division_for_square, try_merge_acs,
 };
 use jxl::jxl::enc_ac_strategy_simd::{
-    Best8x8Args, EntropyArgs, estimate_entropy_simd, find_best_8x8_transform_simd,
+    Best8x8Args, EntropyArgs, MergeState, SquareArgs, TryMergeArgs, estimate_entropy_simd,
+    find_best_8x8_transform_simd, find_best_first_level_division_for_square_simd,
+    try_merge_acs_simd,
 };
 use jxl::jxl::hwy::Target;
 use jxl::jxl::image::{Image3F, ImageF};
@@ -345,6 +348,40 @@ fn check_family(family: &str, requests: &[String], observe: fn(&str, Option<Targ
     );
 }
 
+/// [`check_family`] for observations that mix float words with `raw:first`
+/// strategy words (compared exactly).
+fn check_family_with(
+    family: &str,
+    requests: &[String],
+    observe: fn(&str, Option<Target>) -> String,
+) {
+    let t = target();
+    let differing = requests
+        .iter()
+        .filter(|r| observe(r, None) != observe(r, Some(t)))
+        .count();
+    assert!(
+        differing > 0,
+        "{family}: the scalar and SIMD paths gave the same words everywhere"
+    );
+    println!(
+        "{family}: the scalar translation differs in {differing} of {} requests",
+        requests.len()
+    );
+    let observed = simd_common::oracle(requests);
+    let mut words = 0;
+    for (request, cpp) in requests.iter().zip(&observed) {
+        let rust = observe(request, Some(t));
+        words += simd_common::same(&rust, cpp, strategy_float(&rust), all_defined)
+            .unwrap_or_else(|e| panic!("{family}: {e}\nrequest: {request}"));
+    }
+    println!(
+        "{family} on {}: {} requests, {words} words matched",
+        t.name(),
+        requests.len()
+    );
+}
+
 /// The image sizes of the requests: one 64x64 tile, a tile with a partial
 /// second row and column of blocks, and a wide image whose strategies sit
 /// at columns that are no multiple of 64.
@@ -510,4 +547,452 @@ fn enc_simd_find_best_8x8_transform_matches_the_original_target() {
     println!("esa-best8: chosen strategies {chosen:?}");
     assert!(chosen.len() >= 6, "esa-best8 chose only {chosen:?}");
     check_family("esa-best8", &requests, observe_best8);
+}
+
+// esa-merge, esa-square -------------------------------------------------------
+
+fn read_layout(args: &mut Args<'_>, xblocks: usize, yblocks: usize) -> AcStrategyImage {
+    let mut image = AcStrategyImage::create(xblocks, yblocks).unwrap();
+    image.fill_dct8_full();
+    let n: usize = number(args);
+    for _ in 0..n {
+        let bx: usize = number(args);
+        let by: usize = number(args);
+        let raw: u32 = number(args);
+        image.set(bx, by, AcStrategyType(raw)).unwrap();
+    }
+    image
+}
+fn print_strategy(out: &mut String, image: &AcStrategyImage) {
+    out.push_str(" S");
+    for y in 0..image.ysize() {
+        let row = image.const_row(y, 0);
+        for x in 0..image.xsize() {
+            let acs = row.get(x);
+            write!(
+                out,
+                " {}:{}",
+                acs.raw_strategy(),
+                u8::from(acs.is_first_block())
+            )
+            .unwrap();
+        }
+    }
+}
+/// The strategy words are integers: compare them exactly.
+fn strategy_float(out: &str) -> impl Fn(usize) -> bool + use<> {
+    let words: Vec<bool> = out.split_whitespace().map(|w| !w.contains(':')).collect();
+    move |i| *words.get(i).unwrap_or(&true)
+}
+
+fn observe_merge(request: &str, simd: Option<Target>) -> String {
+    let mut args = request.split_whitespace();
+    let command = args.next().unwrap();
+    let inputs = Inputs::read(&mut args);
+    let mut ac_strategy = read_layout(&mut args, inputs.src.xsize() / 8, inputs.src.ysize() / 8);
+    let planes = inputs.planes();
+    let config = AcsConfig::new(&inputs.scalars, &planes);
+    let mut block: Vec<f32> = (0..BLOCK_WORDS + MAX_LANES)
+        .map(|i| sentinel(1, i))
+        .collect();
+    let mut scratch: Vec<f32> = (0..SCRATCH_WORDS).map(|i| sentinel(2, i)).collect();
+    let mut quantized = vec![0x5a5a_5a5au32; MAX_COEFF_AREA];
+    let mut entropy_estimate = [0.0f32; 64];
+    let mut out;
+    let block_words;
+    if command == "esa-merge" {
+        let raw: u32 = number(&mut args);
+        let bx: usize = number(&mut args);
+        let by: usize = number(&mut args);
+        let cx: usize = number(&mut args);
+        let cy: usize = number(&mut args);
+        let entropy_mul = float(&mut args);
+        let candidate_priority: u8 = number(&mut args);
+        let cmap_factors = [float(&mut args), float(&mut args), float(&mut args)];
+        let mut priority = [0u8; 64];
+        for p in &mut priority {
+            *p = number(&mut args);
+        }
+        for e in &mut entropy_estimate {
+            *e = float(&mut args);
+        }
+        let status = match simd {
+            Some(t) => try_merge_acs_simd(
+                t,
+                MergeState {
+                    bx,
+                    by,
+                    config: &config,
+                    cmap_factors: &cmap_factors,
+                    ac_strategy: &mut ac_strategy,
+                    entropy_estimate: &mut entropy_estimate,
+                    block: &mut block,
+                    scratch_space: &mut scratch,
+                    quantized: &mut quantized,
+                },
+                TryMergeArgs {
+                    acs_raw: AcStrategyType(raw),
+                    cx,
+                    cy,
+                    entropy_mul,
+                    candidate_priority,
+                    priority: &mut priority,
+                },
+            ),
+            None => try_merge_acs(
+                AcStrategyType(raw),
+                bx,
+                by,
+                cx,
+                cy,
+                &config,
+                &cmap_factors,
+                &mut ac_strategy,
+                entropy_mul,
+                candidate_priority,
+                &mut priority,
+                &mut entropy_estimate,
+                &mut block,
+                &mut scratch,
+                &mut quantized,
+            ),
+        };
+        out = format!("M {} P", status_code(&status));
+        for p in priority {
+            write!(out, " {p}").unwrap();
+        }
+        let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+        block_words = 3 * (1usize << acs.log2_covered_blocks()) * 64;
+    } else {
+        assert_eq!(command, "esa-square");
+        let blocks: usize = number(&mut args);
+        let allow_square = number::<i32>(&mut args) != 0;
+        let bx: usize = number(&mut args);
+        let by: usize = number(&mut args);
+        let cx: usize = number(&mut args);
+        let cy: usize = number(&mut args);
+        let mul_jxk = float(&mut args);
+        let mul_jxj = float(&mut args);
+        let cmap_factors = [float(&mut args), float(&mut args), float(&mut args)];
+        for e in &mut entropy_estimate {
+            *e = float(&mut args);
+        }
+        let status = match simd {
+            Some(t) => find_best_first_level_division_for_square_simd(
+                t,
+                MergeState {
+                    bx,
+                    by,
+                    config: &config,
+                    cmap_factors: &cmap_factors,
+                    ac_strategy: &mut ac_strategy,
+                    entropy_estimate: &mut entropy_estimate,
+                    block: &mut block,
+                    scratch_space: &mut scratch,
+                    quantized: &mut quantized,
+                },
+                SquareArgs {
+                    blocks,
+                    allow_square_transform: allow_square,
+                    cx,
+                    cy,
+                    entropy_mul_JXK: mul_jxk,
+                    entropy_mul_JXJ: mul_jxj,
+                },
+            ),
+            None => find_best_first_level_division_for_square(
+                blocks,
+                allow_square,
+                bx,
+                by,
+                cx,
+                cy,
+                &config,
+                &cmap_factors,
+                &mut ac_strategy,
+                mul_jxk,
+                mul_jxj,
+                &mut entropy_estimate,
+                &mut block,
+                &mut scratch,
+                &mut quantized,
+            ),
+        };
+        out = format!("F {}", status_code(&status));
+        block_words = 3 * blocks * blocks * 64;
+    }
+    words(&mut out, "E", &entropy_estimate);
+    print_strategy(&mut out, &ac_strategy);
+    words(&mut out, "B", &block[..block_words + MAX_LANES]);
+    scratch_words(&mut out, &scratch, 2);
+    out
+}
+
+/// A strategy layout over the image's blocks: random strategies below
+/// DCT128X128 (DCT8 in half of the draws) that fit inside their 64x64 tile
+/// without overlapping, at positions aligned to their size when `aligned`
+/// (as the hierarchical merges place them) or anywhere (as the floating,
+/// non-aligned merges do).
+fn layout(xblocks: usize, yblocks: usize, aligned: bool, seed: u64) -> String {
+    let mut seed = seed | 1;
+    let mut taken = vec![false; xblocks * yblocks];
+    let mut placed = Vec::new();
+    for by in 0..yblocks {
+        for bx in 0..xblocks {
+            if taken[by * xblocks + bx] {
+                continue;
+            }
+            let draw = next(&mut seed);
+            let raw = if draw.is_multiple_of(2) {
+                0
+            } else {
+                ((draw >> 8) % u64::from(AcStrategyType::DCT128X128.0)) as u32
+            };
+            let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+            let (w, h) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+            let fits = (!aligned || (bx % w == 0 && by % h == 0))
+                && bx % 8 + w <= 8
+                && by % 8 + h <= 8
+                && bx + w <= xblocks
+                && by + h <= yblocks
+                && (0..h).all(|y| (0..w).all(|x| !taken[(by + y) * xblocks + bx + x]));
+            let (raw, w, h) = if fits { (raw, w, h) } else { (0, 1, 1) };
+            for y in 0..h {
+                for x in 0..w {
+                    taken[(by + y) * xblocks + bx + x] = true;
+                }
+            }
+            if raw != 0 {
+                placed.push((bx, by, raw));
+            }
+        }
+    }
+    let mut s = format!(" {}", placed.len());
+    for (bx, by, raw) in placed {
+        write!(s, " {bx} {by} {raw}").unwrap();
+    }
+    s
+}
+
+/// ProcessRectACS-like entropy estimates of a tile: each block's best 8x8
+/// entropy times the 8x8 multiplier (the scalar translation computes them;
+/// they are request inputs), scaled by `scale` to move the merge decisions,
+/// with the covered blocks of some earlier merges zeroed.
+fn estimates(request_inputs: &str, bx: usize, by: usize, scale: f32, seed: u64) -> Vec<f32> {
+    let mut args = request_inputs.split_whitespace();
+    let inputs = Inputs::read(&mut args);
+    let planes = inputs.planes();
+    let config = AcsConfig::new(&inputs.scalars, &planes);
+    let mut block = vec![0.0f32; BLOCK_WORDS];
+    let mut scratch = vec![0.0f32; SCRATCH_WORDS];
+    let mut quantized = vec![0u32; MAX_COEFF_AREA];
+    let mut image =
+        AcStrategyImage::create(inputs.src.xsize() / 8, inputs.src.ysize() / 8).unwrap();
+    let mut seed = seed | 1;
+    let mut out = vec![0.0f32; 64];
+    for iy in 0..8 {
+        for ix in 0..8 {
+            let (x, y) = (8 * (bx + ix), 8 * (by + iy));
+            if x + 8 > inputs.src.xsize() || y + 8 > inputs.src.ysize() {
+                continue;
+            }
+            let mut entropy = 0.0f32;
+            let mut best = AcStrategyType::DCT;
+            find_best_8x8_transform(
+                x,
+                y,
+                3,
+                1.0,
+                &config,
+                &[0.0; 3],
+                &mut image,
+                &mut block,
+                &mut scratch,
+                &mut quantized,
+                &mut entropy,
+                &mut best,
+            )
+            .unwrap();
+            let jitter = 0.9 + 0.2 * unit(&mut seed);
+            out[iy * 8 + ix] = entropy * (1.0 - 0.4 / (1.0 + 1.4)) * scale * jitter;
+            if next(&mut seed).is_multiple_of(11) {
+                out[iy * 8 + ix] = 0.0;
+            }
+        }
+    }
+    out
+}
+
+/// The tile origins (in blocks) of an image and the tile's size in blocks.
+fn tiles(xsize: usize, ysize: usize) -> Vec<(usize, usize, usize, usize)> {
+    let (xb, yb) = (xsize / 8, ysize / 8);
+    let mut out = Vec::new();
+    for by in (0..yb).step_by(8) {
+        for bx in (0..xb).step_by(8) {
+            out.push((bx, by, (xb - bx).min(8), (yb - by).min(8)));
+        }
+    }
+    out
+}
+
+const MERGE_KINDS: [AcStrategyType; 9] = [
+    AcStrategyType::DCT16X8,
+    AcStrategyType::DCT8X16,
+    AcStrategyType::DCT16X32,
+    AcStrategyType::DCT32X16,
+    AcStrategyType::DCT64X32,
+    AcStrategyType::DCT32X64,
+    AcStrategyType::DCT16X16,
+    AcStrategyType::DCT32X8,
+    AcStrategyType::DCT64X64,
+];
+
+#[test]
+fn enc_simd_try_merge_acs_matches_the_original_target() {
+    let mut requests = Vec::new();
+    let mut variant = 0usize;
+    for &(xsize, ysize) in &SIZES {
+        for (ci, &content) in CONTENTS.iter().enumerate() {
+            let distance = DISTANCES[ci % 4];
+            let mask1x1_xsize = [xsize, xsize - 3, 13][ci % 3];
+            let seed = (xsize * 1000 + ysize + ci) as u64;
+            let base = inputs(xsize, ysize, content, distance, mask1x1_xsize, seed);
+            for (ti, &(bx, by, tw, th)) in tiles(xsize, ysize).iter().enumerate() {
+                for (ki, &kind) in MERGE_KINDS.iter().enumerate() {
+                    let acs = AcStrategy::from_raw_strategy(kind);
+                    let (w, h) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+                    if w > tw || h > th {
+                        continue;
+                    }
+                    for pick in 0..3 {
+                        variant += 1;
+                        let cx = [0, (tw - w) / 2, tw - w][(pick + ki) % 3];
+                        let cy = [0, th - h, (th - h) / 2][(pick + ti) % 3];
+                        let scale = [0.6f32, 1.0, 1.3, 2.5][variant % 4];
+                        let entropy = estimates(&base, bx, by, scale, variant as u64);
+                        let candidate_priority = [2u8, 4, 6][ki / 2 % 3];
+                        let mut priority = [0u8; 64];
+                        let mut pseed = variant as u64 * 13 + 1;
+                        for p in &mut priority {
+                            if next(&mut pseed).is_multiple_of(9) {
+                                *p = [2, 4, 6][(next(&mut pseed) % 3) as usize];
+                            }
+                        }
+                        let mut s = "esa-merge".to_owned();
+                        s.push_str(&base);
+                        s.push_str(&layout(
+                            xsize / 8,
+                            ysize / 8,
+                            variant.is_multiple_of(2),
+                            seed + variant as u64,
+                        ));
+                        let mul = [1.21f32, 1.49, 2.25, 0.8][ki / 2 % 4];
+                        write!(
+                            s,
+                            " {} {bx} {by} {cx} {cy} {} {candidate_priority}",
+                            kind.0,
+                            mul.to_bits()
+                        )
+                        .unwrap();
+                        push_floats(&mut s, &CMAPS[variant % 3]);
+                        for p in priority {
+                            write!(s, " {p}").unwrap();
+                        }
+                        push_floats(&mut s, &entropy);
+                        requests.push(s);
+                    }
+                }
+            }
+        }
+    }
+    // Some candidates are accepted and some are not.
+    let t = target();
+    let accepted = requests
+        .iter()
+        .filter(|r| {
+            let out = observe_merge(r, Some(t));
+            let priorities: Vec<&str> = out.split(' ').skip(3).take(64).collect();
+            let given: Vec<&str> = r.split(' ').rev().skip(64).take(64).collect();
+            priorities.iter().ne(given.iter().rev())
+        })
+        .count();
+    println!(
+        "esa-merge: {accepted} of {} candidates accepted",
+        requests.len()
+    );
+    assert!(accepted > requests.len() / 10 && accepted < requests.len() * 9 / 10);
+    check_family_with("esa-merge", &requests, observe_merge);
+}
+
+#[test]
+fn enc_simd_find_best_first_level_division_for_square_matches_the_original_target() {
+    let mut requests = Vec::new();
+    let mut variant = 0usize;
+    for &(xsize, ysize) in &SIZES {
+        for (ci, &content) in CONTENTS.iter().enumerate() {
+            let distance = DISTANCES[(ci + 1) % 4];
+            let mask1x1_xsize = [xsize, 21, xsize - 5][ci % 3];
+            let seed = (xsize * 1000 + ysize + ci) as u64 + 77;
+            let base = inputs(xsize, ysize, content, distance, mask1x1_xsize, seed);
+            for &(bx, by, tw, th) in &tiles(xsize, ysize) {
+                for (blocks, mul_jxk, mul_jxj) in
+                    [(2usize, 1.21f32, 1.34f32), (4, 1.49, 1.48), (8, 2.25, 2.25)]
+                {
+                    if blocks > tw || blocks > th {
+                        continue;
+                    }
+                    // Aligned and floating positions.
+                    let mut positions = vec![(0, 0), (tw - blocks, th - blocks)];
+                    if blocks < 8 {
+                        positions.push((1.min(tw - blocks), 1.min(th - blocks)));
+                        positions.push(((tw - blocks) / 2, 0));
+                    }
+                    for (pi, &(cx, cy)) in positions.iter().enumerate() {
+                        for allow in [true, false] {
+                            variant += 1;
+                            let scale = [0.7f32, 1.0, 1.4, 3.0][variant % 4];
+                            let entropy = estimates(&base, bx, by, scale, variant as u64);
+                            let mut s = "esa-square".to_owned();
+                            s.push_str(&base);
+                            s.push_str(&layout(
+                                xsize / 8,
+                                ysize / 8,
+                                !(pi + variant).is_multiple_of(3),
+                                seed + variant as u64,
+                            ));
+                            write!(
+                                s,
+                                " {blocks} {} {bx} {by} {cx} {cy} {} {}",
+                                u8::from(allow),
+                                mul_jxk.to_bits(),
+                                mul_jxj.to_bits()
+                            )
+                            .unwrap();
+                            push_floats(&mut s, &CMAPS[variant % 3]);
+                            push_floats(&mut s, &entropy);
+                            requests.push(s);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // The decisions vary: some squares split, merge or stay.
+    let t = target();
+    let outcomes: std::collections::BTreeSet<String> = requests
+        .iter()
+        .map(|r| {
+            let out = observe_merge(r, Some(t));
+            let start = out.find(" S").unwrap();
+            let strategies = &out[start..out.find(" B").unwrap()];
+            strategies
+                .split(' ')
+                .filter(|w| w.ends_with(":1") && !w.starts_with("0:"))
+                .map(|w| w.split(':').next().unwrap().to_owned())
+                .collect::<Vec<_>>()
+                .join(",")
+        })
+        .collect();
+    println!("esa-square: {} distinct strategy outcomes", outcomes.len());
+    check_family_with("esa-square", &requests, observe_merge);
 }

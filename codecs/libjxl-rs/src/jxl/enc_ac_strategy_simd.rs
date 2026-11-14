@@ -35,7 +35,11 @@ use super::base::bits::ceil_log2_nonzero;
 use super::base::float::max_f32;
 use super::base::status::Status;
 use super::dec_transforms_simd::transform_to_pixels_d;
-use super::enc_ac_strategy::AcsConfig;
+use super::enc_ac_strategy::{
+    AcsConfig, acs_horizontal_split, acs_square, acs_vertical_split, min_cpp,
+    multi_block_transform_crosses_horizontal_boundary,
+    multi_block_transform_crosses_vertical_boundary, set_entropy_for_transform,
+};
 use super::enc_transforms_simd::transform_from_pixels_d;
 use super::frame_dimensions::{BLOCK_DIM, DCT_BLOCK_SIZE};
 use super::hwy::{Kernel, SimdF32, Target, dispatch};
@@ -439,4 +443,404 @@ impl Kernel for Best8x8<'_, '_> {
 /// SIMD target.
 pub fn find_best_8x8_transform_simd(target: Target, args: Best8x8Args<'_, '_>) -> Status {
     dispatch(target, Best8x8(args))
+}
+
+// bx, by addresses the 64x64 block at 8x8 subresolution
+// cx, cy addresses the left, upper 8x8 block position of the candidate
+// transform.
+/// TryMergeAcs; the contract of [`super::enc_ac_strategy::try_merge_acs`].
+#[expect(clippy::too_many_arguments, reason = "mirrors the source signature")]
+#[inline(always)]
+pub fn try_merge_acs_d<D: SimdF32>(
+    d: D,
+    acs_raw: AcStrategyType,
+    bx: usize,
+    by: usize,
+    cx: usize,
+    cy: usize,
+    config: &AcsConfig<'_>,
+    cmap_factors: &[f32; 3],
+    ac_strategy: &mut AcStrategyImage,
+    entropy_mul: f32,
+    candidate_priority: u8,
+    priority: &mut [u8; 64],
+    entropy_estimate: &mut [f32; 64],
+    block: &mut [f32],
+    scratch_space: &mut [f32],
+    quantized: &mut [u32],
+) -> Status {
+    let acs = AcStrategy::from_raw_strategy(acs_raw);
+    let mut entropy_current = 0.0f32;
+    for iy in 0..acs.covered_blocks_y() {
+        for ix in 0..acs.covered_blocks_x() {
+            if priority[(cy + iy) * 8 + (cx + ix)] >= candidate_priority {
+                // Transform would reuse already allocated blocks and
+                // lead to invalid overlaps, for example DCT64X32 vs.
+                // DCT32X64.
+                return Ok(());
+            }
+            entropy_current += entropy_estimate[(cy + iy) * 8 + (cx + ix)];
+        }
+    }
+    let mut entropy_candidate = 0.0f32;
+    estimate_entropy_d(
+        d,
+        &acs,
+        entropy_mul,
+        (bx + cx) * 8,
+        (by + cy) * 8,
+        config,
+        cmap_factors,
+        block,
+        scratch_space,
+        quantized,
+        &mut entropy_candidate,
+    )?;
+    if entropy_candidate >= entropy_current {
+        return Ok(());
+    }
+    // Accept the candidate.
+    for iy in 0..acs.covered_blocks_y() {
+        for ix in 0..acs.covered_blocks_x() {
+            entropy_estimate[(cy + iy) * 8 + cx + ix] = 0.0;
+            priority[(cy + iy) * 8 + cx + ix] = candidate_priority;
+        }
+    }
+    ac_strategy.set(bx + cx, by + cy, acs_raw)?;
+    entropy_estimate[cy * 8 + cx] = entropy_candidate;
+    Ok(())
+}
+
+// The following function tries to merge smaller transforms into
+// squares and the rectangles originating from a single middle division
+// (horizontal or vertical) fairly.
+//
+// This is now generalized to concern about squares
+// of blocks X blocks size, where a block is 8x8 pixels.
+/// FindBestFirstLevelDivisionForSquare; the contract of
+/// [`super::enc_ac_strategy::find_best_first_level_division_for_square`].
+#[expect(clippy::too_many_arguments, reason = "mirrors the source signature")]
+#[expect(non_snake_case, reason = "keeps the source's JXK/KXJ/JXJ names")]
+#[inline(always)]
+pub fn find_best_first_level_division_for_square_d<D: SimdF32>(
+    d: D,
+    blocks: usize,
+    allow_square_transform: bool,
+    bx: usize,
+    by: usize,
+    cx: usize,
+    cy: usize,
+    config: &AcsConfig<'_>,
+    cmap_factors: &[f32; 3],
+    ac_strategy: &mut AcStrategyImage,
+    entropy_mul_JXK: f32,
+    entropy_mul_JXJ: f32,
+    entropy_estimate: &mut [f32; 64],
+    block: &mut [f32],
+    scratch_space: &mut [f32],
+    quantized: &mut [u32],
+) -> Status {
+    // We denote J for the larger dimension here, and K for the smaller.
+    // For example, for 32x32 block splitting, J would be 32, K 16.
+    let blocks_half = blocks / 2;
+    let acs_rawJXK = acs_vertical_split(blocks);
+    let acs_rawKXJ = acs_horizontal_split(blocks);
+    let acs_rawJXJ = acs_square(blocks);
+    let acsJXK = AcStrategy::from_raw_strategy(acs_rawJXK);
+    let acsKXJ = AcStrategy::from_raw_strategy(acs_rawKXJ);
+    let acsJXJ = AcStrategy::from_raw_strategy(acs_rawJXJ);
+    let row0_y = by + cy;
+    let row1_y = by + cy + blocks_half;
+    // Let's check if we can consider a JXJ block here at all.
+    // This is not necessary in the basic use of hierarchically merging
+    // blocks in the simplest possible way, but is needed when we try other
+    // 'floating' options of merging, possibly after a simple hierarchical
+    // merge has been explored.
+    if multi_block_transform_crosses_horizontal_boundary(
+        ac_strategy,
+        bx + cx,
+        by + cy,
+        bx + cx + blocks,
+    ) || multi_block_transform_crosses_horizontal_boundary(
+        ac_strategy,
+        bx + cx,
+        by + cy + blocks,
+        bx + cx + blocks,
+    ) || multi_block_transform_crosses_vertical_boundary(
+        ac_strategy,
+        bx + cx,
+        by + cy,
+        by + cy + blocks,
+    ) || multi_block_transform_crosses_vertical_boundary(
+        ac_strategy,
+        bx + cx + blocks,
+        by + cy,
+        by + cy + blocks,
+    ) {
+        return Ok(()); // not suitable for JxJ analysis, some transforms leak out.
+    }
+    // For floating transforms there may be
+    // already blocks selected that make either or both JXK and
+    // KXJ not feasible for this location.
+    let allow_JXK = !multi_block_transform_crosses_vertical_boundary(
+        ac_strategy,
+        bx + cx + blocks_half,
+        by + cy,
+        by + cy + blocks,
+    );
+    let allow_KXJ = !multi_block_transform_crosses_horizontal_boundary(
+        ac_strategy,
+        bx + cx,
+        by + cy + blocks_half,
+        bx + cx + blocks,
+    );
+    // Current entropies aggregated on NxN resolution.
+    let mut entropy = [[0.0f32; 2]; 2];
+    for dy in 0..blocks {
+        for dx in 0..blocks {
+            entropy[dy / blocks_half][dx / blocks_half] +=
+                entropy_estimate[(cy + dy) * 8 + (cx + dx)];
+        }
+    }
+    let mut entropy_JXK_left = f32::MAX;
+    let mut entropy_JXK_right = f32::MAX;
+    let mut entropy_KXJ_top = f32::MAX;
+    let mut entropy_KXJ_bottom = f32::MAX;
+    let mut entropy_JXJ = f32::MAX;
+    if allow_JXK {
+        if ac_strategy.const_row(row0_y, 0).get(bx + cx).strategy() != acs_rawJXK {
+            estimate_entropy_d(
+                d,
+                &acsJXK,
+                entropy_mul_JXK,
+                (bx + cx) * 8,
+                (by + cy) * 8,
+                config,
+                cmap_factors,
+                block,
+                scratch_space,
+                quantized,
+                &mut entropy_JXK_left,
+            )?;
+        }
+        if ac_strategy
+            .const_row(row0_y, 0)
+            .get(bx + cx + blocks_half)
+            .strategy()
+            != acs_rawJXK
+        {
+            estimate_entropy_d(
+                d,
+                &acsJXK,
+                entropy_mul_JXK,
+                (bx + cx + blocks_half) * 8,
+                (by + cy) * 8,
+                config,
+                cmap_factors,
+                block,
+                scratch_space,
+                quantized,
+                &mut entropy_JXK_right,
+            )?;
+        }
+    }
+    if allow_KXJ {
+        if ac_strategy.const_row(row0_y, 0).get(bx + cx).strategy() != acs_rawKXJ {
+            estimate_entropy_d(
+                d,
+                &acsKXJ,
+                entropy_mul_JXK,
+                (bx + cx) * 8,
+                (by + cy) * 8,
+                config,
+                cmap_factors,
+                block,
+                scratch_space,
+                quantized,
+                &mut entropy_KXJ_top,
+            )?;
+        }
+        if ac_strategy.const_row(row1_y, 0).get(bx + cx).strategy() != acs_rawKXJ {
+            estimate_entropy_d(
+                d,
+                &acsKXJ,
+                entropy_mul_JXK,
+                (bx + cx) * 8,
+                (by + cy + blocks_half) * 8,
+                config,
+                cmap_factors,
+                block,
+                scratch_space,
+                quantized,
+                &mut entropy_KXJ_bottom,
+            )?;
+        }
+    }
+    if allow_square_transform {
+        // We control the exploration of the square transform separately so that
+        // we can turn it off at high decoding speeds for 32x32, but still allow
+        // exploring 16x32 and 32x16.
+        estimate_entropy_d(
+            d,
+            &acsJXJ,
+            entropy_mul_JXJ,
+            (bx + cx) * 8,
+            (by + cy) * 8,
+            config,
+            cmap_factors,
+            block,
+            scratch_space,
+            quantized,
+            &mut entropy_JXJ,
+        )?;
+    }
+
+    // Test if this block should have JXK or KXJ transforms,
+    // because it can have only one or the other.
+    let cost_JxN = min_cpp(entropy_JXK_left, entropy[0][0] + entropy[1][0])
+        + min_cpp(entropy_JXK_right, entropy[0][1] + entropy[1][1]);
+    let cost_NxJ = min_cpp(entropy_KXJ_top, entropy[0][0] + entropy[0][1])
+        + min_cpp(entropy_KXJ_bottom, entropy[1][0] + entropy[1][1]);
+    if entropy_JXJ < cost_JxN && entropy_JXJ < cost_NxJ {
+        ac_strategy.set(bx + cx, by + cy, acs_rawJXJ)?;
+        set_entropy_for_transform(cx, cy, acs_rawJXJ, entropy_JXJ, entropy_estimate);
+    } else if cost_JxN < cost_NxJ {
+        if entropy_JXK_left < entropy[0][0] + entropy[1][0] {
+            ac_strategy.set(bx + cx, by + cy, acs_rawJXK)?;
+            set_entropy_for_transform(cx, cy, acs_rawJXK, entropy_JXK_left, entropy_estimate);
+        }
+        if entropy_JXK_right < entropy[0][1] + entropy[1][1] {
+            ac_strategy.set(bx + cx + blocks_half, by + cy, acs_rawJXK)?;
+            set_entropy_for_transform(
+                cx + blocks_half,
+                cy,
+                acs_rawJXK,
+                entropy_JXK_right,
+                entropy_estimate,
+            );
+        }
+    } else {
+        if entropy_KXJ_top < entropy[0][0] + entropy[0][1] {
+            ac_strategy.set(bx + cx, by + cy, acs_rawKXJ)?;
+            set_entropy_for_transform(cx, cy, acs_rawKXJ, entropy_KXJ_top, entropy_estimate);
+        }
+        if entropy_KXJ_bottom < entropy[1][0] + entropy[1][1] {
+            ac_strategy.set(bx + cx, by + cy + blocks_half, acs_rawKXJ)?;
+            set_entropy_for_transform(
+                cx,
+                cy + blocks_half,
+                acs_rawKXJ,
+                entropy_KXJ_bottom,
+                entropy_estimate,
+            );
+        }
+    }
+    Ok(())
+}
+
+/// The block-level state the merge steps of ProcessRectACS update: the
+/// tile's origin, its entropy estimates and the strategy image.
+pub struct MergeState<'a, 'c> {
+    pub bx: usize,
+    pub by: usize,
+    pub config: &'a AcsConfig<'c>,
+    pub cmap_factors: &'a [f32; 3],
+    pub ac_strategy: &'a mut AcStrategyImage,
+    pub entropy_estimate: &'a mut [f32; 64],
+    pub block: &'a mut [f32],
+    pub scratch_space: &'a mut [f32],
+    pub quantized: &'a mut [u32],
+}
+
+/// The arguments of TryMergeAcs besides the [`MergeState`].
+pub struct TryMergeArgs<'a> {
+    pub acs_raw: AcStrategyType,
+    pub cx: usize,
+    pub cy: usize,
+    pub entropy_mul: f32,
+    pub candidate_priority: u8,
+    pub priority: &'a mut [u8; 64],
+}
+struct TryMerge<'a, 'c>(MergeState<'a, 'c>, TryMergeArgs<'a>);
+impl Kernel for TryMerge<'_, '_> {
+    type Output = Status;
+    #[inline(always)]
+    fn run<D: SimdF32>(self, d: D) -> Status {
+        let (s, a) = (self.0, self.1);
+        try_merge_acs_d(
+            d,
+            a.acs_raw,
+            s.bx,
+            s.by,
+            a.cx,
+            a.cy,
+            s.config,
+            s.cmap_factors,
+            s.ac_strategy,
+            a.entropy_mul,
+            a.candidate_priority,
+            a.priority,
+            s.entropy_estimate,
+            s.block,
+            s.scratch_space,
+            s.quantized,
+        )
+    }
+}
+
+/// `TryMergeAcs` of the target namespace instantiated for one SIMD target.
+pub fn try_merge_acs_simd(
+    target: Target,
+    state: MergeState<'_, '_>,
+    args: TryMergeArgs<'_>,
+) -> Status {
+    dispatch(target, TryMerge(state, args))
+}
+
+/// The arguments of FindBestFirstLevelDivisionForSquare besides the
+/// [`MergeState`].
+#[expect(non_snake_case, reason = "keeps the source's JXK/JXJ names")]
+pub struct SquareArgs {
+    pub blocks: usize,
+    pub allow_square_transform: bool,
+    pub cx: usize,
+    pub cy: usize,
+    pub entropy_mul_JXK: f32,
+    pub entropy_mul_JXJ: f32,
+}
+struct Square<'a, 'c>(MergeState<'a, 'c>, SquareArgs);
+impl Kernel for Square<'_, '_> {
+    type Output = Status;
+    #[inline(always)]
+    fn run<D: SimdF32>(self, d: D) -> Status {
+        let (s, a) = (self.0, self.1);
+        find_best_first_level_division_for_square_d(
+            d,
+            a.blocks,
+            a.allow_square_transform,
+            s.bx,
+            s.by,
+            a.cx,
+            a.cy,
+            s.config,
+            s.cmap_factors,
+            s.ac_strategy,
+            a.entropy_mul_JXK,
+            a.entropy_mul_JXJ,
+            s.entropy_estimate,
+            s.block,
+            s.scratch_space,
+            s.quantized,
+        )
+    }
+}
+
+/// `FindBestFirstLevelDivisionForSquare` of the target namespace
+/// instantiated for one SIMD target.
+pub fn find_best_first_level_division_for_square_simd(
+    target: Target,
+    state: MergeState<'_, '_>,
+    args: SquareArgs,
+) -> Status {
+    dispatch(target, Square(state, args))
 }

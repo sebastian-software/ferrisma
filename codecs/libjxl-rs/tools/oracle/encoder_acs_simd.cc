@@ -28,6 +28,20 @@
 //       FindBest8x8Transform with the same buffers (and a DCT8 strategy
 //       image, which it does not read). Prints the status, the best entropy,
 //       the chosen strategy, block up to 3 * 64 + 8 words and the scratch.
+// `<layout>` is `n (bx by raw)*`: strategies placed in this order on a
+// DCT8-filled AcStrategyImage of xsize/8 x ysize/8 blocks.
+//   esa-merge <inputs> <layout> <raw> <bx> <by> <cx> <cy> <entropy_mul>
+//             <candidate_priority> <3 cmap words> <64 priorities>
+//             <64 entropy estimate words>
+//       TryMergeAcs. Prints the status, the priorities, the entropy
+//       estimates, the strategy image (raw:first per block), block up to
+//       3 * size + 8 words and the scratch.
+//   esa-square <inputs> <layout> <blocks> <allow_square> <bx> <by> <cx> <cy>
+//              <entropy_mul_JXK> <entropy_mul_JXJ> <3 cmap words>
+//              <64 entropy estimate words>
+//       FindBestFirstLevelDivisionForSquare. Prints the status, the entropy
+//       estimates, the strategy image, block up to 3 * blocks^2 * 64 + 8
+//       words and the scratch.
 #include <jxl/memory_manager.h>
 
 #include <algorithm>
@@ -59,6 +73,18 @@ Status FindBest8x8Transform(size_t x, size_t y, int encoding_speed_tier,
                             AcStrategyImage* JXL_RESTRICT ac_strategy, float* block,
                             float* scratch_space, uint32_t* quantized, float* entropy_out,
                             AcStrategyType& best_tx);
+Status TryMergeAcs(AcStrategyType acs_raw, size_t bx, size_t by, size_t cx, size_t cy,
+                   const ACSConfig& config, const float* JXL_RESTRICT cmap_factors,
+                   AcStrategyImage* JXL_RESTRICT ac_strategy, const float entropy_mul,
+                   const uint8_t candidate_priority, uint8_t* priority,
+                   float* JXL_RESTRICT entropy_estimate, float* block, float* scratch_space,
+                   uint32_t* quantized);
+Status FindBestFirstLevelDivisionForSquare(
+    size_t blocks, bool allow_square_transform, size_t bx, size_t by, size_t cx, size_t cy,
+    const ACSConfig& config, const float* JXL_RESTRICT cmap_factors,
+    AcStrategyImage* JXL_RESTRICT ac_strategy, const float entropy_mul_JXK,
+    const float entropy_mul_JXJ, float* JXL_RESTRICT entropy_estimate, float* block,
+    float* scratch_space, uint32_t* quantized);
 }  // namespace ORACLE_HWY_NS
 }  // namespace jxl
 
@@ -163,6 +189,41 @@ void EsaReadInputs(JxlMemoryManager* mm, std::istringstream& in, EsaInputs* inpu
   for (size_t c = 0; c < 3; ++c) config.src_rows[c] = inputs->src[c].ConstRow(0);
   config.src_stride = inputs->src[0].PixelsPerRow();
 }
+
+jxl::AcStrategyImage EsaLayout(JxlMemoryManager* mm, std::istringstream& in, size_t xsize,
+                               size_t ysize) {
+  auto image = jxl::AcStrategyImage::Create(mm, xsize, ysize);
+  if (!image.ok()) throw std::runtime_error("strategy image allocation");
+  jxl::AcStrategyImage acs = std::move(image).value_();
+  acs.FillDCT8();
+  size_t n;
+  in >> n;
+  for (size_t i = 0; i < n; ++i) {
+    size_t x, y;
+    unsigned raw;
+    in >> x >> y >> raw;
+    if (!acs.Set(x, y, static_cast<jxl::AcStrategyType>(raw))) throw std::runtime_error("Set");
+  }
+  return acs;
+}
+void EsaPrintStrategy(const jxl::AcStrategyImage& acs) {
+  std::cout << " S";
+  for (size_t y = 0; y < acs.ysize(); ++y) {
+    const jxl::AcStrategyRow row = acs.ConstRow(y);
+    for (size_t x = 0; x < acs.xsize(); ++x) {
+      std::cout << ' ' << int(row[x].RawStrategy()) << ':' << row[x].IsFirstBlock();
+    }
+  }
+}
+// The 8x8 blocks of the merge candidate at (bx + cx, by + cy) lie inside
+// the image and inside the 64x64 tile at (bx, by).
+void EsaCheckCandidate(const EsaInputs& inputs, size_t bx, size_t by, size_t cx, size_t cy,
+                       size_t w, size_t h) {
+  if (bx % 8 != 0 || by % 8 != 0 || cx + w > 8 || cy + h > 8 ||
+      8 * (bx + cx + w) > inputs.xsize || 8 * (by + cy + h) > inputs.ysize) {
+    throw std::runtime_error("merge candidate outside the tile");
+  }
+}
 }  // namespace
 
 bool EncoderAcsSimdCommand(const std::string& command, std::istringstream& in,
@@ -227,6 +288,68 @@ bool EncoderAcsSimdCommand(const std::string& command, std::istringstream& in,
     std::cout << "T " << int(status.code()) << ' ' << EsaBits(entropy) << ' '
               << static_cast<unsigned>(best);
     EsaWords("B", block.data(), 3 * jxl::kDCTBlockSize + kMaxLanes);
+    EsaScratch(scratch.data(), 2);
+    return true;
+  }
+  if (command == "esa-merge" || command == "esa-square") {
+    EsaInputs inputs;
+    EsaReadInputs(mm, in, &inputs);
+    jxl::AcStrategyImage ac_strategy = EsaLayout(mm, in, inputs.xsize / 8, inputs.ysize / 8);
+    EsaAligned block(kBlockWords + kMaxLanes, 1);
+    EsaAligned scratch(kScratchWords, 2);
+    std::vector<uint32_t> quantized(jxl::AcStrategy::kMaxCoeffArea, 0x5a5a5a5au);
+    float entropy_estimate[64];
+    jxl::Status status = true;
+    size_t block_words = 0;
+    if (command == "esa-merge") {
+      unsigned raw, candidate_priority;
+      size_t bx, by, cx, cy;
+      in >> raw >> bx >> by >> cx >> cy;
+      const float entropy_mul = EsaFloat(in);
+      in >> candidate_priority;
+      float cmap_factors[3];
+      for (float& f : cmap_factors) f = EsaFloat(in);
+      uint8_t priority[64];
+      for (uint8_t& p : priority) {
+        unsigned v;
+        in >> v;
+        p = static_cast<uint8_t>(v);
+      }
+      for (float& e : entropy_estimate) e = EsaFloat(in);
+      if (raw >= static_cast<unsigned>(jxl::AcStrategyType::DCT128X128)) {
+        throw std::runtime_error("strategy without matrices");
+      }
+      const jxl::AcStrategy acs =
+          jxl::AcStrategy::FromRawStrategy(static_cast<jxl::AcStrategyType>(raw));
+      EsaCheckCandidate(inputs, bx, by, cx, cy, acs.covered_blocks_x(), acs.covered_blocks_y());
+      status = jxl::ORACLE_HWY_NS::TryMergeAcs(
+          static_cast<jxl::AcStrategyType>(raw), bx, by, cx, cy, inputs.config, cmap_factors,
+          &ac_strategy, entropy_mul, static_cast<uint8_t>(candidate_priority), priority,
+          entropy_estimate, block.data(), scratch.data(), quantized.data());
+      std::cout << "M " << int(status.code()) << " P";
+      for (uint8_t p : priority) std::cout << ' ' << int(p);
+      block_words = 3 * (size_t{1} << acs.log2_covered_blocks()) * jxl::kDCTBlockSize;
+    } else {
+      size_t blocks, bx, by, cx, cy;
+      int allow_square;
+      in >> blocks >> allow_square >> bx >> by >> cx >> cy;
+      const float entropy_mul_jxk = EsaFloat(in);
+      const float entropy_mul_jxj = EsaFloat(in);
+      float cmap_factors[3];
+      for (float& f : cmap_factors) f = EsaFloat(in);
+      for (float& e : entropy_estimate) e = EsaFloat(in);
+      if (blocks != 2 && blocks != 4 && blocks != 8) throw std::runtime_error("blocks");
+      EsaCheckCandidate(inputs, bx, by, cx, cy, blocks, blocks);
+      status = jxl::ORACLE_HWY_NS::FindBestFirstLevelDivisionForSquare(
+          blocks, allow_square != 0, bx, by, cx, cy, inputs.config, cmap_factors, &ac_strategy,
+          entropy_mul_jxk, entropy_mul_jxj, entropy_estimate, block.data(), scratch.data(),
+          quantized.data());
+      std::cout << "F " << int(status.code());
+      block_words = 3 * blocks * blocks * jxl::kDCTBlockSize;
+    }
+    EsaWords("E", entropy_estimate, 64);
+    EsaPrintStrategy(ac_strategy);
+    EsaWords("B", block.data(), block_words + kMaxLanes);
     EsaScratch(scratch.data(), 2);
     return true;
   }
