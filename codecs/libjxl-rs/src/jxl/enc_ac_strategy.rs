@@ -1310,6 +1310,17 @@ impl<'c, 'p> AcStrategyHeuristics<'c, 'p> {
         Ok(())
     }
 
+    /// Test observation (encoder acs, port ADR 0004 "Encoder path"): thread
+    /// `thread`'s `mem_per_thread` floats, whose first `3 * kMaxCoeffArea`
+    /// are ProcessRectACS's block and the rest its scratch.
+    #[doc(hidden)]
+    pub fn thread_memory_mut(&mut self, thread: usize) -> Option<&mut [f32]> {
+        let n = self.mem_per_thread;
+        self.mem
+            .as_mut()
+            .map(|mem| &mut mem.f32s_mut()[thread * n..(thread + 1) * n])
+    }
+
     /// ProcessRect over the owners that Init received.
     pub fn process_rect(
         &mut self,
@@ -1337,6 +1348,20 @@ impl<'c, 'p> AcStrategyHeuristics<'c, 'p> {
             .as_mut()
             .ok_or(StatusCode::GenericError)?
             .u32s_mut();
+        // HWY_DYNAMIC_DISPATCH(ProcessRectACS): the encoder's own selection,
+        // off by default (port ADR 0004, "Encoder path").
+        if let Some(target) = super::hwy::encoder_target() {
+            return super::enc_ac_strategy_simd::process_rect_acs_simd(
+                target,
+                self.cparams,
+                &config,
+                rect,
+                cmap,
+                &mut mem[thread * mem_per_thread..(thread + 1) * mem_per_thread],
+                &mut qmem[thread * qmem_per_thread..(thread + 1) * qmem_per_thread],
+                ac_strategy,
+            );
+        }
         process_rect_acs(
             self.cparams,
             &config,

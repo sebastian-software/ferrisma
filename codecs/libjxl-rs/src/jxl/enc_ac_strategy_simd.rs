@@ -33,13 +33,17 @@
 use super::ac_strategy::{AcStrategy, AcStrategyImage, AcStrategyType, MAX_COEFF_AREA};
 use super::base::bits::ceil_log2_nonzero;
 use super::base::float::max_f32;
-use super::base::status::Status;
+use super::base::rect::Rect;
+use super::base::status::{Status, StatusCode};
+use super::chroma_from_luma::{COLOR_TILE_DIM_IN_BLOCKS, ColorCorrelationMap};
+use super::common::SpeedTier;
 use super::dec_transforms_simd::transform_to_pixels_d;
 use super::enc_ac_strategy::{
     AcsConfig, acs_horizontal_split, acs_square, acs_vertical_split, min_cpp,
     multi_block_transform_crosses_horizontal_boundary,
     multi_block_transform_crosses_vertical_boundary, set_entropy_for_transform,
 };
+use super::enc_params::CompressParams;
 use super::enc_transforms_simd::transform_from_pixels_d;
 use super::frame_dimensions::{BLOCK_DIM, DCT_BLOCK_SIZE};
 use super::hwy::{Kernel, SimdF32, Target, dispatch};
@@ -843,4 +847,470 @@ pub fn find_best_first_level_division_for_square_simd(
     args: SquareArgs,
 ) -> Status {
     dispatch(target, Square(state, args))
+}
+
+struct MergeTry {
+    kind: AcStrategyType,
+    priority: u8,
+    decoding_speed_tier_max_limit: u8,
+    #[expect(dead_code, reason = "the source declares and never reads this limit")]
+    encoding_speed_tier_max_limit: u8,
+    entropy_mul: f32,
+}
+
+/// ProcessRectACS for the target's descriptor; the contract of the scalar
+/// translation's `process_rect_acs`. `memory` holds the block
+/// (`3 * kMaxCoeffArea` floats) followed by the scratch.
+#[expect(clippy::too_many_arguments, reason = "mirrors the source signature")]
+#[inline(always)]
+pub fn process_rect_acs_d<D: SimdF32>(
+    d: D,
+    cparams: &CompressParams<'_>,
+    config: &AcsConfig<'_>,
+    rect: Rect,
+    cmap: &ColorCorrelationMap,
+    memory: &mut [f32],
+    quantized: &mut [u32],
+    ac_strategy: &mut AcStrategyImage,
+) -> Status {
+    // Main philosophy here:
+    // 1. First find best 8x8 transform for each area.
+    // 2. Merging them into larger transforms where possibly, but
+    // starting from the smallest transforms (16x8 and 8x16).
+    // Additional complication: 16x8 and 8x16 are considered
+    // simultaneously and fairly against each other.
+    // We are looking at 64x64 squares since the Y-to-X and Y-to-B
+    // maps happen to be at that resolution, and having
+    // integral transforms cross these boundaries leads to
+    // additional complications.
+    let butteraugli_target = cparams.butteraugli_distance;
+    let (block, scratch_space) = memory.split_at_mut(3 * MAX_COEFF_AREA);
+    let bx = rect.x0();
+    let by = rect.y0();
+    if rect.xsize() > 8 || rect.ysize() > 8 {
+        return Err(StatusCode::GenericError);
+    }
+    let tx = bx / COLOR_TILE_DIM_IN_BLOCKS;
+    let ty = by / COLOR_TILE_DIM_IN_BLOCKS;
+    let cmap_factors = [
+        cmap.base()
+            .y_to_x_ratio_simd(i32::from(cmap.ytox_map.row(ty)[tx])),
+        0.0f32,
+        cmap.base()
+            .y_to_b_ratio_simd(i32::from(cmap.ytob_map.row(ty)[tx])),
+    ];
+    if cparams.speed_tier > SpeedTier::Hare {
+        return Ok(());
+    }
+    // First compute the best 8x8 transform for each square. Later, we do not
+    // experiment with different combinations, but only use the best of the 8x8s
+    // when DCT8X8 is specified in the tree search.
+    // 8x8 transforms have 10 variants, but every larger transform is just a DCT.
+    let mut entropy_estimate = [0.0f32; 64];
+    // Favor all 8x8 transforms (against 16x8 and larger transforms)) at
+    // low butteraugli_target distances.
+    let k8x8mul1 = -0.4f64 as f32;
+    let k8x8mul2 = 1.0f32;
+    let k8x8base = 1.4f64 as f32;
+    let mul8x8 = k8x8mul2 + k8x8mul1 / (butteraugli_target + k8x8base);
+    for iy in 0..rect.ysize() {
+        for ix in 0..rect.xsize() {
+            let mut entropy = 0.0f32;
+            let mut best_of_8x8s = AcStrategyType::DCT;
+            find_best_8x8_transform_d(
+                d,
+                8 * (bx + ix),
+                8 * (by + iy),
+                cparams.speed_tier as i32,
+                butteraugli_target,
+                config,
+                &cmap_factors,
+                ac_strategy,
+                block,
+                scratch_space,
+                quantized,
+                &mut entropy,
+                &mut best_of_8x8s,
+            )?;
+            ac_strategy.set(bx + ix, by + iy, best_of_8x8s)?;
+            entropy_estimate[iy * 8 + ix] = entropy * mul8x8;
+        }
+    }
+    // Merge when a larger transform is better than the previously
+    // searched best combination of 8x8 transforms.
+    // These numbers need to be figured out manually and looking at
+    // ringing next to sky etc. Optimization will find smaller numbers
+    // and produce more ringing than is ideal. Larger numbers will
+    // help stop ringing.
+    let entropy_mul16x8 = 1.21f64 as f32;
+    let entropy_mul16x16 = 1.34f64 as f32;
+    let entropy_mul16x32 = 1.49f64 as f32;
+    let entropy_mul32x32 = 1.48f64 as f32;
+    let entropy_mul64x32 = 2.25f64 as f32;
+    let entropy_mul64x64 = 2.25f64 as f32;
+    // TODO(jyrki): Consider this feedback in further changes:
+    // Also effectively when the multipliers for smaller blocks are
+    // below 1, this raises the bar for the bigger blocks even higher
+    // in that sense these constants are not independent (e.g. changing
+    // the constant for DCT16x32 by -5% (making it more likely) also
+    // means that DCT32x32 becomes harder to do when starting from
+    // two DCT16x32s). It might be better to make them more independent,
+    // e.g. by not applying the multiplier when storing the new entropy
+    // estimates in TryMergeToACSCandidate().
+    let transforms_for_merge: [MergeTry; 6] = [
+        MergeTry {
+            kind: AcStrategyType::DCT16X8,
+            priority: 2,
+            decoding_speed_tier_max_limit: 4,
+            encoding_speed_tier_max_limit: 5,
+            entropy_mul: entropy_mul16x8,
+        },
+        MergeTry {
+            kind: AcStrategyType::DCT8X16,
+            priority: 2,
+            decoding_speed_tier_max_limit: 4,
+            encoding_speed_tier_max_limit: 5,
+            entropy_mul: entropy_mul16x8,
+        },
+        // FindBestFirstLevelDivisionForSquare looks for DCT16X16 and its
+        // subdivisions. {AcStrategyType::DCT16X16, 3, entropy_mul16X16},
+        MergeTry {
+            kind: AcStrategyType::DCT16X32,
+            priority: 4,
+            decoding_speed_tier_max_limit: 4,
+            encoding_speed_tier_max_limit: 4,
+            entropy_mul: entropy_mul16x32,
+        },
+        MergeTry {
+            kind: AcStrategyType::DCT32X16,
+            priority: 4,
+            decoding_speed_tier_max_limit: 4,
+            encoding_speed_tier_max_limit: 4,
+            entropy_mul: entropy_mul16x32,
+        },
+        // FindBestFirstLevelDivisionForSquare looks for DCT32X32 and its
+        // subdivisions. {AcStrategyType::DCT32X32, 5, 1, 5,
+        // 0.9822994906548809f},
+        MergeTry {
+            kind: AcStrategyType::DCT64X32,
+            priority: 6,
+            decoding_speed_tier_max_limit: 1,
+            encoding_speed_tier_max_limit: 3,
+            entropy_mul: entropy_mul64x32,
+        },
+        MergeTry {
+            kind: AcStrategyType::DCT32X64,
+            priority: 6,
+            decoding_speed_tier_max_limit: 1,
+            encoding_speed_tier_max_limit: 3,
+            entropy_mul: entropy_mul64x32,
+        },
+        // {AcStrategyType::DCT64X64, 8, 1, 3, 2.0846542128012948f},
+    ];
+    // The source declares the array with nine elements; the remaining three
+    // are value-initialized: DCT, priority 0, limits 0 and multiplier 0.
+    let zero_try = || MergeTry {
+        kind: AcStrategyType::DCT,
+        priority: 0,
+        decoding_speed_tier_max_limit: 0,
+        encoding_speed_tier_max_limit: 0,
+        entropy_mul: 0.0,
+    };
+    let merge_tries = transforms_for_merge
+        .into_iter()
+        .chain([zero_try(), zero_try(), zero_try()]);
+    // These sizes not yet included in merge heuristic:
+    // set(AcStrategyType::DCT32X8, 0.0f, 2.261390410971102f);
+    // set(AcStrategyType::DCT8X32, 0.0f, 2.261390410971102f);
+    // set(AcStrategyType::DCT128X128, 0.0f, 1.0f);
+    // set(AcStrategyType::DCT128X64, 0.0f, 0.73f);
+    // set(AcStrategyType::DCT64X128, 0.0f, 0.73f);
+    // set(AcStrategyType::DCT256X256, 0.0f, 1.0f);
+    // set(AcStrategyType::DCT256X128, 0.0f, 0.73f);
+    // set(AcStrategyType::DCT128X256, 0.0f, 0.73f);
+
+    // Priority is a tricky kludge to avoid collisions so that transforms
+    // don't overlap.
+    let mut priority = [0u8; 64];
+    let enable_32x32 = cparams.decoding_speed_tier < 4;
+    for mt in merge_tries {
+        if usize::from(mt.decoding_speed_tier_max_limit) < cparams.decoding_speed_tier {
+            continue;
+        }
+        let acs = AcStrategy::from_raw_strategy(mt.kind);
+
+        let mut cy = 0;
+        while cy + acs.covered_blocks_y() - 1 < rect.ysize() {
+            let mut cx = 0;
+            while cx + acs.covered_blocks_x() - 1 < rect.xsize() {
+                let next_cx = cx + acs.covered_blocks_x();
+                'candidate: {
+                    if cy + 7 < rect.ysize() && cx + 7 < rect.xsize() {
+                        if cparams.decoding_speed_tier < 4 && mt.kind == AcStrategyType::DCT32X64 {
+                            // We handle both DCT8X16 and DCT16X8 at the same time.
+                            if (cy | cx) % 8 == 0 {
+                                find_best_first_level_division_for_square_d(
+                                    d,
+                                    8,
+                                    true,
+                                    bx,
+                                    by,
+                                    cx,
+                                    cy,
+                                    config,
+                                    &cmap_factors,
+                                    ac_strategy,
+                                    mt.entropy_mul,
+                                    entropy_mul64x64,
+                                    &mut entropy_estimate,
+                                    block,
+                                    scratch_space,
+                                    quantized,
+                                )?;
+                            }
+                            break 'candidate;
+                        } else if mt.kind == AcStrategyType::DCT32X16 {
+                            // We handled both DCT8X16 and DCT16X8 at the same time,
+                            // and that is above. The last column and last row,
+                            // when the last column or last row is odd numbered,
+                            // are still handled by TryMergeAcs.
+                            break 'candidate;
+                        }
+                    }
+                    if (mt.kind == AcStrategyType::DCT16X32 && cy % 4 != 0)
+                        || (mt.kind == AcStrategyType::DCT32X16 && cx % 4 != 0)
+                    {
+                        // already covered by FindBest32X32
+                        break 'candidate;
+                    }
+
+                    if cy + 3 < rect.ysize() && cx + 3 < rect.xsize() {
+                        if mt.kind == AcStrategyType::DCT16X32 {
+                            // We handle both DCT8X16 and DCT16X8 at the same time.
+                            if (cy | cx) % 4 == 0 {
+                                find_best_first_level_division_for_square_d(
+                                    d,
+                                    4,
+                                    enable_32x32,
+                                    bx,
+                                    by,
+                                    cx,
+                                    cy,
+                                    config,
+                                    &cmap_factors,
+                                    ac_strategy,
+                                    mt.entropy_mul,
+                                    entropy_mul32x32,
+                                    &mut entropy_estimate,
+                                    block,
+                                    scratch_space,
+                                    quantized,
+                                )?;
+                            }
+                            break 'candidate;
+                        } else if mt.kind == AcStrategyType::DCT32X16 {
+                            // We handled both DCT8X16 and DCT16X8 at the same time,
+                            // and that is above. The last column and last row,
+                            // when the last column or last row is odd numbered,
+                            // are still handled by TryMergeAcs.
+                            break 'candidate;
+                        }
+                    }
+                    if (mt.kind == AcStrategyType::DCT16X32 && cy % 4 != 0)
+                        || (mt.kind == AcStrategyType::DCT32X16 && cx % 4 != 0)
+                    {
+                        // already covered by FindBest32X32
+                        break 'candidate;
+                    }
+                    if cy + 1 < rect.ysize() && cx + 1 < rect.xsize() {
+                        if mt.kind == AcStrategyType::DCT8X16 {
+                            // We handle both DCT8X16 and DCT16X8 at the same time.
+                            if (cy | cx) % 2 == 0 {
+                                find_best_first_level_division_for_square_d(
+                                    d,
+                                    2,
+                                    true,
+                                    bx,
+                                    by,
+                                    cx,
+                                    cy,
+                                    config,
+                                    &cmap_factors,
+                                    ac_strategy,
+                                    mt.entropy_mul,
+                                    entropy_mul16x16,
+                                    &mut entropy_estimate,
+                                    block,
+                                    scratch_space,
+                                    quantized,
+                                )?;
+                            }
+                            break 'candidate;
+                        } else if mt.kind == AcStrategyType::DCT16X8 {
+                            // We handled both DCT8X16 and DCT16X8 at the same time,
+                            // and that is above. The last column and last row,
+                            // when the last column or last row is odd numbered,
+                            // are still handled by TryMergeAcs.
+                            break 'candidate;
+                        }
+                    }
+                    if (mt.kind == AcStrategyType::DCT8X16 && cy % 2 == 1)
+                        || (mt.kind == AcStrategyType::DCT16X8 && cx % 2 == 1)
+                    {
+                        // already covered by FindBestFirstLevelDivisionForSquare
+                        break 'candidate;
+                    }
+                    // All other merge sizes are handled here.
+                    // Some of the DCT16X8s and DCT8X16s will still leak through here
+                    // when there is an odd number of 8x8 blocks, then the last row
+                    // and column will get their DCT16X8s and DCT8X16s through the
+                    // normal integral transform merging process.
+                    try_merge_acs_d(
+                        d,
+                        mt.kind,
+                        bx,
+                        by,
+                        cx,
+                        cy,
+                        config,
+                        &cmap_factors,
+                        ac_strategy,
+                        mt.entropy_mul,
+                        mt.priority,
+                        &mut priority,
+                        &mut entropy_estimate,
+                        block,
+                        scratch_space,
+                        quantized,
+                    )?;
+                }
+                cx = next_cx;
+            }
+            cy += acs.covered_blocks_y();
+        }
+    }
+    if cparams.speed_tier >= SpeedTier::Hare {
+        return Ok(());
+    }
+    // Here we still try to do some non-aligned matching, find a few more
+    // 16X8, 8X16 and 16X16s between the non-2-aligned blocks.
+    let mut cy = 0;
+    while cy + 1 < rect.ysize() {
+        let mut cx = 0;
+        while cx + 1 < rect.xsize() {
+            if (cy | cx) % 2 != 0 {
+                find_best_first_level_division_for_square_d(
+                    d,
+                    2,
+                    true,
+                    bx,
+                    by,
+                    cx,
+                    cy,
+                    config,
+                    &cmap_factors,
+                    ac_strategy,
+                    entropy_mul16x8,
+                    entropy_mul16x16,
+                    &mut entropy_estimate,
+                    block,
+                    scratch_space,
+                    quantized,
+                )?;
+            }
+            cx += 1;
+        }
+        cy += 1;
+    }
+    // Non-aligned matching for 32X32, 16X32 and 32X16.
+    let step = if cparams.speed_tier >= SpeedTier::Tortoise {
+        2
+    } else {
+        1
+    };
+    let mut cy = 0;
+    while cy + 3 < rect.ysize() {
+        let mut cx = 0;
+        while cx + 3 < rect.xsize() {
+            if (cy | cx) % 4 != 0 {
+                find_best_first_level_division_for_square_d(
+                    d,
+                    4,
+                    enable_32x32,
+                    bx,
+                    by,
+                    cx,
+                    cy,
+                    config,
+                    &cmap_factors,
+                    ac_strategy,
+                    entropy_mul16x32,
+                    entropy_mul32x32,
+                    &mut entropy_estimate,
+                    block,
+                    scratch_space,
+                    quantized,
+                )?;
+            }
+            cx += step;
+        }
+        cy += step;
+    }
+    Ok(())
+}
+
+struct RectAcs<'a, 'c, 'p> {
+    cparams: &'a CompressParams<'p>,
+    config: &'a AcsConfig<'c>,
+    rect: Rect,
+    cmap: &'a ColorCorrelationMap,
+    memory: &'a mut [f32],
+    quantized: &'a mut [u32],
+    ac_strategy: &'a mut AcStrategyImage,
+}
+impl Kernel for RectAcs<'_, '_, '_> {
+    type Output = Status;
+    #[inline(always)]
+    fn run<D: SimdF32>(self, d: D) -> Status {
+        process_rect_acs_d(
+            d,
+            self.cparams,
+            self.config,
+            self.rect,
+            self.cmap,
+            self.memory,
+            self.quantized,
+            self.ac_strategy,
+        )
+    }
+}
+
+/// `ProcessRectACS` (the export) instantiated for one SIMD target: what
+/// `AcStrategyHeuristics::process_rect` dispatches to when
+/// [`super::hwy::encoder_target`] selects a target. `memory` is the
+/// thread's `mem_per_thread` floats, `quantized` its `qmem_per_thread`
+/// words.
+#[expect(clippy::too_many_arguments, reason = "mirrors the source signature")]
+pub fn process_rect_acs_simd(
+    target: Target,
+    cparams: &CompressParams<'_>,
+    config: &AcsConfig<'_>,
+    rect: Rect,
+    cmap: &ColorCorrelationMap,
+    memory: &mut [f32],
+    quantized: &mut [u32],
+    ac_strategy: &mut AcStrategyImage,
+) -> Status {
+    dispatch(
+        target,
+        RectAcs {
+            cparams,
+            config,
+            rect,
+            cmap,
+            memory,
+            quantized,
+            ac_strategy,
+        },
+    )
 }

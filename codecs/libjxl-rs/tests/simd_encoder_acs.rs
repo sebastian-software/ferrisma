@@ -18,22 +18,27 @@ use jxl::jxl::ac_strategy::AcStrategyImage;
 use jxl::jxl::ac_strategy::{AcStrategy, AcStrategyType, MAX_BLOCK_DIM, MAX_COEFF_AREA};
 use jxl::jxl::base::rect::Rect;
 use jxl::jxl::base::status::status_code;
+use jxl::jxl::chroma_from_luma::ColorCorrelationMap;
+use jxl::jxl::common::SpeedTier;
 use jxl::jxl::enc_ac_strategy::{
-    AcsConfig, AcsConfigScalars, AcsPlanes, estimate_entropy, find_best_8x8_transform,
-    find_best_first_level_division_for_square, try_merge_acs,
+    AcStrategyHeuristics, AcsConfig, AcsConfigScalars, AcsPlanes, estimate_entropy,
+    find_best_8x8_transform, find_best_first_level_division_for_square, try_merge_acs,
 };
 use jxl::jxl::enc_ac_strategy_simd::{
     Best8x8Args, EntropyArgs, MergeState, SquareArgs, TryMergeArgs, estimate_entropy_simd,
     find_best_8x8_transform_simd, find_best_first_level_division_for_square_simd,
     try_merge_acs_simd,
 };
-use jxl::jxl::hwy::Target;
+use jxl::jxl::enc_aux_out::AuxOut;
+use jxl::jxl::enc_params::CompressParams;
+use jxl::jxl::frame_dimensions::FrameDimensions;
+use jxl::jxl::hwy::{self, Target};
 use jxl::jxl::image::{Image3F, ImageF};
 use jxl::jxl::memory_manager_internal::MemoryManagerPtr;
 use jxl::jxl::quant_weights::DequantMatrices;
 use simd_common::{check_rows, next, special_words, target};
 use std::fmt::Write as _;
-use std::sync::OnceLock;
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 type Args<'a> = std::str::SplitWhitespace<'a>;
 
@@ -995,4 +1000,279 @@ fn enc_simd_find_best_first_level_division_for_square_matches_the_original_targe
         .collect();
     println!("esa-square: {} distinct strategy outcomes", outcomes.len());
     check_family_with("esa-square", &requests, observe_merge);
+}
+
+// esa-rect: ProcessRectACS through the encoder's dispatch -------------------
+
+/// The words of the thread memory an `esa-rect` request prints: the block
+/// and the first kMaxCoeffArea scratch words (EstimateEntropy's `mem`).
+const MEMORY_WORDS: usize = 4 * MAX_COEFF_AREA;
+
+/// The encoder's dispatch override is process-wide: tests that set it run
+/// one at a time.
+fn dispatch_lock() -> MutexGuard<'static, ()> {
+    static LOCK: Mutex<()> = Mutex::new(());
+    LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn speed_tier(tier: i32) -> SpeedTier {
+    match tier {
+        0 => SpeedTier::Glacier,
+        1 => SpeedTier::Tortoise,
+        2 => SpeedTier::Kitten,
+        3 => SpeedTier::Squirrel,
+        4 => SpeedTier::Wombat,
+        5 => SpeedTier::Hare,
+        7 => SpeedTier::Falcon,
+        other => panic!("speed tier {other}"),
+    }
+}
+
+/// The port's observation of an `esa-rect` request through the dispatching
+/// `AcStrategyHeuristics::process_rect` (the caller sets the encoder's
+/// selection).
+fn observe_rect(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("esa-rect"));
+    let cparams = CompressParams {
+        butteraugli_distance: float(&mut args),
+        speed_tier: speed_tier(number(&mut args)),
+        decoding_speed_tier: number(&mut args),
+        ..CompressParams::default()
+    };
+    let xsize: usize = number(&mut args);
+    let ysize: usize = number(&mut args);
+    let mask_xsize: usize = number(&mut args);
+    let (bxs, bys) = (xsize / 8, ysize / 8);
+    let mut src = Image3F::create(xsize, ysize).unwrap();
+    for c in 0..3 {
+        for y in 0..ysize {
+            for v in &mut src.plane_row_mut(c, y)[..xsize] {
+                *v = float(&mut args);
+            }
+        }
+    }
+    let mut plane = |xs: usize, ys: usize| {
+        let mut p = ImageF::create(xs, ys).unwrap();
+        for y in 0..ys {
+            for v in &mut p.row_mut(y)[..xs] {
+                *v = float(&mut args);
+            }
+        }
+        p
+    };
+    let qf = plane(bxs, bys);
+    let mask = plane(bxs, bys);
+    let mask1x1 = plane(mask_xsize, ysize);
+    let mut cmap = ColorCorrelationMap::create(xsize, ysize, true).unwrap();
+    for map in [&mut cmap.ytox_map, &mut cmap.ytob_map] {
+        for y in 0..map.ysize() {
+            for x in 0..map.xsize() {
+                map.row_mut(y)[x] = number::<i32>(&mut args) as i8;
+            }
+        }
+    }
+    let mut ac_strategy = read_layout(&mut args, bxs, bys);
+    let rect = Rect::new(0, 0, xsize, ysize);
+    // The original's Init runs the target's ComputeQuantTable; the port's
+    // follows decoder_target() (scalar outside decoding), so the target's
+    // tables are computed first and Init finds them computed.
+    let mut matrices = DequantMatrices::default();
+    matrices
+        .ensure_computed_for_target(MemoryManagerPtr::NATIVE, acs_mask(), Some(target()))
+        .unwrap();
+    let mut heuristics = AcStrategyHeuristics::new(MemoryManagerPtr::NATIVE, &cparams);
+    let mut status = heuristics.init(&src, rect, &qf, &mask, &mask1x1, &mut matrices);
+    if status.is_ok() {
+        status = heuristics.prepare_for_threads(1);
+    }
+    let mut out = format!(
+        "H {} {} {} {} {}",
+        status_code(&status),
+        heuristics.config.info_loss_multiplier.to_bits(),
+        heuristics.config.cost_delta.to_bits(),
+        heuristics.config.zeros_mul.to_bits(),
+        heuristics.config.mask1x1_xsize
+    );
+    if status.is_err() {
+        return out;
+    }
+    // The thread's block and the following kMaxCoeffArea scratch words
+    // start as sentinels and are printed after the search: they hold the
+    // costs of its last EstimateEntropy calls.
+    let memory = heuristics.thread_memory_mut(0).unwrap();
+    for (i, v) in memory[..MEMORY_WORDS].iter_mut().enumerate() {
+        *v = sentinel(3, i);
+    }
+    let planes = AcsPlanes {
+        src: &src,
+        rect_in: rect,
+        quant_field: &qf,
+        mask: &mask,
+        mask1x1: &mask1x1,
+        dequant: &matrices,
+    };
+    for (bx, by, w, h) in tiles(xsize, ysize) {
+        if status.is_err() {
+            break;
+        }
+        status =
+            heuristics.process_rect(Rect::new(bx, by, w, h), &cmap, &mut ac_strategy, 0, &planes);
+    }
+    let mut aux = AuxOut::default();
+    if status.is_ok() {
+        status = heuristics.finalize(&FrameDimensions::default(), &ac_strategy, Some(&mut aux));
+    }
+    write!(out, " {}", status_code(&status)).unwrap();
+    print_strategy(&mut out, &ac_strategy);
+    let memory = heuristics.thread_memory_mut(0).unwrap();
+    let used = (0..MEMORY_WORDS)
+        .rev()
+        .find(|&i| memory[i].to_bits() != sentinel(3, i).to_bits())
+        .map_or(0, |i| i + 1);
+    words(&mut out, "W", &memory[..MEMORY_WORDS.min(used + 4)]);
+    write!(
+        out,
+        " N {} {} {} {} {} {} {} {} {} {} {}",
+        aux.num_small_blocks,
+        aux.num_dct4x8_blocks,
+        aux.num_afv_blocks,
+        aux.num_dct8_blocks,
+        aux.num_dct8x16_blocks,
+        aux.num_dct8x32_blocks,
+        aux.num_dct16_blocks,
+        aux.num_dct16x32_blocks,
+        aux.num_dct32_blocks,
+        aux.num_dct32x64_blocks,
+        aux.num_dct64_blocks
+    )
+    .unwrap();
+    out
+}
+
+/// An `esa-rect` request: the planes of [`inputs`] (whose ACSConfig
+/// multipliers Init recomputes, so they are dropped), a positive masking
+/// field, a mask1x1 field `mask_xsize` wide and random color-correlation
+/// tiles.
+#[expect(clippy::too_many_arguments, reason = "one parameter per request field")]
+fn rect_request(
+    xsize: usize,
+    ysize: usize,
+    content: Content,
+    distance: f32,
+    tier: i32,
+    decoding: usize,
+    mask_xsize: usize,
+    seed: u64,
+) -> String {
+    let planes = inputs(xsize, ysize, content, distance, xsize, seed);
+    let mut words: Vec<&str> = planes.split_whitespace().collect();
+    words.truncate(words.len() - 4);
+    let (xs, ys) = (xsize, ysize);
+    let src_and_qf = 2 + 3 * xs * ys + xs / 8 * (ys / 8);
+    let mut s = format!(
+        "esa-rect {} {tier} {decoding} {xsize} {ysize} {mask_xsize}",
+        distance.to_bits()
+    );
+    for w in &words[2..src_and_qf] {
+        write!(s, " {w}").unwrap();
+    }
+    let mut mseed = seed | 1;
+    let mask: Vec<f32> = (0..xs / 8 * (ys / 8))
+        .map(|_| 0.1 + unit(&mut mseed))
+        .collect();
+    push_floats(&mut s, &mask);
+    // The mask1x1 rows: the first `mask_xsize` samples of each row.
+    for y in 0..ys {
+        for w in &words[src_and_qf + y * xs..src_and_qf + y * xs + mask_xsize] {
+            write!(s, " {w}").unwrap();
+        }
+    }
+    let tiles = xs.div_ceil(64) * ys.div_ceil(64);
+    for _ in 0..2 * tiles {
+        write!(s, " {}", (next(&mut mseed) % 81) as i32 - 40).unwrap();
+    }
+    s.push_str(" 0");
+    s
+}
+
+#[test]
+fn enc_simd_process_rect_acs_through_the_encoder_dispatch_matches_the_original_target() {
+    let sizes: [(usize, usize); 6] = [(8, 8), (24, 40), (64, 64), (136, 72), (72, 136), (200, 136)];
+    let tiers = [0i32, 1, 2, 3, 4, 5, 7];
+    let distances = [0.5f32, 1.0, 2.9, 4.5, 13.0];
+    let mut requests = Vec::new();
+    for (si, &(xsize, ysize)) in sizes.iter().enumerate() {
+        for (ci, &content) in CONTENTS.iter().enumerate() {
+            for (di, &distance) in distances.iter().enumerate() {
+                let variant = si * 7 + ci * 3 + di;
+                let tier = tiers[variant % tiers.len()];
+                let decoding = [0usize, 0, 1, 2, 4][variant % 5];
+                let mask_xsize = [xsize, xsize, xsize - 3, xsize - 4][variant % 4];
+                requests.push(rect_request(
+                    xsize,
+                    ysize,
+                    content,
+                    distance,
+                    tier,
+                    decoding,
+                    mask_xsize,
+                    variant as u64 + 900,
+                ));
+            }
+        }
+    }
+    // Every speed and decoding tier on one larger image.
+    for tier in tiers {
+        for decoding in [0usize, 1, 2, 4] {
+            requests.push(rect_request(
+                136,
+                136,
+                Content::Smooth,
+                1.0,
+                tier,
+                decoding,
+                136,
+                tier as u64 * 10 + decoding as u64,
+            ));
+        }
+    }
+    let _lock = dispatch_lock();
+    hwy::set_encoder_simd_for_test(Some(false));
+    let scalar: Vec<String> = requests.iter().map(|r| observe_rect(r)).collect();
+    hwy::set_encoder_simd_for_test(Some(true));
+    let simd: Vec<String> = requests.iter().map(|r| observe_rect(r)).collect();
+    hwy::set_encoder_simd_for_test(None);
+    let differing = scalar.iter().zip(&simd).filter(|(a, b)| a != b).count();
+    assert!(
+        differing > 0,
+        "esa-rect: the scalar and SIMD paths chose the same strategies everywhere"
+    );
+    println!(
+        "esa-rect: the scalar path differs in {differing} of {} requests",
+        requests.len()
+    );
+    // The decisions cover the strategies the search can choose.
+    let chosen: std::collections::BTreeSet<u32> = simd
+        .iter()
+        .flat_map(|out| {
+            out.split_whitespace()
+                .filter(|w| w.ends_with(":1"))
+                .map(|w| w.split(':').next().unwrap().parse::<u32>().unwrap())
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    println!("esa-rect: chosen strategies {chosen:?}");
+    assert!(chosen.len() >= 12, "esa-rect chose only {chosen:?}");
+    let observed = simd_common::oracle(&requests);
+    let mut words = 0;
+    for ((request, rust), cpp) in requests.iter().zip(&simd).zip(&observed) {
+        words += simd_common::same(rust, cpp, strategy_float(rust), all_defined)
+            .unwrap_or_else(|e| panic!("esa-rect: {e}\nrequest: {request}"));
+    }
+    println!(
+        "esa-rect on {}: {} requests, {words} words matched",
+        target().name(),
+        requests.len()
+    );
 }

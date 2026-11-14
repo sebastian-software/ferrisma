@@ -42,6 +42,18 @@
 //       FindBestFirstLevelDivisionForSquare. Prints the status, the entropy
 //       estimates, the strategy image, block up to 3 * blocks^2 * 64 + 8
 //       words and the scratch.
+//   esa-rect <distance> <speed_tier> <decoding_speed_tier> <xsize> <ysize>
+//            <mask1x1 xsize> <3 * ysize * xsize source words>
+//            <ysize/8 * xsize/8 quant field words> <same count of mask
+//            words> <ysize * mask1x1 xsize mask1x1 words> <ytox tile words>
+//            <ytob tile words> <layout>
+//       The original AcStrategyHeuristics: Init (its config and matrices),
+//       PrepareForThreads(1), ProcessRect over the 64x64 tiles in the serial
+//       RunOnPool order (HWY_DYNAMIC_DISPATCH(ProcessRectACS)) and Finalize.
+//       Prints the statuses, the config, the strategy image, thread 0's
+//       block and first kMaxCoeffArea scratch words (sentinels before the
+//       search; printed up to the last written word plus 4) and Finalize's
+//       block counts.
 #include <jxl/memory_manager.h>
 
 #include <algorithm>
@@ -55,7 +67,12 @@
 #include <vector>
 
 #include "lib/jxl/ac_strategy.h"
+#include "lib/jxl/base/rect.h"
 #include "lib/jxl/base/status.h"
+#include "lib/jxl/chroma_from_luma.h"
+#include "lib/jxl/enc_aux_out.h"
+#include "lib/jxl/enc_params.h"
+#include "lib/jxl/frame_dimensions.h"
 #include "lib/jxl/enc_ac_strategy.h"
 #include "lib/jxl/image.h"
 #include "lib/jxl/quant_weights.h"
@@ -94,6 +111,9 @@ constexpr size_t kBlockWords = 3 * jxl::AcStrategy::kMaxCoeffArea;
 // PrepareForThreads' mem_per_thread past the block, for 8 lanes.
 constexpr size_t kScratchWords =
     3 * jxl::AcStrategy::kMaxCoeffArea + 3 * kMaxLanes * jxl::AcStrategy::kMaxBlockDim;
+
+// ProcessRectACS's block and EstimateEntropy's `mem` in thread memory.
+constexpr size_t kMemoryWords = 4 * jxl::AcStrategy::kMaxCoeffArea;
 
 float EsaFloat(std::istringstream& in) {
   uint32_t bits;
@@ -351,6 +371,83 @@ bool EncoderAcsSimdCommand(const std::string& command, std::istringstream& in,
     EsaPrintStrategy(ac_strategy);
     EsaWords("B", block.data(), block_words + kMaxLanes);
     EsaScratch(scratch.data(), 2);
+    return true;
+  }
+  if (command == "esa-rect") {
+    jxl::CompressParams cparams;
+    cparams.butteraugli_distance = EsaFloat(in);
+    int tier;
+    size_t xsize, ysize, mask_xsize;
+    in >> tier >> cparams.decoding_speed_tier >> xsize >> ysize >> mask_xsize;
+    cparams.speed_tier = static_cast<jxl::SpeedTier>(tier);
+    if (xsize % 8 != 0 || ysize % 8 != 0 || mask_xsize > xsize) {
+      throw std::runtime_error("acs image size");
+    }
+    const size_t bxs = xsize / 8, bys = ysize / 8;
+    auto image_or = jxl::Image3F::Create(mm, xsize, ysize);
+    if (!image_or.ok()) throw std::runtime_error("acs image allocation");
+    jxl::Image3F src = std::move(image_or).value_();
+    for (size_t c = 0; c < 3; ++c) {
+      for (size_t y = 0; y < ysize; ++y)
+        for (size_t x = 0; x < xsize; ++x) src.PlaneRow(c, y)[x] = EsaFloat(in);
+    }
+    jxl::ImageF qf = EsaPlane(mm, in, bxs, bys);
+    jxl::ImageF mask = EsaPlane(mm, in, bxs, bys);
+    jxl::ImageF mask1x1 = EsaPlane(mm, in, mask_xsize, ysize);
+    auto cmap_or = jxl::ColorCorrelationMap::Create(mm, xsize, ysize);
+    if (!cmap_or.ok()) throw std::runtime_error("cmap");
+    jxl::ColorCorrelationMap cmap = std::move(cmap_or).value_();
+    for (jxl::ImageSB* map : {&cmap.ytox_map, &cmap.ytob_map}) {
+      for (size_t y = 0; y < map->ysize(); ++y)
+        for (size_t x = 0; x < map->xsize(); ++x) {
+          int v;
+          in >> v;
+          map->Row(y)[x] = static_cast<int8_t>(v);
+        }
+    }
+    jxl::AcStrategyImage ac_strategy = EsaLayout(mm, in, bxs, bys);
+    const jxl::Rect rect(0, 0, xsize, ysize);
+    jxl::DequantMatrices matrices;
+    jxl::AcStrategyHeuristics heuristics(mm, cparams);
+    jxl::Status status = heuristics.Init(src, rect, qf, mask, mask1x1, &matrices);
+    if (status) status = heuristics.PrepareForThreads(1);
+    std::cout << "H " << int(status.code()) << ' ' << EsaBits(heuristics.config.info_loss_multiplier)
+              << ' ' << EsaBits(heuristics.config.cost_delta) << ' '
+              << EsaBits(heuristics.config.zeros_mul) << ' ' << heuristics.config.mask1x1_xsize;
+    if (!status) return true;
+    // The thread's block and the following kMaxCoeffArea scratch words start
+    // as sentinels and are printed after the search.
+    float* memory = heuristics.mem.address<float>();
+    for (size_t i = 0; i < kMemoryWords; ++i) memory[i] = EsaSentinel(3, i);
+    // The serial RunOnPool order of the 64x64 encoder tiles.
+    const size_t n = jxl::DivCeil(bxs, jxl::kEncTileDimInBlocks);
+    const size_t count = n * jxl::DivCeil(bys, jxl::kEncTileDimInBlocks);
+    for (size_t tid = 0; tid < count && status; ++tid) {
+      const size_t tx = tid % n, ty = tid / n;
+      const size_t by0 = ty * jxl::kEncTileDimInBlocks;
+      const size_t by1 = std::min((ty + 1) * jxl::kEncTileDimInBlocks, bys);
+      const size_t bx0 = tx * jxl::kEncTileDimInBlocks;
+      const size_t bx1 = std::min((tx + 1) * jxl::kEncTileDimInBlocks, bxs);
+      status = heuristics.ProcessRect(jxl::Rect(bx0, by0, bx1 - bx0, by1 - by0), cmap,
+                                      &ac_strategy, 0);
+    }
+    jxl::AuxOut aux;
+    jxl::FrameDimensions frame_dim;
+    if (status) status = heuristics.Finalize(frame_dim, ac_strategy, &aux);
+    std::cout << ' ' << int(status.code());
+    EsaPrintStrategy(ac_strategy);
+    size_t used = 0;
+    for (size_t i = 0; i < kMemoryWords; ++i) {
+      const float sentinel = EsaSentinel(3, i);
+      if (std::memcmp(&memory[i], &sentinel, sizeof(float)) != 0) used = i + 1;
+    }
+    EsaWords("W", memory, std::min(kMemoryWords, used + 4));
+    std::cout << " N " << aux.num_small_blocks << ' ' << aux.num_dct4x8_blocks << ' '
+              << aux.num_afv_blocks << ' ' << aux.num_dct8_blocks << ' '
+              << aux.num_dct8x16_blocks << ' ' << aux.num_dct8x32_blocks << ' '
+              << aux.num_dct16_blocks << ' ' << aux.num_dct16x32_blocks << ' '
+              << aux.num_dct32_blocks << ' ' << aux.num_dct32x64_blocks << ' '
+              << aux.num_dct64_blocks;
     return true;
   }
   throw std::runtime_error("unknown encoder acs command");
