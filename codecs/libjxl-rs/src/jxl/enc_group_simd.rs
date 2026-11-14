@@ -14,7 +14,8 @@
 //! the contraction sites of the scalar translation's map are fused here on
 //! x86-64 too: QuantizeBlockAC's `thresholds[i] -= 0.00744f * xsize * ysize`
 //! and AdjustQuantBlockAC's two double sites (`adjust_quant_block_ac_with`
-//! with `FUSED`).
+//! with `FUSED`), and the inlined `YtoXRatio`/`YtoBRatio` (`base + factor *
+//! scale`, `y_to_x_ratio_simd`, as in the SIMD DecodeGroupImpl).
 use super::ac_strategy::{AcStrategyType, MAX_BLOCK_DIM, MAX_COEFF_AREA};
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode};
@@ -250,10 +251,10 @@ pub fn compute_coefficients_d<D: SimdF32>(
                     let cmap = &enc_state.shared.cmap;
                     let base = cmap.base();
                     (
-                        base.y_to_x_ratio(i32::from(
+                        base.y_to_x_ratio_simd(i32::from(
                             cmap.ytox_map.row(cmap_rect.y0() + ty)[cmap_rect.x0() + tx],
                         )),
-                        base.y_to_b_ratio(i32::from(
+                        base.y_to_b_ratio_simd(i32::from(
                             cmap.ytob_map.row(cmap_rect.y0() + ty)[cmap_rect.x0() + tx],
                         )),
                     )
