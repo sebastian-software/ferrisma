@@ -1576,4 +1576,39 @@ Translated further, on the encoder's dispatch point `hwy::encoder_target()`
   from 0 to 60 in several shapes, pixel sizes that are not block multiples
   and photograph-sized frames; the scalar path differs in the plane width.
   The `lanes8` module checks the rounding and the zeroed lanes with eight.
+- `enc_chroma_from_luma` ComputeTile with CFLFunction and
+  FindBestMultiplier (same file), dispatched from `CfLHeuristics`'s
+  `compute_tile`; inside `HWY_NAMESPACE` it calls the SIMD transforms of
+  `enc_transforms_simd`. The searches accumulate per lane with fused MulAdd
+  and reduce with the target's SumOfLanes (`vaddv` on NEON, Highway's
+  block-swap tree on AVX2), so their results follow the lane count. The
+  fast search's denominator `GetLane(SumOfLanes(ca)) + num * distance_mul
+  * 0.5f` is contracted inside `HWY_NAMESPACE` on both targets
+  (`vfmadd231ss` in the AVX2 dispatch object's `N_AVX2::FindBestMultiplier`,
+  read from its disassembly) and fused here; the scalar translation fuses
+  it only on AArch64. A mutation that unfuses it changes no word of
+  `ecf-best` or `ecf-tile` on NEON (the rounded multipliers agree), so that
+  site rests on the disassembly. No other scalar statement has a product and a sum in
+  one expression. `CfLHeuristics::items_per_thread` sizes the per-thread
+  scratch with the encoder target's `MaxVectorSize()` when the encoder's
+  SIMD path is selected (ComputeTile ensures the size). `ecf-best` calls the
+  target namespace's FindBestMultiplier (external linkage, not an export)
+  on 128-byte aligned inputs: 8 to 4,096 values (multiples of 8), six value
+  kinds (noise, chroma proportional to luma with swept multipliers,
+  magnitudes around CFLFunction's threshold of 100, six decades, sparse
+  impulses, the special words), six distance multipliers, both bases and
+  both searches. `ecf-tile` runs the CfL loop of enc_heuristics.cc through
+  the original's `CfLHeuristics` (Init, PrepareForThreads, ComputeTile per
+  8x8-block tile) over nine frame sizes from one block to 40x34 blocks
+  (partial tiles, transforms wider than a tile), both passes (DCT8, and
+  random aligned strategy layouts with a raw quant field and a quantizer,
+  Newton and fast search), `opsin_rect` at the origin and offset, and
+  special words; it compares the statuses, both color maps and every word
+  of `dc_values` (sentinels after Init). The scalar path differs in most
+  requests. The `lanes8` module (8 lanes from two NEON halves, AVX2's
+  SumOfLanes order) checks that ComputeTile's blocks, collected
+  coefficients and `dc_values` equal the 4-lane ones word for word, and
+  that both searches equal a model of the per-lane accumulation for 4 and
+  8 lanes; over its domain the rounded multipliers of 4 and 8 lanes never
+  differ, so the 8-lane reduction itself rests on the AVX2 oracle run.
 <!-- end encoder cfl -->

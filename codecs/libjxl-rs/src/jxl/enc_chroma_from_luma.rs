@@ -228,6 +228,27 @@ fn compute_tile(
     dc_values: &mut ImageF,
     mem: &mut [f32],
 ) -> Status {
+    // HWY_DYNAMIC_DISPATCH(ComputeTile) (port ADR 0004, "Encoder path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_chroma_from_luma_simd::compute_tile_simd(
+            target,
+            super::enc_chroma_from_luma_simd::TileArgs {
+                opsin,
+                opsin_rect,
+                dequant,
+                ac_strategy,
+                raw_quant_field,
+                quantizer,
+                rect,
+                fast,
+                use_dct8,
+            },
+            map_x,
+            map_b,
+            dc_values,
+            mem,
+        );
+    }
     let xsize_blocks = opsin_rect.xsize() / BLOCK_DIM;
     const DISTANCE_MULTIPLIER_AC: f32 = 1e-9;
     let dct_scratch_size = 3 * (MAX_VECTOR_SIZE / size_of::<f32>()) * MAX_BLOCK_DIM;
@@ -471,6 +492,12 @@ impl CfLHeuristics {
     }
     // Working set is too large for stack; allocate dynamically.
     pub fn items_per_thread() -> usize {
+        // MaxVectorSize() is the dispatched target's: on the encoder's SIMD
+        // path (port ADR 0004, "Encoder path") ComputeTile's scratch holds
+        // the target's DCT scratch.
+        if let Some(target) = super::hwy::encoder_target() {
+            return super::enc_chroma_from_luma_simd::items_per_thread_for_lanes(target.lanes());
+        }
         let dct_scratch_size = 3 * (MAX_VECTOR_SIZE / size_of::<f32>()) * MAX_BLOCK_DIM;
         let dc_scratch_size = 3 * MAX_COEFF_BLOCKS * MAX_COEFF_BLOCKS;
         MAX_COEFF_AREA * 3        // Blocks
