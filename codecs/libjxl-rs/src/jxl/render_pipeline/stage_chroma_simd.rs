@@ -5,9 +5,9 @@
 //! NEON and AVX2 targets (ADR 0004), written once against [`SimdF32`].
 //! Compare them only with the original's SIMD build at the same target.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings, Span,
 };
-use super::simd_rows::{read, vector_span, write};
+use super::simd_rows::{vector_span, with_spans};
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::hwy::{Kernel, SimdF32, Target, dispatch};
 
@@ -68,18 +68,17 @@ impl RenderPipelineStage for YCbCrStageSimd {
         let (_, iterations) = vector_span(0, 0, width, lanes);
         let len = iterations * lanes;
         let rows = [0, 1, 2].map(|c| self.get_input_row(input, c, 0));
-        let mut values = rows.map(|row| read(buffers, row, 0, len));
-        let [a, b, c] = &mut values;
-        dispatch(
-            self.target,
-            YCbCrRows {
-                rows: [a, b, c],
-                iterations,
-            },
-        );
-        for (row, values) in rows.into_iter().zip(&values) {
-            write(buffers, row, 0, values);
-        }
+        // The source's loads and stores through its row pointers, in place.
+        let spans = rows.map(|row| Span { row, from: 0, len });
+        with_spans(buffers, [], spans, |[], [a, b, c]| {
+            dispatch(
+                self.target,
+                YCbCrRows {
+                    rows: [a, b, c],
+                    iterations,
+                },
+            )
+        });
         Ok(())
     }
     fn get_channel_mode(&self, c: usize) -> Mode {
@@ -174,42 +173,50 @@ impl RenderPipelineStage for ChromaUpsamplingStageSimd {
         let (x_start, iterations) = vector_span(left, right, width, lanes);
         let len = iterations * lanes;
         let c = self.channel;
+        // stage_chroma_upsampling.cc:47-56 and 89-101: the pipeline's rows,
+        // loaded and stored in place.
         if self.horizontal {
-            let row_in = read(
-                buffers,
-                self.get_input_row(input, c, 0),
-                x_start - 1,
-                len + 2,
-            );
-            let mut out = vec![0.0; 2 * len];
-            dispatch(
-                self.target,
-                HorizontalRow {
-                    row_in: &row_in,
-                    iterations,
-                    out: &mut out,
-                },
-            );
-            write(
-                buffers,
-                self.get_output_row(output, c, 0),
-                2 * x_start,
-                &out,
-            );
+            let reads = [Span {
+                row: self.get_input_row(input, c, 0),
+                from: x_start - 1,
+                len: len + 2,
+            }];
+            let writes = [Span {
+                row: self.get_output_row(output, c, 0),
+                from: 2 * x_start,
+                len: 2 * len,
+            }];
+            with_spans(buffers, reads, writes, |[row_in], [out]| {
+                dispatch(
+                    self.target,
+                    HorizontalRow {
+                        row_in,
+                        iterations,
+                        out,
+                    },
+                )
+            });
         } else {
-            let rows =
-                [-1, 0, 1].map(|dy| read(buffers, self.get_input_row(input, c, dy), x_start, len));
-            let (mut out0, mut out1) = (vec![0.0; len], vec![0.0; len]);
-            dispatch(
-                self.target,
-                VerticalRow {
-                    rows: [&rows[0], &rows[1], &rows[2]],
-                    iterations,
-                    out: [&mut out0, &mut out1],
-                },
-            );
-            write(buffers, self.get_output_row(output, c, 0), x_start, &out0);
-            write(buffers, self.get_output_row(output, c, 1), x_start, &out1);
+            let reads = [-1, 0, 1].map(|dy| Span {
+                row: self.get_input_row(input, c, dy),
+                from: x_start,
+                len,
+            });
+            let writes = [0, 1].map(|iy| Span {
+                row: self.get_output_row(output, c, iy),
+                from: x_start,
+                len,
+            });
+            with_spans(buffers, reads, writes, |rows, out| {
+                dispatch(
+                    self.target,
+                    VerticalRow {
+                        rows,
+                        iterations,
+                        out,
+                    },
+                )
+            });
         }
         Ok(())
     }

@@ -8,9 +8,9 @@
 //! `ApproximateReciprocal`. Compare only with the original's SIMD build at
 //! the same target.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings, Span,
 };
-use super::simd_rows::{read, vector_span, write};
+use super::simd_rows::{vector_span, with_spans};
 use crate::jxl::base::status::Status;
 use crate::jxl::dec_cache::SIGMA_PADDING;
 use crate::jxl::epf::MIN_SIGMA;
@@ -56,8 +56,9 @@ pub struct EpfStageSimd<'a> {
 struct EpfRow<'a> {
     pass: EpfPass,
     lf: &'a LoopFilter,
-    /// `rows[c][i]` is the source's `rows[c][i]` (row offset `i - border`).
-    rows: [Vec<&'a [f32]>; 3],
+    /// `rows[c][i]` is the source's `rows[c][i]` (row offset `i - border`);
+    /// entries from `2 * border + 1` on are unused and empty.
+    rows: [[&'a [f32]; 7]; 3],
     row_sigma: &'a [f32],
     x_start: isize,
     xpos: usize,
@@ -256,6 +257,73 @@ impl<'a> Kernel for EpfRow<'a> {
     }
 }
 
+impl EpfStageSimd<'_> {
+    /// One row with `R = 3 * (2 * border + 1)` input rows. As the source
+    /// (stage_epf.cc:105-110 and the loads and stores of the x loop), the
+    /// stage loads from the pipeline's input rows and stores to its output
+    /// rows in place.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "The source's ProcessRow locals, passed on to the per-pass row count."
+    )]
+    fn process<const R: usize>(
+        &self,
+        input: &RowInfo,
+        output: &RowInfo,
+        buffers: &mut RowBuffers<'_>,
+        x_start: isize,
+        iterations: usize,
+        xpos: usize,
+        ypos: usize,
+    ) -> Status {
+        let lanes = self.target.lanes();
+        let len = iterations * lanes;
+        let b = self.pass.border();
+        let k = 2 * b + 1;
+        debug_assert_eq!(R, 3 * k);
+        let reads: [Span; R] = std::array::from_fn(|i| Span {
+            row: self.get_input_row(input, i / k, (i % k) as i32 - b as i32),
+            from: x_start - b as isize,
+            len: len + 2 * b,
+        });
+        let writes = [0, 1, 2].map(|c| Span {
+            row: self.get_output_row(output, c, 0),
+            from: x_start,
+            len,
+        });
+        let shared = match &self.sigma {
+            SigmaOwner::Shared(owner) => Some(owner.borrow()),
+            _ => None,
+        };
+        let sigma = match &self.sigma {
+            SigmaOwner::Owned(plane) => plane,
+            SigmaOwner::Borrowed(plane) => *plane,
+            SigmaOwner::Shared(_) => shared.as_deref().unwrap(),
+        };
+        let row_sigma = sigma.row(ypos / BLOCK_DIM + SIGMA_PADDING);
+        with_spans(buffers, reads, writes, |spans, out| {
+            let rows: [[&[f32]; 7]; 3] = std::array::from_fn(|c| {
+                std::array::from_fn(|i| if i < k { spans[c * k + i] } else { &[] })
+            });
+            dispatch(
+                self.target,
+                EpfRow {
+                    pass: self.pass,
+                    lf: &self.lf,
+                    rows,
+                    row_sigma,
+                    x_start,
+                    xpos,
+                    ypos,
+                    iterations,
+                    out,
+                },
+            );
+        });
+        Ok(())
+    }
+}
+
 impl RenderPipelineStage for EpfStageSimd<'_> {
     fn settings(&self) -> Settings {
         Settings::symmetric_border_only(self.pass.border())
@@ -275,51 +343,17 @@ impl RenderPipelineStage for EpfStageSimd<'_> {
         // DF = HWY_CAPPED(float, 8): the full vector on both targets.
         let lanes = self.target.lanes();
         let (x_start, iterations) = vector_span(left, right, width, lanes);
-        let len = iterations * lanes;
-        let b = self.pass.border();
-        let rows: Vec<Vec<Vec<f32>>> = (0..3)
-            .map(|c| {
-                (0..2 * b + 1)
-                    .map(|i| {
-                        let row = self.get_input_row(input, c, i as i32 - b as i32);
-                        read(buffers, row, x_start - b as isize, len + 2 * b)
-                    })
-                    .collect()
-            })
-            .collect();
-        let shared = match &self.sigma {
-            SigmaOwner::Shared(owner) => Some(owner.borrow()),
-            _ => None,
-        };
-        let sigma = match &self.sigma {
-            SigmaOwner::Owned(plane) => plane,
-            SigmaOwner::Borrowed(plane) => *plane,
-            SigmaOwner::Shared(_) => shared.as_deref().unwrap(),
-        };
-        let row_sigma = sigma.row(ypos / BLOCK_DIM + SIGMA_PADDING);
-        let mut outs = [vec![0.0; len], vec![0.0; len], vec![0.0; len]];
-        {
-            let [o0, o1, o2] = &mut outs;
-            let slices = |c: usize| rows[c].iter().map(Vec::as_slice).collect::<Vec<_>>();
-            dispatch(
-                self.target,
-                EpfRow {
-                    pass: self.pass,
-                    lf: &self.lf,
-                    rows: [slices(0), slices(1), slices(2)],
-                    row_sigma,
-                    x_start,
-                    xpos,
-                    ypos,
-                    iterations,
-                    out: [o0, o1, o2],
-                },
-            );
+        match self.pass {
+            EpfPass::Zero => {
+                self.process::<21>(input, output, buffers, x_start, iterations, xpos, ypos)
+            }
+            EpfPass::One => {
+                self.process::<15>(input, output, buffers, x_start, iterations, xpos, ypos)
+            }
+            EpfPass::Two => {
+                self.process::<9>(input, output, buffers, x_start, iterations, xpos, ypos)
+            }
         }
-        for (c, values) in outs.iter().enumerate() {
-            write(buffers, self.get_output_row(output, c, 0), x_start, values);
-        }
-        Ok(())
     }
     fn get_channel_mode(&self, c: usize) -> Mode {
         if c < 3 { Mode::InOut } else { Mode::Ignored }

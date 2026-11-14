@@ -4,9 +4,9 @@
 //! and AVX2 targets (ADR 0004), written once against [`SimdF32`]. Compare it
 //! only with the original's SIMD build at the same target.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings, Span,
 };
-use super::simd_rows::{read, vector_span, write};
+use super::simd_rows::{vector_span, with_spans};
 use crate::jxl::base::status::Status;
 use crate::jxl::hwy::{Kernel, SimdF32, Target, dispatch};
 use crate::jxl::loop_filter::LoopFilter;
@@ -97,26 +97,31 @@ impl RenderPipelineStage for GaborishStageSimd {
         let lanes = self.target.lanes();
         let (x_start, iterations) = vector_span(left, right, width, lanes);
         let len = iterations * lanes;
+        // stage_gaborish.cc:65-97: row_t/row_m/row_b and row_out are the
+        // pipeline's rows, loaded and stored in place.
         for c in 0..3 {
-            let rows = [-1, 0, 1].map(|dy| {
-                read(
-                    buffers,
-                    self.get_input_row(input, c, dy),
-                    x_start - 1,
-                    len + 2,
+            let reads = [-1, 0, 1].map(|dy| Span {
+                row: self.get_input_row(input, c, dy),
+                from: x_start - 1,
+                len: len + 2,
+            });
+            let writes = [Span {
+                row: self.get_output_row(output, c, 0),
+                from: x_start,
+                len,
+            }];
+            let w = [0, 1, 2].map(|i| self.weights[3 * c + i]);
+            with_spans(buffers, reads, writes, |rows, [out]| {
+                dispatch(
+                    self.target,
+                    GabRow {
+                        rows,
+                        w,
+                        iterations,
+                        out,
+                    },
                 )
             });
-            let mut out = vec![0.0; len];
-            dispatch(
-                self.target,
-                GabRow {
-                    rows: [&rows[0], &rows[1], &rows[2]],
-                    w: [0, 1, 2].map(|i| self.weights[3 * c + i]),
-                    iterations,
-                    out: &mut out,
-                },
-            );
-            write(buffers, self.get_output_row(output, c, 0), x_start, &out);
         }
         Ok(())
     }

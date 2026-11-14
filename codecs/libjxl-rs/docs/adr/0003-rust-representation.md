@@ -679,6 +679,25 @@ guard (ARM 24, other supported targets 32). Allocation padding uses hwy/base.h's
 kMaxVectorSize (x86 64, other baseline targets 16), independently of the scalar
 MaxVectorSize() function. RVV intrinsic builds remain unported.
 
+SIMD row spans (2026-11-14). The SIMD stages load and store the pipeline's
+rows in place, as the source's stages do through their row pointers:
+`RowBuffers::spans` resolves a fixed number of read and write spans of row
+descriptors at once, as slices of their planes' whole initialized sample
+storage. A span's first sample has the index `y * stride + x + from`, the
+source's `row + from`, so a whole-vector loop that starts left of the row
+reaches the preceding row's padding and one that ends right of `xsize` the
+row's own padding: the memory the source touches. The proof is borrows
+alone: read spans are shared borrows of planes that no write span touches,
+and write spans are disjoint subslices split in storage order from one
+exclusive borrow per plane; no unsafe code or raw pointer is added. A span
+outside its plane's storage (the first row's left reach, which the source
+reads from the allocation's pre-padding, or past the last row), a plane that
+is both read and written, or overlapping write spans resolve nothing, and
+`simd_rows::with_spans` then copies the spans as before (0.0 outside the row
+slice) and writes the write spans back. Samples that differ between the two
+routes reach only lanes left of `-xextra_left` or right of `xsize +
+xextra_right`, which no later stage or output reads (ADR 0004).
+
 The low-memory pipeline keeps the source's per-group input planes, border
 storage, per-thread ring buffers and out-of-frame rows. Its row pointers may
 point before their row or into a ring slot computed from a negative row, so a
