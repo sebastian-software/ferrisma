@@ -258,10 +258,11 @@ its own dispatch point, `hwy::encoder_target()`, off by default
 (`ENCODER_SELECTS_SIMD = false`) and forced only by `tests/simd_encoder.rs`;
 the encoder keeps running its scalar translation, byte-identical with the
 scalar `cjxl`. Translated with parity against the original's NEON build:
-`enc_xyb` (ToXYB, LinearRGBRowToXYB, ComputePremulAbsorb). The other
-encoder exports the lossy profile reaches (11 with alpha, plus the
-untranslated decode-path `Symmetric5`) and the lossless profile's
-`enc_rct` and `enc_cluster` remain scalar only.
+`enc_xyb` (ToXYB, LinearRGBRowToXYB, ComputePremulAbsorb) and
+`enc_transforms` (TransformFromPixels, DCFromLowestFrequencies,
+AFVDCT4x4). The other nine encoder exports the lossy profile reaches
+(seven without alpha), the decode-path `Symmetric5` it runs, and the
+lossless profile's `enc_rct` and `enc_cluster` remain scalar only.
 <!-- end encoder simd -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)

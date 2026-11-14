@@ -77,7 +77,7 @@ fn reinterpreting_idct(
 
 /// DCT2TopBlock<S>: reads all S x S inputs before writing `out`, so the
 /// source's aliasing calls with `block == out` are the same operation.
-fn dct2_top_block(s: usize, block: &[f32], stride: usize) -> [f32; DCT_BLOCK_SIZE] {
+pub(crate) fn dct2_top_block(s: usize, block: &[f32], stride: usize) -> [f32; DCT_BLOCK_SIZE] {
     assert!(
         BLOCK_DIM.is_multiple_of(s),
         "S should be a divisor of kBlockDim"
@@ -107,7 +107,7 @@ fn dct2_top_block(s: usize, block: &[f32], stride: usize) -> [f32; DCT_BLOCK_SIZ
     }
     temp
 }
-fn store_dct2_top_block(s: usize, temp: &[f32; DCT_BLOCK_SIZE], out: &mut [f32]) {
+pub(crate) fn store_dct2_top_block(s: usize, temp: &[f32; DCT_BLOCK_SIZE], out: &mut [f32]) {
     for y in 0..s {
         for x in 0..s {
             out[y * BLOCK_DIM + x] = temp[y * BLOCK_DIM + x];
@@ -121,7 +121,7 @@ fn store_dct2_top_block(s: usize, temp: &[f32; DCT_BLOCK_SIZE], out: &mut [f32])
     reason = "Keep the source's literal digits."
 )]
 #[rustfmt::skip]
-const K4X4_AFV_BASIS_TRANSPOSE: [[f32; 16]; 16] = [
+pub(crate) const K4X4_AFV_BASIS_TRANSPOSE: [[f32; 16]; 16] = [
     [
         0.2500000000000000,
         0.8769029297991420,
@@ -421,6 +421,11 @@ fn afv_accumulate(scalar: f32, product: f32) -> f32 {
 /// Original AFVDCT4x4 with one Highway lane: each coefficient accumulates
 /// MulAdd(pixel, basis, scalar) over the 16 pixels in order.
 pub fn afvdct4x4(pixels: &[f32], coeffs: &mut [f32]) {
+    // HWY_DYNAMIC_DISPATCH(AFVDCT4x4): the encoder's own selection, off by
+    // default (port ADR 0004, "Encoder path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_transforms_simd::afvdct4x4_simd(target, pixels, coeffs);
+    }
     // HWY_CAPPED(float, 16) has one lane on the scalar target.
     const LANES: usize = 1;
     let mut i = 0;
@@ -522,6 +527,18 @@ pub fn transform_from_pixels(
     coefficients: &mut [f32],
     scratch_space: &mut [f32],
 ) {
+    // HWY_DYNAMIC_DISPATCH(TransformFromPixels) (port ADR 0004, "Encoder
+    // path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_transforms_simd::transform_from_pixels_simd(
+            target,
+            strategy,
+            pixels,
+            pixels_stride,
+            coefficients,
+            scratch_space,
+        );
+    }
     type Type = AcStrategyType;
     let scaled = |rows: usize, cols: usize, coefficients: &mut [f32], scratch: &mut [f32]| {
         compute_scaled_dct(rows, cols, pixels, pixels_stride, coefficients, scratch);
@@ -677,6 +694,18 @@ pub fn dc_from_lowest_frequencies(
     dc_stride: usize,
     scratch_space: &mut [f32],
 ) {
+    // HWY_DYNAMIC_DISPATCH(DCFromLowestFrequencies) (port ADR 0004,
+    // "Encoder path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_transforms_simd::dc_from_lowest_frequencies_simd(
+            target,
+            strategy,
+            block,
+            dc,
+            dc_stride,
+            scratch_space,
+        );
+    }
     type Type = AcStrategyType;
     let mut idct = |rows: usize, cols: usize, input_stride: usize| {
         // DCT_ROWS = ROWS * kBlockDim and DCT_COLS = COLS * kBlockDim; the

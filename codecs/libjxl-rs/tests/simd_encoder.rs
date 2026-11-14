@@ -14,11 +14,13 @@
 
 mod simd_common;
 
+use jxl::jxl::ac_strategy::{AcStrategy, AcStrategyType, NUM_VALID_STRATEGIES};
 use jxl::jxl::base::status::status_code;
 use jxl::jxl::color_encoding::{
     ColorSpace, JxlColorEncoding, Primaries, RenderingIntent, TransferFunction, WhitePoint,
 };
 use jxl::jxl::color_encoding_internal::ColorEncoding;
+use jxl::jxl::enc_transforms::{afvdct4x4, dc_from_lowest_frequencies, transform_from_pixels};
 use jxl::jxl::enc_xyb::{XybInputEncoding, to_xyb};
 use jxl::jxl::enc_xyb_simd::{compute_premul_absorb_simd, linear_rgb_row_to_xyb_simd};
 use jxl::jxl::hwy::{self, Target};
@@ -506,4 +508,146 @@ fn enc_simd_the_encoder_selects_the_scalar_path_by_default() {
     );
     hwy::set_encoder_simd_for_test(None);
     assert!(hwy::encoder_target().is_none());
+}
+
+// enc_transforms ------------------------------------------------------------
+
+/// The encoder's callers' DCT scratch for 8 lanes (tools/oracle/encoder_simd.cc).
+const CALLER_SCRATCH: usize = 2 * 256 * 256 + 3 * 8 * 256;
+
+fn scratch_words(out: &mut String, scratch: &[f32]) {
+    let used = (0..scratch.len())
+        .rev()
+        .find(|&i| scratch[i].to_bits() != sentinel(9, i).to_bits())
+        .map_or(0, |i| i + 1);
+    words(out, &scratch[..(used + 4).min(scratch.len())]);
+}
+
+/// The port's observation of an `esx-pixels`, `esx-llf` or `esx-afv`
+/// request through the encoder's dispatching functions (the caller sets the
+/// encoder's selection).
+fn observe_transform(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    let kind = args.next().unwrap();
+    if kind == "esx-afv" {
+        let mut pixels: Vec<f32> = (0..16).map(|_| float(&mut args)).collect();
+        pixels.extend((16..24).map(|i| sentinel(14, i)));
+        let mut coeffs: Vec<f32> = (0..24).map(|i| sentinel(15, i)).collect();
+        afvdct4x4(&pixels, &mut coeffs);
+        let mut out = "A".to_owned();
+        words(&mut out, &pixels);
+        words(&mut out, &coeffs);
+        return out;
+    }
+    let raw: u32 = number(&mut args);
+    let stride: usize = number(&mut args);
+    let strategy = AcStrategyType(raw);
+    let acs = AcStrategy::from_raw_strategy(strategy);
+    let (bx, by) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+    let mut scratch: Vec<f32> = (0..CALLER_SCRATCH).map(|i| sentinel(9, i)).collect();
+    let mut out;
+    if kind == "esx-pixels" {
+        let (rows, cols) = (by * 8, bx * 8);
+        let mut pixels: Vec<f32> = (0..rows * stride).map(|_| float(&mut args)).collect();
+        pixels.extend((rows * stride..rows * stride + 8).map(|i| sentinel(10, i)));
+        let mut coefficients: Vec<f32> = (0..rows * cols + 8).map(|i| sentinel(11, i)).collect();
+        transform_from_pixels(strategy, &pixels, stride, &mut coefficients, &mut scratch);
+        out = "T".to_owned();
+        words(&mut out, &pixels);
+        words(&mut out, &coefficients);
+    } else {
+        assert_eq!(kind, "esx-llf");
+        let n = by * bx * 64;
+        let mut block: Vec<f32> = (0..n).map(|_| float(&mut args)).collect();
+        block.extend((n..n + 8).map(|i| sentinel(12, i)));
+        let mut dc: Vec<f32> = (0..by * stride + 8).map(|i| sentinel(13, i)).collect();
+        dc_from_lowest_frequencies(strategy, &block, &mut dc, stride, &mut scratch);
+        out = "L".to_owned();
+        words(&mut out, &block);
+        words(&mut out, &dc);
+    }
+    scratch_words(&mut out, &scratch);
+    out
+}
+
+/// Every strategy, strides with and without padding, and the value kinds
+/// (fewer kinds for the largest transforms).
+fn pixels_requests() -> Vec<String> {
+    let mut requests = Vec::new();
+    for raw in 0..u32::from(NUM_VALID_STRATEGIES) {
+        let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+        let (rows, cols) = (acs.covered_blocks_y() * 8, acs.covered_blocks_x() * 8);
+        let large = rows * cols > 64 * 64;
+        for pad in [0, 1, 5, 8] {
+            for kind in 0..KINDS {
+                if large && !(pad == 0 || pad == 5) || large && kind % 3 != 0 {
+                    continue;
+                }
+                let stride = cols + pad;
+                let mut s = format!("esx-pixels {raw} {stride}");
+                push_words(
+                    &mut s,
+                    &sample_words(
+                        rows * stride,
+                        kind,
+                        u64::from(raw) * 131 + pad as u64 * 17 + kind as u64,
+                    ),
+                );
+                requests.push(s);
+            }
+        }
+    }
+    requests
+}
+
+#[test]
+fn enc_simd_transform_from_pixels_through_the_encoder_dispatch_matches_the_original_target() {
+    check_through_dispatch("esx-pixels", &pixels_requests(), observe_transform);
+}
+
+#[test]
+fn enc_simd_dc_from_lowest_frequencies_through_the_encoder_dispatch_matches_the_original_target() {
+    let mut requests = Vec::new();
+    for raw in 0..u32::from(NUM_VALID_STRATEGIES) {
+        let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+        let (bx, by) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+        for pad in [0, 3, 8] {
+            for kind in 0..KINDS {
+                let stride = bx + pad;
+                let mut s = format!("esx-llf {raw} {stride}");
+                push_words(
+                    &mut s,
+                    &sample_words(
+                        bx * by * 64,
+                        kind,
+                        u64::from(raw) * 77 + pad as u64 + kind as u64 * 5,
+                    ),
+                );
+                requests.push(s);
+            }
+        }
+    }
+    check_through_dispatch("esx-llf", &requests, observe_transform);
+}
+
+#[test]
+fn enc_simd_afvdct4x4_through_the_encoder_dispatch_matches_the_original_target() {
+    let mut requests = Vec::new();
+    for kind in 0..KINDS {
+        for seed in 0..24u64 {
+            let mut s = "esx-afv".to_owned();
+            push_words(&mut s, &sample_words(16, kind, seed * 1000 + kind as u64));
+            requests.push(s);
+        }
+    }
+    // Impulses at every position.
+    for i in 0..16 {
+        let mut s = "esx-afv".to_owned();
+        let impulse: Vec<u32> = (0..16)
+            .map(|j| if i == j { 1.0f32 } else { 0.0 }.to_bits())
+            .collect();
+        push_words(&mut s, &impulse);
+        requests.push(s);
+    }
+    check_through_dispatch("esx-afv", &requests, observe_transform);
 }

@@ -929,5 +929,100 @@ mod encoder_simd {
         }
         println!("8-lane XYB rows: {cases} cases match");
     }
+
+    #[test]
+    fn eight_lane_forward_transforms_equal_four_lane_forward_transforms() {
+        use jxl::jxl::ac_strategy::{AcStrategy, AcStrategyType, NUM_VALID_STRATEGIES};
+        use jxl::jxl::enc_transforms_simd::{
+            afvdct4x4_d, dc_from_lowest_frequencies_d, transform_from_pixels_d,
+        };
+        let mut seed = 0x0afd_c7f0;
+        let mut cases = 0;
+        for raw in 0..u32::from(NUM_VALID_STRATEGIES) {
+            let strategy = AcStrategyType(raw);
+            let acs = AcStrategy::from_raw_strategy(strategy);
+            let (bx, by) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+            let (rows, cols) = (by * 8, bx * 8);
+            for pad in [0, 3] {
+                let stride = cols + pad;
+                let pixels: Vec<f32> = (0..rows * stride)
+                    .map(|_| (next(&mut seed) % (1 << 20)) as f32 / 4096.0 - 128.0)
+                    .collect();
+                let scratch_len = 2 * 256 * 256 + 3 * 8 * 256;
+                let fwd = |eight: bool| {
+                    let mut coefficients = vec![-1.5f32; rows * cols + 8];
+                    let mut scratch = vec![-2.5f32; scratch_len];
+                    if eight {
+                        transform_from_pixels_d(
+                            Neon8(n4()),
+                            strategy,
+                            &pixels,
+                            stride,
+                            &mut coefficients,
+                            &mut scratch,
+                        );
+                    } else {
+                        transform_from_pixels_d(
+                            n4(),
+                            strategy,
+                            &pixels,
+                            stride,
+                            &mut coefficients,
+                            &mut scratch,
+                        );
+                    }
+                    coefficients
+                };
+                let coefficients = fwd(false);
+                assert_same(
+                    &format!("TransformFromPixels {raw} pad {pad}"),
+                    &coefficients,
+                    &fwd(true),
+                );
+                let dc_stride = bx + pad;
+                let llf = |eight: bool| {
+                    let mut dc = vec![-3.5f32; by * dc_stride + 8];
+                    let mut scratch = vec![-2.5f32; scratch_len];
+                    if eight {
+                        dc_from_lowest_frequencies_d(
+                            Neon8(n4()),
+                            strategy,
+                            &coefficients,
+                            &mut dc,
+                            dc_stride,
+                            &mut scratch,
+                        );
+                    } else {
+                        dc_from_lowest_frequencies_d(
+                            n4(),
+                            strategy,
+                            &coefficients,
+                            &mut dc,
+                            dc_stride,
+                            &mut scratch,
+                        );
+                    }
+                    dc
+                };
+                assert_same(
+                    &format!("DCFromLowestFrequencies {raw} pad {pad}"),
+                    &llf(false),
+                    &llf(true),
+                );
+                cases += 2;
+            }
+        }
+        for _ in 0..64 {
+            let pixels: Vec<f32> = (0..16)
+                .map(|_| (next(&mut seed) % 4096) as f32 / 16.0)
+                .collect();
+            let (mut four, mut eight) = (vec![0.5f32; 24], vec![0.5f32; 24]);
+            afvdct4x4_d(n4(), &pixels, &mut four);
+            afvdct4x4_d(Neon8(n4()), &pixels, &mut eight);
+            assert_same("AFVDCT4x4", &four, &eight);
+            cases += 1;
+        }
+        println!("8-lane forward transforms: {cases} cases match");
+    }
 }
 // end encoder simd

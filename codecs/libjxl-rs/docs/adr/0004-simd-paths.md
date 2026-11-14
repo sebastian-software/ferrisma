@@ -1411,4 +1411,20 @@ be turned on for a target only when, on that target,
   goes through `to_xyb` with the encoder's selection forced, and the scalar
   path differs from it in most requests. `tests/simd_vardct_lanes8.rs`
   checks the row loop and constant layout with eight lanes.
+- `enc_transforms` (`enc_transforms_simd.rs`): TransformFromPixels for all
+  27 strategies (DCT2TopBlock, AFVTransformFromPixels), DCFromLowestFrequencies
+  with ReinterpretingIDCT, and AFVDCT4x4 (`HWY_CAPPED(float, 16)`: four NEON,
+  eight AVX2 lanes). The scaled DCT and IDCT are `dct_simd`'s, shared with
+  the decoder. The scalar statements lie inside `HWY_NAMESPACE`: Clang
+  contracts AFVTransformFromPixels' DC mix `block00 + block01 +/- 2 *
+  block10` on both targets (the x86-64 scalar build does not), no other
+  statement has a contractible product and sum. `esx-pixels`, `esx-llf`
+  and `esx-afv` pass the scratch the encoder's callers pass (`2 *
+  kMaxCoeffArea + 3 * 8 * kMaxBlockDim`, enc_group.cc for 8 lanes), 128-byte
+  aligned, and print it up to its last written word; coefficients and DC
+  outputs are printed with 8 sentinel words after them. The domain: every
+  strategy, pixel strides `cols + {0, 1, 5, 8}` (DC strides `+ {0, 3, 8}`),
+  the twelve value kinds (fewer for transforms above 64x64), and impulses
+  for AFVDCT4x4; all go through the dispatching `transform_from_pixels`,
+  `dc_from_lowest_frequencies` and `afvdct4x4`.
 <!-- end encoder simd -->

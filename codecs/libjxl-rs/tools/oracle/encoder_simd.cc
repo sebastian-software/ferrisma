@@ -22,10 +22,22 @@
 //       linear output (sentinel words) are printed over RoundUpTo(xsize, 8)
 //       samples per row. Encodings outside ToXYB's linear-sRGB and sRGB
 //       branches are not run (ApplyColorTransform is not translated).
+//   esx-pixels <raw strategy> <stride> <rows * stride words>
+//       TransformFromPixels from 128-byte aligned pixels (8 sentinel words
+//       after them) into 128-byte aligned coefficients (rows * cols + 8
+//       sentinel words, all printed) with the scratch the encoder's callers
+//       pass (2 * kMaxCoeffArea + 3 * 8 * kMaxBlockDim words, as enc_group.cc
+//       for 8 lanes), printed up to its last written word plus 4.
+//   esx-llf <raw strategy> <stride> <blocks * 64 words>
+//       DCFromLowestFrequencies from the coefficients into a dc buffer of
+//       covered_blocks_y * stride + 8 sentinel words, same scratch.
+//   esx-afv <16 words>
+//       AFVDCT4x4 from 16 + 8 words into 16 + 8 sentinel words.
 #include <jxl/cms.h>
 #include <jxl/color_encoding.h>
 #include <jxl/memory_manager.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -35,8 +47,10 @@
 #include <string>
 #include <vector>
 
+#include "lib/jxl/ac_strategy.h"
 #include "lib/jxl/base/status.h"
 #include "lib/jxl/color_encoding_internal.h"
+#include "lib/jxl/enc_transforms.h"
 #include "lib/jxl/enc_xyb.h"
 #include "lib/jxl/image.h"
 
@@ -100,6 +114,19 @@ void EsxPrintImage(const jxl::Image3F& image, size_t padded) {
     for (size_t y = 0; y < image.ysize(); ++y)
       for (size_t x = 0; x < padded; ++x) EsxWord(image.ConstPlaneRow(c, y)[x]);
   }
+}
+// The scratch of the encoder's callers (enc_group.cc ComputeCoefficients:
+// scratch_space = fmem + 3 * kMaxCoeffArea within 5 * kMaxCoeffArea +
+// dct_scratch_size), for 8 lanes.
+constexpr size_t kCallerScratch =
+    2 * jxl::AcStrategy::kMaxCoeffArea + 3 * kMaxLanes * jxl::AcStrategy::kMaxBlockDim;
+void EsxScratch(const float* scratch) {
+  size_t used = 0;
+  for (size_t i = 0; i < kCallerScratch; ++i) {
+    const float sentinel = EsxSentinel(9, i);
+    if (std::memcmp(&scratch[i], &sentinel, sizeof(float)) != 0) used = i + 1;
+  }
+  EsxWords(scratch, std::min(kCallerScratch, used + 4));
 }
 }  // namespace
 
@@ -176,6 +203,51 @@ bool EncoderSimdCommand(const std::string& command, std::istringstream& in,
     std::cout << ' ' << int(status.code());
     EsxPrintImage(image, padded);
     if (linear_mode != 0) EsxPrintImage(linear, padded);
+    return true;
+  }
+  if (command == "esx-pixels" || command == "esx-llf") {
+    unsigned raw;
+    size_t stride;
+    in >> raw >> stride;
+    const auto acs = jxl::AcStrategy::FromRawStrategy(static_cast<uint8_t>(raw));
+    const auto strategy = static_cast<jxl::AcStrategyType>(raw);
+    const size_t bx = acs.covered_blocks_x(), by = acs.covered_blocks_y();
+    EsxAligned scratch(kCallerScratch);
+    for (size_t i = 0; i < kCallerScratch; ++i) scratch.data()[i] = EsxSentinel(9, i);
+    if (command == "esx-pixels") {
+      const size_t rows = by * 8, cols = bx * 8;
+      EsxAligned pixels(rows * stride + 8);
+      for (size_t i = 0; i < rows * stride; ++i) pixels.data()[i] = EsxFloat(in);
+      for (size_t i = rows * stride; i < rows * stride + 8; ++i) pixels.data()[i] = EsxSentinel(10, i);
+      EsxAligned coefficients(rows * cols + 8);
+      for (size_t i = 0; i < rows * cols + 8; ++i) coefficients.data()[i] = EsxSentinel(11, i);
+      jxl::TransformFromPixels(strategy, pixels.data(), stride, coefficients.data(), scratch.data());
+      std::cout << "T";
+      EsxWords(pixels.data(), rows * stride + 8);
+      EsxWords(coefficients.data(), rows * cols + 8);
+    } else {
+      EsxAligned block(by * bx * 64 + 8);
+      for (size_t i = 0; i < by * bx * 64; ++i) block.data()[i] = EsxFloat(in);
+      for (size_t i = by * bx * 64; i < by * bx * 64 + 8; ++i) block.data()[i] = EsxSentinel(12, i);
+      EsxAligned dc(by * stride + 8);
+      for (size_t i = 0; i < by * stride + 8; ++i) dc.data()[i] = EsxSentinel(13, i);
+      jxl::DCFromLowestFrequencies(strategy, block.data(), dc.data(), stride, scratch.data());
+      std::cout << "L";
+      EsxWords(block.data(), by * bx * 64 + 8);
+      EsxWords(dc.data(), by * stride + 8);
+    }
+    EsxScratch(scratch.data());
+    return true;
+  }
+  if (command == "esx-afv") {
+    EsxAligned pixels(24), coeffs(24);
+    for (size_t i = 0; i < 16; ++i) pixels.data()[i] = EsxFloat(in);
+    for (size_t i = 16; i < 24; ++i) pixels.data()[i] = EsxSentinel(14, i);
+    for (size_t i = 0; i < 24; ++i) coeffs.data()[i] = EsxSentinel(15, i);
+    jxl::AFVDCT4x4(pixels.data(), coeffs.data());
+    std::cout << "A";
+    EsxWords(pixels.data(), 24);
+    EsxWords(coeffs.data(), 24);
     return true;
   }
   throw std::runtime_error("unknown encoder SIMD command");
