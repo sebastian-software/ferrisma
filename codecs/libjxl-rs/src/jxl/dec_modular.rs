@@ -502,73 +502,14 @@ impl ModularFrameDecoder {
     ) -> Status {
         let memory_manager = state.memory_manager();
         let rect = state.shared().frame_dim.dc_group_rect(group_id);
-        let mut image = Image::create_in(
-            memory_manager,
-            rect.xsize(),
-            rect.ysize(),
-            self.full_image.bitdepth,
-            3,
-        )?;
-        let stream_id = ModularStreamId::var_dct_dc(group_id).id(&self.frame_dim);
-        reader.refill();
-        let extra_precision = reader.read_fixed_bits::<2>();
-        let multiplier = 1.0f32 / (1 << extra_precision) as f32;
-        let mut options = ModularOptions::default();
-        for c in 0..3 {
-            let channel = &mut image.channel[if c < 2 { c ^ 1 } else { c }];
-            channel.w >>= header.chroma_subsampling.h_shift(c);
-            channel.h >>= header.chroma_subsampling.v_shift(c);
-            channel.shrink()?;
-        }
-        if modular_generic_decompress(
+        let (image, multiplier) = self.group_context().decode_var_dct_dc_image(
+            header,
+            group_id,
             reader,
-            &mut image,
-            None,
-            stream_id,
-            &mut options,
-            true,
-            Some(&self.tree),
-            Some(&self.code),
-            Some(&self.context_map),
-            false,
-        )
-        .is_err()
-        {
-            return Err(StatusCode::GenericError);
-        }
-        let factors = *state.shared().quantizer.mul_dc();
-        let cfl_factors = *state.shared().cmap.base().dc_factors();
-        let storage = &mut state.shared_storage;
-        let block_context = match &state.shared {
-            DecoderShared::Own => &storage.block_ctx_map,
-            DecoderShared::External(shared) => &shared.block_ctx_map,
-        };
-        // vardct kernels: HWY_DYNAMIC_DISPATCH(DequantDC).
-        match super::hwy::decoder_target() {
-            Some(t) => super::compressed_dc_simd::dequant_dc_simd(
-                t,
-                rect,
-                &mut storage.dc_storage,
-                &mut storage.quant_dc,
-                &image,
-                &factors,
-                multiplier,
-                &cfl_factors,
-                &header.chroma_subsampling,
-                block_context,
-            ),
-            None => dequant_dc(
-                rect,
-                &mut storage.dc_storage,
-                &mut storage.quant_dc,
-                &image,
-                &factors,
-                multiplier,
-                &cfl_factors,
-                &header.chroma_subsampling,
-                block_context,
-            ),
-        }
+            memory_manager,
+            rect,
+        )?;
+        commit_var_dct_dc(header, rect, &image, multiplier, state);
         Ok(())
     }
     pub fn decode_ac_metadata(
@@ -580,123 +521,13 @@ impl ModularFrameDecoder {
     ) -> Status {
         let memory_manager = state.memory_manager();
         let rect = state.shared().frame_dim.dc_group_rect(group_id);
-        let upper_bound = rect.xsize().wrapping_mul(rect.ysize());
-        reader.refill();
-        let count = reader.read_bits(ceil_log2_nonzero(upper_bound)) as usize + 1;
-        let stream_id = ModularStreamId::ac_metadata(group_id).id(&self.frame_dim);
-        let mut image = Image::create_in(
-            memory_manager,
-            rect.xsize(),
-            rect.ysize(),
-            self.full_image.bitdepth,
-            4,
-        )?;
-        let color_rect = Rect::new(
-            rect.x0() >> 3,
-            rect.y0() >> 3,
-            (rect.xsize() + 7) >> 3,
-            (rect.ysize() + 7) >> 3,
-        );
-        image.channel[0] =
-            Channel::create_in(memory_manager, color_rect.xsize(), color_rect.ysize(), 3, 3)?;
-        image.channel[1] =
-            Channel::create_in(memory_manager, color_rect.xsize(), color_rect.ysize(), 3, 3)?;
-        image.channel[2] = Channel::create_in(memory_manager, count, 2, 0, 0)?;
-        let mut options = ModularOptions::default();
-        if modular_generic_decompress(
+        let metadata = self.group_context().decode_ac_metadata_image(
+            group_id,
             reader,
-            &mut image,
-            None,
-            stream_id,
-            &mut options,
-            true,
-            Some(&self.tree),
-            Some(&self.code),
-            Some(&self.context_map),
-            false,
-        )
-        .is_err()
-        {
-            return Err(StatusCode::GenericError);
-        }
-        convert_plane_and_clamp_i32_to_i8(
-            Rect::new(
-                0,
-                0,
-                image.channel[0].plane.xsize(),
-                image.channel[0].plane.ysize(),
-            ),
-            &image.channel[0].plane,
-            color_rect,
-            &mut state.shared_storage.cmap.ytox_map,
+            memory_manager,
+            rect,
         )?;
-        convert_plane_and_clamp_i32_to_i8(
-            Rect::new(
-                0,
-                0,
-                image.channel[1].plane.xsize(),
-                image.channel[1].plane.ysize(),
-            ),
-            &image.channel[1].plane,
-            color_rect,
-            &mut state.shared_storage.cmap.ytob_map,
-        )?;
-        let mut num = 0;
-        let is444 = header.chroma_subsampling.is_444();
-        let strategy = &mut state.shared_storage.ac_strategy;
-        let xlim = strategy.xsize().min(rect.x0() + rect.xsize());
-        let ylim = strategy.ysize().min(rect.y0() + rect.ysize());
-        let mut local_used = 0;
-        for iy in 0..rect.ysize() {
-            let y = rect.y0() + iy;
-            let quant_row = &mut state.shared_storage.raw_quant_field.row_mut(y)[rect.x0()..];
-            let sharp_row = &mut state.shared_storage.epf_sharpness.row_mut(y)[rect.x0()..];
-            let strategies = image.channel[2].plane.row(0);
-            let quants = image.channel[2].plane.row(1);
-            let sharpness = image.channel[3].plane.row(iy);
-            for ix in 0..rect.xsize() {
-                let x = rect.x0() + ix;
-                let sharp = sharpness[ix];
-                if sharp < 0 || sharp >= EPF_SHARP_ENTRIES as i32 {
-                    return Err(StatusCode::GenericError);
-                }
-                sharp_row[ix] = sharp as u8;
-                if strategy.is_valid(x, y) {
-                    continue;
-                }
-                if num >= count {
-                    return Err(StatusCode::GenericError);
-                }
-                if !AcStrategy::is_raw_strategy_valid(strategies[num]) {
-                    return Err(StatusCode::GenericError);
-                }
-                local_used |= 1u32 << strategies[num];
-                let acs = AcStrategy::from_raw_strategy(AcStrategyType(strategies[num] as u32));
-                if (acs.covered_blocks_x() > 1 || acs.covered_blocks_y() > 1) && !is444 {
-                    return Err(StatusCode::GenericError);
-                }
-                let next_x_group = (x / super::frame_dimensions::GROUP_DIM_IN_BLOCKS + 1)
-                    * super::frame_dimensions::GROUP_DIM_IN_BLOCKS;
-                let next_y_group = (y / super::frame_dimensions::GROUP_DIM_IN_BLOCKS + 1)
-                    * super::frame_dimensions::GROUP_DIM_IN_BLOCKS;
-                let next_x = x + acs.covered_blocks_x();
-                let next_y = y + acs.covered_blocks_y();
-                if next_x > next_x_group || next_x > xlim {
-                    return Err(StatusCode::GenericError);
-                }
-                if next_y > next_y_group || next_y > ylim {
-                    return Err(StatusCode::GenericError);
-                }
-                strategy.set_no_bounds_check(x, y, AcStrategyType(strategies[num] as u32), true)?;
-                quant_row[ix] = 1 + quants[num].clamp(0, Quantizer::QUANT_MAX - 1);
-                num += 1;
-            }
-        }
-        state.used_acs.fetch_or(local_used, Ordering::SeqCst);
-        if header.loop_filter.epf_iters > 0 {
-            compute_sigma(&header.loop_filter, rect, state)?;
-        }
-        Ok(())
+        commit_ac_metadata(header, rect, &metadata, state)
     }
     /// Complete original DecodeGroup. The optional decoder-state pointer is
     /// reified as its actual const shared-state dependency; pipeline storage
@@ -827,6 +658,97 @@ pub struct ModularGroupContext<'a> {
 impl ModularGroupContext<'_> {
     pub fn use_full_image(&self) -> bool {
         self.use_full_image
+    }
+    /// DecodeVarDCTDC up to DequantDC: the group's quantized DC image and
+    /// its multiplier, decoded from the shared state; see
+    /// `commit_var_dct_dc`.
+    pub fn decode_var_dct_dc_image(
+        &self,
+        header: &FrameHeader<'_>,
+        group_id: usize,
+        reader: &mut BitReader<'_>,
+        memory_manager: MemoryManagerPtr,
+        rect: Rect,
+    ) -> StatusOr<(Image, f32)> {
+        let mut image =
+            Image::create_in(memory_manager, rect.xsize(), rect.ysize(), self.bitdepth, 3)?;
+        let stream_id = ModularStreamId::var_dct_dc(group_id).id(&self.frame_dim);
+        reader.refill();
+        let extra_precision = reader.read_fixed_bits::<2>();
+        let multiplier = 1.0f32 / (1 << extra_precision) as f32;
+        let mut options = ModularOptions::default();
+        for c in 0..3 {
+            let channel = &mut image.channel[if c < 2 { c ^ 1 } else { c }];
+            channel.w >>= header.chroma_subsampling.h_shift(c);
+            channel.h >>= header.chroma_subsampling.v_shift(c);
+            channel.shrink()?;
+        }
+        if modular_generic_decompress(
+            reader,
+            &mut image,
+            None,
+            stream_id,
+            &mut options,
+            true,
+            Some(self.tree),
+            Some(self.code),
+            Some(self.context_map),
+            false,
+        )
+        .is_err()
+        {
+            return Err(StatusCode::GenericError);
+        }
+        Ok((image, multiplier))
+    }
+    /// DecodeAcMetadata up to the writes into the decoder's images: the
+    /// group's decoded metadata image; see `commit_ac_metadata`.
+    pub fn decode_ac_metadata_image(
+        &self,
+        group_id: usize,
+        reader: &mut BitReader<'_>,
+        memory_manager: MemoryManagerPtr,
+        rect: Rect,
+    ) -> StatusOr<AcMetadataImage> {
+        let upper_bound = rect.xsize().wrapping_mul(rect.ysize());
+        reader.refill();
+        let count = reader.read_bits(ceil_log2_nonzero(upper_bound)) as usize + 1;
+        let stream_id = ModularStreamId::ac_metadata(group_id).id(&self.frame_dim);
+        let mut image =
+            Image::create_in(memory_manager, rect.xsize(), rect.ysize(), self.bitdepth, 4)?;
+        let color_rect = Rect::new(
+            rect.x0() >> 3,
+            rect.y0() >> 3,
+            (rect.xsize() + 7) >> 3,
+            (rect.ysize() + 7) >> 3,
+        );
+        image.channel[0] =
+            Channel::create_in(memory_manager, color_rect.xsize(), color_rect.ysize(), 3, 3)?;
+        image.channel[1] =
+            Channel::create_in(memory_manager, color_rect.xsize(), color_rect.ysize(), 3, 3)?;
+        image.channel[2] = Channel::create_in(memory_manager, count, 2, 0, 0)?;
+        let mut options = ModularOptions::default();
+        if modular_generic_decompress(
+            reader,
+            &mut image,
+            None,
+            stream_id,
+            &mut options,
+            true,
+            Some(self.tree),
+            Some(self.code),
+            Some(self.context_map),
+            false,
+        )
+        .is_err()
+        {
+            return Err(StatusCode::GenericError);
+        }
+        Ok(AcMetadataImage {
+            image,
+            count,
+            color_rect,
+        })
     }
     #[expect(
         clippy::too_many_arguments,
@@ -1387,6 +1309,23 @@ impl ModularFrameDecoder {
         let gi = &gi;
         let frame_dim = &shared.frame_dim;
         let matrices = &shared.matrices;
+        if pipeline.renders_concurrently() {
+            let use_group_ids =
+                header.encoding == FrameEncoding::VAR_DCT || (header.flags & FLAG_NOISE) != 0;
+            let split = pipeline
+                .split_concurrent()
+                .expect("a pipeline that renders concurrently splits");
+            return render_groups_concurrent(
+                header,
+                gi,
+                &context,
+                frame_dim,
+                matrices,
+                split,
+                use_group_ids,
+                pool,
+            );
+        }
         let read = (header, gi, &context, frame_dim, matrices);
         let init = |_: &_,
                     pipeline: &mut &mut (dyn RenderPipeline<'p> + 'p),
@@ -1487,4 +1426,247 @@ impl ModularFrameDecoder {
     pub fn global_header(&self) -> &GroupHeader {
         &self.global_header
     }
+}
+
+/// FinalizeDecoding's ModularToRect tasks with concurrent rendering (port
+/// ADR 0003, "Concurrent decoder tasks"): each task borrows its group's
+/// input planes from the split pipeline's storage, fills them from the
+/// shared image outside every section, counts the pass, renders through the
+/// shared render view and returns the planes.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "The FinalizeDecoding locals the group tasks read."
+)]
+fn render_groups_concurrent(
+    header: &FrameHeader<'_>,
+    gi: &Image,
+    context: &ModularGroupContext<'_>,
+    frame_dim: &FrameDimensions,
+    matrices: &DequantMatrices,
+    split: crate::jxl::render_pipeline::low_memory_render_pipeline::ConcurrentRender<'_>,
+    use_group_ids: bool,
+    pool: Option<&ThreadPool>,
+) -> Status {
+    use crate::jxl::render_pipeline::low_memory_render_pipeline::ConcurrentStorage;
+    let crate::jxl::render_pipeline::low_memory_render_pipeline::ConcurrentRender {
+        cx,
+        mut storage,
+    } = split;
+    let read = (header, gi, context, frame_dim, matrices, cx);
+    let init = |read: &(
+        &FrameHeader<'_>,
+        &Image,
+        &ModularGroupContext<'_>,
+        &FrameDimensions,
+        &DequantMatrices,
+        crate::jxl::render_pipeline::low_memory_render_pipeline::RenderCx<
+            '_,
+            dyn crate::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage + Sync + '_,
+        >,
+    ),
+                storage: &mut ConcurrentStorage<'_>,
+                num_threads: usize|
+     -> Status {
+        read.5
+            .prepare_for_threads(num_threads, use_group_ids, storage.s)
+    };
+    let process_group = |read: &(
+        &FrameHeader<'_>,
+        &Image,
+        &ModularGroupContext<'_>,
+        &FrameDimensions,
+        &DequantMatrices,
+        crate::jxl::render_pipeline::low_memory_render_pipeline::RenderCx<
+            '_,
+            dyn crate::jxl::render_pipeline::render_pipeline_stage::RenderPipelineStage + Sync + '_,
+        >,
+    ),
+                         storage: &ExclusiveSection<'_, ConcurrentStorage<'_>>,
+                         group: u32,
+                         thread_id: usize|
+     -> Status {
+        let (header, gi, context, frame_dim, matrices, cx) = read;
+        let group = group as usize;
+        let (buffers, set, planes) = storage.with(|s| {
+            s.check_group(group);
+            let buffers = cx.prepare_buffers_impl(group, thread_id, s.s.use_group_ids());
+            let set = buffers.first().map_or(0, |b| b.0);
+            let planes = s.s.take_input_planes(set);
+            (buffers, set, planes)
+        });
+        let mut input = RenderPipelineInput::lent(group, thread_id, buffers, set, planes);
+        let filled = context.modular_image_to_decoded_rect(
+            header,
+            gi,
+            Some(*matrices),
+            &mut input,
+            frame_dim.group_rect(group),
+        );
+        let (_, _, set, mut planes) = input.into_lent();
+        let status = filled
+            .and_then(|()| storage.with(|s| s.input_ready(group)))
+            .and_then(|()| {
+                cx.process_buffers_with(group, thread_id, &mut planes, &mut |f| {
+                    storage.with(|s| f(s.s))
+                })
+            });
+        storage.with(|s| s.s.restore_input_planes(set, planes));
+        status
+    };
+    // SAFETY: The exclusive part is the split pipeline's storage (planes,
+    // per-thread buffers, borders, pass counts), plain owners without thread
+    // affinity that nothing else uses until this call returns; the shared
+    // part, the render view included, is checked Sync.
+    unsafe {
+        run_on_pool_shared(
+            pool,
+            0,
+            frame_dim.num_groups as u32,
+            &read,
+            &mut storage,
+            init,
+            process_group,
+        )
+    }
+}
+
+/// DecodeVarDCTDC's DequantDC of a decoded group image into the decoder's DC
+/// storage, at the group's rect.
+pub fn commit_var_dct_dc(
+    header: &FrameHeader<'_>,
+    rect: Rect,
+    image: &Image,
+    multiplier: f32,
+    state: &mut PassesDecoderState<'_, '_>,
+) {
+    let factors = *state.shared().quantizer.mul_dc();
+    let cfl_factors = *state.shared().cmap.base().dc_factors();
+    let storage = &mut state.shared_storage;
+    let block_context = match &state.shared {
+        DecoderShared::Own => &storage.block_ctx_map,
+        DecoderShared::External(shared) => &shared.block_ctx_map,
+    };
+    // vardct kernels: HWY_DYNAMIC_DISPATCH(DequantDC).
+    match super::hwy::decoder_target() {
+        Some(t) => super::compressed_dc_simd::dequant_dc_simd(
+            t,
+            rect,
+            &mut storage.dc_storage,
+            &mut storage.quant_dc,
+            image,
+            &factors,
+            multiplier,
+            &cfl_factors,
+            &header.chroma_subsampling,
+            block_context,
+        ),
+        None => dequant_dc(
+            rect,
+            &mut storage.dc_storage,
+            &mut storage.quant_dc,
+            image,
+            &factors,
+            multiplier,
+            &cfl_factors,
+            &header.chroma_subsampling,
+            block_context,
+        ),
+    }
+}
+
+/// A DC group's decoded AC metadata image (DecodeAcMetadata's `image`), its
+/// strategy count and its color-correlation rect.
+pub struct AcMetadataImage {
+    image: Image,
+    count: usize,
+    color_rect: Rect,
+}
+
+/// DecodeAcMetadata's writes of a decoded metadata image into the decoder's
+/// color-correlation maps, strategy, quant field, sharpness, used strategies
+/// and sigma, at the group's rect.
+pub fn commit_ac_metadata(
+    header: &FrameHeader<'_>,
+    rect: Rect,
+    metadata: &AcMetadataImage,
+    state: &mut PassesDecoderState<'_, '_>,
+) -> Status {
+    convert_plane_and_clamp_i32_to_i8(
+        Rect::new(
+            0,
+            0,
+            metadata.image.channel[0].plane.xsize(),
+            metadata.image.channel[0].plane.ysize(),
+        ),
+        &metadata.image.channel[0].plane,
+        metadata.color_rect,
+        &mut state.shared_storage.cmap.ytox_map,
+    )?;
+    convert_plane_and_clamp_i32_to_i8(
+        Rect::new(
+            0,
+            0,
+            metadata.image.channel[1].plane.xsize(),
+            metadata.image.channel[1].plane.ysize(),
+        ),
+        &metadata.image.channel[1].plane,
+        metadata.color_rect,
+        &mut state.shared_storage.cmap.ytob_map,
+    )?;
+    let mut num = 0;
+    let is444 = header.chroma_subsampling.is_444();
+    let strategy = &mut state.shared_storage.ac_strategy;
+    let xlim = strategy.xsize().min(rect.x0() + rect.xsize());
+    let ylim = strategy.ysize().min(rect.y0() + rect.ysize());
+    let mut local_used = 0;
+    for iy in 0..rect.ysize() {
+        let y = rect.y0() + iy;
+        let quant_row = &mut state.shared_storage.raw_quant_field.row_mut(y)[rect.x0()..];
+        let sharp_row = &mut state.shared_storage.epf_sharpness.row_mut(y)[rect.x0()..];
+        let strategies = metadata.image.channel[2].plane.row(0);
+        let quants = metadata.image.channel[2].plane.row(1);
+        let sharpness = metadata.image.channel[3].plane.row(iy);
+        for ix in 0..rect.xsize() {
+            let x = rect.x0() + ix;
+            let sharp = sharpness[ix];
+            if sharp < 0 || sharp >= EPF_SHARP_ENTRIES as i32 {
+                return Err(StatusCode::GenericError);
+            }
+            sharp_row[ix] = sharp as u8;
+            if strategy.is_valid(x, y) {
+                continue;
+            }
+            if num >= metadata.count {
+                return Err(StatusCode::GenericError);
+            }
+            if !AcStrategy::is_raw_strategy_valid(strategies[num]) {
+                return Err(StatusCode::GenericError);
+            }
+            local_used |= 1u32 << strategies[num];
+            let acs = AcStrategy::from_raw_strategy(AcStrategyType(strategies[num] as u32));
+            if (acs.covered_blocks_x() > 1 || acs.covered_blocks_y() > 1) && !is444 {
+                return Err(StatusCode::GenericError);
+            }
+            let next_x_group = (x / super::frame_dimensions::GROUP_DIM_IN_BLOCKS + 1)
+                * super::frame_dimensions::GROUP_DIM_IN_BLOCKS;
+            let next_y_group = (y / super::frame_dimensions::GROUP_DIM_IN_BLOCKS + 1)
+                * super::frame_dimensions::GROUP_DIM_IN_BLOCKS;
+            let next_x = x + acs.covered_blocks_x();
+            let next_y = y + acs.covered_blocks_y();
+            if next_x > next_x_group || next_x > xlim {
+                return Err(StatusCode::GenericError);
+            }
+            if next_y > next_y_group || next_y > ylim {
+                return Err(StatusCode::GenericError);
+            }
+            strategy.set_no_bounds_check(x, y, AcStrategyType(strategies[num] as u32), true)?;
+            quant_row[ix] = 1 + quants[num].clamp(0, Quantizer::QUANT_MAX - 1);
+            num += 1;
+        }
+    }
+    state.used_acs.fetch_or(local_used, Ordering::SeqCst);
+    if header.loop_filter.epf_iters > 0 {
+        compute_sigma(&header.loop_filter, rect, state)?;
+    }
+    Ok(())
 }
