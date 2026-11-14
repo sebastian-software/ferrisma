@@ -1287,7 +1287,6 @@ their own Clang), so only the hosted run can settle it.
 oracle selects `HWY_AVX2`, that the four failures above pass, and that the
 results that passed against the static build still pass.
 <!-- end avx2 oracle -->
-||||||| parent of a5f20a55 (docs(jxl): list the encoder Highway exports the engine's two profiles reach)
 
 
 <!-- encoder simd -->
