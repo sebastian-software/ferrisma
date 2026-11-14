@@ -1,0 +1,18 @@
+# Decode timing harness for the JPEG XL port, the Rust side of a pair with
+# jxl_decode_bench.c. Its own workspace so that it builds against the port
+# without becoming a member of the repository workspace; the release profile
+# repeats the repository's ([profile.release] panic = "unwind", otherwise
+# Cargo's defaults: opt-level 3, no LTO).
+[package]
+name = "jxl-decode-bench"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+libjxl-rs = { path = "../../../../codecs/libjxl-rs" }
+
+[profile.release]
+panic = "unwind"
+
+[workspace]
