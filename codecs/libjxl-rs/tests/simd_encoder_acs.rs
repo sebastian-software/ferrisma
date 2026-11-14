@@ -1276,3 +1276,566 @@ fn enc_simd_process_rect_acs_through_the_encoder_dispatch_matches_the_original_t
         requests.len()
     );
 }
+
+// The 8-lane structure ------------------------------------------------------
+
+/// The 8-lane structure of the AC strategy search, exercised natively on
+/// AArch64. `Neon8` is the 8-lane descriptor of tests/simd_vardct_lanes8.rs
+/// (two NEON vectors, every lane-wise operation NEON's on each half), with
+/// `sum_of_lanes` in Highway's AVX2 reduction order. EstimateEntropy depends
+/// on the lane count (the coefficient loop step, the masking bound
+/// `x + ix * 8 + dx + Lanes(df8) <= mask1x1_xsize`, the lane accumulators
+/// and their reductions), so its 8-lane result differs from NEON's 4-lane
+/// one by design; it is compared with a lane-explicit model written from
+/// the original's loop for eight lanes over the same transforms. This is
+/// not AVX2 parity, which only the AVX2 oracle run shows.
+#[cfg(target_arch = "aarch64")]
+mod lanes8 {
+    use super::*;
+    use core::arch::aarch64::*;
+    use jxl::jxl::base::bits::ceil_log2_nonzero;
+    use jxl::jxl::dec_transforms_simd::transform_to_pixels_d;
+    use jxl::jxl::enc_ac_strategy_simd::{estimate_entropy_d, process_rect_acs_d};
+    use jxl::jxl::enc_transforms_simd::transform_from_pixels_d;
+    use jxl::jxl::hwy::{Neon, SimdF32};
+    use jxl::jxl::quant_weights_simd::fast_powf_simd;
+
+    #[derive(Clone, Copy, Debug)]
+    struct Neon8(Neon);
+
+    macro_rules! halves {
+        ($s:ident, $f:ident, $($a:ident),*) => {
+            [$s.0.$f($($a[0]),*), $s.0.$f($($a[1]),*)]
+        };
+    }
+
+    impl SimdF32 for Neon8 {
+        type V = [float32x4_t; 2];
+        type I = [int32x4_t; 2];
+        type M = [uint32x4_t; 2];
+        const LANES: usize = 8;
+        const NAME: &'static str = "NEON x2";
+        fn set(self, v: f32) -> Self::V {
+            [self.0.set(v), self.0.set(v)]
+        }
+        fn zero(self) -> Self::V {
+            [self.0.zero(), self.0.zero()]
+        }
+        fn load(self, src: &[f32]) -> Self::V {
+            let src = &src[..8];
+            [self.0.load(src), self.0.load(&src[4..])]
+        }
+        fn store(self, v: Self::V, dst: &mut [f32]) {
+            let dst = &mut dst[..8];
+            self.0.store(v[0], dst);
+            self.0.store(v[1], &mut dst[4..]);
+        }
+        fn load_bits(self, src: &[u32]) -> Self::V {
+            let src = &src[..8];
+            [self.0.load_bits(src), self.0.load_bits(&src[4..])]
+        }
+        fn store_bits(self, v: Self::V, dst: &mut [u32]) {
+            let dst = &mut dst[..8];
+            self.0.store_bits(v[0], dst);
+            self.0.store_bits(v[1], &mut dst[4..]);
+        }
+        fn store_i32(self, v: Self::I, dst: &mut [i32]) {
+            let dst = &mut dst[..8];
+            self.0.store_i32(v[0], dst);
+            self.0.store_i32(v[1], &mut dst[4..]);
+        }
+        fn get_lane(self, v: Self::V) -> f32 {
+            self.0.get_lane(v[0])
+        }
+        fn add(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, add, a, b)
+        }
+        fn sub(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, sub, a, b)
+        }
+        fn mul(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, mul, a, b)
+        }
+        fn div(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, div, a, b)
+        }
+        fn mul_add(self, m: Self::V, x: Self::V, a: Self::V) -> Self::V {
+            halves!(self, mul_add, m, x, a)
+        }
+        fn neg_mul_add(self, m: Self::V, x: Self::V, a: Self::V) -> Self::V {
+            halves!(self, neg_mul_add, m, x, a)
+        }
+        fn mul_sub(self, m: Self::V, x: Self::V, a: Self::V) -> Self::V {
+            halves!(self, mul_sub, m, x, a)
+        }
+        fn neg_mul_sub(self, m: Self::V, x: Self::V, a: Self::V) -> Self::V {
+            halves!(self, neg_mul_sub, m, x, a)
+        }
+        fn min(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, min, a, b)
+        }
+        fn max(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, max, a, b)
+        }
+        fn abs(self, v: Self::V) -> Self::V {
+            halves!(self, abs, v)
+        }
+        fn neg(self, v: Self::V) -> Self::V {
+            halves!(self, neg, v)
+        }
+        fn abs_diff(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, abs_diff, a, b)
+        }
+        fn sqrt(self, v: Self::V) -> Self::V {
+            halves!(self, sqrt, v)
+        }
+        fn approximate_reciprocal(self, v: Self::V) -> Self::V {
+            halves!(self, approximate_reciprocal, v)
+        }
+        fn approximate_reciprocal_sqrt(self, v: Self::V) -> Self::V {
+            halves!(self, approximate_reciprocal_sqrt, v)
+        }
+        fn floor(self, v: Self::V) -> Self::V {
+            halves!(self, floor, v)
+        }
+        fn ceil(self, v: Self::V) -> Self::V {
+            halves!(self, ceil, v)
+        }
+        fn round(self, v: Self::V) -> Self::V {
+            halves!(self, round, v)
+        }
+        fn trunc(self, v: Self::V) -> Self::V {
+            halves!(self, trunc, v)
+        }
+        fn zero_if_negative(self, v: Self::V) -> Self::V {
+            halves!(self, zero_if_negative, v)
+        }
+        fn copy_sign(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, copy_sign, a, b)
+        }
+        fn copy_sign_to_abs(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, copy_sign_to_abs, a, b)
+        }
+        fn and(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, and, a, b)
+        }
+        fn or(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, or, a, b)
+        }
+        fn xor(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, xor, a, b)
+        }
+        fn and_not(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, and_not, a, b)
+        }
+        fn lt(self, a: Self::V, b: Self::V) -> Self::M {
+            halves!(self, lt, a, b)
+        }
+        fn le(self, a: Self::V, b: Self::V) -> Self::M {
+            halves!(self, le, a, b)
+        }
+        fn gt(self, a: Self::V, b: Self::V) -> Self::M {
+            halves!(self, gt, a, b)
+        }
+        fn ge(self, a: Self::V, b: Self::V) -> Self::M {
+            halves!(self, ge, a, b)
+        }
+        fn eq(self, a: Self::V, b: Self::V) -> Self::M {
+            halves!(self, eq, a, b)
+        }
+        fn ne(self, a: Self::V, b: Self::V) -> Self::M {
+            halves!(self, ne, a, b)
+        }
+        fn vec_from_mask(self, m: Self::M) -> Self::V {
+            halves!(self, vec_from_mask, m)
+        }
+        fn if_then_else(self, m: Self::M, y: Self::V, n: Self::V) -> Self::V {
+            halves!(self, if_then_else, m, y, n)
+        }
+        fn if_then_zero_else(self, m: Self::M, n: Self::V) -> Self::V {
+            halves!(self, if_then_zero_else, m, n)
+        }
+        fn if_then_else_zero(self, m: Self::M, y: Self::V) -> Self::V {
+            halves!(self, if_then_else_zero, m, y)
+        }
+        fn convert_to_i32(self, v: Self::V) -> Self::I {
+            halves!(self, convert_to_i32, v)
+        }
+        fn convert_to_f32(self, v: Self::I) -> Self::V {
+            halves!(self, convert_to_f32, v)
+        }
+        fn nearest_int(self, v: Self::V) -> Self::I {
+            halves!(self, nearest_int, v)
+        }
+        fn bitcast_to_i32(self, v: Self::V) -> Self::I {
+            halves!(self, bitcast_to_i32, v)
+        }
+        fn bitcast_to_f32(self, v: Self::I) -> Self::V {
+            halves!(self, bitcast_to_f32, v)
+        }
+        fn add_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, add_i32, a, b)
+        }
+        fn sub_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, sub_i32, a, b)
+        }
+        fn min_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, min_i32, a, b)
+        }
+        fn max_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, max_i32, a, b)
+        }
+        fn lt_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, lt_i32, a, b)
+        }
+        fn eq_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, eq_i32, a, b)
+        }
+        fn gt_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, gt_i32, a, b)
+        }
+        fn shift_left_i32<const B: i32>(self, v: Self::I) -> Self::I {
+            [
+                self.0.shift_left_i32::<B>(v[0]),
+                self.0.shift_left_i32::<B>(v[1]),
+            ]
+        }
+        fn shift_right_i32<const B: i32>(self, v: Self::I) -> Self::I {
+            [
+                self.0.shift_right_i32::<B>(v[0]),
+                self.0.shift_right_i32::<B>(v[1]),
+            ]
+        }
+        fn shift_right_u32<const B: i32>(self, v: Self::I) -> Self::I {
+            [
+                self.0.shift_right_u32::<B>(v[0]),
+                self.0.shift_right_u32::<B>(v[1]),
+            ]
+        }
+        // Highway's AVX2 SumOfLanes (x86_256-inl.h): the two 128-bit halves
+        // added lane-wise, then (s0 + s3) + (s1 + s2) within the block.
+        fn sum_of_lanes(self, v: Self::V) -> Self::V {
+            let mut a = [0.0f32; 8];
+            self.store(v, &mut a);
+            let s: [f32; 4] = std::array::from_fn(|j| a[j] + a[j + 4]);
+            self.set((s[0] + s[3]) + (s[1] + s[2]))
+        }
+        fn max_of_lanes(self, _: Self::V) -> Self::V {
+            unimplemented!("lane-crossing")
+        }
+        fn min_of_lanes(self, _: Self::V) -> Self::V {
+            unimplemented!("lane-crossing")
+        }
+        fn interleave_lower(self, _: Self::V, _: Self::V) -> Self::V {
+            unimplemented!("lane-crossing")
+        }
+        fn interleave_upper(self, _: Self::V, _: Self::V) -> Self::V {
+            unimplemented!("lane-crossing")
+        }
+        fn store_interleaved2(self, _: Self::V, _: Self::V, _: &mut [f32]) {
+            unimplemented!("lane-crossing")
+        }
+        fn store_interleaved3(self, _: Self::V, _: Self::V, _: Self::V, _: &mut [f32]) {
+            unimplemented!("lane-crossing")
+        }
+        fn load_dup128(self, _: &[f32]) -> Self::V {
+            unimplemented!("lane-crossing")
+        }
+        fn broadcast<const LANE: i32>(self, _: Self::V) -> Self::V {
+            unimplemented!("lane-crossing")
+        }
+        fn store_demote_to_f16(self, _: Self::V, _: &mut [u16]) {
+            unimplemented!("not used by the VarDCT kernels")
+        }
+        // Signed 32-bit operations of the modular and stages2 packages, each half
+        // through the NEON implementation. The VarDCT kernels do not use them;
+        // they are here because the layer trait requires them.
+        fn set_i32(self, v: i32) -> Self::I {
+            [self.0.set_i32(v), self.0.set_i32(v)]
+        }
+        fn load_i32(self, src: &[i32]) -> Self::I {
+            let src = &src[..8];
+            [self.0.load_i32(src), self.0.load_i32(&src[4..])]
+        }
+        fn and_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, and_i32, a, b)
+        }
+        fn xor_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, xor_i32, a, b)
+        }
+        fn abs_i32(self, v: Self::I) -> Self::I {
+            halves!(self, abs_i32, v)
+        }
+        fn neg_i32(self, v: Self::I) -> Self::I {
+            halves!(self, neg_i32, v)
+        }
+        fn ne_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, ne_i32, a, b)
+        }
+        fn if_then_else_i32(self, m: Self::I, yes: Self::I, no: Self::I) -> Self::I {
+            halves!(self, if_then_else_i32, m, yes, no)
+        }
+        fn if_then_zero_else_i32(self, m: Self::I, no: Self::I) -> Self::I {
+            halves!(self, if_then_zero_else_i32, m, no)
+        }
+        fn mul_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, mul_i32, a, b)
+        }
+        // Block-wise on AVX2, so one NEON operation per 128-bit half gives the
+        // AVX2 block structure (Highway x86_256-inl.h at the pinned revision):
+        // MulEven is `_mm256_mul_epi32`, which multiplies the low 32 bits of each
+        // 64-bit element (lanes 0, 2 | 4, 6); MulOdd for 32-bit lanes is
+        // `MulEven(DupOdd(a), DupOdd(b))` (x86_128-inl.h), DupOdd shuffling
+        // within each block; InterleaveOdd (non-AVX3 path) is two
+        // `_mm256_shuffle_ps`, each per 128-bit lane, giving a1 b1 a3 b3 | a5 b5
+        // a7 b7; TableLookupBytes is `_mm256_shuffle_epi8`, which looks up within
+        // each 128-bit lane. Per half, the byte-index rule stays NEON's
+        // (`vqtbl1q_u8`), as every operation of this descriptor does.
+        fn mul_even_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, mul_even_i32, a, b)
+        }
+        fn mul_odd_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, mul_odd_i32, a, b)
+        }
+        fn interleave_odd_i32(self, a: Self::I, b: Self::I) -> Self::I {
+            halves!(self, interleave_odd_i32, a, b)
+        }
+        fn table_lookup_bytes(self, bytes: Self::I, from: Self::I) -> Self::I {
+            halves!(self, table_lookup_bytes, bytes, from)
+        }
+    }
+
+    /// The original EstimateEntropy for eight lanes, lane by lane.
+    fn model(
+        acs: &AcStrategy,
+        entropy_mul: f32,
+        x: usize,
+        y: usize,
+        config: &AcsConfig<'_>,
+        cmap_factors: &[f32; 3],
+    ) -> f32 {
+        const L: usize = 8;
+        let d = Neon8(Neon::new());
+        let mut block = vec![0.0f32; BLOCK_WORDS];
+        let mut scratch = vec![0.0f32; SCRATCH_WORDS];
+        let size = (1usize << acs.log2_covered_blocks()) * 64;
+        for c in 0..3 {
+            transform_from_pixels_d(
+                d,
+                acs.strategy(),
+                config.pixel(c, x, y),
+                config.src_stride,
+                &mut block[size * c..],
+                &mut scratch[MAX_COEFF_AREA..],
+            );
+        }
+        let (cbx, cby) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+        let num_blocks = cbx * cby;
+        let quant_norm16 = if num_blocks == 1 {
+            config.quant(x / 8, y / 8)
+        } else if num_blocks == 2 {
+            let other = if cby == 2 {
+                config.quant(x / 8, y / 8 + 1)
+            } else {
+                config.quant(x / 8 + 1, y / 8)
+            };
+            let first = config.quant(x / 8, y / 8);
+            if first < other { other } else { first }
+        } else {
+            let mut sum = 0.0f32;
+            for iy in 0..cby {
+                for ix in 0..cbx {
+                    let q = config.quant(x / 8 + ix, y / 8 + iy);
+                    let q8 = (q * q) * (q * q);
+                    let q8 = q8 * q8;
+                    sum = q8.mul_add(q8, sum);
+                }
+            }
+            fast_powf_simd(
+                Target::detect().unwrap(),
+                sum / num_blocks as f32,
+                1.0 / 16.0,
+            )
+        };
+        let reduce = |a: [f32; L]| {
+            let s: [f32; 4] = std::array::from_fn(|j| a[j] + a[j + 4]);
+            (s[0] + s[3]) + (s[1] + s[2])
+        };
+        let mut entropy = 0.0f32;
+        let mut loss = [0.0f32; L];
+        for c in 0..3 {
+            let inv = config.dequant.inv_matrix(acs.strategy(), c);
+            let matrix = config.dequant.matrix(acs.strategy(), c);
+            let mut entropy_v = [0.0f32; L];
+            let mut nzeros_v = [0.0f32; L];
+            let (mem, rest) = scratch.split_at_mut(MAX_COEFF_AREA);
+            for i in 0..num_blocks * 64 {
+                let val = (block[c * size + i] - block[size + i] * cmap_factors[c])
+                    * (inv[i] * quant_norm16);
+                let rval = val.round_ties_even();
+                mem[i] = matrix[i] * (val - rval);
+                let q = rval.abs();
+                entropy_v[i % L] += q.sqrt();
+                nzeros_v[i % L] += if q == 0.0 { 0.0 } else { 1.0 };
+            }
+            transform_to_pixels_d(d, acs.strategy(), mem, &mut block, cbx * 8, rest);
+            let off = [12.0f32, 0.0, 4.0][c];
+            let mut lossc = [0.0f32; L];
+            for iy in 0..cby {
+                for ix in 0..cbx {
+                    for dy in 0..8 {
+                        // One vector of eight lanes per block row.
+                        if x + ix * 8 + L <= config.mask1x1_xsize {
+                            let mask = config.masking_ptr1x1(x + ix * 8, y + iy * 8 + dy);
+                            for lane in 0..L {
+                                let v = block[(iy * 8 + dy) * (cbx * 8) + ix * 8 + lane];
+                                let mut v = (mask[lane] + off) * v;
+                                v *= v;
+                                v *= v;
+                                v *= v;
+                                lossc[lane] += v;
+                            }
+                        }
+                    }
+                }
+            }
+            let mul = [8.2f64.powf(8.0), 1.0f64.powf(8.0), 1.03f64.powf(8.0)][c] as f32;
+            for lane in 0..L {
+                loss[lane] += mul * lossc[lane];
+            }
+            entropy = config.cost_delta.mul_add(reduce(entropy_v), entropy);
+            let nbits = ceil_log2_nonzero(reduce(nzeros_v) as usize + 1) + 1;
+            entropy = config
+                .zeros_mul
+                .mul_add((ceil_log2_nonzero(nbits + 17) + nbits) as f32, entropy);
+            if c == 0 && num_blocks >= 2 {
+                let w = (1.0 + 3.0f64.min(num_blocks as f64 / 8.0)) as f32;
+                entropy *= w;
+                for l in &mut loss {
+                    *l *= w;
+                }
+            }
+        }
+        let n = (num_blocks * 64) as f32;
+        let loss_scalar = (reduce(loss) / n).powf(1.0 / 8.0) * n / quant_norm16;
+        entropy *= entropy_mul;
+        config.info_loss_multiplier.mul_add(loss_scalar, entropy)
+    }
+
+    #[test]
+    fn eight_lane_estimate_entropy_follows_the_original_loop_structure() {
+        let d = Neon8(Neon::new());
+        let mut cases = 0;
+        let mut four_differs = 0;
+        for raw in 0..AcStrategyType::DCT128X128.0 {
+            let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+            let (w, h) = (8 * acs.covered_blocks_x(), 8 * acs.covered_blocks_y());
+            for (si, &(xsize, ysize)) in SIZES.iter().enumerate() {
+                if w > xsize || h > ysize {
+                    continue;
+                }
+                let (x, y) = (xsize - w, (ysize - h) / 16 * 8);
+                // Every cut of the masking width around the strategy's
+                // columns: 4- and 8-lane bounds differ at x + 4 .. x + 7.
+                for (mi, m) in (0..=8).map(|k| x + k).chain([x + w - 3, xsize]).enumerate() {
+                    let content = CONTENTS[(si + mi + raw as usize) % 4];
+                    let request = inputs(
+                        xsize,
+                        ysize,
+                        content,
+                        1.0,
+                        m.min(xsize),
+                        u64::from(raw) * 31 + mi as u64,
+                    );
+                    let mut args = request.split_whitespace();
+                    let inputs = Inputs::read(&mut args);
+                    let planes = inputs.planes();
+                    let config = AcsConfig::new(&inputs.scalars, &planes);
+                    let cmap = CMAPS[mi % 3];
+                    let mut block = vec![0.0f32; BLOCK_WORDS + MAX_LANES];
+                    let mut scratch = vec![0.0f32; SCRATCH_WORDS];
+                    let mut quantized = vec![0u32; MAX_COEFF_AREA];
+                    let mut eight = 0.0f32;
+                    estimate_entropy_d(
+                        d,
+                        &acs,
+                        1.21,
+                        x,
+                        y,
+                        &config,
+                        &cmap,
+                        &mut block,
+                        &mut scratch,
+                        &mut quantized,
+                        &mut eight,
+                    )
+                    .unwrap();
+                    let expected = model(&acs, 1.21, x, y, &config, &cmap);
+                    assert_eq!(
+                        eight.to_bits(),
+                        expected.to_bits(),
+                        "strategy {raw}, image {xsize}x{ysize}, mask1x1_xsize {m}"
+                    );
+                    let mut four = 0.0f32;
+                    estimate_entropy_d(
+                        Neon::new(),
+                        &acs,
+                        1.21,
+                        x,
+                        y,
+                        &config,
+                        &cmap,
+                        &mut block,
+                        &mut scratch,
+                        &mut quantized,
+                        &mut four,
+                    )
+                    .unwrap();
+                    four_differs += usize::from(four.to_bits() != eight.to_bits());
+                    cases += 1;
+                }
+            }
+        }
+        println!(
+            "8-lane EstimateEntropy: {cases} cases equal the model, {four_differs} differ from 4 lanes"
+        );
+        assert!(four_differs > 0);
+    }
+
+    /// The search above EstimateEntropy runs with eight lanes inside the
+    /// buffers PrepareForThreads sizes (no slice bound is hit).
+    #[test]
+    fn eight_lane_process_rect_acs_fits_its_buffers() {
+        let d = Neon8(Neon::new());
+        for (xsize, ysize) in [(136usize, 72usize), (24, 40)] {
+            let request = inputs(xsize, ysize, Content::Smooth, 1.0, xsize - 3, 5);
+            let mut args = request.split_whitespace();
+            let inputs = Inputs::read(&mut args);
+            let planes = inputs.planes();
+            let config = AcsConfig::new(&inputs.scalars, &planes);
+            let cmap = ColorCorrelationMap::create(xsize, ysize, true).unwrap();
+            let mut ac_strategy = AcStrategyImage::create(xsize / 8, ysize / 8).unwrap();
+            let mut memory = vec![0.0f32; 6 * MAX_COEFF_AREA + 3 * MAX_LANES * MAX_BLOCK_DIM];
+            let mut quantized = vec![0u32; MAX_COEFF_AREA];
+            for tier in [0, 3] {
+                let cparams = CompressParams {
+                    speed_tier: speed_tier(tier),
+                    ..CompressParams::default()
+                };
+                for (bx, by, w, h) in tiles(xsize, ysize) {
+                    process_rect_acs_d(
+                        d,
+                        &cparams,
+                        &config,
+                        Rect::new(bx, by, w, h),
+                        &cmap,
+                        &mut memory,
+                        &mut quantized,
+                        &mut ac_strategy,
+                    )
+                    .unwrap();
+                }
+            }
+        }
+    }
+}
