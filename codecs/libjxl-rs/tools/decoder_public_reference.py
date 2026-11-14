@@ -14,6 +14,7 @@ observations.
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import platform
 import runpy
@@ -32,8 +33,8 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def run(command, directory, name, *, data=None, cwd=ROOT):
-    result = subprocess.run(command, input=data, capture_output=True, cwd=cwd)
+def run(command, directory, name, *, data=None, cwd=ROOT, env=None):
+    result = subprocess.run(command, input=data, capture_output=True, cwd=cwd, env=env)
     (directory / (name + ".stdout")).write_bytes(result.stdout)
     (directory / (name + ".stderr")).write_bytes(result.stderr)
     if result.returncode:
@@ -152,7 +153,11 @@ def main():
         abi = {}
         for variant in ["original", "rust"]:
             driver = build / f"jxl_abi_{variant}"
-            observed = run([str(driver)], directory, f"abi-{variant}-observations", data=requests)
+            # jxl_abi_rust links the port built with cpp-oracle: it selects the
+            # scalar path from its environment, as in program_observations
+            # (port ADR 0004, "Which path a test runs").
+            observed = run([str(driver)], directory, f"abi-{variant}-observations", data=requests,
+                           env=dict(os.environ, JXL_DECODER_TARGET="scalar"))
             if observed.stdout != original or observed.stderr:
                 raise RuntimeError(f"The {variant} C ABI differs from the original public API")
             abi[variant] = {"binary_sha256": sha(driver.read_bytes()),
@@ -190,7 +195,12 @@ def main():
         binary = directory / "public-probe"
         run(["rustc", *prefix, "tools/decoder_public_probe.rs", "--edition=2024", *extern,
              "-L", f"dependency={lib.parent / 'deps'}", *rust_flags, "-o", str(binary)], directory, "probe-build")
-        observed = run([str(binary)], directory, "observations", data=requests)
+        # The probe links the port (built with cpp-oracle) and replays the histories
+        # through its public decoder in this child process, which the parity
+        # tests' override does not reach: it selects the scalar path as
+        # jxl_abi_rust does (port ADR 0004, "Which path a test runs").
+        observed = run([str(binary)], directory, "observations", data=requests,
+                       env=dict(os.environ, JXL_DECODER_TARGET="scalar"))
         if observed.stdout != original or observed.stderr:
             raise RuntimeError(f"Actual Rust {profile} differs from the original public API")
         rust[profile] = {"binary_sha256": sha(binary.read_bytes()), "observation_sha256": sha(observed.stdout)}

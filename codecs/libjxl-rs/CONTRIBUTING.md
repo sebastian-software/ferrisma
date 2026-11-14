@@ -205,6 +205,10 @@ kind, never through features or the environment:
 
 `tools/check.py --stage test` also sets `JXL_DECODER_TARGET=scalar`, which
 the oracle test builds read, as a second guard for the scalar gate.
+The audit tools (`tools/*_reference.py`) that run a parity filter or start a
+program linking the port set it the same way on that command. A test that
+reaches a decoder only through another module's request handler (an
+`fs-decode` request, for example) is a scalar-reference test too.
 
 The shared [PR workflow](../../.github/workflows/ci.yml) selects affected
 components. For JXL it runs checked-profile Rust tests and retained captures on

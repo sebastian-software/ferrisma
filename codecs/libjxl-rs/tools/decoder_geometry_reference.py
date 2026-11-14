@@ -188,7 +188,7 @@ def main():
     if args.requests:
         capture.write_bytes(args.requests.read_bytes())
     else:
-        env = dict(os.environ, CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2',
+        env = dict(os.environ, CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2', JXL_DECODER_TARGET='scalar',
                    JXL_CPP_ORACLE=str(ROOT / 'target/oracle/jxl_oracle'),
                    JXL_DECODER_GEOMETRY_CAPTURE=str(capture))
         with (output / 'capture.log').open('w') as log:

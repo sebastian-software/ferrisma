@@ -1086,3 +1086,38 @@ doctests do not decode. The engine's JPEG XL tests compare decoded pixels
 with jxl-oxide, with the source pixels under a bound, or between two decodes
 of the same input; none pins the port's decoded samples exactly.
 <!-- end enable: tests -->
+<!-- audit-fix: the audit tools -->
+### The audit tools (2026-11-14, evening)
+
+The scheduled nightly of 2026-11-14 (run 43578105956, `main` at `7d663784`)
+failed in `JXL: Audit (macos-latest, decoder)`: `tools/chroma_image_reference.py`
+runs `cargo test --all-features --test parity chroma_image::` outside
+`check.py`, and the three `chroma_image` tests of the parity binary did not
+select the scalar path. They send `fs-decode` requests, which
+`frame_sequences::observe` answers through a decoder entry point, so on
+AArch64 they decoded on NEON and compared with the scalar original. The
+selection above missed them because the file itself calls no entry point;
+it reaches one only through another module's request handler. The same
+audit's `decoder_public_reference.py` also starts two children that link the
+port, the `decoder_public_probe` replay and `jxl_abi_rust`, without
+`JXL_DECODER_TARGET=scalar`.
+
+- The three `chroma_image` tests now start with
+  `select_scalar_decoder_for_test()`, as every scalar-reference test does.
+- `decoder_public_reference.py` sets `JXL_DECODER_TARGET=scalar` on both
+  children (their libraries are built with `--all-features`, so with
+  `cpp-oracle`), as `program_observations` does for `jxl_abi_rust`.
+- Every audit tool that runs the parity binary against the scalar original
+  (`chroma_image`, `decoder_api`, `decoder_geometry`, `extra_channels`,
+  `icc_reader`, `jpeg_payload`, `jpeg_reconstruction`, `output_stage`,
+  `skcms`, `skcms_parser`, `skcms_transform`) sets
+  `JXL_DECODER_TARGET=scalar` on that `cargo test`, the second guard
+  `check.py`'s test stage has.
+
+Both mechanisms are independent of the target: they select the scalar path
+whatever `DECODER_SELECTS_SIMD` says, so they keep holding when x86-64 is
+switched on. No capture, reference or expected value changed. The audit
+tools' other children run only the original, a relinked original or a Rust
+probe that calls no decoder entry point (Brotli, box contents, decoder
+input, the CMS and skcms probes).
+<!-- end audit-fix -->

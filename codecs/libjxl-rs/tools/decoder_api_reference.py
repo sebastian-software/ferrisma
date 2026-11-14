@@ -102,7 +102,7 @@ def main():
                                  r'libjxl-internal\.a(?:\[\d+\])?\((?:.*/)?decode\.cc\.o\)$'),
             'DecoderApiCommand': (r'_+Z17DecoderApiCommand[^.]*', r'(?:^|/)decoder_api\.cc\.o$'),
         })
-    environment = dict(os.environ, JXL_CPP_ORACLE=str(ROOT / 'target/oracle/jxl_oracle'),
+    environment = dict(os.environ, JXL_DECODER_TARGET='scalar', JXL_CPP_ORACLE=str(ROOT / 'target/oracle/jxl_oracle'),
                        JXL_DECODER_API_REQUEST_CAPTURE=str(capture),
                        CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2')
     with (args.output / 'capture.log').open('w') as log:

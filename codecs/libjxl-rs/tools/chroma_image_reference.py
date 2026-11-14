@@ -133,7 +133,7 @@ def main():
     if len(manifest['cases']) != 25 or Counter(item['sampling'] for item in manifest['cases']) != Counter({name: 5 for name in ('444', '422', '420', '440', 'gray')}):
         raise RuntimeError('Genuine sampling/geometry fixture inventory changed')
     capture = output / 'requests.txt'
-    environment = dict(os.environ, CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2',
+    environment = dict(os.environ, CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2', JXL_DECODER_TARGET='scalar',
                        JXL_CHROMA_IMAGE_CAPTURE=str(capture))
     with (output / 'capture.log').open('w') as log:
         subprocess.run(['cargo', 'test', '--locked', '--offline', '--all-features', '--test', 'parity',

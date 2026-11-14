@@ -52,7 +52,7 @@ def main():
     check_source()
     capture = output / 'requests.txt'
     undefined_capture = output / 'source-undefined-requests.txt'
-    env = dict(os.environ, JXL_JPEG_PAYLOAD_CAPTURE=str(capture),
+    env = dict(os.environ, JXL_DECODER_TARGET='scalar', JXL_JPEG_PAYLOAD_CAPTURE=str(capture),
                JXL_JPEG_PAYLOAD_UNDEFINED_CAPTURE=str(undefined_capture),
                JXL_CPP_ORACLE=str(ROOT / 'target/oracle/jxl_oracle'))
     with (output / 'parity.log').open('w') as log:
