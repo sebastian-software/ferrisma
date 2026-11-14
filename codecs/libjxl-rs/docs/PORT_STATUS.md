@@ -304,6 +304,16 @@ exports the lossy profile reaches (six without alpha), the decode-path
 `Symmetric5` it runs, and the lossless profile's `enc_rct` and
 `enc_cluster` remain scalar only.
 <!-- end encoder simd -->
+<!-- encoder acs -->
+Encoder SIMD, `enc_ac_strategy` (2026-11-14, branch `v1/jxl-enc-acs`, ADR
+0004 "Encoder path"): the `ProcessRectACS` export (EstimateEntropy,
+FindBest8x8Transform, TryMergeAcs, FindBestFirstLevelDivisionForSquare,
+ProcessRectACS) is translated in `enc_ac_strategy_simd.rs` and dispatched
+from `AcStrategyHeuristics::process_rect` on `hwy::encoder_target()` (off
+by default), with parity of costs and decisions against the original's
+NEON and AVX2 builds (`tests/simd_encoder_acs.rs`). Init, PrepareForThreads
+and Finalize are outside the export and stay scalar.
+<!-- end encoder acs -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 

@@ -1558,3 +1558,86 @@ local and broadcasts that, the same lanes. `DequantMatrices::set_dc_quant`
 lost a signaling NaN's payload after LLVM merged its copy into the division
 (`dc / 1.0`) in one x86-64 build; the copy is now a separate array copy.
 <!-- end enable-x86 -->
+
+<!-- encoder acs -->
+## Encoder path: `enc_ac_strategy` (2026-11-14, branch `v1/jxl-enc-acs`)
+
+Addendum to "Encoder path", "Translated so far".
+
+`enc_ac_strategy_simd.rs` translates the whole `HWY_NAMESPACE` part of
+enc_ac_strategy.cc, the `ProcessRectACS` export, for NEON and AVX2, written
+once against `SimdF32`, in four units:
+
+- EstimateEntropy (the entropy estimate): the in-namespace SIMD
+  TransformFromPixels and TransformToPixels (`enc_transforms_simd`,
+  `dec_transforms_simd`; nothing duplicated), fast_math-inl.h's one-lane
+  vector FastPowf, the target's `SumOfLanes`, and the masking loop with
+  `Lanes(df8)` in its bound. `HWY_FULL(float)` and `HWY_CAPPED(float, 8)`
+  are the same descriptor on both targets, so the result depends on the
+  lane count by design (NEON and AVX2 give different words).
+- FindBest8x8Transform (the per-strategy cost evaluation of the ten 8x8
+  candidates).
+- TryMergeAcs and FindBestFirstLevelDivisionForSquare (the block-level
+  merges); the boundary checks, SetEntropyForTransform and the strategy
+  helpers have no floating-point or vector code and are the scalar
+  translation's.
+- ProcessRectACS itself, dispatched from `AcStrategyHeuristics::process_rect`
+  on `hwy::encoder_target()` (`HWY_DYNAMIC_DISPATCH(ProcessRectACS)`).
+
+The scalar statements inside `HWY_NAMESPACE` carry FMA on both targets, so
+the sites the scalar translation fuses only on AArch64 are fused on x86-64
+too: `quant_norm16 += qval * qval`, EstimateEntropy's three `entropy += a *
+b`, FindBest8x8Transform's two `entropy_mul` adjustments and the inlined
+`YtoXRatio`/`YtoBRatio` (`y_to_x_ratio_simd`). Init, PrepareForThreads and
+Finalize (the finalization: block counting into `AuxOut`) lie outside
+`HWY_NAMESPACE`; they stay the scalar translation's, and the SIMD path runs
+them unchanged. Remaining differences from the original's SIMD build: Init
+computes the dequant matrices through `ensure_computed_in`, whose
+ComputeQuantTable follows `decoder_target()` (scalar outside decoding),
+while the original's Init runs the target's ComputeQuantTable; and
+PrepareForThreads sizes the DCT scratch with the scalar `MAX_VECTOR_SIZE`
+(no word depends on that size up to 64x64 transforms). Both belong to
+condition (b) above; the parity tests compute the target's matrices first.
+
+`tests/simd_encoder_acs.rs` against tools/oracle/encoder_acs_simd.cc
+(`esa-*`; the target namespace's functions, external linkage, and the
+original AcStrategyHeuristics for `esa-rect`; buffers 128-byte aligned,
+sized as PrepareForThreads for 8 lanes, sentinel-filled, every written
+word printed) compares costs and decisions word for word: `esa-entropy`
+(every strategy below DCT128X128, three image sizes, three positions, five
+contents with the special words, four `mask1x1_xsize` cuts, four distances),
+`esa-best8` (eight distances across the 4, 5 and 12 thresholds, six speed
+tiers), `esa-merge` and `esa-square` (every tile of three images, nine
+merge strategies, priorities, aligned and floating layouts and positions,
+blocks 2/4/8 with and without the square) and `esa-rect` (through the
+dispatching `process_rect` with the encoder's selection forced: six image
+sizes up to 200x136, speed tiers Glacier to Hare and Falcon, decoding tiers
+0/1/2/4; the strategy image, Finalize's counts and the thread's block and
+first `kMaxCoeffArea` scratch words). Each family shows that the scalar
+translation differs; in `esa-rect` it differs only in the costs: the scalar
+and SIMD searches chose the same strategies in all 178 requests, so a
+comparison of the decisions alone would not tell the paths apart. An
+AArch64-only module checks the 8-lane structure (an 8-lane descriptor of
+two NEON halves with AVX2's reduction order against a lane-explicit model
+of the original's loop, every masking cut around the strategy's columns).
+
+| Family | Requests | Words (NEON) | Words (AVX2) |
+| --- | --- | --- | --- |
+| `esa-entropy` | 945 | 46,610,865 | 46,822,545 |
+| `esa-best8` | 720 | 47,440,800 | 47,498,400 |
+| `esa-merge` | 705 | 28,640,093 | 28,757,517 |
+| `esa-square` | 440 | 20,889,552 | 20,998,640 |
+| `esa-rect` | 178 | 29,825,905 | 29,825,905 |
+
+Zero differing words on both targets (M1 Ultra; AVX2 under Rosetta 2 with
+`ROSETTA_ADVERTISE_AVX=1` for the SIMD test binary only, against the AVX2
+dispatch-build oracle built with `build_simd_oracle`'s CMake flags). The
+scratch word counts differ between the targets because the scratch layout
+follows the lane count. The AVX2 run found no defect; the hosted Linux
+x86-64 run (alignment, real hardware) is still owed.
+
+With this export the lossy profile's encoder exports still untranslated on
+this branch are `enc_chroma_from_luma`, `enc_adaptive_quantization`, `enc_cluster`,
+`enc_entropy_coder`, `enc_ans_simd` (and `enc_ma`, `enc_modular_simd` with
+alpha), plus `Symmetric5`; nothing of `enc_ac_strategy` remains.
+<!-- end encoder acs -->
