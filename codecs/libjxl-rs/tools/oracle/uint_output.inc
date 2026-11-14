@@ -1,7 +1,20 @@
 // Copyright (c) the JPEG XL Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license in LICENSE.
 // Execute the pristine scalar kernel and integer buffer conversion routines.
+#if defined(ORACLE_HWY_DISPATCH)
+// The AVX2 dispatch variant: dec_modular.cc's foreach_target already ran in
+// this TU (sample_conversion.cc), so the pristine dec_external_image.cc would
+// compile only the static target and replace the archive's dispatch
+// functions (oracle_target.h). The archive supplies them instead; the
+// kernels are its N_AVX2 functions.
+#include "lib/jxl/dec_external_image.h"
+namespace jxl { namespace ORACLE_HWY_NS {
+void FloatToU32(const float* in, uint32_t* out, size_t num, float mul, size_t bits_per_sample);
+void FloatToF16(const float* in, hwy::float16_t* out, size_t num);
+}}
+#else
 #include "lib/jxl/dec_external_image.cc"
+#endif
 bool UintOutputCommand(const std::string& command,std::istringstream& in,JxlMemoryManager* mm){
   if(command=="ue-kernel"){
     size_t bits,n;in>>bits>>n;auto values=SCRead<float>(in,n);values.resize(n+8,-11.0f);std::vector<uint32_t> output(n+5,0xdeadbeef);jxl::ORACLE_HWY_NS::FloatToU32(values.data(),output.data(),n,float((uint64_t{1}<<bits)-1),bits);for(auto v:output)std::cout<<v<<' ';return true;

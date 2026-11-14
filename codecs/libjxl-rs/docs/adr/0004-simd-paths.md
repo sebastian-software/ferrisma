@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-13
-- Updated: 2026-11-13
+- Updated: 2026-11-14
 
 ## Context
 
@@ -63,7 +63,10 @@ list), and drop the scalar reference's per-TU pins (`-O0`,
 only stabilize competing-NaN operand order between the plain and sanitized
 scalar graphs. NEON compiles `HWY_TARGETS == HWY_NEON` (the AArch64 baseline
 with AES; `NEON_BF16`/SVE excluded), which is what upstream's dispatch build
-selects on such a CPU. AVX2 compiles every TU with Highway's `HWY_AVX2`
+selects on such a CPU. AVX2 is upstream's dispatch build since 2026-11-14
+(every TU at the baseline x86-64 flags, `HWY_NAMESPACE` code per target,
+every target above `HWY_AVX2` disabled; see "AVX2 reference: upstream's
+dispatch build"); before, it compiled every TU with Highway's `HWY_AVX2`
 attribute string and `HWY_COMPILE_ONLY_STATIC`. The adapters name the
 target namespace through `ORACLE_HWY_NS` (`N_SCALAR`, `N_NEON`, `N_AVX2`)
 instead of a hard-wired `N_SCALAR`; the SCALAR build expands to the same
@@ -265,14 +268,12 @@ test, these rows are representative. No file reaches zero.)
   gate treats these is the owner's open question O4; this ADR does not
   resolve it. The hosted Linux x86-64 run per release candidate (D7) is the
   first evidence on real AVX2 hardware.
-- The AVX2 oracle is a static AVX2 build, not upstream's dispatch build:
-  code outside `HWY_NAMESPACE` is also compiled with FMA, so Clang may
-  contract scalar `a * b + c` there, which an SSE2-baseline dispatch build
-  cannot. Kernels inside `HWY_NAMESPACE` are identical in both. A dispatch
-  build needs adapters that compile per target with `foreach_target`
-  instead of including pristine `.cc` files after `hwy/highway.h`; until
-  then whole-decode AVX2 comparisons of non-kernel scalar code must use a
-  dispatch `djxl`, not this oracle.
+- Until 2026-11-14 the AVX2 oracle was a static AVX2 build, not upstream's
+  dispatch build: code outside `HWY_NAMESPACE` was also compiled with FMA,
+  so Clang contracted scalar `a * b + c` there, which upstream's
+  SSE2-baseline dispatch build does not. It is now the dispatch build
+  ("AVX2 reference: upstream's dispatch build"); AVX2 results obtained
+  against the static build before that date are not evidence for the gate.
 - The SIMD stages copy their row spans to apply the over-read/over-write
   semantics safely; they are correctness references, not performance
   measurements.
@@ -306,8 +307,9 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
 ## Review triggers
 
 - The owner decides O4 or O1, or the Highway pin changes.
-- An adapter is made per-target (then switch the AVX2 oracle to a dispatch
-  build) or a target beyond NEON/AVX2 enters scope.
+- A target beyond NEON/AVX2 enters scope, or an adapter that the AVX2
+  variant does not serve is needed by a SIMD test (see "AVX2 reference:
+  upstream's dispatch build").
 
 <!-- vardct kernels -->
 ## VarDCT decode kernels (2026-11-13, Plan item 2)
@@ -413,9 +415,11 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   SIMD path. The SIMD path now fuses it on both targets
   (`y_to_x_ratio_simd`). It matters only where a tile's CfL factor is not
   zero. AVX2 evidence is pending. Remaining risk on that gate: the AVX2
-  oracle is a static AVX2 build, so it also contracts scalar code outside
+  oracle was a static AVX2 build, so it also contracted scalar code outside
   `HWY_NAMESPACE` (for example RecomputeDCFactors), which upstream's dispatch
-  build and the port do not (see "Consequences").
+  build and the port do not (see "Consequences"; replaced by the dispatch
+  build on 2026-11-14, whose `N_AVX2::DecodeGroupImpl` still fuses the CfL
+  ratios).
 - **8-lane structure, native.** `tests/simd_vardct_lanes8.rs` runs the
   generic kernels with an 8-lane descriptor of two NEON halves (lane-wise
   NEON semantics) against NEON's 4 lanes: transforms (all shapes and
@@ -774,9 +778,10 @@ pipelines only) and `tests/simd_stages2.rs`.
   words, no difference. Because the stage has no SIMD arithmetic, the
   scalar path passes the same replay; the replay shows that the NEON
   build's blending equals the port, not that a SIMD body was translated.
-  The static AVX2 oracle compiles blending.cc with FMA (see
+  The static AVX2 oracle compiled blending.cc with FMA (see
   "Consequences"), so an AVX2 comparison of `PerformBlending` against that
-  oracle is not meaningful for an SSE2-baseline dispatch build.
+  oracle was not meaningful for an SSE2-baseline dispatch build; the AVX2
+  oracle is the dispatch build since 2026-11-14.
 - **Splines** (`splines_simd.rs`). `SegmentsFromPoints` with
   `ContinuousIDCT` (`HWY_CAPPED(float, 32)` is the full vector: 8 or 4
   iterations, fused `MulAdd`, `FastCosf`, then `SumOfLanes` in the
@@ -878,3 +883,152 @@ path matches every word and the scalar path differs in at least one request.
   and CMS of the list in "Decoder path" (a) have SIMD translations on both
   targets; NEON row parity holds, AVX2 is compile-checked only.
 <!-- end color -->
+
+<!-- avx2 oracle -->
+## AVX2 reference: upstream's dispatch build (2026-11-14, branch `v1/jxl-avx2-oracle`)
+
+**Working decision 2026-11-14 (delegated, revisable by the owner).** The
+AVX2 oracle variant (`-DORACLE_HWY_TARGET=AVX2`) is now built as upstream's
+dynamic-dispatch release build, capped at `HWY_AVX2` through Highway's
+`HWY_DISABLED_TARGETS`. This changes how the AVX2 reference is *built*. It
+changes neither the upstream source nor its commit (libjxl `a16d32d0`,
+Highway `457c8917`), nor any expected value, golden, tolerance or test
+domain, nor the SCALAR and NEON variants. Because the root rule forbids
+refreshing an oracle, the owner has to see and confirm or revert it.
+
+**Why this is the reference ADR-0041 names.** ADR-0041 section 1 defines
+the SIMD reference build at level L as "the original's release build with
+its SIMD enabled and its dispatch capped at L through its own switches
+(... Highway `HWY_DISABLED_TARGETS` for every target above `HWY_AVX2` or
+`HWY_NEON`)". Upstream's own CMake build on x86-64 (configured at the pin
+for `x86_64` with Apple Clang 21.0.0, `compile_commands.json`) passes no
+`-m` flag and no `-ffp-contract` flag to any TU (Clang's default
+`-ffp-contract=on` forms `fmuladd` inside one expression, which the backend
+lowers to an FMA only in a function that has the FMA feature), keeps
+`-fno-slp-vectorize -fno-vectorize`, and sets `HWY_DISABLED_TARGETS` to
+`HWY_AVX3|HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_RVV|HWY_SSSE3|HWY_SVE|HWY_SVE_256|HWY_SVE2|HWY_SVE2_128`
+unless the macro is forced. Highway's default policy (`detect_targets.h`,
+policy 4) then compiles the attainable targets at and above the static
+target: `HWY_SSE2` (static), `HWY_SSE4`, `HWY_AVX2` (`HWY_AVX3_DL` only with
+`HWY_WANT_AVX3_DL`). `foreach_target.h` compiles each TU's `HWY_NAMESPACE`
+code once per target under `HWY_BEFORE_NAMESPACE` (`#pragma clang attribute
+push(target(...))`), and `HWY_DYNAMIC_DISPATCH` selects the best supported
+one at run time. Everything outside `HWY_NAMESPACE` is compiled once, for
+the SSE2 baseline, without FMA; it is contracted only where the compiler
+inlines it into an `N_AVX2` function. The static AVX2 oracle instead
+compiled every TU, upstream's and the adapters', with
+`-msse2 -mssse3 -msse4.1 -msse4.2 -mpclmul -maes -mavx -mavx2 -mbmi -mbmi2 -mfma -mf16c`
+and `HWY_COMPILE_ONLY_STATIC`: the same `HWY_NAMESPACE` kernels, but the
+baseline code contracted too. That is not upstream's release build, and
+not a cap "through its own switches".
+
+**Evidence (2026-11-14, `-arch x86_64` objects cross-compiled with Apple
+Clang 21.0.0, `objdump -d`; x86-64 code cannot run on this machine, and the
+hosted runners' Clang may make other inlining decisions).** Every decoder and CMS TU
+of upstream's build (`jxl_dec-obj`, `jxl_cms`) was compiled twice, with
+upstream's flags and with the static oracle's flags. With upstream's flags
+no function outside `HWY_NAMESPACE` contains an FMA instruction; with the
+static flags 114 such functions in 16 TUs do (among them `alpha.cc`,
+`splines.cc`, `jxl_cms.cc`, `dec_xyb.cc`, `decode.cc`, `dec_cache.cc`,
+`quantizer.cc`, `color_encoding_internal.cc`, `stage_spot.cc` and the skcms
+baseline engine). The `N_AVX2` functions are the same in both, except where
+the static build inlines more. The four failures of the first complete
+hosted AVX2 run (run 43533597186, Linux x86-64) each come from such a
+function:
+
+| Request (first failure) | Differing word | Original function | FMA, static flags | FMA, upstream flags |
+| --- | --- | --- | --- | --- |
+| `cl-tm` PQ 10000 to PQ 1000 nits | 36: 1025594320 vs 1025594317 | `Rec2408ToneMapperBase` constructor (`cms/tone_mapping.h`) in `stage_tone_mapping.cc` | 9 | none; only `N_AVX2::ToneMappingStage::ProcessRow` (52 in both) |
+| `cl-cms` HLG to linear, sRGB, 1000 nits | 33: 1064533059 vs 1064533058 | forward `ApplyHlgOotf` luminance (`jxl_cms.cc`, outside `HWY_NAMESPACE`) | contracted | `N_AVX2::DoColorSpaceTransform` calls the out-of-line `ApplyHlgOotf`, which has no FMA |
+| `sp-cache` (spline replay) | 49: 1069378134 vs 1069378135 | `Splines::InitializeDrawCache` (`splines.cc`) | 36 | none; only `N_AVX2` `SegmentsFromPoints`/`DrawSegments` |
+| `blendstage-row` (blending replay) | 65: 0 vs 2147483648 | `PerformAlphaBlending` (`alpha.cc`; blending has no Highway code) | 16 + 15 | none |
+
+The port's scalar translations of these functions fuse only on AArch64
+(`mul_add_f32`), as upstream's baseline objects do. Numeric check, tone
+mapping: a scratch model on AArch64 that compiles the pristine
+`stage_tone_mapping.cc` with `HWY_NAMESPACE` code contracted and the base
+headers either contracted or not (`#pragma clang fp contract`), fed the
+failing request with x86-64's row offset, prints word 36 as 1025594317
+(contracted: the static oracle's word) and 1025594320 (not contracted: the
+port's word). The other three were not modeled numerically; the
+instruction evidence above is their evidence. The same model showed the
+link-order hazard of the static build: the linker keeps one copy of an
+inline function per program, so which TU's flags win was not under the
+oracle's control. In the dispatch build every TU has the same baseline
+flags.
+
+**What changed (compile flags and sources).**
+
+- `CMakeLists.txt`: the AVX2 variant no longer appends
+  `-msse2 -mssse3 -msse4.1 -msse4.2 -mpclmul -maes -mavx -mavx2 -mbmi -mbmi2 -mfma -mf16c`
+  to `CMAKE_CXX_FLAGS`; it adds the compile definition
+  `ORACLE_HWY_DISPATCH=1` to the adapters. Nothing else in the flags of
+  any TU changes (the SIMD variants' removal of the scalar per-TU pins is
+  unchanged).
+- `hwy_target.h`: `HWY_COMPILE_ONLY_STATIC` is gone; `HWY_DISABLED_TARGETS`
+  changes from `HWY_AVX3|HWY_AVX3_DL|HWY_AVX3_ZEN4|HWY_AVX3_SPR` to
+  upstream's default list plus `HWY_AVX3_DL`:
+  `HWY_SSSE3|HWY_AVX3|HWY_AVX3_DL|HWY_AVX3_ZEN4|HWY_AVX3_SPR|HWY_RVV|HWY_SVE|HWY_SVE_256|HWY_SVE2|HWY_SVE2_128`.
+  Compiled targets: `HWY_SSE2` (static), `HWY_SSE4`, `HWY_AVX2`. It also
+  defines `FJXL_ENABLE_AVX512 0`, which upstream's CMake derives from the
+  same `JPEGXL_ENABLE_HWY_AVX3=OFF` but skips when the list is forced: the
+  fast-lossless encoder's own AVX-512 path was compiled, and selectable on
+  an AVX-512 runner, in the static build too.
+- `hwy_ops.cc` keeps its checks (no target above AVX2 compiled; abort at
+  start unless dispatch selects `HWY_AVX2` and the CPU reports it, which a
+  non-AVX2 x86-64 CPU now fails instead of running SSE4) and adds a
+  compile-time check that the static target stays below `HWY_AVX2`.
+- Adapters that call `N_AVX2` code directly compile it as upstream does:
+  `oracle_target.h` gives their functions Highway's `HWY_AVX2` target
+  attributes (`ORACLE_TARGET_BEGIN`/`END`, empty in the other variants);
+  `dct.cc` and `encoder_transforms_unit.cc` compile their `-inl.h` header
+  per target through `foreach_target`, and `dequant.cc`'s per-target block
+  moves into `dequant_targets-inl.h` for that variant; `to_linear.cc`,
+  `from_linear.cc` and `xyb_stage.inc` only gain the attributes.
+- Not served by the AVX2 variant (an unknown command there, which fails a
+  request loudly): the scalar suite's `dq-group`/`dq-jpeg` requests
+  (`group_render.cc`, which instantiates the extracted `DecodeGroupImpl`
+  for one target) and its `tm-*` requests (`tone_mapping.inc` in
+  `sample_conversion.cc`). Their pristine `stage_tone_mapping.cc` would
+  follow `dec_modular.cc`'s `foreach_target` in that TU, compile only the
+  static target (`foreach_target.h` runs once per TU) and replace the
+  archive's dispatch factory; for the same reason `uint_output.inc` takes
+  `dec_external_image.cc`'s functions from the archive in this variant
+  instead of including the pristine file. A request log of every SIMD test
+  binary against the NEON oracle (2026-11-14: 45 request kinds, 373,033
+  requests, among them `ue-channels`, `fe-channels`, `fe-row`, `gab-row`,
+  `vd-decode`, `dct-*`, `dq-bias`, `dq-block`) contains none of the
+  unserved kinds.
+- SCALAR and NEON unchanged: the preprocessed token streams of all changed
+  adapter TUs, with the SCALAR and the NEON build's own compile commands,
+  are identical before and after (line markers aside), and their compile
+  commands are identical.
+
+**Port choices that relied on the static build.** Any port result that
+matched the static oracle only because it fused baseline code would now
+fail. The port fuses scalar code on x86-64 only through explicit
+`mul_add`; on the SIMD path these are `y_to_x_ratio_simd`/
+`y_to_b_ratio_simd` (`dec_group_render.rs`), the Gaborish weight
+normalization (`stage_gaborish_simd.rs`) and the IDENTITY residual
+(`dec_transforms_simd.rs`). In upstream's dispatch objects
+`N_AVX2::DecodeGroupImpl` contains the two scalar FMAs of the CfL ratios
+(`vfmadd...ss`; commit `7531646f` stays right), `N_AVX2::GetGaborishStage`
+the three of the normalization, and `N_AVX2::TransformToPixels` its scalar
+ones. The noise stage's `YtoXRatio(0)`/`YtoBRatio(0)` are fused in
+`N_AVX2::AddNoiseStage::ProcessRow` and unfused in the port; with factor 0
+both give `base` exactly, so they cannot differ. One place goes the other
+way and is a finding about the port (not changed here, `src/**` belongs to
+another package): in upstream's dispatch objects
+`N_AVX2::DoColorSpaceTransform` inlines the *inverse* `ApplyHlgOotf` and
+`TF_HLG_Base::EncodedFromDisplay` of `AfterTransform` and contracts them
+(two `vfmadd231ss` before `powf`, two `vfmadd132sd` around `log`), while
+the port's SIMD CMS path keeps their x86-64 unfused scalar translation.
+`cl-cms` requests with an HLG destination are therefore expected to differ
+against the dispatch oracle on AVX2. That contraction depends on the
+compiler's inlining decision (Apple Clang 21 here; the hosted runners use
+their own Clang), so only the hosted run can settle it.
+
+**Still to show on real AVX2 hardware (hosted run):** that the dispatch
+oracle selects `HWY_AVX2`, that the four failures above pass, and that the
+results that passed against the static build still pass.
+<!-- end avx2 oracle -->

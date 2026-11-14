@@ -203,9 +203,16 @@ size_t DispatchedOp(const std::string& op, const uint32_t* in, uint32_t* out) {
 // (for example x86-64 under Rosetta 2 without ROSETTA_ADVERTISE_AVX=1).
 static_assert((HWY_TARGETS & ORACLE_HWY_REQUIRED) != 0, "required target not compiled");
 static_assert((HWY_TARGETS & (ORACLE_HWY_REQUIRED - 1)) == 0, "a higher target is compiled");
+#if defined(ORACLE_HWY_DISPATCH)
+// The AVX2 variant is upstream's dispatch build: the baseline (static
+// target) stays below AVX2, so that code outside HWY_NAMESPACE is compiled
+// for the baseline ISA, and HWY_AVX2 is reached only through dispatch.
+static_assert(HWY_STATIC_TARGET != ORACLE_HWY_REQUIRED, "the baseline must stay below the target");
+#endif
 const bool kTargetChecked = [] {
-  // A static-only build calls its one target unconditionally; check the
-  // CPU's run-time support as well as the dispatched target.
+  // Check the dispatched target as well as the CPU's run-time support: a
+  // dispatch build on a CPU without the target would silently select a
+  // lower one, and a static-only build calls its target unconditionally.
   const int64_t chosen = DispatchedTarget();
   if (chosen != ORACLE_HWY_REQUIRED || (hwy::SupportedTargets() & ORACLE_HWY_REQUIRED) == 0) {
     std::cerr << "jxl_oracle: built for " << hwy::TargetName(ORACLE_HWY_REQUIRED)

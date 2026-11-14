@@ -9,8 +9,18 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#if defined(ORACLE_HWY_DISPATCH)
+// The AVX2 dispatch variant compiles the header for every target (port ADR
+// 0004, oracle_target.h); the other variants have one static target.
+#undef HWY_TARGET_INCLUDE
+#define HWY_TARGET_INCLUDE "lib/jxl/dec_transforms-inl.h"
+#include <hwy/foreach_target.h>  // IWYU pragma: keep
+#endif
 #include "lib/jxl/dec_transforms-inl.h"
 #include "aligned_vector.h"
+#include "oracle_target.h"
+
+ORACLE_TARGET_BEGIN
 
 namespace {
 float ReadFloat(std::istringstream& in) {
@@ -100,3 +110,4 @@ bool DctCommand(const std::string& command, std::istringstream& in) {
   else jxl::ORACLE_HWY_NS::LowestFrequenciesFromDC(static_cast<jxl::AcStrategyType>(option), input.data(), stride, output.data(), scratch.data());
   Words(input, true); Words(output); Words(scratch); return true;
 }
+ORACLE_TARGET_END

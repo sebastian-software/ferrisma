@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 // Calls the unmodified scalar helper, concrete stage, and public factory.
 #include "lib/jxl/render_pipeline/stage_xyb.cc"
+#include "oracle_target.h"
+// Calls N_AVX2 operations directly (oracle_target.h).
+ORACLE_TARGET_BEGIN
 float XYBFloat(std::istringstream& in) {
   uint32_t bits; in >> bits; return SCBits<float>(bits);
 }
@@ -91,3 +94,4 @@ bool XybStageCommand(const std::string& command, std::istringstream& in, JxlMemo
   }
   MGOutput(output); return true;
 }
+ORACLE_TARGET_END
