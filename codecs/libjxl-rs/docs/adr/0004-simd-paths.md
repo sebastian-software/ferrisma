@@ -1427,4 +1427,27 @@ be turned on for a target only when, on that target,
   the twelve value kinds (fewer for transforms above 64x64), and impulses
   for AFVDCT4x4; all go through the dispatching `transform_from_pixels`,
   `dc_from_lowest_frequencies` and `afvdct4x4`.
+- `enc_group` (`enc_group_simd.rs`): ComputeCoefficients with
+  QuantizeBlockAC (`HWY_CAPPED(float, kBlockDim)`: four NEON, eight AVX2
+  lanes, the `xsize == 1` threshold mask as a lane select),
+  QuantizeRoundtripYBlockAC (quantizer-inl.h's vector AdjustQuantBias with
+  its `ApproximateReciprocal`, `dec_group_simd`'s) and the fused
+  color-correlation unapply; inside `HWY_NAMESPACE` it calls the SIMD
+  transforms above. AdjustQuantBlockAC is all scalar: the SIMD path runs
+  the scalar translation's body with its two double contraction sites
+  fused (`adjust_quant_block_ac_with::<true>`), as is QuantizeBlockAC's
+  `thresholds[i] -= 0.00744f * xsize * ysize`; on x86-64 the scalar
+  build keeps them separate. `esg-block` calls the target namespace's
+  QuantizeBlockAC (external linkage, not an export) over every strategy's
+  layout, three channels, six threshold sets and the value kinds;
+  `esg-coeffs` runs the dispatching ComputeCoefficients over every group of
+  seven image sizes up to 300x260 (multi-group), random aligned strategy
+  layouts, color-correlation tiles, quant fields, speed tiers Squirrel,
+  Wombat, Hare and Falcon (both AdjustQuantBlockAC branches) and special
+  words, with the matrices of the target's ComputeQuantTable on both sides,
+  and compares the quant field, the DC image and every group's coefficients.
+  A mutation that unfuses the color-correlation NegMulAdd fails it; one that
+  unfuses AdjustQuantBlockAC's double sites does not change a word over this
+  domain on NEON (the rounded results agree), so those sites rest on the
+  contraction analysis and, on x86-64, on the AVX2 run.
 <!-- end encoder simd -->

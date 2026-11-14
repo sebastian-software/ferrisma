@@ -1024,5 +1024,76 @@ mod encoder_simd {
         }
         println!("8-lane forward transforms: {cases} cases match");
     }
+
+    #[test]
+    fn eight_lane_quantize_block_ac_equals_four_lane_quantize_block_ac() {
+        use jxl::jxl::ac_strategy::{AcStrategy, AcStrategyType, NUM_VALID_STRATEGIES};
+        use jxl::jxl::enc_group_simd::quantize_block_ac_d;
+        use jxl::jxl::hwy::Target;
+        use jxl::jxl::memory_manager_internal::MemoryManagerPtr;
+        use jxl::jxl::quant_weights::DequantMatrices;
+        use jxl::jxl::quantizer::Quantizer;
+        let mut matrices = DequantMatrices::default();
+        matrices
+            .ensure_computed_for_target(MemoryManagerPtr::NATIVE, !0, Target::detect())
+            .unwrap();
+        let mut quantizer = Quantizer::new(&matrices);
+        quantizer.compute_global_scale_and_quant(&matrices, 0.5, 0.39, 0.0);
+        let mut seed = 0x9a17_b10c;
+        let mut cases = 0;
+        for raw in 0..u32::from(NUM_VALID_STRATEGIES) {
+            let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+            let (x, y) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+            let (xsize, ysize) = (x.max(y), x.min(y));
+            let n = 64 * xsize * ysize;
+            for c in 0..3 {
+                let block: Vec<f32> = (0..n)
+                    .map(|_| (next(&mut seed) % (1 << 16)) as f32 / 256.0 - 128.0)
+                    .collect();
+                let run = |eight: bool| {
+                    let mut thresholds = [0.58f32, 0.62, 0.7, 0.9];
+                    let mut out = vec![7i32; n + 8];
+                    if eight {
+                        quantize_block_ac_d(
+                            Neon8(n4()),
+                            &quantizer,
+                            &matrices,
+                            false,
+                            c,
+                            1.25,
+                            AcStrategyType(raw),
+                            xsize,
+                            ysize,
+                            &mut thresholds,
+                            &block,
+                            17,
+                            &mut out,
+                        );
+                    } else {
+                        quantize_block_ac_d(
+                            n4(),
+                            &quantizer,
+                            &matrices,
+                            false,
+                            c,
+                            1.25,
+                            AcStrategyType(raw),
+                            xsize,
+                            ysize,
+                            &mut thresholds,
+                            &block,
+                            17,
+                            &mut out,
+                        );
+                    }
+                    (thresholds, out)
+                };
+                let (four, eight) = (run(false), run(true));
+                assert_eq!(four, eight, "QuantizeBlockAC {raw} channel {c}");
+                cases += 1;
+            }
+        }
+        println!("8-lane QuantizeBlockAC: {cases} cases match");
+    }
 }
 // end encoder simd

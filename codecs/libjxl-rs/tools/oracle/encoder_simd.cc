@@ -33,6 +33,23 @@
 //       covered_blocks_y * stride + 8 sentinel words, same scratch.
 //   esx-afv <16 words>
 //       AFVDCT4x4 from 16 + 8 words into 16 + 8 sentinel words.
+//   esg-block <quant_dc> <quant_median> <c> <qm_multiplier> <raw strategy>
+//             <xsize> <ysize> <4 threshold words> <quant>
+//             <64 * xsize * ysize words>
+//       QuantizeBlockAC of the target namespace (ORACLE_HWY_NS; the original
+//       exports only ComputeCoefficients) with a Quantizer from
+//       ComputeGlobalScaleAndQuant over the default matrices, into
+//       64 * xsize * ysize + 8 sentinel ints; thresholds and ints printed.
+//   esg-coeffs <xsize> <ysize> <speed_tier> <x_qm_multiplier>
+//              <b_qm_multiplier> <quant_dc> <quant_median> <n> <n * (bx by
+//              raw)> <ytox words> <ytob words> <raw quant field words>
+//              <3 * ysize_blocks * 8 * xsize_blocks * 8 opsin words>
+//       ComputeCoefficients for every group of a PassesEncoderState set up as
+//       InitializePassesEncoder does (one pass, 32-bit coefficients), with
+//       the request's strategies (DCT elsewhere), color correlation tiles,
+//       raw quant field and block-padded opsin image. Prints the status, the
+//       quant field, the DC image and each group's coefficients up to the
+//       group's used length plus 8 (within the group's row).
 #include <jxl/cms.h>
 #include <jxl/color_encoding.h>
 #include <jxl/memory_manager.h>
@@ -48,13 +65,33 @@
 #include <vector>
 
 #include "lib/jxl/ac_strategy.h"
+#include "lib/jxl/base/rect.h"
 #include "lib/jxl/base/status.h"
+#include "lib/jxl/chroma_from_luma.h"
+#include "lib/jxl/common.h"
+#include "lib/jxl/dct_util.h"
+#include "lib/jxl/enc_cache.h"
+#include "lib/jxl/enc_group.h"
+#include "lib/jxl/enc_params.h"
+#include "lib/jxl/frame_dimensions.h"
+#include "lib/jxl/quant_weights.h"
+#include "lib/jxl/quantizer.h"
 #include "lib/jxl/color_encoding_internal.h"
 #include "lib/jxl/enc_transforms.h"
 #include "lib/jxl/enc_xyb.h"
 #include "lib/jxl/image.h"
 
 JxlColorEncoding ReadColorEncoding(std::istringstream& in);
+
+namespace jxl {
+namespace ORACLE_HWY_NS {
+void QuantizeBlockAC(const Quantizer& quantizer, const bool error_diffusion,
+                     size_t c, float qm_multiplier, AcStrategyType quant_kind,
+                     size_t xsize, size_t ysize, float* thresholds,
+                     const float* JXL_RESTRICT block_in, const int32_t* quant,
+                     int32_t* JXL_RESTRICT block_out);
+}  // namespace ORACLE_HWY_NS
+}  // namespace jxl
 
 namespace {
 constexpr size_t kMaxLanes = 8;
@@ -72,6 +109,11 @@ void EsxWord(float v) {
   uint32_t bits;
   std::memcpy(&bits, &v, sizeof(bits));
   std::cout << ' ' << bits;
+}
+uint32_t EsxBitsOf(float v) {
+  uint32_t bits;
+  std::memcpy(&bits, &v, sizeof(bits));
+  return bits;
 }
 void EsxWords(const float* values, size_t count) {
   std::cout << " B";
@@ -132,7 +174,7 @@ void EsxScratch(const float* scratch) {
 
 bool EncoderSimdCommand(const std::string& command, std::istringstream& in,
                         JxlMemoryManager* mm) {
-  if (command.rfind("esx-", 0) != 0) return false;
+  if (command.rfind("esx-", 0) != 0 && command.rfind("esg-", 0) != 0) return false;
   if (command == "esx-premul") {
     const float intensity = EsxFloat(in);
     EsxAligned premul(12 * kMaxLanes + 4);
@@ -248,6 +290,120 @@ bool EncoderSimdCommand(const std::string& command, std::istringstream& in,
     std::cout << "A";
     EsxWords(pixels.data(), 24);
     EsxWords(coeffs.data(), 24);
+    return true;
+  }
+  if (command == "esg-block") {
+    const float quant_dc = EsxFloat(in), quant_median = EsxFloat(in);
+    size_t c;
+    in >> c;
+    const float qm_multiplier = EsxFloat(in);
+    unsigned raw;
+    size_t xsize, ysize;
+    in >> raw >> xsize >> ysize;
+    float thresholds[4];
+    for (float& t : thresholds) t = EsxFloat(in);
+    int32_t quant;
+    in >> quant;
+    jxl::DequantMatrices matrices;
+    if (!matrices.EnsureComputed(mm, ~0u)) throw std::runtime_error("matrices");
+    jxl::Quantizer quantizer(matrices);
+    quantizer.ComputeGlobalScaleAndQuant(quant_dc, quant_median, 0);
+    const size_t n = 64 * xsize * ysize;
+    EsxAligned block_in(n + 8);
+    for (size_t i = 0; i < n; ++i) block_in.data()[i] = EsxFloat(in);
+    for (size_t i = n; i < n + 8; ++i) block_in.data()[i] = EsxSentinel(16, i);
+    std::vector<int32_t> storage(n + 8 + 32);
+    int32_t* out = storage.data();
+    while (reinterpret_cast<uintptr_t>(out) % 128 != 0) ++out;
+    for (size_t i = 0; i < n + 8; ++i) out[i] = int32_t(0x5a5a0000 + i);
+    jxl::ORACLE_HWY_NS::QuantizeBlockAC(quantizer, false, c, qm_multiplier,
+                                        static_cast<jxl::AcStrategyType>(raw), xsize, ysize,
+                                        thresholds, block_in.data(), &quant, out);
+    std::cout << "Q " << EsxBitsOf(quantizer.Scale());
+    EsxWords(thresholds, 4);
+    std::cout << " I";
+    for (size_t i = 0; i < n + 8; ++i) std::cout << ' ' << out[i];
+    return true;
+  }
+  if (command == "esg-coeffs") {
+    size_t xsize, ysize;
+    int speed_tier;
+    in >> xsize >> ysize >> speed_tier;
+    const float x_qm = EsxFloat(in), b_qm = EsxFloat(in);
+    const float quant_dc = EsxFloat(in), quant_median = EsxFloat(in);
+    jxl::PassesEncoderState enc_state(mm);
+    enc_state.cparams.speed_tier = static_cast<jxl::SpeedTier>(speed_tier);
+    enc_state.x_qm_multiplier = x_qm;
+    enc_state.b_qm_multiplier = b_qm;
+    jxl::PassesSharedState& shared = enc_state.shared;
+    shared.frame_dim.Set(xsize, ysize, 1, 0, 0, false, 1);
+    const jxl::FrameDimensions& fd = shared.frame_dim;
+    auto acs = jxl::AcStrategyImage::Create(mm, fd.xsize_blocks, fd.ysize_blocks);
+    if (!acs.ok()) throw std::runtime_error("ac strategy");
+    shared.ac_strategy = std::move(acs).value_();
+    shared.ac_strategy.FillDCT8();
+    size_t n;
+    in >> n;
+    for (size_t i = 0; i < n; ++i) {
+      size_t bx, by;
+      unsigned raw;
+      in >> bx >> by >> raw;
+      if (!shared.ac_strategy.Set(bx, by, static_cast<jxl::AcStrategyType>(raw)))
+        throw std::runtime_error("strategy placement");
+    }
+    auto cmap = jxl::ColorCorrelationMap::Create(mm, fd.xsize, fd.ysize);
+    if (!cmap.ok()) throw std::runtime_error("cmap");
+    shared.cmap = std::move(cmap).value_();
+    for (jxl::ImageSB* map : {&shared.cmap.ytox_map, &shared.cmap.ytob_map})
+      for (size_t y = 0; y < map->ysize(); ++y)
+        for (size_t x = 0; x < map->xsize(); ++x) {
+          int v;
+          in >> v;
+          map->Row(y)[x] = static_cast<int8_t>(v);
+        }
+    auto rqf = jxl::ImageI::Create(mm, fd.xsize_blocks, fd.ysize_blocks);
+    if (!rqf.ok()) throw std::runtime_error("quant field");
+    shared.raw_quant_field = std::move(rqf).value_();
+    for (size_t y = 0; y < fd.ysize_blocks; ++y)
+      for (size_t x = 0; x < fd.xsize_blocks; ++x) in >> shared.raw_quant_field.Row(y)[x];
+    if (!shared.matrices.EnsureComputed(mm, ~0u)) throw std::runtime_error("matrices");
+    shared.quantizer.ComputeGlobalScaleAndQuant(quant_dc, quant_median, 0);
+    auto opsin = EsxImage(mm, fd.xsize_blocks * 8, fd.ysize_blocks * 8);
+    for (size_t c = 0; c < 3; ++c)
+      for (size_t y = 0; y < opsin.ysize(); ++y)
+        for (size_t x = 0; x < opsin.xsize(); ++x) opsin.PlaneRow(c, y)[x] = EsxFloat(in);
+    auto dc = EsxImage(mm, fd.xsize_blocks, fd.ysize_blocks);
+    for (size_t c = 0; c < 3; ++c)
+      for (size_t y = 0; y < dc.ysize(); ++y)
+        for (size_t x = 0; x < dc.xsize(); ++x) dc.PlaneRow(c, y)[x] = EsxSentinel(17 + c, y * 4096 + x);
+    auto coeffs = jxl::ACImageT<int32_t>::Make(mm, jxl::kGroupDim * jxl::kGroupDim, fd.num_groups);
+    if (!coeffs.ok()) throw std::runtime_error("coefficients");
+    enc_state.coeffs.emplace_back(std::move(coeffs).value_());
+    for (size_t c = 0; c < 3; ++c)
+      for (size_t g = 0; g < fd.num_groups; ++g) {
+        int32_t* row = enc_state.coeffs[0]->PlaneRow(c, g, 0).ptr32;
+        for (size_t i = 0; i < jxl::kGroupDim * jxl::kGroupDim; ++i) row[i] = int32_t(0x5a5a0000 + i);
+      }
+    jxl::Status status = true;
+    for (size_t g = 0; g < fd.num_groups && status; ++g)
+      status = jxl::ComputeCoefficients(g, &enc_state, opsin, jxl::Rect(opsin), &dc);
+    std::cout << "C " << int(status.code()) << " R";
+    for (size_t y = 0; y < fd.ysize_blocks; ++y)
+      for (size_t x = 0; x < fd.xsize_blocks; ++x) std::cout << ' ' << shared.raw_quant_field.Row(y)[x];
+    for (size_t c = 0; c < 3; ++c) {
+      std::cout << " D";
+      for (size_t y = 0; y < dc.ysize(); ++y)
+        for (size_t x = 0; x < dc.xsize(); ++x) EsxWord(dc.ConstPlaneRow(c, y)[x]);
+    }
+    for (size_t g = 0; g < fd.num_groups; ++g) {
+      const size_t used = 64 * fd.BlockGroupRect(g).xsize() * fd.BlockGroupRect(g).ysize();
+      for (size_t c = 0; c < 3; ++c) {
+        const int32_t* row = enc_state.coeffs[0]->PlaneRow(c, g, 0).ptr32;
+        std::cout << " G";
+        const size_t shown = std::min(used + 8, jxl::kGroupDim * jxl::kGroupDim);
+        for (size_t i = 0; i < shown; ++i) std::cout << ' ' << row[i];
+      }
+    }
     return true;
   }
   throw std::runtime_error("unknown encoder SIMD command");

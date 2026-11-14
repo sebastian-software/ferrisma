@@ -24,7 +24,7 @@
 //! scalar NegMulAdd/Mul (vector operator functions) are never fused.
 
 use super::ac_strategy::{AcStrategyType, MAX_BLOCK_DIM, MAX_COEFF_AREA};
-use super::base::float::{mul_add_f32, mul_add_f64};
+use super::base::float::mul_add_f32;
 use super::base::hwy_scalar;
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode};
@@ -107,12 +107,49 @@ pub fn quantize_block_ac(
 
 /// AdjustQuantBlockAC. `block_in` holds `xsize * ysize * 64` samples.
 #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+pub fn adjust_quant_block_ac(
+    quantizer: &Quantizer,
+    matrices: &DequantMatrices,
+    c: usize,
+    qm_multiplier: f32,
+    quant_kind: AcStrategyType,
+    xsize: usize,
+    ysize: usize,
+    thresholds: &mut [f32; 4],
+    block_in: &[f32],
+    quant: &mut i32,
+) {
+    adjust_quant_block_ac_with::<{ cfg!(target_arch = "aarch64") }>(
+        quantizer,
+        matrices,
+        c,
+        qm_multiplier,
+        quant_kind,
+        xsize,
+        ysize,
+        thresholds,
+        block_in,
+        quant,
+    );
+}
+
+/// `a * b + c` of one contracted C++ expression: fused when `FUSED` (the
+/// AArch64 scalar build and both SIMD targets, whose code in `HWY_NAMESPACE`
+/// carries FMA), separate otherwise (the x86-64 scalar build).
+fn contracted_f64<const FUSED: bool>(a: f64, b: f64, c: f64) -> f64 {
+    if FUSED { a.mul_add(b, c) } else { a * b + c }
+}
+
+/// AdjustQuantBlockAC with its two contraction sites fused (`FUSED`) or
+/// separate: all of its arithmetic is scalar, so the SIMD targets run this
+/// body with `FUSED` (port ADR 0004, "Encoder path").
+#[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
 #[expect(
     clippy::excessive_precision,
     clippy::manual_clamp,
     reason = "Keep the source constants and its Clamp1 and step limits."
 )]
-pub fn adjust_quant_block_ac(
+pub(crate) fn adjust_quant_block_ac_with<const FUSED: bool>(
     quantizer: &Quantizer,
     matrices: &DequantMatrices,
     c: usize,
@@ -302,7 +339,11 @@ pub fn adjust_quant_block_ac(
             // kBlockDim, so its contraction does not change the sum.
             let limit = |c: usize| {
                 let left = MUL1[ix][c] * xsize as f64 * ysize as f64 * BLOCK_DIM as f64;
-                mul_add_f64(left, BLOCK_DIM as f64, MUL2[ix][c] * f64::from(sum_of_vals))
+                contracted_f64::<FUSED>(
+                    left,
+                    BLOCK_DIM as f64,
+                    MUL2[ix][c] * f64::from(sum_of_vals),
+                )
             };
             let mut step = float64_to_int(f64::from(sum_of_error) / limit(c));
             if step >= 2 {
@@ -331,7 +372,9 @@ pub fn adjust_quant_block_ac(
         if c == 1 {
             for threshold in thresholds.iter_mut().skip(1) {
                 // `thresholds[i] += 0.01 * activity` (double, contracted).
-                *threshold = mul_add_f64(0.01, f64::from(activity), f64::from(*threshold)) as f32;
+                *threshold =
+                    contracted_f64::<FUSED>(0.01, f64::from(activity), f64::from(*threshold))
+                        as f32;
             }
         }
         let orig_qp_limit = 4.max(*quant / 2);
@@ -455,6 +498,13 @@ pub fn compute_coefficients(
     rect: Rect,
     dc: &mut Image3<f32>,
 ) -> Status {
+    // HWY_DYNAMIC_DISPATCH(ComputeCoefficients): the encoder's own
+    // selection, off by default (port ADR 0004, "Encoder path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_group_simd::compute_coefficients_simd(
+            target, group_idx, enc_state, opsin, rect, dc,
+        );
+    }
     let frame_dim = enc_state.shared.frame_dim;
     let block_group_rect = frame_dim.block_group_rect(group_idx);
     let cmap_rect = Rect::new(

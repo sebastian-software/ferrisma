@@ -14,7 +14,7 @@
 
 mod simd_common;
 
-use jxl::jxl::ac_strategy::{AcStrategy, AcStrategyType, NUM_VALID_STRATEGIES};
+use jxl::jxl::ac_strategy::{AcStrategy, AcStrategyImage, AcStrategyType, NUM_VALID_STRATEGIES};
 use jxl::jxl::base::status::status_code;
 use jxl::jxl::color_encoding::{
     ColorSpace, JxlColorEncoding, Primaries, RenderingIntent, TransferFunction, WhitePoint,
@@ -24,7 +24,7 @@ use jxl::jxl::enc_transforms::{afvdct4x4, dc_from_lowest_frequencies, transform_
 use jxl::jxl::enc_xyb::{XybInputEncoding, to_xyb};
 use jxl::jxl::enc_xyb_simd::{compute_premul_absorb_simd, linear_rgb_row_to_xyb_simd};
 use jxl::jxl::hwy::{self, Target};
-use jxl::jxl::image::{Image3F, ImageF};
+use jxl::jxl::image::{Image3F, ImageF, ImageI};
 use jxl::jxl::image_ops::zero_fill_image;
 use simd_common::{check_rows, next, special_words, target};
 use std::fmt::Write as _;
@@ -650,4 +650,364 @@ fn enc_simd_afvdct4x4_through_the_encoder_dispatch_matches_the_original_target()
         requests.push(s);
     }
     check_through_dispatch("esx-afv", &requests, observe_transform);
+}
+
+// enc_group -----------------------------------------------------------------
+
+use jxl::jxl::base::rect::Rect;
+use jxl::jxl::chroma_from_luma::ColorCorrelationMap;
+use jxl::jxl::common::SpeedTier;
+use jxl::jxl::dct_util::{AcImage, AcPtrMut, AcType};
+use jxl::jxl::enc_cache::PassesEncoderState;
+use jxl::jxl::enc_group::compute_coefficients;
+use jxl::jxl::enc_group_simd::{QuantizeBlockArgs, quantize_block_ac_simd};
+use jxl::jxl::frame_dimensions::GROUP_DIM;
+use jxl::jxl::memory_manager_internal::MemoryManagerPtr;
+use jxl::jxl::quant_weights::DequantMatrices;
+use jxl::jxl::quantizer::Quantizer;
+
+/// The default matrices with the target's ComputeQuantTable, as the
+/// original's single-target build computes them.
+fn simd_matrices() -> DequantMatrices {
+    let mut matrices = DequantMatrices::default();
+    matrices
+        .ensure_computed_for_target(MemoryManagerPtr::NATIVE, !0, Some(target()))
+        .unwrap();
+    matrices
+}
+
+fn observe_quantize_block(request: &str, t: Target, matrices: &DequantMatrices) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("esg-block"));
+    let quant_dc = float(&mut args);
+    let quant_median = float(&mut args);
+    let c: usize = number(&mut args);
+    let qm_multiplier = float(&mut args);
+    let raw: u32 = number(&mut args);
+    let xsize: usize = number(&mut args);
+    let ysize: usize = number(&mut args);
+    let mut thresholds = [0.0f32; 4];
+    for v in &mut thresholds {
+        *v = float(&mut args);
+    }
+    let quant: i32 = number(&mut args);
+    let mut quantizer = Quantizer::new(matrices);
+    quantizer.compute_global_scale_and_quant(matrices, quant_dc, quant_median, 0.0);
+    let n = 64 * xsize * ysize;
+    let mut block_in: Vec<f32> = (0..n).map(|_| float(&mut args)).collect();
+    block_in.extend((n..n + 8).map(|i| sentinel(16, i)));
+    let mut out: Vec<i32> = (0..n + 8).map(|i| 0x5a5a_0000 + i as i32).collect();
+    quantize_block_ac_simd(
+        t,
+        &quantizer,
+        matrices,
+        QuantizeBlockArgs {
+            c,
+            qm_multiplier,
+            quant_kind: AcStrategyType(raw),
+            xsize,
+            ysize,
+            thresholds: &mut thresholds,
+            block_in: &block_in,
+            quant,
+            block_out: &mut out,
+        },
+    );
+    let mut s = format!("Q {}", quantizer.scale().to_bits());
+    words(&mut s, &thresholds);
+    s.push_str(" I");
+    for v in out {
+        write!(s, " {v}").unwrap();
+    }
+    s
+}
+
+/// The (xsize, ysize) block counts QuantizeBlockAC sees for a strategy after
+/// CoefficientLayout (the smaller count first).
+fn layout(raw: u32) -> (usize, usize) {
+    let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+    let (x, y) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+    (x.max(y), x.min(y))
+}
+
+#[test]
+fn enc_simd_quantize_block_ac_matches_the_original_target() {
+    let t = target();
+    let matrices = simd_matrices();
+    let thresholds = [
+        [0.58f32, 0.62, 0.62, 0.62],
+        [0.58, 0.64, 0.64, 0.64],
+        [0.56, 0.62, 0.62, 0.62],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.5, 0.7, 0.9, 1.1],
+        [3.0, 0.01, 2.0, 0.6],
+    ];
+    let mut requests = Vec::new();
+    for raw in 0..u32::from(NUM_VALID_STRATEGIES) {
+        let (xsize, ysize) = layout(raw);
+        let n = 64 * xsize * ysize;
+        let large = n > 64 * 64;
+        for c in 0..3 {
+            for (ti, thres) in thresholds.iter().enumerate() {
+                for kind in 0..KINDS {
+                    if large && (kind % 4 != 0 || ti % 2 != 0) {
+                        continue;
+                    }
+                    let quant = [1, 7, 33, 255][(kind + ti) % 4];
+                    let qm = [1.0f32, 1.25, 0.8][(c + kind) % 3];
+                    let (quant_dc, median) = [(0.5f32, 0.39f32), (1.6, 0.39), (0.2, 4.0)][ti % 3];
+                    let mut s = format!(
+                        "esg-block {} {} {c} {} {raw} {xsize} {ysize}",
+                        quant_dc.to_bits(),
+                        median.to_bits(),
+                        qm.to_bits()
+                    );
+                    push_words(&mut s, &thres.map(f32::to_bits));
+                    write!(s, " {quant}").unwrap();
+                    // Coefficient magnitudes around the quantization step.
+                    let values: Vec<u32> =
+                        sample_words(n, kind, u64::from(raw) * 31 + c as u64 * 7 + ti as u64)
+                            .into_iter()
+                            .map(|w| {
+                                let v = f32::from_bits(w);
+                                if v.is_finite() && v.abs() < 64.0 {
+                                    (v * 0.05).to_bits()
+                                } else {
+                                    w
+                                }
+                            })
+                            .collect();
+                    push_words(&mut s, &values);
+                    requests.push(s);
+                }
+            }
+        }
+    }
+    check_rows(
+        "esg-block",
+        &requests,
+        |r| {
+            (
+                observe_quantize_block(r, t, &matrices),
+                Box::new(all_defined),
+            )
+        },
+        |_| true,
+    );
+}
+
+/// The port's observation of an `esg-coeffs` request through the
+/// dispatching `compute_coefficients` (the caller sets the encoder's
+/// selection).
+fn observe_coefficients(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("esg-coeffs"));
+    let xsize: usize = number(&mut args);
+    let ysize: usize = number(&mut args);
+    let speed_tier: i32 = number(&mut args);
+    let x_qm = float(&mut args);
+    let b_qm = float(&mut args);
+    let quant_dc = float(&mut args);
+    let quant_median = float(&mut args);
+    let mut enc_state = PassesEncoderState::new();
+    enc_state.cparams.speed_tier = match speed_tier {
+        3 => SpeedTier::Squirrel,
+        4 => SpeedTier::Wombat,
+        5 => SpeedTier::Hare,
+        7 => SpeedTier::Falcon,
+        other => panic!("speed tier {other}"),
+    };
+    enc_state.x_qm_multiplier = x_qm;
+    enc_state.b_qm_multiplier = b_qm;
+    let shared = &mut enc_state.shared;
+    shared.frame_dim.set(xsize, ysize, 1, 0, 0, false, 1);
+    let fd = shared.frame_dim;
+    shared.ac_strategy = AcStrategyImage::create(fd.xsize_blocks, fd.ysize_blocks).unwrap();
+    shared.ac_strategy.fill_dct8_full();
+    let n: usize = number(&mut args);
+    for _ in 0..n {
+        let bx: usize = number(&mut args);
+        let by: usize = number(&mut args);
+        let raw: u32 = number(&mut args);
+        shared.ac_strategy.set(bx, by, AcStrategyType(raw)).unwrap();
+    }
+    shared.cmap = ColorCorrelationMap::create(fd.xsize, fd.ysize, true).unwrap();
+    for map in [&mut shared.cmap.ytox_map, &mut shared.cmap.ytob_map] {
+        for y in 0..map.ysize() {
+            for x in 0..map.xsize() {
+                map.row_mut(y)[x] = number::<i32>(&mut args) as i8;
+            }
+        }
+    }
+    shared.raw_quant_field = ImageI::create(fd.xsize_blocks, fd.ysize_blocks).unwrap();
+    for y in 0..fd.ysize_blocks {
+        for x in 0..fd.xsize_blocks {
+            shared.raw_quant_field.row_mut(y)[x] = number(&mut args);
+        }
+    }
+    shared
+        .matrices
+        .ensure_computed_for_target(MemoryManagerPtr::NATIVE, !0, Some(target()))
+        .unwrap();
+    shared
+        .quantizer
+        .compute_global_scale_and_quant(&shared.matrices, quant_dc, quant_median, 0.0);
+    let mut opsin = Image3F::create(fd.xsize_blocks * 8, fd.ysize_blocks * 8).unwrap();
+    for c in 0..3 {
+        for y in 0..opsin.ysize() {
+            for x in 0..opsin.xsize() {
+                opsin.plane_row_mut(c, y)[x] = float(&mut args);
+            }
+        }
+    }
+    let mut dc = Image3F::create(fd.xsize_blocks, fd.ysize_blocks).unwrap();
+    for c in 0..3 {
+        for y in 0..dc.ysize() {
+            for x in 0..dc.xsize() {
+                dc.plane_row_mut(c, y)[x] = sentinel(17 + c as u32, y * 4096 + x);
+            }
+        }
+    }
+    let mut coeffs = AcImage::make(AcType::I32, GROUP_DIM * GROUP_DIM, fd.num_groups).unwrap();
+    for c in 0..3 {
+        for g in 0..fd.num_groups {
+            let AcPtrMut::I32(row) = coeffs.plane_row_mut(c, g, 0) else {
+                unreachable!()
+            };
+            for (i, v) in row[..GROUP_DIM * GROUP_DIM].iter_mut().enumerate() {
+                *v = 0x5a5a_0000 + i as i32;
+            }
+        }
+    }
+    enc_state.coeffs.push(Some(coeffs));
+    let rect = Rect::new(0, 0, opsin.xsize(), opsin.ysize());
+    let mut status = Ok(());
+    for g in 0..fd.num_groups {
+        status = compute_coefficients(g, &mut enc_state, &opsin, rect, &mut dc);
+        if status.is_err() {
+            break;
+        }
+    }
+    let mut s = format!("C {} R", status_code(&status));
+    for y in 0..fd.ysize_blocks {
+        for &v in &enc_state.shared.raw_quant_field.row(y)[..fd.xsize_blocks] {
+            write!(s, " {v}").unwrap();
+        }
+    }
+    for c in 0..3 {
+        s.push_str(" D");
+        for y in 0..dc.ysize() {
+            for &v in &dc.plane_row(c, y)[..dc.xsize()] {
+                word(&mut s, v);
+            }
+        }
+    }
+    let coeffs = enc_state.coeffs[0].as_deref_mut().unwrap();
+    for g in 0..fd.num_groups {
+        let r = fd.block_group_rect(g);
+        let used = 64 * r.xsize() * r.ysize();
+        for c in 0..3 {
+            let AcPtrMut::I32(row) = coeffs.plane_row_mut(c, g, 0) else {
+                unreachable!()
+            };
+            s.push_str(" G");
+            for &v in &row[..(used + 8).min(GROUP_DIM * GROUP_DIM)] {
+                write!(s, " {v}").unwrap();
+            }
+        }
+    }
+    s
+}
+
+/// A strategy layout: the larger transforms at aligned positions where they
+/// fit, DCT8 elsewhere (as AcStrategyHeuristics places them).
+fn placements(xblocks: usize, yblocks: usize, seed: u64) -> Vec<(usize, usize, u32)> {
+    let mut seed = seed | 1;
+    let mut taken = vec![false; xblocks * yblocks];
+    let mut out = Vec::new();
+    for by in 0..yblocks {
+        for bx in 0..xblocks {
+            if taken[by * xblocks + bx] {
+                continue;
+            }
+            let raw = (next(&mut seed) % u64::from(NUM_VALID_STRATEGIES)) as u32;
+            let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+            let (cx, cy) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+            let fits = bx % cx == 0
+                && by % cy == 0
+                && bx + cx <= xblocks
+                && by + cy <= yblocks
+                && (0..cy).all(|y| (0..cx).all(|x| !taken[(by + y) * xblocks + bx + x]));
+            let (raw, cx, cy) = if fits { (raw, cx, cy) } else { (0, 1, 1) };
+            for y in 0..cy {
+                for x in 0..cx {
+                    taken[(by + y) * xblocks + bx + x] = true;
+                }
+            }
+            out.push((bx, by, raw));
+        }
+    }
+    out
+}
+
+#[test]
+fn enc_simd_compute_coefficients_through_the_encoder_dispatch_matches_the_original_target() {
+    let mut requests = Vec::new();
+    let sizes: [(usize, usize); 7] = [
+        (8, 8),
+        (24, 16),
+        (64, 64),
+        (100, 37),
+        (128, 128),
+        (264, 72),
+        (300, 260),
+    ];
+    for (si, &(xsize, ysize)) in sizes.iter().enumerate() {
+        for variant in 0..6u64 {
+            let (xb, yb) = (xsize.div_ceil(8), ysize.div_ceil(8));
+            let seed = si as u64 * 1000 + variant;
+            let speed_tier = [3, 3, 3, 4, 5, 7][variant as usize];
+            let x_qm = [1.0f32, 1.25, 0.8, 1.5625, 1.0, 0.64][variant as usize];
+            let b_qm = [1.0f32, 0.8, 1.25, 1.0, 0.64, 1.5625][variant as usize];
+            let (quant_dc, quant_median) =
+                [(0.5f32, 0.39f32), (1.6, 0.39), (0.3, 0.2)][variant as usize % 3];
+            let mut s = format!(
+                "esg-coeffs {xsize} {ysize} {speed_tier} {} {} {} {}",
+                x_qm.to_bits(),
+                b_qm.to_bits(),
+                quant_dc.to_bits(),
+                quant_median.to_bits()
+            );
+            let layout = placements(xb, yb, seed);
+            write!(s, " {}", layout.len()).unwrap();
+            for (bx, by, raw) in layout {
+                write!(s, " {bx} {by} {raw}").unwrap();
+            }
+            let tiles = xsize.div_ceil(64) * ysize.div_ceil(64);
+            let mut cseed = seed | 1;
+            for _ in 0..2 * tiles {
+                write!(s, " {}", (next(&mut cseed) % 81) as i32 - 40).unwrap();
+            }
+            for _ in 0..xb * yb {
+                write!(s, " {}", 1 + next(&mut cseed) % 64).unwrap();
+            }
+            // Opsin-like planes: X small, Y in [0, 0.85), B near Y, with
+            // texture, plus special words in one variant.
+            let n = xb * 8 * yb * 8;
+            for c in 0..3u64 {
+                let kind = if variant == 5 { 4 + c as usize } else { 0 };
+                let scale = [0.05f32, 0.7, 0.6][c as usize];
+                let values: Vec<u32> = sample_words(n, kind, seed * 3 + c)
+                    .into_iter()
+                    .map(|w| {
+                        let v = f32::from_bits(w);
+                        if kind == 0 { (v * scale).to_bits() } else { w }
+                    })
+                    .collect();
+                push_words(&mut s, &values);
+            }
+            requests.push(s);
+        }
+    }
+    check_through_dispatch("esg-coeffs", &requests, observe_coefficients);
 }

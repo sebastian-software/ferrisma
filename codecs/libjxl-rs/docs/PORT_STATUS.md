@@ -260,9 +260,11 @@ the encoder keeps running its scalar translation, byte-identical with the
 scalar `cjxl`. Translated with parity against the original's NEON build:
 `enc_xyb` (ToXYB, LinearRGBRowToXYB, ComputePremulAbsorb) and
 `enc_transforms` (TransformFromPixels, DCFromLowestFrequencies,
-AFVDCT4x4). The other nine encoder exports the lossy profile reaches
-(seven without alpha), the decode-path `Symmetric5` it runs, and the
-lossless profile's `enc_rct` and `enc_cluster` remain scalar only.
+AFVDCT4x4) and `enc_group` (ComputeCoefficients with QuantizeBlockAC,
+AdjustQuantBlockAC and QuantizeRoundtripYBlockAC). The other eight encoder
+exports the lossy profile reaches (six without alpha), the decode-path
+`Symmetric5` it runs, and the lossless profile's `enc_rct` and
+`enc_cluster` remain scalar only.
 <!-- end encoder simd -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
