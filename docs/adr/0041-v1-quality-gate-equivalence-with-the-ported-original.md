@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (decisions D1–D10). The [open questions](#open-questions-pending-owner-decision) O1–O9 and the further items listed with them are not decided.
 - **Date:** 2026-11-13
-- **Last reviewed:** 2026-11-13
+- **Last reviewed:** 2026-11-14
 - **Source:** owner decision (structured interview, 2026-11-13)
 - **Supersedes:** In part: the performance criteria of [0007](0007-correctness-and-performance-evidence.md) as release evidence; the default ISA level of [0020](0020-kernel-crate-and-isa-dispatch.md) decision 4; the role of third-party comparisons in [0025](0025-codec-selection-reference-conformance-and-image-scope.md) point 3, [0032](0032-jpeg-xl-workspace-decoder-input.md) and [0037](0037-selectable-workspace-avif-encoder.md); the validation platforms of [0027](0027-tiered-validation-and-rust-test-orchestration.md); release naming in [0040](0040-stable-public-contract-and-compatibility-policy.md). In the ports: the NaN-payload rule of libjxl-rs ADR 0002/0003, the SIMD reference of libavif-rs ADR 0056/0058/0059, and the SIMD reference and NEON rescaler ruling of libwebp-rs ADR 0002/0008. Each amended record links back here.
 - **Related:** [0026](0026-codecs-in-one-repository-and-workspace.md), [quality gate guide](../quality-gate.md), [v1.0 CI performance record](../benchmarks/v1.0-ci-performance-2026-11-12.md), [JPEG XL performance analysis](../benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md), tracker #196
@@ -223,7 +223,8 @@ version is open question O3.
 What the repository recorded when this record was accepted, with its source
 (the gate tooling before the work of the night of 2026-11-13; the
 [second table](#gate-tooling-on-main-at-dbf7b095-2026-11-13) gives the state
-after it). "Not available yet" names
+after it, the [third](#state-on-main-on-2026-11-14) the state of
+2026-11-14). "Not available yet" names
 a missing capability, not a failed check. Ratios are port ÷ original, one
 thread unless noted, column (b) unless noted; they are indicative and carry
 the limits of their records.
@@ -263,6 +264,41 @@ Sources: the [quality gate guide](../quality-gate.md); libwebp-rs
 status comments of 2026-11-13 on #196 and #241; #252 for the first hosted
 Linux x86-64 run (nightly 43401560676). No port meets the full gate on both
 targets.
+
+### State on `main` on 2026-11-14
+
+`main` at `5004f34e`. Commands and details are in the
+[quality gate guide](../quality-gate.md); results are the recorded ones with
+their source, not rerun for this table. A hosted run is named with its
+branch where that branch is not `main`.
+
+| Port | Scalar gate | SIMD gate | x86-64 evidence | Recorded result |
+| --- | --- | --- | --- | --- |
+| libjpeg-turbo-rs | Unchanged (oracle variant `release`) | Unchanged (oracle variant `simd`) | `tools/check.py --arch x86_64` under Rosetta 2; #252 records no hosted result | No commit under `codecs/libjpeg-turbo-rs` since `dbf7b095`; no new result recorded |
+| libwebp-rs | Unchanged (`release`) | Unchanged (`release-simd` per mode); `tests/wp13_tools.rs` also compares the Rust-linked `cwebp` with libwebp's SIMD `cwebp` in every mode | Rosetta 2: scalar and three SIMD modes, three profiles, 4,488 passed, 0 failed on `54a0c458` (#89). Hosted Linux x86-64: run 43471093624 (branch `v1/webp` at `690ad251`, whose `codecs/libwebp-rs` tree equals `main`'s), `avx2`, `sse41` and `sse2` 1,131 tests each, 0 failed; the earlier crash was a probe defect (#252) | AArch64 `neon` 411 and scalar 368 per profile, 2,337 passed, 0 failed (`docs/SIMD-STATUS.md`). Every recorded run passes on both targets; the narrowed comparison domains wait for O7 |
+| libjxl-rs | Unchanged (pinned scalar oracle plus `oracle-o3`); scalar-reference tests select the scalar decoder path themselves, and `tools/check.py` sets `JXL_DECODER_TARGET=scalar` | Decoder: a SIMD translation of every decode-path Highway export for NEON and AVX2; `tests/simd_public.rs` compares whole public decodes (352 inputs, two modes), `tests/simd_threads.rs` worker counts, `tests/simd_vardct_lanes8.rs` the 8-lane structure. The decoder selects NEON by default on AArch64 and the scalar path on x86-64. The encoder's Highway exports are unported (#231, #243). On `main` the AVX2 oracle is a static AVX2 build | Hosted run 43533597186 (branch `v1/jxl-merge7`, static oracle): four row tests differ in one word each. The dispatch-build oracle (see [Decided since 2026-11-13](#decided-since-2026-11-13)) is on branch `v1/jxl-avx2-merge` only; with it, run 43558043274 (branch `v1/jxl-avx2-fixes`, based on `718b32d6`, before the NEON default) passed every job. No passing hosted AVX2 run of `main` | NEON: all 352 inputs identical in both modes; 0, 1, 2 and 8 workers identical with the NEON original; 8-lane structure equal (port ADR 0004, port status). No whole-suite count of `main` is recorded. The encoder meets at most the scalar half |
+| libavif-rs (AOM) | Unchanged | Unchanged tools; four more still-image kernels dispatched to Neon (`aom_sum_sse_2d_i16`, `av1_get_horver_correlation_full`, `av1_get_nz_map_contexts`, `av1_round_shift_array`), 513 RTCD functions on the arm64 overlay | Unchanged: x86-64 originals build under Rosetta 2, the port's x86 kernels only for GNU Linux x86-64; `avx2` never run; no workflow runs the check | AArch64 `neon` 82 of 82 and `scalar` 82 of 82 on the final tree (port ADR 0056 amendment of 2026-11-13); x86-64 unchanged (`sse4.1` and `scalar` 86 of 86 through the container route). The nightly `root / generate` failure (#204) is fixed on `main` (`63d77626`, port ADR 0054 amendment); no nightly has completed since |
+
+Sources: the [quality gate guide](../quality-gate.md) and the
+[status page](../status.md); libwebp-rs `docs/SIMD-STATUS.md` and
+`tools/check.py`; libjxl-rs `tools/check.py`, `CONTRIBUTING.md`,
+`docs/PORT_STATUS.md` and port ADR 0004, on `main` and, for the
+dispatch-build oracle, on branch `v1/jxl-avx2-merge`; libavif-rs port ADR
+0054 and 0056 amendments; #204, #252; the job logs of runs 43471093624 and
+43558043274 (`gh run view --log`). No port meets the full gate on both
+targets.
+
+Performance (section 6, reported, not gated): the
+[JPEG XL decode record of 2026-11-14](../benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md)
+(one AArch64 machine) measured the decoder at `7152fb41` at 1.3–3.3× in (a),
+1.3–2.9× in (b) and 3.2–15× in (c) on eight inputs; its addenda give (c)
+10.5×, 12.6× and 1.6× on three inputs after the concurrent AC group decode,
+and (b) 1.28× and 1.57× on two inputs after the render-pipeline changes.
+For the decoder on AArch64 these supersede the JPEG XL decode ratios of the
+first table. No x86-64 record of the current decoder exists; the x86-64
+JPEG XL rows of the
+[three-column record of 2026-11-13](../benchmarks/v1.0-three-column-2026-11-13.md)
+describe `e4038a4a`.
 
 ## Consequences
 
@@ -366,7 +402,15 @@ These are **not** decided. Do not implement them beyond what is stated.
 - **O3.** Whether all crates share one version under Release Please.
 - **O4.** How to treat kernels that exist only as assembly in the original
   (libaom NASM predictors, dav1d), and x86 kernels whose result is
-  vendor-specific (`rcpps` in libjxl's AVX2 paths).
+  vendor-specific (`rcpps` in libjxl's AVX2 paths). **Working rule for
+  `rcpps` since 2026-11-13 (evening), delegated, revisable by the owner**
+  (libjxl-rs ADR 0004, "VarDCT decode kernels", Dispatch): the port's AVX2
+  path executes the original's `_mm256_rcp_ps` estimate as the original's
+  AVX2 build does, and identity is claimed per host against the original
+  (section 2), never across hosts or CPU vendors. It replaces the earlier
+  rule that kept AVX2's DequantBlock scalar. Whether vendor-dependent
+  results are acceptable for shipped defaults, and the assembly-only
+  kernels, stay open.
 - **O5.** Confirmations pending from 2026-11-12: lossy as the JPEG XL output
   default and patches always off; the rendered-ICC channel table; refusing
   AVIF with ICC plus a non-sRGB nclx; the default AVIF quality per encoder
@@ -396,7 +440,9 @@ all open questions:
   explicit yes because `AGENTS.md` asks to keep generated AVIF source hashes
   intact. Also: `av1_get_nz_map_contexts` and `av1_round_shift_array` stay on
   `_c` although the original dispatches Neon, and `aom_sse`/`aom_highbd_sse`
-  are dispatched globally, including video call sites.
+  are dispatched globally, including video call sites. (Since the
+  libavif-rs ADR 0056 amendment of 2026-11-13 both kernels are dispatched to
+  Neon through the same route; #250 still lists them as on `_c`.)
 - **O9. JPEG XL on x86-64, local gate.** The originals cross-built for
   Rosetta contain only skcms's baseline engine, because upstream's
   `skcms.cmake` keys the HSW engine on `CMAKE_SYSTEM_PROCESSOR` (the arm64
@@ -411,6 +457,22 @@ Also waiting for a decision (#250):
 - rav1e's AVX-512 paths: rav1e is context only (D1), but it still runs them
   when selected.
 - Argon conformance vectors for the AVIF reader (#54).
+
+Apart from the O4 working rule and the O8 note above, everything in this
+section stays open as
+[#250](https://github.com/sebastian-software/ferrisma/issues/250) lists it.
+
+## Decided since 2026-11-13
+
+- **libjxl-rs AVX2 reference build (2026-11-14).** The owner decided that
+  the libjxl-rs SIMD reference at AVX2 is upstream's dynamic-dispatch
+  release build capped at `HWY_AVX2` through `HWY_DISABLED_TARGETS`, as
+  section 1 defines a SIMD reference build, and not a static build with
+  every translation unit compiled for AVX2 and FMA. This applies section 1;
+  it changes no decision. Source: libjxl-rs ADR 0004, "AVX2 reference:
+  upstream's dispatch build", on branch `v1/jxl-avx2-merge` (commit
+  `d68e9a6d`). On 2026-11-14 that branch is not merged into `main`, and
+  #250 does not record the decision.
 
 ## Review when
 
@@ -435,3 +497,16 @@ planned.
   for libwebp-rs and libjxl-rs on the original's side, so the hosted
   cross-check has not passed for them. Open questions O6–O9 and three further
   items copied from #250.
+- 2026-11-14 — State refresh; decisions D1–D10 unchanged. Added the table
+  "State on `main` on 2026-11-14": libwebp-rs passed the hosted Linux
+  x86-64 SIMD gate at `avx2`, `sse41` and `sse2` (run 43471093624, #252 was
+  a probe defect); the libjxl-rs decoder has a SIMD translation of every
+  decode-path Highway export, passes the public-decoder gate on 352 inputs
+  against the NEON original and selects NEON by default on AArch64, while
+  x86-64 stays scalar and the encoder's exports are unported; the AOM port
+  dispatches 513 RTCD functions to Neon and the #204 nightly failure is
+  fixed. Performance note from the JPEG XL decode record of 2026-11-14.
+  Open questions: O4 records the `rcpps` working rule of libjxl-rs ADR 0004;
+  O8 notes that its two `_c` kernels are now dispatched; new section
+  "Decided since 2026-11-13" with the owner's AVX2 reference decision for
+  libjxl-rs (on branch `v1/jxl-avx2-merge`, not yet on `main`).
