@@ -738,6 +738,8 @@ pub unsafe fn set_cpu_query_callback(query: extern "C" fn(CPUFeature) -> c_int) 
 /// `crate::dsp::cpu::features` (ADR 0008): 0 for `NULL` (`-noasm`), 1 for the
 /// translation's own query, and a fold of the address of a query that the
 /// caller installed, with its low bits set apart from the two fixed tokens.
+/// Inlined into the dispatch functions' cache test.
+#[inline]
 pub(crate) fn cpu_query_token() -> u32 {
     let pointer = VP8_GET_CPU_INFO.load(Ordering::Acquire);
     if pointer.is_null() {

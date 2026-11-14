@@ -337,6 +337,7 @@ impl Features {
         bits
     }
 
+    #[inline]
     fn from_bits(bits: u32) -> Self {
         Self {
             sse2: bits & Self::SSE2 != 0,
@@ -360,6 +361,12 @@ static FEATURES_CACHE: AtomicU64 = AtomicU64::new(0);
 /// The features the dispatch functions select by (ADR 0008), computed on the
 /// first call and again whenever the C ABI's `VP8GetCPUInfo` pointer has
 /// changed since, as `WEBP_DSP_INIT` re-runs the `Init` functions then.
+///
+/// The test of the cached record is inlined into each dispatch function, so a
+/// call with an unchanged pointer reads the pointer and the cache word and
+/// tests the one flag it selects by, where upstream reads its dispatch
+/// pointer; the computation runs out of line ([`refresh_features`]).
+#[inline]
 #[must_use]
 pub fn features() -> Features {
     let token = crate::abi::decode::cpu_query_token();
@@ -373,6 +380,14 @@ pub fn features() -> Features {
     if cached_token == token && bits & Features::VALID != 0 {
         return Features::from_bits(bits);
     }
+    refresh_features(token)
+}
+
+/// Computes the record for the pointer of `token` and caches it: the first
+/// call of [`features`], and the first after the pointer changed.
+#[cold]
+#[inline(never)]
+fn refresh_features(token: u32) -> Features {
     let computed = compute_features();
     FEATURES_CACHE.store(
         (u64::from(token) << 32) | u64::from(computed.bits() | Features::VALID),

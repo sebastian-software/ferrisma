@@ -74,6 +74,18 @@
 //!    `Transpose4x4_S16_NEON` write through output pointers in C and
 //!    return their vectors here; `TransformPass_NEON` and
 //!    `AccumulateSSE16_NEON` take the vectors they update by `&mut`.
+//! 7. **Inlined helpers** (issue #226). `Load4x4_NEON`, `Fill_NEON`,
+//!    `HorizontalPred16_NEON` and `VerticalPred16_NEON` are `static` helpers
+//!    that upstream's build inlines into their callers; they carry
+//!    `#[inline]` here (Rust rejects `#[inline(always)]` on a
+//!    `#[target_feature]` function), and `Load4x4_NEON`, `Fill_NEON`,
+//!    `Fill16_NEON` and `HorizontalPred16_NEON` check the length of their
+//!    rows once at the top, so the per-row checks fold away and the
+//!    compiler inlines them as well. A slice too short for the block then
+//!    panics before the first access instead of at the first row outside
+//!    it; the bytes read and written are unchanged. `ITransformOne_NEON`
+//!    stays a call: `#[inline]` does not get it inlined into its two calls
+//!    in `ITransform_NEON`.
 //!
 //! # Excluded undefined behavior
 //!
@@ -312,10 +324,14 @@ pub(crate) fn i_transform(ref_: &[u8], input: &[i16], dst: &mut [u8], do_two: bo
 }
 
 // upstream: src/dsp/enc_neon.c Load4x4_NEON
-/// Load all 4x4 pixels into a single `uint8x16_t` variable.
+/// Load all 4x4 pixels into a single `uint8x16_t` variable. Inlined into its
+/// callers as upstream's build inlines the `static` helper (deviation 7).
 #[target_feature(enable = "neon")]
+#[inline]
 #[must_use]
 fn load4x4_neon(src: &[u8]) -> uint8x16_t {
+    // One length check for the four rows read below (deviation 7).
+    let src = &src[..3 * BPS_U + 4];
     let mut out = vdupq_n_u32(0);
     out = vsetq_lane_u32::<0>(load_u32_ne(&src[0..]), out);
     out = vsetq_lane_u32::<1>(load_u32_ne(&src[BPS_U..]), out);
@@ -1153,8 +1169,12 @@ pub(crate) fn intra4_preds(dst: &mut [u8], top: &[u8], top_pos: usize) {
 }
 
 // upstream: src/dsp/enc_neon.c Fill_NEON
+/// Inlined into its callers as upstream's build inlines it (deviation 7).
 #[target_feature(enable = "neon")]
+#[inline]
 fn fill_neon(dst: &mut [u8], value: u8) {
+    // One length check for the 16 rows written below (deviation 7).
+    let dst = &mut dst[..BPS_U * 15 + 16];
     let a = vdupq_n_u8(value);
     for i in 0..16 {
         vst1q_u8(&mut dst[BPS_U * i..], a);
@@ -1164,6 +1184,8 @@ fn fill_neon(dst: &mut [u8], value: u8) {
 // upstream: src/dsp/enc_neon.c Fill16_NEON
 #[target_feature(enable = "neon")]
 fn fill16_neon(dst: &mut [u8], src: &[u8]) {
+    // One length check for the 16 rows written below (deviation 7).
+    let dst = &mut dst[..BPS_U * 15 + 16];
     let a = vld1q_u8(src);
     for i in 0..16 {
         vst1q_u8(&mut dst[BPS_U * i..], a);
@@ -1171,13 +1193,17 @@ fn fill16_neon(dst: &mut [u8], src: &[u8]) {
 }
 
 // upstream: src/dsp/enc_neon.c HorizontalPred16_NEON
+/// Inlined into its callers as upstream's build inlines it (deviation 7).
 #[target_feature(enable = "neon")]
+#[inline]
 fn horizontal_pred16_neon(dst: &mut [u8], left: PredLeft<'_>) {
     let Some((left, pos)) = left else {
         fill_neon(dst, 129);
         return;
     };
 
+    // One length check for the 16 rows written below (deviation 7).
+    let dst = &mut dst[..BPS_U * 15 + 16];
     let a = vld1q_u8(&left[pos..]);
     vst1q_u8(&mut dst[0..], vdupq_laneq_u8::<0>(a));
     vst1q_u8(&mut dst[BPS_U..], vdupq_laneq_u8::<1>(a));
@@ -1198,7 +1224,9 @@ fn horizontal_pred16_neon(dst: &mut [u8], left: PredLeft<'_>) {
 }
 
 // upstream: src/dsp/enc_neon.c VerticalPred16_NEON
+/// Inlined into its callers as upstream's build inlines it (deviation 7).
 #[target_feature(enable = "neon")]
+#[inline]
 fn vertical_pred16_neon(dst: &mut [u8], top: Option<&[u8]>) {
     if let Some(top) = top {
         fill16_neon(dst, top);

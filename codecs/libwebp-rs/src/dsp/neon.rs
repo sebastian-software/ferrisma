@@ -246,6 +246,8 @@ pub fn vst4q_u8_words(dst: &mut [u32], value: uint8x16x4_t) {
 #[inline]
 #[must_use]
 pub fn load_u32_ne(src: &[u8]) -> u32 {
+    // One length check, so the four bytes are one 4-byte load as in C.
+    let src = &src[..4];
     u32::from_ne_bytes([src[0], src[1], src[2], src[3]])
 }
 
