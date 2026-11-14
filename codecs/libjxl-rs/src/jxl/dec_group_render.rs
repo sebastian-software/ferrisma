@@ -8,7 +8,7 @@ use super::ac_strategy::AcStrategyType;
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode};
 use super::chroma_from_luma::COLOR_TILE_DIM_IN_BLOCKS;
-use super::dct_util::{AcImage, AcPtrMut, AcType, ConstAcPtr};
+use super::dct_util::{AcImage, AcPtrMut, AcType, ConstAcPtr, GroupCoefficients};
 use super::dec_cache::GroupDecBuffers;
 use super::dec_group::{DrawMode, GetBlock, GroupDecoderShared, with_group_shared};
 use super::dec_transforms::{lowest_frequencies_from_dc, transform_to_pixels};
@@ -151,7 +151,7 @@ pub fn decode_group_impl(
             get_block,
             buffers,
             shared,
-            coefficients,
+            coefficients.group_rows(group_idx),
             x_dm_multiplier,
             b_dm_multiplier,
             biases,
@@ -171,7 +171,7 @@ pub fn decode_group_impl_shared(
     get_block: &mut impl GetBlock,
     buffers: GroupDecBuffers<'_>,
     shared: &GroupDecoderShared<'_>,
-    coefficients: &mut AcImage,
+    mut coefficients: GroupCoefficients<'_>,
     x_dm_multiplier: f32,
     b_dm_multiplier: f32,
     biases: &[f32; 4],
@@ -295,35 +295,27 @@ pub fn decode_group_impl_shared(
                 let log2_covered_blocks = acs.log2_covered_blocks();
                 let covered_blocks = 1usize << log2_covered_blocks;
                 let size = covered_blocks * DCT_BLOCK_SIZE;
-                let mut qblock =
-                    if accumulate {
-                        match coefficients {
-                            AcImage::I16(image) => image.planes_mut().each_mut().map(|plane| {
-                                AcPtrMut::I16(&mut plane.row_mut(group_idx)[offset..])
-                            }),
-                            AcImage::I32(image) => image.planes_mut().each_mut().map(|plane| {
-                                AcPtrMut::I32(&mut plane.row_mut(group_idx)[offset..])
-                            }),
+                let mut qblock = if accumulate {
+                    coefficients.from_offset(offset)
+                } else {
+                    if draw != DrawMode::Draw {
+                        return Err(StatusCode::GenericError);
+                    }
+                    match ac_type {
+                        AcType::I16 => {
+                            buffers.qblock16[..size * 3].fill(0);
+                            let (x, rest) = buffers.qblock16[..size * 3].split_at_mut(size);
+                            let (y, b) = rest.split_at_mut(size);
+                            [AcPtrMut::I16(x), AcPtrMut::I16(y), AcPtrMut::I16(b)]
                         }
-                    } else {
-                        if draw != DrawMode::Draw {
-                            return Err(StatusCode::GenericError);
+                        AcType::I32 => {
+                            buffers.qblock[..size * 3].fill(0);
+                            let (x, rest) = buffers.qblock[..size * 3].split_at_mut(size);
+                            let (y, b) = rest.split_at_mut(size);
+                            [AcPtrMut::I32(x), AcPtrMut::I32(y), AcPtrMut::I32(b)]
                         }
-                        match ac_type {
-                            AcType::I16 => {
-                                buffers.qblock16[..size * 3].fill(0);
-                                let (x, rest) = buffers.qblock16[..size * 3].split_at_mut(size);
-                                let (y, b) = rest.split_at_mut(size);
-                                [AcPtrMut::I16(x), AcPtrMut::I16(y), AcPtrMut::I16(b)]
-                            }
-                            AcType::I32 => {
-                                buffers.qblock[..size * 3].fill(0);
-                                let (x, rest) = buffers.qblock[..size * 3].split_at_mut(size);
-                                let (y, b) = rest.split_at_mut(size);
-                                [AcPtrMut::I32(x), AcPtrMut::I32(y), AcPtrMut::I32(b)]
-                            }
-                        }
-                    };
+                    }
+                };
                 get_block.load_block(bx, by, acs, size, log2_covered_blocks, &mut qblock)?;
                 offset += size;
                 if draw == DrawMode::DontDraw {

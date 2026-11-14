@@ -13,14 +13,12 @@
 //!   borrow of codec state outlives a call. `decoded_` is an `Rc<RefCell>`
 //!   bundle owner shared with the retained pipeline writers.
 //! - The frame's pool is the source's retained `pool_` pointer: null for the
-//!   internal fixed profiles, the public decoder's pool otherwise. The AC
-//!   group tasks (ProcessSections and Flush) run concurrently through
+//!   internal fixed profiles, the public decoder's pool otherwise. The DC
+//!   and AC group tasks (ProcessSections and Flush) run concurrently through
 //!   `run_on_pool_shared`: the frame state is split into a `Sync` part the
 //!   tasks read and an exclusive part they enter in short locked sections
-//!   (ADR 0003, "Concurrent decoder tasks"). The DC group task bodies borrow
-//!   non-thread-safe frame owners (`Rc`/`RefCell` and exclusive borrows), so
-//!   `run_on_pool_exclusive_no_init` serializes them. In both, the runner
-//!   chooses the init thread count, the threads and the task order.
+//!   (ADR 0003, "Concurrent decoder tasks"); the runner chooses the init
+//!   thread count, the threads and the task order.
 //! - The decoder's JxlMemoryManager is supplied to `FrameDecoder::new`, because
 //!   the codec state is lent per call: it is the modular frame decoder's
 //!   manager and the WriteToOutputStage scratch manager, as the source's
@@ -36,14 +34,12 @@
 //!   constructor's; earlier pipelines may still retain the previous header.
 //! - JXL_HIGH_PRECISION=1 (the pinned default) compiles out the fast XYB->sRGB8
 //!   branch of SetImageOutput/PreparePipeline.
-use super::base::data_parallel::{
-    ExclusiveSection, ThreadPool, run_on_pool_exclusive_no_init, run_on_pool_shared,
-};
+use super::base::data_parallel::{ExclusiveSection, ThreadPool, run_on_pool_shared};
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode, StatusOr};
 use super::cms_interface::JxlCmsInterface;
 use super::color_encoding_internal::ColorEncoding;
-use super::dct_util::{AcImage, AcType};
+use super::dct_util::AcType;
 use super::dec_ans::ANSCode;
 use super::dec_bit_reader::BitReader;
 use super::dec_cache::{
@@ -635,53 +631,6 @@ impl FrameDecoderScope<'_, '_, '_> {
         }
         status
     }
-    fn process_dc_group(&mut self, g: usize, reader: &mut BitReader<'_>) -> Status {
-        if self.storage.header.0.encoding == FrameEncoding::VAR_DCT
-            && self.storage.header.0.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
-        {
-            self.storage.modular.decode_var_dct_dc(
-                &self.storage.header.0,
-                g,
-                reader,
-                self.state,
-            )?;
-        }
-        let d = &self.storage.dim;
-        let rect = Rect::new(
-            (g % d.xsize_dc_groups) * d.dc_group_dim,
-            (g / d.xsize_dc_groups) * d.dc_group_dim,
-            d.dc_group_dim,
-            d.dc_group_dim,
-        );
-        self.storage.modular.decode_group(
-            &self.storage.header.0,
-            rect,
-            Some(reader),
-            3,
-            1000,
-            &ModularStreamId::modular_dc(g),
-            false,
-            None,
-            None,
-            false,
-            None,
-        )?;
-        if self.storage.header.0.encoding == FrameEncoding::VAR_DCT {
-            self.storage.modular.decode_ac_metadata(
-                &self.storage.header.0,
-                g,
-                reader,
-                self.state,
-            )?;
-        } else if self.storage.header.0.loop_filter.epf_iters > 0 {
-            super::image_ops::fill_image(
-                super::epf::INV_SIGMA_NUM / self.storage.header.0.loop_filter.epf_sigma_for_modular,
-                &mut self.state.sigma.borrow_mut(),
-            );
-        }
-        self.storage.dc_groups[g] = 1;
-        Ok(())
-    }
     fn prepare_pipeline(&mut self, options: PipelineOptions) -> Status {
         if self.storage.header.0.can_be_referenced() {
             if let Some(events) = &self.storage.write_trace {
@@ -1220,14 +1169,29 @@ impl FrameDecoderScope<'_, '_, '_> {
         // borrows mutably while rendering: such groups borrow it in their
         // exclusive section instead, for the group body only, as the source
         // order of the serialized translation does.
+        // A DC frame that reads a higher-level DC frame's image writes its
+        // own output into the same cell while rendering, so its groups
+        // borrow the image per group in their exclusive section.
         let dc_frame = match shared_storage.dc_source {
-            super::passes_state::DcSource::Frame(i) => Some((&shared_storage.dc_frames, i)),
-            super::passes_state::DcSource::Storage => None,
+            super::passes_state::DcSource::Frame(i) if header.0.frame_type == FrameType::DC => {
+                Some((&shared_storage.dc_frames, i))
+            }
+            _ => None,
         };
         let dc = dc_frame.is_none().then(|| shared_storage.dc());
         let cmap_base = shared_storage.cmap.base();
         let (modular, full_image) = modular.split_for_groups();
-        let serial = is_jpeg || !coefficients.is_empty() || dc_frame.is_some();
+        let serial = is_jpeg || dc_frame.is_some();
+        let coefficient_type = coefficients.image_type();
+        // Each group owns its row of the accumulated coefficients: the AC
+        // image split into disjoint group rows, each behind its own lock,
+        // which only that group's task takes (port ADR 0003, "Concurrent
+        // decoder tasks").
+        let coefficient_rows: Vec<_> = coefficients
+            .split_group_rows()
+            .into_iter()
+            .map(std::sync::Mutex::new)
+            .collect();
         // Rendering runs on the tasks' threads when every stage may (port ADR
         // 0003, "Concurrent decoder tasks"): the pipeline is then split into
         // its shared render view and the storage the tasks lock.
@@ -1261,7 +1225,8 @@ impl FrameDecoderScope<'_, '_, '_> {
             nonvisible_frame_index: *nonvisible_frame_index,
             is_jpeg,
             serial,
-            coefficient_type: coefficients.image_type(),
+            coefficient_type,
+            coefficient_rows,
             render,
         };
         let mut exclusive = AcGroupExclusive {
@@ -1269,7 +1234,6 @@ impl FrameDecoderScope<'_, '_, '_> {
             pipeline,
             render_storage,
             upsampler8x: upsampler8x.as_deref_mut(),
-            coefficients,
             decoded,
             group_caches,
             use_task_id,
@@ -1296,6 +1260,82 @@ impl FrameDecoderScope<'_, '_, '_> {
                 &mut exclusive,
                 prepare_storage,
                 |shared, exclusive, g, thread| job.run(shared, exclusive, g as usize, thread),
+            )
+        }
+    }
+    /// RunOnPool over the DC groups with ProcessDCGroup as its task, the
+    /// frame state split as for the AC groups (port ADR 0003, "Concurrent
+    /// decoder tasks"): each task decodes its DC, modular DC and AC metadata
+    /// images from the shared state outside every section and writes them
+    /// into the decoder's images in exclusive sections, in the source's
+    /// order.
+    fn run_dc_groups(
+        &mut self,
+        sections: &mut [SectionInfo<'_, '_>],
+        statuses: &mut [SectionStatus],
+        dc: &[usize],
+        num: usize,
+    ) -> Status {
+        let pool = self.storage.pool();
+        let shared_dim = self.state.shared().frame_dim;
+        let memory_manager = self.state.memory_manager();
+        let FrameDecoder {
+            header,
+            dim,
+            modular,
+            dc_groups,
+            ..
+        } = &mut *self.storage;
+        let (modular, full_image) = modular.split_for_groups();
+        let header: &FrameHeader<'_> = &header.0;
+        let shared = DcGroupShared {
+            header,
+            dim: *dim,
+            shared_dim,
+            memory_manager,
+            modular,
+        };
+        let mut exclusive = DcGroupExclusive {
+            state: &mut *self.state,
+            full_image,
+            dc_groups,
+            sections,
+            statuses,
+        };
+        let task = |shared: &DcGroupShared<'_, '_>,
+                    exclusive: &ExclusiveSection<'_, DcGroupExclusive<'_, '_, '_, '_, '_>>,
+                    i: u32,
+                    _thread: usize|
+         -> Status {
+            let i = i as usize;
+            if dc[i] == num {
+                return Ok(());
+            }
+            let mut reader = exclusive.with(|e| std::mem::take(&mut *e.sections[dc[i]].br));
+            let status = process_dc_group(shared, exclusive, i, &mut reader);
+            exclusive.with(|e| {
+                *e.sections[dc[i]].br = reader;
+                if status.is_ok() {
+                    e.statuses[dc[i]] = SectionStatus::Done;
+                }
+            });
+            status
+        };
+        // SAFETY: The exclusive part holds the codec state, whose owners
+        // share Rc/Arc handles with the pipeline (ADR 0003), the full image,
+        // the DC group flags and the section readers, none thread-affine;
+        // the tasks move only their section's reader out of it. Nothing else
+        // uses those owners until this call returns. The shared part is
+        // checked Sync.
+        unsafe {
+            run_on_pool_shared(
+                pool,
+                0,
+                dc.len() as u32,
+                &shared,
+                &mut exclusive,
+                |_, _, _| Ok(()),
+                task,
             )
         }
     }
@@ -1405,28 +1445,7 @@ impl FrameDecoderScope<'_, '_, '_> {
             };
         }
         if self.storage.decoded_dc_global {
-            let pool = self.storage.pool();
-            let mut state = (&mut *self, &mut *sections, &mut *statuses);
-            // SAFETY: The tasks use the frame scope, whose owners share
-            // Rc/RefCell handles (ADR 0003), and the section readers. None
-            // holds a thread-affine value, and nothing else uses those owners
-            // until this call returns.
-            unsafe {
-                run_on_pool_exclusive_no_init(
-                    pool,
-                    0,
-                    dc.len() as u32,
-                    &mut state,
-                    |(scope, sections, statuses), i, _thread| -> Status {
-                        let i = i as usize;
-                        if dc[i] != num {
-                            scope.process_dc_group(i, &mut *sections[dc[i]].br)?;
-                            statuses[dc[i]] = SectionStatus::Done;
-                        }
-                        Ok(())
-                    },
-                )
-            }?;
+            self.run_dc_groups(sections, statuses, &dc, num)?;
         }
         if !self.storage.dc_groups.contains(&0) && !self.storage.finalized_dc {
             let options = PipelineOptions {
@@ -1583,6 +1602,91 @@ impl FrameDecoderScope<'_, '_, '_> {
     }
 }
 
+/// The frame state DC group tasks read, shared by every task at once.
+struct DcGroupShared<'s, 'm> {
+    header: &'s FrameHeader<'m>,
+    dim: FrameDimensions,
+    /// The codec state's frame dimensions, which DecodeVarDCTDC and
+    /// DecodeAcMetadata read.
+    shared_dim: FrameDimensions,
+    memory_manager: MemoryManagerPtr,
+    modular: ModularGroupContext<'s>,
+}
+
+/// The frame state DC group tasks write, entered one section at a time.
+struct DcGroupExclusive<'e, 'm, 'p, 'r, 'b> {
+    state: &'e mut PassesDecoderState<'m, 'p>,
+    full_image: &'e mut ModularImage,
+    dc_groups: &'e mut Vec<u8>,
+    sections: &'e mut [SectionInfo<'r, 'b>],
+    statuses: &'e mut [SectionStatus],
+}
+
+/// ProcessDCGroup: each decode outside the exclusive section, each write
+/// into the decoder's images in it, right after its decode.
+fn process_dc_group(
+    shared: &DcGroupShared<'_, '_>,
+    exclusive: &ExclusiveSection<'_, DcGroupExclusive<'_, '_, '_, '_, '_>>,
+    g: usize,
+    reader: &mut BitReader<'_>,
+) -> Status {
+    let header = shared.header;
+    let dc_rect = shared.shared_dim.dc_group_rect(g);
+    if header.encoding == FrameEncoding::VAR_DCT
+        && header.flags & super::frame_header::FLAG_USE_DC_FRAME == 0
+    {
+        let (image, multiplier) = shared.modular.decode_var_dct_dc_image(
+            header,
+            g,
+            reader,
+            shared.memory_manager,
+            dc_rect,
+        )?;
+        exclusive.with(|e| {
+            super::dec_modular::commit_var_dct_dc(header, dc_rect, &image, multiplier, e.state)
+        });
+    }
+    let d = &shared.dim;
+    let rect = Rect::new(
+        (g % d.xsize_dc_groups) * d.dc_group_dim,
+        (g / d.xsize_dc_groups) * d.dc_group_dim,
+        d.dc_group_dim,
+        d.dc_group_dim,
+    );
+    let pending = shared.modular.decode_group(
+        header,
+        rect,
+        Some(reader),
+        3,
+        1000,
+        &ModularStreamId::modular_dc(g),
+        false,
+        None,
+        None,
+        false,
+        None,
+    )?;
+    exclusive.with(|e| pending.write_to(e.full_image))?;
+    if header.encoding == FrameEncoding::VAR_DCT {
+        let metadata =
+            shared
+                .modular
+                .decode_ac_metadata_image(g, reader, shared.memory_manager, dc_rect)?;
+        exclusive.with(|e| {
+            super::dec_modular::commit_ac_metadata(header, dc_rect, &metadata, e.state)
+        })?;
+    } else if header.loop_filter.epf_iters > 0 {
+        exclusive.with(|e| {
+            super::image_ops::fill_image(
+                super::epf::INV_SIGMA_NUM / header.loop_filter.epf_sigma_for_modular,
+                &mut e.state.sigma.borrow_mut(),
+            );
+        });
+    }
+    exclusive.with(|e| e.dc_groups[g] = 1);
+    Ok(())
+}
+
 /// The frame state AC group tasks read, shared by every task at once (port
 /// ADR 0003, "Concurrent decoder tasks"). The compiler checks it is `Sync`.
 struct AcGroupShared<'s, 'm> {
@@ -1600,11 +1704,14 @@ struct AcGroupShared<'s, 'm> {
     visible_frame_index: usize,
     nonvisible_frame_index: usize,
     is_jpeg: bool,
-    // JPEG output and accumulated (progressive) coefficients write owners
-    // the tasks share, and a DC frame's DC image is borrowed per group; those
-    // groups run their whole body in the exclusive section.
+    // JPEG output writes owners the tasks share, and a DC frame's DC image
+    // is borrowed per group; those groups run their whole body in the
+    // exclusive section.
     serial: bool,
     coefficient_type: AcType,
+    /// The AC image's rows by group, empty when the frame keeps no
+    /// coefficients.
+    coefficient_rows: Vec<std::sync::Mutex<[super::dct_util::AcPtrMut<'s>; 3]>>,
     /// The low-memory pipeline's render view when the tasks render
     /// concurrently; its storage is `AcGroupExclusive::render_storage`.
     render: Option<
@@ -1626,7 +1733,6 @@ struct AcGroupExclusive<'e, 'm, 'p, 'r, 'b> {
     render_storage:
         Option<super::render_pipeline::low_memory_render_pipeline::ConcurrentStorage<'e>>,
     upsampler8x: Option<&'e mut (dyn RenderPipelineStage + 'static)>,
-    coefficients: &'e mut AcImage,
     decoded: &'e crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'m>>,
     group_caches: &'e mut Vec<GroupDecCache>,
     use_task_id: &'e mut bool,
@@ -1727,6 +1833,35 @@ impl AcGroupJob<'_> {
     }
 }
 
+/// A group's lock on its accumulated coefficients, or their absence.
+enum GroupLock<'g, 's> {
+    Empty(AcType),
+    Rows(std::sync::MutexGuard<'g, [super::dct_util::AcPtrMut<'s>; 3]>),
+}
+impl GroupLock<'_, '_> {
+    fn view(&mut self) -> super::dct_util::GroupCoefficients<'_> {
+        use super::dct_util::{AcPtrMut, GroupCoefficients};
+        match self {
+            Self::Empty(kind) => GroupCoefficients::Empty(*kind),
+            Self::Rows(rows) => GroupCoefficients::Rows(rows.each_mut().map(|row| match row {
+                AcPtrMut::I16(values) => AcPtrMut::I16(&mut values[..]),
+                AcPtrMut::I32(values) => AcPtrMut::I32(&mut values[..]),
+            })),
+        }
+    }
+}
+/// Group `g`'s coefficients: its row lock, uncontended, since only `g`'s task
+/// takes it.
+fn group_coefficients<'g, 's>(shared: &'g AcGroupShared<'s, '_>, g: usize) -> GroupLock<'g, 's> {
+    match shared.coefficient_rows.get(g) {
+        Some(rows) => GroupLock::Rows(
+            rows.lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        ),
+        None => GroupLock::Empty(shared.coefficient_type),
+    }
+}
+
 /// The owners one AC group task moves out of the exclusive state to decode
 /// outside it: the lent pipeline input, its group cache and its pass
 /// readers.
@@ -1746,9 +1881,11 @@ struct AcGroupOwned<'x, 'p, 'b> {
 // "Concurrent decoder tasks"): one exclusive section lends it its pipeline
 // input, group cache and readers, it decodes from the shared state into
 // them, writes its full-image rects in short sections, and a last section
-// returns the owners and renders. JPEG output, accumulated coefficients, the
-// 8x-upsampled first draw and a pipeline that cannot lend its input run the
-// whole body in one exclusive section instead.
+// returns the owners; the group then renders on this thread when the
+// pipeline renders concurrently. JPEG output, the DC image of a DC frame
+// that reads another, the 8x-upsampled first draw (whose body runs in the
+// lending section) and a pipeline that cannot lend its input run the whole
+// body in one exclusive section instead.
 #[expect(
     clippy::too_many_arguments,
     reason = "Keep the original group, reader, pass, thread and draw parameters."
@@ -1800,7 +1937,7 @@ fn process_ac_group(
                     dc_only,
                     &mut cache,
                     &mut input,
-                    e.coefficients,
+                    &mut group_coefficients(shared, g),
                     e.upsampler8x.as_deref_mut(),
                     None,
                     &mut |pending| pending.write_to(full_image),
@@ -1841,7 +1978,6 @@ fn process_ac_group(
         Ok(owned) => owned,
         Err(status) => return status,
     };
-    let mut coefficients = AcImage::empty(shared.coefficient_type);
     let decoded = match owned.decoded.take() {
         Some(decoded) => decoded,
         None => decode_ac_group_body(
@@ -1856,7 +1992,7 @@ fn process_ac_group(
             dc_only,
             &mut owned.cache,
             &mut owned.input,
-            &mut coefficients,
+            &mut group_coefficients(shared, g),
             None,
             None,
             &mut |pending| exclusive.with(|e| pending.write_to(e.full_image)),
@@ -2015,7 +2151,7 @@ fn process_ac_group_serial(
             dc_only,
             &mut e.group_caches[location],
             &mut input,
-            e.coefficients,
+            &mut group_coefficients(shared, g),
             e.upsampler8x.as_deref_mut(),
             bundle.as_mut().and_then(|b| b.jpeg_data.as_deref_mut()),
             &mut |pending| pending.write_to(full_image),
@@ -2056,7 +2192,7 @@ fn decode_ac_group_body(
     dc_only: bool,
     cache: &mut GroupDecCache,
     input: &mut RenderPipelineInput<'_, '_>,
-    coefficients: &mut AcImage,
+    coefficients: &mut GroupLock<'_, '_>,
     upsampler8x: Option<&mut (dyn RenderPipelineStage + 'static)>,
     jpeg_data: Option<&mut super::jpeg::jpeg_data::JpegData>,
     write_full_image: &mut dyn FnMut(PendingGroupWrite) -> Status,
@@ -2080,7 +2216,7 @@ fn decode_ac_group_body(
             shared: group,
             code: shared.code,
             context_map: shared.context_map,
-            coefficients,
+            coefficients: coefficients.view(),
             x_dm_multiplier: shared.x_dm_multiplier,
             b_dm_multiplier: shared.b_dm_multiplier,
             quant_biases: shared.quant_biases,

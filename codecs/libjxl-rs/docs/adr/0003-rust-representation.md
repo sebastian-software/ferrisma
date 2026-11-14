@@ -2297,13 +2297,14 @@ The AC group tasks of ProcessSections and Flush (`dec_frame.rs`,
   rects, so the image does not depend on the order of the sections.
 - *Rendering and bookkeeping* (InputReady/ProcessBuffers with the border
   storage and the assigner, `decoded_passes_per_ac_group_[g]`, the section
-  statuses) run in the last exclusive section.
+  statuses) ran in the last exclusive section in this first step; see
+  "Concurrent rendering" below for rendering since.
 - *Whole body in one exclusive section*: JPEG reconstruction (its
-  coefficients live in the decoded bundle's `RefCell`, which output stages
-  also borrow), accumulated progressive coefficients (one `&mut AcImage`;
-  a row-split view would make them concurrent), the zero-pass first draw
-  with the 8x upsampler (a `&mut` stage with per-thread storage), and the
-  simple pipeline, whose input is the whole frame and cannot be lent.
+  coefficients live in the decoded bundle's cell, which output stages also
+  borrow), the zero-pass first draw with the 8x upsampler (a `&mut` stage
+  with per-thread storage), and the simple pipeline, whose input is the
+  whole frame and cannot be lent. Accumulated progressive coefficients
+  were in this list until their row split (below).
 
 Every task runs its steps in the source's order: without a runner, or with
 one that runs the tasks one after another, allocations, releases, statuses
@@ -2322,13 +2323,34 @@ the original (group caches, group images); `MemoryManagerPtr` is `Send` and
 - *Rendering* was serialized until the decision below: the stages'
   `process_row(&mut self, ..., thread)` and their `Rc<RefCell>` owners
   made one stage object usable by one thread at a time.
-- *DC groups*: possible within these rules with the same split (decode the
-  DC, modular DC and AC metadata images concurrently; write their rects in
-  exclusive sections; fill `sigma` once instead of once per task). Not done
-  yet; the measured inputs spend little time there.
-- *Row loops* (modular transforms, AdaptiveDCSmoothing, convolutions): a
-  view that splits the image into disjoint rows would make them concurrent
-  within these rules. Not done yet.
+- *DC groups* were serialized until 2026-11-14 (branch
+  `v1/jxl-render-threads`). They now use the same split
+  (`dec_frame.rs`, `run_dc_groups`): DecodeVarDCTDC and DecodeAcMetadata
+  are split into the decode of the group's image from the shared state
+  (`ModularGroupContext::decode_var_dct_dc_image`,
+  `decode_ac_metadata_image`), outside every section, and its writes into
+  the decoder's images (`commit_var_dct_dc`: DequantDC into the DC storage
+  and quantized DC; `commit_ac_metadata`: the color-correlation maps, the
+  strategy, quant field and sharpness, `used_acs`, sigma), each in an
+  exclusive section right after its decode, so a task's allocations,
+  releases and errors keep the source's order; the modular DC group writes
+  through `PendingGroupWrite`. A modular frame with EPF fills the whole
+  sigma image once per task, as the source does, in an exclusive section.
+- *Accumulated (progressive) coefficients* were serialized until the same
+  change: the AC image is now split into its group rows
+  (`AcImage::split_group_rows`, one row of each plane per group, the
+  source's `PlaneRow(c, group_idx, 0)`), each behind its own lock that only
+  that group's task takes, and the group body reads and adds to its rows
+  through `GroupCoefficients`. Disjointness is the split itself: no two
+  tasks can hold the same row.
+- *ModularToRect* (FinalizeDecoding's group tasks) renders concurrently as
+  the AC groups do when the pipeline renders concurrently.
+- *Row loops* (the modular inverse transforms, AdaptiveDCSmoothing, the
+  convolutions) remain serialized: their task bodies take `&mut` of the
+  image. A view that splits the planes into disjoint rows (RCT, palette,
+  smoothing) or row spans and column spans (squeeze) would make them
+  concurrent within these rules; not done in this change (they are a small
+  share of the measured decodes).
 
 **Proposal for the owner (rendering).** Let stages process rows through
 `&self`, with their per-thread storage in a `Vec` of per-thread cells
@@ -2398,6 +2420,11 @@ calls `RenderPipelineInput::Done` there:
   decision at run time. The bundle and Image3 writers (reference frames,
   DC frames, the internal decoders) hold their target behind a lock and so
   write one row at a time.
+- *DC frames*: a DC frame that reads a higher-level DC frame's image
+  (DC levels of 3 and more) writes its own output into the same DC frames
+  cell while rendering, so its groups borrow the image in their exclusive
+  section and render in it; every other frame borrows the DC image for the
+  call.
 - *Not concurrent, and why*: the CMS stage (the transform's Run needs
   exclusive access to its per-thread buffers, which the CMS interface
   owns), the spot-color stage (it reads the decoder's spot colors through
