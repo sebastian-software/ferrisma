@@ -63,6 +63,13 @@
 //!    reads or writes, so a short buffer panics at that slice index, possibly
 //!    before or after other writes than the scalar function makes
 //!    (`common_sse2.rs`, deviation 3). Valid inputs never reach it.
+//! 5. **One length check per row** (issue #77). `PredictLineLeft_SSE2`,
+//!    `VerticalUnfilter_SSE2` and `GradientPredictInverse_SSE2` slice the
+//!    bytes of their row once, with the byte before it where C reads
+//!    `src[-1]`, and count in `usize`, so the checks of the vector loop
+//!    fold or move out of it and the scalar tail has none, which lets the
+//!    compiler vectorize the tail as upstream's build does. A short buffer
+//!    then panics before the row is written; the bytes are unchanged.
 //!
 //! # Excluded undefined behavior
 //!
@@ -158,25 +165,30 @@ fn predict_line_top_sse2(src: &[u8], pred: &[u8], dst: &mut [u8], length: i32) {
 /// before.
 #[target_feature(enable = "sse2")]
 fn predict_line_left_sse2(src: &[u8], src_pos: usize, dst: &mut [u8], length: i32) {
-    let max_pos = length & !31;
     debug_assert!(length >= 0);
+    // The bytes the function reads, from C's `src[-1]`, and writes, checked
+    // once (deviation 5): C's `src + i` is `src[1 + i]` here. A negative
+    // length runs neither loop, as in C.
+    let length = usize::try_from(length).unwrap_or(0);
+    let src = &src[src_pos - 1..][..=length];
+    let dst = &mut dst[..length];
+    let max_pos = length & !31;
     let mut i = 0;
     while i < max_pos {
-        let k = src_pos + idx(i);
+        let k = 1 + i;
         let a0 = loadu_si128(&src[k..k + 16]);
         let b0 = loadu_si128(&src[k - 1..k + 15]);
         let a1 = loadu_si128(&src[k + 16..k + 32]);
         let b1 = loadu_si128(&src[k + 15..k + 31]);
         let c0 = _mm_sub_epi8(a0, b0);
         let c1 = _mm_sub_epi8(a1, b1);
-        let d = idx(i);
-        storeu_si128(&mut dst[d..d + 16], c0);
-        storeu_si128(&mut dst[d + 16..d + 32], c1);
+        storeu_si128(&mut dst[i..i + 16], c0);
+        storeu_si128(&mut dst[i + 16..i + 32], c1);
         i += 32;
     }
     while i < length {
-        let k = src_pos + idx(i);
-        dst[idx(i)] = src[k].wrapping_sub(src[k - 1]);
+        let k = 1 + i;
+        dst[i] = src[k].wrapping_sub(src[k - 1]);
         i += 1;
     }
 }
@@ -443,11 +455,15 @@ fn vertical_unfilter_sse2(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], wid
     match prev {
         None => horizontal_unfilter_sse2(None, input, out, width),
         Some(prev) => {
-            let max_pos = width & !31;
             debug_assert!(width >= 0);
+            // The row's bytes, checked once (deviation 5). A negative width
+            // runs neither loop, as in C.
+            let width = usize::try_from(width).unwrap_or(0);
+            let (input, prev, out) = (&input[..width], &prev[..width], &mut out[..width]);
+            let max_pos = width & !31;
             let mut i = 0;
             while i < max_pos {
-                let k = idx(i);
+                let k = i;
                 let a0 = loadu_si128(&input[k..k + 16]);
                 let a1 = loadu_si128(&input[k + 16..k + 32]);
                 let b0 = loadu_si128(&prev[k..k + 16]);
@@ -459,7 +475,7 @@ fn vertical_unfilter_sse2(prev: Option<&[u8]>, input: &[u8], out: &mut [u8], wid
                 i += 32;
             }
             while i < width {
-                let k = idx(i);
+                let k = i;
                 out[k] = input[k].wrapping_add(prev[k]);
                 i += 1;
             }
@@ -489,12 +505,20 @@ fn gradient_predict_inverse_sse2(
     length: i32,
 ) {
     if length > 0 {
+        // The bytes the function reads and writes, from C's `top[-1]` and
+        // `row[-1]`, checked once (deviation 5): C's `top + i` and `row + i`
+        // are `top[1 + i]` and `row[1 + i]` here.
+        let length = idx(length);
+        let input = &input[..length];
+        let top = &top[top_pos - 1..][..=length];
+        let row = &mut row[row_pos - 1..][..=length];
+        let (top_pos, row_pos) = (1, 1);
         let max_pos = length & !7;
         let zero = _mm_setzero_si128();
         let mut a = _mm_set_epi32(0, 0, 0, i32::from(row[row_pos - 1])); // left sample
         let mut i = 0;
         while i < max_pos {
-            let p = idx(i);
+            let p = i;
             let t = top_pos + p;
             let tmp0 = loadl_epi64(&top[t..t + 8]);
             let tmp1 = loadl_epi64(&top[t - 1..t + 7]);
@@ -525,7 +549,7 @@ fn gradient_predict_inverse_sse2(
             i += 8;
         }
         while i < length {
-            let p = idx(i);
+            let p = i;
             let t = top_pos + p;
             let r = row_pos + p;
             let delta = gradient_predictor_sse2(row[r - 1], top[t], top[t - 1]);

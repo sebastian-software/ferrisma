@@ -29,6 +29,10 @@
 //!    bytes before each row (`WebPMemToInt32(dst - 4)`) where `HE16_C` reads
 //!    one, so the block must start at least four bytes into the buffer. The
 //!    decoder's work buffer always has them, as in C.
+//! 2. **One length check per block** (issue #77). `HE16_SSE41` slices its
+//!    16 rows, from four bytes before the first, once and indexes the rows
+//!    in that slice, so the per-row checks fold. A short buffer then panics
+//!    before the first row is written; the bytes are unchanged.
 //!
 //! # Excluded undefined behavior
 //!
@@ -59,12 +63,15 @@ const BPS_U: usize = BPS as usize;
 /// horizontal
 #[target_feature(enable = "sse4.1")]
 fn he16_sse41(buf: &mut [u8], dst: usize) {
-    let mut dst = dst;
+    // The 16 rows from `dst - 4`, the left samples included, checked once
+    // (deviation 2); `dst` is 4 in it.
+    let block = &mut buf[dst - 4..][..15 * BPS_U + 20];
+    let mut dst = 4;
     let k_shuffle3 = _mm_set1_epi8(3);
     for _ in 0..16 {
-        let input = _mm_cvtsi32_si128(webp_mem_to_int32(&buf[dst - 4..]));
+        let input = _mm_cvtsi32_si128(webp_mem_to_int32(&block[dst - 4..]));
         let values = _mm_shuffle_epi8(input, k_shuffle3);
-        storeu_si128(&mut buf[dst..], values);
+        storeu_si128(&mut block[dst..], values);
         dst += BPS_U;
     }
 }

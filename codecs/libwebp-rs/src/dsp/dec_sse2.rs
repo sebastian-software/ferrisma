@@ -65,6 +65,12 @@
 //! 4. **Panics on short buffers** come at the vector access, before or after
 //!    other writes than in the scalar translation (`common_sse2.rs`,
 //!    deviation 3).
+//! 5. **One length check per block** (issue #77). `Put16_SSE2`,
+//!    `Put8x8uv_SSE2`, `VE4_SSE2`, `VE8uv_SSE2` and `DC16NoTop_SSE2` slice
+//!    the rows of their block (or the left column) once and index the rows
+//!    in that slice, so the per-row checks fold and the helpers inline into
+//!    their callers as in upstream's build. A short buffer then panics
+//!    before the first row is written; the bytes are unchanged.
 //!
 //! # Excluded undefined behavior
 //!
@@ -1508,8 +1514,10 @@ fn ve4_sse2(buf: &mut [u8], dst: usize) {
     let b = _mm_subs_epu8(a, lsb);
     let avg = _mm_avg_epu8(b, bcdefgh0);
     let vals = _mm_cvtsi128_si32(avg);
+    // The 4 rows of the block from `dst`, checked once (deviation 5).
+    let block = &mut buf[dst..][..3 * BPS_U + 4];
     for i in 0..4 {
-        webp_int32_to_mem(&mut buf[dst + i * BPS_U..], vals);
+        webp_int32_to_mem(&mut block[i * BPS_U..], vals);
     }
 }
 
@@ -1817,9 +1825,11 @@ pub(crate) fn he16(buf: &mut [u8], dst: usize) {
 #[target_feature(enable = "sse2")]
 #[inline]
 fn put16_sse2(v: u8, buf: &mut [u8], dst: usize) {
+    // The 16 rows of the block from `dst`, checked once (deviation 5).
+    let block = &mut buf[dst..][..15 * BPS_U + 16];
     let values = _mm_set1_epi8(v.cast_signed());
     for j in 0..16 {
-        storeu_si128(&mut buf[dst + j * BPS_U..], values);
+        storeu_si128(&mut block[j * BPS_U..], values);
     }
 }
 
@@ -1863,9 +1873,11 @@ pub(crate) fn dc16(buf: &mut [u8], dst: usize) {
 /// DC with top samples unavailable
 #[target_feature(enable = "sse2")]
 fn dc16_no_top_sse2(buf: &mut [u8], dst: usize) {
+    // The left column from `dst - 1`, checked once (deviation 5).
+    let left = &buf[dst - 1..][..=15 * BPS_U];
     let mut dc = 8;
     for j in 0..16 {
-        dc += i32::from(buf[dst - 1 + j * BPS_U]);
+        dc += i32::from(left[j * BPS_U]);
     }
     put16_sse2(to_u8(dc >> 4), buf, dst);
 }
@@ -1919,8 +1931,10 @@ pub(crate) fn dc16_no_top_left(buf: &mut [u8], dst: usize) {
 #[target_feature(enable = "sse2")]
 fn ve8uv_sse2(buf: &mut [u8], dst: usize) {
     let top = loadl_epi64(&buf[dst - BPS_U..]);
+    // The 8 rows of the block from `dst`, checked once (deviation 5).
+    let block = &mut buf[dst..][..7 * BPS_U + 8];
     for j in 0..8 {
-        storel_epi64(&mut buf[dst + j * BPS_U..], top);
+        storel_epi64(&mut block[j * BPS_U..], top);
     }
 }
 
@@ -1936,9 +1950,11 @@ pub(crate) fn ve8uv(buf: &mut [u8], dst: usize) {
 #[target_feature(enable = "sse2")]
 #[inline]
 fn put8x8uv_sse2(v: u8, buf: &mut [u8], dst: usize) {
+    // The 8 rows of the block from `dst`, checked once (deviation 5).
+    let block = &mut buf[dst..][..7 * BPS_U + 8];
     let values = _mm_set1_epi8(v.cast_signed());
     for j in 0..8 {
-        storel_epi64(&mut buf[dst + j * BPS_U..], values);
+        storel_epi64(&mut block[j * BPS_U..], values);
     }
 }
 

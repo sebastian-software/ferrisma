@@ -61,6 +61,11 @@
 //! 4. **Panics on short buffers** come at the vector access, before or after
 //!    other writes than in the scalar translation (`common_sse2.rs`,
 //!    deviation 3).
+//! 5. **One length check per row** (issue #77). `ConvertARGBToY_SSE2`
+//!    slices the row's pixels and luma bytes once and counts in `usize`, so
+//!    the scalar tail has no checks and the compiler vectorizes it as
+//!    upstream's build does. A short buffer then panics before the row is
+//!    written; the bytes are unchanged.
 //!
 //! # Excluded undefined behavior
 //!
@@ -1043,22 +1048,26 @@ pub(crate) fn convert_bgr24_to_y(bgr: &[u8], y: &mut [u8], width: i32) {
     reason = "the masked channels of an ARGB value are below 2^31"
 )]
 fn convert_argb_to_y_sse2(argb: &[u32], y: &mut [u8], width: i32) {
+    // The row's pixels, checked once (deviation 5). A negative width runs
+    // neither loop, as in C.
+    let width = usize::try_from(width).unwrap_or(0);
+    let (argb, y) = (&argb[..width], &mut y[..width]);
     let max_width = width & !15;
     let mut i = 0;
     while i < max_width {
         let mut y0 = _mm_setzero_si128();
         let mut y1 = _mm_setzero_si128();
         let mut rgb = [_mm_setzero_si128(); 6];
-        rgb32_packed_to_planar_sse2(&argb[to_usize(i)..], &mut rgb);
+        rgb32_packed_to_planar_sse2(&argb[i..], &mut rgb);
         convert_rgb_to_y_sse2(&rgb[0], &rgb[2], &rgb[4], &mut y0);
         convert_rgb_to_y_sse2(&rgb[1], &rgb[3], &rgb[5], &mut y1);
-        store_16(_mm_packus_epi16(y0, y1), &mut y[to_usize(i)..]);
+        store_16(_mm_packus_epi16(y0, y1), &mut y[i..]);
         i += 16;
     }
     while i < width {
         // left-over
-        let p = argb[to_usize(i)];
-        y[to_usize(i)] = store_u8(vp8rgb_to_y(
+        let p = argb[i];
+        y[i] = store_u8(vp8rgb_to_y(
             ((p >> 16) & 0xff) as i32,
             ((p >> 8) & 0xff) as i32,
             (p & 0xff) as i32,
