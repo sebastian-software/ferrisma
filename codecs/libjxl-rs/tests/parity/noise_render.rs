@@ -109,7 +109,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         })
         .collect();
     let correlation = ColorCorrelation::default();
-    let mut stage = if kind != 0 {
+    let stage = if kind != 0 {
         get_add_noise_stage(&params, &correlation, first)
     } else {
         get_convolve_noise_stage(first)

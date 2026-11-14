@@ -26,6 +26,9 @@ impl XybStage {
     }
 }
 impl RenderPipelineStage for XybStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
@@ -36,7 +39,7 @@ impl RenderPipelineStage for XybStage {
         "XYB"
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,

@@ -29,6 +29,7 @@
 use super::base::float::{max_f32, min_f32, mul_add_f32, mul_add_f64};
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode, StatusOr};
+use super::base::sync_cell::SyncRefCell;
 use super::color_encoding_internal::ColorEncoding;
 use super::common::SpeedTier;
 use super::dct_util::AcImage;
@@ -42,7 +43,6 @@ use super::image::{Image3F, ImageF, Plane};
 use super::image_bundle::ImageBundle;
 use super::image_ops::fill_plane;
 use super::passes_state::PassesSharedState;
-use std::cell::RefCell;
 
 /// FrameHeader::UpdateFlag.
 fn update_flag(frame_header: &mut FrameHeader<'_>, condition: bool, flag: u64) {
@@ -96,7 +96,7 @@ pub fn reconstruct_image<'a>(
     let is_gray = shared_metadata.m.color_encoding.is_gray();
     // The decoded bundle precedes the decoder state so that the state's
     // pipeline, which borrows it, is dropped first.
-    let decoded = RefCell::new(ImageBundle::new_in(
+    let decoded = SyncRefCell::new(ImageBundle::new_in(
         memory_manager,
         Some(&shared_metadata.m),
     ));
@@ -127,7 +127,7 @@ pub fn reconstruct_image<'a>(
 fn reconstruct_with_state<'a, 'p>(
     frame_header: &'p FrameHeader<'_>,
     shared_metadata: &'a super::image_metadata::CodecMetadata,
-    decoded: &'p RefCell<ImageBundle<'a>>,
+    decoded: &'p SyncRefCell<ImageBundle<'a>>,
     dec_state: &mut PassesDecoderState<'a, 'p>,
     coeffs: &[Option<Box<AcImage>>],
 ) -> Status

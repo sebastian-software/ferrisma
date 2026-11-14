@@ -76,6 +76,59 @@ impl Row {
     }
 }
 pub type RowInfo = Vec<Vec<Row>>;
+
+/// Storage a stage keeps per pipeline thread, as the source's `[thread]`
+/// vectors (port ADR 0003, "Concurrent decoder tasks"). Stages process rows
+/// through `&self`, as the source's const ProcessRow does, so that several
+/// threads render at once; each slot is used only by the thread whose id
+/// indexes it, so its lock is uncontended. A slot past the end is created on
+/// first use with `T::default()`; `slots_mut` resizes them as a stage's
+/// PrepareForThreads does.
+#[derive(Default)]
+pub struct PerThread<T> {
+    slots: std::sync::RwLock<Vec<std::sync::Mutex<T>>>,
+}
+impl<T: Default> PerThread<T> {
+    pub fn new() -> Self {
+        Self {
+            slots: std::sync::RwLock::new(Vec::new()),
+        }
+    }
+    /// Runs `f` with thread `thread`'s slot.
+    pub fn with<R>(&self, thread: usize, f: impl FnOnce(&mut T) -> R) -> R {
+        {
+            let slots = self
+                .slots
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if let Some(slot) = slots.get(thread) {
+                let mut slot = slot
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                return f(&mut slot);
+            }
+        }
+        let mut slots = self
+            .slots
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        while slots.len() <= thread {
+            slots.push(std::sync::Mutex::new(T::default()));
+        }
+        let slot = slots[thread]
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        f(slot)
+    }
+    /// Every slot, for PrepareForThreads, which runs before any row.
+    pub fn slots_mut<R>(&self, f: impl FnOnce(&mut Vec<std::sync::Mutex<T>>) -> R) -> R {
+        let mut slots = self
+            .slots
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        f(&mut slots)
+    }
+}
 pub struct RowBuffers<'a> {
     pub input: &'a mut [Plane<f32>],
     pub output: &'a mut [Plane<f32>],
@@ -269,7 +322,7 @@ pub trait RenderPipelineStage {
         reason = "Retain the original stage row boundary, with explicit borrowed row storage."
     )]
     fn process_row(
-        &mut self,
+        &self,
         input_rows: &RowInfo,
         output_rows: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -282,6 +335,14 @@ pub trait RenderPipelineStage {
     ) -> Status;
     fn get_channel_mode(&self, c: usize) -> RenderPipelineChannelMode;
     fn get_name(&self) -> &str;
+    /// This stage as a `Sync` object, if several threads may run its rows at
+    /// once, as the original's const ProcessRow does (port ADR 0003,
+    /// "Concurrent decoder tasks"). A stage implements it only when its type
+    /// is `Sync`, which the compiler checks at the implementation; the
+    /// default keeps a stage's rows on one thread at a time.
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        None
+    }
     // These are the complete original base implementations, not substitutes
     // for an unported concrete stage. Concrete overrides retain their own work.
     fn is_initialized(&self) -> Status {
@@ -290,7 +351,7 @@ pub trait RenderPipelineStage {
     fn set_input_sizes(&mut self, _input_sizes: &[(usize, usize)]) -> Status {
         Ok(())
     }
-    fn prepare_for_threads(&mut self, _num_threads: usize) -> Status {
+    fn prepare_for_threads(&self, _num_threads: usize) -> Status {
         Ok(())
     }
     fn switch_to_image_dimensions(&self) -> bool {
@@ -304,7 +365,7 @@ pub trait RenderPipelineStage {
     ) {
     }
     fn process_padding_row(
-        &mut self,
+        &self,
         _output_rows: &RowInfo,
         _buffers: &mut RowBuffers<'_>,
         _xsize: usize,
@@ -328,11 +389,13 @@ pub trait RenderPipelineStage {
 /// Complete original WriteToImage3FStage and factory from stage_write.cc.
 pub struct WriteToImage3FStage<'a> {
     memory_manager: MemoryManagerPtr,
-    image: Image3WriteTarget<'a>,
+    // A cell: rows are written through `&self`; the stage holds `Rc`
+    // owners and is not shared between threads.
+    image: std::sync::Mutex<Image3WriteTarget<'a>>,
 }
 enum Image3WriteTarget<'a> {
     Borrowed(&'a mut crate::jxl::image::Image3<f32>),
-    Owned(std::rc::Rc<std::cell::RefCell<crate::jxl::image::Image3<f32>>>),
+    Owned(std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<crate::jxl::image::Image3<f32>>>),
     DcFrame(crate::jxl::passes_state::SharedDcFrames, usize),
 }
 impl Image3WriteTarget<'_> {
@@ -351,15 +414,17 @@ impl<'a> WriteToImage3FStage<'a> {
     pub fn new(image: &'a mut crate::jxl::image::Image3<f32>) -> Self {
         Self {
             memory_manager: MemoryManagerPtr::NATIVE,
-            image: Image3WriteTarget::Borrowed(image),
+            image: std::sync::Mutex::new(Image3WriteTarget::Borrowed(image)),
         }
     }
     pub fn from_owned(
-        owner: std::rc::Rc<std::cell::RefCell<crate::jxl::image::Image3<f32>>>,
+        owner: std::sync::Arc<
+            crate::jxl::base::sync_cell::SyncRefCell<crate::jxl::image::Image3<f32>>,
+        >,
     ) -> Self {
         Self {
             memory_manager: MemoryManagerPtr::NATIVE,
-            image: Image3WriteTarget::Owned(owner),
+            image: std::sync::Mutex::new(Image3WriteTarget::Owned(owner)),
         }
     }
     /// Retain the decoder's actual DC array, resolving its slot for every call.
@@ -367,7 +432,7 @@ impl<'a> WriteToImage3FStage<'a> {
         assert!(index < 4);
         Self {
             memory_manager: MemoryManagerPtr::NATIVE,
-            image: Image3WriteTarget::DcFrame(owner, index),
+            image: std::sync::Mutex::new(Image3WriteTarget::DcFrame(owner, index)),
         }
     }
     /// The source factory's memory_manager argument; the constructors above
@@ -378,6 +443,9 @@ impl<'a> WriteToImage3FStage<'a> {
     }
 }
 impl RenderPipelineStage for WriteToImage3FStage<'_> {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
@@ -392,13 +460,16 @@ impl RenderPipelineStage for WriteToImage3FStage<'_> {
         }
         let image =
             crate::jxl::image::Image3::create_in(sizes[0].0, sizes[0].1, self.memory_manager)?;
-        self.image.with_storage(|storage| {
-            storage.assign(image);
-            Ok(())
-        })
+        self.image
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .with_storage(|storage| {
+                storage.assign(image);
+                Ok(())
+            })
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -413,13 +484,16 @@ impl RenderPipelineStage for WriteToImage3FStage<'_> {
             return Err(StatusCode::GenericError);
         }
         let rows: [_; 3] = std::array::from_fn(|c| self.get_input_row(input, c, 0));
-        self.image.with_storage(|image| {
-            for (c, from) in rows.into_iter().enumerate() {
-                image.plane_row_mut(c, y)[x..x + width]
-                    .copy_from_slice(&buffers.row(from)[..width]);
-            }
-            Ok(())
-        })
+        self.image
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .with_storage(|image| {
+                for (c, from) in rows.into_iter().enumerate() {
+                    image.plane_row_mut(c, y)[x..x + width]
+                        .copy_from_slice(&buffers.row(from)[..width]);
+                }
+                Ok(())
+            })
     }
     fn get_channel_mode(&self, c: usize) -> RenderPipelineChannelMode {
         if c < 3 {
@@ -435,14 +509,23 @@ impl RenderPipelineStage for WriteToImage3FStage<'_> {
 
 /// Complete original WriteToImageBundleStage/factory from stage_write.cc.
 pub struct WriteToImageBundleStage<'b, 'm> {
-    image_bundle: ImageBundleTarget<'b, 'm>,
+    // A cell, as for WriteToImage3FStage.
+    image_bundle: std::sync::Mutex<ImageBundleTarget<'b, 'm>>,
     color_encoding: crate::jxl::color_encoding_internal::ColorEncoding,
 }
 enum ImageBundleTarget<'b, 'm> {
     Borrowed(&'b mut crate::jxl::image_bundle::ImageBundle<'m>),
-    Shared(&'b std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>),
-    Owned(std::rc::Rc<std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>>),
-    Pointer(std::rc::Weak<std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>>),
+    Shared(&'b crate::jxl::base::sync_cell::SyncRefCell<crate::jxl::image_bundle::ImageBundle<'m>>),
+    Owned(
+        std::sync::Arc<
+            crate::jxl::base::sync_cell::SyncRefCell<crate::jxl::image_bundle::ImageBundle<'m>>,
+        >,
+    ),
+    Pointer(
+        std::sync::Weak<
+            crate::jxl::base::sync_cell::SyncRefCell<crate::jxl::image_bundle::ImageBundle<'m>>,
+        >,
+    ),
     Reference(crate::jxl::passes_state::SharedReferenceFrames<'m>, usize),
 }
 impl ImageBundleTarget<'_, '_> {
@@ -471,7 +554,7 @@ impl<'b, 'm> WriteToImageBundleStage<'b, 'm> {
         color_encoding: &crate::jxl::color_encoding_internal::ColorEncoding,
     ) -> Self {
         Self {
-            image_bundle: ImageBundleTarget::Borrowed(image_bundle),
+            image_bundle: std::sync::Mutex::new(ImageBundleTarget::Borrowed(image_bundle)),
             color_encoding: color_encoding.clone(),
         }
     }
@@ -479,21 +562,25 @@ impl<'b, 'm> WriteToImageBundleStage<'b, 'm> {
     /// Each source call borrows it only for that call; no callback runs while
     /// this write stage holds its dynamic exclusive borrow.
     pub fn from_shared(
-        owner: &'b std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>,
+        owner: &'b crate::jxl::base::sync_cell::SyncRefCell<
+            crate::jxl::image_bundle::ImageBundle<'m>,
+        >,
         color_encoding: &crate::jxl::color_encoding_internal::ColorEncoding,
     ) -> Self {
         Self {
-            image_bundle: ImageBundleTarget::Shared(owner),
+            image_bundle: std::sync::Mutex::new(ImageBundleTarget::Shared(owner)),
             color_encoding: color_encoding.clone(),
         }
     }
     /// Retain an external bundle owner without borrowing the containing decoder.
     pub fn from_owned(
-        owner: std::rc::Rc<std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>>,
+        owner: std::sync::Arc<
+            crate::jxl::base::sync_cell::SyncRefCell<crate::jxl::image_bundle::ImageBundle<'m>>,
+        >,
         color_encoding: &crate::jxl::color_encoding_internal::ColorEncoding,
     ) -> Self {
         Self {
-            image_bundle: ImageBundleTarget::Owned(owner),
+            image_bundle: std::sync::Mutex::new(ImageBundleTarget::Owned(owner)),
             color_encoding: color_encoding.clone(),
         }
     }
@@ -501,11 +588,15 @@ impl<'b, 'm> WriteToImageBundleStage<'b, 'm> {
     /// elsewhere. The stage does not extend the bundle's lifetime, so its
     /// release stays at the owner's checkpoint.
     pub fn from_pointer(
-        owner: &std::rc::Rc<std::cell::RefCell<crate::jxl::image_bundle::ImageBundle<'m>>>,
+        owner: &std::sync::Arc<
+            crate::jxl::base::sync_cell::SyncRefCell<crate::jxl::image_bundle::ImageBundle<'m>>,
+        >,
         color_encoding: &crate::jxl::color_encoding_internal::ColorEncoding,
     ) -> Self {
         Self {
-            image_bundle: ImageBundleTarget::Pointer(std::rc::Rc::downgrade(owner)),
+            image_bundle: std::sync::Mutex::new(ImageBundleTarget::Pointer(
+                std::sync::Arc::downgrade(owner),
+            )),
             color_encoding: color_encoding.clone(),
         }
     }
@@ -517,12 +608,15 @@ impl<'b, 'm> WriteToImageBundleStage<'b, 'm> {
     ) -> Self {
         assert!(index < 4);
         Self {
-            image_bundle: ImageBundleTarget::Reference(owner, index),
+            image_bundle: std::sync::Mutex::new(ImageBundleTarget::Reference(owner, index)),
             color_encoding: color_encoding.clone(),
         }
     }
 }
 impl RenderPipelineStage for WriteToImageBundleStage<'_, '_> {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
@@ -538,24 +632,27 @@ impl RenderPipelineStage for WriteToImageBundleStage<'_, '_> {
                 return Err(StatusCode::GenericError);
             }
         }
-        self.image_bundle.with_storage(|storage| {
-            let memory_manager = storage.memory_manager();
-            let mut tmp = Some(crate::jxl::image::Image3::<f32>::create_in(
-                sizes[0].0,
-                sizes[0].1,
-                memory_manager,
-            )?);
-            storage.set_from_image(&mut tmp, &self.color_encoding)?;
-            crate::jxl::base::libcpp_vector::clear(storage.extra_channels_mut());
-            for &(w, h) in sizes.iter().skip(3) {
-                let ch = Plane::create_in(w, h, 0, memory_manager)?;
-                storage.extra_channels_mut().push(ch);
-            }
-            Ok(())
-        })
+        self.image_bundle
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .with_storage(|storage| {
+                let memory_manager = storage.memory_manager();
+                let mut tmp = Some(crate::jxl::image::Image3::<f32>::create_in(
+                    sizes[0].0,
+                    sizes[0].1,
+                    memory_manager,
+                )?);
+                storage.set_from_image(&mut tmp, &self.color_encoding)?;
+                crate::jxl::base::libcpp_vector::clear(storage.extra_channels_mut());
+                for &(w, h) in sizes.iter().skip(3) {
+                    let ch = Plane::create_in(w, h, 0, memory_manager)?;
+                    storage.extra_channels_mut().push(ch);
+                }
+                Ok(())
+            })
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -572,21 +669,24 @@ impl RenderPipelineStage for WriteToImageBundleStage<'_, '_> {
         // Settings are permanently default and all channels have kInput mode:
         // this is the base GetInputRow calculation under those source values.
         let row = |c: usize| input[c][0].offset(RENDER_PIPELINE_X_OFFSET as isize);
-        self.image_bundle.with_storage(|storage| {
-            for c in 0..3 {
-                storage.color_mut().plane_row_mut(c, y)[x..x + width]
-                    .copy_from_slice(&buffers.row(row(c))[..width]);
-            }
-            for ec in 0..storage.extra_channels().len() {
-                if storage.extra_channels()[ec].xsize() < x.wrapping_add(width) {
-                    return Err(StatusCode::GenericError);
+        self.image_bundle
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .with_storage(|storage| {
+                for c in 0..3 {
+                    storage.color_mut().plane_row_mut(c, y)[x..x + width]
+                        .copy_from_slice(&buffers.row(row(c))[..width]);
                 }
-                storage.extra_channels_mut()[ec].row_mut(y)
-                    [x.wrapping_sub(left)..x.wrapping_sub(left).wrapping_add(width)]
-                    .copy_from_slice(&buffers.row(row(3 + ec))[..width]);
-            }
-            Ok(())
-        })
+                for ec in 0..storage.extra_channels().len() {
+                    if storage.extra_channels()[ec].xsize() < x.wrapping_add(width) {
+                        return Err(StatusCode::GenericError);
+                    }
+                    storage.extra_channels_mut()[ec].row_mut(y)
+                        [x.wrapping_sub(left)..x.wrapping_sub(left).wrapping_add(width)]
+                        .copy_from_slice(&buffers.row(row(3 + ec))[..width]);
+                }
+                Ok(())
+            })
     }
     fn get_channel_mode(&self, _c: usize) -> RenderPipelineChannelMode {
         RenderPipelineChannelMode::Input

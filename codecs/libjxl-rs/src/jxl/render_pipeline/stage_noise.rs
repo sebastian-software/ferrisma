@@ -5,15 +5,14 @@
 //! source references; row descriptors resolve under the pipeline's storage borrow.
 //! The NEON/AVX2 stages are stage_noise_simd.rs.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
+    PerThread, RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo,
+    Settings,
 };
 use crate::jxl::base::float::{add_first_nan, mul_promoted_first_nan, sub_first_nan};
 use crate::jxl::base::hwy_scalar::{floor, max, min, to_i32, zero_if_negative};
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::chroma_from_luma::ColorCorrelation;
 use crate::jxl::noise::{NUM_NOISE_POINTS, NoiseParams};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 // Copyright 2019 Google LLC
 // Copyright (c) The Highway Project Authors. All rights reserved.
@@ -58,20 +57,26 @@ pub fn noise_strength(params: &NoiseParams, x: f32) -> f32 {
 
 enum NoiseOwners<'a> {
     Borrowed(&'a NoiseParams, &'a ColorCorrelation),
-    Shared(Rc<RefCell<NoiseParams>>, Rc<RefCell<ColorCorrelation>>),
+    Shared(
+        std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<NoiseParams>>,
+        std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ColorCorrelation>>,
+    ),
 }
 pub struct AddNoiseStage<'a> {
     owners: NoiseOwners<'a>,
     first_c: usize,
     /// Copies of the three random rows of one call.
-    scratch: [Vec<f32>; 3],
+    scratch: PerThread<[Vec<f32>; 3]>,
 }
 impl RenderPipelineStage for AddNoiseStage<'_> {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -80,7 +85,7 @@ impl RenderPipelineStage for AddNoiseStage<'_> {
         width: usize,
         _x: usize,
         _y: usize,
-        _thread: usize,
+        thread: usize,
     ) -> Status {
         let shared = match &self.owners {
             NoiseOwners::Borrowed(..) => None,
@@ -110,7 +115,7 @@ impl RenderPipelineStage for AddNoiseStage<'_> {
         // per row; values, order and arithmetic are unchanged. The random
         // channels are separate Input channels, copied before the loop
         // because the borrow of the in-place spans is exclusive.
-        let mut noise = std::mem::take(&mut self.scratch);
+        let mut noise = self.scratch.with(thread, std::mem::take);
         for (c, row) in noise.iter_mut().enumerate() {
             row.clear();
             row.extend_from_slice(&buffers.row(random[c])[..width]);
@@ -137,7 +142,7 @@ impl RenderPipelineStage for AddNoiseStage<'_> {
             r1[x] = vy;
             r2[x] = vb;
         }
-        self.scratch = noise;
+        self.scratch.with(thread, |slot| *slot = noise);
         Ok(())
     }
     fn get_channel_mode(&self, c: usize) -> Mode {
@@ -170,15 +175,15 @@ pub fn get_add_noise_stage<'a>(
     Box::new(AddNoiseStage {
         owners: NoiseOwners::Borrowed(noise_params, color_correlation),
         first_c,
-        scratch: Default::default(),
+        scratch: PerThread::new(),
     })
 }
 
 /// Share the original parameter owners with decoder state. Each source call
 /// borrows them only while processing a row; later assignments remain visible.
 pub fn get_add_noise_stage_shared(
-    noise_params: Rc<RefCell<NoiseParams>>,
-    color_correlation: Rc<RefCell<ColorCorrelation>>,
+    noise_params: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<NoiseParams>>,
+    color_correlation: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ColorCorrelation>>,
     first_c: usize,
 ) -> Box<dyn RenderPipelineStage> {
     if let Some(target) = crate::jxl::hwy::decoder_target() {
@@ -192,21 +197,24 @@ pub fn get_add_noise_stage_shared(
     Box::new(AddNoiseStage {
         owners: NoiseOwners::Shared(noise_params, color_correlation),
         first_c,
-        scratch: Default::default(),
+        scratch: PerThread::new(),
     })
 }
 
 pub struct ConvolveNoiseStage {
     first_c: usize,
     /// One output row, written back after the row's samples are computed.
-    scratch: [Vec<f32>; 1],
+    scratch: PerThread<[Vec<f32>; 1]>,
 }
 impl RenderPipelineStage for ConvolveNoiseStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::symmetric_border_only(2)
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -215,7 +223,7 @@ impl RenderPipelineStage for ConvolveNoiseStage {
         width: usize,
         _x: usize,
         _y: usize,
-        _thread: usize,
+        thread: usize,
     ) -> Status {
         for c in self.first_c..self.first_c + 3 {
             let rows: [_; 5] = std::array::from_fn(|i| self.get_input_row(input, c, i as i32 - 2));
@@ -226,7 +234,8 @@ impl RenderPipelineStage for ConvolveNoiseStage {
             let spans: [&[f32]; 5] = std::array::from_fn(|i| buffers.row(Row { x: 0, ..rows[i] }));
             let get = |r: usize, x: isize| spans[r][rows[r].x.wrapping_add_signed(x)];
             let x_begin = -(left as isize);
-            self.scratch[0].clear();
+            let [mut scratch0] = self.scratch.with(thread, std::mem::take);
+            scratch0.clear();
             for x in x_begin..(width + right) as isize {
                 let p00 = get(2, x);
                 let mut others = 0.0;
@@ -239,10 +248,11 @@ impl RenderPipelineStage for ConvolveNoiseStage {
                 for i in [-2, -1, 1, 2] {
                     others = add(others, get(2, x + i));
                 }
-                self.scratch[0].push(mul_add(others, 0.16, mul(p00, -3.84)));
+                scratch0.push(mul_add(others, 0.16, mul(p00, -3.84)));
             }
             let target = buffers.row_mut(out.offset(x_begin));
-            target[..self.scratch[0].len()].copy_from_slice(&self.scratch[0]);
+            target[..scratch0.len()].copy_from_slice(&scratch0);
+            self.scratch.with(thread, |slot| *slot = [scratch0]);
         }
         Ok(())
     }
@@ -264,6 +274,6 @@ pub fn get_convolve_noise_stage(first_c: usize) -> Box<dyn RenderPipelineStage> 
     }
     Box::new(ConvolveNoiseStage {
         first_c,
-        scratch: Default::default(),
+        scratch: PerThread::new(),
     })
 }

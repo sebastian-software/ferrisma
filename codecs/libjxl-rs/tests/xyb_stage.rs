@@ -63,7 +63,7 @@ fn assert_d8_words(got: [u32; 3], want: [u32; 3]) {
 fn scaled_xyb_factory_copies_selection_ignores_extra_channels_and_guards_before_access() {
     let mut info = OutputEncodingInfo::default();
     info.color_encoding.set_color_space(ColorSpace::XYB);
-    let mut stage = get_xyb_stage(&info);
+    let stage = get_xyb_stage(&info);
     info.color_encoding.set_color_space(ColorSpace::RGB);
     assert_eq!(stage.get_name(), "XYB");
     assert_eq!(stage.get_channel_mode(0), Mode::InPlace);

@@ -345,7 +345,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     // SAFETY: All source descriptors, cookies, allocations and manager remain
     // live and disjoint through stage destruction; wire cases obey reached
     // conversion ranges and callback no-reentry/no-unwind obligations.
-    let mut stage = unsafe {
+    let stage = unsafe {
         get_write_to_output_stage(
             &state.outputs[0],
             width,

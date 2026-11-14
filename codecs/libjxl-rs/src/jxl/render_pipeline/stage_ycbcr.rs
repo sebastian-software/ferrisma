@@ -29,11 +29,14 @@ fn ma(a: f32, b: f32, c: f32) -> f32 {
 }
 pub struct YCbCrStage;
 impl RenderPipelineStage for YCbCrStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,

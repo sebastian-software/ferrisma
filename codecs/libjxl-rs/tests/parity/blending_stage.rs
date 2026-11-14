@@ -16,7 +16,7 @@ use jxl::jxl::render_pipeline::simple_render_pipeline::SimpleRenderPipelineBuild
 use jxl::jxl::render_pipeline::stage_blending::{
     get_blending_stage, get_blending_stage_borrowed, get_blending_stage_shared,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("blendstage-")
 }
@@ -74,7 +74,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     header.frame_origin = FrameOrigin { x0: ox, y0: oy };
     header.blending_info = blend(args);
     header.extra_channel_blending_info = (0..n).map(|_| blend(args)).collect();
-    let header = Rc::new(header);
+    let header = Arc::new(header);
     let mut state = PassesDecoderState::new();
     state.shared_storage.metadata = Some(&metadata);
     state.output_encoding_info.color_encoding_is_original = original;
@@ -118,7 +118,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     } else {
         None
     };
-    let mut stage = match ownership {
+    let stage = match ownership {
         0 => get_blending_stage_borrowed(
             &header,
             borrowed.as_deref().unwrap(),

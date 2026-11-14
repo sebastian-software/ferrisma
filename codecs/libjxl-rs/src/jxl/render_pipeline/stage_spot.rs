@@ -42,7 +42,7 @@ impl RenderPipelineStage for SpotColorStage<'_> {
         "Spot"
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,

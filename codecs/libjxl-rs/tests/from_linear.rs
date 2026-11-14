@@ -85,7 +85,7 @@ fn factory_owns_selected_pq_and_gamma_state_instead_of_caller_encoding() {
         let mut info = info(tf);
         info.color_encoding.tf_mut().have_gamma = custom;
         info.color_encoding.tf_mut().gamma = 1;
-        let mut stage = get_from_linear_stage(&info).unwrap();
+        let stage = get_from_linear_stage(&info).unwrap();
         info.orig_intensity_target = 7.0;
         info.inverse_gamma = 2.0;
         info.color_encoding
@@ -129,7 +129,7 @@ fn factory_owns_selected_pq_and_gamma_state_instead_of_caller_encoding() {
 #[test]
 fn existing_srgb_factory_keeps_the_original_stage_words() {
     let general = get_from_linear_stage(&info(TransferFunction::SRGB)).unwrap();
-    for mut stage in [
+    for stage in [
         get_srgb_from_linear_stage(),
         general as Box<dyn RenderPipelineStage>,
     ] {
@@ -168,7 +168,7 @@ fn existing_srgb_factory_keeps_the_original_stage_words() {
 }
 #[test]
 fn horizontal_guards_reject_before_any_color_or_extra_write() {
-    let mut stage = get_from_linear_stage(&info(TransferFunction::HLG)).unwrap();
+    let stage = get_from_linear_stage(&info(TransferFunction::HLG)).unwrap();
     let (mut p, ri) = rows();
     for row in &mut p {
         row.row_mut(0)[..OFFSET + 8].fill(f32::from_bits(0x7fa12345));

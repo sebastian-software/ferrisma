@@ -55,7 +55,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
         ..OutputEncodingInfo::default()
     };
     info.color_encoding.set_color_space(space);
-    let mut stage = get_xyb_stage(&info);
+    let stage = get_xyb_stage(&info);
     info.opsin_params = OpsinParams::default();
     info.color_encoding
         .set_color_space(if space == ColorSpace::XYB {

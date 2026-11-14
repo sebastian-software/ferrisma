@@ -101,7 +101,7 @@ fn inverse_factory_copies_pq_hlg_and_reciprocal_gamma_constructor_fields() {
         let mut info = info(tf);
         info.color_encoding.tf_mut().have_gamma = custom;
         info.color_encoding.tf_mut().gamma = 1;
-        let mut stage = get_to_linear_stage(&info);
+        let stage = get_to_linear_stage(&info);
         info.orig_intensity_target = 7.0;
         info.desired_intensity_target = 3.0;
         info.inverse_gamma = 2.0;
@@ -146,7 +146,7 @@ fn inverse_factory_copies_pq_hlg_and_reciprocal_gamma_constructor_fields() {
 }
 #[test]
 fn unknown_target_is_an_initialized_identity_including_signaling_nan_words() {
-    let mut stage = get_to_linear_stage(&info(TransferFunction::UNKNOWN));
+    let stage = get_to_linear_stage(&info(TransferFunction::UNKNOWN));
     assert!(stage.is_initialized().is_ok());
     let (mut p, ri) = rows();
     let words = [0x80000000u32, 0x7fa12345, 0xffa23456];
@@ -183,7 +183,7 @@ fn unknown_target_is_an_initialized_identity_including_signaling_nan_words() {
 }
 #[test]
 fn inverse_horizontal_guards_run_before_any_color_or_extra_mutation() {
-    let mut stage = get_to_linear_stage(&info(TransferFunction::HLG));
+    let stage = get_to_linear_stage(&info(TransferFunction::HLG));
     let (mut p, ri) = rows();
     for row in &mut p {
         row.row_mut(0)[..OFFSET + 8].fill(f32::from_bits(0x7fa12345));

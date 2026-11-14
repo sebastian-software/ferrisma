@@ -106,7 +106,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     }
     let t: u32 = number(args);
     let c = number(args);
-    let mut stage = stage(t, c);
+    let stage = stage(t, c);
     if kind == "cs-factory" {
         let s = stage.settings();
         let mut out = format!(

@@ -565,7 +565,7 @@ fn gab_row(request: &str, t: Target) -> (String, usize) {
             }]
         })
         .collect();
-    let mut stage = get_gaborish_stage_simd(&lf, t).unwrap();
+    let stage = get_gaborish_stage_simd(&lf, t).unwrap();
     let s = stage.process_row(
         &ir,
         &or,
@@ -635,7 +635,7 @@ fn cs_row(request: &str, t: Target) -> (String, usize) {
             }
         })
         .unzip();
-    let mut stage: Box<dyn RenderPipelineStage> = if kind == 0 {
+    let stage: Box<dyn RenderPipelineStage> = if kind == 0 {
         get_ycbcr_stage_simd(t)
     } else {
         get_chroma_upsampling_stage_simd(channel, kind == 1, t)
@@ -733,7 +733,7 @@ fn epf_row(request: &str, t: Target) -> (String, usize, usize) {
         })
         .collect();
     let pass_kind = [EpfPass::Zero, EpfPass::One, EpfPass::Two][pass];
-    let mut stage = get_epf_stage_simd(&lf, sigma, pass_kind, t);
+    let stage = get_epf_stage_simd(&lf, sigma, pass_kind, t);
     let s = stage.process_row(
         &ir,
         &or,

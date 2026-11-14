@@ -13,3 +13,4 @@ pub mod override_option;
 pub mod random;
 pub mod rect;
 pub mod status;
+pub mod sync_cell;

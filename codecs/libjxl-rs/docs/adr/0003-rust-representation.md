@@ -2319,11 +2319,9 @@ the original (group caches, group images); `MemoryManagerPtr` is `Send` and
 
 **Still serialized, and why.**
 
-- *Rendering*: the stages' `process_row(&mut self, ..., thread)` and their
-  `Rc<RefCell>` owners make one stage object usable by one thread at a
-  time. It is the largest share of lossy decode time after this change.
-  Making it concurrent changes the ownership model of every stage file
-  (proposal below), so it is left to the owner.
+- *Rendering* was serialized until the decision below: the stages'
+  `process_row(&mut self, ..., thread)` and their `Rc<RefCell>` owners
+  made one stage object usable by one thread at a time.
 - *DC groups*: possible within these rules with the same split (decode the
   DC, modular DC and AC metadata images concurrently; write their rects in
   exclusive sections; fill `sigma` once instead of once per task). Not done
@@ -2345,6 +2343,72 @@ before the RunOnPool call, instead of `Rc` handles they borrow inside
 `process_row`. The output stage's caller buffer becomes a row-split view.
 This touches every `render_pipeline/stage_*` file and this ADR's owner
 model, so it needs the owner's decision and its own parity evidence.
+
+**Concurrent rendering** (working decision 2026-11-14, delegated, revisable
+by the owner; it carries out the proposal above). The AC group tasks now
+render their group on their own thread, as the original's ProcessACGroup
+calls `RenderPipelineInput::Done` there:
+
+- *Stages* process rows through `&self`, the original's const ProcessRow;
+  `process_padding_row` and PrepareForThreads too. A stage that may run its
+  rows on several threads at once implements `as_concurrent`, which returns
+  it as `&(dyn RenderPipelineStage + Sync)`; the compiler checks the `Sync`
+  at that implementation, so no stage becomes shared by assertion. The
+  original's per-thread storage (`temp_[thread]` of upsampling, the output
+  stage's scratch) and the port's own per-call scratch rows (scalar EPF,
+  Gaborish, chroma upsampling, noise) are `PerThread` slots, one uncontended
+  lock per thread id; a thread id indexes only its own slot, as in the
+  source. The output stage's prepared state (callback opaque values,
+  scratch) is written by PrepareForThreads under a write lock, which runs
+  before any row, and read by rows under the read lock.
+- *Shared inputs* that the decoder writes between render calls and the
+  stages read while rendering (the EPF sigma image, the noise parameters,
+  the patch dictionary, the splines, the reference and DC frames, the base
+  color correlation, the decoded bundle, the frame header) are
+  `Arc<SyncRefCell<T>>` (or `Arc<T>`) instead of `Rc<RefCell<T>>`.
+  `SyncRefCell` keeps `RefCell`'s contract on an `RwLock`: shared borrows
+  coexist, a conflicting borrow panics instead of waiting. Rendering only
+  borrows them shared; the decoder's writes happen before the render call
+  or after it.
+- *The low-memory pipeline* is split for the call
+  (`LowMemoryRenderPipeline::split_concurrent`) into a `Sync` render view
+  (`RenderCx`: the stages as `Sync` objects, the base tables and the Init
+  tables, `LmTables`, which rendering only reads) and its storage
+  (`LmStorage`: the group input planes, the per-thread ring buffers and
+  out-of-frame rows, the border storage, the completed-pass counts), which
+  the tasks enter in exclusive sections. A task's ProcessBuffers
+  (`RenderCx::process_buffers_with`) copies its borders into the border
+  storage in one section, borrows its thread's ring buffers and out-of-frame
+  rows for the call, asks the `GroupBorderAssigner` (atomics, as in the
+  source) which rects are complete, loads their borders in a section, and
+  renders them outside every section; its buffers return in a last section,
+  on error too. The assigner hands each rect to exactly one task, after
+  every neighbor has saved its borders, which is what makes the border reads
+  and the output writes disjoint.
+- *Output*: the output stage writes the caller's buffer through raw
+  pointers, exactly the bytes of the row span it renders, and calls the
+  pixel callbacks with the thread id. Each rect is rendered once, so two
+  threads never write the same bytes; this is the stage's `unsafe impl
+  Sync`, under the safety contract of its unsafe constructor and decode.h's
+  rule that callbacks may be called from several threads. It is not a
+  row-split view: the buffer is the caller's raw memory, already addressed
+  through raw pointers, and a rendered rect covers only part of each row
+  (its neighbors render the rest of those rows), so a split by rows would
+  not separate the tasks and a split by rects is the assigner's own
+  decision at run time. The bundle and Image3 writers (reference frames,
+  DC frames, the internal decoders) hold their target behind a lock and so
+  write one row at a time.
+- *Not concurrent, and why*: the CMS stage (the transform's Run needs
+  exclusive access to its per-thread buffers, which the CMS interface
+  owns), the spot-color stage (it reads the decoder's spot colors through
+  `Cell`s), the tone-mapping stages (they keep the output encoding with the
+  CMS interface's raw opaque pointer), and the simple pipeline (its input
+  is the whole frame). A pipeline with any of them renders in the
+  exclusive section as before; only that frame's rendering stays
+  serialized.
+- *Encoder*: its roundtrip decode builds the same stages and pipeline with
+  a null pool; it renders one group at a time on the calling thread through
+  the same code.
 
 Evidence: `tests/simd_threads.rs` decodes multi-group lossy and lossless
 files (and, with `JXL_CONFORMANCE_CORPUS`, the conformance corpus) through

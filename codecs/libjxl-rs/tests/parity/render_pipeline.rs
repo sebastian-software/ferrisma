@@ -39,7 +39,7 @@ impl RenderPipelineStage for Upsample {
         }
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -122,7 +122,7 @@ impl RenderPipelineStage for Probe<'_> {
             Ok(())
         }
     }
-    fn prepare_for_threads(&mut self, _num: usize) -> Status {
+    fn prepare_for_threads(&self, _num: usize) -> Status {
         bump(&self.state.prepare);
         if self.failures & 2 != 0 {
             Err(StatusCode::GenericError)
@@ -139,7 +139,7 @@ impl RenderPipelineStage for Probe<'_> {
         }
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -171,7 +171,7 @@ impl RenderPipelineStage for Probe<'_> {
         *origin = self.origin;
     }
     fn process_padding_row(
-        &mut self,
+        &self,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
         width: usize,

@@ -9,7 +9,7 @@ use jxl::jxl::render_pipeline::render_pipeline_stage::{
     RENDER_PIPELINE_X_OFFSET as OFFSET, RenderPipelineStage, Row, RowBuffers, RowStorage,
 };
 use jxl::jxl::render_pipeline::stage_blending::get_blending_stage_shared;
-use std::rc::Rc;
+use std::sync::Arc;
 
 fn metadata() -> CodecMetadata {
     let mut m = CodecMetadata::default();
@@ -87,7 +87,7 @@ fn retained_stage_observes_same_reference_bundles_and_signed_crop() {
     let state = state(&m);
     let mut h = header(&m);
     h.frame_origin = FrameOrigin { x0: -2, y0: 0 };
-    let mut stage = get_blending_stage_shared(Rc::new(h), &state, &m.m.color_encoding);
+    let stage = get_blending_stage_shared(Arc::new(h), &state, &m.m.color_encoding);
     let identity = {
         let refs = state.shared_storage.reference_frames.borrow();
         refs[3].frame.as_deref().unwrap() as *const _
@@ -142,14 +142,14 @@ fn constructor_keeps_xyb_guard_before_empty_extra_reference_allocation() {
         refs[3].ib_is_in_xyb = true;
         refs[2].frame = Some(Box::new(ImageBundle::new(Some(&m.m))));
     }
-    let stage = get_blending_stage_shared(Rc::new(header(&m)), &state, &m.m.color_encoding);
+    let stage = get_blending_stage_shared(Arc::new(header(&m)), &state, &m.m.color_encoding);
     assert!(stage.is_initialized().is_err());
     assert_eq!(stage.constructor_sizes(), [4, 2, 0, 0]);
     {
         let mut refs = state.shared_storage.reference_frames.borrow_mut();
         refs[3].frame = Some(Box::new(ImageBundle::new(Some(&m.m))));
     }
-    let stage = get_blending_stage_shared(Rc::new(header(&m)), &state, &m.m.color_encoding);
+    let stage = get_blending_stage_shared(Arc::new(header(&m)), &state, &m.m.color_encoding);
     assert!(stage.is_initialized().is_ok());
     assert_eq!(stage.constructor_sizes(), [4, 2, 4, 2]);
 }
@@ -157,7 +157,7 @@ fn constructor_keeps_xyb_guard_before_empty_extra_reference_allocation() {
 fn extra_horizontal_input_is_rejected_before_any_foreground_write() {
     let m = metadata();
     let state = state(&m);
-    let mut stage = get_blending_stage_shared(Rc::new(header(&m)), &state, &m.m.color_encoding);
+    let stage = get_blending_stage_shared(Arc::new(header(&m)), &state, &m.m.color_encoding);
     let (mut planes, descriptors) = rows();
     for (left, right) in [(1, 0), (0, 1)] {
         assert!(

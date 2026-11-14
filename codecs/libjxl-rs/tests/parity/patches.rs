@@ -13,8 +13,6 @@ use jxl::jxl::render_pipeline::render_pipeline_stage::{
     RENDER_PIPELINE_X_OFFSET, Row, RowBuffers, RowStorage,
 };
 use jxl::jxl::render_pipeline::stage_patches::{get_patches_stage, get_patches_stage_shared};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("patch-")
@@ -248,10 +246,13 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
     let mut pd = PatchDictionary::new();
     pd.bind_own_reference_frames();
     let mut uses = false;
-    let dictionary = Rc::new(RefCell::new(pd));
-    let references = Rc::new(RefCell::new(refs));
-    let mut persistent_stage =
-        get_patches_stage_shared(Rc::clone(&dictionary), Rc::clone(&references), &extra);
+    let dictionary = std::sync::Arc::new(jxl::jxl::base::sync_cell::SyncRefCell::new(pd));
+    let references = std::sync::Arc::new(jxl::jxl::base::sync_cell::SyncRefCell::new(refs));
+    let persistent_stage = get_patches_stage_shared(
+        std::sync::Arc::clone(&dictionary),
+        std::sync::Arc::clone(&references),
+        &extra,
+    );
     for cycle in 0..count {
         if render == 3 {
             let mut refs = references.borrow_mut();
@@ -390,7 +391,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                             &refs,
                         )
                     } else {
-                        let mut stage = get_patches_stage(&pd, &refs, &extra);
+                        let stage = get_patches_stage(&pd, &refs, &extra);
                         let input = rows
                             .iter()
                             .map(|r| {

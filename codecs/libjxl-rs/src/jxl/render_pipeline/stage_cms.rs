@@ -14,20 +14,23 @@ use crate::jxl::dec_xyb::OutputEncodingInfo;
 struct CmsStage {
     output_encoding_info: OutputEncodingInfo,
     xsize: Option<usize>,
-    color_space_transform: Option<Box<ColorSpaceTransform>>,
+    // Cells: PrepareForThreads and rows run through `&self`. The transform's
+    // Run needs exclusive access, so CMS rows are not shared between threads
+    // (port ADR 0003, "Concurrent decoder tasks").
+    color_space_transform: std::cell::RefCell<Option<Box<ColorSpaceTransform>>>,
     c_src: Option<ColorEncoding>,
     // Derived native safety state. Source callers must set input sizes before
     // preparation and honor the CMS initialization's thread/pixel bounds.
-    initialized: Option<(usize, usize)>,
+    initialized: std::cell::Cell<Option<(usize, usize)>>,
 }
 impl CmsStage {
     fn new(output_encoding_info: OutputEncodingInfo, linear: bool) -> Self {
         let mut stage = Self {
             output_encoding_info,
             xsize: None,
-            color_space_transform: None,
+            color_space_transform: std::cell::RefCell::new(None),
             c_src: Some(ColorEncoding::default()),
-            initialized: None,
+            initialized: std::cell::Cell::new(None),
         };
         stage.c_src = Some(if linear {
             stage.output_encoding_info.linear_color_encoding.clone()
@@ -75,11 +78,11 @@ impl RenderPipelineStage for CmsStage {
         self.xsize = Some(sizes[0].0);
         Ok(())
     }
-    fn prepare_for_threads(&mut self, threads: usize) -> Status {
-        self.color_space_transform = Some(Box::new(ColorSpaceTransform::new(
+    fn prepare_for_threads(&self, threads: usize) -> Status {
+        *self.color_space_transform.borrow_mut() = Some(Box::new(ColorSpaceTransform::new(
             &self.output_encoding_info.color_management_system,
         )));
-        self.initialized = None;
+        self.initialized.set(None);
         let width = self
             .xsize
             .expect("source requires SetInputSizes before CMS preparation");
@@ -88,21 +91,25 @@ impl RenderPipelineStage for CmsStage {
         // guarantees cms_interface.h behavior. The borrowed profiles live for
         // init; ColorSpaceTransform retains their copied ICC owners afterward.
         let status = unsafe {
-            self.color_space_transform.as_mut().unwrap().init(
-                self.c_src.as_ref().unwrap(),
-                &self.output_encoding_info.color_encoding,
-                self.output_encoding_info.desired_intensity_target,
-                width,
-                threads,
-            )
+            self.color_space_transform
+                .borrow_mut()
+                .as_mut()
+                .unwrap()
+                .init(
+                    self.c_src.as_ref().unwrap(),
+                    &self.output_encoding_info.color_encoding,
+                    self.output_encoding_info.desired_intensity_target,
+                    width,
+                    threads,
+                )
         };
         if status.is_ok() {
-            self.initialized = Some((threads, width));
+            self.initialized.set(Some((threads, width)));
         }
         status
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -123,12 +130,14 @@ impl RenderPipelineStage for CmsStage {
         let gray_dst = self.output_encoding_info.color_encoding.channels() == 1;
         let (threads, allocated_width) = self
             .initialized
+            .get()
             .expect("source requires successful CMS preparation");
         assert!(
             thread < threads && width <= allocated_width,
             "source CMS initialization bounds"
         );
-        let transform = self.color_space_transform.as_ref().unwrap();
+        let mut transform_guard = self.color_space_transform.borrow_mut();
+        let transform = transform_guard.as_mut().unwrap();
         assert!(
             transform.has_context(),
             "source requires a valid CMS context"
@@ -175,12 +184,7 @@ impl RenderPipelineStage for CmsStage {
         // SAFETY: The input has just been initialized, the output covers its
         // profile's channel count, and the context/thread/bounds are valid.
         // The CMS implementation guarantees initialized output on success.
-        unsafe {
-            self.color_space_transform
-                .as_mut()
-                .unwrap()
-                .run(thread, src, dst, width)
-        }?;
+        unsafe { transform.run(thread, src, dst, width) }?;
         if gray_dst {
             for c in 0..3 {
                 let row = self.get_input_row(input, c, 0);
@@ -212,7 +216,7 @@ impl Drop for CmsStage {
         // independent ICC caches through destroy; output_encoding_info drops
         // automatically after these owned members have been released.
         drop(self.c_src.take());
-        drop(self.color_space_transform.take());
+        drop(self.color_space_transform.get_mut().take());
     }
 }
 /// Construct the original CMS stage, retaining its IsNeeded early return.

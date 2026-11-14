@@ -3,7 +3,8 @@
 //! Complete scalar Horizontal/VerticalChromaUpsamplingStage and factory from
 //! stage_chroma_upsampling.{h,cc}. Borrowed row descriptors replace pointers.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
+    PerThread, RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo,
+    Settings,
 };
 use crate::jxl::base::status::Status;
 // Copyright 2019 Google LLC
@@ -34,19 +35,22 @@ fn ma(a: f32, b: f32, c: f32) -> f32 {
 pub struct HorizontalChromaUpsamplingStage {
     channel: usize,
     /// Output samples of one call, written back after the loop.
-    scratch: Vec<f32>,
+    scratch: PerThread<Vec<f32>>,
 }
 pub struct VerticalChromaUpsamplingStage {
     channel: usize,
     /// Output samples of one call for both output rows.
-    scratch: [Vec<f32>; 2],
+    scratch: PerThread<[Vec<f32>; 2]>,
 }
 impl RenderPipelineStage for HorizontalChromaUpsamplingStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::shift_x(1, 1)
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -55,7 +59,7 @@ impl RenderPipelineStage for HorizontalChromaUpsamplingStage {
         width: usize,
         _x: usize,
         _y: usize,
-        _thread: usize,
+        thread: usize,
     ) -> Status {
         let row = self.get_input_row(input, self.channel, 0);
         let out = self.get_output_row(output, self.channel, 0);
@@ -64,7 +68,7 @@ impl RenderPipelineStage for HorizontalChromaUpsamplingStage {
         // plane here.
         let span = buffers.row(Row { x: 0, ..row });
         let at = |x: isize| row.x.wrapping_add_signed(x);
-        let mut scratch = std::mem::take(&mut self.scratch);
+        let mut scratch = self.scratch.with(thread, std::mem::take);
         scratch.clear();
         let x_begin = -(left as isize);
         for x in x_begin..width.wrapping_add(right) as isize {
@@ -79,7 +83,7 @@ impl RenderPipelineStage for HorizontalChromaUpsamplingStage {
         }
         let target = buffers.row_mut(out.offset(x_begin * 2));
         target[..scratch.len()].copy_from_slice(&scratch);
-        self.scratch = scratch;
+        self.scratch.with(thread, |slot| *slot = scratch);
         Ok(())
     }
     fn get_channel_mode(&self, c: usize) -> Mode {
@@ -94,11 +98,14 @@ impl RenderPipelineStage for HorizontalChromaUpsamplingStage {
     }
 }
 impl RenderPipelineStage for VerticalChromaUpsamplingStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::shift_y(1, 1)
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -107,7 +114,7 @@ impl RenderPipelineStage for VerticalChromaUpsamplingStage {
         width: usize,
         _x: usize,
         _y: usize,
-        _thread: usize,
+        thread: usize,
     ) -> Status {
         let top = self.get_input_row(input, self.channel, -1);
         let mid = self.get_input_row(input, self.channel, 0);
@@ -120,7 +127,7 @@ impl RenderPipelineStage for VerticalChromaUpsamplingStage {
             buffers.row(Row { x: 0, ..mid }),
             buffers.row(Row { x: 0, ..bot }),
         );
-        let [mut s0, mut s1] = std::mem::take(&mut self.scratch);
+        let [mut s0, mut s1] = self.scratch.with(thread, std::mem::take);
         s0.clear();
         s1.clear();
         let x_begin = -(left as isize);
@@ -137,7 +144,7 @@ impl RenderPipelineStage for VerticalChromaUpsamplingStage {
         target[..s0.len()].copy_from_slice(&s0);
         let target = buffers.row_mut(out1.offset(x_begin));
         target[..s1.len()].copy_from_slice(&s1);
-        self.scratch = [s0, s1];
+        self.scratch.with(thread, |slot| *slot = [s0, s1]);
         Ok(())
     }
     fn get_channel_mode(&self, c: usize) -> Mode {
@@ -164,12 +171,12 @@ pub fn get_chroma_upsampling_stage(
     if horizontal {
         Box::new(HorizontalChromaUpsamplingStage {
             channel,
-            scratch: Vec::new(),
+            scratch: PerThread::new(),
         })
     } else {
         Box::new(VerticalChromaUpsamplingStage {
             channel,
-            scratch: Default::default(),
+            scratch: PerThread::new(),
         })
     }
 }

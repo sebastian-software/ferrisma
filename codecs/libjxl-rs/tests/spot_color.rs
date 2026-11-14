@@ -25,7 +25,7 @@ fn rows() -> RowInfo {
 #[test]
 fn spot_original_dyadic_samples_and_ignored_storage_are_retained() {
     let color = [0.5, 0.25, 1., 0.5];
-    let mut stage = get_spot_color_stage(1, &color);
+    let stage = get_spot_color_stage(1, &color);
     let mut planes: Vec<_> = (0..5)
         .map(|_| Plane::<f32>::create(OFFSET + 9, 1).unwrap())
         .collect();
@@ -73,7 +73,7 @@ fn spot_original_dyadic_samples_and_ignored_storage_are_retained() {
 #[test]
 fn spot_external_coefficients_remain_live_between_calls() {
     let color = [0.5, 0.25, 1., 0.5].map(Cell::new);
-    let mut stage = get_spot_color_stage_cells(1, &color);
+    let stage = get_spot_color_stage_cells(1, &color);
     let mut planes: Vec<_> = (0..5)
         .map(|_| Plane::<f32>::create(OFFSET + 9, 1).unwrap())
         .collect();
@@ -125,7 +125,7 @@ fn spot_external_coefficients_remain_live_between_calls() {
 fn spot_guard_precedes_row_access_and_factory_offset_wraps() {
     let color = [f32::from_bits(0x7fa12345); 4];
     for offset in [0, usize::MAX, usize::MAX - 1, usize::MAX - 2] {
-        let mut stage = get_spot_color_stage(offset, &color);
+        let stage = get_spot_color_stage(offset, &color);
         for (l, r) in [(1, 0), (0, 1), (usize::MAX, usize::MAX)] {
             assert_eq!(
                 stage.process_row(
@@ -162,7 +162,7 @@ fn spot_guard_precedes_row_access_and_factory_offset_wraps() {
 #[test]
 fn spot_empty_span_preserves_raw_signaling_words_with_valid_rows() {
     let color = [f32::from_bits(0xffa12345); 4];
-    let mut stage = get_spot_color_stage(1, &color);
+    let stage = get_spot_color_stage(1, &color);
     let mut planes: Vec<_> = (0..5)
         .map(|_| Plane::<f32>::create(OFFSET + 9, 1).unwrap())
         .collect();

@@ -59,6 +59,9 @@ struct ToLinearStage {
     valid: bool,
 }
 impl RenderPipelineStage for ToLinearStage {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
@@ -76,7 +79,7 @@ impl RenderPipelineStage for ToLinearStage {
         "ToLinear"
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,

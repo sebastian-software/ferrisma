@@ -73,10 +73,8 @@ use super::memory_manager::{
 use super::memory_manager_internal::MemoryManagerPtr;
 use super::padded_bytes::PaddedBytes;
 use super::types::{JxlBitDepth, JxlBitDepthType, JxlDataType, JxlPixelFormat};
-use std::cell::RefCell;
 use std::ffi::c_void;
 use std::ptr::{self, NonNull};
-use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(transparent)]
@@ -578,7 +576,7 @@ pub struct JxlDecoder {
     extra_channel_output: Vec<ExtraChannelOutput>,
     metadata: Aliased<CodecMetadata>,
     image_metadata: Aliased<ImageMetadata>,
-    ib: Option<Rc<RefCell<ImageBundle<'static>>>>,
+    ib: Option<std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ImageBundle<'static>>>>,
     passes_state: Option<Box<PassesDecoderState<'static, 'static>>>,
     frame_dec: Option<Box<FrameDecoder<'static, 'static>>>,
     next_section: usize,
@@ -1620,10 +1618,12 @@ fn jxl_decoder_process_codestream(dec: &mut JxlDecoder) -> JxlDecoderStatus {
                 // (Drop and Rewind order), and the cell is not mutated after
                 // post_headers while a bundle exists.
                 let image_metadata = unsafe { dec.image_metadata.retained() };
-                dec.ib = Some(Rc::new(RefCell::new(ImageBundle::new_in(
-                    dec.memory_manager(),
-                    Some(image_metadata),
-                ))));
+                dec.ib = Some(std::sync::Arc::new(
+                    crate::jxl::base::sync_cell::SyncRefCell::new(ImageBundle::new_in(
+                        dec.memory_manager(),
+                        Some(image_metadata),
+                    )),
+                ));
             }
             // If JPEG reconstruction is wanted and possible, set the jpeg_data
             // of the ImageBundle.

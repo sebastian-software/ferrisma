@@ -23,29 +23,30 @@ use super::noise::NoiseParams;
 use super::quant_weights::DequantMatrices;
 use super::quantizer::Quantizer;
 use super::splines::Splines;
-use std::cell::RefCell;
-use std::rc::Rc;
-pub type SharedDcFrames = Rc<RefCell<[Image3<f32>; 4]>>;
-pub type SharedReferenceFrames<'a> = Rc<RefCell<[ReferenceFrame<'a>; 4]>>;
+pub type SharedDcFrames =
+    std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<[Image3<f32>; 4]>>;
+pub type SharedReferenceFrames<'a> =
+    std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<[ReferenceFrame<'a>; 4]>>;
 /// A source DC pointer borrows either direct storage or a retained array slot.
 /// The guard keeps the selected slot alive without a self-reference or copy.
 pub enum DcImage<'a> {
     Storage(&'a Image3<f32>),
-    Frame(std::cell::Ref<'a, Image3<f32>>),
+    // The DC frames' guard and the frame's index in them.
+    Frame(std::sync::RwLockReadGuard<'a, [Image3<f32>; 4]>, usize),
 }
 impl std::ops::Deref for DcImage<'_> {
     type Target = Image3<f32>;
     fn deref(&self) -> &Self::Target {
         match self {
             Self::Storage(image) => image,
-            Self::Frame(image) => image,
+            Self::Frame(frames, i) => &frames[*i],
         }
     }
 }
 pub struct ImageFeatures<'a> {
-    pub noise_params: Rc<RefCell<NoiseParams>>,
-    pub patches: Rc<RefCell<PatchDictionary>>,
-    pub splines: Rc<RefCell<Splines<'a>>>,
+    pub noise_params: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<NoiseParams>>,
+    pub patches: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<PatchDictionary>>,
+    pub splines: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<Splines<'a>>>,
 }
 impl Default for ImageFeatures<'_> {
     fn default() -> Self {
@@ -56,9 +57,13 @@ impl ImageFeatures<'_> {
     /// The source ImageFeatures(JxlMemoryManager*) constructor.
     pub fn new_in(memory_manager: MemoryManagerPtr) -> Self {
         Self {
-            noise_params: Rc::default(),
-            patches: Rc::new(RefCell::new(PatchDictionary::new_in(memory_manager))),
-            splines: Rc::new(RefCell::new(Splines::new_in(memory_manager))),
+            noise_params: std::sync::Arc::default(),
+            patches: std::sync::Arc::new(crate::jxl::base::sync_cell::SyncRefCell::new(
+                PatchDictionary::new_in(memory_manager),
+            )),
+            splines: std::sync::Arc::new(crate::jxl::base::sync_cell::SyncRefCell::new(
+                Splines::new_in(memory_manager),
+            )),
         }
     }
 }
@@ -137,8 +142,12 @@ impl<'a> PassesSharedState<'a> {
             dc_storage,
             dc_source,
             block_ctx_map,
-            dc_frames: Rc::new(RefCell::new(dc_frames)),
-            reference_frames: Rc::new(RefCell::new(reference_frames)),
+            dc_frames: std::sync::Arc::new(crate::jxl::base::sync_cell::SyncRefCell::new(
+                dc_frames,
+            )),
+            reference_frames: std::sync::Arc::new(crate::jxl::base::sync_cell::SyncRefCell::new(
+                reference_frames,
+            )),
             num_histograms,
         }
     }
@@ -151,11 +160,7 @@ impl<'a> PassesSharedState<'a> {
     pub fn dc(&self) -> DcImage<'_> {
         match self.dc_source {
             DcSource::Storage => DcImage::Storage(&self.dc_storage),
-            DcSource::Frame(i) => {
-                DcImage::Frame(std::cell::Ref::map(self.dc_frames.borrow(), |frames| {
-                    &frames[i]
-                }))
-            }
+            DcSource::Frame(i) => DcImage::Frame(self.dc_frames.borrow(), i),
         }
     }
     pub fn bind_own_reference_frames(&mut self) {

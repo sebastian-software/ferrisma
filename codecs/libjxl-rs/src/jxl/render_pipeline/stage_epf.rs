@@ -4,7 +4,8 @@
 //! Owner-relative row descriptors replace pointers; the sigma plane remains a
 //! borrow of the original frame owner. SIMD specializations are separate.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo, Settings,
+    PerThread, RenderPipelineChannelMode as Mode, RenderPipelineStage, Row, RowBuffers, RowInfo,
+    Settings,
 };
 use crate::jxl::{
     base::float::{add_first_nan, mul_first_nan, mul_promoted_first_nan},
@@ -69,14 +70,14 @@ fn weight(sad: f32, inv_sigma: f32) -> f32 {
 
 enum SigmaOwner<'a> {
     Borrowed(&'a Plane<f32>),
-    Shared(std::rc::Rc<std::cell::RefCell<Plane<f32>>>),
+    Shared(crate::jxl::base::sync_cell::SharedSigma),
 }
 pub struct EPFStage<'a> {
     lf: LoopFilter,
     sigma: SigmaOwner<'a>,
     pass: EpfStage,
     /// Output rows of one call, written back after all samples are computed.
-    scratch: [Vec<f32>; 3],
+    scratch: PerThread<[Vec<f32>; 3]>,
 }
 impl EPFStage<'_> {
     fn border(&self) -> usize {
@@ -88,6 +89,9 @@ impl EPFStage<'_> {
     }
 }
 impl RenderPipelineStage for EPFStage<'_> {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::symmetric_border_only(self.border())
     }
@@ -97,7 +101,7 @@ impl RenderPipelineStage for EPFStage<'_> {
     )]
     #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -106,7 +110,7 @@ impl RenderPipelineStage for EPFStage<'_> {
         width: usize,
         xpos: usize,
         ypos: usize,
-        _thread: usize,
+        thread: usize,
     ) -> Status {
         let sigma_borrow = match &self.sigma {
             SigmaOwner::Shared(owner) => Some(owner.borrow()),
@@ -145,7 +149,7 @@ impl RenderPipelineStage for EPFStage<'_> {
         let spans: [[&[f32]; 7]; 3] = std::array::from_fn(|c| {
             std::array::from_fn(|i| buffers.row(Row { x: 0, ..rows[c][i] }))
         });
-        let mut scratch = std::mem::take(&mut self.scratch);
+        let mut scratch = self.scratch.with(thread, std::mem::take);
         for row in &mut scratch {
             row.clear();
         }
@@ -296,7 +300,7 @@ impl RenderPipelineStage for EPFStage<'_> {
             let out = buffers.row_mut(outs[c].offset(x_begin));
             out[..scratch[c].len()].copy_from_slice(&scratch[c]);
         }
-        self.scratch = scratch;
+        self.scratch.with(thread, |slot| *slot = scratch);
         Ok(())
     }
     fn get_channel_mode(&self, c: usize) -> Mode {
@@ -330,7 +334,7 @@ pub fn get_epf_stage<'a>(
             lf: lf.clone(),
             sigma: SigmaOwner::Borrowed(sigma),
             pass,
-            scratch: Default::default(),
+            scratch: PerThread::new(),
         }))
     }
 }
@@ -339,7 +343,7 @@ pub fn get_epf_stage<'a>(
 /// The sequential caller releases its mutation borrow before invoking the stage.
 pub fn get_epf_stage_shared(
     lf: &LoopFilter,
-    sigma: std::rc::Rc<std::cell::RefCell<Plane<f32>>>,
+    sigma: crate::jxl::base::sync_cell::SharedSigma,
     pass: EpfStage,
 ) -> Option<Box<dyn RenderPipelineStage>> {
     if lf.epf_iters == 0 {
@@ -357,7 +361,7 @@ pub fn get_epf_stage_shared(
             lf: lf.clone(),
             sigma: SigmaOwner::Shared(sigma),
             pass,
-            scratch: Default::default(),
+            scratch: PerThread::new(),
         }))
     }
 }

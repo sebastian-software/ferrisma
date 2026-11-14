@@ -18,8 +18,6 @@ use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::chroma_from_luma::ColorCorrelation;
 use crate::jxl::hwy::{Kernel, SimdF32, Target, dispatch};
 use crate::jxl::noise::{NUM_NOISE_POINTS, NoiseParams};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// A vector of the 32-bit word `w` in every lane (`Set(DI(), w)`).
 #[inline(always)]
@@ -183,7 +181,10 @@ impl Kernel for AddNoiseRows<'_> {
 
 enum NoiseOwners<'a> {
     Borrowed(&'a NoiseParams, &'a ColorCorrelation),
-    Shared(Rc<RefCell<NoiseParams>>, Rc<RefCell<ColorCorrelation>>),
+    Shared(
+        std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<NoiseParams>>,
+        std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ColorCorrelation>>,
+    ),
 }
 pub struct AddNoiseStageSimd<'a> {
     target: Target,
@@ -191,11 +192,14 @@ pub struct AddNoiseStageSimd<'a> {
     first_c: usize,
 }
 impl RenderPipelineStage for AddNoiseStageSimd<'_> {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::default()
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         _output: &RowInfo,
         buffers: &mut RowBuffers<'_>,
@@ -285,8 +289,8 @@ pub fn get_add_noise_stage_simd<'a>(
 
 /// `GetAddNoiseStage` with the decoder's shared parameter owners.
 pub fn get_add_noise_stage_shared_simd(
-    noise_params: Rc<RefCell<NoiseParams>>,
-    color_correlation: Rc<RefCell<ColorCorrelation>>,
+    noise_params: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<NoiseParams>>,
+    color_correlation: std::sync::Arc<crate::jxl::base::sync_cell::SyncRefCell<ColorCorrelation>>,
     first_c: usize,
     target: Target,
 ) -> Box<dyn RenderPipelineStage> {
@@ -338,11 +342,14 @@ pub struct ConvolveNoiseStageSimd {
     first_c: usize,
 }
 impl RenderPipelineStage for ConvolveNoiseStageSimd {
+    fn as_concurrent(&self) -> Option<&(dyn RenderPipelineStage + Sync)> {
+        Some(self)
+    }
     fn settings(&self) -> Settings {
         Settings::symmetric_border_only(2)
     }
     fn process_row(
-        &mut self,
+        &self,
         input: &RowInfo,
         output: &RowInfo,
         buffers: &mut RowBuffers<'_>,

@@ -119,7 +119,9 @@ fn digest(v: &[u8]) -> u64 {
 
 /// Pixel-callback observations in a stable heap cell, so callbacks never
 /// alias a live borrow of the driver. Under a runner the decoder calls them
-/// from runner threads, one at a time, while the driver waits in the decoder.
+/// from several runner threads at once while the driver waits in the
+/// decoder; every callback enters the cell under `CALLBACK_LOCK`, as the
+/// oracle driver's counters are atomics.
 struct CallbackState {
     pixel_bytes: usize,
     hash: u64,
@@ -136,6 +138,15 @@ struct CallbackState {
     mt_calls: usize,
     mt_bad_thread: bool,
 }
+/// Serializes the callbacks' access to their CallbackState.
+static CALLBACK_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn callback_guard() -> std::sync::MutexGuard<'static, ()> {
+    CALLBACK_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 impl CallbackState {
     fn record(&mut self, thread: usize, x: usize, y: usize, n: usize, pixels: *const c_void) {
         self.calls += 1;
@@ -157,6 +168,7 @@ unsafe extern "C" fn simple_callback(
     n: usize,
     pixels: *const c_void,
 ) {
+    let _guard = callback_guard();
     // SAFETY: opaque is the driver's live callback cell.
     unsafe { &mut *opaque.cast::<CallbackState>() }.record(0, x, y, n, pixels);
 }
@@ -165,6 +177,7 @@ unsafe extern "C" fn init_callback(
     threads: usize,
     pixels: usize,
 ) -> *mut c_void {
+    let _guard = callback_guard();
     // SAFETY: As above.
     let state = unsafe { &mut *opaque.cast::<CallbackState>() };
     state.inits += 1;
@@ -180,10 +193,12 @@ unsafe extern "C" fn run_callback(
     n: usize,
     pixels: *const c_void,
 ) {
+    let _guard = callback_guard();
     // SAFETY: As above.
     unsafe { &mut *opaque.cast::<CallbackState>() }.record(thread, x, y, n, pixels);
 }
 unsafe extern "C" fn destroy_callback(opaque: *mut c_void) {
+    let _guard = callback_guard();
     // SAFETY: As above.
     unsafe { &mut *opaque.cast::<CallbackState>() }.destroys += 1;
 }
@@ -196,6 +211,7 @@ unsafe extern "C" fn test_callback(
     n: usize,
     pixels: *const c_void,
 ) {
+    let _guard = callback_guard();
     // SAFETY: opaque is the driver's live callback cell.
     let state = unsafe { &mut *opaque.cast::<CallbackState>() };
     let offset = state.test_stride * y + state.pixel_bytes * x;
@@ -218,8 +234,11 @@ unsafe extern "C" fn buffer_init_callback(
     threads: usize,
     pixels: usize,
 ) -> *mut c_void {
-    // SAFETY: opaque is the driver's live callback cell.
-    unsafe { (*opaque.cast::<CallbackState>()).mt_threads = threads };
+    {
+        let _guard = callback_guard();
+        // SAFETY: opaque is the driver's live callback cell.
+        unsafe { (*opaque.cast::<CallbackState>()).mt_threads = threads };
+    }
     // SAFETY: As above.
     unsafe { init_callback(opaque, threads, pixels) }
 }
@@ -232,6 +251,7 @@ unsafe extern "C" fn buffer_run_callback(
     pixels: *const c_void,
 ) {
     {
+        let _guard = callback_guard();
         // SAFETY: opaque is the driver's live callback cell; this borrow ends
         // before test_callback forms its own.
         let state = unsafe { &mut *opaque.cast::<CallbackState>() };

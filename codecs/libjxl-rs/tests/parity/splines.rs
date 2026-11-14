@@ -9,8 +9,6 @@ use jxl::jxl::render_pipeline::render_pipeline_stage::{
 };
 use jxl::jxl::render_pipeline::stage_splines::{get_spline_stage, get_spline_stage_shared};
 use jxl::jxl::splines::{QuantizedSpline, Spline, SplineDataView, SplinePoint, Splines};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub(super) fn handles(kind: &str) -> bool {
     kind.starts_with("sp-")
@@ -233,8 +231,10 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
                 }]
             })
             .collect();
-        let mut stage: Box<dyn RenderPipelineStage + '_> = if n > 1 {
-            Box::new(get_spline_stage_shared(Rc::new(RefCell::new(s))))
+        let stage: Box<dyn RenderPipelineStage + '_> = if n > 1 {
+            Box::new(get_spline_stage_shared(std::sync::Arc::new(
+                jxl::jxl::base::sync_cell::SyncRefCell::new(s),
+            )))
         } else {
             Box::new(get_spline_stage(&s))
         };
