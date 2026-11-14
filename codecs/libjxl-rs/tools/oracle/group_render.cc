@@ -2,6 +2,17 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 // Execute the pristine full group traversal with fixture-supplied GetBlock.
 // The fixture supplies coefficients, never dequantization or transform code.
+#if defined(ORACLE_HWY_DISPATCH)
+// The AVX2 dispatch variant does not serve the scalar suite's group render
+// requests: they instantiate the extracted DecodeGroupImpl for one static
+// target, and no SIMD test sends them (port ADR 0004). An unknown command
+// fails the request loudly.
+#include <jxl/memory_manager.h>
+
+#include <sstream>
+#include <string>
+bool GroupRenderCommand(const std::string&, std::istringstream&, JxlMemoryManager*) { return false; }
+#else
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -103,3 +114,4 @@ bool GroupRenderCommand(const std::string& command,std::istringstream& in,JxlMem
  if(jpeg_output){std::cout<<" J";for(const auto& component:jpeg.components){std::cout<<' '<<component.coeffs.size();for(auto v:component.coeffs)std::cout<<' '<<v;}std::cout<<" B";for(size_t i=0;i<area*3;++i)std::cout<<' '<<cache.dec_group_qblock[i];}
  return true;
 }
+#endif  // ORACLE_HWY_DISPATCH

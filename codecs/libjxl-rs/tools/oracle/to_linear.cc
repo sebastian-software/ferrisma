@@ -14,6 +14,9 @@
 #include "lib/jxl/image_metadata.h"
 #include "lib/jxl/render_pipeline/simple_render_pipeline.h"
 #include "lib/jxl/render_pipeline/stage_write.h"
+#include "oracle_target.h"
+// Calls N_AVX2 operations directly (oracle_target.h).
+ORACLE_TARGET_BEGIN
 namespace {
 template<class T,class U>T TLBits(U v){static_assert(sizeof(T)==sizeof(U),"width");T r;std::memcpy(&r,&v,sizeof(r));return r;}
 float TLRead(std::istringstream& in){uint32_t b;in>>b;return TLBits<float>(b);}
@@ -58,3 +61,4 @@ bool ToLinearCommand(const std::string& cmd,std::istringstream& in,JxlMemoryMana
  }
  return true;
 }
+ORACLE_TARGET_END

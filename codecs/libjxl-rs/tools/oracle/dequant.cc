@@ -9,6 +9,17 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#if defined(ORACLE_HWY_DISPATCH)
+// The AVX2 dispatch variant compiles the per-target block for every target
+// (oracle_target.h); the other variants have one static target.
+#include "lib/jxl/dct_util.h"
+#include "lib/jxl/quantizer.h"
+#include "aligned_vector.h"
+#undef HWY_TARGET_INCLUDE
+#define HWY_TARGET_INCLUDE "dequant_targets-inl.h"
+#include <hwy/foreach_target.h>  // IWYU pragma: keep
+#include "dequant_targets-inl.h"
+#else
 #include "lib/jxl/dec_transforms-inl.h"
 #include "lib/jxl/dct_util.h"
 #include "lib/jxl/quantizer-inl.h"
@@ -24,6 +35,10 @@ constexpr DI di;
 constexpr DI16 di16;
 #include "original_dequant_block.inc"
 }}}
+#endif
+#include "oracle_target.h"
+// Calls N_AVX2 operations directly (oracle_target.h).
+ORACLE_TARGET_BEGIN
 namespace {
 float DQFloat(std::istringstream& in) {
   uint32_t bits; in >> bits; float v; std::memcpy(&v, &bits, 4); return v;
@@ -65,3 +80,4 @@ bool DequantCommand(const std::string& command, std::istringstream& in, JxlMemor
   }
   std::cout << "O";DQWords(block);DQWords(scratch);return true;
 }
+ORACLE_TARGET_END

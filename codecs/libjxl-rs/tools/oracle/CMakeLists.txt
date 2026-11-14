@@ -41,24 +41,20 @@ elseif(ORACLE_HWY_TARGET STREQUAL "NEON" OR ORACLE_HWY_TARGET STREQUAL "AVX2")
   # (via CMAKE_CXX_FLAGS, so upstream's CMake sees HWY_DISABLED_TARGETS as
   # forced and adds no default list). NEON: the AArch64 baseline already is
   # HWY_NEON; excluding the higher Arm targets leaves HWY_TARGETS = HWY_NEON,
-  # identical to upstream's dispatch build on such a CPU. AVX2: every TU is
-  # compiled with exactly Highway's HWY_AVX2 attribute string
-  # (hwy/ops/set_macros-inl.h) and HWY_COMPILE_ONLY_STATIC, so HWY_AVX2 is the
-  # only target. Upstream's dispatch build instead keeps baseline code at the
-  # default x86-64 flags; the adapters that call target namespaces directly
-  # do not compile in a multi-target build yet (port ADR 0004). hwy_ops.cc
-  # asserts the target set and refuses to run where dispatch would select
-  # another target (Rosetta 2 needs ROSETTA_ADVERTISE_AVX=1).
+  # identical to upstream's dispatch build on such a CPU. AVX2: upstream's
+  # dispatch build, the SIMD reference build ADR-0041 defines. Every TU, of
+  # the original and of the adapters, keeps upstream's baseline x86-64 flags
+  # (no -m flag, Clang's default -ffp-contract=on); only HWY_NAMESPACE code is
+  # compiled per target with Highway's target attributes, and every target
+  # above HWY_AVX2 is disabled (working decision 2026-11-14, port ADR 0004).
+  # hwy_ops.cc asserts the target set and refuses to run where dispatch
+  # selects another target (Rosetta 2 needs ROSETTA_ADVERTISE_AVX=1).
   string(APPEND CMAKE_CXX_FLAGS
     " -DORACLE_HWY_TARGET_${ORACLE_HWY_TARGET}=1 -include ${CMAKE_CURRENT_SOURCE_DIR}/hwy_target.h")
-  if(ORACLE_HWY_TARGET STREQUAL "AVX2")
-    string(APPEND CMAKE_CXX_FLAGS
-      " -msse2 -mssse3 -msse4.1 -msse4.2 -mpclmul -maes -mavx -mavx2 -mbmi -mbmi2 -mfma -mf16c")
-  endif()
   if(ORACLE_HWY_TARGET STREQUAL "NEON")
     set(ORACLE_HWY_DEFINITIONS ORACLE_HWY_NS=N_NEON ORACLE_HWY_REQUIRED=HWY_NEON)
   else()
-    set(ORACLE_HWY_DEFINITIONS ORACLE_HWY_NS=N_AVX2 ORACLE_HWY_REQUIRED=HWY_AVX2)
+    set(ORACLE_HWY_DEFINITIONS ORACLE_HWY_NS=N_AVX2 ORACLE_HWY_REQUIRED=HWY_AVX2 ORACLE_HWY_DISPATCH=1)
   endif()
 else()
   message(FATAL_ERROR "ORACLE_HWY_TARGET must be SCALAR, NEON or AVX2")
