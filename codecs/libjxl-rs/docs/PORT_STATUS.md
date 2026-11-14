@@ -315,6 +315,14 @@ NEON and AVX2 builds (`tests/simd_encoder_acs.rs`). Init, PrepareForThreads
 and Finalize are outside the export and stay scalar.
 <!-- end encoder acs -->
 
+<!-- encoder cfl -->
+Encoder SIMD, chroma from luma (2026-11-14, branch `v1/jxl-enc-cfl`, ADR
+0004 "Encoder path: chroma from luma"): `enc_chroma_from_luma`'s
+InitDCStorage is translated with parity against the original's NEON and
+AVX2 (Rosetta 2) builds, behind the encoder's dispatch point (off by
+default).
+<!-- end encoder cfl -->
+
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 
 Encoder step 4 (issue #115) and a patches setting under which every image

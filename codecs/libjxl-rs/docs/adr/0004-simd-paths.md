@@ -1641,3 +1641,21 @@ this branch are `enc_chroma_from_luma`, `enc_adaptive_quantization`, `enc_cluste
 `enc_entropy_coder`, `enc_ans_simd` (and `enc_ma`, `enc_modular_simd` with
 alpha), plus `Symmetric5`; nothing of `enc_ac_strategy` remains.
 <!-- end encoder acs -->
+<!-- encoder cfl -->
+### Encoder path: chroma from luma (2026-11-14, branch `v1/jxl-enc-cfl`)
+
+Translated further, on the encoder's dispatch point `hwy::encoder_target()`
+(off by default; only `tests/simd_encoder_cfl.rs` forces it):
+
+- `enc_chroma_from_luma` InitDCStorage (`enc_chroma_from_luma_simd.rs`),
+  dispatched from `CfLHeuristics::init`: four rows of
+  `RoundUpTo(num_blocks, Lanes(df))` samples with `HWY_FULL(float)` (four
+  NEON, eight AVX2 lanes), the last `Lanes` of each zeroed. `ecf-init`
+  (tools/oracle/encoder_cfl_simd.cc, through the original's
+  `CfLHeuristics::Init`) compares the status, the lanes of the original's
+  `MaxVectorSize()`, the plane size and the zero-filled lanes of each row
+  (the others are uninitialized in the original) for every block count
+  from 0 to 60 in several shapes, pixel sizes that are not block multiples
+  and photograph-sized frames; the scalar path differs in the plane width.
+  The `lanes8` module checks the rounding and the zeroed lanes with eight.
+<!-- end encoder cfl -->

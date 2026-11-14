@@ -395,3 +395,7 @@ target_sources(jxl_oracle PRIVATE encoder_simd.cc)
 # "Encoder path"). The TU only calls the original's functions.
 target_sources(jxl_oracle PRIVATE encoder_acs_simd.cc)
 # end encoder acs
+# encoder cfl: requests of the encoder's chroma-from-luma SIMD kernels (port
+# ADR 0004, "Encoder path"). The TU only calls the original's public API.
+target_sources(jxl_oracle PRIVATE encoder_cfl_simd.cc)
+# end encoder cfl
