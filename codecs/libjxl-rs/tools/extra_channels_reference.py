@@ -100,7 +100,7 @@ def main():
         if revision!=expected:raise RuntimeError('Source pin mismatch')
         pins[name or 'libjxl']=revision
     capture=output/'requests.txt';half_capture=output/'half-requests.txt'
-    environment=dict(os.environ,CARGO_BUILD_JOBS='2',RUST_TEST_THREADS='2',JXL_EXTRA_CHANNEL_CAPTURE=str(capture),JXL_EXTRA_CHANNEL_HALF_CAPTURE=str(half_capture))
+    environment=dict(os.environ,JXL_DECODER_TARGET='scalar',CARGO_BUILD_JOBS='2',RUST_TEST_THREADS='2',JXL_EXTRA_CHANNEL_CAPTURE=str(capture),JXL_EXTRA_CHANNEL_HALF_CAPTURE=str(half_capture))
     with (output/'capture.log').open('w') as log:
         subprocess.run(['cargo','test','--locked','--offline','--all-features','--test','parity','extra_channels::','--','--nocapture'],cwd=ROOT,env=environment,stdout=log,stderr=subprocess.STDOUT,check=True)
     requests=capture.read_text().splitlines();counts=Counter(q.split()[0] for q in requests)

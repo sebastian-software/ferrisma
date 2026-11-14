@@ -202,7 +202,7 @@ def main():
         directory.mkdir()
         report['graphs'][graph] = configuration(ROOT / 'target' / graph, directory)
     tf_capture, matrix_capture = output / 'transfer.requests', output / 'matrix.requests'
-    env = dict(os.environ, CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2',
+    env = dict(os.environ, CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2', JXL_DECODER_TARGET='scalar',
                JXL_CPP_ORACLE=str(ROOT / 'target/oracle/jxl_oracle'),
                JXL_SKCMS_TRANSFER_CAPTURE=str(tf_capture),
                JXL_SKCMS_MATRIX_CAPTURE=str(matrix_capture))

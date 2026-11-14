@@ -184,7 +184,7 @@ def main():
             raise RuntimeError('Pinned source changed: ' + str(source))
         pins[str(source.relative_to(ROOT))] = wanted
     capture = output / 'requests.txt'
-    env = dict(os.environ, CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2', JXL_OUTPUT_STAGE_CAPTURE=str(capture))
+    env = dict(os.environ, CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2', JXL_DECODER_TARGET='scalar', JXL_OUTPUT_STAGE_CAPTURE=str(capture))
     with (output / 'capture.log').open('w') as log:
         subprocess.run(['cargo', 'test', '--locked', '--offline', '--all-features', '--test', 'parity',
                         'output_stage::', '--', '--nocapture'], cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)

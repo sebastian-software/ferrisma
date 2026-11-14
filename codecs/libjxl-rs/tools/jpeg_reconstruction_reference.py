@@ -108,7 +108,7 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     check_source()
     capture = output / 'requests.txt'
-    environment = dict(os.environ, RUST_TEST_THREADS='1', JXL_JPEG_RECONSTRUCTION_CAPTURE=str(capture),
+    environment = dict(os.environ, JXL_DECODER_TARGET='scalar', RUST_TEST_THREADS='1', JXL_JPEG_RECONSTRUCTION_CAPTURE=str(capture),
                        JXL_CPP_ORACLE=str(ROOT / 'target/oracle/jxl_oracle'))
     for name in ('jpeg_reconstruction::', 'group_render::jpeg_groups'):
         with (output / (name.replace(':', '_') + '.log')).open('w') as log:

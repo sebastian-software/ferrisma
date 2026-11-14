@@ -147,7 +147,7 @@ def audit(output,record_native):
         path=source/name;actual=subprocess.check_output(['git','-C',str(path),'rev-parse','HEAD'],text=True).strip()
         expected=json.loads((ROOT/'upstream.json').read_text())['revision']if not name else subprocess.check_output(['git','-C',str(source),'ls-tree','HEAD',name],text=True).split()[2]
         assert actual==expected and not subprocess.check_output(['git','-C',str(path),'status','--porcelain','--ignore-submodules=none'],text=True).strip();report['pins'][name or'libjxl']=actual
-    capture=output/'requests.txt';env=dict(os.environ,JXL_SKCMS_TRANSFORM_CAPTURE=str(capture),JXL_CPP_ORACLE=str(ROOT/'target/oracle/jxl_oracle'),JXL_SKCMS_TRANSFORM_ORACLE=str(ROOT/'target/oracle/skcms_transform_private'),RUST_TEST_THREADS='2')
+    capture=output/'requests.txt';env=dict(os.environ,JXL_DECODER_TARGET='scalar',JXL_SKCMS_TRANSFORM_CAPTURE=str(capture),JXL_CPP_ORACLE=str(ROOT/'target/oracle/jxl_oracle'),JXL_SKCMS_TRANSFORM_ORACLE=str(ROOT/'target/oracle/skcms_transform_private'),RUST_TEST_THREADS='2')
     with (output/'capture.log').open('w')as log:subprocess.run(['cargo','test','--locked','--offline','--all-features','--test','parity','skcms_transform::','--','--nocapture'],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
     requests=capture.read_text().splitlines();report.update(requests=len(requests),counts=dict(Counter(q.split()[0]for q in requests)),request_sha256=sha(capture))
     preflight,manifest=retained_preflight(requests);preflight_set=set(preflight)

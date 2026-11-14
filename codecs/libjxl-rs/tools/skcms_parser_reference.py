@@ -155,7 +155,7 @@ def audit(output, record_native):
     if (ROOT/"licenses/SKCMS-BSD-3-Clause.txt").read_bytes() != (source/"third_party/skcms/LICENSE").read_bytes():
         raise RuntimeError("skcms source notice changed")
     capture=output/"requests.txt"
-    env=dict(os.environ,JXL_SKCMS_PARSER_CAPTURE=str(capture),JXL_CPP_ORACLE=str(ROOT/"target/oracle/jxl_oracle"),CARGO_BUILD_JOBS="2",RUST_TEST_THREADS="2")
+    env=dict(os.environ,JXL_DECODER_TARGET="scalar",JXL_SKCMS_PARSER_CAPTURE=str(capture),JXL_CPP_ORACLE=str(ROOT/"target/oracle/jxl_oracle"),CARGO_BUILD_JOBS="2",RUST_TEST_THREADS="2")
     with (output/"capture.log").open("w") as log:
         subprocess.run(["cargo","test","--locked","--offline","--all-features","--test","parity","skcms_parser::","--","--nocapture"],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
     requests=capture.read_text().splitlines()

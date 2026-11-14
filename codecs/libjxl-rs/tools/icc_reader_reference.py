@@ -208,7 +208,7 @@ def main():
               'source_hashes': {name: sha(source / 'lib/jxl' / name) for name in ('icc_codec.cc', 'icc_codec.h', 'dec_ans.h', 'dec_ans.cc')},
               'graphs': {}}
     capture = output / 'requests.txt'
-    environment = dict(os.environ, JXL_ICC_READER_CAPTURE=str(capture),
+    environment = dict(os.environ, JXL_DECODER_TARGET='scalar', JXL_ICC_READER_CAPTURE=str(capture),
                        CARGO_BUILD_JOBS='2', RUST_TEST_THREADS='2')
     command = ['cargo', 'test', '--locked', '--offline', '--all-features', '--test', 'parity', 'icc_reader_', '--', '--nocapture']
     with (output / 'capture.log').open('w') as log:
