@@ -14,9 +14,9 @@
 //! reach output samples past `xsize * N`, which libjxl treats as row padding.
 //! The port keeps the scratch per thread like the original.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings, Span,
 };
-use super::simd_rows::{read, write};
+use super::simd_rows::with_spans;
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::hwy::{Kernel, SimdF32, Target, dispatch};
 use crate::jxl::image_metadata::CustomTransformData;
@@ -108,7 +108,7 @@ struct Process<'a, const N: usize> {
     kernel: &'a [f32; 64 * 25],
     mins: &'a [f32],
     maxs: &'a [f32],
-    out: &'a mut [Vec<f32>],
+    out: [&'a mut [f32]; N],
 }
 impl<const N: usize> Kernel for Process<'_, N> {
     type Output = ();
@@ -116,9 +116,10 @@ impl<const N: usize> Kernel for Process<'_, N> {
     fn run<D: SimdF32>(self, df: D) {
         let input = |i: usize, x: usize| &self.rows[i / 5][i % 5 + x..];
         let kernel = |k: usize, i: usize| self.kernel[k * 25 + i];
+        let mut out = self.out;
         let mut x = 0;
         while x < self.len {
-            for oy in 0..N {
+            for (oy, out_row) in out.iter_mut().enumerate() {
                 let mut ups = [df.zero(); N];
                 for (ox, up) in ups.iter_mut().enumerate() {
                     let k = N * oy + ox;
@@ -136,7 +137,7 @@ impl<const N: usize> Kernel for Process<'_, N> {
                     let result = df.add(df.add(acc1, acc2), acc0);
                     *up = df.clamp(result, df.load(&self.mins[x..]), df.load(&self.maxs[x..]));
                 }
-                store_interleaved(df, &ups, &mut self.out[oy][x * N..]);
+                store_interleaved(df, &ups, &mut out_row[x * N..]);
             }
             x += D::LANES;
         }
@@ -238,46 +239,43 @@ impl UpsamplingStageSimd {
         // PreProcessRowImpl reads RoundUpTo(len + 4, Lanes) samples from
         // x0 - 2; ProcessRowImpl reads RoundUpTo(len, Lanes) + 4 from there.
         let read_len = round_up_to(len + 4, lanes).max(round_up_to(len, lanes) + 4);
-        let rows: [Vec<f32>; 5] = std::array::from_fn(|i| {
-            read(
-                buffers,
-                self.get_input_row(input, c, i as i32 - 2),
-                x0 as isize - 2,
-                read_len,
-            )
+        // stage_upsampling.cc: the input rows and the N output rows are the
+        // pipeline's rows, loaded and stored in place.
+        let reads: [Span; 5] = std::array::from_fn(|i| Span {
+            row: self.get_input_row(input, c, i as i32 - 2),
+            from: x0 as isize - 2,
+            len: read_len,
         });
-        let rows = [&rows[0][..], &rows[1], &rows[2], &rows[3], &rows[4]];
-        let [t0, t1, t2] = &mut self.temp;
-        let temp = [
-            t0[thread].as_mut().unwrap().f32s_mut(),
-            t1[thread].as_mut().unwrap().f32s_mut(),
-            t2[thread].as_mut().unwrap().f32s_mut(),
-        ];
-        dispatch(self.target, PreProcess { rows, len, temp });
         let out_len = round_up_to(len, lanes) * N;
-        let mut out = vec![vec![0.0f32; out_len]; N];
-        let [t0, _, t2] = &mut self.temp;
-        let maxs = t0[thread].as_mut().unwrap().f32s_mut();
-        let mins = t2[thread].as_mut().unwrap().f32s_mut();
-        dispatch(
-            self.target,
-            Process::<N> {
-                rows,
-                len,
-                kernel: &self.kernel,
-                mins,
-                maxs,
-                out: &mut out,
-            },
-        );
-        for (oy, out) in out.iter().enumerate() {
-            write(
-                buffers,
-                self.get_output_row(output, c, oy),
-                (x0 * N) as isize,
-                out,
+        let writes: [Span; N] = std::array::from_fn(|oy| Span {
+            row: self.get_output_row(output, c, oy),
+            from: (x0 * N) as isize,
+            len: out_len,
+        });
+        let target = self.target;
+        let kernel = &self.kernel;
+        let [t0, t1, t2] = &mut self.temp;
+        with_spans(buffers, reads, writes, |rows, out| {
+            let temp = [
+                t0[thread].as_mut().unwrap().f32s_mut(),
+                t1[thread].as_mut().unwrap().f32s_mut(),
+                t2[thread].as_mut().unwrap().f32s_mut(),
+            ];
+            dispatch(target, PreProcess { rows, len, temp });
+            let maxs = t0[thread].as_mut().unwrap().f32s_mut();
+            let mins = t2[thread].as_mut().unwrap().f32s_mut();
+            dispatch(
+                target,
+                Process::<N> {
+                    rows,
+                    len,
+                    kernel,
+                    mins,
+                    maxs,
+                    out,
+                },
             );
-        }
+        });
     }
 }
 

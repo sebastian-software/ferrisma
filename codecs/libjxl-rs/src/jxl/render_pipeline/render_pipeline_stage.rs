@@ -139,6 +139,108 @@ impl RowBuffers<'_> {
         };
         &mut planes[row.channel].row_mut(row.y)[row.x..]
     }
+    /// The SIMD stages' row pointers (port ADR 0003, "SIMD row spans"):
+    /// `R` read spans and `W` write spans resolved in place, at the same
+    /// time, as slices of their planes' whole sample storage. A span's first
+    /// sample is the source's `row + from`: its index is `y * stride +
+    /// row.x + from`, so a negative `from` reaches into the preceding row's
+    /// padding exactly as the source's pointer arithmetic does, and a span
+    /// may extend into the row's padding (`BytesPerRow`) on the right.
+    ///
+    /// Write spans must be pairwise disjoint (the source's restricted output
+    /// pointers), and a plane with a write span is not read through a read
+    /// span (InOut stages read and write different buffers; in-place stages
+    /// read through their write spans). Returns `None`, resolving nothing,
+    /// when a span reaches outside its plane's storage (before the first
+    /// row or past the last), when a plane is both read and written, or when
+    /// two write spans overlap; [`super::simd_rows::with_spans`] then copies.
+    pub fn spans<const R: usize, const W: usize>(
+        &mut self,
+        reads: &[Span; R],
+        writes: &[Span; W],
+    ) -> Option<SpanViews<'_, R, W>> {
+        let mut read_out: [Option<&[f32]>; R] = [None; R];
+        let mut write_out: [Option<&mut [f32]>; W] = std::array::from_fn(|_| None);
+        for (storage, planes) in [
+            (RowStorage::Input, &mut *self.input),
+            (RowStorage::Output, &mut *self.output),
+        ] {
+            for (channel, plane) in planes.iter_mut().enumerate() {
+                let on = |s: &Span| s.row.storage == storage && s.row.channel == channel;
+                let written = writes.iter().any(on);
+                if !written && !reads.iter().any(on) {
+                    continue;
+                }
+                let stride = plane.pixels_per_row();
+                let height = plane.ysize();
+                // The index of the span's first sample in the plane storage.
+                let start = |s: &Span, storage_len: usize| -> Option<usize> {
+                    if s.row.y >= height {
+                        return None;
+                    }
+                    let first = (s.row.y as isize)
+                        .checked_mul(stride)?
+                        .checked_add(s.row.x as isize)?
+                        .checked_add(s.from)?;
+                    let first = usize::try_from(first).ok()?;
+                    (first.checked_add(s.len)? <= storage_len).then_some(first)
+                };
+                if written {
+                    if reads.iter().any(on) {
+                        return None;
+                    }
+                    let mut tail = plane.pixels_mut()?;
+                    let total = tail.len();
+                    // This plane's write spans in storage order, as in
+                    // three_rows_mut, so that each is split off once.
+                    let mut order: [(usize, usize); W] = [(usize::MAX, 0); W];
+                    for (i, s) in writes.iter().enumerate() {
+                        if on(s) {
+                            order[i] = (start(s, total)?, i);
+                        }
+                    }
+                    order.sort_unstable();
+                    let mut previous_end = 0;
+                    for &(first, i) in &order {
+                        if first == usize::MAX {
+                            break;
+                        }
+                        if first < previous_end {
+                            return None;
+                        }
+                        let (_, rest) =
+                            std::mem::take(&mut tail).split_at_mut(first - previous_end);
+                        let (span, rest) = rest.split_at_mut(writes[i].len);
+                        write_out[i] = Some(span);
+                        tail = rest;
+                        previous_end = first + writes[i].len;
+                    }
+                } else {
+                    let pixels: &[f32] = plane.pixels()?;
+                    for (i, s) in reads.iter().enumerate() {
+                        if on(s) {
+                            let first = start(s, pixels.len())?;
+                            read_out[i] = Some(&pixels[first..first + s.len]);
+                        }
+                    }
+                }
+            }
+        }
+        if read_out.iter().any(Option::is_none) || write_out.iter().any(Option::is_none) {
+            return None;
+        }
+        Some((read_out.map(Option::unwrap), write_out.map(Option::unwrap)))
+    }
+}
+/// The read and write slices of [`RowBuffers::spans`].
+pub type SpanViews<'a, const R: usize, const W: usize> = ([&'a [f32]; R], [&'a mut [f32]; W]);
+/// One SIMD row span for [`RowBuffers::spans`]: `len` samples of `row`
+/// from sample offset `from`, relative to the row descriptor.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Span {
+    pub row: Row,
+    pub from: isize,
+    pub len: usize,
 }
 pub trait RenderPipelineStage {
     fn settings(&self) -> Settings;

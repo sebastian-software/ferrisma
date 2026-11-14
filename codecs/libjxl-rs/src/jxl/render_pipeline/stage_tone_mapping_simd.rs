@@ -5,9 +5,9 @@
 //! the NEON and AVX2 targets (ADR 0004), written once against [`SimdF32`].
 //! Compare it only with the original's SIMD build at the same target.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings, Span,
 };
-use super::simd_rows::{read, vector_span, write};
+use super::simd_rows::{vector_span, with_spans};
 use super::simd_transfer::{Rec2408ToneMapperSimd, gamut_map, hlg_ootf_apply};
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::cms::tone_mapping_scalar::HlgOotf;
@@ -130,19 +130,18 @@ impl RenderPipelineStage for ToneMappingStageSimd {
         let (_, iterations) = vector_span(0, 0, width, lanes);
         let len = iterations * lanes;
         let rows = [0, 1, 2].map(|c| self.get_input_row(input, c, 0));
-        let mut values = rows.map(|row| read(buffers, row, 0, len));
-        let [a, b, c] = &mut values;
-        dispatch(
-            self.target,
-            ToneMappingRows {
-                rows: [a, b, c],
-                iterations,
-                stage: self,
-            },
-        );
-        for (row, values) in rows.into_iter().zip(&values) {
-            write(buffers, row, 0, values);
-        }
+        // The source's loads and stores through its row pointers, in place.
+        let spans = rows.map(|row| Span { row, from: 0, len });
+        with_spans(buffers, [], spans, |[], [a, b, c]| {
+            dispatch(
+                self.target,
+                ToneMappingRows {
+                    rows: [a, b, c],
+                    iterations,
+                    stage: self,
+                },
+            )
+        });
         Ok(())
     }
     fn get_channel_mode(&self, c: usize) -> Mode {

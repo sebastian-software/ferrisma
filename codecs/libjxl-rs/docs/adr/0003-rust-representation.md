@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-13
+- Updated: 2026-11-14
 
 > **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** Representations kept only to reproduce the original's NaN payloads or NaN operand order (out-of-line per-operation helpers, the AArch64-only row kernels and the `pre_r1` render stages off AArch64) are no longer required by the comparison: NaN payload bits are not part of the gate, except on copy-only paths, which keep bit-exact NaNs. Finite words, infinities and signed zeros stay bit-identical, and target-specific contraction stays as the original's. The decisions below remain until the code changes; each such change is checked against ADR-0041's gate on both targets.
 
@@ -678,6 +678,25 @@ scratch allocations. The horizontal offset retains the original architecture
 guard (ARM 24, other supported targets 32). Allocation padding uses hwy/base.h's
 kMaxVectorSize (x86 64, other baseline targets 16), independently of the scalar
 MaxVectorSize() function. RVV intrinsic builds remain unported.
+
+SIMD row spans (2026-11-14). The SIMD stages load and store the pipeline's
+rows in place, as the source's stages do through their row pointers:
+`RowBuffers::spans` resolves a fixed number of read and write spans of row
+descriptors at once, as slices of their planes' whole initialized sample
+storage. A span's first sample has the index `y * stride + x + from`, the
+source's `row + from`, so a whole-vector loop that starts left of the row
+reaches the preceding row's padding and one that ends right of `xsize` the
+row's own padding: the memory the source touches. The proof is borrows
+alone: read spans are shared borrows of planes that no write span touches,
+and write spans are disjoint subslices split in storage order from one
+exclusive borrow per plane; no unsafe code or raw pointer is added. A span
+outside its plane's storage (the first row's left reach, which the source
+reads from the allocation's pre-padding, or past the last row), a plane that
+is both read and written, or overlapping write spans resolve nothing, and
+`simd_rows::with_spans` then copies the spans as before (0.0 outside the row
+slice) and writes the write spans back. Samples that differ between the two
+routes reach only lanes left of `-xextra_left` or right of `xsize +
+xextra_right`, which no later stage or output reads (ADR 0004).
 
 The low-memory pipeline keeps the source's per-group input planes, border
 storage, per-thread ring buffers and out-of-frame rows. Its row pointers may

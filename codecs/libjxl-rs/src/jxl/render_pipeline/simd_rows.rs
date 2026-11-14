@@ -6,10 +6,37 @@
 //! `x_start = -RoundUpTo(xextra_left, Lanes(d))` while `x < xsize +
 //! xextra_right`, so they read and write up to `Lanes(d) - 1` samples beyond
 //! the requested span; the source's row padding (`BytesPerRow` with
-//! `MaxVectorSize()`) makes that memory valid. These helpers copy the read
-//! spans out of the owner-relative rows and write a computed span back, so a
-//! stage may read rows that it also writes (the source's in-place stages).
-use super::render_pipeline_stage::{Row, RowBuffers};
+//! `MaxVectorSize()`) makes that memory valid. [`with_spans`] hands a stage
+//! its rows in place, as the source's row pointers
+//! ([`RowBuffers::spans`]); only a span that reaches outside its plane's
+//! storage is copied out with [`read`] and written back with [`write`].
+use super::render_pipeline_stage::{Row, RowBuffers, Span};
+
+/// Run `f` on the stage's read and write spans: in place when
+/// [`RowBuffers::spans`] resolves them (the source's loads and stores
+/// through its row pointers), otherwise on copies. A copied write span starts
+/// with the row's current samples, so an in-place stage reads what it
+/// overwrites, and is written back after `f`.
+pub fn with_spans<const R: usize, const W: usize, T>(
+    buffers: &mut RowBuffers<'_>,
+    reads: [Span; R],
+    writes: [Span; W],
+    f: impl FnOnce([&[f32]; R], [&mut [f32]; W]) -> T,
+) -> T {
+    if let Some((r, w)) = buffers.spans(&reads, &writes) {
+        return f(r, w);
+    }
+    let read_copies = reads.map(|s| read(buffers, s.row, s.from, s.len));
+    let mut write_copies = writes.map(|s| read(buffers, s.row, s.from, s.len));
+    let result = f(
+        std::array::from_fn(|i| read_copies[i].as_slice()),
+        write_copies.each_mut().map(Vec::as_mut_slice),
+    );
+    for (s, values) in writes.iter().zip(&write_copies) {
+        write(buffers, s.row, s.from, values);
+    }
+    result
+}
 
 /// The original loop bounds: `(x_start, iterations)` for `lanes`.
 pub fn vector_span(left: usize, right: usize, width: usize, lanes: usize) -> (isize, usize) {

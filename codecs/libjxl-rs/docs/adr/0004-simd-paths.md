@@ -276,9 +276,9 @@ test, these rows are representative. No file reaches zero.)
   instead of including pristine `.cc` files after `hwy/highway.h`; until
   then whole-decode AVX2 comparisons of non-kernel scalar code must use a
   dispatch `djxl`, not this oracle.
-- The SIMD stages copy their row spans to apply the over-read/over-write
-  semantics safely; they are correctness references, not performance
-  measurements.
+- The SIMD stages load and store the pipeline's rows in place, through
+  `RowBuffers::spans` (ADR 0003, "SIMD row spans", 2026-11-14), and copy a
+  span only where it reaches outside its plane's storage.
 
 ## Plan for the remaining exports
 
@@ -466,7 +466,9 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   the preceding row's padding. `simd_rows::read` panicked there; it now
   returns 0.0 for samples outside the row slice. Those samples only reach
   lanes left of `-xextra_left`, which no later stage or output uses; the
-  scalar path is unchanged.
+  scalar path is unchanged. Since 2026-11-14 the stages read such a span in
+  place from the preceding row's padding, as the original, and copy it only
+  on a plane's first row.
 - **How the reasons were found.** `jxl::jxl::decode_trace` (test
   observation only, inactive unless a test starts it) records the frame
   header (encoding, flags, upsampling, extra channel upsampling, blending),

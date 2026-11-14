@@ -11,9 +11,9 @@
 //! reads and writes up to `RoundUpTo(xsize, Lanes)`, ConvolveNoise from
 //! `-xextra_left` while `x < xsize + xextra_right`, in the row padding.
 use super::render_pipeline_stage::{
-    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings,
+    RenderPipelineChannelMode as Mode, RenderPipelineStage, RowBuffers, RowInfo, Settings, Span,
 };
-use super::simd_rows::{read, vector_span, write};
+use super::simd_rows::{vector_span, with_spans};
 use crate::jxl::base::status::{Status, StatusCode};
 use crate::jxl::chroma_from_luma::ColorCorrelation;
 use crate::jxl::hwy::{Kernel, SimdF32, Target, dispatch};
@@ -232,30 +232,27 @@ impl RenderPipelineStage for AddNoiseStageSimd<'_> {
         let (_, iterations) = vector_span(0, 0, width, lanes);
         let len = iterations * lanes;
         let rows: [_; 3] = std::array::from_fn(|c| self.get_input_row(input, c, 0));
-        let rnd: [_; 3] = std::array::from_fn(|c| {
-            read(
-                buffers,
-                self.get_input_row(input, self.first_c + c, 0),
-                0,
-                len,
+        // stage_noise.cc:200-225: the color rows and the random rows are the
+        // pipeline's rows, loaded and stored in place.
+        let rnd: [_; 3] = std::array::from_fn(|c| Span {
+            row: self.get_input_row(input, self.first_c + c, 0),
+            from: 0,
+            len,
+        });
+        let spans = rows.map(|row| Span { row, from: 0, len });
+        with_spans(buffers, rnd, spans, |rnd, [a, b, c]| {
+            dispatch(
+                self.target,
+                AddNoiseRows {
+                    rows: [a, b, c],
+                    rnd,
+                    iterations,
+                    eval: &noise_model,
+                    ytox,
+                    ytob,
+                },
             )
         });
-        let mut values = rows.map(|row| read(buffers, row, 0, len));
-        let [a, b, c] = &mut values;
-        dispatch(
-            self.target,
-            AddNoiseRows {
-                rows: [a, b, c],
-                rnd: [&rnd[0], &rnd[1], &rnd[2]],
-                iterations,
-                eval: &noise_model,
-                ytox,
-                ytob,
-            },
-        );
-        for (row, values) in rows.into_iter().zip(&values) {
-            write(buffers, row, 0, values);
-        }
         Ok(())
     }
     fn get_channel_mode(&self, c: usize) -> Mode {
@@ -363,25 +360,29 @@ impl RenderPipelineStage for ConvolveNoiseStageSimd {
         let x_end = (width + right) as isize;
         let iterations = ((x_end - x_start).max(0) as usize).div_ceil(lanes);
         let len = iterations * lanes;
+        // stage_noise.cc ConvolveNoiseStage: rows and row_out are the
+        // pipeline's rows, loaded and stored in place.
         for c in self.first_c..self.first_c + 3 {
-            let rows: [Vec<f32>; 5] = std::array::from_fn(|i| {
-                read(
-                    buffers,
-                    self.get_input_row(input, c, i as i32 - 2),
-                    x_start - 2,
-                    len + 4,
+            let reads: [Span; 5] = std::array::from_fn(|i| Span {
+                row: self.get_input_row(input, c, i as i32 - 2),
+                from: x_start - 2,
+                len: len + 4,
+            });
+            let writes = [Span {
+                row: self.get_output_row(output, c, 0),
+                from: x_start,
+                len,
+            }];
+            with_spans(buffers, reads, writes, |rows, [out]| {
+                dispatch(
+                    self.target,
+                    ConvolveRows {
+                        rows,
+                        iterations,
+                        out,
+                    },
                 )
             });
-            let mut out = vec![0.0f32; len];
-            dispatch(
-                self.target,
-                ConvolveRows {
-                    rows: [&rows[0], &rows[1], &rows[2], &rows[3], &rows[4]],
-                    iterations,
-                    out: &mut out,
-                },
-            );
-            write(buffers, self.get_output_row(output, c, 0), x_start, &out);
         }
         Ok(())
     }
