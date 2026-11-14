@@ -1138,16 +1138,18 @@ with jxl-oxide, with the source pixels under a bound, or between two decodes
 of the same input; none pins the port's decoded samples exactly.
 <!-- end enable: tests -->
 <!-- avx2 oracle -->
-## AVX2 reference: upstream's dispatch build (2026-11-14, branch `v1/jxl-avx2-oracle`)
+## AVX2 reference: upstream's dispatch build (2026-11-14)
 
-**Working decision 2026-11-14 (delegated, revisable by the owner).** The
+**Decided on 2026-11-14 and confirmed by the owner the same day** (it was
+prepared as a delegated working decision on branch `v1/jxl-avx2-oracle` and
+merged only after that confirmation). The
 AVX2 oracle variant (`-DORACLE_HWY_TARGET=AVX2`) is now built as upstream's
 dynamic-dispatch release build, capped at `HWY_AVX2` through Highway's
 `HWY_DISABLED_TARGETS`. This changes how the AVX2 reference is *built*. It
 changes neither the upstream source nor its commit (libjxl `a16d32d0`,
 Highway `457c8917`), nor any expected value, golden, tolerance or test
 domain, nor the SCALAR and NEON variants. Because the root rule forbids
-refreshing an oracle, the owner has to see and confirm or revert it.
+refreshing an oracle, the change was put to the owner, who confirmed it.
 
 **Why this is the reference ADR-0041 names.** ADR-0041 section 1 defines
 the SIMD reference build at level L as "the original's release build with
