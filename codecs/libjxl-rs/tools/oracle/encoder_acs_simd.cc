@@ -23,6 +23,11 @@
 //       scratch (3 * kMaxCoeffArea + 3 * 8 * kMaxBlockDim words). Prints the
 //       status, the entropy, block up to 3 * size + 8 words and the scratch
 //       up to its last written word plus 4.
+//   esa-best8 <inputs> <x> <y> <speed_tier> <butteraugli_target>
+//             <3 cmap words>
+//       FindBest8x8Transform with the same buffers (and a DCT8 strategy
+//       image, which it does not read). Prints the status, the best entropy,
+//       the chosen strategy, block up to 3 * 64 + 8 words and the scratch.
 #include <jxl/memory_manager.h>
 
 #include <algorithm>
@@ -48,6 +53,12 @@ Status EstimateEntropy(const AcStrategy& acs, float entropy_mul, size_t x, size_
                        const ACSConfig& config, const float* JXL_RESTRICT cmap_factors,
                        float* block, float* full_scratch_space, uint32_t* quantized,
                        float& entropy);
+Status FindBest8x8Transform(size_t x, size_t y, int encoding_speed_tier,
+                            float butteraugli_target, const ACSConfig& config,
+                            const float* JXL_RESTRICT cmap_factors,
+                            AcStrategyImage* JXL_RESTRICT ac_strategy, float* block,
+                            float* scratch_space, uint32_t* quantized, float* entropy_out,
+                            AcStrategyType& best_tx);
 }  // namespace ORACLE_HWY_NS
 }  // namespace jxl
 
@@ -186,6 +197,36 @@ bool EncoderAcsSimdCommand(const std::string& command, std::istringstream& in,
     const size_t size = (1 << acs.log2_covered_blocks()) * jxl::kDCTBlockSize;
     std::cout << "E " << int(status.code()) << ' ' << EsaBits(entropy);
     EsaWords("B", block.data(), 3 * size + kMaxLanes);
+    EsaScratch(scratch.data(), 2);
+    return true;
+  }
+  if (command == "esa-best8") {
+    EsaInputs inputs;
+    EsaReadInputs(mm, in, &inputs);
+    size_t x, y;
+    int speed_tier;
+    in >> x >> y >> speed_tier;
+    const float butteraugli_target = EsaFloat(in);
+    float cmap_factors[3];
+    for (float& f : cmap_factors) f = EsaFloat(in);
+    if (x % 8 != 0 || y % 8 != 0 || x + 8 > inputs.xsize || y + 8 > inputs.ysize) {
+      throw std::runtime_error("block outside the image");
+    }
+    auto acs_or = jxl::AcStrategyImage::Create(mm, inputs.xsize / 8, inputs.ysize / 8);
+    if (!acs_or.ok()) throw std::runtime_error("strategy image allocation");
+    jxl::AcStrategyImage ac_strategy = std::move(acs_or).value_();
+    ac_strategy.FillDCT8();
+    EsaAligned block(kBlockWords + kMaxLanes, 1);
+    EsaAligned scratch(kScratchWords, 2);
+    std::vector<uint32_t> quantized(jxl::AcStrategy::kMaxCoeffArea, 0x5a5a5a5au);
+    float entropy = -1;
+    jxl::AcStrategyType best = jxl::AcStrategyType::DCT128X256;
+    const jxl::Status status = jxl::ORACLE_HWY_NS::FindBest8x8Transform(
+        x, y, speed_tier, butteraugli_target, inputs.config, cmap_factors, &ac_strategy,
+        block.data(), scratch.data(), quantized.data(), &entropy, best);
+    std::cout << "T " << int(status.code()) << ' ' << EsaBits(entropy) << ' '
+              << static_cast<unsigned>(best);
+    EsaWords("B", block.data(), 3 * jxl::kDCTBlockSize + kMaxLanes);
     EsaScratch(scratch.data(), 2);
     return true;
   }

@@ -30,7 +30,7 @@
 //! ProcessRectACS (`y_to_x_ratio_simd`, as in the SIMD ComputeCoefficients).
 //! `pow(float, float)` is the host `powf` and the static `pow(double,
 //! double)` channel weights the host `pow`, as in the scalar translation.
-use super::ac_strategy::{AcStrategy, MAX_COEFF_AREA};
+use super::ac_strategy::{AcStrategy, AcStrategyImage, AcStrategyType, MAX_COEFF_AREA};
 use super::base::bits::ceil_log2_nonzero;
 use super::base::float::max_f32;
 use super::base::status::Status;
@@ -259,4 +259,184 @@ pub fn estimate_entropy_simd(
     args: EntropyArgs<'_, '_>,
 ) -> Status {
     dispatch(target, Entropy { acs, args })
+}
+
+struct TransformTry8x8 {
+    kind: AcStrategyType,
+    encoding_speed_tier_max_limit: i32,
+    entropy_mul: f64,
+}
+
+#[expect(clippy::excessive_precision, reason = "the source's decimal literals")]
+const TRANSFORMS_8X8: [TransformTry8x8; 10] = [
+    TransformTry8x8 {
+        kind: AcStrategyType::DCT,
+        encoding_speed_tier_max_limit: 9,
+        entropy_mul: 0.8,
+    },
+    TransformTry8x8 {
+        kind: AcStrategyType::DCT4X4,
+        encoding_speed_tier_max_limit: 5,
+        entropy_mul: 1.08,
+    },
+    TransformTry8x8 {
+        kind: AcStrategyType::DCT2X2,
+        encoding_speed_tier_max_limit: 5,
+        entropy_mul: 0.95,
+    },
+    TransformTry8x8 {
+        kind: AcStrategyType::DCT4X8,
+        encoding_speed_tier_max_limit: 4,
+        entropy_mul: 0.85931637428340035,
+    },
+    TransformTry8x8 {
+        kind: AcStrategyType::DCT8X4,
+        encoding_speed_tier_max_limit: 4,
+        entropy_mul: 0.85931637428340035,
+    },
+    TransformTry8x8 {
+        kind: AcStrategyType::IDENTITY,
+        encoding_speed_tier_max_limit: 5,
+        entropy_mul: 1.0427542510634957,
+    },
+    TransformTry8x8 {
+        kind: AcStrategyType::AFV0,
+        encoding_speed_tier_max_limit: 4,
+        entropy_mul: 0.81779489591359944,
+    },
+    TransformTry8x8 {
+        kind: AcStrategyType::AFV1,
+        encoding_speed_tier_max_limit: 4,
+        entropy_mul: 0.81779489591359944,
+    },
+    TransformTry8x8 {
+        kind: AcStrategyType::AFV2,
+        encoding_speed_tier_max_limit: 4,
+        entropy_mul: 0.81779489591359944,
+    },
+    TransformTry8x8 {
+        kind: AcStrategyType::AFV3,
+        encoding_speed_tier_max_limit: 4,
+        entropy_mul: 0.81779489591359944,
+    },
+];
+
+/// FindBest8x8Transform; the contract of
+/// [`super::enc_ac_strategy::find_best_8x8_transform`].
+#[expect(clippy::too_many_arguments, reason = "mirrors the source signature")]
+#[inline(always)]
+pub fn find_best_8x8_transform_d<D: SimdF32>(
+    d: D,
+    x: usize,
+    y: usize,
+    encoding_speed_tier: i32,
+    butteraugli_target: f32,
+    config: &AcsConfig<'_>,
+    cmap_factors: &[f32; 3],
+    _ac_strategy: &mut AcStrategyImage,
+    block: &mut [f32],
+    scratch_space: &mut [f32],
+    quantized: &mut [u32],
+    entropy_out: &mut f32,
+    best_tx: &mut AcStrategyType,
+) -> Status {
+    let mut best = 1e30f64;
+    *best_tx = TRANSFORMS_8X8[0].kind;
+    for tx in &TRANSFORMS_8X8 {
+        if tx.encoding_speed_tier_max_limit < encoding_speed_tier {
+            continue;
+        }
+        let acs = AcStrategy::from_raw_strategy(tx.kind);
+        let mut entropy_mul = (tx.entropy_mul / TRANSFORMS_8X8[0].entropy_mul) as f32;
+        if (tx.kind == AcStrategyType::DCT2X2 || tx.kind == AcStrategyType::IDENTITY)
+            && butteraugli_target < 5.0
+        {
+            let favor_2x2_at_high_quality = 0.4f64 as f32;
+            // pow(x, 2.0f) is the product x * x in the original object.
+            let base = (5.0f32 - butteraugli_target) / 5.0f32;
+            let weight = base * base;
+            // `entropy_mul -= kFavor2X2AtHighQuality * weight`, contracted on
+            // both targets.
+            entropy_mul = (-favor_2x2_at_high_quality).mul_add(weight, entropy_mul);
+        }
+        if (tx.kind != AcStrategyType::DCT
+            && tx.kind != AcStrategyType::DCT2X2
+            && tx.kind != AcStrategyType::IDENTITY)
+            && butteraugli_target > 4.0
+        {
+            let avoid_entropy_of_transforms = 0.5f32;
+            let mut mul = 1.0f32;
+            if butteraugli_target < 12.0 {
+                mul = (f64::from(mul) * ((12.0 - 4.0) / (f64::from(butteraugli_target) - 4.0)))
+                    as f32;
+            }
+            // `entropy_mul += kAvoidEntropyOfTransforms * mul`, contracted.
+            entropy_mul = avoid_entropy_of_transforms.mul_add(mul, entropy_mul);
+        }
+        let mut entropy = 0.0f32;
+        estimate_entropy_d(
+            d,
+            &acs,
+            entropy_mul,
+            x,
+            y,
+            config,
+            cmap_factors,
+            block,
+            scratch_space,
+            quantized,
+            &mut entropy,
+        )?;
+        if f64::from(entropy) < best {
+            *best_tx = tx.kind;
+            best = f64::from(entropy);
+        }
+    }
+    *entropy_out = best as f32;
+    Ok(())
+}
+
+/// The arguments of FindBest8x8Transform.
+pub struct Best8x8Args<'a, 'c> {
+    pub x: usize,
+    pub y: usize,
+    pub encoding_speed_tier: i32,
+    pub butteraugli_target: f32,
+    pub config: &'a AcsConfig<'c>,
+    pub cmap_factors: &'a [f32; 3],
+    pub ac_strategy: &'a mut AcStrategyImage,
+    pub block: &'a mut [f32],
+    pub scratch_space: &'a mut [f32],
+    pub quantized: &'a mut [u32],
+    pub entropy_out: &'a mut f32,
+    pub best_tx: &'a mut AcStrategyType,
+}
+struct Best8x8<'a, 'c>(Best8x8Args<'a, 'c>);
+impl Kernel for Best8x8<'_, '_> {
+    type Output = Status;
+    #[inline(always)]
+    fn run<D: SimdF32>(self, d: D) -> Status {
+        let a = self.0;
+        find_best_8x8_transform_d(
+            d,
+            a.x,
+            a.y,
+            a.encoding_speed_tier,
+            a.butteraugli_target,
+            a.config,
+            a.cmap_factors,
+            a.ac_strategy,
+            a.block,
+            a.scratch_space,
+            a.quantized,
+            a.entropy_out,
+            a.best_tx,
+        )
+    }
+}
+
+/// `FindBest8x8Transform` of the target namespace instantiated for one
+/// SIMD target.
+pub fn find_best_8x8_transform_simd(target: Target, args: Best8x8Args<'_, '_>) -> Status {
+    dispatch(target, Best8x8(args))
 }

@@ -14,11 +14,16 @@
 
 mod simd_common;
 
+use jxl::jxl::ac_strategy::AcStrategyImage;
 use jxl::jxl::ac_strategy::{AcStrategy, AcStrategyType, MAX_BLOCK_DIM, MAX_COEFF_AREA};
 use jxl::jxl::base::rect::Rect;
 use jxl::jxl::base::status::status_code;
-use jxl::jxl::enc_ac_strategy::{AcsConfig, AcsConfigScalars, AcsPlanes, estimate_entropy};
-use jxl::jxl::enc_ac_strategy_simd::{EntropyArgs, estimate_entropy_simd};
+use jxl::jxl::enc_ac_strategy::{
+    AcsConfig, AcsConfigScalars, AcsPlanes, estimate_entropy, find_best_8x8_transform,
+};
+use jxl::jxl::enc_ac_strategy_simd::{
+    Best8x8Args, EntropyArgs, estimate_entropy_simd, find_best_8x8_transform_simd,
+};
 use jxl::jxl::hwy::Target;
 use jxl::jxl::image::{Image3F, ImageF};
 use jxl::jxl::memory_manager_internal::MemoryManagerPtr;
@@ -387,4 +392,122 @@ fn enc_simd_estimate_entropy_matches_the_original_target() {
         }
     }
     check_family("esa-entropy", &requests, observe_entropy);
+}
+
+// esa-best8 ------------------------------------------------------------------
+
+fn observe_best8(request: &str, simd: Option<Target>) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("esa-best8"));
+    let inputs = Inputs::read(&mut args);
+    let x: usize = number(&mut args);
+    let y: usize = number(&mut args);
+    let speed_tier: i32 = number(&mut args);
+    let butteraugli_target = float(&mut args);
+    let cmap_factors = [float(&mut args), float(&mut args), float(&mut args)];
+    let planes = inputs.planes();
+    let config = AcsConfig::new(&inputs.scalars, &planes);
+    let mut ac_strategy =
+        AcStrategyImage::create(inputs.src.xsize() / 8, inputs.src.ysize() / 8).unwrap();
+    ac_strategy.fill_dct8_full();
+    let mut block: Vec<f32> = (0..BLOCK_WORDS + MAX_LANES)
+        .map(|i| sentinel(1, i))
+        .collect();
+    let mut scratch: Vec<f32> = (0..SCRATCH_WORDS).map(|i| sentinel(2, i)).collect();
+    let mut quantized = vec![0x5a5a_5a5au32; MAX_COEFF_AREA];
+    let mut entropy = -1.0f32;
+    let mut best = AcStrategyType::DCT128X256;
+    let status = match simd {
+        Some(t) => find_best_8x8_transform_simd(
+            t,
+            Best8x8Args {
+                x,
+                y,
+                encoding_speed_tier: speed_tier,
+                butteraugli_target,
+                config: &config,
+                cmap_factors: &cmap_factors,
+                ac_strategy: &mut ac_strategy,
+                block: &mut block,
+                scratch_space: &mut scratch,
+                quantized: &mut quantized,
+                entropy_out: &mut entropy,
+                best_tx: &mut best,
+            },
+        ),
+        None => find_best_8x8_transform(
+            x,
+            y,
+            speed_tier,
+            butteraugli_target,
+            &config,
+            &cmap_factors,
+            &mut ac_strategy,
+            &mut block,
+            &mut scratch,
+            &mut quantized,
+            &mut entropy,
+            &mut best,
+        ),
+    };
+    let mut out = format!(
+        "T {} {} {}",
+        status_code(&status),
+        entropy.to_bits(),
+        best.0
+    );
+    words(&mut out, "B", &block[..3 * 64 + MAX_LANES]);
+    scratch_words(&mut out, &scratch, 2);
+    out
+}
+
+#[test]
+fn enc_simd_find_best_8x8_transform_matches_the_original_target() {
+    // Speed tiers that admit each subset of the ten candidates (limits 9, 5
+    // and 4), and distances on both sides of FindBest8x8Transform's 4, 5 and
+    // 12 thresholds.
+    let tiers = [0i32, 3, 4, 5, 7, 9];
+    let distances = [0.5f32, 1.0, 2.9, 4.5, 5.0, 8.0, 12.0, 13.0];
+    let mut requests = Vec::new();
+    for (si, &(xsize, ysize)) in SIZES.iter().enumerate() {
+        for (ci, &content) in CONTENTS.iter().enumerate() {
+            for (di, &distance) in distances.iter().enumerate() {
+                for (ti, &tier) in tiers.iter().enumerate() {
+                    let variant = si * 11 + ci * 5 + di * 3 + ti;
+                    let blocks = (xsize / 8) * (ysize / 8);
+                    let index = (variant * 37) % blocks;
+                    let (x, y) = (index % (xsize / 8) * 8, index / (xsize / 8) * 8);
+                    let mask1x1_xsize = mask_widths(x, 8, xsize)[variant % 4];
+                    let seed = variant as u64 * 7 + 3;
+                    let mut s = "esa-best8".to_owned();
+                    s.push_str(&inputs(
+                        xsize,
+                        ysize,
+                        content,
+                        distance.min(3.0),
+                        mask1x1_xsize,
+                        seed,
+                    ));
+                    write!(s, " {x} {y} {tier} {}", distance.to_bits()).unwrap();
+                    push_floats(&mut s, &CMAPS[variant % 3]);
+                    requests.push(s);
+                }
+            }
+        }
+    }
+    // The decisions vary: most candidates win somewhere.
+    let t = target();
+    let chosen: std::collections::BTreeSet<String> = requests
+        .iter()
+        .map(|r| {
+            observe_best8(r, Some(t))
+                .split(' ')
+                .nth(3)
+                .unwrap()
+                .to_owned()
+        })
+        .collect();
+    println!("esa-best8: chosen strategies {chosen:?}");
+    assert!(chosen.len() >= 6, "esa-best8 chose only {chosen:?}");
+    check_family("esa-best8", &requests, observe_best8);
 }
