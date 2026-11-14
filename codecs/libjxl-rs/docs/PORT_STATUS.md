@@ -202,7 +202,11 @@ modular inverse transforms run) `hwy::decoder_target()` is the scalar path,
 with the scalar row padding. `tests/dispatch_scope.rs` proves the encoder's
 bytes and its zero SIMD selections in both orders, inside a decoder
 callback and concurrently, and the decoder's target in every public decode
-(ADR 0004 "Scope of the selection").
+(ADR 0004 "Scope of the selection"). The decoder selects NEON by default
+on AArch64 (`hwy::DECODER_SELECTS_SIMD`); x86-64 stays on the scalar path
+until hosted AVX2 evidence exists. `ToLinear` and `ToneMapping` are covered
+by row-level parity only (no gate input reaches them; ADR 0004 "Default
+selection per target").
 <!-- end enable -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)

@@ -252,8 +252,10 @@ impl Target {
 }
 
 /// Whether the decoder selects the SIMD paths by default (port ADR 0004,
-/// "Decoder path"). Off. Working decision 2026-11-13 (delegated, revisable
-/// by the owner): turn it on for a target only when, on that target,
+/// "Decoder path" and "Default selection per target"). On for AArch64
+/// (NEON), off for x86-64 until condition (d) holds. Working decision
+/// 2026-11-13 (delegated, revisable by the owner): turn it on for a target
+/// only when, on that target,
 /// (a) every decode-path Highway export of ADR 0004's Plan that an in-scope
 /// file can reach is translated (a file that reaches a scalar kernel while
 /// the rest runs SIMD matches neither reference build); (b) a whole-decode
@@ -269,7 +271,7 @@ impl Target {
 /// forces the SIMD target and asserts zero differences independently of
 /// this switch. The switch applies inside decoder entry points only
 /// ([`DispatchScope`]); the encoder stays on the scalar path.
-pub const DECODER_SELECTS_SIMD: bool = false;
+pub const DECODER_SELECTS_SIMD: bool = cfg!(target_arch = "aarch64");
 
 /// [`decoder_target`] override, the counterpart of Highway's
 /// `SetSupportedTargetsForTest`: 0 follows [`DECODER_SELECTS_SIMD`], 1 is the

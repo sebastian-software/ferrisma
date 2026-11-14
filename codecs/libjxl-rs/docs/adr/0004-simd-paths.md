@@ -101,9 +101,10 @@ point (see "Scope of the selection": the encoder stays on the scalar path);
 tests switch it like Highway's `SetSupportedTargetsForTest`
 (`hwy::set_decoder_simd_for_test`).
 
-The selection is **off**. Working decision 2026-11-13 (delegated,
-revisable by the owner): it is turned on per target, and only when on that
-target
+The selection is **on for AArch64 (NEON) and off for x86-64** since
+2026-11-14 ("Default selection per target"). Working decision 2026-11-13
+(delegated, revisable by the owner): it is turned on per target, and only
+when on that target
 
 - (a) every decode-path Highway export of the Plan that an in-scope file
   can reach is translated (a file that reaches a scalar kernel while the
@@ -985,3 +986,33 @@ distances 0.5 to 2.9): the AR heuristics' choice per block and the quant
 tables did not flip. That is no guarantee for other inputs, which is why
 the scope is enforced and tested by selection, not by output bytes.
 <!-- end enable -->
+
+<!-- enable: default -->
+## Default selection per target (2026-11-14, branch `v1/jxl-enable`)
+
+`hwy::DECODER_SELECTS_SIMD` is `cfg!(target_arch = "aarch64")`: a decoder
+created on AArch64 selects NEON, a decoder on x86-64 keeps the scalar path.
+Working decision 2026-11-14 (delegated, revisable by the owner), on the
+evidence of "Decoder path":
+
+- (a) every decode-path Highway export of the Plan has a NEON translation
+  with row- or request-level parity against the original's NEON build;
+- (b) the public decoder gate (`tests/simd_public.rs`, both modes, with the
+  pinned conformance corpus) reports zero differing words on all 352
+  distinct inputs. **No input of the gate reaches the `ToLinear` and
+  `ToneMapping` stages** (they need a PQ or HLG original and a desired
+  intensity target below the original's); for these two stages the
+  evidence is the row-level parity of `tests/simd_color.rs` only, not a
+  whole decode;
+- (c) the scalar gate forces the scalar path (`JXL_DECODER_TARGET=scalar`);
+- (d) does not hold for AVX2 yet: there is no hosted x86-64 run of the
+  combined branch, so x86-64 stays on the scalar path.
+
+The selection is scoped to decoding ("Scope of the selection"): the
+encoder, including the decoder code it runs, stays on the scalar path on
+every target. The scalar path stays selectable everywhere: the test
+override `set_decoder_simd_for_test(Some(false))` and the scalar gate's
+forcing. With the default on, decoded pixels equal the original's NEON
+build instead of its scalar build; a few 8-bit samples may differ from
+values pinned against a scalar decoder.
+<!-- end enable: default -->
