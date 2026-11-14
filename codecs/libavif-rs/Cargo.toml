@@ -6,6 +6,7 @@ edition = "2021"
 # libyuv fallback in src/libyuv is BSD-3-Clause (see LICENSE).
 license = "BSD-2-Clause AND BSD-3-Clause"
 description = "Mechanical Rust port of the pinned libavif implementation"
+homepage = "https://ferrisma.dev"
 repository = "https://github.com/sebastian-software/ferrisma"
 # The upstream snapshot, oracle tooling, and tests stay in the repository.
 include = ["/Cargo.toml", "/build.rs", "/README.md", "/LICENSE", "/upstream/libavif/third_party/libyuv/AUTHORS", "/src/**"]
