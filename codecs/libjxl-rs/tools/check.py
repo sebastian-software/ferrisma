@@ -218,38 +218,54 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
                                  stdout=subprocess.PIPE, text=True, check=True).stdout
         return sorted({line.removesuffix(": test") for line in listing.splitlines() if line.endswith(": test")})
 
-    # Under Rosetta 2 the SIMD parity tests need AVX2 reported to their own
-    # process, and every other test must run without it: the cross-built
+    # The SIMD parity binaries (SIMD_TESTS) run as their own invocation, with
+    # --no-fail-fast, after the other tests and even when those fail: cargo
+    # otherwise stops at the first failing test binary, and the later SIMD
+    # binaries would report nothing (hosted AVX2 run of 2026-11-14). The
+    # stage still fails when any test fails. A test of the same name in
+    # another binary would move with the SIMD group.
+    # Under Rosetta 2 the SIMD parity tests also need AVX2 reported to their
+    # own process, and every other test must run without it: the cross-built
     # scalar references contain only the baseline skcms engine (upstream's
     # third_party/skcms.cmake keys HSW on CMAKE_SYSTEM_PROCESSOR, the ARM64
     # host), so a port that detects AVX2 would run HSW against baseline.
-    # The two groups therefore run as separate invocations. A test of the
-    # same name in another binary would move with the SIMD group.
-    simd = listed(*SIMD_TEST_ARGS) if target is not None else []
+    simd = listed(*SIMD_TEST_ARGS)
     simd_env = dict(env, ROSETTA_ADVERTISE_AVX="1")
+    simd_test = test if keep_going else [*test, "--no-fail-fast"]
     skip = [argument for name in simd for argument in ("--skip", name)]
+    failures = []
+
+    def attempt(*args, env):
+        try:
+            run(*args, env=env)
+        except subprocess.CalledProcessError as error:
+            failures.append(error)
+
     if filter is not None:
-        run(*test, "--", "--nocapture", filter, *skip, env=env)
+        attempt(*test, "--", "--nocapture", filter, *skip, env=env)
         if any(filter in name for name in simd):
-            run(*test, *SIMD_TEST_ARGS, "--", "--nocapture", filter, env=simd_env)
-        return
-    if partition is None:
-        run(*test, "--", "--nocapture", *skip, env=env)
+            attempt(*simd_test, *SIMD_TEST_ARGS, "--", "--nocapture", filter, env=simd_env)
+    elif partition is None:
+        # --exact makes each --skip match one whole test name.
+        attempt(*test, "--", "--nocapture", "--exact", *skip, env=env)
         if simd:
-            run(*test, *SIMD_TEST_ARGS, "--", "--nocapture", env=simd_env)
-        return
-    index, count = partition
-    # Every listed name belongs to exactly one partition. A name shared by
-    # several test binaries runs in each of them within that partition.
-    names = listed()
-    selected = names[index - 1::count]
-    print(f"Partition {index}/{count}: {len(selected)} of {len(names)} test names", flush=True)
-    scalar_selected = [name for name in selected if name not in simd]
-    simd_selected = [name for name in selected if name in simd]
-    if scalar_selected:
-        run(*test, "--", "--nocapture", "--exact", *scalar_selected, env=env)
-    if simd_selected:
-        run(*test, *SIMD_TEST_ARGS, "--", "--nocapture", "--exact", *simd_selected, env=simd_env)
+            attempt(*simd_test, *SIMD_TEST_ARGS, "--", "--nocapture", env=simd_env)
+    else:
+        index, count = partition
+        # Every listed name belongs to exactly one partition. A name shared by
+        # several test binaries runs in each of them within that partition.
+        names = listed()
+        selected = names[index - 1::count]
+        print(f"Partition {index}/{count}: {len(selected)} of {len(names)} test names", flush=True)
+        scalar_selected = [name for name in selected if name not in simd]
+        simd_selected = [name for name in selected if name in simd]
+        if scalar_selected:
+            attempt(*test, "--", "--nocapture", "--exact", *scalar_selected, env=env)
+        if simd_selected:
+            attempt(*simd_test, *SIMD_TEST_ARGS, "--", "--nocapture", "--exact", *simd_selected, env=simd_env)
+    if failures:
+        raise SystemExit(f"{len(failures)} test invocation(s) failed: "
+                         + "; ".join(f"exit {error.returncode}" for error in failures))
 
 
 def partition(value):
