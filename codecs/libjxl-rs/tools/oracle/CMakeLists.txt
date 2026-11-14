@@ -387,3 +387,7 @@ target_sources(jxl_oracle PRIVATE color_stages_simd.cc)
 # the render pipeline does.
 set_source_files_properties(color_stages_simd.cc PROPERTIES COMPILE_OPTIONS -fno-access-control)
 # end color
+# encoder simd: requests of the encoder's SIMD kernels (port ADR 0004,
+# "Encoder path"). The TU only calls the original's exported functions.
+target_sources(jxl_oracle PRIVATE encoder_simd.cc)
+# end encoder simd

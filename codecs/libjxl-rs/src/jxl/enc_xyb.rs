@@ -239,6 +239,19 @@ pub fn to_xyb(
     image: &mut Image3F,
     linear: Option<&mut Image3F>,
 ) -> Status {
+    // HWY_DYNAMIC_DISPATCH(ToXYB): the encoder's own selection, off by
+    // default (port ADR 0004, "Encoder path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_xyb_simd::to_xyb_simd(
+            target,
+            c_current,
+            intensity_target,
+            black,
+            pool,
+            image,
+            linear,
+        );
+    }
     let image_size = (image.xsize(), image.ysize());
     if let Some(black) = black
         && !same_size(image_size, (black.xsize(), black.ysize()))

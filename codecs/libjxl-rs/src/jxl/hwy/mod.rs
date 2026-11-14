@@ -495,3 +495,53 @@ pub fn outside_decoding<R>(body: impl FnOnce() -> R) -> R {
     DispatchScope::Outside.enter(body)
 }
 // end enable
+
+// encoder simd: the encoder's own dispatch point (port ADR 0004, "Encoder
+// path").
+/// Whether the encoder selects its SIMD kernels by default: off on every
+/// target. The encoder is gated byte for byte against the original's scalar
+/// build (`cjxl` in the scalar configuration), and only part of its Highway
+/// exports is translated. It may be turned on for a target only when, on
+/// that target, every Highway export that an encoder setting in scope
+/// reaches is translated with parity against the original built for the
+/// same single Highway target, and a whole-encode comparison against `cjxl`
+/// built for that target is byte-identical (ADR 0004, "Encoder path").
+pub const ENCODER_SELECTS_SIMD: bool = false;
+
+/// [`encoder_target`] override: 0 follows [`ENCODER_SELECTS_SIMD`], 1 is the
+/// scalar path, 2 is the detected SIMD target.
+static ENCODER_TARGET_OVERRIDE: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(0);
+
+/// The target the encoder's translated kernels dispatch to, like
+/// `HWY_DYNAMIC_DISPATCH` in the original's encoder: `None` (the scalar
+/// translation) unless [`ENCODER_SELECTS_SIMD`] is on or a test forced the
+/// SIMD target with [`set_encoder_simd_for_test`]. It is independent of the
+/// decoder's selection ([`decoder_target`]) and of its scope: the decoder
+/// code the encoder runs (AR round trip, quant tables, row padding) keeps
+/// following [`decoder_target`], which is the scalar path outside decoding.
+pub fn encoder_target() -> Option<Target> {
+    use core::sync::atomic::Ordering;
+    match ENCODER_TARGET_OVERRIDE.load(Ordering::Relaxed) {
+        1 => None,
+        2 => Target::detect(),
+        _ if ENCODER_SELECTS_SIMD => Target::detect(),
+        _ => None,
+    }
+}
+
+/// Force the encoder's dispatch for tests, like Highway's
+/// `SetSupportedTargetsForTest`: `Some(true)` selects the detected SIMD
+/// target, `Some(false)` the scalar path, `None` restores the default. It is
+/// process-wide; only the SIMD encoder test binary calls it, so the encoder
+/// parity tests against the scalar original run the scalar path untouched.
+#[doc(hidden)]
+pub fn set_encoder_simd_for_test(simd: Option<bool>) {
+    use core::sync::atomic::Ordering;
+    let value = match simd {
+        None => 0,
+        Some(false) => 1,
+        Some(true) => 2,
+    };
+    ENCODER_TARGET_OVERRIDE.store(value, Ordering::Relaxed);
+}
+// end encoder simd

@@ -862,3 +862,72 @@ fn eight_lane_transforms_fit_the_parity_requests_scratch() {
     }
     println!("8-lane transforms with the parity requests' buffers: {cases} cases fit and match");
 }
+
+// encoder simd: the 8-lane structure of the encoder's SIMD kernels (port
+// ADR 0004, "Encoder path"). Their lane-count-dependent parts are the
+// `Lanes`-strided constants of ComputePremulAbsorb and the whole-vector row
+// loop; the arithmetic is lane-wise.
+mod encoder_simd {
+    use super::{Neon8, assert_same, n4, next};
+    use jxl::jxl::enc_xyb_simd::{premul_absorb_for_lanes, xyb_row_d};
+
+    #[test]
+    fn eight_lane_xyb_rows_equal_four_lane_xyb_rows() {
+        let mut seed = 0x0e0c_5eed;
+        let mut cases = 0;
+        for xsize in 1..=41usize {
+            for srgb in [false, true] {
+                for intensity in [255.0f32, 80.0, 10000.0] {
+                    let padded = xsize.div_ceil(8) * 8;
+                    let input: Vec<Vec<f32>> = (0..3)
+                        .map(|_| {
+                            (0..padded + 4)
+                                .map(|_| {
+                                    (next(&mut seed) % (3 << 22)) as f32 / (1u32 << 23) as f32
+                                        - 0.25
+                                })
+                                .collect()
+                        })
+                        .collect();
+                    let run = |eight: bool| {
+                        let lanes = if eight { 8 } else { 4 };
+                        let mut premul = vec![0.0f32; 12 * lanes];
+                        premul_absorb_for_lanes(lanes, intensity, &mut premul);
+                        let mut rows = input.clone();
+                        let [r0, r1, r2] = &mut rows[..] else {
+                            unreachable!()
+                        };
+                        let rows3 = [&mut r0[..], &mut r1[..], &mut r2[..]];
+                        if eight {
+                            xyb_row_d(Neon8(n4()), rows3, &premul, xsize, srgb);
+                        } else {
+                            xyb_row_d(n4(), rows3, &premul, xsize, srgb);
+                        }
+                        rows.concat()
+                    };
+                    let (four, eight) = (run(false), run(true));
+                    // Four lanes leave the samples from RoundUpTo(xsize, 4)
+                    // on untouched where eight lanes convert them; compare
+                    // the converted prefix and the untouched tail.
+                    let row = padded + 4;
+                    for c in 0..3 {
+                        let done = xsize.div_ceil(4) * 4;
+                        assert_same(
+                            &format!("xyb row {xsize} srgb {srgb} plane {c}"),
+                            &four[c * row..c * row + done],
+                            &eight[c * row..c * row + done],
+                        );
+                        assert_same(
+                            &format!("xyb row tail {xsize} plane {c}"),
+                            &eight[c * row + padded..(c + 1) * row],
+                            &input[c][padded..],
+                        );
+                    }
+                    cases += 1;
+                }
+            }
+        }
+        println!("8-lane XYB rows: {cases} cases match");
+    }
+}
+// end encoder simd

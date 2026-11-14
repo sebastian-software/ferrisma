@@ -251,6 +251,19 @@ run. `tools/check.py` now runs every SIMD test binary even when another
 test fails.
 <!-- end avx2 oracle -->
 
+<!-- encoder simd -->
+Encoder SIMD (2026-11-14, branch `v1/jxl-enc-simd`, ADR 0004 "Encoder
+exports the engine's profiles reach" and "Encoder path"): the encoder has
+its own dispatch point, `hwy::encoder_target()`, off by default
+(`ENCODER_SELECTS_SIMD = false`) and forced only by `tests/simd_encoder.rs`;
+the encoder keeps running its scalar translation, byte-identical with the
+scalar `cjxl`. Translated with parity against the original's NEON build:
+`enc_xyb` (ToXYB, LinearRGBRowToXYB, ComputePremulAbsorb). The other
+encoder exports the lossy profile reaches (11 with alpha, plus the
+untranslated decode-path `Symmetric5`) and the lossless profile's
+`enc_rct` and `enc_cluster` remain scalar only.
+<!-- end encoder simd -->
+
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 
 Encoder step 4 (issue #115) and a patches setting under which every image

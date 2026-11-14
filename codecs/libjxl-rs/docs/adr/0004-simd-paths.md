@@ -1348,4 +1348,67 @@ So the lossy profile needs 11 encoder exports (9 without alpha) plus
 plus `MaxVectorSize`. This branch translates them in the order of the
 encoder SIMD package: `enc_xyb`, `enc_transforms`, `enc_group`, then
 `enc_chroma_from_luma`.
+
+## Encoder path (2026-11-14, branch `v1/jxl-enc-simd`)
+
+**Dispatch point.** The encoder's translated kernels dispatch on
+`hwy::encoder_target()`, the encoder's counterpart of `HWY_DYNAMIC_DISPATCH`,
+at the call site where the original dispatches (for example
+`enc_xyb::to_xyb` for `HWY_DYNAMIC_DISPATCH(ToXYB)`). It is independent of
+the decoder's `decoder_target()` and of its scope: `ENCODER_SELECTS_SIMD`
+is `false` on every target, so `encoder_target()` is the scalar path unless
+a test forces the detected target with `hwy::set_encoder_simd_for_test`
+(process-wide, like `SetSupportedTargetsForTest`). Only `tests/simd_encoder.rs`
+calls it, so every encoder parity test against the scalar original (the
+`cjxl`-equivalent public encoder, the checkpoint suites) and
+`tests/dispatch_scope.rs` keep running the scalar path unchanged. The
+decoder code the encoder runs (the AR round trip, quant tables, the AR
+pipeline's stages) and the row padding of the encoder's planes
+(`max_vector_size()`) keep following `decoder_target()`, which is the
+scalar path outside decoding.
+
+**When the encoder may select SIMD on a target.** Working decision
+2026-11-14 (delegated, revisable by the owner): `ENCODER_SELECTS_SIMD` may
+be turned on for a target only when, on that target,
+
+- (a) every Highway export that an encoder setting in scope reaches is
+  translated with request-level parity against the original built for the
+  same single Highway target: the exports listed above for the profile in
+  scope, including the decode-path ones the encoder runs (`Symmetric5`,
+  `ComputeQuantTable`, `DecodeGroupImpl`, the AR pipeline's stages) and
+  `MaxVectorSize`; an encode that mixes scalar and SIMD kernels matches
+  neither reference build;
+- (b) the selection reaches the decoder code inside the encoder and the
+  encoder's plane padding as well, as the original's one process-wide
+  dispatch does (the "Scope of the selection" deviation then narrows or
+  goes);
+- (c) a whole-encode comparison through the public encoder (and
+  `LosslessThunderConfig` for the lossless profile) against `cjxl` built for
+  that single target is byte-identical over the engine's profiles and a
+  corpus at least as wide as the scalar `cjxl` gate;
+- (d) the scalar encoder gates then force the scalar path explicitly, so
+  they still compare the scalar translation with the scalar original;
+- (e) for AVX2, the same evidence exists from real x86-64 hardware, as for
+  the decoder.
+
+**Translated so far.**
+
+- `enc_xyb` (`enc_xyb_simd.rs`): ToXYB with its linear-sRGB and sRGB
+  branches (LinearSRGBToXYB, SRGBToXYB, SRGBToXYBAndLinear),
+  LinearRGBRowToXYB, ComputePremulAbsorb (`Lanes` copies of each constant),
+  OpsinAbsorbance, StoreXYB, LinearRGBToXYB and fast_math-inl.h's
+  CubeRootAndAdd; LinearFromSRGB is `simd_transfer`'s
+  `srgb_display_from_encoded`. Rows are processed in whole vectors up to
+  `RoundUpTo(xsize, Lanes)`, inside the planes' 128-byte row padding.
+  RgbToYcbcr is not translated (no scalar translation either; the profiles
+  do not reach it). `tests/simd_encoder.rs` compares `esx-premul`,
+  `esx-row` and `esx-xyb` (tools/oracle/encoder_simd.cc: buffers 128-byte
+  aligned and sized for 8 lanes, every sample up to `RoundUpTo(xsize, 8)`
+  printed, finite sentinels) over 1-129 columns, twelve value kinds
+  (pixel-like, ramps, wide gamut, cube-root and sRGB-knee boundaries,
+  the special words), the four admitted encodings in both rendering
+  intents, the SameSize failures and the exceptional intensities; `esx-xyb`
+  goes through `to_xyb` with the encoder's selection forced, and the scalar
+  path differs from it in most requests. `tests/simd_vardct_lanes8.rs`
+  checks the row loop and constant layout with eight lanes.
 <!-- end encoder simd -->

@@ -198,6 +198,9 @@ SIMD_TESTS += ["simd_color"]
 # threads: worker-count independence of whole public decodes (ADR 0003).
 SIMD_TESTS += ["simd_threads"]
 # end threads
+# encoder simd: the encoder's SIMD kernels (ADR 0004, "Encoder path").
+SIMD_TESTS += ["simd_encoder"]
+# end encoder simd
 SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 

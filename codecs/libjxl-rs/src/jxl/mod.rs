@@ -145,3 +145,6 @@ pub mod dec_modular_simd;
 pub mod dec_noise_simd;
 pub mod splines_simd;
 // end stages2
+// encoder simd: the encoder's SIMD kernels (port ADR 0004, "Encoder path").
+pub mod enc_xyb_simd;
+// end encoder simd
