@@ -32,7 +32,8 @@
 //   s2-noise-random <visible> <nonvisible> <x0> <y0> <w> <h> <rx> <ry>
 //     Random3Planes of the oracle's target on three planes of rx + w + 24 by
 //     ry + h + 2 samples (prefilled with -17 - c) at Rect(rx, ry, w, h).
-//     Prints every sample of the three planes.
+//     Prints every sample of the three planes. Column rx lies on a 128-byte
+//     boundary (the planes hold extra unprinted samples before column 0).
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -263,17 +264,26 @@ void S2NoiseConv(std::istringstream& in, JxlMemoryManager* mm) {
 void S2NoiseRandom(std::istringstream& in, JxlMemoryManager* mm) {
   size_t visible, nonvisible, x0, y0, w, h, rx, ry;
   in >> visible >> nonvisible >> x0 >> y0 >> w >> h >> rx >> ry;
+  // RandomImage stores whole vectors with the aligned Store (vmovdqa on
+  // AVX2) from the rect's first sample on, as libjxl's noise input rects
+  // start at kRenderPipelineXOffset of 128-byte aligned rows. Column `rx` of
+  // the observed planes therefore lies on a 128-byte boundary: each plane
+  // holds `shift` samples before the observed rx + w + 24 columns (ImageF
+  // rows start 128-byte aligned), and only the observed columns are printed.
+  const size_t row_align = 128 / sizeof(float);
+  const size_t shift = (row_align - rx % row_align) % row_align;
+  const size_t xsize = rx + w + 24;
   std::vector<jxl::ImageF> planes;
   for (size_t c = 0; c < 3; ++c) {
-    planes.push_back(S2Plane(mm, rx + w + 24, ry + h + 2));
+    planes.push_back(S2Plane(mm, shift + xsize, ry + h + 2));
     jxl::FillImage(-17.0f - float(c), &planes.back());
   }
-  const jxl::Rect r(rx, ry, w, h);
+  const jxl::Rect r(shift + rx, ry, w, h);
   jxl::ORACLE_HWY_NS::Random3Planes(visible, nonvisible, x0, y0, {&planes[0], r},
                                     {&planes[1], r}, {&planes[2], r});
   for (const auto& p : planes)
     for (size_t y = 0; y < p.ysize(); ++y)
-      for (size_t x = 0; x < p.xsize(); ++x) std::cout << ' ' << S2Bits<uint32_t>(p.Row(y)[x]);
+      for (size_t x = 0; x < xsize; ++x) std::cout << ' ' << S2Bits<uint32_t>(p.Row(y)[shift + x]);
 }
 }  // namespace
 
