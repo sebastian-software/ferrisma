@@ -327,6 +327,14 @@ fn observe_entropy(request: &str, simd: Option<Target>) -> String {
     out
 }
 
+/// Runs a scalar observation: the scalar translation's transforms dispatch
+/// on the encoder's selection, which the esa-rect test overrides while it
+/// holds [`dispatch_lock`].
+fn scalar<T>(observe: impl FnOnce() -> T) -> T {
+    let _lock = dispatch_lock();
+    observe()
+}
+
 /// Runs `requests` through the port's SIMD observation and compares it with
 /// the original's target, after showing that the scalar translation differs
 /// in at least one request (its observations go through `observe` with
@@ -335,7 +343,7 @@ fn check_family(family: &str, requests: &[String], observe: fn(&str, Option<Targ
     let t = target();
     let differing = requests
         .iter()
-        .filter(|r| observe(r, None) != observe(r, Some(t)))
+        .filter(|r| scalar(|| observe(r, None)) != observe(r, Some(t)))
         .count();
     assert!(
         differing > 0,
@@ -363,7 +371,7 @@ fn check_family_with(
     let t = target();
     let differing = requests
         .iter()
-        .filter(|r| observe(r, None) != observe(r, Some(t)))
+        .filter(|r| scalar(|| observe(r, None)) != observe(r, Some(t)))
         .count();
     assert!(
         differing > 0,
@@ -793,6 +801,9 @@ fn estimates(request_inputs: &str, bx: usize, by: usize, scale: f32, seed: u64) 
     let mut quantized = vec![0u32; MAX_COEFF_AREA];
     let mut image =
         AcStrategyImage::create(inputs.src.xsize() / 8, inputs.src.ysize() / 8).unwrap();
+    // The scalar translation's transforms dispatch on the encoder's
+    // selection, which the esa-rect test overrides.
+    let _lock = dispatch_lock();
     let mut seed = seed | 1;
     let mut out = vec![0.0f32; 64];
     for iy in 0..8 {
