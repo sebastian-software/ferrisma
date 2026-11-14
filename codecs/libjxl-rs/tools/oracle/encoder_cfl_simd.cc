@@ -29,6 +29,14 @@
 //       default matrices. dc_values is filled with sentinel words after Init
 //       and the color maps with a fixed pattern. Prints the statuses, both
 //       maps and every word of the four dc_values rows.
+//   ecf-sym5 <in xsize> <in ysize> <in rect x0 y0 xsize ysize>
+//            <out xsize> <out ysize> <out rect x0 y0> <24 weight words>
+//            <in xsize * in ysize words>
+//       Symmetric5 (convolve_symmetric5.cc, the dispatching entry, no pool)
+//       from the input plane's rect into the output plane's rect of the same
+//       size; weights c, r, R, d, D, L of four words each. The output plane is
+//       filled with sentinel words first; prints the status and every word of
+//       every output row.
 #include <jxl/memory_manager.h>
 
 #include <algorithm>
@@ -45,6 +53,7 @@
 #include "lib/jxl/base/rect.h"
 #include "lib/jxl/base/status.h"
 #include "lib/jxl/chroma_from_luma.h"
+#include "lib/jxl/convolve.h"
 #include "lib/jxl/enc_chroma_from_luma.h"
 #include "lib/jxl/image.h"
 #include "lib/jxl/quant_weights.h"
@@ -202,6 +211,31 @@ bool EncoderCflSimdCommand(const std::string& command, std::istringstream& in,
     for (size_t y = 0; y < 4; ++y) {
       std::cout << " D";
       for (size_t x = 0; x < cfl.dc_values.xsize(); ++x) EcfWord(cfl.dc_values.ConstRow(y)[x]);
+    }
+    return true;
+  }
+  if (command == "ecf-sym5") {
+    size_t ixs, iys, rx, ry, rxs, rys, oxs, oys, ox, oy;
+    in >> ixs >> iys >> rx >> ry >> rxs >> rys >> oxs >> oys >> ox >> oy;
+    jxl::WeightsSymmetric5 weights;
+    for (float* w : {weights.c, weights.r, weights.R, weights.d, weights.D, weights.L})
+      for (size_t i = 0; i < 4; ++i) w[i] = EcfFloat(in);
+    auto in_or = jxl::ImageF::Create(mm, ixs, iys);
+    auto out_or = jxl::ImageF::Create(mm, oxs, oys);
+    if (!in_or.ok() || !out_or.ok()) throw std::runtime_error("plane");
+    jxl::ImageF input = std::move(in_or).value_();
+    jxl::ImageF out = std::move(out_or).value_();
+    for (size_t y = 0; y < iys; ++y)
+      for (size_t x = 0; x < ixs; ++x) input.Row(y)[x] = EcfFloat(in);
+    for (size_t y = 0; y < oys; ++y)
+      for (size_t x = 0; x < oxs; ++x) out.Row(y)[x] = EcfSentinel(8, y * 4096 + x);
+    const jxl::Status status =
+        jxl::Symmetric5(input, jxl::Rect(rx, ry, rxs, rys), weights, nullptr, &out,
+                        jxl::Rect(ox, oy, rxs, rys));
+    std::cout << "S " << int(status.code());
+    for (size_t y = 0; y < oys; ++y) {
+      std::cout << " R";
+      for (size_t x = 0; x < oxs; ++x) EcfWord(out.ConstRow(y)[x]);
     }
     return true;
   }

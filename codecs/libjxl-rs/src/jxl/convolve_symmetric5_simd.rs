@@ -1,0 +1,201 @@
+// Copyright (c) the JPEG XL Project Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license in LICENSE.
+//! Symmetric5 of lib/jxl/convolve_symmetric5.cc for the NEON and AVX2
+//! targets (port ADR 0004, "Encoder path"), written once against
+//! [`SimdF32`] with `HWY_FULL(float)` (four NEON, eight AVX2 lanes): the
+//! interior of each row in whole vectors (LoadU around the center,
+//! LoadDup128 of each weight array, separate Mul and Add), the first
+//! `RoundUpTo(kRadius, Lanes)` pixels and the tail one pixel at a time with
+//! Symmetric5Border. The border is scalar code inside `HWY_NAMESPACE`; the
+//! pinned NEON and AVX2 (dispatch build) objects contain no fused operation
+//! in this file, so it is the scalar translation's `symmetric5_border`.
+//! The decoder never calls Symmetric5; the encoder's inverse Gaborish and
+//! adaptive-quantization mask do, and dispatch here through
+//! `hwy::encoder_target()`. Compare it only with the original's SIMD build
+//! at the same target; the scalar (one-lane) translation stays in
+//! `convolve_symmetric5`.
+use super::base::data_parallel::{ThreadPool, run_on_pool_exclusive_no_init};
+use super::base::rect::Rect;
+use super::base::status::{Status, StatusCode};
+use super::convolve::WeightsSymmetric5;
+use super::convolve_symmetric5::symmetric5_border;
+use super::hwy::{Kernel, SimdF32, Target, dispatch};
+use super::image::ImageF;
+use super::image_ops::{Wrap, WrapMirror, WrapUnchanged};
+
+#[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+#[inline(always)]
+fn weighted_sum<D: SimdF32, WrapY: Wrap>(
+    d: D,
+    input: &ImageF,
+    ix: usize,
+    iy: i64,
+    ysize: usize,
+    wx0: D::V,
+    wx1: D::V,
+    wx2: D::V,
+) -> D::V {
+    let row = input.row(WrapY::wrap(iy, ysize as i64) as usize);
+    // `center` is row + ix.
+    let in_m2 = d.load(&row[ix - 2..]);
+    let in_p2 = d.load(&row[ix + 2..]);
+    let in_m1 = d.load(&row[ix - 1..]);
+    let in_p1 = d.load(&row[ix + 1..]);
+    let in_00 = d.load(&row[ix..]);
+    let sum_2 = d.mul(wx2, d.add(in_m2, in_p2));
+    let sum_1 = d.mul(wx1, d.add(in_m1, in_p1));
+    let sum_0 = d.mul(wx0, in_00);
+    d.add(sum_2, d.add(sum_1, sum_0))
+}
+
+/// Symmetric5Interior: one vector's worth of pixels.
+#[inline(always)]
+fn symmetric5_interior<D: SimdF32, WrapY: Wrap>(
+    d: D,
+    input: &ImageF,
+    ix: usize,
+    rix: usize,
+    iy: i64,
+    weights: &WeightsSymmetric5,
+    row_out: &mut [f32],
+) {
+    let w0 = d.load_dup128(&weights.c);
+    let w1 = d.load_dup128(&weights.r);
+    let w2 = d.load_dup128(&weights.R);
+    let w4 = d.load_dup128(&weights.d);
+    let w5 = d.load_dup128(&weights.L);
+    let w8 = d.load_dup128(&weights.D);
+
+    let ysize = input.ysize();
+    // Unrolled loop over all 5 rows of the kernel.
+    let mut sum0 = weighted_sum::<D, WrapY>(d, input, ix, iy, ysize, w0, w1, w2);
+
+    sum0 = d.add(
+        sum0,
+        weighted_sum::<D, WrapY>(d, input, ix, iy - 2, ysize, w2, w5, w8),
+    );
+    let mut sum1 = weighted_sum::<D, WrapY>(d, input, ix, iy + 2, ysize, w2, w5, w8);
+
+    sum0 = d.add(
+        sum0,
+        weighted_sum::<D, WrapY>(d, input, ix, iy - 1, ysize, w1, w4, w5),
+    );
+    sum1 = d.add(
+        sum1,
+        weighted_sum::<D, WrapY>(d, input, ix, iy + 1, ysize, w1, w4, w5),
+    );
+
+    d.store(d.add(sum0, sum1), &mut row_out[rix..]);
+}
+
+/// Symmetric5Row: `row_out` starts at the output rect's first pixel.
+pub fn symmetric5_row_d<D: SimdF32, WrapY: Wrap>(
+    d: D,
+    input: &ImageF,
+    rect: Rect,
+    iy: i64,
+    weights: &WeightsSymmetric5,
+    row_out: &mut [f32],
+) {
+    const RADIUS: usize = 2;
+    let xend = rect.x1();
+
+    let mut rix = 0;
+    let mut ix = rect.x0();
+    let n = D::LANES;
+    let aligned_x = RADIUS.div_ceil(n) * n;
+    while ix < aligned_x.min(xend) {
+        row_out[rix] = symmetric5_border::<WrapY>(input, ix as i64, iy, weights);
+        ix += 1;
+        rix += 1;
+    }
+    while ix + n + RADIUS <= xend {
+        symmetric5_interior::<D, WrapY>(d, input, ix, rix, iy, weights, row_out);
+        ix += n;
+        rix += n;
+    }
+    while ix < xend {
+        row_out[rix] = symmetric5_border::<WrapY>(input, ix as i64, iy, weights);
+        ix += 1;
+        rix += 1;
+    }
+}
+
+struct Row<'a> {
+    input: &'a ImageF,
+    rect: Rect,
+    iy: i64,
+    weights: &'a WeightsSymmetric5,
+    row_out: &'a mut [f32],
+    mirror: bool,
+}
+impl Kernel for Row<'_> {
+    type Output = ();
+    #[inline(always)]
+    fn run<D: SimdF32>(self, d: D) {
+        if self.mirror {
+            symmetric5_row_d::<D, WrapMirror>(
+                d,
+                self.input,
+                self.rect,
+                self.iy,
+                self.weights,
+                self.row_out,
+            );
+        } else {
+            symmetric5_row_d::<D, WrapUnchanged>(
+                d,
+                self.input,
+                self.rect,
+                self.iy,
+                self.weights,
+                self.row_out,
+            );
+        }
+    }
+}
+
+/// `Symmetric5` instantiated for one SIMD target; the contract of the
+/// scalar [`super::convolve_symmetric5::symmetric5`]. Each row runs in the
+/// target's instantiation (the original runs the whole function there; the
+/// rows are independent).
+pub fn symmetric5_simd(
+    target: Target,
+    input: &ImageF,
+    in_rect: Rect,
+    weights: &WeightsSymmetric5,
+    pool: Option<&ThreadPool>,
+    out: &mut ImageF,
+    out_rect: Rect,
+) -> Status {
+    if in_rect.xsize() != out_rect.xsize() {
+        return Err(StatusCode::GenericError);
+    }
+    if in_rect.ysize() != out_rect.ysize() {
+        return Err(StatusCode::GenericError);
+    }
+    let ysize = in_rect.ysize();
+    let process_row = |out: &mut ImageF, task: u32, _thread: usize| -> Status {
+        let riy = i64::from(task);
+        let iy = in_rect.y0() as i64 + riy;
+        let row_out = &mut out.row_mut(out_rect.y0() + riy as usize)[out_rect.x0()..];
+
+        dispatch(
+            target,
+            Row {
+                input,
+                rect: in_rect,
+                iy,
+                weights,
+                row_out,
+                mirror: iy < 2 || iy >= input.ysize() as i64 - 2,
+            },
+        );
+        Ok(())
+    };
+    // SAFETY: The rows write only the exclusively borrowed output plane and
+    // read the input plane and weights through shared borrows; none of them
+    // holds a thread-affine value.
+    unsafe { run_on_pool_exclusive_no_init(pool, 0, ysize as u32, out, process_row) }?;
+    Ok(())
+}
