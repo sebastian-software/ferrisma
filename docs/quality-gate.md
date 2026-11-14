@@ -149,13 +149,17 @@ python3 tools/check.py --stage test --target x86_64-apple-darwin
   oracle is a static AVX2 build, not upstream's dispatch build, so
   whole-decode AVX2 comparisons of non-kernel scalar code need a dispatch
   `djxl` (port ADR 0004, Consequences).
-- **What exists:** a Highway operations layer (`src/jxl/hwy`, 63 operations
-  for `HWY_NEON` and `HWY_AVX2`) and SIMD Gaborish, EPF (passes 0–2), YCbCr
-  and chroma upsampling stages, which match the NEON and AVX2 oracles at row
-  level in `tests/simd_parity.rs`. **They are not selected by the decoder.**
-  The other Highway exports, the decoder wiring (which first needs the
-  target's row padding) and the whole-decode comparison against a NEON/AVX2
-  `djxl` are open (#96, #231; encoder SIMD #243).
+- **What exists (2026-11-14):** a Highway operations layer (`src/jxl/hwy`,
+  81 operations for `HWY_NEON` and `HWY_AVX2`) and a SIMD translation of
+  every decode-path Highway export of port ADR 0004's Plan, each compared
+  with the single-target oracle in `tests/simd_*.rs`. Whole decodes through
+  the public decoder are compared in `tests/simd_public.rs` (352 inputs in
+  two modes, all identical with the NEON oracle as recorded in port ADR
+  0004). The decoder selects the NEON path by default on AArch64; the
+  selection is scoped to decoding, the encoder stays scalar, and x86-64
+  stays on the scalar path until the AVX2 evidence is complete. The scalar
+  test stage forces the scalar path (`JXL_DECODER_TARGET=scalar`). The
+  encoder's Highway exports are open (#231, #243).
 - **Under Rosetta**, `tools/check.py` sets `ROSETTA_ADVERTISE_AVX=1` only for
   `tests/simd_parity.rs`. The other tests run without it, because the
   cross-built scalar references contain only skcms's baseline engine

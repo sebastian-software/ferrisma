@@ -146,14 +146,24 @@ Until then, releases are 0.x pre-releases from `main`. No port meets the
 full gate on both targets yet; [the quality gate guide](quality-gate.md)
 lists what each port can check today and the recorded results.
 
-**Hosted cross-check: open.** The first hosted Linux x86-64 run of the
-SIMD-against-SIMD gates (nightly run
+**Hosted cross-check (state of 2026-11-14).** The first hosted Linux x86-64
+run of the SIMD-against-SIMD gates (nightly run
 [43401560676](https://github.com/sebastian-software/ferrisma/actions/runs/43401560676)
-on `main` at `dbf7b095`) failed for libwebp-rs and libjxl-rs on the
-original's side of the comparison (the C and C++ oracle processes), so the
-hosted cross-check has not passed for those ports
-([#252](https://github.com/sebastian-software/ferrisma/issues/252)). No
-hosted run of the AOM comparison with the original's SIMD build exists.
+on `main` at `dbf7b095`) failed for libwebp-rs and libjxl-rs in the C and C++
+oracle processes ([#252](https://github.com/sebastian-software/ferrisma/issues/252)).
+Both causes were defects of the test scaffolding (buffers not aligned or
+sized like the originals' own) and are fixed. libwebp-rs then passed on
+hosted Linux x86-64 at every level (run
+[43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624):
+`avx2`, `sse41` and `sse2`, 1,131 tests each, 0 failed). libjxl-rs is still
+open on x86-64: in run
+[43533597186](https://github.com/sebastian-software/ferrisma/actions/runs/43533597186)
+the whole-decode comparison and most kernels match the original's AVX2
+oracle, four row tests (CMS pre/post-processing, tone mapping, splines,
+blending) differ in the last place, and several SIMD test binaries did not
+run; whether the static AVX2 oracle is the reference ADR-0041 names is being
+examined (port ADR 0004). No hosted run of the AOM comparison with the
+original's SIMD build exists.
 
 - Complete the independent image-quality, hardening, resource, and dependency
   evidence in the [M1 gate register](milestones/M1-evidence-and-gates.md).
@@ -164,8 +174,10 @@ hosted run of the AOM comparison with the original's SIMD build exists.
 - Meet the quality gate above for each port on both targets. The oracles of
   the originals exist (scalar and SIMD; x86-64 builds under Rosetta for
   libjpeg-turbo-rs, libwebp-rs, libjxl-rs and libaom). Still open: the
-  libjxl-rs SIMD stages are proven at row level but not selected by the
-  decoder, and most Highway exports are unported (#96, #231, #243); the AOM
+  libjxl-rs encoder's Highway exports are unported (#231, #243), and its
+  decoder's SIMD path, which has every decode-path export and is the default
+  on AArch64 since 2026-11-14 (port ADR 0004), stays unselected on x86-64
+  until the AVX2 evidence is complete (#96); the AOM
   x86 kernels build only for GNU Linux x86-64, and the `avx2` level against
   the original has never run (#242, #125, #124, #122); the hosted Linux
   x86-64 cross-check (#241, #252); the owner's open questions O1–O9
