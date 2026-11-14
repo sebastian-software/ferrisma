@@ -1450,4 +1450,27 @@ be turned on for a target only when, on that target,
   unfuses AdjustQuantBlockAC's double sites does not change a word over this
   domain on NEON (the rounded results agree), so those sites rest on the
   contraction analysis and, on x86-64, on the AVX2 run.
+
+**Evidence (2026-11-14, M1 Ultra).** `tests/simd_encoder.rs` against the
+NEON build and, under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1`), against the
+AVX2 dispatch-build oracle (`5aaf0089`): zero differing words on both.
+
+| Family | Requests | Words (NEON) | Words (AVX2) |
+| --- | --- | --- | --- |
+| `esx-premul` | 93 | 9,486 | 9,486 |
+| `esx-row` | 1,653 | 181,824 | 181,824 |
+| `esx-xyb` | 3,403 | 758,804 | 758,804 |
+| `esx-pixels` | 1,056 | 6,079,104 | 6,414,720 |
+| `esx-llf` | 972 | 7,241,232 | 7,280,976 |
+| `esx-afv` | 304 | 15,504 | 15,504 |
+| `esg-block` | 4,698 | 7,070,112 | 7,070,112 |
+| `esg-coeffs` | 42 | 2,286,858 | 2,286,858 |
+
+(The scratch words differ in count because the scratch layout follows the
+lane count.) The AVX2 run found one defect, fixed: ComputeCoefficients
+inlines `YtoXRatio`/`YtoBRatio` inside `HWY_NAMESPACE`, so both SIMD
+builds fuse them; the scalar x86-64 form differed by one ULP in a B
+coefficient. Rosetta does not fault on misaligned aligned moves: the
+adapters' alignment and 8-lane sizing rest on the reasoning above, and
+the hosted Linux x86-64 run is still owed.
 <!-- end encoder simd -->
