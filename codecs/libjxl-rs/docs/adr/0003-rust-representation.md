@@ -2438,9 +2438,11 @@ calls `RenderPipelineInput::Done` there:
   the same code.
 
 Evidence: `tests/simd_threads.rs` decodes multi-group lossy and lossless
-files (and, with `JXL_CONFORMANCE_CORPUS`, the conformance corpus) through
-the public decoder with the thread runner at 0, 1, 2 and 8 workers and
-compares every output word with the runner-free decode and with the
+files (and, with `JXL_CONFORMANCE_CORPUS`, the conformance corpus: noise,
+splines, patches, blending, upsampling, extra channels, progressive and
+animated files) through the public decoder with the thread runner at 0, 1,
+2 and 8 workers, float, 8-bit and 16-bit output and the image-out callback,
+and compares every output word with the runner-free decode and with the
 original's single-target build; `public_decoder_worker_counts_match_original`
 compares the same worker counts with the scalar original's histories.
 

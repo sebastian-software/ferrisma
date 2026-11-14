@@ -54,10 +54,11 @@ under their C names, and the public decoder runs its RunOnPool schedules
 through them. The sections below
 record each slice, its evidence and its not-applicable checks.
 
-Remaining decoder-side gaps: under a runner the decoder's AC group tasks
-decode concurrently, but rendering, the DC groups and the row loops stay
-serialized (see "Concurrent AC group decode" below); the encoder C ABI is
-absent; and the translated skcms SKX engine has no AVX-512
+Remaining decoder-side gaps: under a runner the decoder's DC and AC group
+tasks decode and render concurrently, but the row loops (modular inverse
+transforms, AdaptiveDCSmoothing) and frames with a CMS, spot-color or
+tone-mapping stage stay serialized (see "Concurrent decoding and
+rendering" below); the encoder C ABI is absent; and the translated skcms SKX engine has no AVX-512
 acceptance. Every decoder owner allocates through the caller's memory manager
 (see "Decoder memory-manager propagation" below). Container writing, general
 encoding, the encoder C ABI and JxlEncoderSetParallelRunner remain unported.
@@ -79,6 +80,24 @@ streaming (see "Public lossy VarDCT encode below d0.7" below, which records
 the later extensions), with alpha and other extra channels and with the
 patches option off (see "Lossy VarDCT with extra channels and patches off"
 below); other frame encodes remain admission results.
+
+## Concurrent decoding and rendering (2026-11-14)
+
+Working decision 2026-11-14 (delegated, revisable by the owner): the
+render pipeline renders groups on the runner's threads (stages process rows
+through `&self`; shared inputs are `Arc<SyncRefCell>`; the low-memory
+pipeline splits into a `Sync` render view and locked storage), and the DC
+groups, the progressive groups (coefficients split into group rows) and
+FinalizeDecoding's group rendering run concurrently (ADR 0003, "Concurrent
+decoder tasks", "Concurrent rendering"). Per stage: XYB, YCbCr, Gaborish,
+EPF, chroma upsampling, upsampling, noise, patches, splines, blending,
+ToLinear, FromLinear and the output stage render concurrently, the bundle
+and Image3 writers one row at a time behind their lock; CMS, spot color and
+tone mapping are not concurrent, and a frame whose pipeline has one renders
+serialized. Evidence: `tests/simd_threads.rs` (float, 8-bit, 16-bit and
+the image-out callback; 52 files with the corpus; 0 differing words), the
+scalar `worker-counts` family, and the record's addendum for timing. A
+thread-sanitizer run of `simd_threads` is reported with the branch.
 
 ## Concurrent AC group decode (2026-11-14)
 
