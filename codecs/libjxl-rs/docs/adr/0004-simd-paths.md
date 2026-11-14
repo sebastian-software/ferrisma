@@ -1086,3 +1086,63 @@ doctests do not decode. The engine's JPEG XL tests compare decoded pixels
 with jxl-oxide, with the source pixels under a bound, or between two decodes
 of the same input; none pins the port's decoded samples exactly.
 <!-- end enable: tests -->
+
+<!-- encoder simd -->
+## Encoder exports the engine's profiles reach (2026-11-14, branch `v1/jxl-enc-simd`)
+
+The engine encodes JPEG XL in two profiles (root ADR-0039): lossy VarDCT
+through the public encoder (effort 7, distance 0.05 to below 3.0, patches
+off, gray or RGB, enum sRGB or linear sRGB, optionally one straight 8-bit
+alpha channel coded losslessly, one-shot and streaming input) and lossless
+`LosslessThunderConfig` (effort 2, gray or RGB, optionally with alpha).
+Which Highway exports each reaches was read from the code paths and
+checked by running them: a temporary probe (not committed) at the port's
+counterpart of every export and at every `hwy::decoder_target()` call site
+recorded what `examples/encode_lossy` (distances 0.1, 1.0, 2.9),
+`examples/encode_lossless`, a lossless encode with alpha and gray, and the
+`ferrisma-jxl-encoder` tests for gray, linear sRGB, alpha and the
+streaming path reached on a 403x302 and a 2268x1512 photograph.
+
+**Lossy profile.** Encoder exports:
+
+| Export (file) | Functions reached | Lines |
+| --- | --- | --- |
+| `enc_xyb` | `ToXYB`, `ComputePremulAbsorb` (not `LinearRGBRowToXYB`, not `RgbToYcbcr`) | 1,009 |
+| `enc_transforms` | `TransformFromPixels`, `DCFromLowestFrequencies`, `AFVDCT4x4` | 1,526 |
+| `enc_group` | `ComputeCoefficients` | 2,913 |
+| `enc_chroma_from_luma` | `InitDCStorage`, `ComputeTile` | 2,669 |
+| `enc_ac_strategy` | `ProcessRectACS` | 3,468 |
+| `enc_adaptive_quantization` | `AdaptiveQuantizationMap` | 2,514 |
+| `enc_cluster` | `FastClusterHistograms`, `HistogramEntropy`, `HistogramCondition` | 560 |
+| `enc_entropy_coder` | `TokenizeCoefficients` | 217 |
+| `enc_ans_simd` | `EstimateTokenCost` | 211 |
+| `enc_ma` | `FindBestSplit` (only with alpha: the extra channel's tree learning) | 809 |
+| `enc_modular_simd` | `EstimateCost` (only with alpha) | 223 |
+
+Decode-path exports the lossy encoder runs as well: `convolve_symmetric5`
+(`Symmetric5`, from `enc_gaborish`'s inverse Gaborish and the
+`enc_adaptive_quantization` mask; **not translated**: the decoder never
+calls it, so it has no SIMD version and no dispatch point yet),
+`quant_weights` (`ComputeQuantTable`), `dec_group` (`DecodeGroupImpl`, the
+AR round trip, distance 0.5 and above), the AR reconstruction pipeline's
+factories `GetGaborishStage`, `GetEPFStage0..2`, `GetUpsamplingStage` (the
+8x upsampler is built) and `GetToneMappingStage` (built, not needed), and
+`simd_util`'s `MaxVectorSize` (row padding of every plane).
+
+Not reached: `enc_rct`, `enc_convolve_separable5` and `enc_detect_dots`
+(dots need a distance of 3.0 or more), the encoder's butteraugli
+(`FindBestQuantizer` compares with butteraugli only at effort 8 and
+slower; effort 7 is Squirrel) and `dec_xyb`'s `OpsinToLinear` (only on the
+downsampling path, outside the profile).
+
+**Lossless profile.** `enc_rct` (`FwdRctImpl`), `enc_cluster`
+(`FastClusterHistograms`, `HistogramEntropy`) and `MaxVectorSize`. Not
+reached: `enc_ma` (Thunder uses a fixed tree), `enc_modular_simd`,
+`enc_ans_simd`, `HistogramCondition`.
+
+So the lossy profile needs 11 encoder exports (9 without alpha) plus
+`Symmetric5` and the decode-path exports above, the lossless profile 2
+plus `MaxVectorSize`. This branch translates them in the order of the
+encoder SIMD package: `enc_xyb`, `enc_transforms`, `enc_group`, then
+`enc_chroma_from_luma`.
+<!-- end encoder simd -->
