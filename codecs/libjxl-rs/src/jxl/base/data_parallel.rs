@@ -25,6 +25,7 @@
 //! task, and `ThreadPool::run` resumes the first such panic on the calling
 //! thread after the runner returns.
 use super::status::{Status, StatusCode};
+use crate::jxl::hwy::DispatchScope;
 use std::any::Any;
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
@@ -57,6 +58,10 @@ struct RunCallState<'a, I, D> {
     has_error: AtomicU32,
     /// The first panic of an init or task body, resumed after the runner call.
     panic: Mutex<Option<Box<dyn Any + Send>>>,
+    /// The calling thread's decoder dispatch scope, under which every init
+    /// and task body runs on any runner thread (port ADR 0004, "Scope of the
+    /// selection"); the source's dispatch is process-wide.
+    scope: DispatchScope,
 }
 
 impl<I, D> RunCallState<'_, I, D>
@@ -76,7 +81,8 @@ where
         // stays live for the complete Run call; only shared access is formed.
         let state = unsafe { &*jpegxl_opaque.cast::<Self>() };
         let failed = state
-            .catching(|| (state.init_func)(num_threads))
+            .scope
+            .enter(|| state.catching(|| (state.init_func)(num_threads)))
             .is_none_or(|status| status.is_err());
         if failed {
             state.has_error.store(1, Ordering::SeqCst);
@@ -96,7 +102,8 @@ where
             return;
         }
         let failed = state
-            .catching(|| (state.data_func)(value, thread_id))
+            .scope
+            .enter(|| state.catching(|| (state.data_func)(value, thread_id)))
             .is_none_or(|status| status.is_err());
         if failed {
             state.has_error.store(1, Ordering::SeqCst);
@@ -177,6 +184,7 @@ impl ThreadPool {
             data_func,
             has_error: AtomicU32::new(0),
             panic: Mutex::new(None),
+            scope: DispatchScope::current(),
         };
         let jpegxl_opaque = std::ptr::from_ref(&call_state).cast_mut().cast::<c_void>();
         let Some(runner) = self.runner else {

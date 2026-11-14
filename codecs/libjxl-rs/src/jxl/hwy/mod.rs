@@ -267,7 +267,8 @@ impl Target {
 /// whole-decode test of `decode_vardct`
 /// (`whole_decodes_with_the_simd_stages_against_the_original_target`)
 /// forces the SIMD target and asserts zero differences independently of
-/// this switch.
+/// this switch. The switch applies inside decoder entry points only
+/// ([`DispatchScope`]); the encoder stays on the scalar path.
 pub const DECODER_SELECTS_SIMD: bool = false;
 
 /// [`decoder_target`] override, the counterpart of Highway's
@@ -279,8 +280,29 @@ static DECODER_TARGET_OVERRIDE: core::sync::atomic::AtomicU8 = core::sync::atomi
 /// choosing the best supported target: `None` is the scalar path (the
 /// `HWY_SCALAR` translation), otherwise [`Target::detect`] (NEON, or AVX2
 /// with Highway's complete group; never AVX-512 or SVE).
+///
+/// The selection is scoped to decoding (port ADR 0004, "Scope of the
+/// selection"): an explicit [`set_decoder_simd_for_test`] override wins, then
+/// the scalar gate's `JXL_DECODER_TARGET=scalar`
+/// ([`scalar_forced_by_environment`]); otherwise the target of the
+/// [`DispatchScope`] this thread runs in. Code outside every decoder entry
+/// point, the encoder with the decoder code it runs in its own loop included,
+/// is outside decoding and runs the scalar path.
 pub fn decoder_target() -> Option<Target> {
-    decoder_target_for(DECODER_SELECTS_SIMD)
+    use core::sync::atomic::Ordering;
+    let target = match DECODER_TARGET_OVERRIDE.load(Ordering::Relaxed) {
+        1 => None,
+        2 => Target::detect(),
+        _ if scalar_forced_by_environment() => None,
+        _ => match DispatchScope::current() {
+            DispatchScope::Decoding(target) => target,
+            DispatchScope::Outside => None,
+        },
+    };
+    if target.is_some() {
+        SIMD_SELECTIONS.with(|count| count.set(count.get().wrapping_add(1)));
+    }
+    target
 }
 
 /// Restrict or widen the decoder's dispatch for tests, like Highway's
@@ -302,6 +324,9 @@ pub fn set_decoder_simd_for_test(simd: Option<bool>) {
 /// libjxl's `MaxVectorSize()` (`simd_util.cc`, `HWY_DYNAMIC_DISPATCH` of
 /// `Lanes(HWY_FULL(float)) * sizeof(float)`): the vector bytes of the
 /// selected target, 4 for the scalar path as in the scalar reference build.
+/// It follows [`decoder_target`], so planes allocated inside a decoder entry
+/// point get the decoder's row padding and planes allocated outside decoding
+/// (the encoder's) keep the scalar build's.
 pub fn max_vector_size() -> usize {
     decoder_target().map_or(4, |t| 4 * t.lanes())
 }
@@ -325,9 +350,10 @@ pub fn dispatch<K: Kernel>(target: Target, kernel: K) -> K::Output {
 }
 
 // public gate: condition (c) of ADR 0004 "Decoder path".
-/// [`decoder_target`] for a given default selection `selects_simd` (the
-/// value of [`DECODER_SELECTS_SIMD`]), so that a test can show what the
-/// selection would be if that switch were on. An explicit
+/// The selection inside a decoder entry point ([`decoder_target`] within
+/// [`DispatchScope::Decoding`]) for a given default selection
+/// `selects_simd` (the value of [`DECODER_SELECTS_SIMD`]), so that a test can
+/// show what the selection would be if that switch were on. An explicit
 /// [`set_decoder_simd_for_test`] override wins; otherwise a test build that
 /// the scalar gate started with `JXL_DECODER_TARGET=scalar`
 /// ([`scalar_forced_by_environment`]) keeps the scalar path whatever the
@@ -364,3 +390,94 @@ pub fn scalar_forced_by_environment() -> bool {
     }
 }
 // end public gate
+
+// enable: the decoder's selection, scoped to decoding (ADR 0004, "Scope of
+// the selection").
+/// Where the calling thread runs with respect to the decoder's dispatch
+/// selection. The original has one process-wide `HWY_DYNAMIC_DISPATCH`
+/// shared by its decoder and encoder; the port's encoder kernels are the
+/// scalar translation only (issues #231, #243), so an encoder whose
+/// embedded decoder code followed a process-wide SIMD selection would match
+/// neither reference build. The decoder therefore carries its selection
+/// (`JxlDecoder` holds it from creation) and its entry points run their work
+/// inside [`DispatchScope::Decoding`]; `ThreadPool::run` carries the scope of
+/// the calling thread to every init and task body, on whichever runner
+/// thread it runs. Encoder entry points run inside
+/// [`DispatchScope::Outside`], also when a decoder callback calls them.
+#[derive(Clone, Copy, Debug)]
+pub enum DispatchScope {
+    /// Not inside a decoder entry point: the scalar path.
+    Outside,
+    /// Inside a decoder entry point that selected this target (`None`: the
+    /// scalar path).
+    Decoding(Option<Target>),
+}
+
+std::thread_local! {
+    static SCOPE: core::cell::Cell<DispatchScope> =
+        const { core::cell::Cell::new(DispatchScope::Outside) };
+}
+
+std::thread_local! {
+    static SIMD_SELECTIONS: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
+}
+
+/// Test observation: how often [`decoder_target`] selected a SIMD target on
+/// the calling thread so far (every SIMD kernel call site asks it first).
+/// It changes no selection.
+#[doc(hidden)]
+pub fn simd_selections_on_this_thread() -> u64 {
+    SIMD_SELECTIONS.with(core::cell::Cell::get)
+}
+
+/// Restores the previous scope, also when the body unwinds.
+struct ScopeGuard(DispatchScope);
+impl Drop for ScopeGuard {
+    fn drop(&mut self) {
+        SCOPE.with(|scope| scope.set(self.0));
+    }
+}
+
+impl DispatchScope {
+    /// The scope the calling thread runs in.
+    pub fn current() -> Self {
+        SCOPE.with(core::cell::Cell::get)
+    }
+
+    /// Runs `body` inside this scope and restores the previous one.
+    pub fn enter<R>(self, body: impl FnOnce() -> R) -> R {
+        let _guard = ScopeGuard(SCOPE.with(|scope| scope.replace(self)));
+        body()
+    }
+
+    /// The scope of a decoder entry point with the decoder's selection
+    /// `target` (see [`decoder_default_target`]).
+    pub fn decoding(target: Option<Target>) -> Self {
+        Self::Decoding(target)
+    }
+}
+
+/// The target a decoder selects when it is created: [`Target::detect`] when
+/// [`DECODER_SELECTS_SIMD`] is on for this target, otherwise the scalar
+/// path. [`decoder_target`] applies the test override and the scalar gate's
+/// forcing on top of it.
+pub fn decoder_default_target() -> Option<Target> {
+    if DECODER_SELECTS_SIMD {
+        Target::detect()
+    } else {
+        None
+    }
+}
+
+/// Runs `body` as a decoder entry point with the default selection, for the
+/// port's internal whole-decode helpers that have no `JxlDecoder` to carry it.
+pub fn decoding<R>(body: impl FnOnce() -> R) -> R {
+    DispatchScope::decoding(decoder_default_target()).enter(body)
+}
+
+/// Runs `body` outside decoding: the scalar path unless a test override
+/// forces a target. Encoder entry points use it.
+pub fn outside_decoding<R>(body: impl FnOnce() -> R) -> R {
+    DispatchScope::Outside.enter(body)
+}
+// end enable

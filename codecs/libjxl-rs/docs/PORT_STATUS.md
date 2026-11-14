@@ -191,6 +191,20 @@ target (`cms/jxl_cms_simd.rs`) and matches through the CMS stage;
 AVX2 is compile-checked only.
 <!-- end color -->
 
+<!-- enable -->
+Scope of the decoder's selection (2026-11-14, branch `v1/jxl-enable`): the
+SIMD selection reaches decoding only. `JxlDecoder` fixes its target when it
+is created; its working entry points and the internal whole-decode helpers
+run inside `hwy::DispatchScope::Decoding`, `RunOnPool` carries the scope to
+runner threads, and outside every decoder entry point (the encoder,
+including the decoder code its AR heuristics, quant tables, splines and
+modular inverse transforms run) `hwy::decoder_target()` is the scalar path,
+with the scalar row padding. `tests/dispatch_scope.rs` proves the encoder's
+bytes and its zero SIMD selections in both orders, inside a decoder
+callback and concurrently, and the decoder's target in every public decode
+(ADR 0004 "Scope of the selection").
+<!-- end enable -->
+
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 
 Encoder step 4 (issue #115) and a patches setting under which every image

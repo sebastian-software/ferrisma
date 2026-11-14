@@ -1614,6 +1614,19 @@ fn add_image_frame_internal(
     frame_settings: &JxlEncoderFrameSettings,
     enc: &mut JxlEncoder,
     streaming: bool,
+    frame_data: JxlEncoderChunkedFrameAdapter<'_>,
+) -> JxlEncoderStatus {
+    // enable: encoder work runs outside the decoder's dispatch scope, also
+    // when a decoder callback calls it (port ADR 0004, "Scope of the
+    // selection"): the port's encoder is the scalar translation.
+    super::hwy::outside_decoding(|| {
+        add_image_frame_outside_decoding(frame_settings, enc, streaming, frame_data)
+    })
+}
+fn add_image_frame_outside_decoding(
+    frame_settings: &JxlEncoderFrameSettings,
+    enc: &mut JxlEncoder,
+    streaming: bool,
     mut frame_data: JxlEncoderChunkedFrameAdapter<'_>,
 ) -> JxlEncoderStatus {
     let pixel_format = frame_data.get_color_channels_pixel_format();
@@ -2370,7 +2383,10 @@ pub unsafe fn jxl_encoder_process_output(
     // pointers only inside the calls below, and no reference is held across
     // them.
     while unsafe { *avail_out } != 0 && !enc.input_queue.is_empty() {
-        match process_one_enqueued_input(enc) {
+        // enable: encoder work runs outside the decoder's dispatch scope, also
+        // when a decoder callback calls it (port ADR 0004, "Scope of the
+        // selection"): the port's encoder is the scalar translation.
+        match super::hwy::outside_decoding(|| process_one_enqueued_input(enc)) {
             Ok(()) => {}
             Err(EnqueuedInputFailure::Failed) => return JxlEncoderStatus::ERROR,
             Err(EnqueuedInputFailure::Admission(checkpoint)) => {

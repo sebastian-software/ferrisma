@@ -2165,6 +2165,11 @@ impl LosslessThunderConfig {
     /// decoding. Unsupported means the parsed header is outside the admitted
     /// profile; it does not stand in for an unported generic decoder branch.
     pub fn decode_frame<'m>(&'m self, bytes: &[u8]) -> LosslessThunderFrameDecode<'m> {
+        // enable: a decoder entry point, inside the default dispatch scope
+        // (port ADR 0004, "Scope of the selection").
+        super::hwy::decoding(|| self.decode_frame_in_scope(bytes))
+    }
+    fn decode_frame_in_scope<'m>(&'m self, bytes: &[u8]) -> LosslessThunderFrameDecode<'m> {
         let output = RefCell::new(ImageBundle::new(Some(&self.metadata().m)));
         let mut copied_header = None;
         let mut state = PassesDecoderState::new();
@@ -2310,6 +2315,11 @@ impl<'m> SequenceDecoder<'m> {
         self.state.output_encoding_info.cms_set = true;
     }
     pub fn decode_frame(&mut self, bytes: &[u8], preview: bool) -> SequenceFrameDecode<'m> {
+        // enable: a decoder entry point, inside the default dispatch scope
+        // (port ADR 0004, "Scope of the selection").
+        super::hwy::decoding(|| self.decode_frame_in_scope(bytes, preview))
+    }
+    fn decode_frame_in_scope(&mut self, bytes: &[u8], preview: bool) -> SequenceFrameDecode<'m> {
         let mut header = None;
         let mut trace = FrameDecodeTrace::default();
         let status = decode_frame_with_pipeline(
@@ -2574,6 +2584,11 @@ pub struct LosslessThunderImageDecode {
 /// not supplied by the caller. ICC/preview/animation and other configurations
 /// remain outside this entry point's explicit admission boundary.
 pub fn decode_lossless_thunder(bytes: &[u8]) -> LosslessThunderImageDecode {
+    // enable: a decoder entry point, inside the default dispatch scope
+    // (port ADR 0004, "Scope of the selection").
+    super::hwy::decoding(|| decode_lossless_thunder_in_scope(bytes))
+}
+fn decode_lossless_thunder_in_scope(bytes: &[u8]) -> LosslessThunderImageDecode {
     use super::dec_external_image::convert_uint_to_buffer;
     use super::fields::bundle;
     use super::headers::read_size_header;
@@ -2786,6 +2801,11 @@ pub struct VarDctImageDecode {
 /// dequantization, inverse transforms, optional Gaborish, XYB and sRGB output.
 /// The private admission boundary excludes still-unported codec configurations.
 pub fn decode_vardct(bytes: &[u8]) -> VarDctImageDecode {
+    // enable: a decoder entry point, inside the default dispatch scope
+    // (port ADR 0004, "Scope of the selection").
+    super::hwy::decoding(|| decode_vardct_in_scope(bytes))
+}
+fn decode_vardct_in_scope(bytes: &[u8]) -> VarDctImageDecode {
     use super::dec_external_image::convert_uint_to_buffer;
     use super::fields::bundle;
     use super::headers::read_size_header;
@@ -3003,6 +3023,11 @@ impl ModularConfig {
 /// Decode the admitted general Modular profile through original group decoding,
 /// inverse transforms, rendering, scoped reader close and explicit export.
 pub fn decode_modular(bytes: &[u8], output_format: ModularOutput) -> ModularImageDecode {
+    // enable: a decoder entry point, inside the default dispatch scope
+    // (port ADR 0004, "Scope of the selection").
+    super::hwy::decoding(|| decode_modular_in_scope(bytes, output_format))
+}
+fn decode_modular_in_scope(bytes: &[u8], output_format: ModularOutput) -> ModularImageDecode {
     use super::dec_external_image::convert_uint_to_buffer;
     use super::fields::bundle;
     use super::headers::read_size_header;
@@ -3161,6 +3186,15 @@ pub struct JpegFrameDecode<'m> {
 /// metadata mutations even when a later section fails. Metadata remains borrowed.
 /// The input starts at the original frame header, after codestream metadata.
 pub fn decode_jpeg_frame<'m>(
+    metadata: &'m super::image_metadata::CodecMetadata,
+    bytes: &[u8],
+    jpeg_data: Box<super::jpeg::jpeg_data::JpegData>,
+) -> JpegFrameDecode<'m> {
+    // enable: a decoder entry point, inside the default dispatch scope
+    // (port ADR 0004, "Scope of the selection").
+    super::hwy::decoding(|| decode_jpeg_frame_in_scope(metadata, bytes, jpeg_data))
+}
+fn decode_jpeg_frame_in_scope<'m>(
     metadata: &'m super::image_metadata::CodecMetadata,
     bytes: &[u8],
     jpeg_data: Box<super::jpeg::jpeg_data::JpegData>,

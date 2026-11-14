@@ -61,6 +61,7 @@ use super::field_encodings::Fields;
 use super::fields::bundle;
 use super::frame_header::FrameHeader;
 use super::headers::CODESTREAM_MARKER;
+use super::hwy;
 use super::icc_codec::ICCReader;
 use super::image_bundle::ImageBundle;
 use super::image_metadata::{CodecMetadata, ExtraChannel, ImageMetadata};
@@ -516,6 +517,13 @@ struct SimpleImageOutCallback {
 /// stored in `input` at the codestream_copy position.
 pub struct JxlDecoder {
     memory_manager: Aliased<JxlMemoryManager>,
+    /// enable: the dispatch target this decoder selected when it was
+    /// created (`hwy::decoder_default_target`); its entry points run their
+    /// work inside `DispatchScope::Decoding` with it (port ADR 0004, "Scope
+    /// of the selection"). The source's `HWY_DYNAMIC_DISPATCH` is
+    /// process-wide; the port scopes it to decoding because its encoder
+    /// runs only the scalar translation.
+    simd_target: Option<hwy::Target>,
     thread_pool: Option<Box<ThreadPool>>,
     stage: DecoderStage,
     got_signature: bool,
@@ -607,6 +615,13 @@ pub struct JxlDecoder {
 impl JxlDecoder {
     const NUM_BUFFERS_LIMIT: usize = 1 << 20;
 
+    /// enable: runs an entry point's work inside this decoder's dispatch
+    /// scope (port ADR 0004, "Scope of the selection"). Entry points that
+    /// only store or read fields need none.
+    fn decoding<R>(&mut self, body: impl FnOnce(&mut Self) -> R) -> R {
+        hwy::DispatchScope::decoding(self.simd_target).enter(|| body(self))
+    }
+
     /// The default constructor followed by Initialize. Source-indeterminate
     /// scalars receive safe values that carry no meaning until the original
     /// Reset/Rewind or later assignment. The retained manager pointer refers
@@ -616,6 +631,7 @@ impl JxlDecoder {
         let manager = memory_manager.as_ptr();
         Self {
             memory_manager,
+            simd_target: hwy::decoder_default_target(),
             thread_pool: None,
             stage: DecoderStage::Inited,
             got_signature: false,
@@ -1078,6 +1094,10 @@ pub fn jxl_decoder_skip_frames(dec: &mut JxlDecoder, amount: usize) {
 /// # Safety
 /// The current input satisfies the jxl_decoder_set_input contract.
 pub unsafe fn jxl_decoder_skip_current_frame(dec: &mut JxlDecoder) -> JxlDecoderStatus {
+    // SAFETY: Forward the caller's contract.
+    dec.decoding(|dec| unsafe { skip_current_frame(dec) })
+}
+unsafe fn skip_current_frame(dec: &mut JxlDecoder) -> JxlDecoderStatus {
     if dec.frame_stage != FrameStage::Full {
         return api_error!("JxlDecoderSkipCurrentFrame called at the wrong time");
     }
@@ -2633,6 +2653,10 @@ unsafe fn handle_boxes(dec: &mut JxlDecoder) -> JxlDecoderStatus {
 /// caller buffer and callback registered with the decoder remains valid for
 /// its documented use. Callbacks never unwind or reenter the decoder.
 pub unsafe fn jxl_decoder_process_input(dec: &mut JxlDecoder) -> JxlDecoderStatus {
+    // SAFETY: Forward the caller's contract.
+    dec.decoding(|dec| unsafe { process_input(dec) })
+}
+unsafe fn process_input(dec: &mut JxlDecoder) -> JxlDecoderStatus {
     if dec.stage == DecoderStage::Inited {
         dec.stage = DecoderStage::Started;
     }
@@ -2979,6 +3003,10 @@ pub fn jxl_decoder_get_intended_downsampling_ratio(dec: &JxlDecoder) -> usize {
 /// # Safety
 /// The registered output buffers and callbacks satisfy their contracts.
 pub unsafe fn jxl_decoder_flush_image(dec: &mut JxlDecoder) -> JxlDecoderStatus {
+    // SAFETY: Forward the caller's contract.
+    dec.decoding(|dec| unsafe { flush_image(dec) })
+}
+unsafe fn flush_image(dec: &mut JxlDecoder) -> JxlDecoderStatus {
     if !dec.image_out_buffer_set {
         return JxlDecoderStatus::ERROR;
     }
@@ -3519,6 +3547,15 @@ pub fn jxl_decoder_set_preferred_color_profile(
 /// A non-null `icc_data` is readable for `icc_size` initialized bytes. The CMS
 /// set with jxl_decoder_set_cms satisfies its contract when it is invoked.
 pub unsafe fn jxl_decoder_set_output_color_profile(
+    dec: &mut JxlDecoder,
+    color_encoding: Option<&JxlColorEncoding>,
+    icc_data: *const u8,
+    icc_size: usize,
+) -> JxlDecoderStatus {
+    // SAFETY: Forward the caller's contract.
+    dec.decoding(|dec| unsafe { set_output_color_profile(dec, color_encoding, icc_data, icc_size) })
+}
+unsafe fn set_output_color_profile(
     dec: &mut JxlDecoder,
     color_encoding: Option<&JxlColorEncoding>,
     icc_data: *const u8,

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-13
-- Updated: 2026-11-13
+- Updated: 2026-11-14
 
 ## Context
 
@@ -96,8 +96,10 @@ array when `xpos` is not a lane multiple. `tests/simd_parity.rs`
 padding follows the selected target as `BytesPerRow` follows
 `MaxVectorSize()` (`hwy::max_vector_size()`: 4 bytes on the scalar path,
 16 on NEON, 32 on AVX2). `decoder_target()` is `None` unless
-`hwy::DECODER_SELECTS_SIMD` is on; tests switch it like Highway's
-`SetSupportedTargetsForTest` (`hwy::set_decoder_simd_for_test`).
+`hwy::DECODER_SELECTS_SIMD` is on, and then only inside a decoder entry
+point (see "Scope of the selection": the encoder stays on the scalar path);
+tests switch it like Highway's `SetSupportedTargetsForTest`
+(`hwy::set_decoder_simd_for_test`).
 
 The selection is **off**. Working decision 2026-11-13 (delegated,
 revisable by the owner): it is turned on per target, and only when on that
@@ -878,3 +880,108 @@ path matches every word and the scalar path differs in at least one request.
   and CMS of the list in "Decoder path" (a) have SIMD translations on both
   targets; NEON row parity holds, AVX2 is compile-checked only.
 <!-- end color -->
+
+<!-- enable -->
+## Scope of the selection (2026-11-14, branch `v1/jxl-enable`)
+
+Before the default selection may be turned on for a target, the selection
+must reach the decoder and nothing else. The original has one process-wide
+`HWY_DYNAMIC_DISPATCH`: its SIMD build runs SIMD in the decoder and in the
+encoder alike, and `MaxVectorSize()` sizes every plane. The port's encoder
+Highway exports are not translated (Plan item 3, issues #231 and #243), and
+the encoder is gated byte for byte against `cjxl` in the scalar
+configuration. A process-wide switch would let the lossy encoder run the
+decoder's SIMD kernels inside its own loop next to its scalar encoder
+kernels, an output that matches neither reference build.
+
+**Call sites (scope analysis).** `hwy::decoder_target()` is queried at 31
+call sites in 21 source files, and `hwy::max_vector_size()` at one
+(`memory_manager_internal::bytes_per_row`, which every plane allocation
+calls). Which entry points reach each:
+
+| Call site | Decoder entry points (public decoder, internal whole-decode helpers) | Encoder |
+| --- | --- | --- |
+| `bytes_per_row` (`max_vector_size`) | every plane | **every plane** (row padding only) |
+| `quant_weights::ensure_computed_in` (ComputeQuantTable) | VarDCT frames | **yes**: `enc_ac_strategy` (DCT8 and the strategy mask) and the AR reconstruction |
+| `dec_group_render::decode_group_impl` (dequantization, IDCTs, CfL) | VarDCT groups | **yes**: `decode_group_for_roundtrip` in `enc_heuristics_ar::reconstruct_image` |
+| stage factories through `PassesDecoderState::prepare_pipeline`: Gaborish, EPF 0-2, upsampling, YCbCr, chroma upsampling, XYB, FromLinear, ToLinear, tone mapping, CMS (`jxl_cms::run`), noise (Add/Convolve), splines | every rendered frame | **yes**: `reconstruct_image` builds the same pipeline (effort 7 and slower, distance from 0.5, EPF on), writing to an `ImageBundle` |
+| `stage_write::WriteToOutput::new` (output conversion) | public decoder output buffers and callbacks | no (the AR pipeline writes to an `ImageBundle`) |
+| `dec_noise::prepare_noise_input` (Random3Planes) | frames with noise | **yes**: `reconstruct_image` |
+| `splines::initialize_draw_cache`, `apply_to_row` | frames with splines | **yes**: `enc_heuristics_lossy` (`subtract_from`) |
+| `rct::inv_rct`, `squeeze::inv_squeeze` | modular inverse transforms | **yes**: `enc_modular` (`Transform::inverse`) |
+| `dec_modular` (`decode_var_dct_dc`, `modular_image_to_decoded_rect`) | modular and VarDCT DC | no |
+| `dec_external_image` (`convert_*_channels_to_buffer`) | output conversion | no |
+| `dec_frame::process_sections` | every frame | no |
+| `dec_noise::random_three_planes` | (API; no caller in the port) | no |
+
+JPEG reconstruction (`JxlToJpegDecoder` of `decode_to_jpeg`) runs inside
+`ProcessInput` and calls no Highway export itself; the frame it
+reconstructs from is decoded by the paths above.
+
+**Decision.** The decoder carries its selection, and the kernels read it
+from the scope the decoder's entry points establish:
+
+- `JxlDecoder` stores the target it selects when it is created
+  (`hwy::decoder_default_target()`: `Target::detect()` when
+  `DECODER_SELECTS_SIMD` is on for this target). `jxl_decoder_process_input`,
+  `jxl_decoder_flush_image`, `jxl_decoder_skip_current_frame` and
+  `jxl_decoder_set_output_color_profile` (with `set_preferred_color_profile`)
+  run their work inside `hwy::DispatchScope::Decoding(target)`; the other
+  exported functions only store or read fields. The internal whole-decode
+  helpers (`decode_vardct`, `decode_modular`, `decode_lossless_thunder`,
+  `decode_jpeg_frame`, `SequenceDecoder::decode_frame`,
+  `LosslessThunderConfig::decode_frame`) are entry points too and use the
+  default selection (`hwy::decoding`).
+- `ThreadPool::run` (RunOnPool) captures the calling thread's scope and runs
+  every init and task body inside it, on whichever runner thread the runner
+  chooses, so a decoder with a parallel runner and its image-out callbacks
+  run under the decoder's selection.
+- `hwy::decoder_target()` is, in order: the test override
+  (`set_decoder_simd_for_test`), the scalar gate's `JXL_DECODER_TARGET=scalar`,
+  then the thread's scope; outside every decoder entry point it is the
+  scalar path. `max_vector_size()` follows it, so planes allocated inside a
+  decode get the decoder's row padding and the encoder's planes keep the
+  scalar build's.
+- Encoder entry points (`jxl_encoder_add_image_frame` and the
+  `jxl_encoder_process_output` work loop) run inside
+  `DispatchScope::Outside`, also when a decoder callback calls them.
+
+Why this and not a target parameter threaded through every kernel and plane
+allocation: the original passes neither. Its kernels call
+`HWY_DYNAMIC_DISPATCH` and `BytesPerRow` calls `MaxVectorSize()`, both
+global; the port's call sites keep that shape (`decoder_target()` where the
+original dispatches), so the translation stays line for line. A parameter
+would change the signatures of the functions above and of every plane
+constructor the encoder and decoder share, a redesign of the original's
+interfaces. The scope is the port's one deviation, at the API boundary,
+and it exists only because the encoder is not yet translated: once the
+encoder's exports are ported and gated against the original's SIMD build,
+the scope can widen to the whole process, as in the original. A decoder
+fixes its target at creation, so a decode never mixes targets across calls.
+
+**Tests.** `tests/dispatch_scope.rs` (no oracle; runs in every build):
+the engine's lossy encode (effort 7, patches off, distance 1.0 and 2.5) gives
+exactly the bytes of an encode with the scalar path forced process-wide,
+before and after a public decode, from inside the decoder's image-out
+callback, and on another thread during a decode with a runner, and makes no
+SIMD selection on its thread (`hwy::simd_selections_on_this_thread`, a
+test observation counter in `decoder_target()`). Every public decode (no
+runner, a three-thread runner, concurrent with an encode) sees the
+decoder's selection and row padding in its callbacks, gives exactly the
+float output of a decode with that target forced (a SIMD and a scalar
+decode of the input differ, so the comparison tells them apart), and the
+selection is the scalar path again when the entry point returns;
+`decode_vardct` gives the forced target's output as well. A control in the
+test shows that a process-wide SIMD selection reaches the encoder (142
+SIMD selections in one encode). Three mutations were checked to fail the
+test: a process-wide selection (no scope), no `Outside` scope around the
+encoder's work loop (the encode inside a decoder callback then selects
+SIMD), and a `RunOnPool` that does not carry the scope (runner threads then
+run the scalar path).
+
+**Finding.** With the SIMD target forced process-wide, the encoder's bytes
+did not change for any probe input (synthetic RGB 136x72 to 1024x768,
+distances 0.5 to 2.9): the AR heuristics' choice per block and the quant
+tables did not flip. That is no guarantee for other inputs, which is why
+the scope is enforced and tested by selection, not by output bytes.
+<!-- end enable -->
