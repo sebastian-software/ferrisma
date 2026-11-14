@@ -104,10 +104,12 @@ revisable by the owner): it is turned on per target, and only when on that
 target
 
 - (a) every decode-path Highway export of the Plan that an in-scope file
-  can reach is translated. Upsampling, noise, blending, splines,
-  `to_linear`, tone mapping, CMS, `dec_external_image`, `dec_modular`,
-  `rct` and `squeeze` are still scalar; a file that reaches a scalar kernel
-  while the rest runs SIMD matches neither reference build;
+  can reach is translated (a file that reaches a scalar kernel while the
+  rest runs SIMD matches neither reference build). Upsampling, noise,
+  blending, splines, `to_linear`, tone mapping, CMS, `dec_external_image`,
+  `dec_modular`, `rct` and `squeeze` were still scalar when this was
+  written; for their translation and the state on the combined branch see
+  the package sections below and "Public decoder gate", "Combined branch";
 - (b) a whole-decode comparison through the public decoder and its
   low-memory pipeline exists and reports zero differences over the
   conformance inputs;
@@ -584,6 +586,22 @@ The selection stays off: condition (b) now has its comparison, which does
 not report zero yet; the punch list is empty only when upsampling, noise
 and splines are translated (and then on each target separately).
 
+- **Combined branch (2026-11-14, `v1/jxl-merge6`: this gate, the VarDCT
+  fix, the modular kernels, the upsampling/noise/splines stages and the
+  color stages).** NEON, with the corpus: all 352 distinct inputs match the
+  original word for word in f32, u8 and u16, so the 76 entries above were
+  removed and `STILL_DIFFERS` is empty. The gate gained a second decode
+  mode: the same sequence with the default CMS set and a Rec. 2020 PQ
+  output profile requested at the color encoding event (float only; the
+  oracle's `dps-decode <type> 1`). All 352 match there as well. The decode
+  trace counts the color package's stages: the `Cms` stage is reached in
+  340 of the 352 CMS-mode decodes (and in none of the engine-mode ones);
+  `ToLinear` and `ToneMapping` are reached by no input. They are added only
+  for tone mapping, which needs a PQ or HLG original with a desired
+  intensity target below the original's; no input of this set is HDR, so
+  conditions (a) and (b) are exercised for `Cms` but not yet for
+  `ToLinear` and `ToneMapping` (their row-level parity is
+  `tests/simd_color.rs`). AVX2 has not been run.
 - **Condition (c).** `hwy::decoder_target()` is `decoder_target_for(
   DECODER_SELECTS_SIMD)`. In the oracle test builds (feature `cpp-oracle`)
   `JXL_DECODER_TARGET=scalar` forces the scalar path whatever the default
@@ -785,6 +803,7 @@ this package covers are translated; condition (a) of "Decoder path" still
 waits for the other agents' exports (`to_linear`, tone mapping, CMS,
 `dec_external_image`, `dec_modular`, `rct`, `squeeze`) and (b) to (d).
 <!-- end stages2 -->
+
 <!-- color -->
 ## Color stages of Plan item 1 (2026-11-13, branch `v1/jxl-color`)
 

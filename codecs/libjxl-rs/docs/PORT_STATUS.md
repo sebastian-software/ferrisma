@@ -138,7 +138,11 @@ distinct inputs match word for word; the 76 others are the executable punch
 list, each reaching a still-scalar `Upsample`, noise or splines stage (ADR
 0004 "Public decoder gate"). The gate found and fixed a read before the row
 start of the SIMD stages in the low-memory pipeline. The scalar gate now
-forces the scalar decoder path (`JXL_DECODER_TARGET=scalar`).
+forces the scalar decoder path (`JXL_DECODER_TARGET=scalar`). On the
+combined branch with every SIMD package (2026-11-14), all 352 inputs match
+on NEON, also with the default CMS and a Rec. 2020 PQ output profile, which
+reaches the `Cms` stage; no input is HDR, so `ToLinear` and `ToneMapping`
+are not reached by this gate.
 <!-- end public gate -->
 
 <!-- modular -->
@@ -172,6 +176,7 @@ DrawSegments) dispatches on `hwy::decoder_target()` and matches the NEON
 oracle over the replayed scalar spline requests. AVX2 is compile-checked
 only.
 <!-- end stages2 -->
+
 <!-- color -->
 Color stages of ADR 0004 Plan item 1 (2026-11-13): the SIMD ToLinear stage
 (`stage_to_linear_simd.rs`, all seven operations, with the decode direction
