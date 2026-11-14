@@ -1,6 +1,6 @@
 # SIMD status
 
-Updated: 2026-11-13. The quality gate is decision D4 of the Ferrisma owner
+Updated: 2026-11-14. The quality gate is decision D4 of the Ferrisma owner
 decisions and [ADR 0008](adr/0008-simd-modules.md): the port's scalar build is
 bit-identical to libwebp's scalar build (`WEBP_ENABLE_SIMD=OFF`, oracle variant
 `release`), and the port's SIMD build is bit-identical to libwebp's SIMD build
@@ -77,14 +77,19 @@ partial record (interrupted scalar mode, `wp5_cpu` failures before
 `simd_level_sharpyuv.c`). Rosetta 2 does not fault on misaligned SSE loads,
 so this result could not show #252 (below).
 
-Native Linux x86-64 (hosted nightly run 43401560676 on `dbf7b095`, Clang
-21.1.8, #252): the scalar variants pass; the `avx2` mode fails at once because
-the `wp10/dsp` probe crashes (SIGSEGV), so `sse41` and `sse2` did not run. The
-cause was the probe, not libwebp or the port: it handed libwebp's SSE2 luma
-predictors left and top rows at arbitrary byte offsets, which
-`enc_sse2.c` reads with `_mm_load_si128` (`movdqa`), while libwebp's encoder
-always passes 32-byte aligned rows. The probe now copies the same bytes into
-aligned rows (2026-11-13); no hosted rerun had finished when this was written.
+Native Linux x86-64: hosted run
+[43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624)
+(`WEBP: Checks`, branch `v1/webp` at `690ad251`, whose `codecs/libwebp-rs`
+tree is identical to `main`'s at `5004f34e`), job `WEBP: Oracle
+(ubuntu-latest)`, passed the `release-simd` gate at `avx2`, `sse41` and
+`sse2`, 1,131 tests each, 0 failed; every job of the run passed. It was the
+first native run of `sse41` and `sse2`. The run before it (nightly
+43401560676 on `dbf7b095`, Clang 21.1.8, #252) had failed at `avx2` because
+the `wp10/dsp` probe crashed (SIGSEGV): it handed libwebp's SSE2 luma
+predictors left and top rows at arbitrary byte offsets, which `enc_sse2.c`
+reads with `_mm_load_si128` (`movdqa`), while libwebp's encoder always passes
+32-byte aligned rows. The cause was the probe, not libwebp or the port; the
+probe now copies the same bytes into aligned rows (2026-11-13).
 
 ## Whole-pipeline gate
 
@@ -97,14 +102,19 @@ Rust-linked `cwebp` was linked against the scalar build in a SIMD mode, or the
 reverse. Local run, `neon` mode (2026-11-13): 140 inputs,
 280 identical outputs in each of the three `test_cwebp.sh` sets and 405
 identical matrix runs; no difference from libwebp's SIMD build. The x86-64
-modes ran this test under Rosetta in the 4,488 above; natively it has not run
-yet (#252).
+modes ran this test under Rosetta in the 4,488 above, and natively as part of
+the test stage of run 43471093624.
 
 ## Not covered
 
-- Native x86-64: no complete hosted Linux run yet (#252, above). Until one
-  passes, the x86-64 SIMD result rests on Rosetta 2, which emulates AVX2 and
-  ignores SSE alignment faults.
+- Native x86-64 runs on one hosted Linux machine type (run 43471093624);
+  Rosetta 2, the local x86-64 check, emulates AVX2 and ignores SSE alignment
+  faults, so only the hosted runs can show an alignment defect.
+- Issue #89 (WP19): every gate item is done (translation, dispatch, the
+  per-level gate under Rosetta and natively, the whole-pipeline `cwebp`
+  gate in SIMD builds); only the encoder benchmark table is open:
+  `examples/dsp_bench` has no x86 encoder cases, and nothing was measured
+  for it.
 - On the x86-64 cross build on macOS the oracle's tools read no PNG, JPEG, TIFF
   or GIF (the host's libraries are ARM64 only); the tool tests pick their
   inputs by what the oracle's `cwebp` reads.
