@@ -48,11 +48,14 @@ Ferrisma differs from the blueprint repositories in four ways that matter:
    [publishing](publishing.md): engine, kernels, four bridges, four codec ports,
    the three AVIF sub-crates, and `libsharpyuv-core`), plus two members that
    stay internal (`ferrisma-xtask`, `ferrisma-libavif`).
-3. **Several first-party dependencies are renamed**:
-   `webp = { package = "libwebp-rs" }` and `jxl = { package = "libjxl-rs" }` in
-   the engine, `jxl = { package = "libjxl-rs" }` in both JPEG XL bridges, and
-   `sharpyuv`/`dav1d`/`aom` in `libavif-rs`. Release Please matches
-   dependencies by key, not by `package` (see [known limits](#known-limits-measured)).
+3. **Several first-party dependencies were renamed** when these drafts were
+   written: `webp = { package = "libwebp-rs" }` and
+   `jxl = { package = "libjxl-rs" }` in the engine, `jxl = { package =
+   "libjxl-rs" }` in both JPEG XL bridges, and `sharpyuv`/`dav1d`/`aom` in
+   `libavif-rs`. Release Please matches dependencies by key, not by
+   `package` (see [known limits](#known-limits-measured)). Since `86f9e0df`
+   (2026-11-13, #248) every manifest keys them by package name; no
+   `package =` entry is left.
 4. **The AVIF packages need the pinned nightly** (ADR-0026), so the publish
    job must use `rust-toolchain.toml`, not `stable`.
 
@@ -368,7 +371,7 @@ proposed release.
 
 | Limit | Evidence | Consequence |
 | --- | --- | --- |
-| The Rust updater (`CargoToml`) and the `cargo-workspace` graph match path dependencies by their **key**, not by `package = …`. | Today's manifests: A 24 findings, B 6 findings, all on the eight renamed entries (`webp`, `jxl`×4, `sharpyuv`, `dav1d`, `aom`). The first release looks clean only because everything is already 0.1.0. | Before any release, key those dependencies by package name. The library target names (`webp`, `jxl`, `sharpyuv`, `dav1d`, `aom`) stay, so no Rust source changes; `dep:webp`/`dep:jxl` in the engine's features become `dep:libwebp-rs`/`dep:libjxl-rs`. Applied temporarily on 2026-11-13: `cargo metadata --offline --locked` passed and `cargo check --offline --locked -p ferrisma --no-default-features --features webp-read,webp-write,jpeg-xl-write,jpeg-xl-own-read` passed (AArch64; the AVIF crates were not built). With it, both configurations rehearse with 0 findings. |
+| The Rust updater (`CargoToml`) and the `cargo-workspace` graph match path dependencies by their **key**, not by `package = …`. | The manifests before `86f9e0df`: A 24 findings, B 6 findings, all on the eight renamed entries (`webp`, `jxl`×4, `sharpyuv`, `dav1d`, `aom`). The first release looked clean only because everything is already 0.1.0. | Key those dependencies by package name: done on `main` in `86f9e0df` (#248); the rehearsal has not been repeated against the changed manifests. The library target names (`webp`, `jxl`, `sharpyuv`, `dav1d`, `aom`) stayed, so no Rust source changed; `dep:webp`/`dep:jxl` in the engine's features became `dep:libwebp-rs`/`dep:libjxl-rs`. Before that, applied temporarily on 2026-11-13: `cargo metadata --offline --locked` passed and `cargo check --offline --locked -p ferrisma --no-default-features --features webp-read,webp-write,jpeg-xl-write,jpeg-xl-own-read` passed (AArch64; the AVIF crates were not built). With it, both configurations rehearse with 0 findings. |
 | A path dependency without `version` is skipped. | release-please `src/updaters/rust/cargo-toml.ts`; ferromark rehearsal negative case. | Affects only `ferrisma-libavif → ferrisma` and dev-only `libavif-sharpyuv → libwebp-rs`, neither published. Every published requirement already has a `version`. |
 | `version.workspace = true` cannot be updated. | ferromark ADR-0020; its rehearsal negative case. | Not used in Ferrisma; keep it that way. |
 | A root package that is also a workspace root makes the `rust` strategy rewrite every member. | release-please `src/strategies/rust.ts`; B on today's layout. | Fine for A (that is A's mechanism). B needs a virtual root. |

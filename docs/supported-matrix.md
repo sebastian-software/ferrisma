@@ -1,7 +1,11 @@
 # Supported input, output, backend, and feature matrix
 
 **Reviewed: 2026-11-12** (issues #67 and #26; base `1593d6a8` plus the default
-switches of the same day). This page is the single place that says what
+switches of the same day); updated on 2026-11-14 for the straight-alpha
+rendered-ICC path (#222), the lossless JPEG XL reservation (#223) and the
+libjxl-rs decoder's run-time SIMD selection. The
+[verification record](#verification-record-2026-11-12-macos-arm64) below is
+still the one of 2026-11-12. This page is the single place that says what
 Ferrisma accepts, what it rejects, which backend does the work, and which
 build provides it. It does not promise a stable API: the stability tiers come
 from the *proposed* [ADR-0040](adr/0040-stable-public-contract-and-compatibility-policy.md)
@@ -165,7 +169,7 @@ supported.
 | Alpha | auxiliary item at the color quality, omitted when opaque | separate 10-bit item at fixed quality 80, omitted when opaque | straight alpha | unassociated (straight) alpha at 8 bits, coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
 | Color signaling | AV1 header 1/13/6 full range **and** container `colr nclx` | AV1 header 1/13/6 full range; no container `colr` | embedded sRGB ICC | enum sRGB (lossy: XYB-encoded) |
 | Metadata | source EXIF/XMP/ICC not copied; orientation applied | same | same; EXIF orientation and XMP dropped | orientation applied, written as 1 |
-| Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | padded 10-bit frame(s) | ARGB frame and lossy planes reserved | input frame plus known codec planes (lossless) or a source-derived codec estimate (lossy) reserved |
+| Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | padded 10-bit frame(s) | ARGB frame and lossy planes reserved | lossless: the measured one-shot peak, 76 bytes per pixel of opaque RGB including the input frame (scaled by 4/3 with alpha, derived, not measured), at least the codec planes known from the source path; lossy: input frame plus a source-derived codec estimate; reserved before encoding |
 | Determinism | bytes can depend on thread count and host | tiles derived from size: bytes independent of thread count | — | both profiles byte-identical with the C++ encoder on the port's recorded requests (macOS AArch64) |
 
 **The two AVIF quality scales are not comparable and are never remapped.**
@@ -200,7 +204,8 @@ libheif and rav1d in the evidence record above. WebP —
 `sink_round_trips_exactly_through_jxl_oxide`,
 `oriented_input_is_written_upright_with_orientation_one`,
 `rejects_requests_outside_the_admitted_profile_before_allocating`,
-`facade_rejects_mismatched_and_disabled_settings_before_decoding`; lossy —
+`facade_rejects_mismatched_and_disabled_settings_before_decoding`,
+`input_frame_and_measured_one_shot_peak_are_reserved`; lossy —
 `jxl_lossy_tests::lossy_output_decodes_within_the_pinned_error` (one-shot and
 streaming), `the_workspace_decoder_agrees_with_jxl_oxide`,
 `photograph_thumbnail_decodes_near_the_finished_rows`,
@@ -218,9 +223,25 @@ streaming), `the_workspace_decoder_reads_straight_alpha_exactly`,
 the `ferrisma-jxl-encoder` unit tests
 ([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)).
 Lossy output always turns libjxl's patch search off, so text-like content
-encodes; its size cost against libjxl's default is not measured. The engine
-cannot yet read back its own transparent lossy output (the rendered-ICC stage
-accepts only opaque RGB). JPEG output does not exist and is not planned.
+encodes; its size cost against libjxl's default is not measured. Since
+2026-11-13 the engine reads its own transparent lossy output back with
+`--use-rendered-icc`: the rendered-ICC stage accepts RGBA with straight
+alpha, and the jxl-oxide adapter declares straight alpha only when the
+rendered alpha channel is not associated (#222,
+[ADR-0015](adr/0015-typed-output-color-signals.md)). Under the default
+`Strict` policy that output is still refused; whether XYB with enum sRGB
+should pass it is an open owner question in ADR-0015. Evidence:
+`jxl_alpha_tests::rendered_icc_reads_engine_written_straight_alpha`,
+`strict_policy_still_refuses_engine_written_jpeg_xl`,
+`associated_alpha_is_refused`.
+
+The lossless reservation follows the measured one-shot peak since 2026-11-13
+(#223, ADR-0039 amendment): under the default 256 MiB `--budget-mb` the
+largest lossless JPEG XL output falls from about 9.5 MP to about 3.5 MP, and
+larger requests fail with `BudgetExceeded` before encoding instead of
+exceeding the budget in opaque codec memory. A measured peak with alpha and
+the lossy estimate are still open (#223). JPEG output does not exist and is
+not planned.
 
 ## Limits and memory
 
@@ -260,7 +281,7 @@ used. Every place in the workspace that selects code at run time:
 | --- | --- | --- | --- | --- | --- |
 | Engine kernels (`crates/ferrisma-kernels`) | `src/dispatch.rs` `supports`/`detect_machine`; `src/lib.rs` `select` | `Avx512` (`dispatch.rs` `mod avx512`, `lanes.rs`); `Sve2` detected only | `Avx2` / `Neon` (`DEFAULT_CEILING`); reason `DefaultCeiling` when capped | `kernel_level_ceiling = Some(KernelLevel::Avx512)`, `--kernel-level=avx512`, `Kernels::with_ceiling(IsaLevel::Avx512)` | first-party |
 | skcms in `libjxl-rs` (ICC transforms) | `src/skcms/transform.rs` `cpu_type` and `engine` | SKX engine, `src/skcms/transform_x86.rs` `run_program_skx` (AVX-512F/DQ/CD/BW/VL) | HSW (AVX2/F16C) on AVX-512 CPUs; baseline NEON on AArch64 | Cargo feature `libjxl-rs/skcms-skx` | skcms built with `-DSKCMS_DISABLE_SKX` |
-| `libjxl-rs` outside skcms | none at run time | none | as built | — | — |
+| `libjxl-rs` decoder outside skcms | `src/jxl/hwy/mod.rs` `decoder_default_target` (`Target::detect()` when `DECODER_SELECTS_SIMD`), applied only inside decoder entry points (port ADR 0004, "Scope of the selection") | none: only `HWY_NEON` and `HWY_AVX2` are translated, and `Target::detect` never selects AVX-512 or SVE | NEON on AArch64 since 2026-11-14; scalar on x86-64 (AVX2 is translated but not selected by default); the encoder runs scalar on every target | none for callers; tests use `set_decoder_simd_for_test` and, in oracle builds, `JXL_DECODER_TARGET=scalar` | Highway dispatch with every target above `HWY_NEON`/`HWY_AVX2` in `HWY_DISABLED_TARGETS` |
 | AOM (`libavif-rs/crates/aom`) | translated RTCD: `x86_simd_caps()` (generated `src/linux/*/…_rtcd.rs`, reports `HAS_AVX512`), `aom_arm_cpu_caps()` (`src/simd/aom_ports/aarch64_cpudetect.rs`, reports DotProd and I8MM) | none: no AVX-512, DotProd, I8MM or SVE kernel is translated, and the RTCD generator runs with `--disable-avx512` and `--disable-neon_dotprod/neon_i8mm/sve/sve2`, so no table entry dispatches on those flags (`tests/dispatch_scope.rs`) | SSE2/SSE4.1/AVX2; Neon | none (nothing to opt into; `AOM_SIMD_CAPS`/`AOM_SIMD_CAPS_MASK` only lower the selection) | CMake `-DENABLE_AVX512=0` (x86-64); `-DENABLE_NEON_DOTPROD=0 -DENABLE_NEON_I8MM=0 -DENABLE_SVE=0 -DENABLE_SVE2=0` (arm64); at run time `AOM_SIMD_CAPS_MASK=0x1ff` (x86-64) or `0x3` (arm64) |
 | dav1d (`libavif-rs/crates/dav1d`) | none: no assembly, `dav1d_init_cpu` is empty | none | scalar | — | `-Denable_asm=false` |
 | SharpYUV (`libavif-rs/crates/sharpyuv`, `crates/libsharpyuv-core`) | CPU query translated, SIMD conversion disabled | none | scalar | — | — |

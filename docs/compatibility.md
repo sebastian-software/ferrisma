@@ -68,6 +68,10 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   (1,048,576 bytes); `--max-input-mpx` counts millions of pixels (10^6).
 - Exit status 0 means success; 2 means too few arguments (usage is printed);
   1 means any other error, with `Error: …` on standard error.
+- `--version` or `-V`, anywhere after the program name, prints four lines
+  (package version, target, compiled engine features, build identity) and
+  exits 0 without reading input (since 2026-11-13, #237). ADR-0040 does not
+  yet assign the flag or its output to a stability tier.
 - The `report:` line on standard output has stable keys with integer
   values; new keys may be added. The other output lines are for people and
   may change.

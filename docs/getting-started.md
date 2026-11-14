@@ -22,6 +22,11 @@ cargo run --release --features cli -- \
   drawing.webp resized.webp 800 600 --assume-srgb --webp-lossless --webp-level=6
 ```
 
+`--version` (or `-V`) prints four lines and exits without reading input: the
+package version, the target, the compiled engine features, and the build
+identity, which is `unknown` unless `FERRISMA_BUILD_ID` was set at compile
+time (`src/cli.rs`, #237).
+
 The `cli` feature enables JPEG, still WebP, JPEG XL and AVIF input, AVIF and
 still WebP output, and ICC support. Since 2026-11-12 the default AVIF encoder
 is the workspace libavif/AOM writer (`avif-own-write`, 10-bit unless
@@ -62,12 +67,21 @@ cargo run --release --features cli -- \
 
 The default decoder has no region request: it decodes and budgets a complete
 F32 input frame for every request, including crops, and reports a full-frame
-fallback. On the one [recorded photo comparison](benchmarks/M2-jxl-input-switch.md)
-it was about 3.6× slower than `jxl-oxide` for a full decode and 9.5× slower for
-a center crop; the owner accepted the workspace decoder as the default even
-where it is slower on 2026-11-13
+fallback. The owner accepted the workspace decoder as the default even where
+it is slower on 2026-11-13
 ([ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1,
-[ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)).
+[ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)); its speed is
+reported against libjxl, the original it ports, and jxl-oxide is context only
+(ADR-0041 section 6). The [jxl-oxide comparison of 2026-11-11](benchmarks/M2-jxl-input-switch.md)
+(about 3.6× slower for a full decode and 9.5× slower for a center crop, one
+photo recompressed from a JPEG) describes the decoder before its SIMD path and has
+not been repeated since; it is superseded as a description of today's
+decoder. Since 2026-11-14 the decoder selects its NEON path on AArch64; on
+x86-64 it runs the scalar path. The
+[AArch64 record of 2026-11-14](benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md)
+measured it at 1.3–2.9× the time of libjxl's NEON build with one thread on
+eight inputs, and at 1.28× and 1.57× on the two inputs measured again after
+the render-pipeline changes (one machine; no x86-64 numbers).
 
 Use `--assume-srgb` only when you accept that assumption for the input. For a
 supported rendered RGB ICC profile, `--use-rendered-icc` selects the explicit
