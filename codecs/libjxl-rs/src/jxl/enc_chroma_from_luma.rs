@@ -179,6 +179,15 @@ fn init_dc_storage(
     num_blocks: usize,
     dc_values: &mut ImageF,
 ) -> Status {
+    // HWY_DYNAMIC_DISPATCH(InitDCStorage) (port ADR 0004, "Encoder path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_chroma_from_luma_simd::init_dc_storage_simd(
+            target,
+            memory_manager,
+            num_blocks,
+            dc_values,
+        );
+    }
     // First row: Y channel
     // Second row: X channel
     // Third row: Y channel

@@ -150,3 +150,7 @@ pub mod enc_group_simd;
 pub mod enc_transforms_simd;
 pub mod enc_xyb_simd;
 // end encoder simd
+// encoder cfl: the encoder's chroma-from-luma SIMD kernels (port ADR 0004,
+// "Encoder path").
+pub mod enc_chroma_from_luma_simd;
+// end encoder cfl

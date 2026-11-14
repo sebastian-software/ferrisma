@@ -391,3 +391,7 @@ set_source_files_properties(color_stages_simd.cc PROPERTIES COMPILE_OPTIONS -fno
 # "Encoder path"). The TU only calls the original's exported functions.
 target_sources(jxl_oracle PRIVATE encoder_simd.cc)
 # end encoder simd
+# encoder cfl: requests of the encoder's chroma-from-luma SIMD kernels (port
+# ADR 0004, "Encoder path"). The TU only calls the original's public API.
+target_sources(jxl_oracle PRIVATE encoder_cfl_simd.cc)
+# end encoder cfl
