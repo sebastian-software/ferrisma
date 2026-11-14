@@ -6,8 +6,12 @@
 //! ModularFrameDecoder storage, Init, DecodeGlobalInfo, and MaybeDropFullImage
 //! retain their complete source control flow. DecodeGroup, image-to-pipeline
 //! conversion use the original null-pool/simple-pipeline configuration;
-//! FinalizeDecoding runs its transforms and groups on the frame's pool, with a
-//! runner's tasks serialized by `run_on_pool_exclusive`. VarDCT DC and AC metadata decoding preserve their reached
+//! FinalizeDecoding runs its transforms and groups on the frame's pool: the
+//! transforms' row tasks serialized by `run_on_pool_exclusive`, the group
+//! tasks concurrently through `run_on_pool_shared` (port ADR 0003,
+//! "Concurrent decoder tasks"), as DecodeGroup's are in the frame decoder,
+//! which reads `ModularGroupContext` and defers its full-image writes to
+//! `PendingGroupWrite`. VarDCT DC and AC metadata decoding preserve their reached
 //! dequantization, context, strategy, sharpness, and sigma updates. Full decoder
 //! state orchestration and debug descriptions remain
 //! unported. The three Highway
@@ -18,7 +22,7 @@
 
 use super::ac_strategy::{AcStrategy, AcStrategyType};
 use super::base::bits::ceil_log2_nonzero;
-use super::base::data_parallel::{ThreadPool, run_on_pool_exclusive};
+use super::base::data_parallel::{ExclusiveSection, ThreadPool, run_on_pool_shared};
 use super::base::rect::Rect;
 use super::base::status::{Status, StatusCode, StatusOr};
 use super::compressed_dc::dequant_dc;
@@ -40,7 +44,7 @@ use super::modular::modular_image::{Channel, Image};
 use super::modular::options::ModularOptions;
 use super::modular::transform::transform::{Transform, TransformId};
 use super::passes_state::PassesSharedState;
-use super::quant_weights::NUM_QUANT_TABLES;
+use super::quant_weights::{DequantMatrices, NUM_QUANT_TABLES};
 use super::quantizer::Quantizer;
 use super::render_pipeline::render_pipeline::RenderPipeline;
 use super::render_pipeline::simple_render_pipeline::RenderPipelineInput;
@@ -701,10 +705,6 @@ impl ModularFrameDecoder {
         clippy::too_many_arguments,
         reason = "Keep original group, shift, reader, state, and output checkpoint parameters."
     )]
-    #[expect(
-        clippy::collapsible_if,
-        reason = "Mirror the source nested conditions."
-    )]
     pub fn decode_group(
         &mut self,
         header: &FrameHeader<'_>,
@@ -719,6 +719,137 @@ impl ModularFrameDecoder {
         allow_truncated: bool,
         should_run_pipeline: Option<&mut bool>,
     ) -> Status {
+        let (context, full_image) = self.split_for_groups();
+        context
+            .decode_group(
+                header,
+                rect,
+                reader,
+                min_shift,
+                max_shift,
+                stream,
+                zerofill,
+                shared.map(|shared| &shared.matrices),
+                input,
+                allow_truncated,
+                should_run_pipeline,
+            )?
+            .write_to(full_image)
+    }
+    /// The group-decoding state, borrowed apart from the full image's
+    /// planes, which only `PendingGroupWrite::write_to` writes (port ADR
+    /// 0003, "Concurrent decoder tasks").
+    pub fn split_for_groups(&mut self) -> (ModularGroupContext<'_>, &mut Image) {
+        let channels = self
+            .full_image
+            .channel
+            .iter()
+            .map(|ch| ChannelGeometry {
+                w: ch.w,
+                h: ch.h,
+                hshift: ch.hshift,
+                vshift: ch.vshift,
+            })
+            .collect();
+        let context = ModularGroupContext {
+            memory_manager: self.memory_manager,
+            frame_dim: self.frame_dim,
+            do_color: self.do_color,
+            use_full_image: self.use_full_image,
+            tree: &self.tree,
+            code: &self.code,
+            context_map: &self.context_map,
+            global_header: &self.global_header,
+            global_transform: &self.global_transform,
+            bitdepth: self.full_image.bitdepth,
+            nb_meta_channels: self.full_image.nb_meta_channels,
+            channels,
+        };
+        (context, &mut self.full_image)
+    }
+    /// Original ModularImageToDecodedRect with a null pool. Its only decoder
+    /// state read is shared->matrices; the actual shared owner is borrowed.
+    pub fn modular_image_to_decoded_rect(
+        &self,
+        header: &FrameHeader<'_>,
+        gi: &Image,
+        shared: Option<&PassesSharedState<'_>>,
+        input: &mut RenderPipelineInput<'_, '_>,
+        modular_rect: Rect,
+    ) -> Status {
+        self.group_context().modular_image_to_decoded_rect(
+            header,
+            gi,
+            shared.map(|shared| &shared.matrices),
+            input,
+            modular_rect,
+        )
+    }
+    /// The group-decoding state without the full image's planes.
+    pub fn group_context(&self) -> ModularGroupContext<'_> {
+        ModularGroupContext {
+            memory_manager: self.memory_manager,
+            frame_dim: self.frame_dim,
+            do_color: self.do_color,
+            use_full_image: self.use_full_image,
+            tree: &self.tree,
+            code: &self.code,
+            context_map: &self.context_map,
+            global_header: &self.global_header,
+            global_transform: &self.global_transform,
+            bitdepth: self.full_image.bitdepth,
+            nb_meta_channels: self.full_image.nb_meta_channels,
+            channels: Vec::new(),
+        }
+    }
+}
+
+/// The ModularFrameDecoder state that DecodeGroup and
+/// ModularImageToDecodedRect read, apart from the full image's planes (port
+/// ADR 0003, "Concurrent decoder tasks"): the global tree, code and context
+/// map, the transforms, the flags and a copy of the full image's channel
+/// geometry. It is `Sync`, so group tasks read it concurrently; the planes
+/// are written only through `PendingGroupWrite::write_to`.
+pub struct ModularGroupContext<'a> {
+    memory_manager: MemoryManagerPtr,
+    frame_dim: FrameDimensions,
+    do_color: bool,
+    use_full_image: bool,
+    tree: &'a Tree,
+    code: &'a ANSCode,
+    context_map: &'a [u8],
+    global_header: &'a GroupHeader,
+    global_transform: &'a [Transform],
+    bitdepth: i32,
+    nb_meta_channels: usize,
+    channels: Vec<ChannelGeometry>,
+}
+impl ModularGroupContext<'_> {
+    pub fn use_full_image(&self) -> bool {
+        self.use_full_image
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Keep original group, shift, reader, state, and output checkpoint parameters."
+    )]
+    #[expect(
+        clippy::collapsible_if,
+        reason = "Mirror the source nested conditions."
+    )]
+    pub fn decode_group(
+        &self,
+        header: &FrameHeader<'_>,
+        rect: Rect,
+        reader: Option<&mut BitReader<'_>>,
+        min_shift: i32,
+        max_shift: i32,
+        stream: &ModularStreamId,
+        zerofill: bool,
+        shared: Option<&DequantMatrices>,
+        input: Option<&mut RenderPipelineInput<'_, '_>>,
+        allow_truncated: bool,
+        should_run_pipeline: Option<&mut bool>,
+    ) -> StatusOr<PendingGroupWrite> {
         if stream.kind != ModularStreamKind::MODULAR_DC
             && stream.kind != ModularStreamKind::MODULAR_AC
         {
@@ -728,19 +859,19 @@ impl ModularFrameDecoder {
             self.memory_manager,
             rect.xsize(),
             rect.ysize(),
-            self.full_image.bitdepth,
+            self.bitdepth,
             0,
         )?;
-        let mut c = self.full_image.nb_meta_channels;
-        while c < self.full_image.channel.len() {
-            let fc = &self.full_image.channel[c];
+        let mut c = self.nb_meta_channels;
+        while c < self.channels.len() {
+            let fc = &self.channels[c];
             if fc.w > self.frame_dim.group_dim || fc.h > self.frame_dim.group_dim {
                 break;
             }
             c += 1;
         }
         let beginc = c;
-        for fc in self.full_image.channel.iter_mut().skip(c) {
+        for fc in self.channels.iter().skip(c) {
             let shift = fc.hshift.min(fc.vshift);
             if shift > max_shift {
                 continue;
@@ -760,9 +891,7 @@ impl ModularFrameDecoder {
                 continue;
             }
             if zerofill && self.use_full_image {
-                for y in 0..r.ysize() {
-                    fc.plane.row_mut(r.y0() + y)[r.x0()..r.x1()].fill(0);
-                }
+                // PendingGroupWrite::ZeroFill clears this rect of the plane.
             } else {
                 let mut gc = Channel::create_in(self.memory_manager, r.xsize(), r.ysize(), 0, 0)?;
                 if zerofill {
@@ -774,7 +903,12 @@ impl ModularFrameDecoder {
             }
         }
         if zerofill && self.use_full_image {
-            return Ok(());
+            return Ok(PendingGroupWrite::ZeroFill {
+                rect,
+                min_shift,
+                max_shift,
+                beginc,
+            });
         }
         if gi.channel.is_empty() {
             if let (Some(_), Some(should)) = (shared, should_run_pipeline) {
@@ -789,7 +923,7 @@ impl ModularFrameDecoder {
                     *should = false;
                 }
             }
-            return Ok(());
+            return Ok(PendingGroupWrite::None);
         }
         let mut options = ModularOptions::default();
         if !zerofill {
@@ -800,69 +934,164 @@ impl ModularFrameDecoder {
                 stream.id(&self.frame_dim),
                 &mut options,
                 true,
-                Some(&self.tree),
-                Some(&self.code),
-                Some(&self.context_map),
+                Some(self.tree),
+                Some(self.code),
+                Some(self.context_map),
                 allow_truncated,
             );
             if !allow_truncated {
                 status?;
             }
-            if status.is_err_and(StatusCode::is_fatal_error) {
-                return status;
+            if let Err(e) = status
+                && e.is_fatal_error()
+            {
+                return Err(e);
             }
         }
         if !self.use_full_image {
             let input = input.ok_or(StatusCode::GenericError)?;
-            for t in &self.global_transform {
+            for t in self.global_transform {
                 t.inverse(&mut gi, &self.global_header.wp_header, None)?;
             }
             let r = Rect::new(0, 0, gi.w, gi.h);
             self.modular_image_to_decoded_rect(header, &gi, shared, input, r)?;
-            return Ok(());
+            return Ok(PendingGroupWrite::None);
         }
-        let mut gic = 0usize;
-        for fc in self.full_image.channel.iter_mut().skip(beginc) {
-            let shift = fc.hshift.min(fc.vshift);
-            if shift > max_shift {
-                continue;
-            }
-            if shift < min_shift {
-                continue;
-            }
-            let r = Rect::new_clamped(
-                shift_right(rect.x0(), fc.hshift),
-                shift_right(rect.y0(), fc.vshift),
-                shift_right(rect.xsize(), fc.hshift),
-                shift_right(rect.ysize(), fc.vshift),
-                fc.w,
-                fc.h,
-            );
-            if r.xsize() == 0 || r.ysize() == 0 {
-                continue;
-            }
-            if !self.use_full_image {
-                return Err(StatusCode::GenericError);
-            }
-            copy_rect_to(
-                Rect::new(0, 0, r.xsize(), r.ysize()),
-                &gi.channel[gic].plane,
-                r,
-                &mut fc.plane,
-            )?;
-            gic += 1;
-        }
-        Ok(())
+        Ok(PendingGroupWrite::Copy {
+            gi,
+            rect,
+            min_shift,
+            max_shift,
+            beginc,
+            use_full_image: self.use_full_image,
+        })
     }
+}
+
+/// The geometry of one full-image channel, read by group decoding while
+/// other groups write the channel's plane.
+#[derive(Clone, Copy)]
+struct ChannelGeometry {
+    w: usize,
+    h: usize,
+    hshift: i32,
+    vshift: i32,
+}
+
+/// The rest of DecodeGroup that writes the full image: the zero fill of an
+/// absent pass or the copy of the decoded group image (port ADR 0003,
+/// "Concurrent decoder tasks"). Groups write disjoint rects, so the order of
+/// the writes of different groups does not change the image.
+pub enum PendingGroupWrite {
+    None,
+    ZeroFill {
+        rect: Rect,
+        min_shift: i32,
+        max_shift: i32,
+        beginc: usize,
+    },
+    Copy {
+        gi: Image,
+        rect: Rect,
+        min_shift: i32,
+        max_shift: i32,
+        beginc: usize,
+        use_full_image: bool,
+    },
+}
+impl PendingGroupWrite {
+    /// Completes DecodeGroup on `full_image`, the decoder's full image whose
+    /// geometry the group was decoded with. The decoded group image is
+    /// released afterwards, at DecodeGroup's end.
+    pub fn write_to(self, full_image: &mut Image) -> Status {
+        match self {
+            Self::None => Ok(()),
+            Self::ZeroFill {
+                rect,
+                min_shift,
+                max_shift,
+                beginc,
+            } => {
+                for fc in full_image.channel.iter_mut().skip(beginc) {
+                    let shift = fc.hshift.min(fc.vshift);
+                    if shift > max_shift {
+                        continue;
+                    }
+                    if shift < min_shift {
+                        continue;
+                    }
+                    let r = Rect::new_clamped(
+                        shift_right(rect.x0(), fc.hshift),
+                        shift_right(rect.y0(), fc.vshift),
+                        shift_right(rect.xsize(), fc.hshift),
+                        shift_right(rect.ysize(), fc.vshift),
+                        fc.w,
+                        fc.h,
+                    );
+                    if r.xsize() == 0 || r.ysize() == 0 {
+                        continue;
+                    }
+                    for y in 0..r.ysize() {
+                        fc.plane.row_mut(r.y0() + y)[r.x0()..r.x1()].fill(0);
+                    }
+                }
+                Ok(())
+            }
+            Self::Copy {
+                gi,
+                rect,
+                min_shift,
+                max_shift,
+                beginc,
+                use_full_image,
+            } => {
+                let mut gic = 0usize;
+                for fc in full_image.channel.iter_mut().skip(beginc) {
+                    let shift = fc.hshift.min(fc.vshift);
+                    if shift > max_shift {
+                        continue;
+                    }
+                    if shift < min_shift {
+                        continue;
+                    }
+                    let r = Rect::new_clamped(
+                        shift_right(rect.x0(), fc.hshift),
+                        shift_right(rect.y0(), fc.vshift),
+                        shift_right(rect.xsize(), fc.hshift),
+                        shift_right(rect.ysize(), fc.vshift),
+                        fc.w,
+                        fc.h,
+                    );
+                    if r.xsize() == 0 || r.ysize() == 0 {
+                        continue;
+                    }
+                    if !use_full_image {
+                        return Err(StatusCode::GenericError);
+                    }
+                    copy_rect_to(
+                        Rect::new(0, 0, r.xsize(), r.ysize()),
+                        &gi.channel[gic].plane,
+                        r,
+                        &mut fc.plane,
+                    )?;
+                    gic += 1;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl ModularGroupContext<'_> {
     /// Original ModularImageToDecodedRect with a null pool. Its only decoder
-    /// state read is shared->matrices; the actual shared owner is borrowed.
+    /// state read is shared->matrices, borrowed as `shared`.
     /// Source input image rows are only read, so gi has an immutable borrow.
     #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
     pub fn modular_image_to_decoded_rect(
         &self,
         header: &FrameHeader<'_>,
         gi: &Image,
-        shared: Option<&PassesSharedState<'_>>,
+        shared: Option<&DequantMatrices>,
         input: &mut RenderPipelineInput<'_, '_>,
         modular_rect: Rect,
     ) -> Status {
@@ -879,9 +1108,9 @@ impl ModularFrameDecoder {
             let fp = metadata.m.bit_depth.floating_point_sample
                 && header.color_transform != ColorTransform::XYB;
             while c < 3 {
-                let mut factor = if self.full_image.bitdepth < 32 {
-                    assert!(self.full_image.bitdepth >= 0, "source shift precondition");
-                    1.0 / f64::from((1u32 << self.full_image.bitdepth) - 1)
+                let mut factor = if self.bitdepth < 32 {
+                    assert!(self.bitdepth >= 0, "source shift precondition");
+                    1.0 / f64::from((1u32 << self.bitdepth) - 1)
                 } else {
                     0.0
                 };
@@ -890,7 +1119,6 @@ impl ModularFrameDecoder {
                     factor = f64::from(
                         shared
                             .expect("source XYB conversion requires decoder shared state")
-                            .matrices
                             .dc_quants()[c],
                     );
                     if c < 2 {
@@ -975,7 +1203,7 @@ impl ModularFrameDecoder {
                         let y = task as usize;
                         let row_in = &ch.row(mr.y0() + y)[mr.x0()..];
                         if rgb_from_gray {
-                            if self.full_image.bitdepth < 23 {
+                            if self.bitdepth < 23 {
                                 let mut buffers = input.get_buffers_mut();
                                 let (r, rr) = buffers.next().expect("source RGB buffer");
                                 let (g, gr) = buffers.next().expect("source RGB buffer");
@@ -1017,7 +1245,7 @@ impl ModularFrameDecoder {
                         } else {
                             let (out, rect) = input.get_buffer_mut(c);
                             let row_out = &mut out.row_mut(rect.y0() + y)[rect.x0()..];
-                            if self.full_image.bitdepth < 23 {
+                            if self.bitdepth < 23 {
                                 // HWY_DYNAMIC_DISPATCH(SingleFromSingle) (port ADR 0004).
                                 match decoder_target() {
                                     Some(t) => single_from_single_simd(
@@ -1081,7 +1309,7 @@ impl ModularFrameDecoder {
                 let row_out = &mut out.row_mut(rect.y0() + y)[rect.x0()..];
                 if fp {
                     int_to_float(row_in, row_out, r.xsize(), bits, exp)?;
-                } else if self.full_image.bitdepth < 23 {
+                } else if self.bitdepth < 23 {
                     // HWY_DYNAMIC_DISPATCH(SingleFromSingle) (port ADR 0004).
                     match decoder_target() {
                         Some(t) => {
@@ -1097,6 +1325,9 @@ impl ModularFrameDecoder {
         }
         Ok(())
     }
+}
+
+impl ModularFrameDecoder {
     /// FinalizeDecoding's original full-image move/clone, transforms, and group
     /// rendering on the frame's pool, with either original pipeline
     /// implementation. The shared/pipeline field borrows replace the
@@ -1148,33 +1379,70 @@ impl ModularFrameDecoder {
             pipeline.prepare_for_threads(num_threads, use_group_ids)?;
             Ok(())
         };
-        let this = &*self;
-        let process_group = |pipeline: &mut (dyn RenderPipeline<'p> + 'p),
-                             group: u32,
-                             thread_id: usize|
-         -> Status {
-            let mut input = pipeline.get_input_buffers(group as usize, thread_id);
-            this.modular_image_to_decoded_rect(
-                header,
-                &gi,
-                Some(shared),
-                &mut input,
-                shared.frame_dim.group_rect(group as usize),
-            )?;
-            input.done()?;
-            Ok(())
-        };
-        // SAFETY: The tasks use the pipeline, whose stages share decoder
-        // owners through Rc/RefCell handles (ADR 0003), and shared borrows of
-        // this decoder, the image and the frame state. None holds a
-        // thread-affine value, and the frame decoder does not use those owners
-        // until this call returns.
+        // The tasks read the image, this decoder's group context, the
+        // matrices and the frame dimensions concurrently and fill lent
+        // pipeline input; the pipeline is entered in exclusive sections (ADR
+        // 0003, "Concurrent decoder tasks").
+        let context = self.group_context();
+        let gi = &gi;
+        let frame_dim = &shared.frame_dim;
+        let matrices = &shared.matrices;
+        let read = (header, gi, &context, frame_dim, matrices);
+        let init = |_: &_,
+                    pipeline: &mut &mut (dyn RenderPipeline<'p> + 'p),
+                    num_threads: usize| { init(&mut **pipeline, num_threads) };
+        let process_group =
+            |&(header, gi, context, frame_dim, matrices): &(
+                &FrameHeader<'_>,
+                &Image,
+                &ModularGroupContext<'_>,
+                &FrameDimensions,
+                &DequantMatrices,
+            ),
+             pipeline: &ExclusiveSection<'_, &mut (dyn RenderPipeline<'p> + 'p)>,
+             group: u32,
+             thread_id: usize|
+             -> Status {
+                let group = group as usize;
+                let lent = pipeline.with(|p| p.lend_input_buffers(group, thread_id));
+                let Some(mut input) = lent else {
+                    // The simple pipeline's input is the whole frame: fill it in
+                    // the exclusive section.
+                    return pipeline.with(|p| {
+                        let mut input = p.get_input_buffers(group, thread_id);
+                        context.modular_image_to_decoded_rect(
+                            header,
+                            gi,
+                            Some(matrices),
+                            &mut input,
+                            frame_dim.group_rect(group),
+                        )?;
+                        input.done()
+                    });
+                };
+                let status = context.modular_image_to_decoded_rect(
+                    header,
+                    gi,
+                    Some(matrices),
+                    &mut input,
+                    frame_dim.group_rect(group),
+                );
+                pipeline.with(|p| p.return_input_buffers(input, status.is_ok()))?;
+                status
+            };
+        let mut pipeline = pipeline;
+        // SAFETY: The exclusive part is the pipeline, whose stages share
+        // decoder owners through Rc/RefCell handles (ADR 0003); the tasks move
+        // only lent input planes out of it. None holds a thread-affine value,
+        // and the frame decoder does not use those owners until this call
+        // returns. The shared part is plain data, checked Sync.
         unsafe {
-            run_on_pool_exclusive(
+            run_on_pool_shared(
                 pool,
                 0,
                 shared.frame_dim.num_groups as u32,
-                pipeline,
+                &read,
+                &mut pipeline,
                 init,
                 process_group,
             )

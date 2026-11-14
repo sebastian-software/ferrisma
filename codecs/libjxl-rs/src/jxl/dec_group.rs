@@ -4,6 +4,13 @@
 //! AC block entropy decoding and GetBlockFromBitstream scheduling from
 //! lib/jxl/dec_group.cc. Typed borrows replace ACPtr and owner-relative row
 //! offsets replace cached C++ pointers. Rendering is in dec_group_render.
+//!
+//! The group bodies read the frame's shared state through
+//! `GroupDecoderShared`, a `Sync` view of the PassesSharedState fields they
+//! use, so that AC groups can decode concurrently on a runner's threads (port
+//! ADR 0003, "Concurrent decoder tasks"). The view lends the DC image and the
+//! base color correlation from the guards its caller holds; the entry points
+//! that take a `PassesSharedState` build it for the length of their call.
 
 use super::ac_context::{BlockCtxMap, zero_density_context};
 use super::ac_strategy::AcStrategy;
@@ -102,6 +109,123 @@ pub fn decode_ac_var_block<const USES_LZ77: bool>(
     Ok(())
 }
 
+/// The PassesSharedState fields a group body reads, as plain shared
+/// references (port ADR 0003, "Concurrent decoder tasks"). The source passes
+/// `dec_state->shared`; its owner also holds `Rc`/`RefCell` handles
+/// (reference frames, image features, the color-correlation base), so it is
+/// not `Sync`. This view is: the DC image and the base correlation are lent
+/// from `Ref` guards that the view's creator holds while it is in use.
+pub struct GroupDecoderShared<'a> {
+    pub frame_dim: super::frame_dimensions::FrameDimensions,
+    pub ac_strategy: &'a super::ac_strategy::AcStrategyImage,
+    pub matrices: &'a super::quant_weights::DequantMatrices,
+    pub quantizer: &'a super::quantizer::Quantizer,
+    pub raw_quant_field: &'a super::image::Plane<i32>,
+    pub cmap: ColorCorrelationView<'a>,
+    pub coeff_order_size: usize,
+    pub coeff_orders: &'a [CoeffOrder],
+    pub quant_dc: &'a super::image::Plane<u8>,
+    pub block_ctx_map: &'a BlockCtxMap,
+    pub num_histograms: usize,
+    // None while the DC image is a DC frame's, which another frame's output
+    // stage may borrow mutably: the caller then lends it per group
+    // (`with_dc`).
+    dc: Option<&'a super::image::Image3<f32>>,
+    memory_manager: super::memory_manager_internal::MemoryManagerPtr,
+}
+/// The ColorCorrelationMap fields a group body reads, with its base
+/// correlation lent from the caller's guard.
+pub struct ColorCorrelationView<'a> {
+    pub ytox_map: &'a super::image::Plane<i8>,
+    pub ytob_map: &'a super::image::Plane<i8>,
+    base: &'a super::chroma_from_luma::ColorCorrelation,
+}
+impl<'a> ColorCorrelationView<'a> {
+    pub fn base(&self) -> &'a super::chroma_from_luma::ColorCorrelation {
+        self.base
+    }
+}
+impl<'a> GroupDecoderShared<'a> {
+    /// `dc` is `shared.dc()` (or None, see `with_dc`) and `cmap_base` is
+    /// `shared.cmap.base()`, both borrowed from guards the caller holds
+    /// while the view is used.
+    pub fn new(
+        shared: &'a super::passes_state::PassesSharedState<'_>,
+        dc: Option<&'a super::image::Image3<f32>>,
+        cmap_base: &'a super::chroma_from_luma::ColorCorrelation,
+    ) -> Self {
+        Self {
+            frame_dim: shared.frame_dim,
+            ac_strategy: &shared.ac_strategy,
+            matrices: &shared.matrices,
+            quantizer: &shared.quantizer,
+            raw_quant_field: &shared.raw_quant_field,
+            cmap: ColorCorrelationView {
+                ytox_map: &shared.cmap.ytox_map,
+                ytob_map: &shared.cmap.ytob_map,
+                base: cmap_base,
+            },
+            coeff_order_size: shared.coeff_order_size,
+            coeff_orders: &shared.coeff_orders,
+            quant_dc: &shared.quant_dc,
+            block_ctx_map: &shared.block_ctx_map,
+            num_histograms: shared.num_histograms,
+            dc,
+            memory_manager: shared.memory_manager(),
+        }
+    }
+    pub fn dc(&self) -> &'a super::image::Image3<f32> {
+        self.dc.expect("the view's creator lends the DC image")
+    }
+    /// The same view with `dc` as its DC image.
+    pub fn with_dc<'b>(&self, dc: &'b super::image::Image3<f32>) -> GroupDecoderShared<'b>
+    where
+        'a: 'b,
+    {
+        GroupDecoderShared {
+            frame_dim: self.frame_dim,
+            ac_strategy: self.ac_strategy,
+            matrices: self.matrices,
+            quantizer: self.quantizer,
+            raw_quant_field: self.raw_quant_field,
+            cmap: ColorCorrelationView {
+                ytox_map: self.cmap.ytox_map,
+                ytob_map: self.cmap.ytob_map,
+                base: self.cmap.base,
+            },
+            coeff_order_size: self.coeff_order_size,
+            coeff_orders: self.coeff_orders,
+            quant_dc: self.quant_dc,
+            block_ctx_map: self.block_ctx_map,
+            num_histograms: self.num_histograms,
+            dc: Some(dc),
+            memory_manager: self.memory_manager,
+        }
+    }
+    pub fn memory_manager(&self) -> super::memory_manager_internal::MemoryManagerPtr {
+        self.memory_manager
+    }
+}
+/// Runs `f` with the view of `shared`, holding its DC and base-correlation
+/// guards for the call.
+pub fn with_group_shared<R>(
+    shared: &super::passes_state::PassesSharedState<'_>,
+    f: impl FnOnce(&GroupDecoderShared<'_>) -> R,
+) -> R {
+    let dc = shared.dc();
+    let base = shared.cmap.base();
+    f(&GroupDecoderShared::new(shared, Some(&dc), &base))
+}
+/// The shared tables GetBlockFromBitstream::Init reads.
+struct BlockTables<'a> {
+    coeff_order_size: usize,
+    coeff_orders: &'a [CoeffOrder],
+    num_histograms: usize,
+    block_ctx_map: &'a BlockCtxMap,
+    raw_quant_field: &'a super::image::Plane<i32>,
+    quant_dc: &'a super::image::Plane<u8>,
+}
+
 /// Original GetBlock virtual boundary used by the group traversal.
 pub trait GetBlock {
     fn start_row(&mut self, by: usize);
@@ -157,6 +281,75 @@ impl<'a, 'r, 'input> GetBlockFromBitstream<'a, 'r, 'input> {
         context_map: &'a [Vec<u8>],
         first_pass: usize,
     ) -> super::base::status::StatusOr<Self> {
+        let tables = BlockTables {
+            coeff_order_size: shared.coeff_order_size,
+            coeff_orders: &shared.coeff_orders,
+            num_histograms: shared.num_histograms,
+            block_ctx_map: &shared.block_ctx_map,
+            raw_quant_field: &shared.raw_quant_field,
+            quant_dc: &shared.quant_dc,
+        };
+        Self::init_tables(
+            frame_header,
+            readers,
+            num_passes,
+            histo_selector_bits,
+            rect,
+            num_nzeroes,
+            tables,
+            code,
+            context_map,
+            first_pass,
+        )
+    }
+    /// Init through the shared view.
+    #[allow(clippy::too_many_arguments)] // Preserve the source initialization inputs.
+    pub fn init_shared(
+        frame_header: &'a super::frame_header::FrameHeader<'_>,
+        readers: &'r mut [BitReader<'input>],
+        num_passes: usize,
+        histo_selector_bits: usize,
+        rect: super::base::rect::Rect,
+        num_nzeroes: &'r mut [super::image::Image3<i32>; super::common::MAX_NUM_PASSES],
+        shared: &GroupDecoderShared<'a>,
+        code: &'a [super::dec_ans::ANSCode],
+        context_map: &'a [Vec<u8>],
+        first_pass: usize,
+    ) -> super::base::status::StatusOr<Self> {
+        let tables = BlockTables {
+            coeff_order_size: shared.coeff_order_size,
+            coeff_orders: shared.coeff_orders,
+            num_histograms: shared.num_histograms,
+            block_ctx_map: shared.block_ctx_map,
+            raw_quant_field: shared.raw_quant_field,
+            quant_dc: shared.quant_dc,
+        };
+        Self::init_tables(
+            frame_header,
+            readers,
+            num_passes,
+            histo_selector_bits,
+            rect,
+            num_nzeroes,
+            tables,
+            code,
+            context_map,
+            first_pass,
+        )
+    }
+    #[allow(clippy::too_many_arguments)] // Preserve the source initialization inputs.
+    fn init_tables(
+        frame_header: &'a super::frame_header::FrameHeader<'_>,
+        readers: &'r mut [BitReader<'input>],
+        num_passes: usize,
+        histo_selector_bits: usize,
+        rect: super::base::rect::Rect,
+        num_nzeroes: &'r mut [super::image::Image3<i32>; super::common::MAX_NUM_PASSES],
+        shared: BlockTables<'a>,
+        code: &'a [super::dec_ans::ANSCode],
+        context_map: &'a [Vec<u8>],
+        first_pass: usize,
+    ) -> super::base::status::StatusOr<Self> {
         let hshift = std::array::from_fn(|c| frame_header.chroma_subsampling.h_shift(c));
         let vshift = std::array::from_fn(|c| frame_header.chroma_subsampling.v_shift(c));
         let coeff_order_size = shared.coeff_order_size;
@@ -197,9 +390,9 @@ impl<'a, 'r, 'input> GetBlockFromBitstream<'a, 'r, 'input> {
             ctx_offset,
             nzeros_stride,
             num_nzeroes,
-            block_ctx_map: &shared.block_ctx_map,
-            qf: &shared.raw_quant_field,
-            quant_dc: &shared.quant_dc,
+            block_ctx_map: shared.block_ctx_map,
+            qf: shared.raw_quant_field,
+            quant_dc: shared.quant_dc,
             rect,
             hshift,
             vshift,
@@ -322,6 +515,21 @@ pub struct AcGroupDecoderState<'a, 'metadata> {
     >,
 }
 
+/// AcGroupDecoderState with the shared state as its `Sync` view.
+pub struct AcGroupDecoderView<'a, 'v> {
+    pub shared: &'a GroupDecoderShared<'v>,
+    pub code: &'a [super::dec_ans::ANSCode],
+    pub context_map: &'a [Vec<u8>],
+    pub coefficients: &'a mut super::dct_util::AcImage,
+    pub x_dm_multiplier: f32,
+    pub b_dm_multiplier: f32,
+    pub quant_biases: &'a [f32; 4],
+    /// PassesDecoderState::upsampler8x; only the zero-pass first draw uses it.
+    pub upsampler8x: Option<
+        &'a mut (dyn super::render_pipeline::render_pipeline_stage::RenderPipelineStage + 'static),
+    >,
+}
+
 /// Complete DecodeGroup, with optional original JPEG output. Zero new passes
 /// with a draw and no earlier pass render the 8x-upsampled DC image (Flush).
 /// Otherwise the caller supplies `num_passes` genuine AC readers (zero for a
@@ -334,6 +542,55 @@ pub fn decode_ac_group(
     num_passes: usize,
     group_idx: usize,
     state: AcGroupDecoderState<'_, '_>,
+    group_dec_cache: &mut super::dec_cache::GroupDecCache,
+    thread: usize,
+    render_pipeline_input: &mut super::render_pipeline::simple_render_pipeline::RenderPipelineInput<
+        '_,
+        '_,
+    >,
+    jpeg_data: Option<&mut super::jpeg::jpeg_data::JpegData>,
+    first_pass: usize,
+    force_draw: bool,
+    dc_only: bool,
+    should_run_pipeline: Option<&mut bool>,
+) -> Status {
+    with_group_shared(state.shared, |shared| {
+        let view = AcGroupDecoderView {
+            shared,
+            code: state.code,
+            context_map: state.context_map,
+            coefficients: state.coefficients,
+            x_dm_multiplier: state.x_dm_multiplier,
+            b_dm_multiplier: state.b_dm_multiplier,
+            quant_biases: state.quant_biases,
+            upsampler8x: state.upsampler8x,
+        };
+        decode_ac_group_shared(
+            frame_header,
+            readers,
+            num_passes,
+            group_idx,
+            view,
+            group_dec_cache,
+            thread,
+            render_pipeline_input,
+            jpeg_data,
+            first_pass,
+            force_draw,
+            dc_only,
+            should_run_pipeline,
+        )
+    })
+}
+
+/// DecodeGroup through the shared view; see `decode_ac_group`.
+#[allow(clippy::too_many_arguments)] // Preserve the reached source arguments.
+pub fn decode_ac_group_shared(
+    frame_header: &super::frame_header::FrameHeader<'_>,
+    readers: &mut [BitReader<'_>],
+    num_passes: usize,
+    group_idx: usize,
+    state: AcGroupDecoderView<'_, '_>,
     group_dec_cache: &mut super::dec_cache::GroupDecCache,
     thread: usize,
     render_pipeline_input: &mut super::render_pipeline::simple_render_pipeline::RenderPipelineInput<
@@ -380,7 +637,7 @@ pub fn decode_ac_group(
         };
     }
     let (buffers, num_nzeroes) = group_dec_cache.split_buffers();
-    let mut get_block = GetBlockFromBitstream::init(
+    let mut get_block = GetBlockFromBitstream::init_shared(
         frame_header,
         readers,
         num_passes,
@@ -392,7 +649,7 @@ pub fn decode_ac_group(
         state.context_map,
         first_pass,
     )?;
-    super::dec_group_render::decode_group_impl(
+    super::dec_group_render::decode_group_impl_shared(
         frame_header,
         &mut get_block,
         buffers,
@@ -416,7 +673,7 @@ pub fn decode_ac_group(
 fn draw_upsampled_dc(
     frame_header: &super::frame_header::FrameHeader<'_>,
     group_idx: usize,
-    state: AcGroupDecoderState<'_, '_>,
+    state: AcGroupDecoderView<'_, '_>,
     group_dec_cache: &mut super::dec_cache::GroupDecCache,
     thread: usize,
     render_pipeline_input: &mut super::render_pipeline::simple_render_pipeline::RenderPipelineInput<

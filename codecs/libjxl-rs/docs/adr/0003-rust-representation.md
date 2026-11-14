@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-13
+- Updated: 2026-11-14
 
 > **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** Representations kept only to reproduce the original's NaN payloads or NaN operand order (out-of-line per-operation helpers, the AArch64-only row kernels and the `pre_r1` render stages off AArch64) are no longer required by the comparison: NaN payload bits are not part of the gate, except on copy-only paths, which keep bit-exact NaNs. Finite words, infinities and signed zeros stay bit-identical, and target-specific contraction stays as the original's. The decisions below remain until the code changes; each such change is checked against ADR-0041's gate on both targets.
 
@@ -1281,8 +1281,9 @@ checkpoint; row calls read current owners under short immutable borrows, and
 source decoding writes under exclusive borrows between stage calls. The enclosing
 metadata owner outlives headers, references and pipeline stages. These dynamic
 borrows eliminate owner self-references without cloning images or caches.
-Under a parallel runner, the task bodies that use these owners are serialized
-(see Thread runners and RunOnPool), so the borrows never race.
+Under a parallel runner, the task bodies that use these owners run in
+exclusive sections (see Thread runners and RunOnPool and Concurrent decoder
+tasks), so the borrows never race.
 
 Noise parsing retains eight ten-bit reads and the original deferred bounds/close
 lifecycle. Xorshift128Plus keeps all eight independent generators, both original
@@ -2102,7 +2103,8 @@ counts read it.
 the pool's lifetime. `run` and `run_on_pool` are then safe. The decoder's
 RunOnPool task bodies borrow non-thread-safe owners: the `Rc<RefCell>` sharing
 above, the pipeline's per-thread storage and exclusive borrows of the frame
-state and section readers. They therefore run through `run_on_pool_exclusive`.
+state and section readers. Those that have not been split (see Concurrent
+decoder tasks) therefore run through `run_on_pool_exclusive`.
 The runner still chooses the init thread count, the calling threads, the task
 order and which tasks an error flag skips. One lock per RunOnPool call
 serializes the init and task bodies, and its acquire/release orders every
@@ -2124,9 +2126,10 @@ The frame decoder retains a pointer to the decoder's boxed pool, as the
 source's `pool_`. The box is replaced only in the Inited stage or by Reset,
 while no frame decoder exists. The fixed internal profiles keep a null pool.
 Serialized task bodies preserve every observable output, but they provide no
-parallel speedup. Running them concurrently requires thread-safe owners. That
-is a separate change with its own performance evidence, not part of the
-mechanical port. The encoder's RunOnPool sites still use a null pool.
+parallel speedup. Running them concurrently requires a split of their owners
+into what the tasks share and what they write; the decoder's AC group tasks
+and the modular group rendering are split since 2026-11-14 (next section).
+The encoder's RunOnPool sites still use a null pool.
 
 JPEG reconstruction writing retains borrowed marker/tail payloads and owned
 bit-writer chunks. Source next/buffer self-pointers become typed owned/borrowed
@@ -2181,6 +2184,155 @@ write keeps its copied prefix but not the advanced position. SetExif and SetXmp
 borrow their payloads. A matching Exif marker shorter than nine bytes overflows
 both original SetExif copies; that call runs only as an original sanitizer
 probe, and Rust stops at a bounds check instead of returning a status.
+
+### Concurrent decoder tasks
+
+Added 2026-11-14. The record
+[v1.0-jxl-decode-three-column-2026-11-14](../../../../docs/benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md)
+found the decoder effectively serial under a runner: every RunOnPool body ran
+behind `run_on_pool_exclusive`'s lock.
+
+**What the original runs in parallel.** The decoder's RunOnPool sites, with
+the state each task uses:
+
+| Site | Tasks | Per task (thread or group) | Shared, written at disjoint places | Shared, synchronized | Shared, read only |
+| --- | --- | --- | --- | --- | --- |
+| ProcessSections, DC groups (`ProcessDCGroup`) | one per DC group | the section's BitReader; local modular images | `dc_storage`, `quant_dc` (DequantDC), `ac_strategy`, `raw_quant_field`, `epf_sharpness`, `sigma` (DecodeAcMetadata), modular `full_image` channels, all at the DC group's rect; `decoded_dc_groups_[g]`; the section's status. A modular frame with EPF fills the whole `sigma` image with one value in every DC group task, so tasks write the same words concurrently | `used_acs` (atomic OR) | frame header, dimensions, modular tree, code, context map, quantizer, color correlation, block context map |
+| ProcessSections and Flush, AC groups (`PrepareStorage`, `ProcessACGroup`) | one per group | `group_dec_caches_[t]` with `t = GetStorageLocation(thread, task)` (the task id when threads exceed tasks); the pipeline input `group_data_[t]` (or `[g]` with `use_group_ids`); the pipeline's `stage_data_[t]`, `out_of_frame_data_[t]` and each stage's per-thread storage (upsampling, CMS and output buffers); `upsampler8x` storage `[t]`; the pass readers | accumulated coefficients (row `g` of the AC image, progressive frames), JPEG coefficients, `full_image` channels at the group rect, `decoded_passes_per_ac_group_[g]`, `group_completed_passes_[g]`, the border storage slots of group `g`, the output buffer's rows of the group's rects, section statuses | `GroupBorderAssigner` counters (atomics: the last neighbor to finish renders a corner exactly once), the runner's error flag, the caller's pixel callback (thread-safe by decode.h's contract) | dequantization matrices, quantizer, strategy, quant field, color correlation, coefficient orders, DC image, ANS codes and context maps, modular tree/code, noise, patches, splines, reference frames, sigma |
+| FinalizeDecoding, transforms (`undo_transforms`: RCT, palette, squeeze) | one per row, row span or column span | none | the transformed channels' rows or columns | none | the transform parameters |
+| FinalizeDecoding, `ModularToRect` | one per group | the pipeline input and per-thread pipeline storage as above | as for the AC groups' rendering | as above | the full image after its transforms |
+| AdaptiveDCSmoothing, convolutions | one per row | none | output rows | none | input image |
+
+The output stage writes the caller's buffer at the rows of the rendered
+rect, or calls the run callback with the thread id; JPEG and image bundle
+outputs are written per group as well.
+
+**Why each was behind the lock.** The straightforward translation passes
+the source's `this`/`dec_state_` pointers as `&mut FrameDecoder` and `&mut
+PassesDecoderState` into every task body; two tasks holding them at once
+are two aliasing `&mut`, whatever they touch. In detail:
+
+- PassesSharedState is not `Sync`: the color-correlation base, the DC
+  frames, the reference frames and the image features are `Rc<RefCell>`
+  (above). Even `RefCell::borrow` writes the cell's counter, so two tasks
+  reading `cmap.base()` or `dc()` race.
+- The render pipeline is one `&mut dyn RenderPipeline`; its stages process
+  rows through `&mut self` with their per-thread storage inside, and hold
+  `Rc<RefCell>` owners. Two threads in `ProcessBuffers` are two `&mut` to
+  the same stage objects.
+- RenderPipelineInput resolved its planes through a `&mut` of the pipeline,
+  so filling one group's input borrowed every other group's.
+- `ModularFrameDecoder::decode_group(&mut self)` writes `full_image` and
+  reads the tree, code and context map through the same borrow.
+- The group caches, the section readers, `decoded_passes_per_ac_group_`
+  and the statuses are elements of vectors reached through those borrows;
+  the AC image's rows are one `&mut AcImage`.
+- `upsampler8x` is a `&mut` stage with per-thread storage.
+- The DC group decoders take `&mut PassesDecoderState` and write
+  `shared_storage` images; `sigma` is an `Rc<RefCell>`.
+- The row loops take `&mut` of their image.
+
+**Representation.** `base::data_parallel::run_on_pool_shared` splits a
+RunOnPool call's state at the call site into a shared part, which every
+task body reads at once and which the compiler checks to be `Sync`, and an
+exclusive part, which a body enters only in `ExclusiveSection::with`, under
+one lock, with the same unsafe contract as `run_on_pool_exclusive`. Both
+parts are disjoint borrows of the frame's fields, so the borrow checker
+proves that no task reads what another writes outside the lock. The
+runner, the init thread count, the thread ids, the task order and the error
+flag are those of `run_on_pool`, and so is the dispatch scope (ADR 0004,
+"Scope of the selection"): every body on every thread runs the target the
+calling thread selected.
+
+The AC group tasks of ProcessSections and Flush (`dec_frame.rs`,
+`run_ac_groups`) and the group tasks of FinalizeDecoding's `ModularToRect`
+(`dec_modular.rs`) use it. Per structure:
+
+- *Read-only state* (`AcGroupShared`): the frame header and dimensions;
+  `dec_group::GroupDecoderShared`, a view of the PassesSharedState fields
+  the group bodies read (matrices, quantizer, strategy, quant field, the
+  color-correlation maps, coefficient orders, block context map, DC image);
+  the ANS codes and context maps; `dec_modular::ModularGroupContext` (tree,
+  code, context map, global transforms and header, flags and a copy of the
+  full image's channel geometry); `used_acs`, an atomic. The DC image and
+  the base correlation are lent from `Ref` guards that the calling thread
+  holds for the call: their cells can then not be borrowed mutably, and
+  their counters are touched only by the calling thread and inside
+  exclusive sections (the noise stage reads the correlation there).
+- *Per-thread and per-group owners*, moved out of the exclusive part in a
+  first section and back in a last one: the group cache of the storage
+  location, the pass readers of the group's sections, and the pipeline
+  input planes. `RenderPipeline::lend_input_buffers` moves the plane owners
+  of the low-memory pipeline's buffer set (headers only) into an unbound
+  RenderPipelineInput, which the task fills without borrowing the pipeline;
+  `return_input_buffers` moves them back and signals `Done`. The storage
+  location is unique among running tasks, as in the source (a thread runs
+  one task at a time; with more threads than tasks it is the task id), and
+  so is the buffer set; a task that found its slot already taken would get
+  an empty owner and stop at a bounds check, never share it.
+- *Disjoint writes to shared images*: the modular group's write into the
+  full image (`PendingGroupWrite::write_to`: the zero fill of an absent pass
+  or the copy of the decoded group image) runs in an exclusive section of
+  its own, right after that pass decodes, so the allocation and release
+  order inside a task stays the source's. Different groups write disjoint
+  rects, so the image does not depend on the order of the sections.
+- *Rendering and bookkeeping* (InputReady/ProcessBuffers with the border
+  storage and the assigner, `decoded_passes_per_ac_group_[g]`, the section
+  statuses) run in the last exclusive section.
+- *Whole body in one exclusive section*: JPEG reconstruction (its
+  coefficients live in the decoded bundle's `RefCell`, which output stages
+  also borrow), accumulated progressive coefficients (one `&mut AcImage`;
+  a row-split view would make them concurrent), the zero-pass first draw
+  with the 8x upsampler (a `&mut` stage with per-thread storage), and the
+  simple pipeline, whose input is the whole frame and cannot be lent.
+
+Every task runs its steps in the source's order: without a runner, or with
+one that runs the tasks one after another, allocations, releases, statuses
+and outputs are those of the serialized translation (the allocation-failure
+histories compare the complete allocation log). A failing task returns its
+owners in an exclusive section (the input planes without `Done`) before it
+returns the error, and updates `decoded_passes_per_ac_group_[g]` only after
+success, as the source does; the error flag skips the later tasks. A panic
+resumes on the calling thread as before; owners the panicking task held are
+dropped. The JxlMemoryManager is called from several threads at once, as by
+the original (group caches, group images); `MemoryManagerPtr` is `Send` and
+`Sync` under the manager's contract.
+
+**Still serialized, and why.**
+
+- *Rendering*: the stages' `process_row(&mut self, ..., thread)` and their
+  `Rc<RefCell>` owners make one stage object usable by one thread at a
+  time. It is the largest share of lossy decode time after this change.
+  Making it concurrent changes the ownership model of every stage file
+  (proposal below), so it is left to the owner.
+- *DC groups*: possible within these rules with the same split (decode the
+  DC, modular DC and AC metadata images concurrently; write their rects in
+  exclusive sections; fill `sigma` once instead of once per task). Not done
+  yet; the measured inputs spend little time there.
+- *Row loops* (modular transforms, AdaptiveDCSmoothing, convolutions): a
+  view that splits the image into disjoint rows would make them concurrent
+  within these rules. Not done yet.
+
+**Proposal for the owner (rendering).** Let stages process rows through
+`&self`, with their per-thread storage in a `Vec` of per-thread cells
+indexed by the thread id the pipeline passes (each thread uses only its own
+slot, as in the source), move the per-thread `stage_data`,
+`out_of_frame_data` and lent input of the low-memory pipeline into
+per-thread owners lent to each task, keep the border storage behind the
+assigner's atomics as split slots per group, and give stages their shared
+inputs (sigma, noise parameters, patches, splines, reference frames, color
+correlation) as plain shared borrows taken from the `Rc<RefCell>` owners
+before the RunOnPool call, instead of `Rc` handles they borrow inside
+`process_row`. The output stage's caller buffer becomes a row-split view.
+This touches every `render_pipeline/stage_*` file and this ADR's owner
+model, so it needs the owner's decision and its own parity evidence.
+
+Evidence: `tests/simd_threads.rs` decodes multi-group lossy and lossless
+files (and, with `JXL_CONFORMANCE_CORPUS`, the conformance corpus) through
+the public decoder with the thread runner at 0, 1, 2 and 8 workers and
+compares every output word with the runner-free decode and with the
+original's single-target build; `public_decoder_worker_counts_match_original`
+compares the same worker counts with the scalar original's histories.
 
 ### Decoder memory-manager propagation
 

@@ -36,8 +36,10 @@
 //!   source dereferences them. The C ABI exports are in `decode_abi.rs`.
 //! - The frame decoder retains a pointer to the boxed thread pool, as the
 //!   source's `pool_`; the box is replaced only while no frame decoder
-//!   exists. RunOnPool tasks run through the caller's runner, serialized as
-//!   described in `base::data_parallel::run_on_pool_exclusive`.
+//!   exists. RunOnPool tasks run through the caller's runner: the AC group
+//!   tasks concurrently (`base::data_parallel::run_on_pool_shared`), the
+//!   others serialized (`run_on_pool_exclusive`); see ADR 0003, "Concurrent
+//!   decoder tasks".
 
 use super::base::data_parallel::{JxlParallelRunner, ThreadPool};
 use super::base::status::StatusCode;

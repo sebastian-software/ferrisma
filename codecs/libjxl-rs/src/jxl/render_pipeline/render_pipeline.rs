@@ -11,6 +11,14 @@
 //! - `PrepareBuffers` returns owner-relative buffer identifiers (buffer set,
 //!   channel, rect) instead of `ImageF*`; RenderPipelineInput resolves them
 //!   under its exclusive pipeline borrow.
+//! - A pipeline whose input buffers belong to one thread or group (the
+//!   low-memory pipeline) can lend them: `lend_input_buffers` moves the
+//!   buffer set's plane owners (headers only, no pixel copy) into an unbound
+//!   RenderPipelineInput, which a task fills without borrowing the pipeline,
+//!   and `return_input_buffers` moves them back, then signals the input as
+//!   `Done` would. This lets group tasks fill their input concurrently (port
+//!   ADR 0003, "Concurrent decoder tasks"); the simple pipeline's input is
+//!   the whole frame and is not lent.
 //! - JXL_CHECK_PLANE_INITIALIZED is MSan-only instrumentation and JXL_DASSERT
 //!   is absent from the pinned NDEBUG reference graph; neither is translated.
 use super::low_memory_render_pipeline::LowMemoryRenderPipeline;
@@ -64,6 +72,16 @@ pub trait RenderPipeline<'a> {
     fn input_plane_mut(&mut self, set: usize, channel: usize) -> &mut Plane<f32>;
     /// All channels of one buffer set, in PrepareBuffers channel order.
     fn input_planes_mut(&mut self, set: usize) -> &mut [Plane<f32>];
+    /// Moves the plane owners of one buffer set out of the pipeline, or
+    /// None if its buffers cannot be lent. Lent planes are returned with
+    /// `restore_input_planes` before the pipeline reads them again.
+    fn take_input_planes(&mut self, _set: usize) -> Option<Vec<Plane<f32>>> {
+        None
+    }
+    /// Returns planes lent by `take_input_planes`.
+    fn restore_input_planes(&mut self, _set: usize, _planes: Vec<Plane<f32>>) {
+        unreachable!("only a pipeline that lends input planes receives them back");
+    }
 
     fn is_initialized(&self) -> Status {
         for stage in &self.base().stages {
@@ -95,7 +113,49 @@ pub trait RenderPipeline<'a> {
             group_id,
             thread_id,
             buffers,
+            lent: None,
         }
+    }
+    /// GetInputBuffers with the buffers lent to the returned input, which
+    /// does not borrow the pipeline; None if this pipeline does not lend its
+    /// input buffers, in which case nothing changed.
+    fn lend_input_buffers<'x>(
+        &mut self,
+        group_id: usize,
+        thread_id: usize,
+    ) -> Option<RenderPipelineInput<'x, 'a>>
+    where
+        'a: 'x,
+    {
+        assert!(group_id < self.base().group_completed_passes.len());
+        let buffers = self.prepare_buffers(group_id, thread_id);
+        let set = buffers.first().map_or(0, |b| b.0);
+        let planes = self.take_input_planes(set)?;
+        Some(RenderPipelineInput {
+            pipeline: None,
+            group_id,
+            thread_id,
+            buffers,
+            lent: Some((set, planes)),
+        })
+    }
+    /// Moves the buffers of an input from `lend_input_buffers` back into
+    /// this pipeline and, if `done`, signals it as RenderPipelineInput::Done
+    /// does.
+    fn return_input_buffers(
+        &mut self,
+        mut input: RenderPipelineInput<'_, 'a>,
+        done: bool,
+    ) -> Status {
+        let (set, planes) = input
+            .lent
+            .take()
+            .expect("the input's buffers were lent by this pipeline");
+        self.restore_input_planes(set, planes);
+        if done {
+            self.input_ready(input.group_id, input.thread_id, &input.buffers)?;
+        }
+        Ok(())
     }
     fn passes_with_all_input(&self) -> usize {
         usize::from(
@@ -276,6 +336,8 @@ pub struct RenderPipelineInput<'p, 'a> {
     group_id: usize,
     thread_id: usize,
     buffers: Vec<InputBuffer>,
+    /// The buffer set and its planes, when lent by `lend_input_buffers`.
+    lent: Option<(usize, Vec<Plane<f32>>)>,
 }
 impl RenderPipelineInput<'_, '_> {
     /// Source move construction/assignment leaves the old binding null while
@@ -286,6 +348,7 @@ impl RenderPipelineInput<'_, '_> {
             group_id: other.group_id,
             thread_id: other.thread_id,
             buffers: std::mem::take(&mut other.buffers),
+            lent: other.lent.take(),
         }
     }
     pub fn done(&mut self) -> Status {
@@ -297,6 +360,9 @@ impl RenderPipelineInput<'_, '_> {
     }
     pub fn get_buffer(&self, c: usize) -> (&Plane<f32>, Rect) {
         let &(set, channel, r) = &self.buffers[c];
+        if let Some((_, planes)) = &self.lent {
+            return (&planes[channel], r);
+        }
         (
             self.pipeline.as_deref().unwrap().input_plane(set, channel),
             r,
@@ -304,6 +370,9 @@ impl RenderPipelineInput<'_, '_> {
     }
     pub fn get_buffer_mut(&mut self, c: usize) -> (&mut Plane<f32>, Rect) {
         let &(set, channel, r) = &self.buffers[c];
+        if let Some((_, planes)) = &mut self.lent {
+            return (&mut planes[channel], r);
+        }
         (
             self.pipeline
                 .as_deref_mut()
@@ -311,6 +380,10 @@ impl RenderPipelineInput<'_, '_> {
                 .input_plane_mut(set, channel),
             r,
         )
+    }
+    /// Whether the buffers were lent by `lend_input_buffers`.
+    pub fn is_lent(&self) -> bool {
+        self.lent.is_some()
     }
     pub fn buffer_count(&self) -> usize {
         self.buffers.len()
@@ -321,10 +394,15 @@ impl RenderPipelineInput<'_, '_> {
     pub fn get_buffers_mut(&mut self) -> impl Iterator<Item = (&mut Plane<f32>, Rect)> {
         let buffers = &self.buffers;
         let set = buffers.first().map_or(0, |b| b.0);
-        self.pipeline
-            .as_deref_mut()
-            .expect("source requires a bound input")
-            .input_planes_mut(set)
+        let planes = match &mut self.lent {
+            Some((_, planes)) => &mut planes[..],
+            None => self
+                .pipeline
+                .as_deref_mut()
+                .expect("source requires a bound input")
+                .input_planes_mut(set),
+        };
+        planes
             .iter_mut()
             .zip(buffers)
             .map(|(plane, &(_, _, rect))| (plane, rect))

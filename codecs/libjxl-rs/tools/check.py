@@ -195,6 +195,9 @@ SIMD_TESTS += ["simd_stages2"]
 # color
 SIMD_TESTS += ["simd_color"]
 # end color
+# threads: worker-count independence of whole public decodes (ADR 0003).
+SIMD_TESTS += ["simd_threads"]
+# end threads
 SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 

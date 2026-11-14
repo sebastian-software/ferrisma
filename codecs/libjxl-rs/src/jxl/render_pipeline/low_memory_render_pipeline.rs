@@ -1433,6 +1433,15 @@ impl<'a> RenderPipeline<'a> for LowMemoryRenderPipeline<'a> {
     fn input_planes_mut(&mut self, set: usize) -> &mut [Plane<f32>] {
         &mut self.group_data[set]
     }
+    // Each buffer set belongs to one thread (or group) while a task uses it,
+    // so its planes can be lent to that task (port ADR 0003, "Concurrent
+    // decoder tasks").
+    fn take_input_planes(&mut self, set: usize) -> Option<Vec<Plane<f32>>> {
+        Some(std::mem::take(&mut self.group_data[set]))
+    }
+    fn restore_input_planes(&mut self, set: usize, planes: Vec<Plane<f32>>) {
+        self.group_data[set] = planes;
+    }
 }
 
 // A descriptor for the source's value-initialized (null) row pointers. The

@@ -1046,3 +1046,61 @@ fn public_decoder_parallel_runners_match_original() {
     }
     compare("runners", requests);
 }
+
+/// Multi-group lossy and lossless frames (port ADR 0003, "Concurrent decoder
+/// tasks"), whose AC groups decode concurrently under a runner.
+const WORKER_SPECS: &[&str] = &[
+    "w=600 h=520 c=3",
+    "w=530 h=300 c=3 a=1 ec=1 effort=3 opt=26:0",
+    "w=600 h=520 c=3 lossless=0",
+    "w=1000 h=700 c=3 lossless=0 opt=11:1",
+];
+
+/// Whole decodes without a runner and with the thread runner at 0, 1, 2 and 8
+/// workers, each against the original with the same runner. The output
+/// histories hash every output word (caller buffer and the
+/// order-independent callback buffer), so equal histories across the
+/// worker counts mean every word is independent of the worker count.
+#[test]
+fn public_decoder_worker_counts_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let files = super::original_observations(
+        &WORKER_SPECS
+            .iter()
+            .map(|spec| format!("dpub-encode {spec}"))
+            .collect::<Vec<_>>(),
+    );
+    let scripts = [
+        "s5184 F4.2.0.0.0 L1,1000000,0,1000,1",
+        "s5184 F3.0.0.0.4 L1,1000000,0,1000,1",
+    ];
+    let mut requests = Vec::new();
+    for file in &files {
+        for script in scripts {
+            requests.push(format!("dpub-run 0 0 {file} {script}"));
+            for runner in ["@t0", "@t1", "@t2", "@t8"] {
+                requests.push(format!("dpub-run 0 0 {file} {runner} {script}"));
+            }
+        }
+    }
+    // Every runner's Rust history equals the runner-free one, apart from
+    // the runner's own tokens.
+    let strip = |history: String| {
+        history
+            .split(' ')
+            .filter(|token| !token.starts_with("@:"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    for chunk in requests.chunks(5) {
+        let serial = strip(super::observe(&chunk[0]));
+        for request in &chunk[1..] {
+            assert_eq!(
+                strip(super::observe(request)),
+                serial,
+                "the worker count changes the Rust history: {request}"
+            );
+        }
+    }
+    compare("worker-counts", requests);
+}

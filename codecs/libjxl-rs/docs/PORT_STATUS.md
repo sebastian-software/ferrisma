@@ -54,9 +54,10 @@ under their C names, and the public decoder runs its RunOnPool schedules
 through them. The sections below
 record each slice, its evidence and its not-applicable checks.
 
-Remaining decoder-side gaps: the decoder's RunOnPool task bodies are
-serialized under a runner, so a runner brings no parallel speedup yet; the
-encoder C ABI is absent; and the translated skcms SKX engine has no AVX-512
+Remaining decoder-side gaps: under a runner the decoder's AC group tasks
+decode concurrently, but rendering, the DC groups and the row loops stay
+serialized (see "Concurrent AC group decode" below); the encoder C ABI is
+absent; and the translated skcms SKX engine has no AVX-512
 acceptance. Every decoder owner allocates through the caller's memory manager
 (see "Decoder memory-manager propagation" below). Container writing, general
 encoding, the encoder C ABI and JxlEncoderSetParallelRunner remain unported.
@@ -78,6 +79,34 @@ streaming (see "Public lossy VarDCT encode below d0.7" below, which records
 the later extensions), with alpha and other extra channels and with the
 patches option off (see "Lossy VarDCT with extra channels and patches off"
 below); other frame encodes remain admission results.
+
+## Concurrent AC group decode (2026-11-14)
+
+Under a parallel runner, the AC group tasks of ProcessSections and Flush and
+the group tasks of FinalizeDecoding's ModularToRect now run concurrently on
+the runner's threads (`base::data_parallel::run_on_pool_shared`; ADR 0003,
+"Concurrent decoder tasks"). Each task decodes its VarDCT group and its
+modular passes from a `Sync` view of the frame state into owners it borrows
+for the task (the low-memory pipeline's input planes, its group cache, its
+pass readers); full-image writes, rendering and bookkeeping run in short
+exclusive sections. JPEG reconstruction, progressive (accumulated)
+coefficients, the 8x-upsampled first draw and the simple pipeline keep the
+whole task body in one exclusive section. Rendering, the DC groups, the
+modular inverse transforms, AdaptiveDCSmoothing and the convolutions stay
+serialized; rendering needs the stage ownership change that ADR 0003
+proposes to the owner.
+
+Evidence: `tests/simd_threads.rs` (SIMD oracle) decodes 12 multi-group lossy
+and lossless files and the 40 conformance inputs through the public decoder
+without a runner and with the thread runner at 0, 1, 2 and 8 workers, float
+and 8-bit output, and finds zero differing words against the runner-free
+decode and against the original's NEON build. The `worker-counts` family of
+`tests/parity/decoder_public.rs` compares the same worker counts with the
+scalar original's histories. Timing on AArch64 is in the addendum of
+[the 2026-11-14 record](../../../docs/benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md).
+
+Not established: a thread sanitizer run on Rust (see the branch report),
+x86-64 execution (compile-checked only on this host).
 
 ## SIMD foundation: NEON/AVX2 layer and first stages (2026-11-13)
 
@@ -904,7 +933,8 @@ small-image null pool. The runner chooses the init thread count, the calling
 threads, the task order and the tasks that the error flag skips; per-thread
 storage follows the thread ids, and errors collapse to the original's runner
 failure. The task bodies share non-thread-safe owners, so one lock per
-RunOnPool call serializes them (`run_on_pool_exclusive`). The encoder's
+RunOnPool call serializes them (`run_on_pool_exclusive`); since 2026-11-14
+the AC group tasks run concurrently (see "Concurrent AC group decode"). The encoder's
 RunOnPool sites keep a null pool.
 
 Evidence: `tests/thread_runners.rs` ports `thread_parallel_runner_test.cc`

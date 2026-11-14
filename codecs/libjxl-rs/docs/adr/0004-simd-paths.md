@@ -936,7 +936,11 @@ from the scope the decoder's entry points establish:
 - `ThreadPool::run` (RunOnPool) captures the calling thread's scope and runs
   every init and task body inside it, on whichever runner thread the runner
   chooses, so a decoder with a parallel runner and its image-out callbacks
-  run under the decoder's selection.
+  run under the decoder's selection. This holds for the concurrent task
+  bodies of `run_on_pool_shared` (ADR 0003, "Concurrent decoder tasks"),
+  which run through the same `ThreadPool::run`; `tests/simd_threads.rs`
+  checks that decodes with 0 to 8 workers give the SIMD original's words
+  (2026-11-14, branch `v1/jxl-threads`).
 - `hwy::decoder_target()` is, in order: the test override
   (`set_decoder_simd_for_test`), the scalar gate's `JXL_DECODER_TARGET=scalar`,
   then the thread's scope; outside every decoder entry point it is the

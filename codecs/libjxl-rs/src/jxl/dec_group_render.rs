@@ -10,7 +10,7 @@ use super::base::status::{Status, StatusCode};
 use super::chroma_from_luma::COLOR_TILE_DIM_IN_BLOCKS;
 use super::dct_util::{AcImage, AcPtrMut, AcType, ConstAcPtr};
 use super::dec_cache::GroupDecBuffers;
-use super::dec_group::{DrawMode, GetBlock};
+use super::dec_group::{DrawMode, GetBlock, GroupDecoderShared, with_group_shared};
 use super::dec_transforms::{lowest_frequencies_from_dc, transform_to_pixels};
 use super::frame_dimensions::{BLOCK_DIM, DCT_BLOCK_SIZE};
 use super::frame_header::FrameHeader;
@@ -136,6 +136,41 @@ pub fn decode_group_impl(
     get_block: &mut impl GetBlock,
     buffers: GroupDecBuffers<'_>,
     shared: &PassesSharedState<'_>,
+    coefficients: &mut AcImage,
+    x_dm_multiplier: f32,
+    b_dm_multiplier: f32,
+    biases: &[f32; 4],
+    group_idx: usize,
+    render_pipeline_input: &mut RenderPipelineInput<'_, '_>,
+    jpeg_data: Option<&mut super::jpeg::jpeg_data::JpegData>,
+    draw: DrawMode,
+) -> Status {
+    with_group_shared(shared, |shared| {
+        decode_group_impl_shared(
+            frame_header,
+            get_block,
+            buffers,
+            shared,
+            coefficients,
+            x_dm_multiplier,
+            b_dm_multiplier,
+            biases,
+            group_idx,
+            render_pipeline_input,
+            jpeg_data,
+            draw,
+        )
+    })
+}
+
+/// DecodeGroupImpl through the shared view (port ADR 0003, "Concurrent
+/// decoder tasks"); see `decode_group_impl`.
+#[allow(clippy::too_many_arguments)]
+pub fn decode_group_impl_shared(
+    frame_header: &FrameHeader<'_>,
+    get_block: &mut impl GetBlock,
+    buffers: GroupDecBuffers<'_>,
+    shared: &GroupDecoderShared<'_>,
     coefficients: &mut AcImage,
     x_dm_multiplier: f32,
     b_dm_multiplier: f32,
@@ -402,8 +437,8 @@ pub fn decode_group_impl(
                             b_cc_mul,
                             kind: acs.strategy(),
                             size,
-                            quantizer: &shared.quantizer,
-                            matrices: &shared.matrices,
+                            quantizer: shared.quantizer,
+                            matrices: shared.matrices,
                             covered_blocks: acs.covered_blocks_y() * acs.covered_blocks_x(),
                             sbx,
                             dc_rows,
@@ -423,8 +458,8 @@ pub fn decode_group_impl(
                         b_cc_mul,
                         acs.strategy(),
                         size,
-                        &shared.quantizer,
-                        &shared.matrices,
+                        shared.quantizer,
+                        shared.matrices,
                         acs.covered_blocks_y() * acs.covered_blocks_x(),
                         sbx,
                         dc_rows,

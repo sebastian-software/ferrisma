@@ -18,6 +18,12 @@
 //! thread count, the threads and the task order, while one lock per call
 //! serializes the init and task bodies.
 //!
+//! `run_on_pool_shared` is the language-required representation of task
+//! bodies that run concurrently, as in the source (port ADR 0003, "Concurrent
+//! decoder tasks"): their state is split by the caller into a shared part,
+//! which every body reads at once and which the compiler checks to be `Sync`,
+//! and an exclusive part, which a body enters only inside a locked section.
+//!
 //! A Rust panic in an init or task body, which marks a use that is undefined
 //! in the source (see ADR 0003), cannot unwind through the `extern "C"`
 //! trampolines into the runner. The trampolines therefore catch it, set the
@@ -343,4 +349,78 @@ where
     let init_func = |_state: &mut S, _num_threads: usize| -> Status { Ok(()) };
     // SAFETY: Forward the caller's contract.
     unsafe { run_on_pool_exclusive(pool, begin, end, state, init_func, data_func) }
+}
+
+/// The exclusive part of a `run_on_pool_shared` call. `with` enters it under
+/// the call's lock, so one body section at a time uses it; sections are not
+/// reentrant (a nested `with` deadlocks).
+pub struct ExclusiveSection<'a, T: ?Sized> {
+    lock: Mutex<()>,
+    value: UnsafeCell<&'a mut T>,
+}
+
+// SAFETY: Only run_on_pool_shared constructs this type, and every access to
+// the value goes through `with`, under the lock, which orders the accesses on
+// any runner thread. The caller of run_on_pool_shared guarantees that the
+// value has no thread affinity and that nothing else uses the owners it
+// borrows or shares until that call returns.
+unsafe impl<T: ?Sized> Sync for ExclusiveSection<'_, T> {}
+
+impl<T: ?Sized> ExclusiveSection<'_, T> {
+    /// Runs `f` with exclusive access to the value.
+    pub fn with<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
+        let _guard = self.lock.lock().unwrap_or_else(PoisonError::into_inner);
+        // SAFETY: The guard excludes every other access to the value until it
+        // is released after `f` returns.
+        f(unsafe { &mut **self.value.get() })
+    }
+}
+
+/// RunOnPool for task bodies that run concurrently on the runner's threads.
+/// `shared` is read by every body at once; it must be `Sync`, which the
+/// compiler checks. `exclusive` holds the owners the bodies write; the init
+/// body gets it directly, and each task body enters it through
+/// `ExclusiveSection::with`, one section at a time. Everything a task body
+/// does outside those sections uses only `shared`, values it owns, and
+/// values it moved out of `exclusive` in an earlier section. The runner
+/// chooses the init thread count, the threads and the task order, and the
+/// error flag skips later tasks, as for `run_on_pool`.
+///
+/// # Safety
+/// As for `run_on_pool_exclusive`, for `exclusive` and for every value a body
+/// moves out of it: they may be used from any runner thread while the
+/// calling thread waits in this call, they hold no thread-affine values, and
+/// no other thread uses the owners they borrow or share (including `Rc`
+/// clones of them) until this call returns. The exception is a `RefCell`
+/// whose `Ref` guard the caller holds for the whole call to lend its value to
+/// `shared`: an exclusive section may borrow that cell immutably, since the
+/// guard makes every mutable borrow fail and its borrow counter is only
+/// touched on the calling thread before and after the call and inside
+/// exclusive sections.
+pub unsafe fn run_on_pool_shared<Sh, Ex, I, D>(
+    pool: Option<&ThreadPool>,
+    begin: u32,
+    end: u32,
+    shared: &Sh,
+    exclusive: &mut Ex,
+    init_func: I,
+    data_func: D,
+) -> Status
+where
+    Sh: Sync + ?Sized,
+    Ex: ?Sized,
+    I: Fn(&Sh, &mut Ex, usize) -> Status + Sync,
+    D: Fn(&Sh, &ExclusiveSection<'_, Ex>, u32, usize) -> Status + Sync,
+{
+    let section = ExclusiveSection {
+        lock: Mutex::new(()),
+        value: UnsafeCell::new(exclusive),
+    };
+    let init = |num_threads: usize| -> Status {
+        section.with(|exclusive| init_func(shared, exclusive, num_threads))
+    };
+    let data = |task: u32, thread: usize| -> Status { data_func(shared, &section, task, thread) };
+    // `section` outlives the runner call and is shared only through the Sync
+    // closures above; the caller's condition makes that sharing sound.
+    run_on_pool(pool, begin, end, &init, &data)
 }
