@@ -152,8 +152,9 @@ impl RowBuffers<'_> {
     /// span (InOut stages read and write different buffers; in-place stages
     /// read through their write spans). Returns `None`, resolving nothing,
     /// when a span reaches outside its plane's storage (before the first
-    /// row or past the last), when a plane is both read and written, or when
-    /// two write spans overlap; [`super::simd_rows::with_spans`] then copies.
+    /// row or past the last), when a plane is both read and written, when
+    /// two write spans overlap, or when a span names a plane past the 128th;
+    /// [`super::simd_rows::with_spans`] then copies.
     pub fn spans<const R: usize, const W: usize>(
         &mut self,
         reads: &[Span; R],
@@ -165,12 +166,31 @@ impl RowBuffers<'_> {
             (RowStorage::Input, &mut *self.input),
             (RowStorage::Output, &mut *self.output),
         ] {
-            for (channel, plane) in planes.iter_mut().enumerate() {
-                let on = |s: &Span| s.row.storage == storage && s.row.channel == channel;
-                let written = writes.iter().any(on);
-                if !written && !reads.iter().any(on) {
-                    continue;
+            // The planes a span names (bit `channel` of `wanted[0]` for read
+            // spans, of `wanted[1]` for write spans), visited in channel
+            // order without walking the other planes.
+            let mut wanted = [0u128; 2];
+            for (k, spans) in [&reads[..], &writes[..]].into_iter().enumerate() {
+                for s in spans.iter().filter(|s| s.row.storage == storage) {
+                    if s.row.channel >= 128 {
+                        return None;
+                    }
+                    wanted[k] |= 1 << s.row.channel;
                 }
+            }
+            let mut rest = planes;
+            let mut first_channel = 0;
+            let mut bits = wanted[0] | wanted[1];
+            while bits != 0 {
+                let channel = bits.trailing_zeros() as usize;
+                bits &= bits - 1;
+                let (plane, tail) = std::mem::take(&mut rest)
+                    .get_mut(channel - first_channel..)?
+                    .split_first_mut()?;
+                rest = tail;
+                first_channel = channel + 1;
+                let on = |s: &Span| s.row.storage == storage && s.row.channel == channel;
+                let written = wanted[1] >> channel & 1 != 0;
                 let stride = plane.pixels_per_row();
                 let height = plane.ysize();
                 // The index of the span's first sample in the plane storage.
@@ -186,7 +206,7 @@ impl RowBuffers<'_> {
                     (first.checked_add(s.len)? <= storage_len).then_some(first)
                 };
                 if written {
-                    if reads.iter().any(on) {
+                    if wanted[0] >> channel & 1 != 0 {
                         return None;
                     }
                     let mut tail = plane.pixels_mut()?;
@@ -208,11 +228,11 @@ impl RowBuffers<'_> {
                         if first < previous_end {
                             return None;
                         }
-                        let (_, rest) =
+                        let (_, after) =
                             std::mem::take(&mut tail).split_at_mut(first - previous_end);
-                        let (span, rest) = rest.split_at_mut(writes[i].len);
+                        let (span, after) = after.split_at_mut(writes[i].len);
                         write_out[i] = Some(span);
-                        tail = rest;
+                        tail = after;
                         previous_end = first + writes[i].len;
                     }
                 } else {
