@@ -1,6 +1,6 @@
 # Current project status
 
-**Reviewed: 2026-11-13.** Ferrisma is an experimental image engine
+**Reviewed: 2026-11-14** (`main` at `5004f34e`). Ferrisma is an experimental image engine
 and codec workspace. M1 is implemented in part and under validation, not a
 release candidate. This page owns the current cross-component overview;
 the linked guides and evidence records own the details.
@@ -8,7 +8,10 @@ the linked guides and evidence records own the details.
 The `ferrisma` npm package and crate at version `0.0.0` have been published as
 placeholders. They contain no image processing implementation; the functional
 engine is available from this repository. The name and domain are recorded in
-[ADR-0038](adr/0038-ferrisma-project-name.md).
+[ADR-0038](adr/0038-ferrisma-project-name.md). The domain `ferrisma.dev` does
+not serve this project's site yet: on 2026-11-13 it answered with a GitHub
+Pages page that is not ours
+([#251](https://github.com/sebastian-software/ferrisma/issues/251)).
 
 The repository contains both the pipeline a caller can exercise today and the
 codec ports intended for its future backends. A port's coverage, its Rust API,
@@ -31,7 +34,7 @@ quantize → encode AVIF, still WebP, or JPEG XL (lossy or lossless)
 | Format | Current engine path | Workspace port relationship |
 | --- | --- | --- |
 | JPEG | Input through workspace `libjpeg-turbo-rs` (`jpeg-read`); codec-level crop request and budgeted RGB row | Scaled IDCT remains unused by the adapter; codec memory and reconstruction are opaque |
-| JPEG XL | Input through workspace `libjxl-rs` via `ferrisma-jxl-decoder` (`jpeg-xl-own-read`, in `cli`), the default whenever compiled in since 2026-11-12; `jxl-oxide` (`jpeg-xl-read`) stays an explicit backend (`--jxl-decoder=jxl-oxide`) and is the default only without `jpeg-xl-own-read`. Experimental output (`jpeg-xl-write`, in `cli` since 2026-11-12): lossy d1.0 by default through `ferrisma-jxl-encoder`, or lossless | The workspace reader has no ROI request: every crop reconstructs and budgets a full F32 frame and reports `FullFrameFallback`. The external conformance corpus passes on macOS ARM64 ([record](../codecs/libjxl-rs/docs/CONFORMANCE.md)). The owner confirmed it as the default on 2026-11-13 ([ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1); the recorded gap to jxl-oxide (about 3.6× slower full, 9.5× slower crop, one host) is context, not a gate. x86-64 conformance stays open ([ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)). Lossy output (VarDCT, effort 7, distance 0.05 to below 3.0, XYB with enum sRGB, patches off, straight 8-bit alpha coded losslessly) uses the port's public encoder, byte-identical with libjxl on macOS AArch64, and encodes every still image since the 2026-11-12 alpha/patches amendment; the patches-off policy and its unmeasured size cost on text-like content are pending owner confirmation. Lossless uses the verified effort-2 profile (enum sRGB, 8-bit, straight alpha). The lossy default and the lossy codec-memory estimate are pending owner confirmation ([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)) |
+| JPEG XL | Input through workspace `libjxl-rs` via `ferrisma-jxl-decoder` (`jpeg-xl-own-read`, in `cli`), the default whenever compiled in since 2026-11-12; `jxl-oxide` (`jpeg-xl-read`) stays an explicit backend (`--jxl-decoder=jxl-oxide`) and is the default only without `jpeg-xl-own-read`. Experimental output (`jpeg-xl-write`, in `cli` since 2026-11-12): lossy d1.0 by default through `ferrisma-jxl-encoder`, or lossless | The workspace reader has no ROI request: every crop reconstructs and budgets a full F32 frame and reports `FullFrameFallback`. The external conformance corpus passes on macOS ARM64 ([record](../codecs/libjxl-rs/docs/CONFORMANCE.md)). The owner confirmed it as the default on 2026-11-13 ([ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1). Since 2026-11-14 the decoder runs its NEON path by default on AArch64 and its scalar path on x86-64 (libjxl-rs [ADR 0004](../codecs/libjxl-rs/docs/adr/0004-simd-paths.md)). Its speed is reported against libjxl, not as a gate: on AArch64, one machine, 1.3–2.9× libjxl's NEON build with one thread, and 1.28× and 1.57× on the two inputs measured again after the render-pipeline changes ([record of 2026-11-14](benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md)); no x86-64 measurement of the current decoder exists. The jxl-oxide gap of 2026-11-11 (about 3.6× slower full, 9.5× slower crop, [one photo](benchmarks/M2-jxl-input-switch.md)) predates the SIMD path and is superseded; it has not been measured again. x86-64 conformance stays open ([ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)). Lossy output (VarDCT, effort 7, distance 0.05 to below 3.0, XYB with enum sRGB, patches off, straight 8-bit alpha coded losslessly) uses the port's public encoder, byte-identical with libjxl on macOS AArch64, and encodes every still image since the 2026-11-12 alpha/patches amendment; the patches-off policy and its unmeasured size cost on text-like content are pending owner confirmation. Lossless uses the verified effort-2 profile (enum sRGB, 8-bit, straight alpha) and reserves its measured one-shot peak since 2026-11-13, so under the default 256 MiB budget the largest lossless output is about 3.5 MP instead of about 9.5 MP (#223). The engine reads its own straight-alpha lossy output back under `--use-rendered-icc` since 2026-11-13 (#222). The lossy default and the lossy codec-memory estimate are pending owner confirmation ([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)) |
 | AVIF | Workspace libavif/AOM input (`avif-read`); workspace libavif/AOM output (`avif-own-write`, in `cli`), the default encoder whenever compiled in since 2026-11-12; Rav1e (`avif-write`) stays an explicit backend (`--avif-encoder=rav1e`) and the default only without `avif-own-write` | Independent read/write wrappers isolate the unsafe ABI. `quality`/`speed` are passed unchanged on the selected encoder's own scale; the scales are not comparable (rav1e 70/80/90 ≈ AOM 50/55/78). Native/nightly requirements stay; the workspace port is the default by owner decision (ADR-0041 D1), the default quality per encoder (#216) is still pending ([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)) |
 | WebP | Still input and output through workspace `libwebp-rs` (`webp-read`, `webp-write`); lossy crop requests, lossless full-frame internal work | The output sink budgets an ARGB frame and predictable lossy planes, tags sRGB ICC, and reports opaque codec memory; animation is unsupported |
 
@@ -45,8 +48,10 @@ Current behavior and boundaries:
 
 - **Color and geometry:** SDR sRGB/Display P3 reference math, Area and Lanczos3
   resizing, and opt-in RGB ICC conversion through `moxcms`. Input color must be
-  explicit. HDR, contradictory metadata, and unsupported alpha cases fail
-  closed. The JPEG input adapter emits RGB8 and rejects CMYK/YCCK files;
+  explicit. The rendered-ICC path accepts opaque RGB and RGBA with straight
+  alpha, which bypasses the transform (#222); HDR, contradictory metadata,
+  premultiplied or unspecified alpha under ICC, and other unsupported alpha
+  cases fail closed. The JPEG input adapter emits RGB8 and rejects CMYK/YCCK files;
   supported JPEG, WebP, JPEG XL, and AVIF orientation is applied before crop;
   AVIF `clap` and unsupported transform orderings are rejected.
 - **Execution:** the default `f32` executor is checked against an `f64`
@@ -98,11 +103,11 @@ separate workspace members; they are grouped here by their shared port.
 | [`ferrisma-libavif`](../crates/ferrisma-libavif/README.md) | Compatibility adapter and CLI re-exporting the engine's libavif backend | Delegates to the independent writer; native/nightly and codec acceptance gates remain |
 | [`ferrisma-avif-read`](../crates/ferrisma-avif-read) | Safe, independent read wrapper over libavif's AOM decoder; selected by `avif-read` | Pinned nightly and supported macOS ARM64/GNU Linux x86-64; full Argon/dav1d adoption evidence remains open |
 | [`ferrisma-avif-write`](../crates/ferrisma-avif-write) | Independent safe row writer over the workspace AOM encoder; selected by `avif-own-write` | Isolates unsafe ABI calls; known RGBA/YUV(A) bytes are reserved, codec scratch and encoded output remain opaque |
-| [`ferrisma-jxl-decoder`](../crates/ferrisma-jxl-decoder) | Safe, independent wrapper for the default local JPEG XL decoder (`jpeg-xl-own-read`) | Full-frame fallback for every crop; default confirmed (ADR-0041 D1), speed against `jxl-oxide` is context; x86-64 conformance open |
+| [`ferrisma-jxl-decoder`](../crates/ferrisma-jxl-decoder) | Safe, independent wrapper for the default local JPEG XL decoder (`jpeg-xl-own-read`) | Full-frame fallback for every crop; default confirmed (ADR-0041 D1); speed is reported against libjxl, `jxl-oxide` is context; x86-64 conformance open |
 | [`ferrisma-jxl-encoder`](../crates/ferrisma-jxl-encoder) | Safe, independent wrapper for the port's public JPEG XL encoder; lossy output of `jpeg-xl-write` | Admits only the port's lossy profile (straight 8-bit alpha; patches off by default, on only by request, then a typed `PatchDictionary` admission for text-like content); codec memory is a source-derived estimate; x86-64 parity and timing open |
 | [`libjpeg-turbo-rs`](../codecs/libjpeg-turbo-rs/README.md) | 8-bit decoder, scaled decode, crop/skip, metadata, safe scanlines, and SIMD; selected for engine JPEG input | Scaled-IDCT quality policy and deeper cross-platform adoption evidence remain open; encoding, lossless JPEG, and 12/16-bit samples are outside the port's scope |
 | [`libwebp-rs`](../codecs/libwebp-rs/README.md) | Safe decode/encode APIs, incremental decode, containers/animation, and SharpYUV | Still-image input and output adopted through `webp-read` and `webp-write`; SIMD paths are gated against libwebp's SIMD build per level ([status](../codecs/libwebp-rs/docs/SIMD-STATUS.md)) |
-| [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder, C-ABI surface, and reference comparison suites | Default engine JPEG XL input since 2026-11-12, confirmed by the owner on 2026-11-13 ([ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1), and the lossy and lossless `jpeg-xl-write` profiles; public APIs are provisional, encoder incomplete (patch encoding, alpha deeper than 12 bits, other efforts), and deeper acceptance remains open |
+| [`libjxl-rs`](../codecs/libjxl-rs/docs/PORT_STATUS.md) | Incremental decoder with a SIMD translation of every decode-path Highway export (NEON selected by default on AArch64, scalar on x86-64; AC groups decode concurrently under a runner), C-ABI surface, and reference comparison suites | Default engine JPEG XL input since 2026-11-12, confirmed by the owner on 2026-11-13 ([ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1), and the lossy and lossless `jpeg-xl-write` profiles; public APIs are provisional, encoder incomplete (patch encoding, alpha deeper than 12 bits, other efforts) and scalar only (its Highway exports are unported, #231, #243), and deeper acceptance remains open |
 | [`libavif-rs`](../codecs/libavif-rs/README.md), `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | AVIF container and codec ports, using generated and owned Rust with C-ABI boundaries | No stable safe Rust API claim; validated native hosts are macOS ARM64 and GNU Linux x86-64; package-specific deep gates remain |
 | [`ferrisma-xtask`](../tools/xtask) | Standard-library Rust control plane, invoked as `cargo xtask`, for affected components and validation stages | Existing Python oracle harnesses migrate incrementally without losing evidence |
 
@@ -146,24 +151,54 @@ Until then, releases are 0.x pre-releases from `main`. No port meets the
 full gate on both targets yet; [the quality gate guide](quality-gate.md)
 lists what each port can check today and the recorded results.
 
-**Hosted cross-check (state of 2026-11-14).** The first hosted Linux x86-64
-run of the SIMD-against-SIMD gates (nightly run
+**Hosted cross-check (state of 2026-11-14, `main` at `5004f34e`).** The
+first hosted Linux x86-64 run of the SIMD-against-SIMD gates (nightly run
 [43401560676](https://github.com/sebastian-software/ferrisma/actions/runs/43401560676)
 on `main` at `dbf7b095`) failed for libwebp-rs and libjxl-rs in the C and C++
 oracle processes ([#252](https://github.com/sebastian-software/ferrisma/issues/252)).
 Both causes were defects of the test scaffolding (buffers not aligned or
-sized like the originals' own) and are fixed. libwebp-rs then passed on
-hosted Linux x86-64 at every level (run
-[43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624):
-`avx2`, `sse41` and `sse2`, 1,131 tests each, 0 failed). libjxl-rs is still
-open on x86-64: in run
-[43533597186](https://github.com/sebastian-software/ferrisma/actions/runs/43533597186)
-the whole-decode comparison and most kernels match the original's AVX2
-oracle, four row tests (CMS pre/post-processing, tone mapping, splines,
-blending) differ in the last place, and several SIMD test binaries did not
-run; whether the static AVX2 oracle is the reference ADR-0041 names is being
-examined (port ADR 0004). No hosted run of the AOM comparison with the
-original's SIMD build exists.
+sized like the originals' own) and are fixed on `main`.
+
+- **libwebp-rs** passed on hosted Linux x86-64 at every level: run
+  [43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624)
+  (`WEBP: Checks`, branch `v1/webp` at `690ad251`, whose `codecs/libwebp-rs`
+  tree is identical to `main`'s), `avx2`, `sse41` and `sse2`, 1,131 tests
+  each, 0 failed.
+- **libjxl-rs** is still open on x86-64 on `main`. In run
+  [43533597186](https://github.com/sebastian-software/ferrisma/actions/runs/43533597186)
+  (branch `v1/jxl-merge7` at `718b32d6`) four row tests (CMS, tone mapping,
+  splines, blending) differed from the static AVX2 oracle in single
+  words (one to three units in the last place, once the sign of a zero); the analysis on branch `v1/jxl-avx2-merge` traces each to a
+  function outside Highway's per-target code that the static build
+  contracts with FMA and upstream's release build does not.
+  The owner decided on 2026-11-14 that the AVX2 reference is upstream's
+  dispatch build capped at AVX2 (ADR-0041 section 1). That oracle is on
+  branch `v1/jxl-avx2-merge` (port ADR 0004, "AVX2 reference: upstream's
+  dispatch build", commit `d68e9a6d`), **not on `main`**; `main` still
+  builds the static AVX2 oracle. With it, run
+  [43558043274](https://github.com/sebastian-software/ferrisma/actions/runs/43558043274)
+  (branch `v1/jxl-avx2-fixes`, based on `718b32d6`, before the NEON default
+  and the threading and row changes) passed every job; the run of
+  `v1/jxl-avx2-merge`
+  ([43599382021](https://github.com/sebastian-software/ferrisma/actions/runs/43599382021))
+  was still queued when this was written. The decoder keeps the scalar path
+  on x86-64 until a hosted x86-64 run of the combined decoder passes (port
+  ADR 0004, "Decoder path" condition (d); #96).
+- **AOM:** no workflow runs the comparison with the original's SIMD build
+  (`tools/check_aom_simd_original.py`), so no hosted run of it exists.
+- **Nightly AVIF `root / generate` (#204):** the cause, an owned source file
+  the root profile checks did not know, is fixed on `main` (`63d77626`,
+  libavif-rs ADR 0054 amendment); no nightly has completed since (run
+  [43578105956](https://github.com/sebastian-software/ferrisma/actions/runs/43578105956)
+  was queued).
+
+**Performance records against the original** (reported, not gated): the
+[three-column record of 2026-11-13](benchmarks/v1.0-three-column-2026-11-13.md)
+covers every codec on five CI platforms at `e4038a4a`, before the JPEG XL
+SIMD work; the [JPEG XL decode record of 2026-11-14](benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md)
+covers the current decoder on one AArch64 machine, with addenda after the
+concurrent AC group decode and the render-pipeline changes. Neither is a
+universal speed claim.
 
 - Complete the independent image-quality, hardening, resource, and dependency
   evidence in the [M1 gate register](milestones/M1-evidence-and-gates.md).
@@ -174,13 +209,16 @@ original's SIMD build exists.
 - Meet the quality gate above for each port on both targets. The oracles of
   the originals exist (scalar and SIMD; x86-64 builds under Rosetta for
   libjpeg-turbo-rs, libwebp-rs, libjxl-rs and libaom). Still open: the
-  libjxl-rs encoder's Highway exports are unported (#231, #243), and its
-  decoder's SIMD path, which has every decode-path export and is the default
-  on AArch64 since 2026-11-14 (port ADR 0004), stays unselected on x86-64
-  until the AVX2 evidence is complete (#96); the AOM
-  x86 kernels build only for GNU Linux x86-64, and the `avx2` level against
-  the original has never run (#242, #125, #124, #122); the hosted Linux
-  x86-64 cross-check (#241, #252); the owner's open questions O1–O9
+  libjxl-rs encoder's Highway exports are unported (#231, #243), so the
+  encoder meets at most the scalar half; its decoder's SIMD path, which has
+  every decode-path export and is the default on AArch64 since 2026-11-14
+  (port ADR 0004), stays unselected on x86-64 until hosted AVX2 evidence of
+  the combined decoder exists (#96); the AOM port dispatches 513 RTCD
+  functions to Neon on macOS ARM64 since 2026-11-13 (libavif-rs ADR 0056
+  amendment), but its x86 kernels build only for GNU Linux x86-64, and the
+  `avx2` level against the original has never run (#242, #125, #124, #122);
+  the hosted Linux x86-64 cross-check for libjxl-rs and AOM (#241, #252);
+  the owner's open questions O1–O9
   ([#250](https://github.com/sebastian-software/ferrisma/issues/250)). The
   workspace JPEG XL reader and AVIF writer are the confirmed defaults
   (ADR-0041 D1); x86-64 JPEG XL conformance stays open, and lossy d1.0 JPEG

@@ -2,10 +2,10 @@
 
 This page turns [ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md)
 into commands. The ADR owns the rules; this page only shows how to check
-them and what cannot be checked yet. State on 2026-11-13, `main` at
-`dbf7b095` (after the gate work of the night of 2026-11-13). The commands are
-collected from each port's `tools/check.py`, `tools/build_oracle.py`,
-`tools/build_aom.py`, `tools/check_aom_simd_original.py` and port ADRs; they
+them and what cannot be checked yet. State on 2026-11-14, `main` at
+`5004f34e`. The commands are collected from each port's `tools/check.py`,
+`tools/build_oracle.py`, `tools/build_aom.py`,
+`tools/check_aom_simd_original.py`, `CONTRIBUTING.md` and port ADRs; they
 were not run for this page. The results quoted below are the recorded ones,
 each with its source; they are not results of this page.
 
@@ -40,19 +40,34 @@ One hosted Linux x86-64 run per release candidate repeats the x86-64 checks
 with the original built natively on the runner. Benchmark runners
 (Blacksmith, the v1.0 performance workflow) do not count for the gate.
 
-**Hosted cross-check: not passed yet (open).** The first hosted Linux x86-64
-run of the SIMD-against-SIMD gates, nightly run
+The machine of the later libjxl-rs work of 2026-11-13/14 has no Rosetta 2
+(libjxl-rs [ADR 0004](../codecs/libjxl-rs/docs/adr/0004-simd-paths.md),
+Evidence: "the local machine has no Rosetta 2"), so that work's x86-64
+evidence comes from hosted runs only. Rosetta 2 results quoted below are
+from earlier runs on another development Mac, as their sources state.
+
+**Hosted cross-check: passed for libwebp-rs, open for the others.** The
+first hosted Linux x86-64 run of the SIMD-against-SIMD gates, nightly run
 [43401560676](https://github.com/sebastian-software/ferrisma/actions/runs/43401560676)
 on `main` at `dbf7b095` (`ubuntu-latest`, the `ubuntu-26.04` image with
-Clang 21.1.8), failed for libwebp-rs and libjxl-rs, in both cases on the
-original's side of the comparison (the C and C++ oracle processes)
-([#252](https://github.com/sebastian-software/ferrisma/issues/252)). That is
-not yet evidence that a port differs from its original, but the hosted
-cross-check has not passed for either port. The same checks passed on macOS
-ARM64 in that run and locally under Rosetta 2 (#252). #252 does not record a
-libjpeg-turbo-rs result. No workflow in `.github/workflows` runs the AOM
-SIMD-against-original gate (`tools/check_aom_simd_original.py`), so no hosted
-run of it exists. Tracking: [#241](https://github.com/sebastian-software/ferrisma/issues/241).
+Clang 21.1.8), failed for libwebp-rs and libjxl-rs on the original's side of
+the comparison
+([#252](https://github.com/sebastian-software/ferrisma/issues/252)). Both
+causes were test scaffolding that handed the originals buffers not aligned
+or sized as their own callers do; both are fixed on `main`. Since then:
+
+- libwebp-rs passed every level on hosted Linux x86-64 (run
+  [43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624),
+  details below).
+- libjxl-rs has no passing hosted AVX2 run of the state on `main`; the
+  details and the AVX2 reference decided on 2026-11-14 are below.
+- #252 does not record a libjpeg-turbo-rs result.
+- No workflow in `.github/workflows` runs the AOM SIMD-against-original gate
+  (`tools/check_aom_simd_original.py`), so no hosted run of it exists.
+
+Tracking: [#241](https://github.com/sebastian-software/ferrisma/issues/241).
+The [status page](status.md#next-integration-and-release-gates) has the
+same state in short.
 
 ## Per port
 
@@ -111,57 +126,97 @@ python3 tools/check.py --stage test --oracle --arch x86_64
 - **NEON rescaler (#79, #80):** the port now selects libwebp's NEON export
   rows on AArch64 as libwebp does and matches its NEON build (port ADR 0008,
   "Upstream's own divergences").
-- **Recorded results.** On the merged tree: AArch64 2,331 passed, 0 failed
-  ([#196 status of 2026-11-13](https://github.com/sebastian-software/ferrisma/issues/196));
-  x86-64 under Rosetta 2, all four modes and three profiles, 4,488 passed,
-  0 failed on `54a0c458` (follow-up comment on #196, details in #89).
+- **Whole pipeline:** `tests/wp13_tools.rs` runs in every gate mode and, in
+  each `release-simd` mode, compares the Rust-linked `cwebp` with libwebp's
+  SIMD `cwebp` at the same capped level (`test_cwebp.sh` in three option
+  sets and an option matrix); `the_cwebp_builds_follow_the_oracle_variant`
+  fails if the Rust-linked `cwebp` is linked against the wrong build
+  ([SIMD status](../codecs/libwebp-rs/docs/SIMD-STATUS.md), "Whole-pipeline
+  gate").
+- **Recorded results.** AArch64, after the #252 probe fix: `neon` 411 and
+  scalar 368 tests passed, 0 failed, in each of the three profiles (2,337 in
+  all; SIMD status, 2026-11-13). x86-64 under Rosetta 2, the scalar and the
+  three SIMD modes in three profiles: 4,488 passed, 0 failed on `54a0c458`
+  (#89, cited in the SIMD status; Rosetta 2 does not fault on misaligned SSE
+  loads, so it could not show #252). Hosted Linux x86-64: run
+  [43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624)
+  (`WEBP: Checks`, branch `v1/webp` at `690ad251`; its `codecs/libwebp-rs`
+  tree is identical to `main`'s at `5004f34e`), job `WEBP: Oracle
+  (ubuntu-latest)`: `avx2`, `sse41` and `sse2` 1,131 tests each, 0 failed;
+  every job of the run passed. The earlier `avx2` failure (#252) was the
+  `wp10/dsp` probe passing misaligned rows to libwebp's SSE2 predictors,
+  not libwebp or the port. The SIMD status page on `main` still says that
+  no hosted rerun had finished; it predates this run.
 - **Open:** a few test domains are narrowed for the `release-simd`
   comparison only, the `oracle` feature reads `LIBWEBP_SIMD_LEVEL`, and the
   full x86-64 gate takes about two and a half hours under Rosetta; the owner
   has not yet accepted these (open question O7,
-  [#250](https://github.com/sebastian-software/ferrisma/issues/250)). The
-  hosted Linux run failed in the `avx2` mode: the C probe
-  `build/oracle/release-simd/probes/wp10/dsp` exited with SIGSEGV in
-  `tests/wp10_dsp.rs`, so `sse41` and `sse2` did not run there (#252).
-  Remaining x86 encoder SIMD work: #89, #83.
+  [#250](https://github.com/sebastian-software/ferrisma/issues/250)).
+  The SIMD status lists no untranslated x86 SIMD file of libwebp 1.6.0;
+  the tracking issues #89 and #83 are still open.
 
 ### libjxl-rs (`codecs/libjxl-rs`)
 
-The scalar half exists on both targets. The SIMD half exists at row level
-only: the SIMD stages are proven against the original's SIMD build, but the
-decoder does not select them yet (port
+The scalar half exists on both targets. The SIMD half exists for the
+decoder: every decode-path Highway export has a SIMD translation for NEON
+and AVX2, compared with the original's single-target SIMD build (AVX2 is
+compile-checked locally and runs only on hosted x86-64), and the decoder
+selects NEON by default on AArch64. On x86-64 the decoder keeps the
+scalar path, and the encoder's Highway exports are unported on both targets
+(#231, #243), so the encoder can meet only the scalar half (port
 [ADR 0004](../codecs/libjxl-rs/docs/adr/0004-simd-paths.md),
-[port status](../codecs/libjxl-rs/docs/PORT_STATUS.md)).
+[port status](../codecs/libjxl-rs/docs/PORT_STATUS.md),
+[contributing](../codecs/libjxl-rs/CONTRIBUTING.md), "Which decoder path a
+test runs").
 
 ```sh
-# AArch64: scalar references (pinned HWY_COMPILE_ONLY_SCALAR oracle and the
-# second scalar reference target/oracle-o3) plus the NEON oracle
-# (target/oracle-neon) for tests/simd_parity.rs
+# AArch64: the scalar references (pinned HWY_COMPILE_ONLY_SCALAR oracle and
+# the second scalar reference target/oracle-o3) and the NEON oracle
+# (target/oracle-neon) for the SIMD test binaries; every test invocation
+# gets JXL_DECODER_TARGET=scalar
 python3 tools/check.py --stage test
-# x86-64 under Rosetta: the same three oracles cross-built for x86-64
+# the same against the ASan/UBSan-instrumented original
+python3 tools/check.py --stage test --sanitizers
+# one of N disjoint shares of the test names (as the hosted jobs run it), or
+# every test binary to the end after a failure
+python3 tools/check.py --stage test --partition 1/4
+python3 tools/check.py --stage test --no-fail-fast
+# x86-64 under Rosetta: the same oracles cross-built for x86-64
 # (target/oracle-x86_64, target/oracle-o3-x86_64, target/oracle-avx2)
 python3 tools/check.py --stage test --target x86_64-apple-darwin
 ```
 
+- **SIMD test binaries** (`SIMD_TESTS` in `tools/check.py`, oracle in
+  `JXL_CPP_ORACLE_SIMD`): `simd_parity`, `simd_render`, `simd_vardct`,
+  `simd_public`, `simd_modular`, `simd_stages2`, `simd_color` and
+  `simd_threads`. They force the detected target with
+  `set_decoder_simd_for_test(Some(true))`. `tests/simd_public.rs` is the
+  public-decoder gate: whole decodes through the public decoder and its
+  low-memory pipeline, float, 8- and 16-bit output, over the `decode_vardct`
+  gate files, the scalar suite's public-decoder inputs and the pinned
+  conformance corpus, once as the engine decodes and once with the default
+  CMS and a Rec. 2020 PQ output profile. `tests/simd_threads.rs` decodes
+  with 0, 1, 2 and 8 runner workers. `tests/simd_vardct_lanes8.rs` needs no
+  oracle: it runs the generic VarDCT kernels with an 8-lane descriptor (two
+  NEON halves) against NEON's 4 lanes, for AVX2's loop structure on an
+  AArch64 host; it does not test AVX2's instructions.
+- **Which path a test runs:** scalar-reference tests select the scalar
+  decoder path themselves (`hwy::select_scalar_decoder_for_test()`, 245
+  tests in 47 files); `tools/check.py` also sets `JXL_DECODER_TARGET=scalar`
+  as a second guard, which `the_scalar_gate_forces_the_scalar_decoder_path`
+  checks; `tests/dispatch_scope.rs` alone runs the default selection and
+  checks that the encoder stays scalar (port ADR 0004, "Which path a test
+  runs", "Scope of the selection").
 - **SIMD oracle:** `tools/oracle` with `-DORACLE_HWY_TARGET=NEON` or `AVX2`
-  restricts Highway to that target through `HWY_DISABLED_TARGETS`;
-  `tools/check.py` passes it to the tests as `JXL_CPP_ORACLE_SIMD`. The AVX2
-  oracle is a static AVX2 build, not upstream's dispatch build, so
-  whole-decode AVX2 comparisons of non-kernel scalar code need a dispatch
-  `djxl` (port ADR 0004, Consequences).
-- **What exists (2026-11-14):** a Highway operations layer (`src/jxl/hwy`,
-  81 operations for `HWY_NEON` and `HWY_AVX2`) and a SIMD translation of
-  every decode-path Highway export of port ADR 0004's Plan, each compared
-  with the single-target oracle in `tests/simd_*.rs`. Whole decodes through
-  the public decoder are compared in `tests/simd_public.rs` (352 inputs in
-  two modes, all identical with the NEON oracle as recorded in port ADR
-  0004). The decoder selects the NEON path by default on AArch64; the
-  selection is scoped to decoding, the encoder stays scalar, and x86-64
-  stays on the scalar path until the AVX2 evidence is complete. The scalar
-  test stage forces the scalar path (`JXL_DECODER_TARGET=scalar`). The
-  encoder's Highway exports are open (#231, #243).
+  restricts Highway to that target through `HWY_DISABLED_TARGETS`. On
+  `main` the AVX2 oracle is a static AVX2 build, which also contracts scalar
+  code outside Highway's per-target code with FMA. The owner decided on
+  2026-11-14 that the AVX2 reference is upstream's dynamic-dispatch release
+  build capped at `HWY_AVX2`, as ADR-0041 section 1 defines it; that build
+  is on branch `v1/jxl-avx2-merge` (port ADR 0004 there, "AVX2 reference:
+  upstream's dispatch build"), not yet on `main`.
 - **Under Rosetta**, `tools/check.py` sets `ROSETTA_ADVERTISE_AVX=1` only for
-  `tests/simd_parity.rs`. The other tests run without it, because the
+  the SIMD test binaries. The other tests run without it, because the
   cross-built scalar references contain only skcms's baseline engine
   (upstream's `skcms.cmake` keys the HSW engine on `CMAKE_SYSTEM_PROCESSOR`,
   the ARM64 host). The port's skcms HSW engine against the original's is
@@ -170,17 +225,51 @@ python3 tools/check.py --stage test --target x86_64-apple-darwin
   `tests/parity.rs`). For requests that carry NaN or infinity, positions
   where the second scalar reference disagrees with the pinned one are not
   compared: open question O1's working rule, pending owner confirmation.
-- **Recorded results.** Row-level SIMD evidence on 2026-11-13 (macOS
-  27.0.1, M1 Ultra): all 63 operations on 85,085 requests per target, plus
+- **`rcpps`:** on AVX2 the SIMD DequantBlock executes the original's
+  vendor-specific `_mm256_rcp_ps` estimate, so AVX2 output can differ
+  between CPU vendors exactly as the original's does; identity is claimed
+  per host against the original, never across hosts (port ADR 0004, VarDCT
+  decode kernels, "Dispatch": working decision 2026-11-13 evening,
+  delegated, revisable by the owner). Whether that is acceptable for
+  shipped defaults stays open question O4.
+- **Recorded results, AArch64 (NEON).** Row level on 2026-11-13 (macOS
+  27.0.1, M1 Ultra): all 63 operations of that day on 85,085 requests, plus
   the Gaborish, YCbCr/chroma upsampling and EPF rows, with no finite word
-  different (port ADR 0004, Evidence). On the merged tree: AArch64 1,027
-  passed, 0 failed; x86-64 under Rosetta 2, 1,023 passed, 0 failed
-  ([#196 status of 2026-11-13](https://github.com/sebastian-software/ferrisma/issues/196)).
-- **Open:** on hosted Linux x86-64, the three SIMD stage tests of
-  `tests/simd_parity.rs` failed with "write the oracle requests: Broken
-  pipe" (the SIMD oracle exited before reading its input; the cause is not
-  known), while the Highway operation test passed (#252). `rcpps`-based
-  estimates are vendor-specific (open question O4).
+  different (port ADR 0004, Evidence). Public-decoder gate on the combined
+  branch (2026-11-14): all 352 distinct inputs match the NEON original word
+  for word in f32, u8 and u16, in both modes; no input reaches the
+  `ToLinear` and `ToneMapping` stages, whose evidence is row-level parity
+  only (port ADR 0004, "Public decoder gate", "Default selection per
+  target"). Worker counts: 12 multi-group files and the 40 conformance
+  inputs at 0, 1, 2 and 8 workers, zero differing words against the
+  runner-free decode and against the NEON original (port status,
+  "Concurrent AC group decode"). 8-lane structure: 1,120 transform, 162
+  DequantBlock and 929 DC smoothing, DequantDC and quant-weight cases with
+  equal words (port ADR 0004). The last whole-suite counts quoted on #196
+  (AArch64 1,027 passed, 0 failed; Rosetta 2 1,023 passed, 0 failed) are
+  from the merged tree of 2026-11-13, before the SIMD decode work; no
+  whole-suite count of the state on `main` is recorded.
+- **Recorded results, x86-64 (AVX2).** Under Rosetta 2 on 2026-11-13: the 63
+  operations and the three row stages (port ADR 0004, Evidence). Hosted
+  Linux x86-64: run
+  [43533597186](https://github.com/sebastian-software/ferrisma/actions/runs/43533597186)
+  (branch `v1/jxl-merge7` at `718b32d6`, static AVX2 oracle) failed four row
+  tests (CMS, tone mapping, splines, blending), each in one word: by one to
+  three units in the last place, and once in the sign of a zero (the table
+  in port ADR 0004 on branch `v1/jxl-avx2-merge`). Run
+  [43558043274](https://github.com/sebastian-software/ferrisma/actions/runs/43558043274)
+  (branch `v1/jxl-avx2-fixes`, based on `718b32d6`, with the dispatch-build
+  oracle) passed every job of `JXL: Checks`, including the SIMD test
+  binaries and the public-decoder gate on AVX2; that branch predates the
+  NEON default, the concurrent AC group decode and the row changes. The
+  run of `v1/jxl-avx2-merge`
+  ([43599382021](https://github.com/sebastian-software/ferrisma/actions/runs/43599382021))
+  was queued when this page was written. **No passing hosted AVX2 run of
+  the state on `main` exists.**
+- **Open:** x86-64 default selection (port ADR 0004 condition (d), #96);
+  the dispatch-build AVX2 oracle on `main`; the encoder's Highway exports
+  (#231, #243); `ToLinear` and `ToneMapping` in a whole decode (no HDR input
+  in the gate set); O1, O4 and O9 (#250).
 
 ### libavif-rs with libaom (`codecs/libavif-rs`)
 
@@ -215,10 +304,16 @@ python3 tools/check_aom_simd_identity.py
   generic build is its scalar counterpart.
 - **Scalar half:** the golden outputs from the `_c`-only C reference (port
   ADR 0059) and the `scalar` level against the generic build.
-- **Recorded results.** AArch64, with all five still-image Neon kernel
-  families dispatched (509 RTCD functions): `neon` 82 of 82 and `scalar` 82
-  of 82 cases identical to the original (port ADR 0056, SIMD-against-SIMD
-  confirmation of 2026-11-13; #241). x86-64 through the container route:
+- **Recorded results.** AArch64, after four more still-image Neon kernels
+  were dispatched (`aom_sum_sse_2d_i16`, `av1_get_horver_correlation_full`,
+  `av1_get_nz_map_contexts`, `av1_round_shift_array`; 513 RTCD functions on
+  the arm64 overlay): `neon` 82 of 82 after each kernel, and on the final
+  tree `neon` 82 of 82 and `scalar` 82 of 82 cases identical to the
+  original; `cargo test --release -p libavif-aom --test simd` 152 passed;
+  the PR stage passes with golden outputs 62 of 62 (port ADR 0056,
+  amendment "the remaining still-image Neon kernels", 2026-11-13, loaded
+  host). Before that, with five kernel families (509 RTCD functions), the
+  same 82 of 82 (port ADR 0056, SIMD-against-SIMD confirmation; #241). x86-64 through the container route:
   `sse4.1` 86 of 86 and `scalar` 86 of 86 identical (port ADR 0056,
   Results). In that route the port runs in an x86-64 Ubuntu 20.04 container
   and the originals run on macOS, so the two sides use different C
@@ -230,14 +325,24 @@ python3 tools/check_aom_simd_identity.py
   needs a native x86-64 host and **has never run**. No workflow runs
   `check_aom_simd_original.py`; `.github/workflows/avif-aom-simd-linux.yml`
   runs the kernel tests, the identity check and the golden check only. The
-  port's x86 kernels were not changed in the work of 2026-11-13 (#196).
+  port's x86 kernels were not changed in the work of 2026-11-13 (#196; the
+  port ADR 0056 amendment of that day leaves "all x86 counterparts"
+  unchanged).
 - The identity check compares the port's SIMD with its own `_c` path; it
   proves the gate only where the original's SIMD equals its C.
+- **Nightly `root / generate` (#204):** the production-package and profile
+  checks did not know the handwritten `src/read_sample_access.rs` that every
+  `read` module includes; `root_production.OWNED` now declares it, with no
+  unit or selector hash changed (`63d77626`, port ADR 0054 amendment,
+  working decision 2026-11-13, delegated, revisable by the owner). No
+  nightly has completed since the fix.
 - **Open:** O2 limits SIMD work to kernels on the still-image path; O4 covers
   libaom's NASM-only predictors; O8 asks the owner to accept the dispatch
-  route through `tools/enable_aom_dispatch.py` and two kernels that stay on
-  `_c` although the original dispatches Neon (`av1_get_nz_map_contexts`,
-  `av1_round_shift_array`) (#250). Kernel work: #242, #125, #124, #122.
+  route through `tools/enable_aom_dispatch.py` (#250). The two kernels O8
+  names as staying on `_c` (`av1_get_nz_map_contexts`,
+  `av1_round_shift_array`) are dispatched to Neon since the amendment above;
+  `aom_quantize_b_helper` stays on `_c` because libaom calls only
+  `aom_quantize_b_helper_c` by name. Kernel work: #242, #125, #124, #122.
 
 ### Engine kernels (not part of this gate)
 
