@@ -226,10 +226,12 @@ package:
 Applied on this branch: `libavif-rs` expression corrected; license texts
 added to the project-owned bridge packages and `ferrisma-kernels`; `license`,
 `description`, and `repository` completed where they were missing; `include`
-lists added to every package in the publication chain except the JPEG port.
-The JPEG port's manifest is unchanged here because it must be renamed before
-publication (see [publishing](publishing.md)); its `include` list belongs
-in that change.
+lists added to every package in the publication chain. The JPEG port got its
+list on 2026-11-14: `README.ijg`, `LICENSE.md`, `upstream.json`, `build.rs`,
+the README, and `src/`; before it, a checkout with the upstream submodule
+initialized packaged 788 files including 627 from `upstream/` (2.9 MiB
+compressed), now 75 files (319 KiB). The rename before publication (#207) is
+still open (see [publishing](publishing.md)).
 
 ## Current direct codec/CMS choices
 

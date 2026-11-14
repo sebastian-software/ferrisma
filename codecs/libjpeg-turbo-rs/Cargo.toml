@@ -8,6 +8,11 @@ rust-version = "1.95"
 license = "IJG AND Zlib"
 description = "A mechanical Rust port of libjpeg-turbo's JPEG decoder"
 repository = "https://github.com/sebastian-software/ferrisma"
+# Only what a dependent build and the license obligations need: the IJG
+# license (README.ijg), the Zlib notice (LICENSE.md), the pinned upstream
+# identity, and the sources. The upstream submodule, oracle tooling, tests,
+# benchmarks, fuzzing, and the porting records stay in the repository.
+include = ["/Cargo.toml", "/build.rs", "/README.md", "/README.ijg", "/LICENSE.md", "/upstream.json", "/src/**"]
 publish = false
 
 [lib]
