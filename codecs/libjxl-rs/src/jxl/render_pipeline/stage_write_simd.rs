@@ -11,10 +11,13 @@
 //! to an output, so these functions take inputs padded with zeros to whole
 //! vectors and return the first `len` results. Every conversion is
 //! lane-wise. The interleaving stores (`StoreInterleaved2/3/4`) and the
-//! 16-bit byte swap are data movement and stay with the caller's loops, as
-//! does `StoreFloatRow`, which only moves words.
+//! 16-bit byte swap of the unsigned and half-float rows are data movement and
+//! stay with the caller's loops. `StoreFloatRow`, which only moves words, is
+//! [`float_row`]: it loads the input rows in place and stores the original's
+//! words into the stage's output scratch.
 use super::stage_write_dither::DITHER;
 use crate::jxl::hwy::{Kernel, SimdF32, Target, dispatch};
+use std::mem::MaybeUninit;
 
 /// Copy `len` samples into a zero-padded buffer of whole vectors.
 pub fn padded(target: Target, len: usize, sample: impl Fn(usize) -> f32) -> Vec<f32> {
@@ -165,6 +168,93 @@ pub fn unpremul(target: Target, colors: &mut [Vec<f32>], alpha: &[f32], small_al
             colors,
             alpha,
             small_alpha,
+        },
+    );
+}
+
+/// `StoreFloatRow` (stage_write.cc:637-659): the input rows' whole vectors
+/// to `RoundUpTo(len, Lanes(d))`, interleaved with `StoreInterleaved2/3/4`
+/// into the stage's uninitialized scratch, or a `memcpy` of `len` samples
+/// for one channel. The port's interleaving stores write a stack vector
+/// group, which is then copied word for word to the scratch: the same words
+/// at the same offsets as the original's stores. Every operation only moves
+/// words, so NaN payloads stay as they are.
+struct FloatRow<'a> {
+    input: [&'a [f32]; 4],
+    num_channels: usize,
+    len: usize,
+    out: &'a mut [MaybeUninit<f32>],
+}
+impl Kernel for FloatRow<'_> {
+    type Output = ();
+    #[inline(always)]
+    fn run<D: SimdF32>(self, d: D) {
+        let [in0, in1, in2, in3] = self.input;
+        let (len, out) = (self.len, self.out);
+        let lanes = D::LANES;
+        let mut group = [0.0f32; 32];
+        let mut put = |at: usize, n: usize, group: &[f32]| {
+            for (o, &v) in out[at..at + n].iter_mut().zip(&group[..n]) {
+                o.write(v);
+            }
+        };
+        match self.num_channels {
+            1 => put(0, len, in0),
+            2 => {
+                for i in (0..len).step_by(lanes) {
+                    d.store_interleaved2(d.load(&in0[i..]), d.load(&in1[i..]), &mut group);
+                    put(2 * i, 2 * lanes, &group);
+                }
+            }
+            3 => {
+                for i in (0..len).step_by(lanes) {
+                    d.store_interleaved3(
+                        d.load(&in0[i..]),
+                        d.load(&in1[i..]),
+                        d.load(&in2[i..]),
+                        &mut group,
+                    );
+                    put(3 * i, 3 * lanes, &group);
+                }
+            }
+            _ => {
+                // StoreInterleaved4 only permutes lanes: v0[0], v1[0], v2[0],
+                // v3[0], v0[1], ... The layer has no four-way interleaving
+                // store, so the lanes go through one vector store each.
+                let mut lanes4 = [[0.0f32; 8]; 4];
+                for i in (0..len).step_by(lanes) {
+                    for (c, row) in [in0, in1, in2, in3].into_iter().enumerate() {
+                        d.store(d.load(&row[i..]), &mut lanes4[c][..]);
+                    }
+                    for l in 0..lanes {
+                        for c in 0..4 {
+                            group[4 * l + c] = lanes4[c][l];
+                        }
+                    }
+                    put(4 * i, 4 * lanes, &group);
+                }
+            }
+        }
+    }
+}
+
+/// [`FloatRow`] for one SIMD target: `input` holds the `num_channels` rows,
+/// each with at least `RoundUpTo(len, Lanes)` samples, and `out` at least
+/// `num_channels * RoundUpTo(len, Lanes)` words.
+pub fn float_row(
+    target: Target,
+    input: [&[f32]; 4],
+    num_channels: usize,
+    len: usize,
+    out: &mut [MaybeUninit<f32>],
+) {
+    dispatch(
+        target,
+        FloatRow {
+            input,
+            num_channels,
+            len,
+            out,
         },
     );
 }

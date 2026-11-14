@@ -87,6 +87,12 @@ impl InputSpan {
         // opaque-alpha vector, or this call's reached initialized scratch span.
         unsafe { self.address.add(x).read() }
     }
+    /// The span's initialized words as a slice, for the SIMD StoreFloatRow.
+    fn samples(&self) -> &[f32] {
+        // SAFETY: As for `value`: the span's `initialized` f32 words are live
+        // and initialized, and nothing writes them during this conversion.
+        unsafe { std::slice::from_raw_parts(self.address, self.initialized) }
+    }
     fn word(self, x: usize) -> u32 {
         assert!(x < self.initialized);
         // SAFETY: The same initialized f32 extent/alignment is valid for u32;
@@ -395,7 +401,43 @@ impl WriteToOutputStage {
             }
             _ => None,
         };
-        for x in 0..len {
+        // render stages: StoreFloatRow (stage_write.cc:637-659) of the SIMD
+        // build loads the input rows' whole vectors to RoundUpTo(len,
+        // Lanes(d)) and stores interleaved into the scratch in place. The
+        // scalar loop below remains for the scalar path and for input spans
+        // without that row padding (this stage's own len-sized scratch).
+        let mut stored = false;
+        if let (Some(target), JxlDataType::FLOAT) = (self.simd, out.data_type) {
+            let lanes = target.lanes();
+            let padded = len.div_ceil(lanes) * lanes;
+            let nc = out.num_channels;
+            if (1..=4).contains(&nc)
+                && nc * padded * 4 <= memory.size()
+                && lines
+                    .iter()
+                    .take(nc)
+                    .all(|line| line.is_some_and(|line| line.initialized >= padded))
+            {
+                let input: [&[f32]; 4] = std::array::from_fn(|c| match lines[c] {
+                    Some(ref line) if c < nc => line.samples(),
+                    _ => &[],
+                });
+                // SAFETY: This private callback-backed block of memory.size()
+                // bytes is aligned to 128 bytes and exclusively owned by the
+                // stage; MaybeUninit words admit its uninitialized contents.
+                // No other view of it is live: the input spans are row
+                // storage or other blocks, and no callback runs here.
+                let output = unsafe {
+                    std::slice::from_raw_parts_mut(
+                        destination.cast::<std::mem::MaybeUninit<f32>>(),
+                        memory.size() / 4,
+                    )
+                };
+                super::stage_write_simd::float_row(target, input, nc, len, output);
+                stored = true;
+            }
+        }
+        for x in 0..if stored { 0 } else { len } {
             for (c, line) in lines.iter().enumerate().take(out.num_channels) {
                 let input = line.expect("source initialized conversion pointer");
                 let at = (x * out.num_channels + c) * sample_size;

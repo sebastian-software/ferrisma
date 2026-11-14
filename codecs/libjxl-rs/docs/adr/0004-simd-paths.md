@@ -279,6 +279,13 @@ test, these rows are representative. No file reaches zero.)
 - The SIMD stages load and store the pipeline's rows in place, through
   `RowBuffers::spans` (ADR 0003, "SIMD row spans", 2026-11-14), and copy a
   span only where it reaches outside its plane's storage.
+  The EPF kernel takes one window of `Lanes + 2 * border` samples per row
+  and vector, so its loads index a slice of known length; the loads, their
+  order and the arithmetic are the original's. The write stage's SIMD
+  `StoreFloatRow` loads the input rows' whole vectors and stores them
+  interleaved into the stage's scratch, the same words at the same offsets
+  as the original's whole-vector stores; the scratch stays uninitialized
+  until written, as the original's (the output-stage captures observe it).
 
 ## Plan for the remaining exports
 
