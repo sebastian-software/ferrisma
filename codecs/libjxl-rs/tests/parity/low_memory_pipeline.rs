@@ -151,6 +151,7 @@ fn sequence_inputs(encoded: &frame_sequences::EncodedSequence) -> Vec<Vec<u8>> {
 
 #[test]
 fn low_memory_reference_blending_crop_animation_and_preview_sequences_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let fixtures: Vec<_> = include_str!("../data/frame-sequences.requests")
         .lines()
         .map(|line| line.split_once('\t').unwrap())
@@ -223,6 +224,7 @@ fn cropped_request(
 
 #[test]
 fn low_memory_frames_outside_and_across_image_bounds_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let bases: Vec<_> = include_str!("../data/frame-sequences.requests")
         .lines()
         .map(|line| line.split_once('\t').unwrap())
@@ -284,6 +286,7 @@ fn low_memory_frames_outside_and_across_image_bounds_match_original() {
 
 #[test]
 fn low_memory_upsampling_multigroup_and_dc_ladder_files_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut complete = Vec::new();
     let mut variants = Vec::new();
     for prefix in ["resampling-", "multigroup-", "dc-ladder-base"] {
@@ -307,6 +310,7 @@ fn low_memory_upsampling_multigroup_and_dc_ladder_files_match_original() {
 
 #[test]
 fn low_memory_chroma_ycbcr_crop_and_extra_channel_files_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let geometry: Vec<_> = decoder_geometry::bases()
         .into_iter()
         .map(|(_, bytes)| bytes)
@@ -345,6 +349,7 @@ fn low_memory_chroma_ycbcr_crop_and_extra_channel_files_match_original() {
 
 #[test]
 fn low_memory_vardct_epf_gaborish_noise_and_spline_files_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut files = Vec::new();
     for epf in 0..=3 {
         for (i, size) in [(1, 1), (3, 8), (17, 9), (65, 33)].into_iter().enumerate() {
@@ -416,6 +421,7 @@ fn low_memory_vardct_epf_gaborish_noise_and_spline_files_match_original() {
 
 #[test]
 fn low_memory_patch_rendering_matches_original_on_every_main_frame_failure() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let bytes = include_bytes!("../data/repeated-glyphs-modular-none.jxl").to_vec();
     exact("patches", std::slice::from_ref(&bytes), true);
     // The main frame occupies bytes 40..112; each truncation and bit flip

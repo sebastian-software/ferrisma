@@ -6,6 +6,7 @@ use jxl::jxl::encode_internal::JxlEncoderChunkedFrameAdapter;
 use jxl::jxl::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
 #[test]
 fn complete_native_frames_recover_rgb_gray_and_uint16_through_original_pipeline() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for (w, h) in [(3, 2), (513, 3)] {
         for gray in [false, true] {
             for depth in [8, 16] {
@@ -87,6 +88,7 @@ fn complete_native_frames_recover_rgb_gray_and_uint16_through_original_pipeline(
 
 #[test]
 fn frame_profile_admission_prevents_entering_unported_noise_decoding() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     use jxl::jxl::base::status::StatusCode;
     use jxl::jxl::dec_bit_reader::BitReader;
     use jxl::jxl::enc_bit_writer::BitWriter;

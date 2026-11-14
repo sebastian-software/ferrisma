@@ -68,6 +68,7 @@ fn pixels(w: usize, h: usize, gray: bool, depth: u32, mode: usize) -> Vec<u8> {
 }
 #[test]
 fn first_complete_codestreams_cross_decode_cpp_rust_metadata_and_integer_pixels() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     let mut native = Vec::new();
     let mut inputs = Vec::new();
@@ -149,6 +150,7 @@ fn first_complete_codestreams_cross_decode_cpp_rust_metadata_and_integer_pixels(
 }
 #[test]
 fn whole_codestream_prefixes_marker_trailing_bytes_and_payload_errors_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     use jxl::jxl::fields::bundle;
     use jxl::jxl::frame_header::{FrameHeader, read_frame_header};
     use jxl::jxl::headers::read_size_header;
@@ -252,6 +254,7 @@ fn alpha_config(w: usize, h: usize, gray: bool, depth: u32) -> LosslessThunderCo
 }
 #[test]
 fn alpha_complete_codestreams_match_original_bytes_metadata_cross_decode_and_hidden_colors() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut whole = Vec::new();
     for (w, h) in [
@@ -299,6 +302,7 @@ fn alpha_complete_codestreams_match_original_bytes_metadata_cross_decode_and_hid
 }
 #[test]
 fn alpha_codestream_prefixes_and_modular_payload_errors_match_original_partial_state() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     use jxl::jxl::fields::bundle;
     use jxl::jxl::frame_header::{FrameHeader, read_frame_header};
     use jxl::jxl::headers::read_size_header;
@@ -357,6 +361,7 @@ fn alpha_codestream_prefixes_and_modular_payload_errors_match_original_partial_s
 
 #[test]
 fn alpha_short_pixel_buffers_match_original_errors_and_untouched_statistics() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for gray in [false, true] {
         for depth in [8, 16] {
@@ -378,6 +383,7 @@ fn alpha_short_pixel_buffers_match_original_errors_and_untouched_statistics() {
 
 #[test]
 fn separate_alpha_buffers_match_original_opaque_fill_extra_copy_and_complete_frame_bytes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     use jxl::jxl::encode_internal::JxlEncoderChunkedFrameAdapter;
     use jxl::jxl::fields::bundle;
     use jxl::jxl::headers::read_size_header;

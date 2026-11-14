@@ -6,6 +6,7 @@ use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
 
 #[test]
 fn captured_original_vardct_files_decode_without_cpp() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // Original pinned encoder, effort 7, distance 1, progressive AC, Gaborish,
     // EPF/patches/dots/noise off. Expected samples come from its decoder.
     for (bytes, expected, depth, alpha) in [
@@ -35,6 +36,7 @@ fn captured_original_vardct_files_decode_without_cpp() {
 
 #[test]
 fn vardct_entry_retains_its_explicit_profile_boundary() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut config = LosslessThunderConfig::new(1, 1, false, LosslessSampleDepth::Uint8).unwrap();
     let modular = config.encode_pixels(&[13, 27, 41], None).unwrap();
     assert_eq!(

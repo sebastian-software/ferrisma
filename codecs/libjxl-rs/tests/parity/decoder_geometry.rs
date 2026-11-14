@@ -183,6 +183,7 @@ fn exact(requests: Vec<String>, require_success: bool) {
 
 #[test]
 fn all_source_chroma_modes_and_all_orientations_keep_complete_bundle_words() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     exact(
         oriented_cases(true)
             .iter()
@@ -194,6 +195,7 @@ fn all_source_chroma_modes_and_all_orientations_keep_complete_bundle_words() {
 
 #[test]
 fn complete_oriented_exports_keep_integer_half_float_endian_and_padding_words() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     for (index, bytes) in oriented_cases(false).iter().enumerate() {
         for (bits, floating) in [(8, 0), (16, 0), (16, 1), (32, 1)] {
@@ -213,6 +215,7 @@ fn complete_oriented_exports_keep_integer_half_float_endian_and_padding_words() 
 
 #[test]
 fn oriented_metadata_and_payload_errors_retain_every_initialized_partial_frame() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     for bytes in oriented_cases(true) {
         let mut cuts = vec![
@@ -249,6 +252,7 @@ fn oriented_metadata_and_payload_errors_retain_every_initialized_partial_frame()
 
 #[test]
 fn original_jpeg_api_reproduces_each_complete_geometry_base() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let bases: Vec<_> = bases()
         .into_iter()
         .filter(|(name, _)| name.starts_with("sampling-"))

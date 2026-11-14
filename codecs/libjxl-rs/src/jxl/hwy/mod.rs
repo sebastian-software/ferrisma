@@ -477,6 +477,18 @@ pub fn decoding<R>(body: impl FnOnce() -> R) -> R {
     DispatchScope::decoding(decoder_default_target()).enter(body)
 }
 
+/// The first statement of every scalar-reference test (port ADR 0004,
+/// "Which path a test runs"): a test that compares decoder output with the
+/// original's scalar build (a live scalar oracle or a retained capture of
+/// it) selects the scalar path explicitly, for the whole test process,
+/// whatever the features, the environment and [`DECODER_SELECTS_SIMD`] are.
+/// It is [`set_decoder_simd_for_test`]`(Some(false))`; no test of a binary
+/// that calls it selects anything else.
+#[doc(hidden)]
+pub fn select_scalar_decoder_for_test() {
+    set_decoder_simd_for_test(Some(false));
+}
+
 /// Runs `body` outside decoding: the scalar path unless a test override
 /// forces a target. Encoder entry points use it.
 pub fn outside_decoding<R>(body: impl FnOnce() -> R) -> R {

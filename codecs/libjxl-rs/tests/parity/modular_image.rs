@@ -241,6 +241,7 @@ fn chunks(cases: Vec<String>) {
 }
 #[test]
 fn modular_complete_integer_depths_and_explicit_output_precision() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for bits in [1, 7, 8, 9, 10, 12, 15, 16, 17, 22, 23, 24, 30, 31] {
         for (gray, alpha) in [(false, false), (true, false), (false, true), (true, true)] {
@@ -263,6 +264,7 @@ fn modular_complete_integer_depths_and_explicit_output_precision() {
 }
 #[test]
 fn modular_complete_custom_float_depths_and_xyb() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for (bits, exponent) in [(16, 5), (24, 7), (24, 8), (32, 8)] {
         for (gray, alpha) in [(false, false), (true, false), (false, true), (true, true)] {
@@ -299,6 +301,7 @@ fn modular_complete_custom_float_depths_and_xyb() {
 }
 #[test]
 fn modular_complete_original_predictors_palette_rct_squeeze_and_groups() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut reached_predictors = 0;
     for predictor in 0..16 {
@@ -388,6 +391,7 @@ fn modular_complete_original_predictors_palette_rct_squeeze_and_groups() {
 }
 #[test]
 fn modular_complete_filters_noise_and_malformed_file_boundaries() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for epf in 0..=3 {
         for noise in [false, true] {
@@ -488,6 +492,7 @@ fn modular_complete_filters_noise_and_malformed_file_boundaries() {
 
 #[test]
 fn modular_original_depth_writer_domain_and_partial_header_state() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // The original public writer rejects integer32 during CanEncode, before
     // emitting metadata. Retain its actual partial signature/size header and
     // metadata state; do not manufacture a32-bit integer codestream.

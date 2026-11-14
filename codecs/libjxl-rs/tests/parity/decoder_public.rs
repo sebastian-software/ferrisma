@@ -158,6 +158,7 @@ fn events_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_header_and_box_events_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("events", events_requests());
 }
 
@@ -182,6 +183,7 @@ fn box_buffers_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_box_buffers_and_close_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("box-buffers", box_buffers_requests());
 }
 
@@ -222,6 +224,7 @@ fn truncated_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_truncated_and_mutated_inputs_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("truncated", truncated_requests());
 }
 
@@ -255,6 +258,7 @@ fn misuse_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_api_misuse_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("misuse", misuse_requests());
 }
 
@@ -281,6 +285,7 @@ fn rewind_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_rewind_and_reset_mid_stream_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("rewind", rewind_requests());
 }
 
@@ -309,6 +314,7 @@ fn allocations_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_input_allocations_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("allocations", allocations_requests());
 }
 
@@ -423,6 +429,7 @@ fn jpeg_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_jpeg_reconstruction_boxes_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("jpeg", jpeg_requests());
 }
 
@@ -549,6 +556,7 @@ fn color_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_color_profile_setters_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("color", color_requests());
 }
 
@@ -647,6 +655,7 @@ fn frames_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_frame_events_and_outputs_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("frames", frames_requests());
 }
 
@@ -690,6 +699,7 @@ fn frame_mutations_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_frame_truncation_and_cms_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("frame-mutations", frame_mutations_requests());
 }
 
@@ -714,6 +724,7 @@ fn jpeg_output_requests() -> Vec<String> {
 
 #[test]
 fn public_decoder_jpeg_output_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare("jpeg-output", jpeg_output_requests());
 }
 
@@ -765,6 +776,7 @@ fn compare_observed(family: &str, requests: Vec<String>) {
 /// allocation and free order compare.
 #[test]
 fn public_decoder_custom_manager_logs_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let requests = [
         events_requests(),
         box_buffers_requests(),
@@ -824,6 +836,7 @@ fn frame_files() -> Vec<String> {
 /// Whole-frame decoding of every frame input and retained original encoding.
 #[test]
 fn public_decoder_frame_allocation_failures_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let bases = frame_files()
         .iter()
         .chain(&retained_files())
@@ -837,6 +850,7 @@ fn public_decoder_frame_allocation_failures_match_original() {
 /// to bound the run time.
 #[test]
 fn public_decoder_progressive_allocation_failures_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut bases = Vec::new();
     for (spec, file) in FRAME_SPECS.iter().zip(frame_files()) {
         if spec.starts_with("w=300") {
@@ -858,6 +872,7 @@ fn public_decoder_progressive_allocation_failures_match_original() {
 /// reconstruction and CMS output conversion.
 #[test]
 fn public_decoder_header_and_jpeg_allocation_failures_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut bases = Vec::new();
     for file in files() {
         for script in ["s320 d1 L5,1048576,4,100000,1", "s320 d1 L1,7,4,100000,1"] {
@@ -956,6 +971,7 @@ const EXPLICIT_RUNNERS: &[&str] = &["@t0", "@t1", "@t2", "@t5", "@r0", "@r1", "@
 /// the VarDCT files rotate through the runners.
 #[test]
 fn public_decoder_parallel_runners_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let files = super::original_observations(
         &RUNNER_SPECS
             .iter()

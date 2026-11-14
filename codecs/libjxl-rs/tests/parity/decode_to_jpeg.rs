@@ -445,6 +445,7 @@ fn released_bytes(observed: &str, index: usize) -> Vec<u8> {
 
 #[test]
 fn jxl_to_jpeg_reconstructs_original_files_with_exif_and_xmp() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     for f in fixtures() {
         let n = f.jpeg.len();
@@ -511,6 +512,7 @@ fn chunked(data: &[u8], sizes: &mut dyn FnMut() -> usize) -> String {
 
 #[test]
 fn jxl_to_jpeg_box_contents_in_arbitrary_chunks_and_repeated_owners() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 0x5eed_u64;
     let all = fixtures();
@@ -580,6 +582,7 @@ fn output_sizes(n: usize) -> Vec<usize> {
 
 #[test]
 fn jxl_to_jpeg_output_buffers_of_every_small_size_need_more_output() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut checks = Vec::new();
     for f in fixtures() {
@@ -622,6 +625,7 @@ fn jxl_to_jpeg_output_buffers_of_every_small_size_need_more_output() {
 
 #[test]
 fn jxl_to_jpeg_truncated_and_mutated_reconstruction_boxes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for f in fixtures()
         .iter()
@@ -650,6 +654,7 @@ fn jxl_to_jpeg_truncated_and_mutated_reconstruction_boxes() {
 
 #[test]
 fn jxl_to_jpeg_icc_injection_keeps_partial_writes_on_failure() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut seed = 0x1cc_u64;
     let icc: Vec<u8> = (0..700).map(|_| next(&mut seed) as u8).collect();
     let chunk = |id: u8, count: u8, data: &[u8]| {
@@ -708,6 +713,7 @@ fn jxl_to_jpeg_icc_injection_keeps_partial_writes_on_failure() {
 /// and the Rust boundary stops at a bounds check instead of inventing a status.
 #[test]
 fn jxl_to_jpeg_short_exif_marker_is_an_undefined_source_call() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let fixture = super::jpeg_metadata::fixture("gray.jpg");
     assert_eq!(fixture.app_data[0][0], 0xe0, "gray.jpg starts with APP0");
     let mut defined = Vec::new();

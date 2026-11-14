@@ -478,6 +478,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
 
 #[test]
 fn sequence_references_dc_animation_and_previews_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut complete = std::collections::HashMap::new();
     let fixtures: Vec<_> = include_str!("../data/frame-sequences.requests")
@@ -631,6 +632,7 @@ fn sequence_references_dc_animation_and_previews_match_original() {
 
 #[test]
 fn direct_dc_levels_and_missing_slots_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let cases: Vec<_> = (0..=4)
         .flat_map(|level| {
             (0..2).flat_map(move |use_frame| {
@@ -645,6 +647,7 @@ fn direct_dc_levels_and_missing_slots_match_original() {
 
 #[test]
 fn original_section_reader_close_keeps_written_output_and_uncommitted_reference_pixels() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let requests: Vec<_> = include_str!("../data/frame-sequences.requests")
         .lines()
         .filter_map(|line| {
@@ -856,6 +859,7 @@ fn source_upsampling(observation: &str) -> Vec<(usize, Vec<usize>, usize, usize,
 }
 #[test]
 fn encoder_controlled_main_and_early_late_extra_upsampling_keep_source_acceptance() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let fixtures = extended_encodings("resampling-");
     assert_eq!(fixtures.len(), 46);
     let mut cases = Vec::new();
@@ -917,6 +921,7 @@ fn encoder_controlled_main_and_early_late_extra_upsampling_keep_source_acceptanc
 }
 #[test]
 fn multigroup_reference_reuse_animation_and_preview_keep_exact_defined_snapshots() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let fixtures = extended_encodings("multigroup-");
     assert_eq!(fixtures.len(), 12);
     let mut cases = Vec::new();
@@ -960,6 +965,7 @@ fn multigroup_reference_reuse_animation_and_preview_keep_exact_defined_snapshots
 }
 #[test]
 fn source_writer_dc3_dc4_ladders_keep_payloads_dependencies_and_error_snapshots() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut originals = extended_encodings("dc-ladder-base");
     assert_eq!(originals.len(), 1);
     let (_, _, original) = originals.pop().unwrap();
@@ -1027,6 +1033,7 @@ fn source_writer_dc3_dc4_ladders_keep_payloads_dependencies_and_error_snapshots(
 
 #[test]
 fn encoder_generated_patches_render_exact_glyphs_and_preserve_references_on_errors() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let (_, request) = include_str!("../data/frame-sequences-patches.requests")
         .trim()
         .split_once('\t')

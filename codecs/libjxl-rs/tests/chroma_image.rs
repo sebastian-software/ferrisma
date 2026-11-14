@@ -28,6 +28,7 @@ macro_rules! capture {
 }
 #[test]
 fn captured_original_jpeg_chroma_files_decode_without_cpp() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // Genuine baseline JPEG inputs were encoded by original public JxlEncoder
     // entry points. Both original graphs independently agree on all captured
     // initialized output words, stored in planar little-endian binary32 order.

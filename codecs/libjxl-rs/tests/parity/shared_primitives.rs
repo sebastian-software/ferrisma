@@ -657,6 +657,7 @@ fn encoded_corr(
 }
 #[test]
 fn quantizer_construction_matrix_reborrowing_mixed_precision_and_multiplier_clear_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let words = [
         0u32, 0x80000000, 1, 0x3f800000, 0xbf800000, 0x7f800000, 0xff800000, 0x7fa12345,
@@ -688,6 +689,7 @@ fn quantizer_construction_matrix_reborrowing_mixed_precision_and_multiplier_clea
 #[test]
 fn color_correlation_setters_ratios_and_partial_decode_preserve_every_defined_float_bit_and_reader_status()
  {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let half = [
         0u16, 0x8000, 1, 0x3c00, 0x4400, 0x4401, 0xc401, 0x7c00, 0x7e01,
@@ -725,6 +727,7 @@ fn color_correlation_setters_ratios_and_partial_decode_preserve_every_defined_fl
 #[test]
 fn color_map_construction_retains_default_vs_computed_dc_factors_tiles_zero_samples_and_delegated_decode()
  {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for w in [1usize, 63, 64, 65, 129, 513, 2049] {
         for h in [1usize, 63, 64, 65, 129] {
@@ -750,6 +753,7 @@ fn color_map_construction_retains_default_vs_computed_dc_factors_tiles_zero_samp
 }
 #[test]
 fn strategy_storage_fill_count_raw_type_promotion_cached_rows_and_moves_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for (w, h) in [(1usize, 1usize), (3, 2), (17, 9), (129, 3)] {
         for mode in 0..3 {
@@ -775,6 +779,7 @@ fn strategy_storage_fill_count_raw_type_promotion_cached_rows_and_moves_match_or
 #[test]
 fn pixel_components_and_allocated_fields_match_original_compute_encoding_data_and_complete_one_shot_frames()
  {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut random = 0x193b_610a_5981_e2cdu64;
     for (w, h) in [
@@ -836,6 +841,7 @@ fn pixel_components_and_allocated_fields_match_original_compute_encoding_data_an
 
 #[test]
 fn complete_raw_codestreams_match_original_and_cpp_decodes_both_streams_to_exact_integer_samples() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut random = 0x7851_92fa_71c3_690bu64;
     for (w, h) in [
@@ -906,6 +912,7 @@ fn complete_raw_codestreams_match_original_and_cpp_decodes_both_streams_to_exact
 
 #[test]
 fn shared_encoder_reference_feature_and_bundle_owners_match_original_initialized_state() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let words = [
         0u32, 0x80000000, 1, 0x3a83126f, 0x3a831270, 0xba831270, 0x7f800000, 0xff800000,
@@ -932,6 +939,7 @@ fn shared_encoder_reference_feature_and_bundle_owners_match_original_initialized
 
 #[test]
 fn ac_image_both_types_keep_virtual_rows_stride_moves_zero_fill_and_physical_padding() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for kind in [0, 1] {
         for mode in 0..3 {

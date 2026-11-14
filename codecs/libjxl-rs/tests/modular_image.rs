@@ -29,6 +29,7 @@ macro_rules! capture {
 }
 #[test]
 fn captured_original_general_modular_files_decode_without_cpp() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // Pinned original WriteCodestreamHeaders + EFVarDctOneShot, Modular mode,
     // followed by its actual DecodeFile/external converter. Palette16 contains
     // a genuine Palette; rct-squeeze8 contains RCT28 + default Squeeze and two
@@ -102,6 +103,7 @@ fn captured_original_general_modular_files_decode_without_cpp() {
 
 #[test]
 fn explicit_integer_export_retains_original_failure_after_decoding_large_depth() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let wire = include_bytes!("data/modular-rgb31.jxl");
     let decoded = decode_modular(wire, ModularOutput::SourceInteger);
     assert_eq!(decoded.status, Err(StatusCode::GenericError));

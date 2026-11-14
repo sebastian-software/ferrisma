@@ -8,6 +8,7 @@ use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
 
 #[test]
 fn moved_shared_state_keeps_its_matrix_dc_and_reference_bindings_in_the_same_owner() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut state = PassesEncoderState::new();
     state.shared.bind_own_reference_frames();
     state.shared.matrices.set_dc_quant(&[2.0, 4.0, 8.0]);
@@ -39,6 +40,7 @@ fn moved_shared_state_keeps_its_matrix_dc_and_reference_bindings_in_the_same_own
 
 #[test]
 fn take_bytes_transfers_the_existing_padded_allocation_without_copying() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut writer = BitWriter::new();
     writer
         .with_max_bits(
@@ -62,6 +64,7 @@ fn take_bytes_transfers_the_existing_padded_allocation_without_copying() {
 
 #[test]
 fn complete_encoding_reuses_metadata_and_rejects_short_input_before_writing_statistics() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut config = LosslessThunderConfig::new(17, 9, false, LosslessSampleDepth::Uint16).unwrap();
     let data: Vec<_> = (0..17 * 9 * 3)
         .flat_map(|i| ((i * 1931) as u16).to_ne_bytes())

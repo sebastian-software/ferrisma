@@ -190,6 +190,7 @@ fn exact(cases: Vec<String>) {
 }
 #[test]
 fn genuine_extra_channel_complete_files_keep_all_initialized_pixels_and_metadata() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let fixtures = fixtures();
     let expected: Vec<i32> = include_str!("../data/extra-channels.decode-statuses")
         .lines()
@@ -210,6 +211,7 @@ fn genuine_extra_channel_complete_files_keep_all_initialized_pixels_and_metadata
 }
 #[test]
 fn associated_and_independent_channels_export_source_words_with_and_without_unpremultiplication() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let undefined: std::collections::HashSet<_> = half_probes()
         .into_iter()
@@ -245,6 +247,7 @@ fn associated_and_independent_channels_export_source_words_with_and_without_unpr
 }
 #[test]
 fn extra_channel_truncation_corruption_and_retained_reference_errors_keep_source_partial_state() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for (_, bytes) in fixtures() {
         let mut cuts: Vec<_> = (0..=bytes.len().min(80)).collect();
@@ -291,6 +294,7 @@ fn extra_channel_truncation_corruption_and_retained_reference_errors_keep_source
 }
 #[test]
 fn original_extra_channel_encoder_reproduces_each_genuine_fixture() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let requests: Vec<_> = include_str!("../data/extra-channels.requests")
         .lines()
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
@@ -309,6 +313,7 @@ fn original_extra_channel_encoder_reproduces_each_genuine_fixture() {
 
 #[test]
 fn original_rejected_extra_channel_types_keep_metadata_and_complete_file_statuses() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for row in include_str!("../data/extra-channels-rejections.requests").lines() {
         let (kind, request) = row.split_once('\t').unwrap();
@@ -358,6 +363,7 @@ fn half_probes() -> Vec<(String, bool)> {
 }
 #[test]
 fn original_odd_half_strides_retain_every_request_and_positive_undefined_store_diagnostic() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let probes = half_probes();
     if let Some(path) = std::env::var_os("JXL_EXTRA_CHANNEL_HALF_CAPTURE") {
         std::fs::write(

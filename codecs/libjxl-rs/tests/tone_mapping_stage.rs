@@ -6,6 +6,7 @@ use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
 use jxl::jxl::render_pipeline::stage_tone_mapping::get_tone_mapping_stage;
 #[test]
 fn fixed_lossless_metadata_selects_original_no_tone_mapping_path() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for gray in [false, true] {
         for depth in [LosslessSampleDepth::Uint8, LosslessSampleDepth::Uint16] {
             let config = LosslessThunderConfig::new(17, 9, gray, depth).unwrap();
@@ -22,6 +23,7 @@ fn fixed_lossless_metadata_selects_original_no_tone_mapping_path() {
 
 #[test]
 fn gamut_blend_keeps_original_add_operand_nan_payload() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut rgb = [-0.0, f32::from_bits(0x7fa12345), f32::from_bits(0x7fc98765)];
     gamut_map(&mut rgb, [0.2126, 0.7152, 0.0722], 0.0);
     // Captured from the original one-lane GamutMap, independently of the

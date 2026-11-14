@@ -132,6 +132,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
 
 #[test]
 fn original_thunder_global_streams_decode_with_shared_trees_partial_state_and_plane_release() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut sources = Vec::new();
     let mut settings = Vec::new();
     for (w, h) in [
@@ -193,6 +194,7 @@ fn original_thunder_global_streams_decode_with_shared_trees_partial_state_and_pl
 
 #[test]
 fn local_global_streams_cover_gray_ycbcr_xyb_extra_shifts_vardct_and_depth_rejections() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut headers = Vec::new();
     for modular in [0, 1] {
         for transform in [0, 1, 2] {

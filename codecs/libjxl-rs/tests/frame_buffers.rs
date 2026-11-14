@@ -17,6 +17,7 @@ fn format(channels: u32, align: usize) -> JxlPixelFormat {
 
 #[test]
 fn rebinding_keeps_the_previous_copy_until_copy_buffers_and_null_does_not_clear_it() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let first = [1, 2];
     let second = [7, 8];
     let mut input = JxlEncoderChunkedFrameAdapter::new(2, 1, 1);
@@ -53,6 +54,7 @@ fn rebinding_keeps_the_previous_copy_until_copy_buffers_and_null_does_not_clear_
 
 #[test]
 fn failed_stride_rounding_keeps_the_wrapped_stride_new_format_and_old_input_pointer() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let first = [1];
     let second = [2];
     let mut input = JxlEncoderChunkedFrameAdapter::new(usize::MAX, 1, 0);
@@ -70,6 +72,7 @@ fn failed_stride_rounding_keeps_the_wrapped_stride_new_format_and_old_input_poin
 
 #[test]
 fn gray_replication_error_keeps_converted_first_plane_untouched_later_planes_and_alpha_flag() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let config = LosslessThunderConfig::new(2, 1, true, LosslessSampleDepth::Uint8).unwrap();
     let data = [7, 9];
     let mut input = JxlEncoderChunkedFrameAdapter::new(2, 1, 0);
@@ -101,6 +104,7 @@ fn gray_replication_error_keeps_converted_first_plane_untouched_later_planes_and
 
 #[test]
 fn buffer_backed_zero_gray_components_retain_original_finalized_frame_bytes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let config = LosslessThunderConfig::new(1, 1, true, LosslessSampleDepth::Uint8).unwrap();
     let mut frame = config.create_frame().unwrap();
     frame.allocate_frame_fields().unwrap();

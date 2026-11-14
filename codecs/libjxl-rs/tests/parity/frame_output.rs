@@ -40,6 +40,7 @@ pub(super) fn observe(_: &str, args: &mut std::str::SplitWhitespace<'_>) -> Stri
 
 #[test]
 fn frame_finalization_matches_original_header_toc_group_bytes_and_pre_toc_alignment_errors() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for (w, h) in [(1, 1), (17, 9), (257, 3), (2049, 5)] {
         for gray in [0, 1] {

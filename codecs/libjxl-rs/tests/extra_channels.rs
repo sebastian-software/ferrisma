@@ -19,6 +19,7 @@ fn metadata(bytes: &[u8]) -> (CodecMetadata, usize) {
 }
 #[test]
 fn all_extra_channel_words_match_the_independent_pristine_native_dyadic_capture() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let bytes = include_bytes!("data/extra-channel-all-types-dyadic.jxl");
     let (m, offset) = metadata(bytes);
     assert_eq!(m.m.num_extra_channels, 10);
@@ -66,6 +67,7 @@ fn all_extra_channel_words_match_the_independent_pristine_native_dyadic_capture(
 }
 #[test]
 fn moving_a_multichannel_sequence_retains_the_metadata_and_reference_owners() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let bytes = include_bytes!("data/extra-channel-reference-0-2.jxl");
     let (m, mut offset) = metadata(bytes);
     let mut decoder = SequenceDecoder::new(&m).unwrap();

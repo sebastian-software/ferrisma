@@ -1165,7 +1165,11 @@ fn program_observations(program: &std::path::Path, requests: &[String]) -> Vec<S
         "C++ oracle missing: run python3 tools/check.py; expected {}",
         program.display()
     );
+    // Scalar-reference child (port ADR 0004, "Which path a test runs"):
+    // `jxl_abi_rust` links the Rust port built with `cpp-oracle`, which
+    // reads this variable; the C++ programs ignore it.
     let child = Command::new(program)
+        .env("JXL_DECODER_TARGET", "scalar")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -1202,6 +1206,7 @@ fn compare(requests: Vec<String>) {
 
 #[test]
 fn reader_refills_zero_extension_and_checkpoints() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 42;
     for len in 0..40 {
@@ -1227,6 +1232,7 @@ fn reader_refills_zero_extension_and_checkpoints() {
 
 #[test]
 fn all_binary16_patterns_match_exact_float_bits_and_status() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare(
         (0..=u16::MAX)
             .map(|bits| format!("f16-read {bits}"))
@@ -1236,6 +1242,7 @@ fn all_binary16_patterns_match_exact_float_bits_and_status() {
 
 #[test]
 fn binary16_writing_preserves_truncation_signed_zero_and_rejection() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for bits in 0..=u16::MAX {
         let bytes = bits.to_le_bytes();
@@ -1274,6 +1281,7 @@ fn binary16_writing_preserves_truncation_signed_zero_and_rejection() {
 
 #[test]
 fn integer_coders_match_boundaries_selectors_and_unaligned_streams() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for width in 0..=32 {
         let limit = (1u64 << width) - 1;
@@ -1354,6 +1362,7 @@ fn integer_coders_match_boundaries_selectors_and_unaligned_streams() {
 
 #[test]
 fn dimension_headers_match_field_order_aspect_ratios_and_limits() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let values = [
         0,
@@ -1415,6 +1424,7 @@ fn dimension_headers_match_field_order_aspect_ratios_and_limits() {
 
 #[test]
 fn truncated_and_arbitrary_dimension_headers_preserve_partial_state() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 55537;
     for len in 0..12 {
@@ -1442,6 +1452,7 @@ fn truncated_and_arbitrary_dimension_headers_preserve_partial_state() {
 
 #[test]
 fn animation_headers_preserve_rational_ticks_and_loop_counts() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for num in [
         0,
@@ -1471,6 +1482,7 @@ fn animation_headers_preserve_rational_ticks_and_loop_counts() {
 
 #[test]
 fn nested_allotment_charging_histograms_and_failure_reclamation() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for prefix in 0..8 {
         for width in 0..=56 {
@@ -1489,6 +1501,7 @@ fn nested_allotment_charging_histograms_and_failure_reclamation() {
 
 #[test]
 fn extension_bundles_preserve_compatibility_skipping_and_retryability() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 9173;
     for ext in [0u64, 1, 2, 3, 4, 7, 1 << 63, u64::MAX] {
@@ -1509,6 +1522,7 @@ fn extension_bundles_preserve_compatibility_skipping_and_retryability() {
 
 #[test]
 fn all_default_control_flow_and_nested_resets_match_even_when_truncated() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for value in [0, 7, 15, 16] {
         for (x, y) in [(0, 0), (1, 1), (8, 8), (1920, 1080)] {
@@ -1524,6 +1538,7 @@ fn all_default_control_flow_and_nested_resets_match_even_when_truncated() {
 
 #[test]
 fn appends_preserve_padding_and_following_writes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 8173;
     for offset in 0..8 {

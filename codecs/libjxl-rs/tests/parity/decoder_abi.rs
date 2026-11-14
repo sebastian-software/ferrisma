@@ -522,6 +522,7 @@ fn rust_layout() -> String {
 
 #[test]
 fn c_abi_layouts_enumerators_and_exports_match_the_pinned_headers() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let expected = rust_layout();
     for variant in ["original", "rust"] {
         let measured = super::program_observations(&driver(variant), &["abi-layout".into()]);

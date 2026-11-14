@@ -133,6 +133,7 @@ pub(super) fn observe(args: &mut std::str::SplitWhitespace<'_>) -> String {
 
 #[test]
 fn modular_conversion_covers_float_xyb_gray_extra_channels_and_partial_errors() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut headers = Vec::new();
     for modular in [0, 1] {
         for transform in [0, 1, 2] {

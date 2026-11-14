@@ -128,6 +128,7 @@ fn check(bytes: &[u8]) {
 
 #[test]
 fn complete_vardct_epf_files_match_original_pixels() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for epf in 1..=3 {
         for (i, size) in [(1, 1), (3, 8), (17, 9), (65, 33)].into_iter().enumerate() {
             for (gray, alpha) in [(false, false), (true, false), (false, true), (true, true)] {
@@ -158,6 +159,7 @@ fn complete_vardct_epf_files_match_original_pixels() {
 
 #[test]
 fn complete_vardct_epf_truncation_and_payload_errors_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     for epf in 1..=3 {
         let (bytes, payload) = encode((3, 8), (false, true), 8, (epf, true, true, false), 3);
@@ -182,6 +184,7 @@ fn complete_vardct_epf_truncation_and_payload_errors_match_original() {
 
 #[test]
 fn complete_vardct_noise_and_epf_combinations_match_original_pixels() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for epf in 0..=3 {
         for (i, size) in [(1, 1), (3, 8), (17, 9), (65, 33)].into_iter().enumerate() {
             for (gray, alpha) in [(false, false), (true, false), (false, true), (true, true)] {
@@ -206,6 +209,7 @@ fn complete_vardct_noise_and_epf_combinations_match_original_pixels() {
 
 #[test]
 fn complete_vardct_splines_and_effect_combinations_match_original_pixels() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for epf in 0..=3 {
         for (gray, alpha) in [(false, false), (true, false), (false, true), (true, true)] {
             for (i, size) in [(17, 9), (65, 33), (258, 3)].into_iter().enumerate() {
@@ -229,6 +233,7 @@ fn complete_vardct_splines_and_effect_combinations_match_original_pixels() {
 
 #[test]
 fn complete_vardct_noise_and_spline_errors_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     for (effects, splines) in [
         ((0, false, false, true), 0),

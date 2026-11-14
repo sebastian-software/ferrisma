@@ -275,6 +275,7 @@ fn append(out: &mut String, value: impl std::fmt::Display) {
 }
 #[test]
 fn dc_smoothing_complete_scalar_rows_borders_subsampling_and_exceptional_values() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for mode in 0..3 {
         for (w, h) in [
@@ -345,6 +346,7 @@ fn dc_smoothing_complete_scalar_rows_borders_subsampling_and_exceptional_values(
 }
 #[test]
 fn dc_dequantization_channel_order_cfl_buckets_rectangles_and_subsampling() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for mode in 0..3 {
         for custom in [false, true] {
@@ -384,6 +386,7 @@ fn dc_dequantization_channel_order_cfl_buckets_rectangles_and_subsampling() {
 }
 #[test]
 fn strategy_setters_rows_overlap_partial_mutations_and_unchecked_overwrite() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for raw in 0..27 {
         let base = format!("vdc-strategy 40 40 3 1 1 {raw} 0 1 0 0 5 0 1 1 1 0 1 0");
@@ -407,6 +410,7 @@ fn prefixed(source: &str, offset: usize) -> String {
 }
 #[test]
 fn vardct_dc_groups_precision_and_ac_metadata_all_strategies_failure_and_reuse() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let global = original_observations(&["vdc-global".into()]).remove(0);
     let mut cases = Vec::new();
     for precision in 0..4 {

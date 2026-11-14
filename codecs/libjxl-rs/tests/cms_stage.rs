@@ -54,6 +54,7 @@ unsafe extern "C" fn destroy(data: *mut c_void) {
 
 #[test]
 fn owned_icc_caches_survive_moves_and_are_live_during_single_context_destroy() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut trace = Box::<Trace>::default();
     let interface = JxlCmsInterface {
         init_data: (&raw mut *trace).cast(),
@@ -80,6 +81,7 @@ fn owned_icc_caches_survive_moves_and_are_live_during_single_context_destroy() {
 
 #[test]
 fn fixed_lossless_profiles_skip_cms_without_requiring_callback_implementations() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for gray in [false, true] {
         for depth in [LosslessSampleDepth::Uint8, LosslessSampleDepth::Uint16] {
             let config = LosslessThunderConfig::new(17, 9, gray, depth).unwrap();

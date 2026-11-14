@@ -4,6 +4,7 @@ use jxl::jxl::dec_frame::decode_vardct;
 
 #[test]
 fn original_epf_noise_and_spline_files_decode_without_a_cpp_runtime() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // Independently captured original raw one-shot encoder files and original
     // scalar decoder output, with EPF=3, Gaborish, progressive AC, nonzero
     // manual noise, one genuine custom spline, and full-resolution alpha.

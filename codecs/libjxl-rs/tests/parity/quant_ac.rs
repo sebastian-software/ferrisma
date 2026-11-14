@@ -155,6 +155,7 @@ fn recipe(q: &QuantEncoding) -> String {
 }
 #[test]
 fn ac_quantization_library_all_strategies_and_shared_kind_masks() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = vec!["qac-library".into()];
     for strategy in 0..27 {
         cases.push(format!(
@@ -186,6 +187,7 @@ fn ac_quantization_library_all_strategies_and_shared_kind_masks() {
 }
 #[test]
 fn ac_quantization_custom_modes_ranges_and_partial_failure_masks() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let bands = DctQuantWeightParams::from_bands(&[
         [128.0, 0.25, -0.5],
@@ -347,6 +349,7 @@ fn encoded_tables(mode: u32, variant: u32, prefix: usize, selected_kind: usize) 
 }
 #[test]
 fn ac_quantization_table_decoding_unaligned_truncated_and_partial_state() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for mode in 0..8 {
         for variant in 0..4 {
@@ -382,6 +385,7 @@ fn ac_quantization_table_decoding_unaligned_truncated_and_partial_state() {
 
 #[test]
 fn ac_raw_quantization_tables_decode_original_local_and_shared_modular_streams() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut sources = Vec::new();
     let mut settings = Vec::new();
     for strategy in [0, 4, 6, 12, 14, 19] {
@@ -432,6 +436,7 @@ fn ac_raw_quantization_tables_decode_original_local_and_shared_modular_streams()
 
 #[test]
 fn ac_quantization_single_band_and_afv_direct_nan_words_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // A single distance band bypasses FastPowf. Multi-band NaN interpolation
     // would violate the original FastLog2f negative/NaN input precondition.
     let pairs = [

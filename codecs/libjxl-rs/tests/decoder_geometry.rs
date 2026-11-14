@@ -12,6 +12,7 @@ use std::path::PathBuf;
 // requests and observations; decoder_geometry_reference.py reproduces them.
 #[test]
 fn complete_source_geometry_files_keep_the_independently_captured_rgba_bytes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/decoder-geometry");
     let mut tested = 0;
     for row in include_str!("data/decoder-geometry-native.requests").lines() {

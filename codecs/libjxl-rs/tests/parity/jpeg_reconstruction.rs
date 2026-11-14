@@ -50,6 +50,7 @@ fn fixture_pairs() -> Vec<(Vec<u8>, String, Vec<u8>)> {
 }
 #[test]
 fn jpeg_frames_restore_original_coefficients_and_complete_file_bytes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for (bytes, data, jpeg) in fixture_pairs() {
         let request = format!("jr-frame {} {data}", hex(&bytes));
         let original = original_observations(std::slice::from_ref(&request));
@@ -67,6 +68,7 @@ fn jpeg_frames_restore_original_coefficients_and_complete_file_bytes() {
 }
 #[test]
 fn jpeg_frames_keep_partial_coefficient_and_quantization_mutations() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for (bytes, data, _) in fixture_pairs() {
         let mut requests = Vec::new();
         for n in (0..bytes.len().min(40)).chain([bytes.len() / 2, bytes.len().saturating_sub(1)]) {
@@ -91,6 +93,7 @@ fn jpeg_frames_keep_partial_coefficient_and_quantization_mutations() {
 
 #[test]
 fn jpeg_frame_setup_keeps_component_quantizer_and_reused_storage_errors() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for (bytes, data, _) in fixture_pairs() {
         let mut requests = Vec::new();
         for mode in [1, 2, 4, 5, 6, 7, 9, 10] {

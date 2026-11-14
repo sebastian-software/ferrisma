@@ -1016,3 +1016,60 @@ forcing. With the default on, decoded pixels equal the original's NEON
 build instead of its scalar build; a few 8-bit samples may differ from
 values pinned against a scalar decoder.
 <!-- end enable: default -->
+
+<!-- enable: tests -->
+## Which path a test runs (2026-11-14)
+
+With the AArch64 default on, a test that decodes through a decoder entry
+point and compares with the original's scalar build would run NEON unless it
+selects the scalar path itself. `JXL_DECODER_TARGET=scalar` is read only by
+the `cpp-oracle` builds and set only by `tools/check.py`, so the PR stage
+(`cargo xtask codecs --codec jxl --stage pr`: plain `cargo test -p libjxl-rs
+--profile checked`) and a plain `cargo test` ran the retained-capture tests
+on NEON: 7 failures without features (`chroma_image`, `decoder_effects`,
+`decoder_geometry`, `vardct_image` capture tests and 3 `decoder_public`
+tests), and 62 with `--all-features` outside `check.py` (26 of them through the
+`jxl_abi_rust` child process, see below).
+
+**Decision: one mechanism, by test kind, in the test itself.**
+
+- *Scalar-reference tests*, the scalar half of the gate (live scalar oracle
+  or retained captures of the scalar original): every test in the non-SIMD
+  test files that can reach a decoder entry point starts with
+  `hwy::select_scalar_decoder_for_test()` (=
+  `set_decoder_simd_for_test(Some(false))`, process-wide like Highway's
+  `SetSupportedTargetsForTest`). That is 245 tests in 47 files: all
+  `#[test]`s of the files that reach the public decoder, the whole-decode
+  helpers, `FrameDecoder`, the JPEG reconstruction or the public-decoder
+  driver. No test of those binaries selects anything else, so the
+  process-wide override cannot race. Tests that call a stage or kernel
+  directly run outside every decoder entry point, which is the scalar path
+  by construction.
+- The scalar parity binary also replays public-decoder histories through
+  `jxl_abi_rust`, a C driver linked against the port's static library (built
+  with `cpp-oracle`) in its own process, where the test's override does not
+  reach. `program_observations` starts every child of that binary with
+  `JXL_DECODER_TARGET=scalar` set explicitly on the child, so the child
+  selects the scalar path whatever the caller's environment is.
+- *SIMD-oracle tests*: the `tests/simd_*.rs` binaries force the detected
+  target with `set_decoder_simd_for_test(Some(true))`, as before.
+- *Default-selection tests*: `tests/dispatch_scope.rs` alone runs the
+  default.
+- `tools/check.py` keeps `JXL_DECODER_TARGET=scalar` as a second guard;
+  `simd_public`'s `the_scalar_gate_forces_the_scalar_decoder_path` checks it.
+
+The selection is now independent of features, environment and runner (PR
+stage, `check.py` stages, plain `cargo test`). No capture or expected value
+changed. The retained captures in `tests/data` are documented as taken from
+the scalar reference configuration (ADR 0002), the `.x86_64.f32le` files
+from the native x86-64 scalar original; none is documented as a SIMD
+capture.
+
+Other consumers of the default: the `conformance_decode` example decodes
+with the default (it compares with the conformance references under their
+own tolerances, as `djxl` from a NEON build would); the encode examples and
+the `fuzz/` targets pin no decoder values; the port has no benches and its
+doctests do not decode. The engine's JPEG XL tests compare decoded pixels
+with jxl-oxide, with the source pixels under a bound, or between two decodes
+of the same input; none pins the port's decoded samples exactly.
+<!-- end enable: tests -->

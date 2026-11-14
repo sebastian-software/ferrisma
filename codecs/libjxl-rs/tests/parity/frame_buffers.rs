@@ -227,6 +227,7 @@ fn next(state: &mut u64) -> usize {
 
 #[test]
 fn frame_buffer_binding_preserves_original_size_overflow_null_format_and_channel_guards() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let data = hex(&payload(0));
     for (w, h) in [
@@ -257,6 +258,7 @@ fn frame_buffer_binding_preserves_original_size_overflow_null_format_and_channel
 #[test]
 fn frame_buffer_rebinding_and_copying_preserve_stale_copy_precedence_partial_fields_and_null_views()
 {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 0x61c948d053eda27f;
     for (w, h) in [
@@ -298,6 +300,7 @@ fn frame_buffer_rebinding_and_copying_preserve_stale_copy_precedence_partial_fie
 #[test]
 fn fixed_profile_color_copy_matches_original_buffer_views_conversion_gray_replication_and_partial_errors()
  {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for (w, h) in [(1, 1), (5, 3)] {
         for gray in [0, 1] {

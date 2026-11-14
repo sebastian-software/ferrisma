@@ -204,6 +204,7 @@ fn request(
 }
 #[test]
 fn original_modular_group_sections_recover_float_pixels_in_full_and_dropped_image_paths() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut sources = Vec::new();
     let mut settings = Vec::new();
     for (w, h) in [
@@ -238,6 +239,7 @@ fn original_modular_group_sections_recover_float_pixels_in_full_and_dropped_imag
 }
 #[test]
 fn group_truncation_zerofill_nullable_context_and_stream_kind_errors_keep_original_state() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let settings = [
         (17, 9, 0, 8),
         (17, 9, 1, 16),

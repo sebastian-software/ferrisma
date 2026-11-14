@@ -178,6 +178,34 @@ The default is `target/oracle/jxl_oracle`. Oracle comparisons use the source's
 release status behavior; debug-only abort and diagnostic instrumentation is
 outside the current parity contract.
 
+### Which decoder path a test runs
+
+On AArch64 the decoder selects NEON by default; on x86-64 it selects the
+scalar path ([ADR 0004](docs/adr/0004-simd-paths.md), "Default selection per
+target" and "Which path a test runs"). The selection applies only inside
+decoder entry points (the public decoder and the internal whole-decode
+helpers); code a test calls directly, such as a single stage or kernel, runs
+the scalar path. Each test therefore selects its path explicitly, by its
+kind, never through features or the environment:
+
+- **Scalar-reference tests** compare decoder output with the original's
+  scalar build, through a live scalar oracle (`cpp-oracle`) or a retained
+  capture of it (`tests/data`). Every such test that can reach a decoder
+  entry point starts with `jxl::jxl::hwy::select_scalar_decoder_for_test();`.
+  Add the call to every new test in those files, and to the first test of
+  a new file that decodes; a missing call fails on AArch64. A child process
+  that links the port (the `jxl_abi_rust` C-ABI driver) gets
+  `JXL_DECODER_TARGET=scalar` set on its command by the test.
+- **SIMD-oracle tests** (`tests/simd_*.rs`, feature `cpp-oracle-simd`)
+  compare with the original built for one Highway target and force that
+  target with `set_decoder_simd_for_test(Some(true))`.
+- **Default-selection tests** (`tests/dispatch_scope.rs`) are the only tests
+  that run the default; they check the per-target default and that the
+  encoder stays scalar.
+
+`tools/check.py --stage test` also sets `JXL_DECODER_TARGET=scalar`, which
+the oracle test builds read, as a second guard for the scalar gate.
+
 The shared [PR workflow](../../.github/workflows/ci.yml) selects affected
 components. For JXL it runs checked-profile Rust tests and retained captures on
 Linux x86-64 and ARM, with static checks and MSRV on x86-64. It does not build

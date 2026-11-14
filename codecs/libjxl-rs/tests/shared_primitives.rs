@@ -9,6 +9,7 @@ use jxl::jxl::quantizer::Quantizer;
 
 #[test]
 fn color_map_default_has_uncomputed_dc_factors_and_creation_uses_original_tile_rounding() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let default = ColorCorrelationMap::default();
     assert_eq!(default.base().base_correlation_b(), 1.0);
     assert_eq!(default.base().dc_factors(), &[0.0; 4]);
@@ -26,6 +27,7 @@ fn color_map_default_has_uncomputed_dc_factors_and_creation_uses_original_tile_r
 
 #[test]
 fn quantizer_recomputation_reads_the_original_matrix_owner_and_retains_the_cleared_fourth_lanes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut matrices = DequantMatrices::default();
     let mut quantizer = Quantizer::new(&matrices);
     assert_eq!(quantizer.scale(), 1.0 / 64.0);
@@ -43,6 +45,7 @@ fn quantizer_recomputation_reads_the_original_matrix_owner_and_retains_the_clear
 
 #[test]
 fn default_quantizer_keeps_the_original_arithmetic_that_quiets_a_signaling_nan() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let nan = f32::from_bits(std::hint::black_box(0x7fa1_2345));
     let mut matrices = DequantMatrices::default();
     matrices.set_dc_quant(&[1.0, 1.0, nan]);
@@ -61,6 +64,7 @@ fn default_quantizer_keeps_the_original_arithmetic_that_quiets_a_signaling_nan()
 
 #[test]
 fn strategy_counts_keep_the_original_byte_truncation_then_integer_promotion_for_unnamed_types() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut image = AcStrategyImage::create(3, 2).unwrap();
     image.fill_invalid();
     assert_eq!(image.count_blocks(AcStrategyType(127)), 6);
@@ -77,6 +81,7 @@ fn strategy_counts_keep_the_original_byte_truncation_then_integer_promotion_for_
 
 #[test]
 fn modular_field_allocation_retains_the_original_xyb_map_default_and_block_storage_dimensions() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let config = LosslessThunderConfig::new(513, 3, false, LosslessSampleDepth::Uint16).unwrap();
     let mut frame = config.create_frame().unwrap();
     assert_eq!(frame.fields().cmap.base().dc_factors()[2], 0.0);

@@ -142,6 +142,7 @@ fn pixels(w: usize, h: usize, gray: bool, depth: u32, mode: usize) -> Vec<u8> {
 }
 #[test]
 fn complete_raw_frames_cross_decode_original_bytes_metadata_sections_and_float_pixels() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     let mut native = Vec::new();
     for (w, h) in [(1, 1), (3, 2), (17, 9), (513, 3), (2049, 2)] {
@@ -184,6 +185,7 @@ fn complete_raw_frames_cross_decode_original_bytes_metadata_sections_and_float_p
 }
 #[test]
 fn complete_raw_frame_truncations_and_corrupt_sections_preserve_source_partial_output() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = vec![
         "df-cache 0".into(),
         "df-cache 1".into(),

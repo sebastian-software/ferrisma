@@ -446,6 +446,7 @@ fn group_codes(out: &mut String, codes: &[BitWriter]) {
 #[test]
 fn lossless_thunder_group_encoding_matches_original_sections_shared_tokens_auxiliary_state_and_guard_errors()
  {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 0x510a_3679_9cde_28bf;
     for (w, h) in [
@@ -523,6 +524,7 @@ fn thunder_request(
 
 #[test]
 fn lossless_thunder_pixel_preparation_matches_original_palettes_rct_groups_and_released_planes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut seed = 0x6d28_a954_72f1_0b63;
     let mut cases = Vec::new();
     for (w, h) in [
@@ -558,6 +560,7 @@ fn lossless_thunder_pixel_preparation_matches_original_palettes_rct_groups_and_r
 
 #[test]
 fn lossless_thunder_pixel_preparation_retains_group_boundaries_dc_groups_and_default_compaction() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut seed = 0x307f_9652_4bad_8e11;
     let mut cases = Vec::new();
     for (w, h) in [
@@ -581,6 +584,7 @@ fn lossless_thunder_pixel_preparation_retains_group_boundaries_dc_groups_and_def
 
 #[test]
 fn lossless_thunder_configuration_rejects_original_invalid_dimensions_before_pixel_access() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     compare(
         [
             "mfs-thunder 0 1 0 8 0 1",
@@ -629,6 +633,7 @@ fn parameter_input(p: &CompressParams<'_>) -> String {
 }
 #[test]
 fn modular_frame_state_initialization_preserves_all_tiers_properties_and_original_parameters() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for i in 0..1100 {
         let mut p = CompressParams {
@@ -742,6 +747,7 @@ fn lossless(tier: i32) -> CompressParams<'static> {
 }
 #[test]
 fn modular_frame_state_streams_match_group_selection_shared_entropy_repeated_calls_and_cleanup() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 0x914c_836d_4b25_a7fe;
     for i in 0..180 {
@@ -797,6 +803,7 @@ fn modular_frame_state_streams_match_group_selection_shared_entropy_repeated_cal
 
 #[test]
 fn modular_frame_state_streaming_tiles_use_original_local_stream_lifecycle() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 0x8f3a_05c1_92dd_e764;
     for i in 0..16 {
@@ -824,6 +831,7 @@ fn modular_frame_state_streaming_tiles_use_original_local_stream_lifecycle() {
 
 #[test]
 fn modular_frame_state_generic_streams_and_empty_global_information_keep_writer_and_accounting() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 0xb54f_31e7_09ac_6802;
     for i in 0..80 {
@@ -856,6 +864,7 @@ fn modular_frame_state_generic_streams_and_empty_global_information_keep_writer_
 
 #[test]
 fn modular_frame_state_tree_choices_quantized_ranges_and_error_prefixes_match_source() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 0x2a79_1fb4_ce83_606d;
     for i in 0..140 {
@@ -947,6 +956,7 @@ fn modular_frame_state_tree_choices_quantized_ranges_and_error_prefixes_match_so
 
 #[test]
 fn modular_frame_state_multiple_useful_chunks_and_empty_chunks_keep_tree_merging() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut seed = 0x74b8_231a_e6c9_d5f0;
     for i in 0..44 {
@@ -1016,6 +1026,7 @@ fn modular_frame_state_multiple_useful_chunks_and_empty_chunks_keep_tree_merging
 
 #[test]
 fn modular_frame_state_crops_heterogeneous_channels_and_retains_reused_mappings() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     let mut image = "129 33 16 1 0 4".to_owned();
     for (c, (w, h, hs, vs)) in [(2, 1, 0, 0), (32, 9, 2, 2), (129, 33, 0, 0), (65, 17, 1, 1)]

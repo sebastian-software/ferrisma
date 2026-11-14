@@ -386,6 +386,7 @@ impl Api {
 
 #[test]
 fn decode_test_signature_and_allocation() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // JxlSignatureCheckTest.
     let signatures: [&[u8]; 10] = [
         b"a",
@@ -416,6 +417,7 @@ fn decode_test_signature_and_allocation() {
 
 #[test]
 fn decode_test_basic_info_headers() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     // BasicInfoTest: every prefix of two headers.
     for (file, alpha) in [
@@ -449,6 +451,7 @@ fn decode_test_basic_info_headers() {
 
 #[test]
 fn decode_test_icc_profiles() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let events = BASIC_INFO | COLOR_ENCODING;
     let icc_len = file_len(&icc());
     let srgb = oracle(&["dti-external srgb".into()]).remove(0);
@@ -724,6 +727,7 @@ fn pixel_requests(select: impl Fn(&PixelConfig) -> bool) -> Vec<String> {
 
 #[test]
 fn decode_test_pixel_test_formats() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // PixelTest: output formats, methods and upsampling.
     compare_with_runners(
         "dt-pixel-formats",
@@ -734,6 +738,7 @@ fn decode_test_pixel_test_formats() {
 
 #[test]
 fn decode_test_pixel_test_containers_previews_and_runners() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // PixelTest: codestream boxes, previews, intrinsic sizes, early buffers
     // and the resizable runner.
     compare_with_runners(
@@ -745,6 +750,7 @@ fn decode_test_pixel_test_containers_previews_and_runners() {
 
 #[test]
 fn decode_test_pixel_test_orientations() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // PixelTest: orientations, kept or applied.
     compare_with_runners(
         "dt-pixel-orientation",
@@ -755,6 +761,7 @@ fn decode_test_pixel_test_orientations() {
 
 #[test]
 fn decode_test_pixel_icc_and_lossy() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     // PixelTestWithICCProfileLossless: one decoder, reset between decodes.
     let file = codestream("123 77 4 0 lossless=1 tier=8 icc=1");
@@ -858,6 +865,7 @@ const XYB: u32 = 2;
 
 #[test]
 fn decode_test_preserve_original_profile() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let all = encodings();
     let sources: Vec<&Encoding> = all[..all.len() - 1]
         .iter()
@@ -969,6 +977,7 @@ fn preferred_profile_requests(sources: &[&Encoding], all: &[Encoding]) -> Vec<St
 
 #[test]
 fn decode_test_preferred_profiles_from_gray() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // SetPreferredColorProfileTestFromGray.
     let all = encodings();
     let gray = &all[all.len() - 1];
@@ -981,6 +990,7 @@ fn decode_test_preferred_profiles_from_gray() {
 
 #[test]
 fn decode_test_preferred_profiles_srgb_sources() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // DecodeAllEncodingsVariantsTest/SetPreferredColorProfileTest: sources
     // other than relative D65 return before any API call.
     let all = encodings();
@@ -997,6 +1007,7 @@ fn decode_test_preferred_profiles_srgb_sources() {
 
 #[test]
 fn decode_test_preferred_profiles_wide_gamut_sources() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let all = encodings();
     let sources: Vec<&Encoding> = all[..all.len() - 1]
         .iter()
@@ -1011,6 +1022,7 @@ fn decode_test_preferred_profiles_wide_gamut_sources() {
 
 #[test]
 fn decode_test_decode_with_cms() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // DecodeAllEncodingsWithCMSTest/DecodeWithCMS.
     let all = encodings();
     let file = codestream("177 123 3 0");
@@ -1035,6 +1047,7 @@ fn decode_test_decode_with_cms() {
 
 #[test]
 fn decode_test_container_input_handling() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let specs: Vec<String> = (0..CSBF_NUM_ENTRIES)
         .map(|i| format!("123 77 3 0 box={i}"))
         .collect();
@@ -1066,6 +1079,7 @@ fn decode_test_container_input_handling() {
 
 #[test]
 fn decode_test_concatenated_streams() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // ConcatenatedCompressedStreams: the second decoder starts where the
     // first one left the input.
     let specs: Vec<String> = (0..CSBF_NUM_ENTRIES)
@@ -1174,6 +1188,7 @@ fn partial_stream(reconstructible_jpeg: bool) -> Vec<String> {
 
 #[test]
 fn decode_test_pixel_partial_stream() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // PixelPartialTest.
     compare_expecting("dt-partial-pixels", partial_stream(false), |o| {
         let s = loop_statuses(o);
@@ -1183,6 +1198,7 @@ fn decode_test_pixel_partial_stream() {
 
 #[test]
 fn decode_test_jpeg_partial_stream() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // JPEGPartialTest.
     compare_expecting("dt-partial-jpeg", partial_stream(true), |o| {
         let s = loop_statuses(o);
@@ -1192,6 +1208,7 @@ fn decode_test_jpeg_partial_stream() {
 
 #[test]
 fn decode_test_preview_dc_and_animation() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     // DCNotGettableTest.
     // The 68-byte 1x1 codestream literal of the test.
@@ -1236,6 +1253,7 @@ fn decode_test_preview_dc_and_animation() {
 
 #[test]
 fn decode_test_extra_and_spot_channels() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     // ExtraChannelTest.
     let file = codestream("55 257 4 0 lossless=1 tier=8");
@@ -1267,6 +1285,7 @@ fn decode_test_extra_and_spot_channels() {
 
 #[test]
 fn decode_test_skip_current_frame() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     // SkipCurrentFrameTest.
     let file = frames("skip-current");
@@ -1354,6 +1373,7 @@ fn skip_three_pass(frames: usize, query: bool, len: usize) -> String {
 
 #[test]
 fn decode_test_skip_frames() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let events = BASIC_INFO | FRAME | FULL_IMAGE;
     let mut requests = Vec::new();
     // SkipFrameTest.
@@ -1414,6 +1434,7 @@ fn decode_test_skip_frames() {
 
 #[test]
 fn decode_test_oriented_cropped_frames() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // OrientedCroppedFrameTest.
     let icc = icc();
     let mut inputs = Vec::new();
@@ -1446,6 +1467,7 @@ fn decode_test_oriented_cropped_frames() {
 
 #[test]
 fn decode_test_progression() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     let events = BASIC_INFO | FRAME | FULL_IMAGE;
     // ProgressionTest.
@@ -1510,6 +1532,7 @@ fn decode_test_progression() {
 
 #[test]
 fn decode_test_input_handling_one_shot() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // InputHandlingTestOneShot.
     let specs: Vec<String> = (0..CSBF_NUM_ENTRIES)
         .map(|i| format!("508 470 3 0 pdc=1 preview=1 box={i}"))
@@ -1600,6 +1623,7 @@ fn decode_test_input_handling_one_shot() {
 
 #[test]
 fn decode_test_input_handling_streaming() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // InputHandlingTestStreaming.
     let specs: Vec<String> = (0..CSBF_NUM_ENTRIES)
         .map(|i| format!("508 470 3 0 pdc=1 box={i} preview=1"))
@@ -1624,6 +1648,7 @@ fn decode_test_input_handling_streaming() {
 
 #[test]
 fn decode_test_flush() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let events = BASIC_INFO | FRAME | FULL_IMAGE;
     let mut requests = Vec::new();
     // FlushTest, FlushTestImageOutCallback, FlushTestLossyProgressiveAlpha,
@@ -1667,6 +1692,7 @@ fn decode_test_flush() {
 
 #[test]
 fn decode_test_progressive_events() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // DecodeProgressiveTest/ProgressiveEventTest.
     let mut specs = Vec::new();
     let mut params = Vec::new();
@@ -1742,6 +1768,7 @@ fn verify_jpeg(file: &str) -> String {
 
 #[test]
 fn decode_test_jpeg_reconstruction() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let jpeg = jpeg_input();
     let events = JPEG_RECONSTRUCTION | FULL_IMAGE;
     let mut requests = Vec::new();
@@ -1794,6 +1821,7 @@ fn decode_test_jpeg_reconstruction() {
 
 #[test]
 fn decode_test_boxes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     // ContinueFinalNonEssentialBoxTest.
     let file = codestream(&format!(
@@ -1900,6 +1928,7 @@ fn decode_test_boxes() {
 
 #[test]
 fn decode_test_close_input_and_malformed() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let events = BASIC_INFO | FULL_IMAGE;
     // CloseInput.
     let mut requests = vec![run("ff", &format!("s{events} I0,1 p p c p"))];

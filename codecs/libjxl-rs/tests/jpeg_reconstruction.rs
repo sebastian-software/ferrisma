@@ -35,6 +35,7 @@ fn unhex(value: &str) -> Vec<u8> {
 }
 #[test]
 fn original_complete_and_partial_jpeg_frames_preserve_all_captured_state_and_bytes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
     for row in include_str!("data/jpeg-reconstruction/native-captures.tsv").lines() {
         let values: Vec<_> = row.split('\t').collect();

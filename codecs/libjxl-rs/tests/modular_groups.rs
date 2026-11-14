@@ -15,6 +15,7 @@ use jxl::jxl::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
 
 #[test]
 fn native_sections_recover_gray_rgb_and_uint16_normalization_after_inplace_move() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for w in [17, 513] {
         let h = 3;
         for gray in [false, true] {

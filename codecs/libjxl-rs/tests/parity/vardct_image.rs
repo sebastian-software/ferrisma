@@ -142,6 +142,7 @@ fn payload_start(bytes: &[u8], progressive: bool, gab: bool) -> usize {
 
 #[test]
 fn first_complete_vardct_files_decode_original_pixels() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for (w, h) in [(1, 1), (3, 8), (17, 9), (65, 33), (258, 3)] {
         for gray in [false, true] {
@@ -164,6 +165,7 @@ fn first_complete_vardct_files_decode_original_pixels() {
 }
 #[test]
 fn srgb_scalar_transfer_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut words = vec![
         0u32, 0x80000000, 1, 0x80000001, 0x7f800000, 0xff800000, 0x7fc12345, 0x7fa12345, 0xffa54321,
     ];
@@ -181,6 +183,7 @@ fn srgb_scalar_transfer_matches_original() {
 
 #[test]
 fn vardct_alpha_gaborish_progressive_and_group_boundaries() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for gray in [false, true] {
         for depth in [8, 16] {
@@ -217,6 +220,7 @@ fn vardct_alpha_gaborish_progressive_and_group_boundaries() {
 }
 #[test]
 fn vardct_whole_file_truncation_and_payload_errors() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for channels in [(false, false), (true, false), (false, true), (true, true)] {
         let bytes = encode((3, 8), channels, 8, 7, false, true, 4);
@@ -241,6 +245,7 @@ fn vardct_whole_file_truncation_and_payload_errors() {
 }
 #[test]
 fn srgb_high_precision_transfer_matches_selected_original_configuration() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut words = vec![
         0u32, 0x80000000, 1, 0x80000001, 0x7f800000, 0xff800000, 0x7fc12345, 0x7fa12345, 0xffa54321,
     ];

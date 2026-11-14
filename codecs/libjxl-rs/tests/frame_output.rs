@@ -8,6 +8,7 @@ use jxl::jxl::image::Image3;
 
 #[test]
 fn zero_gray_frame_sections_include_the_original_header_toc_and_group_payload() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let config = LosslessThunderConfig::new(1, 1, true, LosslessSampleDepth::Uint8).unwrap();
     let mut frame = config.create_frame().unwrap();
     frame
@@ -31,6 +32,7 @@ fn zero_gray_frame_sections_include_the_original_header_toc_and_group_payload() 
 
 #[test]
 fn unaligned_group_failure_keeps_the_header_mutation_and_its_accounting() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let config = LosslessThunderConfig::new(17, 9, false, LosslessSampleDepth::Uint16).unwrap();
     let mut frame = config.create_frame().unwrap();
     let mut code = BitWriter::new();

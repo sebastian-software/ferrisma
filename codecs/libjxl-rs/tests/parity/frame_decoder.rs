@@ -821,6 +821,7 @@ impl Coverage {
 
 #[test]
 fn incremental_multipass_sections_truncation_and_flush_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let fixtures = genuine(include_str!("../data/frame-decoder.requests"), |_| true);
     assert_eq!(fixtures.len(), 10);
     let mut coverage = Coverage::default();
@@ -1001,6 +1002,7 @@ fn incremental_multipass_sections_truncation_and_flush_match_original() {
 
 #[test]
 fn incremental_sequences_coalescing_skips_and_permutations_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let prefixes = [
         "crop-blend-",
         "reference-overwrite-animation-",

@@ -303,6 +303,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
 }
 #[test]
 fn group_pixels_match_original_all_strategies_widths_and_absolute_offsets() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for raw in 0..27 {
         let requests = (0..2)
             .flat_map(|ty| (0..2).map(move |mode| format!("dq-group {raw} {ty} {mode} 1 -1")))
@@ -312,6 +313,7 @@ fn group_pixels_match_original_all_strategies_widths_and_absolute_offsets() {
 }
 #[test]
 fn group_pixels_keep_cache_zeroing_draw_modes_and_partial_load_failures() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for raw in [0, 4, 7, 14, 18, 24] {
         for ty in 0..2 {
             let mut requests = Vec::new();
@@ -331,6 +333,7 @@ fn group_pixels_keep_cache_zeroing_draw_modes_and_partial_load_failures() {
 
 #[test]
 fn jpeg_groups_keep_transpose_cfl_sampling_dc_and_failure_order() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     for transform in [1, 2] {
         for sampling in 0..4 {

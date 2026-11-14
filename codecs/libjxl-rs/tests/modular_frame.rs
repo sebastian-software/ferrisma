@@ -50,6 +50,7 @@ fn patterned_rgb() -> Image {
 
 #[test]
 fn merge_appends_original_stream_decisions_and_offsets_even_leaf_child_fields() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let trees = vec![
         vec![PropertyDecisionNode::leaf(Predictor::LEFT, 17, 1)],
         vec![PropertyDecisionNode::leaf(Predictor::TOP, -3, 2)],
@@ -83,6 +84,7 @@ fn merge_appends_original_stream_decisions_and_offsets_even_leaf_child_fields() 
 
 #[test]
 fn transform_cost_rejection_restores_pixels_while_fast_selection_keeps_the_stack() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut image = patterned_rgb();
     let original = samples(&image);
     let mut transform = Transform::new(TransformId::RCT);
@@ -113,6 +115,7 @@ fn transform_cost_rejection_restores_pixels_while_fast_selection_keeps_the_stack
 
 #[test]
 fn palette_selection_and_transform_undo_recover_the_original_rgb_image() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut image = patterned_rgb();
     let original = samples(&image);
     let p = CompressParams {
@@ -133,6 +136,7 @@ fn palette_selection_and_transform_undo_recover_the_original_rgb_image() {
 
 #[test]
 fn quantization_uses_the_plane_and_costs_reject_unrepresentable_weighted_residuals() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut c = Channel::create(7, 1).unwrap();
     c.row_mut(0)[..7].copy_from_slice(&[-8, -5, -2, 0, 2, 5, 8]);
     c.w = 2;
@@ -176,6 +180,7 @@ fn header(m: &CodecMetadata) -> FrameHeader<'_> {
 
 #[test]
 fn lossless_thunder_preparation_recovers_integer_pixels_through_the_selected_transforms() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     for (gray, depth, bits) in [
         (true, LosslessSampleDepth::Uint8, 8),
         (false, LosslessSampleDepth::Uint8, 8),
@@ -228,6 +233,7 @@ fn lossless_thunder_preparation_recovers_integer_pixels_through_the_selected_tra
 
 #[test]
 fn lossless_thunder_preparation_releases_global_planes_and_keeps_edge_group_dimensions() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let config = LosslessThunderConfig::new(513, 3, true, LosslessSampleDepth::Uint16).unwrap();
     let mut frame = config.create_frame().unwrap();
     let mut color = Image3::<f32>::create(513, 3).unwrap();
@@ -252,6 +258,7 @@ fn lossless_thunder_preparation_releases_global_planes_and_keeps_edge_group_dime
 
 #[test]
 fn lossless_thunder_groups_keep_the_original_zero_gray_section_bytes_and_nonempty_guard() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let config = LosslessThunderConfig::new(1, 1, true, LosslessSampleDepth::Uint8).unwrap();
     let mut frame = config.create_frame().unwrap();
     let color = Image3::<f32>::create(1, 1).unwrap();
@@ -281,6 +288,7 @@ fn lossless_thunder_groups_keep_the_original_zero_gray_section_bytes_and_nonempt
 
 #[test]
 fn lossless_thunder_group_writers_follow_dc_global_ac_and_edge_group_layout() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let config = LosslessThunderConfig::new(513, 3, true, LosslessSampleDepth::Uint16).unwrap();
     let mut frame = config.create_frame().unwrap();
     let mut color = Image3::<f32>::create(513, 3).unwrap();
@@ -308,6 +316,7 @@ fn lossless_thunder_group_writers_follow_dc_global_ac_and_edge_group_layout() {
 
 #[test]
 fn frame_constructor_copies_parameters_and_applies_original_progressive_lossless_policy() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let m = metadata(17, 9, false);
     let h = header(&m);
     let mut p = CompressParams {
@@ -347,6 +356,7 @@ fn frame_constructor_copies_parameters_and_applies_original_progressive_lossless
 
 #[test]
 fn frame_group_copy_preserves_crop_shift_selection_and_clear_retains_other_state() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let m = metadata(129, 33, false);
     let h = header(&m);
     let mut p = CompressParams {
@@ -416,6 +426,7 @@ fn frame_group_copy_preserves_crop_shift_selection_and_clear_retains_other_state
 
 #[test]
 fn frame_token_error_retains_written_prefix_header_and_previous_width() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let m = metadata(3, 1, true);
     let h = header(&m);
     let mut p = CompressParams {
@@ -438,6 +449,7 @@ fn frame_token_error_retains_written_prefix_header_and_previous_width() {
 
 #[test]
 fn frame_global_modular_sections_reproduce_independently_captured_cpp_zero_gray_bytes() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     // Original pinned ModularFrameEncoder, scalar Clang, 1x1 zero gray,
     // lossless TectonicPlate, group shift 0. These are modular sections,
     // without image/frame headers or a JPEG XL section table.

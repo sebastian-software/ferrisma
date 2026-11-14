@@ -752,6 +752,7 @@ fn end_status(observation: &str) -> Option<&str> {
 
 #[test]
 fn genuine_color_profiles_decode_to_original_samples_with_cms_and_tone_mapping() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let encoded = encode(&fixtures());
     assert_eq!(encoded.len(), 103);
     assert!(encoded.iter().any(|e| e.level == 10));
@@ -838,6 +839,7 @@ fn genuine_color_profiles_decode_to_original_samples_with_cms_and_tone_mapping()
 
 #[test]
 fn malformed_unsupported_and_truncated_profiles_keep_original_statuses() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let items: Vec<_> = fixtures()
         .into_iter()
         .filter(|f| {
@@ -950,6 +952,7 @@ fn malformed_unsupported_and_truncated_profiles_keep_original_statuses() {
 // the actual public decoder, with its low-memory pipeline, decodes them.
 #[test]
 fn cms_stage_configurations_stop_before_source_undefined_simple_pipeline_preparation() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let items: Vec<_> = fixtures()
         .into_iter()
         .filter(|f| {
