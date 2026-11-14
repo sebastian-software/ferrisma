@@ -139,6 +139,367 @@ fn enc_cfl_simd_init_dc_storage_through_the_encoder_dispatch_matches_the_origina
     check_through_dispatch("ecf-init", &requests, observe_init);
 }
 
+// FindBestMultiplier and ComputeTile ----------------------------------------
+
+use jxl::jxl::ac_strategy::{AcStrategy, AcStrategyImage, AcStrategyType, NUM_VALID_STRATEGIES};
+use jxl::jxl::chroma_from_luma::ColorCorrelationMap;
+use jxl::jxl::enc_chroma_from_luma_simd::find_best_multiplier_simd;
+use jxl::jxl::image::{Image3F, ImageI};
+use jxl::jxl::quant_weights::DequantMatrices;
+use jxl::jxl::quantizer::Quantizer;
+use simd_common::{next, special_words};
+
+fn float(args: &mut Args<'_>) -> f32 {
+    f32::from_bits(number(args))
+}
+fn push_words(s: &mut String, values: &[f32]) {
+    for v in values {
+        write!(s, " {}", v.to_bits()).unwrap();
+    }
+}
+/// The finite sentinel words of tools/oracle/encoder_cfl_simd.cc.
+fn sentinel(salt: u32, i: usize) -> f32 {
+    f32::from_bits(0x5a00_0000 + salt * 0x10_0000 + (i as u32 & 0xf_ffff))
+}
+fn uniform(seed: &mut u64, lo: f32, hi: f32) -> f32 {
+    lo + (next(seed) % (1 << 24)) as f32 / (1u32 << 24) as f32 * (hi - lo)
+}
+
+/// Luma and chroma coefficient pairs of kind 0 (small noise), 1 (chroma a
+/// multiple of luma, the multiplier swept by `seed`), 2 (magnitudes around
+/// CFLFunction's threshold of 100), 3 (wide range), 4 (zeros with sparse
+/// impulses), 5 (the special words spread in both).
+fn pair_values(num: usize, kind: usize, seed: u64) -> (Vec<f32>, Vec<f32>) {
+    let specials = special_words();
+    let mut seed = seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1;
+    let k = ((seed >> 7) % 401) as f32 / 4.0 - 50.0;
+    let mut m = Vec::with_capacity(num);
+    let mut s = Vec::with_capacity(num);
+    for i in 0..num {
+        let (a, b) = match kind {
+            0 => (uniform(&mut seed, -1.0, 1.0), uniform(&mut seed, -1.0, 1.0)),
+            1 => {
+                let a = uniform(&mut seed, -30.0, 30.0);
+                (a, a * k / 84.0 + uniform(&mut seed, -0.5, 0.5))
+            }
+            2 => (
+                uniform(&mut seed, -300.0, 300.0),
+                uniform(&mut seed, -300.0, 300.0),
+            ),
+            3 => (
+                uniform(&mut seed, -1.0, 1.0) * 10f32.powi((next(&mut seed) % 9) as i32 - 4),
+                uniform(&mut seed, -1.0, 1.0) * 10f32.powi((next(&mut seed) % 9) as i32 - 4),
+            ),
+            4 => {
+                if next(&mut seed).is_multiple_of(17) {
+                    (
+                        uniform(&mut seed, -50.0, 50.0),
+                        uniform(&mut seed, -50.0, 50.0),
+                    )
+                } else {
+                    (0.0, 0.0)
+                }
+            }
+            _ => {
+                let a = uniform(&mut seed, -5.0, 5.0);
+                let b = uniform(&mut seed, -5.0, 5.0);
+                if i % 7 == 3 {
+                    (f32::from_bits(specials[(i / 7) % specials.len()]), b)
+                } else if i % 11 == 5 {
+                    (a, f32::from_bits(specials[(i / 11 + 3) % specials.len()]))
+                } else {
+                    (a, b)
+                }
+            }
+        };
+        m.push(a);
+        s.push(b);
+    }
+    (m, s)
+}
+
+fn observe_best(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("ecf-best"));
+    let num: usize = number(&mut args);
+    let base = float(&mut args);
+    let distance_mul = float(&mut args);
+    let fast: i32 = number(&mut args);
+    let m: Vec<f32> = (0..num).map(|_| float(&mut args)).collect();
+    let s: Vec<f32> = (0..num).map(|_| float(&mut args)).collect();
+    let multiplier =
+        find_best_multiplier_simd(target(), &m, &s, num, base, distance_mul, fast != 0);
+    format!("M {multiplier}")
+}
+
+#[test]
+fn enc_cfl_simd_find_best_multiplier_matches_the_original_target() {
+    let mut requests = Vec::new();
+    let distance_muls = [1e-9f32, 0.0, 1e-4, 0.01, 1.0, 50.0];
+    for (ni, num) in [8usize, 16, 24, 64, 128, 512, 1024, 4096]
+        .into_iter()
+        .enumerate()
+    {
+        for kind in 0..6 {
+            for (di, &distance_mul) in distance_muls.iter().enumerate() {
+                for base in [0.0f32, 1.0] {
+                    for fast in [0, 1] {
+                        // Fewer variants for the largest searches.
+                        if num >= 1024 && (di % 2 == 1 || base != 0.0 && kind % 2 == 0) {
+                            continue;
+                        }
+                        let seed = (ni * 1000 + kind * 100 + di * 10) as u64 + fast as u64;
+                        let (m, s) = pair_values(num, kind, seed);
+                        let mut r = format!(
+                            "ecf-best {num} {} {} {fast}",
+                            base.to_bits(),
+                            distance_mul.to_bits()
+                        );
+                        push_words(&mut r, &m);
+                        push_words(&mut r, &s);
+                        requests.push(r);
+                    }
+                }
+            }
+        }
+    }
+    check_rows(
+        "ecf-best",
+        &requests,
+        |r| (observe_best(r), Box::new(all_defined)),
+        |_| false,
+    );
+}
+
+/// The default matrices with the target's ComputeQuantTable, as the
+/// original's single-target build computes them.
+fn simd_matrices() -> DequantMatrices {
+    let mut matrices = DequantMatrices::default();
+    matrices
+        .ensure_computed_for_target(MemoryManagerPtr::NATIVE, !0, Some(target()))
+        .unwrap();
+    matrices
+}
+
+/// The port's observation of an `ecf-tile` request through the dispatching
+/// `CfLHeuristics` (the caller sets the encoder's selection).
+fn observe_tile(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("ecf-tile"));
+    let xb: usize = number(&mut args);
+    let yb: usize = number(&mut args);
+    let x0: usize = number(&mut args);
+    let y0: usize = number(&mut args);
+    let pass: i32 = number(&mut args);
+    let fast: i32 = number(&mut args);
+    let quant_dc = float(&mut args);
+    let quant_median = float(&mut args);
+    let (xsize, ysize) = (x0 + 8 * xb + 3, y0 + 8 * yb);
+    let mut acs = AcStrategyImage::create(xb, yb).unwrap();
+    acs.fill_dct8_full();
+    let n: usize = number(&mut args);
+    for _ in 0..n {
+        let bx: usize = number(&mut args);
+        let by: usize = number(&mut args);
+        let raw: u32 = number(&mut args);
+        acs.set(bx, by, AcStrategyType(raw)).unwrap();
+    }
+    let mut rqf = ImageI::create(xb, yb).unwrap();
+    for y in 0..yb {
+        for x in 0..xb {
+            rqf.row_mut(y)[x] = number(&mut args);
+        }
+    }
+    let matrices = simd_matrices();
+    let mut quantizer = Quantizer::new(&matrices);
+    quantizer.compute_global_scale_and_quant(&matrices, quant_dc, quant_median, 0.0);
+    let mut opsin = Image3F::create(xsize, ysize).unwrap();
+    for c in 0..3 {
+        for y in 0..ysize {
+            for x in 0..xsize {
+                opsin.plane_row_mut(c, y)[x] = float(&mut args);
+            }
+        }
+    }
+    let opsin_rect = Rect::new(x0, y0, 8 * xb, 8 * yb);
+    let mut cmap = ColorCorrelationMap::create(8 * xb, 8 * yb, true).unwrap();
+    for map in [&mut cmap.ytox_map, &mut cmap.ytob_map] {
+        for y in 0..map.ysize() {
+            for x in 0..map.xsize() {
+                map.row_mut(y)[x] = ((x * 7 + y * 3) as i32 % 51 - 25) as i8;
+            }
+        }
+    }
+    let mut cfl = CfLHeuristics::new(MemoryManagerPtr::NATIVE);
+    let mut status = cfl.init(opsin_rect);
+    let mut out = format!("T {}", status_code(&status));
+    if status.is_err() {
+        return out;
+    }
+    for y in 0..4 {
+        let xs = cfl.dc_values.xsize();
+        for (x, v) in cfl.dc_values.row_mut(y)[..xs].iter_mut().enumerate() {
+            *v = sentinel(1 + y as u32, x);
+        }
+    }
+    let (tiles_x, tiles_y) = (xb.div_ceil(8), yb.div_ceil(8));
+    status = cfl.prepare_for_threads(1);
+    write!(out, " {}", status_code(&status)).unwrap();
+    if status.is_err() {
+        return out;
+    }
+    for t in 0..tiles_x * tiles_y {
+        let (tx, ty) = (t % tiles_x, t / tiles_x);
+        let (bx0, by0) = (tx * 8, ty * 8);
+        let (bx1, by1) = ((bx0 + 8).min(xb), (by0 + 8).min(yb));
+        let r = Rect::new(bx0, by0, bx1 - bx0, by1 - by0);
+        status = if pass == 0 {
+            cfl.compute_tile(
+                r, &opsin, opsin_rect, &matrices, None, None, None, false, 0, &mut cmap,
+            )
+        } else {
+            cfl.compute_tile(
+                r,
+                &opsin,
+                opsin_rect,
+                &matrices,
+                Some(&acs),
+                Some(&rqf),
+                Some(&quantizer),
+                fast != 0,
+                0,
+                &mut cmap,
+            )
+        };
+        if status.is_err() {
+            break;
+        }
+    }
+    write!(out, " {}", status_code(&status)).unwrap();
+    for map in [&cmap.ytox_map, &cmap.ytob_map] {
+        out.push_str(" C");
+        for y in 0..map.ysize() {
+            for &v in &map.row(y)[..map.xsize()] {
+                write!(out, " {v}").unwrap();
+            }
+        }
+    }
+    for y in 0..4 {
+        out.push_str(" D");
+        for &v in &cfl.dc_values.row(y)[..cfl.dc_values.xsize()] {
+            word(&mut out, v);
+        }
+    }
+    out
+}
+
+/// A strategy layout: the larger transforms at aligned positions where they
+/// fit, DCT8 elsewhere (as AcStrategyHeuristics places them).
+fn placements(xblocks: usize, yblocks: usize, seed: u64) -> Vec<(usize, usize, u32)> {
+    let mut seed = seed | 1;
+    let mut taken = vec![false; xblocks * yblocks];
+    let mut out = Vec::new();
+    for by in 0..yblocks {
+        for bx in 0..xblocks {
+            if taken[by * xblocks + bx] {
+                continue;
+            }
+            let raw = (next(&mut seed) % u64::from(NUM_VALID_STRATEGIES)) as u32;
+            let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+            let (cx, cy) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+            let fits = bx % cx == 0
+                && by % cy == 0
+                && bx + cx <= xblocks
+                && by + cy <= yblocks
+                && (0..cy).all(|y| (0..cx).all(|x| !taken[(by + y) * xblocks + bx + x]));
+            let (raw, cx, cy) = if fits { (raw, cx, cy) } else { (0, 1, 1) };
+            for y in 0..cy {
+                for x in 0..cx {
+                    taken[(by + y) * xblocks + bx + x] = true;
+                }
+            }
+            out.push((bx, by, raw));
+        }
+    }
+    out
+}
+
+/// Opsin-like planes (X small, Y in [0, 0.85), B near Y, with texture), or
+/// with the special words at every fifth sample.
+fn opsin_words(n: usize, c: usize, special: bool, seed: u64) -> Vec<f32> {
+    let specials = special_words();
+    let mut seed = seed.wrapping_mul(0x2545_f491_4f6c_dd1d) | 1;
+    let (lo, hi) = [(-0.05f32, 0.05f32), (0.0, 0.85), (0.0, 0.8)][c];
+    (0..n)
+        .map(|i| {
+            if special && i % 5 == 2 {
+                f32::from_bits(specials[(i / 5 + c) % specials.len()])
+            } else {
+                uniform(&mut seed, lo, hi)
+            }
+        })
+        .collect()
+}
+
+fn tile_requests() -> Vec<String> {
+    let mut requests = Vec::new();
+    // Block sizes: one block, partial and whole tiles, several tiles, and a
+    // frame wider than a 32-block transform.
+    let sizes: [(usize, usize); 9] = [
+        (1, 1),
+        (3, 2),
+        (8, 8),
+        (9, 5),
+        (16, 8),
+        (12, 17),
+        (24, 24),
+        (33, 10),
+        (40, 34),
+    ];
+    for (si, &(xb, yb)) in sizes.iter().enumerate() {
+        for variant in 0..7u64 {
+            let seed = si as u64 * 100 + variant;
+            // Pass 0 (DCT8); pass 1 with the Newton (Squirrel/Hare) and the
+            // fast (Wombat) search; an offset opsin_rect; special words.
+            let (pass, fast) =
+                [(0, 0), (1, 0), (1, 1), (0, 0), (1, 0), (1, 1), (1, 0)][variant as usize];
+            let (x0, y0) = if variant >= 3 {
+                (5 + si, 8 + si % 3)
+            } else {
+                (0, 0)
+            };
+            let special = variant == 6;
+            let (quant_dc, quant_median) =
+                [(0.5f32, 0.39f32), (1.6, 0.39), (0.3, 0.2)][variant as usize % 3];
+            let mut s = format!(
+                "ecf-tile {xb} {yb} {x0} {y0} {pass} {fast} {} {}",
+                quant_dc.to_bits(),
+                quant_median.to_bits()
+            );
+            let layout = placements(xb, yb, seed * 7 + 3);
+            write!(s, " {}", layout.len()).unwrap();
+            for (bx, by, raw) in layout {
+                write!(s, " {bx} {by} {raw}").unwrap();
+            }
+            let mut qseed = seed | 1;
+            for _ in 0..xb * yb {
+                write!(s, " {}", 1 + next(&mut qseed) % 64).unwrap();
+            }
+            let n = (x0 + 8 * xb + 3) * (y0 + 8 * yb);
+            for c in 0..3 {
+                push_words(&mut s, &opsin_words(n, c, special, seed * 3 + c as u64));
+            }
+            requests.push(s);
+        }
+    }
+    requests
+}
+
+#[test]
+fn enc_cfl_simd_compute_tile_through_the_encoder_dispatch_matches_the_original_target() {
+    check_through_dispatch("ecf-tile", &tile_requests(), observe_tile);
+}
+
 // The 8-lane structure, natively on AArch64 -------------------------------
 
 /// The 8-lane structure of the chroma-from-luma kernels (port ADR 0004):
@@ -155,7 +516,7 @@ fn enc_cfl_simd_init_dc_storage_through_the_encoder_dispatch_matches_the_origina
 #[cfg(target_arch = "aarch64")]
 mod lanes8 {
     use core::arch::aarch64::*;
-    use jxl::jxl::enc_chroma_from_luma_simd::init_dc_storage_d;
+    use jxl::jxl::enc_chroma_from_luma_simd::{find_best_multiplier_d, init_dc_storage_d};
     use jxl::jxl::hwy::{Neon, SimdF32};
     use jxl::jxl::image::ImageF;
     use jxl::jxl::memory_manager_internal::MemoryManagerPtr;
@@ -495,6 +856,315 @@ mod lanes8 {
                 assert!(
                     row[row.len() - 8..].iter().all(|v| v.to_bits() == 0),
                     "8 lanes, {num_blocks} blocks, row {y}: last lanes not zero"
+                );
+            }
+        }
+    }
+
+    /// SumOfLanes of `lanes` accumulators in the target's order: NEON's
+    /// `vaddv` for four, Highway's AVX2 reduction for eight.
+    fn tree(l: &[f32]) -> f32 {
+        if l.len() == 4 {
+            (l[0] + l[1]) + (l[2] + l[3])
+        } else {
+            let s: [f32; 4] = std::array::from_fn(|i| l[i] + l[i + 4]);
+            (s[0] + s[3]) + (s[1] + s[2])
+        }
+    }
+
+    /// A model of FindBestMultiplier with `lanes` independent per-lane
+    /// accumulators (lane `l` takes the samples `l, l + lanes, ...`) and
+    /// fused MulAdd, as the original's HWY_FULL(float) loops run.
+    fn model(lanes: usize, m: &[f32], s: &[f32], base: f32, dm: f32, fast: bool) -> i32 {
+        let num = m.len();
+        if num == 0 {
+            return 0;
+        }
+        let icf = 1.0f32 / 84.0;
+        let mut x: f32;
+        if fast {
+            let mut ca = vec![0.0f32; lanes];
+            let mut cb = vec![0.0f32; lanes];
+            for i in 0..num {
+                let a = icf * m[i];
+                let b = base * m[i] - s[i];
+                ca[i % lanes] = a.mul_add(a, ca[i % lanes]);
+                cb[i % lanes] = a.mul_add(b, cb[i % lanes]);
+            }
+            x = -tree(&cb) / (num as f32 * dm).mul_add(0.5, tree(&ca));
+        } else {
+            let compute = |x: f32, eps: f32| -> [f32; 3] {
+                let nf = num as f32;
+                let mut acc = [
+                    vec![0.0f32; lanes],
+                    vec![0.0f32; lanes],
+                    vec![0.0f32; lanes],
+                ];
+                for i in 0..num {
+                    let a = icf * m[i];
+                    let b = base * m[i] - s[i];
+                    let coeffx2 = (1.0f32 / 3.0) * 2.0;
+                    let av = a.mul_add(x, b);
+                    let above = av.abs() >= 100.0;
+                    for (k, xk) in [x, x + eps, x - eps].into_iter().enumerate() {
+                        let v = a.mul_add(xk, b);
+                        let mut d = (coeffx2 * a) * (v.abs() + 1.0);
+                        if v < 0.0 {
+                            d = 0.0 - d;
+                        }
+                        acc[k][i % lanes] += if above { 0.0 } else { d };
+                    }
+                }
+                [
+                    2.0 * dm * nf * x + tree(&acc[0]),
+                    2.0 * dm * nf * (x + eps) + tree(&acc[1]),
+                    2.0 * dm * nf * (x - eps) + tree(&acc[2]),
+                ]
+            };
+            x = 0.0;
+            for _ in 0..20 {
+                let [d_f, dfpeps, dfmeps] = compute(x, 100.0);
+                let ddf = (dfpeps - dfmeps) / 200.0;
+                let step = d_f / (ddf + 0.85f64 as f32);
+                x -= 20.0f32.min((-20.0f32).max(step));
+                if f64::from(step.abs()) < 3e-3 {
+                    break;
+                }
+            }
+        }
+        let towards_zero = 2.6f64 as f32;
+        if x >= towards_zero {
+            x -= towards_zero;
+        } else if x <= -towards_zero {
+            x += towards_zero;
+        } else {
+            x = 0.0;
+        }
+        // Clamp1 passes a NaN through, as f32::clamp does.
+        x.round().clamp(-128.0, 127.0) as i32
+    }
+
+    fn next(seed: &mut u64) -> u64 {
+        *seed ^= *seed << 13;
+        *seed ^= *seed >> 7;
+        *seed ^= *seed << 17;
+        *seed
+    }
+    fn uniform(seed: &mut u64, lo: f32, hi: f32) -> f32 {
+        lo + (next(seed) % (1 << 24)) as f32 / (1u32 << 24) as f32 * (hi - lo)
+    }
+
+    #[test]
+    fn eight_lane_find_best_multiplier_follows_the_eight_lane_accumulation() {
+        let mut seed = 0x0cf1_8888;
+        let mut cases = 0;
+        let mut differ = 0;
+        for num in [8usize, 16, 24, 64, 200, 1024, 4096] {
+            for kind in 0..4 {
+                for base in [0.0f32, 1.0] {
+                    for dm in [1e-9f32, 0.01, 1.0] {
+                        for fast in [false, true] {
+                            let k = uniform(&mut seed, -60.0, 60.0);
+                            let (m, s): (Vec<f32>, Vec<f32>) = (0..num)
+                                .map(|_| {
+                                    if kind == 3 {
+                                        // Magnitudes over six decades: the
+                                        // sums depend on their order.
+                                        let a = uniform(&mut seed, -1.0, 1.0)
+                                            * 10f32.powi((next(&mut seed) % 7) as i32 - 2);
+                                        return (a, a * k / 84.0 + uniform(&mut seed, -1e-3, 1e-3));
+                                    }
+                                    let a = uniform(&mut seed, -30.0, 30.0)
+                                        * [1.0f32, 0.01, 10.0][kind];
+                                    (a, a * k / 84.0 + uniform(&mut seed, -1.0, 1.0))
+                                })
+                                .unzip();
+                            let four = find_best_multiplier_d(n4(), &m, &s, num, base, dm, fast);
+                            let eight =
+                                find_best_multiplier_d(Neon8(n4()), &m, &s, num, base, dm, fast);
+                            assert_eq!(
+                                four,
+                                model(4, &m, &s, base, dm, fast),
+                                "4 lanes: num {num} kind {kind} base {base} dm {dm} fast {fast}"
+                            );
+                            assert_eq!(
+                                eight,
+                                model(8, &m, &s, base, dm, fast),
+                                "8 lanes: num {num} kind {kind} base {base} dm {dm} fast {fast}"
+                            );
+                            differ += usize::from(four != eight);
+                            cases += 1;
+                        }
+                    }
+                }
+            }
+        }
+        println!(
+            "8-lane FindBestMultiplier: {cases} cases follow the model, {differ} differ from 4 lanes"
+        );
+    }
+
+    #[test]
+    fn eight_lane_compute_tile_equals_four_lane_compute_tile_lane_wise() {
+        use jxl::jxl::ac_strategy::{
+            AcStrategy, AcStrategyImage, AcStrategyType, MAX_COEFF_AREA, MAX_COEFF_BLOCKS,
+        };
+        use jxl::jxl::base::rect::Rect;
+        use jxl::jxl::chroma_from_luma::COLOR_TILE_DIM;
+        use jxl::jxl::coeff_order_fwd::coefficient_layout;
+        use jxl::jxl::enc_chroma_from_luma_simd::{
+            TileArgs, compute_tile_d, items_per_thread_for_lanes,
+        };
+        use jxl::jxl::image::{Image3F, ImageI, ImageSB};
+        use jxl::jxl::quant_weights::DequantMatrices;
+        use jxl::jxl::quantizer::Quantizer;
+
+        let mut matrices = DequantMatrices::default();
+        matrices
+            .ensure_computed_for_target(
+                MemoryManagerPtr::NATIVE,
+                !0,
+                Some(jxl::jxl::hwy::Target::detect().unwrap()),
+            )
+            .unwrap();
+        let mut quantizer = Quantizer::new(&matrices);
+        quantizer.compute_global_scale_and_quant(&matrices, 0.5, 0.39, 0.0);
+        const TILE: usize = COLOR_TILE_DIM * COLOR_TILE_DIM;
+        let coeffs_at = 3 * MAX_COEFF_AREA;
+        let fixed = coeffs_at + 4 * TILE + 3 * MAX_COEFF_BLOCKS * MAX_COEFF_BLOCKS;
+        let mut seed = 0x7113_8888u64;
+        let mut cases = 0;
+        for (xb, yb) in [(1usize, 1usize), (3, 2), (8, 8), (12, 9), (32, 32)] {
+            for layout in [0u32, 1, 2, 5, 9, 13, 17, 26] {
+                for (pass, fast) in [(0, false), (1, false), (1, true)] {
+                    let mut acs = AcStrategyImage::create(xb, yb).unwrap();
+                    acs.fill_dct8_full();
+                    let kind = AcStrategy::from_raw_strategy(AcStrategyType(layout));
+                    let (cx, cy) = (kind.covered_blocks_x(), kind.covered_blocks_y());
+                    for by in (0..yb).step_by(cy) {
+                        for bx in (0..xb).step_by(cx) {
+                            if bx + cx <= xb && by + cy <= yb {
+                                acs.set(bx, by, AcStrategyType(layout)).unwrap();
+                            }
+                        }
+                    }
+                    let mut rqf = ImageI::create(xb, yb).unwrap();
+                    for y in 0..yb {
+                        for x in 0..xb {
+                            rqf.row_mut(y)[x] = 1 + (next(&mut seed) % 64) as i32;
+                        }
+                    }
+                    let mut opsin = Image3F::create(8 * xb, 8 * yb).unwrap();
+                    for c in 0..3 {
+                        for y in 0..8 * yb {
+                            for x in 0..8 * xb {
+                                opsin.plane_row_mut(c, y)[x] = uniform(&mut seed, 0.0, 0.8);
+                            }
+                        }
+                    }
+                    let opsin_rect = Rect::new(0, 0, 8 * xb, 8 * yb);
+                    let rect = Rect::new(0, 0, xb.min(8), yb.min(8));
+                    let run = |eight: bool| {
+                        let lanes = if eight { 8 } else { 4 };
+                        let mut map_x = ImageSB::create(xb.div_ceil(8), yb.div_ceil(8)).unwrap();
+                        let mut map_b = ImageSB::create(xb.div_ceil(8), yb.div_ceil(8)).unwrap();
+                        let mut dc = ImageF::default();
+                        let s = if eight {
+                            init_dc_storage_d(
+                                Neon8(n4()),
+                                MemoryManagerPtr::NATIVE,
+                                xb * yb,
+                                &mut dc,
+                            )
+                        } else {
+                            init_dc_storage_d(n4(), MemoryManagerPtr::NATIVE, xb * yb, &mut dc)
+                        };
+                        s.unwrap();
+                        let mut mem = vec![-7.25f32; items_per_thread_for_lanes(lanes)];
+                        let args = TileArgs {
+                            opsin: &opsin,
+                            opsin_rect,
+                            dequant: &matrices,
+                            ac_strategy: (pass == 1).then_some(&acs),
+                            raw_quant_field: (pass == 1).then_some(&rqf),
+                            quantizer: (pass == 1).then_some(&quantizer),
+                            rect,
+                            fast,
+                            use_dct8: pass == 0,
+                        };
+                        let status = if eight {
+                            compute_tile_d(
+                                Neon8(n4()),
+                                args,
+                                &mut map_x,
+                                &mut map_b,
+                                &mut dc,
+                                &mut mem,
+                            )
+                        } else {
+                            compute_tile_d(n4(), args, &mut map_x, &mut map_b, &mut dc, &mut mem)
+                        };
+                        status.unwrap();
+                        let dcs: Vec<f32> =
+                            (0..4).flat_map(|y| dc.row(y)[..xb * yb].to_vec()).collect();
+                        (map_x.row(0)[0], map_b.row(0)[0], dcs, mem[..fixed].to_vec())
+                    };
+                    let (x4, b4, dc4, mem4) = run(false);
+                    let (x8, b8, dc8, mem8) = run(true);
+                    let what = format!("{xb}x{yb} strategy {layout} pass {pass} fast {fast}");
+                    assert_same(&format!("{what} dc_values"), &dc4, &dc8);
+                    assert_same(&format!("{what} blocks, coefficients, dc"), &mem4, &mem8);
+                    // The coefficients the search ran over, as ComputeTile
+                    // collects them.
+                    let mut num_ac = 0;
+                    for y in rect.y0()..rect.y0() + rect.ysize() {
+                        for x in rect.x0()..rect.x0() + rect.xsize() {
+                            let a = if pass == 0 {
+                                AcStrategy::from_raw_strategy(AcStrategyType::DCT)
+                            } else {
+                                acs.const_row(y, 0).get(x)
+                            };
+                            if !a.is_first_block()
+                                || a.covered_blocks_x() > rect.xsize()
+                                || a.covered_blocks_y() > rect.ysize()
+                            {
+                                continue;
+                            }
+                            let (mut cx, mut cy) = (a.covered_blocks_x(), a.covered_blocks_y());
+                            coefficient_layout(&mut cy, &mut cx);
+                            num_ac += cx * cy * 64;
+                        }
+                    }
+                    let region =
+                        |k: usize| &mem4[coeffs_at + k * TILE..coeffs_at + k * TILE + num_ac];
+                    for (lanes, mx, mb) in [(4, x4, b4), (8, x8, b8)] {
+                        assert_eq!(
+                            i32::from(mx),
+                            model(lanes, region(0), region(1), 0.0, 1e-9, fast) as i8 as i32,
+                            "{what}: {lanes}-lane ytox"
+                        );
+                        assert_eq!(
+                            i32::from(mb),
+                            model(lanes, region(2), region(3), 1.0, 1e-9, fast) as i8 as i32,
+                            "{what}: {lanes}-lane ytob"
+                        );
+                    }
+                    cases += 1;
+                }
+            }
+        }
+        println!("8-lane ComputeTile: {cases} cases match lane-wise and follow the model");
+    }
+
+    /// Bit-identical words, except that any NaN equals any NaN (D8).
+    fn assert_same(what: &str, four: &[f32], eight: &[f32]) {
+        assert_eq!(four.len(), eight.len(), "{what}: lengths");
+        for (i, (a, b)) in four.iter().zip(eight).enumerate() {
+            if a.to_bits() != b.to_bits() && !(a.is_nan() && b.is_nan()) {
+                panic!(
+                    "{what}: 4 and 8 lanes differ at word {i}: {:#010x} != {:#010x}",
+                    a.to_bits(),
+                    b.to_bits()
                 );
             }
         }
