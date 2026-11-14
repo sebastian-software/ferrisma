@@ -561,6 +561,9 @@ bool ColorStagesSimdCommand(const std::string&,std::istringstream&,JxlMemoryMana
 // encoder simd
 bool EncoderSimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 // end encoder simd
+// encoder acs
+bool EncoderAcsSimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+// end encoder acs
 
 int main() {
   try {
@@ -693,6 +696,9 @@ int main() {
       // encoder simd
       else if (EncoderSimdCommand(command, in, &mm)) {}
       // end encoder simd
+      // encoder acs
+      else if (EncoderAcsSimdCommand(command, in, &mm)) {}
+      // end encoder acs
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
       else throw std::runtime_error("unknown command");

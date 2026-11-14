@@ -150,3 +150,7 @@ pub mod enc_group_simd;
 pub mod enc_transforms_simd;
 pub mod enc_xyb_simd;
 // end encoder simd
+// encoder acs: the AC strategy search of enc_ac_strategy (port ADR 0004,
+// "Encoder path").
+pub mod enc_ac_strategy_simd;
+// end encoder acs

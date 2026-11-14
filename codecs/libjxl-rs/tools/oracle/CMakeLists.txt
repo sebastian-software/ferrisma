@@ -391,3 +391,7 @@ set_source_files_properties(color_stages_simd.cc PROPERTIES COMPILE_OPTIONS -fno
 # "Encoder path"). The TU only calls the original's exported functions.
 target_sources(jxl_oracle PRIVATE encoder_simd.cc)
 # end encoder simd
+# encoder acs: requests of the encoder's AC strategy search (port ADR 0004,
+# "Encoder path"). The TU only calls the original's functions.
+target_sources(jxl_oracle PRIVATE encoder_acs_simd.cc)
+# end encoder acs

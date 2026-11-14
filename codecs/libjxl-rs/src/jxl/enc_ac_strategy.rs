@@ -554,7 +554,7 @@ pub fn try_merge_acs(
     Ok(())
 }
 
-fn set_entropy_for_transform(
+pub(crate) fn set_entropy_for_transform(
     cx: usize,
     cy: usize,
     acs_raw: AcStrategyType,
@@ -570,7 +570,7 @@ fn set_entropy_for_transform(
     entropy_estimate[cy * 8 + cx] = entropy;
 }
 
-fn acs_square(blocks: usize) -> AcStrategyType {
+pub(crate) fn acs_square(blocks: usize) -> AcStrategyType {
     if blocks == 2 {
         AcStrategyType::DCT16X16
     } else if blocks == 4 {
@@ -580,7 +580,7 @@ fn acs_square(blocks: usize) -> AcStrategyType {
     }
 }
 
-fn acs_vertical_split(blocks: usize) -> AcStrategyType {
+pub(crate) fn acs_vertical_split(blocks: usize) -> AcStrategyType {
     if blocks == 2 {
         AcStrategyType::DCT16X8
     } else if blocks == 4 {
@@ -590,7 +590,7 @@ fn acs_vertical_split(blocks: usize) -> AcStrategyType {
     }
 }
 
-fn acs_horizontal_split(blocks: usize) -> AcStrategyType {
+pub(crate) fn acs_horizontal_split(blocks: usize) -> AcStrategyType {
     if blocks == 2 {
         AcStrategyType::DCT8X16
     } else if blocks == 4 {
@@ -819,7 +819,7 @@ pub fn find_best_first_level_division_for_square(
 }
 
 // std::min(a, b): b < a ? b : a.
-fn min_cpp(a: f32, b: f32) -> f32 {
+pub(crate) fn min_cpp(a: f32, b: f32) -> f32 {
     if b < a { b } else { a }
 }
 
