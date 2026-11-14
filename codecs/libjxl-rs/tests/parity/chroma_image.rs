@@ -165,6 +165,7 @@ fn exact(cases: Vec<String>) {
 }
 #[test]
 fn genuine_jpeg_chroma_complete_files_preserve_all_source_pixels_and_state() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for (name, bytes) in fixtures() {
         let request = format!("fs-decode {}", hex(bytes));
@@ -179,6 +180,7 @@ fn genuine_jpeg_chroma_complete_files_preserve_all_source_pixels_and_state() {
 
 #[test]
 fn genuine_jpeg_chroma_headers_keep_subsampled_padding_and_group_dimensions() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     exact(
         fixtures()
             .iter()
@@ -189,6 +191,7 @@ fn genuine_jpeg_chroma_headers_keep_subsampled_padding_and_group_dimensions() {
 
 #[test]
 fn genuine_jpeg_chroma_truncated_payload_and_trailing_bytes_keep_defined_state() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut cases = Vec::new();
     for (_, bytes) in fixtures() {
         let mut cuts: Vec<_> = (0..=bytes.len().min(40)).collect();
