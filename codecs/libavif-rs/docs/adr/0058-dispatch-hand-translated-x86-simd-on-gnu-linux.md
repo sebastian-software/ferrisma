@@ -199,6 +199,7 @@ Kernels that exist only as NASM stay on `_c` (working decision O4).
 | 8-bit intra prediction | `aom_dsp/x86/intrapred_sse2.c`, `intrapred_ssse3.c`, `intrapred_sse4.c`, the 8-bit part of `intrapred_avx2.c`, `intrapred_x86.h`, `intrapred_utils.h` | 175 (90 SSE2, 76 SSSE3, 3 SSE4.1, 44 AVX2 specializations) | 82/82, 82/82, 82/82 |
 | 8-bit quantization | `aom_dsp/x86/quantize_sse2.c`, `quantize_ssse3.c`, `quantize_avx2.c`, the rest of `quantize_x86.h`, `av1/encoder/x86/av1_quantize_sse2.c`, `av1_quantize_avx2.c` | 7 (11 specializations; the NASM-only SSSE3 `aom_quantize_b` and `_32x32` stay withdrawn) | 82/82, 82/82, 82/82 |
 | SSE and distortion | `aom_dsp/x86/sse_sse4.c`, `sse_avx2.c`, `sum_squares_sse2.c`, `sum_squares_avx2.c`, `blk_sse_sum_sse2.c`, `blk_sse_sum_avx2.c`, the 16-bit MSE functions of `variance_sse2.c`, `variance_avx2.c`, `highbd_variance_sse2.c`, `highbd_variance_avx2.c` | 11 (21 specializations) | 82/82, 82/82, 82/82 |
+| txb | `av1/encoder/x86/encodetxb_sse4.c`, `encodetxb_avx2.c` | 1 (`av1_txb_init_levels`, SSE4.1 and AVX2) | 82/82, 82/82, 82/82 |
 
 Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
 and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
@@ -225,6 +226,8 @@ zero-extension masks of the sum-of-squares kernels were wrong; both the kernel
 tests and the x86 gate (26 of 82) failed on it. Unsigned literals now keep
 their suffix (`!0_u32`). The variance files are translated only as far as
 the MSE functions reach (working decision O2 keeps the inter kernels out).
+`encodetxb.rs` adds the SSE4_1 and AVX2 instantiations of
+EncodeTxbInitLevelTest (165 tests pass).
 
 Since 2026-11-15 every family is verified before its push with all four
 translation profiles compiled (`cargo check -p libavif-aom --lib --tests` for

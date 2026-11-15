@@ -13,6 +13,9 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use core::arch::asm;
 extern "C-unwind" {
+    fn av1_txb_init_levels_c(coeff: *const tran_low_t, width: core::ffi::c_int, height: core::ffi::c_int, levels: *mut uint8_t);
+    fn av1_txb_init_levels_sse4_1(coeff: *const tran_low_t, width: core::ffi::c_int, height: core::ffi::c_int, levels: *mut uint8_t);
+    fn av1_txb_init_levels_avx2(coeff: *const tran_low_t, width: core::ffi::c_int, height: core::ffi::c_int, levels: *mut uint8_t);
     fn av1_quantize_fp_64x64_c(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
     fn av1_quantize_fp_64x64_avx2(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
     fn av1_quantize_fp_32x32_c(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
@@ -1186,6 +1189,8 @@ pub static mut av1_quantize_fp_32x32: Option<unsafe extern "C-unwind" fn(*const 
 pub static mut av1_quantize_fp_64x64: Option<unsafe extern "C-unwind" fn(*const tran_low_t, intptr_t, *const int16_t, *const int16_t, *const int16_t, *const int16_t, *mut tran_low_t, *mut tran_low_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()> = None;
 #[no_mangle]
 pub static mut av1_quantize_lp: Option<unsafe extern "C-unwind" fn(*const int16_t, intptr_t, *const int16_t, *const int16_t, *mut int16_t, *mut int16_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()> = None;
+#[no_mangle]
+pub static mut av1_txb_init_levels: Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()> = None;
 #[no_mangle]
 pub static mut av1_upsample_intra_edge: Option<
     unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int) -> (),
@@ -2834,6 +2839,13 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     }
     if flags & HAS_AVX2 != 0 {
         av1_quantize_lp = Some(av1_quantize_lp_avx2 as unsafe extern "C-unwind" fn(*const int16_t, intptr_t, *const int16_t, *const int16_t, *mut int16_t, *mut int16_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, intptr_t, *const int16_t, *const int16_t, *mut int16_t, *mut int16_t, *const int16_t, *mut uint16_t, *const int16_t, *const int16_t) -> ()>;
+    }
+    av1_txb_init_levels = Some(av1_txb_init_levels_c as unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        av1_txb_init_levels = Some(av1_txb_init_levels_sse4_1 as unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        av1_txb_init_levels = Some(av1_txb_init_levels_avx2 as unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()>;
     }
     av1_upsample_intra_edge = Some(
         av1_upsample_intra_edge_c

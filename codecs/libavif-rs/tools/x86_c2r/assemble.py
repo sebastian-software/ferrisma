@@ -299,6 +299,14 @@ def sse_and_sum_squares():
              'avx2', y)]:
         simple_file(rel, cfg, src, feat, uses, extra='', note=part_note)
 
+def txb():
+    x = 'use crate::simd::aom_dsp__x86__synonyms::*;\n'
+    pad = '\n// From av1/common/enums.h.\nconst TX_PAD_HOR: i32 = 4;\nconst TX_PAD_BOTTOM: i32 = 4;\n'
+    simple_file('av1/encoder/x86/encodetxb_sse4.rs', 'encodetxb_sse4.json', 'av1/encoder/x86/encodetxb_sse4.c', 'sse4.1',
+                x, pad)
+    simple_file('av1/encoder/x86/encodetxb_avx2.rs', 'encodetxb_avx2.json', 'av1/encoder/x86/encodetxb_avx2.c', 'avx2',
+                x + 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n', pad)
+
 
 def main():
     global OUT, WORK
@@ -314,6 +322,7 @@ def main():
         intra_predictors()
         quantizers()
         sse_and_sum_squares()
+        txb()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

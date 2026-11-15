@@ -410,6 +410,8 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_quantize_fp_sse2
   av1_quantize_lp_avx2
   av1_quantize_lp_sse2
+  av1_txb_init_levels_avx2
+  av1_txb_init_levels_sse4_1
   av1_upsample_intra_edge_sse4_1
   cdef_copy_rect8_16bit_to_16bit_avx2
   cdef_copy_rect8_8bit_to_16bit_avx2

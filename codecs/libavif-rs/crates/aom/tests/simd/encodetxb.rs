@@ -6,10 +6,16 @@
 // GetNzMapContexts contract: Compare() reports a mismatch only at the scan
 // positions below eob, so positions the C function leaves untouched may
 // differ; this transcription keeps that check unchanged.
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 
 use aom::av1__common__scan::av1_scan_orders;
+#[cfg(target_arch = "aarch64")]
 use aom::simd::av1__encoder__arm__encodetxb_neon::*;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::{
+    av1__encoder__x86__encodetxb_avx2::av1_txb_init_levels_avx2,
+    av1__encoder__x86__encodetxb_sse4::av1_txb_init_levels_sse4_1,
+};
 
 use super::acm_random::ACMRandom;
 
@@ -143,6 +149,7 @@ impl EncodeTxbTest {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn get_nz_map_contexts() {
     let mut t = EncodeTxbTest {
@@ -186,10 +193,33 @@ fn txb_init_level_run_test(test_func: TxbInitLevelsFunc, tx_size: usize) {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn txb_init_levels_match() {
     // Range(0, TX_SIZES_ALL)
     for tx_size in 0..TX_SIZES_ALL {
         txb_init_level_run_test(av1_txb_init_levels_neon, tx_size);
+    }
+}
+
+/// INSTANTIATE_TEST_SUITE_P(SSE4_1, EncodeTxbInitLevelTest, ...) and the AVX2
+/// one: the same match test over every TX_SIZE.
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn txb_init_levels_match_sse4_1() {
+    if std::is_x86_feature_detected!("sse4.1") {
+        for tx_size in 0..TX_SIZES_ALL {
+            txb_init_level_run_test(av1_txb_init_levels_sse4_1, tx_size);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn txb_init_levels_match_avx2() {
+    if std::is_x86_feature_detected!("avx2") {
+        for tx_size in 0..TX_SIZES_ALL {
+            txb_init_level_run_test(av1_txb_init_levels_avx2, tx_size);
+        }
     }
 }

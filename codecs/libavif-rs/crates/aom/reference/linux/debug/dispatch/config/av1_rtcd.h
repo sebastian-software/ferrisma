@@ -550,7 +550,9 @@ int av1_selfguided_restoration_c(const uint8_t *dgd8, int width, int height,
 #define av1_selfguided_restoration av1_selfguided_restoration_c
 
 void av1_txb_init_levels_c(const tran_low_t *const coeff, const int width, const int height, uint8_t *const levels);
-#define av1_txb_init_levels av1_txb_init_levels_c
+void av1_txb_init_levels_sse4_1(const tran_low_t *const coeff, const int width, const int height, uint8_t *const levels);
+void av1_txb_init_levels_avx2(const tran_low_t *const coeff, const int width, const int height, uint8_t *const levels);
+RTCD_EXTERN void (*av1_txb_init_levels)(const tran_low_t *const coeff, const int width, const int height, uint8_t *const levels);
 
 void av1_upsample_intra_edge_c(uint8_t *p, int sz);
 void av1_upsample_intra_edge_sse4_1(uint8_t *p, int sz);
@@ -747,6 +749,9 @@ static void setup_rtcd_internal(void)
     av1_quantize_lp = av1_quantize_lp_c;
     if (flags & HAS_SSE2) av1_quantize_lp = av1_quantize_lp_sse2;
     if (flags & HAS_AVX2) av1_quantize_lp = av1_quantize_lp_avx2;
+    av1_txb_init_levels = av1_txb_init_levels_c;
+    if (flags & HAS_SSE4_1) av1_txb_init_levels = av1_txb_init_levels_sse4_1;
+    if (flags & HAS_AVX2) av1_txb_init_levels = av1_txb_init_levels_avx2;
     av1_upsample_intra_edge = av1_upsample_intra_edge_c;
     if (flags & HAS_SSE4_1) av1_upsample_intra_edge = av1_upsample_intra_edge_sse4_1;
     cdef_copy_rect8_16bit_to_16bit = cdef_copy_rect8_16bit_to_16bit_c;
