@@ -155,6 +155,15 @@ impl LosslessThunderConfig {
     pub fn encode_pixels(
         &mut self,
         data: &[u8],
+        aux: Option<&mut AuxOut>,
+    ) -> StatusOr<PaddedBytes> {
+        // encoder selection: an encoder entry point (port ADR 0004, "Encoder
+        // path", "Encoder selection").
+        super::hwy::encoding(|| self.encode_pixels_in_scope(data, aux))
+    }
+    fn encode_pixels_in_scope(
+        &mut self,
+        data: &[u8],
         mut aux: Option<&mut AuxOut>,
     ) -> StatusOr<PaddedBytes> {
         let mut input = JxlEncoderChunkedFrameAdapter::new(
