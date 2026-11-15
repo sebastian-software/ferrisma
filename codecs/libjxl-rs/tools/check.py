@@ -204,6 +204,9 @@ SIMD_TESTS += ["simd_encoder"]
 # encoder acs: the encoder's AC strategy search (ADR 0004, "Encoder path").
 SIMD_TESTS += ["simd_encoder_acs"]
 # end encoder acs
+# encoder aq: the SIMD AdaptiveQuantizationMap (ADR 0004, "Encoder path").
+SIMD_TESTS += ["simd_encoder_aq"]
+# end encoder aq
 SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 

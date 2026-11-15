@@ -315,6 +315,18 @@ NEON and AVX2 builds (`tests/simd_encoder_acs.rs`). Init, PrepareForThreads
 and Finalize are outside the export and stay scalar.
 <!-- end encoder acs -->
 
+<!-- encoder aq -->
+Encoder SIMD, `enc_adaptive_quantization` (2026-11-14, branch
+`v1/jxl-enc-aq`, ADR 0004 "Encoder path: `enc_adaptive_quantization`"):
+the export's one Highway function, AdaptiveQuantizationMap, is translated
+(`enc_adaptive_quantization_simd.rs`) and dispatched at
+`initial_quant_field` through `hwy::encoder_target()` (off by default), with
+parity against the original's NEON build in
+`tests/simd_encoder_aq.rs`. Nothing of this export remains; the AVX2 parity run has an open NaN-payload finding (ADR 0004). The
+`Symmetric5` it calls stays the scalar translation (a separate export whose
+SIMD form rounds the same way).
+<!-- end encoder aq -->
+
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 
 Encoder step 4 (issue #115) and a patches setting under which every image

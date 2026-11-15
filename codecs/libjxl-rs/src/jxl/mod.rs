@@ -154,3 +154,6 @@ pub mod enc_xyb_simd;
 // "Encoder path").
 pub mod enc_ac_strategy_simd;
 // end encoder acs
+// encoder aq: the SIMD AdaptiveQuantizationMap (port ADR 0004, "Encoder path").
+pub mod enc_adaptive_quantization_simd;
+// end encoder aq
