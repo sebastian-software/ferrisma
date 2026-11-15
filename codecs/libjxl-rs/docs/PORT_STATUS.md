@@ -382,7 +382,7 @@ the export's one Highway function, AdaptiveQuantizationMap, is translated
 (`enc_adaptive_quantization_simd.rs`) and dispatched at
 `initial_quant_field` through `hwy::encoder_target()` (off by default), with
 parity against the original's NEON build in
-`tests/simd_encoder_aq.rs`. Nothing of this export remains; the AVX2 parity run has an open NaN-payload finding (ADR 0004). The
+`tests/simd_encoder_aq.rs`. Nothing of this export remains. The AVX2 NaN-payload finding is settled by the owner decision of 2026-11-15 (#246, #250; ADR 0004): `aq_map` is not compared on AVX2 for inputs with two or more NaN-producing terms in one block's reduction; everything else is. The
 `Symmetric5` it calls dispatches on its own (`convolve_symmetric5_simd`).
 <!-- end encoder aq -->
 
@@ -4090,3 +4090,27 @@ Evidence: macOS AArch64, checked profile, ordinary and O3 scalar oracle
 graphs; `tools/check.py --stage test` 1,097 passed, 1 ignored. Not verified
 here: native Linux, the ASan/UBSan graph.
 <!-- end encoder step 1 -->
+<!-- encoder selection -->
+## Encoder selection (2026-11-15, branch `v1/jxl-enc-select`)
+
+The encoder is ready to select its SIMD path by default
+(`hwy::ENCODER_SELECTS_SIMD`, still `false`; ADR 0004 "Encoder selection").
+`JxlEncoder` selects its target at creation and its work calls, and
+`LosslessThunderConfig::encode_pixels`, run inside
+`hwy::DispatchScope::Encoding`, where the encoder's kernels, the decoder code
+it runs and its plane padding follow that selection (condition (b)). The
+scalar gate forces the scalar encoder (`select_scalar_encoder_for_test`,
+`JXL_ENCODER_TARGET=scalar`; condition (d)). Found and fixed: the encoder's
+AdaptiveDCSmoothing (InitializePassesEncoder) did not dispatch.
+
+`tests/simd_encoder_public.rs` (condition (c)): every admitted family of the
+scalar `cjxl` gate, the engine's e7 d1.0/d2.0 sequence, the step-1
+checkpoints, the lossless e2 profile and photographs: zero differing
+encodes against the original's NEON build and, under Rosetta 2, its AVX2
+dispatch build (1,428 lossy histories, 128 of them admission prefixes, and 532 lossless encodes per target,
+plus 32 checkpoint histories and the photographs). `enc_adaptive_quantization`
+on AVX2 follows the owner decision of 2026-11-15 (#246, #250). Open:
+condition (e), a run on x86-64 hardware, and the x86-64 performance of the
+AVX2 path. Indicative NEON timing of a 24 MP photograph, e7 d1.0: 47.2 s
+scalar, 13.2 s NEON, 9.9 s original (see ADR 0004).
+<!-- end encoder selection -->

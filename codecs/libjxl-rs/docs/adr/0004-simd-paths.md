@@ -1999,12 +1999,166 @@ orders of magnitude. The original's choice is not fixed by its source: in
 the AVX2 object, Clang commuted the reduction step
 `f(v03_12_12_03, Reverse2(...))` (`vshufps $0x1b` then `vaddps` with the
 shuffled vector first), as LLVM may for any `fadd`, and the port's Rust
-build makes its own choice. This is a finding, not fixed: decision D8 lets
-any NaN equal any NaN, but here a NaN payload chosen by the compiler turns
-into finite words, so no source-faithful translation can promise the
+build makes its own choice. No source-faithful translation can promise the
 original's words for inputs that put two NaNs into one block's reduction.
-It needs an owner decision (for example, that such inputs, which an
-encoder's XYB conversion cannot produce from finite pixels, are outside the
-parity domain, or that payload propagation is pinned). The test's domain is
-unchanged, so `simd_encoder_aq` fails on AVX2 until then.
+
+**Owner decision 2026-11-15** (#246, #250; the principle of the NaN-input
+rule of #246): on AVX2 the `aq_map` words of a request are not compared
+when the request's input puts two or more NaNs into the reduction of one
+block, because the original's own result there is not defined by its
+source. `mask` and `mask1x1` of those requests, every word of every other
+request and every word on NEON stay compared exactly; no operand order is
+pinned in the port. `tests/simd_encoder_aq.rs` computes the class from the
+input (`map_nan_blocks`): for each block of the rect, GammaModulation's two
+terms `r = (Y + 0.16) - X` and `g = (Y + 0.16) + X` over the block's 8x8
+window (row-padding words past the image width), counting a term that is a
+NaN or +infinity (whose ratio is inf / inf). It counts NaN terms with the
+sign bit set as well, which ZeroIfNegative zeroes: the sign of a NaN the
+arithmetic produces is itself the target's operand or default-NaN choice,
+and inside one lane the accumulating `Add` of two NaNs is the same
+compiler choice as across lanes in SumOfLanes, so the boundary is the
+source's "two or more NaN-producing terms in one block's reduction". The
+test asserts that the class is not empty. Result: the class selects 61 of
+286 requests (2,455 blocks); on AVX2 all 46 differing requests are inside
+it, the other 15 happen to give the original's words (equal payloads, or a
+NaN zeroed by its sign); 4,295 `aq_map` words are not compared on AVX2,
+1,199,655 words match; NEON compares all 1,203,950 words and matches. No
+differing request lies outside the class.
 <!-- end encoder aq -->
+<!-- encoder selection -->
+## Encoder selection (2026-11-15, branch `v1/jxl-enc-select`)
+
+Addendum to "Encoder path", "Scope of the selection" and "Which path a test
+runs". The encoder is prepared to select its SIMD path by default; the
+switch stays off (`hwy::ENCODER_SELECTS_SIMD = false`).
+
+**Selection and scope (condition (b)).** `DispatchScope` has a third state,
+`Encoding(target)`. `JxlEncoder` stores the target it selects when it is
+created (`hwy::encoder_default_target()`: `Target::detect()` when
+`ENCODER_SELECTS_SIMD` is on), and the work calls (`add_image_frame_internal`
+for AddImageFrame and AddChunkedFrame, the `ProcessOutput` and `FlushInput`
+work loops) run inside `Encoding` with it, also from a decoder callback;
+`LosslessThunderConfig::encode_pixels` (the engine's lossless writer) is an
+entry point with the default selection (`hwy::encoding`). Inside it, as in
+the original's one process-wide dispatch, `encoder_target()` (the encoder's
+kernels), `decoder_target()` (the decoder code the encoder runs: quant
+tables, the AR round trip and its pipeline, AdaptiveDCSmoothing) and
+`max_vector_size()` (plane padding) all return the encoder's selection; the
+decoder's override does not reach the encoder. `encoder_target()` is, in
+order: the test override (`set_encoder_simd_for_test`), the scalar gate's
+`JXL_ENCODER_TARGET=scalar` (read only by `cpp-oracle` builds, set by
+`tools/check.py`), then the scope; outside every encoder entry point it is
+the scalar path. AcStrategyHeuristics' DCT scratch follows the encoder's
+lane count, like CfL's. `ThreadPool::run` carries the scope: the encoder
+has no runner (SetParallelRunner is not translated; every encoder
+`RunOnPool` gets no pool and runs on the calling thread), so no whole
+encode runs on worker threads, and `dispatch_scope.rs`
+`the_encoder_scope_reaches_every_runner_thread` shows with 0, 1, 2 and 8
+workers that every init and task body sees the scope's selection in all
+three queries. Flipping `ENCODER_SELECTS_SIMD` per target is the whole
+change.
+
+**Export missing from the profile list.** The whole-encode gate found one
+decode-path export the lossy encoder runs that "Encoder exports the
+engine's profiles reach" did not list: `compressed_dc`'s
+`AdaptiveDCSmoothing`, which InitializePassesEncoder calls on the encoder's
+DC (`enc_cache.rs`), unless the frame skips adaptive DC smoothing (it does
+not at d2.9: a 128x128 gradient at d2.9 differed from the NEON original by
+1 ULP in 93 DC words, the step-1 checkpoints located it). `enc_cache.rs`
+called the scalar translation directly; it now dispatches as the decoder
+does (`compressed_dc_simd`, on `decoder_target()`, the encoder's selection
+in its scope). `simd_util`'s `MaxValue` (enc_ans.cc) is reached too; it is
+an exact masked maximum of integers, so the port's scalar maximum gives the
+same value on every target.
+
+**Whole-encode gate (condition (c)).** `tests/simd_encoder_public.rs` runs
+the scalar `cjxl` gate's public-encoder histories (every admitted family of
+`tests/parity/encoder_public.rs`: small, large, settings, admissions with
+the AR heuristics, streaming, alpha, patches off and text-like, extra
+channel types, output processor, chunked input, the streaming suite, the
+step-2 gate sizes up to 4000x3000), the engine's sequence (effort 7, patches
+off, d1.0 and d2.0, gray and RGB, with and without alpha), the step-1
+checkpoint histories (`es1-ckpt`: the state after LossyFrameHeuristics,
+InitializePassesEncoder and ComputeARHeuristics, word for word), the
+lossless effort-2 profile (`encode_pixels` against `ss-image`/`ss-image-alpha`
+over the scalar whole-image corpus and larger images), and, when
+`JXL_ENCODER_GATE_PHOTOS` names PPM files, photographs (the whole image and
+three crops, d1.0 and d2.0, alpha on the crops, through the new `esel-ppm`
+request of tools/oracle/encoder_selection.cc, and lossless). Each encode
+runs with the SIMD target forced against the SIMD oracle and with the
+scalar path forced, and records the call sites that selected SIMD
+(`hwy::encoder_trace_start`): a family fails when a dispatch point its
+profile reaches never selected the SIMD target. Results (M1 Ultra; AVX2
+under Rosetta 2 with `ROSETTA_ADVERTISE_AVX=1`, against the AVX2 dispatch
+build):
+
+| Family | Encodes | NEON | AVX2 | Scalar path differs (NEON / AVX2) |
+| --- | --- | --- | --- | --- |
+| lossy (small, large, settings, admissions, smoke) | 524 | 524 | 524 | 41 / 39 |
+| lossy streaming | 16 | 16 | 16 | 7 / 7 |
+| lossy with alpha | 279 | 279 | 279 | 48 / 47 |
+| patches off, text-like, extra channels | 177 | 177 | 177 | 18 / 18 |
+| output processor, chunked, streaming suite | 328 (128 admission prefixes) | 200 + 128 | 200 + 128 | 102 / 102 |
+| engine e7 d1.0/d2.0 | 64 | 64 | 64 | 29 / 27 |
+| step-2 gate 768x768 to 2049x2049 | 32 | 32 | 32 | 29 / 29 |
+| step-2 gate 4000x3000 | 8 | 8 | 8 | 8 / 8 |
+| step-1 checkpoints (9,593,524 words) | 32 | 32 | 32 | 32 / 32 |
+| lossless effort 2 | 532 | 532 | 532 | 1 / 4 |
+| photograph 2268x1512, lossy / lossless | 14 / 8 | 14 / 8 | 14 / 8 | 10, 1 / 10, 0 |
+| photograph 6000x4000, lossy / lossless | 14 / 6 | 14 / 6 | not run | 11, 0 / - |
+
+Zero differing encodes on both targets (the 128 admission prefixes are the
+streaming suite's histories outside the admitted profile, compared up to the
+admission call as in the scalar gate). The scalar path's bytes differ from
+the SIMD path's in many encodes, so the gate tells the paths apart; for
+the lossless profile the clustering costs rarely change a chosen code.
+Rosetta does not fault on misaligned aligned moves and is not x86-64
+hardware: condition (e) is still open.
+
+**Which path a test runs (condition (d)).** Every test of the files whose
+tests reach an encoder entry point and compare with the scalar original
+calls `hwy::select_scalar_encoder_for_test()` after
+`select_scalar_decoder_for_test()` (`tests/parity/encoder_public.rs`,
+`encoder_step1.rs`, `encoder_step1_checkpoints.rs`, `shared_primitives.rs`,
+`whole_image.rs`, `tests/first_image.rs`, `frame_owners.rs`,
+`vardct_image.rs`); `tools/check.py` sets `JXL_ENCODER_TARGET=scalar` as a
+second guard. Fallout measured with the switch on for AArch64 and x86-64
+(before these calls): the PR stage (`cargo test -p libjxl-rs --profile
+checked`) 446 passed, none failed; `tools/check.py --stage test` without
+`JXL_ENCODER_TARGET` 25 scalar-reference tests failed (21 of
+`encoder_public`, `encoder_step1::upstream_speed_tier_test_squirrel`,
+`encoder_step1_checkpoints`, `shared_primitives::complete_raw_codestreams…`,
+`whole_image::alpha_complete_codestreams…`), every other test passed; with
+the environment guard alone none fails. `dispatch_scope.rs` and
+`simd_encoder.rs` were made independent of the switch.
+
+**Conditions (a) to (e), 2026-11-15.**
+
+- (a) Met on NEON and AVX2 (Rosetta 2): every export of the lossy and
+  lossless profiles is translated with request-level parity, including
+  `enc_adaptive_quantization` (on AVX2 under the owner decision of
+  2026-11-15 for two NaNs in one block's reduction) and, found here,
+  `AdaptiveDCSmoothing`.
+- (b) Met: the `Encoding` scope above; the gate's trace shows the decoder
+  code (`quant_weights`, `dec_group_render`, `enc_cache`, the AR pipeline's
+  stages) and the plane padding (`memory_manager_internal`) selecting the
+  target inside encodes.
+- (c) Met on NEON and on AVX2 under Rosetta 2: the table above, a corpus at
+  least as wide as the scalar `cjxl` gate plus photographs.
+- (d) Met: the explicit selections and the environment guard.
+- (e) Open: no run on x86-64 hardware. The hosted Linux x86-64 run of this
+  branch is owed, and the x86-64 performance of the encoder's AVX2 path is
+  open (see the decoder's AVX2 finding of run 43688166701: the encoder's
+  kernels enter the target the same way, `hwy::dispatch` into a
+  `#[target_feature]` function per call).
+**Indication only (not a measurement).** One thread, the 6000x4000
+photograph, release builds of `examples/encode_lossy` (e7 d1.0) and
+`examples/encode_lossless` (e2) with the switch off (scalar) and on (NEON),
+next to the original's public encoder from the NEON oracle build's archives
+(no runner, e7 d1.0, and e2 lossless with buffering 0), five interleaved
+repetitions under the gate lock on the shared machine (load average 85 to
+24 during the run). Medians: lossy 47.2 s scalar, 13.2 s NEON, 9.9 s
+original (port NEON about 1.3x the original); lossless 2.04 s scalar,
+1.92 s NEON, 1.77 s original. No conclusion about x86-64 speed may be drawn
+from Rosetta.
+<!-- end encoder selection -->
