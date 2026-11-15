@@ -3,9 +3,10 @@
 
 //! Existing scalar forward RCT from modular/transform/enc_rct.cc. Separate
 //! Rust entry points retain the source's in-place and disjoint channel calls.
-//! Only the original null-pool path is translated; custom runners/SIMD remain
-//! unported. Source scalar forward arithmetic requires nonoverflowing i32
-//! intermediates, unlike the wrapping Highway operations in the inverse.
+//! Only the original null-pool path is translated; the SIMD rows are
+//! `enc_rct_simd`'s, selected through `hwy::encoder_target()`. Source scalar
+//! forward arithmetic requires nonoverflowing i32 intermediates, unlike the
+//! wrapping Highway operations of the SIMD rows and the inverse.
 
 use super::super::modular_image::{Channel, Image};
 use super::rct::{Rows, SeparateRows, image_rows};
@@ -85,6 +86,11 @@ pub fn fwd_rct_channels(
     output: [&mut Channel; 3],
     rct_type: usize,
 ) -> Status {
+    // HWY_DYNAMIC_DISPATCH(FwdRctImpl): the encoder's own selection, off by
+    // default (port ADR 0004, "Encoder path").
+    if let Some(target) = crate::jxl::hwy::encoder_target() {
+        return super::enc_rct_simd::fwd_rct_channels_simd(target, input, output, rct_type);
+    }
     let indices = permutation_indices(rct_type / 7);
     let input = [input[indices[0]], input[indices[1]], input[indices[2]]];
     match rct_type % 7 {
@@ -101,6 +107,10 @@ pub fn fwd_rct(image: &mut Image, begin: usize, rct_type: usize) -> Status {
     check_equal_channels(image, begin as u32, begin.wrapping_add(2) as u32)?;
     if rct_type == 0 {
         return Err(StatusCode::GenericError);
+    }
+    // HWY_DYNAMIC_DISPATCH(FwdRctImpl), as in fwd_rct_channels.
+    if let Some(target) = crate::jxl::hwy::encoder_target() {
+        return super::enc_rct_simd::fwd_rct_simd(target, image, begin, rct_type);
     }
     let indices = permutation_indices(rct_type / 7);
     let w = image.channel[begin].w;

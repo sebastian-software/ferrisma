@@ -15,3 +15,7 @@ pub mod transform;
 pub mod rct_simd;
 pub mod squeeze_simd;
 // end modular
+// encoder entropy: the encoder's SIMD forward RCT (port ADR 0004, "Encoder
+// path").
+pub mod enc_rct_simd;
+// end encoder entropy

@@ -399,3 +399,8 @@ target_sources(jxl_oracle PRIVATE encoder_acs_simd.cc)
 # ADR 0004, "Encoder path"). The TU only calls the original's public API.
 target_sources(jxl_oracle PRIVATE encoder_cfl_simd.cc)
 # end encoder cfl
+# encoder entropy: requests of the encoder's smaller SIMD exports (port ADR
+# 0004, "Encoder path"). The TU only calls the original's exported functions
+# and, where it exports none, its target-namespace functions.
+target_sources(jxl_oracle PRIVATE encoder_entropy_simd.cc)
+# end encoder entropy

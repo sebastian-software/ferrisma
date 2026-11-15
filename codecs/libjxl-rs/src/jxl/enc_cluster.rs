@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! Ported from `lib/jxl/enc_cluster.{h,cc}`, using its one-lane Highway
-//! specialization. Mutable borrows expose the source's mutable entropy cache.
+//! specialization; the NEON/AVX2 exports are `enc_cluster_simd`'s, selected
+//! through `hwy::encoder_target()`. Mutable borrows expose the source's mutable entropy cache.
 //! The priority queue retains the original reversed tuple ordering.
 
 use super::base::fast_math::fast_log2f;
@@ -19,6 +20,11 @@ fn entropy(count: f32, inv_total: f32, total: f32) -> f32 {
 
 impl Histogram {
     pub fn condition(&mut self) {
+        // HWY_DYNAMIC_DISPATCH(HistogramCondition): the encoder's own
+        // selection, off by default (port ADR 0004, "Encoder path").
+        if let Some(target) = super::hwy::encoder_target() {
+            return super::enc_cluster_simd::histogram_condition_simd(target, self);
+        }
         let mut total = 0i32;
         let mut new_len = 0;
         for (i, &count) in self.counts.iter().enumerate() {
@@ -31,6 +37,11 @@ impl Histogram {
         self.total_count = total as usize;
     }
     pub fn shannon_entropy(&mut self) -> f32 {
+        // HWY_DYNAMIC_DISPATCH(HistogramEntropy), as in condition.
+        if let Some(target) = super::hwy::encoder_target() {
+            super::enc_cluster_simd::histogram_entropy_simd(target, self);
+            return self.entropy;
+        }
         histogram_entropy(self);
         self.entropy
     }
@@ -65,7 +76,7 @@ pub fn histogram_distance(a: &Histogram, b: &Histogram) -> f32 {
     distance_lanes - a.entropy - b.entropy
 }
 
-fn num_symbols(a: &Histogram, b: Option<&Histogram>) -> usize {
+pub(crate) fn num_symbols(a: &Histogram, b: Option<&Histogram>) -> usize {
     let mut n = 0;
     for i in 0..a.counts.len().max(b.map_or(0, |b| b.counts.len())) {
         let count = a.counts.get(i).copied().unwrap_or(0)
@@ -280,13 +291,25 @@ pub fn cluster_histograms(
     if params.clustering == ClusteringType::Fastest {
         max_histograms = max_histograms.min(4);
     }
-    fast_cluster_histograms(
-        input,
-        prev_histograms + max_histograms,
-        params.force_huffman,
-        out,
-        symbols,
-    )?;
+    // HWY_DYNAMIC_DISPATCH(FastClusterHistograms), as in condition.
+    if let Some(target) = super::hwy::encoder_target() {
+        super::enc_cluster_simd::fast_cluster_histograms_simd(
+            target,
+            input,
+            prev_histograms + max_histograms,
+            params.force_huffman,
+            out,
+            symbols,
+        )?;
+    } else {
+        fast_cluster_histograms(
+            input,
+            prev_histograms + max_histograms,
+            params.force_huffman,
+            out,
+            symbols,
+        )?;
+    }
     if prev_histograms == 0 && params.clustering == ClusteringType::Best {
         for histo in out.iter_mut() {
             histo.entropy = histo.ans_population_cost()?;

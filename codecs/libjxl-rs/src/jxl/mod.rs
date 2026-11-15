@@ -159,3 +159,7 @@ pub mod enc_ac_strategy_simd;
 pub mod convolve_symmetric5_simd;
 pub mod enc_chroma_from_luma_simd;
 // end encoder cfl
+// encoder entropy: the encoder's smaller SIMD exports (port ADR 0004,
+// "Encoder path").
+pub mod enc_cluster_simd;
+// end encoder entropy
