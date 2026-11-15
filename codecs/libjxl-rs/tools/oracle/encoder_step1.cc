@@ -22,6 +22,20 @@
 //   frame of JxlDataType TYPE (GetTestImage<T> samples), every status the
 //   test compares and the compressed bytes. The decoder half runs through
 //   the dpub-run histories of both decoders (tests/parity/decoder_public.rs).
+// es1-ejxl EXPERT DISTANCE N (ID VALUE)xN XSIZE YSIZE CHANNELS BITS TYPE
+//   ENDIANNESS INTENSITY COLOR PIXELS FRAME: the pristine EncodeImageJXL
+//   (lib/extras/enc/jxl.cc) for the PackedPixelFile that the jxl_test.cc and
+//   speed_tier_test.cc cases build with TestImage. The basic info starts from
+//   PackedPixelFile's JxlEncoderInitBasicInfo and takes the listed fields
+//   (TestImage's SetChannels and SetAllBitDepths, or the extras PNG decoder's
+//   DecodeImageAPNG and SetColorData for 8-bit RGB without alpha; ClearMetadata
+//   leaves no boxes). COLOR is "e CS WP PRIM TF RI" (the color encoding is
+//   primary) or "i PATH" (the decoder's iCCP profile is primary). PIXELS is
+//   "z" (Frame::ZeroFill) or "f PATH SOURCE_XSIZE": the top-left crop of a raw
+//   fixture (TestImage::CropImage keeps each row's prefix). FRAME is the
+//   frame header: duration, is_last, have_crop, crop_x0, crop_y0, xsize,
+//   ysize, blendmode, source, alpha, clamp, save_as_reference. Prints
+//   EncodeImageJXL's result and bytes.
 #include <jxl/color_encoding.h>
 #include <jxl/encode.h>
 #include <jxl/memory_manager.h>
@@ -41,6 +55,8 @@
 #include <utility>
 #include <vector>
 
+#include "lib/extras/enc/jxl.h"
+#include "lib/extras/packed_image.h"
 #include "lib/jxl/base/random.h"
 #include "lib/jxl/base/span.h"
 #include "lib/jxl/base/status.h"
@@ -207,10 +223,94 @@ void EncodeHalf(size_t xsize, size_t ysize, const JxlPixelFormat& input_pixel_fo
 }
 
 }  // namespace es1_rt
+namespace es1_rt {
+std::vector<uint8_t> ReadFile(const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  if (!file) throw std::runtime_error("es1 fixture: " + path);
+  return std::vector<uint8_t>(std::istreambuf_iterator<char>(file), {});
+}
+
+// The PackedPixelFile that TestImage leaves for the EncodeImageJXL cases
+// (see the request description at the top) and EncodeImageJXL itself.
+void EncodeImageJxlCase(std::istringstream& in) {
+  jxl::extras::JXLCompressParams cparams;
+  unsigned expert; size_t nopt; in >> expert;
+  cparams.distance = Es1Float(in);
+  cparams.allow_expert_options = expert != 0;
+  in >> nopt;
+  for (size_t i = 0; i < nopt; ++i) {
+    unsigned id; int64_t value; in >> id >> value;
+    cparams.AddOption(static_cast<JxlEncoderFrameSettingId>(id), value);
+  }
+  jxl::extras::PackedPixelFile ppf;  // JxlEncoderInitBasicInfo.
+  size_t xsize, ysize; unsigned channels, bits, type, endianness;
+  in >> xsize >> ysize >> channels >> bits >> type >> endianness;
+  ppf.info.xsize = xsize;
+  ppf.info.ysize = ysize;
+  ppf.info.num_color_channels = channels;
+  ppf.info.num_extra_channels = 0;
+  ppf.info.bits_per_sample = bits;
+  ppf.info.exponent_bits_per_sample = 0;
+  ppf.info.alpha_bits = 0;
+  ppf.info.alpha_exponent_bits = 0;
+  ppf.info.orientation = JXL_ORIENT_IDENTITY;
+  ppf.info.intensity_target = Es1Float(in);
+  std::string color; in >> color;
+  if (color == "e") {
+    unsigned cs, wp, prim, tf, ri; in >> cs >> wp >> prim >> tf >> ri;
+    ppf.color_encoding.color_space = JxlColorSpace(cs);
+    ppf.color_encoding.white_point = JxlWhitePoint(wp);
+    ppf.color_encoding.primaries = JxlPrimaries(prim);
+    ppf.color_encoding.transfer_function = JxlTransferFunction(tf);
+    ppf.color_encoding.rendering_intent = JxlRenderingIntent(ri);
+  } else {
+    std::string path; in >> path;
+    ppf.icc = ReadFile(path);
+    ppf.primary_color_representation = jxl::extras::PackedPixelFile::kIccIsPrimary;
+  }
+  const JxlPixelFormat format = {channels, JxlDataType(type), JxlEndianness(endianness), 0};
+  auto frame_or = jxl::extras::PackedFrame::Create(xsize, ysize, format);
+  if (!frame_or.ok()) throw std::runtime_error("es1 frame");
+  jxl::extras::PackedFrame frame = std::move(frame_or).value_();
+  std::string pixels; in >> pixels;
+  uint8_t* dst = static_cast<uint8_t*>(frame.color.pixels());
+  if (pixels == "z") {
+    std::memset(dst, 0, frame.color.pixels_size);
+  } else {
+    std::string path; size_t source_xsize; in >> path >> source_xsize;
+    const std::vector<uint8_t> source = ReadFile(path);
+    const size_t row = xsize * channels;
+    for (size_t y = 0; y < ysize; ++y) {
+      std::memcpy(dst + y * frame.color.stride, source.data() + y * source_xsize * channels, row);
+    }
+  }
+  JxlFrameHeader& h = frame.frame_info;
+  int64_t f[12];
+  for (int64_t& v : f) in >> v;
+  h.duration = f[0];
+  h.is_last = f[1];
+  h.layer_info.have_crop = f[2];
+  h.layer_info.crop_x0 = f[3];
+  h.layer_info.crop_y0 = f[4];
+  h.layer_info.xsize = f[5];
+  h.layer_info.ysize = f[6];
+  h.layer_info.blend_info.blendmode = JxlBlendMode(f[7]);
+  h.layer_info.blend_info.source = f[8];
+  h.layer_info.blend_info.alpha = f[9];
+  h.layer_info.blend_info.clamp = f[10];
+  h.layer_info.save_as_reference = f[11];
+  ppf.frames.emplace_back(std::move(frame));
+  std::vector<uint8_t> compressed;
+  const bool ok = jxl::extras::EncodeImageJXL(cparams, ppf, /*jpeg_bytes=*/nullptr, &compressed);
+  std::cout << "J " << ok;
+  Es1Hex(jxl::Bytes(compressed.data(), compressed.size()));
+}
+}  // namespace es1_rt
 
 bool EncoderStep1Command(const std::string& command, std::istringstream& in,
                          JxlMemoryManager* mm) {
-  if (command.rfind("es1-", 0) != 0) return false;
+  // es1-ckpt is encoder_step1_checkpoints.cc's.
+  if (command.rfind("es1-", 0) != 0 || command == "es1-ckpt") return false;
   if (command == "es1-perm") {
     int kind; size_t len; in >> kind >> len;
     Es1Permutation(mm, kind, len);
@@ -260,6 +360,10 @@ bool EncoderStep1Command(const std::string& command, std::istringstream& in,
     } else {
       es1_rt::EncodeHalf<uint8_t>(63, 129, format, lossless != 0, container != 0);
     }
+    return true;
+  }
+  if (command == "es1-ejxl") {
+    es1_rt::EncodeImageJxlCase(in);
     return true;
   }
   throw std::runtime_error("unknown encoder step 1 command");
