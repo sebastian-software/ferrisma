@@ -1,0 +1,13 @@
+83757 TOTAL calls in 218 functions
+79475 jxl::jxl::dct_simd
+2570 jxl::jxl::enc_ans_simd
+794 jxl::skcms::transform_x86
+222 jxl::jxl::enc_transforms_simd
+145 jxl::jxl::enc_modular_simd_simd
+142 jxl::jxl::enc_cluster_simd
+142 jxl::jxl::convolve_symmetric5_simd
+116 jxl::jxl::enc_chroma_from_luma_simd
+58 jxl::jxl::enc_group_simd
+48 jxl::jxl::modular
+44 jxl::jxl::enc_entropy_coder_simd
+1 std_detect::detect::cache

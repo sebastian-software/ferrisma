@@ -1,0 +1,3 @@
+2 TOTAL calls in 2 functions
+1 std_detect::detect::cache
+1 jxl_modular::transform::squeeze

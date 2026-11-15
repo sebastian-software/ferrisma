@@ -1,0 +1,2 @@
+1 std_detect::detect::cache
+1 TOTAL calls in 1 functions

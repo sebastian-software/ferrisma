@@ -1,0 +1,5 @@
+51769 TOTAL calls in 155 functions
+51722 jxl::jxl::dct_simd
+45 jxl::jxl::compressed_dc_simd
+1 std_detect::detect::cache
+1 jxl_modular::transform::squeeze

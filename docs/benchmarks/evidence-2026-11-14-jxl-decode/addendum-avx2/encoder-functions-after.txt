@@ -1,0 +1,40 @@
+1450 <jxl::jxl::enc_ans_simd::estimate_token_cost_d::<Avx2>>:
+472 <jxl::skcms::transform_x86::exec_stages::<8>>:
+145 <jxl::jxl::enc_modular_simd_simd::estimate_cost_d::<Avx2>>:
+113 <jxl::skcms::transform_x86::clut::<8>>:
+112 <jxl::jxl::enc_ans_simd::estimate_token_cost_impl::<Avx2, 9, 0, 0>>:
+112 <jxl::jxl::enc_ans_simd::estimate_token_cost_impl::<Avx2, 8, 0, 0>>:
+112 <jxl::jxl::enc_ans_simd::estimate_token_cost_impl::<Avx2, 7, 0, 0>>:
+112 <jxl::jxl::enc_ans_simd::estimate_token_cost_impl::<Avx2, 5, 2, 3>>:
+112 <jxl::jxl::enc_ans_simd::estimate_token_cost_impl::<Avx2, 5, 2, 2>>:
+112 <jxl::jxl::enc_ans_simd::estimate_token_cost_impl::<Avx2, 5, 2, 1>>:
+112 <jxl::jxl::enc_ans_simd::estimate_token_cost_impl::<Avx2, 5, 2, 0>>:
+112 <jxl::jxl::enc_ans_simd::estimate_token_cost_impl::<Avx2, 12, 0, 0>>:
+112 <jxl::jxl::enc_ans_simd::estimate_token_cost_impl::<Avx2, 11, 0, 0>>:
+112 <jxl::jxl::enc_ans_simd::estimate_token_cost_impl::<Avx2, 10, 0, 0>>:
+100 <jxl::jxl::enc_chroma_from_luma_simd::find_best_multiplier_d::<Avx2>>:
+71 <jxl::jxl::convolve_symmetric5_simd::symmetric5_row_d::<Avx2, jxl::jxl::image_ops::WrapUnchanged>>:
+71 <jxl::jxl::convolve_symmetric5_simd::symmetric5_row_d::<Avx2, jxl::jxl::image_ops::WrapMirror>>:
+48 <jxl::jxl::modular::encoding::enc_ma_simd::estimate_bits_d::<Avx2>>:
+47 <jxl::jxl::enc_cluster_simd::histogram_kl_divergence_d::<Avx2>>:
+46 <jxl::jxl::enc_cluster_simd::histogram_distance_d::<Avx2>>:
+44 <jxl::jxl::enc_entropy_coder_simd::tokenize_coefficients_d::<Avx2>>:
+42 <jxl::jxl::enc_cluster_simd::histogram_entropy_d::<Avx2>>:
+38 <jxl::skcms::transform_x86::approx_exp2::<8>>:
+28 <jxl::skcms::transform_x86::approx_log2::<8>>:
+28 <jxl::jxl::enc_group_simd::quantize_block_ac_d::<Avx2>>:
+24 <jxl::skcms::transform_x86::apply_hlginv::<8>>:
+24 <jxl::skcms::transform_x86::apply_hlg::<8>>:
+21 <jxl::jxl::enc_group_simd::quantize_roundtrip_y_block_ac_d::<Avx2>>:
+20 <jxl::skcms::transform_x86::compute_y::<8>>:
+20 <jxl::skcms::transform_x86::apply_tf::<8>>:
+20 <jxl::skcms::transform_x86::apply_pq::<8>>:
+16 <jxl::skcms::transform_x86::exec_stages::<8>::{closure#2}>:
+16 <jxl::jxl::enc_chroma_from_luma_simd::compute_tile_d::<Avx2>>:
+9 <jxl::jxl::enc_transforms_simd::afv_transform_from_pixels::<Avx2>>:
+9 <jxl::jxl::enc_group_simd::compute_coefficients_d::<Avx2>>:
+8 <jxl::skcms::transform_x86::exec_stages::<8>::{closure#3}>:
+7 <jxl::jxl::enc_cluster_simd::histogram_condition_d::<Avx2>>:
+7 <<jxl::skcms::transform_x86::F<8>>::fixed>:
+4 <jxl::skcms::transform_x86::approx_pow::<8>>:
+1 <std_detect::detect::cache::detect_and_initialize>:

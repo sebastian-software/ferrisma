@@ -1835,3 +1835,88 @@ entropy sums differs, which its truncated integer cost hides in this
 domain. Rosetta does not fault on misaligned aligned moves: the hosted
 Linux x86-64 run is still owed.
 <!-- end encoder entropy -->
+
+<!-- codegen -->
+## One attribute context per kernel on x86-64 (2026-11-15)
+
+**Finding.** The hosted benchmark of `79c6884b` (run 43688166701) measured
+the port's lossy VarDCT decode at 4.0–4.6× libjxl's AVX2 build on both
+x86-64 hosts, and 1.6–1.7× slower than libjxl's *scalar* build, while the
+same code was 1.16–1.27× libjxl's NEON build on every AArch64 host. The
+AVX2 path was selected (the conformance run 43690766156 logs `path=AVX2`
+on native Linux; under Rosetta 2, `jxl_decode_compare` gives AVX2's output
+words with `ROSETTA_ADVERTISE_AVX=1` and the scalar words without), but it
+was compiled badly. `hwy::dispatch` runs a kernel inside
+`avx2::run_with_features`, the only `#[target_feature]` function of the
+layer. A generic helper of the kernel body that the compiler does not
+inline is a function of its own and does **not** inherit those features;
+inside it the `#[inline(always)]` operations of `Avx2` still inline, but
+the `core::arch` intrinsics they call (`#[target_feature(enable = "avx")]`)
+cannot, so every vector operation became an out-of-line call with its
+`__m256` arguments and result passed in memory, followed by `vzeroupper`;
+`f32::mul_add` of the partial vectors became a call of libm's `fmaf`. On
+AArch64 NEON is part of the baseline and the same helpers inline normally,
+which is why only x86-64 was slow.
+
+The out-of-line helpers were exactly the ones the DCT leaves to the
+compiler: the 81 per-shape `scaled_dct`/`scaled_idct` instantiations and
+the 64-, 128- and 256-point levels (`#[inline]`), plus one closure of the
+DC smoothing kernel. In the x86-64 release build of
+`ferrisma-jxl-decoder`'s `jxl_decode_compare` (the benchmark's binary, the
+repository's release profile, no RUSTFLAGS) at `b3f29a71`:
+51,769 call instructions to `core::core_arch::x86` functions in 155
+functions, 51,722 of them in `dct_simd` and 45 in `compressed_dc_simd`,
+plus 4,590 calls of `fmaf`, against none in any other kernel. The original
+does not have this hazard: `HWY_BEFORE_NAMESPACE()` gives every function of
+`HWY_NAMESPACE`, inlined or not, the target's attribute.
+
+**Decision.** Every function a kernel body reaches is compiled in the
+target's attribute context, as under `HWY_ATTR`: either it is
+`#[inline(always)]` (the operations and most helpers already are), or it
+enters the target again through `SimdF32::run_in_target(kernel)`, which is
+the kernel call itself on NEON and `avx2::run` (the `#[target_feature]`
+function) on AVX2. Where the original leaves inlining to the compiler, the
+port keeps `#[inline]` on the wrapper and moves the body into a small
+`Kernel` that `run_in_target` runs, so the compiler's inlining choice stays
+free and an out-of-line copy is still AVX2 code. On AArch64 the wrapper is
+not generated (`cfg(target_arch = "x86_64")`): the method is the body, as
+before. Applied to `dct_simd` (the per-shape transforms and the 64- to
+256-point levels; `Part` now carries its target descriptor so that a level
+of a partial vector can enter the context) and to the edge-pixel helper of
+`compressed_dc_simd` (a nested `#[inline(always)]` function instead of a
+closure). The arithmetic is unchanged: the same operations in the same
+order, now as inline AVX2/FMA instructions (`vfmadd231ss` instead of
+`fmaf`, both a single rounding).
+
+**Check.** Count the call instructions to `core::core_arch::x86` in an
+x86-64 release build (`objdump -d --no-show-raw-insn -C`); after the
+change `jxl_decode_compare` and `conformance_decode` have none in any
+kernel (the remaining ones are `std_detect`'s `xgetbv` and jxl-oxide's,
+the comparison dependency). A new kernel helper that is neither
+`#[inline(always)]` nor entered through `run_in_target` shows up there.
+
+**Evidence (2026-11-15).** Outputs unchanged: the SIMD binaries of
+`tools/check.py` with the conformance corpus on NEON (12 binaries, 79
+tests) and on AVX2 under Rosetta 2 (12 binaries, 73 tests), all matching,
+and the full test stage. Native x86-64, hosted run 43697684326: lossy
+VarDCT decode 1.38–1.46× libjxl's AVX2 build (4.0–4.6× before, run
+43688166701), the AArch64 rows unchanged; numbers and the Rosetta and NEON
+before/after in the
+[2026-11-15 addendum](../../../../docs/benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md).
+
+**Encoder kernels (not selected by default).** The same pattern remains in
+the encoder's translated kernels: in `encode_lossy`'s x86-64 release build
+4,069 such calls in 40 functions after this change (83,757 before; the DCT
+was 79,475 of them): `enc_ans_simd` (`estimate_token_cost_d` and its ten
+`estimate_token_cost_impl` instantiations, 2,570), `enc_modular_simd`
+(`estimate_cost_d`, 145), `enc_cluster_simd` (142),
+`convolve_symmetric5_simd` (142), `enc_chroma_from_luma_simd` (116),
+`enc_group_simd` (58), `enc_ma_simd` (48), `enc_entropy_coder_simd` (44)
+and `enc_transforms_simd` (`afv_transform_from_pixels`, 9). Before
+`ENCODER_SELECTS_SIMD` is turned on for x86-64 they need the same
+treatment. The port's skcms HSW engine (`skcms/transform_x86.rs`, reached
+only by the encoder's color conversion in these binaries) has the same
+shape for the same reason (794 calls: `exec_stages::<8>`, `clut::<8>`,
+the transfer-function helpers): its `#[target_feature]` entry
+`run_program_hsw` calls helpers that are not `#[inline(always)]`.
+<!-- end codegen -->
