@@ -213,6 +213,9 @@ SIMD_TESTS += ["simd_encoder_entropy"]
 # encoder aq: the SIMD AdaptiveQuantizationMap (ADR 0004, "Encoder path").
 SIMD_TESTS += ["simd_encoder_aq"]
 # end encoder aq
+# encoder selection: whole encodes with the encoder's SIMD target forced (ADR 0004, "Encoder selection").
+SIMD_TESTS += ["simd_encoder_public"]
+# end encoder selection
 SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 
@@ -224,6 +227,12 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
     # binaries, selects a SIMD target.
     env = dict(env, JXL_DECODER_TARGET="scalar")
     # end public gate
+    # encoder selection: ADR 0004 "Encoder path" condition (d). The scalar
+    # gate forces the scalar encoder path, whatever hwy::ENCODER_SELECTS_SIMD
+    # says (hwy::encoder_scalar_forced_by_environment); the SIMD binaries
+    # select their target with set_encoder_simd_for_test, which wins.
+    env = dict(env, JXL_ENCODER_TARGET="scalar")
+    # end encoder selection
     test = ["cargo", "test", "--locked", "--offline", "--profile", "checked", "--all-features"]
     if target is not None:
         test += ["--target", target]

@@ -433,3 +433,8 @@ target_sources(jxl_oracle PRIVATE encoder_container.cc)
 # ADR 0004, "Encoder path"). The TU only calls the original's InitialQuantField.
 target_sources(jxl_oracle PRIVATE encoder_aq_simd.cc)
 # end encoder aq
+# encoder selection: the engine's lossy encode of a photograph through the
+# original's public API (port ADR 0004, "Encoder selection"). The TU only
+# calls the pinned public API.
+target_sources(jxl_oracle PRIVATE encoder_selection.cc)
+# end encoder selection
