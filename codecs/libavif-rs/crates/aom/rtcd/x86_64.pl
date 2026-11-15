@@ -393,6 +393,7 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_fwd_txfm2d_8x4_sse4_1
   av1_fwd_txfm2d_8x8_avx2
   av1_fwd_txfm2d_8x8_sse4_1
+  av1_fwht4x4_sse4_1
   av1_highbd_block_error_avx2
   av1_highbd_dr_prediction_z1_avx2
   av1_highbd_dr_prediction_z2_avx2
@@ -404,6 +405,8 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_highbd_upsample_intra_edge_sse4_1
   av1_inv_txfm_add_avx2
   av1_inv_txfm_add_ssse3
+  av1_lowbd_fwd_txfm_avx2
+  av1_lowbd_fwd_txfm_sse4_1
   av1_quantize_fp_32x32_avx2
   av1_quantize_fp_64x64_avx2
   av1_quantize_fp_avx2

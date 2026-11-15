@@ -37,7 +37,7 @@ SCALAR = {
     'int8_t': 'i8', 'int16_t': 'i16', 'int32_t': 'i32', 'int64_t': 'i64', 'uint8_t': 'u8', 'uint16_t': 'u16',
     'uint32_t': 'u32', 'uint64_t': 'u64', 'size_t': 'usize', 'intptr_t': 'isize', 'ptrdiff_t': 'isize',
     'tran_low_t': 'i32', 'TX_SIZE': 'u8', 'TX_TYPE': 'u8', 'ITX_TYPE_1D': 'u8', 'bool': 'bool',
-    'double': 'f64', 'float': 'f32', 'TX_CLASS': 'u8', 'PREDICTION_MODE': 'u8', 'qm_val_t': 'u8',
+    'double': 'f64', 'float': 'f32', 'TX_CLASS': 'u8', 'PREDICTION_MODE': 'u8', 'qm_val_t': 'u8', 'TXFM_TYPE': 'u8', 'TX_TYPE_1D': 'u8',
 }
 VECTORS = {'__m128i', '__m256i', '__m128', '__m256', '__m128d', '__m256d', '__m64'}
 RANK = {'i32': (1, False), 'u32': (1, True), 'i64': (2, False), 'u64': (2, True), 'isize': (2, False),
@@ -1072,8 +1072,11 @@ def zero_value(t):
 
 
 def ftype_parse(text):
-    """'i32' / 'u8' / '*const i32' / '__m128i' -> internal type."""
+    """'i32' / 'u8' / '*const i32' / '__m128i' / '[i8; 12]' -> internal type."""
     text = text.strip()
+    m = re.fullmatch(r'\[(.+);\s*(\d+)\]', text)
+    if m:
+        return ('arr', ftype_parse(m.group(1)), m.group(2))
     if text.startswith('*const '):
         return ('ptr', ftype_parse(text[7:]), True)
     if text.startswith('*mut '):

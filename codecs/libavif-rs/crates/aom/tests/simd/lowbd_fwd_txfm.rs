@@ -1,15 +1,21 @@
 // Supplementary transcription of upstream/aom/test/av1_fwd_txfm2d_test.cc
 // (AV1FwdTxfm2dTest.match, the NEON instantiation over fwd_txfm_for_neon with
-// av1_lowbd_fwd_txfm_neon). The reference is fwd_txfm_func_ls[tx_size], the
+// av1_lowbd_fwd_txfm_neon, and on x86-64 the SSE4_1 and AVX2 ones over
+// fwd_txfm_for_sse41 and fwd_txfm_for_avx2, all 19 sizes). The reference is fwd_txfm_func_ls[tx_size], the
 // translated av1_fwd_txfm2d_*_c, and the target receives a zeroed TxfmParam
 // with tx_type, tx_size, tx_set_type = EXT_TX_SET_ALL16 and bd = 8, as in the
 // original. Seeds, iteration counts, input generation and the compared
 // coefficient region follow AV1FwdTxfm2dMatchTest; the speed test and the
 // DCT/Hadamard scale tests (which use tolerances) are not transcribed.
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 
 use aom::av1__common__idct::TxfmParam;
+#[cfg(target_arch = "aarch64")]
 use aom::simd::av1__encoder__arm__av1_fwd_txfm2d_neon::av1_lowbd_fwd_txfm_neon;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__encoder__x86__av1_fwd_txfm2d_avx2::av1_lowbd_fwd_txfm_avx2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__encoder__x86__av1_fwd_txfm2d_sse4::av1_lowbd_fwd_txfm_sse4_1;
 
 use super::acm_random::ACMRandom;
 use super::highbd_fwd_txfm::*;
@@ -84,11 +90,16 @@ fn av1_fwd_txfm2d_match_test(tx_size: usize, target_func: LowbdFwdTxfmFunc) -> u
 }
 
 macro_rules! match_tests {
-    ($($test:ident: $tx_size:expr;)*) => {
+    ($arch:literal, $feature:tt, $func:ident; $($test:ident: $tx_size:expr;)*) => {
         $(
+            #[cfg(target_arch = $arch)]
             #[test]
             fn $test() {
-                let compared = av1_fwd_txfm2d_match_test($tx_size, av1_lowbd_fwd_txfm_neon);
+                #[cfg(target_arch = "x86_64")]
+                if !std::is_x86_feature_detected!($feature) {
+                    return;
+                }
+                let compared = av1_fwd_txfm2d_match_test($tx_size, $func);
                 assert!(compared > 0);
             }
         )*
@@ -97,6 +108,7 @@ macro_rules! match_tests {
 
 // fwd_txfm_for_neon
 match_tests! {
+    "aarch64", "neon", av1_lowbd_fwd_txfm_neon;
     lowbd_fwd_txfm2d_match_4x4: TX_4X4;
     lowbd_fwd_txfm2d_match_8x8: TX_8X8;
     lowbd_fwd_txfm2d_match_16x16: TX_16X16;
@@ -116,4 +128,52 @@ match_tests! {
     lowbd_fwd_txfm2d_match_32x8: TX_32X8;
     lowbd_fwd_txfm2d_match_16x64: TX_16X64;
     lowbd_fwd_txfm2d_match_64x16: TX_64X16;
+}
+
+// fwd_txfm_for_sse41
+match_tests! {
+    "x86_64", "sse4.1", av1_lowbd_fwd_txfm_sse4_1;
+    lowbd_fwd_txfm2d_sse4_1_match_4x4: TX_4X4;
+    lowbd_fwd_txfm2d_sse4_1_match_8x8: TX_8X8;
+    lowbd_fwd_txfm2d_sse4_1_match_16x16: TX_16X16;
+    lowbd_fwd_txfm2d_sse4_1_match_32x32: TX_32X32;
+    lowbd_fwd_txfm2d_sse4_1_match_64x64: TX_64X64;
+    lowbd_fwd_txfm2d_sse4_1_match_4x8: TX_4X8;
+    lowbd_fwd_txfm2d_sse4_1_match_8x4: TX_8X4;
+    lowbd_fwd_txfm2d_sse4_1_match_8x16: TX_8X16;
+    lowbd_fwd_txfm2d_sse4_1_match_16x8: TX_16X8;
+    lowbd_fwd_txfm2d_sse4_1_match_16x32: TX_16X32;
+    lowbd_fwd_txfm2d_sse4_1_match_32x16: TX_32X16;
+    lowbd_fwd_txfm2d_sse4_1_match_32x64: TX_32X64;
+    lowbd_fwd_txfm2d_sse4_1_match_64x32: TX_64X32;
+    lowbd_fwd_txfm2d_sse4_1_match_4x16: TX_4X16;
+    lowbd_fwd_txfm2d_sse4_1_match_16x4: TX_16X4;
+    lowbd_fwd_txfm2d_sse4_1_match_8x32: TX_8X32;
+    lowbd_fwd_txfm2d_sse4_1_match_32x8: TX_32X8;
+    lowbd_fwd_txfm2d_sse4_1_match_16x64: TX_16X64;
+    lowbd_fwd_txfm2d_sse4_1_match_64x16: TX_64X16;
+}
+
+// fwd_txfm_for_avx2
+match_tests! {
+    "x86_64", "avx2", av1_lowbd_fwd_txfm_avx2;
+    lowbd_fwd_txfm2d_avx2_match_4x4: TX_4X4;
+    lowbd_fwd_txfm2d_avx2_match_8x8: TX_8X8;
+    lowbd_fwd_txfm2d_avx2_match_16x16: TX_16X16;
+    lowbd_fwd_txfm2d_avx2_match_32x32: TX_32X32;
+    lowbd_fwd_txfm2d_avx2_match_64x64: TX_64X64;
+    lowbd_fwd_txfm2d_avx2_match_4x8: TX_4X8;
+    lowbd_fwd_txfm2d_avx2_match_8x4: TX_8X4;
+    lowbd_fwd_txfm2d_avx2_match_8x16: TX_8X16;
+    lowbd_fwd_txfm2d_avx2_match_16x8: TX_16X8;
+    lowbd_fwd_txfm2d_avx2_match_16x32: TX_16X32;
+    lowbd_fwd_txfm2d_avx2_match_32x16: TX_32X16;
+    lowbd_fwd_txfm2d_avx2_match_32x64: TX_32X64;
+    lowbd_fwd_txfm2d_avx2_match_64x32: TX_64X32;
+    lowbd_fwd_txfm2d_avx2_match_4x16: TX_4X16;
+    lowbd_fwd_txfm2d_avx2_match_16x4: TX_16X4;
+    lowbd_fwd_txfm2d_avx2_match_8x32: TX_8X32;
+    lowbd_fwd_txfm2d_avx2_match_32x8: TX_32X8;
+    lowbd_fwd_txfm2d_avx2_match_16x64: TX_16X64;
+    lowbd_fwd_txfm2d_avx2_match_64x16: TX_64X16;
 }

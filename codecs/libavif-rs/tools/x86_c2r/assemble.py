@@ -308,6 +308,69 @@ def txb():
                 x + 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n', pad)
 
 
+FWD_USES = ('use crate::av1__common__idct::TxfmParam;\n'
+            'use crate::av1__encoder__av1_fwd_txfm2d::*;\n'
+            'use crate::simd::aom_dsp__x86__transpose_sse2::*;\n'
+            'use crate::simd::aom_dsp__x86__txfm_common_sse2::*;\n'
+            'use crate::simd::av1__common__x86__av1_inv_txfm_ssse3::{\n'
+            '    cospi_arr, get_flip_cfg, get_rect_tx_log_ratio, get_txh_idx, get_txw_idx, sinpi_arr, tx_size_high,\n'
+            '    tx_size_wide, AOMMIN, ADST_ADST, ADST_DCT, ADST_FLIPADST, DCT_ADST, DCT_DCT, DCT_FLIPADST, FLIPADST_ADST,\n'
+            '    FLIPADST_DCT, FLIPADST_FLIPADST, H_ADST, H_DCT, H_FLIPADST, IDTX, NewInvSqrt2, NewSqrt2, NewSqrt2Bits,\n'
+            '    TX_16X16, TX_16X32, TX_16X4, TX_16X64, TX_16X8, TX_32X16, TX_32X32, TX_32X64, TX_32X8, TX_4X16, TX_4X4,\n'
+            '    TX_4X8, TX_64X16, TX_64X32, TX_64X64, TX_8X16, TX_8X32, TX_8X4, TX_8X8, TX_SIZES, TX_SIZES_ALL, TX_TYPES,\n'
+            '    V_ADST, V_DCT, V_FLIPADST,\n'
+            '};\n'
+            'use crate::simd::av1__common__x86__av1_txfm_sse2::*;\n')
+FWD_TYPES = ('\n// av1/common/enums.h\ntype TX_SIZE = u8;\ntype TX_TYPE = u8;\n\n' + 'extern "C-unwind" {\n    // av1/encoder/hybrid_fwd_txfm.c, declared with this crate\'s TxfmParam as the Neon\n    // translation does.\n    fn av1_lowbd_fwd_txfm_c(src_diff: *const i16, coeff: *mut i32, diff_stride: i32,\n                            txfm_param: *mut TxfmParam);\n}\n')
+
+
+def forward_transform():
+    head = run('av1_fwd_txfm_sse2_h.json')
+    body = run('av1_fwd_txfm_sse2.json')
+    write('av1/encoder/x86/av1_fwd_txfm_sse2.rs', LIC(year_of('av1/encoder/x86/av1_fwd_txfm_sse2.c'))
+          + '\n// Translated from upstream/aom/av1/encoder/x86/av1_fwd_txfm_sse2.h and av1_fwd_txfm_sse2.c\n'
+          '// (ADR 0056, ADR 0058). Upstream compiles the .c file with -msse2. The inline functions,\n'
+          '// tables and functions were\n// ' + PRINTER + '.\n'
+          '// av1_lowbd_fwd_txfm_sse2 is the RTCD specialization only on 32-bit x86; on x86-64 it is a\n'
+          '// plain function, and the 2D functions are reached from the SSE4.1 and AVX2 entries.\n'
+          + NOTES.format(feat='sse2') + FWD_USES + FWD_TYPES
+          + '\n/// transform_1d_sse2 (av1/common/x86/av1_txfm_sse2.h).\n'
+          'pub type transform_1d_sse2 = Option<unsafe fn(*const __m128i, *mut __m128i, i8)>;\n\n'
+          '// av1/encoder/x86/av1_fwd_txfm_sse2.h\n\n' + head
+          + '\n// ---------------------------------------------------------------------------\n'
+          '// av1/encoder/x86/av1_fwd_txfm_sse2.c\n\n' + body)
+    ah = run('av1_fwd_txfm_avx2_h.json')
+    ab = run('av1_fwd_txfm2d_avx2.json')
+    write('av1/encoder/x86/av1_fwd_txfm2d_avx2.rs', LIC(year_of('av1/encoder/x86/av1_fwd_txfm2d_avx2.c'))
+          + '\n// Translated from upstream/aom/av1/encoder/x86/av1_fwd_txfm_avx2.h and av1_fwd_txfm2d_avx2.c\n'
+          '// (ADR 0056, ADR 0058). Upstream compiles the .c file with -mavx2. The functions were\n// '
+          + PRINTER + '.\n'
+          '// TRANSPOSE_8X8_AVX2() reads b0..b3 and writes c0..c3 of its caller; the Rust macro takes\n'
+          '// them as arguments, and its two call sites pass them by name.\n'
+          + NOTES.format(feat='avx2') + FWD_USES
+          + 'use crate::simd::aom_dsp__x86__txfm_common_avx2::*;\n'
+          'use crate::simd::av1__encoder__x86__av1_fwd_txfm_sse2::*;\n'
+          'use crate::simd::av1__encoder__x86__av1_txfm1d_sse4::*;\n' + FWD_TYPES
+          + '\ntype transform_1d_avx2 = Option<unsafe fn(*const __m256i, *mut __m256i, i8)>;\n'
+          'type FwdTxfm2dFunc = Option<unsafe fn(*const i16, *mut i32, i32, u8, i32)>;\n'
+          + part('fwd_transpose_8x8_avx2.rs')
+          + '\n// av1/encoder/x86/av1_fwd_txfm_avx2.h\n\n' + ah
+          + '\n// ---------------------------------------------------------------------------\n'
+          '// av1/encoder/x86/av1_fwd_txfm2d_avx2.c\n\n' + ab)
+    hand = part('av1_fwd_txfm2d_sse4.hand.rs')
+    write('av1/encoder/x86/av1_fwd_txfm2d_sse4.rs', hand.rstrip() + '\n\n'
+          '// ---------------------------------------------------------------------------\n'
+          '// The low-bitdepth functions of av1_fwd_txfm2d_sse4.c (lowbd_fwd_txfm2d_*_sse4_1 and\n'
+          '// av1_lowbd_fwd_txfm_sse4_1), ' + PRINTER + '.\n\n'
+          + part('fwd_sse4_lowbd_uses.rs') + '\n' + run('av1_fwd_txfm2d_sse4.json'))
+    hand = part('highbd_fwd_txfm_sse4.hand.rs')
+    write('av1/encoder/x86/highbd_fwd_txfm_sse4.rs', hand.rstrip() + '\n\n'
+          '// ---------------------------------------------------------------------------\n'
+          '// av1_fwht4x4_sse4_1, ' + PRINTER + '.\n\n'
+          '// From aom_dsp/txfm_common.h.\nconst UNIT_QUANT_SHIFT: i32 = 2;\n\n'
+          + run('highbd_fwd_txfm_sse4_fwht.json'))
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -323,6 +386,7 @@ def main():
         quantizers()
         sse_and_sum_squares()
         txb()
+        forward_transform()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

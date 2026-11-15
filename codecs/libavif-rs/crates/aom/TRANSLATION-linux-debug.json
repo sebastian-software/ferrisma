@@ -23,11 +23,11 @@
       "--disable-avx512"
     ],
     "overlay": "crates/aom/rtcd/x86_64.pl",
-    "overlay_sha256": "5d1da349159a37c73319e5f6e2ddc97517880227ead918c656ef42e1bd7cdf26",
+    "overlay_sha256": "62c1956262859508f3e25f21deebf3bc3b1c35cb5786b8ffbe489168a2ba0ecb",
     "headers": {
       "config/aom_dsp_rtcd.h": "1f48551d90f6e4047fd1bc83e5b368c1711c3b6c2498e9fe351a730f1aa17ae2",
       "config/aom_scale_rtcd.h": "691037710b3c581297ce3d121638764eea39f2f3745ac58f4797e4b1a935cc91",
-      "config/av1_rtcd.h": "a69c8529df20799bb21eb36369c27d448d7e8d02c9c2fc3aa69dbe41b1649c3b"
+      "config/av1_rtcd.h": "95d7cece055e028b152194ca5e2bec517b328d17fb9c9dba7436f3d6516f2be9"
     }
   },
   "optional_inline_test_bridges": [
@@ -125,8 +125,8 @@
       "source": "upstream/aom/av1/common/av1_rtcd.c",
       "rust": "crates/aom/src/linux/debug/av1/common/av1_rtcd.rs",
       "raw_sha256": "e0df845da0a02e4d946707c75b0af34ba483f83778b2926d35cf836dde4426a7",
-      "rust_sha256": "79414c80e7755d84b4e17acdfc747d38d2ad2748f00c14a8ad888ec190292a0e",
-      "production_rust_sha256": "79414c80e7755d84b4e17acdfc747d38d2ad2748f00c14a8ad888ec190292a0e",
+      "rust_sha256": "f905c78dbcdace2c832207e0a349633b17efe2fc15617887694e955af0b57633",
+      "production_rust_sha256": "f905c78dbcdace2c832207e0a349633b17efe2fc15617887694e955af0b57633",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,
@@ -1770,8 +1770,8 @@
       "source": "upstream/aom/av1/encoder/hybrid_fwd_txfm.c",
       "rust": "crates/aom/src/linux/debug/av1/encoder/hybrid_fwd_txfm.rs",
       "raw_sha256": "09579f00572cc8dbdd84b5307837a600b5924900d584e694c8adee251daa440b",
-      "rust_sha256": "3cad8788da9724056a3f91039281f224893fc241d9fbaa7de12b0eaab6e24904",
-      "production_rust_sha256": "3cad8788da9724056a3f91039281f224893fc241d9fbaa7de12b0eaab6e24904",
+      "rust_sha256": "00fae5e7afd94eeff7b053e7501de8f4772dbe89bc91793787e356869995eb7c",
+      "production_rust_sha256": "00fae5e7afd94eeff7b053e7501de8f4772dbe89bc91793787e356869995eb7c",
       "corrections": {
         "raw-c-mutable-address": 1,
         "unwinding-codec-and-callback-abi": 46,
