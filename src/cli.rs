@@ -544,6 +544,34 @@ mod tests {
         }
     }
 
+    /// `--jxl-depth=` sets the depth of either profile, in any order with
+    /// the profile flags (since 2026-11-15); it needs `.jxl` output.
+    #[test]
+    fn jxl_depth_is_kept_across_the_profile_flags() {
+        use crate::pipeline::{JpegXlOptions, OutputFormat};
+        let jxl = TransformOptions {
+            output_format: OutputFormat::JpegXl,
+            ..TransformOptions::default()
+        };
+        let mut options = jxl;
+        apply_option(&mut options, "--jxl-depth=12").unwrap();
+        apply_option(&mut options, "--jxl-lossless").unwrap();
+        assert_eq!(
+            options.jpeg_xl,
+            JpegXlOptions::Lossless {
+                effort: 2,
+                depth: Some(12)
+            }
+        );
+        let mut options = jxl;
+        apply_option(&mut options, "--jxl-distance=0.5").unwrap();
+        apply_option(&mut options, "--jxl-depth=16").unwrap();
+        assert_eq!(options.jpeg_xl.depth(), Some(16));
+        assert!(apply_option(&mut options, "--jxl-depth=x").is_err());
+        let mut avif = TransformOptions::default();
+        assert!(apply_option(&mut avif, "--jxl-depth=10").is_err());
+    }
+
     #[test]
     fn selects_jpeg_xl_output_settings_and_rejects_foreign_ones() {
         use crate::pipeline::{JpegXlOptions, OutputFormat};
