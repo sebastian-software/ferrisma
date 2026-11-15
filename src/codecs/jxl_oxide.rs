@@ -54,6 +54,9 @@ impl JxlSource {
         }
         reject_unrenderable_colour_encoding(&image)?;
         reject_hdr_transfer(&image)?;
+        // After the colour checks, which keep their reasons for files that
+        // also carry extra channels (the hostile unknown-colour-space file).
+        reject_extra_channels(&image.image_header().metadata)?;
         // jxl-oxide renders upright samples itself: `width()`/`height()` are
         // display dimensions, crop regions are display coordinates and the
         // pixel stream applies the header orientation (ADR-0019).
@@ -81,6 +84,34 @@ impl JxlSource {
             rendered_cicp: rendered_cicp(&image),
         };
         Ok(Self { image, info })
+    }
+}
+
+/// Refuse every extra channel except one alpha channel, as the libjxl-rs
+/// reader does (`ferrisma-jxl-decoder` `Decoder::info`), so both readers
+/// agree on the same file (silent-drop audit 2026-11-15, X6 to X9).
+///
+/// jxl-oxide 0.12.6 renders the color channels and the *first* alpha
+/// channel, composites spot colors into RGB and leaves every other extra
+/// channel out of its pixel stream without a signal: depth, selection mask,
+/// a black channel next to RGB color, CFA, thermal and optional channels,
+/// and any further alpha channel would disappear. Those are
+/// `UnsupportedLayout`. The reserved type 15 (`NonOptional` in jxl-oxide)
+/// is rejected by libjxl's own metadata parser, so it is malformed here as
+/// well.
+fn reject_extra_channels(metadata: &jxl_oxide::image::ImageMetadata) -> Result<(), Error> {
+    use jxl_oxide::image::ExtraChannelType;
+    if metadata
+        .ec_info
+        .iter()
+        .any(|channel| matches!(channel.ty, ExtraChannelType::NonOptional))
+    {
+        return Err(Error::DecodeFailed);
+    }
+    match metadata.ec_info.as_slice() {
+        [] => Ok(()),
+        [only] if only.is_alpha() => Ok(()),
+        _ => Err(Error::UnsupportedLayout),
     }
 }
 

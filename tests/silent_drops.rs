@@ -81,89 +81,88 @@ fn find(bytes: &[u8], needle: &[u8]) -> Option<usize> {
 }
 
 // ---------------------------------------------------------------------------
-// JPEG XL: the two readers disagree on extra channels.
+// JPEG XL: both readers refuse extra channels the pipeline would drop
+// (since 2026-11-15; before, jxl-oxide accepted these files and dropped or
+// composited the channels without a signal).
 
-/// jxl-oxide renders the color channels and the first alpha channel and
-/// leaves every other extra channel out of its pixel stream (jxl-oxide
-/// 0.12.6 `PixelFormat` knows only gray, RGB, CMYK and alpha). The adapter
-/// cannot see the dropped channels, so depth (type 1), selection mask (3),
-/// a black channel next to RGB color (4), CFA (5), thermal (6) and an
-/// optional channel (16) pass as plain RGB. libjxl-rs refuses the same
-/// files as `UnsupportedLayout`. Type 2 (spot color) is also accepted:
-/// jxl-oxide composites the spot color into the RGB samples
-/// (`render_spot_color`, on by default for color images), an unrequested
-/// change of the color values. Not an endorsement.
+/// Both readers' outcome for one file and policy, as (kind, reason).
+fn both_readers(
+    bytes: &[u8],
+    policy: InputProfilePolicy,
+) -> [(ProcessingErrorKind, Option<RefusalReason>); 2] {
+    [JpegXlDecoder::LibjxlRs, JpegXlDecoder::JxlOxide].map(|decoder| {
+        let error = transcode(bytes, ImageFormat::JpegXl, options(policy, decoder))
+            .expect_err("refused by both readers");
+        (error.kind(), error.refusal_reason())
+    })
+}
+
+/// Depth (type 1), spot color (2), selection mask (3), black next to RGB
+/// color (4), CFA (5), thermal (6) and optional (16) extra channels: the
+/// pipeline has no place for them, so both readers refuse the file with
+/// `UnsupportedLayout` under every policy, before any pixel is decoded.
+/// jxl-oxide used to drop them (and composite spot colors into RGB).
 #[test]
-fn jxl_oxide_drops_extra_channels_that_libjxl_rs_refuses_today() {
+fn both_jpeg_xl_readers_refuse_extra_channels_other_than_alpha() {
     for kind in [1, 2, 3, 4, 5, 6, 16] {
         let bytes = read(&format!("{JXL_DATA}extra-channel-type-{kind}.jxl"));
+        for policy in [InputProfilePolicy::Strict, ASSUME, RENDERED] {
+            for outcome in both_readers(&bytes, policy) {
+                assert_eq!(
+                    outcome,
+                    (
+                        ProcessingErrorKind::UnsupportedInput,
+                        Some(RefusalReason::UnsupportedLayout)
+                    ),
+                    "type {kind} under {policy:?}"
+                );
+            }
+        }
+    }
+    // The single alpha channel the pipeline uses is still accepted by both.
+    let alpha = read(&format!("{JXL_DATA}extra-channel-type-0.jxl"));
+    for decoder in [JpegXlDecoder::LibjxlRs, JpegXlDecoder::JxlOxide] {
         let output = accepted(transcode(
-            &bytes,
+            &alpha,
             ImageFormat::JpegXl,
-            options(RENDERED, JpegXlDecoder::JxlOxide),
+            options(RENDERED, decoder),
         ));
-        assert!(!webp_has_alpha(&output), "type {kind}");
-        let error = refused(
-            transcode(
-                &bytes,
-                ImageFormat::JpegXl,
-                options(RENDERED, JpegXlDecoder::LibjxlRs),
-            ),
-            ProcessingErrorKind::UnsupportedInput,
-        );
+        assert!(webp_has_alpha(&output), "{decoder:?}");
+    }
+}
+
+/// Two alpha channels: both readers refuse the file as `UnsupportedLayout`
+/// (jxl-oxide used to render the first and drop the second).
+#[test]
+fn both_jpeg_xl_readers_refuse_a_second_alpha_channel() {
+    let bytes = read(&format!(
+        "{JXL_DATA}extra-channel-alpha-first-unassociated.jxl"
+    ));
+    for policy in [InputProfilePolicy::Strict, RENDERED] {
+        let [libjxl, oxide] = both_readers(&bytes, policy);
+        assert_eq!(libjxl, oxide, "{policy:?}");
         assert_eq!(
-            error.refusal_reason(),
-            Some(RefusalReason::UnsupportedLayout),
-            "type {kind}"
+            oxide,
+            (
+                ProcessingErrorKind::UnsupportedInput,
+                Some(RefusalReason::UnsupportedLayout)
+            )
         );
     }
 }
 
-/// Two alpha channels, the first unassociated: jxl-oxide renders the first
-/// one and drops the second without a signal; libjxl-rs refuses the file
-/// (more than one extra channel). Not an endorsement.
+/// The reserved extra-channel type 15, which libjxl's metadata parser
+/// rejects (the fixture's manifest records the original's error): both
+/// readers report `MalformedInput` without a reason (jxl-oxide used to
+/// decode it and drop the channel).
 #[test]
-fn jxl_oxide_keeps_only_the_first_of_several_alpha_channels_today() {
-    let bytes = read(&format!(
-        "{JXL_DATA}extra-channel-alpha-first-unassociated.jxl"
-    ));
-    let output = accepted(transcode(
-        &bytes,
-        ImageFormat::JpegXl,
-        options(RENDERED, JpegXlDecoder::JxlOxide),
-    ));
-    assert!(webp_has_alpha(&output));
-    refused(
-        transcode(
-            &bytes,
-            ImageFormat::JpegXl,
-            options(RENDERED, JpegXlDecoder::LibjxlRs),
-        ),
-        ProcessingErrorKind::UnsupportedInput,
-    );
-}
-
-/// An extra channel of the reserved type 15, which libjxl's metadata parser
-/// rejects (the fixture's manifest records the original's error): libjxl-rs
-/// reports `MalformedInput`, jxl-oxide decodes it and drops the channel.
-/// The same bytes are malformed or fine depending on the reader. Not an
-/// endorsement.
-#[test]
-fn jxl_oxide_accepts_a_reserved_extra_channel_type_that_libjxl_rejects_today() {
+fn both_jpeg_xl_readers_reject_a_reserved_extra_channel_type() {
     let bytes = read(&format!("{JXL_DATA}extra-channel-rejected-15.jxl"));
-    accepted(transcode(
-        &bytes,
-        ImageFormat::JpegXl,
-        options(RENDERED, JpegXlDecoder::JxlOxide),
-    ));
-    refused(
-        transcode(
-            &bytes,
-            ImageFormat::JpegXl,
-            options(RENDERED, JpegXlDecoder::LibjxlRs),
-        ),
-        ProcessingErrorKind::MalformedInput,
-    );
+    for policy in [InputProfilePolicy::Strict, RENDERED] {
+        for outcome in both_readers(&bytes, policy) {
+            assert_eq!(outcome, (ProcessingErrorKind::MalformedInput, None));
+        }
+    }
 }
 
 /// libjxl's `1x1_exif_xmp.jxl` container carries `Exif`, `xml ` and a
