@@ -172,6 +172,7 @@ fn two_present_signals_require_explicit_precedence_even_when_both_look_srgb() {
 #[test]
 fn decoder_output_signal_survives_crop_but_blocks_unsupported_gamut() {
     let info = DecoderInfo {
+        depth: 8,
         size: Size::new(12, 8).unwrap(),
         layout: ChannelLayout::Rgb,
         sample: SampleType::U8,

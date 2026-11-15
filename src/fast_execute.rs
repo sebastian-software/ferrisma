@@ -33,7 +33,7 @@ use crate::error::Error;
 use crate::geometry::Rect;
 use crate::graph::{Graph, NodeId};
 use crate::memory::{MemoryBudget, try_filled_vec, try_vec};
-use crate::output_depth::{EIGHT, OutputBuffer, OutputRow, eight_bit_sink, max_code};
+use crate::output_depth::{EIGHT, OutputBuffer, OutputRow, max_code};
 use crate::quality::taps;
 use crate::quality_execute::{QualityReport, prepare, reserve_resize_plan, tap_entry_bound};
 use crate::working_color::{
@@ -222,6 +222,7 @@ pub(crate) fn kernel_error(error: KernelError) -> Error {
 /// the same graph contract, sink contract and report: [`execute_fast`] at
 /// 8 bits.
 #[allow(clippy::too_many_arguments)] // The reference signature plus the kernel table.
+#[cfg(test)] // The 8-bit contract of the executor tests.
 pub(crate) fn execute_fast_srgb8(
     graph: &Graph,
     target: NodeId,
@@ -243,7 +244,7 @@ pub(crate) fn execute_fast_srgb8(
         kernels,
         threads,
         EIGHT,
-        eight_bit_sink(sink),
+        crate::output_depth::eight_bit_sink(sink),
     )
 }
 

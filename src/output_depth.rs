@@ -63,11 +63,66 @@ impl OutputBuffer {
 
 /// Adapt an 8-bit sink to the depth-generic executors: an 8-bit plan only
 /// produces 8-bit rows, so a deeper row here is an internal error.
+#[cfg(test)] // The 8-bit contract of the executor tests.
 pub(crate) fn eight_bit_sink<'s>(
     mut sink: impl FnMut(u32, &[u8]) -> Result<(), Error> + 's,
 ) -> impl FnMut(u32, OutputRow<'_>) -> Result<(), Error> + 's {
     move |y, row| match row {
         OutputRow::U8(bytes) => sink(y, bytes),
         OutputRow::U16(_) => Err(Error::IncompleteOutput),
+    }
+}
+
+/// The depth rule (ADR-0021 amendment and ADR-0043 decided application of
+/// 2026-11-15), one function for every output: an explicit `requested`
+/// depth must be one the output admits (`admitted`, ascending, 8 first);
+/// without one the output takes the largest admitted depth that is at most
+/// the input's, and 8 when the input is shallower than every admitted
+/// depth (8 holds it). The caller reports `PrecisionReduced` when the
+/// result is below `input`.
+pub(crate) fn resolve(requested: Option<u8>, input: u8, admitted: &[u8]) -> Result<u8, Error> {
+    match requested {
+        Some(depth) if admitted.contains(&depth) => Ok(depth),
+        Some(_) => Err(Error::InvalidEncodeOptions),
+        None => Ok(admitted
+            .iter()
+            .copied()
+            .filter(|&depth| depth <= input)
+            .max()
+            .or_else(|| admitted.first().copied())
+            .unwrap_or(EIGHT)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{max_code, resolve};
+
+    #[test]
+    fn the_depth_rule_follows_the_input_and_caps_at_the_output() {
+        const AVIF: &[u8] = &[8, 10, 12];
+        let jxl: Vec<u8> = (8..=16).collect();
+        for (input, avif, jpeg_xl) in [
+            (1, 8, 8),
+            (8, 8, 8),
+            (9, 8, 9),
+            (10, 10, 10),
+            (12, 12, 12),
+            (14, 12, 14),
+            (16, 12, 16),
+        ] {
+            assert_eq!(resolve(None, input, AVIF), Ok(avif), "{input}");
+            assert_eq!(resolve(None, input, &jxl), Ok(jpeg_xl), "{input}");
+            assert_eq!(resolve(None, input, &[8]), Ok(8), "{input}");
+        }
+        assert_eq!(resolve(Some(10), 8, AVIF), Ok(10));
+        assert_eq!(resolve(Some(8), 12, AVIF), Ok(8));
+        assert!(resolve(Some(9), 8, AVIF).is_err());
+        assert!(resolve(Some(16), 16, AVIF).is_err());
+        assert!(resolve(Some(10), 10, &[8]).is_err());
+        assert_eq!(max_code(8), 255);
+        assert_eq!(max_code(10), 1023);
+        assert_eq!(max_code(12), 4095);
+        assert_eq!(max_code(16), 65_535);
     }
 }

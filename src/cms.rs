@@ -754,6 +754,7 @@ mod tests {
     fn p3_grid(row: Vec<u8>) -> Grid {
         Grid {
             info: DecoderInfo {
+                depth: 8,
                 size: Size::new(u32::try_from(row.len() / 3).unwrap(), 1).unwrap(),
                 layout: ChannelLayout::Rgb,
                 sample: SampleType::U8,
@@ -912,6 +913,7 @@ mod tests {
         let width = u32::try_from(row.len() / 3).unwrap();
         let grid = Grid {
             info: DecoderInfo {
+                depth: 8,
                 size: Size::new(width, 1).unwrap(),
                 layout: ChannelLayout::Rgb,
                 sample: SampleType::U8,
@@ -1014,6 +1016,7 @@ mod tests {
         ] {
             let grid = Grid {
                 info: DecoderInfo {
+                    depth: 8,
                     size: Size::new(8, 1).unwrap(),
                     layout: ChannelLayout::Rgb,
                     sample: SampleType::U8,
@@ -1056,6 +1059,7 @@ mod tests {
     fn float_input_and_deferred_conversion_keep_extended_values() {
         let icc = include_bytes!("../tests/fixtures/icc/DisplayP3-v4.icc").to_vec();
         let info = DecoderInfo {
+            depth: 8,
             size: Size::new(2, 1).unwrap(),
             layout: ChannelLayout::Rgb,
             sample: SampleType::F32,
@@ -1136,6 +1140,7 @@ mod tests {
         ] {
             let grid = Grid {
                 info: DecoderInfo {
+                    depth: 8,
                     size: Size::new(10, 1).unwrap(),
                     layout: ChannelLayout::Rgb,
                     sample: SampleType::U8,
@@ -1314,6 +1319,7 @@ mod tests {
             .flat_map(|(i, p)| [p[0], p[1], p[2], float_alpha[i % float_alpha.len()]])
             .collect();
         let info = DecoderInfo {
+            depth: 8,
             size: Size::new(width, 1).unwrap(),
             layout: ChannelLayout::Rgba,
             sample: SampleType::F32,

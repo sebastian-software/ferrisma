@@ -8,14 +8,15 @@ use std::time::{Duration, Instant};
 use crate::color::ColorEncoding;
 use crate::decoder::{DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo};
 use crate::error::Error;
-use crate::fast_execute::execute_fast_srgb8;
+use crate::fast_execute::execute_fast;
 use crate::geometry::{Rect, Size};
 use crate::graph::Graph;
 #[cfg(feature = "jpeg-xl-write")]
 use crate::jxl_sink::JxlSink;
 use crate::memory::{ExternalReservation, MemoryBudget};
 use crate::orientation::OrientedSource;
-use crate::quality_execute::execute_quality_srgb8;
+use crate::output_depth::OutputRow;
+use crate::quality_execute::execute_quality;
 #[cfg(feature = "webp-write")]
 use crate::webp_sink::WebpSink;
 
@@ -1068,18 +1069,28 @@ enum Sink<'b> {
 }
 
 impl Sink<'_> {
-    fn write_row(&mut self, y: u32, row: &[u8]) -> Result<(), Error> {
-        match self {
+    fn write_row(&mut self, y: u32, row: OutputRow<'_>) -> Result<(), Error> {
+        match (self, row) {
             #[cfg(feature = "webp-write")]
-            Self::WebP(sink) => sink.write_row(y, row),
+            (Self::WebP(sink), OutputRow::U8(row)) => sink.write_row(y, row),
             #[cfg(feature = "jpeg-xl-write")]
-            Self::JpegXl(sink) => sink.write_row(y, row),
-            Self::Backend {
-                encoder, failure, ..
-            } => encoder.write_row(y, row).map_err(|error| {
+            (Self::JpegXl(sink), OutputRow::U8(row)) => sink.write_row(y, row),
+            (
+                Self::Backend {
+                    encoder, failure, ..
+                },
+                row,
+            ) => match row {
+                OutputRow::U8(row) => encoder.write_row(y, row),
+                OutputRow::U16(row) => encoder.write_row_u16(y, row),
+            }
+            .map_err(|error| {
                 *failure = Some(error);
                 Error::EncodeFailed
             }),
+            // A built-in sink receives rows only at a depth it admits.
+            #[allow(unreachable_patterns)]
+            _ => Err(Error::IncompleteOutput),
         }
     }
 
@@ -1363,6 +1374,16 @@ fn run(
 
     let budget = MemoryBudget::new(options.max_managed_bytes);
     let transparent = actual.info().layout == crate::decoder::ChannelLayout::Rgba;
+    // The depth rule (ADR-0021 amendment, ADR-0043 decided application of
+    // 2026-11-15), one for every output: the input's depth, capped at what
+    // the output admits; a reduction is the pipeline's to report.
+    let input_depth = actual.info().depth;
+    let admitted: &[u8] = match backend {
+        Some(backend) => backend.row_depths(),
+        None => &[crate::output_depth::EIGHT],
+    };
+    let output_depth = crate::output_depth::resolve(None, input_depth, admitted)?;
+    discarded.insert_if(output_depth < input_depth, Discarded::PrecisionReduced);
     let mut output_sink = match backend {
         None => match options.output_format {
             // With `avif-write` the AOM writer is the backend above.
@@ -1408,6 +1429,7 @@ fn run(
                 width: target_size.width,
                 height: target_size.height,
                 has_alpha: transparent,
+                depth: output_depth,
                 threads: encoder_threads,
             };
             let frame_reservation =
@@ -1438,7 +1460,7 @@ fn run(
         WorkingPrecision::F64Reference => (KernelLevel::Scalar, KernelLevelReason::Ceiling),
     };
     let processed = match options.precision {
-        WorkingPrecision::F32 => execute_fast_srgb8(
+        WorkingPrecision::F32 => execute_fast(
             &graph,
             finished,
             input,
@@ -1447,15 +1469,17 @@ fn run(
             &budget,
             &kernels,
             transform_threads,
+            output_depth,
             |y, row| output_sink.write_row(y, row),
         ),
-        WorkingPrecision::F64Reference => execute_quality_srgb8(
+        WorkingPrecision::F64Reference => execute_quality(
             &graph,
             finished,
             input,
             &mut *actual,
             request,
             &budget,
+            output_depth,
             |y, row| output_sink.write_row(y, row),
         ),
     };

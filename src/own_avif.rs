@@ -50,6 +50,8 @@ impl LibavifBackend {
                 ChromaSubsampling::Yuv420 => writer::Chroma::Yuv420,
             },
             depth: avif.depth,
+            // The rows' depth: 8, or the image depth for deeper rows.
+            sample_depth: if request.depth > 8 { avif.depth } else { 8 },
         })
     }
 }
@@ -79,6 +81,9 @@ struct Frame {
 impl RowEncoder for Frame {
     fn write_row(&mut self, y: u32, rgba: &[u8]) -> Result<(), EncodeError> {
         self.frame.write_row(y, rgba).map_err(map_error)
+    }
+    fn write_row_u16(&mut self, y: u32, rgba: &[u16]) -> Result<(), EncodeError> {
+        self.frame.write_row_u16(y, rgba).map_err(map_error)
     }
     fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
         let bytes = self.frame.finish().map_err(map_error)?;
@@ -118,6 +123,7 @@ pub(crate) fn encode_for_test(
             ChromaSubsampling::Yuv420 => writer::Chroma::Yuv420,
         },
         depth: 10,
+        sample_depth: 8,
     })
     .unwrap();
     for y in 0..height {

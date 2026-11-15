@@ -41,6 +41,7 @@ impl TestSource {
         };
         Self {
             info: DecoderInfo {
+                depth: 8,
                 size,
                 layout,
                 sample,

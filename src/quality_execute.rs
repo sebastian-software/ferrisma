@@ -14,7 +14,7 @@ use crate::error::Error;
 use crate::geometry::Rect;
 use crate::graph::{Graph, NodeId, NodeKind, ResizeDomain};
 use crate::memory::{ExternalReservation, ManagedBuffer, MemoryBudget, try_filled_vec, try_vec};
-use crate::output_depth::{EIGHT, MAX_DEPTH, OutputBuffer, OutputRow, eight_bit_sink, max_code};
+use crate::output_depth::{EIGHT, MAX_DEPTH, OutputBuffer, OutputRow, max_code};
 use crate::quality::{Filter, Tap, taps};
 use crate::surface::PixelFormat;
 use crate::working_color::{
@@ -277,6 +277,7 @@ fn final_rgba(acc: [f64; 4], opaque: bool, max: u16) -> Result<[u16; 4], Error> 
 }
 
 /// [`execute_quality`] at 8 bits, the M1 sRGB8 contract.
+#[cfg(test)] // The 8-bit contract of the executor tests.
 pub(crate) fn execute_quality_srgb8(
     graph: &Graph,
     target: NodeId,
@@ -294,7 +295,7 @@ pub(crate) fn execute_quality_srgb8(
         requested,
         budget,
         EIGHT,
-        eight_bit_sink(sink),
+        crate::output_depth::eight_bit_sink(sink),
     )
 }
 
