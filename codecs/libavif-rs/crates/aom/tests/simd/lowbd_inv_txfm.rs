@@ -1,6 +1,8 @@
 // Supplementary transcription of upstream/aom/test/av1_inv_txfm2d_test.cc
 // (AV1LbdInvTxfm2d: `match` and `gt_int16`) for the NEON instantiation
-// av1_lowbd_inv_txfm2d_add_neon. Inputs come from the forward transforms in
+// av1_lowbd_inv_txfm2d_add_neon and, on x86-64, the SSSE3 and AVX2
+// instantiations av1_lowbd_inv_txfm2d_add_ssse3 and
+// av1_lowbd_inv_txfm2d_add_avx2. Inputs come from the forward transforms in
 // libaom_test::fwd_txfm_func_ls and the reference is
 // libaom_test::inv_txfm_func_ls (av1_inv_txfm2d_add_<W>x<H>_c with 16-bit
 // output, test/av1_txfm_test.h), with the original seed, block layout,
@@ -8,14 +10,24 @@
 // DISABLED_Speed is not transcribed.
 //
 // A supplementary check, not in the original suite, runs the same inputs
-// through the function the RTCD table dispatches, av1_inv_txfm_add_neon,
+// through the function the RTCD table dispatches, av1_inv_txfm_add_neon
+// (av1_inv_txfm_add_ssse3 and av1_inv_txfm_add_avx2 on x86-64),
 // against av1_inv_txfm_add_c (TxfmParam with is_hbd = 0, bd = 8), including
 // the lossless 4x4 path that both route to the C implementation.
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 use aom::av1__common__idct::TxfmParam;
 use aom::av1__common__scan::av1_scan_orders;
+#[cfg(target_arch = "aarch64")]
 use aom::simd::av1__common__arm__av1_inv_txfm_neon::{
     av1_inv_txfm_add_neon, av1_lowbd_inv_txfm2d_add_neon,
+};
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__av1_inv_txfm_avx2::{
+    av1_inv_txfm_add_avx2, av1_lowbd_inv_txfm2d_add_avx2,
+};
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__common__x86__av1_inv_txfm_ssse3::{
+    av1_inv_txfm_add_ssse3, av1_lowbd_inv_txfm2d_add_ssse3,
 };
 
 use super::acm_random::ACMRandom;
@@ -145,11 +157,11 @@ const BLK_SIZE: usize = BLK_WIDTH * BLK_WIDTH;
 /// What the target is compared against.
 #[derive(Clone, Copy)]
 enum Target {
-    /// The original test: av1_lowbd_inv_txfm2d_add_neon against
+    /// The original test: av1_lowbd_inv_txfm2d_add_<simd> against
     /// inv_txfm_func_ls[tx_size] with 16-bit output.
     Lbd(LbdInvTxfm2dFunc),
     /// Supplementary: the dispatched entry against av1_inv_txfm_add_c.
-    Add { neon: InvTxfmAddFunc, lossless: i32 },
+    Add { simd: InvTxfmAddFunc, lossless: i32 },
 }
 
 /// AV1LbdInvTxfm2d::RunAV1InvTxfm2dTest with run_times = 1; returns the
@@ -218,7 +230,7 @@ fn run_av1_inv_txfm2d_test(target: Target, tx_type: u8, tx_size: u8, gt_int16: b
                     }
                 }
             }
-            Target::Add { neon, lossless } => {
+            Target::Add { simd, lossless } => {
                 let txfm_param = TxfmParam {
                     tx_type,
                     tx_size,
@@ -232,7 +244,7 @@ fn run_av1_inv_txfm2d_test(target: Target, tx_type: u8, tx_size: u8, gt_int16: b
                 unsafe {
                     av1_inv_txfm_add_c(inv_input.0.as_ptr(), ref_output8.0.as_mut_ptr(), stride,
                                        &txfm_param);
-                    neon(inv_input.0.as_ptr(), output.0.as_mut_ptr(), stride, &txfm_param);
+                    simd(inv_input.0.as_ptr(), output.0.as_mut_ptr(), stride, &txfm_param);
                 }
                 for r in 0..rows as usize {
                     for c in 0..cols as usize {
@@ -276,21 +288,62 @@ fn av1_lbd_inv_txfm2d_gt_int16(target: Target) -> usize {
     compared
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_inv_txfm2d_match() {
     let compared = av1_lbd_inv_txfm2d_match(Target::Lbd(av1_lowbd_inv_txfm2d_add_neon));
     eprintln!("NEON/AV1LbdInvTxfm2d.match: {compared} blocks compared");
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_inv_txfm2d_gt_int16() {
     let compared = av1_lbd_inv_txfm2d_gt_int16(Target::Lbd(av1_lowbd_inv_txfm2d_add_neon));
     eprintln!("NEON/AV1LbdInvTxfm2d.gt_int16: {compared} blocks compared");
 }
 
-/// Supplementary: the RTCD-dispatched entry against av1_inv_txfm_add_c.
+#[cfg(target_arch = "x86_64")]
 #[test]
-fn lowbd_inv_txfm_add_dispatched_entry() {
+fn lowbd_inv_txfm2d_match_ssse3() {
+    if !std::is_x86_feature_detected!("ssse3") {
+        return;
+    }
+    let compared = av1_lbd_inv_txfm2d_match(Target::Lbd(av1_lowbd_inv_txfm2d_add_ssse3));
+    eprintln!("SSSE3/AV1LbdInvTxfm2d.match: {compared} blocks compared");
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn lowbd_inv_txfm2d_gt_int16_ssse3() {
+    if !std::is_x86_feature_detected!("ssse3") {
+        return;
+    }
+    let compared = av1_lbd_inv_txfm2d_gt_int16(Target::Lbd(av1_lowbd_inv_txfm2d_add_ssse3));
+    eprintln!("SSSE3/AV1LbdInvTxfm2d.gt_int16: {compared} blocks compared");
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn lowbd_inv_txfm2d_match_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    let compared = av1_lbd_inv_txfm2d_match(Target::Lbd(av1_lowbd_inv_txfm2d_add_avx2));
+    eprintln!("AVX2/AV1LbdInvTxfm2d.match: {compared} blocks compared");
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn lowbd_inv_txfm2d_gt_int16_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    let compared = av1_lbd_inv_txfm2d_gt_int16(Target::Lbd(av1_lowbd_inv_txfm2d_add_avx2));
+    eprintln!("AVX2/AV1LbdInvTxfm2d.gt_int16: {compared} blocks compared");
+}
+
+/// The `_c` high-bitdepth inverse transform behind av1_inv_txfm_add_c.
+fn scalar_highbd_inv_txfm_reference() {
     // av1_inv_txfm_add_c reaches av1_highbd_inv_txfm_add through its RTCD
     // pointer. Select the `_c` implementation, as AOM_SIMD_CAPS_MASK=0 does,
     // so the reference is scalar throughout. No other test reads this
@@ -302,12 +355,38 @@ fn lowbd_inv_txfm_add_dispatched_entry() {
         aom::av1__common__av1_rtcd::av1_highbd_inv_txfm_add =
             Some(core::mem::transmute(av1_highbd_inv_txfm_add_c as InvTxfmAddFunc));
     }
-    let target = Target::Add { neon: av1_inv_txfm_add_neon, lossless: 0 };
+}
+
+/// Supplementary: one RTCD-dispatched entry against av1_inv_txfm_add_c.
+fn dispatched_entry(name: &str, simd: InvTxfmAddFunc) {
+    scalar_highbd_inv_txfm_reference();
+    let target = Target::Add { simd, lossless: 0 };
     let compared = av1_lbd_inv_txfm2d_match(target) + av1_lbd_inv_txfm2d_gt_int16(target);
     // Lossless coding uses only TX_4X4 with WHT_WHT (signalled as DCT_DCT);
     // both functions route it to av1_inv_txfm_add_c.
-    let lossless = Target::Add { neon: av1_inv_txfm_add_neon, lossless: 1 };
+    let lossless = Target::Add { simd, lossless: 1 };
     let lossless_compared = run_av1_inv_txfm2d_test(lossless, DCT_DCT, TX_4X4, false);
-    eprintln!("av1_inv_txfm_add_neon: {compared} lossy and {lossless_compared} lossless blocks \
-               compared");
+    eprintln!("{name}: {compared} lossy and {lossless_compared} lossless blocks compared");
+}
+
+#[cfg(target_arch = "aarch64")]
+#[test]
+fn lowbd_inv_txfm_add_dispatched_entry() {
+    dispatched_entry("av1_inv_txfm_add_neon", av1_inv_txfm_add_neon);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn lowbd_inv_txfm_add_dispatched_entry_ssse3() {
+    if std::is_x86_feature_detected!("ssse3") {
+        dispatched_entry("av1_inv_txfm_add_ssse3", av1_inv_txfm_add_ssse3);
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn lowbd_inv_txfm_add_dispatched_entry_avx2() {
+    if std::is_x86_feature_detected!("avx2") {
+        dispatched_entry("av1_inv_txfm_add_avx2", av1_inv_txfm_add_avx2);
+    }
 }

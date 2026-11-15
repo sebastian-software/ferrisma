@@ -240,6 +240,10 @@ pub mod aom_dsp__x86__txfm_common_avx2;
 pub mod aom_dsp__x86__txfm_common_sse2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/av1_inv_txfm_avx2.rs"]
+pub mod av1__common__x86__av1_inv_txfm_avx2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/av1_inv_txfm_ssse3.rs"]
 pub mod av1__common__x86__av1_inv_txfm_ssse3;
 

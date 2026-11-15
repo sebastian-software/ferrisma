@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""Enable Neon RTCD dispatch for named functions in the frozen macOS translation.
+"""Enable RTCD dispatch for named functions in the frozen translation.
 
-Usage: python3 tools/enable_aom_dispatch.py NAME...
+Usage: python3 tools/enable_aom_dispatch.py NAME...            (Neon, macOS ARM64)
+       python3 tools/enable_aom_dispatch.py --linux NAME_EXT...  (x86, GNU Linux x86-64)
+
+With --linux each argument is one specialization, `<function>_<sse2|ssse3|sse4_1|avx2>`,
+as crates/aom/rtcd/x86_64.pl lists them; the tool dispatches every listed
+variant of a function (ADR 0058, amendment of 2026-11-14).
 
 ADR 0059 makes the RTCD units owned code; ADR 0056 (amendment of 2026-11-13)
 describes this tool.
@@ -25,12 +30,16 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-NAMES = sys.argv[1:]
+LINUX = sys.argv[1:2] == ['--linux']
+NAMES = sys.argv[2:] if LINUX else sys.argv[1:]
+X86_EXTENSIONS = ('sse2', 'ssse3', 'sse4_1', 'avx2')
+X86_FLAGS = {'sse2': 'HAS_SSE2', 'ssse3': 'HAS_SSSE3', 'sse4_1': 'HAS_SSE4_1', 'avx2': 'HAS_AVX2'}
 sys.path.insert(0, str(ROOT / 'tools'))
 import transpile_aom  # noqa: E402
 
 CRATE = ROOT / 'crates/aom'
-OVERLAY = CRATE / 'rtcd/arm64.pl'
+OVERLAY = CRATE / ('rtcd/x86_64.pl' if LINUX else 'rtcd/arm64.pl')
+PLATFORM = 'linux' if LINUX else 'macos'
 RTCD_UNITS = {'config/aom_dsp_rtcd.h': 'aom_dsp/aom_dsp_rtcd.rs',
               'config/av1_rtcd.h': 'av1/common/av1_rtcd.rs',
               'config/aom_scale_rtcd.h': 'aom_scale/aom_scale_rtcd.rs'}
@@ -39,7 +48,8 @@ EXPECT = '.expect("non-null function pointer")'
 
 def update_overlay():
     text = OVERLAY.read_text()
-    m = re.search(r'(my %ported_neon = map \{ \$_ => 1 \} qw/\n)(.*?)(/;\n)', text, re.S)
+    table = 'ported_x86' if LINUX else 'ported_neon'
+    m = re.search(r'(my %' + table + r' = map \{ \$_ => 1 \} qw/\n)(.*?)(/;\n)', text, re.S)
     names = set(m.group(2).split()) | set(NAMES)
     body = ''.join(f'  {n}\n' for n in sorted(names))
     OVERLAY.write_text(text[:m.start(2)] + body + text[m.end(2):])
@@ -122,6 +132,43 @@ def edit_rtcd_unit(text, name, params, ret, order):
     return text[:insert] + block + text[insert:]
 
 
+def header_variants(header_text, name):
+    """The x86 specializations the generated setup assigns to `name`, in order."""
+    return re.findall(r'if \(flags & HAS_\w+\) ' + name + r' = ' + name + r'_(\w+);', header_text)
+
+
+def edit_rtcd_unit_linux(text, name, params, ret, order, variants):
+    ftype = fn_type(params, ret)
+    opt = f'Option<{ftype}>'
+    if re.search(r'pub static mut ' + name + r':', text):
+        raise SystemExit(f'{name} is already dispatched')
+    decl_params = ', '.join(split_top(params))
+    r = f' {ret}' if ret else ''
+    anchor = 'extern "C-unwind" {\n'
+    decls = ''.join(f'    fn {name}_{ext}({decl_params}){r};\n' for ext in ['c', *variants])
+    text = text.replace(anchor, anchor + decls, 1)
+    static = f'#[no_mangle]\npub static mut {name}: {opt} = None;\n'
+    statics = [(m.start(), m.group(1)) for m in re.finditer(r'^#\[no_mangle\]\npub static mut (\w+):', text, re.M)]
+    later = [pos for pos, n in statics if n > name]
+    pos = later[0] if later else text.index('pub const HAS_MMX')
+    text = text[:pos] + static + text[pos:]
+    block = f'    {name} = Some({name}_c as {ftype}) as {opt};\n'
+    for ext in variants:
+        block += (f'    if flags & {X86_FLAGS[ext]} != 0 {{\n'
+                  f'        {name} = Some({name}_{ext} as {ftype}) as {opt};\n'
+                  f'    }}\n')
+    start = text.index('unsafe extern "C-unwind" fn setup_rtcd_internal() {')
+    end = text.index('\n}\n', start) + 1
+    idx = order.index(name)
+    insert = end
+    for later_name in order[idx + 1:]:
+        m = re.compile(r'^    ' + later_name + r' = Some\(', re.M).search(text, start, end)
+        if m:
+            insert = m.start()
+            break
+    return text[:insert] + block + text[insert:]
+
+
 def edit_caller(text, csource, name, params, ret, report, rel):
     ftype = fn_type(params, ret)
     opt = f'Option<{ftype}>'
@@ -157,7 +204,7 @@ def edit_caller(text, csource, name, params, ret, report, rel):
 def rehash():
     """Record the digests of hand-edited owned units (both macOS profiles)."""
     for profile in ['release', 'debug']:
-        manifest_path = CRATE / f'TRANSLATION-macos-{profile}.json'
+        manifest_path = CRATE / f'TRANSLATION-{PLATFORM}-{profile}.json'
         manifest = json.loads(manifest_path.read_text())
         for unit in manifest['units']:
             text = (ROOT / unit['rust']).read_text()
@@ -177,12 +224,19 @@ def main():
         return
     update_overlay()
     report = []
+    functions = NAMES
+    if LINUX:
+        functions = []
+        for spec in NAMES:
+            base, ext = re.fullmatch(r'(\w+?)_(sse2|ssse3|sse4_1|avx2)', spec).groups()
+            if base not in functions:
+                functions.append(base)
     for profile in ['release', 'debug']:
-        ref = CRATE / f'reference/macos/{profile}'
-        manifest_path = CRATE / f'TRANSLATION-macos-{profile}.json'
+        ref = CRATE / f'reference/{PLATFORM}/{profile}'
+        manifest_path = CRATE / f'TRANSLATION-{PLATFORM}-{profile}.json'
         manifest = json.loads(manifest_path.read_text())
         with tempfile.TemporaryDirectory() as tmp:
-            dispatch = transpile_aom.dispatch_headers('macos', ref, Path(tmp))
+            dispatch = transpile_aom.dispatch_headers(PLATFORM, ref, Path(tmp))
             headers = {n: (Path(tmp) / n).read_text() for n in dispatch['headers']}
             for n in dispatch['headers']:
                 shutil.copy(Path(tmp) / n, ref / 'dispatch' / n)
@@ -192,14 +246,24 @@ def main():
         original = dict(texts)
         # Which units mention which `<name>_c`, computed once.
         mentions = {r: set(re.findall(r'\b(\w+)_c\b', t)) for r, t in texts.items()}
-        for name in NAMES:
+        for name in functions:
             header = [h for h, t in headers.items() if re.search(r'\(\*' + name + r'\)\(', t)]
             if len(header) != 1:
                 raise SystemExit(f'{name}: not dispatched by the regenerated headers ({header})')
-            rtcd_rel = f'crates/aom/src/macos/{profile}/' + RTCD_UNITS[header[0]]
+            rtcd_rel = f'crates/aom/src/{PLATFORM}/{profile}/' + RTCD_UNITS[header[0]]
             candidates = {r: texts[r] for r in units if name in mentions[r]}
             params, ret = find_signature(candidates, name)
-            texts[rtcd_rel] = edit_rtcd_unit(texts[rtcd_rel], name, params, ret, header_order(headers[header[0]]))
+            if LINUX:
+                variants = header_variants(headers[header[0]], name)
+                wanted = [spec[len(name) + 1:] for spec in NAMES
+                          if spec.startswith(name + '_') and spec[len(name) + 1:] in X86_EXTENSIONS]
+                if sorted(variants) != sorted(wanted):
+                    raise SystemExit(f'{name}: header dispatches {variants}, requested {wanted}')
+                texts[rtcd_rel] = edit_rtcd_unit_linux(texts[rtcd_rel], name, params, ret,
+                                                       header_order(headers[header[0]]), variants)
+            else:
+                texts[rtcd_rel] = edit_rtcd_unit(texts[rtcd_rel], name, params, ret,
+                                                 header_order(headers[header[0]]))
             for rel, unit in units.items():
                 if rel == rtcd_rel or name not in mentions[rel]:
                     continue

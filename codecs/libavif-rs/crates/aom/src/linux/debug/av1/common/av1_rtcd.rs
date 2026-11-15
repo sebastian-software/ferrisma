@@ -13,6 +13,9 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use core::arch::asm;
 extern "C-unwind" {
+    fn av1_inv_txfm_add_c(dqcoeff: *const tran_low_t, dst: *mut uint8_t, stride: core::ffi::c_int, txfm_param: *const TxfmParam);
+    fn av1_inv_txfm_add_ssse3(dqcoeff: *const tran_low_t, dst: *mut uint8_t, stride: core::ffi::c_int, txfm_param: *const TxfmParam);
+    fn av1_inv_txfm_add_avx2(dqcoeff: *const tran_low_t, dst: *mut uint8_t, stride: core::ffi::c_int, txfm_param: *const TxfmParam);
     fn av1_block_error_c(
         coeff: *const tran_low_t,
         dqcoeff: *const tran_low_t,
@@ -1148,6 +1151,8 @@ pub static mut av1_highbd_quantize_fp: Option<
 pub static mut av1_highbd_upsample_intra_edge: Option<
     unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> (),
 > = None;
+#[no_mangle]
+pub static mut av1_inv_txfm_add: Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()> = None;
 #[no_mangle]
 pub static mut av1_upsample_intra_edge: Option<
     unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int) -> (),
@@ -2746,6 +2751,13 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                     core::ffi::c_int,
                 ) -> (),
             >;
+    }
+    av1_inv_txfm_add = Some(av1_inv_txfm_add_c as unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        av1_inv_txfm_add = Some(av1_inv_txfm_add_ssse3 as unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        av1_inv_txfm_add = Some(av1_inv_txfm_add_avx2 as unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()) as Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
     }
     av1_upsample_intra_edge = Some(
         av1_upsample_intra_edge_c

@@ -163,3 +163,38 @@ The full three-level gate took 36 minutes on the loaded host.
 of this ADR):** `avx2` 82 of 82, `sse4.1` 82 of 82 and `scalar` 82 of 82 cases
 identical to the original in AVIF bytes, decoded planes and RGB; the port
 reported `simd(avx2)`, `simd(sse4.1)` and `c` for the three levels.
+
+The x86 profiles now also dispatch SSSE3 (`tools/transpile_aom.py` no longer
+passes `--disable-ssse3`, and `rtcd/x86_64.pl` withdraws every SSSE3
+specialization the port does not implement); with the unchanged overlay the
+regenerated headers were byte-identical. Since the freeze (ADR 0059),
+`tools/enable_aom_dispatch.py --linux NAME_EXT...` makes the x86 dispatch
+change the way the Arm tool does (ADR 0056, amendment of 2026-11-13): overlay,
+dispatch headers, the owned RTCD and caller units of both Linux profiles,
+and their recorded hashes.
+
+### Still-image families on x86 (2026-11-14)
+
+The x86 counterparts of the 2026-11-13 Neon families follow the route of
+that amendment: each original intrinsics file is translated to
+`src/simd/<same path>.rs`, dispatched with `tools/enable_aom_dispatch.py
+--linux` (working decision O8, 2026-11-13, delegated, revisable by the
+owner), and committed only when `check_aom_simd_original.py --qemu` stays
+identical at `avx2`, `sse4.1` (where the original selects the SSSE3 or SSE2
+variant) and `scalar`. The files are transliterated with a typing-aware
+C-subset printer as the high-bitdepth transforms were (pycparser based, not
+part of the build): C's integer conversions are explicit, immediate operands
+become const generics, run-time shift counts use the count-register
+intrinsics, scalar accesses through cast pointers are unaligned, and
+DECLARE_ALIGNED arrays keep their alignment. For every function the
+sequence of called intrinsics and helpers was compared with the C.
+Kernels that exist only as NASM stay on `_c` (working decision O4).
+
+| Family | Original files | RTCD functions (variants) | Gate (`avx2`/`sse4.1`/`scalar`) |
+| --- | --- | --- | --- |
+| 8-bit inverse transform | `av1/common/x86/av1_inv_txfm_ssse3.c` (+ `.h`), `av1_inv_txfm_avx2.c` (+ `.h`), the rest of `av1_txfm_sse2.h` | `av1_inv_txfm_add` (SSSE3, AVX2) | 82/82, 82/82, 82/82 |
+
+Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
+and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
+`av1_inv_txfm_add_ssse3`/`_avx2` against `av1_inv_txfm_add_c`; under the
+QEMU container all 85 tests of `--test simd` pass for x86-64.

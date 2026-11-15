@@ -2,7 +2,8 @@
 # crates/aom/src/simd (ADR 0056, ADR 0058). tools/transpile_aom.py passes this
 # file to the original cmake/rtcd.pl after aom_dsp_rtcd_defs.pl,
 # aom_scale_rtcd.pl, or av1_rtcd_defs.pl. It withdraws every SSE2, SSE4.1 and
-# AVX2 specialization that the port does not implement, so the generated
+# AVX2 specialization that the port does not implement (SSSE3 too since
+# 2026-11-14, ADR 0058 amendment), so the generated
 # dispatch header names only existing functions. Every listed
 # `<name>_<extension>` must be bit-exact with `<name>_c` for the same
 # arguments. Variants implemented only in NASM files are never listed.
@@ -112,6 +113,8 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_highbd_inv_txfm_add_sse4_1
   av1_highbd_quantize_fp_avx2
   av1_highbd_upsample_intra_edge_sse4_1
+  av1_inv_txfm_add_avx2
+  av1_inv_txfm_add_ssse3
   av1_upsample_intra_edge_sse4_1
   cdef_copy_rect8_16bit_to_16bit_avx2
   cdef_copy_rect8_8bit_to_16bit_avx2
@@ -127,7 +130,7 @@ my %ported_x86 = map { $_ => 1 } qw/
   cdef_find_dir_dual_avx2
 /;
 foreach my $fn (keys %ALL_FUNCS) {
-  foreach my $ext (qw/sse2 sse4_1 avx2/) {
+  foreach my $ext (qw/sse2 ssse3 sse4_1 avx2/) {
     undef ${"${fn}_${ext}"} unless $ported_x86{"${fn}_${ext}"};
   }
 }

@@ -23,12 +23,13 @@ reached through the translated RTCD tables
 `tools/transpile_aom.py` generates the dispatch headers with the original
 `cmake/rtcd.pl` and one overlay per target: `rtcd/arm64.pl` for macOS ARM64 and
 `rtcd/x86_64.pl` for GNU Linux x86-64 (run with `--arch=x86_64 --require-c` and
-every family other than SSE2, SSE4.1, and AVX2 disabled). The overlay withdraws
+every family other than SSE2, SSSE3, SSE4.1, and AVX2 disabled). The overlay withdraws
 every specialization the port does not implement, so the headers name only
 existing functions. The translation manifests record each overlay's hash. Since
 the freeze (ADR 0059), `tools/enable_aom_dispatch.py` changes the arm64 overlay
 together with the dispatch headers, the owned RTCD and caller units, and their
-recorded hashes (ADR 0056, amendment of 2026-11-13).
+recorded hashes (ADR 0056, amendment of 2026-11-13); `--linux` does the same
+for the x86 overlay and the Linux profiles (ADR 0058, amendment of 2026-11-14).
 
 - Arm: 513 RTCD functions dispatch to Neon kernels: the high-bitdepth set (190
   intra predictors, transforms, CDEF, quantization) and, since 2026-11-13, the
@@ -44,8 +45,10 @@ recorded hashes (ADR 0056, amendment of 2026-11-13).
   entry points are not dispatched (see `rtcd/arm64.pl`), nor are the
   high-bitdepth Hadamard kernels (coefficient order).
   ADR 0056 lists what remains on `_c`.
-- x86-64: 104 RTCD functions dispatch through 111 kernel assignments, because
-  some functions have both an SSE4.1 and an AVX2 variant. The high-bitdepth DC
+- x86-64: 105 RTCD functions dispatch through 113 kernel assignments, because
+  some functions have both an SSE4.1 (or SSSE3) and an AVX2 variant. Since
+  2026-11-14 that includes the 8-bit inverse transform `av1_inv_txfm_add`
+  (SSSE3 and AVX2, `av1_inv_txfm_ssse3.c` and `av1_inv_txfm_avx2.c`). The high-bitdepth DC
   and V predictors for 4x4 to 32x32 exist upstream only as NASM and stay on `_c`,
   as do the high-bitdepth smooth and Paeth predictors, which have no x86
   specialization. AVX-512 is not dispatched.
