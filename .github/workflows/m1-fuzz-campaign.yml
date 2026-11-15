@@ -28,6 +28,9 @@ jobs:
           - runner: ubuntu-latest
             target: transcode_own_jxl
             features: '--features own-jxl'
+          - runner: ubuntu-latest
+            target: transcode_jxl_out
+            features: ''
           - runner: macos-15
             target: transcode
             features: ''
@@ -37,6 +40,9 @@ jobs:
           - runner: macos-15
             target: transcode_own_jxl
             features: '--features own-jxl'
+          - runner: macos-15
+            target: transcode_jxl_out
+            features: ''
     steps:
       - uses: actions/checkout@v4
       - name: Install AV1 assembler on Linux

@@ -47,6 +47,17 @@ jobs:
       - name: Run bounded decoder/processing fuzz smoke
         run: |
           cargo fuzz run transcode -- -runs=3000 -max_len=16384 -timeout=5 -rss_limit_mb=1024
+      - name: Classify the deterministic campaign seeds, JPEG XL output included
+        env:
+          FERRISMA_FUZZ_SEEDS: ${{ github.workspace }}/fuzz/seeds
+        run: |
+          python3 fuzz/scripts/seed_campaign.py fuzz/seeds
+          cargo test --locked --manifest-path fuzz/Cargo.toml --lib campaign_seeds_report_reachability -- --nocapture
+          mkdir -p fuzz/corpus
+          cp -R fuzz/seeds/transcode_jxl_out fuzz/corpus/transcode_jxl_out
+      - name: Run bounded JPEG XL output fuzz smoke
+        run: |
+          cargo fuzz run transcode_jxl_out -- -runs=3000 -max_len=65536 -timeout=10 -rss_limit_mb=1024
       - name: Upload reproducible fuzz artifacts if a target crashes
         if: always()
         uses: actions/upload-artifact@v4
@@ -55,6 +66,8 @@ jobs:
           path: |
             fuzz/artifacts/transcode/
             fuzz/corpus/transcode/
+            fuzz/artifacts/transcode_jxl_out/
+            fuzz/corpus/transcode_jxl_out/
           if-no-files-found: ignore
 
   jpeg-port:
