@@ -60,6 +60,7 @@ pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> S
 #[test]
 fn public_encoder_box_header_writers_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let threshold: u64 = (1 << 32) - 8;
     let sizes = [
         0,
@@ -121,6 +122,7 @@ fn public_encoder_box_header_writers_match_original() {
 #[test]
 fn public_encoder_container_single_frame_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let prefixes = [
         "U1 ", "L10 ", "U1 L10 ", "U1 L5 ", "U1 L-1 ", "J1 ", "J1 L10 ", "U0 L10 ",
     ];
@@ -218,6 +220,7 @@ fn public_encoder_container_single_frame_matches_original() {
 #[test]
 fn public_encoder_container_decode_back_matches_original_decoder() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     for (index, prefix) in ["U1 ", "L10 ", "J1 "].iter().enumerate() {
         for &(xsize, ysize) in &[(8, 8), (43, 15), (257, 255)] {
@@ -253,6 +256,7 @@ fn public_encoder_container_decode_back_matches_original_decoder() {
 #[test]
 fn public_encoder_container_output_processor_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let prefixes = ["U1 ", "L10 ", "U1 L10 ", "J1 ", "U1 L5 "];
     let cases = [
         (1, 1, -1, -1),
@@ -363,6 +367,7 @@ fn mode2_history(
 #[test]
 fn public_encoder_output_mode_2_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let prefixes = ["", "U1 ", "L10 ", "J1 "];
     let cases = [
         (1, 1, -1),
@@ -419,6 +424,7 @@ fn public_encoder_output_mode_2_matches_original() {
 #[test]
 fn public_encoder_output_mode_2_gate_sizes_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     let mut k = 0;
     for (xsize, ysize) in [
@@ -468,6 +474,7 @@ fn public_encoder_output_mode_2_gate_sizes_match_original() {
 #[test]
 fn public_encoder_streaming_suite_container_instances_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = super::streaming_suite_requests(&[0, 1, 2], true);
     requests.extend(super::streaming_suite_requests(&[2], false));
     let count = requests.len();
@@ -513,6 +520,7 @@ fn setup_and_frame(
 #[test]
 fn public_encoder_container_metadata_boxes_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let types = [
         "45786966", "786d6c20", "6a756d62", "61626364", "00000000", "6a786c63", "6a786c69",
         "62726f62", "6a627264",
@@ -606,6 +614,7 @@ fn public_encoder_container_metadata_boxes_match_original() {
 #[test]
 fn public_encoder_container_frame_index_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     for (index, &(xsize, ysize)) in [(1, 1), (8, 8), (43, 15), (257, 255), (768, 768)]
         .iter()
@@ -653,6 +662,7 @@ fn public_encoder_container_frame_index_matches_original() {
 #[test]
 fn public_encoder_container_rejections_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let (setup, frame) = setup_and_frame(8, 8, false, 1, "");
     let (setup2, frame2) = setup_and_frame(43, 15, false, 2, " o0,40,2");
     let bound = output_schedule(8 * 8 * 12 + 4096);
@@ -723,6 +733,7 @@ fn some_test_image(xsize: usize, ysize: usize, channels: usize, seed: usize) -> 
 #[test]
 fn upstream_encode_test_container_cases_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     // JxlBasicInfoSetFromPixelFormat for RGBA uint16 and uint8.
     let rgba16 = |x: usize, y: usize| format!("Bw:{x},h:{y},bits:16,ec:1,ab:16");
     let rgba8 = |x: usize, y: usize| format!("Bw:{x},h:{y},bits:8,ec:1,ab:8");
@@ -828,6 +839,7 @@ fn upstream_encode_test_container_cases_match_original() {
 #[test]
 fn public_encoder_alpha_16_bit_and_float_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let depths = [
         (1, ",ab:16"),
         (2, ",ab:16,aexp:5"),
@@ -891,6 +903,7 @@ fn roundtrip_float_rgba(xsize: usize, ysize: usize) -> Vec<u8> {
 #[test]
 fn upstream_roundtrip_test_extra_boxes_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let (xsize, ysize) = (61, 71);
     let pixels = driver::hex(&roundtrip_float_rgba(xsize, ysize));
     let request = run(
