@@ -6,14 +6,30 @@
 //! one kind (for example `UnsupportedInput`) is shared by unrelated causes.
 //! Header inspection alone is never taken as proof here.
 //!
-//! The file needs every codec adapter, so it runs with the `cli` feature set
-//! (`cargo test -p ferrisma --features cli --test supported_matrix`).
-#![cfg(feature = "cli")]
+//! Run it with every adapter (`cargo test -p ferrisma --features cli --test
+//! supported_matrix`). Without the AVIF features, which build only on macOS
+//! ARM64 and GNU Linux x86-64, the JPEG, WebP and JPEG XL cases still run
+//! (for example on x86-64 macOS under Rosetta 2) with
+//! `--features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,jpeg-xl-write,icc`.
+#![cfg(all(
+    feature = "jpeg-read",
+    feature = "webp-read",
+    feature = "webp-write",
+    feature = "jpeg-xl-read",
+    feature = "jpeg-xl-own-read",
+    feature = "jpeg-xl-write",
+    feature = "icc"
+))]
 
+#[cfg(all(
+    feature = "avif-read",
+    any(feature = "avif-write", feature = "avif-own-write")
+))]
+use ferrisma::pipeline::ChromaSubsampling;
 use ferrisma::pipeline::{
-    AvifEncoder, ChromaSubsampling, Crop, ImageFormat, InputProfilePolicy, InspectionLimits,
-    JpegXlDecoder, JpegXlOptions, Output, OutputFormat, ProcessingError, ProcessingErrorKind,
-    SourceAccess, TransformOptions, WebpOptions, inspect, transcode,
+    AvifEncoder, Crop, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlDecoder,
+    JpegXlOptions, Output, OutputFormat, ProcessingError, ProcessingErrorKind, SourceAccess,
+    TransformOptions, WebpOptions, inspect, transcode,
 };
 
 // ---------------------------------------------------------------------------
@@ -30,10 +46,12 @@ const ORIENTED_LOSSLESS_WEBP: &[u8] =
 const ANIMATED_WEBP: &[u8] = include_bytes!("fixtures/decoder-work/animated.webp");
 const SAMPLE_JXL: &[u8] = include_bytes!("fixtures/sample.jxl");
 const JXL_DATA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/codecs/libjxl-rs/tests/data/");
+#[cfg(feature = "avif-read")]
 const AVIF_DATA: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/codecs/libavif-rs/upstream/libavif/tests/data/"
 );
+#[cfg(feature = "avif-read")]
 const AVIF_ANDROID: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/"
@@ -44,6 +62,7 @@ fn read(path: &str) -> Vec<u8> {
     std::fs::read(path).unwrap_or_else(|error| panic!("{path}: {error}"))
 }
 
+#[cfg(feature = "avif-read")]
 fn avif(name: &str) -> Vec<u8> {
     read(&format!("{AVIF_DATA}{name}"))
 }
@@ -57,6 +76,7 @@ fn jxl(name: &str) -> Vec<u8> {
 
 const ANIMATION: &str = "animated input is not supported; only still images are decoded";
 const LAYOUT: &str = "decoder pixel or color layout is not supported";
+#[cfg(feature = "avif-read")]
 const TRANSFORM: &str = "orientation, mirroring or clean-aperture transforms are not supported yet";
 const COLOR: &str =
     "unsupported or ambiguous rendered color profile; a color-management transform is required";
@@ -162,12 +182,21 @@ fn webp_chunks(bytes: &[u8]) -> Vec<[u8; 4]> {
     chunks
 }
 
+#[cfg(any(
+    feature = "avif-read",
+    feature = "avif-write",
+    feature = "avif-own-write"
+))]
 fn find(bytes: &[u8], needle: &[u8]) -> Option<usize> {
     bytes
         .windows(needle.len())
         .position(|window| window == needle)
 }
 
+#[cfg(all(
+    feature = "avif-read",
+    any(feature = "avif-write", feature = "avif-own-write")
+))]
 /// The AV1 configuration of the (first) `av1C` property: bit depth and
 /// chroma subsampling (x, y), and the monochrome flag.
 fn av1_config(bytes: &[u8]) -> (u8, (bool, bool), bool) {
@@ -187,6 +216,10 @@ fn av1_config(bytes: &[u8]) -> (u8, (bool, bool), bool) {
     )
 }
 
+#[cfg(all(
+    feature = "avif-read",
+    any(feature = "avif-write", feature = "avif-own-write")
+))]
 /// The container's `colr nclx` code points and full-range flag, if any.
 fn nclx(bytes: &[u8]) -> Option<(u16, u16, u16, bool)> {
     let at = find(bytes, b"colrnclx")? + 8;
@@ -194,8 +227,16 @@ fn nclx(bytes: &[u8]) -> Option<(u16, u16, u16, bool)> {
     Some((u16_at(0), u16_at(2), u16_at(4), bytes[at + 6] & 0x80 != 0))
 }
 
+#[cfg(all(
+    feature = "avif-read",
+    any(feature = "avif-write", feature = "avif-own-write")
+))]
 const AVIF_ALPHA_URN: &[u8] = b"urn:mpeg:mpegB:cicp:systems:auxiliary:alpha";
 
+#[cfg(all(
+    feature = "avif-read",
+    any(feature = "avif-write", feature = "avif-own-write")
+))]
 /// Read an encoded AVIF back through the engine's own AVIF reader under the
 /// strict policy: only signalled sRGB passes it.
 fn read_back_avif_strict(output: &Output) -> Output {
@@ -244,6 +285,23 @@ fn jpeg_cmyk_is_rejected_as_a_layout() {
 }
 
 #[test]
+fn jpeg_grayscale_is_expanded_to_rgb() {
+    // The adapter requests RGB output, so an untagged grayscale JPEG
+    // behaves like untagged RGB.
+    let gray = jxl("ycbcr-jpeg-gray.jpg");
+    to_webp(&gray, ImageFormat::Jpeg, ASSUME);
+    rejected(
+        transcode(
+            &gray,
+            ImageFormat::Jpeg,
+            options(OutputFormat::WebP, STRICT),
+        ),
+        ProcessingErrorKind::UnsupportedColor,
+        COLOR,
+    );
+}
+
+#[test]
 fn jpeg_truncated_is_malformed() {
     rejected(
         transcode(
@@ -281,6 +339,16 @@ fn jpeg_exif_orientations_are_applied_before_crop() {
     }
 }
 
+/// A transparent source for the cases that need no AVIF reader: a libjxl
+/// test image with straight alpha, read through the rendered ICC.
+fn transparent_jxl_webp() -> Output {
+    to_webp(
+        &jxl("effects_rgb_alpha8.jxl"),
+        ImageFormat::JpegXl,
+        RENDERED,
+    )
+}
+
 // ===========================================================================
 // Inputs: still WebP.
 
@@ -311,12 +379,8 @@ fn webp_animation_is_rejected_without_a_first_frame_fallback() {
 
 #[test]
 fn webp_straight_alpha_input_keeps_alpha() {
-    // A transparent WebP written by the engine from libavif's alpha still.
-    let transparent = to_webp(
-        &avif("abc_color_irot_alpha_irot.avif"),
-        ImageFormat::Avif,
-        ASSUME,
-    );
+    // A transparent WebP written by the engine from a JPEG XL test image.
+    let transparent = transparent_jxl_webp();
     assert!(webp_has_alpha(&transparent));
     let again = to_webp(&transparent.bytes, ImageFormat::WebP, RENDERED);
     assert!(webp_has_alpha(&again));
@@ -389,20 +453,27 @@ fn jpeg_xl_straight_alpha_is_kept_through_rendered_icc() {
 }
 
 #[test]
-fn jpeg_xl_grayscale_is_decoded_but_not_transcoded() {
-    // Both readers deliver gray and gray+alpha samples, but no color stage
-    // accepts them: the rendered-ICC transform takes RGB(A) only.
+fn jpeg_xl_grayscale_is_rejected_under_every_policy() {
+    // Both readers deliver gray and gray+alpha samples, but no policy
+    // accepts them: their rendered ICC is not sRGB CICP, and the rendered-ICC
+    // transform takes RGB(A) only.
     for name in ["ycbcr-jpeg-gray.jxl", "modular-gray-alpha12.jxl"] {
         for decoder in BOTH_JXL {
-            rejected(
-                transcode(
-                    &jxl(name),
-                    ImageFormat::JpegXl,
-                    jxl_options(decoder, RENDERED),
-                ),
-                ProcessingErrorKind::UnsupportedInput,
-                LAYOUT,
-            );
+            for (policy, kind, reason) in [
+                (STRICT, ProcessingErrorKind::UnsupportedColor, COLOR),
+                (ASSUME, ProcessingErrorKind::UnsupportedColor, COLOR),
+                (RENDERED, ProcessingErrorKind::UnsupportedInput, LAYOUT),
+            ] {
+                rejected(
+                    transcode(
+                        &jxl(name),
+                        ImageFormat::JpegXl,
+                        jxl_options(decoder, policy),
+                    ),
+                    kind,
+                    reason,
+                );
+            }
         }
     }
 }
@@ -486,6 +557,7 @@ fn jpeg_xl_pixel_limit_is_checked_before_decoding() {
 // ===========================================================================
 // Inputs: still AVIF.
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_irot_and_imir_are_applied_for_all_eight_orientations() {
     for n in 1..=8 {
@@ -495,6 +567,7 @@ fn avif_irot_and_imir_are_applied_for_all_eight_orientations() {
     }
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_clean_aperture_is_rejected() {
     for bytes in [
@@ -521,6 +594,7 @@ fn avif_clean_aperture_is_rejected() {
     .unwrap();
 }
 
+#[cfg(feature = "avif-read")]
 /// Swap the `irot` and `imir` associations of every item in `ipma`, so the
 /// mirror precedes the rotation.
 fn mirror_before_rotation(mut bytes: Vec<u8>) -> Vec<u8> {
@@ -563,6 +637,7 @@ fn mirror_before_rotation(mut bytes: Vec<u8>) -> Vec<u8> {
     bytes
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_imir_before_irot_is_rejected() {
     let reordered = mirror_before_rotation(read(&format!("{ORIENTATION}avif-5.avif")));
@@ -577,6 +652,7 @@ fn avif_imir_before_irot_is_rejected() {
     );
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_image_sequences_are_rejected_without_a_first_frame_fallback() {
     for bytes in [
@@ -599,6 +675,7 @@ fn avif_image_sequences_are_rejected_without_a_first_frame_fallback() {
     }
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_monochrome_is_rejected_at_every_depth() {
     for name in [
@@ -619,6 +696,7 @@ fn avif_monochrome_is_rejected_at_every_depth() {
     }
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted() {
     for name in [
@@ -642,6 +720,7 @@ fn avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted() {
     }
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_alpha_and_grid_stills_are_accepted() {
     let alpha = to_webp(
@@ -658,6 +737,7 @@ fn avif_alpha_and_grid_stills_are_accepted() {
     }
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_gain_map_is_ignored_and_the_base_image_is_read() {
     to_webp(
@@ -667,6 +747,7 @@ fn avif_gain_map_is_ignored_and_the_base_image_is_read() {
     );
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_pq_is_rejected_under_every_policy() {
     for name in ["colors_hdr_rec2020.avif", "seine_hdr_rec2020.avif"] {
@@ -694,6 +775,7 @@ fn avif_pq_is_rejected_under_every_policy() {
     }
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_container_icc_needs_the_rendered_icc_policy() {
     let bytes = avif("paris_icc_exif_xmp.avif");
@@ -711,11 +793,13 @@ fn avif_container_icc_needs_the_rendered_icc_policy() {
     to_webp(&bytes, ImageFormat::Avif, RENDERED);
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_signalled_srgb_passes_the_strict_policy() {
     to_webp(&avif("colors_sdr_srgb.avif"), ImageFormat::Avif, STRICT);
 }
 
+#[cfg(feature = "avif-read")]
 #[test]
 fn avif_pixel_limit_checks_the_rendered_and_the_coded_size() {
     let bytes = avif("sofa_grid1x5_420.avif");
@@ -780,70 +864,57 @@ fn jpeg_pixel_limit_is_checked_after_the_header() {
     );
 }
 
-/// Each built-in encoder: the exact output size passes, one byte less fails.
+/// The exact output size passes, one byte less fails with
+/// `ResourceExhausted` and `reason`.
+#[track_caller]
+fn assert_exact_output_limit(base: TransformOptions, reason: &str) {
+    let output = transcode(SAMPLE_JPEG, ImageFormat::Jpeg, base).unwrap();
+    let exact = TransformOptions {
+        max_output_bytes: output.bytes.len(),
+        ..base
+    };
+    transcode(SAMPLE_JPEG, ImageFormat::Jpeg, exact).unwrap();
+    let below = TransformOptions {
+        max_output_bytes: output.bytes.len() - 1,
+        ..base
+    };
+    rejected(
+        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, below),
+        ProcessingErrorKind::ResourceExhausted,
+        reason,
+    );
+}
+
 /// WebP and lossy JPEG XL stop while writing (the encoder's writer reports a
-/// budget overrun); AVIF and lossless JPEG XL are checked by the facade after
-/// the encoder returns. Both are `ResourceExhausted`.
+/// budget overrun); lossless JPEG XL is checked by the facade after the
+/// encoder returns.
 #[test]
-fn output_byte_limit_applies_at_the_exact_byte_for_every_encoder() {
-    const WHILE_WRITING: &str = "managed buffer needs ";
-    let cases = [
-        (
-            OutputFormat::Avif,
-            AvifEncoder::Libavif { depth: 10 },
-            JpegXlOptions::default(),
+fn output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl() {
+    assert_exact_output_limit(options(OutputFormat::WebP, ASSUME), "managed buffer needs ");
+    assert_exact_output_limit(
+        options(OutputFormat::JpegXl, ASSUME),
+        "managed buffer needs ",
+    );
+    assert_exact_output_limit(
+        TransformOptions {
+            jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
+            ..options(OutputFormat::JpegXl, ASSUME)
+        },
+        OUTPUT_BYTES,
+    );
+}
+
+/// Both AVIF encoders are checked by the facade after the encoder returns.
+#[cfg(all(feature = "avif-write", feature = "avif-own-write"))]
+#[test]
+fn output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders() {
+    for avif_encoder in [AvifEncoder::Libavif { depth: 10 }, AvifEncoder::Rav1e] {
+        assert_exact_output_limit(
+            TransformOptions {
+                avif_encoder,
+                ..options(OutputFormat::Avif, ASSUME)
+            },
             OUTPUT_BYTES,
-        ),
-        (
-            OutputFormat::Avif,
-            AvifEncoder::Rav1e,
-            JpegXlOptions::default(),
-            OUTPUT_BYTES,
-        ),
-        (
-            OutputFormat::WebP,
-            AvifEncoder::default(),
-            JpegXlOptions::default(),
-            WHILE_WRITING,
-        ),
-        (
-            OutputFormat::JpegXl,
-            AvifEncoder::default(),
-            JpegXlOptions::default(),
-            WHILE_WRITING,
-        ),
-        (
-            OutputFormat::JpegXl,
-            AvifEncoder::default(),
-            JpegXlOptions::Lossless { effort: 2 },
-            OUTPUT_BYTES,
-        ),
-    ];
-    for (format, encoder, jpeg_xl, reason) in cases {
-        let base = TransformOptions {
-            avif_encoder: encoder,
-            jpeg_xl,
-            ..options(format, ASSUME)
-        };
-        let output = transcode(SAMPLE_JPEG, ImageFormat::Jpeg, base).unwrap();
-        let exact = TransformOptions {
-            max_output_bytes: output.bytes.len(),
-            ..base
-        };
-        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, exact).unwrap();
-        let below = TransformOptions {
-            max_output_bytes: output.bytes.len() - 1,
-            ..base
-        };
-        let error = transcode(SAMPLE_JPEG, ImageFormat::Jpeg, below).unwrap_err();
-        assert_eq!(
-            error.kind(),
-            ProcessingErrorKind::ResourceExhausted,
-            "{format:?} {encoder:?} {jpeg_xl:?}: {error}"
-        );
-        assert!(
-            error.to_string().starts_with(reason),
-            "{format:?} {encoder:?} {jpeg_xl:?}: {error}"
         );
     }
 }
@@ -906,11 +977,16 @@ fn thread_counts_above_256_and_parallel_webp_encoding_are_invalid() {
 // ===========================================================================
 // Outputs: AVIF through libavif/AOM (default) and rav1e.
 
+#[cfg(all(
+    feature = "avif-read",
+    any(feature = "avif-write", feature = "avif-own-write")
+))]
 /// A transparent source: libavif's alpha still, decoded by the engine.
 fn transparent_avif_source() -> Vec<u8> {
     avif("abc_color_irot_alpha_irot.avif")
 }
 
+#[cfg(all(feature = "avif-read", feature = "avif-own-write"))]
 #[test]
 fn libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx() {
     let output = transcode(
@@ -929,6 +1005,7 @@ fn libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx() {
     read_back_avif_strict(&output);
 }
 
+#[cfg(all(feature = "avif-read", feature = "avif-own-write"))]
 #[test]
 fn libavif_writes_eight_bit_and_420_on_request() {
     let output = transcode(
@@ -946,6 +1023,7 @@ fn libavif_writes_eight_bit_and_420_on_request() {
     read_back_avif_strict(&output);
 }
 
+#[cfg(all(feature = "avif-read", feature = "avif-own-write"))]
 #[test]
 fn libavif_writes_an_alpha_item_only_for_transparent_input() {
     let output = transcode(
@@ -959,6 +1037,7 @@ fn libavif_writes_an_alpha_item_only_for_transparent_input() {
     assert!(webp_has_alpha(&back));
 }
 
+#[cfg(all(feature = "avif-read", feature = "avif-own-write"))]
 #[test]
 fn libavif_quality_speed_and_depth_ranges() {
     let run = |encoder, quality, speed| {
@@ -993,6 +1072,7 @@ fn libavif_quality_speed_and_depth_ranges() {
     );
 }
 
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
 fn rav1e_writes_ten_bit_without_a_container_colr() {
     for (chroma, subsampled) in [
@@ -1021,6 +1101,7 @@ fn rav1e_writes_ten_bit_without_a_container_colr() {
     }
 }
 
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
 fn rav1e_writes_an_alpha_item_for_transparent_input() {
     let output = transcode(
@@ -1036,6 +1117,7 @@ fn rav1e_writes_an_alpha_item_for_transparent_input() {
     assert!(webp_has_alpha(&read_back_avif_strict(&output)));
 }
 
+#[cfg(feature = "avif-write")]
 #[test]
 fn rav1e_quality_and_speed_start_at_one() {
     for (quality, speed) in [(0.0, 6), (75.0, 0), (100.5, 6), (75.0, 11)] {
@@ -1056,6 +1138,7 @@ fn rav1e_quality_and_speed_start_at_one() {
     }
 }
 
+#[cfg(all(feature = "avif-write", feature = "avif-own-write"))]
 #[test]
 fn avif_output_drops_source_metadata_and_writes_upright_pixels() {
     // EXIF orientation 6 (24x16 stored): output is upright, without an
@@ -1162,19 +1245,22 @@ fn webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp() {
 
 #[test]
 fn webp_straight_alpha_output_in_both_profiles() {
+    let source = jxl("effects_rgb_alpha8.jxl");
     for webp in [WebpOptions::default(), WebpOptions::Lossless { level: 6 }] {
         let output = transcode(
-            &transparent_avif_source(),
-            ImageFormat::Avif,
+            &source,
+            ImageFormat::JpegXl,
             TransformOptions {
                 webp,
-                ..options(OutputFormat::WebP, ASSUME)
+                ..options(OutputFormat::WebP, RENDERED)
             },
         )
         .unwrap();
         assert!(webp_has_alpha(&output), "{webp:?}");
-        if matches!(webp, WebpOptions::Lossy { .. }) {
-            assert!(webp_chunks(&output.bytes).contains(b"ALPH"));
+        let chunks = webp_chunks(&output.bytes);
+        match webp {
+            WebpOptions::Lossy { .. } => assert!(chunks.contains(b"ALPH"), "{chunks:?}"),
+            _ => assert!(chunks.contains(b"VP8L"), "{chunks:?}"),
         }
     }
 }
@@ -1289,7 +1375,15 @@ fn jpeg_xl_output_keeps_straight_alpha_in_both_profiles() {
         JpegXlOptions::default(),
         JpegXlOptions::Lossless { effort: 2 },
     ] {
-        let output = jxl_output(&transparent_avif_source(), ImageFormat::Avif, jpeg_xl);
+        let output = transcode(
+            &jxl("effects_rgb_alpha8.jxl"),
+            ImageFormat::JpegXl,
+            TransformOptions {
+                jpeg_xl,
+                ..options(OutputFormat::JpegXl, RENDERED)
+            },
+        )
+        .unwrap();
         let back = transcode(
             &output.bytes,
             ImageFormat::JpegXl,
