@@ -181,8 +181,6 @@ first column of counts is the state of `main`.
    identical bytes; `transcode_batch` accepts thread counts that `transcode`
    rejects. Should an accepted option that has no effect be rejected,
    reported, or documented as an alias?
-2. **A strict mode.** Should there be an option that turns every D2 report
-   into a refusal, for callers that must not lose metadata?
 
 ### Decided since 2026-11-15
 
@@ -197,9 +195,17 @@ first column of counts is the state of `main`.
   step and the report names it (`Discarded::Unpremultiplied`); the two
   steps' arithmetic differs and is written into the supported matrix.
 - **Repeated CLI flags** (formerly the open question of that name):
-  refused; owner decision of 2026-11-15 ("everything else is mostly a silent error"). A
+  refused; owner decision of 2026-11-15 ("everything else is mostly a
+  silent error"). A
   flag given twice, or a pair of mutually exclusive flags, is an error
   naming the flags, before any input is read (`src/cli.rs`; inventory Q7).
+- **A strict mode** (formerly the open question of that name): none for
+  now; owner decision of 2026-11-15. No option turns
+  `ProcessingReport::discarded` into a refusal: a caller checks the set,
+  and a script checks the CLI's `discarded=` key, the last of the
+  `report:` line, which is `none` when nothing was left out. An option can
+  be added later without breaking anything; preserving metadata is a
+  separate feature question.
 
 ## Review when
 
@@ -230,3 +236,5 @@ first column of counts is the state of `main`.
 - 2026-11-15 — Open question on repeated CLI flags decided by the owner:
   a repeated or contradictory flag is an error; implemented on `v1/engine-options` and moved to "Decided since
   2026-11-15", the remaining questions renumbered.
+- 2026-11-15 — Open question on a strict mode decided by the owner: no option for now; moved to "Decided since
+  2026-11-15". The CLI test now reads `discarded=` as a script would.
