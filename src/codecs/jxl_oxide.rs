@@ -1,7 +1,7 @@
 //! JPEG XL adapter: codec-level ROI request, float output scanlines.
 //! ROI is a capability, not a guarantee of skipped internal codec work.
 use crate::color::AlphaMode;
-use jxl_oxide::{CropInfo, JxlImage, PixelFormat};
+use jxl_oxide::{AllocTracker, CropInfo, JxlImage, PixelFormat};
 use std::io::Cursor;
 
 use crate::decoder::{
@@ -17,10 +17,35 @@ pub(crate) struct JxlSource {
     info: DecoderInfo,
 }
 impl JxlSource {
+    #[cfg(test)]
     pub(crate) fn new(bytes: &[u8]) -> Result<Self, Error> {
+        Self::new_bounded(bytes, 64 * 1024 * 1024)
+    }
+
+    /// Opens `bytes` while jxl-oxide may buffer at most `max_input_bytes` of
+    /// frame data, the engine's compressed-input cap.
+    ///
+    /// jxl-frame 0.13 reserves each TOC section's full declared size when it
+    /// starts copying that section, before the bytes are present. A TOC entry
+    /// is `U32` up to 4,211,712 + 2^30 - 1 bytes, so a 285-byte file asked
+    /// for a 1 GiB buffer (smoke run 43690971661, `docs/fuzzing.md`). libjxl
+    /// reads sections in place from the caller's input and rejected the same
+    /// file as truncated. Every section of a file admitted under the cap fits
+    /// in the cap, also when the file is cut short, so the tracker refuses
+    /// only declared sizes that no admitted input can hold; that refusal is
+    /// `AllocationFailed` (`ResourceExhausted`). While frame data is fed, the
+    /// tracker sees only these section buffers. Render buffers are sized
+    /// from the header, after the facade's pixel check, and stay outside
+    /// this limit (issue #200).
+    pub(crate) fn new_bounded(bytes: &[u8], max_input_bytes: usize) -> Result<Self, Error> {
+        let tracker = AllocTracker::with_limit(max_input_bytes);
         let image = JxlImage::builder()
+            .alloc_tracker(tracker.clone())
             .read(Cursor::new(bytes))
-            .map_err(|_| Error::DecodeFailed)?;
+            .map_err(|error| map_read_error(&*error))?;
+        // Rendering is not bounded here: lift the limit to "unlimited", as
+        // jxl-oxide's own `image` integration does, minus what is held.
+        tracker.expand_limit(usize::MAX - max_input_bytes);
         // `render_frame_cropped(0)` would silently return the first keyframe
         // of an animation. Still images only, as for WebP, AVIF and the
         // libjxl-rs backend; no first-frame policy is offered.
@@ -57,6 +82,19 @@ impl JxlSource {
         };
         Ok(Self { image, info })
     }
+}
+
+/// A frame-data buffer refused by the tracker is resource exhaustion; every
+/// other read failure is a decoder rejection.
+fn map_read_error(error: &(dyn std::error::Error + 'static)) -> Error {
+    let mut cause = Some(error);
+    while let Some(current) = cause {
+        if current.is::<jxl_grid::OutOfMemory>() {
+            return Error::AllocationFailed;
+        }
+        cause = current.source();
+    }
+    Error::DecodeFailed
 }
 
 /// The association of the alpha channel jxl-oxide emits (issue #222).

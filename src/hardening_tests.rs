@@ -344,6 +344,115 @@ fn workspace_jxl_unknown_colour_space_is_a_controlled_error() {
     );
 }
 
+// Minimized from the hosted fuzz smoke (run 43690971661,
+// oom-444b7241bd4fef31ceb81b35807441cf9714188c, 12 bytes after `cargo fuzz
+// tmin`, kept without its selector byte): a bare codestream whose single TOC
+// entry declares the largest `U32` size, 4,211,712 + 2^30 - 1 bytes.
+// jxl-frame reserved that before copying the section; libjxl reports the
+// 11-byte file as truncated.
+#[cfg(feature = "jpeg-xl-read")]
+#[test]
+fn jxl_oxide_oversized_toc_section_is_resource_exhaustion() {
+    use crate::codecs::jxl_oxide::JxlSource;
+    use crate::decoder::DecodeSource;
+    use crate::error::Error;
+    use crate::geometry::Rect;
+    use crate::memory::MemoryBudget;
+
+    let hostile = include_bytes!("../tests/fixtures/hostile/jxl-oversized-toc-section.jxl");
+    for cap in [hostile.len(), 512 * 1024, 64 * 1024 * 1024] {
+        let result = catch_unwind(AssertUnwindSafe(|| JxlSource::new_bounded(hostile, cap)));
+        let result = result.expect("JPEG XL adapter setup must not panic");
+        assert!(matches!(result, Err(Error::AllocationFailed)), "cap {cap}");
+    }
+    // A real file renders under a cap of its own length (its sections are
+    // the file), and the limit is lifted for the render buffers.
+    let sample = include_bytes!("../tests/fixtures/sample.jxl");
+    let mut source = JxlSource::new_bounded(sample, sample.len()).unwrap();
+    let size = source.info().size;
+    let region = Rect::new(0, 0, size.width, size.height).unwrap();
+    let mut rows = 0;
+    source
+        .read_region(region, &MemoryBudget::new(1 << 24), &mut |_, _| {
+            rows += 1;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(rows, size.height);
+    // A truncated file whose sections fit the cap keeps its old result:
+    // setup succeeds and the missing data fails the render.
+    let truncated = &sample[..sample.len() * 3 / 4];
+    let mut source = JxlSource::new_bounded(truncated, sample.len()).unwrap();
+    assert!(
+        source
+            .read_region(region, &MemoryBudget::new(1 << 24), &mut |_, _| Ok(()))
+            .is_err()
+    );
+}
+
+#[cfg(feature = "jpeg-xl-own-read")]
+#[test]
+fn workspace_jxl_oversized_toc_section_is_a_controlled_error() {
+    use crate::codecs::jxl::JxlSource;
+    use crate::decoder::DecodeSource;
+    use crate::error::Error;
+    use crate::geometry::Rect;
+    use crate::memory::MemoryBudget;
+
+    // The header is valid, so setup succeeds; like libjxl, the decode finds
+    // the section missing.
+    let hostile = include_bytes!("../tests/fixtures/hostile/jxl-oversized-toc-section.jxl");
+    let result = catch_unwind(AssertUnwindSafe(|| JxlSource::new(hostile)));
+    let mut source = result
+        .expect("workspace JPEG XL setup must not panic")
+        .expect("the header is valid");
+    let size = source.info().size;
+    let region = Rect::new(0, 0, size.width, size.height).unwrap();
+    let result = source.read_region(region, &MemoryBudget::new(1 << 24), &mut |_, _| Ok(()));
+    assert_eq!(result.unwrap_err(), Error::DecodeFailed);
+}
+
+#[cfg(all(feature = "jpeg-xl-read", feature = "webp-write"))]
+#[test]
+fn public_transcode_bounds_jxl_oxide_frame_data_by_the_input_cap() {
+    use crate::pipeline::{
+        ImageFormat, JpegXlDecoder, OutputFormat, ProcessingErrorKind as Kind, TransformOptions,
+        transcode,
+    };
+
+    let hostile = include_bytes!("../tests/fixtures/hostile/jxl-oversized-toc-section.jxl");
+    let options = |max_input_bytes| TransformOptions {
+        output_format: OutputFormat::WebP,
+        output_width: 2,
+        output_height: 2,
+        quality: 75.0,
+        speed: 6,
+        jxl_decoder: JpegXlDecoder::JxlOxide,
+        max_input_bytes,
+        ..TransformOptions::default()
+    };
+    // The fuzz driver's cap and the default cap both refuse the declared
+    // 1 GiB section before anything is reserved.
+    for max_input_bytes in [512 * 1024, TransformOptions::default().max_input_bytes] {
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            transcode(hostile, ImageFormat::JpegXl, options(max_input_bytes))
+        }))
+        .expect("public JPEG XL processing must not panic");
+        assert_eq!(result.unwrap_err().kind(), Kind::ResourceExhausted);
+    }
+    #[cfg(all(feature = "jpeg-xl-own-read", feature = "icc"))]
+    {
+        // The rendered-ICC policy lets the header pass, so the decode runs.
+        let options = TransformOptions {
+            jxl_decoder: JpegXlDecoder::LibjxlRs,
+            profile_policy: crate::pipeline::InputProfilePolicy::UseRenderedIcc,
+            ..options(512 * 1024)
+        };
+        let error = transcode(hostile, ImageFormat::JpegXl, options).unwrap_err();
+        assert_eq!(error.kind(), Kind::MalformedInput);
+    }
+}
+
 #[cfg(all(feature = "jpeg-xl-read", feature = "webp-write"))]
 #[test]
 fn public_transcode_rejects_unknown_jxl_colour_space() {

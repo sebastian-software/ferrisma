@@ -258,6 +258,7 @@ dependencies = [
  "ferrisma-jxl-decoder",
  "ferrisma-jxl-encoder",
  "ferrisma-kernels",
+ "jxl-grid",
  "jxl-oxide",
  "libjpeg-turbo-rs",
  "libjxl-rs",

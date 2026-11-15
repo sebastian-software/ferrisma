@@ -788,9 +788,12 @@ impl DecodeSource for ExplicitSrgb<'_> {
 fn open_source<'a>(
     bytes: &'a [u8],
     format: ImageFormat,
+    max_input_bytes: usize,
     max_pixels: u64,
     jxl_decoder: JpegXlDecoder,
 ) -> Result<Box<dyn DecodeSource + 'a>, ProcessingError> {
+    #[cfg(not(feature = "jpeg-xl-read"))]
+    let _ = max_input_bytes;
     #[cfg(not(any(
         feature = "avif-read",
         feature = "webp-read",
@@ -832,7 +835,10 @@ fn open_source<'a>(
             JpegXlDecoder::JxlOxide => {
                 #[cfg(feature = "jpeg-xl-read")]
                 {
-                    Ok(Box::new(crate::codecs::jxl_oxide::JxlSource::new(bytes)?))
+                    Ok(Box::new(crate::codecs::jxl_oxide::JxlSource::new_bounded(
+                        bytes,
+                        max_input_bytes,
+                    )?))
                 }
                 #[cfg(not(feature = "jpeg-xl-read"))]
                 {
@@ -966,6 +972,7 @@ pub fn inspect(
     let source = open_source(
         encoded,
         format,
+        limits.max_input_bytes,
         limits.max_input_pixels,
         JpegXlDecoder::default(),
     )?;
@@ -1269,6 +1276,7 @@ fn run(
     let mut source = open_source(
         encoded,
         format,
+        options.max_input_bytes,
         options.max_input_pixels,
         options.jxl_decoder,
     )?;
