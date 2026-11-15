@@ -146,8 +146,9 @@ fn transparent_and_text_like_input_encode_to_lossy_jpeg_xl_by_default() {
             };
             assert_eq!(alpha(&samples), alpha(&rgba), "{name}: alpha is exact");
         }
-        // The engine reads opaque output back through jxl-oxide and the
-        // rendered-ICC stage. Transparent lossy (XYB) JPEG XL is not yet
+        // The engine reads opaque output back through its JPEG XL reader and
+        // the rendered-ICC stage (through jxl-oxide until 2026-11-15; it
+        // remains the independent test-only decoder above). Transparent lossy (XYB) JPEG XL is not yet
         // readable by the engine: the rendered-ICC stage accepts only opaque
         // RGB, and without it XYB samples have no verifiable color; the
         // independent decode above checks that output instead.
@@ -157,7 +158,6 @@ fn transparent_and_text_like_input_encode_to_lossy_jpeg_xl_by_default() {
                 readback.to_str().unwrap(),
                 &w,
                 &h,
-                "--jxl-decoder=jxl-oxide",
                 "--use-rendered-icc",
                 "--webp-lossless",
             ]);

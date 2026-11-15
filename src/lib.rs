@@ -159,18 +159,13 @@ mod hardening_tests;
     feature = "webp-read",
     feature = "webp-write",
     feature = "jpeg-xl-read",
-    feature = "jpeg-xl-own-read",
     feature = "avif-read",
     feature = "icc"
 ))]
 mod refusal_reason_tests;
 
-#[cfg(all(test, any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read")))]
+#[cfg(all(test, feature = "jpeg-xl-read"))]
 mod jxl_color_tests;
 
-#[cfg(all(
-    test,
-    feature = "jpeg-xl-write",
-    any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read")
-))]
+#[cfg(all(test, feature = "jpeg-xl-write", feature = "jpeg-xl-read"))]
 mod jxl_alpha_tests;

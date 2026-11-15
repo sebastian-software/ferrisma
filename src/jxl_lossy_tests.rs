@@ -113,7 +113,6 @@ fn encode(
 /// Maximum and mean absolute difference over the RGB samples of two RGBA
 /// buffers, over the pixels whose expected alpha is nonzero (the encoder
 /// replaces color under zero alpha). Alpha itself must match exactly.
-#[cfg(feature = "jpeg-xl-read")]
 fn rgb_error(decoded: &[u8], expected: &[u8]) -> (u8, f64) {
     assert_eq!(decoded.len(), expected.len());
     let mut max = 0;
@@ -311,7 +310,8 @@ fn default_options_of_other_formats_still_match() {
     }
 }
 
-#[cfg(feature = "jpeg-xl-read")]
+/// Cross-checks with jxl-oxide, an independent decoder that is a test-only
+/// dev-dependency since 2026-11-15 (no longer a reader of the engine).
 mod independent_decode {
     use jxl_oxide::color::{
         ColourEncoding, ColourSpace, Primaries, RenderingIntent, TransferFunction, WhitePoint,
@@ -403,7 +403,7 @@ mod independent_decode {
         }
     }
 
-    #[cfg(feature = "jpeg-xl-own-read")]
+    #[cfg(feature = "jpeg-xl-read")]
     #[test]
     fn the_workspace_decoder_reads_straight_alpha_exactly() {
         let (width, height) = (300, 260);
@@ -465,7 +465,7 @@ mod independent_decode {
         }
     }
 
-    #[cfg(feature = "jpeg-xl-own-read")]
+    #[cfg(feature = "jpeg-xl-read")]
     #[test]
     fn the_workspace_decoder_agrees_with_jxl_oxide() {
         let (width, height) = (300, 260);
@@ -514,7 +514,7 @@ mod independent_decode {
     }
 }
 
-#[cfg(all(feature = "jpeg-xl-read", feature = "webp-read"))]
+#[cfg(feature = "webp-read")]
 mod pipeline_round_trip {
     use webp::api::encode::{PixelLayout, PixelRows, encode_lossless};
 

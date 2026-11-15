@@ -170,10 +170,10 @@ def plan(args):
         for name, entry in inputs.items():
             if not name.startswith(wanted):
                 continue
-            decoders = [("", [])]
-            if name.startswith("jxl"):
-                decoders = [("libjxl-rs", ["--jxl-decoder=libjxl-rs"]),
-                            ("jxl-oxide", ["--jxl-decoder=jxl-oxide"])]
+            # One reader per format since 2026-11-15: the CLI's JPEG XL input
+            # is libjxl-rs; jxl-oxide is timed only as the context column of
+            # codec_jxl.sh, not through the engine.
+            decoders = [("libjxl-rs", [])] if name.startswith("jxl") else [("", [])]
             for decoder, flags in decoders:
                 label = f"{name}/{decoder}" if decoder else name
                 for resize in (True, False):

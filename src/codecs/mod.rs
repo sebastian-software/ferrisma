@@ -1,12 +1,10 @@
 //! Optional read-only codec adapters; no codec depends on the graph itself.
 #[cfg(feature = "jpeg-read")]
 pub(crate) mod jpeg;
-#[cfg(feature = "jpeg-xl-own-read")]
-pub(crate) mod jxl;
-#[cfg(any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"))]
-mod jxl_container;
 #[cfg(feature = "jpeg-xl-read")]
-pub(crate) mod jxl_oxide;
+pub(crate) mod jxl;
+#[cfg(feature = "jpeg-xl-read")]
+mod jxl_container;
 
 #[cfg(feature = "avif-read")]
 pub(crate) mod avif;

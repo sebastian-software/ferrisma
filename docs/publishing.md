@@ -15,7 +15,9 @@ declared name and a matching version. This includes **optional**
 dependencies: crates.io resolves the whole manifest, not only the default
 features. A `ferrisma` release with its current features therefore needs every
 package reachable through `jpeg-read`, `webp-read`, `webp-write`,
-`jpeg-xl-own-read`, `avif-read`, and `avif-own-write`.
+`jpeg-xl-read`, `jpeg-xl-write`, `avif-read`, and `avif-own-write`. (Until
+2026-11-15 the workspace JPEG XL reader was `jpeg-xl-own-read`; the dated
+packaging run below used that name.)
 
 ## Packages
 
@@ -29,7 +31,7 @@ crates.io").
 | 1 | `libsharpyuv-core` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 21.1 KiB | Shared SharpYUV core |
 | 1 | `ferrisma-kernels` | 0.1.0 | MIT OR Apache-2.0 | no | 1.98 | yes | 18.3 KiB | Engine SIMD kernels (unconditional dependency) |
 | 1 | JPEG port, today `libjpeg-turbo-rs` | 0.1.0 | IJG AND Zlib | no | 1.95 | yes | 318.9 KiB | `jpeg-read` |
-| 1 | `libjxl-rs` | 0.1.0 | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | no | 1.95 | yes | 868.2 KiB | `jpeg-xl-own-read`, `jpeg-xl-write` |
+| 1 | `libjxl-rs` | 0.1.0 | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | no | 1.95 | yes | 868.2 KiB | `jpeg-xl-read`, `jpeg-xl-write` |
 | 1 | `libavif-aom` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause AND MIT | yes | none (nightly) | yes | **16.6 MiB** | AVIF encode/decode |
 | 1 | `libavif-dav1d` | 0.1.0 | BSD-2-Clause | yes | none (nightly) | yes | 2.6 MiB | Normal dependency of `libavif-rs` |
 | 2 | `libwebp-rs` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 796.9 KiB | `webp-read`, `webp-write` |
@@ -37,7 +39,7 @@ crates.io").
 | 3 | `libavif-rs` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause | yes | none (nightly) | yes | 4.6 MiB | libavif port |
 | 4 | `ferrisma-avif-read` | **0.0.0** | MIT OR Apache-2.0 | yes | none (nightly) | yes (2026-11-14) | 10.0 KiB | `avif-read` safe bridge |
 | 4 | `ferrisma-avif-write` | **0.0.0** | MIT OR Apache-2.0 | yes | none (nightly) | yes (2026-11-14) | 12.5 KiB | `avif-own-write` safe bridge |
-| 4 | `ferrisma-jxl-decoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.95 | yes (2026-11-14) | 13.5 KiB | `jpeg-xl-own-read` safe bridge |
+| 4 | `ferrisma-jxl-decoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.95 | yes (2026-11-14) | 13.5 KiB | `jpeg-xl-read` safe bridge |
 | 4 | `ferrisma-jxl-encoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.95 | yes (2026-11-14) | 17.6 KiB, first packaged 2026-11-14 | `jpeg-xl-write` safe bridge (lossy) |
 | 5 | `ferrisma` | 0.1.0 | MIT OR Apache-2.0 | only for `avif-read`, `avif-own-write`, `cli` | 1.98 | yes | 606.9 KiB | Engine, facade, CLI binary |
 

@@ -2,9 +2,9 @@
 //! every remaining byte is passed unchanged to the selected image decoder.
 
 use ferrisma::pipeline::{
-    AvifEncoder, ImageFormat, InputProfilePolicy, JpegXlDecoder, JpegXlOptions, Output,
-    OutputFormat, ProcessingError, ResizeFit, ResizeOptions, TransformOptions, WorkingPrecision,
-    transcode, transcode_resized,
+    AvifEncoder, ImageFormat, InputProfilePolicy, JpegXlOptions, Output, OutputFormat,
+    ProcessingError, ResizeFit, ResizeOptions, TransformOptions, WorkingPrecision, transcode,
+    transcode_resized,
 };
 
 const MAX_INPUT_BYTES: usize = 512 * 1024;
@@ -15,21 +15,13 @@ const MAX_MANAGED_BYTES: usize = 2 * 1024 * 1024;
 /// Returns `None` for a missing selector or an oversized input. Other errors
 /// are expected fuzz outcomes; a successful result reached the output encoder.
 ///
-/// Every lane pins its backends explicitly, so the engine defaults never
-/// change what a lane covers. This lane keeps the selectable external
-/// backends (jxl-oxide, rav1e); the workspace defaults are covered by
-/// `run_own_jxl_case` and `run_own_avif_case`.
+/// Every lane pins its AVIF encoder explicitly, so the engine default never
+/// changes what a lane covers. JPEG XL input goes through the engine's only
+/// JPEG XL reader, the workspace libjxl-rs port (since 2026-11-15; the
+/// former `transcode_own_jxl` lane, which differed only by that reader, is
+/// merged into this one). This lane keeps rav1e.
 pub fn run_case(bytes: &[u8]) -> Option<Result<Output, ProcessingError>> {
-    run_case_with_backends(bytes, JpegXlDecoder::JxlOxide, AvifEncoder::Rav1e)
-}
-
-/// Runs only JPEG XL inputs through the workspace decoder (the engine default).
-#[cfg(feature = "own-jxl")]
-pub fn run_own_jxl_case(bytes: &[u8]) -> Option<Result<Output, ProcessingError>> {
-    if bytes.first()? & 3 != 1 {
-        return None;
-    }
-    run_case_with_backends(bytes, JpegXlDecoder::LibjxlRs, AvifEncoder::Rav1e)
+    run_case_with_backends(bytes, AvifEncoder::Rav1e)
 }
 
 /// Runs AVIF-output inputs through the workspace AOM writer at the given depth.
@@ -37,11 +29,7 @@ pub fn run_own_avif_case(bytes: &[u8], depth: u8) -> Option<Result<Output, Proce
     if bytes.first()? & 4 != 0 {
         return None;
     }
-    run_case_with_backends(
-        bytes,
-        JpegXlDecoder::JxlOxide,
-        AvifEncoder::Libavif { depth },
-    )
+    run_case_with_backends(bytes, AvifEncoder::Libavif { depth })
 }
 
 /// Engine-managed memory of the JPEG XL output lane. The lossless sink
@@ -200,7 +188,6 @@ pub fn assert_jxl_output(request: &JxlOutRequest, output: &Output) {
 
 fn run_case_with_backends(
     bytes: &[u8],
-    jxl_decoder: JpegXlDecoder,
     avif_encoder: AvifEncoder,
 ) -> Option<Result<Output, ProcessingError>> {
     let (&control, encoded) = bytes.split_first()?;
@@ -239,7 +226,6 @@ fn run_case_with_backends(
     };
     let options = TransformOptions {
         output_format,
-        jxl_decoder,
         // A nondefault AVIF selection conflicts with WebP output; WebP keeps
         // the build's default selection, like the other shared AVIF options.
         avif_encoder: if output_format == OutputFormat::Avif {
@@ -360,20 +346,6 @@ mod tests {
         assert_eq!(error.kind(), ProcessingErrorKind::UnsupportedColor);
     }
 
-    #[cfg(feature = "own-jxl")]
-    #[test]
-    fn workspace_jxl_reaches_both_encoders() {
-        for (flag, format) in [(0, OutputFormat::Avif), (4, OutputFormat::WebP)] {
-            let output = run_own_jxl_case(&framed(1 | flag, JXL))
-                .expect("input admitted by the driver")
-                .expect("workspace JPEG XL fixture must transcode");
-            assert_eq!(output.format, format);
-            assert_eq!(output.report.decoder_full_frame_buffers, 1);
-            assert!(!output.bytes.is_empty());
-        }
-        assert!(run_own_jxl_case(&framed(0, JPEG)).is_none());
-    }
-
     #[test]
     fn workspace_avif_writer_reaches_both_depths_from_every_input_format() {
         for depth in [8, 10] {
@@ -420,12 +392,6 @@ mod tests {
                     Some(result)
                 }) as CaseRunner,
             ),
-            #[cfg(feature = "own-jxl")]
-            (
-                "transcode_own_jxl",
-                "workspace-jxl",
-                run_own_jxl_case as CaseRunner,
-            ),
         ];
         for (lane, variant, run) in lanes {
             let mut paths: Vec<_> = std::fs::read_dir(std::path::Path::new(&root).join(lane))
@@ -443,16 +409,16 @@ mod tests {
                         result.is_ok(),
                         "the supported ICC/alpha seed must reach encoding"
                     );
-                } else if name.starts_with("jxl-oversized-toc-section") {
-                    // jxl-oxide refuses the declared 1 GiB section; the
-                    // workspace reader, like libjxl, finds the file truncated.
-                    let expected = if lane == "transcode" {
-                        ProcessingErrorKind::ResourceExhausted
-                    } else {
-                        ProcessingErrorKind::MalformedInput
-                    };
+                } else if name.starts_with("jxl-oversized-toc-section")
+                    || name.starts_with("jxl-unknown-colour-space")
+                {
+                    // The JPEG XL reader, like libjxl, finds the declared
+                    // 1 GiB section missing and rejects the unknown colour
+                    // space. (Until 2026-11-15 the `transcode` lane read them
+                    // with jxl-oxide: `ResourceExhausted` and
+                    // `UnsupportedColor`.)
                     assert!(
-                        matches!(&result, Err(error) if error.kind() == expected),
+                        matches!(&result, Err(error) if error.kind() == ProcessingErrorKind::MalformedInput),
                         "{lane}/{name}"
                     );
                 } else if name.starts_with("icc-tag-") {
@@ -481,24 +447,26 @@ mod tests {
     }
 
     /// Smoke run 43690971661 (`docs/fuzzing.md`): one TOC section declaring
-    /// 4,211,712 + 2^30 - 1 bytes in an 11-byte codestream. jxl-oxide must
-    /// refuse it under the driver's input cap instead of reserving 1 GiB.
+    /// 4,211,712 + 2^30 - 1 bytes in an 11-byte codestream, found on the
+    /// former jxl-oxide reader. The only JPEG XL reader reserves nothing for
+    /// it and, like libjxl, reports the file truncated, in every lane.
     #[test]
     fn oversized_jxl_toc_section_is_a_controlled_error() {
         const HOSTILE: &[u8] =
             include_bytes!("../../tests/fixtures/hostile/jxl-oversized-toc-section.jxl");
-        let error = run_case(&framed(1, HOSTILE)).unwrap().unwrap_err();
-        assert_eq!(error.kind(), ProcessingErrorKind::ResourceExhausted);
+        for selector in [1, 1 | 4] {
+            let error = run_case(&framed(selector, HOSTILE)).unwrap().unwrap_err();
+            assert_eq!(error.kind(), ProcessingErrorKind::MalformedInput);
+        }
+        let error = run_own_avif_case(&framed(1, HOSTILE), 8)
+            .unwrap()
+            .unwrap_err();
+        assert_eq!(error.kind(), ProcessingErrorKind::MalformedInput);
         let (_, result) = run_jxl_out_case(&framed(1 | 3 << 5, HOSTILE)).unwrap();
         assert_eq!(
             result.unwrap_err().kind(),
             ProcessingErrorKind::MalformedInput
         );
-        #[cfg(feature = "own-jxl")]
-        {
-            let error = run_own_jxl_case(&framed(1, HOSTILE)).unwrap().unwrap_err();
-            assert_eq!(error.kind(), ProcessingErrorKind::MalformedInput);
-        }
     }
 
     #[test]

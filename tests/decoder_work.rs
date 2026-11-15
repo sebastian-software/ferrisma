@@ -7,7 +7,6 @@
     feature = "jpeg-read",
     feature = "webp-read",
     feature = "jpeg-xl-read",
-    feature = "jpeg-xl-own-read",
     feature = "avif-read"
 ))]
 // The JPEG XL tests also need `icc`; with a JPEG XL feature alone the shared
@@ -201,36 +200,12 @@ fn lossless_webp_crop_is_small_but_reconstruction_is_not() {
     assert_eq!(output.report.decoder_work.overfetch_pixels, 41 * 31 - 1200);
 }
 
-/// The explicitly selected jxl-oxide backend returns exactly the crop; its
-/// internal group work is unobserved, so only the output is a lower bound.
-#[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
-#[test]
-fn jxl_oxide_crop_reports_only_a_lower_bound() {
-    let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
-    let crop = rect(1, 1, 4, 3);
-    let options = TransformOptions {
-        jxl_decoder: ferrisma::pipeline::JpegXlDecoder::JxlOxide,
-        profile_policy: InputProfilePolicy::UseRenderedIcc,
-        ..TransformOptions::default()
-    };
-    let output = run(jxl, ImageFormat::JpegXl, crop, options);
-    assert_eq!(output.report.input_access, SourceAccess::CodecRegionRequest);
-    assert_work(
-        output.report.decoder_work,
-        crop,
-        crop,
-        WorkCount::AtLeast(12),
-        WorkCount::AtLeast(3),
-        0,
-    );
-}
-
-/// The libjxl-rs backend (the default when compiled in) decodes the full
+/// The libjxl-rs reader (the only JPEG XL reader) decodes the full
 /// frame for any crop. Since 2026-11-12 (ADR-0032) its wrapper retains only
 /// the requested region through the decoder's image-out callback: the
 /// reconstruction work stays full-frame, but no full-frame buffer is held,
 /// and the full-request test below compares the managed peaks.
-#[cfg(all(feature = "jpeg-xl-own-read", feature = "icc"))]
+#[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
 #[test]
 fn libjxl_rs_crop_reports_the_full_frame_fallback() {
     let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
@@ -240,8 +215,7 @@ fn libjxl_rs_crop_reports_the_full_frame_fallback() {
         ImageFormat::JpegXl,
         crop,
         TransformOptions {
-            jxl_decoder: ferrisma::pipeline::JpegXlDecoder::LibjxlRs,
-            // This backend reports its emitted color as the DATA ICC.
+            // This reader reports its emitted color as the DATA ICC.
             profile_policy: InputProfilePolicy::UseRenderedIcc,
             ..TransformOptions::default()
         },
@@ -263,12 +237,11 @@ fn libjxl_rs_crop_reports_the_full_frame_fallback() {
 /// full-frame buffer. A 4×3 crop of the same file needs at least the
 /// difference between the 24×16 and 4×3 RGB F32 buffers less managed memory
 /// (every other buffer of the crop run is also no larger).
-#[cfg(all(feature = "jpeg-xl-own-read", feature = "icc"))]
+#[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
 #[test]
 fn libjxl_rs_full_request_retains_one_full_frame() {
     let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
     let options = || TransformOptions {
-        jxl_decoder: ferrisma::pipeline::JpegXlDecoder::LibjxlRs,
         profile_policy: InputProfilePolicy::UseRenderedIcc,
         ..TransformOptions::default()
     };

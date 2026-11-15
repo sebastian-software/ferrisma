@@ -96,12 +96,14 @@ fn produced_avif_is_accepted_by_an_independent_decoder() {
     assert_eq!(decoded.info().layout.channels(), 3);
 }
 
+/// The only JPEG XL reader (ADR-0032) hands the rendered ICC profile to the
+/// explicit ICC stage and reconstructs the full frame for the crop. (Until
+/// 2026-11-15 a jxl-oxide twin of this test pinned a codec region request.)
 #[cfg(all(feature = "jpeg-xl-read", feature = "icc", feature = "avif-write"))]
 #[test]
-fn jpeg_xl_icc_can_be_explicitly_transformed_and_encoded() {
-    // jxl-oxide's codec region request: no full-frame decoder buffer.
-    let opts = TransformOptions {
-        jxl_decoder: crate::pipeline::JpegXlDecoder::JxlOxide,
+fn jpeg_xl_icc_is_explicitly_transformed_and_encoded_from_a_full_frame() {
+    use crate::pipeline::SourceAccess;
+    let options = TransformOptions {
         output_width: 3,
         output_height: 2,
         profile_policy: InputProfilePolicy::UseRenderedIcc,
@@ -112,94 +114,14 @@ fn jpeg_xl_icc_can_be_explicitly_transformed_and_encoded() {
     let image = transcode(
         include_bytes!("../tests/fixtures/sample.jxl"),
         ImageFormat::JpegXl,
-        opts,
+        options,
     )
     .unwrap();
     assert_eq!(&image.bytes[4..8], b"ftyp");
     assert_eq!(image.report.decoder_requests, 1);
     assert_eq!(image.report.engine_full_frame_intermediates, 0);
-    assert_eq!(image.report.decoder_full_frame_buffers, 0);
-}
-
-#[cfg(all(feature = "jpeg-xl-own-read", feature = "icc", feature = "avif-write"))]
-#[test]
-fn selected_local_jpeg_xl_decoder_reports_full_frame() {
-    use crate::pipeline::{JpegXlDecoder, SourceAccess};
-    let options = TransformOptions {
-        output_width: 3,
-        output_height: 2,
-        profile_policy: InputProfilePolicy::UseRenderedIcc,
-        jxl_decoder: JpegXlDecoder::LibjxlRs,
-        speed: 9,
-        max_managed_bytes: 1024 * 1024,
-        ..TransformOptions::default()
-    };
-    let image = transcode(
-        include_bytes!("../tests/fixtures/sample.jxl"),
-        ImageFormat::JpegXl,
-        options,
-    )
-    .unwrap();
     assert_eq!(image.report.input_access, SourceAccess::FullFrameFallback);
     assert_eq!(image.report.decoder_full_frame_buffers, 1);
-}
-
-/// The default JPEG XL reader is the workspace port whenever it is compiled
-/// in, and jxl-oxide only when it is the sole JPEG XL backend (ADR-0032).
-/// The report's source access distinguishes the two end to end.
-#[cfg(all(
-    any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"),
-    feature = "icc",
-    feature = "avif-write"
-))]
-#[test]
-fn default_jpeg_xl_decoder_follows_the_compiled_backends() {
-    use crate::pipeline::{JpegXlDecoder, SourceAccess};
-    let options = TransformOptions {
-        output_width: 3,
-        output_height: 2,
-        profile_policy: InputProfilePolicy::UseRenderedIcc,
-        avif_encoder: crate::pipeline::AvifEncoder::Rav1e,
-        speed: 9,
-        max_managed_bytes: 1024 * 1024,
-        ..TransformOptions::default()
-    };
-    let image = transcode(
-        include_bytes!("../tests/fixtures/sample.jxl"),
-        ImageFormat::JpegXl,
-        options,
-    )
-    .unwrap();
-    if cfg!(feature = "jpeg-xl-own-read") {
-        assert_eq!(options.jxl_decoder, JpegXlDecoder::LibjxlRs);
-        assert_eq!(image.report.input_access, SourceAccess::FullFrameFallback);
-        assert_eq!(image.report.decoder_full_frame_buffers, 1);
-    } else {
-        assert_eq!(options.jxl_decoder, JpegXlDecoder::JxlOxide);
-        assert_eq!(image.report.input_access, SourceAccess::CodecRegionRequest);
-        assert_eq!(image.report.decoder_full_frame_buffers, 0);
-    }
-}
-
-#[cfg(all(
-    feature = "jpeg-xl-read",
-    not(feature = "jpeg-xl-own-read"),
-    feature = "avif-write"
-))]
-#[test]
-fn selecting_uncompiled_local_jpeg_xl_decoder_reports_feature_disabled() {
-    use crate::pipeline::{JpegXlDecoder, ProcessingErrorKind};
-    let options = TransformOptions {
-        jxl_decoder: JpegXlDecoder::LibjxlRs,
-        ..TransformOptions::default()
-    };
-    let error = transcode(
-        include_bytes!("../tests/fixtures/sample.jxl"),
-        ImageFormat::JpegXl,
-        options,
-    )
-    .unwrap_err();
-    assert_eq!(error.kind(), ProcessingErrorKind::FeatureDisabled);
 }
 
 #[test]

@@ -89,7 +89,7 @@ jobs:
             # The generated libavif/AOM code does not build here (ADR-0026):
             # no AVIF input and no workspace AOM writer.
             cargo build --release --locked -p ferrisma --example cli_subset \
-              --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,jpeg-xl-write,avif-write,icc
+              --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,avif-write,icc
             echo "CLI=$PWD/target/release/examples/cli_subset" >> "$GITHUB_ENV"
             echo "AVIF_FLAG=" >> "$GITHUB_ENV"
           else

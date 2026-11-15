@@ -2,7 +2,7 @@
 
 A narrow, safe JPEG XL read bridge to `libjxl-rs`, the Ferrisma workspace's
 mechanical Rust port of libjxl, the JPEG XL reference implementation. It is
-the backend of the `jpeg-xl-own-read` feature of
+the backend of the `jpeg-xl-read` feature (formerly `jpeg-xl-own-read`) of
 [`ferrisma`](https://crates.io/crates/ferrisma) and is not meant to be used on
 its own.
 

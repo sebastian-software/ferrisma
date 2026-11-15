@@ -25,15 +25,14 @@
     feature = "webp-read",
     feature = "webp-write",
     feature = "jpeg-xl-read",
-    feature = "jpeg-xl-own-read",
     feature = "jpeg-xl-write",
     feature = "icc"
 ))]
 
 use ferrisma::pipeline::{
-    BatchItem, Engine, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlDecoder,
-    JpegXlOptions, Output, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason,
-    TransformOptions, WebpOptions, inspect, transcode,
+    BatchItem, Engine, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions, Output,
+    OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason, TransformOptions,
+    WebpOptions, inspect, transcode,
 };
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
@@ -47,13 +46,12 @@ fn read(path: &str) -> Vec<u8> {
     std::fs::read(format!("{ROOT}/{path}")).unwrap_or_else(|error| panic!("{path}: {error}"))
 }
 
-fn options(policy: InputProfilePolicy, decoder: JpegXlDecoder) -> TransformOptions {
+fn options(policy: InputProfilePolicy) -> TransformOptions {
     TransformOptions {
         output_format: OutputFormat::WebP,
         output_width: 6,
         output_height: 4,
         profile_policy: policy,
-        jxl_decoder: decoder,
         transform_threads: 1,
         ..TransformOptions::default()
     }
@@ -88,93 +86,83 @@ fn find(bytes: &[u8], needle: &[u8]) -> Option<usize> {
 }
 
 // ---------------------------------------------------------------------------
-// JPEG XL: both readers refuse extra channels the pipeline would drop
-// (since 2026-11-15; before, jxl-oxide accepted these files and dropped or
-// composited the channels without a signal).
+// JPEG XL: the reader refuses extra channels the pipeline would drop. Until
+// 2026-11-15 the jxl-oxide reader accepted these files and dropped or
+// composited the channels without a signal; it was made to refuse them
+// (ADR-0042 D1 and D4) and then removed from the runtime (ADR-0032).
 
-/// Both readers' outcome for one file and policy, as (kind, reason).
-fn both_readers(
+/// The reader's refusal of one file under one policy, as (kind, reason).
+fn refusal(
     bytes: &[u8],
     policy: InputProfilePolicy,
-) -> [(ProcessingErrorKind, Option<RefusalReason>); 2] {
-    [JpegXlDecoder::LibjxlRs, JpegXlDecoder::JxlOxide].map(|decoder| {
-        let error = transcode(bytes, ImageFormat::JpegXl, options(policy, decoder))
-            .expect_err("refused by both readers");
-        (error.kind(), error.refusal_reason())
-    })
+) -> (ProcessingErrorKind, Option<RefusalReason>) {
+    let error = transcode(bytes, ImageFormat::JpegXl, options(policy)).expect_err("refused");
+    (error.kind(), error.refusal_reason())
 }
 
 /// Depth (type 1), spot color (2), selection mask (3), black next to RGB
 /// color (4), CFA (5), thermal (6) and optional (16) extra channels: the
-/// pipeline has no place for them, so both readers refuse the file with
+/// pipeline has no place for them, so the reader refuses the file with
 /// `UnsupportedLayout` under every policy, before any pixel is decoded.
 /// jxl-oxide used to drop them (and composite spot colors into RGB).
 #[test]
-fn both_jpeg_xl_readers_refuse_extra_channels_other_than_alpha() {
+fn jpeg_xl_reader_refuses_extra_channels_other_than_alpha() {
     for kind in [1, 2, 3, 4, 5, 6, 16] {
         let bytes = read(&format!("{JXL_DATA}extra-channel-type-{kind}.jxl"));
         for policy in [InputProfilePolicy::Strict, ASSUME, RENDERED] {
-            for outcome in both_readers(&bytes, policy) {
-                assert_eq!(
-                    outcome,
-                    (
-                        ProcessingErrorKind::UnsupportedInput,
-                        Some(RefusalReason::UnsupportedLayout)
-                    ),
-                    "type {kind} under {policy:?}"
-                );
-            }
+            assert_eq!(
+                refusal(&bytes, policy),
+                (
+                    ProcessingErrorKind::UnsupportedInput,
+                    Some(RefusalReason::UnsupportedLayout)
+                ),
+                "type {kind} under {policy:?}"
+            );
         }
     }
-    // The single alpha channel the pipeline uses is still accepted by both.
+    // The single alpha channel the pipeline uses is accepted.
     let alpha = read(&format!("{JXL_DATA}extra-channel-type-0.jxl"));
-    for decoder in [JpegXlDecoder::LibjxlRs, JpegXlDecoder::JxlOxide] {
-        let output = accepted(transcode(
-            &alpha,
-            ImageFormat::JpegXl,
-            options(RENDERED, decoder),
-        ));
-        assert!(webp_has_alpha(&output), "{decoder:?}");
-    }
+    let output = accepted(transcode(&alpha, ImageFormat::JpegXl, options(RENDERED)));
+    assert!(webp_has_alpha(&output));
 }
 
-/// Two alpha channels: both readers refuse the file as `UnsupportedLayout`
+/// Two alpha channels: the reader refuses the file as `UnsupportedLayout`
 /// (jxl-oxide used to render the first and drop the second).
 #[test]
-fn both_jpeg_xl_readers_refuse_a_second_alpha_channel() {
+fn jpeg_xl_reader_refuses_a_second_alpha_channel() {
     let bytes = read(&format!(
         "{JXL_DATA}extra-channel-alpha-first-unassociated.jxl"
     ));
     for policy in [InputProfilePolicy::Strict, RENDERED] {
-        let [libjxl, oxide] = both_readers(&bytes, policy);
-        assert_eq!(libjxl, oxide, "{policy:?}");
         assert_eq!(
-            oxide,
+            refusal(&bytes, policy),
             (
                 ProcessingErrorKind::UnsupportedInput,
                 Some(RefusalReason::UnsupportedLayout)
-            )
+            ),
+            "{policy:?}"
         );
     }
 }
 
 /// The reserved extra-channel type 15, which libjxl's metadata parser
-/// rejects (the fixture's manifest records the original's error): both
-/// readers report `MalformedInput` without a reason (jxl-oxide used to
+/// rejects (the fixture's manifest records the original's error): the
+/// reader reports `MalformedInput` without a reason (jxl-oxide used to
 /// decode it and drop the channel).
 #[test]
-fn both_jpeg_xl_readers_reject_a_reserved_extra_channel_type() {
+fn jpeg_xl_reader_rejects_a_reserved_extra_channel_type() {
     let bytes = read(&format!("{JXL_DATA}extra-channel-rejected-15.jxl"));
     for policy in [InputProfilePolicy::Strict, RENDERED] {
-        for outcome in both_readers(&bytes, policy) {
-            assert_eq!(outcome, (ProcessingErrorKind::MalformedInput, None));
-        }
+        assert_eq!(
+            refusal(&bytes, policy),
+            (ProcessingErrorKind::MalformedInput, None)
+        );
     }
 }
 
 /// libjxl's `1x1_exif_xmp.jxl` container carries `Exif`, `xml ` and a
-/// `jbrd` (JPEG reconstruction) box beside the codestream. Both readers
-/// decode the pixels and ignore the three boxes; nothing reports that the
+/// `jbrd` (JPEG reconstruction) box beside the codestream. The reader
+/// decodes the pixels and ignore the three boxes; nothing reports that the
 /// metadata or the means of a bit-exact JPEG recovery existed. Not an
 /// endorsement.
 #[test]
@@ -183,13 +171,7 @@ fn jpeg_xl_container_boxes_are_dropped_today() {
     for kind in [b"Exif", b"xml ", b"jbrd"] {
         assert!(find(&bytes, kind).is_some());
     }
-    for decoder in [JpegXlDecoder::LibjxlRs, JpegXlDecoder::JxlOxide] {
-        accepted(transcode(
-            &bytes,
-            ImageFormat::JpegXl,
-            options(RENDERED, decoder),
-        ));
-    }
+    accepted(transcode(&bytes, ImageFormat::JpegXl, options(RENDERED)));
 }
 
 /// JPEG XL output is a raw codestream (ADR-0039), which cannot carry EXIF,
@@ -207,7 +189,7 @@ fn source_exif_and_xmp_are_dropped_from_jpeg_xl_output_today() {
         TransformOptions {
             output_format: OutputFormat::JpegXl,
             jpeg_xl: JpegXlOptions::default(),
-            ..options(RENDERED, JpegXlDecoder::default())
+            ..options(RENDERED)
         },
     ));
     assert_eq!(&output.bytes[..2], &[0xff, 0x0a], "raw codestream");
@@ -228,11 +210,7 @@ fn jpeg_gain_maps_are_ignored_and_the_base_image_is_read_today() {
     for name in ["apple_gainmap_new.jpg", "seine_sdr_gainmap_srgb.jpg"] {
         let bytes = read(&format!("{AVIF_DATA}{name}"));
         assert!(find(&bytes, b"MPF\0").is_some(), "{name} has an MPF index");
-        accepted(transcode(
-            &bytes,
-            ImageFormat::Jpeg,
-            options(RENDERED, JpegXlDecoder::default()),
-        ));
+        accepted(transcode(&bytes, ImageFormat::Jpeg, options(RENDERED)));
     }
 }
 
@@ -261,11 +239,7 @@ fn jpeg_iptc_and_comments_are_dropped_today() {
     ] {
         let bytes = read(&format!("{AVIF_DATA}{name}"));
         assert!(find(&bytes, marker).is_some(), "{name}");
-        let output = accepted(transcode(
-            &bytes,
-            ImageFormat::Jpeg,
-            options(RENDERED, JpegXlDecoder::default()),
-        ));
+        let output = accepted(transcode(&bytes, ImageFormat::Jpeg, options(RENDERED)));
         for chunk in webp_chunks(&output.bytes) {
             assert!(
                 matches!(&chunk, b"VP8X" | b"ICCP" | b"VP8 " | b"VP8L" | b"ALPH"),
@@ -293,11 +267,7 @@ fn corrupted_jpeg_scan_data_decodes_without_an_error_today() {
     for byte in &mut bytes[middle..middle + 16] {
         *byte ^= 0x5a;
     }
-    accepted(transcode(
-        &bytes,
-        ImageFormat::Jpeg,
-        options(ASSUME, JpegXlDecoder::default()),
-    ));
+    accepted(transcode(&bytes, ImageFormat::Jpeg, options(ASSUME)));
 }
 
 /// `sample.jpg` with its JFIF density patched from 1:1 to 2:1 (byte 15, the
@@ -315,11 +285,7 @@ fn jpeg_pixel_aspect_ratio_is_ignored_today() {
         (metadata.width, metadata.height),
         (metadata.stored_width, metadata.stored_height)
     );
-    accepted(transcode(
-        &bytes,
-        ImageFormat::Jpeg,
-        options(ASSUME, JpegXlDecoder::default()),
-    ));
+    accepted(transcode(&bytes, ImageFormat::Jpeg, options(ASSUME)));
 }
 
 // ---------------------------------------------------------------------------
@@ -341,28 +307,21 @@ fn corrupted_webp_payload_decodes_without_an_error_today() {
         for byte in &mut bytes[middle..middle + 16] {
             *byte ^= 0x5a;
         }
-        accepted(transcode(
-            &bytes,
-            ImageFormat::WebP,
-            options(ASSUME, JpegXlDecoder::default()),
-        ));
+        accepted(transcode(&bytes, ImageFormat::WebP, options(ASSUME)));
     }
 }
 
-/// Truncated JPEG XL (both readers) and WebP files are `MalformedInput`,
-/// not a partial image: libjxl-rs needs `FULL_IMAGE` and `SUCCESS`, and
-/// jxl-oxide does not render a partially loaded frame here. (JPEG:
+/// Truncated JPEG XL and WebP files are `MalformedInput`, not a partial
+/// image: libjxl-rs needs `FULL_IMAGE` and `SUCCESS`. (JPEG:
 /// `supported_matrix::jpeg_truncated_is_malformed`; AVIF below.)
 #[test]
 fn truncated_inputs_are_malformed() {
     let jxl = read("tests/fixtures/jxl-lossless/rgb-300x260.jxl");
-    for decoder in [JpegXlDecoder::LibjxlRs, JpegXlDecoder::JxlOxide] {
-        for cut in [jxl.len() - 1, jxl.len() / 2] {
-            refused(
-                transcode(&jxl[..cut], ImageFormat::JpegXl, options(RENDERED, decoder)),
-                ProcessingErrorKind::MalformedInput,
-            );
-        }
+    for cut in [jxl.len() - 1, jxl.len() / 2] {
+        refused(
+            transcode(&jxl[..cut], ImageFormat::JpegXl, options(RENDERED)),
+            ProcessingErrorKind::MalformedInput,
+        );
     }
     for name in [
         "tests/fixtures/webp/reference-lossy.webp",
@@ -370,11 +329,7 @@ fn truncated_inputs_are_malformed() {
     ] {
         let webp = read(name);
         refused(
-            transcode(
-                &webp[..webp.len() - 1],
-                ImageFormat::WebP,
-                options(ASSUME, JpegXlDecoder::default()),
-            ),
+            transcode(&webp[..webp.len() - 1], ImageFormat::WebP, options(ASSUME)),
             ProcessingErrorKind::MalformedInput,
         );
     }
@@ -401,7 +356,7 @@ fn webp_lossy_speeds_collapse_in_pairs_today() {
                 },
                 output_width: 200,
                 output_height: 133,
-                ..options(ASSUME, JpegXlDecoder::default())
+                ..options(ASSUME)
             },
         ))
         .bytes
@@ -431,7 +386,7 @@ fn batch_accepts_thread_counts_that_transcode_rejects_today() {
         options: TransformOptions {
             transform_threads: 1000,
             encoder_threads: 1000,
-            ..options(ASSUME, JpegXlDecoder::default())
+            ..options(ASSUME)
         },
     };
     refused(
@@ -447,19 +402,6 @@ fn batch_accepts_thread_counts_that_transcode_rejects_today() {
         ),
         (1, 1)
     );
-}
-
-/// `TransformOptions::jxl_decoder` is accepted for any input format and
-/// ignored for every format but JPEG XL. The report names the reader that
-/// ran (`decoder_backend`), so a caller can see it; recorded as (C).
-#[test]
-fn jpeg_xl_reader_selection_is_ignored_for_jpeg_input_and_reported() {
-    let output = accepted(transcode(
-        &read("tests/fixtures/sample.jpg"),
-        ImageFormat::Jpeg,
-        options(ASSUME, JpegXlDecoder::JxlOxide),
-    ));
-    assert_eq!(output.report.decoder_backend, "libjpeg-turbo-rs");
 }
 
 // ---------------------------------------------------------------------------
@@ -505,11 +447,7 @@ fn mark_unknown_essential(mut bytes: Vec<u8>, index: usize) -> Vec<u8> {
 #[track_caller]
 fn assert_refused_as_essential(bytes: &[u8]) {
     let error = refused(
-        transcode(
-            bytes,
-            ImageFormat::Avif,
-            options(ASSUME, JpegXlDecoder::default()),
-        ),
+        transcode(bytes, ImageFormat::Avif, options(ASSUME)),
         ProcessingErrorKind::UnsupportedInput,
     );
     assert_eq!(
@@ -526,11 +464,7 @@ fn assert_refused_as_essential(bytes: &[u8]) {
 #[test]
 fn avif_alpha_item_with_an_unknown_essential_property_is_refused() {
     let original = read(&format!("{AVIF_DATA}abc_color_irot_alpha_irot.avif"));
-    let output = accepted(transcode(
-        &original,
-        ImageFormat::Avif,
-        options(ASSUME, JpegXlDecoder::default()),
-    ));
+    let output = accepted(transcode(&original, ImageFormat::Avif, options(ASSUME)));
     assert!(webp_has_alpha(&output), "the unpatched file keeps alpha");
     assert_refused_as_essential(&mark_unknown_essential(original, 6));
 }
@@ -542,11 +476,7 @@ fn avif_alpha_item_with_an_unknown_essential_property_is_refused() {
 #[test]
 fn avif_grid_cell_with_an_unknown_essential_property_is_refused() {
     let original = read(&format!("{AVIF_DATA}sofa_grid1x5_420.avif"));
-    accepted(transcode(
-        &original,
-        ImageFormat::Avif,
-        options(ASSUME, JpegXlDecoder::default()),
-    ));
+    accepted(transcode(&original, ImageFormat::Avif, options(ASSUME)));
     assert_refused_as_essential(&mark_unknown_essential(original, 4));
 }
 
@@ -565,7 +495,7 @@ fn avif_unknown_essential_property_on_an_unused_item_is_not_a_refusal() {
     let output = accepted(transcode(
         &mark_unknown_essential(bytes, 6),
         ImageFormat::Avif,
-        options(ASSUME, JpegXlDecoder::default()),
+        options(ASSUME),
     ));
     assert!(!webp_has_alpha(&output));
 }
@@ -581,7 +511,7 @@ fn avif_non_essential_unknown_properties_are_ignored_today() {
     let output = accepted(transcode(
         &read(&format!("{AVIF_DATA}circle_custom_properties.avif")),
         ImageFormat::Avif,
-        options(ASSUME, JpegXlDecoder::default()),
+        options(ASSUME),
     ));
     assert!(webp_has_alpha(&output));
 }
@@ -597,11 +527,7 @@ fn avif_non_essential_unknown_properties_are_ignored_today() {
 fn avif_sample_transform_alternative_is_ignored_today() {
     let bytes = read(&format!("{AVIF_DATA}weld_sato_12B_8B_q0.avif"));
     assert!(find(&bytes, b"satoSampleTransform").is_some());
-    accepted(transcode(
-        &bytes,
-        ImageFormat::Avif,
-        options(ASSUME, JpegXlDecoder::default()),
-    ));
+    accepted(transcode(&bytes, ImageFormat::Avif, options(ASSUME)));
 }
 
 /// Truncated AVIF is `MalformedInput`, not a partial image.
@@ -611,11 +537,7 @@ fn truncated_avif_is_malformed() {
     let bytes = read(&format!("{AVIF_DATA}paris_icc_exif_xmp.avif"));
     for cut in [bytes.len() - 1, bytes.len() / 2] {
         refused(
-            transcode(
-                &bytes[..cut],
-                ImageFormat::Avif,
-                options(RENDERED, JpegXlDecoder::default()),
-            ),
+            transcode(&bytes[..cut], ImageFormat::Avif, options(RENDERED)),
             ProcessingErrorKind::MalformedInput,
         );
     }
@@ -627,7 +549,7 @@ fn truncated_avif_is_malformed() {
 /// The CLI applies flags in order and a later flag of the same kind
 /// silently replaces an earlier one (`--avif-encoder` and `--avif-depth`
 /// are the only flags refused when repeated). Contradictory instructions
-/// such as `--use-rendered-icc --assume-srgb` or two `--jxl-decoder=`
+/// such as `--use-rendered-icc --assume-srgb` or two `--transform-threads=`
 /// values therefore succeed with the last one. Not an endorsement.
 #[cfg(feature = "cli")]
 #[test]
@@ -653,11 +575,11 @@ fn cli_later_flags_silently_replace_earlier_ones_today() {
         "tests/fixtures/sample.jxl",
         &[
             "--use-rendered-icc",
-            "--jxl-decoder=jxl-oxide",
-            "--jxl-decoder=libjxl-rs",
+            "--transform-threads=4",
+            "--transform-threads=1",
         ],
     );
-    assert!(report.contains(" decoder=libjxl-rs "), "{report}");
+    assert!(report.contains(" transform_threads=1 "), "{report}");
     let report = run(
         "tests/fixtures/sample.jpg",
         &["--use-rendered-icc", "--assume-srgb"],

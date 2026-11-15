@@ -2,12 +2,7 @@
 //! can carry an animation rejects it through the facade as unsupported input.
 //! There is no first-frame fallback; a still image of the same format is
 //! accepted. JPEG has no animation; its MPF secondary images are not read.
-#![cfg(any(
-    feature = "webp-read",
-    feature = "jpeg-xl-read",
-    feature = "jpeg-xl-own-read",
-    feature = "avif-read"
-))]
+#![cfg(any(feature = "webp-read", feature = "jpeg-xl-read", feature = "avif-read"))]
 
 use ferrisma::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
@@ -79,32 +74,12 @@ fn animated_webp_is_rejected() {
 
 #[cfg(feature = "jpeg-xl-read")]
 #[test]
-fn animated_jpeg_xl_is_rejected_by_jxl_oxide() {
+fn animated_jpeg_xl_is_rejected() {
     let animated = include_bytes!(
         "../codecs/libjxl-rs/tests/data/decoder-geometry/sequence-reference-overwrite-animation-1.jxl"
     );
-    let options = TransformOptions {
-        jxl_decoder: ferrisma::pipeline::JpegXlDecoder::JxlOxide,
-        ..srgb()
-    };
     assert_eq!(
-        kind(animated, ImageFormat::JpegXl, options),
-        ProcessingErrorKind::UnsupportedInput
-    );
-}
-
-#[cfg(feature = "jpeg-xl-own-read")]
-#[test]
-fn animated_jpeg_xl_is_rejected_by_libjxl_rs() {
-    let animated = include_bytes!(
-        "../codecs/libjxl-rs/tests/data/decoder-geometry/sequence-reference-overwrite-animation-1.jxl"
-    );
-    let options = TransformOptions {
-        jxl_decoder: ferrisma::pipeline::JpegXlDecoder::LibjxlRs,
-        ..srgb()
-    };
-    assert_eq!(
-        kind(animated, ImageFormat::JpegXl, options),
+        kind(animated, ImageFormat::JpegXl, srgb()),
         ProcessingErrorKind::UnsupportedInput
     );
 }

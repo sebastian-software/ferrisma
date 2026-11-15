@@ -9,8 +9,8 @@ use std::process::ExitCode;
 
 use crate::pipeline::{
     AvifEncoder, ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy,
-    JpegXlDecoder, JpegXlOptions, KernelLevel, Output, OutputFormat, ResizeFilter,
-    TransformOptions, WebpOptions, WorkingPrecision, transcode, transcode_with,
+    JpegXlOptions, KernelLevel, Output, OutputFormat, ResizeFilter, TransformOptions, WebpOptions,
+    WorkingPrecision, transcode, transcode_with,
 };
 
 // Bound the stream itself: file metadata can be absent or change after opening.
@@ -64,8 +64,6 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
         "--use-rendered-icc" => options.profile_policy = InputProfilePolicy::UseRenderedIcc,
         "--area" => options.filter = ResizeFilter::Area,
         "--reference" => options.precision = WorkingPrecision::F64Reference,
-        "--jxl-decoder=jxl-oxide" => options.jxl_decoder = JpegXlDecoder::JxlOxide,
-        "--jxl-decoder=libjxl-rs" => options.jxl_decoder = JpegXlDecoder::LibjxlRs,
         option if option.starts_with("--quality=") => match options.output_format {
             OutputFormat::Avif => options.quality = option[10..].parse()?,
             OutputFormat::WebP => match options.webp {
@@ -201,7 +199,6 @@ fn version_text(build_id: Option<&str>) -> String {
         (cfg!(feature = "webp-read"), "webp-read"),
         (cfg!(feature = "webp-write"), "webp-write"),
         (cfg!(feature = "jpeg-xl-read"), "jpeg-xl-read"),
-        (cfg!(feature = "jpeg-xl-own-read"), "jpeg-xl-own-read"),
         (cfg!(feature = "jpeg-xl-write"), "jpeg-xl-write"),
         (cfg!(feature = "avif-read"), "avif-read"),
         (cfg!(feature = "avif-write"), "avif-write"),
@@ -249,7 +246,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--jxl-decoder=libjxl-rs (default)|jxl-oxide] [--area] [--reference] [--avif-encoder=libavif (default with avif-own-write)|rav1e] [--avif-depth=8|10 (libavif, default 10)] [--quality=75 (selected encoder's own scale; rav1e 1-100, libavif 0-100, not comparable)] [--speed=6 (rav1e 1-10, libavif 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--avif-encoder=libavif (default with avif-own-write)|rav1e] [--avif-depth=8|10 (libavif, default 10)] [--quality=75 (selected encoder's own scale; rav1e 1-100, libavif 0-100, not comparable)] [--speed=6 (rav1e 1-10, libavif 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }
@@ -433,7 +430,7 @@ fn discarded_value(discarded: crate::pipeline::DiscardedSet) -> String {
 #[cfg(test)]
 mod tests {
     use super::{apply_option, is_version_request, read_input, version_text};
-    use crate::pipeline::{JpegXlDecoder, TransformOptions};
+    use crate::pipeline::TransformOptions;
     use std::io::{self, Cursor, Read};
 
     #[test]
@@ -599,25 +596,13 @@ mod tests {
     }
 
     #[test]
-    fn selects_jpeg_xl_decoder_explicitly() {
+    fn the_removed_jpeg_xl_reader_selection_is_an_unknown_option() {
+        // One JPEG XL reader since 2026-11-15 (ADR-0032): the former
+        // `--jxl-decoder=` selector is refused, not ignored.
         let mut options = TransformOptions::default();
-        // The workspace reader is the default whenever it is compiled in;
-        // jxl-oxide is the default only when it is the sole JPEG XL backend.
-        #[cfg(feature = "jpeg-xl-own-read")]
-        assert_eq!(options.jxl_decoder, JpegXlDecoder::LibjxlRs);
-        #[cfg(all(feature = "jpeg-xl-read", not(feature = "jpeg-xl-own-read")))]
-        assert_eq!(options.jxl_decoder, JpegXlDecoder::JxlOxide);
-        apply_option(&mut options, "--jxl-decoder=libjxl-rs").unwrap();
-        assert_eq!(options.jxl_decoder, JpegXlDecoder::LibjxlRs);
-        apply_option(&mut options, "--jxl-decoder=jxl-oxide").unwrap();
-        assert_eq!(options.jxl_decoder, JpegXlDecoder::JxlOxide);
-        assert!(apply_option(&mut options, "--jxl-decoder=unknown").is_err());
-        // Without any JPEG XL backend the default names the workspace reader,
-        // whose missing feature is then reported.
-        #[cfg(not(any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read")))]
-        assert_eq!(
-            TransformOptions::default().jxl_decoder,
-            JpegXlDecoder::LibjxlRs
-        );
+        for flag in ["--jxl-decoder=libjxl-rs", "--jxl-decoder=jxl-oxide"] {
+            let error = apply_option(&mut options, flag).unwrap_err();
+            assert!(error.to_string().starts_with("unknown option"), "{error}");
+        }
     }
 }

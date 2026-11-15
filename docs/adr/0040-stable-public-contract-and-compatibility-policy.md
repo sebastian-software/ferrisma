@@ -57,7 +57,6 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `ChromaSubsampling` | enum | Stable | Non-exhaustive |
 | `AvifEncoder::Rav1e` | enum variant | Stable | Non-exhaustive enum |
 | `AvifEncoder::Libavif`, `LibavifBackend` | variant, struct | Experimental (`avif-own-write`, nightly) | ADR-0037 |
-| `JpegXlDecoder` | enum | `JxlOxide` stable as "default JPEG XL reader"; `LibjxlRs` experimental (`jpeg-xl-own-read`) | Non-exhaustive |
 | `WorkingPrecision` | enum | `F32` stable; `F64Reference` experimental (verification only) | Non-exhaustive |
 | `Output` | struct | Stable | Non-exhaustive; `format`, `bytes`, `width`, `height`, `report` |
 | `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive; new fields are additive. `decoder_backend` and `encoder_backend` strings are experimental values (2026-11-14, #217) |
@@ -83,8 +82,7 @@ binary's command line, not this function, is the stable CLI contract.
 | --- | --- | --- |
 | `jpeg-read`, `webp-read`, `webp-write`, `icc` | Stable | Stable 1.98 |
 | `avif-write` (rav1e) | Stable as "AVIF output"; the backend behind it may change per ADR-0025 | Stable 1.98; NASM on x86-64 |
-| `jpeg-xl-read` | Stable as "JPEG XL input"; backend may change per ADR-0025 (#55) | Stable 1.98 |
-| `jpeg-xl-own-read` | Experimental | Stable 1.98 |
+| `jpeg-xl-read` | Stable as "JPEG XL input"; since 2026-11-15 the workspace libjxl-rs reader, the only one (ADR-0032) | Stable 1.98 |
 | `jpeg-xl-write` (in `cli` since 2026-11-12, ADR-0039) | Experimental | Stable 1.98 |
 | `avif-read`, `avif-own-write` | Experimental until they build on stable | Pinned nightly, native targets only |
 | `cli` | Stable command line; inherits the nightly requirement through `avif-read`/`avif-own-write` | Pinned nightly |
@@ -100,7 +98,7 @@ binary's command line, not this function, is the stable CLI contract.
 | `--max-input-mb=`, `--max-input-mpx=`, `--budget-mb=`, `--max-output-mb=` | Stable |
 | `--transform-threads=`, `--encoder-threads=` | Stable |
 | `--area` | Stable, see problem 15 |
-| `--avif-encoder=rav1e\|libavif`, `--avif-depth=8\|10`, `--jxl-decoder=jxl-oxide\|libjxl-rs` | Experimental (selects experimental backends) |
+| `--avif-encoder=rav1e\|libavif`, `--avif-depth=8\|10` | Experimental (selects experimental backends) |
 | `--reference`, `--kernel-level=scalar\|neon\|avx2\|avx512` | Experimental (verification and diagnostics) |
 | `.jxl` output, `--jxl-distance=`, `--jxl-lossless` (ADR-0039) | Experimental |
 | Exit status 0 success, 2 usage (fewer than four positional arguments), 1 any other error (Rust's default `Error: …` on stderr) | Stable |
@@ -356,3 +354,13 @@ reports that a stable item cannot express its use case.
   (additive, decision 2); the rule is [ADR-0042](0042-no-silent-loss-refuse-or-report.md)
   D2, the design the [ADR-0017](0017-minimal-public-facade-and-cli.md)
   amendment of the same date.
+- 2026-11-15 — Removed items (owner decision, ADR-0032; pre-1.0 breaking
+  change of the inventory): `JpegXlDecoder` with `JxlOxide` and
+  `LibjxlRs`, `TransformOptions::jxl_decoder`, the CLI flag
+  `--jxl-decoder=`, the `decoder_backend` value `"jxl-oxide"`, and the
+  feature `jpeg-xl-own-read`. `jpeg-xl-read` keeps its tier ("JPEG XL
+  input") and now compiles the workspace reader, which was
+  `jpeg-xl-own-read` (working decision 2026-11-15, delegated, revisable by
+  the owner). A build that enabled `jpeg-xl-read` keeps JPEG XL input; one
+  that enabled `jpeg-xl-own-read` must rename it; code that set
+  `jxl_decoder` must drop the field.

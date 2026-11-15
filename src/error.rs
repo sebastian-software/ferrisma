@@ -44,11 +44,7 @@ pub(crate) enum Error {
     IncompleteDecoderOutput,
     NonFinitePixelSample,
     InvalidAlphaValue,
-    #[cfg(any(
-        feature = "avif-read",
-        feature = "webp-read",
-        feature = "jpeg-xl-own-read"
-    ))]
+    #[cfg(any(feature = "avif-read", feature = "webp-read", feature = "jpeg-xl-read"))]
     InputPixelLimitExceeded {
         pixels: u64,
         limit: u64,
@@ -88,25 +84,13 @@ pub(crate) enum Error {
     /// A PQ or HLG transfer in the decoder's own color signal (ADR-0016
     /// rule 7); prints as [`Self::UnsupportedColorEncoding`].
     #[cfg_attr(
-        not(any(
-            feature = "jpeg-xl-read",
-            feature = "jpeg-xl-own-read",
-            feature = "icc"
-        )),
+        not(any(feature = "jpeg-xl-read", feature = "icc")),
         allow(
             dead_code,
             reason = "constructed only by the JPEG XL adapters and the ICC stage"
         )
     )]
     HdrTransfer,
-    /// A well-formed enum color encoding the decoder cannot render
-    /// (jxl-oxide: unknown or XYB colour space, unknown transfer); prints as
-    /// [`Self::UnsupportedColorEncoding`].
-    #[cfg_attr(
-        not(feature = "jpeg-xl-read"),
-        allow(dead_code, reason = "constructed only by the jxl-oxide adapter")
-    )]
-    UnrenderableColorEncoding,
     /// The rendered-ICC policy, but the decoder reports no ICC profile;
     /// prints as [`Self::UnsupportedColorEncoding`].
     #[cfg(feature = "icc")]
@@ -120,12 +104,7 @@ pub(crate) enum Error {
     /// Animated input; only still images are decoded (no first-frame
     /// fallback).
     #[cfg_attr(
-        not(any(
-            feature = "webp-read",
-            feature = "jpeg-xl-read",
-            feature = "jpeg-xl-own-read",
-            feature = "avif-read"
-        )),
+        not(any(feature = "webp-read", feature = "jpeg-xl-read", feature = "avif-read")),
         allow(dead_code, reason = "constructed only by animated-format adapters")
     )]
     UnsupportedAnimation,
@@ -140,7 +119,7 @@ pub(crate) enum Error {
     #[cfg_attr(
         not(any(
             feature = "jpeg-read",
-            feature = "jpeg-xl-own-read",
+            feature = "jpeg-xl-read",
             feature = "avif-read",
             feature = "icc"
         )),
@@ -211,11 +190,7 @@ impl fmt::Display for Error {
                 write!(f, "JPEG XL encoder profile: {reason}")
             }
             Self::EncodeFailed => write!(f, "encoder failed"),
-            #[cfg(any(
-                feature = "avif-read",
-                feature = "webp-read",
-                feature = "jpeg-xl-own-read"
-            ))]
+            #[cfg(any(feature = "avif-read", feature = "webp-read", feature = "jpeg-xl-read"))]
             Self::InputPixelLimitExceeded { pixels, limit } => {
                 write!(
                     f,
@@ -240,9 +215,9 @@ impl fmt::Display for Error {
             Self::InvalidAlphaValue => {
                 write!(f, "straight alpha must be finite and between zero and one")
             }
-            Self::UnsupportedColorEncoding
-            | Self::HdrTransfer
-            | Self::UnrenderableColorEncoding => f.write_str(UNSUPPORTED_COLOR_ENCODING),
+            Self::UnsupportedColorEncoding | Self::HdrTransfer => {
+                f.write_str(UNSUPPORTED_COLOR_ENCODING)
+            }
             #[cfg(feature = "icc")]
             Self::RenderedIccMissing => f.write_str(UNSUPPORTED_COLOR_ENCODING),
             #[cfg(feature = "icc")]

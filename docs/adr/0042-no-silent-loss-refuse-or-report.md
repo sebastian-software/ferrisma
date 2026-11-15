@@ -103,7 +103,8 @@ this ADR only requires that an unsupported case ends as D1 says.
 
 - Some files that were accepted are refused: AVIF files with an unknown
   essential property on an item the reader uses, and JPEG XL files with
-  contributing extra channels on the `jxl-oxide` reader. For a caller that
+  contributing extra channels on the `jxl-oxide` reader (which has since left
+  the runtime). For a caller that
   relied on the old result this is a behavior change; the old result was a
   wrong picture.
 - `ProcessingReport` grows a field, and the CLI report line a key. Both are
@@ -143,8 +144,9 @@ this ADR only requires that an unsupported case ends as D1 says.
   real fixtures; `tests/supported_matrix.rs` pins every refusal with kind,
   message and reason.
 - For D1 and D4: the two wrong-picture cases have tests that assert the
-  refusal and that both JPEG XL readers return the same kind and reason for
-  the same file.
+  refusal and, while JPEG XL had two readers, that both returned the same
+  kind and reason for the same file. Since 2026-11-15 JPEG XL has one
+  reader, and the tests pin its refusals.
 - For D2: each reported class has a test with a fixture that has the thing
   and one that does not, so a class is neither missed nor reported
   unconditionally.
@@ -162,9 +164,11 @@ the same kind and reason for the audited files, asserted in
 `tests/silent_drops.rs`), and D2 (`ProcessingReport::discarded` with eleven
 classes and the CLI key `discarded=`, each proven by
 `tests/discarded_report.rs` with a fixture that has it and one that does
-not). D4 for JPEG XL is also met by removing the jxl-oxide runtime reader,
-which the owner decided on 2026-11-15 for after the libjxl-rs AVX2 speed
-fix. The [inventory](../silent-drops-audit-2026-11-15.md) moves 48 items to
+not). D4 for JPEG XL is also met by removal: branch `v1/remove-alt-backends`
+removes the jxl-oxide runtime reader (owner decision of 2026-11-15, taken for
+after the libjxl-rs AVX2 speed fix, which landed in `75c31f0d`), so every
+JPEG XL file has one reader and the inventory's jxl-oxide rows X6 to X9 are
+resolved by removal ([ADR-0032](0032-jpeg-xl-workspace-decoder-input.md#the-only-reader-2026-11-15-owner-decision)). The [inventory](../silent-drops-audit-2026-11-15.md) moves 48 items to
 "reported"; open under D6 remain the documented-only items and six
 undocumented ones; among the documented ones is out-of-gamut clipping, which cannot be
 detected cheaply and exactly apart from resampling overshoot and is
@@ -211,3 +215,7 @@ first column of counts is the state of `main`.
 - 2026-11-15 — Open question 1 (rendering intent) decided by the owner:
   relative colorimetric, set explicitly (ADR-0016 amendment); moved to
   "Decided since 2026-11-15", the remaining questions renumbered.
+- 2026-11-15 — D4 for JPEG XL met by removal: the jxl-oxide runtime reader
+  is removed (ADR-0032, owner decision), so JPEG XL has one reader; the
+  state paragraph under Validation and the inventory (X6 to X9 and Q3
+  resolved by removal) are updated. No decision changed.

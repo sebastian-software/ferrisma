@@ -14,7 +14,8 @@ publish = false
 libjxl-rs = { path = "../../codecs/libjxl-rs", version = "0.1.0" }
 
 [dev-dependencies]
-# Comparison-only dependency of this wrapper; the engine also uses it separately.
+# Comparison-only dependency of this wrapper (the benchmark's context column);
+# the engine uses it only as a test-only cross-check since 2026-11-15.
 jxl-oxide = { version = "0.12.6", default-features = false }
 
 [[example]]

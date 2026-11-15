@@ -141,7 +141,7 @@ pub enum ImageFormat {
     Jpeg,
     /// Still WebP; requires `webp-read`.
     WebP,
-    /// JPEG XL; requires the backend feature selected by [`JpegXlDecoder`].
+    /// JPEG XL; requires `jpeg-xl-read` (the workspace libjxl-rs reader).
     JpegXl,
     /// Still AVIF; requires `avif-read`.
     Avif,
@@ -230,40 +230,6 @@ pub struct Crop {
     pub height: u32,
 }
 
-/// Select the JPEG XL input backend.
-///
-/// The default is the workspace libjxl-rs reader whenever `jpeg-xl-own-read`
-/// is compiled in; `jxl-oxide` is the default only in builds that enable
-/// `jpeg-xl-read` without `jpeg-xl-own-read` (ADR-0032). Because Cargo
-/// features are additive, a dependency that enables `jpeg-xl-own-read` changes
-/// this default for the whole build; select a variant explicitly when the
-/// backend must not depend on feature unification.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum JpegXlDecoder {
-    /// The `jxl-oxide` reader with a codec region request; requires
-    /// `jpeg-xl-read`. Explicit opt-in when `jpeg-xl-own-read` is also enabled.
-    JxlOxide,
-    /// The workspace libjxl-rs reference-port reader; requires
-    /// `jpeg-xl-own-read`. It reconstructs the full upright frame for every
-    /// crop and reports a full-frame fallback with opaque codec memory.
-    LibjxlRs,
-}
-
-impl Default for JpegXlDecoder {
-    /// [`JpegXlDecoder::LibjxlRs`] unless only `jpeg-xl-read` is compiled in.
-    fn default() -> Self {
-        if cfg!(all(
-            feature = "jpeg-xl-read",
-            not(feature = "jpeg-xl-own-read")
-        )) {
-            Self::JxlOxide
-        } else {
-            Self::LibjxlRs
-        }
-    }
-}
-
 /// Explicit output geometry, quality, profile assumption and memory budget.
 /// Encoder scratch allocations are opaque and not constrained by the budget.
 #[derive(Clone, Copy, Debug)]
@@ -301,8 +267,6 @@ pub struct TransformOptions {
     pub transform_threads: usize,
     /// How missing or rendered ICC color is handled.
     pub profile_policy: InputProfilePolicy,
-    /// JPEG XL input backend; see [`JpegXlDecoder::default`].
-    pub jxl_decoder: JpegXlDecoder,
     /// AVIF quality on the selected encoder's own scale, passed unchanged:
     /// Rav1e accepts 1–100, libavif accepts 0–100 and rounds to an integer
     /// (64 quantizer steps). The scales are not comparable (see
@@ -346,7 +310,6 @@ impl Default for TransformOptions {
             kernel_level_ceiling: None,
             transform_threads: 0,
             profile_policy: InputProfilePolicy::Strict,
-            jxl_decoder: JpegXlDecoder::default(),
             quality: 75.0,
             speed: 6,
             encoder_threads: 1,
@@ -508,11 +471,9 @@ pub struct ProcessingReport {
     pub transform_threads: usize,
     /// The decoder that read the input and produced the source pixels
     /// (issue #217). Built-in readers: `"libjpeg-turbo-rs"` (JPEG),
-    /// `"libwebp-rs"` (WebP), `"jxl-oxide"` or `"libjxl-rs"` (JPEG XL, per
-    /// [`TransformOptions::jxl_decoder`]) and `"libavif-rs/aom"` (AVIF). The
-    /// default JPEG XL reader depends on the compiled Cargo features, so this
-    /// field is how a caller learns which one ran. The strings are
-    /// observations; new readers add new values.
+    /// `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL) and `"libavif-rs/aom"`
+    /// (AVIF), one per format. The strings are observations; new readers add
+    /// new values.
     pub decoder_backend: &'static str,
     /// The encoder that wrote the output: `"rav1e"` or `"libavif-rs/aom"`
     /// (AVIF), `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL), or the
@@ -613,8 +574,7 @@ pub enum RefusalReason {
     HdrTransfer,
     /// The decoder describes its output with an SDR color encoding the
     /// engine cannot convert: CICP outside sRGB, Display P3 and linear sRGB
-    /// without an ICC profile, or a JPEG XL enum encoding jxl-oxide cannot
-    /// render (unknown or XYB colour space, unknown transfer). Kind:
+    /// without an ICC profile. Kind:
     /// [`ProcessingErrorKind::UnsupportedColor`].
     UnsupportedColorEncoding,
     /// The policy is [`InputProfilePolicy::UseRenderedIcc`], but the
@@ -716,11 +676,7 @@ impl From<Error> for ProcessingError {
                 Kind::InvalidOptions
             }
             Error::InvalidEncodeOptions => Kind::InvalidOptions,
-            #[cfg(any(
-                feature = "avif-read",
-                feature = "webp-read",
-                feature = "jpeg-xl-own-read"
-            ))]
+            #[cfg(any(feature = "avif-read", feature = "webp-read", feature = "jpeg-xl-read"))]
             Error::InputPixelLimitExceeded { .. } => Kind::InputLimitExceeded,
             Error::DecodeFailed
             | Error::IncompleteDecoderOutput
@@ -733,9 +689,7 @@ impl From<Error> for ProcessingError {
             | Error::ChromaPhaseRequiresResampling => Kind::UnsupportedInput,
             Error::UnsupportedAnimation => Kind::UnsupportedInput,
             Error::UnsupportedImageTransform => Kind::UnsupportedInput,
-            Error::UnsupportedColorEncoding
-            | Error::HdrTransfer
-            | Error::UnrenderableColorEncoding => Kind::UnsupportedColor,
+            Error::UnsupportedColorEncoding | Error::HdrTransfer => Kind::UnsupportedColor,
             #[cfg(feature = "icc")]
             Error::CicpBesideIcc(_) | Error::RenderedIccMissing => Kind::UnsupportedColor,
             #[cfg(feature = "avif-read")]
@@ -769,7 +723,6 @@ impl From<Error> for ProcessingError {
             #[cfg(feature = "icc")]
             Error::RenderedIccMissing => Some(RefusalReason::RenderedIccMissing),
             Error::HdrTransfer => Some(RefusalReason::HdrTransfer),
-            Error::UnrenderableColorEncoding => Some(RefusalReason::UnsupportedColorEncoding),
             #[cfg(feature = "avif-read")]
             Error::ContradictoryColorSignals => Some(RefusalReason::ContradictoryColorSignals),
             #[cfg(feature = "avif-read")]
@@ -810,17 +763,9 @@ impl DecodeSource for ExplicitSrgb<'_> {
 fn open_source<'a>(
     bytes: &'a [u8],
     format: ImageFormat,
-    max_input_bytes: usize,
     max_pixels: u64,
-    jxl_decoder: JpegXlDecoder,
 ) -> Result<Box<dyn DecodeSource + 'a>, ProcessingError> {
-    #[cfg(not(feature = "jpeg-xl-read"))]
-    let _ = max_input_bytes;
-    #[cfg(not(any(
-        feature = "avif-read",
-        feature = "webp-read",
-        feature = "jpeg-xl-own-read"
-    )))]
+    #[cfg(not(any(feature = "avif-read", feature = "webp-read", feature = "jpeg-xl-read")))]
     let _ = max_pixels;
     match format {
         ImageFormat::Jpeg => {
@@ -853,39 +798,22 @@ fn open_source<'a>(
                 ))
             }
         }
-        ImageFormat::JpegXl => match jxl_decoder {
-            JpegXlDecoder::JxlOxide => {
-                #[cfg(feature = "jpeg-xl-read")]
-                {
-                    Ok(Box::new(crate::codecs::jxl_oxide::JxlSource::new_bounded(
-                        bytes,
-                        max_input_bytes,
-                    )?))
-                }
-                #[cfg(not(feature = "jpeg-xl-read"))]
-                {
-                    Err(ProcessingError::new(
-                        ProcessingErrorKind::FeatureDisabled,
-                        "enable the jpeg-xl-read Cargo feature for jxl-oxide",
-                    ))
-                }
+        ImageFormat::JpegXl => {
+            #[cfg(feature = "jpeg-xl-read")]
+            {
+                Ok(Box::new(crate::codecs::jxl::JxlSource::new_bounded(
+                    bytes, max_pixels,
+                )?))
             }
-            JpegXlDecoder::LibjxlRs => {
-                #[cfg(feature = "jpeg-xl-own-read")]
-                {
-                    Ok(Box::new(crate::codecs::jxl::JxlSource::new_bounded(
-                        bytes, max_pixels,
-                    )?))
-                }
-                #[cfg(not(feature = "jpeg-xl-own-read"))]
-                {
-                    Err(ProcessingError::new(
-                        ProcessingErrorKind::FeatureDisabled,
-                        "enable the jpeg-xl-own-read Cargo feature for libjxl-rs",
-                    ))
-                }
+            #[cfg(not(feature = "jpeg-xl-read"))]
+            {
+                let _ = bytes;
+                Err(ProcessingError::new(
+                    ProcessingErrorKind::FeatureDisabled,
+                    "enable the jpeg-xl-read Cargo feature",
+                ))
             }
-        },
+        }
         ImageFormat::Avif => {
             #[cfg(feature = "avif-read")]
             {
@@ -906,16 +834,13 @@ fn open_source<'a>(
 }
 
 /// The name reported in [`ProcessingReport::decoder_backend`] for the reader
-/// that [`open_source`] selects for `format`; only called after that reader
+/// that [`open_source`] opens for `format`; only called after that reader
 /// was opened, so the name always belongs to a compiled backend.
-fn decoder_backend(format: ImageFormat, jxl_decoder: JpegXlDecoder) -> &'static str {
+fn decoder_backend(format: ImageFormat) -> &'static str {
     match format {
         ImageFormat::Jpeg => "libjpeg-turbo-rs",
         ImageFormat::WebP => "libwebp-rs",
-        ImageFormat::JpegXl => match jxl_decoder {
-            JpegXlDecoder::JxlOxide => "jxl-oxide",
-            JpegXlDecoder::LibjxlRs => "libjxl-rs",
-        },
+        ImageFormat::JpegXl => "libjxl-rs",
         ImageFormat::Avif => "libavif-rs/aom",
     }
 }
@@ -991,13 +916,7 @@ pub fn inspect(
             "header inspection supports JPEG and WebP",
         ));
     }
-    let source = open_source(
-        encoded,
-        format,
-        limits.max_input_bytes,
-        limits.max_input_pixels,
-        JpegXlDecoder::default(),
-    )?;
+    let source = open_source(encoded, format, limits.max_input_pixels)?;
     let info = source.info();
     let stored = info.size;
     if u64::from(stored.width) * u64::from(stored.height) > limits.max_input_pixels {
@@ -1295,14 +1214,8 @@ fn run(
             .min(crate::thread_spawn::MAX_WORKERS),
         (WorkingPrecision::F32, threads) => threads,
     };
-    let mut source = open_source(
-        encoded,
-        format,
-        options.max_input_bytes,
-        options.max_input_pixels,
-        options.jxl_decoder,
-    )?;
-    let decoder_backend = decoder_backend(format, options.jxl_decoder);
+    let mut source = open_source(encoded, format, options.max_input_pixels)?;
+    let decoder_backend = decoder_backend(format);
     source.set_decode_threads(transform_threads);
     // ADR-0042 D2: what the codec reads past, from its headers, and hidden
     // color under zero alpha, noticed in the rows it delivers.

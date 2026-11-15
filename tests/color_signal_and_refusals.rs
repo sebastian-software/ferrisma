@@ -5,18 +5,14 @@
 //! produce has a test here; `RefusalReason::Animation` is covered per format
 //! in `animated_input.rs`, and `ColorSignal::Cicp` (AVIF `nclx` under the
 //! strict policy) in the library's AVIF round-trip test.
-#![cfg(any(
-    feature = "jpeg-read",
-    feature = "jpeg-xl-read",
-    feature = "jpeg-xl-own-read"
-))]
+#![cfg(any(feature = "jpeg-read", feature = "jpeg-xl-read"))]
 // Each test needs its own feature combination.
 #![allow(dead_code, unused_imports)]
 
 use ferrisma::pipeline::{
     ColorSignal, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
-    InputProfilePolicy, JpegXlDecoder, Output, OutputFormat, ProcessingError, ProcessingErrorKind,
-    RefusalReason, RowEncoder, TransformOptions, transcode_with,
+    InputProfilePolicy, Output, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason,
+    RowEncoder, TransformOptions, transcode_with,
 };
 
 struct Discard;
@@ -47,7 +43,6 @@ fn run(
     bytes: &[u8],
     format: ImageFormat,
     profile_policy: InputProfilePolicy,
-    jxl_decoder: JpegXlDecoder,
 ) -> Result<Output, ProcessingError> {
     let options = TransformOptions {
         output_format: OutputFormat::WebP,
@@ -55,7 +50,6 @@ fn run(
         output_height: 4,
         transform_threads: 1,
         profile_policy,
-        jxl_decoder,
         ..TransformOptions::default()
     };
     transcode_with(bytes, format, options, &Discard)
@@ -63,26 +57,7 @@ fn run(
 
 fn jpeg(profile_policy: InputProfilePolicy) -> Result<Output, ProcessingError> {
     let bytes = include_bytes!("fixtures/sample.jpg");
-    run(
-        bytes,
-        ImageFormat::Jpeg,
-        profile_policy,
-        JpegXlDecoder::default(),
-    )
-}
-
-#[allow(
-    clippy::vec_init_then_push,
-    unused_mut,
-    reason = "each push is behind its own feature"
-)]
-fn jxl_decoders() -> Vec<JpegXlDecoder> {
-    let mut decoders = Vec::new();
-    #[cfg(feature = "jpeg-xl-read")]
-    decoders.push(JpegXlDecoder::JxlOxide);
-    #[cfg(feature = "jpeg-xl-own-read")]
-    decoders.push(JpegXlDecoder::LibjxlRs);
-    decoders
+    run(bytes, ImageFormat::Jpeg, profile_policy)
 }
 
 fn refusal(
@@ -120,7 +95,6 @@ fn other_errors_have_no_refusal_reason() {
         &bytes[..bytes.len() / 2],
         ImageFormat::Jpeg,
         InputProfilePolicy::AssumeSrgbIfMissing,
-        JpegXlDecoder::default(),
     );
     assert_eq!(
         refusal(truncated),
@@ -138,78 +112,69 @@ fn other_errors_have_no_refusal_reason() {
     );
 }
 
-/// Both JPEG XL adapters describe their output with an ICC profile, so the
-/// two policies without ICC conversion refuse it and name the opt-in.
-#[cfg(any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"))]
+/// The JPEG XL reader describes its output with an ICC profile, so the two
+/// policies without ICC conversion refuse it and name the opt-in.
+#[cfg(feature = "jpeg-xl-read")]
 #[test]
 fn rendered_icc_without_the_opt_in_is_refused_with_its_reason() {
     let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
-    for decoder in jxl_decoders() {
-        for policy in [
-            InputProfilePolicy::Strict,
-            InputProfilePolicy::AssumeSrgbIfMissing,
-        ] {
-            assert_eq!(
-                refusal(run(jxl, ImageFormat::JpegXl, policy, decoder)),
-                (
-                    ProcessingErrorKind::UnsupportedColor,
-                    Some(RefusalReason::RenderedIccRequiresOptIn)
-                ),
-                "{decoder:?} {policy:?}"
-            );
-        }
+    for policy in [
+        InputProfilePolicy::Strict,
+        InputProfilePolicy::AssumeSrgbIfMissing,
+    ] {
+        assert_eq!(
+            refusal(run(jxl, ImageFormat::JpegXl, policy)),
+            (
+                ProcessingErrorKind::UnsupportedColor,
+                Some(RefusalReason::RenderedIccRequiresOptIn)
+            ),
+            "{policy:?}"
+        );
     }
 }
 
-/// jxl-oxide reports the header's enum encoding as CICP beside its rendered
-/// ICC; the libjxl-rs adapter reports only the ICC (ADR-0015, 2026-11-12).
-#[cfg(all(
-    any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"),
-    feature = "icc"
-))]
+/// The libjxl-rs adapter reports only the rendered ICC, without CICP beside
+/// it (ADR-0015, 2026-11-12). (The former jxl-oxide reader reported the
+/// header's enum encoding as CICP beside it, `RenderedIccWithAgreeingCicp`.)
+#[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
 #[test]
 fn rendered_icc_conversion_reports_whether_cicp_was_checked_beside_it() {
     let jxl = include_bytes!("fixtures/jxl-color/lossless-p3.jxl");
-    for decoder in jxl_decoders() {
-        let output = run(
-            jxl,
-            ImageFormat::JpegXl,
-            InputProfilePolicy::UseRenderedIcc,
-            decoder,
-        )
-        .unwrap();
-        let expected = match decoder {
-            JpegXlDecoder::JxlOxide => ColorSignal::RenderedIccWithAgreeingCicp,
-            _ => ColorSignal::RenderedIcc,
-        };
-        assert_eq!(output.report.color_signal, expected, "{decoder:?}");
-    }
+    let output = run(jxl, ImageFormat::JpegXl, InputProfilePolicy::UseRenderedIcc).unwrap();
+    assert_eq!(output.report.color_signal, ColorSignal::RenderedIcc);
+}
+
+/// AVIF \`nclx\` beside an ICC profile is checked and, when it agrees, named in
+/// the report. Since 2026-11-15 only AVIF produces this signal; before, the
+/// jxl-oxide reader did too.
+#[cfg(all(feature = "avif-read", feature = "icc"))]
+#[test]
+fn agreeing_cicp_beside_the_rendered_icc_is_reported() {
+    let avif = include_bytes!("fixtures/avif-color/icc-nclx-1-13-6.avif");
+    let output = run(avif, ImageFormat::Avif, InputProfilePolicy::UseRenderedIcc).unwrap();
+    assert_eq!(
+        output.report.color_signal,
+        ColorSignal::RenderedIccWithAgreeingCicp
+    );
 }
 
 /// DCI-P3 (primaries 11, transfer 17) beside the rendered profile cannot be
 /// checked against it, so it is refused rather than overridden by the ICC.
-#[cfg(all(
-    any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"),
-    feature = "icc"
-))]
+#[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
 #[test]
 fn unverifiable_cicp_beside_the_rendered_icc_is_refused_with_its_reason() {
     let jxl = include_bytes!("fixtures/jxl-color/lossless-dci-p3.jxl");
-    for decoder in jxl_decoders() {
-        assert_eq!(
-            refusal(run(
-                jxl,
-                ImageFormat::JpegXl,
-                InputProfilePolicy::UseRenderedIcc,
-                decoder
-            )),
-            (
-                ProcessingErrorKind::UnsupportedColor,
-                Some(RefusalReason::CicpBesideIcc)
-            ),
-            "{decoder:?}"
-        );
-    }
+    assert_eq!(
+        refusal(run(
+            jxl,
+            ImageFormat::JpegXl,
+            InputProfilePolicy::UseRenderedIcc
+        )),
+        (
+            ProcessingErrorKind::UnsupportedColor,
+            Some(RefusalReason::CicpBesideIcc)
+        )
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -233,12 +198,7 @@ fn avif_refusal(
     bytes: &[u8],
     policy: InputProfilePolicy,
 ) -> (ProcessingErrorKind, Option<RefusalReason>) {
-    refusal(run(
-        bytes,
-        ImageFormat::Avif,
-        policy,
-        JpegXlDecoder::default(),
-    ))
+    refusal(run(bytes, ImageFormat::Avif, policy))
 }
 
 const POLICIES: [InputProfilePolicy; 3] = [
@@ -247,9 +207,9 @@ const POLICIES: [InputProfilePolicy; 3] = [
     InputProfilePolicy::UseRenderedIcc,
 ];
 
-/// PQ and HLG are refused by both JPEG XL readers from the transfer
+/// PQ and HLG are refused by the JPEG XL reader from the transfer
 /// function itself, under every policy (ADR-0016 rule 7).
-#[cfg(any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"))]
+#[cfg(feature = "jpeg-xl-read")]
 #[test]
 fn hdr_transfer_is_refused_with_its_reason_under_every_policy() {
     let fixtures: [&[u8]; 2] = [
@@ -257,17 +217,15 @@ fn hdr_transfer_is_refused_with_its_reason_under_every_policy() {
         include_bytes!("fixtures/jxl-color/lossless-hlg.jxl"),
     ];
     for jxl in fixtures {
-        for decoder in jxl_decoders() {
-            for policy in POLICIES {
-                assert_eq!(
-                    refusal(run(jxl, ImageFormat::JpegXl, policy, decoder)),
-                    (
-                        ProcessingErrorKind::UnsupportedColor,
-                        Some(RefusalReason::HdrTransfer)
-                    ),
-                    "{decoder:?} {policy:?}"
-                );
-            }
+        for policy in POLICIES {
+            assert_eq!(
+                refusal(run(jxl, ImageFormat::JpegXl, policy)),
+                (
+                    ProcessingErrorKind::UnsupportedColor,
+                    Some(RefusalReason::HdrTransfer)
+                ),
+                "{policy:?}"
+            );
         }
     }
 }
@@ -289,24 +247,19 @@ fn avif_pq_is_refused_as_hdr_under_every_policy() {
     }
 }
 
-/// An enum colour encoding with an unknown colour space is well-formed, but
-/// jxl-oxide cannot render it.
+/// An enum colour encoding with an unknown colour space: the workspace
+/// reader, like libjxl, rejects the file as invalid, so it is malformed input
+/// without a refusal reason. (Until 2026-11-15 the jxl-oxide reader refused
+/// it as `UnsupportedColorEncoding`; that reason is now produced by AVIF
+/// CICP only, below.)
 #[cfg(feature = "jpeg-xl-read")]
 #[test]
-fn unrenderable_jxl_colour_encoding_is_refused_with_its_reason() {
+fn unknown_jxl_colour_space_is_malformed_input() {
     let jxl = include_bytes!("fixtures/hostile/jxl-unknown-colour-space.jxl");
     for policy in POLICIES {
         assert_eq!(
-            refusal(run(
-                jxl,
-                ImageFormat::JpegXl,
-                policy,
-                JpegXlDecoder::JxlOxide
-            )),
-            (
-                ProcessingErrorKind::UnsupportedColor,
-                Some(RefusalReason::UnsupportedColorEncoding)
-            ),
+            refusal(run(jxl, ImageFormat::JpegXl, policy)),
+            (ProcessingErrorKind::MalformedInput, None),
             "{policy:?}"
         );
     }
@@ -385,12 +338,7 @@ fn cmyk_jpeg_is_refused_as_a_layout() {
     for policy in POLICIES {
         let bytes = include_bytes!("fixtures/cmyk.jpg");
         assert_eq!(
-            refusal(run(
-                bytes,
-                ImageFormat::Jpeg,
-                policy,
-                JpegXlDecoder::default()
-            )),
+            refusal(run(bytes, ImageFormat::Jpeg, policy,)),
             (
                 ProcessingErrorKind::UnsupportedInput,
                 Some(RefusalReason::UnsupportedLayout)
@@ -401,12 +349,9 @@ fn cmyk_jpeg_is_refused_as_a_layout() {
 }
 
 /// Premultiplied alpha (libjxl's conformance fixture with
-/// `alpha_associated`): libjxl-rs reports it as premultiplied, jxl-oxide as
-/// unspecified; the rendered-ICC stage refuses both for their alpha.
-#[cfg(all(
-    any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"),
-    feature = "icc"
-))]
+/// `alpha_associated`): libjxl-rs reports it as premultiplied; the
+/// rendered-ICC stage refuses it for its alpha.
+#[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
 #[test]
 fn associated_alpha_is_refused_with_its_reason() {
     let jxl = std::fs::read(concat!(
@@ -414,21 +359,17 @@ fn associated_alpha_is_refused_with_its_reason() {
         "/codecs/libjxl-rs/tests/data/extra-channel-alpha-1-up-1-shift-0.jxl"
     ))
     .unwrap();
-    for decoder in jxl_decoders() {
-        assert_eq!(
-            refusal(run(
-                &jxl,
-                ImageFormat::JpegXl,
-                InputProfilePolicy::UseRenderedIcc,
-                decoder
-            )),
-            (
-                ProcessingErrorKind::UnsupportedInput,
-                Some(RefusalReason::AlphaAssociation)
-            ),
-            "{decoder:?}"
-        );
-    }
+    assert_eq!(
+        refusal(run(
+            &jxl,
+            ImageFormat::JpegXl,
+            InputProfilePolicy::UseRenderedIcc
+        )),
+        (
+            ProcessingErrorKind::UnsupportedInput,
+            Some(RefusalReason::AlphaAssociation)
+        )
+    );
 }
 
 /// AVIF clean aperture and an `imir` before `irot` are not applied.

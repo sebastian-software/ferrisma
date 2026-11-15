@@ -55,24 +55,22 @@ profile for the rendered samples and drops source EXIF orientation and XMP.
 encoding, while AVIF and external backends check after encoding.
 
 JPEG XL input uses the workspace libjxl-rs reference decoder
-(`jpeg-xl-own-read`, part of `cli`) by default since 2026-11-12. `jxl-oxide`
-(`jpeg-xl-read`, also part of `cli`) stays available explicitly:
+(`jpeg-xl-read`, part of `cli`), the only JPEG XL reader since 2026-11-15
+(the earlier `jxl-oxide` reader and `--jxl-decoder=` were removed):
 
 ```sh
 cargo run --release --features cli -- \
   photo.jxl scaled.avif 1600 900 --use-rendered-icc
-cargo run --release --features cli -- \
-  photo.jxl scaled.avif 1600 900 --use-rendered-icc --jxl-decoder=jxl-oxide
 ```
 
-The default decoder has no region request: it decodes and budgets a complete
+The decoder has no region request: it decodes and budgets a complete
 F32 input frame for every request, including crops, and reports a full-frame
 fallback. The owner accepted the workspace decoder as the default even where
 it is slower on 2026-11-13
 ([ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1,
 [ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)); its speed is
 reported against libjxl, the original it ports, and jxl-oxide is context only
-(ADR-0041 section 6). The [jxl-oxide comparison of 2026-11-11](benchmarks/M2-jxl-input-switch.md)
+(ADR-0041 section 6; a test-only dependency since 2026-11-15). The [jxl-oxide comparison of 2026-11-11](benchmarks/M2-jxl-input-switch.md)
 (about 3.6× slower for a full decode and 9.5× slower for a center crop, one
 photo recompressed from a JPEG) describes the decoder before its SIMD path and has
 not been repeated since; it is superseded as a description of today's

@@ -32,12 +32,15 @@ compositing JPEG XL layers into the displayed image).
 | --- | --- | --- | --- | --- | --- |
 | A | 25 → 6 | 20 → 3 | 2 → 1 | 1 → 0 | 2 |
 | B | 29 → 13 | 12 → 3 | 8 → 4 | 6 → 3 | 3 |
-| C | 21 → 55 | 15 → 41 | 0 → 5 | 2 → 5 | 4 |
+| C | 21 → 55 → 50 | 15 → 41 → 37 | 0 → 5 | 2 → 5 | 4 → 3 |
 | D | 11 | 8 | 3 | 0 | 0 |
 | resolved by decision | 0 → 1 | 0 | 0 | 0 → 1 | 0 |
+| resolved by removal | 0 → 5 | 0 → 4 | 0 | 0 | 0 → 1 |
 
 The first number is the state of the audit (`main` at `64284177`), the
-second the state after branch `v1/engine-discarded` (2026-11-15): the
+second the state after branch `v1/engine-discarded` (2026-11-15), a third
+the state after branch `v1/remove-alt-backends` (2026-11-15, see
+[removal of the alternative backends](#update-removal-of-the-alternative-backends-2026-11-15)): the
 refusals of ADR-0042 D1 and D4 (V4, X6 to X9) and the report of D2,
 `ProcessingReport::discarded` with its CLI key `discarded=`, moved 48
 items to (C); each row says what reports or refuses it and which test of
@@ -97,26 +100,26 @@ classified refusal; it is counted as (C).
 | W6 | Truncated file | `MalformedInput` | `decode_into` | matrix ("malformed containers") | `silent_drops::truncated_inputs_are_malformed` | C |
 | W7 | Corrupted VP8/VP8L payload | decodes without an error. VP8 and VP8L carry no checksum, so the codec cannot notice; nothing is swallowed by the engine | — | no | `silent_drops::corrupted_webp_payload_decodes_without_an_error_today` | outside A–D (undetectable) |
 
-### JPEG XL (libjxl-rs default, jxl-oxide explicit)
+### JPEG XL (libjxl-rs; jxl-oxide explicit until 2026-11-15)
 
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| X1 | `Exif` and `xml ` boxes | ignored by both readers, dropped. **Since `v1/engine-discarded`: reported: `Discarded::Exif`, `Discarded::Xmp`, by both readers** | `crates/ferrisma-jxl-decoder` subscribes to `BASIC_INFO`, `COLOR_ENCODING`, `FULL_IMAGE` only; jxl-oxide ignores boxes | matrix, Outputs "Metadata" | `silent_drops::jpeg_xl_container_boxes_are_dropped_today` (`decode-test/1x1_exif_xmp.jxl`); `discarded_report::jpeg_xl_boxes_are_reported_by_both_readers` | C |
-| X2 | JPEG reconstruction data (`jbrd`) | ignored: the pixels are decoded, bit-exact JPEG recovery is lost. **Since `v1/engine-discarded`: reported: `Discarded::JpegReconstructionData`** | same | no | same fixture; `discarded_report::jpeg_xl_boxes_are_reported_by_both_readers` | C |
+| X1 | `Exif` and `xml ` boxes | ignored by both readers, dropped. **Since `v1/engine-discarded`: reported: `Discarded::Exif`, `Discarded::Xmp`, by both readers** | `crates/ferrisma-jxl-decoder` subscribes to `BASIC_INFO`, `COLOR_ENCODING`, `FULL_IMAGE` only; jxl-oxide ignores boxes | matrix, Outputs "Metadata" | `silent_drops::jpeg_xl_container_boxes_are_dropped_today` (`decode-test/1x1_exif_xmp.jxl`); `discarded_report::jpeg_xl_boxes_are_reported` | C |
+| X2 | JPEG reconstruction data (`jbrd`) | ignored: the pixels are decoded, bit-exact JPEG recovery is lost. **Since `v1/engine-discarded`: reported: `Discarded::JpegReconstructionData`** | same | no | same fixture; `discarded_report::jpeg_xl_boxes_are_reported` | C |
 | X3 | JUMBF / C2PA (`jumb`), gain map (`jhgm`) | ignored. **Since `v1/engine-discarded`: reported: `jumb` as `OtherMetadata`, `jhgm` as `GainMap` (code path, no fixture)** | same | no | no fixture | C |
-| X4 | DATA ICC profile | converted under `UseRenderedIcc` (reported), otherwise refused | `src/codecs/jxl.rs`, `jxl_oxide.rs` | matrix | `supported_matrix::jpeg_xl_rgb_needs_the_rendered_icc_policy_on_both_readers` | C |
+| X4 | DATA ICC profile | converted under `UseRenderedIcc` (reported), otherwise refused | `src/codecs/jxl.rs` | matrix | `supported_matrix::jpeg_xl_rgb_needs_the_rendered_icc_policy` | C |
 | X5 | Extra channels other than one alpha, **libjxl-rs** | refused (`UnsupportedLayout`) before pixels | `ferrisma-jxl-decoder` `Decoder::info` | matrix | `supported_matrix::jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected` | C |
-| X6 | Depth, selection mask, black next to RGB, CFA, thermal and optional extra channels, **jxl-oxide** | accepted; the channels are left out of the pixel stream (a black channel next to RGB is lost, so the colors change). **Since `v1/engine-discarded`: refused by jxl-oxide as `UnsupportedLayout`, as by libjxl-rs (ADR-0042 D1, D4); D4 for JPEG XL is also met by removing the jxl-oxide runtime reader (owner decision 2026-11-15, pending the libjxl-rs AVX2 fix)** | jxl-oxide 0.12.6 `PixelFormat`; `src/codecs/jxl_oxide.rs` sees no channel count | no (matrix: "jxl-oxide reports some extra-channel files as unspecified alpha") | `silent_drops::both_jpeg_xl_readers_refuse_extra_channels_other_than_alpha` (`extra-channel-type-{1,2,3,4,5,6,16}.jxl`, all policies, both readers) | C |
-| X7 | Spot colors, **jxl-oxide** | accepted; composited into the RGB samples (`render_spot_color`, default on for color images), an unrequested change of the color values. **Since `v1/engine-discarded`: refused, as X6** | jxl-oxide `fb.rs` | no | `silent_drops::both_jpeg_xl_readers_refuse_extra_channels_other_than_alpha` (`extra-channel-type-2.jxl`) | C |
-| X8 | Several alpha channels, **jxl-oxide** | the first is rendered, the others dropped. **Since `v1/engine-discarded`: refused, as X6** | jxl-oxide `fb.rs` ("Find alpha") | no | `silent_drops::both_jpeg_xl_readers_refuse_a_second_alpha_channel` | C |
-| X9 | Reserved extra-channel type that libjxl rejects | libjxl-rs: `MalformedInput`; jxl-oxide decodes it and drops the channel. **Since `v1/engine-discarded`: refused as `MalformedInput` by both readers, as X6** | — | no | `silent_drops::both_jpeg_xl_readers_reject_a_reserved_extra_channel_type` (`extra-channel-rejected-15.jxl`) | C |
-| X10 | Layers, patches, blending, reference frames | composited into the displayed image by both readers | decoders | jxl-oxide adapter tests | `codecs::jxl_oxide::tests::animated_input_is_rejected_rather_than_reduced_to_its_first_frame` ("several frames composited into one still keyframe") | D |
-| X11 | Preview frame | ignored. **Since `v1/engine-discarded`: reported: `Discarded::Preview`** | decoders | no | no fixture; `discarded_report::jpeg_xl_preview_is_reported` (libjxl-rs; jxl-oxide rejects that fixture as malformed) | C |
+| X6 | Depth, selection mask, black next to RGB, CFA, thermal and optional extra channels, **jxl-oxide** | accepted; the channels are left out of the pixel stream (a black channel next to RGB is lost, so the colors change). **Since `v1/engine-discarded`: refused by jxl-oxide as `UnsupportedLayout`, as by libjxl-rs (ADR-0042 D1, D4); D4 for JPEG XL is also met by removing the jxl-oxide runtime reader (owner decision 2026-11-15, pending the libjxl-rs AVX2 fix). Since `v1/remove-alt-backends`: resolved by removal; the only reader refuses these files** | jxl-oxide 0.12.6 `PixelFormat` (removed) | no (matrix: "jxl-oxide reports some extra-channel files as unspecified alpha") | `silent_drops::jpeg_xl_reader_refuses_extra_channels_other_than_alpha` (`extra-channel-type-{1,2,3,4,5,6,16}.jxl`, all policies) | removed |
+| X7 | Spot colors, **jxl-oxide** | accepted; composited into the RGB samples (`render_spot_color`, default on for color images), an unrequested change of the color values. **Since `v1/engine-discarded`: refused, as X6; since `v1/remove-alt-backends`: resolved by removal** | jxl-oxide `fb.rs` | no | `silent_drops::jpeg_xl_reader_refuses_extra_channels_other_than_alpha` (`extra-channel-type-2.jxl`) | removed |
+| X8 | Several alpha channels, **jxl-oxide** | the first is rendered, the others dropped. **Since `v1/engine-discarded`: refused, as X6; since `v1/remove-alt-backends`: resolved by removal** | jxl-oxide `fb.rs` ("Find alpha") | no | `silent_drops::jpeg_xl_reader_refuses_a_second_alpha_channel` | removed |
+| X9 | Reserved extra-channel type that libjxl rejects | libjxl-rs: `MalformedInput`; jxl-oxide decodes it and drops the channel. **Since `v1/engine-discarded`: refused as `MalformedInput` by both readers, as X6; since `v1/remove-alt-backends`: resolved by removal** | — | no | `silent_drops::jpeg_xl_reader_rejects_a_reserved_extra_channel_type` (`extra-channel-rejected-15.jxl`) | removed |
+| X10 | Layers, patches, blending, reference frames | composited into the displayed image by the reader, as libjxl does | decoders | jxl-oxide adapter tests (until 2026-11-15) | `tests/animated_input.rs::animated_jpeg_xl_is_rejected` (no first-frame fallback); the jxl-oxide adapter test that pinned the compositing left with the adapter on 2026-11-15, and no engine test pins it for libjxl-rs | D |
+| X11 | Preview frame | ignored. **Since `v1/engine-discarded`: reported: `Discarded::Preview`** | decoders | no | no fixture; `discarded_report::jpeg_xl_preview_is_reported` (the former jxl-oxide reader rejected that fixture as malformed) | C |
 | X12 | `intrinsic_size` (display size hint) | ignored | decoders | no | no fixture | A |
-| X13 | Animation | refused (`Animation`) | both adapters | matrix | `supported_matrix::jpeg_xl_animation_is_rejected_by_both_readers` | C |
+| X13 | Animation | refused (`Animation`) | the adapter | matrix | `supported_matrix::jpeg_xl_animation_is_rejected` | C |
 | X14 | Gray, CMYK, float, premultiplied or unspecified alpha, PQ/HLG | refused with a reason | adapters, `cms.rs` | matrix | `supported_matrix` JPEG XL cases | C |
 | X15 | Orientation | rendered upright by the decoder | decoders | matrix | `orientation_tests::jpeg_xl_orientations_are_rendered_upright_for_every_crop` | D |
-| X16 | Progressive passes, truncation | the full image is decoded; a truncated file is `MalformedInput` with both readers (no partial render) | `drive`; jxl-oxide `render_frame_cropped` | no | `silent_drops::truncated_inputs_are_malformed` | C |
+| X16 | Progressive passes, truncation | the full image is decoded; a truncated file is `MalformedInput` (no partial render) | `drive` | no | `silent_drops::truncated_inputs_are_malformed` | C |
 | X17 | Bit depth above 8 (16-bit, 31-bit integer samples) | decoded as float, then 8-bit output. **Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`** | — | matrix, Color policy ("8-bit … rows") | `modular-rgb31.jxl` with libjxl-rs (probe); `discarded_report::jpeg_xl_precision_above_eight_bits_is_reported` | C |
 
 Finding, not a silent drop: jxl-oxide panics in a debug build on
@@ -186,11 +189,11 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | --- | --- | --- | --- | --- | --- | --- |
 | Q1 | `output_width`/`output_height` with `transcode_resized` | ignored; the actual size is in `Output` | `pipeline.rs` | rustdoc | `tests/thumbnail_facade.rs` | B |
 | Q2 | Default `avif_encoder` with an external backend | ignored, the backend decides | `run` | rustdoc of `transcode_with` | `pipeline_tests` | B |
-| Q3 | `jxl_decoder` for non-JPEG XL input | ignored; `decoder_backend` names the reader that ran | `open_source` | no | `silent_drops::jpeg_xl_reader_selection_is_ignored_for_jpeg_input_and_reported` | C |
+| Q3 | `jxl_decoder` for non-JPEG XL input | ignored; `decoder_backend` names the reader that ran. **Since `v1/remove-alt-backends`: resolved by removal; the option does not exist** | `open_source` | no | the test `silent_drops::jpeg_xl_reader_selection_is_ignored_for_jpeg_input_and_reported` was removed with the option | removed |
 | Q4 | `kernel_level_ceiling`, `transform_threads` with `F64Reference` | ignored; the report says `Scalar`/`Ceiling` and 1 thread | `run` | rustdoc of `ProcessingReport` | `pipeline_tests` | C |
 | Q5 | Thread counts in `Engine::transcode_batch` | replaced with 1 (reported); values above 256, which `transcode` refuses, are accepted and discarded | `batch` | `BatchItem::options` ("overrides … with 1"); the acceptance of invalid values is not | `silent_drops::batch_accepts_thread_counts_that_transcode_rejects_today` | A |
 | Q6 | `Engine::new` above 256 | capped, `threads()` reports it | `Engine::new` | rustdoc | — | C |
-| Q7 | Repeated or contradictory CLI flags (`--assume-srgb` after `--use-rendered-icc`, two `--jxl-decoder=`, two `--quality=`) | the last one wins silently; only `--avif-encoder`/`--avif-depth` are refused when repeated | `src/cli.rs` `apply_option` | no | `silent_drops::cli_later_flags_silently_replace_earlier_ones_today` | A |
+| Q7 | Repeated or contradictory CLI flags (`--assume-srgb` after `--use-rendered-icc`, two `--transform-threads=` (two `--jxl-decoder=` until that flag was removed on 2026-11-15), two `--quality=`) | the last one wins silently; only `--avif-encoder`/`--avif-depth` are refused when repeated | `src/cli.rs` `apply_option` | no | `silent_drops::cli_later_flags_silently_replace_earlier_ones_today` | A |
 | Q8 | `--version` with other arguments | prints the version, ignores the rest | `is_version_request` | compatibility guide | `cli::tests` | B |
 | Q9 | Mismatched encoder settings (`quality` with WebP or JPEG XL, `webp` with AVIF, `--chroma` with WebP) | refused before decoding | `run`, `cli.rs` | matrix | `supported_matrix::avif_settings_with_webp_output_are_mismatched_options`, `jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding` | C |
 
@@ -211,8 +214,33 @@ conversions into a typed error:
 | `src/codecs/jxl.rs` `drive`, `_ => Err(Unsupported)` | an unexpected decoder event is an error | C |
 | `src/parallel_execute.rs` `let _ = done.send(Err(error))` | the driver is already gone; it reports its own error | C |
 | `src/pipeline.rs` `batch` (`unwrap_or_else` → `Internal`), `crates/ferrisma-avif-write` band `join` | a worker that died is an error, never a missing image | C |
-| `src/codecs/jxl_oxide.rs` `rendered_cicp` (`_ => return None`) | no CICP is claimed without an exact H.273 equivalent; the ICC describes the samples | D |
+| `src/codecs/jxl_oxide.rs` `rendered_cicp` (`_ => return None`) | no CICP is claimed without an exact H.273 equivalent; the ICC describes the samples. The file was removed on 2026-11-15 | D |
 | `src/codecs/avif_meta.rs` `read_property` (`_ => {}`) | unknown properties and `colr` types ignored: V6, V7 | A |
+
+## Update: removal of the alternative backends (2026-11-15)
+
+The owner decided on 2026-11-15 that jxl-oxide and rav1e leave the
+engine's runtime (ADR-0032, ADR-0037 amendments). Branch
+`v1/remove-alt-backends` removes the jxl-oxide reader, so every JPEG XL
+file has one reader and ADR-0042 D4 is met for JPEG XL by construction:
+
+- X6 to X9 (the jxl-oxide reader's extra channels, spot colors, extra
+  alpha, reserved types) are **resolved by removal**: the cases cannot
+  occur any more. Their tests stay and now pin the refusals of the only
+  reader (`silent_drops::jpeg_xl_reader_*`).
+- Q3 (`jxl_decoder` ignored for other formats) is **resolved by removal**:
+  the option is gone, and its test went with it.
+- X10 lost its test: the jxl-oxide adapter's own tests were removed with
+  the adapter. The compositing of layers into the displayed image by
+  libjxl-rs has no engine test.
+- The jxl-oxide findings below the JPEG XL table (the debug-build panic on
+  31-bit samples, the misreported float layout) no longer reach the
+  engine; they remain upstream reports (#213).
+- An unknown colour space (the fuzz regression
+  `jxl-unknown-colour-space.jxl`) is `MalformedInput` without a reason on
+  the only reader, as libjxl rejects it; on jxl-oxide it was refused as
+  `UnsupportedColor` with `UnsupportedColorEncoding`. A change of kind,
+  not a silent drop.
 
 ## Part 2: proposal (not implemented; the owner decides)
 

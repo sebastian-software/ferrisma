@@ -7,9 +7,6 @@ edition = "2024"
 [package.metadata]
 cargo-fuzz = true
 
-[features]
-own-jxl = ["ferrisma/jpeg-xl-own-read"]
-
 [dependencies]
 libfuzzer-sys = "0.4"
 ferrisma = { path = "..", features = ["cli"] }
@@ -33,14 +30,6 @@ bench = false
 [[bin]]
 name = "transcode_jxl_out"
 path = "fuzz_targets/transcode_jxl_out.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "transcode_own_jxl"
-path = "fuzz_targets/transcode_own_jxl.rs"
-required-features = ["own-jxl"]
 test = false
 doc = false
 bench = false

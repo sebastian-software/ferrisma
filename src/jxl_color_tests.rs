@@ -1,11 +1,11 @@
-//! What the JPEG XL adapters declare for their emitted samples, and how the
+//! What the JPEG XL reader declares for its emitted samples, and how the
 //! engine interprets it (issue #41, ADR-0015/0016/0023).
 //!
 //! The fixtures in `tests/fixtures/jxl-color` differ from two independently
 //! encoded files only in their enum color encoding (see its README), so the
-//! emitted samples are known exactly for the lossless ones. Every check runs
-//! against each compiled JPEG XL decoder, so the same expectations apply
-//! when the default decoder changes (#55).
+//! emitted samples are known exactly for the lossless ones. The workspace
+//! libjxl-rs port is the only reader since 2026-11-15 (ADR-0032); jxl-oxide
+//! remains here as an independent test-only cross-check.
 #![allow(clippy::chunks_exact_to_as_chunks)]
 
 use std::sync::Mutex;
@@ -14,8 +14,7 @@ use crate::decoder::DecodeSource;
 use crate::error::Error;
 use crate::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
-    JpegXlDecoder, OutputFormat, ProcessingErrorKind, ResizeFilter, RowEncoder, TransformOptions,
-    transcode_with,
+    OutputFormat, ProcessingErrorKind, ResizeFilter, RowEncoder, TransformOptions, transcode_with,
 };
 
 #[allow(
@@ -36,35 +35,14 @@ fn fixture(name: &str) -> Vec<u8> {
     .unwrap()
 }
 
-#[allow(clippy::vec_init_then_push)] // Entries depend on the features.
-fn decoders() -> Vec<JpegXlDecoder> {
-    let mut all = Vec::new();
-    #[cfg(feature = "jpeg-xl-read")]
-    all.push(JpegXlDecoder::JxlOxide);
-    #[cfg(feature = "jpeg-xl-own-read")]
-    all.push(JpegXlDecoder::LibjxlRs);
-    all
+/// What the reader's adapter declares for a file, or why it refuses it.
+fn open(bytes: &[u8]) -> Result<crate::decoder::DecoderInfo, Error> {
+    crate::codecs::jxl::JxlSource::new(bytes).map(|source| source.info().clone())
 }
 
-/// What one decoder's adapter declares for a file, or why it refuses it.
-fn open(decoder: JpegXlDecoder, bytes: &[u8]) -> Result<crate::decoder::DecoderInfo, Error> {
-    match decoder {
-        #[cfg(feature = "jpeg-xl-read")]
-        JpegXlDecoder::JxlOxide => {
-            crate::codecs::jxl_oxide::JxlSource::new(bytes).map(|source| source.info().clone())
-        }
-        #[cfg(feature = "jpeg-xl-own-read")]
-        JpegXlDecoder::LibjxlRs => {
-            crate::codecs::jxl::JxlSource::new(bytes).map(|source| source.info().clone())
-        }
-        #[allow(unreachable_patterns)]
-        _ => unreachable!(),
-    }
-}
-
-/// The rendered signals of one decoder: (CICP, the ICC's own `cicp` tag).
-fn signals(decoder: JpegXlDecoder, bytes: &[u8]) -> (Option<[u8; 4]>, Option<[u8; 4]>) {
-    let info = open(decoder, bytes).unwrap();
+/// The rendered signals of the reader: (CICP, the ICC's own `cicp` tag).
+fn signals(bytes: &[u8]) -> (Option<[u8; 4]>, Option<[u8; 4]>) {
+    let info = open(bytes).unwrap();
     let icc = info
         .rendered_icc
         .expect("JPEG XL adapters always render an ICC");
@@ -83,47 +61,33 @@ fn icc_cicp_tag(icc: &[u8]) -> Option<[u8; 4]> {
     })
 }
 
-/// The declared meaning of each fixture's samples, per decoder. jxl-oxide
-/// reports CICP beside its synthesized ICC; the libjxl-rs adapter reports
-/// only the ICC, whose `cicp` tag carries the same code points. PQ and HLG
-/// files are refused by both adapters before any profile is declared
-/// (review of 2026-11-12); before that change they declared `[9, 16, 0, 1]`
-/// and `[9, 18, 0, 1]` here and were rejected one stage later.
+/// The declared meaning of each fixture's samples. The libjxl-rs adapter
+/// reports only the ICC, whose `cicp` tag carries the code points (the
+/// former jxl-oxide reader reported CICP beside its synthesized ICC). PQ
+/// and HLG files are refused before any profile is declared (review of
+/// 2026-11-12); before that change they declared `[9, 16, 0, 1]` and
+/// `[9, 18, 0, 1]` here and were rejected one stage later.
 #[test]
 fn adapters_declare_the_emitted_encoding() {
-    for decoder in decoders() {
-        for name in ["lossless-pq", "lossless-hlg", "xyb-pq"]
-            .into_iter()
-            .chain(HDR_WITHOUT_CICP)
-        {
-            assert_eq!(
-                open(decoder, &fixture(name)).err(),
-                Some(Error::HdrTransfer),
-                "{decoder:?} {name}"
-            );
-        }
-        for (name, cicp) in [
-            ("lossless-p3", [12, 13, 0, 1]),
-            ("lossless-linear-srgb", [1, 8, 0, 1]),
-            ("lossless-dci-p3", [11, 17, 0, 1]),
-            ("xyb-p3", [12, 13, 0, 1]),
-        ] {
-            let (rendered, tagged) = signals(decoder, &fixture(name));
-            match decoder {
-                JpegXlDecoder::JxlOxide => {
-                    // Regression: jxl-oxide 0.12.6 itself reports primaries
-                    // 11 (DCI white) for D65 Display P3.
-                    assert_eq!(rendered, Some(cicp), "{decoder:?} {name}");
-                    if let Some(tag) = tagged {
-                        assert_eq!(tag[..2], cicp[..2], "{decoder:?} {name}");
-                    }
-                }
-                JpegXlDecoder::LibjxlRs => {
-                    assert_eq!(rendered, None, "{decoder:?} {name}");
-                    assert_eq!(tagged, Some(cicp), "{decoder:?} {name}");
-                }
-            }
-        }
+    for name in ["lossless-pq", "lossless-hlg", "xyb-pq"]
+        .into_iter()
+        .chain(HDR_WITHOUT_CICP)
+    {
+        assert_eq!(
+            open(&fixture(name)).err(),
+            Some(Error::HdrTransfer),
+            "{name}"
+        );
+    }
+    for (name, cicp) in [
+        ("lossless-p3", [12, 13, 0, 1]),
+        ("lossless-linear-srgb", [1, 8, 0, 1]),
+        ("lossless-dci-p3", [11, 17, 0, 1]),
+        ("xyb-p3", [12, 13, 0, 1]),
+    ] {
+        let (rendered, tagged) = signals(&fixture(name));
+        assert_eq!(rendered, None, "{name}");
+        assert_eq!(tagged, Some(cicp), "{name}");
     }
 }
 
@@ -154,7 +118,6 @@ impl RowEncoder for CaptureRows<'_> {
 
 fn run(
     bytes: &[u8],
-    decoder: JpegXlDecoder,
     policy: InputProfilePolicy,
     size: (u32, u32),
 ) -> Result<Vec<u8>, ProcessingErrorKind> {
@@ -168,7 +131,6 @@ fn run(
             output_height: size.1,
             filter: ResizeFilter::Area,
             profile_policy: policy,
-            jxl_decoder: decoder,
             transform_threads: 1,
             ..TransformOptions::default()
         },
@@ -206,7 +168,7 @@ fn assert_within(actual: &[u8], expected_linear: &[[f64; 3]], label: &str) {
     }
 }
 
-/// Supported SDR families: the rendered-ICC transform of each decoder's
+/// Supported SDR families: the rendered-ICC transform of the reader's
 /// declared profile reproduces the exactly known samples, converted by the
 /// independent oracle (primaries-derived P3 matrix, IEC sRGB curves). The
 /// identity geometry isolates color from resampling.
@@ -223,56 +185,61 @@ fn rendered_icc_reproduces_known_samples_for_sdr_families() {
         .chunks_exact(3)
         .map(|p| [0, 1, 2].map(|c| f64::from(p[c]) / 255.0))
         .collect();
-    for decoder in decoders() {
-        for (name, expected) in [
-            ("lossless-p3", &as_p3),
-            ("lossless-linear-srgb", &as_linear),
-        ] {
-            let actual = run(
-                &fixture(name),
-                decoder,
-                InputProfilePolicy::UseRenderedIcc,
-                (24, 16),
-            )
-            .unwrap_or_else(|kind| panic!("{decoder:?} {name}: {kind:?}"));
-            assert_within(&actual, expected, &format!("{decoder:?} {name}"));
-        }
+    for (name, expected) in [
+        ("lossless-p3", &as_p3),
+        ("lossless-linear-srgb", &as_linear),
+    ] {
+        let actual = run(&fixture(name), InputProfilePolicy::UseRenderedIcc, (24, 16))
+            .unwrap_or_else(|kind| panic!("{name}: {kind:?}"));
+        assert_within(&actual, expected, name);
     }
 }
 
-/// XYB input is rendered by each decoder into the declared Display P3; the
-/// two independent decoders agree after the same explicit ICC stage. The
-/// samples are lossy, so there is no exact reference: the bound is two codes,
-/// the decoders' float rendering differences plus the profile bound above.
-#[cfg(all(
-    feature = "icc",
-    feature = "jpeg-xl-read",
-    feature = "jpeg-xl-own-read"
-))]
+/// XYB input is rendered into the declared Display P3: the reader's own
+/// samples agree with jxl-oxide, an independent decoder kept as a test-only
+/// cross-check since 2026-11-15. The samples are lossy, so there is no exact
+/// reference; the bound is two codes of the two decoders' float rendering
+/// differences. (Until 2026-11-15 both readers were compared after the
+/// same explicit ICC stage, with the same bound.)
 #[test]
-fn both_decoders_agree_on_xyb_rendered_into_display_p3() {
+fn the_reader_agrees_with_jxl_oxide_on_xyb_rendered_into_display_p3() {
+    use crate::geometry::Rect;
+    use crate::memory::MemoryBudget;
+
     let bytes = fixture("xyb-p3");
-    let oxide = run(
-        &bytes,
-        JpegXlDecoder::JxlOxide,
-        InputProfilePolicy::UseRenderedIcc,
-        (7, 5),
-    )
-    .unwrap();
-    let libjxl = run(
-        &bytes,
-        JpegXlDecoder::LibjxlRs,
-        InputProfilePolicy::UseRenderedIcc,
-        (7, 5),
-    )
-    .unwrap();
-    let largest = oxide
+    let mut source = crate::codecs::jxl::JxlSource::new(&bytes).unwrap();
+    let size = source.info().size;
+    let mut own = Vec::new();
+    source
+        .read_region(
+            Rect::new(0, 0, size.width, size.height).unwrap(),
+            &MemoryBudget::new(1 << 20),
+            &mut |_, row| {
+                let crate::decoder::DecodedRow::F32(row) = row else {
+                    panic!("JPEG XL rows are float")
+                };
+                own.extend_from_slice(row);
+                Ok(())
+            },
+        )
+        .unwrap();
+    let image = jxl_oxide::JxlImage::builder()
+        .read(bytes.as_slice())
+        .unwrap();
+    let render = image.render_frame(0).unwrap();
+    let mut stream = render.stream();
+    assert_eq!(stream.channels(), 3);
+    let mut oxide = vec![0_u8; own.len()];
+    stream.write_to_buffer(&mut oxide);
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // Clamped first.
+    let largest = own
         .iter()
-        .zip(&libjxl)
+        .map(|&v| (v * 255.0).round().clamp(0.0, 255.0) as u8)
+        .zip(&oxide)
         .map(|(a, b)| a.abs_diff(*b))
         .max()
         .unwrap();
-    println!("xyb-p3: largest jxl-oxide/libjxl-rs difference {largest} codes");
+    println!("xyb-p3: largest libjxl-rs/jxl-oxide difference {largest} codes");
     assert!(largest <= 2);
 }
 
@@ -281,33 +248,26 @@ fn both_decoders_agree_on_xyb_rendered_into_display_p3() {
 /// output rows; the strict policy refuses every ICC-described JPEG XL.
 #[test]
 fn hdr_and_unverifiable_encodings_are_rejected() {
-    for decoder in decoders() {
-        for name in [
-            "lossless-pq",
-            "lossless-hlg",
-            "xyb-pq",
-            "lossless-dci-p3",
-            "lossless-p3",
-        ] {
-            assert_eq!(
-                run(&fixture(name), decoder, InputProfilePolicy::Strict, (3, 2)),
-                Err(ProcessingErrorKind::UnsupportedColor),
-                "{decoder:?} {name} strict"
-            );
-        }
-        #[cfg(feature = "icc")]
-        for name in ["lossless-pq", "lossless-hlg", "xyb-pq", "lossless-dci-p3"] {
-            assert_eq!(
-                run(
-                    &fixture(name),
-                    decoder,
-                    InputProfilePolicy::UseRenderedIcc,
-                    (3, 2)
-                ),
-                Err(ProcessingErrorKind::UnsupportedColor),
-                "{decoder:?} {name} rendered ICC"
-            );
-        }
+    for name in [
+        "lossless-pq",
+        "lossless-hlg",
+        "xyb-pq",
+        "lossless-dci-p3",
+        "lossless-p3",
+    ] {
+        assert_eq!(
+            run(&fixture(name), InputProfilePolicy::Strict, (3, 2)),
+            Err(ProcessingErrorKind::UnsupportedColor),
+            "{name} strict"
+        );
+    }
+    #[cfg(feature = "icc")]
+    for name in ["lossless-pq", "lossless-hlg", "xyb-pq", "lossless-dci-p3"] {
+        assert_eq!(
+            run(&fixture(name), InputProfilePolicy::UseRenderedIcc, (3, 2)),
+            Err(ProcessingErrorKind::UnsupportedColor),
+            "{name} rendered ICC"
+        );
     }
 }
 
@@ -316,7 +276,7 @@ fn hdr_and_unverifiable_encodings_are_rejected() {
 /// other than D65 or DCI) no CICP code point exists, neither beside nor
 /// inside the rendered ICC, so a check keyed on CICP let the synthesized
 /// PQ/HLG approximation profile through `UseRenderedIcc` and converted it as
-/// SDR. Every decoder and every input profile policy must refuse these files.
+/// SDR. Every input profile policy must refuse these files.
 #[test]
 fn hdr_transfer_is_rejected_without_any_cicp_equivalent() {
     #[allow(unused_mut)] // `UseRenderedIcc` needs the `icc` feature.
@@ -327,13 +287,11 @@ fn hdr_transfer_is_rejected_without_any_cicp_equivalent() {
     #[cfg(feature = "icc")]
     policies.push(InputProfilePolicy::UseRenderedIcc);
     let mut accepted = Vec::new();
-    for decoder in decoders() {
-        for name in HDR_WITHOUT_CICP {
-            for &policy in &policies {
-                let result = run(&fixture(name), decoder, policy, (3, 2)).map(|_| ());
-                if result != Err(ProcessingErrorKind::UnsupportedColor) {
-                    accepted.push(format!("{decoder:?} {name} {policy:?}: {result:?}"));
-                }
+    for name in HDR_WITHOUT_CICP {
+        for &policy in &policies {
+            let result = run(&fixture(name), policy, (3, 2)).map(|_| ());
+            if result != Err(ProcessingErrorKind::UnsupportedColor) {
+                accepted.push(format!("{name} {policy:?}: {result:?}"));
             }
         }
     }
@@ -349,8 +307,7 @@ const HDR_WITHOUT_CICP: [&str; 4] = [
 ];
 
 /// The new fixtures declare what their names say, read by jxl-oxide's own
-/// header parser rather than by either adapter.
-#[cfg(feature = "jpeg-xl-read")]
+/// header parser (test-only) rather than by the reader.
 #[test]
 fn hdr_fixtures_without_cicp_declare_their_enum_encoding() {
     use jxl_oxide::JxlImage;

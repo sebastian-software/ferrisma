@@ -54,7 +54,7 @@ engine reaches sits in a separate package whose safe API the engine calls.
 | `rav1e` 0.8.1 | 144 unsafe blocks, 86 unsafe fns, 94 assembly sources built by `cc` (aarch64) or NASM (x86-64) | `avif-write` (default AVIF encoder) |
 | `av-scenechange` 0.14.1 | 27 native sources, `extern "C"` blocks | `rav1e` |
 | `moxcms` 0.9.1, `pxfm` 0.1.30 | SIMD intrinsics (240 and 123 unsafe blocks) | `icc` |
-| `jxl-oxide` family (`jxl-render`, `jxl-grid`, `jxl-color`, `jxl-modular`, …) | SIMD intrinsics, 21–46 unsafe blocks per package | `jpeg-xl-read` |
+| `jxl-oxide` family (`jxl-render`, `jxl-grid`, `jxl-color`, `jxl-modular`, …) | SIMD intrinsics, 21–46 unsafe blocks per package | `jpeg-xl-read` until 2026-11-15; since then a test-only dev-dependency, outside the shipped closure (ADR-0032) |
 | `libc`, `crossbeam-*`, `rayon-core`, `bytemuck`, `memchr`, `once_cell`, `aligned-vec`, `arrayvec` | Common runtime unsafe | Several features |
 | `cc`, `nasm-rs`, `jobserver`, `find-msvc-tools`, `shlex` | Host-executed build code | Build-only edges of `rav1e` |
 

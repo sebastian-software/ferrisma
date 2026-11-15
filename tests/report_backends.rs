@@ -1,12 +1,10 @@
 //! `ProcessingReport::decoder_backend` and `encoder_backend` (issue #217,
 //! ADR-0017 amendment of 2026-11-14): every reader and writer the compiled
-//! features can select names itself in the report, including the JPEG XL
-//! reader that the build's default selects through feature unification.
+//! features can select names itself in the report.
 #![cfg(any(
     feature = "jpeg-read",
     feature = "webp-read",
     feature = "jpeg-xl-read",
-    feature = "jpeg-xl-own-read",
     feature = "avif-read"
 ))]
 // Each test needs its own feature combination; with some features alone the
@@ -15,8 +13,8 @@
 
 use ferrisma::pipeline::{
     AvifEncoder, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
-    InputProfilePolicy, JpegXlDecoder, Output, OutputFormat, RowEncoder, TransformOptions,
-    transcode, transcode_with,
+    InputProfilePolicy, Output, OutputFormat, RowEncoder, TransformOptions, transcode,
+    transcode_with,
 };
 
 /// Discards rows, so the readers run without a compiled writer.
@@ -67,10 +65,9 @@ fn srgb() -> TransformOptions {
     }
 }
 
-/// JPEG XL adapters describe their output with an ICC profile.
-fn rendered_icc(decoder: JpegXlDecoder) -> TransformOptions {
+/// The JPEG XL reader describes its output with an ICC profile.
+fn rendered_icc() -> TransformOptions {
     TransformOptions {
-        jxl_decoder: decoder,
         profile_policy: InputProfilePolicy::UseRenderedIcc,
         ..TransformOptions::default()
     }
@@ -93,53 +90,14 @@ fn webp_reader_is_reported() {
     assert_eq!(report.decoder_backend, "libwebp-rs");
 }
 
+/// One JPEG XL reader since 2026-11-15 (ADR-0032), named in the report.
+/// (Before, the default reader followed the compiled features, issue #217.)
 #[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
 #[test]
-fn explicitly_selected_jxl_oxide_is_reported() {
+fn jpeg_xl_reader_is_reported() {
     let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
-    let report = read(
-        jxl,
-        ImageFormat::JpegXl,
-        rendered_icc(JpegXlDecoder::JxlOxide),
-    )
-    .report;
-    assert_eq!(report.decoder_backend, "jxl-oxide");
-}
-
-#[cfg(all(feature = "jpeg-xl-own-read", feature = "icc"))]
-#[test]
-fn explicitly_selected_libjxl_rs_is_reported() {
-    let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
-    let report = read(
-        jxl,
-        ImageFormat::JpegXl,
-        rendered_icc(JpegXlDecoder::LibjxlRs),
-    )
-    .report;
+    let report = read(jxl, ImageFormat::JpegXl, rendered_icc()).report;
     assert_eq!(report.decoder_backend, "libjxl-rs");
-}
-
-/// The case issue #217 is about: the default reader follows the compiled
-/// features, and the report says which one ran.
-#[cfg(all(
-    any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read"),
-    feature = "icc"
-))]
-#[test]
-fn default_jpeg_xl_reader_is_reported() {
-    let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
-    let report = read(
-        jxl,
-        ImageFormat::JpegXl,
-        rendered_icc(JpegXlDecoder::default()),
-    )
-    .report;
-    let expected = if cfg!(feature = "jpeg-xl-own-read") {
-        "libjxl-rs"
-    } else {
-        "jxl-oxide"
-    };
-    assert_eq!(report.decoder_backend, expected);
 }
 
 #[cfg(feature = "avif-read")]

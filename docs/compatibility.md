@@ -15,21 +15,25 @@ else, including every private module, is outside the contract.
 | Area | Stable | Experimental (may change in a minor release) |
 | --- | --- | --- |
 | Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run` |
-| Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, quality, speed, chroma, threads, and the four resource limits; `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifEncoder::Libavif`, `JpegXlDecoder::LibjxlRs`, `JpegXlOptions` |
+| Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, quality, speed, chroma, threads, and the four resource limits; `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifEncoder::Libavif`, `JpegXlOptions` |
 | Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
-| Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `avif-write`, `icc`, `cli` | `jpeg-xl-own-read`, `jpeg-xl-write`, `avif-read`, `avif-own-write` |
-| CLI | Positional arguments, color policy, quality, speed, chroma, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-encoder`, `--avif-depth`, `--jxl-decoder`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
+| Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `avif-write`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-own-write` |
+| CLI | Positional arguments, color policy, quality, speed, chroma, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-encoder`, `--avif-depth`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
 
 `jpeg-xl-read` and `avif-write` promise the *capability* (JPEG XL input, AVIF
 output), not a particular backend: ADR-0025 may switch the backend behind them
 in a minor release when its evidence gates are met.
 
-Since 2026-11-12 (confirmed by the owner on 2026-11-13, ADR-0041 D1), the default backend follows the
-compiled features: the workspace libjxl-rs reader whenever `jpeg-xl-own-read`
-is enabled, and the workspace libavif/AOM writer (10-bit) whenever
-`avif-own-write` is enabled. `cli` enables both, so it runs these experimental
-backends by default; `--jxl-decoder=jxl-oxide` and `--avif-encoder=rav1e`
-select the others. AVIF `quality` and `speed` are interpreted on the selected
+Since 2026-11-15 `jpeg-xl-read` is the workspace libjxl-rs reader, the only
+JPEG XL reader (owner decision; [ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)).
+The feature of that name used to select jxl-oxide, and the workspace reader
+was the experimental `jpeg-xl-own-read`, which is gone; `JpegXlDecoder`,
+`TransformOptions::jxl_decoder` and `--jxl-decoder=` are removed (pre-1.0
+breaking change). Since 2026-11-12 (confirmed by the owner on 2026-11-13,
+ADR-0041 D1), the default AVIF writer follows the compiled features: the
+workspace libavif/AOM writer (10-bit) whenever `avif-own-write` is enabled.
+`cli` enables it, so it runs this experimental backend by default;
+`--avif-encoder=rav1e` selects the other. AVIF `quality` and `speed` are interpreted on the selected
 encoder's own scale and are not remapped. Select a backend explicitly when the
 result must not depend on Cargo feature unification. See the
 [supported matrix](supported-matrix.md).
@@ -51,7 +55,7 @@ meets several classes, the reason names the check that refused it first.
 | `RenderedIccMissing` | `UnsupportedColor` | `UseRenderedIcc`, but no ICC (untagged or CICP-only input) | another policy |
 | `CicpBesideIcc` | `UnsupportedColor` | under `UseRenderedIcc`, CICP beside the profile is HDR, uncheckable or disagrees | resolve the conflict upstream |
 | `HdrTransfer` | `UnsupportedColor` | PQ or HLG (JPEG XL, AVIF), under every policy | tone-map to SDR elsewhere |
-| `UnsupportedColorEncoding` | `UnsupportedColor` | SDR CICP outside sRGB, Display P3, linear sRGB without ICC (for example BT.2020 SDR); a JPEG XL colour encoding jxl-oxide cannot render | convert elsewhere |
+| `UnsupportedColorEncoding` | `UnsupportedColor` | SDR CICP outside sRGB, Display P3, linear sRGB without ICC (for example BT.2020 SDR). (Until 2026-11-15 also a JPEG XL colour encoding jxl-oxide could not render; the workspace reader, like libjxl, rejects that file as `MalformedInput`.) | convert elsewhere |
 | `ContradictoryColorSignals` | `UnsupportedColor` | AVIF container `nclx`/ICC contradicting the AV1 sequence header | repair the file |
 | `UnsupportedLayout` | `UnsupportedInput` | CMYK/YCCK JPEG, monochrome AVIF, constant-luminance BT.2020, grayscale/CMYK/float/extra-channel JPEG XL | convert to RGB(A) first |
 | `AlphaAssociation` | `UnsupportedInput` | premultiplied or unspecified alpha | convert to straight alpha first |
@@ -93,7 +97,7 @@ set as the `discarded=` key of its `report:` line (`none` when empty).
 
 | Feature set | Toolchain | Targets |
 | --- | --- | --- |
-| No features, or any of `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `jpeg-xl-own-read`, `avif-write`, `icc` | Stable Rust 1.98 or newer (`rust-version`); NASM on x86-64 for `avif-write` | Any target these crates build for; CI covers macOS ARM64 and GNU Linux x86-64 |
+| No features, or any of `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `jpeg-xl-write`, `avif-write`, `icc` | Stable Rust 1.98 or newer (`rust-version`); NASM on x86-64 for `avif-write` | Any target these crates build for; CI covers macOS ARM64 and GNU Linux x86-64 |
 | `avif-read`, `avif-own-write`, `cli` | The pinned nightly in `rust-toolchain.toml` (`nightly-2026-09-07` today) | Native macOS ARM64 and GNU Linux x86-64 only |
 
 Builds that enable the AVIF port features as a dependency also need the

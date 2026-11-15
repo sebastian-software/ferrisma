@@ -8,13 +8,11 @@
     feature = "webp-read",
     feature = "webp-write",
     feature = "jpeg-xl-read",
-    feature = "jpeg-xl-own-read",
     feature = "icc"
 ))]
 
 use ferrisma::pipeline::{
-    Discarded, ImageFormat, InputProfilePolicy, JpegXlDecoder, OutputFormat, TransformOptions,
-    transcode,
+    Discarded, ImageFormat, InputProfilePolicy, OutputFormat, TransformOptions, transcode,
 };
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
@@ -28,13 +26,12 @@ fn read(path: &str) -> Vec<u8> {
     std::fs::read(format!("{ROOT}/{path}")).unwrap_or_else(|error| panic!("{path}: {error}"))
 }
 
-fn options(policy: InputProfilePolicy, decoder: JpegXlDecoder) -> TransformOptions {
+fn options(policy: InputProfilePolicy) -> TransformOptions {
     TransformOptions {
         output_format: OutputFormat::WebP,
         output_width: 6,
         output_height: 4,
         profile_policy: policy,
-        jxl_decoder: decoder,
         transform_threads: 1,
         ..TransformOptions::default()
     }
@@ -42,13 +39,8 @@ fn options(policy: InputProfilePolicy, decoder: JpegXlDecoder) -> TransformOptio
 
 /// The discarded classes of one successful transcode.
 #[track_caller]
-fn discarded(
-    bytes: &[u8],
-    format: ImageFormat,
-    policy: InputProfilePolicy,
-    decoder: JpegXlDecoder,
-) -> Vec<Discarded> {
-    transcode(bytes, format, options(policy, decoder))
+fn discarded(bytes: &[u8], format: ImageFormat, policy: InputProfilePolicy) -> Vec<Discarded> {
+    transcode(bytes, format, options(policy))
         .unwrap_or_else(|error| panic!("{format:?} under {policy:?}: {error}"))
         .report
         .discarded
@@ -57,25 +49,17 @@ fn discarded(
 }
 
 fn jpeg(path: &str, policy: InputProfilePolicy) -> Vec<Discarded> {
-    discarded(
-        &read(path),
-        ImageFormat::Jpeg,
-        policy,
-        JpegXlDecoder::default(),
-    )
+    discarded(&read(path), ImageFormat::Jpeg, policy)
 }
 
 fn webp(bytes: &[u8], policy: InputProfilePolicy) -> Vec<Discarded> {
-    discarded(bytes, ImageFormat::WebP, policy, JpegXlDecoder::default())
+    discarded(bytes, ImageFormat::WebP, policy)
 }
 
-/// Both JPEG XL readers report the same classes.
+/// The JPEG XL reader's classes. (Until 2026-11-15 this also asserted that
+/// the jxl-oxide reader reported the same ones.)
 fn jxl(path: &str, policy: InputProfilePolicy) -> Vec<Discarded> {
-    let bytes = read(path);
-    let libjxl = discarded(&bytes, ImageFormat::JpegXl, policy, JpegXlDecoder::LibjxlRs);
-    let oxide = discarded(&bytes, ImageFormat::JpegXl, policy, JpegXlDecoder::JxlOxide);
-    assert_eq!(libjxl, oxide, "{path}: the readers disagree");
-    libjxl
+    discarded(&read(path), ImageFormat::JpegXl, policy)
 }
 
 use Discarded::{
@@ -148,21 +132,17 @@ fn webp_chunks_are_reported() {
     unknown[1888..1892].copy_from_slice(b"XYZW");
     assert_eq!(webp(&unknown, ASSUME), [UnknownContainerData]);
     // The engine's own WebP output carries an sRGB `ICCP` chunk.
-    let output = transcode(
-        &plain,
-        ImageFormat::WebP,
-        options(ASSUME, JpegXlDecoder::default()),
-    )
-    .unwrap()
-    .bytes;
+    let output = transcode(&plain, ImageFormat::WebP, options(ASSUME))
+        .unwrap()
+        .bytes;
     assert_eq!(webp(&output, RENDERED), [IccProfile]);
 }
 
 // ---------------------------------------------------------------------------
-// JPEG XL: container boxes, preview, precision (both readers).
+// JPEG XL: container boxes, preview, precision.
 
 #[test]
-fn jpeg_xl_boxes_are_reported_by_both_readers() {
+fn jpeg_xl_boxes_are_reported() {
     assert_eq!(jxl("tests/fixtures/sample.jxl", RENDERED), []);
     assert_eq!(
         jxl(&format!("{JXL_DATA}decode-test/1x1_exif_xmp.jxl"), RENDERED),
@@ -172,17 +152,13 @@ fn jpeg_xl_boxes_are_reported_by_both_readers() {
 
 #[test]
 fn jpeg_xl_preview_is_reported() {
-    // libjxl-rs only: jxl-oxide rejects this sequence fixture as malformed.
+    // (The former jxl-oxide reader rejected this sequence fixture as
+    // malformed.)
     let preview = read(&format!(
         "{JXL_DATA}decoder-geometry/sequence-preview-main-0-0-0.jxl"
     ));
     assert_eq!(
-        discarded(
-            &preview,
-            ImageFormat::JpegXl,
-            RENDERED,
-            JpegXlDecoder::LibjxlRs
-        ),
+        discarded(&preview, ImageFormat::JpegXl, RENDERED,),
         [Preview]
     );
 }
@@ -217,7 +193,7 @@ mod avif {
     const ANDROID: &str = "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/";
 
     fn avif(bytes: &[u8], policy: InputProfilePolicy) -> Vec<Discarded> {
-        discarded(bytes, ImageFormat::Avif, policy, JpegXlDecoder::default())
+        discarded(bytes, ImageFormat::Avif, policy)
     }
 
     fn file(name: &str) -> Vec<u8> {

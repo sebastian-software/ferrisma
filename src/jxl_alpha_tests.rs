@@ -2,8 +2,8 @@
 //! engine (issue #222, ADR-0015, ADR-0032, ADR-0039).
 //!
 //! The lossy sink writes XYB-encoded, enum sRGB samples with one straight
-//! 8-bit alpha channel. Each compiled JPEG XL decoder must declare that
-//! alpha as straight, and the rendered-ICC stage must convert the three
+//! 8-bit alpha channel. The JPEG XL reader must declare that alpha as
+//! straight, and the rendered-ICC stage must convert the three
 //! color channels while carrying alpha through unchanged. Associated alpha
 //! and the strict policy stay refused.
 // Test images are small; their coordinates and samples fit every cast.
@@ -20,36 +20,18 @@ use crate::jxl_sink::JxlSink;
 use crate::memory::MemoryBudget;
 use crate::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
-    JpegXlDecoder, JpegXlOptions, OutputFormat, ProcessingErrorKind, RowEncoder, TransformOptions,
-    transcode_with,
+    JpegXlOptions, OutputFormat, ProcessingErrorKind, RowEncoder, TransformOptions, transcode_with,
 };
 
 use crate::jxl_color_tests::oracle;
 
-#[allow(clippy::vec_init_then_push)] // Entries depend on the features.
-fn decoders() -> Vec<JpegXlDecoder> {
-    let mut all = Vec::new();
-    #[cfg(feature = "jpeg-xl-read")]
-    all.push(JpegXlDecoder::JxlOxide);
-    #[cfg(feature = "jpeg-xl-own-read")]
-    all.push(JpegXlDecoder::LibjxlRs);
-    all
+/// The JPEG XL reader's adapter, as the pipeline opens it.
+fn open(bytes: &[u8]) -> Result<Box<dyn DecodeSource + '_>, Error> {
+    Ok(Box::new(crate::codecs::jxl::JxlSource::new(bytes)?))
 }
 
-/// One decoder's adapter, as the pipeline opens it.
-fn open(decoder: JpegXlDecoder, bytes: &[u8]) -> Result<Box<dyn DecodeSource + '_>, Error> {
-    match decoder {
-        #[cfg(feature = "jpeg-xl-read")]
-        JpegXlDecoder::JxlOxide => Ok(Box::new(crate::codecs::jxl_oxide::JxlSource::new(bytes)?)),
-        #[cfg(feature = "jpeg-xl-own-read")]
-        JpegXlDecoder::LibjxlRs => Ok(Box::new(crate::codecs::jxl::JxlSource::new(bytes)?)),
-        #[allow(unreachable_patterns)]
-        _ => unreachable!(),
-    }
-}
-
-fn info(decoder: JpegXlDecoder, bytes: &[u8]) -> Result<DecoderInfo, Error> {
-    open(decoder, bytes).map(|source| source.info().clone())
+fn info(bytes: &[u8]) -> Result<DecoderInfo, Error> {
+    open(bytes).map(|source| source.info().clone())
 }
 
 /// The engine's lossy JPEG XL output (default distance 1.0) for RGBA rows.
@@ -99,7 +81,6 @@ impl RowEncoder for CaptureRows<'_> {
 /// identity geometry, or the error kind.
 fn read_back(
     bytes: &[u8],
-    decoder: JpegXlDecoder,
     policy: InputProfilePolicy,
     size: (u32, u32),
     threads: usize,
@@ -113,7 +94,6 @@ fn read_back(
             output_width: size.0,
             output_height: size.1,
             profile_policy: policy,
-            jxl_decoder: decoder,
             transform_threads: threads,
             ..TransformOptions::default()
         },
@@ -125,8 +105,8 @@ fn read_back(
 
 /// The decoder's own float samples (sRGB-encoded color, alpha), straight
 /// from its adapter, without the engine's color stage.
-fn raw_samples(decoder: JpegXlDecoder, bytes: &[u8]) -> Vec<f32> {
-    let mut source = open(decoder, bytes).unwrap();
+fn raw_samples(bytes: &[u8]) -> Vec<f32> {
+    let mut source = open(bytes).unwrap();
     let size = source.info().size;
     let mut samples = Vec::new();
     source
@@ -151,7 +131,7 @@ fn raw_samples(decoder: JpegXlDecoder, bytes: &[u8]) -> Vec<f32> {
 const BOUND: f64 = 2e-3;
 
 /// Issue #222: the engine reads its own transparent lossy JPEG XL through
-/// the rendered-ICC stage with each decoder. Alpha equals the written
+/// the rendered-ICC stage. Alpha equals the written
 /// alpha exactly. Color over visible pixels lies within `BOUND` linear of
 /// the decoder's own sRGB output (decoded by the independent IEC curve),
 /// and within the lossy pins of `jxl_lossy_tests` against the written
@@ -168,150 +148,126 @@ fn rendered_icc_reads_engine_written_straight_alpha() {
     {
         let written = translucent(width, height);
         let bytes = encode_lossy(width, height, &written);
-        for decoder in decoders() {
-            let declared = info(decoder, &bytes).unwrap();
-            assert_eq!(declared.alpha, AlphaMode::Straight, "{decoder:?}");
-            let raw = raw_samples(decoder, &bytes);
-            for threads in [1, 4] {
-                let label = format!("{decoder:?} {width}x{height} threads {threads}");
-                let rows = read_back(
-                    &bytes,
-                    decoder,
-                    InputProfilePolicy::UseRenderedIcc,
-                    (width as u32, height as u32),
-                    threads,
-                )
-                .unwrap_or_else(|kind| panic!("{label}: {kind:?}"));
-                assert_eq!(rows.len(), written.len(), "{label}");
-                let mut max = 0_u8;
-                let mut sum = 0_u64;
-                let mut visible = 0_u64;
-                let mut worst_code = 0_u8;
-                for ((out, input), decoded) in rows
-                    .as_chunks::<4>()
-                    .0
-                    .iter()
-                    .zip(written.as_chunks::<4>().0)
-                    .zip(raw.as_chunks::<4>().0)
-                {
-                    assert_eq!(out[3], input[3], "{label}: alpha passes through");
-                    assert_eq!(oracle::alpha8(f64::from(decoded[3])), input[3], "{label}");
-                    if input[3] == 0 {
-                        // ADR-0014: alpha 0 is transparent black.
-                        assert_eq!(out[..3], [0, 0, 0], "{label}");
-                        continue;
-                    }
-                    visible += 1;
-                    for c in 0..3 {
-                        let linear = oracle::srgb_eotf(f64::from(decoded[c]).clamp(0.0, 1.0));
-                        let lo = oracle::encode8(linear - BOUND);
-                        let hi = oracle::encode8(linear + BOUND);
-                        assert!(
-                            (lo..=hi).contains(&out[c]),
-                            "{label}: code {} outside {lo}..={hi}",
-                            out[c]
-                        );
-                        worst_code = worst_code.max(out[c].abs_diff(oracle::encode8(linear)));
-                        let d = out[c].abs_diff(input[c]);
-                        max = max.max(d);
-                        sum += u64::from(d);
-                    }
+        let declared = info(&bytes).unwrap();
+        assert_eq!(declared.alpha, AlphaMode::Straight);
+        let raw = raw_samples(&bytes);
+        for threads in [1, 4] {
+            let label = format!("{width}x{height} threads {threads}");
+            let rows = read_back(
+                &bytes,
+                InputProfilePolicy::UseRenderedIcc,
+                (width as u32, height as u32),
+                threads,
+            )
+            .unwrap_or_else(|kind| panic!("{label}: {kind:?}"));
+            assert_eq!(rows.len(), written.len(), "{label}");
+            let mut max = 0_u8;
+            let mut sum = 0_u64;
+            let mut visible = 0_u64;
+            let mut worst_code = 0_u8;
+            for ((out, input), decoded) in rows
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .zip(written.as_chunks::<4>().0)
+                .zip(raw.as_chunks::<4>().0)
+            {
+                assert_eq!(out[3], input[3], "{label}: alpha passes through");
+                assert_eq!(oracle::alpha8(f64::from(decoded[3])), input[3], "{label}");
+                if input[3] == 0 {
+                    // ADR-0014: alpha 0 is transparent black.
+                    assert_eq!(out[..3], [0, 0, 0], "{label}");
+                    continue;
                 }
-                #[allow(clippy::cast_precision_loss)] // Test-sized sample counts.
-                let mean = sum as f64 / (visible.max(1) * 3) as f64;
-                eprintln!(
-                    "{label}: vs written max {max} mean {mean:.3}; vs decoder max {worst_code} codes"
-                );
-                assert!(
-                    max <= max_bound && mean <= mean_bound,
-                    "{label}: max {max} mean {mean}"
-                );
+                visible += 1;
+                for c in 0..3 {
+                    let linear = oracle::srgb_eotf(f64::from(decoded[c]).clamp(0.0, 1.0));
+                    let lo = oracle::encode8(linear - BOUND);
+                    let hi = oracle::encode8(linear + BOUND);
+                    assert!(
+                        (lo..=hi).contains(&out[c]),
+                        "{label}: code {} outside {lo}..={hi}",
+                        out[c]
+                    );
+                    worst_code = worst_code.max(out[c].abs_diff(oracle::encode8(linear)));
+                    let d = out[c].abs_diff(input[c]);
+                    max = max.max(d);
+                    sum += u64::from(d);
+                }
             }
+            #[allow(clippy::cast_precision_loss)] // Test-sized sample counts.
+            let mean = sum as f64 / (visible.max(1) * 3) as f64;
+            eprintln!(
+                "{label}: vs written max {max} mean {mean:.3}; vs decoder max {worst_code} codes"
+            );
+            assert!(
+                max <= max_bound && mean <= mean_bound,
+                "{label}: max {max} mean {mean}"
+            );
         }
     }
 }
 
 /// The strict policy is unchanged: the engine's own JPEG XL output, opaque
-/// or transparent, is refused without `UseRenderedIcc`, because both
-/// adapters describe XYB output with a rendered ICC profile (ADR-0015).
+/// or transparent, is refused without `UseRenderedIcc`, because the reader
+/// describes XYB output with a rendered ICC profile (ADR-0015).
 #[test]
 fn strict_policy_still_refuses_engine_written_jpeg_xl() {
     let (width, height) = (32, 24);
     let transparent = encode_lossy(width, height, &translucent(width, height));
     let opaque = encode_lossy(width, height, &[90, 140, 200, 255].repeat(width * height));
-    for decoder in decoders() {
-        for (name, bytes) in [("transparent", &transparent), ("opaque", &opaque)] {
-            assert_eq!(
-                read_back(
-                    bytes,
-                    decoder,
-                    InputProfilePolicy::Strict,
-                    (width as u32, height as u32),
-                    1
-                ),
-                Err(ProcessingErrorKind::UnsupportedColor),
-                "{decoder:?} {name}"
-            );
-        }
+    for (name, bytes) in [("transparent", &transparent), ("opaque", &opaque)] {
+        assert_eq!(
+            read_back(
+                bytes,
+                InputProfilePolicy::Strict,
+                (width as u32, height as u32),
+                1
+            ),
+            Err(ProcessingErrorKind::UnsupportedColor),
+            "{name}"
+        );
     }
 }
 
-/// Associated (premultiplied) alpha is not guessed: jxl-oxide declares it
-/// `Unspecified` and libjxl-rs `Premultiplied`, and the rendered-ICC stage
-/// refuses both, as does every other policy.
+/// Associated (premultiplied) alpha is not guessed: libjxl-rs declares it
+/// `Premultiplied`, and the rendered-ICC stage refuses it, as does every
+/// other policy.
 #[test]
 fn associated_alpha_is_refused() {
     let (width, height) = (32, 24);
     let straight = encode_lossy(width, height, &translucent(width, height));
     let associated = mark_alpha_associated(&straight);
-    for decoder in decoders() {
-        let declared = info(decoder, &associated).unwrap();
-        let expected = match decoder {
-            JpegXlDecoder::JxlOxide => AlphaMode::Unspecified,
-            _ => AlphaMode::Premultiplied,
-        };
-        assert_eq!(declared.alpha, expected, "{decoder:?}");
-        // The rewrite changes only the association: same size and layout.
-        let plain = info(decoder, &straight).unwrap();
-        assert_eq!(
-            (declared.size, declared.layout),
-            (plain.size, plain.layout),
-            "{decoder:?}"
-        );
-        for policy in [
-            InputProfilePolicy::Strict,
-            InputProfilePolicy::AssumeSrgbIfMissing,
-            #[cfg(feature = "icc")]
-            InputProfilePolicy::UseRenderedIcc,
-        ] {
-            assert!(
-                matches!(
-                    read_back(
-                        &associated,
-                        decoder,
-                        policy,
-                        (width as u32, height as u32),
-                        1
-                    ),
-                    Err(ProcessingErrorKind::UnsupportedInput
-                        | ProcessingErrorKind::UnsupportedColor)
-                ),
-                "{decoder:?} {policy:?}"
-            );
-        }
+    let declared = info(&associated).unwrap();
+    assert_eq!(declared.alpha, AlphaMode::Premultiplied);
+    // The rewrite changes only the association: same size and layout.
+    let plain = info(&straight).unwrap();
+    assert_eq!((declared.size, declared.layout), (plain.size, plain.layout));
+    for policy in [
+        InputProfilePolicy::Strict,
+        InputProfilePolicy::AssumeSrgbIfMissing,
         #[cfg(feature = "icc")]
-        assert_eq!(
-            read_back(
-                &associated,
-                decoder,
-                InputProfilePolicy::UseRenderedIcc,
-                (width as u32, height as u32),
-                1
+        InputProfilePolicy::UseRenderedIcc,
+    ] {
+        assert!(
+            matches!(
+                read_back(&associated, policy, (width as u32, height as u32), 1),
+                Err(ProcessingErrorKind::UnsupportedInput | ProcessingErrorKind::UnsupportedColor)
             ),
-            Err(ProcessingErrorKind::UnsupportedInput),
-            "{decoder:?}: refused for its alpha, not its color"
+            "{policy:?}"
         );
     }
+    #[cfg(feature = "icc")]
+    assert_eq!(
+        read_back(
+            &associated,
+            InputProfilePolicy::UseRenderedIcc,
+            (width as u32, height as u32),
+            1
+        ),
+        Err(ProcessingErrorKind::UnsupportedInput),
+        "refused for its alpha, not its color"
+    );
 }
 
 /// Bit reader over a bare JPEG XL codestream (LSB first, ISO/IEC 18181-1).

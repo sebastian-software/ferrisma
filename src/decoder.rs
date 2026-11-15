@@ -146,7 +146,7 @@ pub(crate) struct CodecWork {
 impl CodecWork {
     /// A codec that reconstructs the whole stored frame for every request.
     #[cfg_attr(
-        not(any(feature = "jpeg-xl-own-read", feature = "avif-read")),
+        not(any(feature = "jpeg-xl-read", feature = "avif-read")),
         allow(dead_code, reason = "used by the full-frame codec adapters")
     )]
     pub(crate) fn full_frame(request: Rect, size: Size) -> Self {
@@ -167,10 +167,7 @@ impl CodecWork {
 
     /// A source that emits exactly the requested samples and whose internal
     /// work beyond them is not observed (synthetic sources and ROI codecs).
-    #[cfg_attr(
-        not(any(test, feature = "jpeg-xl-read")),
-        allow(dead_code, reason = "used by jxl-oxide and synthetic test sources")
-    )]
+    #[cfg(test)]
     pub(crate) fn region_at_least(request: Rect) -> Self {
         Self {
             request,

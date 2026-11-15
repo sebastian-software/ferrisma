@@ -80,7 +80,7 @@ jobs:
       - run: cargo clippy -p ferrisma -p ferrisma-kernels --all-targets --all-features --no-deps -- -D warnings
       - run: cargo clippy -p ferrisma-jxl-decoder -p ferrisma-jxl-encoder -p ferrisma-avif-read -p ferrisma-avif-write --all-targets --no-deps --locked -- -D warnings
       - run: |
-          for feature in jpeg-read webp-read webp-write jpeg-xl-read jpeg-xl-own-read jpeg-xl-write avif-read avif-write avif-own-write icc cli; do
+          for feature in jpeg-read webp-read webp-write jpeg-xl-read jpeg-xl-write avif-read avif-write avif-own-write icc cli; do
             cargo check --no-default-features --features "$feature"
           done
       - name: Check license inventory contracts and dependency metadata
@@ -113,7 +113,7 @@ jobs:
       - run: cargo +1.98.0 fetch --locked
       # Own AVIF input/output use the native nightly port; the remaining engine features
       # keep the stable MSRV contract. Native reader jobs cover AVIF separately.
-      - run: cargo +1.98.0 check -p ferrisma -p ferrisma-kernels --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,jpeg-xl-write,avif-write,icc --locked
+      - run: cargo +1.98.0 check -p ferrisma -p ferrisma-kernels --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,avif-write,icc --locked
       - run: cargo +1.98.0 check -p ferrisma-xtask --all-targets --locked
   kernels-arm:
     needs: affected

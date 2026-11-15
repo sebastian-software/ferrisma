@@ -1,6 +1,6 @@
 # Fuzzing and hostile-input policy
 
-**Status:** Harness and eight-lane ASan campaign workflow exist. The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure; a 20-minute local ASan run of the JPEG XL output lane `transcode_jxl_out` (2026-11-15) found none either. The hosted smoke [run 43690971661](https://github.com/sebastian-software/ferrisma/actions/runs/43690971661) (2026-11-15) found a 1 GiB allocation request in jxl-oxide from an 11-byte JPEG XL codestream; it is now bounded by the input cap ([details](#hosted-smoke-run-43690971661-2026-11-15)). The sustained, coverage-reviewed campaign required for release has **not** completed; see [results](#campaign-results).
+**Status:** Harness and six-job ASan campaign workflow exist (eight jobs until 2026-11-15). The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure; a 20-minute local ASan run of the JPEG XL output lane `transcode_jxl_out` (2026-11-15) found none either. The hosted smoke [run 43690971661](https://github.com/sebastian-software/ferrisma/actions/runs/43690971661) (2026-11-15) found a 1 GiB allocation request in jxl-oxide from an 11-byte JPEG XL codestream; it was bounded by the input cap the same day ([details](#hosted-smoke-run-43690971661-2026-11-15)), and on 2026-11-15 jxl-oxide left the engine's runtime altogether (owner decision, [ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)): every lane now reads JPEG XL through the workspace libjxl-rs reader, and the `transcode_own_jxl` lane, which differed only by that reader, is merged into `transcode` ([lanes since 2026-11-15](#lanes-since-2026-11-15)). The sustained, coverage-reviewed campaign required for release has **not** completed; see [results](#campaign-results).
 
 Ferrisma's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and AVIF bytes. The core forbids unsafe Rust; optional decoder, assembler, SIMD and encoder dependencies do **not** inherit that guarantee. The workspace AVIF reader checks dimensions and reserves the emitted RGB frame before pixel decoding, but libavif/AOM still allocate opaque parser and codec buffers outside the engine budget.
 
@@ -14,7 +14,7 @@ cargo fuzz run transcode -- -max_len=524288 -timeout=10 -rss_limit_mb=1024
 ```
 
 The target accepts one control byte followed by unchanged encoded image bytes.
-Its two low bits choose JPEG (0), default JPEG XL (1), AVIF (2), or WebP (3);
+Its two low bits choose JPEG (0), JPEG XL (1, the workspace libjxl-rs reader), AVIF (2), or WebP (3);
 bit 2 selects WebP instead of AVIF output. Bits 3–4 select the profile policy:
 zero uses rendered ICC for JPEG XL and an explicit sRGB assumption only when
 metadata is absent for the other formats; 1 is strict; 2 assumes sRGB only when
@@ -31,8 +31,7 @@ transform and encoder thread. The extreme aspect-ratio lanes exercise planning
 admission; a resource error is an expected result. These limits do not cap codec
 scratch, thread/runtime overhead, or total RSS. Run fuzzing in a sandbox with
 process-level limits and sanitizer support; preserve and minimize crashes in
-`fuzz/artifacts/` or the upstream codec test corpus. The sustained workflow
-also has a separate opt-in workspace JPEG XL decoder lane.
+`fuzz/artifacts/` or the upstream codec test corpus.
 
 The shared driver has a deterministic smoke test using real JPEG, JPEG XL,
 AVIF and WebP fixtures, each with both output formats. It checks that every
@@ -43,7 +42,7 @@ color rejection and input/geometry limits:
 cargo test --manifest-path fuzz/Cargo.toml --lib
 ```
 
-The hosted workflow seeds all eight tested input/output pairs. This workflow
+The hosted smoke seeds all eight tested input/output pairs. This workflow
 configuration is not a completed campaign result; retain the exact run and
 revision when reporting hosted coverage.
 
@@ -135,10 +134,11 @@ lanes have not run.
 ## Sustained campaign workflow
 
 [M1 Sustained Fuzz Campaign](../.github/workflows/m1-fuzz-campaign.yml) is a
-manually dispatched, eight-job experiment: the multi-format driver, the workspace
-AVIF/AOM writer, the opt-in workspace JPEG XL decoder and the
+manually dispatched, six-job experiment: the multi-format driver, the workspace
+AVIF/AOM writer and the
 [JPEG XL output lane](#jpeg-xl-output-lane) each run on native Linux x86-64 and macOS
-ARM64. Dispatch the registered `M1 Decoder Fuzz Smoke` workflow with the
+ARM64 (until 2026-11-15 also an opt-in workspace JPEG XL decoder lane,
+merged into the multi-format driver when jxl-oxide left the runtime). Dispatch the registered `M1 Decoder Fuzz Smoke` workflow with the
 `campaign` input set to `true` to run it on a branch; the default remains the
 quick smoke. Each job uses the pinned nightly and cargo-fuzz 0.13.2 with explicit
 AddressSanitizer, a libFuzzer seed of 1, and a 1,800-second mutation budget.
@@ -149,9 +149,8 @@ limits are not a bound on all operating-system resources.
 
 The checked-in seed generator frames the eight successful input/output pairs,
 additional AVIF grid, alpha, ICC and upstream proof-of-concept files, JPEG XL
-orientation fixtures, and valid and malformed JPEG ICC tag tables. The own-JXL
-lane accepts only inputs whose selector chooses JPEG XL; it keeps the rest of
-the selector and image bytes unchanged. Deterministic seed tests report whether
+orientation fixtures, and valid and malformed JPEG ICC tag tables.
+Deterministic seed tests report whether
 each starting input encodes or is rejected, and assert both output encoders
 are reached for the applicable decoder. The generator hashes the exact starting
 bytes. Mutations and duration vary with scheduling and hardware despite the
@@ -159,10 +158,9 @@ fixed PRNG seed; the seed does not make the resulting corpus deterministic.
 
 The own-AVIF lane accepts only AVIF-output selectors and runs each admitted
 input through the workspace AOM writer at both 8 and 10 bits. It uses the
-default input decoders, including JXL-Oxide. Its deterministic fixtures cover
-all four input formats and AVIF alpha; tests assert the reported encoder is
-`libavif-rs/aom`. The separate own-JXL lane covers Rav1e and WebP output; the
-own-JXL-to-own-AVIF combination is outside this campaign. Encoder choice and
+engine's only input decoders (JPEG XL through libjxl-rs since 2026-11-15).
+Its deterministic fixtures cover all four input formats and AVIF alpha; tests
+assert the reported encoder is `libavif-rs/aom`. Encoder choice and
 bit depth are explicit lane settings and do not consume or rewrite image bytes.
 
 Artifacts include the source commit and tree, toolchain, host, lockfile hashes,
@@ -191,6 +189,24 @@ linker rejects the instrumented `cdylib` outputs of `libavif-dav1d` and
 failure, not a decoder memory-safety finding. Linux linked without the cfg.
 
 ## Campaign results
+
+### Lanes since 2026-11-15
+
+jxl-oxide is no longer a reader of the engine (ADR-0032 amendment of
+2026-11-15), so no lane can select it. `transcode` reads JPEG XL through the
+workspace libjxl-rs reader, and the former `transcode_own_jxl` lane (and the
+fuzz crate's `own-jxl` feature), which differed from `transcode` only by
+that reader, is retired: its JPEG XL orientation seeds moved to
+`transcode` as `jxl-orientation-1` … `-8`, and its other seeds were
+byte-identical to seeds `transcode` already has. No seed was dropped. The
+deterministic replay re-classifies the two hostile JPEG XL seeds on
+`transcode` (they were read by jxl-oxide there before): the oversized TOC
+section is `MalformedInput` (before: `ResourceExhausted` from the adapter's
+allocation bound) and the unknown colour space is `MalformedInput` (before:
+`UnsupportedColor`), in every lane, as libjxl rejects them. The sustained
+campaign runs the remaining lanes on Linux x86-64 and macOS ARM64. The
+records below are kept as they were measured; they name the readers of
+their day.
 
 ### Hosted campaign, run 43117625746 (2026-11-11)
 
@@ -421,10 +437,10 @@ commit `984910f8`. "Before decode" means before pixel data is rendered.
 | Compressed byte cap | `max_input_bytes` (default 64 MiB) is checked before any decoder opens, in `transcode*` and `inspect`. |
 | Pixel cap, AVIF/WebP/own-JXL | Passed into the adapter and checked from container/sequence headers before the frame is decoded or reserved (`new_bounded`). |
 | Pixel cap, JPEG | Header-only `JpegSource::new`; the facade checks `max_input_pixels` before the first scanline request. |
-| Pixel cap, JXL-Oxide | Construction parses the header and buffers frame data (bounded by the compressed size); the facade checks the pixel cap before rendering. Unrenderable colour encodings are rejected at construction (above). |
+| Pixel cap, JXL-Oxide | Construction parses the header and buffers frame data (bounded by the compressed size); the facade checks the pixel cap before rendering. Unrenderable colour encodings are rejected at construction (above). Obsolete since 2026-11-15: jxl-oxide is not a reader any more. |
 | Geometry overflow | Pixel counts use `u64`; budget reservations use `checked_add`/`checked_mul` and fallible `try_reserve_exact`; region and row sizes use checked conversions. |
 | Engine allocation admission | `MemoryBudget` (`max_managed_bytes`, default 256 MiB) admits every engine row, frame, orientation and encoder-frame buffer; the 8192×1 driver lane is rejected by planning before encode. |
-| Opaque codec memory | Not admitted: libjpeg-turbo-rs, JXL-Oxide render buffers, libavif/AOM parser state, libjxl-rs, libwebp-rs, rav1e and libavif encoder internals. Reports flag this with `opaque_decoder_memory`/`opaque_encoder_memory`. Since 2026-11-15 JXL-Oxide's `AllocTracker` bounds its buffered frame data by `max_input_bytes` while the file is read ([run 43690971661](#hosted-smoke-run-43690971661-2026-11-15)); its render buffers and its encoded-ICC buffer are still unbounded. |
+| Opaque codec memory | Not admitted: libjpeg-turbo-rs, JXL-Oxide render buffers, libavif/AOM parser state, libjxl-rs, libwebp-rs, rav1e and libavif encoder internals. Reports flag this with `opaque_decoder_memory`/`opaque_encoder_memory`. Since 2026-11-15 JXL-Oxide's `AllocTracker` bounds its buffered frame data by `max_input_bytes` while the file is read ([run 43690971661](#hosted-smoke-run-43690971661-2026-11-15)); its render buffers and its encoded-ICC buffer were still unbounded when jxl-oxide left the runtime on 2026-11-15, which made both moot. |
 | Output cap | `max_output_bytes` is checked after the encoder returns its complete output, not incrementally. |
 | Cancellation | No caller-driven cancellation or deadline exists. `ProcessingErrorKind::Cancelled` arises only when an output sink or backend aborts. A hostile input is bounded by the byte/pixel caps and the caller's process limits, not by a time budget. |
 | Process RSS | Not measured against `MemoryBudget` yet; libFuzzer peak RSS above is the only process-level observation and includes ASan overhead. |

@@ -7,8 +7,7 @@
 //! refusals).
 
 use crate::pipeline::{
-    ImageFormat, InputProfilePolicy, JpegXlDecoder, OutputFormat, RefusalReason, TransformOptions,
-    transcode,
+    ImageFormat, InputProfilePolicy, OutputFormat, RefusalReason, TransformOptions, transcode,
 };
 
 const ALL: [RefusalReason; 12] = [
@@ -57,68 +56,54 @@ fn unknown_essential_property() -> Vec<u8> {
     bytes
 }
 
-/// One fixture, format, policy and JPEG XL reader per reason; the position
-/// in `ALL` is returned with it.
-fn case(
-    reason: RefusalReason,
-) -> (
-    usize,
-    Vec<u8>,
-    ImageFormat,
-    InputProfilePolicy,
-    JpegXlDecoder,
-) {
+/// One fixture, format and policy per reason; the position in `ALL` is
+/// returned with it.
+fn case(reason: RefusalReason) -> (usize, Vec<u8>, ImageFormat, InputProfilePolicy) {
     use InputProfilePolicy::{AssumeSrgbIfMissing, Strict, UseRenderedIcc};
-    use JpegXlDecoder::{JxlOxide, LibjxlRs};
-    let (index, path, format, policy, decoder) = match reason {
+    let (index, path, format, policy) = match reason {
         RefusalReason::Animation => (
             0,
             "tests/fixtures/decoder-work/animated.webp".to_owned(),
             ImageFormat::WebP,
             AssumeSrgbIfMissing,
-            LibjxlRs,
         ),
         RefusalReason::ColorSignalMissing => (
             1,
             "tests/fixtures/sample.jpg".to_owned(),
             ImageFormat::Jpeg,
             Strict,
-            LibjxlRs,
         ),
         RefusalReason::RenderedIccRequiresOptIn => (
             2,
             "tests/fixtures/sample.jxl".to_owned(),
             ImageFormat::JpegXl,
             Strict,
-            LibjxlRs,
         ),
         RefusalReason::CicpBesideIcc => (
             3,
             "tests/fixtures/avif-color/icc-nclx-1-1-6.avif".to_owned(),
             ImageFormat::Avif,
             UseRenderedIcc,
-            LibjxlRs,
         ),
         RefusalReason::HdrTransfer => (
             4,
             "tests/fixtures/jxl-color/lossless-pq.jxl".to_owned(),
             ImageFormat::JpegXl,
             UseRenderedIcc,
-            LibjxlRs,
         ),
+        // BT.2020 SDR CICP without an ICC profile. (Until 2026-11-15 the
+        // fixture was a JPEG XL enum encoding only jxl-oxide reported here.)
         RefusalReason::UnsupportedColorEncoding => (
             5,
-            "tests/fixtures/hostile/jxl-unknown-colour-space.jxl".to_owned(),
-            ImageFormat::JpegXl,
+            format!("{LIBAVIF}colors_text_wcg_sdr_rec2020.avif"),
+            ImageFormat::Avif,
             Strict,
-            JxlOxide,
         ),
         RefusalReason::RenderedIccMissing => (
             6,
             format!("{LIBAVIF}colors_sdr_srgb.avif"),
             ImageFormat::Avif,
             UseRenderedIcc,
-            LibjxlRs,
         ),
         RefusalReason::ContradictoryColorSignals => {
             let mut bytes = file(&format!("{LIBAVIF}colors_sdr_srgb.avif"));
@@ -130,28 +115,25 @@ fn case(
             // Matrix 6 (BT.601) -> 1 (BT.709): contradicts the AV1 header.
             assert_eq!(&bytes[nclx..nclx + 6], &[0, 1, 0, 13, 0, 6]);
             bytes[nclx + 5] = 1;
-            return (7, bytes, ImageFormat::Avif, Strict, LibjxlRs);
+            return (7, bytes, ImageFormat::Avif, Strict);
         }
         RefusalReason::UnsupportedLayout => (
             8,
             "tests/fixtures/cmyk.jpg".to_owned(),
             ImageFormat::Jpeg,
             AssumeSrgbIfMissing,
-            LibjxlRs,
         ),
         RefusalReason::AlphaAssociation => (
             9,
             format!("{LIBJXL}extra-channel-alpha-1-up-1-shift-0.jxl"),
             ImageFormat::JpegXl,
             UseRenderedIcc,
-            LibjxlRs,
         ),
         RefusalReason::GeometricTransform => (
             10,
             format!("{LIBAVIF}clap_irot_imir_non_essential.avif"),
             ImageFormat::Avif,
             AssumeSrgbIfMissing,
-            LibjxlRs,
         ),
         RefusalReason::UnsupportedEssentialProperty => {
             return (
@@ -159,18 +141,17 @@ fn case(
                 unknown_essential_property(),
                 ImageFormat::Avif,
                 AssumeSrgbIfMissing,
-                LibjxlRs,
             );
         }
     };
-    (index, file(&path), format, policy, decoder)
+    (index, file(&path), format, policy)
 }
 
 #[test]
 fn every_refusal_reason_is_produced_by_a_fixture() {
     let mut seen = [false; ALL.len()];
     for reason in ALL {
-        let (index, bytes, format, profile_policy, jxl_decoder) = case(reason);
+        let (index, bytes, format, profile_policy) = case(reason);
         assert_eq!(ALL[index], reason, "ALL and case disagree");
         assert!(!seen[index], "{reason:?} listed twice");
         seen[index] = true;
@@ -180,7 +161,6 @@ fn every_refusal_reason_is_produced_by_a_fixture() {
             output_height: 4,
             transform_threads: 1,
             profile_policy,
-            jxl_decoder,
             ..TransformOptions::default()
         };
         let error = transcode(&bytes, format, options).expect_err("the fixture must be refused");

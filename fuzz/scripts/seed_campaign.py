@@ -28,8 +28,6 @@ for name, path, selector in fixtures:
         seed("transcode", f"{name}-to-{output}", selector | flag, read(path))
         if output == "avif":
             seed("transcode_own_avif", f"{name}-to-{output}", selector, read(path))
-        if name == "jxl":
-            seed("transcode_own_jxl", f"{name}-to-{output}", selector | flag, read(path))
 
 # A range of containers and rejection paths, not assertions of decoder support.
 for name in ["poc_b_506387278.avif", "color_grid_alpha_grid_shared_tiles.avif", "paris_icc_exif_xmp.avif"]:
@@ -41,13 +39,14 @@ seed("transcode_own_avif", "avif-alpha", 2,
 # Retained regressions from earlier campaigns (inputs without their selector).
 hostile_jxl = read("tests/fixtures/hostile/jxl-unknown-colour-space.jxl")
 seed("transcode", "jxl-unknown-colour-space", 5, hostile_jxl)
-seed("transcode_own_jxl", "jxl-unknown-colour-space", 5, hostile_jxl)
 # Smoke run 43690971661: a TOC section declaring 1 GiB (selector 1, as found).
 oversized_toc = read("tests/fixtures/hostile/jxl-oversized-toc-section.jxl")
 seed("transcode", "jxl-oversized-toc-section", 1, oversized_toc)
-seed("transcode_own_jxl", "jxl-oversized-toc-section", 1, oversized_toc)
+# The JPEG XL orientations, formerly of the `transcode_own_jxl` lane, which
+# differed from `transcode` only by its JPEG XL reader (merged 2026-11-15;
+# its other seeds were byte-identical to these lanes' own).
 for orientation in range(1, 9):
-    seed("transcode_own_jxl", f"orientation-{orientation}", 1, read(f"tests/fixtures/orientation/jxl-{orientation}.jxl"))
+    seed("transcode", f"jxl-orientation-{orientation}", 1, read(f"tests/fixtures/orientation/jxl-{orientation}.jxl"))
 
 # JPEG XL output lane: control byte = input format | profile << 2 (0 lossy
 # d1.0, 1 lossless) | policy << 3 | geometry class << 5 (fuzz/src/lib.rs).

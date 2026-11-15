@@ -263,7 +263,8 @@ fn facade_rejects_mismatched_and_disabled_settings_before_decoding() {
     }
 }
 
-#[cfg(feature = "jpeg-xl-read")]
+/// Cross-checks with jxl-oxide, an independent decoder that is a test-only
+/// dev-dependency since 2026-11-15 (no longer a reader of the engine).
 mod independent_decode {
     use jxl_oxide::color::{
         ColourEncoding, ColourSpace, Primaries, RenderingIntent, TransferFunction, WhitePoint,
@@ -346,7 +347,7 @@ mod independent_decode {
         }
     }
 
-    #[cfg(feature = "jpeg-xl-own-read")]
+    #[cfg(feature = "jpeg-xl-read")]
     #[test]
     fn sink_round_trips_exactly_through_the_workspace_decoder() {
         for alpha in [false, true] {
@@ -377,7 +378,7 @@ mod independent_decode {
     }
 }
 
-#[cfg(all(feature = "jpeg-xl-read", feature = "webp-read"))]
+#[cfg(feature = "webp-read")]
 mod pipeline_round_trip {
     use webp::api::encode::{PixelLayout, PixelRows, encode_lossless};
 

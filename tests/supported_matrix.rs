@@ -12,13 +12,12 @@
 //! supported_matrix`). Without the AVIF features, which build only on macOS
 //! ARM64 and GNU Linux x86-64, the JPEG, WebP and JPEG XL cases still run
 //! (for example on x86-64 macOS under Rosetta 2) with
-//! `--features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,jpeg-xl-write,icc`.
+//! `--features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc`.
 #![cfg(all(
     feature = "jpeg-read",
     feature = "webp-read",
     feature = "webp-write",
     feature = "jpeg-xl-read",
-    feature = "jpeg-xl-own-read",
     feature = "jpeg-xl-write",
     feature = "icc"
 ))]
@@ -29,9 +28,9 @@
 ))]
 use ferrisma::pipeline::ChromaSubsampling;
 use ferrisma::pipeline::{
-    AvifEncoder, Crop, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlDecoder,
-    JpegXlOptions, Output, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason,
-    SourceAccess, TransformOptions, WebpOptions, inspect, transcode,
+    AvifEncoder, Crop, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions, Output,
+    OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason, SourceAccess,
+    TransformOptions, WebpOptions, inspect, transcode,
 };
 
 // ---------------------------------------------------------------------------
@@ -202,11 +201,9 @@ fn webp_chunks(bytes: &[u8]) -> Vec<[u8; 4]> {
     chunks
 }
 
-#[cfg(any(
-    feature = "avif-read",
-    feature = "avif-write",
-    feature = "avif-own-write"
-))]
+// Only the AVIF input cases search boxes (a build with an AVIF writer but no
+// AVIF reader left this unused).
+#[cfg(feature = "avif-read")]
 fn find(bytes: &[u8], needle: &[u8]) -> Option<usize> {
     bytes
         .windows(needle.len())
@@ -425,97 +422,70 @@ fn webp_canvas_above_the_pixel_limit_is_rejected_from_the_header() {
 }
 
 // ===========================================================================
-// Inputs: JPEG XL, both readers.
+// Inputs: JPEG XL, through the only reader (libjxl-rs; until 2026-11-15
+// these cases also ran on jxl-oxide).
 
-const BOTH_JXL: [JpegXlDecoder; 2] = [JpegXlDecoder::LibjxlRs, JpegXlDecoder::JxlOxide];
-
-fn jxl_options(decoder: JpegXlDecoder, policy: InputProfilePolicy) -> TransformOptions {
-    TransformOptions {
-        jxl_decoder: decoder,
-        ..options(OutputFormat::WebP, policy)
-    }
+fn jxl_options(policy: InputProfilePolicy) -> TransformOptions {
+    options(OutputFormat::WebP, policy)
 }
 
 #[test]
-fn jpeg_xl_rgb_needs_the_rendered_icc_policy_on_both_readers() {
-    for decoder in BOTH_JXL {
-        let output = transcode(
-            SAMPLE_JXL,
-            ImageFormat::JpegXl,
-            jxl_options(decoder, RENDERED),
-        )
-        .unwrap_or_else(|error| panic!("{decoder:?}: {error}"));
-        let expected = match decoder {
-            JpegXlDecoder::LibjxlRs => SourceAccess::FullFrameFallback,
-            _ => SourceAccess::CodecRegionRequest,
-        };
-        assert_eq!(output.report.input_access, expected, "{decoder:?}");
-        for policy in [STRICT, ASSUME] {
-            refused(
-                transcode(
-                    SAMPLE_JXL,
-                    ImageFormat::JpegXl,
-                    jxl_options(decoder, policy),
-                ),
-                ProcessingErrorKind::UnsupportedColor,
-                COLOR,
-                Some(RefusalReason::RenderedIccRequiresOptIn),
-            );
-        }
+fn jpeg_xl_rgb_needs_the_rendered_icc_policy() {
+    let output = transcode(SAMPLE_JXL, ImageFormat::JpegXl, jxl_options(RENDERED)).unwrap();
+    assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
+    for policy in [STRICT, ASSUME] {
+        refused(
+            transcode(SAMPLE_JXL, ImageFormat::JpegXl, jxl_options(policy)),
+            ProcessingErrorKind::UnsupportedColor,
+            COLOR,
+            Some(RefusalReason::RenderedIccRequiresOptIn),
+        );
     }
 }
 
 #[test]
 fn jpeg_xl_straight_alpha_is_kept_through_rendered_icc() {
-    for decoder in BOTH_JXL {
-        let output = transcode(
-            &jxl("effects_rgb_alpha8.jxl"),
-            ImageFormat::JpegXl,
-            jxl_options(decoder, RENDERED),
-        )
-        .unwrap_or_else(|error| panic!("{decoder:?}: {error}"));
-        assert!(webp_has_alpha(&output), "{decoder:?}");
-    }
+    let output = transcode(
+        &jxl("effects_rgb_alpha8.jxl"),
+        ImageFormat::JpegXl,
+        jxl_options(RENDERED),
+    )
+    .unwrap();
+    assert!(webp_has_alpha(&output));
 }
 
 #[test]
 fn jpeg_xl_grayscale_is_rejected_under_every_policy() {
-    // Both readers deliver gray and gray+alpha samples, but no policy
+    // The reader delivers gray and gray+alpha samples, but no policy
     // accepts them: their rendered ICC is not sRGB CICP, and the rendered-ICC
     // transform takes RGB(A) only.
     for name in ["ycbcr-jpeg-gray.jxl", "modular-gray-alpha12.jxl"] {
-        for decoder in BOTH_JXL {
-            for (policy, kind, reason, refusal) in [
-                (
-                    STRICT,
-                    ProcessingErrorKind::UnsupportedColor,
-                    COLOR,
-                    RefusalReason::RenderedIccRequiresOptIn,
-                ),
-                (
-                    ASSUME,
-                    ProcessingErrorKind::UnsupportedColor,
-                    COLOR,
-                    RefusalReason::RenderedIccRequiresOptIn,
-                ),
-                (
-                    RENDERED,
-                    ProcessingErrorKind::UnsupportedInput,
-                    LAYOUT,
-                    RefusalReason::UnsupportedLayout,
-                ),
-            ] {
-                refused(
-                    transcode(
-                        &jxl(name),
-                        ImageFormat::JpegXl,
-                        jxl_options(decoder, policy),
-                    ),
-                    kind,
-                    reason,
-                    Some(refusal),
-                );
-            }
+        for (policy, kind, reason, refusal) in [
+            (
+                STRICT,
+                ProcessingErrorKind::UnsupportedColor,
+                COLOR,
+                RefusalReason::RenderedIccRequiresOptIn,
+            ),
+            (
+                ASSUME,
+                ProcessingErrorKind::UnsupportedColor,
+                COLOR,
+                RefusalReason::RenderedIccRequiresOptIn,
+            ),
+            (
+                RENDERED,
+                ProcessingErrorKind::UnsupportedInput,
+                LAYOUT,
+                RefusalReason::UnsupportedLayout,
+            ),
+        ] {
+            refused(
+                transcode(&jxl(name), ImageFormat::JpegXl, jxl_options(policy)),
+                kind,
+                reason,
+                Some(refusal),
+            );
         }
     }
 }
@@ -528,11 +498,7 @@ fn jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected() {
         "extra-channel-multiple-alpha-spots-float.jxl",
     ] {
         refused(
-            transcode(
-                &jxl(name),
-                ImageFormat::JpegXl,
-                jxl_options(JpegXlDecoder::LibjxlRs, RENDERED),
-            ),
+            transcode(&jxl(name), ImageFormat::JpegXl, jxl_options(RENDERED)),
             ProcessingErrorKind::UnsupportedInput,
             LAYOUT,
             Some(RefusalReason::UnsupportedLayout),
@@ -541,71 +507,57 @@ fn jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected() {
 }
 
 #[test]
-fn jpeg_xl_animation_is_rejected_by_both_readers() {
+fn jpeg_xl_animation_is_rejected() {
     let animated = jxl("decoder-geometry/sequence-reference-overwrite-animation-1.jxl");
-    for decoder in BOTH_JXL {
-        refused(
-            transcode(
-                &animated,
-                ImageFormat::JpegXl,
-                jxl_options(decoder, RENDERED),
-            ),
-            ProcessingErrorKind::UnsupportedInput,
-            ANIMATION,
-            Some(RefusalReason::Animation),
-        );
-    }
+    refused(
+        transcode(&animated, ImageFormat::JpegXl, jxl_options(RENDERED)),
+        ProcessingErrorKind::UnsupportedInput,
+        ANIMATION,
+        Some(RefusalReason::Animation),
+    );
 }
 
 #[test]
-fn jpeg_xl_pq_and_hlg_are_rejected_by_both_readers() {
+fn jpeg_xl_pq_and_hlg_are_rejected() {
     let color = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/jxl-color/");
     for name in ["lossless-pq.jxl", "lossless-hlg.jxl", "xyb-pq.jxl"] {
-        for decoder in BOTH_JXL {
-            for policy in [STRICT, ASSUME, RENDERED] {
-                let error = transcode(
-                    &read(&format!("{color}{name}")),
-                    ImageFormat::JpegXl,
-                    jxl_options(decoder, policy),
-                )
-                .expect_err("HDR input must be rejected");
-                assert_eq!(
-                    error.kind(),
-                    ProcessingErrorKind::UnsupportedColor,
-                    "{name} {decoder:?} {policy:?}: {error}"
-                );
-                // Both readers refuse the transfer function itself, before
-                // any profile policy applies.
-                assert!(error.to_string().starts_with(LINEAR_SRGB), "{error}");
-                assert_eq!(
-                    error.refusal_reason(),
-                    Some(RefusalReason::HdrTransfer),
-                    "{error}"
-                );
-            }
+        for policy in [STRICT, ASSUME, RENDERED] {
+            let error = transcode(
+                &read(&format!("{color}{name}")),
+                ImageFormat::JpegXl,
+                jxl_options(policy),
+            )
+            .expect_err("HDR input must be rejected");
+            assert_eq!(
+                error.kind(),
+                ProcessingErrorKind::UnsupportedColor,
+                "{name} {policy:?}: {error}"
+            );
+            // The reader refuses the transfer function itself, before
+            // any profile policy applies.
+            assert!(error.to_string().starts_with(LINEAR_SRGB), "{error}");
+            assert_eq!(
+                error.refusal_reason(),
+                Some(RefusalReason::HdrTransfer),
+                "{error}"
+            );
         }
     }
 }
 
 #[test]
 fn jpeg_xl_pixel_limit_is_checked_before_decoding() {
-    for decoder in BOTH_JXL {
-        let options = TransformOptions {
-            max_input_pixels: 1,
-            ..jxl_options(decoder, RENDERED)
-        };
-        // libjxl-rs checks in the adapter, jxl-oxide in the facade after
-        // the header; neither decodes a pixel first.
-        let reason = match decoder {
-            JpegXlDecoder::LibjxlRs => "input has ",
-            _ => "image has ",
-        };
-        rejected(
-            transcode(SAMPLE_JXL, ImageFormat::JpegXl, options),
-            ProcessingErrorKind::InputLimitExceeded,
-            reason,
-        );
-    }
+    let options = TransformOptions {
+        max_input_pixels: 1,
+        ..jxl_options(RENDERED)
+    };
+    // libjxl-rs checks in the adapter, before it decodes a pixel.
+    let reason = "input has ";
+    rejected(
+        transcode(SAMPLE_JXL, ImageFormat::JpegXl, options),
+        ProcessingErrorKind::InputLimitExceeded,
+        reason,
+    );
 }
 
 // ===========================================================================
@@ -1497,7 +1449,7 @@ fn jxl_output(source: &[u8], format: ImageFormat, jpeg_xl: JpegXlOptions) -> Out
 }
 
 #[test]
-fn jpeg_xl_output_is_a_raw_codestream_that_reads_back_on_both_readers() {
+fn jpeg_xl_output_is_a_raw_codestream_that_reads_back() {
     for jpeg_xl in [
         JpegXlOptions::default(),
         JpegXlOptions::Lossless { effort: 2 },
@@ -1505,14 +1457,15 @@ fn jpeg_xl_output_is_a_raw_codestream_that_reads_back_on_both_readers() {
         let output = jxl_output(SAMPLE_JPEG, ImageFormat::Jpeg, jpeg_xl);
         assert_eq!(&output.bytes[..2], &[0xff, 0x0a], "{jpeg_xl:?}");
         assert_eq!(output.report.encoder_backend, "libjxl-rs");
-        for decoder in BOTH_JXL {
-            transcode(
-                &output.bytes,
-                ImageFormat::JpegXl,
-                jxl_options(decoder, RENDERED),
-            )
-            .unwrap_or_else(|error| panic!("{jpeg_xl:?} {decoder:?}: {error}"));
-        }
+        transcode(&output.bytes, ImageFormat::JpegXl, jxl_options(RENDERED))
+            .unwrap_or_else(|error| panic!("{jpeg_xl:?}: {error}"));
+        // jxl-oxide, test-only since 2026-11-15, reads it independently.
+        let image = jxl_oxide::JxlImage::builder()
+            .read(output.bytes.as_slice())
+            .unwrap_or_else(|error| panic!("{jpeg_xl:?}: jxl-oxide: {error}"));
+        image
+            .render_frame(0)
+            .unwrap_or_else(|error| panic!("{jpeg_xl:?}: jxl-oxide: {error}"));
     }
 }
 
@@ -1531,12 +1484,7 @@ fn jpeg_xl_output_keeps_straight_alpha_in_both_profiles() {
             },
         )
         .unwrap();
-        let back = transcode(
-            &output.bytes,
-            ImageFormat::JpegXl,
-            jxl_options(JpegXlDecoder::LibjxlRs, RENDERED),
-        )
-        .unwrap();
+        let back = transcode(&output.bytes, ImageFormat::JpegXl, jxl_options(RENDERED)).unwrap();
         assert!(webp_has_alpha(&back), "{jpeg_xl:?}");
     }
 }

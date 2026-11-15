@@ -2,9 +2,9 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-13
+- **Last reviewed:** 2026-11-15
 - **Supersedes:** None; adds a backend alongside the interim reader in [0018](0018-optional-codec-and-cms-dependencies.md), opt-in on 2026-11-11 and the default when compiled in since 2026-11-12 (pending owner confirmation)
-- **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (the default is confirmed; comparisons with jxl-oxide are context, not a gate)
+- **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (the default is confirmed; comparisons with jxl-oxide are context, not a gate); the owner decision of 2026-11-15 recorded [below](#the-only-reader-2026-11-15-owner-decision) (the workspace decoder is the only JPEG XL reader; jxl-oxide leaves the runtime)
 - **Related:** [0015](0015-typed-output-color-signals.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md)
 
 ## Context
@@ -76,6 +76,93 @@ Tests: `pipeline_tests::default_jpeg_xl_decoder_follows_the_compiled_backends` c
 
 **What the port would need to go further.** A codec-local region request (#197, solution 4 of the analysis) to save decode time; a public signal that a frame's output is integer-exact (encoding, restoration filters, patches/splines/noise, blending) and an option to disable dithering for 8-bit output, before UINT8 output could be considered again.
 
+## The only reader (2026-11-15, owner decision)
+
+**Decision.** jxl-oxide leaves the engine's runtime; the workspace decoder is
+the only JPEG XL reader. Removed: the jxl-oxide adapter
+(`src/codecs/jxl_oxide.rs`), `JpegXlDecoder` and
+`TransformOptions::jxl_decoder`, the CLI flag `--jxl-decoder=`, the fallback
+"jxl-oxide is the default without the workspace feature", the report value
+`decoder_backend = "jxl-oxide"`, the internal error
+`UnrenderableColorEncoding` that only that adapter raised, and the direct
+dependency on `jxl-grid`. jxl-oxide stays in the repository as an
+independent cross-check only: a `[dev-dependencies]` entry of the engine
+(no feature enables it) for the tests that compare the workspace decoder's
+samples or the encoder's output with an independent decoder, and the
+existing dev-dependency of `ferrisma-jxl-decoder` for the benchmark's
+context column (`scripts/bench/ci-perf/codec_jxl.sh`).
+
+**Why.** Every JPEG XL robustness finding of the week lay in jxl-oxide and
+not in the workspace port: a 1 GiB reservation from an 11-byte file
+([fuzzing](../fuzzing.md#hosted-smoke-run-43690971661-2026-11-15)), an ICC
+preallocation and render memory the engine could not bound (#200), an
+overflow on 31-bit samples (#213), and extra channels dropped by the adapter
+(ADR-0042, audit X6 to X9). It is an independent implementation of the
+standard, while the v1.0 bar is bit identity with the ported original
+(ADR-0041). The condition the owner set, the x86-64 speed of the workspace
+decoder, is met: since `75c31f0d` the hosted run 43697684326 measured lossy
+decode at 1.38× to 1.46× libjxl's AVX2 build, where it had been 4.5×.
+
+**Feature name.** _Working decision 2026-11-15 (delegated, revisable by the
+owner):_ the workspace reader takes the shorter name `jpeg-xl-read`, as
+`jpeg-read`, `webp-read` and `avif-read` name the only reader of their
+format; `jpeg-xl-own-read` is removed without an alias (pre-1.0). The
+stable feature promised the capability, not a backend (ADR-0040), so a
+consumer that enabled `jpeg-xl-read` keeps JPEG XL input and now gets the
+workspace decoder. The name changed in: the root `Cargo.toml` (`features`,
+`cli`, docs.rs metadata), `crates/ferrisma-libavif/Cargo.toml` (`cli`),
+`fuzz/Cargo.toml` (the removed `own-jxl` feature), `src/` and `tests/` cfg
+gates, `src/cli.rs` (`--version` feature list),
+`.github/workflows/ci.yml` (`rust` feature loop, `minimum-rust` set),
+`.github/workflows/bench-v1-perf.yml`, `examples/cli_subset.rs`, the
+README, `docs/status.md`, `docs/compatibility.md`,
+`docs/supported-matrix.md`, `docs/architecture.md`,
+`docs/getting-started.md`, `docs/publishing.md` and
+`crates/ferrisma-jxl-decoder/README.md`. Dated records (benchmarks,
+verification records, the license and unsafe audits) keep the name they
+were measured with.
+
+**Tests.** Tests of the adapter itself were removed with it:
+`codecs::jxl_oxide::tests` (five: region requests skipping pass groups,
+single-TOC crops, patch references, noise and spline crops, animation),
+`hardening_tests::interim_truncated_and_mutated_jxl_headers_never_panic_in_adapter_setup`,
+`jxl_oxide_unknown_colour_space_is_a_controlled_error`,
+`jxl_oxide_oversized_toc_section_is_resource_exhaustion`,
+`decoder_tests::interim_jpeg_xl_requests_codec_region_and_delivers_float_scanlines`,
+`interim_jpeg_xl_region_samples_match_full_render`,
+`decoded_resize_tests::interim_real_jxl_float_roi_flows_through_resize`,
+`orientation_tests::interim_jpeg_xl_orientations_are_rendered_upright_for_every_crop`,
+`lossy_jpeg_xl_orientations_and_crops_through_jxl_oxide`,
+`tests/animated_input.rs::animated_jpeg_xl_is_rejected_by_jxl_oxide`,
+`tests/decoder_work.rs::jxl_oxide_crop_reports_only_a_lower_bound`,
+`tests/report_backends.rs::explicitly_selected_jxl_oxide_is_reported`,
+`pipeline_tests::selecting_uncompiled_local_jpeg_xl_decoder_reports_feature_disabled`,
+`default_jpeg_xl_decoder_follows_the_compiled_backends`, and
+`silent_drops::jpeg_xl_reader_selection_is_ignored_for_jpeg_input_and_reported`;
+each has a workspace-reader twin or tested only the removed selection.
+Properties that guard the workspace reader were re-pointed to it, among
+them the oversized-TOC and unknown-colour-space regressions through the
+public API (`hardening_tests::public_transcode_ends_an_oversized_jxl_toc_section_in_a_controlled_error`,
+`public_transcode_rejects_unknown_jxl_colour_space`), the refusals of
+ADR-0042 D1 (`silent_drops::jpeg_xl_reader_*`), and the XYB cross-check
+(`jxl_color_tests::the_reader_agrees_with_jxl_oxide_on_xyb_rendered_into_display_p3`,
+now raw samples of the reader against jxl-oxide). The cross-checks that
+decode the encoder's output with jxl-oxide (`jxl_output_tests`,
+`jxl_lossy_tests`, `supported_matrix::jpeg_xl_output_is_a_raw_codestream_that_reads_back`,
+`tests/jxl_cli.rs`) keep running in every test build, including CI's
+`--features jpeg-xl-write` line.
+
+**Consequences.** One JPEG XL reader means ADR-0042 D4 holds by construction
+and ADR-0043 D5 has one cell per format. A crop always costs a full decode
+(no region request; this section does not change that). Two outcomes change
+for the files that only jxl-oxide read differently: the unknown-colour-space
+regression is `MalformedInput` without a reason (as libjxl), not
+`UnsupportedColor`/`UnsupportedColorEncoding`; the oversized TOC section is
+`MalformedInput` under `UseRenderedIcc` (as libjxl), not
+`ResourceExhausted`. 21 packages left the fuzz crate's lockfile (the
+jxl-oxide family and its dependencies); the root lockfile keeps them for the
+dev-dependency.
+
 ## Review when
 
 Review after the conformance run on x86-64 and Linux, a change to the port's image-out callback contract or write stage, the timing phase after #96 and #100, realistic-image time/RSS comparisons, a libjxl region-decode API, a color or alpha mismatch, or a supported input that requires additional extra channels. Re-evaluate the default switch if the owner rejects the trade-off, if the idle-host timing shows a full-decode gap the owner does not accept, or if x86-64 conformance fails.
@@ -90,3 +177,4 @@ Review after the conformance run on x86-64 and Linux, a change to the port's ima
 - 2026-11-12 — The adapter retains only the requested upright region through the decoder's image-out callback: managed memory is proportional to the request (24 MP center crop 307 → 91 MB managed, 342 → 126 MB RSS; indicative). Full-frame reconstruction, `FullFrameFallback`, full-frame `CodecWork` and opaque codec memory are unchanged; `known_full_frame_buffers` is 1 only for a full-frame request. UINT8 output for 8-bit sources was evaluated and not adopted (dithered output, exact subset not identifiable through the public API, different engine path).
 - 2026-11-13 — Owner decision D1, recorded in [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md): the workspace JPEG XL decoder stays the default reader. The 2026-11-12 default switch is no longer pending owner confirmation, and the comparison with jxl-oxide (time, crop cost, RSS) is context, not a criterion; jxl-oxide stays an explicit backend. The idle-host timing phase is no longer a gate for the default (D3: no performance gate). Speed is reported against the original in ADR-0041's three columns; the [JPEG XL analysis](../benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md) has column (a) for AArch64. Correctness gates stay: the x86-64 conformance run, and the port's equivalence with libjxl under ADR-0041 (scalar on both targets; SIMD, #96, before 1.0). The historical rationale above is unchanged.
 - 2026-11-13 — Straight alpha reaches the rendered-ICC stage (#222, ADR-0015 2026-11-13). This reader already reported association from basic info; the jxl-oxide backend now does as well (`alpha_associated == false` is straight, anything else stays unspecified and is refused). `src/jxl_alpha_tests.rs` reads the engine's own transparent lossy output back with both readers (alpha exact) and checks that a codestream rewritten to associated alpha is declared `Premultiplied` here and refused.
+- 2026-11-15 — Owner decision: jxl-oxide leaves the runtime and the workspace decoder is the only JPEG XL reader; jxl-oxide remains a test-only cross-check. `jpeg-xl-own-read` is renamed `jpeg-xl-read` (working decision, delegated). Recorded in [The only reader](#the-only-reader-2026-11-15-owner-decision); the sections above are kept for history.
