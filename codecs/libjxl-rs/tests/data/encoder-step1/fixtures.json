@@ -1,0 +1,41 @@
+{
+  "testdata_revision": "73695d303670c90e4d506ea89d9901b081385089",
+  "fixtures": [
+    {
+      "name": "bliznaca",
+      "source": "external/wesaturate/500px/u76c0g_bliznaca_srgb8.png",
+      "source_sha256": "3fb0583484fde716ab6b5d406764698fa48f72fcec8ee9014d3c59328a489616",
+      "source_size": [
+        500,
+        500
+      ],
+      "channels": 3,
+      "crop": [
+        500,
+        500
+      ],
+      "files": {
+        "bliznaca.u8": "e16590d03c8e96d453882ee059c119a03e697febdcb65dfb2e5c134d4403234d",
+        "bliznaca.icc": "1c0cff4852aa585811a336d05c8b8c99d8428f4b2160271ca45de1a7801a5884"
+      }
+    },
+    {
+      "name": "flower",
+      "source": "jxl/flower/flower.png",
+      "source_sha256": "77ea5436547c82c9be2f72308f13b64de3dc889d8c9f3708be3638e6e17cff41",
+      "source_size": [
+        2268,
+        1512
+      ],
+      "channels": 3,
+      "crop": [
+        48,
+        15
+      ],
+      "files": {
+        "flower.u8": "73ba3050f1e237ede3f48c41721bf3927f94082a3ff68cb00eba7e8204a4a327",
+        "flower.icc": "1007e9665d15b0a67fd18a2066dd66fd4255061742649dde626e9512ddaec30b"
+      }
+    }
+  ]
+}

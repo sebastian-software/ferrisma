@@ -399,6 +399,10 @@ target_sources(jxl_oracle PRIVATE encoder_acs_simd.cc)
 # differential form. The TU only calls the original's functions and the
 # public API, with the tests' own inputs.
 target_sources(jxl_oracle PRIVATE encoder_step1.cc)
+# The pristine EncodeImageJXL and PackedPixelFile of the extras library, which
+# use only the public encoder API (no image codec is built).
+target_sources(jxl_oracle PRIVATE "${UPSTREAM}/lib/extras/enc/jxl.cc"
+  "${UPSTREAM}/lib/extras/packed_image.cc")
 # Reconfigure when the pinned test sources of the extracted roundtrip_test.cc
 # helpers change (source_fragments.json).
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS

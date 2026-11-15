@@ -430,3 +430,314 @@ fn upstream_roundtrip_test_frame_roundtrips_match_original() {
     assert_eq!(exact + admitted, 6);
     super::decoder_public::compare("es1-roundtrip-decode", decodes);
 }
+
+// ---------------------------------------------------------------------------
+// jxl_test.cc and speed_tier_test.cc: test::Roundtrip's EncodeImageJXL.
+
+#[path = "../support/encoder_step1.rs"]
+mod helpers;
+
+use helpers::{Encoded, JxlCompressParams, PackedColor, PackedPixelFile, encode_image_jxl};
+use jxl::jxl::codestream_header::{JxlBlendMode, JxlFrameHeader};
+use jxl::jxl::color_encoding::{
+    ColorSpace, Primaries, RenderingIntent, TransferFunction, WhitePoint,
+};
+
+/// The raw fixtures of tools/encoder_step1_fixtures.py.
+fn fixture(name: &str) -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/data/encoder-step1")
+        .join(name)
+}
+
+/// The pixel source of an EncodeImageJXL case.
+#[derive(Clone, Copy)]
+enum Source {
+    /// TestImage(): 8-bit RGB, little endian, "RGB_D65_SRG_Rel_SRG", one
+    /// AddFrame with a zero frame header, ZeroFill.
+    Zero,
+    /// A testdata PNG through DecodeFromBytes and ClearMetadata, cropped by
+    /// SetDimensions: the raw fixture (8-bit RGB, big endian, its iCCP
+    /// profile primary, one frame with the PNG decoder's frame header).
+    Png(&'static str, usize),
+}
+
+/// One test::Roundtrip call: its EncodeImageJXL inputs.
+#[derive(Clone)]
+struct EjxlCase {
+    source: Source,
+    xsize: usize,
+    ysize: usize,
+    intensity_target: f32,
+    distance: f32,
+    allow_expert_options: bool,
+    options: Vec<(u32, i64)>,
+}
+
+impl EjxlCase {
+    fn new(source: Source, xsize: usize, ysize: usize, distance: f32) -> Self {
+        Self {
+            source,
+            xsize,
+            ysize,
+            // PackedPixelFile's JxlEncoderInitBasicInfo, and DecodeImageAPNG
+            // resets it for a non-PQ transfer function.
+            intensity_target: 0.0,
+            distance,
+            allow_expert_options: false,
+            options: Vec::new(),
+        }
+    }
+
+    /// The frame header the case's PackedFrame carries: zero for
+    /// TestImage::AddFrame; DecodeImageAPNG's for a still PNG (default
+    /// delay 1/10 s, DisposeOp::NONE so save_as_reference, BlendOp::SOURCE so
+    /// kReplace, full size, last), cropped by TestImage::CropLayerInfo.
+    fn frame_info(&self) -> JxlFrameHeader {
+        let mut h = JxlFrameHeader::default();
+        if let Source::Png(..) = self.source {
+            h.duration = 100;
+            h.is_last = 1;
+            h.layer_info.xsize = self.xsize as u32;
+            h.layer_info.ysize = self.ysize as u32;
+            h.layer_info.blend_info.blendmode = JxlBlendMode(0);
+            h.layer_info.blend_info.source = 1;
+            h.layer_info.save_as_reference = 1;
+        }
+        h
+    }
+
+    fn request(&self) -> String {
+        let mut out = format!(
+            "es1-ejxl {} {} {}",
+            u8::from(self.allow_expert_options),
+            self.distance.to_bits(),
+            self.options.len()
+        );
+        for (id, value) in &self.options {
+            write!(out, " {id} {value}").unwrap();
+        }
+        let endianness = if matches!(self.source, Source::Zero) {
+            1
+        } else {
+            2
+        };
+        write!(
+            out,
+            " {} {} 3 8 2 {endianness} {}",
+            self.xsize,
+            self.ysize,
+            self.intensity_target.to_bits()
+        )
+        .unwrap();
+        match self.source {
+            Source::Zero => out.push_str(" e 0 1 1 13 1 z"),
+            Source::Png(name, source_xsize) => write!(
+                out,
+                " i {} f {} {source_xsize}",
+                fixture(&format!("{name}.icc")).display(),
+                fixture(&format!("{name}.u8")).display()
+            )
+            .unwrap(),
+        }
+        let h = self.frame_info();
+        let l = &h.layer_info;
+        write!(
+            out,
+            " {} {} {} {} {} {} {} {} {} {} {} {}",
+            h.duration,
+            h.is_last,
+            l.have_crop,
+            l.crop_x0,
+            l.crop_y0,
+            l.xsize,
+            l.ysize,
+            l.blend_info.blendmode.0,
+            l.blend_info.source,
+            l.blend_info.alpha,
+            l.blend_info.clamp,
+            l.save_as_reference
+        )
+        .unwrap();
+        out
+    }
+
+    /// The same PackedPixelFile for the port's EncodeImageJXL translation.
+    fn ppf(&self) -> PackedPixelFile {
+        let channels = 3usize;
+        let (color, pixels, endianness) = match self.source {
+            Source::Zero => (
+                PackedColor::Encoding(JxlColorEncoding {
+                    color_space: ColorSpace(0),
+                    white_point: WhitePoint(1),
+                    primaries: Primaries(1),
+                    transfer_function: TransferFunction(13),
+                    rendering_intent: RenderingIntent(1),
+                    ..JxlColorEncoding::default()
+                }),
+                vec![0u8; self.xsize * self.ysize * channels],
+                JxlEndianness(1),
+            ),
+            Source::Png(name, source_xsize) => {
+                let icc = std::fs::read(fixture(&format!("{name}.icc"))).unwrap();
+                let source = std::fs::read(fixture(&format!("{name}.u8"))).unwrap();
+                let row = self.xsize * channels;
+                let mut pixels = Vec::with_capacity(row * self.ysize);
+                for y in 0..self.ysize {
+                    let start = y * source_xsize * channels;
+                    pixels.extend_from_slice(&source[start..start + row]);
+                }
+                (PackedColor::Icc(icc), pixels, JxlEndianness(2))
+            }
+        };
+        let format = JxlPixelFormat {
+            num_channels: channels as u32,
+            data_type: JxlDataType::UINT8,
+            endianness,
+            align: 0,
+        };
+        let mut ppf = PackedPixelFile::new(format, pixels, color);
+        ppf.info.xsize = self.xsize as u32;
+        ppf.info.ysize = self.ysize as u32;
+        ppf.info.num_color_channels = 3;
+        ppf.info.num_extra_channels = 0;
+        ppf.info.bits_per_sample = 8;
+        ppf.info.exponent_bits_per_sample = 0;
+        ppf.info.alpha_bits = 0;
+        ppf.info.alpha_exponent_bits = 0;
+        ppf.info.intensity_target = self.intensity_target;
+        ppf.frame_info = self.frame_info();
+        ppf
+    }
+
+    fn params(&self) -> JxlCompressParams {
+        JxlCompressParams {
+            distance: self.distance,
+            allow_expert_options: self.allow_expert_options,
+            options: self.options.clone(),
+        }
+    }
+}
+
+/// A case the step 1 profile does not admit, with the reason.
+struct NotAdmitted {
+    case: EjxlCase,
+    reason: &'static str,
+}
+
+/// Runs EncodeImageJXL cases on both encoders. Admitted cases must match the
+/// original's result and bytes exactly; every port result that is an
+/// admission must be listed in `not_admitted` (and vice versa) and must
+/// coincide with an original that succeeds. The exact codestreams are then
+/// decoded by both public decoders (float and 8-bit output, whole and
+/// 64-byte input), which replaces the tests' Butteraugli and distance checks
+/// and compares the decoded basic info (intensity target included).
+fn compare_ejxl(family: &str, cases: &[EjxlCase], not_admitted: &[NotAdmitted]) -> usize {
+    let mut all: Vec<&EjxlCase> = cases.iter().collect();
+    all.extend(not_admitted.iter().map(|n| &n.case));
+    let requests: Vec<String> = all.iter().map(|case| case.request()).collect();
+    let originals = super::original_observations(&requests);
+    let mut decodes = Vec::new();
+    for (index, ((case, request), cpp)) in all.iter().zip(&requests).zip(&originals).enumerate() {
+        let rust = encode_image_jxl(&case.params(), &case.ppf());
+        let expected_admission = index >= cases.len();
+        match rust {
+            Encoded::Bytes(bytes) => {
+                assert!(
+                    !expected_admission,
+                    "{family}: listed as not admitted: {request}"
+                );
+                assert_eq!(format!("J 1 {}", hex(&bytes)), *cpp, "{family}: {request}");
+                let file = hex(&bytes);
+                decodes.push(format!(
+                    "dpub-run 0 0 {file} s5184 F3.0.0.0.0 L1,1000000,0,1000,1"
+                ));
+                decodes.push(format!(
+                    "dpub-run 0 0 {file} s5120 F3.2.0.0.0 L2,64,0,1000,1"
+                ));
+            }
+            Encoded::Failed => panic!("{family}: the port failed: {request}"),
+            Encoded::Admission(call, checkpoint) => {
+                assert!(
+                    expected_admission,
+                    "{family}: admission {checkpoint:?} at {call}: {request}"
+                );
+                assert!(
+                    cpp.starts_with("J 1 "),
+                    "{family}: the original encodes: {request}"
+                );
+                println!(
+                    "{family}: not admitted ({}): admission {checkpoint:?} at {call}",
+                    not_admitted[index - cases.len()].reason
+                );
+            }
+        }
+    }
+    println!(
+        "{family}: {} C++/Rust EncodeImageJXL results matched exactly; {} not admitted",
+        cases.len(),
+        not_admitted.len()
+    );
+    super::decoder_public::compare(&format!("{family}-decode"), decodes);
+    cases.len()
+}
+
+/// jxl_test.cc RoundtripSinglePixel, RoundtripSmallD1 (both intensity
+/// targets), RoundtripUnalignedD2 and RoundtripD2Consistent (serial: the
+/// upstream 8-thread pool does not change the bytes, and the test's property
+/// is that two encodes of the same input are identical, which the port must
+/// show as well).
+#[test]
+fn upstream_jxl_test_roundtrips_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let bliznaca = Source::Png("bliznaca", 500);
+    let mut cases = vec![
+        EjxlCase::new(Source::Zero, 1, 1, 1.0),
+        EjxlCase::new(bliznaca, 500 / 8, 500 / 8, 1.0),
+    ];
+    let mut small_d1_100 = EjxlCase::new(bliznaca, 500 / 8, 500 / 8, 1.0);
+    small_d1_100.intensity_target = 100.0;
+    cases.push(small_d1_100);
+    cases.push(EjxlCase::new(bliznaca, 500 / 12, 500 / 7, 2.0));
+    let flower = Source::Png("flower", 48);
+    for xsize in (41..=48).rev() {
+        let mut case = EjxlCase::new(flower, xsize, 15, 2.0);
+        case.options = vec![(0, 7)];
+        // Roundtrip twice.
+        cases.push(case.clone());
+        cases.push(case);
+    }
+    for xsize in (41..=48).rev() {
+        let mut case = EjxlCase::new(flower, xsize, 15, 2.0);
+        case.options = vec![(0, 7)];
+        let ppf = case.ppf();
+        // The test's property on the port alone: identical results.
+        assert_eq!(
+            encode_image_jxl(&case.params(), &ppf),
+            encode_image_jxl(&case.params(), &ppf),
+            "RoundtripD2Consistent {xsize}"
+        );
+    }
+    assert_eq!(compare_ejxl("es1-jxl-test", &cases, &[]), 20);
+}
+
+/// speed_tier_test.cc, the kSquirrel instances (effort 10 - 3 = 7) with
+/// shrink8 true and false. The shrink8 instance's second, lossless roundtrip
+/// is not admitted.
+#[test]
+fn upstream_speed_tier_test_squirrel_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let bliznaca = Source::Png("bliznaca", 500);
+    let squirrel = |xsize, ysize, distance| {
+        let mut case = EjxlCase::new(bliznaca, xsize, ysize, distance);
+        case.allow_expert_options = true;
+        case.options = vec![(0, 7)];
+        case
+    };
+    let cases = vec![squirrel(500 / 8, 500 / 8, 1.0), squirrel(500, 500, 1.0)];
+    let not_admitted = [NotAdmitted {
+        case: squirrel(500 / 8, 500 / 8, 0.0),
+        reason: "lossless (distance 0, uses_original_profile), outside the step 1 profile",
+    }];
+    assert_eq!(compare_ejxl("es1-speed-tier", &cases, &not_admitted), 2);
+}
