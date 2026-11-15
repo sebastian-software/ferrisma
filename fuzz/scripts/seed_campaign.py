@@ -42,6 +42,10 @@ seed("transcode_own_avif", "avif-alpha", 2,
 hostile_jxl = read("tests/fixtures/hostile/jxl-unknown-colour-space.jxl")
 seed("transcode", "jxl-unknown-colour-space", 5, hostile_jxl)
 seed("transcode_own_jxl", "jxl-unknown-colour-space", 5, hostile_jxl)
+# Smoke run 43690971661: a TOC section declaring 1 GiB (selector 1, as found).
+oversized_toc = read("tests/fixtures/hostile/jxl-oversized-toc-section.jxl")
+seed("transcode", "jxl-oversized-toc-section", 1, oversized_toc)
+seed("transcode_own_jxl", "jxl-oversized-toc-section", 1, oversized_toc)
 for orientation in range(1, 9):
     seed("transcode_own_jxl", f"orientation-{orientation}", 1, read(f"tests/fixtures/orientation/jxl-{orientation}.jxl"))
 
@@ -85,6 +89,7 @@ jxl_out("jxl-3x257-inside", 1, JXL_DATA + "ycbcr-jpeg-420-3x257.jxl", 5)
 # More than one 256x256 group: 300x260 at its own size.
 jxl_out("jxl-rgb-300x260", 1, "tests/fixtures/jxl-lossless/rgb-300x260.jxl", 5)
 jxl_out("jxl-unknown-colour-space", 1, "tests/fixtures/hostile/jxl-unknown-colour-space.jxl", 3)
+jxl_out("jxl-oversized-toc-section", 1, "tests/fixtures/hostile/jxl-oversized-toc-section.jxl", 3)
 
 # JPEG APP2 carries a full ICC profile. Mutate the tag table count and the
 # first tag offset while retaining the container framing and a valid profile

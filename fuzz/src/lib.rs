@@ -443,6 +443,18 @@ mod tests {
                         result.is_ok(),
                         "the supported ICC/alpha seed must reach encoding"
                     );
+                } else if name.starts_with("jxl-oversized-toc-section") {
+                    // jxl-oxide refuses the declared 1 GiB section; the
+                    // workspace reader, like libjxl, finds the file truncated.
+                    let expected = if lane == "transcode" {
+                        ProcessingErrorKind::ResourceExhausted
+                    } else {
+                        ProcessingErrorKind::MalformedInput
+                    };
+                    assert!(
+                        matches!(&result, Err(error) if error.kind() == expected),
+                        "{lane}/{name}"
+                    );
                 } else if name.starts_with("icc-tag-") {
                     assert!(
                         matches!(&result, Err(error) if error.kind() == ProcessingErrorKind::UnsupportedColor)
@@ -465,6 +477,27 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    /// Smoke run 43690971661 (`docs/fuzzing.md`): one TOC section declaring
+    /// 4,211,712 + 2^30 - 1 bytes in an 11-byte codestream. jxl-oxide must
+    /// refuse it under the driver's input cap instead of reserving 1 GiB.
+    #[test]
+    fn oversized_jxl_toc_section_is_a_controlled_error() {
+        const HOSTILE: &[u8] =
+            include_bytes!("../../tests/fixtures/hostile/jxl-oversized-toc-section.jxl");
+        let error = run_case(&framed(1, HOSTILE)).unwrap().unwrap_err();
+        assert_eq!(error.kind(), ProcessingErrorKind::ResourceExhausted);
+        let (_, result) = run_jxl_out_case(&framed(1 | 3 << 5, HOSTILE)).unwrap();
+        assert_eq!(
+            result.unwrap_err().kind(),
+            ProcessingErrorKind::MalformedInput
+        );
+        #[cfg(feature = "own-jxl")]
+        {
+            let error = run_own_jxl_case(&framed(1, HOSTILE)).unwrap().unwrap_err();
+            assert_eq!(error.kind(), ProcessingErrorKind::MalformedInput);
         }
     }
 
