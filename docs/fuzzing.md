@@ -1,6 +1,6 @@
 # Fuzzing and hostile-input policy
 
-**Status:** Harness and eight-lane ASan campaign workflow exist. The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure; a 20-minute local ASan run of the JPEG XL output lane `transcode_jxl_out` (2026-11-15) found none either. The sustained, coverage-reviewed campaign required for release has **not** completed; see [results](#campaign-results).
+**Status:** Harness and eight-lane ASan campaign workflow exist. The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure; a 20-minute local ASan run of the JPEG XL output lane `transcode_jxl_out` (2026-11-15) found none either. The hosted smoke [run 43690971661](https://github.com/sebastian-software/ferrisma/actions/runs/43690971661) (2026-11-15) found a 1 GiB allocation request in jxl-oxide from an 11-byte JPEG XL codestream; it is now bounded by the input cap ([details](#hosted-smoke-run-43690971661-2026-11-15)). The sustained, coverage-reviewed campaign required for release has **not** completed; see [results](#campaign-results).
 
 Ferrisma's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and AVIF bytes. The core forbids unsafe Rust; optional decoder, assembler, SIMD and encoder dependencies do **not** inherit that guarantee. The workspace AVIF reader checks dimensions and reserves the emitted RGB frame before pixel decoding, but libavif/AOM still allocate opaque parser and codec buffers outside the engine budget.
 
@@ -87,18 +87,18 @@ within the bound for classes 4 and 5), and decodes the output with
 `ferrisma-jxl-decoder`: same width and height, three or four channels, a
 complete decode. Pixels are not compared.
 
-`seed_campaign.py` writes 46 seeds for the lane: the four base fixtures at
+`seed_campaign.py` writes 48 seeds for the lane: the four base fixtures at
 64×64 in both profiles, the small class and the distance bounds, alpha
 (`jxl-lossless/rgba-37x19.jxl`, `effects_rgb_alpha8.jxl`, the libavif
 `abc_color_irot_alpha_irot.avif`), 16-, 31- and 12-bit RGB
 (`modular-palette16.jxl`, `modular-rgb31.jxl`, `weld_sato_12B_8B_q0.avif`),
 gray JPEG and gray JPEG XL (8-, 12- and 16-bit with alpha), 257×3 and 3×257
 inputs to 8192×1, 1×8192 and the bounded classes, the two-group
-`rgb-300x260.jxl`, and the hostile JPEG XL regression. The deterministic
-replay (`campaign_seeds_report_reachability`) classifies them: 36 encode, the
-eight gray JPEG XL seeds are `UnsupportedInput` (the pipeline refuses gray
-JPEG XL under every policy) and the hostile one is `MalformedInput` in both
-profiles. Two unit tests (`jxl_output_lane_*`) run in every smoke without the
+`rgb-300x260.jxl`, and the two hostile JPEG XL regressions. The
+deterministic replay (`campaign_seeds_report_reachability`) classifies them:
+36 encode, the eight gray JPEG XL seeds are `UnsupportedInput` (the pipeline
+refuses gray JPEG XL under every policy) and the hostile ones are
+`MalformedInput` in both profiles. Two unit tests (`jxl_output_lane_*`) run in every smoke without the
 seed directory: all four inputs in both profiles, every exact geometry class
 from JPEG, and alpha surviving the round trip at 37×19 in both profiles.
 
@@ -218,6 +218,90 @@ Linux own-JXL and own-AVIF lanes completed their 1,800-second budget.
   `libavif-dav1d` and `libavif-aom`; no input was executed. See the
   `libavif_rs_asan` note above.
 
+### Hosted smoke, run 43690971661 (2026-11-15)
+
+[Run 43690971661](https://github.com/sebastian-software/ferrisma/actions/runs/43690971661)
+(`M1 Decoder Fuzz Smoke`, job `fuzz`, Linux x86-64) stopped after about 2,800
+executions of `transcode` with `libFuzzer: out-of-memory (malloc(1077953535))`
+on the 285-byte input `oom-444b7241bd4fef31ceb81b35807441cf9714188c`
+(SHA-1): selector 1, then a bare JPEG XL codestream.
+
+- **Reader.** `transcode` pins `JpegXlDecoder::JxlOxide` (`run_case`), so
+  the input went through jxl-oxide 0.12.6, not the workspace reader that is
+  the engine default since 2026-11-12.
+- **Site.** Reproduced with the ASan build on macOS ARM64 (same request):
+  `jxl_frame::GroupData::ensure_allocated` (jxl-frame 0.13.3, `lib.rs:95`, `try_reserve`),
+  reached from `Frame::feed_bytes` during `JxlImage::builder().read` in the
+  adapter's constructor. jxl-frame reserves the full declared size of a TOC
+  section before it copies the section. The TOC entry is `U32(Bits(10),
+  1024 + Bits(14), 17408 + Bits(22), 4211712 + Bits(30))`; the input sets the
+  last selector with all 30 bits, 4,211,712 + 2^30 - 1 = 1,077,953,535 bytes.
+  `cargo fuzz tmin` reduced it to 12 bytes (11 without the selector,
+  `ff 0a 30 40 10 09 01 ff ff ff ff`), kept as
+  `tests/fixtures/hostile/jxl-oversized-toc-section.jxl`.
+- **Original.** libjxl at the pinned `a16d32d0` (`djxl`, scalar build) reads
+  sections in place and checks `pos + toc_entry.size <= avail_in`
+  (`dec_frame.cc`); it rejects both the 284-byte and the 11-byte codestream
+  as truncated (also with `--allow_partial_files`), peak footprint 1.9 MB.
+  The workspace libjxl-rs reader accepts the header and rejects the decode
+  as `MalformedInput` (under the strict policy the header's color is refused
+  first, `UnsupportedColor`).
+- **Fix (adapter, not jxl-oxide).** The jxl-oxide adapter now passes an
+  `AllocTracker` whose limit is `max_input_bytes`, the engine's
+  compressed-input cap, while jxl-oxide reads the file; jxl-frame charges
+  each section buffer to it before reserving. Every section of an admitted
+  file fits in that cap, truncated files included, so only a declared size
+  that no admitted input can hold is refused. The refusal is
+  `AllocationFailed`, which the facade reports as `ResourceExhausted`, as
+  the workspace reader reports its own allocation failures. After the read
+  the limit is lifted: render buffers are sized from the header after the
+  pixel check and stay outside any limit (#200). Tests:
+  `hardening_tests::jxl_oxide_oversized_toc_section_is_resource_exhaustion`,
+  `public_transcode_bounds_jxl_oxide_frame_data_by_the_input_cap` (512 KiB
+  and the 64 MiB default), `workspace_jxl_oversized_toc_section_is_a_controlled_error`,
+  and the fuzz crate's `oversized_jxl_toc_section_is_a_controlled_error`;
+  `seed_campaign.py` adds the seed to the `transcode`, `transcode_own_jxl`
+  and `transcode_jxl_out` lanes, and `campaign_seeds_report_reachability`
+  asserts its classification.
+- **Neighbors (source review of the jxl-oxide 0.12.6 crates).** The TOC has
+  at most 65,536 entries (and its permutation as many); splines are capped
+  at min(2^24, pixels / 4) and patches by libjxl's limits; MA-tree lookup
+  tables at 1,024 entries; extra-channel and frame names at 1,071 bytes.
+  One more allocation is sized from a field without a bound by the
+  remaining input: `jxl_color::icc::read_icc` resizes the encoded ICC
+  buffer to `enc_size` (at most 2^28 bytes, zero-filled) before decoding
+  it, where libjxl grows it in 1 KiB steps as symbols arrive; and because
+  `JxlImageBuilder::read` retries header parsing after each 4 KiB chunk,
+  a truncated stream repeats that allocation per chunk. The tracker does
+  not cover it and the adapter cannot reach it without parsing the header
+  itself, so it is recorded for #200 and #213, not fixed.
+
+Local ASan reruns after the fix (2026-11-15), 600 s each from the
+`seed_campaign.py` seeds of each lane, with the smoke's limits:
+
+| | `transcode` | `transcode_jxl_out` | `transcode_own_jxl` |
+|---|---|---|---|
+| Features | default (`cli`) | default (`cli`) | `own-jxl` |
+| Seed files | 17 | 48 | 12 |
+| `-max_len` / `-timeout` (s) | 16,384 / 5 | 65,536 / 10 | 16,384 / 5 |
+| Executions | 193,915 | 37,114 | 395,573 |
+| Coverage at `INITED` | `cov: 22820 ft: 31935` | `cov: 56105 ft: 126495` | `cov: 14504 ft: 17342` |
+| Final coverage (`DONE`) | `cov: 37097 ft: 90214` | `cov: 65147 ft: 178331` | `cov: 20717 ft: 42687` |
+| Retained corpus files | 3,245 | 1,972 | 2,102 |
+| libFuzzer peak RSS (MB) | 483 | 663 | 538 |
+| Crashes, leaks, timeouts, OOM, sanitizer reports | none | none | none |
+
+Settings: macOS 27.2.1 arm64 (Apple M1 Pro), shared with other agents'
+builds (execution counts are not throughput evidence); `rustc
+1.100.0-nightly (5a2be9f5f 2026-09-06)`; cargo-fuzz 0.13.2; `--sanitizer
+address`, `RUSTFLAGS=--cfg libavif_rs_asan`; `-seed=1 -max_total_time=600
+-rss_limit_mb=1024` (so `-malloc_limit_mb` is 1,024 as in the smoke). The
+own-JXL lane's length control stayed at 274 bytes, so it explored only
+small codestreams. Before the fix the same `transcode` binary reproduced the
+hosted `malloc(1077953535)` on the original input; afterwards it is
+`ResourceExhausted`. Source: branch `v1/fuzz-oom-jxl`. The corpora stayed on
+the local host. This is a bounded local run, not the sustained campaign.
+
 ### Bounded local ASan runs (2026-11-12)
 
 These runs confirm the two fixes and add a short mutation pass. They are **not**
@@ -308,7 +392,7 @@ The existence of a fuzz target alone does not satisfy the M1 hardening acceptanc
 
 ## CI bounded smoke
 
-The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) uses the root pinned nightly and cargo-fuzz 0.13.2, verifies deterministic seed success, seeds eight input/output pairs from four real JPEG/JXL/AVIF/WebP fixtures, and runs **3,000 bounded attempts** with a 16 KiB maximum input and a 1 GiB process RSS cap. It then generates the campaign seeds, classifies them with `campaign_seeds_report_reachability` (the JPEG XL output lane's invariants included), and runs 3,000 bounded attempts of `transcode_jxl_out` from its 46 seeds with a 64 KiB maximum input, a 10-second timeout and the same RSS cap. This is useful to catch shallow codec/protocol panics and integration bugs. It does **not** constitute a sustained, coverage-reviewed fuzz campaign and is not proof of process-wide memory safety; actual release acceptance still requires broader corpora, sanitizers and target-specific time budgets.
+The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) uses the root pinned nightly and cargo-fuzz 0.13.2, verifies deterministic seed success, seeds eight input/output pairs from four real JPEG/JXL/AVIF/WebP fixtures, and runs **3,000 bounded attempts** with a 16 KiB maximum input and a 1 GiB process RSS cap. It then generates the campaign seeds, classifies them with `campaign_seeds_report_reachability` (the JPEG XL output lane's invariants included), and runs 3,000 bounded attempts of `transcode_jxl_out` from its 48 seeds with a 64 KiB maximum input, a 10-second timeout and the same RSS cap. This is useful to catch shallow codec/protocol panics and integration bugs. It does **not** constitute a sustained, coverage-reviewed fuzz campaign and is not proof of process-wide memory safety; actual release acceptance still requires broader corpora, sanitizers and target-specific time budgets.
 
 ### Expanded hosted smoke, 2026-11-11
 
@@ -340,7 +424,7 @@ commit `984910f8`. "Before decode" means before pixel data is rendered.
 | Pixel cap, JXL-Oxide | Construction parses the header and buffers frame data (bounded by the compressed size); the facade checks the pixel cap before rendering. Unrenderable colour encodings are rejected at construction (above). |
 | Geometry overflow | Pixel counts use `u64`; budget reservations use `checked_add`/`checked_mul` and fallible `try_reserve_exact`; region and row sizes use checked conversions. |
 | Engine allocation admission | `MemoryBudget` (`max_managed_bytes`, default 256 MiB) admits every engine row, frame, orientation and encoder-frame buffer; the 8192×1 driver lane is rejected by planning before encode. |
-| Opaque codec memory | Not admitted: libjpeg-turbo-rs, JXL-Oxide render buffers, libavif/AOM parser state, libjxl-rs, libwebp-rs, rav1e and libavif encoder internals. Reports flag this with `opaque_decoder_memory`/`opaque_encoder_memory`. JXL-Oxide exposes an `AllocTracker` limit that is not wired up yet. |
+| Opaque codec memory | Not admitted: libjpeg-turbo-rs, JXL-Oxide render buffers, libavif/AOM parser state, libjxl-rs, libwebp-rs, rav1e and libavif encoder internals. Reports flag this with `opaque_decoder_memory`/`opaque_encoder_memory`. Since 2026-11-15 JXL-Oxide's `AllocTracker` bounds its buffered frame data by `max_input_bytes` while the file is read ([run 43690971661](#hosted-smoke-run-43690971661-2026-11-15)); its render buffers and its encoded-ICC buffer are still unbounded. |
 | Output cap | `max_output_bytes` is checked after the encoder returns its complete output, not incrementally. |
 | Cancellation | No caller-driven cancellation or deadline exists. `ProcessingErrorKind::Cancelled` arises only when an output sink or backend aborts. A hostile input is bounded by the byte/pixel caps and the caller's process limits, not by a time budget. |
 | Process RSS | Not measured against `MemoryBudget` yet; libFuzzer peak RSS above is the only process-level observation and includes ASan overhead. |
