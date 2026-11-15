@@ -1,14 +1,17 @@
 // Supplementary transcription of upstream/aom/test/fwht4x4_test.cc
 // (Trans4x4WHT, NEON instantiation: av1_fwht4x4_neon at AOM_BITS_10 and
-// AOM_BITS_12) with the exact-match checks of test/transform_test_base.h:
+// AOM_BITS_12, and the SSE4_1 one, av1_fwht4x4_sse4_1) with the exact-match checks of test/transform_test_base.h:
 // CoeffCheck (RunCoeffCheck) and MemCheck (RunMemCheck), against
 // fwht4x4_ref, i.e. the translated av1_fwht4x4_c. AccuracyCheck and
 // InvAccuracyCheck are round-trip error bounds through the inverse
 // transform, not a comparison with _c, and are not transcribed; the
 // coefficient-range EXPECT of MemCheck is kept.
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 
+#[cfg(target_arch = "aarch64")]
 use aom::simd::av1__encoder__arm__hybrid_fwd_txfm_neon::av1_fwht4x4_neon;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::av1__encoder__x86__highbd_fwd_txfm_sse4::av1_fwht4x4_sse4_1;
 
 use super::acm_random::ACMRandom;
 
@@ -98,6 +101,7 @@ fn run_mem_check(fwd: FdctFunc, bit_depth: i32) {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn fwht4x4_coeff_check() {
     for bd in [10, 12] {
@@ -105,9 +109,30 @@ fn fwht4x4_coeff_check() {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn fwht4x4_mem_check() {
     for bd in [10, 12] {
         run_mem_check(av1_fwht4x4_neon, bd);
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn fwht4x4_coeff_check_sse4_1() {
+    if std::is_x86_feature_detected!("sse4.1") {
+        for bd in [10, 12] {
+            run_coeff_check(av1_fwht4x4_sse4_1, bd);
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn fwht4x4_mem_check_sse4_1() {
+    if std::is_x86_feature_detected!("sse4.1") {
+        for bd in [10, 12] {
+            run_mem_check(av1_fwht4x4_sse4_1, bd);
+        }
     }
 }

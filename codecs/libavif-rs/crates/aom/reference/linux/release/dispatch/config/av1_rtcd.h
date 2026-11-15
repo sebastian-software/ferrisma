@@ -318,7 +318,8 @@ void av1_fwd_txfm2d_8x8_avx2(const int16_t *input, int32_t *output, int stride, 
 RTCD_EXTERN void (*av1_fwd_txfm2d_8x8)(const int16_t *input, int32_t *output, int stride, TX_TYPE tx_type, int bd);
 
 void av1_fwht4x4_c(const int16_t *input, tran_low_t *output, int stride);
-#define av1_fwht4x4 av1_fwht4x4_c
+void av1_fwht4x4_sse4_1(const int16_t *input, tran_low_t *output, int stride);
+RTCD_EXTERN void (*av1_fwht4x4)(const int16_t *input, tran_low_t *output, int stride);
 
 uint32_t av1_get_crc32c_value_c(void *crc_calculator, const uint8_t *p, size_t length);
 #define av1_get_crc32c_value av1_get_crc32c_value_c
@@ -500,7 +501,9 @@ void av1_inv_txfm_add_avx2(const tran_low_t *dqcoeff, uint8_t *dst, int stride, 
 RTCD_EXTERN void (*av1_inv_txfm_add)(const tran_low_t *dqcoeff, uint8_t *dst, int stride, const TxfmParam *txfm_param);
 
 void av1_lowbd_fwd_txfm_c(const int16_t *src_diff, tran_low_t *coeff, int diff_stride, TxfmParam *txfm_param);
-#define av1_lowbd_fwd_txfm av1_lowbd_fwd_txfm_c
+void av1_lowbd_fwd_txfm_sse4_1(const int16_t *src_diff, tran_low_t *coeff, int diff_stride, TxfmParam *txfm_param);
+void av1_lowbd_fwd_txfm_avx2(const int16_t *src_diff, tran_low_t *coeff, int diff_stride, TxfmParam *txfm_param);
+RTCD_EXTERN void (*av1_lowbd_fwd_txfm)(const int16_t *src_diff, tran_low_t *coeff, int diff_stride, TxfmParam *txfm_param);
 
 int64_t av1_lowbd_pixel_proj_error_c(const uint8_t *src8, int width, int height, int src_stride, const uint8_t *dat8, int dat_stride, int32_t *flt0, int flt0_stride, int32_t *flt1, int flt1_stride, int xq[2], const sgr_params_type *params);
 #define av1_lowbd_pixel_proj_error av1_lowbd_pixel_proj_error_c
@@ -719,6 +722,8 @@ static void setup_rtcd_internal(void)
     av1_fwd_txfm2d_8x8 = av1_fwd_txfm2d_8x8_c;
     if (flags & HAS_SSE4_1) av1_fwd_txfm2d_8x8 = av1_fwd_txfm2d_8x8_sse4_1;
     if (flags & HAS_AVX2) av1_fwd_txfm2d_8x8 = av1_fwd_txfm2d_8x8_avx2;
+    av1_fwht4x4 = av1_fwht4x4_c;
+    if (flags & HAS_SSE4_1) av1_fwht4x4 = av1_fwht4x4_sse4_1;
     av1_highbd_block_error = av1_highbd_block_error_c;
     if (flags & HAS_AVX2) av1_highbd_block_error = av1_highbd_block_error_avx2;
     av1_highbd_dr_prediction_z1 = av1_highbd_dr_prediction_z1_c;
@@ -739,6 +744,9 @@ static void setup_rtcd_internal(void)
     av1_inv_txfm_add = av1_inv_txfm_add_c;
     if (flags & HAS_SSSE3) av1_inv_txfm_add = av1_inv_txfm_add_ssse3;
     if (flags & HAS_AVX2) av1_inv_txfm_add = av1_inv_txfm_add_avx2;
+    av1_lowbd_fwd_txfm = av1_lowbd_fwd_txfm_c;
+    if (flags & HAS_SSE4_1) av1_lowbd_fwd_txfm = av1_lowbd_fwd_txfm_sse4_1;
+    if (flags & HAS_AVX2) av1_lowbd_fwd_txfm = av1_lowbd_fwd_txfm_avx2;
     av1_quantize_fp = av1_quantize_fp_c;
     if (flags & HAS_SSE2) av1_quantize_fp = av1_quantize_fp_sse2;
     if (flags & HAS_AVX2) av1_quantize_fp = av1_quantize_fp_avx2;

@@ -515,3 +515,16 @@ amendment), or the port's encoder starts selecting SIMD by default.
   identical on both targets in this comparison and in `jxl_output_tests`
   (the cjxl reference files above pass under Rosetta), but resized rows
   depend on the kernel level as for lossy.
+- 2026-11-15 — Owner decision on the lossy default and the patches policy
+  (#236): **lossy distance 1.0 by default, patches off; owner decision
+  2026-11-15.** This confirms the 2026-11-12 "pending owner confirmation"
+  items for the JPEG XL default and for the patches policy. The cost of
+  patches off was measured against the pinned original `cjxl -e 7` on a
+  generated text-like corpus with four photographs as control
+  ([record](../benchmarks/v1.0-jxl-patches-cost-2026-11-15.md)): frames above
+  8 groups of 256x256 pixels encode identically with and without patches
+  (libjxl's default streams them and skips the patch search), while frames of
+  at most 8 groups were 1.10x to 3.80x larger with patches off (median 2.18x
+  at d1.0) and scored 0.33 to 3.89 SSIMULACRA2 points lower; photographs are
+  unchanged. The "unmeasured" cost above is superseded by that record, and
+  the review trigger (encoder step 5) stands.

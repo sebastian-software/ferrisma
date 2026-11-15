@@ -1,0 +1,1649 @@
+{
+ "tools": {
+  "cjxl": "cjxl v0.13.0 a16d32d [_NEON_] {AppleClang 21.0.0.21000401}",
+  "djxl": "djxl v0.13.0 a16d32d [_NEON_] {AppleClang 21.0.0.21000401}"
+ },
+ "ssimulacra2": "tools/ssimulacra2 from the same build (prints a score only, no version string)",
+ "settings": {
+  "effort": 7,
+  "distances": [
+   1.0,
+   2.0
+  ],
+  "threads": "--num_threads=0"
+ },
+ "corpus": {
+  "pillow": "13.0.0",
+  "numpy": "2.5.4"
+ },
+ "results": [
+  {
+   "name": "desktop-ui-light-1mp",
+   "kind": "desktop UI",
+   "width": 1280,
+   "height": 800,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 20,
+   "default": {
+    "bytes": 105040,
+    "sha256": "0090ae2ff136b0134f339a0abc27ffaf22ee13ddeb06623b98850af606a877b3",
+    "ssimulacra2": 88.51067734
+   },
+   "patches0": {
+    "bytes": 105040,
+    "sha256": "0090ae2ff136b0134f339a0abc27ffaf22ee13ddeb06623b98850af606a877b3",
+    "ssimulacra2": 88.51067734
+   },
+   "patches1": {
+    "bytes": 50758,
+    "sha256": "989890d3851421732d32819e92feaebe6e393fc1ad988440234d79cc95b07dbe",
+    "ssimulacra2": 90.09806324
+   },
+   "nostream0": {
+    "bytes": 104104,
+    "sha256": "e7d028f891c901a7de9a4529c518fe180db73fe8944fa8e47efa359139719dd5",
+    "ssimulacra2": 88.51067734
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 2.0509870365262617,
+   "ssimulacra2_delta_streaming_off": -1.587385900000001,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.0694274794121124,
+   "ssimulacra2_delta_vs_forced": -1.587385900000001
+  },
+  {
+   "name": "desktop-ui-light-1mp",
+   "kind": "desktop UI",
+   "width": 1280,
+   "height": 800,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 20,
+   "default": {
+    "bytes": 82214,
+    "sha256": "f0a405ded991f7029245f40e4cd61e985ab1fb1b1d01afdde3fd67c5f6bbcc29",
+    "ssimulacra2": 85.41845167
+   },
+   "patches0": {
+    "bytes": 82214,
+    "sha256": "f0a405ded991f7029245f40e4cd61e985ab1fb1b1d01afdde3fd67c5f6bbcc29",
+    "ssimulacra2": 85.41845167
+   },
+   "patches1": {
+    "bytes": 39831,
+    "sha256": "05e3e5161c08e072d8c3d8162e684b7e5b7b84b6201d32ebccda80b92fc3e33c",
+    "ssimulacra2": 88.08727754
+   },
+   "nostream0": {
+    "bytes": 81524,
+    "sha256": "f9a8fa86f00547c02ed2ad8d4a3e3b00e593151c4cb0a33c70cb93a83491af5a",
+    "ssimulacra2": 85.41845167
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 2.046747508222239,
+   "ssimulacra2_delta_streaming_off": -2.6688258700000063,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.064070698702016,
+   "ssimulacra2_delta_vs_forced": -2.6688258700000063
+  },
+  {
+   "name": "desktop-ui-dark-4mp",
+   "kind": "desktop UI",
+   "width": 2560,
+   "height": 1600,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 70,
+   "default": {
+    "bytes": 251840,
+    "sha256": "f1e9de27e6468ff66111fa94922ce9bb04f3448a071499c0b8e151cc0ace5843",
+    "ssimulacra2": 93.00012829
+   },
+   "patches0": {
+    "bytes": 251840,
+    "sha256": "f1e9de27e6468ff66111fa94922ce9bb04f3448a071499c0b8e151cc0ace5843",
+    "ssimulacra2": 93.00012829
+   },
+   "patches1": {
+    "bytes": 59791,
+    "sha256": "624bf134fa69f9d474915a08392395a7effa312a531fb4e843806ab8aa6f587a",
+    "ssimulacra2": 93.76645821
+   },
+   "nostream0": {
+    "bytes": 247539,
+    "sha256": "7d5f185c751806eefc78f0bee76e5c6494a3b114b2ca237b8af31aefe852a99c",
+    "ssimulacra2": 92.99452047
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 4.140071248181164,
+   "ssimulacra2_delta_streaming_off": -0.7719377399999985,
+   "forced_used": true,
+   "size_ratio_vs_forced": 4.212005151276948,
+   "ssimulacra2_delta_vs_forced": -0.7663299199999898
+  },
+  {
+   "name": "desktop-ui-dark-4mp",
+   "kind": "desktop UI",
+   "width": 2560,
+   "height": 1600,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 70,
+   "default": {
+    "bytes": 198490,
+    "sha256": "84e8fed86bef5170b72ce05942f90130edef3160cc82715cc8c9cc934e4ba17b",
+    "ssimulacra2": 90.84435262
+   },
+   "patches0": {
+    "bytes": 198490,
+    "sha256": "84e8fed86bef5170b72ce05942f90130edef3160cc82715cc8c9cc934e4ba17b",
+    "ssimulacra2": 90.84435262
+   },
+   "patches1": {
+    "bytes": 50038,
+    "sha256": "8db7835715284505a1fbd93aa4f6ea270a723de65b4cf9fd565d1bd1a25d8986",
+    "ssimulacra2": 90.55470181
+   },
+   "nostream0": {
+    "bytes": 194402,
+    "sha256": "57b21972ba155536f9412108abb3b7df9933cca4130a92f2718ec2faa977a022",
+    "ssimulacra2": 90.84379114
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 3.8850873336264438,
+   "ssimulacra2_delta_streaming_off": 0.2890893299999959,
+   "forced_used": true,
+   "size_ratio_vs_forced": 3.9667852432151567,
+   "ssimulacra2_delta_vs_forced": 0.2896508099999977
+  },
+  {
+   "name": "web-light-1mp",
+   "kind": "web page",
+   "width": 1280,
+   "height": 800,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 20,
+   "default": {
+    "bytes": 156523,
+    "sha256": "00bfe825884e147073666a7d7338af30aeeedc34641ac614d9e9633b536f5f57",
+    "ssimulacra2": 90.27309404
+   },
+   "patches0": {
+    "bytes": 156523,
+    "sha256": "00bfe825884e147073666a7d7338af30aeeedc34641ac614d9e9633b536f5f57",
+    "ssimulacra2": 90.27309404
+   },
+   "patches1": {
+    "bytes": 39152,
+    "sha256": "533336cc65c516df3cf44089a12ae7bd1c4249e68ad4d6f0839e08b024cb801f",
+    "ssimulacra2": 91.71138786
+   },
+   "nostream0": {
+    "bytes": 155351,
+    "sha256": "59597602a09453b61b9efa1025f802148ef8c3948b0462b73b975d4770c4dbe3",
+    "ssimulacra2": 90.27309404
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 3.9678943604413566,
+   "ssimulacra2_delta_streaming_off": -1.4382938199999984,
+   "forced_used": true,
+   "size_ratio_vs_forced": 3.9978289742541886,
+   "ssimulacra2_delta_vs_forced": -1.4382938199999984
+  },
+  {
+   "name": "web-light-1mp",
+   "kind": "web page",
+   "width": 1280,
+   "height": 800,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 20,
+   "default": {
+    "bytes": 122956,
+    "sha256": "14b0f08e19b98ff7d5e65230dbf7a283223de8bb6b7b24557b1d8e2f7b476072",
+    "ssimulacra2": 87.36304638
+   },
+   "patches0": {
+    "bytes": 122956,
+    "sha256": "14b0f08e19b98ff7d5e65230dbf7a283223de8bb6b7b24557b1d8e2f7b476072",
+    "ssimulacra2": 87.36304638
+   },
+   "patches1": {
+    "bytes": 32021,
+    "sha256": "2059380814b2b018ee85cbc67afbe8e255b08cc00037c5e47d32cb6a6d81d29d",
+    "ssimulacra2": 89.64858908
+   },
+   "nostream0": {
+    "bytes": 121962,
+    "sha256": "82ed1d5bb2e7999633221807bf8678877401a4787a1a82c2f7565d1b4510c784",
+    "ssimulacra2": 87.36304638
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 3.8088129664907404,
+   "ssimulacra2_delta_streaming_off": -2.2855426999999935,
+   "forced_used": true,
+   "size_ratio_vs_forced": 3.839855095093845,
+   "ssimulacra2_delta_vs_forced": -2.2855426999999935
+  },
+  {
+   "name": "web-dark-4mp",
+   "kind": "web page",
+   "width": 2560,
+   "height": 1600,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 70,
+   "default": {
+    "bytes": 396474,
+    "sha256": "10ee73b0618f51d51dceaea92315997e3ad9f532fba802e4907f13ea8a29c5a2",
+    "ssimulacra2": 92.98378185
+   },
+   "patches0": {
+    "bytes": 396474,
+    "sha256": "10ee73b0618f51d51dceaea92315997e3ad9f532fba802e4907f13ea8a29c5a2",
+    "ssimulacra2": 92.98378185
+   },
+   "patches1": {
+    "bytes": 100873,
+    "sha256": "4394e439a0c51dbe5fe64fa4417a6d386f7fe6dd6f7338e3a2bc06a66b1b7eee",
+    "ssimulacra2": 93.70148189
+   },
+   "nostream0": {
+    "bytes": 388682,
+    "sha256": "f545f684d8f926a1258b1172560d80836e45c20207d7c27e0e202e3b7f5fc2fe",
+    "ssimulacra2": 92.97940361
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 3.853181723553379,
+   "ssimulacra2_delta_streaming_off": -0.722078279999991,
+   "forced_used": true,
+   "size_ratio_vs_forced": 3.930427369068036,
+   "ssimulacra2_delta_vs_forced": -0.7177000399999969
+  },
+  {
+   "name": "web-dark-4mp",
+   "kind": "web page",
+   "width": 2560,
+   "height": 1600,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 70,
+   "default": {
+    "bytes": 300995,
+    "sha256": "3a55ae0c7e572ed6adc56d882c05c566427fe1e9962c91287b6df2512ebb0acb",
+    "ssimulacra2": 90.84576881
+   },
+   "patches0": {
+    "bytes": 300995,
+    "sha256": "3a55ae0c7e572ed6adc56d882c05c566427fe1e9962c91287b6df2512ebb0acb",
+    "ssimulacra2": 90.84576881
+   },
+   "patches1": {
+    "bytes": 82787,
+    "sha256": "b322138cccc1a38570f96470cc7fca3fe9f7712aca26a6cab044bb34596de7c3",
+    "ssimulacra2": 90.51035599
+   },
+   "nostream0": {
+    "bytes": 293589,
+    "sha256": "beff2d3b7a25eb990a1815e75d0b14454f5b46b84f77b2c9165e658e8778e54b",
+    "ssimulacra2": 90.83547835
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 3.546317658569582,
+   "ssimulacra2_delta_streaming_off": 0.3251223600000088,
+   "forced_used": true,
+   "size_ratio_vs_forced": 3.6357761484291014,
+   "ssimulacra2_delta_vs_forced": 0.33541282000000194
+  },
+  {
+   "name": "terminal-dark-1mp",
+   "kind": "terminal/code",
+   "width": 1280,
+   "height": 800,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 20,
+   "default": {
+    "bytes": 108149,
+    "sha256": "b123432fa69cf7aadfb178f7cc1ba15db28b6b40254b671e0fcee7a53866984b",
+    "ssimulacra2": 90.45143381
+   },
+   "patches0": {
+    "bytes": 108149,
+    "sha256": "b123432fa69cf7aadfb178f7cc1ba15db28b6b40254b671e0fcee7a53866984b",
+    "ssimulacra2": 90.45143381
+   },
+   "patches1": {
+    "bytes": 48967,
+    "sha256": "7f9b5d01971125fa331e673305995ea536f0767d71e3a6cb01cdfc858e6ae3be",
+    "ssimulacra2": 93.17848955
+   },
+   "nostream0": {
+    "bytes": 105431,
+    "sha256": "f44c11ebb57820a9621d3f3cd4d4fe97cacbbb7bf513cba28c9537d24d617e55",
+    "ssimulacra2": 90.45143381
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 2.1531031102579288,
+   "ssimulacra2_delta_streaming_off": -2.7270557399999973,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.2086098801233485,
+   "ssimulacra2_delta_vs_forced": -2.7270557399999973
+  },
+  {
+   "name": "terminal-dark-1mp",
+   "kind": "terminal/code",
+   "width": 1280,
+   "height": 800,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 20,
+   "default": {
+    "bytes": 79144,
+    "sha256": "1a9ea04dcd3ca16202945803a4088ac02fdb4e4a956f6ebd522234220674a23b",
+    "ssimulacra2": 82.4153627
+   },
+   "patches0": {
+    "bytes": 79144,
+    "sha256": "1a9ea04dcd3ca16202945803a4088ac02fdb4e4a956f6ebd522234220674a23b",
+    "ssimulacra2": 82.4153627
+   },
+   "patches1": {
+    "bytes": 36942,
+    "sha256": "2ca1419c15ac44cbc9d1affc6d96b89c5072188974481145c3d3a84d21d7ac99",
+    "ssimulacra2": 91.03642117
+   },
+   "nostream0": {
+    "bytes": 77634,
+    "sha256": "41b8889c6f0c9d313a76600b18342905a9076ad66c01f9fdc9e70b1e56012ff3",
+    "ssimulacra2": 82.4153627
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 2.1015104758811107,
+   "ssimulacra2_delta_streaming_off": -8.621058469999994,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.142385360835905,
+   "ssimulacra2_delta_vs_forced": -8.621058469999994
+  },
+  {
+   "name": "terminal-light-4mp",
+   "kind": "terminal/code",
+   "width": 2560,
+   "height": 1600,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 70,
+   "default": {
+    "bytes": 268356,
+    "sha256": "d5c6b847a652e0c9e4b3fb34a956e8a10d46ad4102a621de2b125e2be1e53dff",
+    "ssimulacra2": 85.90118859
+   },
+   "patches0": {
+    "bytes": 268356,
+    "sha256": "d5c6b847a652e0c9e4b3fb34a956e8a10d46ad4102a621de2b125e2be1e53dff",
+    "ssimulacra2": 85.90118859
+   },
+   "patches1": {
+    "bytes": 37521,
+    "sha256": "f58b00c01a6ebb5cc8c69625d69b706f1ca284b65f757628e0625fc53bb1cdf7",
+    "ssimulacra2": 87.8119572
+   },
+   "nostream0": {
+    "bytes": 256306,
+    "sha256": "eb772bc6769f40b477eeac470241e61401b65c2a2c0398d2ff7d2dd19c874bfe",
+    "ssimulacra2": 85.91475629
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 6.8310013059353425,
+   "ssimulacra2_delta_streaming_off": -1.8972009099999951,
+   "forced_used": true,
+   "size_ratio_vs_forced": 7.152154793315743,
+   "ssimulacra2_delta_vs_forced": -1.910768609999991
+  },
+  {
+   "name": "terminal-light-4mp",
+   "kind": "terminal/code",
+   "width": 2560,
+   "height": 1600,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 70,
+   "default": {
+    "bytes": 192250,
+    "sha256": "8d2a2384fb2711edcab147e352adc0f872e5d6034a25a7c3a7b89b3f3b59e582",
+    "ssimulacra2": 83.30251013
+   },
+   "patches0": {
+    "bytes": 192250,
+    "sha256": "8d2a2384fb2711edcab147e352adc0f872e5d6034a25a7c3a7b89b3f3b59e582",
+    "ssimulacra2": 83.30251013
+   },
+   "patches1": {
+    "bytes": 28976,
+    "sha256": "c1cdb41f0de6ebb75e95ac672661ebb11fc907d9f9597e6f734c9bab449b7900",
+    "ssimulacra2": 86.97590276
+   },
+   "nostream0": {
+    "bytes": 183302,
+    "sha256": "bd57be95ba53a4b0ddb5b8b2d7dad9f3f08f95905fb706025289ad6f0662d7cd",
+    "ssimulacra2": 83.3069987
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 6.3259939260077305,
+   "ssimulacra2_delta_streaming_off": -3.6689040600000027,
+   "forced_used": true,
+   "size_ratio_vs_forced": 6.634801214798454,
+   "ssimulacra2_delta_vs_forced": -3.673392629999995
+  },
+  {
+   "name": "document-scan-1mp",
+   "kind": "document page",
+   "width": 850,
+   "height": 1100,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 20,
+   "default": {
+    "bytes": 208122,
+    "sha256": "7829cda7f52b991e03fa0c5ded45a3707623b902cbe01cad86d43e44bf726168",
+    "ssimulacra2": 80.67783337
+   },
+   "patches0": {
+    "bytes": 208122,
+    "sha256": "7829cda7f52b991e03fa0c5ded45a3707623b902cbe01cad86d43e44bf726168",
+    "ssimulacra2": 80.67783337
+   },
+   "patches1": {
+    "bytes": 206677,
+    "sha256": "c8e3b49b3ab2d5f78f0d01cb74a2d39b19f34ac47d66a87067d6ea539bdbba8c",
+    "ssimulacra2": 80.67783337
+   },
+   "nostream0": {
+    "bytes": 206677,
+    "sha256": "c8e3b49b3ab2d5f78f0d01cb74a2d39b19f34ac47d66a87067d6ea539bdbba8c",
+    "ssimulacra2": 80.67783337
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0,
+   "ssimulacra2_delta_streaming_off": 0.0,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.0069915859045757,
+   "ssimulacra2_delta_vs_forced": 0.0
+  },
+  {
+   "name": "document-scan-1mp",
+   "kind": "document page",
+   "width": 850,
+   "height": 1100,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 20,
+   "default": {
+    "bytes": 103987,
+    "sha256": "776e8a850d31b4b9eb4fb0734a4dd5cde32bf579fc5b44ef40dedcc9fa66f6ff",
+    "ssimulacra2": 70.42466312
+   },
+   "patches0": {
+    "bytes": 103987,
+    "sha256": "776e8a850d31b4b9eb4fb0734a4dd5cde32bf579fc5b44ef40dedcc9fa66f6ff",
+    "ssimulacra2": 70.42466312
+   },
+   "patches1": {
+    "bytes": 102865,
+    "sha256": "1d9ac6311728804cb61638ae89e943397a5f6abe300d5ad37185eec372a9b4bd",
+    "ssimulacra2": 70.42466312
+   },
+   "nostream0": {
+    "bytes": 102865,
+    "sha256": "1d9ac6311728804cb61638ae89e943397a5f6abe300d5ad37185eec372a9b4bd",
+    "ssimulacra2": 70.42466312
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0,
+   "ssimulacra2_delta_streaming_off": 0.0,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.0109075001215184,
+   "ssimulacra2_delta_vs_forced": 0.0
+  },
+  {
+   "name": "document-clean-4mp",
+   "kind": "document page",
+   "width": 1700,
+   "height": 2200,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 63,
+   "default": {
+    "bytes": 475366,
+    "sha256": "c08fd3043cf2947a65c1882890c6de9c2aa5e790fbccda669045631ef0d69aed",
+    "ssimulacra2": 89.52842582
+   },
+   "patches0": {
+    "bytes": 475366,
+    "sha256": "c08fd3043cf2947a65c1882890c6de9c2aa5e790fbccda669045631ef0d69aed",
+    "ssimulacra2": 89.52842582
+   },
+   "patches1": {
+    "bytes": 50066,
+    "sha256": "6e587b80eeee6a257d9c8f386c654bf9cb3b575965339a5d5f61c99e22e4913e",
+    "ssimulacra2": 89.81157994
+   },
+   "nostream0": {
+    "bytes": 468559,
+    "sha256": "be13a9a582abd0477fd84c84b08cb6d484bf0c3f713a330f7d42f3f57ab0ccd4",
+    "ssimulacra2": 89.51714409
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 9.358826349219031,
+   "ssimulacra2_delta_streaming_off": -0.2944358499999993,
+   "forced_used": true,
+   "size_ratio_vs_forced": 9.494786881316662,
+   "ssimulacra2_delta_vs_forced": -0.28315412000000606
+  },
+  {
+   "name": "document-clean-4mp",
+   "kind": "document page",
+   "width": 1700,
+   "height": 2200,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 63,
+   "default": {
+    "bytes": 370165,
+    "sha256": "5fb31179af9323d6e2963e95473f62e455b8cc638cac6a5696d3eeb8c703bab8",
+    "ssimulacra2": 87.33928705
+   },
+   "patches0": {
+    "bytes": 370165,
+    "sha256": "5fb31179af9323d6e2963e95473f62e455b8cc638cac6a5696d3eeb8c703bab8",
+    "ssimulacra2": 87.33928705
+   },
+   "patches1": {
+    "bytes": 42660,
+    "sha256": "9e61ee8b3647f3b15877aed75077dfd4bfebc712ec27065a0525f71197ca11d0",
+    "ssimulacra2": 87.97632322
+   },
+   "nostream0": {
+    "bytes": 363938,
+    "sha256": "11450d50ac947bbfd5290383ae725b79ceca9393cabffa52a501bacc8dd533af",
+    "ssimulacra2": 87.35268718
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 8.531129864041256,
+   "ssimulacra2_delta_streaming_off": -0.6236360399999938,
+   "forced_used": true,
+   "size_ratio_vs_forced": 8.67709798406001,
+   "ssimulacra2_delta_vs_forced": -0.6370361700000018
+  },
+  {
+   "name": "slide-dark-1mp",
+   "kind": "slide",
+   "width": 1280,
+   "height": 720,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 15,
+   "default": {
+    "bytes": 74869,
+    "sha256": "218380aeb10e4a610af86ad6434999f94164e0886cf54d90cf7eda2a704b93a3",
+    "ssimulacra2": 90.92012333
+   },
+   "patches0": {
+    "bytes": 74869,
+    "sha256": "218380aeb10e4a610af86ad6434999f94164e0886cf54d90cf7eda2a704b93a3",
+    "ssimulacra2": 90.92012333
+   },
+   "patches1": {
+    "bytes": 29218,
+    "sha256": "03596a4a0091d8b44193b88152a9961852d4a08e1bf8bc46f623f752fd6329f9",
+    "ssimulacra2": 93.18268563
+   },
+   "nostream0": {
+    "bytes": 74130,
+    "sha256": "6632410e4fd66bf3e4446d27fab99d908a4f5d9962ba547916ff8147eaa7a82a",
+    "ssimulacra2": 90.92012333
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 2.53713464302827,
+   "ssimulacra2_delta_streaming_off": -2.262562299999999,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.5624272708604283,
+   "ssimulacra2_delta_vs_forced": -2.262562299999999
+  },
+  {
+   "name": "slide-dark-1mp",
+   "kind": "slide",
+   "width": 1280,
+   "height": 720,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 15,
+   "default": {
+    "bytes": 57903,
+    "sha256": "cfc12587ed99e3049191eb43f4ba9cfb8000e98a1c8db6e2d81669282d451df1",
+    "ssimulacra2": 87.75681072
+   },
+   "patches0": {
+    "bytes": 57903,
+    "sha256": "cfc12587ed99e3049191eb43f4ba9cfb8000e98a1c8db6e2d81669282d451df1",
+    "ssimulacra2": 87.75681072
+   },
+   "patches1": {
+    "bytes": 23700,
+    "sha256": "0ee3f6852ddb7b08f5fb9bbe3cdda7105db331b364a429a70827daf94232c417",
+    "ssimulacra2": 90.34154784
+   },
+   "nostream0": {
+    "bytes": 57331,
+    "sha256": "3b6f7c0bebb1a8fd5620c9ad0dd474a78f70f864007d0493a687e7ba92f99db6",
+    "ssimulacra2": 87.75681072
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 2.4190295358649787,
+   "ssimulacra2_delta_streaming_off": -2.5847371199999998,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.4431645569620253,
+   "ssimulacra2_delta_vs_forced": -2.5847371199999998
+  },
+  {
+   "name": "slide-light-4mp",
+   "kind": "slide",
+   "width": 2560,
+   "height": 1440,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 60,
+   "default": {
+    "bytes": 185794,
+    "sha256": "89bfac6bb9ea6bb124e87d1aca287791eb93d90756cb9d0b2c5ff1b666f7aa1e",
+    "ssimulacra2": 86.14539514
+   },
+   "patches0": {
+    "bytes": 185794,
+    "sha256": "89bfac6bb9ea6bb124e87d1aca287791eb93d90756cb9d0b2c5ff1b666f7aa1e",
+    "ssimulacra2": 86.14539514
+   },
+   "patches1": {
+    "bytes": 87900,
+    "sha256": "9be61f89714dd758ec4321a3d4e4a4575b14b23bbb7390832f02ad981cad9a8b",
+    "ssimulacra2": 86.84522032
+   },
+   "nostream0": {
+    "bytes": 180885,
+    "sha256": "4693d6073cda75c3e43ea553ea286ec3a57c13d451fa1b84073a4ac22d53ce0b",
+    "ssimulacra2": 86.1552615
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 2.057849829351536,
+   "ssimulacra2_delta_streaming_off": -0.6899588200000011,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.113697383390216,
+   "ssimulacra2_delta_vs_forced": -0.6998251799999906
+  },
+  {
+   "name": "slide-light-4mp",
+   "kind": "slide",
+   "width": 2560,
+   "height": 1440,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 60,
+   "default": {
+    "bytes": 143733,
+    "sha256": "a964eb8c1e25bea48e76feaff11c2815da6d3bc12a44974cb7e74cb940f744a1",
+    "ssimulacra2": 83.99901535
+   },
+   "patches0": {
+    "bytes": 143733,
+    "sha256": "a964eb8c1e25bea48e76feaff11c2815da6d3bc12a44974cb7e74cb940f744a1",
+    "ssimulacra2": 83.99901535
+   },
+   "patches1": {
+    "bytes": 70737,
+    "sha256": "66abf286136616a9859886dca63f52bf2f0ad94e117ae07e30103747a20cd8a7",
+    "ssimulacra2": 84.97731674
+   },
+   "nostream0": {
+    "bytes": 139755,
+    "sha256": "e177b6345c0bc37f5bb796707c7f2d2a4c79220e7a947118386196bd8fb2fbe2",
+    "ssimulacra2": 84.03040295
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.9756987149582255,
+   "ssimulacra2_delta_streaming_off": -0.9469137900000106,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.031935196573222,
+   "ssimulacra2_delta_vs_forced": -0.9783013900000128
+  },
+  {
+   "name": "chart-light-1mp",
+   "kind": "chart",
+   "width": 1200,
+   "height": 900,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 20,
+   "default": {
+    "bytes": 50890,
+    "sha256": "f93649d392e06015147dbef73c4737b63b4b328d8ad2d5b9e9a4a44538dba23a",
+    "ssimulacra2": 90.97728423
+   },
+   "patches0": {
+    "bytes": 50890,
+    "sha256": "f93649d392e06015147dbef73c4737b63b4b328d8ad2d5b9e9a4a44538dba23a",
+    "ssimulacra2": 90.97728423
+   },
+   "patches1": {
+    "bytes": 45784,
+    "sha256": "c5c079182f326c5f6b9e865c982f85bd98ca719ebc169162388c87cf02b9aec7",
+    "ssimulacra2": 91.05581209
+   },
+   "nostream0": {
+    "bytes": 49410,
+    "sha256": "6fc166cb3997267be36aacd49bc42faab00e83aa48c65091c3e27d76d35b2200",
+    "ssimulacra2": 90.97728423
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0791979730910362,
+   "ssimulacra2_delta_streaming_off": -0.07852786000000833,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.1115236763935,
+   "ssimulacra2_delta_vs_forced": -0.07852786000000833
+  },
+  {
+   "name": "chart-light-1mp",
+   "kind": "chart",
+   "width": 1200,
+   "height": 900,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 20,
+   "default": {
+    "bytes": 42196,
+    "sha256": "44d7b4cc3367a460aa0872f0418b1605a26e97b9527638dab50baaceabe56902",
+    "ssimulacra2": 88.73333601
+   },
+   "patches0": {
+    "bytes": 42196,
+    "sha256": "44d7b4cc3367a460aa0872f0418b1605a26e97b9527638dab50baaceabe56902",
+    "ssimulacra2": 88.73333601
+   },
+   "patches1": {
+    "bytes": 38214,
+    "sha256": "13632903342b44d20afe1a9c1955727e7e234d597d0f2429418531fbbf179011",
+    "ssimulacra2": 89.10954568
+   },
+   "nostream0": {
+    "bytes": 41152,
+    "sha256": "1c7a05676d87ef3243ba3096c59bd44e7f166e30b8f42a28ec0d974d0e43d4df",
+    "ssimulacra2": 88.73333601
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0768828178154604,
+   "ssimulacra2_delta_streaming_off": -0.3762096699999944,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.104202648244099,
+   "ssimulacra2_delta_vs_forced": -0.3762096699999944
+  },
+  {
+   "name": "chart-dark-4mp",
+   "kind": "chart",
+   "width": 2400,
+   "height": 1800,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 80,
+   "default": {
+    "bytes": 102750,
+    "sha256": "a30e397b36fa225c79dba6e33bc997feb547a711228b0b10468ac6fed48fd277",
+    "ssimulacra2": 92.82349047
+   },
+   "patches0": {
+    "bytes": 102750,
+    "sha256": "a30e397b36fa225c79dba6e33bc997feb547a711228b0b10468ac6fed48fd277",
+    "ssimulacra2": 92.82349047
+   },
+   "patches1": {
+    "bytes": 87775,
+    "sha256": "0ddda29ff2d32340fe24bde19898838c55701398cfc68904a0424ee69eb9d985",
+    "ssimulacra2": 93.04381468
+   },
+   "nostream0": {
+    "bytes": 97297,
+    "sha256": "4a50ab236c0e4743ab3d05c4980955b734e29260f9b6e7364dc60e6b69d4c925",
+    "ssimulacra2": 92.81823429
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.1084819139846198,
+   "ssimulacra2_delta_streaming_off": -0.22558038999999042,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.1706066647678723,
+   "ssimulacra2_delta_vs_forced": -0.22032421000000113
+  },
+  {
+   "name": "chart-dark-4mp",
+   "kind": "chart",
+   "width": 2400,
+   "height": 1800,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 80,
+   "default": {
+    "bytes": 79530,
+    "sha256": "4e3bc6841d0b071dc5681ff96182a5e2d38985c39f4edc51a2677b3e1bdf59f5",
+    "ssimulacra2": 90.71406354
+   },
+   "patches0": {
+    "bytes": 79530,
+    "sha256": "4e3bc6841d0b071dc5681ff96182a5e2d38985c39f4edc51a2677b3e1bdf59f5",
+    "ssimulacra2": 90.71406354
+   },
+   "patches1": {
+    "bytes": 69675,
+    "sha256": "f3e6e2c700d2649ad022f33c90f0d3249340e048ac727e665e300b6a8b090751",
+    "ssimulacra2": 91.00194285
+   },
+   "nostream0": {
+    "bytes": 76094,
+    "sha256": "41c08273c7154b1adc4d11a5e4f3b7221491c9cb91d2793f01c175ccc0647c50",
+    "ssimulacra2": 90.70874929
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0921277359167563,
+   "ssimulacra2_delta_streaming_off": -0.29319356000000596,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.1414424111948331,
+   "ssimulacra2_delta_vs_forced": -0.2878793100000081
+  },
+  {
+   "name": "desktop-ui-light-0.5mp",
+   "kind": "desktop UI",
+   "width": 1024,
+   "height": 512,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 8,
+   "default": {
+    "bytes": 43568,
+    "sha256": "9d17a3f764c394bbd89ab9dc2ef3e2e304ff449a697567aef3fae3ca11035bb4",
+    "ssimulacra2": 91.56756653
+   },
+   "patches0": {
+    "bytes": 75189,
+    "sha256": "6ebd1d4e9aaf4ba25bad45350fd8191fdabcb801e1ab1e95bb4d9f1ce8f524ea",
+    "ssimulacra2": 89.46079818
+   },
+   "patches1": {
+    "bytes": 43568,
+    "sha256": "9d17a3f764c394bbd89ab9dc2ef3e2e304ff449a697567aef3fae3ca11035bb4",
+    "ssimulacra2": 91.56756653
+   },
+   "nostream0": {
+    "bytes": 75189,
+    "sha256": "6ebd1d4e9aaf4ba25bad45350fd8191fdabcb801e1ab1e95bb4d9f1ce8f524ea",
+    "ssimulacra2": 89.46079818
+   },
+   "patches_used": true,
+   "size_ratio": 1.7257849798016893,
+   "ssimulacra2_delta": -2.106768349999996,
+   "size_ratio_streaming_off": 1.7257849798016893,
+   "ssimulacra2_delta_streaming_off": -2.106768349999996,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.7257849798016893,
+   "ssimulacra2_delta_vs_forced": -2.106768349999996
+  },
+  {
+   "name": "desktop-ui-light-0.5mp",
+   "kind": "desktop UI",
+   "width": 1024,
+   "height": 512,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 8,
+   "default": {
+    "bytes": 34036,
+    "sha256": "d805b9f66ff6b8f70fecd9300213132d5fdbd5c84b11bb4b90db289dd6e3410e",
+    "ssimulacra2": 89.18822431
+   },
+   "patches0": {
+    "bytes": 58959,
+    "sha256": "f82d989f0c068a228bd06bf7e0994b88f1cfc400a7aeb351e988d1092e1fdbec",
+    "ssimulacra2": 85.84241825
+   },
+   "patches1": {
+    "bytes": 34036,
+    "sha256": "d805b9f66ff6b8f70fecd9300213132d5fdbd5c84b11bb4b90db289dd6e3410e",
+    "ssimulacra2": 89.18822431
+   },
+   "nostream0": {
+    "bytes": 58959,
+    "sha256": "f82d989f0c068a228bd06bf7e0994b88f1cfc400a7aeb351e988d1092e1fdbec",
+    "ssimulacra2": 85.84241825
+   },
+   "patches_used": true,
+   "size_ratio": 1.7322540839111529,
+   "ssimulacra2_delta": -3.345806060000001,
+   "size_ratio_streaming_off": 1.7322540839111529,
+   "ssimulacra2_delta_streaming_off": -3.345806060000001,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.7322540839111529,
+   "ssimulacra2_delta_vs_forced": -3.345806060000001
+  },
+  {
+   "name": "web-light-0.5mp",
+   "kind": "web page",
+   "width": 1024,
+   "height": 512,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 8,
+   "default": {
+    "bytes": 22291,
+    "sha256": "9b1c9a7370c439ea4082a6f1045b53068b359d85aa8bcfd6bd41f6b0d859fc45",
+    "ssimulacra2": 92.21064276
+   },
+   "patches0": {
+    "bytes": 84750,
+    "sha256": "aac70f7286abc8a234e095b8f28d7edaaf64f0c289689ef9a70bc99dd42c2a58",
+    "ssimulacra2": 90.75422713
+   },
+   "patches1": {
+    "bytes": 22291,
+    "sha256": "9b1c9a7370c439ea4082a6f1045b53068b359d85aa8bcfd6bd41f6b0d859fc45",
+    "ssimulacra2": 92.21064276
+   },
+   "nostream0": {
+    "bytes": 84750,
+    "sha256": "aac70f7286abc8a234e095b8f28d7edaaf64f0c289689ef9a70bc99dd42c2a58",
+    "ssimulacra2": 90.75422713
+   },
+   "patches_used": true,
+   "size_ratio": 3.8019828630388948,
+   "ssimulacra2_delta": -1.456415629999995,
+   "size_ratio_streaming_off": 3.8019828630388948,
+   "ssimulacra2_delta_streaming_off": -1.456415629999995,
+   "forced_used": true,
+   "size_ratio_vs_forced": 3.8019828630388948,
+   "ssimulacra2_delta_vs_forced": -1.456415629999995
+  },
+  {
+   "name": "web-light-0.5mp",
+   "kind": "web page",
+   "width": 1024,
+   "height": 512,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 8,
+   "default": {
+    "bytes": 18640,
+    "sha256": "6461afb0f350650b0f3bcc85d01d9017c1faa2a51d5f4c3d9eec02f7181b0d6c",
+    "ssimulacra2": 89.75432975
+   },
+   "patches0": {
+    "bytes": 68521,
+    "sha256": "17eecb59214201d4f70b4c7e84ee2a46f7e285b31b0a165b367b3ef057cb3e4f",
+    "ssimulacra2": 88.22314311
+   },
+   "patches1": {
+    "bytes": 18640,
+    "sha256": "6461afb0f350650b0f3bcc85d01d9017c1faa2a51d5f4c3d9eec02f7181b0d6c",
+    "ssimulacra2": 89.75432975
+   },
+   "nostream0": {
+    "bytes": 68521,
+    "sha256": "17eecb59214201d4f70b4c7e84ee2a46f7e285b31b0a165b367b3ef057cb3e4f",
+    "ssimulacra2": 88.22314311
+   },
+   "patches_used": true,
+   "size_ratio": 3.676019313304721,
+   "ssimulacra2_delta": -1.5311866400000014,
+   "size_ratio_streaming_off": 3.676019313304721,
+   "ssimulacra2_delta_streaming_off": -1.5311866400000014,
+   "forced_used": true,
+   "size_ratio_vs_forced": 3.676019313304721,
+   "ssimulacra2_delta_vs_forced": -1.5311866400000014
+  },
+  {
+   "name": "terminal-dark-0.4mp",
+   "kind": "terminal/code",
+   "width": 768,
+   "height": 512,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 6,
+   "default": {
+    "bytes": 39102,
+    "sha256": "65c1c23f5ae9d9b14d1c66522263b501fc58c8c8289443622295deda679d3051",
+    "ssimulacra2": 92.78982203
+   },
+   "patches0": {
+    "bytes": 72749,
+    "sha256": "815b7729efeb9c7c8e190936d1d12df6be74ff91cde820403c1d3567d21a8e92",
+    "ssimulacra2": 88.90143016
+   },
+   "patches1": {
+    "bytes": 39102,
+    "sha256": "65c1c23f5ae9d9b14d1c66522263b501fc58c8c8289443622295deda679d3051",
+    "ssimulacra2": 92.78982203
+   },
+   "nostream0": {
+    "bytes": 72749,
+    "sha256": "815b7729efeb9c7c8e190936d1d12df6be74ff91cde820403c1d3567d21a8e92",
+    "ssimulacra2": 88.90143016
+   },
+   "patches_used": true,
+   "size_ratio": 1.8604930694082145,
+   "ssimulacra2_delta": -3.8883918699999924,
+   "size_ratio_streaming_off": 1.8604930694082145,
+   "ssimulacra2_delta_streaming_off": -3.8883918699999924,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.8604930694082145,
+   "ssimulacra2_delta_vs_forced": -3.8883918699999924
+  },
+  {
+   "name": "terminal-dark-0.4mp",
+   "kind": "terminal/code",
+   "width": 768,
+   "height": 512,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 6,
+   "default": {
+    "bytes": 29323,
+    "sha256": "40c0a375674f2dbb7743400624ed035ac36b3b06d0b9c34dc027c714129bf32a",
+    "ssimulacra2": 89.37514512
+   },
+   "patches0": {
+    "bytes": 52066,
+    "sha256": "f9b2a0e1440e4928b79a1b4c0eef0aa91a0e1b4dab05792ae28c6e18d18b6445",
+    "ssimulacra2": 80.04456543
+   },
+   "patches1": {
+    "bytes": 29323,
+    "sha256": "40c0a375674f2dbb7743400624ed035ac36b3b06d0b9c34dc027c714129bf32a",
+    "ssimulacra2": 89.37514512
+   },
+   "nostream0": {
+    "bytes": 52066,
+    "sha256": "f9b2a0e1440e4928b79a1b4c0eef0aa91a0e1b4dab05792ae28c6e18d18b6445",
+    "ssimulacra2": 80.04456543
+   },
+   "patches_used": true,
+   "size_ratio": 1.7756027691573169,
+   "ssimulacra2_delta": -9.330579689999993,
+   "size_ratio_streaming_off": 1.7756027691573169,
+   "ssimulacra2_delta_streaming_off": -9.330579689999993,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.7756027691573169,
+   "ssimulacra2_delta_vs_forced": -9.330579689999993
+  },
+  {
+   "name": "document-clean-0.4mp",
+   "kind": "document page",
+   "width": 512,
+   "height": 768,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 6,
+   "default": {
+    "bytes": 26556,
+    "sha256": "e2ff4514ad024b2bbca4d532cca972a58a9d30a53053000e5d52174029fd388c",
+    "ssimulacra2": 92.33852465
+   },
+   "patches0": {
+    "bytes": 66614,
+    "sha256": "ecd8c3046c12e7665c8081dbae248aea487400196f8c7022e0fefc4b61771eb7",
+    "ssimulacra2": 92.00548302
+   },
+   "patches1": {
+    "bytes": 26556,
+    "sha256": "e2ff4514ad024b2bbca4d532cca972a58a9d30a53053000e5d52174029fd388c",
+    "ssimulacra2": 92.33852465
+   },
+   "nostream0": {
+    "bytes": 66614,
+    "sha256": "ecd8c3046c12e7665c8081dbae248aea487400196f8c7022e0fefc4b61771eb7",
+    "ssimulacra2": 92.00548302
+   },
+   "patches_used": true,
+   "size_ratio": 2.5084350052718785,
+   "ssimulacra2_delta": -0.33304162999999676,
+   "size_ratio_streaming_off": 2.5084350052718785,
+   "ssimulacra2_delta_streaming_off": -0.33304162999999676,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.5084350052718785,
+   "ssimulacra2_delta_vs_forced": -0.33304162999999676
+  },
+  {
+   "name": "document-clean-0.4mp",
+   "kind": "document page",
+   "width": 512,
+   "height": 768,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 6,
+   "default": {
+    "bytes": 21442,
+    "sha256": "5aae835011b88de469482ba1445f74157a3299f527701470448b168db0385242",
+    "ssimulacra2": 90.23552855
+   },
+   "patches0": {
+    "bytes": 52522,
+    "sha256": "75174a57970b13439169ef4fea7d50d0c76ff4b890003f54ab7d22ee045a4740",
+    "ssimulacra2": 88.76412706
+   },
+   "patches1": {
+    "bytes": 21442,
+    "sha256": "5aae835011b88de469482ba1445f74157a3299f527701470448b168db0385242",
+    "ssimulacra2": 90.23552855
+   },
+   "nostream0": {
+    "bytes": 52522,
+    "sha256": "75174a57970b13439169ef4fea7d50d0c76ff4b890003f54ab7d22ee045a4740",
+    "ssimulacra2": 88.76412706
+   },
+   "patches_used": true,
+   "size_ratio": 2.449491651898144,
+   "ssimulacra2_delta": -1.471401489999991,
+   "size_ratio_streaming_off": 2.449491651898144,
+   "ssimulacra2_delta_streaming_off": -1.471401489999991,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.449491651898144,
+   "ssimulacra2_delta_vs_forced": -1.471401489999991
+  },
+  {
+   "name": "slide-dark-0.5mp",
+   "kind": "slide",
+   "width": 912,
+   "height": 512,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 8,
+   "default": {
+    "bytes": 24136,
+    "sha256": "7d08d5178c3c070b5c1cba699162d1c584133645a99c7a9d334dcf41f63d69e8",
+    "ssimulacra2": 92.13510555
+   },
+   "patches0": {
+    "bytes": 67422,
+    "sha256": "af24d020ff14b0f48a4eea282532bc1bf9367ac7fd36783085ef33de7c1c5567",
+    "ssimulacra2": 88.73204514
+   },
+   "patches1": {
+    "bytes": 24136,
+    "sha256": "7d08d5178c3c070b5c1cba699162d1c584133645a99c7a9d334dcf41f63d69e8",
+    "ssimulacra2": 92.13510555
+   },
+   "nostream0": {
+    "bytes": 67422,
+    "sha256": "af24d020ff14b0f48a4eea282532bc1bf9367ac7fd36783085ef33de7c1c5567",
+    "ssimulacra2": 88.73204514
+   },
+   "patches_used": true,
+   "size_ratio": 2.7934206165064634,
+   "ssimulacra2_delta": -3.403060410000009,
+   "size_ratio_streaming_off": 2.7934206165064634,
+   "ssimulacra2_delta_streaming_off": -3.403060410000009,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.7934206165064634,
+   "ssimulacra2_delta_vs_forced": -3.403060410000009
+  },
+  {
+   "name": "slide-dark-0.5mp",
+   "kind": "slide",
+   "width": 912,
+   "height": 512,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 8,
+   "default": {
+    "bytes": 19745,
+    "sha256": "106dbc05d6f0245aec153512f1d0e07f4d00769ee8d971762f864a1ce74ddcc8",
+    "ssimulacra2": 90.05210201
+   },
+   "patches0": {
+    "bytes": 51664,
+    "sha256": "9ee51f766c0136a1869403add5dea1180dcd9cb389ee8387030df2a4ead96376",
+    "ssimulacra2": 85.11251061
+   },
+   "patches1": {
+    "bytes": 19745,
+    "sha256": "106dbc05d6f0245aec153512f1d0e07f4d00769ee8d971762f864a1ce74ddcc8",
+    "ssimulacra2": 90.05210201
+   },
+   "nostream0": {
+    "bytes": 51664,
+    "sha256": "9ee51f766c0136a1869403add5dea1180dcd9cb389ee8387030df2a4ead96376",
+    "ssimulacra2": 85.11251061
+   },
+   "patches_used": true,
+   "size_ratio": 2.6165611547227146,
+   "ssimulacra2_delta": -4.939591399999998,
+   "size_ratio_streaming_off": 2.6165611547227146,
+   "ssimulacra2_delta_streaming_off": -4.939591399999998,
+   "forced_used": true,
+   "size_ratio_vs_forced": 2.6165611547227146,
+   "ssimulacra2_delta_vs_forced": -4.939591399999998
+  },
+  {
+   "name": "chart-light-0.5mp",
+   "kind": "chart",
+   "width": 1024,
+   "height": 512,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 8,
+   "default": {
+    "bytes": 35222,
+    "sha256": "1ed857a98f2745bd0ea556280ce06c4bfec5086bba57fb2a54123a9e8b1c0bb9",
+    "ssimulacra2": 92.13486347
+   },
+   "patches0": {
+    "bytes": 38792,
+    "sha256": "3c508eb115d65e113dbab67f0fbd4b554268a426bc9288e8d14cb4388cb56a08",
+    "ssimulacra2": 91.75971326
+   },
+   "patches1": {
+    "bytes": 35222,
+    "sha256": "1ed857a98f2745bd0ea556280ce06c4bfec5086bba57fb2a54123a9e8b1c0bb9",
+    "ssimulacra2": 92.13486347
+   },
+   "nostream0": {
+    "bytes": 38792,
+    "sha256": "3c508eb115d65e113dbab67f0fbd4b554268a426bc9288e8d14cb4388cb56a08",
+    "ssimulacra2": 91.75971326
+   },
+   "patches_used": true,
+   "size_ratio": 1.1013571063539833,
+   "ssimulacra2_delta": -0.37515021000000104,
+   "size_ratio_streaming_off": 1.1013571063539833,
+   "ssimulacra2_delta_streaming_off": -0.37515021000000104,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.1013571063539833,
+   "ssimulacra2_delta_vs_forced": -0.37515021000000104
+  },
+  {
+   "name": "chart-light-0.5mp",
+   "kind": "chart",
+   "width": 1024,
+   "height": 512,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 8,
+   "default": {
+    "bytes": 29406,
+    "sha256": "cb77f31dfdcb1e6b907f4219383e9f7769c408b517be7b42146b0c2cd9f580d1",
+    "ssimulacra2": 89.70305977
+   },
+   "patches0": {
+    "bytes": 32022,
+    "sha256": "95fe0872258376c70040fdae95625c381fb3461fe44cabe2292913a2ad054731",
+    "ssimulacra2": 89.07841049
+   },
+   "patches1": {
+    "bytes": 29406,
+    "sha256": "cb77f31dfdcb1e6b907f4219383e9f7769c408b517be7b42146b0c2cd9f580d1",
+    "ssimulacra2": 89.70305977
+   },
+   "nostream0": {
+    "bytes": 32022,
+    "sha256": "95fe0872258376c70040fdae95625c381fb3461fe44cabe2292913a2ad054731",
+    "ssimulacra2": 89.07841049
+   },
+   "patches_used": true,
+   "size_ratio": 1.0889614364415425,
+   "ssimulacra2_delta": -0.6246492799999999,
+   "size_ratio_streaming_off": 1.0889614364415425,
+   "ssimulacra2_delta_streaming_off": -0.6246492799999999,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.0889614364415425,
+   "ssimulacra2_delta_vs_forced": -0.6246492799999999
+  },
+  {
+   "name": "photo-paris-png",
+   "kind": "photograph",
+   "width": 403,
+   "height": 302,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 4,
+   "default": {
+    "bytes": 18178,
+    "sha256": "efbe91be49bf6132dc344557af0c24d623659f88219827a86e1144fc208d6d59",
+    "ssimulacra2": 89.79438836
+   },
+   "patches0": {
+    "bytes": 18178,
+    "sha256": "efbe91be49bf6132dc344557af0c24d623659f88219827a86e1144fc208d6d59",
+    "ssimulacra2": 89.79438836
+   },
+   "patches1": {
+    "bytes": 18178,
+    "sha256": "efbe91be49bf6132dc344557af0c24d623659f88219827a86e1144fc208d6d59",
+    "ssimulacra2": 89.79438836
+   },
+   "nostream0": {
+    "bytes": 18178,
+    "sha256": "efbe91be49bf6132dc344557af0c24d623659f88219827a86e1144fc208d6d59",
+    "ssimulacra2": 89.79438836
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0,
+   "ssimulacra2_delta_streaming_off": 0.0,
+   "forced_used": false,
+   "size_ratio_vs_forced": 1.0,
+   "ssimulacra2_delta_vs_forced": 0.0
+  },
+  {
+   "name": "photo-paris-png",
+   "kind": "photograph",
+   "width": 403,
+   "height": 302,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 4,
+   "default": {
+    "bytes": 14788,
+    "sha256": "fd65e89f522c9c11f343f48b607c5093fbf5bddc5276fba8e4b46c6ae34eca65",
+    "ssimulacra2": 81.98061216
+   },
+   "patches0": {
+    "bytes": 14788,
+    "sha256": "fd65e89f522c9c11f343f48b607c5093fbf5bddc5276fba8e4b46c6ae34eca65",
+    "ssimulacra2": 81.98061216
+   },
+   "patches1": {
+    "bytes": 14788,
+    "sha256": "fd65e89f522c9c11f343f48b607c5093fbf5bddc5276fba8e4b46c6ae34eca65",
+    "ssimulacra2": 81.98061216
+   },
+   "nostream0": {
+    "bytes": 14788,
+    "sha256": "fd65e89f522c9c11f343f48b607c5093fbf5bddc5276fba8e4b46c6ae34eca65",
+    "ssimulacra2": 81.98061216
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0,
+   "ssimulacra2_delta_streaming_off": 0.0,
+   "forced_used": false,
+   "size_ratio_vs_forced": 1.0,
+   "ssimulacra2_delta_vs_forced": 0.0
+  },
+  {
+   "name": "photo-flower-jpeg",
+   "kind": "photograph",
+   "width": 2268,
+   "height": 1512,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 54,
+   "default": {
+    "bytes": 464592,
+    "sha256": "d8049e23b4d0c3627921c942ebf656320aa33b0da964b235e7a50e83ecc97e7a",
+    "ssimulacra2": 89.58585418
+   },
+   "patches0": {
+    "bytes": 464592,
+    "sha256": "d8049e23b4d0c3627921c942ebf656320aa33b0da964b235e7a50e83ecc97e7a",
+    "ssimulacra2": 89.58585418
+   },
+   "patches1": {
+    "bytes": 455095,
+    "sha256": "8da57040b16e2a407ce1b964596e04bcdcb1dd3c9842ade36fbfb0240e3b699b",
+    "ssimulacra2": 89.5998512
+   },
+   "nostream0": {
+    "bytes": 455095,
+    "sha256": "8da57040b16e2a407ce1b964596e04bcdcb1dd3c9842ade36fbfb0240e3b699b",
+    "ssimulacra2": 89.5998512
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0,
+   "ssimulacra2_delta_streaming_off": 0.0,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.0208681703820082,
+   "ssimulacra2_delta_vs_forced": -0.013997020000005023
+  },
+  {
+   "name": "photo-flower-jpeg",
+   "kind": "photograph",
+   "width": 2268,
+   "height": 1512,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 54,
+   "default": {
+    "bytes": 289170,
+    "sha256": "a6e967e81948b89d47184058ba1165848313f76dd16a3aac65c603651a7cb720",
+    "ssimulacra2": 83.50032707
+   },
+   "patches0": {
+    "bytes": 289170,
+    "sha256": "a6e967e81948b89d47184058ba1165848313f76dd16a3aac65c603651a7cb720",
+    "ssimulacra2": 83.50032707
+   },
+   "patches1": {
+    "bytes": 283532,
+    "sha256": "b938d95c04003a02b544e36a156ccc9e900d6a549ab97b1b86028c2ec6c191ef",
+    "ssimulacra2": 83.49907668
+   },
+   "nostream0": {
+    "bytes": 283532,
+    "sha256": "b938d95c04003a02b544e36a156ccc9e900d6a549ab97b1b86028c2ec6c191ef",
+    "ssimulacra2": 83.49907668
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0,
+   "ssimulacra2_delta_streaming_off": 0.0,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.0198848807189311,
+   "ssimulacra2_delta_vs_forced": 0.0012503899999956047
+  },
+  {
+   "name": "photo-dog-jpeg",
+   "kind": "photograph",
+   "width": 4032,
+   "height": 3024,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 192,
+   "default": {
+    "bytes": 2057280,
+    "sha256": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+    "ssimulacra2": 85.01485699
+   },
+   "patches0": {
+    "bytes": 2057280,
+    "sha256": "f35117f8538b826b83da85728feca0f293ace619307ec3d7a699130a115cc21c",
+    "ssimulacra2": 85.01485699
+   },
+   "patches1": {
+    "bytes": 2035008,
+    "sha256": "4c716348df1f5e07d40fc9a029ba69f2fc486507837eaa83af87ee49c0dbf35e",
+    "ssimulacra2": 85.00460633
+   },
+   "nostream0": {
+    "bytes": 2035008,
+    "sha256": "4c716348df1f5e07d40fc9a029ba69f2fc486507837eaa83af87ee49c0dbf35e",
+    "ssimulacra2": 85.00460633
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0,
+   "ssimulacra2_delta_streaming_off": 0.0,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.0109444287196905,
+   "ssimulacra2_delta_vs_forced": 0.01025065999999697
+  },
+  {
+   "name": "photo-dog-jpeg",
+   "kind": "photograph",
+   "width": 4032,
+   "height": 3024,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 192,
+   "default": {
+    "bytes": 945524,
+    "sha256": "d50647ded2ae3a18ab5c4f29267a98314ab95a687345327c5724c85ccdb0f67f",
+    "ssimulacra2": 75.41436462
+   },
+   "patches0": {
+    "bytes": 945524,
+    "sha256": "d50647ded2ae3a18ab5c4f29267a98314ab95a687345327c5724c85ccdb0f67f",
+    "ssimulacra2": 75.41436462
+   },
+   "patches1": {
+    "bytes": 930291,
+    "sha256": "2f220a88cc29a9e224170f3cc6aa0d99ad08993e15d899347883b767aafa91ad",
+    "ssimulacra2": 75.43081701
+   },
+   "nostream0": {
+    "bytes": 930291,
+    "sha256": "2f220a88cc29a9e224170f3cc6aa0d99ad08993e15d899347883b767aafa91ad",
+    "ssimulacra2": 75.43081701
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0,
+   "ssimulacra2_delta_streaming_off": 0.0,
+   "forced_used": true,
+   "size_ratio_vs_forced": 1.0163744462754127,
+   "ssimulacra2_delta_vs_forced": -0.016452389999997763
+  },
+  {
+   "name": "photo-seine-jpeg",
+   "kind": "photograph",
+   "width": 400,
+   "height": 300,
+   "distance": 1.0,
+   "effort": 7,
+   "groups": 4,
+   "default": {
+    "bytes": 31232,
+    "sha256": "89e80f9efabc33df4f91ad878961ee8c1595b757e4d4e5fd43fb44f7458ad646",
+    "ssimulacra2": 85.13490791
+   },
+   "patches0": {
+    "bytes": 31232,
+    "sha256": "89e80f9efabc33df4f91ad878961ee8c1595b757e4d4e5fd43fb44f7458ad646",
+    "ssimulacra2": 85.13490791
+   },
+   "patches1": {
+    "bytes": 31232,
+    "sha256": "89e80f9efabc33df4f91ad878961ee8c1595b757e4d4e5fd43fb44f7458ad646",
+    "ssimulacra2": 85.13490791
+   },
+   "nostream0": {
+    "bytes": 31232,
+    "sha256": "89e80f9efabc33df4f91ad878961ee8c1595b757e4d4e5fd43fb44f7458ad646",
+    "ssimulacra2": 85.13490791
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0,
+   "ssimulacra2_delta_streaming_off": 0.0,
+   "forced_used": false,
+   "size_ratio_vs_forced": 1.0,
+   "ssimulacra2_delta_vs_forced": 0.0
+  },
+  {
+   "name": "photo-seine-jpeg",
+   "kind": "photograph",
+   "width": 400,
+   "height": 300,
+   "distance": 2.0,
+   "effort": 7,
+   "groups": 4,
+   "default": {
+    "bytes": 22692,
+    "sha256": "997c391a8320e0377b7d996f2ea5293ab24977f05fce59af99a9b07837b7c81a",
+    "ssimulacra2": 74.44339303
+   },
+   "patches0": {
+    "bytes": 22692,
+    "sha256": "997c391a8320e0377b7d996f2ea5293ab24977f05fce59af99a9b07837b7c81a",
+    "ssimulacra2": 74.44339303
+   },
+   "patches1": {
+    "bytes": 22692,
+    "sha256": "997c391a8320e0377b7d996f2ea5293ab24977f05fce59af99a9b07837b7c81a",
+    "ssimulacra2": 74.44339303
+   },
+   "nostream0": {
+    "bytes": 22692,
+    "sha256": "997c391a8320e0377b7d996f2ea5293ab24977f05fce59af99a9b07837b7c81a",
+    "ssimulacra2": 74.44339303
+   },
+   "patches_used": false,
+   "size_ratio": 1.0,
+   "ssimulacra2_delta": 0.0,
+   "size_ratio_streaming_off": 1.0,
+   "ssimulacra2_delta_streaming_off": 0.0,
+   "forced_used": false,
+   "size_ratio_vs_forced": 1.0,
+   "ssimulacra2_delta_vs_forced": 0.0
+  }
+ ]
+}

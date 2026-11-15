@@ -372,8 +372,16 @@ pub mod av1__common__x86__intra_edge_sse4;
 pub mod av1__encoder__x86__av1_fwd_txfm1d_sse4;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/av1_fwd_txfm2d_avx2.rs"]
+pub mod av1__encoder__x86__av1_fwd_txfm2d_avx2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/av1_fwd_txfm2d_sse4.rs"]
 pub mod av1__encoder__x86__av1_fwd_txfm2d_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/av1_fwd_txfm_sse2.rs"]
+pub mod av1__encoder__x86__av1_fwd_txfm_sse2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/av1_highbd_quantize_avx2.rs"]
