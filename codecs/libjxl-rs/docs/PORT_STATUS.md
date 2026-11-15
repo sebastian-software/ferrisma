@@ -314,6 +314,19 @@ by default), with parity of costs and decisions against the original's
 NEON and AVX2 builds (`tests/simd_encoder_acs.rs`). Init, PrepareForThreads
 and Finalize are outside the export and stay scalar.
 <!-- end encoder acs -->
+<!-- encoder entropy -->
+Encoder SIMD, the smaller exports (2026-11-15, branch `v1/jxl-enc-entropy`,
+ADR 0004 "Encoder path: the smaller exports"): `enc_rct`, `enc_cluster`,
+`enc_entropy_coder`, `enc_ans_simd`, `enc_ma` and `enc_modular_simd` are
+translated next to their scalar translations and dispatched on
+`hwy::encoder_target()` (off by default), with parity of values and
+decisions against the original's NEON and AVX2 builds
+(`tests/simd_encoder_entropy.rs`). The lossless effort-2 profile has every
+Highway export it reaches translated; its frame encode with the SIMD
+target forced is byte-identical with the original's `EFThunderOneShot` on
+both targets. A comparison through the public encoder against `cjxl` is
+still owed.
+<!-- end encoder entropy -->
 
 <!-- encoder cfl -->
 Encoder SIMD, chroma from luma (2026-11-14, branch `v1/jxl-enc-cfl`, ADR

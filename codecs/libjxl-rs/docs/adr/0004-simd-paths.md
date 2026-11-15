@@ -1721,3 +1721,117 @@ profile's encoder exports still untranslated are `enc_adaptive_quantization`,
 `enc_modular_simd` with alpha). `Symmetric5`, which "convolve_symmetric5
 and simd_util" above leaves as encoder work, is translated.
 <!-- end encoder cfl -->
+<!-- encoder entropy -->
+## Encoder path: the smaller exports (2026-11-15, branch `v1/jxl-enc-entropy`)
+
+Addendum to "Encoder path", "Translated so far".
+
+Translated behind `hwy::encoder_target()` like the wave-1 exports, each
+next to its scalar translation, which stays the default path:
+
+- `enc_rct` (`modular/transform/enc_rct_simd.rs`): FwdRctImpl's
+  `FwdRctRow` for all seven transforms and six permutations, through both
+  `FwdRct` entry points. The vector loop has no scalar tail: the last step
+  loads and stores a whole vector, so `RoundUpTo(w, Lanes)` samples per row
+  are read and written inside the row padding. `Add`/`Sub` wrap.
+- `enc_cluster` (`enc_cluster_simd.rs`): HistogramCondition,
+  HistogramEntropy and FastClusterHistograms with the in-namespace Entropy,
+  HistogramDistance, ClusterDistance and HistogramKLDivergence
+  (`HWY_CAPPED(float, 8)`: the full vectors). HistogramCondition cuts a
+  histogram to a multiple of the lane count, not to its last nonzero count
+  as the scalar build does; the clustering decisions (symbols, the output
+  histograms, the entropy caches) are compared. The whole-vector loads need
+  histogram lengths that are multiples of the lane count, as the original's
+  reads do (Add and EnsureCapacity keep them multiples of 8); the port's
+  bounds-checked loads panic where the original would read past the end.
+- `enc_entropy_coder` (`enc_entropy_coder_simd.rs`): TokenizeCoefficients
+  with NumNonZeroExceptLLF and NumNonZero8x8ExceptDC. Integer counting
+  only, so the SIMD and scalar paths give the same words; the test shows
+  that both agree with the original's target. The source's LLF mask array
+  sets only its first four words and is read from `kMaxCoeffBlocks - cx`, so
+  it masks coefficients only for 29 or more covered columns (as the scalar
+  translation already records); translated as written.
+- `enc_ans_simd` (`enc_ans_simd.rs`): EstimateTokenCost with every
+  `EstimateTokenCostImpl<E, M, L>` of the source's dispatch, its
+  fallthrough branches and the `~0` result outside them. The unsigned
+  comparisons and `Min` are formed exactly from signed lanes; `ConvertTo` of
+  values below 2^22 is exact on every conversion. The caller's padding
+  (`MaxVectorSize()` added as a count of words in `enc_ans.cc`) follows the
+  encoder's target (16 or 32 words), since the last vector is loaded and
+  stored whole.
+- `enc_ma` (`modular/encoding/enc_ma_simd.rs`): FindBestSplit with the
+  vector EstimateBits and `Padded` (the histogram length rounded up to the
+  lane count). The scalar statements inside `HWY_NAMESPACE` have no product
+  that is added to or subtracted from another term, so no contraction site
+  differs from the scalar translation.
+- `enc_modular_simd` (`enc_modular_simd_simd.rs`, next to the scalar
+  `enc_modular_simd.rs`): the vector branch of EstimateCost, a different
+  algorithm from the `HWY_SCALAR` branch (clamped-gradient residuals per
+  lane, `estimate_cost_detail::ContextMap()` as the source's literal table,
+  Condition and ShannonEntropy per histogram).
+
+With `enc_rct` and `enc_cluster` the lossless effort-2 profile has every
+Highway export it reaches translated (list above: `enc_rct`, `enc_cluster`,
+`MaxVectorSize`). The lossy profile now also has `enc_cluster`,
+`enc_entropy_coder`, `enc_ans_simd`, `enc_ma` and `enc_modular_simd`;
+with `enc_chroma_from_luma` and `Symmetric5` on `main` (package
+`encoder cfl`), the only encoder export it still lacks is
+`enc_adaptive_quantization` (another package).
+
+**Whole lossless encodes.** `enc_simd_lossless_thunder_frames_...`
+encodes 136 images (1x1 to 300x260, two groups across, 513x3; gray and
+RGB; 8 and 16 bits; flat, two-level, ramp, photo-like, noise and
+region patterns) through `LosslessThunderConfig`'s frame encode with
+`hwy::set_encoder_simd_for_test(Some(true))`, and compares the frame
+bytes with the original's `EFThunderOneShot` (`df-source` of
+tools/oracle/decode_frame.inc) built for the same single target:
+byte-identical on NEON and AVX2. The scalar encoder path gives the same
+bytes for every one of these images (the profile's SIMD exports change
+clustering costs, not the chosen codes, on this corpus), so this test
+shows agreement, not which path ran; the kernel families above do. The
+default stays scalar (`ENCODER_SELECTS_SIMD = false`).
+
+What a whole-encode comparison of the lossless profile against `cjxl`
+built for one target still needs, for condition (c) of "Encoder path":
+(1) the same through the public encoder (container and codestream
+headers, `JxlEncoderFrameSettings` at effort 2, one-shot and streaming
+input), i.e. the `encoder_public.cc` driver run against the SIMD oracle
+with the encoder's selection forced, over a corpus at least as wide as
+the scalar `cjxl` gate, alpha included; (2) for condition (b), planes
+allocated with the target's `MaxVectorSize()` row padding inside the
+encoder (they still follow `decoder_target()`, the scalar 4 bytes
+outside decoding); the translated rows only read and write that padding,
+so no output byte depends on it, but the allocation should match the
+original before the default changes; (3) for AVX2, the same on real
+x86-64 hardware (condition (e)).
+
+**Evidence (2026-11-15, M1 Ultra).** `tests/simd_encoder_entropy.rs`
+against tools/oracle/encoder_entropy_simd.cc (and learn.inc,
+decode_frame.inc) on NEON and, under Rosetta 2 with
+`ROSETTA_ADVERTISE_AVX=1` for the SIMD test binary only, against the AVX2
+dispatch-build oracle (`tools/check.py --stage oracle --target
+x86_64-apple-darwin` with `SDKROOT` set): zero differing words.
+
+| Family | Export | Requests | Words | Scalar differs (NEON / AVX2) |
+| --- | --- | --- | --- | --- |
+| `ene-rct` | `enc_rct` | 1,514 | 148,690 | 581 / 664 of 842 |
+| `ene-hcond`, `ene-hent` | `enc_cluster` | 304 | 18,512 / 18,672 | 106 / 115 of 304 |
+| `ene-hdist` | `enc_cluster` | 216 | 648 | (direct call) |
+| `ene-fast` | `enc_cluster` | 180 | 103,132 | (direct call) |
+| `ene-cluster` | `enc_cluster` | 324 | 172,772 | 288 / 252 of 324 |
+| lossless frames | both | 136 | 272 | 0 of 136 |
+| `ene-cost` | `enc_ans_simd` | 1,364 | 41,788 | 800 / 1,024 of 1,364 |
+| `ene-tok` | `enc_entropy_coder` | 192 | 7,605,854 | 0 (integer, asserted equal) |
+| `learn-estimate` | `enc_ma` | 360 | 360 | (direct call) |
+| `learn-split` | `enc_ma` | 120 | 389,009 | 3 / 2 of 120 |
+| `ene-mcost` | `enc_modular_simd` | 40 | 120 | 0 of 32 |
+
+(The `ene-hcond` word count follows the lane count: Condition cuts to a
+multiple of it.) The scalar paths of the RCT and EstimateCost families run
+only the requests whose arithmetic the scalar source requires not to
+overflow (the vector forms wrap). `ene-mcost`'s vector branch partitions
+the same contexts and tokens as the scalar branch; only the order of the
+entropy sums differs, which its truncated integer cost hides in this
+domain. Rosetta does not fault on misaligned aligned moves: the hosted
+Linux x86-64 run is still owed.
+<!-- end encoder entropy -->
