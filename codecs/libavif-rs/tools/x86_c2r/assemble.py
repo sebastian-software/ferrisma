@@ -462,6 +462,19 @@ def horver_correlation():
                 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n', SQRTF, note=HORVER_NOTE)
 
 
+NZ_NOTE = ('// The TX_PAD_HOR, SIG_COEF_CONTEXTS_2D and TX_CLASS constants and get_txb_bhl,\n'
+           '// get_txb_wide and get_txb_high (with av1_get_adjusted_tx_size and\n'
+           '// tx_size_high_log2) of av1/common/txb_common.h, blockd.h and common_data.h\n'
+           '// were transcribed by hand (tools/x86_c2r/parts/txb_common_sse2.hand.rs).\n')
+
+
+def nz_map_contexts():
+    simple_file('av1/encoder/x86/encodetxb_sse2.rs', 'encodetxb_sse2.json', 'av1/encoder/x86/encodetxb_sse2.c', 'sse2',
+                'use crate::simd::aom_dsp__x86__mem_sse2::{load_8bit_4x4_to_1_reg_sse2, load_8bit_8x2_to_1_reg_sse2};\n'
+                'use crate::simd::av1__common__x86__av1_inv_txfm_ssse3::{tx_size_high, tx_size_wide};\n',
+                '\n' + part('txb_common_sse2.hand.rs'), note=NZ_NOTE)
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -481,6 +494,7 @@ def main():
         cfl()
         loop_restoration()
         horver_correlation()
+        nz_map_contexts()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

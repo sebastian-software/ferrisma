@@ -204,6 +204,7 @@ Kernels that exist only as NASM stay on `_c` (working decision O4).
 | CfL | `av1/common/x86/cfl_sse2.c`, `cfl_ssse3.c`, `cfl_avx2.c` (with the CFL_* macros of `av1/common/cfl.h` expanded by the C preprocessor) | 9 getters (18 specializations) | 82/82, 82/82, 82/82 |
 | Loop restoration | `av1/common/x86/wiener_convolve_sse2.c`, `wiener_convolve_avx2.c`, `highbd_wiener_convolve_ssse3.c`, `highbd_wiener_convolve_avx2.c`, `selfguided_sse4.c`, `selfguided_avx2.c`, the Wiener part of `aom_dsp/x86/convolve_avx2.h` (with the restoration and filter macros of `restoration.h`, `aom_filter.h`, `convolve.h` expanded by the C preprocessor) | 4 (8 specializations) | 82/82, 82/82, 82/82 |
 | Horizontal and vertical correlation | `av1/encoder/x86/rdopt_sse4.c`, `rdopt_avx2.c`, `loadu_int64` of `aom_dsp/x86/mem_sse2.h` | 1 (`av1_get_horver_correlation_full`, SSE4.1 and AVX2) | 82/82, 82/82, 82/82 |
+| Coefficient contexts | `av1/encoder/x86/encodetxb_sse2.c`, the 8-bit loads of `aom_dsp/x86/mem_sse2.h` | 1 (`av1_get_nz_map_contexts`, SSE2) | 82/82, 82/82, 82/82 |
 
 Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
 and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
@@ -256,6 +257,15 @@ test already has (229 tests pass). For its final block the printer gained a
 floating-point model: `float`/`double` values, C's usual arithmetic
 conversions (`int64_t` operands converted with `as f32`), floating literals,
 comparisons and ternaries; `sqrtf` is the C library's, as in the original.
+`encodetxb.rs` adds the SSE2 instantiation of EncodeTxbTest.GetNzMapContexts
+(230 tests pass). Rust has no MMX intrinsics any more, so the printer writes
+`_mm_loadh_pi` of `loadh_epi64` as `_mm_loadh_pd` between casts (MOVHPS and
+MOVHPD move the same 64 bits) from an unaligned read; that is the one
+intrinsic sequence that differs from the C. `get_txb_bhl`, `get_txb_wide` and
+`get_txb_high` with `av1_get_adjusted_tx_size` and `tx_size_high_log2` are a
+short hand part (`parts/txb_common_sse2.hand.rs`), as in the Neon port. The
+RTCD units gain `int8_t` and `TX_CLASS`; the dispatch tool now orders the
+glibc aliases by width with the signed one first, as C2Rust does.
 
 Since 2026-11-15 every family is verified before its push with all four
 translation profiles compiled (`cargo check -p libavif-aom --lib --tests` for

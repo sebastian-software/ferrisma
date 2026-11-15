@@ -13,6 +13,8 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use core::arch::asm;
 extern "C-unwind" {
+    fn av1_get_nz_map_contexts_c(levels: *const uint8_t, scan: *const int16_t, eob: core::ffi::c_int, tx_size: TX_SIZE, tx_class: TX_CLASS, coeff_contexts: *mut int8_t);
+    fn av1_get_nz_map_contexts_sse2(levels: *const uint8_t, scan: *const int16_t, eob: core::ffi::c_int, tx_size: TX_SIZE, tx_class: TX_CLASS, coeff_contexts: *mut int8_t);
     fn av1_get_horver_correlation_full_c(diff: *const int16_t, stride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, hcorr: *mut core::ffi::c_float, vcorr: *mut core::ffi::c_float);
     fn av1_get_horver_correlation_full_sse4_1(diff: *const int16_t, stride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, hcorr: *mut core::ffi::c_float, vcorr: *mut core::ffi::c_float);
     fn av1_get_horver_correlation_full_avx2(diff: *const int16_t, stride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, hcorr: *mut core::ffi::c_float, vcorr: *mut core::ffi::c_float);
@@ -873,6 +875,7 @@ extern "C-unwind" {
     );
 }
 pub type ptrdiff_t = isize;
+pub type __int8_t = i8;
 pub type __uint8_t = u8;
 pub type __int16_t = i16;
 pub type __uint16_t = u16;
@@ -880,6 +883,7 @@ pub type __int32_t = i32;
 pub type __uint32_t = u32;
 pub type __int64_t = i64;
 pub type __uint64_t = u64;
+pub type int8_t = __int8_t;
 pub type int16_t = __int16_t;
 pub type int32_t = __int32_t;
 pub type int64_t = __int64_t;
@@ -931,6 +935,7 @@ pub type cfl_predict_hbd_fn = Option<
         core::ffi::c_int,
     ) -> (),
 >;
+pub type TX_CLASS = uint8_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct WienerConvolveParams {
@@ -1173,6 +1178,8 @@ pub static mut av1_fwd_txfm2d_8x8: Option<
 pub static mut av1_fwht4x4: Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()> = None;
 #[no_mangle]
 pub static mut av1_get_horver_correlation_full: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()> = None;
+#[no_mangle]
+pub static mut av1_get_nz_map_contexts: Option<unsafe extern "C-unwind" fn(*const uint8_t, *const int16_t, core::ffi::c_int, TX_SIZE, TX_CLASS, *mut int8_t) -> ()> = None;
 #[no_mangle]
 pub static mut av1_highbd_block_error: Option<
     unsafe extern "C-unwind" fn(
@@ -2514,6 +2521,10 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     }
     if flags & HAS_AVX2 != 0 {
         av1_get_horver_correlation_full = Some(av1_get_horver_correlation_full_avx2 as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
+    }
+    av1_get_nz_map_contexts = Some(av1_get_nz_map_contexts_c as unsafe extern "C-unwind" fn(*const uint8_t, *const int16_t, core::ffi::c_int, TX_SIZE, TX_CLASS, *mut int8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint8_t, *const int16_t, core::ffi::c_int, TX_SIZE, TX_CLASS, *mut int8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        av1_get_nz_map_contexts = Some(av1_get_nz_map_contexts_sse2 as unsafe extern "C-unwind" fn(*const uint8_t, *const int16_t, core::ffi::c_int, TX_SIZE, TX_CLASS, *mut int8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const uint8_t, *const int16_t, core::ffi::c_int, TX_SIZE, TX_CLASS, *mut int8_t) -> ()>;
     }
     av1_highbd_block_error = Some(
         av1_highbd_block_error_c

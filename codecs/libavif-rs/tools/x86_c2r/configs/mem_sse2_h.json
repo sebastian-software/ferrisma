@@ -6,7 +6,11 @@
  "feature": "sse2",
  "macros": {},
  "only": [
-  "loadu_int64"
+  "loadu_int32",
+  "loadu_int64",
+  "loadh_epi64",
+  "load_8bit_4x4_to_1_reg_sse2",
+  "load_8bit_8x2_to_1_reg_sse2"
  ],
  "output": "mem_sse2_h.rs",
  "prelude": "preludes/prelude_rdopt.h",

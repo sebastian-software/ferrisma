@@ -145,19 +145,24 @@ def ensure_int_aliases(text, ftype):
     """The glibc `<stdint.h>` aliases (`pub type __int64_t = i64;` and
     `pub type int64_t = __int64_t;`) that a new declaration in a Linux RTCD
     unit names but the unit does not define yet, inserted as C2Rust lays them
-    out: each after the last alias of a smaller width in its group."""
+    out: each group ordered by width, the signed alias before the unsigned one
+    of the same width."""
     for name, (width, prim) in sorted(INT_ALIASES.items()):
         if not re.search(r'\b' + name + r'\b', ftype) or re.search(r'^pub type ' + name + ' = ', text, re.M):
             continue
         for alias, value in ((f'__{name}', prim), (name, f'__{name}')):
             if re.search(r'^pub type ' + alias + ' = ', text, re.M):
                 continue
-            group = r'__u?int(\d+)_t' if alias.startswith('__') else r'u?int(\d+)_t'
-            lines = [m for m in re.finditer(r'^pub type (' + group + r') = [^\n]*\n', text, re.M)
-                     if int(m.group(2)) < width]
-            if not lines:
+            group = r'__(u?)int(\d+)_t' if alias.startswith('__') else r'(u?)int(\d+)_t'
+            key = (width, name.startswith('u'))
+            members = list(re.finditer(r'^pub type (' + group + r') = [^\n]*\n', text, re.M))
+            before = [m for m in members if (int(m.group(3)), m.group(2) == 'u') < key]
+            if before:
+                pos = before[-1].end()
+            elif members:
+                pos = members[0].start()
+            else:
                 raise SystemExit(f'no place for pub type {alias} in the RTCD unit')
-            pos = lines[-1].end()
             text = text[:pos] + f'pub type {alias} = {value};\n' + text[pos:]
     return text
 

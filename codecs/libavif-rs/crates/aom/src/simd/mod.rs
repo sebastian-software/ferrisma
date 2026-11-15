@@ -448,6 +448,10 @@ pub mod av1__encoder__x86__av1_txfm1d_sse4;
 pub mod av1__encoder__x86__encodetxb_avx2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/encodetxb_sse2.rs"]
+pub mod av1__encoder__x86__encodetxb_sse2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/encodetxb_sse4.rs"]
 pub mod av1__encoder__x86__encodetxb_sse4;
 

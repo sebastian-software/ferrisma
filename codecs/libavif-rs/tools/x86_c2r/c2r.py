@@ -65,7 +65,8 @@ def rust_type(t):
     if k == 'bool':
         return 'bool'
     if k == 'vec':
-        return t[1]
+        # Rust dropped the MMX type; a `__m64 *` only ever addresses 8 bytes here.
+        return 'u64' if t[1] == '__m64' else t[1]
     if k == 'ptr':
         inner = 'core::ffi::c_void' if t[1][0] == 'void' else rust_type(t[1])
         return ('*const ' if t[2] else '*mut ') + inner
@@ -616,6 +617,14 @@ class Printer:
         return E(f'{code}({", ".join(parts)})', ret, 'postfix')
 
     def intrinsic(self, name, args, n):
+        if name == '_mm_loadh_pi':
+            # Rust has no MMX `__m64` intrinsics any more. MOVHPS and MOVHPD load
+            # the same 64 bits into the upper half and keep the lower one, so the
+            # double form gives the same bits; the pointer need not be aligned.
+            a = self.cast(self.expr(args[0]), ('vec', '__m128'))
+            p = self.expr(args[1])
+            return E(f'_mm_castpd_ps(_mm_loadh_pd(_mm_castps_pd({a.code}), '
+                     f'&core::ptr::read_unaligned({p.at("as")} as *const f64)))', ('vec', '__m128'), 'postfix')
         info = INTRIN[name]
         es = [self.expr(a) for a in args]
         m = IMM_SHIFTS.match(name)
