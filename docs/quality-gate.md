@@ -162,10 +162,14 @@ python3 tools/check.py --stage test --oracle --arch x86_64
 
 The scalar half exists on both targets. The SIMD half exists for the
 decoder: every decode-path Highway export has a SIMD translation for NEON
-and AVX2, compared with the original's single-target SIMD build (AVX2 is
-compile-checked locally and runs only on hosted x86-64), and the decoder
-selects NEON by default on AArch64. On x86-64 the decoder selects AVX2 when the CPU has Highway's complete AVX2 group, and the encoder's Highway exports are unported on both targets
-(#231, #243), so the encoder can meet only the scalar half (port
+and AVX2, compared with the original built for the same Highway target
+(AVX2 runs locally under Rosetta 2 and natively on hosted x86-64), and the
+decoder selects NEON by default on AArch64 and AVX2 on x86-64 when the CPU
+has Highway's complete AVX2 group. The encoder's kernels `enc_xyb`,
+`enc_transforms`, `enc_group` and `enc_ac_strategy` are translated and
+compared the same way, the other encoder exports are not yet, and the
+encoder selects SIMD on no target (#231, #243), so today it meets only the
+scalar half (port
 [ADR 0004](../codecs/libjxl-rs/docs/adr/0004-simd-paths.md),
 [port status](../codecs/libjxl-rs/docs/PORT_STATUS.md),
 [contributing](../codecs/libjxl-rs/CONTRIBUTING.md), "Which decoder path a
