@@ -1234,17 +1234,16 @@ fn run(
             ),
         ));
     }
-    let decoder_cicp = source.info().rendered_cicp.is_some();
     let mut color_signal = ColorSignal::Cicp;
     let source: Box<dyn DecodeSource + '_> =
         if options.profile_policy == InputProfilePolicy::UseRenderedIcc {
-            color_signal = if decoder_cicp {
-                ColorSignal::RenderedIccWithAgreeingCicp
-            } else {
-                ColorSignal::RenderedIcc
-            };
             #[cfg(feature = "icc")]
             {
+                color_signal = if source.info().rendered_cicp.is_some() {
+                    ColorSignal::RenderedIccWithAgreeingCicp
+                } else {
+                    ColorSignal::RenderedIcc
+                };
                 Box::new(crate::cms::IccSrgbSource::new(source)?)
             }
             #[cfg(not(feature = "icc"))]
