@@ -40,10 +40,13 @@ One hosted Linux x86-64 run per release candidate repeats the x86-64 checks
 with the original built natively on the runner. Benchmark runners
 (Blacksmith, the v1.0 performance workflow) do not count for the gate.
 
-The machine of the later libjxl-rs work of 2026-11-13/14 has no Rosetta 2
-(libjxl-rs [ADR 0004](../codecs/libjxl-rs/docs/adr/0004-simd-paths.md),
-Evidence: "the local machine has no Rosetta 2"), so that work's x86-64
-evidence comes from hosted runs only. Rosetta 2 results quoted below are
+The machine of the later libjxl-rs work of 2026-11-13/14 had no Rosetta 2
+until the afternoon of 2026-11-14 (libjxl-rs
+[ADR 0004](../codecs/libjxl-rs/docs/adr/0004-simd-paths.md), Evidence: "the
+local machine has no Rosetta 2"), so the x86-64 evidence of that work up to
+then comes from hosted runs only. Since then the x86-64 gates run on that
+machine too; on it, a cross link can fail with `ld: library 'c++' not found`
+unless `SDKROOT=$(xcrun --show-sdk-path)` is set. Rosetta 2 results quoted below are
 from earlier runs on another development Mac, as their sources state.
 
 **Hosted cross-check: passed for libwebp-rs, open for the others.** The

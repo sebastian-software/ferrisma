@@ -181,9 +181,15 @@ sized like the originals' own) and are fixed on `main`.
   [43599382021](https://github.com/sebastian-software/ferrisma/actions/runs/43599382021)
   (the merged tree, with those changes) all four ordinary-oracle test shards
   passed on AVX2; its sanitized shards had not finished when this was
-  written. The decoder keeps the scalar path
-  on x86-64 until a hosted x86-64 run of the combined decoder passes (port
-  ADR 0004, "Decoder path" condition (d); #96).
+  written. Since `7b48bc81` the decoder
+  selects the AVX2 path by default on x86-64 as well (port ADR 0004, "Default
+  selection on x86-64"; a working decision, delegated and revisable by the
+  owner). Its evidence is local, under Rosetta 2: the full x86-64 test stage
+  and the public-decoder gate with the conformance corpus (704 of 704
+  decodes identical with the AVX2 oracle), next to the native run above. A
+  hosted run of the merged tree
+  ([43656118559](https://github.com/sebastian-software/ferrisma/actions/runs/43656118559))
+  was in progress when this was written (#96).
 - **AOM:** no workflow runs the comparison with the original's SIMD build
   (`tools/check_aom_simd_original.py`), so no hosted run of it exists.
 - **Nightly AVIF `root / generate` (#204):** the cause, an owned source file
@@ -212,8 +218,8 @@ universal speed claim.
   libjxl-rs encoder's Highway exports are unported (#231, #243), so the
   encoder meets at most the scalar half; its decoder's SIMD path, which has
   every decode-path export and is the default on AArch64 since 2026-11-14
-  (port ADR 0004), stays unselected on x86-64 until hosted AVX2 evidence of
-  the combined decoder exists (#96); the AOM port dispatches 513 RTCD
+  and on x86-64 since `7b48bc81` (port ADR 0004), still lacks a finished
+  hosted x86-64 run of that state (#96); the AOM port dispatches 513 RTCD
   functions to Neon on macOS ARM64 since 2026-11-13 (libavif-rs ADR 0056
   amendment), but its x86 kernels build only for GNU Linux x86-64, and the
   `avx2` level against the original has never run (#242, #125, #124, #122);

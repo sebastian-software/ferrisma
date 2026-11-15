@@ -76,8 +76,8 @@ reported against libjxl, the original it ports, and jxl-oxide is context only
 (about 3.6× slower for a full decode and 9.5× slower for a center crop, one
 photo recompressed from a JPEG) describes the decoder before its SIMD path and has
 not been repeated since; it is superseded as a description of today's
-decoder. Since 2026-11-14 the decoder selects its NEON path on AArch64; on
-x86-64 it runs the scalar path. The
+decoder. Since 2026-11-14 the decoder selects its NEON path on AArch64, and
+since `7b48bc81` its AVX2 path on x86-64. The
 [AArch64 record of 2026-11-14](benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md)
 measured it at 1.3–2.9× the time of libjxl's NEON build with one thread on
 eight inputs, and at 1.28× and 1.57× on the two inputs measured again after
