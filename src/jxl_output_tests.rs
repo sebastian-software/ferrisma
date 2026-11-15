@@ -21,7 +21,10 @@ use crate::pipeline::{
 fn options(width: u32, height: u32) -> TransformOptions {
     TransformOptions {
         output_format: OutputFormat::JpegXl,
-        jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
+        jpeg_xl: JpegXlOptions::Lossless {
+            effort: 2,
+            depth: None,
+        },
         output_width: width,
         output_height: height,
         ..TransformOptions::default()
@@ -74,7 +77,10 @@ fn rejects_requests_outside_the_admitted_profile_before_allocating() {
     for (changed, expected) in [
         (
             TransformOptions {
-                jpeg_xl: JpegXlOptions::Lossless { effort: 7 },
+                jpeg_xl: JpegXlOptions::Lossless {
+                    effort: 7,
+                    depth: None,
+                },
                 ..options(8, 8)
             },
             "effort",
@@ -143,14 +149,14 @@ fn input_frame_and_measured_lossless_peaks_are_reserved() {
     );
     // One-shot (at most 8 groups): the per-pixel term and the constant,
     // minus the input the measured process held (3 B/px RGB, 4 RGBA).
-    let opaque = lossless_codec_reservation_bytes(width, height, false).unwrap();
+    let opaque = lossless_codec_reservation_bytes(width, height, false, 8).unwrap();
     let [one_shot, one_shot_alpha] = LOSSLESS_ONE_SHOT_BYTES_PER_PIXEL;
     assert_eq!(
         opaque,
         pixels * one_shot + LOSSLESS_PEAK_CONSTANT_BYTES - pixels * 3
     );
     assert!(opaque > known);
-    let alpha = lossless_codec_reservation_bytes(width, height, true).unwrap();
+    let alpha = lossless_codec_reservation_bytes(width, height, true, 8).unwrap();
     assert_eq!(
         alpha,
         pixels * one_shot_alpha + LOSSLESS_PEAK_CONSTANT_BYTES - pixels * 4
@@ -160,7 +166,7 @@ fn input_frame_and_measured_lossless_peaks_are_reserved() {
     let [dc_group, _] = LOSSLESS_CHUNKED_DC_GROUP_BYTES_PER_PIXEL;
     let (w, h) = (6000, 4000);
     assert_eq!(
-        lossless_codec_reservation_bytes(w, h, false).unwrap(),
+        lossless_codec_reservation_bytes(w, h, false, 8).unwrap(),
         w * h * chunked + 2048 * 2048 * dc_group + LOSSLESS_PEAK_CONSTANT_BYTES - w * h * 3
     );
     // The measured peaks (RSS of a fresh process, the larger of two runs,
@@ -183,16 +189,42 @@ fn input_frame_and_measured_lossless_peaks_are_reserved() {
         (6000, 4000, false, 477_724_672),
         (6000, 4000, true, 693_764_096),
     ] {
-        let reserved = w * h * 4 + lossless_codec_reservation_bytes(w, h, alpha).unwrap();
+        let reserved = w * h * 4 + lossless_codec_reservation_bytes(w, h, alpha, 8).unwrap();
         assert!(
             reserved >= measured,
             "{w}x{h} alpha={alpha}: {reserved} < {measured}"
         );
     }
     assert!(
-        6000 * 4000 * 4 + lossless_codec_reservation_bytes(6000, 4000, false).unwrap()
+        6000 * 4000 * 4 + lossless_codec_reservation_bytes(6000, 4000, false, 8).unwrap()
             < 1_751_056_384
     );
+
+    // Samples above 8 bits (2026-11-15, `v1.0-jxl-deep-memory-2026-11-15.md`):
+    // 16-bit photographs (libavif's `weld_16bit.png`, mirrored to size),
+    // the same method; the engine's frame is 8 B/px. Measured, not scaled
+    // from the 8-bit peaks.
+    for (w, h, alpha, measured) in [
+        (512, 1024, false, 58_572_800),
+        (512, 1024, true, 68_403_200),
+        (2048, 2048, false, 307_642_368),
+        (2048, 2048, true, 407_977_984),
+        (3000, 2000, false, 400_752_640),
+        (3000, 2000, true, 544_817_152),
+        (4032, 3024, false, 612_188_160),
+        (4032, 3024, true, 817_496_064),
+        (6000, 4000, false, 907_329_536),
+        (6000, 4000, true, 1_192_198_144),
+    ] {
+        for depth in [10, 12, 16] {
+            let reserved =
+                w * h * 8 + lossless_codec_reservation_bytes(w, h, alpha, depth).unwrap();
+            assert!(
+                reserved >= measured,
+                "{w}x{h} alpha={alpha} {depth}-bit: {reserved} < {measured}"
+            );
+        }
+    }
 
     let data = rows(width, height, false);
     assert!(matches!(
@@ -299,7 +331,10 @@ fn facade_rejects_mismatched_and_disabled_settings_before_decoding() {
             ..options(8, 8)
         },
         TransformOptions {
-            jpeg_xl: JpegXlOptions::Lossless { effort: 3 },
+            jpeg_xl: JpegXlOptions::Lossless {
+                effort: 3,
+                depth: None,
+            },
             ..options(8, 8)
         },
         TransformOptions {
@@ -308,7 +343,10 @@ fn facade_rejects_mismatched_and_disabled_settings_before_decoding() {
         },
         TransformOptions {
             output_format: OutputFormat::WebP,
-            jpeg_xl: JpegXlOptions::Lossless { effort: 3 },
+            jpeg_xl: JpegXlOptions::Lossless {
+                effort: 3,
+                depth: None,
+            },
             ..options(8, 8)
         },
     ] {
@@ -548,5 +586,224 @@ mod pipeline_round_trip {
         // fixture (measured 2026-11-12); the fixture README allows up to 2
         // between JPEG decoders, so a future decoder change may relax this.
         assert_eq!(&samples[..], &reference[..]);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Depths above 8 bits (ADR-0021 amendment of 2026-11-15, owner decision).
+
+/// The pattern of `tests/fixtures/jxl-deep/rows16.py` at `depth`, RGBA.
+fn deep_rows(width: usize, height: usize, depth: u8, alpha: bool) -> Vec<u16> {
+    let m = (1_u32 << depth) - 1;
+    let mut data = Vec::with_capacity(width * height * 4);
+    for y in 0..height as u32 {
+        for x in 0..width as u32 {
+            let hash = x.wrapping_mul(2_654_435_761) ^ y.wrapping_mul(40_503);
+            let noise = (hash >> 13) & 0x3f;
+            let a = if !alpha {
+                m
+            } else if x == 0 {
+                0
+            } else {
+                (x * 13 * (m / 255) + y * 5) % (m + 1)
+            };
+            data.extend(
+                [
+                    ((x * m) / (width as u32 - 1).max(1)) ^ noise,
+                    (y * m) / (height as u32 - 1).max(1),
+                    ((x + y) * 37) & m,
+                    a,
+                ]
+                .map(|v| v as u16),
+            );
+        }
+    }
+    data
+}
+
+fn encode_deep(
+    width: usize,
+    height: usize,
+    depth: u8,
+    data: &[u16],
+    jpeg_xl: JpegXlOptions,
+) -> Result<Vec<u8>, Error> {
+    let budget = MemoryBudget::new(256 << 20);
+    let mut sink = JxlSink::with_depth(
+        Size::new(width as u32, height as u32)?,
+        TransformOptions {
+            jpeg_xl,
+            ..options(width as u32, height as u32)
+        },
+        &budget,
+        depth,
+    )?;
+    for (y, row) in data.chunks(width * 4).enumerate() {
+        sink.write_output_row(y as u32, crate::output_depth::OutputRow::U16(row))?;
+    }
+    Ok(sink.finish()?.bytes)
+}
+
+/// Deep rows give the original's bytes, lossless and lossy: each fixture was
+/// written by the pinned `cjxl` from `rows16.py` as PPM or PAM at
+/// `MAXVAL 2^depth - 1` (`tests/fixtures/jxl-deep/README.md`). Lossless 16-bit
+/// color and 16-bit alpha are containers (codestream level 10), as `cjxl`
+/// writes them; `d16-2049x40-a1` takes the chunked path.
+#[test]
+#[allow(clippy::too_many_lines)] // One table of nine original files.
+fn deep_output_equals_the_original_cjxl_bytes() {
+    const LOSSLESS: JpegXlOptions = JpegXlOptions::Lossless {
+        effort: 2,
+        depth: None,
+    };
+    const LOSSY: JpegXlOptions = JpegXlOptions::Lossy {
+        distance: 1.0,
+        depth: None,
+    };
+    for (width, height, depth, alpha, mode, reference) in [
+        (
+            37,
+            19,
+            16,
+            false,
+            LOSSLESS,
+            &include_bytes!("../tests/fixtures/jxl-deep/d16-37x19-a0-lossless.jxl")[..],
+        ),
+        (
+            37,
+            19,
+            16,
+            true,
+            LOSSLESS,
+            &include_bytes!("../tests/fixtures/jxl-deep/d16-37x19-a1-lossless.jxl")[..],
+        ),
+        (
+            37,
+            19,
+            10,
+            false,
+            LOSSLESS,
+            &include_bytes!("../tests/fixtures/jxl-deep/d10-37x19-a0-lossless.jxl")[..],
+        ),
+        (
+            37,
+            19,
+            12,
+            true,
+            LOSSLESS,
+            &include_bytes!("../tests/fixtures/jxl-deep/d12-37x19-a1-lossless.jxl")[..],
+        ),
+        (
+            2049,
+            40,
+            16,
+            true,
+            LOSSLESS,
+            &include_bytes!("../tests/fixtures/jxl-deep/d16-2049x40-a1-lossless.jxl")[..],
+        ),
+        (
+            37,
+            19,
+            16,
+            false,
+            LOSSY,
+            &include_bytes!("../tests/fixtures/jxl-deep/d16-37x19-a0-d1.jxl")[..],
+        ),
+        (
+            37,
+            19,
+            10,
+            false,
+            LOSSY,
+            &include_bytes!("../tests/fixtures/jxl-deep/d10-37x19-a0-d1.jxl")[..],
+        ),
+        (
+            37,
+            19,
+            12,
+            true,
+            LOSSY,
+            &include_bytes!("../tests/fixtures/jxl-deep/d12-37x19-a1-d1.jxl")[..],
+        ),
+        (
+            2049,
+            40,
+            10,
+            false,
+            LOSSY,
+            &include_bytes!("../tests/fixtures/jxl-deep/d10-2049x40-a0-d1.jxl")[..],
+        ),
+    ] {
+        let encoded = encode_deep(
+            width,
+            height,
+            depth,
+            &deep_rows(width, height, depth, alpha),
+            mode,
+        )
+        .unwrap();
+        assert!(
+            encoded == reference,
+            "{width}x{height} {depth}-bit alpha={alpha} {mode:?}: {} bytes, cjxl wrote {}",
+            encoded.len(),
+            reference.len()
+        );
+        let container = encoded.starts_with(&[0, 0, 0, 0x0c, b'J', b'X', b'L', b' ']);
+        // Level 10: lossless color or any alpha above 12 bits.
+        let level10 = depth > 12 && (alpha || matches!(mode, JpegXlOptions::Lossless { .. }));
+        assert_eq!(
+            container, level10,
+            "{width}x{height} {depth}-bit alpha={alpha}"
+        );
+    }
+}
+
+/// A 16-bit lossless JPEG XL in, a lossless JPEG XL out at the default
+/// (follow the input): the samples come back exactly, and nothing is
+/// reported. An 8-bit bottleneck would keep 256 of the 65,536 levels.
+#[cfg(feature = "jpeg-xl-read")]
+#[test]
+fn a_sixteen_bit_lossless_round_trip_is_exact() {
+    use crate::pipeline::{Discarded, ImageFormat, InputProfilePolicy, transcode};
+    let (width, height) = (37_usize, 19_usize);
+    for (alpha, input) in [
+        (
+            false,
+            &include_bytes!("../tests/fixtures/jxl-deep/d16-37x19-a0-lossless.jxl")[..],
+        ),
+        (
+            true,
+            &include_bytes!("../tests/fixtures/jxl-deep/d16-37x19-a1-lossless.jxl")[..],
+        ),
+    ] {
+        let output = transcode(
+            input,
+            ImageFormat::JpegXl,
+            TransformOptions {
+                profile_policy: InputProfilePolicy::Strict,
+                ..options(width as u32, height as u32)
+            },
+        )
+        .unwrap();
+        assert!(
+            !output
+                .report
+                .discarded
+                .iter()
+                .any(|c| c == Discarded::PrecisionReduced),
+            "alpha={alpha}"
+        );
+        // The engine's own sink, fed the source pattern at 16 bits, writes
+        // the input file (the cjxl reference above); a transcode at identity
+        // that preserved every sample therefore writes it too, with color
+        // under zero alpha dropped (transparent black, ADR-0014).
+        let mut expected = deep_rows(width, height, 16, alpha);
+        for pixel in expected.chunks_mut(4) {
+            if pixel[3] == 0 {
+                pixel[..3].fill(0);
+            }
+        }
+        let reference = encode_deep(width, height, 16, &expected, options(1, 1).jpeg_xl).unwrap();
+        assert!(output.bytes == reference, "alpha={alpha}: samples changed");
     }
 }

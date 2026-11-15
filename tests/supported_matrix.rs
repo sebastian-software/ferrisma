@@ -967,7 +967,10 @@ fn output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl() {
     );
     assert_exact_output_limit(
         TransformOptions {
-            jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
+            jpeg_xl: JpegXlOptions::Lossless {
+                effort: 2,
+                depth: None,
+            },
             ..options(OutputFormat::JpegXl, ASSUME)
         },
         OUTPUT_BYTES,
@@ -1009,7 +1012,10 @@ fn default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels() {
     // with 1920 x 1920; before the chunked encode it was about 3.5 MP and
     // 2000 x 2000. The expectation changed by owner decision.
     let options = TransformOptions {
-        jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
+        jpeg_xl: JpegXlOptions::Lossless {
+            effort: 2,
+            depth: None,
+        },
         output_width: 7100,
         output_height: 7000,
         ..options(OutputFormat::JpegXl, ASSUME)
@@ -1441,7 +1447,10 @@ fn jxl_output(source: &[u8], format: ImageFormat, jpeg_xl: JpegXlOptions) -> Out
 fn jpeg_xl_output_is_a_raw_codestream_that_reads_back() {
     for jpeg_xl in [
         JpegXlOptions::default(),
-        JpegXlOptions::Lossless { effort: 2 },
+        JpegXlOptions::Lossless {
+            effort: 2,
+            depth: None,
+        },
     ] {
         let output = jxl_output(SAMPLE_JPEG, ImageFormat::Jpeg, jpeg_xl);
         assert_eq!(&output.bytes[..2], &[0xff, 0x0a], "{jpeg_xl:?}");
@@ -1462,7 +1471,10 @@ fn jpeg_xl_output_is_a_raw_codestream_that_reads_back() {
 fn jpeg_xl_output_keeps_straight_alpha_in_both_profiles() {
     for jpeg_xl in [
         JpegXlOptions::default(),
-        JpegXlOptions::Lossless { effort: 2 },
+        JpegXlOptions::Lossless {
+            effort: 2,
+            depth: None,
+        },
     ] {
         let output = transcode(
             &jxl("effects_rgb_alpha8.jxl"),
@@ -1511,12 +1523,35 @@ fn jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding() {
             },
         )
     };
-    run(JpegXlOptions::Lossy { distance: 0.05 }, 60).unwrap();
-    run(JpegXlOptions::Lossy { distance: 2.99 }, 60).unwrap();
+    run(
+        JpegXlOptions::Lossy {
+            distance: 0.05,
+            depth: None,
+        },
+        60,
+    )
+    .unwrap();
+    run(
+        JpegXlOptions::Lossy {
+            distance: 2.99,
+            depth: None,
+        },
+        60,
+    )
+    .unwrap();
     for jpeg_xl in [
-        JpegXlOptions::Lossy { distance: 0.049 },
-        JpegXlOptions::Lossy { distance: 3.0 },
-        JpegXlOptions::Lossless { effort: 3 },
+        JpegXlOptions::Lossy {
+            distance: 0.049,
+            depth: None,
+        },
+        JpegXlOptions::Lossy {
+            distance: 3.0,
+            depth: None,
+        },
+        JpegXlOptions::Lossless {
+            effort: 3,
+            depth: None,
+        },
     ] {
         let error = run(jpeg_xl, 60).unwrap_err();
         assert_eq!(

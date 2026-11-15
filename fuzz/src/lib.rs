@@ -125,9 +125,9 @@ pub fn run_jxl_out_case(bytes: &[u8]) -> Option<(JxlOutRequest, Result<Output, P
     let options = TransformOptions {
         output_format: OutputFormat::JpegXl,
         jpeg_xl: if lossless {
-            JpegXlOptions::Lossless { effort: 2 }
+            JpegXlOptions::Lossless { effort: 2, depth: None }
         } else {
-            JpegXlOptions::Lossy { distance }
+            JpegXlOptions::Lossy { distance, depth: None }
         },
         output_width,
         output_height,

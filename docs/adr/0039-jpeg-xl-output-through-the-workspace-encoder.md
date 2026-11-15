@@ -600,3 +600,17 @@ amendment), or the port's encoder starts selecting SIMD by default.
   (every measured peak fits) pin it. Not measured: gray or 16-bit input
   (the engine writes neither), other hosts and allocators, and the lossy
   estimate.
+- 2026-11-15 — Output depth follows the input (owner decision; ADR-0021
+  amendment): both profiles write 8 to 16 integer bits, the input's by
+  default (`JpegXlOptions` `depth`), from `uint16` rows with
+  `JXL_BIT_DEPTH_FROM_CODESTREAM` and alpha at the color depth, as `cjxl`
+  passes a PNM (`lib/extras/enc/jxl.cc:257`, `lib/extras/dec/pnm.cc:276`,
+  `:300`, `:537`, `:649`). Checked in the port: `admitted_lossless_profile`
+  admits integer samples up to 16 bits, the lossy profile any integer depth;
+  above 12 bits of lossless color or of alpha libjxl requires level 10 and
+  both write the container. Bytes equal `cjxl` for lossless and lossy at 10,
+  12 and 16 bits with and without alpha
+  (`jxl_output_tests::deep_output_equals_the_original_cjxl_bytes`, nine
+  files in `tests/fixtures/jxl-deep/`); a 16-bit lossless round trip is
+  exact. The lossless reservation for deep rows is measured
+  (`docs/benchmarks/v1.0-jxl-deep-memory-2026-11-15.md`), not derived.

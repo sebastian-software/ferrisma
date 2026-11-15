@@ -69,16 +69,25 @@ pub enum JpegXlOptions {
     Lossless {
         /// libjxl effort level; only `2` is admitted today.
         effort: u8,
+        /// Bits per sample, as [`AvifOptions::depth`]: `None` (the default)
+        /// follows the input (8 to 16, `cjxl`'s rule), `Some(8..=16)` is
+        /// explicit. Lossless color above 12 bits makes libjxl require
+        /// codestream level 10, and the output is then the ISOBMFF container
+        /// with a `jxll` box, as `cjxl` writes it. Added 2026-11-15; before,
+        /// every output was 8-bit.
+        depth: Option<u8>,
     },
     /// Lossy `VarDCT` encoding in XYB at libjxl effort 7 ("squirrel"),
     /// with libjxl's patch search always off (the workspace encoder cannot
     /// write the patch reference frame yet), so text-like content encodes
     /// too.
     ///
-    /// Images with alpha below 255 are admitted: the alpha channel is
-    /// written as one straight (unassociated) 8-bit extra channel, coded
-    /// losslessly, and color under fully transparent pixels is not kept
-    /// (libjxl's `keep_invisible` default). Fully opaque alpha is omitted.
+    /// Images with alpha below the largest code are admitted: the alpha
+    /// channel is written as one straight (unassociated) extra channel at
+    /// the color depth, coded losslessly, and color under fully transparent
+    /// pixels is not kept (libjxl's `keep_invisible` default). Fully opaque
+    /// alpha is omitted. Alpha above 12 bits makes the output a container
+    /// (codestream level 10).
     Lossy {
         /// Butteraugli distance, libjxl's quality target: the maximum
         /// perceptual difference the encoder aims for, in units of a just
@@ -87,6 +96,9 @@ pub enum JpegXlOptions {
         /// `0.05 <= distance < 3.0` (dot detection starts at 3.0 and is not
         /// translated yet).
         distance: f32,
+        /// Bits per sample, as for [`Self::Lossless`]: `None` follows the
+        /// input (8 to 16), `Some(8..=16)` is explicit.
+        depth: Option<u8>,
     },
 }
 
@@ -95,13 +107,33 @@ impl JpegXlOptions {
     pub const MIN_LOSSY_DISTANCE: f32 = 0.05;
     /// Exclusive upper bound of the admitted lossy distance.
     pub const MAX_LOSSY_DISTANCE: f32 = 3.0;
+
+    /// The depth setting of either profile.
+    #[must_use]
+    pub fn depth(&self) -> Option<u8> {
+        match *self {
+            Self::Lossless { depth, .. } | Self::Lossy { depth, .. } => depth,
+        }
+    }
+
+    /// The same profile with another depth setting.
+    #[must_use]
+    pub fn with_depth(self, depth: Option<u8>) -> Self {
+        match self {
+            Self::Lossless { effort, .. } => Self::Lossless { effort, depth },
+            Self::Lossy { distance, .. } => Self::Lossy { distance, depth },
+        }
+    }
 }
 
 impl Default for JpegXlOptions {
     /// Lossy at distance 1.0, libjxl's own default (ADR-0039; pending owner
     /// confirmation).
     fn default() -> Self {
-        Self::Lossy { distance: 1.0 }
+        Self::Lossy {
+            distance: 1.0,
+            depth: None,
+        }
     }
 }
 
@@ -505,6 +537,15 @@ pub struct ProcessingReport {
     /// `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL), or the
     /// [`EncoderBackend::name`] of an external backend (ADR-0024).
     pub encoder_backend: &'static str,
+    /// Bits per sample of the decoded input, color and alpha (the larger):
+    /// 8 for JPEG and WebP, 8, 10 or 12 for AVIF, 1 to 16 for JPEG XL
+    /// (since 2026-11-15, ADR-0021 amendment).
+    pub input_depth: u8,
+    /// Bits per sample written: the input's by default, capped at what the
+    /// output admits (AVIF 12, JPEG XL 16, WebP 8), or the explicit depth
+    /// setting. When it is below `input_depth`, `discarded` names
+    /// [`Discarded::PrecisionReduced`] (since 2026-11-15).
+    pub output_depth: u8,
     /// The classes of input information this transcode left out of a
     /// correct picture (ADR-0042 D2); empty when nothing was left out.
     /// Experimental; see [`Discarded`].
@@ -1079,7 +1120,7 @@ impl Sink<'_> {
             #[cfg(feature = "webp-write")]
             (Self::WebP(sink), OutputRow::U8(row)) => sink.write_row(y, row),
             #[cfg(feature = "jpeg-xl-write")]
-            (Self::JpegXl(sink), OutputRow::U8(row)) => sink.write_row(y, row),
+            (Self::JpegXl(sink), row) => sink.write_output_row(y, row),
             (
                 Self::Backend {
                     encoder, failure, ..
@@ -1383,13 +1424,17 @@ fn run(
     // 2026-11-15), one for every output: the input's depth, capped at what
     // the output admits; a reduction is the pipeline's to report.
     let input_depth = actual.info().depth;
-    let admitted: &[u8] = match backend {
-        Some(backend) => backend.row_depths(),
-        None => &[crate::output_depth::EIGHT],
+    let admitted: &[u8] = match (backend, options.output_format) {
+        (Some(backend), _) => backend.row_depths(),
+        // cjxl's integer depths (ADR-0021 amendment of 2026-11-15).
+        (None, OutputFormat::JpegXl) => &[8, 9, 10, 11, 12, 13, 14, 15, 16],
+        // WebP is 8-bit by its format.
+        (None, _) => &[crate::output_depth::EIGHT],
     };
     let requested = match options.output_format {
         OutputFormat::Avif => options.avif.depth,
-        OutputFormat::WebP | OutputFormat::JpegXl => None,
+        OutputFormat::JpegXl => options.jpeg_xl.depth(),
+        OutputFormat::WebP => None,
     };
     let output_depth =
         crate::output_depth::resolve(requested, input_depth, admitted).map_err(|_| {
@@ -1424,7 +1469,12 @@ fn run(
             OutputFormat::JpegXl => {
                 #[cfg(feature = "jpeg-xl-write")]
                 {
-                    Sink::JpegXl(Box::new(JxlSink::new(target_size, options, &budget)?))
+                    Sink::JpegXl(Box::new(JxlSink::with_depth(
+                        target_size,
+                        options,
+                        &budget,
+                        output_depth,
+                    )?))
                 }
                 #[cfg(not(feature = "jpeg-xl-write"))]
                 {
@@ -1551,6 +1601,8 @@ fn run(
         transform_threads,
         decoder_backend,
         encoder_backend,
+        input_depth,
+        output_depth,
         discarded,
         timings: StageTimings {
             open,

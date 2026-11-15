@@ -38,7 +38,10 @@ fn info(bytes: &[u8]) -> Result<DecoderInfo, Error> {
 fn encode_lossy(width: usize, height: usize, rgba: &[u8]) -> Vec<u8> {
     let options = TransformOptions {
         output_format: OutputFormat::JpegXl,
-        jpeg_xl: JpegXlOptions::Lossy { distance: 1.0 },
+        jpeg_xl: JpegXlOptions::Lossy {
+            distance: 1.0,
+            depth: None,
+        },
         output_width: width as u32,
         output_height: height as u32,
         ..TransformOptions::default()
