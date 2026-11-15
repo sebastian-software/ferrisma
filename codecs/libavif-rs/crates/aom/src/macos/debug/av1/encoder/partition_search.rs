@@ -13,10 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type __sFILEX;
-    pub type AVxWorkerImpl;
-    pub type aom_denoise_and_model_t;
-    pub type EncWorkerData;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
     fn av1_get_qindex(
         seg: *const segmentation,
@@ -469,6 +465,26 @@ extern "C-unwind" {
         plane_to: core::ffi::c_int,
     );
     fn av1_build_obmc_inter_predictors_sb(cm: *const AV1_COMMON, xd: *mut MACROBLOCKD);
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct AVxWorkerImpl {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct aom_denoise_and_model_t {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct EncWorkerData {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __int64_t = i64;
 pub type __darwin_off_t = __int64_t;

@@ -28,7 +28,6 @@
 // Mechanically translated from upstream/dav1d/src/recon_tmpl.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type __sFILEX;
     fn memcpy(
         __dst: *mut core::ffi::c_void,
         __src: *const core::ffi::c_void,
@@ -120,6 +119,11 @@ extern "C" {
     );
     static dav1d_scans: [*const uint16_t; 19];
     static mut dav1d_masks: Dav1dMasks;
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __builtin_va_list = *mut core::ffi::c_char;
 pub type __int64_t = i64;

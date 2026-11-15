@@ -4,9 +4,6 @@
 // Mechanically translated from upstream/libavif/src/codec_dav1d.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type avifEncoderData;
-    pub type Dav1dRef;
-    pub type Dav1dContext;
     fn avifFree(p: *mut core::ffi::c_void);
     fn avifImageFreePlanes(image: *mut avifImage, planes: avifPlanesFlags);
     fn avifCalloc(count: size_t, size: size_t) -> *mut core::ffi::c_void;
@@ -44,6 +41,21 @@ extern "C" {
         __c: core::ffi::c_int,
         __len: size_t,
     ) -> *mut core::ffi::c_void;
+}
+#[repr(C)]
+pub struct avifEncoderData {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct Dav1dRef {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct Dav1dContext {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __builtin_va_list = *mut core::ffi::c_char;
 pub type ptrdiff_t = isize;

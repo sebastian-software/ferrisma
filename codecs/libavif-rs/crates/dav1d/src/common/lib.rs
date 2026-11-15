@@ -28,7 +28,6 @@
 // Mechanically translated from upstream/dav1d/src/lib.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type __sFILEX;
     fn memset(
         __b: *mut core::ffi::c_void,
         __c: core::ffi::c_int,
@@ -162,6 +161,11 @@ extern "C" {
     fn dav1d_worker_task(data: *mut core::ffi::c_void) -> *mut core::ffi::c_void;
     fn dav1d_decode_frame_exit(f: *mut Dav1dFrameContext, retval: core::ffi::c_int);
     fn dav1d_init_ii_wedge_masks();
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __builtin_va_list = *mut core::ffi::c_char;
 pub type __int64_t = i64;

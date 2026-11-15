@@ -10,8 +10,6 @@ extern "C" {
     fn avifCodecCreateRav1e() -> *mut avifCodec;
     fn avifCodecVersionGav1() -> *const core::ffi::c_char;
     fn avifCodecCreateGav1() -> *mut avifCodec;
-    pub type avifEncoderData;
-    pub type avifCodecInternal;
     fn avifAlloc(size: size_t) -> *mut core::ffi::c_void;
     fn avifFree(p: *mut core::ffi::c_void);
     fn avifRWDataSet(
@@ -70,6 +68,16 @@ extern "C" {
         __s2: *const core::ffi::c_char,
     ) -> core::ffi::c_int;
     fn strlen(__s: *const core::ffi::c_char) -> size_t;
+}
+#[repr(C)]
+pub struct avifEncoderData {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct avifCodecInternal {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type size_t = usize;
 pub type int32_t = i32;

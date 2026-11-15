@@ -29,9 +29,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use core::arch::asm;
 extern "C" {
-    pub type _IO_wide_data;
-    pub type _IO_codecvt;
-    pub type _IO_marker;
     fn memcpy(
         __dest: *mut core::ffi::c_void,
         __src: *const core::ffi::c_void,
@@ -133,6 +130,21 @@ extern "C" {
     static dav1d_scans: [*const uint16_t; 19];
     static dav1d_memset_pow2: [dav1d_memset_pow2_fn; 6];
     static mut dav1d_masks: Dav1dMasks;
+}
+#[repr(C)]
+pub struct _IO_wide_data {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct _IO_codecvt {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct _IO_marker {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]

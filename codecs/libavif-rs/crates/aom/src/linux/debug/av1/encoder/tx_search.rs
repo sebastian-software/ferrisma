@@ -13,13 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type _IO_wide_data;
-    pub type _IO_codecvt;
-    pub type _IO_marker;
-    pub type SB_FIRST_PASS_STATS;
-    pub type AVxWorkerImpl;
-    pub type aom_denoise_and_model_t;
-    pub type EncWorkerData;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
     static mut av1_block_error: Option<
         unsafe extern "C-unwind" fn(
@@ -277,6 +270,41 @@ extern "C-unwind" {
         reduced_tx_set_used: core::ffi::c_int,
         adjust_eob: core::ffi::c_int,
     ) -> core::ffi::c_int;
+}
+#[repr(C)]
+pub struct _IO_wide_data {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct _IO_codecvt {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct _IO_marker {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct SB_FIRST_PASS_STATS {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct AVxWorkerImpl {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct aom_denoise_and_model_t {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct EncWorkerData {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __int8_t = i8;
 pub type __uint8_t = u8;

@@ -12,7 +12,11 @@
 // Mechanically translated from upstream/aom/av1/common/debugmodes.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type __sFILEX;
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type size_t = usize;
 pub type uint8_t = u8;

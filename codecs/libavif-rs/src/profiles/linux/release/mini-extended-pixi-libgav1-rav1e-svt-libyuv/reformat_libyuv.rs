@@ -4,7 +4,6 @@
 // Mechanically translated from upstream/libavif/src/reformat_libyuv.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type YuvConstants;
     fn avifAlloc(size: size_t) -> *mut core::ffi::c_void;
     fn avifFree(p: *mut core::ffi::c_void);
     fn avifGetPixelFormatInfo(format: avifPixelFormat, info: *mut avifPixelFormatInfo);
@@ -789,6 +788,11 @@ extern "C" {
         width: core::ffi::c_int,
         height: core::ffi::c_int,
     ) -> core::ffi::c_int;
+}
+#[repr(C)]
+pub struct YuvConstants {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type size_t = usize;
 pub type __uint8_t = u8;

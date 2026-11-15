@@ -13,11 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type __sFILEX;
-    pub type SB_FIRST_PASS_STATS;
-    pub type AVxWorkerImpl;
-    pub type aom_denoise_and_model_t;
-    pub type EncWorkerData;
     fn av1_get_iqmatrix(
         quant_params: *const CommonQuantParams,
         xd: *const macroblockd,
@@ -47,6 +42,31 @@ extern "C-unwind" {
         eob: core::ffi::c_int,
     ) -> uint8_t;
     fn av1_get_tx_scale(tx_size: TX_SIZE) -> core::ffi::c_int;
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct SB_FIRST_PASS_STATS {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct AVxWorkerImpl {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct aom_denoise_and_model_t {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct EncWorkerData {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type size_t = usize;
 pub type int8_t = i8;

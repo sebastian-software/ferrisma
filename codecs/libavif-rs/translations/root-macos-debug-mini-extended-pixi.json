@@ -21,7 +21,7 @@
       "source_sha256": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
       "rust": "src/profiles/macos/debug/mini-extended-pixi/avif.rs",
       "raw_sha256": "1c71d86b6792eb49f72ef9c7a8dfba0982c167a3889ed84e99a9f0a008381edf",
-      "rust_sha256": "fed57318e904557f0e4ac23c15a107fa66f9f1624a78b8638ba647435bff6d83",
+      "rust_sha256": "bf386d42961fb7da5e1a21b5009d3257ab40a04fa4559ad25a0d2bce621b7f56",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
@@ -83,7 +83,7 @@
       "source_sha256": "b0e08b3c6e683fce6dd13afff60a860909b19fc9ace9ebe659e2eee9b2ee78df",
       "rust": "src/profiles/macos/debug/mini-extended-pixi/io.rs",
       "raw_sha256": "3d7d308d951eb9e1c671dd3dcf016a1936f5a94b6b36f542b13a8af17eb821c0",
-      "rust_sha256": "fec7b0e1b8a14d07d6a633a7017f7052afc41e0011a85d53dad75c4d86ed5793",
+      "rust_sha256": "a4db98fe7f08437e9966c47321cd31a8ab9efec6098d98616845de604b534eca",
       "corrections": {}
     },
     {
@@ -126,7 +126,7 @@
       "source_sha256": "ac3f6e6589287046fef789ca4584b13e6d9c6b3a3bb378d322b3d1cc2571d007",
       "rust": "src/profiles/macos/debug/mini-extended-pixi/read.rs",
       "raw_sha256": "8983300beed61f7d6fe33baf3a0bddf582230d34f43795372200443bfa8dbf64",
-      "rust_sha256": "9326144135623462fb9a8e0671fe70dfdcef09dd89502d7416f80e5630797a18",
+      "rust_sha256": "9d3dc4dbbbb1aa343d9a3eb8dd765d2495fbc8d7e7fa884062e0fc4ae6f9bd85",
       "corrections": {
         "canonical-cfg-labels": 4,
         "static-raw-address": 1,
@@ -198,7 +198,7 @@
       "source_sha256": "98ca08fc448785dcb2ba62f0f33caa6d0a0dcda0af0b71e09c3c9ced3e68146b",
       "rust": "src/profiles/macos/debug/mini-extended-pixi/write.rs",
       "raw_sha256": "d30db798ae3db717d950b3ccb2f2571083d1326dad8ec1bbcc846d51d083105d",
-      "rust_sha256": "6e3aded9c92451466ff7ea0fb5abe3fbf9b079c30a0de664362f06b31db3762e",
+      "rust_sha256": "62bdd21428016e8d57fc8f2197f26c484f7b8292a5da1204283d5d987a52b89e",
       "corrections": {
         "canonical-cfg-labels": 4,
         "static-raw-address": 13
@@ -249,7 +249,7 @@
       "source_sha256": "2bee3b437a7ca303c3e6a04512a35c3832507f4fc37d35d8ee587e9fe9aeff84",
       "rust": "src/profiles/macos/debug/mini-extended-pixi/codec_dav1d.rs",
       "raw_sha256": "7b1fdfc3cad1c44fc3979322387e19e34fd30c428e217899132f18914600e1a2",
-      "rust_sha256": "2cf75829d00861682a99dfb17cf2915b83d3efe1c42efb70b3659efa1387541a",
+      "rust_sha256": "8472acbd88745512cdbd720f5503a8dc3c12feaa2c8211fe97f71267b889dfb0",
       "corrections": {
         "variadic-abi": 1
       }
@@ -259,7 +259,7 @@
       "source_sha256": "2257d152d6f7218f1057890f77a7e56dd2b34cf44403367eca7b4d53186b73f4",
       "rust": "src/profiles/macos/debug/mini-extended-pixi/codec_aom.rs",
       "raw_sha256": "8d958a56c6d68c08f6786141907750c8e52f2951a5bb7f466462324ca84c13b7",
-      "rust_sha256": "5e234c3bd03f50c679e6da996224944dd7c2901dfe11bec9aa7c136f14a23bf5",
+      "rust_sha256": "1e2af3397640d6235c1916042be349be08fd3d5eb331127d0633ba9ba046cb8a",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2

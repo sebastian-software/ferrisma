@@ -28,9 +28,6 @@
 // Mechanically translated from upstream/dav1d/src/data.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type _IO_wide_data;
-    pub type _IO_codecvt;
-    pub type _IO_marker;
     fn abort() -> !;
     fn memset(
         __s: *mut core::ffi::c_void,
@@ -52,6 +49,21 @@ extern "C" {
         ...
     ) -> core::ffi::c_int;
     fn malloc(__size: size_t) -> *mut core::ffi::c_void;
+}
+#[repr(C)]
+pub struct _IO_wide_data {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct _IO_codecvt {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct _IO_marker {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __uint8_t = u8;
 pub type __int64_t = i64;

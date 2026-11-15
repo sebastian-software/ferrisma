@@ -13,7 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type AVxWorkerImpl;
     fn aom_yv12_partial_copy_u_c(
         src_bc: *const yv12_buffer_config,
         hstart1: core::ffi::c_int,
@@ -157,6 +156,11 @@ extern "C-unwind" {
         data_end: *const uint8_t,
     ) -> *mut aom_read_bit_buffer;
     fn av1_set_single_tile_decoding_mode(cm: *mut AV1_COMMON);
+}
+#[repr(C)]
+pub struct AVxWorkerImpl {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]

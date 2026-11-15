@@ -13,10 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type __sFILEX;
-    pub type SB_FIRST_PASS_STATS;
-    pub type AVxWorkerImpl;
-    pub type aom_denoise_and_model_t;
     fn aom_uleb_size_in_bytes(value: uint64_t) -> size_t;
     fn aom_uleb_decode(
         buffer: *const uint8_t,
@@ -221,6 +217,26 @@ extern "C-unwind" {
         zero_count: *mut core::ffi::c_int,
         min_bits: *mut core::ffi::c_int,
     ) -> core::ffi::c_int;
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct SB_FIRST_PASS_STATS {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct AVxWorkerImpl {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct aom_denoise_and_model_t {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type int8_t = i8;
 pub type int16_t = i16;

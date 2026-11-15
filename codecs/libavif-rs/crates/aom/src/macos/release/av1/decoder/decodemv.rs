@@ -13,7 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type AVxWorkerImpl;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
     fn av1_left_block_mode(left_mi: *const MB_MODE_INFO) -> PREDICTION_MODE;
     fn av1_above_block_mode(above_mi: *const MB_MODE_INFO) -> PREDICTION_MODE;
@@ -115,6 +114,11 @@ extern "C-unwind" {
         cdf: *const uint16_t,
         nsyms: core::ffi::c_int,
     ) -> core::ffi::c_int;
+}
+#[repr(C)]
+pub struct AVxWorkerImpl {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type size_t = usize;
 pub type int8_t = i8;

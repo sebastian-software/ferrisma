@@ -12,7 +12,6 @@
 // Mechanically translated from upstream/aom/aom_dsp/noise_util.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type __sFILEX;
     static mut __stderrp: *mut FILE;
     fn aom_memalign(align: size_t, size: size_t) -> *mut core::ffi::c_void;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
@@ -68,6 +67,11 @@ extern "C-unwind" {
         temp: *mut core::ffi::c_float,
         output: *mut core::ffi::c_float,
     );
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __int64_t = i64;
 pub type __darwin_size_t = usize;

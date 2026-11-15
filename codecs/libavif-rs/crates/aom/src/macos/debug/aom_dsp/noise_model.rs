@@ -12,10 +12,6 @@
 // Mechanically translated from upstream/aom/aom_dsp/noise_model.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type __sFILEX;
-    pub type image_pyramid;
-    pub type corner_list;
-    pub type aom_noise_tx_t;
     static mut __stderrp: *mut FILE;
     fn aom_noise_tx_malloc(block_size: core::ffi::c_int) -> *mut aom_noise_tx_t;
     fn aom_noise_tx_free(aom_noise_tx: *mut aom_noise_tx_t);
@@ -43,6 +39,26 @@ extern "C-unwind" {
     fn aom_memalign(align: size_t, size: size_t) -> *mut core::ffi::c_void;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
     fn aom_free(memblk: *mut core::ffi::c_void);
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct image_pyramid {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct corner_list {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct aom_noise_tx_t {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __int64_t = i64;
 pub type __darwin_size_t = usize;

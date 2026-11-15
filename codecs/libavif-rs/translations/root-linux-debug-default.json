@@ -23,7 +23,7 @@
       "source_sha256": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
       "rust": "src/profiles/linux/debug/default/avif.rs",
       "raw_sha256": "8d8a97403f0deabb69d2a99171fef8cfb540401ebcee070706a9b09a528a6d18",
-      "rust_sha256": "a3269f47f53579e2c111dcda658948f8c5ec38000eff01d1404ac09938b2f653",
+      "rust_sha256": "a5c3f57497f531b1596f661fbece220bd4569a119c1bd1596c8605ab81d0c8c6",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
@@ -87,7 +87,7 @@
       "source_sha256": "b0e08b3c6e683fce6dd13afff60a860909b19fc9ace9ebe659e2eee9b2ee78df",
       "rust": "src/profiles/linux/debug/default/io.rs",
       "raw_sha256": "20fdc436080b460965b9b337c83745e8694f34b7d9921a91f16b351c6be36b1e",
-      "rust_sha256": "f5e649ffb5e0de71b03714b014fa1dd38c1b6fed14044b5ad94d349d83d02e47",
+      "rust_sha256": "a76bac168e4a5dd0004db66c839abd3f891add54aa7f4fa1496d61869e7d193c",
       "corrections": {}
     },
     {
@@ -130,7 +130,7 @@
       "source_sha256": "ac3f6e6589287046fef789ca4584b13e6d9c6b3a3bb378d322b3d1cc2571d007",
       "rust": "src/profiles/linux/debug/default/read.rs",
       "raw_sha256": "afe861e3c2fc2f730d92531fa25c6f22713622777f35640340bda5d15266818a",
-      "rust_sha256": "e56e131bc8728f88956166b287552c46bfeab9a4785767cb6efc37fe835d042d",
+      "rust_sha256": "c4f3ca64d50113f1c1352653b6fce309fc42909532be177b511f25c562fac2db",
       "corrections": {
         "canonical-cfg-labels": 4,
         "static-raw-address": 1,
@@ -208,7 +208,7 @@
       "source_sha256": "98ca08fc448785dcb2ba62f0f33caa6d0a0dcda0af0b71e09c3c9ced3e68146b",
       "rust": "src/profiles/linux/debug/default/write.rs",
       "raw_sha256": "7fffa5344825bfa27f08ffbd9a18b78f000f09889b3ce8c592306f06cc7b241b",
-      "rust_sha256": "c179733cfbb84238071c08b9c053ddf8e0428c8895cb1657f124ea7360ff97f9",
+      "rust_sha256": "912a21366a8f8fcaef7016976076e6e5f61b97ec6f0301f117c0358a4a3456f8",
       "corrections": {
         "canonical-cfg-labels": 4,
         "static-raw-address": 13,
@@ -266,7 +266,7 @@
       "source_sha256": "2bee3b437a7ca303c3e6a04512a35c3832507f4fc37d35d8ee587e9fe9aeff84",
       "rust": "src/profiles/linux/debug/default/codec_dav1d.rs",
       "raw_sha256": "eecdf9b0497b64aa5292fd5b0df3728cc55975dd44079254454591abcfa21d7b",
-      "rust_sha256": "e490ca062279f8fde09f46c038ffeabe1033c4464a63d2e7418c37c6a235d0a3",
+      "rust_sha256": "93deab34b527743bfa60d14ddc3d6166995fa1f298e333e26cf89097b333ae45",
       "corrections": {
         "current-rust-variadic-list": 1
       }
@@ -276,7 +276,7 @@
       "source_sha256": "2257d152d6f7218f1057890f77a7e56dd2b34cf44403367eca7b4d53186b73f4",
       "rust": "src/profiles/linux/debug/default/codec_aom.rs",
       "raw_sha256": "7d4a0fbaeac33196c1f75aa6441bfd9e43ff94249007e49462546d5fdfd6b108",
-      "rust_sha256": "4bb8be8987ed0fd97df610e3e0128a6d2de67496c49d0a41df01a44993b9417b",
+      "rust_sha256": "1a94ae5e561e89fde1e94240e2c3ee50e29b29f4f0d12921a438bf827be1f337",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2,

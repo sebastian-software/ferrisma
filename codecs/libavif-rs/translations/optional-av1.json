@@ -5,14 +5,14 @@
       "source": "upstream/libavif/src/codec_libgav1.c",
       "rust": "src/codec_libgav1.rs",
       "raw_sha256": "1cefdf37a10bf3affbcd9abf3a25b255ff40d12c13cff3a9e07810ae1ac615fb",
-      "rust_sha256": "464ca28244230f763f4d9b3c2d8ee1d0689f53e55658e40f72a5b4bc8205fdd7",
+      "rust_sha256": "c994aad82a412c76688efc61fd30b0a3fa64915ae4d33cf0973644f3f9a3da68",
       "corrections": {}
     },
     {
       "source": "upstream/libavif/src/codec_rav1e.c",
       "rust": "src/codec_rav1e.rs",
       "raw_sha256": "315d4acabf033ea61c27db03a0571bc67af2a715e1b84755526b2b0972237e97",
-      "rust_sha256": "ba4355bc514a72f71bb20782210d6dd8894e1b2471c690e5c52ee84b5cf393cf",
+      "rust_sha256": "8d566c7b9f83bf257d3938fc7454dd815cc2cd3c97e041282579d6b52ec3d53a",
       "corrections": {
         "canonical-cfg-labels": 9
       }
@@ -21,7 +21,7 @@
       "source": "upstream/libavif/src/codec_svt.c",
       "rust": "src/codec_svt.rs",
       "raw_sha256": "038853d2b6ce1767c696b18265ee159170c3a63d56a515376eb3d7545c29b878",
-      "rust_sha256": "e7141a15eadb2fe7b2d7dc4c615e098d46e40f2fb05cffbbf207970fd25d91ac",
+      "rust_sha256": "a3379c1c8fb610ae0101292a04c91a983fb0bc95fa74692c4d19044765ed8539",
       "corrections": {
         "canonical-cfg-labels": 4
       }
@@ -30,7 +30,7 @@
       "source": "upstream/libavif/src/reformat_libyuv.c",
       "rust": "src/variants/libyuv/reformat_libyuv.rs",
       "raw_sha256": "10dc03bb60cee751e71564b11811473485b4139ccb5879b463e78382e93e75c6",
-      "rust_sha256": "32c840f8b7f188540be17bcab11532d5d016d8cc8da5863a4f9dd64d8d4e008b",
+      "rust_sha256": "09110e41bdf792ca463988a8492688d78fec595a90fb7a8d85de5232e78f85a6",
       "corrections": {}
     },
     {

@@ -4,8 +4,6 @@
 // Mechanically translated from upstream/libavif/src/read.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type avifEncoderData;
-    pub type avifCodecInternal;
     fn avifAlloc(size: size_t) -> *mut core::ffi::c_void;
     fn avifFree(p: *mut core::ffi::c_void);
     fn avifRWDataRealloc(raw: *mut avifRWData, newSize: size_t) -> avifResult;
@@ -248,6 +246,16 @@ extern "C" {
         __format: *const core::ffi::c_char,
         ...
     ) -> core::ffi::c_int;
+}
+#[repr(C)]
+pub struct avifEncoderData {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct avifCodecInternal {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type size_t = usize;
 pub type __uint8_t = u8;

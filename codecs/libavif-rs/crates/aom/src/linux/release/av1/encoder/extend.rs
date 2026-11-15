@@ -12,8 +12,16 @@
 // Mechanically translated from upstream/aom/av1/encoder/extend.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type image_pyramid;
-    pub type corner_list;
+}
+#[repr(C)]
+pub struct image_pyramid {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct corner_list {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type size_t = usize;
 pub type __uint8_t = u8;

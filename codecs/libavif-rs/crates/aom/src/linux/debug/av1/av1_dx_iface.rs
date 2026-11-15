@@ -13,7 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type AVxWorkerImpl;
     fn aom_uleb_decode(
         buffer: *const uint8_t,
         available: size_t,
@@ -131,6 +130,11 @@ extern "C-unwind" {
     );
     fn av1_free_restoration_buffers(cm: *mut AV1Common);
     fn aom_get_worker_interface() -> *const AVxWorkerInterface;
+}
+#[repr(C)]
+pub struct AVxWorkerImpl {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]

@@ -12,9 +12,6 @@
 // Mechanically translated from upstream/aom/aom_dsp/noise_util.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type _IO_wide_data;
-    pub type _IO_codecvt;
-    pub type _IO_marker;
     static mut stderr: *mut FILE;
     fn aom_memalign(align: size_t, size: size_t) -> *mut core::ffi::c_void;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
@@ -70,6 +67,21 @@ extern "C-unwind" {
         temp: *mut core::ffi::c_float,
         output: *mut core::ffi::c_float,
     );
+}
+#[repr(C)]
+pub struct _IO_wide_data {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct _IO_codecvt {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct _IO_marker {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __off_t = core::ffi::c_long;
 pub type __off64_t = core::ffi::c_long;

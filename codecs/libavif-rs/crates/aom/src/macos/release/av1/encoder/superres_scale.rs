@@ -13,9 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type __sFILEX;
-    pub type AVxWorkerImpl;
-    pub type aom_denoise_and_model_t;
     fn aom_realloc_frame_buffer(
         ybf: *mut YV12_BUFFER_CONFIG,
         width: core::ffi::c_int,
@@ -89,6 +86,21 @@ extern "C-unwind" {
         width: core::ffi::c_int,
         height: core::ffi::c_int,
     );
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct AVxWorkerImpl {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct aom_denoise_and_model_t {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type size_t = usize;
 pub type int8_t = i8;

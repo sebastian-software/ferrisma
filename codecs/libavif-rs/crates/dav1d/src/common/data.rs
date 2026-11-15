@@ -28,7 +28,6 @@
 // Mechanically translated from upstream/dav1d/src/data.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type __sFILEX;
     fn malloc(__size: size_t) -> *mut core::ffi::c_void;
     fn abort() -> !;
     fn memset(
@@ -40,6 +39,11 @@ extern "C" {
     fn fprintf(_: *mut FILE, _: *const core::ffi::c_char, ...) -> core::ffi::c_int;
     fn dav1d_ref_create(size: size_t) -> *mut Dav1dRef;
     fn dav1d_ref_dec(ref_0: *mut *mut Dav1dRef);
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type int64_t = i64;
 pub type uint8_t = u8;

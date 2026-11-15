@@ -13,7 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type AVxWorkerImpl;
     fn aom_internal_error(
         info: *mut aom_internal_error_info,
         error: aom_codec_err_t,
@@ -115,6 +114,11 @@ extern "C-unwind" {
         cdf: *const uint16_t,
         nsyms: core::ffi::c_int,
     ) -> core::ffi::c_int;
+}
+#[repr(C)]
+pub struct AVxWorkerImpl {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type size_t = usize;
 pub type __int8_t = i8;

@@ -17,9 +17,17 @@
 // Mechanically translated from upstream/aom/aom/src/aom_encoder.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type aom_metadata_array;
-    pub type aom_codec_alg_priv;
     fn aom_codec_destroy(ctx: *mut aom_codec_ctx_t) -> aom_codec_err_t;
+}
+#[repr(C)]
+pub struct aom_metadata_array {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct aom_codec_alg_priv {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]

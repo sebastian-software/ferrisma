@@ -128,6 +128,7 @@ def apply_edits(rel, text, edits, counts):
 
 def rewrite(rel, text, edits, counts):
     text = rewrite_atomics(text, counts)
+    text = rewrite_extern_types(text, counts)
     return apply_edits(rel, text, edits, counts)
 
 
@@ -147,6 +148,8 @@ def profile_of(rel):
         return 'root/macos'
     crate, rest = parts[1], parts[3:]
     if crate == 'aom':
+        if len(rest) == 1:  # crates/aom/src/macros-<platform>-<profile>.rs
+            return 'aom/' + '/'.join(rest[0][:-3].split('-')[-2:])
         return f'aom/{rest[0]}/{rest[1]}'
     platform = 'linux' if rest[0] == 'linux' else 'macos'
     release = 'release' in rest[:2]
@@ -166,7 +169,7 @@ def main():
     unknown = set(edits) - set(files)
     if unknown:
         raise SystemExit(f'hand edits name files outside the manifests: {sorted(unknown)}')
-    changed, stale, totals = [], [], {}
+    changed, stale, totals, outputs = [], [], {}, {}
     for rel in files:
         path = ROOT / rel
         text = path.read_text()
@@ -177,8 +180,10 @@ def main():
             per[profile_of(rel)] = per.get(profile_of(rel), 0) + value
         if new != text:
             changed.append(rel)
-            if not check:
-                path.write_text(new)
+            outputs[path] = new
+    if not check:  # write only after every file was rewritten without error
+        for path, new in outputs.items():
+            path.write_text(new)
     for path, record in records.items():
         for unit in record.get('units', []):
             text = (ROOT / unit['rust']).read_text()

@@ -4,8 +4,6 @@
 // Mechanically translated from upstream/libavif/src/codec_libgav1.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type avifEncoderData;
-    pub type Libgav1Decoder;
     fn avifFree(p: *mut core::ffi::c_void);
     fn avifImageFreePlanes(image: *mut avifImage, planes: avifPlanesFlags);
     fn avifCalloc(count: size_t, size: size_t) -> *mut core::ffi::c_void;
@@ -27,6 +25,16 @@ extern "C" {
         decoder: *mut Libgav1Decoder,
         out_ptr: *mut *const Libgav1DecoderBuffer,
     ) -> Libgav1StatusCode;
+}
+#[repr(C)]
+pub struct avifEncoderData {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+#[repr(C)]
+pub struct Libgav1Decoder {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type size_t = usize;
 pub type __uint8_t = u8;

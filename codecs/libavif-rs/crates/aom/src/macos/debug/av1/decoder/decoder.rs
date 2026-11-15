@@ -13,7 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type AVxWorkerImpl;
     fn aom_img_metadata_array_free(arr: *mut aom_metadata_array_t);
     fn aom_free_frame_buffer(ybf: *mut YV12_BUFFER_CONFIG) -> core::ffi::c_int;
     fn aom_memalign(align: size_t, size: size_t) -> *mut core::ffi::c_void;
@@ -57,6 +56,11 @@ extern "C-unwind" {
         data_end: *const uint8_t,
         p_data_end: *mut *const uint8_t,
     ) -> core::ffi::c_int;
+}
+#[repr(C)]
+pub struct AVxWorkerImpl {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __darwin_size_t = usize;
 #[derive(Copy, Clone)]

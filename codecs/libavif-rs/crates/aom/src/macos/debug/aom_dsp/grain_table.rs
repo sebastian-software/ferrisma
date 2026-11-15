@@ -34,7 +34,6 @@
 // Mechanically translated from upstream/aom/aom_dsp/grain_table.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type __sFILEX;
     fn aom_internal_error(
         info: *mut aom_internal_error_info,
         error: aom_codec_err_t,
@@ -43,6 +42,11 @@ extern "C-unwind" {
     );
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
     fn aom_free(memblk: *mut core::ffi::c_void);
+}
+#[repr(C)]
+pub struct __sFILEX {
+    _opaque: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type __int64_t = i64;
 pub type __darwin_size_t = usize;
