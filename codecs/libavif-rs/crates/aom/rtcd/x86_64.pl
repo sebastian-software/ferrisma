@@ -253,6 +253,11 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_paeth_predictor_8x32_ssse3
   aom_paeth_predictor_8x4_ssse3
   aom_paeth_predictor_8x8_ssse3
+  aom_quantize_b_32x32_avx2
+  aom_quantize_b_64x64_avx2
+  aom_quantize_b_64x64_ssse3
+  aom_quantize_b_avx2
+  aom_quantize_b_sse2
   aom_smooth_h_predictor_16x16_ssse3
   aom_smooth_h_predictor_16x32_ssse3
   aom_smooth_h_predictor_16x4_ssse3
@@ -378,6 +383,12 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_highbd_upsample_intra_edge_sse4_1
   av1_inv_txfm_add_avx2
   av1_inv_txfm_add_ssse3
+  av1_quantize_fp_32x32_avx2
+  av1_quantize_fp_64x64_avx2
+  av1_quantize_fp_avx2
+  av1_quantize_fp_sse2
+  av1_quantize_lp_avx2
+  av1_quantize_lp_sse2
   av1_upsample_intra_edge_sse4_1
   cdef_copy_rect8_16bit_to_16bit_avx2
   cdef_copy_rect8_8bit_to_16bit_avx2

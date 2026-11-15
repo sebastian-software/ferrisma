@@ -197,6 +197,7 @@ Kernels that exist only as NASM stay on `_c` (working decision O4).
 | 8-bit inverse transform | `av1/common/x86/av1_inv_txfm_ssse3.c` (+ `.h`), `av1_inv_txfm_avx2.c` (+ `.h`), the rest of `av1_txfm_sse2.h` | `av1_inv_txfm_add` (SSSE3, AVX2) | 82/82, 82/82, 82/82 |
 | Loop filter | `aom_dsp/x86/loopfilter_sse2.c`, `loopfilter_avx2.c`, `highbd_loopfilter_sse2.c`, `highbd_loopfilter_avx2.c`, the rest of `lpf_common_sse2.h` | 40 (40 SSE2, 4 8-bit quad and 6 high-bitdepth dual AVX2) | 82/82, 82/82, 82/82 |
 | 8-bit intra prediction | `aom_dsp/x86/intrapred_sse2.c`, `intrapred_ssse3.c`, `intrapred_sse4.c`, the 8-bit part of `intrapred_avx2.c`, `intrapred_x86.h`, `intrapred_utils.h` | 175 (90 SSE2, 76 SSSE3, 3 SSE4.1, 44 AVX2 specializations) | 82/82, 82/82, 82/82 |
+| 8-bit quantization | `aom_dsp/x86/quantize_sse2.c`, `quantize_ssse3.c`, `quantize_avx2.c`, the rest of `quantize_x86.h`, `av1/encoder/x86/av1_quantize_sse2.c`, `av1_quantize_avx2.c` | 7 (11 specializations; the NASM-only SSSE3 `aom_quantize_b` and `_32x32` stay withdrawn) | 82/82, 82/82, 82/82 |
 
 Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
 and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
@@ -212,4 +213,16 @@ all 91 tests of `--test simd` pass for x86-64. `lowbd_intrapred.rs` and
 LowbdIntraPredTest and the SSE4_1 and AVX2 ones of LowbdDrPredTest; the 24
 SSE2 entries whose kernels exist only as NASM (DC, DC_TOP, DC_LEFT, DC_128, V,
 H at 4x4, 8x8, 16x16, 32x32) are not transcribed and stay on `_c` (O4).
-With them, 98 of 98 tests pass under QEMU.
+With them, 98 of 98 tests pass under QEMU. `quantize.rs` adds the 8-bit x86
+tuples of `quantize_func_test.cc` (kQParamArraySSE2, kLPQParamArraySSE2, the
+SSSE3 `aom_quantize_b_64x64`, kLPQParamArrayAvx2, kQParamArrayAvx2); 119 of
+119 tests pass, in the release and the `checked` profile.
+
+Since 2026-11-15 every family is verified before its push with all four
+translation profiles compiled (`cargo check -p libavif-aom --lib --tests` for
+GNU Linux x86-64 and macOS ARM64, dev and release), `--test simd` under QEMU
+in the release and the `checked` profile, both gates, the PR stage,
+`check_translation.py` and `tools/x86_c2r/assemble.py --check`. The dispatch
+rewrite of `enable_aom_dispatch.py` leaves string, byte-string and char
+literals and comments alone (the Linux debug profile keeps the C text of
+`assert` as byte strings).

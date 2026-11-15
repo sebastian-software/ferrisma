@@ -5,7 +5,7 @@
 // orders, and the exact-match assertions follow the original; only the
 // parameter tuples of kernels that the port implements are instantiated. The
 // Neon 8-bit tuples (kQParamArrayNEON, kLPQParamArrayNEON) cover
-// av1/encoder/arm/quantize_neon.c.
+// av1/encoder/arm/quantize_neon.c; the 8-bit x86 tuples are in `x86_lowbd`.
 use aom::av1__common__scan::av1_scan_orders;
 use aom::av1__encoder__av1_quantize::{av1_build_quantizer, Dequants, QUANTS};
 
@@ -54,6 +54,8 @@ pub const TX_4X16: usize = 13;
 pub const TX_16X4: usize = 14;
 pub const TX_8X32: usize = 15;
 pub const TX_32X8: usize = 16;
+pub const TX_16X64: usize = 17;
+pub const TX_64X16: usize = 18;
 
 const QINDEX_RANGE: usize = 256;
 const K_TEST_NUM: usize = 1000;
@@ -68,6 +70,7 @@ fn coeff_num(tx_size: usize) -> usize {
         TX_32X32 | TX_64X64 => 1024,
         TX_4X16 | TX_16X4 => 64,
         TX_8X32 | TX_32X8 => 256,
+        TX_16X64 | TX_64X16 => 512,
         _ => unreachable!(),
     }
 }
@@ -713,4 +716,84 @@ mod sse2 {
            aom_highbd_quantize_b_64x64_adaptive_sse2, TX_64X64, QuantType::B, 10);
     plain!(highbd_quantize_b_64x64_adaptive_12, aom_highbd_quantize_b_64x64_adaptive_c,
            aom_highbd_quantize_b_64x64_adaptive_sse2, TX_64X64, QuantType::B, 12);
+}
+
+/// quantize_func_test.cc, the 8-bit x86 tuples: kQParamArraySSE2,
+/// kLPQParamArraySSE2, the SSSE3 instantiation, kLPQParamArrayAvx2 and
+/// kQParamArrayAvx2 (av1/encoder/x86/av1_quantize_sse2.c, av1_quantize_avx2.c,
+/// aom_dsp/x86/quantize_sse2.c, quantize_ssse3.c, quantize_avx2.c). The
+/// SSSE3 aom_quantize_b and aom_quantize_b_32x32 exist only in
+/// quantize_ssse3_x86_64.asm and stay on `_c` (working decision O4,
+/// 2026-11-13, delegated, revisable by the owner); the 8-bit adaptive
+/// quantizers are not dispatched and not transcribed.
+#[cfg(target_arch = "x86_64")]
+mod x86_lowbd {
+    use super::*;
+    use aom::simd::aom_dsp__x86__quantize_avx2::*;
+    use aom::simd::aom_dsp__x86__quantize_sse2::*;
+    use aom::simd::aom_dsp__x86__quantize_ssse3::*;
+    use aom::simd::av1__encoder__x86__av1_quantize_avx2::*;
+    use aom::simd::av1__encoder__x86__av1_quantize_sse2::*;
+
+    fn run(c: Kernel, simd: Kernel, tx_size: usize, kind: QuantType) {
+        FullPrecisionQuantizeTest::new(c, simd, tx_size, kind, 8).run_all();
+    }
+
+    macro_rules! plain {
+        ($test:ident, $feature:tt, $c:ident, $simd:ident, $tx:expr, $kind:expr) => {
+            #[test]
+            fn $test() {
+                if std::is_x86_feature_detected!($feature) {
+                    run(Kernel::Plain($c), Kernel::Plain($simd), $tx, $kind);
+                }
+            }
+        };
+    }
+
+    // kQParamArraySSE2 (8-bit tuples)
+    plain!(sse2_quantize_fp_16x16, "sse2", av1_quantize_fp_c, av1_quantize_fp_sse2, TX_16X16, QuantType::Fp);
+    plain!(sse2_quantize_fp_4x16, "sse2", av1_quantize_fp_c, av1_quantize_fp_sse2, TX_4X16, QuantType::Fp);
+    plain!(sse2_quantize_fp_16x4, "sse2", av1_quantize_fp_c, av1_quantize_fp_sse2, TX_16X4, QuantType::Fp);
+    plain!(sse2_quantize_fp_8x32, "sse2", av1_quantize_fp_c, av1_quantize_fp_sse2, TX_8X32, QuantType::Fp);
+    plain!(sse2_quantize_fp_32x8, "sse2", av1_quantize_fp_c, av1_quantize_fp_sse2, TX_32X8, QuantType::Fp);
+    plain!(sse2_quantize_b, "sse2", aom_quantize_b_c, aom_quantize_b_sse2, TX_16X16, QuantType::B);
+    // SSSE3 (AOM_ARCH_X86_64)
+    plain!(ssse3_quantize_b_64x64, "ssse3", aom_quantize_b_64x64_c, aom_quantize_b_64x64_ssse3, TX_64X64,
+           QuantType::B);
+    // kQParamArrayAvx2 (8-bit tuples)
+    plain!(avx2_quantize_fp_16x16, "avx2", av1_quantize_fp_c, av1_quantize_fp_avx2, TX_16X16, QuantType::Fp);
+    plain!(avx2_quantize_fp_4x16, "avx2", av1_quantize_fp_c, av1_quantize_fp_avx2, TX_4X16, QuantType::Fp);
+    plain!(avx2_quantize_fp_16x4, "avx2", av1_quantize_fp_c, av1_quantize_fp_avx2, TX_16X4, QuantType::Fp);
+    plain!(avx2_quantize_fp_32x8, "avx2", av1_quantize_fp_c, av1_quantize_fp_avx2, TX_32X8, QuantType::Fp);
+    plain!(avx2_quantize_fp_8x32, "avx2", av1_quantize_fp_c, av1_quantize_fp_avx2, TX_8X32, QuantType::Fp);
+    plain!(avx2_quantize_fp_32x32, "avx2", av1_quantize_fp_32x32_c, av1_quantize_fp_32x32_avx2, TX_32X32,
+           QuantType::Fp);
+    plain!(avx2_quantize_fp_32x32_16x64, "avx2", av1_quantize_fp_32x32_c, av1_quantize_fp_32x32_avx2, TX_16X64,
+           QuantType::Fp);
+    plain!(avx2_quantize_fp_32x32_64x16, "avx2", av1_quantize_fp_32x32_c, av1_quantize_fp_32x32_avx2, TX_64X16,
+           QuantType::Fp);
+    plain!(avx2_quantize_fp_64x64, "avx2", av1_quantize_fp_64x64_c, av1_quantize_fp_64x64_avx2, TX_64X64,
+           QuantType::Fp);
+    plain!(avx2_quantize_b, "avx2", aom_quantize_b_c, aom_quantize_b_avx2, TX_16X16, QuantType::B);
+    plain!(avx2_quantize_b_32x32, "avx2", aom_quantize_b_32x32_c, aom_quantize_b_32x32_avx2, TX_32X32,
+           QuantType::B);
+    plain!(avx2_quantize_b_64x64, "avx2", aom_quantize_b_64x64_c, aom_quantize_b_64x64_avx2, TX_64X64,
+           QuantType::B);
+
+    // kLPQParamArraySSE2 and kLPQParamArrayAvx2
+    #[test]
+    fn quantize_lp_sse2() {
+        for tx_size in [TX_16X16, TX_8X8, TX_4X4] {
+            LowPrecisionQuantizeTest::new(av1_quantize_lp_c, av1_quantize_lp_sse2, tx_size).run_all();
+        }
+    }
+
+    #[test]
+    fn quantize_lp_avx2() {
+        if std::is_x86_feature_detected!("avx2") {
+            for tx_size in [TX_16X16, TX_8X8, TX_4X4] {
+                LowPrecisionQuantizeTest::new(av1_quantize_lp_c, av1_quantize_lp_avx2, tx_size).run_all();
+            }
+        }
+    }
 }

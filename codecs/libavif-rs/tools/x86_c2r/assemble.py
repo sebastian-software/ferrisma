@@ -89,7 +89,15 @@ def write(rel, text):
     path = OUT / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
-    subprocess.run(['rustfmt', '--edition', '2021', str(path)], capture_output=True)
+    # The port's crates are outside the workspace's rustfmt (rustfmt.toml ignores
+    # codecs/libavif-rs); the printed files are formatted with the stable
+    # rustfmt and its default configuration.
+    empty = WORK / 'rustfmt.toml'
+    empty.write_text('')
+    r = subprocess.run(['rustup', 'run', 'stable', 'rustfmt', '--edition', '2021', '--config-path', str(empty),
+                        str(path)], capture_output=True, text=True)
+    if r.returncode:
+        raise SystemExit(f'rustfmt failed on {path}: {r.stderr}')
 
 
 def part(name):
@@ -222,6 +230,48 @@ pub struct Aligned32<T>(pub T);
 
 
 
+def year_of(src):
+    return re.search(r'Copyright \(c\) (\d+)', (ROOT / 'upstream/aom' / src).read_text()).group(1)
+
+
+def simple_file(rel, cfg, src, feat, uses, extra=''):
+    """One printed C file with the standard header and notes."""
+    text = run(cfg)
+    write(rel, LIC(year_of(src)) + f'\n// Translated from upstream/aom/{src} (ADR 0056, ADR 0058).\n'
+          f'// Upstream compiles it with -m{feat.replace(".", "")}. The functions were\n// {PRINTER}.\n'
+          + NOTES.format(feat=feat) + uses + extra + '\n' + text)
+
+
+def quantizers():
+    hand = part('quantize_x86.hand.rs')
+    head, body = hand.split('use core::arch::x86_64::*;\n', 1)
+    write('aom_dsp/x86/quantize_x86.rs', LIC(year_of('aom_dsp/x86/quantize_x86.h')) + '''
+// Translated from upstream/aom/aom_dsp/x86/quantize_x86.h (ADR 0056, ADR
+// 0058). invert_sign_32_sse2 and calculate_non_zero_count, which the
+// high-bitdepth adaptive quantizers use, were translated by hand first; the
+// other inline functions, which the 8-bit quantizers use, were
+// ''' + PRINTER + '''. Every helper carries
+// `sse2`, the smallest feature of its intrinsics.
+#![allow(non_snake_case, non_upper_case_globals, unused_assignments, unused_mut, unused_parens)]
+#![allow(unused_variables, dead_code, clippy::all)]
+
+use core::arch::x86_64::*;
+
+// From aom_dsp/aom_dsp_common.h.
+const AOM_QM_BITS: i32 = 5;
+''' + body.rstrip() + '\n\n' + run('quantize_x86_h.json'))
+    q = 'use crate::simd::aom_dsp__x86__quantize_x86::*;\nuse crate::simd::aom_dsp__x86__synonyms::*;\n'
+    c = 'use crate::aom_dsp__quantize::aom_quantize_b_helper_c;\n'
+    simple_file('aom_dsp/x86/quantize_sse2.rs', 'quantize_sse2.json', 'aom_dsp/x86/quantize_sse2.c', 'sse2', q)
+    simple_file('aom_dsp/x86/quantize_ssse3.rs', 'quantize_ssse3.json', 'aom_dsp/x86/quantize_ssse3.c', 'ssse3', q + c)
+    simple_file('aom_dsp/x86/quantize_avx2.rs', 'quantize_avx2.json', 'aom_dsp/x86/quantize_avx2.c', 'avx2',
+                q + 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n')
+    simple_file('av1/encoder/x86/av1_quantize_sse2.rs', 'av1_quantize_sse2.json', 'av1/encoder/x86/av1_quantize_sse2.c',
+                'sse2', q)
+    simple_file('av1/encoder/x86/av1_quantize_avx2.rs', 'av1_quantize_avx2.json', 'av1/encoder/x86/av1_quantize_avx2.c',
+                'avx2', q + 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n', '\n// stdint.h\nconst INT16_MAX: i32 = 0x7fff;\n')
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -234,6 +284,7 @@ def main():
         inverse_transform()
         loop_filter()
         intra_predictors()
+        quantizers()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

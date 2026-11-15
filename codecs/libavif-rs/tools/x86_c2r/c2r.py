@@ -37,7 +37,7 @@ SCALAR = {
     'int8_t': 'i8', 'int16_t': 'i16', 'int32_t': 'i32', 'int64_t': 'i64', 'uint8_t': 'u8', 'uint16_t': 'u16',
     'uint32_t': 'u32', 'uint64_t': 'u64', 'size_t': 'usize', 'intptr_t': 'isize', 'ptrdiff_t': 'isize',
     'tran_low_t': 'i32', 'TX_SIZE': 'u8', 'TX_TYPE': 'u8', 'ITX_TYPE_1D': 'u8', 'bool': 'bool',
-    'TX_CLASS': 'u8', 'PREDICTION_MODE': 'u8',
+    'double': 'f64', 'float': 'f32', 'TX_CLASS': 'u8', 'PREDICTION_MODE': 'u8', 'qm_val_t': 'u8',
 }
 VECTORS = {'__m128i', '__m256i', '__m128', '__m256', '__m128d', '__m256d', '__m64'}
 RANK = {'i32': (1, False), 'u32': (1, True), 'i64': (2, False), 'u64': (2, True), 'isize': (2, False),
@@ -147,6 +147,7 @@ class Printer:
         self.aligned_globals = set()
         self.fn_body = None
         self.const_vars = set()
+        self.loop_next = []
 
     # ---------------------------------------------------------------- types
     def ctype(self, node, quals=()):
@@ -460,6 +461,8 @@ class Printer:
                 neg = '' if op == '==' else '!'
                 return E(f'{neg}{x.at("postfix")}.{test}()', ('bool',), 'unary' if neg else 'postfix')
             return E(f'{a.at("&")} {op} {self.cast(b, a.typ).at("&")}', ('bool',), op)
+        if op in ('<', '>', '<=', '>=') and a.typ[0] == 'ptr' and b.typ[0] == 'ptr':
+            return E(f'{a.at("&")} {op} {self.cast(b, a.typ).at("&")}', ('bool',), op)
         a, b = self.as_int(a), self.as_int(b)
         if a.typ[0] == 'float' or b.typ[0] == 'float':
             raise Unsupported('floating point')
@@ -515,6 +518,16 @@ class Printer:
                 parts = [self.expr(a).code for a in args] + list(mac.get('implicit', []))
                 rt = ftype_parse(mac['type']) if isinstance(mac, dict) and 'type' in mac else ('void',)
                 return E(f'{name}!({", ".join(parts)})', rt, 'postfix')
+            if name == 'CONVERT_TO_SHORTPTR':
+                # aom_ports/mem.h: ((uint16_t *)(((uintptr_t)(x)) << 1))
+                x = self.expr(args[0])
+                return E(f'(({x.at("as")} as usize) << 1) as *mut u16', ('ptr', ('int', 'u16'), False), 'as')
+            if name == 'CONVERT_TO_BYTEPTR':
+                x = self.expr(args[0])
+                return E(f'(({x.at("as")} as usize) >> 1) as *mut u8', ('ptr', ('int', 'u8'), False), 'as')
+            if name in ('LIKELY', 'UNLIKELY'):
+                # aom_dsp/aom_dsp_common.h: __builtin_expect(v, 1), a hint only.
+                return self.expr(args[0])
             if name in ('memcpy', 'memset'):
                 d, x, n_ = (self.expr(a) for a in args)
                 if d.typ[0] == 'arr':
@@ -526,6 +539,8 @@ class Printer:
                     x = self.decay(x)
                 return E(f'core::ptr::copy_nonoverlapping({x.at("as")} as *const u8, {d.at("as")} as *mut u8, '
                          f'{self.cast(self.as_int(n_), ("int", "usize")).code})', ('void',), 'postfix')
+            if name == 'static_assert':
+                return E(f'const _: () = assert!({self.boolean(self.expr(args[0])).code})', ('void',), 'low')
             if name == 'assert':
                 a0 = args[0]
                 if isinstance(a0, c_ast.BinaryOp) and a0.op == '&&' and isinstance(a0.right, c_ast.Constant) \
@@ -791,12 +806,16 @@ class Printer:
     def s_While(self, n):
         c = self.boolean(self.expr(n.cond))
         self.line(f'while {c.code} {{')
+        self.loop_next.append(None)
         self.body(n.stmt)
+        self.loop_next.pop()
         self.line('}')
 
     def s_DoWhile(self, n):
         self.line('loop {')
+        self.loop_next.append('dowhile')
         self.body(n.stmt)
+        self.loop_next.pop()
         self.indent += 1
         cond = n.cond
         if isinstance(cond, c_ast.UnaryOp) and cond.op in ('++', '--') and isinstance(cond.expr, c_ast.ID):
@@ -823,11 +842,11 @@ class Printer:
             if step != 1:
                 rng = f'({rng}).step_by({step})'
             self.line(f'for {rename(var)} in {rng} {{')
+            self.loop_next.append(None)
             self.body(n.stmt)
+            self.loop_next.pop()
             self.line('}')
         else:
-            if contains(n.stmt, c_ast.Continue):
-                raise Unsupported(f'for loop with continue at {n.coord}')
             self.line('{')
             self.indent += 1
             if n.init is not None:
@@ -835,7 +854,10 @@ class Printer:
             c = self.boolean(self.expr(n.cond)) if n.cond is not None else E('true', ('bool',))
             self.line(f'while {c.code} {{')
             self.indent += 1
+            # `continue` runs the increment first, as C's `for` does.
+            self.loop_next.append(n.next)
             self.block(n.stmt.block_items if isinstance(n.stmt, c_ast.Compound) else [n.stmt])
+            self.loop_next.pop()
             if n.next is not None:
                 if isinstance(n.next, c_ast.ExprList):
                     for x in n.next.exprs:
@@ -893,43 +915,41 @@ class Printer:
         v = self.cast(v, promote(v.typ)) if v.typ[0] != 'lit' else v
         self.line(f'match {v.code} {{')
         self.indent += 1
-        items = n.stmt.block_items or []
-        groups, labels, body = [], [], None
-        for item in items:
-            node = item
-            while isinstance(node, (c_ast.Case, c_ast.Default)):
-                if body is not None:
-                    groups.append((labels, body))
-                    labels, body = [], None
-                labels.append(None if isinstance(node, c_ast.Default) else node.expr)
-                stmts = node.stmts or []
-                if len(stmts) == 1 and isinstance(stmts[0], (c_ast.Case, c_ast.Default)):
-                    node = stmts[0]
-                    continue
-                body = list(stmts) if stmts else None
-                break
+        groups = []  # [labels, body]
+        for item in n.stmt.block_items or []:
+            if isinstance(item, (c_ast.Case, c_ast.Default)):
+                labels, node = [], item
+                while True:
+                    labels.append(None if isinstance(node, c_ast.Default) else node.expr)
+                    stmts = node.stmts or []
+                    if stmts and isinstance(stmts[0], (c_ast.Case, c_ast.Default)):
+                        if len(stmts) != 1:
+                            raise Unsupported(f'case label with code at {n.coord}')
+                        node = stmts[0]
+                        continue
+                    break
+                if groups and not groups[-1][1]:
+                    groups[-1][0] += labels  # `case A:` directly followed by `case B:`
+                    groups[-1][1] = list(stmts)
+                else:
+                    groups.append([labels, list(stmts)])
             else:
-                body.append(node)
-        if labels:
-            groups.append((labels, body or []))
+                if not groups:
+                    raise Unsupported(f'statement before the first case at {n.coord}')
+                groups[-1][1].append(item)
         has_default = False
-        for labels, body in groups:
-            if body and isinstance(body[-1], c_ast.Break):
-                body = body[:-1]
-            elif body and isinstance(body[-1], c_ast.Return):
-                pass
-            elif body or groups[-1][1] is not body:
-                if not (groups and (labels, body) == groups[-1]):
-                    raise Unsupported(f'switch fallthrough at {n.coord}')
+        for k, (labels, body) in enumerate(groups):
+            last = k == len(groups) - 1
+            body, terminated = strip_break(body)
+            if not terminated and not last:
+                raise Unsupported(f'switch fallthrough at {n.coord}')
             if contains_list(body, c_ast.Break):
                 raise Unsupported(f'break inside a case body at {n.coord}')
-            pats = []
-            for l in labels:
-                if l is None:
-                    has_default = True
-                    pats = ['_']
-                    break
-                pats.append(self.expr(l).code)
+            if None in labels:
+                has_default = True
+                pats = ['_']
+            else:
+                pats = [self.expr(l).code for l in labels]
             self.line(f'{" | ".join(pats)} => {{')
             self.indent += 1
             self.block(body)
@@ -944,6 +964,12 @@ class Printer:
         self.line('break;')
 
     def s_Continue(self, n):
+        nxt = self.loop_next[-1] if self.loop_next else None
+        if nxt == 'dowhile':
+            raise Unsupported(f'continue in do-while at {n.coord}')
+        if nxt is not None:
+            for x in (nxt.exprs if isinstance(nxt, c_ast.ExprList) else [nxt]):
+                self.stmt(x)
         self.line('continue;')
 
     # ---------------------------------------------------------------- top level
@@ -1068,6 +1094,28 @@ def contains(node, kind):
                                                                                           c_ast.Break):
         return False
     return any(contains(c, kind) for _, c in node.children())
+
+
+def strip_break(body):
+    """(body without its terminating `break`s, whether it cannot fall through)."""
+    if not body:
+        return body, False
+    last = body[-1]
+    if isinstance(last, c_ast.Break):
+        return body[:-1], True
+    if isinstance(last, c_ast.Return):
+        return body, True
+    if isinstance(last, c_ast.Compound):
+        inner, t = strip_break(list(last.block_items or []))
+        return body[:-1] + [c_ast.Compound(inner, last.coord)], t
+    if isinstance(last, c_ast.If) and last.iffalse is not None:
+        a, ta = strip_break([last.iftrue])
+        b, tb = strip_break([last.iffalse])
+        if ta and tb:
+            mk = lambda x: x[0] if len(x) == 1 else c_ast.Compound(x, last.coord)
+            return body[:-1] + [c_ast.If(last.cond, mk(a) if a else c_ast.Compound([], last.coord),
+                                         mk(b) if b else c_ast.Compound([], last.coord), last.coord)], True
+    return body, False
 
 
 def contains_list(nodes, kind):
@@ -1271,6 +1319,10 @@ def translate(config_path, work=None):
     aligned = {m.group(3).split('[')[0].strip(): int(m.group(1)) for m in
                re.finditer(r'DECLARE_ALIGNED\(\s*(\d+)\s*,\s*([^,]+?),\s*([^)]*?)\)', clean)}
     clean = re.sub(r'DECLARE_ALIGNED\(\s*\d+\s*,\s*([^,]+?),\s*([^)]*?)\)', r'\1 \2', clean)
+    if cfg.get('only'):
+        # File-scope invocations of function-generating macros (AOM_VAR_*, VAR_FN,
+        # ...) define functions outside `only`; they are blanked before parsing.
+        clean = re.sub(r'(?m)^[A-Z][A-Z0-9_]*\([^;{}\n]*\)[ \t]*;?[ \t]*$', '', clean)
     for skip in cfg.get('skip_ranges', []):
         lines = clean.split('\n')
         for k in range(skip[0] - 1, skip[1]):
@@ -1303,6 +1355,23 @@ def translate(config_path, work=None):
         p.line(f'// {name}')
     p.out = []
     skip = set(cfg.get('skip', []))
+    if cfg.get('only'):
+        # Keep the named functions and everything of this file they reach.
+        defs = {}
+        for ext in ast.ext:
+            if ext.coord is not None and ext.coord.file == src_path.name:
+                if isinstance(ext, c_ast.FuncDef):
+                    defs[ext.decl.name] = ext
+                elif isinstance(ext, c_ast.Decl) and ext.name:
+                    defs[ext.name] = ext
+        keep, todo = set(), list(cfg['only'])
+        while todo:
+            name = todo.pop()
+            if name in keep or name not in defs:
+                continue
+            keep.add(name)
+            todo += [c.name for c in walk(defs[name]) if isinstance(c, c_ast.ID)]
+        skip |= set(defs) - keep
     failed = []
     for ext in ast.ext:
         if ext.coord is None or ext.coord.file != src_path.name:
