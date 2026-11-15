@@ -13,6 +13,7 @@ tracked file by a documented byte patch; nothing here is hand-edited.
 | `gray-gray-icc.jpg` | libjxl's `ycbcr-jpeg-gray.jpg` with `gray-gamma22.icc` in an `APP2` segment | `tools/patch.py` | `ace8dd9fed0fc3acc016d87631a0ad077d0b8361bbf43a035bbee4eee7dcc638` |
 | `gray-rgb-icc.jpg` | the same gray JPEG with the RGB profile `../icc/paris-srgb.icc` (a mismatch) | `tools/patch.py` | `5429dfa4fa50b73f5e48d50489165d13e5039abb6b2e13b81a3daf9706ca9d45` |
 | `rgb-gray-icc.jpg` | `../sample.jpg` (RGB) with `gray-gamma22.icc` (a mismatch) | `tools/patch.py` | `acd5ba2630ce0c7eabaf89bd51ecc2675d98dfbf6803d42012ffd1e0e32bf978` |
+| `premultiplied-alpha.avif` | libavif's `abc_color_irot_alpha_irot.avif` with a `prem` reference (color item 1 to alpha item 2) appended to `iref`, which libavif reads as associated alpha; `iref`, `meta` and the two `iloc` offsets grow by 14 bytes | `tools/patch.py` | `9345ae041868be2737350f7b7ff127bb8bfcf2a0dba048222e35cc5f54fd4ccd` |
 
 ## Inputs
 
@@ -52,6 +53,14 @@ exactly `gray-16x8.raw` (lossless). libjxl keeps the profile as an ICC
 stream (`want_icc`) because it is not byte-identical to the profile libjxl
 would generate for an enum encoding; the bridge reports
 `ImageInfo::original_icc` for it and no enum DATA encoding.
+
+`premultiplied-alpha.avif` changes only the declared association: its
+samples were encoded as straight alpha, so read as premultiplied some color
+exceeds its alpha and libavif's step clamps it. The file proves the outcome
+class and the report entry (ADR-0043 D5), not color fidelity; the JPEG XL
+side's arithmetic is checked bit for bit in `src/jxl_alpha_tests.rs`. The
+workspace AVIF writer cannot write associated alpha, so no such AVIF exists
+with authored premultiplied samples.
 
 The files are licensed like the repository's own test data; the embedded
 profile keeps the provenance recorded in `../icc/README.md`.

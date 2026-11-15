@@ -26,6 +26,14 @@ const ALL: [RefusalReason; 13] = [
     RefusalReason::IccColorSpaceMismatch,
 ];
 
+/// Reasons no built-in reader produces any more; their former fixture must
+/// now be accepted. `AlphaAssociation`: premultiplied JPEG XL alpha is
+/// converted by libjxl since 2026-11-15 (owner decision, ADR-0043), as AVIF
+/// alpha is by libavif, so every reader delivers straight alpha; the
+/// variant stays for a future reader (the enum is non-exhaustive and a
+/// documented reason keeps its meaning).
+const RETIRED: [RefusalReason; 1] = [RefusalReason::AlphaAssociation];
+
 fn file(path: &str) -> Vec<u8> {
     std::fs::read(format!("{}/{path}", env!("CARGO_MANIFEST_DIR"))).unwrap()
 }
@@ -128,6 +136,7 @@ fn case(reason: RefusalReason) -> (usize, Vec<u8>, ImageFormat, InputProfilePoli
             ImageFormat::Jpeg,
             AssumeSrgbIfMissing,
         ),
+        // Retired: the former fixture, now accepted.
         RefusalReason::AlphaAssociation => (
             9,
             format!("{LIBJXL}extra-channel-alpha-1-up-1-shift-0.jxl"),
@@ -176,6 +185,18 @@ fn every_refusal_reason_is_produced_by_a_fixture() {
             profile_policy,
             ..TransformOptions::default()
         };
+        if RETIRED.contains(&reason) {
+            let output = transcode(&bytes, format, options)
+                .unwrap_or_else(|error| panic!("{reason:?} is retired: {error}"));
+            assert!(
+                output
+                    .report
+                    .discarded
+                    .iter()
+                    .any(|class| class == crate::pipeline::Discarded::Unpremultiplied)
+            );
+            continue;
+        }
         let error = transcode(&bytes, format, options).expect_err("the fixture must be refused");
         assert_eq!(error.refusal_reason(), Some(reason), "{error}");
     }

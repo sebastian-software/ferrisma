@@ -405,27 +405,30 @@ fn cmyk_jpeg_is_refused_as_a_layout() {
 }
 
 /// Premultiplied alpha (libjxl's conformance fixture with
-/// `alpha_associated`): libjxl-rs reports it as premultiplied; the
-/// rendered-ICC stage refuses it for its alpha.
+/// `alpha_associated`) is converted to straight alpha by libjxl and
+/// reported as `Discarded::Unpremultiplied`, under every policy (owner
+/// decision 2026-11-15, ADR-0043). Until then this test,
+/// `associated_alpha_is_refused_with_its_reason`, pinned the refusal
+/// `AlphaAssociation`, which no built-in reader produces any more.
 #[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
 #[test]
-fn associated_alpha_is_refused_with_its_reason() {
+fn associated_alpha_is_converted_and_reported() {
     let jxl = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/codecs/libjxl-rs/tests/data/extra-channel-alpha-1-up-1-shift-0.jxl"
     ))
     .unwrap();
-    assert_eq!(
-        refusal(run(
-            &jxl,
-            ImageFormat::JpegXl,
-            InputProfilePolicy::UseRenderedIcc
-        )),
-        (
-            ProcessingErrorKind::UnsupportedInput,
-            Some(RefusalReason::AlphaAssociation)
-        )
-    );
+    for policy in POLICIES {
+        let output = run(&jxl, ImageFormat::JpegXl, policy).unwrap();
+        assert!(
+            output
+                .report
+                .discarded
+                .iter()
+                .any(|class| class == ferrisma::pipeline::Discarded::Unpremultiplied),
+            "{policy:?}"
+        );
+    }
 }
 
 /// AVIF clean aperture and an `imir` before `irot` are not applied.

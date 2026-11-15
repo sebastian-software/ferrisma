@@ -234,44 +234,73 @@ fn strict_policy_reads_engine_written_jpeg_xl() {
     }
 }
 
-/// Associated (premultiplied) alpha is not guessed: libjxl-rs declares it
-/// `Premultiplied`, and the rendered-ICC stage refuses it, as does every
-/// other policy.
+/// Associated (premultiplied) alpha is accepted and converted to straight
+/// alpha by libjxl's own step (owner decision 2026-11-15, ADR-0043; until
+/// then this test, `associated_alpha_is_refused`, pinned its refusal under
+/// every policy). The rewrite changes only the association bit, so libjxl
+/// decodes the same color `c` and alpha `a` as for the straight file and
+/// then un-premultiplies: the reader's samples equal `c * (1 / max(a,
+/// 2^-26))` (libjxl's `UnpremultiplyAlpha`, `kSmallAlpha`) bit for bit,
+/// alpha unchanged. Every policy reads the file and reports
+/// `Discarded::Unpremultiplied`; the straight file reports nothing.
 #[test]
-fn associated_alpha_is_refused() {
+fn associated_alpha_is_unpremultiplied_by_libjxl() {
     let (width, height) = (32, 24);
     let straight = encode_lossy(width, height, &translucent(width, height));
     let associated = mark_alpha_associated(&straight);
     let declared = info(&associated).unwrap();
-    assert_eq!(declared.alpha, AlphaMode::Premultiplied);
+    assert_eq!(declared.alpha, AlphaMode::Straight);
     // The rewrite changes only the association: same size and layout.
     let plain = info(&straight).unwrap();
     assert_eq!((declared.size, declared.layout), (plain.size, plain.layout));
+    let plain_samples = raw_samples(&straight);
+    let converted = raw_samples(&associated);
+    assert_eq!(plain_samples.len(), converted.len());
+    // libjxl's kSmallAlpha, 1 / (1 << 26).
+    let small_alpha = 1.0_f32 / 67_108_864.0;
+    let mut divided = 0;
+    for (plain, converted) in plain_samples
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(converted.as_chunks::<4>().0)
+    {
+        let multiplier = 1.0 / plain[3].max(small_alpha);
+        let expected = [
+            plain[0] * multiplier,
+            plain[1] * multiplier,
+            plain[2] * multiplier,
+            plain[3],
+        ];
+        assert_eq!(
+            converted.map(f32::to_bits),
+            expected.map(f32::to_bits),
+            "{plain:?}"
+        );
+        divided += usize::from(plain[3] < 1.0 && plain[..3].iter().any(|&c| c != 0.0));
+    }
+    assert!(divided > 0, "some color was divided");
     for policy in [
         InputProfilePolicy::Strict,
         InputProfilePolicy::AssumeSrgbIfMissing,
         #[cfg(feature = "icc")]
         InputProfilePolicy::UseRenderedIcc,
     ] {
-        assert!(
-            matches!(
-                read_back(&associated, policy, (width as u32, height as u32), 1),
-                Err(ProcessingErrorKind::UnsupportedInput | ProcessingErrorKind::UnsupportedColor)
-            ),
-            "{policy:?}"
-        );
+        let rows = read_back(&associated, policy, (width as u32, height as u32), 1);
+        assert!(rows.is_ok(), "{policy:?}: {rows:?}");
     }
-    #[cfg(feature = "icc")]
+    let discarded = |bytes: &[u8]| {
+        crate::codecs::jxl::JxlSource::new(bytes)
+            .unwrap()
+            .discarded()
+            .iter()
+            .collect::<Vec<_>>()
+    };
     assert_eq!(
-        read_back(
-            &associated,
-            InputProfilePolicy::UseRenderedIcc,
-            (width as u32, height as u32),
-            1
-        ),
-        Err(ProcessingErrorKind::UnsupportedInput),
-        "refused for its alpha, not its color"
+        discarded(&associated),
+        [crate::discarded::Discarded::Unpremultiplied]
     );
+    assert_eq!(discarded(&straight), []);
 }
 
 /// Bit reader over a bare JPEG XL codestream (LSB first, ISO/IEC 18181-1).

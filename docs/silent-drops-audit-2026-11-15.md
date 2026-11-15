@@ -141,7 +141,7 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | V6 | Unknown non-essential properties, unknown `colr` types | ignored, as ISO/IEC 23008-12 permits. **Since `v1/engine-discarded`: reported: `Discarded::UnknownContainerData`** | `avif_meta.rs` `read_property` (`_ => {}`) | no | `silent_drops::avif_non_essential_unknown_properties_are_ignored_today` (`circle_custom_properties.avif`); `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` | C |
 | V7 | `pasp` (pixel aspect ratio) | ignored (same path). **Since `v1/engine-discarded`: reported: `Discarded::UnknownContainerData`** | same | no | no fixture; `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` (Android `fox.*.avif` carry `pasp`) | C |
 | V8 | Sample-transform (`sato`) alternative with more precision | the 12-bit primary is read | libavif without its experimental `sato` support | no | `silent_drops::avif_sample_transform_alternative_is_ignored_today` | A |
-| V9 | Premultiplied alpha (`prem`) | libavif un-premultiplies into straight RGBA (`rgb.alphaPremultiplied = 0`); JPEG XL premultiplied alpha is refused instead. **Since `v1/engine-discarded`: reported: `Discarded::Unpremultiplied` (refusing it instead is an open question of ADR-0042 (premultiplied AVIF alpha))** | `crates/ferrisma-avif-read` `rgb` | no | no fixture; `discarded_report::premultiplied_avif_alpha_is_reported_as_unpremultiplied` (`prem` inserted into `abc_color_irot_alpha_irot.avif`) | C |
+| V9 | Premultiplied alpha (`prem`) | libavif un-premultiplies into straight RGBA (`rgb.alphaPremultiplied = 0`); JPEG XL premultiplied alpha is refused instead. **Since `v1/engine-discarded`: reported: `Discarded::Unpremultiplied` (refusing it instead is an open question of ADR-0042 (premultiplied AVIF alpha)). Since 2026-11-15: decided by the owner (accept and convert, ADR-0042 and ADR-0043); JPEG XL is converted by libjxl and reported the same way** | `crates/ferrisma-avif-read` `rgb` | matrix | `tests/fixtures/parity/premultiplied-alpha.avif` (the same `prem` insertion, committed); `discarded_report::premultiplied_avif_alpha_is_reported_as_unpremultiplied`; `format_parity::premultiplied_alpha_is_converted_and_reported_alike` | C |
 | V10 | Depth and other auxiliary images in a still | ignored (only alpha is read) | libavif | matrix, AVIF details | no still fixture | B |
 | V11 | Grid, `pymd` pyramid | composed grid / primary item at full size | libavif | matrix | `supported_matrix::avif_alpha_and_grid_stills_are_accepted`; `pyramid_pymd.avif` (probe) | D |
 | V12 | Sequences, `clap`, `imir` before `irot`, monochrome, PQ/HLG | refused with a reason. **Since 2026-11-15 monochrome is accepted through libavif's gray output and expanded to RGB (owner decision, ADR-0043)** | `avif.rs` | matrix | `supported_matrix` AVIF cases | C |
@@ -265,6 +265,10 @@ its test in `tests/format_parity.rs`:
   other color space is refused (`IccColorSpaceMismatch`). Nothing is
   dropped (R = G = B carries the gray value); hidden color under zero alpha
   is now also noticed for gray with alpha.
+- V9, X14: premultiplied JPEG XL alpha is converted by libjxl's own step
+  and reported as `Discarded::Unpremultiplied`, as AVIF's by libavif
+  (owner decision; ADR-0042's former question 3). The two steps' rounding
+  differs (matrix). The `Unspecified` alpha mode left with jxl-oxide.
 
 ## Part 2: proposal (not implemented; the owner decides)
 

@@ -183,10 +183,7 @@ first column of counts is the state of `main`.
    reported, or documented as an alias?
 2. **Repeated CLI flags.** The last value wins silently. Refusing a repeated
    flag would break scripts that rely on it.
-3. **Premultiplied AVIF alpha.** It is un-premultiplied silently today. D2
-   will report it; should it be refused instead, as premultiplied JPEG XL
-   alpha is?
-4. **A strict mode.** Should there be an option that turns every D2 report
+3. **A strict mode.** Should there be an option that turns every D2 report
    into a refusal, for callers that must not lose metadata?
 
 ### Decided since 2026-11-15
@@ -195,6 +192,12 @@ first column of counts is the state of `main`.
   set explicitly; owner decision of 2026-11-15, recorded in the
   [ADR-0016 amendment](0016-working-color-space-and-transform-boundaries.md#2026-11-15-rendering-intent-is-relative-colorimetric-owner-decision).
   The report does not name it: it is a fixed part of the contract.
+- **Premultiplied AVIF alpha** (formerly open question 3): accepted and
+  converted, not refused; owner decision of 2026-11-15, which also makes
+  premultiplied JPEG XL alpha accepted instead of refused (ADR-0043,
+  decided applications). Both readers convert with their original's own
+  step and the report names it (`Discarded::Unpremultiplied`); the two
+  steps' arithmetic differs and is written into the supported matrix.
 
 ## Review when
 
@@ -215,6 +218,9 @@ first column of counts is the state of `main`.
 - 2026-11-15 — Open question 1 (rendering intent) decided by the owner:
   relative colorimetric, set explicitly (ADR-0016 amendment); moved to
   "Decided since 2026-11-15", the remaining questions renumbered.
+- 2026-11-15 — Open question 3 (premultiplied AVIF alpha) decided by the
+  owner: accept and convert in both formats (ADR-0043); moved to "Decided
+  since 2026-11-15", the remaining question renumbered.
 - 2026-11-15 — D4 for JPEG XL met by removal: the jxl-oxide runtime reader
   is removed (ADR-0032, owner decision), so JPEG XL has one reader; the
   state paragraph under Validation and the inventory (X6 to X9 and Q3

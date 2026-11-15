@@ -583,6 +583,50 @@ fn straight_alpha_is_kept_in_every_format() {
     }
 }
 
+/// Premultiplied (associated) alpha is accepted and converted to straight
+/// alpha in both formats that carry it, and reported as
+/// `Discarded::Unpremultiplied` (owner decision 2026-11-15; until then
+/// JPEG XL refused it with `AlphaAssociation`). Each format uses its
+/// original's own step, which ADR-0043 D2 allows only with a format reason,
+/// written into the supported matrix: libavif divides 8/10/12-bit integers,
+/// `min(round(c * max / a), max)` with color 0 under alpha 0
+/// (`avifRGBImageUnpremultiplyAlpha`); libjxl multiplies float samples by
+/// `1 / max(a, 2^-26)` without rounding or clamping (`UnpremultiplyAlpha`),
+/// so a color above its alpha in lossy data stays above 1 into the
+/// working space. The JPEG XL arithmetic is checked bit for bit in
+/// `jxl_alpha_tests::associated_alpha_is_unpremultiplied_by_libjxl`.
+/// JPEG and WebP have no premultiplied alpha (format reason).
+#[test]
+fn premultiplied_alpha_is_converted_and_reported_alike() {
+    let jxl = read(&format!("{JXL_DATA}extra-channel-alpha-1-up-1-shift-0.jxl"));
+    #[allow(unused_mut)]
+    let mut cases: Vec<(&str, ImageFormat, &[u8])> = vec![(
+        "extra-channel-alpha-1-up-1-shift-0.jxl",
+        ImageFormat::JpegXl,
+        &jxl,
+    )];
+    #[cfg(feature = "avif-read")]
+    let avif = read("tests/fixtures/parity/premultiplied-alpha.avif");
+    #[cfg(feature = "avif-read")]
+    cases.push(("premultiplied-alpha.avif", ImageFormat::Avif, &avif));
+    for (name, format, bytes) in &cases {
+        for policy in [ASSUME, RENDERED] {
+            let Outcome::Accepted {
+                alpha, discarded, ..
+            } = outcome(bytes, *format, policy, &[Discarded::Unpremultiplied])
+            else {
+                panic!("{name} under {policy:?}: refused");
+            };
+            assert!(alpha, "{name}: alpha kept");
+            assert_eq!(
+                discarded,
+                [Discarded::Unpremultiplied],
+                "{name} under {policy:?}"
+            );
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Geometry.
 

@@ -38,6 +38,9 @@ pub struct ImageInfo {
     pub width: u32,
     pub height: u32,
     pub channels: u32,
+    /// The codestream's alpha is associated (premultiplied). The decoded
+    /// samples are straight all the same: every decode asks libjxl to
+    /// un-premultiply (`JxlDecoderSetUnpremultiplyAlpha`).
     pub alpha_premultiplied: bool,
     /// The DATA profile describes the decoder's emitted float samples.
     pub rendered_icc: Vec<u8>,
@@ -262,6 +265,14 @@ impl<'a> Decoder<'a> {
         let events =
             (Status::BASIC_INFO.0 | Status::COLOR_ENCODING.0 | Status::FULL_IMAGE.0) as i32;
         if api::jxl_decoder_subscribe_events(decoder.get(), events) != Status::SUCCESS {
+            return Err(Error::Decode);
+        }
+        // Associated (premultiplied) alpha is converted to straight alpha
+        // by libjxl's own step (`JxlDecoderSetUnpremultiplyAlpha`, ported
+        // in the render pipeline's write stage), so the samples stay
+        // bit-identical with the original's (owner decision 2026-11-15,
+        // ADR-0043). It has no effect without associated alpha.
+        if api::jxl_decoder_set_unpremultiply_alpha(decoder.get(), 1) != Status::SUCCESS {
             return Err(Error::Decode);
         }
         // Default keep_orientation=false makes dimensions and samples upright.

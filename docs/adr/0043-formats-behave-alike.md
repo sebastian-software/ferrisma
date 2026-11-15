@@ -79,7 +79,21 @@ it and assert the same outcome class, kind, reason and report entry.
   report names the conversion. JPEG XL uses the un-premultiply step of the
   ported original, so the port stays identical with it (ADR-0041). The
   earlier refusal for JPEG XL is replaced. It counts as supported once a
-  fixture exists for each format.
+  fixture exists for each format. *Implemented 2026-11-15:* the JPEG XL
+  bridge sets `JxlDecoderSetUnpremultiplyAlpha` (translated in the port
+  and compared with the original in its `output_stage`, `decoder_geometry`
+  and `uint_output` parity tests); the engine's samples equal libjxl's
+  `c · 1 / max(a, 2⁻²⁶)` bit for bit. D2 check: libavif's step is integer
+  division at the decoded depth with rounding, a clamp and color 0 under
+  alpha 0, libjxl's a float multiplication without either; the pipeline
+  has no un-premultiply step of its own, so each reader keeps its
+  original's (ADR-0041), and the difference is a format reason recorded in
+  the supported matrix. Fixtures: libjxl's `extra-channel-alpha-1-*`
+  conformance files and `tests/fixtures/parity/premultiplied-alpha.avif`
+  (a `prem` reference inserted into a libavif test file). The
+  `Unspecified` alpha mode, produced only by the removed jxl-oxide reader,
+  is gone, and `RefusalReason::AlphaAssociation` is no longer produced by
+  a built-in reader.
 - **Grayscale** (owner decision, 2026-11-15; formerly the open question
   of this ADR): gray is accepted in every format that can carry it.
   Grayscale JPEG, grayscale JPEG XL (gray and gray with alpha) and
@@ -108,9 +122,8 @@ it and assert the same outcome class, kind, reason and report entry.
 
 ## Consequences
 
-- Some refusals become conversions (premultiplied JPEG XL alpha). Where the
-  open question below is answered in favor of accepting, grayscale JPEG XL
-  and monochrome AVIF follow.
+- Some refusals become conversions (premultiplied JPEG XL alpha,
+  grayscale JPEG XL and monochrome AVIF, all 2026-11-15).
 - Adapters lose freedom: a new reader or format has to be fitted to the
   existing outcome for each shared property, or its difference justified.
 - The supported matrix becomes a checked artifact, and the parity tests
@@ -167,3 +180,6 @@ None. The grayscale question is decided (above).
   to RGB): moved from the open questions to the decided applications, with
   the working decision on where the expansion happens; parity rows for
   gray, gray with alpha, gray ICC and ICC color-space mismatch.
+- 2026-11-15 — Premultiplied alpha implemented for JPEG XL (libjxl's
+  step) and checked against AVIF's (libavif's): same outcome and report
+  entry, different arithmetic, recorded as a format reason.

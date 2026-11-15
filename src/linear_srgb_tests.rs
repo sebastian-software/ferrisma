@@ -287,11 +287,7 @@ fn missing_or_conflicting_profile_and_hdr_transfers_fail_closed() {
 
 #[test]
 fn alpha_must_have_explicit_straight_association() {
-    for alpha in [
-        AlphaMode::Unspecified,
-        AlphaMode::Premultiplied,
-        AlphaMode::Opaque,
-    ] {
+    for alpha in [AlphaMode::Premultiplied, AlphaMode::Opaque] {
         let source = RawSource::new(size(2, 1), ChannelLayout::Rgba, alpha, vec![0; 8]);
         let mut graph = Graph::new();
         let input = source.bind(&mut graph);

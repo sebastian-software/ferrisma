@@ -102,11 +102,11 @@ before crop; crop coordinates are upright display coordinates (ADR-0019).
 | --- | --- | --- | --- | --- |
 | Feature | `jpeg-read` | `webp-read` | `jpeg-xl-read` (libjxl-rs) | `avif-read` |
 | Samples delivered | 8-bit RGB; grayscale JPEG as 8-bit gray (libjpeg's own component), expanded to RGB by the pipeline | 8-bit RGB or RGBA | F32 RGB, RGBA, gray or gray+alpha; gray expanded to RGB(A) by the pipeline (since 2026-11-15, owner decision; refused before) | 8-bit RGB(A); 10/12-bit as normalized float; 4:2:0, 4:2:2 and 4:4:4 at 8, 10 and 12 bits; monochrome (4:0:0) as gray through libavif's `GRAY`/`GRAYA` output, expanded to RGB(A) by the pipeline (since 2026-11-15; refused before) |
-| Alpha | none | straight | straight only: premultiplied association is refused under every policy | straight (libavif output) |
+| Alpha | none | straight | straight; associated (premultiplied) alpha converted to straight by libjxl's own step and reported as `Discarded::Unpremultiplied` (since 2026-11-15, owner decision; refused with `AlphaAssociation` before) | straight; `prem` converted to straight by libavif and reported as `Discarded::Unpremultiplied` |
 | Color evidence | embedded ICC (RGB, or `GRAY` for grayscale JPEG) | embedded RGB ICC | an enum `DATA` encoding with an H.273 code point is reported as that CICP alone, a typed signal like AVIF `nclx` (owner decision 2026-11-15, #222); an embedded profile, or an enum encoding without a code point (custom primaries or white point, a gamma exponent), is reported as the `DATA` ICC of the emitted samples | container `nclx`/ICC cross-checked with the AV1 sequence header; reported as rendered CICP |
 | Orientation | EXIF 1–8 | EXIF 1–8 | codestream orientation, rendered upright by the decoder | `irot`/`imir` applied by the pipeline |
 | Crop access | codec crop request, iMCU column overfetch | lossy: crop from full-width rows; lossless: full reconstruction | **full-frame fallback for every crop** | full-frame fallback |
-| Rejected | CMYK/YCCK (`UnsupportedInput`, `UnsupportedLayout`); untagged under `Strict` (`ColorSignalMissing`); ICC without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); EXIF orientation outside 1–8 (`GeometricTransform`, **untested** through the API); malformed ICC; truncated data | animation (`UnsupportedInput`, `Animation`); malformed containers; canvas above the pixel cap | animation (`Animation`); an embedded ICC profile, or an enum encoding without an H.273 code point, without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); an enum encoding outside sRGB, Display P3 and linear sRGB (`UnsupportedColorEncoding`; `RenderedIccMissing` under `UseRenderedIcc`, as AVIF CICP); CMYK, spot colors, float/HDR exponent channels, extra channels (`UnsupportedLayout` under `UseRenderedIcc`; the former jxl-oxide reader accepted some of these files while dropping or compositing their channels until 2026-11-15, [audit](silent-drops-audit-2026-11-15.md) X6 to X9); premultiplied alpha (`AlphaAssociation`); PQ/HLG (`HdrTransfer`); an unknown colour space (`MalformedInput`, no reason, as libjxl; `UnsupportedColorEncoding` on jxl-oxide until 2026-11-15); ICC > 16 MiB (**untested**, code path, no reason) | animation/`avis` (`Animation`), `clap` and `imir` before `irot` (`GeometricTransform`), contradictory `nclx` (`ContradictoryColorSignals`), PQ/HLG (`HdrTransfer`), SDR CICP outside sRGB/P3/linear sRGB (`UnsupportedColorEncoding`; `RenderedIccMissing` under `UseRenderedIcc`), an unknown essential property of the primary item (`UnsupportedEssentialProperty`) ([details](#avif-input-transforms-animation-channels-and-caps)) |
+| Rejected | CMYK/YCCK (`UnsupportedInput`, `UnsupportedLayout`); untagged under `Strict` (`ColorSignalMissing`); ICC without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); EXIF orientation outside 1–8 (`GeometricTransform`, **untested** through the API); malformed ICC; truncated data | animation (`UnsupportedInput`, `Animation`); malformed containers; canvas above the pixel cap | animation (`Animation`); an embedded ICC profile, or an enum encoding without an H.273 code point, without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); an enum encoding outside sRGB, Display P3 and linear sRGB (`UnsupportedColorEncoding`; `RenderedIccMissing` under `UseRenderedIcc`, as AVIF CICP); CMYK, spot colors, float/HDR exponent channels, extra channels (`UnsupportedLayout` under `UseRenderedIcc`; the former jxl-oxide reader accepted some of these files while dropping or compositing their channels until 2026-11-15, [audit](silent-drops-audit-2026-11-15.md) X6 to X9); PQ/HLG (`HdrTransfer`); an unknown colour space (`MalformedInput`, no reason, as libjxl; `UnsupportedColorEncoding` on jxl-oxide until 2026-11-15); ICC > 16 MiB (**untested**, code path, no reason) | animation/`avis` (`Animation`), `clap` and `imir` before `irot` (`GeometricTransform`), contradictory `nclx` (`ContradictoryColorSignals`), PQ/HLG (`HdrTransfer`), SDR CICP outside sRGB/P3/linear sRGB (`UnsupportedColorEncoding`; `RenderedIccMissing` under `UseRenderedIcc`), an unknown essential property of the primary item (`UnsupportedEssentialProperty`) ([details](#avif-input-transforms-animation-channels-and-caps)) |
 
 The names in parentheses after a kind are the `RefusalReason` that
 `refusal_reason()` returns (the [compatibility guide](compatibility.md#refusal-reasons)
@@ -163,8 +163,9 @@ Evidence per format:
   `tests/animated_input.rs::animated_jpeg_xl_is_rejected`;
   `hardening_tests::workspace_jxl_unknown_colour_space_is_a_controlled_error`,
   `public_transcode_rejects_unknown_jxl_colour_space` (`MalformedInput`);
-  `jxl_alpha_tests::associated_alpha_is_refused` (premultiplied alpha under
-  every policy). Through the public API:
+  `jxl_alpha_tests::associated_alpha_is_unpremultiplied_by_libjxl`
+  (premultiplied alpha, read under every policy and checked bit for bit
+  against libjxl's step; until 2026-11-15 `associated_alpha_is_refused`). Through the public API:
   `supported_matrix::jpeg_xl_enum_rgb_is_typed_and_embedded_icc_needs_the_rendered_icc_policy`
   (`sample.jxl` under every policy, `tests/fixtures/parity/rgb-p3-icc.jxl`
   only under `UseRenderedIcc`; also pins the full-frame fallback; until
@@ -260,7 +261,7 @@ Every class has a test with a fixture that has it and one that does not
 | `JpegReconstructionData` | a `jbrd` box | JPEG XL |
 | `Preview` | a preview frame | JPEG XL |
 | `HiddenColor` | an input pixel of the processed region with alpha exactly 0 and nonzero color (written as transparent black, ADR-0014) | any RGBA input |
-| `Unpremultiplied` | premultiplied alpha converted to straight by libavif (`prem`) | AVIF |
+| `Unpremultiplied` | premultiplied alpha converted to straight by the decoder: libavif (`prem`), libjxl (`alpha_associated`, since 2026-11-15) | AVIF, JPEG XL |
 | `PrecisionReduced` | more than 8 bits per color or alpha sample reached the 8-bit rows | AVIF, JPEG XL |
 
 Not reported, and documented here instead (open under ADR-0042 D6): values
@@ -299,6 +300,7 @@ and is not claimed as supported.
 | Gray ICC profile | converted by its tone curve under `UseRenderedIcc` (`RenderedIcc`); otherwise `RenderedIccRequiresOptIn` | — | same | **untested** (no fixture) | WebP's `ICCP` describes RGB data | `a_gray_icc_profile_is_converted_by_its_tone_curve` |
 | ICC profile of the other color space | `IccColorSpaceMismatch` under `UseRenderedIcc` | not tested | cannot occur: the codestream requires a gray profile for gray channels | **untested** | JPEG XL validates the profile's color space itself | `an_icc_profile_of_the_other_color_space_is_refused` |
 | Straight alpha | — | kept | kept | kept | JPEG has no alpha | `straight_alpha_is_kept_in_every_format` |
+| Premultiplied alpha | — | — | converted to straight by libjxl's step, `Discarded::Unpremultiplied` | converted to straight by libavif's step, `Discarded::Unpremultiplied` | JPEG and WebP have no associated alpha. The outcome is the same; the arithmetic is each original's (ADR-0041 keeps each port identical with it), and they differ: libavif divides integers at the decoded depth, `min(round(c · max / a), max)`, and writes color 0 under alpha 0 (`avifRGBImageUnpremultiplyAlpha`); libjxl multiplies floats by `1 / max(a, 2⁻²⁶)` without rounding or clamping (`UnpremultiplyAlpha`), so lossy color above its alpha stays above 1 into the working space and nonzero color under alpha 0 becomes large (and is then written as transparent black and reported as `HiddenColor`, which AVIF never reports for it). A format (original) reason under ADR-0043 D1, not hidden | `premultiplied_alpha_is_converted_and_reported_alike`; `jxl_alpha_tests::associated_alpha_is_unpremultiplied_by_libjxl` |
 | Typed sRGB, Display P3, linear sRGB | — | — | `Cicp` under every policy (enum encoding) | `Cicp` under every policy (`nclx`) | JPEG and WebP have no typed color signal, only ICC | `typed_srgb_is_read_under_every_policy`, `the_engine_reads_its_own_jpeg_xl_output_with_default_settings` |
 | Typed signal outside those three | — | — | `UnsupportedColorEncoding`; `RenderedIccMissing` under `UseRenderedIcc` | same | as above | `typed_signal_outside_the_supported_families_is_refused_alike` |
 | Typed signal without an H.273 code point (custom primaries or white point, gamma) | — | — | the exact profile libjxl synthesizes: `RenderedIccRequiresOptIn`, converted under `UseRenderedIcc` | cannot be signaled | `nclx` has only code points | `jxl_color_tests::rendered_icc_reproduces_known_samples_for_sdr_families` (enum files), source review |
@@ -411,12 +413,15 @@ encodes; its size cost against libjxl's default is not measured. Since
 `--use-rendered-icc`: the rendered-ICC stage accepts RGBA with straight
 alpha, and the reader declares straight alpha only when the alpha channel
 is not associated (#222,
-[ADR-0015](adr/0015-typed-output-color-signals.md)). Under the default
-`Strict` policy that output is still refused; whether XYB with enum sRGB
-should pass it is an open owner question in ADR-0015. Evidence:
+[ADR-0015](adr/0015-typed-output-color-signals.md)). Whether the default
+`Strict` policy should read that output (XYB with enum sRGB) was decided by
+the owner on 2026-11-15 (#222): it does, and the engine reads its own JPEG XL
+output under the default options. Evidence:
 `jxl_alpha_tests::rendered_icc_reads_engine_written_straight_alpha`,
-`strict_policy_still_refuses_engine_written_jpeg_xl`,
-`associated_alpha_is_refused`.
+`strict_policy_reads_engine_written_jpeg_xl` (until 2026-11-15
+`strict_policy_still_refuses_engine_written_jpeg_xl`),
+`associated_alpha_is_unpremultiplied_by_libjxl` (until 2026-11-15
+`associated_alpha_is_refused`).
 
 The lossless reservation follows the measured one-shot peak since 2026-11-13
 (#223, ADR-0039 amendment): under the default 256 MiB `--budget-mb` the

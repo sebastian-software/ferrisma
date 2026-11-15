@@ -1366,11 +1366,7 @@ mod tests {
     /// before, gray was `UnsupportedLayout` here).
     #[test]
     fn non_straight_alpha_and_other_layouts_are_refused() {
-        for alpha in [
-            AlphaMode::Unspecified,
-            AlphaMode::Premultiplied,
-            AlphaMode::Opaque,
-        ] {
+        for alpha in [AlphaMode::Premultiplied, AlphaMode::Opaque] {
             let mut grid = p3_rgba_grid(rgba_row());
             grid.info.alpha = alpha;
             assert_eq!(

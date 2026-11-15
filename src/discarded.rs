@@ -49,7 +49,10 @@ pub enum Discarded {
     /// the output stores transparent black there (ADR-0014).
     HiddenColor,
     /// Premultiplied (associated) alpha was converted to straight alpha by
-    /// the decoder (AVIF `prem`); color at low alpha loses precision.
+    /// the decoder's own step: libavif's integer division for AVIF `prem`,
+    /// libjxl's float one for JPEG XL `alpha_associated` (since
+    /// 2026-11-15). Color at low alpha loses precision, and the two steps
+    /// round differently (`docs/supported-matrix.md`, format parity).
     Unpremultiplied,
     /// The input has more bits per sample than reach the encoder (8-bit
     /// rows): 10- or 12-bit AVIF, JPEG XL above 8 bits, color or alpha.

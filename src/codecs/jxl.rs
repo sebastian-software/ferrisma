@@ -49,25 +49,15 @@ impl<'a> JxlSource<'a> {
             return Err(Error::HdrTransfer);
         }
         let size = Size::new(image.width, image.height)?;
+        // The bridge asks libjxl to un-premultiply associated alpha (its own
+        // step, so the samples stay identical with the original), so alpha
+        // always arrives straight; the conversion is reported below (owner
+        // decision 2026-11-15, ADR-0043).
         let (layout, alpha) = match image.channels {
             1 => (ChannelLayout::Gray, AlphaMode::Opaque),
-            2 => (
-                ChannelLayout::GrayAlpha,
-                if image.alpha_premultiplied {
-                    AlphaMode::Premultiplied
-                } else {
-                    AlphaMode::Straight
-                },
-            ),
+            2 => (ChannelLayout::GrayAlpha, AlphaMode::Straight),
             3 => (ChannelLayout::Rgb, AlphaMode::Opaque),
-            4 => (
-                ChannelLayout::Rgba,
-                if image.alpha_premultiplied {
-                    AlphaMode::Premultiplied
-                } else {
-                    AlphaMode::Straight
-                },
-            ),
+            4 => (ChannelLayout::Rgba, AlphaMode::Straight),
             _ => return Err(Error::UnsupportedLayout),
         };
         // A structurally signalled (enum) encoding with an H.273 code point
@@ -95,6 +85,7 @@ impl<'a> JxlSource<'a> {
         let mut discarded = super::jxl_container::container_discards(bytes);
         discarded.insert_if(image.original_icc, Discarded::IccProfile);
         discarded.insert_if(image.have_preview, Discarded::Preview);
+        discarded.insert_if(image.alpha_premultiplied, Discarded::Unpremultiplied);
         discarded.insert_if(
             image.bits_per_sample > 8 || image.alpha_bits > 8,
             Discarded::PrecisionReduced,
