@@ -19,6 +19,15 @@
 //! encodes every image. This bridge exposes nothing outside the profile
 //! except the distance and the patches switch, so that the port's admission
 //! checkpoint can be inferred (see [`Admission`]).
+//!
+//! The admitted lossless profile ([`encode_lossless`], issue #223) is the
+//! port's lossless Modular profile at effort 2 (`ENCODER_EXPANSION.md` and
+//! `PORT_STATUS.md`, "Encoder lossless streaming"): libjxl's own lossless
+//! setting (`JxlEncoderSetFrameLossless`, `uses_original_profile`), 8-bit
+//! gray or RGB with optional straight 8-bit alpha, enum sRGB or linear sRGB,
+//! one frame, raw codestream, serial, default memory manager and the default
+//! buffering, so that more than eight 256x256 groups take the original's
+//! chunked (streaming) encode, as `cjxl -d 0 -e 2` does by default.
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 use std::fmt;
@@ -43,6 +52,8 @@ pub const MAX_ADMITTED_DISTANCE: f32 = 3.0;
 pub const DEFAULT_DISTANCE: f32 = 1.0;
 /// The admitted effort (libjxl "squirrel"), set explicitly.
 const EFFORT: i64 = 7;
+/// The admitted lossless effort (libjxl "thunder"), set explicitly.
+pub const LOSSLESS_EFFORT: i64 = 2;
 const GROUP_DIM: usize = 256;
 const BLOCK_DIM: usize = 8;
 /// `CanDoStreamingEncoding` selects the streaming frame encode above this
@@ -349,6 +360,7 @@ pub struct Encoder {
     settings: NonNull<JxlEncoderFrameSettings>,
     image: Option<ImageInfo>,
     options: Option<FrameOptions>,
+    lossless: bool,
     frame_added: bool,
     input_closed: bool,
     finished: bool,
@@ -378,6 +390,7 @@ impl Encoder {
             settings,
             image: None,
             options: None,
+            lossless: false,
             frame_added: false,
             input_closed: false,
             finished: false,
@@ -435,6 +448,20 @@ impl Encoder {
     /// [`Error::Misuse`] for a second call or an empty image;
     /// [`Error::ApiUsage`] when the port rejects the size or level.
     pub fn set_image(&mut self, image: ImageInfo) -> Result<(), Error> {
+        self.set_image_with(image, false)
+    }
+
+    /// [`Encoder::set_image`] for a lossless frame: the same basic info with
+    /// `uses_original_profile` (no XYB), which `JxlEncoderSetFrameLossless`
+    /// requires.
+    ///
+    /// # Errors
+    /// As for [`Encoder::set_image`].
+    pub fn set_lossless_image(&mut self, image: ImageInfo) -> Result<(), Error> {
+        self.set_image_with(image, true)
+    }
+
+    fn set_image_with(&mut self, image: ImageInfo, original_profile: bool) -> Result<(), Error> {
         self.ready()?;
         if self.image.is_some() {
             return Err(Error::Misuse("the image is already set"));
@@ -448,7 +475,7 @@ impl Encoder {
         basic.ysize = image.height;
         basic.bits_per_sample = 8;
         basic.exponent_bits_per_sample = 0;
-        basic.uses_original_profile = 0;
+        basic.uses_original_profile = i32::from(original_profile);
         basic.num_color_channels = image.color_channel_count();
         // SetBasicInfo derives the alpha extra channel's info (type alpha,
         // 8 bits, unassociated) from these fields, as libjxl does.
@@ -483,6 +510,9 @@ impl Encoder {
     /// [`Admission::FrameProfile`] when the frame is encoded.
     pub fn set_frame_options(&mut self, options: FrameOptions) -> Result<(), Error> {
         self.ready()?;
+        if self.lossless {
+            return Err(Error::Misuse("the lossless profile is already set"));
+        }
         if !options.distance.is_finite() || options.distance <= 0.0 {
             return Err(Error::Misuse("the distance must be finite and positive"));
         }
@@ -493,6 +523,40 @@ impl Encoder {
             return Err(self.fail(Stage::FrameSettings));
         }
         self.options = Some(options);
+        Ok(())
+    }
+
+    /// Select the lossless profile: effort 2 ([`LOSSLESS_EFFORT`]) and
+    /// `JxlEncoderSetFrameLossless`. Buffering stays at its default, so the
+    /// port encodes more than eight groups on its streaming path, as the
+    /// original does. Call after [`Encoder::set_lossless_image`].
+    ///
+    /// # Errors
+    /// [`Error::Misuse`] before [`Encoder::set_lossless_image`] or after
+    /// frame options; [`Error::ApiUsage`] when the port rejects a value (an
+    /// XYB image from [`Encoder::set_image`]).
+    pub fn set_lossless(&mut self) -> Result<(), Error> {
+        self.ready()?;
+        if self.image.is_none() {
+            return Err(Error::Misuse("set the image before the lossless profile"));
+        }
+        if self.options.is_some() || self.lossless {
+            return Err(Error::Misuse("frame options are already set"));
+        }
+        let settings = self.settings.as_ptr();
+        // SAFETY: The settings object and its encoder are live (owned by
+        // `raw`), and `&mut self` guarantees no other reference to either.
+        let status = unsafe {
+            api::jxl_encoder_frame_settings_set_option(settings, Id::EFFORT, LOSSLESS_EFFORT)
+        };
+        if status != Status::SUCCESS {
+            return Err(self.fail(Stage::FrameSettings));
+        }
+        // SAFETY: As above.
+        if unsafe { api::jxl_encoder_set_frame_lossless(settings, 1) } != Status::SUCCESS {
+            return Err(self.fail(Stage::FrameSettings));
+        }
+        self.lossless = true;
         Ok(())
     }
 
@@ -621,6 +685,26 @@ pub fn encode(
     let mut encoder = Encoder::new()?;
     encoder.set_image(image)?;
     encoder.set_frame_options(options)?;
+    encoder.add_frame(pixels)?;
+    encoder.close_input();
+    encoder.process_output_into(out, limit)
+}
+
+/// Encode one lossless frame (effort 2, the default buffering): set the
+/// image, the lossless profile, add `pixels`, close the input and append the
+/// codestream to `out` (at most `limit` bytes).
+///
+/// # Errors
+/// As for the [`Encoder`] steps.
+pub fn encode_lossless(
+    image: ImageInfo,
+    pixels: &[u8],
+    out: &mut Vec<u8>,
+    limit: usize,
+) -> Result<usize, Error> {
+    let mut encoder = Encoder::new()?;
+    encoder.set_lossless_image(image)?;
+    encoder.set_lossless()?;
     encoder.add_frame(pixels)?;
     encoder.close_input();
     encoder.process_output_into(out, limit)

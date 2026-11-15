@@ -8,7 +8,8 @@
 use crate::error::Error;
 use crate::geometry::Size;
 use crate::jxl_sink::{
-    JxlSink, LOSSLESS_ONE_SHOT_PEAK_BYTES_PER_RGB_PIXEL, known_codec_frame_bytes,
+    JxlSink, LOSSLESS_CHUNKED_BYTES_PER_PIXEL, LOSSLESS_CHUNKED_DC_GROUP_BYTES_PER_PIXEL,
+    LOSSLESS_ONE_SHOT_BYTES_PER_PIXEL, LOSSLESS_PEAK_CONSTANT_BYTES, known_codec_frame_bytes,
     lossless_codec_reservation_bytes,
 };
 use crate::memory::MemoryBudget;
@@ -112,22 +113,22 @@ fn rejects_requests_outside_the_admitted_profile_before_allocating() {
     assert_eq!(budget.snapshot().peak, 0);
 }
 
-/// The lossless sink reserves the measured one-shot peak (issue #223,
-/// ADR-0004, ADR-0039).
+/// The lossless sink reserves the measured peak of the path the encoder
+/// takes (issue #223, ADR-0004, ADR-0039).
 ///
-/// **Contract change of 2026-11-13, not a refreshed pin.** Until then the
-/// sink reserved only the planes known from the source path
-/// (`known_codec_frame_bytes`: with the 4 B/px input frame about 28 B/px),
-/// while the admitted profile was measured at about 70-76 B/px; this test
-/// pinned that smaller reservation. It now pins the measured peak, scaled
-/// by 4/3 with alpha (derived, not measured), with the source-path planes
-/// as a floor for small images.
+/// **Contract changes, not refreshed pins.** Until 2026-11-13 the sink
+/// reserved only the planes known from the source path (about 28 B/px with
+/// the frame) against a measured 70-76 B/px; from 2026-11-13 it reserved the
+/// measured one-shot peak (76 B/px, 4/3 of it with alpha, derived). Since
+/// 2026-11-15 it encodes with the default buffering, chunked above 8 groups,
+/// and reserves the peaks measured for that path
+/// (`docs/benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md`): every
+/// measured maximum below must fit in frame plus reservation.
 #[test]
-fn input_frame_and_measured_one_shot_peak_are_reserved() {
+fn input_frame_and_measured_lossless_peaks_are_reserved() {
     let (width, height) = (9, 5);
     let pixels = width * height;
     let frame = pixels * 4;
-    let peak = LOSSLESS_ONE_SHOT_PEAK_BYTES_PER_RGB_PIXEL;
     // The source-path floor: Image3<f32> padded to 16x8 plus three i32
     // Modular channels, plus two alpha planes. A regression pin of the
     // formula, not evidence of the allocations.
@@ -137,24 +138,58 @@ fn input_frame_and_measured_one_shot_peak_are_reserved() {
         known_codec_frame_bytes(width, height, true).unwrap(),
         known + pixels * 4 * 2
     );
-    // Frame plus reservation equal the measured peak per pixel.
+    // One-shot (at most 8 groups): the per-pixel term and the constant,
+    // minus the input the measured process held (3 B/px RGB, 4 RGBA).
     let opaque = lossless_codec_reservation_bytes(width, height, false).unwrap();
-    assert_eq!(opaque, pixels * (peak - 4));
+    let [one_shot, one_shot_alpha] = LOSSLESS_ONE_SHOT_BYTES_PER_PIXEL;
+    assert_eq!(
+        opaque,
+        pixels * one_shot + LOSSLESS_PEAK_CONSTANT_BYTES - pixels * 3
+    );
     assert!(opaque > known);
     let alpha = lossless_codec_reservation_bytes(width, height, true).unwrap();
-    assert_eq!(alpha, (pixels * peak * 4).div_ceil(3) - frame);
-    // Small images keep the source-path floor.
     assert_eq!(
-        lossless_codec_reservation_bytes(1, 1, false).unwrap(),
-        known_codec_frame_bytes(1, 1, false).unwrap()
+        alpha,
+        pixels * one_shot_alpha + LOSSLESS_PEAK_CONSTANT_BYTES - pixels * 4
     );
-    // The cited 24 MP measurement (engine CLI, mountain JPEG to JPEG XL,
-    // 1,707-1,719 MB RSS) fits in what is now reserved, read as MiB; the
-    // old reservation was 672 MB.
+    // Chunked (more than 8 groups): the frame term plus one DC group.
+    let [chunked, _] = LOSSLESS_CHUNKED_BYTES_PER_PIXEL;
+    let [dc_group, _] = LOSSLESS_CHUNKED_DC_GROUP_BYTES_PER_PIXEL;
     let (w, h) = (6000, 4000);
-    let reserved = w * h * 4 + lossless_codec_reservation_bytes(w, h, false).unwrap();
-    assert!(reserved >= 1_719 << 20, "{reserved}");
-    assert!(w * h * 4 + known_codec_frame_bytes(w, h, false).unwrap() < 1_707_000_000);
+    assert_eq!(
+        lossless_codec_reservation_bytes(w, h, false).unwrap(),
+        w * h * chunked + 2048 * 2048 * dc_group + LOSSLESS_PEAK_CONSTANT_BYTES - w * h * 3
+    );
+    // The measured peaks (RSS of a fresh process, the larger of two runs,
+    // the port's public encoder with the default buffering) fit in the
+    // engine's frame plus reservation. The one-shot 24 MP peak of the
+    // previous path (1,751 MB, 2026-11-15) is far above the new one.
+    for (w, h, alpha, measured) in [
+        (512, 1024, false, 44_990_464),
+        (512, 1024, true, 59_375_616),
+        (700, 700, false, 32_440_320),
+        (700, 700, true, 39_206_912),
+        (1024, 1024, false, 65_437_696),
+        (1024, 1024, true, 85_000_192),
+        (2048, 2048, false, 219_217_920),
+        (2048, 2048, true, 293_699_584),
+        (3000, 2000, false, 308_609_024),
+        (3000, 2000, true, 400_621_568),
+        (4032, 3024, false, 402_882_560),
+        (4032, 3024, true, 516_194_304),
+        (6000, 4000, false, 477_724_672),
+        (6000, 4000, true, 693_764_096),
+    ] {
+        let reserved = w * h * 4 + lossless_codec_reservation_bytes(w, h, alpha).unwrap();
+        assert!(
+            reserved >= measured,
+            "{w}x{h} alpha={alpha}: {reserved} < {measured}"
+        );
+    }
+    assert!(
+        6000 * 4000 * 4 + lossless_codec_reservation_bytes(6000, 4000, false).unwrap()
+            < 1_751_056_384
+    );
 
     let data = rows(width, height, false);
     assert!(matches!(
@@ -172,7 +207,7 @@ fn input_frame_and_measured_one_shot_peak_are_reserved() {
     encode(width, height, &data, &exact).unwrap();
     assert_eq!(exact.snapshot().peak, frame + opaque);
     assert_eq!(exact.snapshot().live, 0);
-    // Transparent rows need the alpha planes as well.
+    // Transparent rows need the alpha reservation.
     let data = rows(width, height, true);
     assert!(encode(width, height, &data, &MemoryBudget::new(frame + opaque)).is_err());
     encode(width, height, &data, &MemoryBudget::new(frame + alpha)).unwrap();
@@ -191,11 +226,14 @@ fn incomplete_or_misordered_rows_are_rejected() {
 
 /// The original's public tool is the byte reference of the lossless sink
 /// (issue #249, ADR-0039): each fixture was written by the pinned libjxl's
-/// own `cjxl -d 0 -e 2 --buffering=0 --num_threads=0 -x
-/// color_space=RGB_D65_SRG_Rel_SRG` from these `rows` as PPM or PAM
+/// own `cjxl -d 0 -e 2 --num_threads=0 -x color_space=RGB_D65_SRG_Rel_SRG`
+/// with its default buffering from these `rows` as PPM or PAM
 /// (`tests/fixtures/jxl-lossless/README.md`). The sink must write the same
 /// file, byte for byte: this is the original's output, not a pin of the
-/// port's.
+/// port's. Since 2026-11-15 (issue #223) the sink encodes like that default:
+/// the 2049x40 patterns (9 groups) take the original's chunked path, whose
+/// bytes differ from `--buffering=0`; the three smaller files have at most 8
+/// groups, where both commands write the same bytes, and are unchanged.
 #[test]
 fn lossless_output_equals_the_original_cjxl_bytes() {
     for (width, height, alpha, reference) in [
@@ -216,6 +254,18 @@ fn lossless_output_equals_the_original_cjxl_bytes() {
             260,
             false,
             &include_bytes!("../tests/fixtures/jxl-lossless/rgb-300x260.jxl")[..],
+        ),
+        (
+            2049,
+            40,
+            false,
+            &include_bytes!("../tests/fixtures/jxl-lossless/rgb-2049x40.jxl")[..],
+        ),
+        (
+            2049,
+            40,
+            true,
+            &include_bytes!("../tests/fixtures/jxl-lossless/rgba-2049x40.jxl")[..],
         ),
     ] {
         let budget = MemoryBudget::new(64 << 20);
