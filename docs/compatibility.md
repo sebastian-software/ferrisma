@@ -16,7 +16,7 @@ else, including every private module, is outside the contract.
 | --- | --- | --- |
 | Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run` |
 | Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, quality, speed, chroma, threads, and the four resource limits; `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifEncoder::Libavif`, `JpegXlDecoder::LibjxlRs`, `JpegXlOptions` |
-| Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()` |
+| Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
 | Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `avif-write`, `icc`, `cli` | `jpeg-xl-own-read`, `jpeg-xl-write`, `avif-read`, `avif-own-write` |
 | CLI | Positional arguments, color policy, quality, speed, chroma, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-encoder`, `--avif-depth`, `--jxl-decoder`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
 
@@ -56,10 +56,21 @@ meets several classes, the reason names the check that refused it first.
 | `UnsupportedLayout` | `UnsupportedInput` | CMYK/YCCK JPEG, monochrome AVIF, constant-luminance BT.2020, grayscale/CMYK/float/extra-channel JPEG XL | convert to RGB(A) first |
 | `AlphaAssociation` | `UnsupportedInput` | premultiplied or unspecified alpha | convert to straight alpha first |
 | `GeometricTransform` | `UnsupportedInput` | AVIF `clap`, `imir` before `irot`, EXIF orientation outside 1 to 8 | remove the transform first |
-| `UnsupportedEssentialProperty` | `UnsupportedInput` | the primary AVIF item cites a property marked essential that the engine does not understand (since 2026-11-15; before, `MalformedInput` without a reason) | remove or convert that property first |
+| `UnsupportedEssentialProperty` | `UnsupportedInput` | an AVIF item the reader uses (primary, grid cells, alpha) cites a property marked essential that the engine does not understand (alpha and cells since 2026-11-15, ADR-0042 D1) (since 2026-11-15; before, `MalformedInput` without a reason) | remove or convert that property first |
 
 New reasons may be added in a minor release (match with a wildcard arm); a
 documented reason keeps its meaning.
+
+## Discarded information
+
+`ProcessingReport::discarded` names each class of input information a
+successful transcode left out of a correct picture ([ADR-0042](adr/0042-no-silent-loss-refuse-or-report.md)
+D2; experimental, working decision 2026-11-15, delegated, revisable by the
+owner). A caller that must not lose anything can reject a result whose set
+is not empty; the classes and when each applies are in the
+[supported matrix](supported-matrix.md#discarded-report). New classes may
+be added in a minor release; a class keeps its meaning. The CLI prints the
+set as the `discarded=` key of its `report:` line (`none` when empty).
 
 ## What a minor release may change
 
@@ -100,7 +111,8 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   exits 0 without reading input (since 2026-11-13, #237). ADR-0040 does not
   yet assign the flag or its output to a stability tier.
 - The `report:` line on standard output has stable keys with integer
-  values; new keys may be added. The other output lines are for people and
+  values, except the names (precision, kernel level, backends,
+  `color_signal`, `discarded`); new keys may be added. The other output lines are for people and
   may change.
 
 ## Deprecation and upgrades

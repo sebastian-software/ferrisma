@@ -30,10 +30,25 @@ compositing JPEG XL layers into the displayed image).
 
 | Class | Items | Inputs (J, W, X, V) | Outputs (O) | Pipeline (P) | Options (Q) |
 | --- | --- | --- | --- | --- | --- |
-| A | 25 | 20 | 2 | 1 | 2 |
-| B | 29 | 12 | 8 | 6 | 3 |
-| C | 21 | 15 | 0 | 2 | 4 |
+| A | 25 → 7 | 20 → 3 | 2 → 1 | 1 | 2 |
+| B | 29 → 13 | 12 → 3 | 8 → 4 | 6 → 3 | 3 |
+| C | 21 → 55 | 15 → 41 | 0 → 5 | 2 → 5 | 4 |
 | D | 11 | 8 | 3 | 0 | 0 |
+
+The first number is the state of the audit (`main` at `64284177`), the
+second the state after branch `v1/engine-discarded` (2026-11-15): the
+refusals of ADR-0042 D1 and D4 (V4, X6 to X9) and the report of D2,
+`ProcessingReport::discarded` with its CLI key `discarded=`, moved 48
+items to (C); each row says what reports or refuses it and which test of
+`tests/discarded_report.rs` or `tests/silent_drops.rs` proves it. Still
+open under ADR-0042 D6: the remaining (A) items (J10 XMP-only
+orientation, X12 `intrinsic_size`, V8 the `sato` alternative, P4 the
+rendering intent, and the owner's open questions O8, Q5, Q7) and the (B)
+items that are documented but not reported. Of these, out-of-gamut
+clipping (P2, P3) cannot be detected cheaply and exactly: a value outside
+[0, 1] at quantization may be resampling overshoot as well as gamut, and
+moxcms clamps inside its LUT path without a signal; it is not reported on
+a guess.
 
 Two more input items (J16 and W7, corrupted JPEG scan data and a corrupted
 WebP payload) are outside the classes: the codec cannot detect them. The
@@ -51,15 +66,15 @@ classified refusal; it is counted as (C).
 
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| J1 | EXIF beyond orientation (camera, date, GPS, resolution, embedded thumbnail) | read for the orientation tag only, then dropped; no output writes EXIF | `src/codecs/jpeg.rs` `JpegSource::new`, `exif_orientation` | matrix, Outputs "Metadata" (AVIF, WebP) | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels`, `webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp`; `silent_drops::source_exif_and_xmp_are_dropped_from_jpeg_xl_output_today` | B |
-| J2 | XMP, extended XMP | ignored, dropped | not read anywhere | matrix, Outputs "Metadata" | same; `paris_extended_xmp.jpg` (probe) | B |
-| J3 | IPTC (APP13 `Photoshop 3.0`) | ignored, dropped | not read | no | `silent_drops::jpeg_iptc_and_comments_are_dropped_today` (`seine_sdr_gainmap_srgb.jpg`) | A |
-| J4 | `COM` comments | ignored, dropped | not read | no | same (`apple_gainmap_new.jpg`) | A |
-| J5 | JUMBF / C2PA (APP11) | ignored, dropped; a content-provenance manifest disappears | not read | no | no fixture in the repository | A |
+| J1 | EXIF beyond orientation (camera, date, GPS, resolution, embedded thumbnail) | read for the orientation tag only, then dropped; no output writes EXIF. **Since `v1/engine-discarded`: reported: `Discarded::Exif`** | `src/codecs/jpeg.rs` `JpegSource::new`, `exif_orientation` | matrix, Outputs "Metadata" (AVIF, WebP) | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels`, `webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp`; `silent_drops::source_exif_and_xmp_are_dropped_from_jpeg_xl_output_today`; `discarded_report::jpeg_exif_is_reported_even_when_its_orientation_is_applied` | C |
+| J2 | XMP, extended XMP | ignored, dropped. **Since `v1/engine-discarded`: reported: `Discarded::Xmp`** | not read anywhere | matrix, Outputs "Metadata" | same; `paris_extended_xmp.jpg` (probe); `discarded_report::jpeg_xmp_icc_and_other_metadata_are_reported` | C |
+| J3 | IPTC (APP13 `Photoshop 3.0`) | ignored, dropped. **Since `v1/engine-discarded`: reported: `Discarded::OtherMetadata`** | not read | no | `silent_drops::jpeg_iptc_and_comments_are_dropped_today` (`seine_sdr_gainmap_srgb.jpg`); `discarded_report::jpeg_gain_maps_iptc_and_comments_are_reported` | C |
+| J4 | `COM` comments | ignored, dropped. **Since `v1/engine-discarded`: reported: `Discarded::OtherMetadata`** | not read | no | same (`apple_gainmap_new.jpg`); `discarded_report::jpeg_gain_maps_iptc_and_comments_are_reported` | C |
+| J5 | JUMBF / C2PA (APP11) | ignored, dropped; a content-provenance manifest disappears. **Since `v1/engine-discarded`: reported: `Discarded::OtherMetadata` (APP11), code path only, no fixture** | not read | no | no fixture in the repository | C |
 | J6 | ICC profile | `UseRenderedIcc`: converted to sRGB, `color_signal = RenderedIcc`; otherwise refused (`RenderedIccRequiresOptIn`) | `src/cms.rs` `IccSrgbSource` | matrix, Color policy | `supported_matrix::jpeg_embedded_icc_needs_the_rendered_icc_policy`, `tests/icc_photo.rs` | C |
-| J7 | MPF secondary images: Ultra HDR and Apple gain maps | the SDR base image is read; the gain map and its `hdrgm` XMP are ignored; no signal that HDR content existed | not read | matrix, JPEG evidence ("MPF secondary images are not read") | `silent_drops::jpeg_gain_maps_are_ignored_and_the_base_image_is_read_today` | B |
-| J8 | Pixel aspect ratio (JFIF density with units 0, non-square) | ignored: display size is the stored pixel size | `JpegSource::new` reads no JFIF fields | no | `silent_drops::jpeg_pixel_aspect_ratio_is_ignored_today` (patched `sample.jpg`) | A |
-| J9 | Resolution (JFIF density in dpi, EXIF `XResolution`) | dropped; no output carries it | not read | no (EXIF in general: J1) | `paris_exif_xmp_icc.jpg` (300 dpi) through J1's tests | A |
+| J7 | MPF secondary images: Ultra HDR and Apple gain maps | the SDR base image is read; the gain map and its `hdrgm` XMP are ignored; no signal that HDR content existed. **Since `v1/engine-discarded`: reported: `Discarded::GainMap`** | not read | matrix, JPEG evidence ("MPF secondary images are not read") | `silent_drops::jpeg_gain_maps_are_ignored_and_the_base_image_is_read_today`; `discarded_report::jpeg_gain_maps_iptc_and_comments_are_reported` | C |
+| J8 | Pixel aspect ratio (JFIF density with units 0, non-square) | ignored: display size is the stored pixel size. **Since `v1/engine-discarded`: reported: a JFIF density other than 1:1 aspect is `Discarded::OtherMetadata`** | `JpegSource::new` reads no JFIF fields | no | `silent_drops::jpeg_pixel_aspect_ratio_is_ignored_today` (patched `sample.jpg`); `discarded_report::jpeg_xmp_icc_and_other_metadata_are_reported` | C |
+| J9 | Resolution (JFIF density in dpi, EXIF `XResolution`) | dropped; no output carries it. **Since `v1/engine-discarded`: reported: `Discarded::OtherMetadata` (JFIF density), `Discarded::Exif`** | not read | no (EXIF in general: J1) | `paris_exif_xmp_icc.jpg` (300 dpi) through J1's tests; `discarded_report::jpeg_xmp_icc_and_other_metadata_are_reported` | C |
 | J10 | Orientation in XMP (`tiff:Orientation`) without EXIF | ignored | only EXIF is read | no | no fixture | A |
 | J11 | EXIF orientation 1–8 | applied before crop | `src/orientation.rs` | matrix | `supported_matrix::jpeg_exif_orientations_are_applied_before_crop` | D |
 | J12 | EXIF orientation outside 1–8, malformed EXIF | refused (`GeometricTransform`; `MalformedInput`) | `JpegSource::new` | matrix | `codecs::jpeg::tests::exif_orientation_is_reported_and_invalid_values_fail_closed` | C |
@@ -72,9 +87,9 @@ classified refusal; it is counted as (C).
 
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| W1 | `EXIF` beyond orientation, `XMP ` | orientation read, rest dropped | `src/codecs/webp.rs` `read_exif_orientation` | matrix, Outputs | `supported_matrix::webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp` | B |
+| W1 | `EXIF` beyond orientation, `XMP ` | orientation read, rest dropped. **Since `v1/engine-discarded`: reported: `Discarded::Exif`, `Discarded::Xmp`** | `src/codecs/webp.rs` `read_exif_orientation` | matrix, Outputs | `supported_matrix::webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp`; `discarded_report::webp_chunks_are_reported` | C |
 | W2 | `ICCP` | rendered ICC, converted under `UseRenderedIcc` (reported) | `WebpSource::new_bounded` | matrix | `supported_matrix::webp_straight_alpha_input_keeps_alpha` | C |
-| W3 | Unknown chunks | ignored (the container allows it) | libwebp `Container` | no | no fixture | A |
+| W3 | Unknown chunks | ignored (the container allows it). **Since `v1/engine-discarded`: reported: `Discarded::UnknownContainerData`** | libwebp `Container` | no | no fixture; `discarded_report::webp_chunks_are_reported` (renamed `EXIF` chunk) | C |
 | W4 | Animation | refused, no first frame (`Animation`) | `new_bounded` | matrix | `supported_matrix::webp_animation_is_rejected_without_a_first_frame_fallback` | C |
 | W5 | Straight alpha | kept | `new_bounded` | matrix | `supported_matrix::webp_straight_alpha_input_keeps_alpha` | D |
 | W6 | Truncated file | `MalformedInput` | `decode_into` | matrix ("malformed containers") | `silent_drops::truncated_inputs_are_malformed` | C |
@@ -84,23 +99,23 @@ classified refusal; it is counted as (C).
 
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| X1 | `Exif` and `xml ` boxes | ignored by both readers, dropped | `crates/ferrisma-jxl-decoder` subscribes to `BASIC_INFO`, `COLOR_ENCODING`, `FULL_IMAGE` only; jxl-oxide ignores boxes | matrix, Outputs "Metadata" | `silent_drops::jpeg_xl_container_boxes_are_dropped_today` (`decode-test/1x1_exif_xmp.jxl`) | B |
-| X2 | JPEG reconstruction data (`jbrd`) | ignored: the pixels are decoded, bit-exact JPEG recovery is lost | same | no | same fixture | A |
-| X3 | JUMBF / C2PA (`jumb`), gain map (`jhgm`) | ignored | same | no | no fixture | A |
+| X1 | `Exif` and `xml ` boxes | ignored by both readers, dropped. **Since `v1/engine-discarded`: reported: `Discarded::Exif`, `Discarded::Xmp`, by both readers** | `crates/ferrisma-jxl-decoder` subscribes to `BASIC_INFO`, `COLOR_ENCODING`, `FULL_IMAGE` only; jxl-oxide ignores boxes | matrix, Outputs "Metadata" | `silent_drops::jpeg_xl_container_boxes_are_dropped_today` (`decode-test/1x1_exif_xmp.jxl`); `discarded_report::jpeg_xl_boxes_are_reported_by_both_readers` | C |
+| X2 | JPEG reconstruction data (`jbrd`) | ignored: the pixels are decoded, bit-exact JPEG recovery is lost. **Since `v1/engine-discarded`: reported: `Discarded::JpegReconstructionData`** | same | no | same fixture; `discarded_report::jpeg_xl_boxes_are_reported_by_both_readers` | C |
+| X3 | JUMBF / C2PA (`jumb`), gain map (`jhgm`) | ignored. **Since `v1/engine-discarded`: reported: `jumb` as `OtherMetadata`, `jhgm` as `GainMap` (code path, no fixture)** | same | no | no fixture | C |
 | X4 | DATA ICC profile | converted under `UseRenderedIcc` (reported), otherwise refused | `src/codecs/jxl.rs`, `jxl_oxide.rs` | matrix | `supported_matrix::jpeg_xl_rgb_needs_the_rendered_icc_policy_on_both_readers` | C |
 | X5 | Extra channels other than one alpha, **libjxl-rs** | refused (`UnsupportedLayout`) before pixels | `ferrisma-jxl-decoder` `Decoder::info` | matrix | `supported_matrix::jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected` | C |
-| X6 | Depth, selection mask, black next to RGB, CFA, thermal and optional extra channels, **jxl-oxide** | accepted; the channels are left out of the pixel stream (a black channel next to RGB is lost, so the colors change) | jxl-oxide 0.12.6 `PixelFormat`; `src/codecs/jxl_oxide.rs` sees no channel count | no (matrix: "jxl-oxide reports some extra-channel files as unspecified alpha") | `silent_drops::jxl_oxide_drops_extra_channels_that_libjxl_rs_refuses_today` (`extra-channel-type-{1,3,4,5,6,16}.jxl`) | A |
-| X7 | Spot colors, **jxl-oxide** | accepted; composited into the RGB samples (`render_spot_color`, default on for color images), an unrequested change of the color values | jxl-oxide `fb.rs` | no | same test (`extra-channel-type-2.jxl`) | A |
-| X8 | Several alpha channels, **jxl-oxide** | the first is rendered, the others dropped | jxl-oxide `fb.rs` ("Find alpha") | no | `silent_drops::jxl_oxide_keeps_only_the_first_of_several_alpha_channels_today` | A |
-| X9 | Reserved extra-channel type that libjxl rejects | libjxl-rs: `MalformedInput`; jxl-oxide decodes it and drops the channel | — | no | `silent_drops::jxl_oxide_accepts_a_reserved_extra_channel_type_that_libjxl_rejects_today` (`extra-channel-rejected-15.jxl`) | A |
+| X6 | Depth, selection mask, black next to RGB, CFA, thermal and optional extra channels, **jxl-oxide** | accepted; the channels are left out of the pixel stream (a black channel next to RGB is lost, so the colors change). **Since `v1/engine-discarded`: refused by jxl-oxide as `UnsupportedLayout`, as by libjxl-rs (ADR-0042 D1, D4); D4 for JPEG XL is also met by removing the jxl-oxide runtime reader (owner decision 2026-11-15, pending the libjxl-rs AVX2 fix)** | jxl-oxide 0.12.6 `PixelFormat`; `src/codecs/jxl_oxide.rs` sees no channel count | no (matrix: "jxl-oxide reports some extra-channel files as unspecified alpha") | `silent_drops::both_jpeg_xl_readers_refuse_extra_channels_other_than_alpha` (`extra-channel-type-{1,2,3,4,5,6,16}.jxl`, all policies, both readers) | C |
+| X7 | Spot colors, **jxl-oxide** | accepted; composited into the RGB samples (`render_spot_color`, default on for color images), an unrequested change of the color values. **Since `v1/engine-discarded`: refused, as X6** | jxl-oxide `fb.rs` | no | `silent_drops::both_jpeg_xl_readers_refuse_extra_channels_other_than_alpha` (`extra-channel-type-2.jxl`) | C |
+| X8 | Several alpha channels, **jxl-oxide** | the first is rendered, the others dropped. **Since `v1/engine-discarded`: refused, as X6** | jxl-oxide `fb.rs` ("Find alpha") | no | `silent_drops::both_jpeg_xl_readers_refuse_a_second_alpha_channel` | C |
+| X9 | Reserved extra-channel type that libjxl rejects | libjxl-rs: `MalformedInput`; jxl-oxide decodes it and drops the channel. **Since `v1/engine-discarded`: refused as `MalformedInput` by both readers, as X6** | — | no | `silent_drops::both_jpeg_xl_readers_reject_a_reserved_extra_channel_type` (`extra-channel-rejected-15.jxl`) | C |
 | X10 | Layers, patches, blending, reference frames | composited into the displayed image by both readers | decoders | jxl-oxide adapter tests | `codecs::jxl_oxide::tests::animated_input_is_rejected_rather_than_reduced_to_its_first_frame` ("several frames composited into one still keyframe") | D |
-| X11 | Preview frame | ignored | decoders | no | no fixture | A |
+| X11 | Preview frame | ignored. **Since `v1/engine-discarded`: reported: `Discarded::Preview`** | decoders | no | no fixture; `discarded_report::jpeg_xl_preview_is_reported` (libjxl-rs; jxl-oxide rejects that fixture as malformed) | C |
 | X12 | `intrinsic_size` (display size hint) | ignored | decoders | no | no fixture | A |
 | X13 | Animation | refused (`Animation`) | both adapters | matrix | `supported_matrix::jpeg_xl_animation_is_rejected_by_both_readers` | C |
 | X14 | Gray, CMYK, float, premultiplied or unspecified alpha, PQ/HLG | refused with a reason | adapters, `cms.rs` | matrix | `supported_matrix` JPEG XL cases | C |
 | X15 | Orientation | rendered upright by the decoder | decoders | matrix | `orientation_tests::jpeg_xl_orientations_are_rendered_upright_for_every_crop` | D |
 | X16 | Progressive passes, truncation | the full image is decoded; a truncated file is `MalformedInput` with both readers (no partial render) | `drive`; jxl-oxide `render_frame_cropped` | no | `silent_drops::truncated_inputs_are_malformed` | C |
-| X17 | Bit depth above 8 (16-bit, 31-bit integer samples) | decoded as float, then 8-bit output | — | matrix, Color policy ("8-bit … rows") | `modular-rgb31.jxl` with libjxl-rs (probe) | B |
+| X17 | Bit depth above 8 (16-bit, 31-bit integer samples) | decoded as float, then 8-bit output. **Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`** | — | matrix, Color policy ("8-bit … rows") | `modular-rgb31.jxl` with libjxl-rs (probe); `discarded_report::jpeg_xl_precision_above_eight_bits_is_reported` | C |
 
 Finding, not a silent drop: jxl-oxide panics in a debug build on
 `modular-rgb31.jxl` (`jxl-image` 0.13.0 `parse_integer_sample`, `1 << 31`
@@ -113,20 +128,20 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| V1 | `Exif` and `mime` (XMP) items | ignored, dropped; an EXIF orientation inside is not applied (`irot`/`imir` govern) | `src/codecs/avif_meta.rs` reads the primary item's properties only | matrix, Outputs "Metadata" | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels` | B |
+| V1 | `Exif` and `mime` (XMP) items | ignored, dropped; an EXIF orientation inside is not applied (`irot`/`imir` govern). **Since `v1/engine-discarded`: reported: `Discarded::Exif`, `Discarded::Xmp`, `OtherMetadata` for other `mime`/`uri ` items** | `src/codecs/avif_meta.rs` reads the primary item's properties only | matrix, Outputs "Metadata" | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels`; `discarded_report::avif_metadata_items_icc_and_gain_maps_are_reported` | C |
 | V2 | `colr prof`/`rICC`, `nclx` | ICC converted under `UseRenderedIcc`; `nclx` checked against the AV1 header and beside the ICC | `avif.rs`, `cms.rs` | matrix | `supported_matrix::avif_container_icc_needs_the_rendered_icc_policy` | C |
-| V3 | Gain map (`tmap`) | ignored, SDR base read | libavif `imageContentToDecode` default | matrix, AVIF details | `supported_matrix::avif_gain_map_is_ignored_and_the_base_image_is_read` | B |
-| V4 | Alpha item with an unknown **essential** property | libavif skips the item (`hasUnsupportedEssentialProperty`); the image is read as **opaque** without an error; the engine checks only the primary item | `avif_meta.rs` `primary_properties`; libavif `read.c` | no | `silent_drops::avif_alpha_item_with_an_unknown_essential_property_is_dropped_today` (patched `abc_color_irot_alpha_irot.avif`) | A |
+| V3 | Gain map (`tmap`) | ignored, SDR base read. **Since `v1/engine-discarded`: reported: `Discarded::GainMap`** | libavif `imageContentToDecode` default | matrix, AVIF details | `supported_matrix::avif_gain_map_is_ignored_and_the_base_image_is_read`; `discarded_report::avif_metadata_items_icc_and_gain_maps_are_reported` | C |
+| V4 | Alpha item with an unknown **essential** property | libavif skips the item (`hasUnsupportedEssentialProperty`); the image is read as **opaque** without an error; the engine checks only the primary item. **Since `v1/engine-discarded`: refused with `UnsupportedEssentialProperty`, like the primary item; so are grid cells; an unused item is no reason (ADR-0042 D1)** | `avif_meta.rs` `primary_properties`; libavif `read.c` | no | `silent_drops::avif_alpha_item_with_an_unknown_essential_property_is_refused` (patched `abc_color_irot_alpha_irot.avif`), `avif_grid_cell_with_an_unknown_essential_property_is_refused`, `avif_unknown_essential_property_on_an_unused_item_is_not_a_refusal` | C |
 | V5 | Unknown essential property of the primary item | refused, `UnsupportedEssentialProperty` (since this branch; before, `MalformedInput`) | `avif.rs` `new_bounded` | matrix, compatibility | `supported_matrix::avif_unknown_essential_property_is_refused_as_unsupported` | C |
-| V6 | Unknown non-essential properties, unknown `colr` types | ignored, as ISO/IEC 23008-12 permits | `avif_meta.rs` `read_property` (`_ => {}`) | no | `silent_drops::avif_non_essential_unknown_properties_are_ignored_today` (`circle_custom_properties.avif`) | A |
-| V7 | `pasp` (pixel aspect ratio) | ignored (same path) | same | no | no fixture | A |
+| V6 | Unknown non-essential properties, unknown `colr` types | ignored, as ISO/IEC 23008-12 permits. **Since `v1/engine-discarded`: reported: `Discarded::UnknownContainerData`** | `avif_meta.rs` `read_property` (`_ => {}`) | no | `silent_drops::avif_non_essential_unknown_properties_are_ignored_today` (`circle_custom_properties.avif`); `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` | C |
+| V7 | `pasp` (pixel aspect ratio) | ignored (same path). **Since `v1/engine-discarded`: reported: `Discarded::UnknownContainerData`** | same | no | no fixture; `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` (Android `fox.*.avif` carry `pasp`) | C |
 | V8 | Sample-transform (`sato`) alternative with more precision | the 12-bit primary is read | libavif without its experimental `sato` support | no | `silent_drops::avif_sample_transform_alternative_is_ignored_today` | A |
-| V9 | Premultiplied alpha (`prem`) | libavif un-premultiplies into straight RGBA (`rgb.alphaPremultiplied = 0`); JPEG XL premultiplied alpha is refused instead | `crates/ferrisma-avif-read` `rgb` | no | no fixture | A |
+| V9 | Premultiplied alpha (`prem`) | libavif un-premultiplies into straight RGBA (`rgb.alphaPremultiplied = 0`); JPEG XL premultiplied alpha is refused instead. **Since `v1/engine-discarded`: reported: `Discarded::Unpremultiplied` (refusing it instead is open question 4 of ADR-0042)** | `crates/ferrisma-avif-read` `rgb` | no | no fixture; `discarded_report::premultiplied_avif_alpha_is_reported_as_unpremultiplied` (`prem` inserted into `abc_color_irot_alpha_irot.avif`) | C |
 | V10 | Depth and other auxiliary images in a still | ignored (only alpha is read) | libavif | matrix, AVIF details | no still fixture | B |
 | V11 | Grid, `pymd` pyramid | composed grid / primary item at full size | libavif | matrix | `supported_matrix::avif_alpha_and_grid_stills_are_accepted`; `pyramid_pymd.avif` (probe) | D |
 | V12 | Sequences, `clap`, `imir` before `irot`, monochrome, PQ/HLG | refused with a reason | `avif.rs` | matrix | `supported_matrix` AVIF cases | C |
 | V13 | `irot`/`imir` | applied before crop | `orientation.rs` | matrix | `supported_matrix::avif_irot_and_imir_are_applied_for_all_eight_orientations` | D |
-| V14 | 10/12-bit samples | normalized float, then 8-bit output | `avif.rs` `read_region` | matrix | `supported_matrix::avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted` | B |
+| V14 | 10/12-bit samples | normalized float, then 8-bit output. **Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`** | `avif.rs` `read_region` | matrix | `supported_matrix::avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted`; `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` (10-bit against 8-bit) | C |
 | V15 | Limited range | expanded to full range by libavif (value-preserving) | libavif | `avif.rs` module doc | — | D |
 | V16 | Chroma upsampling | nearest neighbor, forced by the wrapper | `ferrisma-avif-read` `rgb` | `avif.rs` module doc only | — | B |
 | V17 | Truncation, corrupted payload | `MalformedInput` | `bridge_error` | matrix | `silent_drops::truncated_avif_is_malformed`; 16 inverted bytes in `paris_icc_exif_xmp.avif` (probe) | C |
@@ -135,7 +150,7 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 
 | # | Output | Item | Today | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| O1 | AVIF, both encoders | source EXIF/XMP/ICC | not written; sRGB signaled (libavif `nclx` 1/13/6 full; rav1e AV1 header only) | matrix, Outputs | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels` | B |
+| O1 | AVIF, both encoders | source EXIF/XMP/ICC | not written; sRGB signaled (libavif `nclx` 1/13/6 full; rav1e AV1 header only). **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`, `IccProfile`** | matrix, Outputs | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels` | C |
 | O2 | AVIF libavif 10-bit (default) | precision | the 10-bit file carries 8-bit rows | matrix ("8-bit straight-alpha RGBA rows") | `libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx` | B |
 | O3 | AVIF libavif | `quality` fraction | rounded to an integer | rustdoc of `quality` | `libavif_quality_speed_and_depth_ranges` | B |
 | O4 | AVIF rav1e | depth, alpha quality | always 10-bit; alpha at fixed quality 80 whatever `quality` says | rustdoc, matrix | `rav1e_writes_ten_bit_without_a_container_colr`, `rav1e_writes_an_alpha_item_for_transparent_input` | B |
@@ -143,22 +158,22 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | O6 | All | fully opaque alpha | omitted (no information lost) | matrix | `libavif_writes_an_alpha_item_only_for_transparent_input` | D |
 | O7 | WebP lossy | chroma | always 4:2:0; a nondefault `chroma_subsampling` is refused | matrix | `avif_settings_with_webp_output_are_mismatched_options` | B |
 | O8 | WebP lossy | `speed` | 2/3, 5/6 and 8/9 give the same method and the same bytes | no (rustdoc promises 1–10) | `silent_drops::webp_lossy_speeds_collapse_in_pairs_today` | A |
-| O9 | WebP | metadata | only the engine's sRGB `ICCP`; EXIF/XMP dropped | matrix | `webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp` | B |
-| O10 | WebP lossless | color under alpha 0 | libwebp keeps it (`exact`), but the engine has already made it black (P5), so the "lossless" file does not keep hidden color | ADR-0014 | P5 tests | B |
-| O11 | JPEG XL, both profiles | source EXIF/XMP | a raw codestream cannot carry them; the matrix does not say so for JPEG XL | no | `silent_drops::source_exif_and_xmp_are_dropped_from_jpeg_xl_output_today` | A |
-| O12 | JPEG XL lossy | color under alpha 0, patches | color replaced (`keep_invisible`), patch search off | matrix, rustdoc (fixed on this branch) | `jxl_lossy_tests::text_like_content_encodes_with_patches_off` | B |
+| O9 | WebP | metadata | only the engine's sRGB `ICCP`; EXIF/XMP dropped. **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`, `IccProfile`** | matrix | `webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp` | C |
+| O10 | WebP lossless | color under alpha 0 | libwebp keeps it (`exact`), but the engine has already made it black (P5), so the "lossless" file does not keep hidden color. **Since `v1/engine-discarded`: reported: `Discarded::HiddenColor`** | ADR-0014 | P5 tests; `discarded_report::hidden_color_under_zero_alpha_is_reported` | C |
+| O11 | JPEG XL, both profiles | source EXIF/XMP | a raw codestream cannot carry them; the matrix does not say so for JPEG XL. **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`** | no | `silent_drops::source_exif_and_xmp_are_dropped_from_jpeg_xl_output_today` | C |
+| O12 | JPEG XL lossy | color under alpha 0, patches | color replaced (`keep_invisible`), patch search off. **Since `v1/engine-discarded`: hidden color reported: `Discarded::HiddenColor` (patches are an encoder setting, not input data)** | matrix, rustdoc (fixed on this branch) | `jxl_lossy_tests::text_like_content_encodes_with_patches_off` | C |
 | O13 | JPEG XL lossless | samples | exact for the 8-bit rows | ADR-0039 | `jxl_output_tests::sink_round_trips_exactly_through_the_workspace_decoder` | D |
 
 ## Pipeline: precision, range, color and alpha
 
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| P1 | Bit depth | every input reaches the encoder as 8-bit RGBA rows | `fast_execute.rs` `quantize_row` | matrix, Color policy | — | B |
+| P1 | Bit depth | every input reaches the encoder as 8-bit RGBA rows. **Since `v1/engine-discarded`: reported when the input is deeper: `Discarded::PrecisionReduced`** | `fast_execute.rs` `quantize_row` | matrix, Color policy | —; `discarded_report::jpeg_xl_precision_above_eight_bits_is_reported` | C |
 | P2 | Out-of-gamut and over-range values (Display P3, float JPEG XL, Lanczos overshoot) | kept through resampling, clipped to [0, 1] at final quantization; nothing reports how much was clipped | `quantize_row` (`clamp(0.0, 1.0)`) | ADR-0013, ADR-0016 (rule 5 asks for a "visible decision … with output metadata", not delivered) | `tests/icc_photo.rs::photograph_as_display_p3_matches_littlecms_out_of_gamut` | B |
 | P3 | ICC profiles outside moxcms' extended matrix-shaper path (LUT profiles) | clamped to the destination gamut inside moxcms, before resampling | `cms.rs` `IccSrgbSource::new` | ADR-0016 (2026-11-06), ADR-0023 | `cms::tests` | B |
-| P4 | Rendering intent | moxcms' default `Perceptual` is used for every profile; the profile header's intent is not consulted. ADR-0016 calls intents other than relative colorimetric "open", which reads as if relative colorimetric were used | `cms.rs` (`TransformOptions::default()`) | no (misleading) | no LUT-based fixture | A |
-| P5 | Color under alpha 0 | made transparent black | `quantize_row` | ADR-0014 | `tests/resize_oracle.rs` (transparent black), `linear_srgb_tests::all_transparent_pixels_yield_canonical_transparent_black` | B |
-| P6 | Alpha precision | 10/12/16-bit or float alpha quantized to 8 bits | `quantize_row` | matrix | — | B |
+| P4 | Rendering intent | moxcms' default `Perceptual` is used for every profile; the profile header's intent is not consulted. Verified 2026-11-15: the intent is set nowhere in the engine; `src/cms.rs` `IccSrgbSource::new` builds `TransformOptions { allow_extended_range_rgb_xyz, ..TransformOptions::default() }`, and moxcms 0.9.1 `TransformOptions::default()` sets `rendering_intent: RenderingIntent::default()` (`transform.rs:141`), which is `Perceptual` (`profile.rs:599`). ADR-0016 (amendment #17/#41) lists "LUT-based profiles, intents other than relative colorimetric" as open, which reads as if relative colorimetric were used. Where it matters: moxcms reads the intent only in its LUT paths (`conversions/lut_transforms.rs`, `md_luts_factory.rs`: `get_device_to_pcs` picks `A2B0` for perceptual and `A2B1` for relative colorimetric, `transform.rs:1202`, plus black-point detection); when source and destination are both matrix/TRC profiles (`transform.rs:673`, `800`), as for every profile in the repository's tests, the intent has no effect and the output is the same. A LUT-based source profile with distinct perceptual and colorimetric tables gives different output. Open question 1 of ADR-0042 | `cms.rs` (`TransformOptions::default()`) | no (misleading) | no LUT-based profile fixture in the repository (searched `tests/fixtures`, libavif and libjxl-rs test data, including embedded profiles), so no test | A |
+| P5 | Color under alpha 0 | made transparent black. **Since `v1/engine-discarded`: reported: `Discarded::HiddenColor` (input pixels of the processed region with alpha exactly 0 and nonzero color)** | `quantize_row` | ADR-0014 | `tests/resize_oracle.rs` (transparent black), `linear_srgb_tests::all_transparent_pixels_yield_canonical_transparent_black`; `discarded_report::hidden_color_under_zero_alpha_is_reported` | C |
+| P6 | Alpha precision | 10/12/16-bit or float alpha quantized to 8 bits. **Since `v1/engine-discarded`: reported with `Discarded::PrecisionReduced` (JPEG XL alpha above 8 bits; AVIF alpha has the color depth)** | `quantize_row` | matrix | — | C |
 | P7 | Miscoded `cicp` tag inside an ICC profile | ignored as a description (its PQ/HLG still refuses) | `cms.rs` | ADR-0016 (#17, #41) | `cms::tests` | B |
 | P8 | Missing color signal under `AssumeSrgbIfMissing` | sRGB assumed, `color_signal = AssumedSrgb` | `pipeline.rs` `run` | matrix | `tests/color_signal_and_refusals.rs` | C |
 | P9 | Display P3 or linear-sRGB CICP | converted, `color_signal = Cicp` | `fast_execute.rs` | matrix | `pipeline_tests` | C |
@@ -198,6 +213,21 @@ conversions into a typed error:
 | `src/codecs/avif_meta.rs` `read_property` (`_ => {}`) | unknown properties and `colr` types ignored: V6, V7 | A |
 
 ## Part 2: proposal (not implemented; the owner decides)
+
+_Update 2026-11-15:_ ADR-0042 accepted the principle. Implemented on
+`v1/engine-discarded`: the refusals (V4 for every item the AVIF reader
+uses, X6 to X9 in the jxl-oxide reader) and the report, as
+`ProcessingReport::discarded: DiscardedSet` of `Discarded` classes
+(`GainMap`, `Exif`, `Xmp`, `OtherMetadata`, `IccProfile`,
+`UnknownContainerData`, `JpegReconstructionData`, `Preview`,
+`HiddenColor`, `Unpremultiplied`, `PrecisionReduced`), a `Copy` set rather
+than a `Vec` so that the report stays `Copy`. Not implemented, as below
+and by the owner's brief: `GamutClipped` (see D6 above), separate
+`ContentProvenance`, `AuxiliaryImage`, `HigherPrecisionAlternative` and
+`PixelAspectRatio` classes (C2PA, PAR and resolution are inside
+`OtherMetadata`/`UnknownContainerData`), and every change to options,
+CLI flags and premultiplied AVIF alpha. The proposal below is kept as
+written.
 
 **Recommended shape: a report field, plus refusals where the result would
 be wrong.** Add `ProcessingReport::discarded: Vec<Discarded>` (a

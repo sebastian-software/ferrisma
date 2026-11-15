@@ -66,6 +66,7 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `KernelLevel`, `KernelLevelReason`, `TransformOptions::kernel_level_ceiling` | re-exported enums, field | Experimental (diagnostics) | Couples to `ferrisma-kernels`; see problem 7 |
 | `ProcessingError`, `ProcessingErrorKind` | struct, enum | Stable | Kind is non-exhaustive; message text is not stable |
 | `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decisions 2026-11-14 and 2026-11-15, #212) | Non-exhaustive closed vocabulary by refusal class (twelve variants since 2026-11-15); `None` outside it |
+| `ProcessingReport::discarded`, `Discarded`, `DiscardedSet` | field, enum, set | Experimental (working decision 2026-11-15, ADR-0042 D2) | Non-exhaustive classes of information left out of a correct picture; CLI `discarded=` |
 | `Engine`, `BatchItem` | struct, struct | Stable | ADR-0022 |
 | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with` | fn | Experimental | ADR-0024 backend extension point |
 | `EncoderBackend`, `RowEncoder`, `EncodeRequest`, `EncodedImage`, `EncodeError`, `EncodeErrorKind` | traits, structs, enum | Experimental | Implementors break if a required method is added; the structs and kind are already non-exhaustive |
@@ -350,3 +351,8 @@ reports that a stable item cannot express its use case.
   A changed kind for one input class, allowed in 0.x and recorded in
   [ADR-0017](0017-minimal-public-facade-and-cli.md). Working decision
   2026-11-15 (delegated, revisable by the owner): the variant name.
+- 2026-11-15 — `ProcessingReport::discarded` (`Discarded`, `DiscardedSet`)
+  and the CLI key `discarded=` enter the inventory as experimental
+  (additive, decision 2); the rule is [ADR-0042](0042-no-silent-loss-refuse-or-report.md)
+  D2, the design the [ADR-0017](0017-minimal-public-facade-and-cli.md)
+  amendment of the same date.

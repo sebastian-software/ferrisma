@@ -16,10 +16,12 @@ build provides it. It does not promise a stable API: the stability tiers come
 from the *proposed* [ADR-0040](adr/0040-stable-public-contract-and-compatibility-policy.md)
 and the [compatibility guide](compatibility.md).
 
-What a *successful* transcode drops, ignores or changes without an error
-or a report field (metadata, auxiliary images, extra channels, precision,
-options that have no effect) is listed, with a test for each undocumented
-case, in the [silent-drop audit of 2026-11-15](silent-drops-audit-2026-11-15.md).
+What a *successful* transcode leaves out is named in the result
+(`ProcessingReport::discarded`, CLI `discarded=`; [ADR-0042](adr/0042-no-silent-loss-refuse-or-report.md)
+D2, see [Discarded report](#discarded-report)); everything it drops,
+ignores or changes, reported or not, is listed with its test in the
+[silent-drop audit of 2026-11-15](silent-drops-audit-2026-11-15.md),
+the inventory of ADR-0042.
 
 Every row names the test or fixture that supports it. A claim without a named
 test is marked **untested** and is a statement about the code path only. Header
@@ -95,7 +97,7 @@ before crop; crop coordinates are upright display coordinates (ADR-0019).
 | Color evidence | embedded ICC | embedded RGB ICC | libjxl-rs: `DATA` ICC of the emitted samples; jxl-oxide: rendered ICC/CICP | container `nclx`/ICC cross-checked with the AV1 sequence header; reported as rendered CICP |
 | Orientation | EXIF 1–8 | EXIF 1–8 | codestream orientation, rendered upright by the decoder | `irot`/`imir` applied by the pipeline |
 | Crop access | codec crop request, iMCU column overfetch | lossy: crop from full-width rows; lossless: full reconstruction | libjxl-rs: **full-frame fallback for every crop**; jxl-oxide: codec region request | full-frame fallback |
-| Rejected | CMYK/YCCK (`UnsupportedInput`, `UnsupportedLayout`); untagged under `Strict` (`ColorSignalMissing`); ICC without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); EXIF orientation outside 1–8 (`GeometricTransform`, **untested** through the API); malformed ICC; truncated data | animation (`UnsupportedInput`, `Animation`); malformed containers; canvas above the pixel cap | animation (`Animation`); any input without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); grayscale, CMYK, spot colors, float/HDR exponent channels, extra channels (`UnsupportedLayout` under `UseRenderedIcc`; jxl-oxide reports some extra-channel files as unspecified alpha, `AlphaAssociation`, and **accepts** others while dropping or compositing their channels, see the [audit](silent-drops-audit-2026-11-15.md), X6 to X9); premultiplied alpha (`AlphaAssociation`); PQ/HLG (`HdrTransfer`); unknown colour spaces (jxl-oxide, `UnsupportedColorEncoding`); ICC > 16 MiB (**untested**, code path, no reason) | animation/`avis` (`Animation`), `clap` and `imir` before `irot` (`GeometricTransform`), monochrome (`UnsupportedLayout`), contradictory `nclx` (`ContradictoryColorSignals`), PQ/HLG (`HdrTransfer`), SDR CICP outside sRGB/P3/linear sRGB (`UnsupportedColorEncoding`), CICP-only under `UseRenderedIcc` (`RenderedIccMissing`), an unknown essential property of the primary item (`UnsupportedEssentialProperty`) ([details](#avif-input-transforms-animation-channels-and-caps)) |
+| Rejected | CMYK/YCCK (`UnsupportedInput`, `UnsupportedLayout`); untagged under `Strict` (`ColorSignalMissing`); ICC without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); EXIF orientation outside 1–8 (`GeometricTransform`, **untested** through the API); malformed ICC; truncated data | animation (`UnsupportedInput`, `Animation`); malformed containers; canvas above the pixel cap | animation (`Animation`); any input without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); grayscale, CMYK, spot colors, float/HDR exponent channels, extra channels (`UnsupportedLayout` under `UseRenderedIcc`; since 2026-11-15 jxl-oxide refuses every extra channel but one alpha as libjxl-rs does, ADR-0042 D1 and D4; before, it accepted some files while dropping or compositing their channels, [audit](silent-drops-audit-2026-11-15.md) X6 to X9); premultiplied alpha (`AlphaAssociation`); PQ/HLG (`HdrTransfer`); unknown colour spaces (jxl-oxide, `UnsupportedColorEncoding`); ICC > 16 MiB (**untested**, code path, no reason) | animation/`avis` (`Animation`), `clap` and `imir` before `irot` (`GeometricTransform`), monochrome (`UnsupportedLayout`), contradictory `nclx` (`ContradictoryColorSignals`), PQ/HLG (`HdrTransfer`), SDR CICP outside sRGB/P3/linear sRGB (`UnsupportedColorEncoding`), CICP-only under `UseRenderedIcc` (`RenderedIccMissing`), an unknown essential property of the primary item (`UnsupportedEssentialProperty`) ([details](#avif-input-transforms-animation-channels-and-caps)) |
 
 The names in parentheses after a kind are the `RefusalReason` that
 `refusal_reason()` returns (the [compatibility guide](compatibility.md#refusal-reasons)
@@ -207,14 +209,14 @@ test assets) and the libheif orientation set (`tests/fixtures/orientation/`).
 | `irot` and `imir`, all eight combinations | supported: reported as the source orientation and applied by the pipeline before crop; crops are upright display coordinates | `avif_irot_and_imir_are_applied_for_all_eight_orientations` (`avif-1…8.avif`, display size pinned by the crop bounds); `orientation_tests::avif_irot_imir_match_libheif` (pixels against libheif) |
 | `imir` associated before `irot` | `UnsupportedInput`, `GeometricTransform`, "orientation, mirroring or clean-aperture transforms are not supported yet" | `avif_imir_before_irot_is_rejected` (`avif-5.avif` with the two `ipma` associations swapped); `codecs::avif_meta_tests::records_mirror_before_rotation_association_order` |
 | `clap` (essential or not) | `UnsupportedInput`, `GeometricTransform`, same message; there is no implicit crop | `avif_clean_aperture_is_rejected` (`clap_irot_imir_non_essential.avif`, Android `blue-and-magenta-crop.avif`); libavif's `clop_irot_imor.avif` (the same file with `clap`/`imir` renamed to unknown non-essential properties) is accepted |
-| Unknown essential property of the primary item | `UnsupportedInput`, `UnsupportedEssentialProperty`, "an essential container property is not supported: '…'" (since 2026-11-15; before, `MalformedInput` without a reason, corrected under #67). A broken property association (index outside `ipco`) stays `MalformedInput`. An unknown essential property of an auxiliary item is not checked by the engine: libavif ignores that item, so an alpha plane that cites one is dropped without a signal ([audit](silent-drops-audit-2026-11-15.md), V4) | `avif_unknown_essential_property_is_refused_as_unsupported` (`avif-1.avif` with `pixi` renamed and marked essential), `avif_property_association_outside_ipco_is_malformed`; `codecs::avif_meta_tests::rejects_ambiguous_and_unknown_essential_properties`; `silent_drops::avif_alpha_item_with_an_unknown_essential_property_is_dropped_today` |
+| Unknown essential property of an item the reader uses (primary, grid cells, alpha and its cells) | `UnsupportedInput`, `UnsupportedEssentialProperty`, "an essential container property is not supported: '…'" (since 2026-11-15; before, `MalformedInput` without a reason, corrected under #67). A broken property association (index outside `ipco`) stays `MalformedInput`. Alpha items and grid cells are checked since 2026-11-15 (ADR-0042 D1; before, libavif skipped such an alpha item and the image came out opaque, a grid cell surfaced as `MalformedInput`); a property of an item the reader never decodes (gain-map image, other auxiliary images) is not a reason to refuse | `avif_unknown_essential_property_is_refused_as_unsupported` (`avif-1.avif` with `pixi` renamed and marked essential), `avif_property_association_outside_ipco_is_malformed`; `codecs::avif_meta_tests::rejects_ambiguous_and_unknown_essential_properties`; `silent_drops::avif_alpha_item_with_an_unknown_essential_property_is_refused`, `avif_grid_cell_with_an_unknown_essential_property_is_refused`, `avif_unknown_essential_property_on_an_unused_item_is_not_a_refusal` |
 | Image sequence (`avis`), with or without alpha, depth, audio, EXIF/XMP | `UnsupportedInput`, `Animation`, "animated input is not supported; only still images are decoded"; **no first-frame fallback** | `avif_image_sequences_are_rejected_without_a_first_frame_fallback` (five `colors-animated-*.avif` files and `alpha_video.avif`); `tests/animated_input.rs::animated_avif_is_rejected` |
 | Monochrome (4:0:0) at 8, 10, 12 bits | `UnsupportedInput`, `UnsupportedLayout`, "decoder pixel or color layout is not supported" | `avif_monochrome_is_rejected_at_every_depth` (Android `fox.*.monochrome.avif`) |
 | Color 4:2:0, 4:2:2, 4:4:4 at 8, 10, 12 bits | supported | `avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted` (nine Android `fox.*.avif`) |
 | Alpha auxiliary image | supported, straight | `avif_alpha_and_grid_stills_are_accepted` (`abc_color_irot_alpha_irot.avif`, alpha read back from the WebP output) |
 | Grid stills | supported | same test (`color_grid_alpha_grid_shared_tiles.avif`, `sofa_grid1x5_420.avif`) |
-| Gain map (`tmap`) | ignored: the SDR base image is read, no tone mapping | `avif_gain_map_is_ignored_and_the_base_image_is_read` (`seine_sdr_gainmap_srgb.avif` under `Strict`) |
-| Other extra channels | only alpha is read; depth auxiliary images occur only in the rejected sequence fixture (**untested** for stills); unknown non-essential properties, `pasp` and a `sato` alternative are ignored without a signal ([audit](silent-drops-audit-2026-11-15.md), V6 to V8) | `silent_drops::avif_non_essential_unknown_properties_are_ignored_today`, `avif_sample_transform_alternative_is_ignored_today` |
+| Gain map (`tmap`) | ignored: the SDR base image is read, no tone mapping; reported as `Discarded::GainMap` | `avif_gain_map_is_ignored_and_the_base_image_is_read` (`seine_sdr_gainmap_srgb.avif` under `Strict`) |
+| Other extra channels | only alpha is read; depth auxiliary images occur only in the rejected sequence fixture (**untested** for stills); unknown non-essential properties and `pasp` of a used item are ignored and reported as `Discarded::UnknownContainerData`; a `sato` alternative is ignored without a signal ([audit](silent-drops-audit-2026-11-15.md), V6 to V8) | `discarded_report::avif::avif_properties_the_engine_does_not_interpret_are_reported`; `silent_drops::avif_sample_transform_alternative_is_ignored_today` |
 | Constant-luminance BT.2020 matrix (code 10) | `UnsupportedInput`, `UnsupportedLayout` (**untested**, code path) | `codecs::avif_meta_tests::contradictory_container_and_bitstream_signals_fail_closed` (synthetic sequence header, internal error only) |
 | Container `nclx` that contradicts the AV1 sequence header | `UnsupportedColor`, `ContradictoryColorSignals`, "container color information contradicts the coded bitstream" | `codecs::avif::tests::container_signal_that_contradicts_the_bitstream_is_rejected` (engine-written file, patched); `tests/color_signal_and_refusals.rs::contradictory_avif_color_signals_are_refused_with_their_reason` (`colors_sdr_srgb.avif` with its `nclx` matrix patched to 1) |
 | PQ (`colors_hdr_rec2020.avif`, `seine_hdr_rec2020.avif`) | `UnsupportedColor`, `HdrTransfer`, under every policy | `avif_pq_is_rejected_under_every_policy` |
@@ -223,6 +225,36 @@ test assets) and the libheif orientation set (`tests/fixtures/orientation/`).
 | Signalled sRGB | passes `Strict`; refused under `UseRenderedIcc`, which needs a profile (`UnsupportedColor`, `RenderedIccMissing`) | `avif_signalled_srgb_passes_the_strict_policy` (`colors_sdr_srgb.avif`); `tests/color_signal_and_refusals.rs::rendered_icc_policy_without_a_profile_is_refused_with_its_reason` |
 | Rendered size, then coded sequence size, above `max_input_pixels` | `InputLimitExceeded` before decoding | `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry` |
 | ICC property above the parser's cap | `UnsupportedColor` before the copy, no `RefusalReason` | `codecs::avif_meta_tests::oversized_icc_property_is_rejected_before_copy` (synthetic) |
+
+## Discarded report
+
+`ProcessingReport::discarded` (experimental; [ADR-0042](adr/0042-no-silent-loss-refuse-or-report.md)
+D2, working decision 2026-11-15, delegated, revisable by the owner) names
+each class of input information a successful transcode left out of a
+correct picture, only when it applied to this input; the CLI's `report:`
+line ends with `discarded=` and the names, comma-separated, or `none`.
+Every class has a test with a fixture that has it and one that does not
+(`tests/discarded_report.rs`).
+
+| `Discarded` | Reported when | Inputs |
+| --- | --- | --- |
+| `GainMap` | a gain map exists and the base image was read | AVIF `tmap`, JPEG MPF secondary image, JPEG XL `jhgm` |
+| `Exif` | EXIF exists (its orientation may have been applied) | JPEG, WebP, AVIF item, JPEG XL box |
+| `Xmp` | XMP exists, including extended XMP | JPEG, WebP, AVIF `mime` item, JPEG XL `xml ` |
+| `OtherMetadata` | IPTC, comments, JUMBF, other JPEG application segments, a JFIF density other than 1:1 aspect, other AVIF `mime`/`uri ` items, JPEG XL `jumb` | JPEG, AVIF, JPEG XL |
+| `IccProfile` | an embedded profile, converted under `UseRenderedIcc` and not written | JPEG, WebP, AVIF, ICC-signalled JPEG XL |
+| `UnknownContainerData` | data the format lets a reader ignore: AVIF properties of a used item the engine does not interpret (`pasp`, `clli`, custom), unknown WebP chunks, unknown JPEG XL boxes | AVIF, WebP, JPEG XL |
+| `JpegReconstructionData` | a `jbrd` box | JPEG XL |
+| `Preview` | a preview frame | JPEG XL |
+| `HiddenColor` | an input pixel of the processed region with alpha exactly 0 and nonzero color (written as transparent black, ADR-0014) | any RGBA input |
+| `Unpremultiplied` | premultiplied alpha converted to straight by libavif (`prem`) | AVIF |
+| `PrecisionReduced` | more than 8 bits per color or alpha sample reached the 8-bit rows | AVIF, JPEG XL |
+
+Not reported, and documented here instead (open under ADR-0042 D6): values
+clipped to [0, 1] at quantization or inside moxcms' LUT path (not
+detectable cheaply and exactly apart from resampling overshoot), JPEG XL
+`intrinsic_size`, an XMP-only JPEG orientation and an AVIF `sato`
+alternative.
 
 ## Color policy
 

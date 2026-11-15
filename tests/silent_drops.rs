@@ -10,6 +10,13 @@
 //! or report one of these cases, change the test to the new contract; do
 //! not "fix" the engine back to pass it.
 //!
+//! Since 2026-11-15 (ADR-0042) the cases that would deliver a wrong picture
+//! are refused, and their tests here are renamed to the refusal. Many of
+//! the remaining `_today` cases are now *reported* in
+//! `ProcessingReport::discarded` (proven in `tests/discarded_report.rs`);
+//! their test here still pins that the information is not carried into
+//! the output.
+//!
 //! All files are real fixtures from the repository; where a few bytes are
 //! patched, the helper says which and why. Run with every adapter:
 //! `cargo test -p ferrisma --features cli --test silent_drops`.

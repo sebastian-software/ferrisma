@@ -643,7 +643,8 @@ pub enum RefusalReason {
     /// The container marks a property of the image as essential (ISO/IEC
     /// 23008-12 section 10.2.1: a reader must understand it to process the
     /// image) and the engine does not understand it; today an unknown
-    /// essential property of the primary AVIF item. The file is well-formed,
+    /// essential property of an AVIF item the reader uses (the primary
+    /// item, grid cells, the alpha plane; ADR-0042 D1). The file is well-formed,
     /// so the kind is [`ProcessingErrorKind::UnsupportedInput`], not
     /// `MalformedInput`.
     UnsupportedEssentialProperty,

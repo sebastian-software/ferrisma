@@ -154,9 +154,22 @@ this ADR only requires that an unsupported case ends as D1 says.
   kept (D5).
 
 State on 2026-11-15: the audit, its tests and the corrected AVIF error kind
-are on branch `v1/drops-batch`; the D1 and D4 refusals and the `discarded`
-report are in progress on branch `v1/engine-discarded`. Until they are on
-`main`, the inventory lists them as open.
+are on branch `v1/drops-batch`. Branch `v1/engine-discarded` implements D1
+(an unknown essential property on any AVIF item the reader uses, alpha
+items and grid cells included, is refused; the jxl-oxide reader refuses
+extra channels other than one alpha), D4 for JPEG XL (both readers return
+the same kind and reason for the audited files, asserted in
+`tests/silent_drops.rs`), and D2 (`ProcessingReport::discarded` with eleven
+classes and the CLI key `discarded=`, each proven by
+`tests/discarded_report.rs` with a fixture that has it and one that does
+not). D4 for JPEG XL is also met by removing the jxl-oxide runtime reader,
+which the owner decided on 2026-11-15 for after the libjxl-rs AVX2 speed
+fix. The [inventory](../silent-drops-audit-2026-11-15.md) moves 48 items to
+"reported"; open under D6 remain the documented-only items and seven
+undocumented ones, among them out-of-gamut clipping, which cannot be
+detected cheaply and exactly apart from resampling overshoot and is
+therefore not reported. Until the branch is on `main`, the inventory's
+first column of counts is the state of `main`.
 
 ## Open questions (pending owner decision)
 
@@ -190,3 +203,6 @@ report are in progress on branch `v1/engine-discarded`. Until they are on
 
 - 2026-11-15 — Initial record of the owner's principle and of the decisions
   derived from it after the audit of the same day.
+- 2026-11-15 — Implementation of D1, D2 and D4 on `v1/engine-discarded`
+  recorded in the state paragraph under Validation; clipping recorded as
+  open under D6 because it cannot be detected exactly. No decision changed.
