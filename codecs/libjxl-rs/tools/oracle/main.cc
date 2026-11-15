@@ -572,6 +572,7 @@ bool EncoderEntropySimdCommand(const std::string&,std::istringstream&,JxlMemoryM
 // end encoder entropy
 // encoder step 1
 bool EncoderStep1Command(const std::string&,std::istringstream&,JxlMemoryManager*);
+bool EncoderStep1CheckpointsCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 // end encoder step 1
 
 int main() {
@@ -716,6 +717,7 @@ int main() {
       // end encoder entropy
       // encoder step 1
       else if (EncoderStep1Command(command, in, &mm)) {}
+      else if (EncoderStep1CheckpointsCommand(command, in, &mm)) {}
       // end encoder step 1
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
