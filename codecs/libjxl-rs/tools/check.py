@@ -83,6 +83,13 @@ def check_docs():
     print("Local documentation links verified", flush=True)
 
 
+def lint_toolchain():
+    # The one Rust version Clippy runs at, in CI and locally: tools/lint-toolchain
+    # at the repository root (ADR-0027, amendment 2026-11-15). Raise it only as a
+    # deliberate change together with the lint fixes it needs.
+    return (ROOT.parent.parent / "tools" / "lint-toolchain").read_text().strip()
+
+
 def rust_version():
     return re.search(r'^rust-version = "([^"]+)"$', (ROOT / "Cargo.toml").read_text(), re.M)[1]
 
@@ -97,7 +104,7 @@ def release_only_tests():
 def check_static(msrv):
     check_docs()
     run("cargo", "fmt", "-p", "libjxl-rs", "--", "--check")
-    run("cargo", "+stable", "clippy", "--locked", "--offline", "--all-targets", "--all-features", "--", "-D", "warnings")
+    run("cargo", f"+{lint_toolchain()}", "clippy", "--locked", "--offline", "--all-targets", "--all-features", "--", "-D", "warnings")
     if msrv:
         run("cargo", f"+{rust_version()}", "check", "--locked", "--offline", "--all-targets", "--all-features")
     run("cargo", "build", "--locked", "--offline", "--release", "--all-targets", "--all-features")

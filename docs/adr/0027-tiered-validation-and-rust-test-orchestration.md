@@ -132,3 +132,29 @@ measured, a supported host changes, or fixture and live oracle results diverge.
   stable and accept drift fixes like this one when a release lands. The choice
   remains the owner's; the workflow is unchanged.
 - 2026-11-13 — Owner decision D7, recorded in [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) section 5: validation for the v1.0 quality gate is **local first**. The binding proof is AArch64 natively and x86-64 under Rosetta 2 on the development Mac (`--target x86_64-apple-darwin`, originals built with `-arch x86_64`, `ROSETTA_ADVERTISE_AVX=1` so that run-time detection reports AVX2/FMA/BMI2/F16C). One hosted Linux x86-64 run per release candidate is the cross-check; Blacksmith and CI benchmark runs are for performance only. Every port's original must therefore build as an x86-64 oracle, scalar and SIMD. The tiers above (scoped PR checks, nightly and branch deep runs, manual exhaustive checks) and the rule against refreshing goldens are unchanged; they guard regressions between the local proofs. Where this record or a port ADR names native Linux x86-64 CI as the only x86 evidence (for example libavif-rs ADR 0058, "no emulation is used"), Rosetta is now an accepted x86-64 target for the gate; the hosted Linux run remains the release-candidate cross-check. [Quality gate guide](../quality-gate.md) lists the local commands per port.
+- 2026-11-15 — Owner decision on issue #235: **pin**. The static stages' Clippy
+  runs at one explicitly named stable version, the same in CI and locally,
+  recorded in one file, `tools/lint-toolchain` (1.100.0, the stable CI used
+  when this was decided). Every caller reads it: the `check.py` static stage of
+  the JPEG, WebP and JXL ports, the JXL box-content reference script, the
+  ports' `prepare` actions, `jpeg-check.yml` and the codec job of `ci.yml`.
+  Why: the unpinned stable broke work nobody had touched twice (Rust 1.100 on
+  2026-11-12, about 100 findings; and a branch clean on a local 1.98 but red
+  in CI on 1.100). Raising the version is a deliberate change of its own: edit
+  `tools/lint-toolchain` in a commit that also carries the lint fixes the new
+  version needs, so that no unrelated branch meets them. The 2026-11-12 rule
+  about a function-scoped `#[allow(..., reason)]` instead of `#[expect]` for a
+  lint that differs between Clippy versions no longer applies to ordinary work:
+  there is one version. It applies only in a version-raising change, where the
+  old and the new version must both pass until the file is edited.
+  **Canary:** the `clippy-canary` job of `nightly.yml` runs the three ports'
+  static Clippy commands with the latest stable. It is `continue-on-error` and
+  not in the nightly gate's `needs`, so it cannot turn the required result red
+  or hide another failure. Read it as a forecast: a red step in that job (the
+  run itself stays green) means the next raise of `tools/lint-toolchain` will
+  need those fixes; it is not a regression of `main`. Unchanged: build and test
+  lanes still run at each port's declared minimum and at the latest stable, the
+  engine's Clippy stays on the pinned nightly, and the MSRV Clippy of
+  `libsharpyuv-core` stays at its own `rust-version`. The AVIF port's
+  `x86_c2r/assemble.py` formats generated output with `rustup run stable
+  rustfmt`; that is a generator, not a static stage, and is unchanged.

@@ -46,6 +46,39 @@ jobs:
       - run: cargo fetch --locked
       - run: cargo run -p ferrisma-kernels --example detect
       - run: cargo run --release -p ferrisma-kernels --example bench
+  # Reports, never blocks (ADR-0027, amendment 2026-11-15): Clippy at the latest
+  # stable, while the static stages stay on tools/lint-toolchain. The job is not
+  # in the gate's needs and is continue-on-error, so a finding leaves the run
+  # green; read it from the red step in this job and its summary. A finding
+  # means the pinned version will need to be raised, with its lint fixes.
+  clippy-canary:
+    if: inputs.component == '' || inputs.component == 'all'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Initialize the pinned codec references
+        run: |
+          git submodule update --init codecs/libjpeg-turbo-rs/upstream/libjpeg-turbo codecs/libwebp-rs/upstream/libwebp codecs/libwebp-rs/upstream/libwebp-test-data
+          git submodule update --init --depth 1 codecs/libjxl-rs/upstream/libjxl
+          git -C codecs/libjxl-rs/upstream/libjxl submodule update --init --depth 1 third_party/highway third_party/brotli third_party/skcms
+      - run: cargo fetch --locked
+      - run: rustup toolchain install stable --profile minimal --component clippy
+      - name: Report the versions
+        run: |
+          printf 'Clippy canary: latest stable is %s; the static stages pin %s (tools/lint-toolchain).\nThis job reports and does not gate.\n' "$(rustc +stable --version)" "$(cat tools/lint-toolchain)" | tee -a "$GITHUB_STEP_SUMMARY"
+      # The commands of each port's tools/check.py static stage, at stable.
+      - run: cargo +stable clippy -p libjpeg-turbo-rs --locked --offline --all-targets --all-features -- -D warnings
+      - run: cargo +stable clippy -p libjpeg-turbo-rs --locked --offline --all-targets --no-default-features --features oracle -- -D warnings
+        if: ${{ !cancelled() }}
+      - run: cargo +stable clippy -p libwebp-rs --locked --offline --all-targets --all-features -- -D warnings
+        if: ${{ !cancelled() }}
+      - run: cargo +stable clippy -p libjxl-rs --locked --offline --all-targets --all-features -- -D warnings
+        if: ${{ !cancelled() }}
+      - if: ${{ failure() }}
+        run: |
+          echo 'Clippy at the latest stable reports findings the pinned version does not. This is not a gate failure; raise tools/lint-toolchain deliberately, with the fixes.' | tee -a "$GITHUB_STEP_SUMMARY"
   gate:
     if: always()
     needs: [families, macos-workspace, kernel-bench, fuzz-smoke, performance-smoke]

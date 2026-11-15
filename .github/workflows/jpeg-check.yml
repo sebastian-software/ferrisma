@@ -34,7 +34,7 @@ jobs:
     - name: Fetch the shared lockfile dependencies before offline checks
       run: cargo fetch --locked
     - name: Install the shared lint toolchain
-      run: rustup toolchain install stable --profile minimal --component clippy
+      run: rustup toolchain install "$(cat ../../tools/lint-toolchain)" --profile minimal --component clippy
     - name: Check the pin, skeleton, links, formatting, Clippy and tests
       run: python3 tools/check.py
     defaults:
