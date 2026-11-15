@@ -291,10 +291,16 @@ impl DequantMatrices {
     pub fn inv_dc_quant(&self, c: usize) -> f32 {
         self.inv_dc_quant[c]
     }
+    /// SetDCQuant. Language-required deviation: the source's one loop
+    /// stores `1.0f / dc[c]` and `dc[c]` per channel. LLVM's SLP vectorizer
+    /// may merge the copy into the division as `dc[c] / 1.0` (both arrays
+    /// are adjacent fields), which quiets a signaling NaN that the source's
+    /// plain copy keeps; the copy is therefore a separate whole-array copy,
+    /// which stores the same words.
     pub fn set_dc_quant(&mut self, dc: &[f32; 3]) {
+        self.inv_dc_quant = *dc;
         for (c, &value) in dc.iter().enumerate() {
             self.dc_quant[c] = 1.0 / value;
-            self.inv_dc_quant[c] = value;
         }
     }
     pub fn decode_dc(&mut self, reader: &mut BitReader<'_>) -> Status {
