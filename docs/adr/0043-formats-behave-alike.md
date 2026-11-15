@@ -184,7 +184,11 @@ ICC beside `nclx`) are implemented on branch `v1/engine-parity`, with the
 parity tests (`tests/format_parity.rs`) and the format-parity table of the
 supported matrix, where each row whose cells differ names its format
 reason. Not covered by a fixture, and therefore not claimed: AVIF gray
-with alpha and AVIF with a gray profile.
+with alpha and AVIF with a gray profile. The bit-depth application of the
+same day is implemented on branch `v1/engine-depth`
+(`format_parity::depth_follows_the_input_in_every_output`: JPEG, WebP, AVIF
+at 8/10/12 and JPEG XL at 8/10/12/16 bits into every output, default and
+explicit depths).
 
 ## Open questions (pending owner decision)
 

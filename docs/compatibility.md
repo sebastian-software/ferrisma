@@ -18,7 +18,7 @@ else, including every private module, is outside the contract.
 | Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, threads, and the four resource limits; `WebpOptions` (libwebp quality and method, lossless level); `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifOptions` (`TransformOptions::avif`), `JpegXlOptions` |
 | Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
 | Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-write` (experimental until it builds on stable Rust; stable as the rav1e capability until 2026-11-15) |
-| CLI | Positional arguments, color policy, `--webp-quality=`, `--webp-method=`, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=`, `--avif-chroma=`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
+| CLI | Positional arguments, color policy, `--webp-quality=`, `--webp-method=`, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=`, `--avif-chroma=`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=`, `--jxl-lossless` and `--jxl-depth=` |
 
 `jpeg-xl-read` promises the *capability* (JPEG XL input), not a particular
 backend: ADR-0025 may switch the backend behind it in a minor release when its
@@ -53,6 +53,24 @@ libwebp's own 0–6 (default 4). The CLI's `--quality=`, `--speed=` and
 `--chroma=` are replaced by `--avif-quality=`, `--avif-alpha-quality=`,
 `--avif-speed=`, `--avif-chroma=`, `--webp-quality=` and `--webp-method=`.
 Default AVIF and lossy WebP output changes with the new defaults.
+
+Since 2026-11-15 the output depth follows the input's (owner decision;
+[ADR-0021](adr/0021-working-precision-policy.md) amendment, pre-1.0
+breaking change): `AvifOptions::depth` is `Option<u8>` (`None`, the
+default, follows the input: 8, 10 or 12; `Some(8 | 10 | 12)` explicit), and
+both `JpegXlOptions` variants gain `depth: Option<u8>` (8 to 16;
+`JpegXlOptions::depth()` and `with_depth()` read and set it). An 8-bit
+input writes the same bytes as before. A 10- or 12-bit AVIF and a deeper
+JPEG XL input now produce deep output instead of 8-bit content, and no
+`PrecisionReduced`; lossless JPEG XL above 12 bits, or with alpha above 12
+bits, is an ISOBMFF container, as `cjxl` writes it. `ProcessingReport` gains
+`input_depth` and `output_depth` and the CLI `report:` line the keys
+`input_depth=` and `depth=` (before `discarded=`, which stays last). CLI:
+`--avif-depth=12` and `--jxl-depth=8..16` are accepted. The external-backend
+API (experimental) changes additively: `EncodeRequest::depth`,
+`EncoderBackend::row_depths` (default `[8]`, so an existing backend keeps
+receiving 8-bit rows and a deeper input is reported as `PrecisionReduced`)
+and `RowEncoder::write_row_u16` (default: refused).
 
 ## Refusal reasons
 

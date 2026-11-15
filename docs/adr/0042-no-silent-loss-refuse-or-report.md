@@ -173,7 +173,11 @@ resolved by removal ([ADR-0032](0032-jpeg-xl-workspace-decoder-input.md#the-only
 undocumented ones; among the documented ones is out-of-gamut clipping, which cannot be
 detected cheaply and exactly apart from resampling overshoot and is
 therefore not reported. Until the branch is on `main`, the inventory's
-first column of counts is the state of `main`.
+first column of counts is the state of `main`. Since branch `v1/engine-depth`
+(owner decision of 2026-11-15: the output depth follows the input, ADR-0021
+amendment) sample precision is preserved wherever the output holds it, and
+`PrecisionReduced` is reported by the pipeline exactly where it does not;
+the inventory moves X17, V14, O2, P1 and P6 to "preserved".
 
 ## Open questions (pending owner decision)
 

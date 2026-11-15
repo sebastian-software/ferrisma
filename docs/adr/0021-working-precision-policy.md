@@ -257,11 +257,13 @@ input's is written with correctly scaled content (the quantization above
 at that depth). `PrecisionReduced` is reported exactly when the output
 depth is below the input's depth, by the pipeline, not by a reader. CLI:
 `--avif-depth=8|10|12` and `--jxl-depth=8..16`; the report line names the
-depth written (`depth=`). External backends (`EncoderBackend`, experimental
+depth read and written (`input_depth=`, `depth=`; also
+`ProcessingReport::input_depth` and `output_depth`). External backends (`EncoderBackend`, experimental
 tier): additive, no break for existing implementations:
 `EncodeRequest::depth` (the resolved depth of the rows),
-`EncoderBackend::max_depth` (default 8: the depth rule caps at it and
-reports the reduction, so an existing backend keeps receiving 8-bit rows)
+`EncoderBackend::row_depths` (default `[8]`: the depth rule takes the
+largest of them at most the input's and reports a reduction, so an existing
+backend keeps receiving 8-bit rows)
 and `RowEncoder::write_row_u16` (default: refused with `InvalidOptions`).
 The break is in the options: `AvifOptions::depth` changes from `u8` to
 `Option<u8>`, and `JpegXlOptions::{Lossy, Lossless}` gain a field.
