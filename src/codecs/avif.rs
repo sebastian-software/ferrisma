@@ -420,17 +420,12 @@ mod tests {
         assert_eq!(budget.snapshot().live, 0);
     }
 
-    /// Identity-matrix RGB coding makes ravif write an explicit `colr` box.
+    /// A 6 x 4, 10-bit, identity-matrix RGB still of one color (200, 40, 90):
+    /// identity coding makes the encoder write an explicit `colr` box. The
+    /// workspace writer emits BT.601 YCbCr only, so the file is a committed
+    /// fixture (`tests/fixtures/avif-color/README.md`).
     fn encoded_with_nclx() -> Vec<u8> {
-        let pixels = vec![ravif::RGB8::new(200, 40, 90); 6 * 4];
-        ravif::Encoder::new()
-            .with_quality(90.0)
-            .with_speed(10)
-            .with_bit_depth(ravif::BitDepth::Ten)
-            .with_internal_color_model(ravif::ColorModel::RGB)
-            .encode_rgb(ravif::Img::new(pixels.as_slice(), 6, 4))
-            .unwrap()
-            .avif_file
+        include_bytes!("../../tests/fixtures/avif-color/identity-rgb-10bit.avif").to_vec()
     }
 
     #[test]

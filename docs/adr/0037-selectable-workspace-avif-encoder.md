@@ -204,8 +204,11 @@ which used the rav1e sink to write their fixtures
 (`own_avif::encode_for_test`), and the output-limit, metadata and
 selection-conflict cases of `supported_matrix` (now `avif_depth`). The CLI
 tests assert that `--avif-encoder=` is an unknown option. The test-only
-`ravif` dev-dependency stays for one identity-matrix fixture of the AVIF
-reader tests; it pulls rav1e without assembly into test builds only.
+`ravif` dev-dependency, which wrote one identity-matrix fixture of the AVIF
+reader tests, was removed in a follow-up the same day: the fixture is now the
+committed file `tests/fixtures/avif-color/identity-rgb-10bit.avif`, so no
+rav1e code is built anywhere in the root workspace (only the third-party
+crates of that fixture's one-time writing are gone from `Cargo.lock`).
 
 ## Review when
 

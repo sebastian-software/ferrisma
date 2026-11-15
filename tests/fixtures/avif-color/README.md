@@ -48,3 +48,17 @@ icc-nclx-1-13-6.avif: nclx 1/13/6 full_range=1
 icc-nclx-1-1-6.avif: prof 596 bytes sha256 33c34ecf...
 icc-nclx-1-1-6.avif: nclx 1/1/6 full_range=1
 ```
+
+## `identity-rgb-10bit.avif`
+
+A 6 x 4, 10-bit AVIF of one color (200, 40, 90), coded as RGB with the
+identity matrix, so the container carries an explicit `nclx` box (1/13/0, full
+range). The AVIF reader tests in `src/codecs/avif.rs` read it and also patch
+its `nclx` bytes to check that a container signal contradicting the bitstream
+is refused. The workspace writer emits BT.601 YCbCr only, so the file was
+written once with ravif 0.13.0 (`Encoder::new().with_quality(90.0)
+.with_speed(10).with_bit_depth(Ten).with_internal_color_model(RGB)
+.encode_rgb(...)`) on 2026-11-15, when the `ravif` dev-dependency (and with it
+rav1e) left the repository. SHA-256
+`3fe9252e98d4091e698eb412167aa1b1dda7134fee7673bbb8152d9b57ac9461`. The pixels
+are synthetic.

@@ -135,10 +135,6 @@ ferrisma-jxl-encoder = { path = "crates/ferrisma-jxl-encoder", version = "0.1.0"
 # cross-checks the samples of the workspace reader and the encoder's output.
 # It is not a reader of the engine and no feature enables it.
 jxl-oxide = { version = "0.12.6", default-features = false }
-# Test-only: writes the identity-matrix AVIF fixture of the AVIF reader tests
-# (it pulls rav1e without assembly into test builds; rav1e is no runtime
-# dependency since 2026-11-15).
-ravif = { version = "0.13.0", default-features = false }
 
 [lints.rust]
 unsafe_code = "forbid"

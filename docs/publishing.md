@@ -33,9 +33,9 @@ consumer does: 83 package entries left it, the jxl-oxide family
 `rand`, `thiserror`, `nom`, `itertools`, the `wasm-bindgen` and `syn`
 build-time chain, among others). The workspace's own chain of
 packages to publish (the table below) is unchanged except that no row
-needs NASM. The test-only dev-dependencies `jxl-oxide` and `ravif` (which
-pulls rav1e without assembly) stay in the root lockfile; dev-dependencies
-are not resolved for consumers.
+needs NASM. The test-only dev-dependency `jxl-oxide` stays in the root lockfile
+(`ravif`, and with it rav1e, left it as well: the one fixture it wrote is
+committed); dev-dependencies are not resolved for consumers.
 
 ## Packages
 
