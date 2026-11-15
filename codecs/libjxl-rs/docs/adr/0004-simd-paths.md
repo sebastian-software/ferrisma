@@ -2147,10 +2147,38 @@ the environment guard alone none fails. `dispatch_scope.rs` and
   least as wide as the scalar `cjxl` gate plus photographs.
 - (d) Met: the explicit selections and the environment guard.
 - (e) Open: no run on x86-64 hardware. The hosted Linux x86-64 run of this
-  branch is owed, and the x86-64 performance of the encoder's AVX2 path is
-  open (see the decoder's AVX2 finding of run 43688166701: the encoder's
-  kernels enter the target the same way, `hwy::dispatch` into a
-  `#[target_feature]` function per call).
+  branch is owed.
+
+**Attribute context of the encoder's kernels.** The encoder's kernels enter
+the target as the decoder's do: each dispatch point calls `hwy::dispatch`
+(per call, per row or per block, where the original's export is called),
+which on AVX2 runs the kernel inside `avx2::run_with_features`. Their
+generic helpers had the defect of "One attribute context per kernel on
+x86-64": in the x86-64 release `encode_lossy` 3,296 out-of-line intrinsic
+calls in the port's encoder kernels (`enc_ans_simd` 2,570,
+`enc_modular_simd_simd` 145, `enc_cluster_simd` 142,
+`convolve_symmetric5_simd` 142, `enc_chroma_from_luma_simd` 116,
+`enc_group_simd` 58, `enc_ma_simd` 48, `enc_entropy_coder_simd` 44,
+`enc_adaptive_quantization_simd` 22, `enc_transforms_simd` 9) and 2,905 in
+`encode_lossless`. Every generic helper an encoder kernel reaches is now
+`#[inline(always)]`, and AdaptiveQuantizationMap's scalar-pixel closure is a
+nested inline function: zero such calls and zero `fmaf` calls in the port's
+functions of `encode_lossy`, `encode_lossless` and `conformance_decode`
+(std_detect's `xgetbv` remains). `tools/check.py --stage static` now builds
+those three x86-64 release examples and fails on any out-of-line `core::arch`
+x86 or `fmaf` call in a `jxl::jxl::` function (about two minutes
+incremental). The skcms HSW engine (`skcms/transform_x86.rs`, 799 calls in
+`encode_lossy`, reached by the encoder's color conversion) is reported, not
+held to zero: marking its helpers `#[inline(always)]` is not enough, because
+`exec_stages` selects the transfer functions through a table of function
+pointers (`apply_gamma`, `apply_tf`, `apply_pq`, `apply_hlg`,
+`apply_hlginv`), builds values with `std::array::from_fn` closures (std's
+`try_from_fn` stays out of line) and uses local closures in `exec_stages`
+and `store_pixels`; it needs those turned into a `match`, loops and nested
+inline functions, and its HSW engine cannot be compared with the original's
+on this machine (O9), so it is left for a change with a hosted Linux run.
+No x86-64 speed is claimed from Rosetta.
+
 **Indication only (not a measurement).** One thread, the 6000x4000
 photograph, release builds of `examples/encode_lossy` (e7 d1.0) and
 `examples/encode_lossless` (e2) with the switch off (scalar) and on (NEON),
