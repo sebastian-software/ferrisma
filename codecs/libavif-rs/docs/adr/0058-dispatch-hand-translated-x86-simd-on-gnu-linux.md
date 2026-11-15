@@ -124,3 +124,42 @@ amendment of 2026-11-13). Rosetta for Linux does not execute AVX, so the AVX2
 kernels still need native x86-64 runners. `x86_64-apple-darwin` stays
 excluded because both translation profiles depend on their platform: the macOS
 profile carries Arm RTCD, and the Linux profile uses glibc symbols and layouts.
+
+## Amendment: the AVX2 level runs locally under QEMU (2026-11-14)
+
+The amendment above is out of date on this host: Colima's VM is started with
+`rosetta: false` and `binfmt: true`, so `docker run --platform linux/amd64`
+runs x86-64 binaries under the VM's own `qemu-x86_64` 7.0, which has no AVX.
+Reconfiguring Colima is not part of this work. The AVX2 level instead runs
+in an AArch64 Debian trixie container (`tools/qemu_x86_64/Dockerfile`)
+that runs natively in the VM and contains Debian's qemu-user 10.0 and its
+x86-64 cross GCC 14.2. Every x86-64 binary is started explicitly as
+`qemu-x86_64 -cpu max -L /usr/x86_64-linux-gnu`. A probe there reports
+SSE4.1, AVX, AVX2, FMA and BMI2, XCR0 `0x21f`, and no AVX-512.
+
+The route (`check_aom_simd_original.py --qemu`, run inside the container):
+
+- the originals: `build_aom.py --library-only --simd avx2` and
+  `--library-only --x86-64`, run inside the container, build GNU Linux
+  x86-64 references with the cross GCC (`build/aom-native-linux-avx2-x86_64-release`,
+  `config_sha256` `1b033f4f…`, 330 units of which 20 NASM, and
+  `build/aom-native-linux-x86_64-release`, `989d9a59…`, 166 units); C libavif
+  and `tools/encode_still.c`/`decode_still.c` are built with the same compiler;
+- the port: host rustc for `x86_64-unknown-linux-gnu`, linked by the
+  container's cross GCC through `tools/docker_x86_64_linux_cc.sh`
+  (`AOM_LINUX_X86_64_PLATFORM=linux/arm64`,
+  `AOM_LINUX_X86_64_CC=x86_64-linux-gnu-gcc`);
+- both sides run under the same QEMU and use the same glibc 2.41 libm, so all
+  three levels (`avx2`, `sse4.1`, `scalar`) compare port and original in one
+  environment.
+
+Limits: QEMU is an emulator. Unlike Rosetta 2 it does raise the fault of a
+misaligned aligned move (`movdqa`, `vmovdqa`, checked with a probe), but it
+is not x86-64 hardware, so one hosted Linux x86-64 run per release candidate
+remains (ADR-0041), and no timing taken under it means anything for x86-64.
+The full three-level gate took 36 minutes on the loaded host.
+
+**First AVX2 result (2026-11-14, `main` at `776747fd`, the 104 RTCD functions
+of this ADR):** `avx2` 82 of 82, `sse4.1` 82 of 82 and `scalar` 82 of 82 cases
+identical to the original in AVIF bytes, decoded planes and RGB; the port
+reported `simd(avx2)`, `simd(sse4.1)` and `c` for the three levels.

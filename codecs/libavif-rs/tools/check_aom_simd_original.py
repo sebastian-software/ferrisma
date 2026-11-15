@@ -59,6 +59,23 @@ mode covers `sse4.1` and `scalar` only, and its originals use Darwin's libm:
 
     python3 tools/check_aom_simd_original.py --x86-64 --docker-image IMAGE
 
+`--qemu` runs all three x86-64 levels, `avx2` included, with the port and the
+originals in one environment: GNU Linux x86-64 under qemu-user 10 (`-cpu max`:
+AVX2, FMA, BMI2, no AVX-512) in the AArch64 container of
+`tools/qemu_x86_64/Dockerfile` (ADR 0058, amendment of 2026-11-14). The
+originals and libavif are built there with Debian's x86-64 cross GCC
+(`build_aom.py --library-only --simd avx2` and `--x86-64` inside the
+container), the port on the host for `x86_64-unknown-linux-gnu`, linked with
+the container's cross GCC (`tools/docker_x86_64_linux_cc.sh`). Both sides use
+glibc 2.41's libm. QEMU raises the fault of a misaligned aligned move
+(`movdqa`, `vmovdqa`), unlike Rosetta 2. It is an emulator: it proves
+equality with the original on the instructions QEMU implements, not on
+x86-64 hardware, and it gives no timing.
+
+    docker build --platform linux/arm64 -t ferrisma-aom-x86-qemu:trixie tools/qemu_x86_64
+    docker run --rm -v $HOME:$HOME -w $PWD ferrisma-aom-x86-qemu:trixie \
+        python3 tools/check_aom_simd_original.py --qemu
+
 Any difference fails.
 """
 import argparse
@@ -81,6 +98,10 @@ DATA = ROOT / 'upstream/libavif/tests/data'
 WORK = ROOT / 'build/aom-simd-original'
 MACOS = sys.platform == 'darwin' and platform.machine() == 'arm64'
 LINUX = sys.platform.startswith('linux') and platform.machine() == 'x86_64'
+# The AArch64 container of --qemu (module docstring).
+QEMU_HOST = sys.platform.startswith('linux') and platform.machine() in ('aarch64', 'arm64')
+QEMU = ['qemu-x86_64', '-cpu', 'max', '-L', '/usr/x86_64-linux-gnu']
+CROSS_CC = 'x86_64-linux-gnu-gcc'
 ARCH = 'arm64' if MACOS else 'x86_64'
 # x86_simd_caps() flags up to SSE4.2 (aom_ports/x86.h), as in
 # tools/check_aom_simd_identity.py.
@@ -99,6 +120,7 @@ HOST_LEVELS = ['neon', 'scalar'] if MACOS else ['avx2', 'sse4.1', 'scalar']
 # originals under Rosetta 2 on macOS. Rosetta for Linux does not execute AVX
 # (an AVX2 kernel stops with SIGILL), so only these levels run there.
 CROSS_LEVELS = ['sse4.1', 'scalar']
+QEMU_LEVELS = ['avx2', 'sse4.1', 'scalar']
 
 
 def case(speed=6, depth=10, yuv444=False, quality=56, threads=1, alpha=False):
@@ -166,9 +188,9 @@ def dog_photo(work):
                         purpose='photograph of issue #203 at its settings')
 
 
-def build_libavif(arch):
+def build_libavif(arch, qemu=False):
     """The original C libavif (no libaom inside; linked per level)."""
-    build = ROOT / f'build/libavif-c-{arch}-release'
+    build = ROOT / f'build/libavif-c-{"linux-" if qemu else ""}{arch}-release'
     archive = build / 'libavif_internal.a'
     flags = '-ffp-contract=off'
     command = ['cmake', '-S', ROOT / 'upstream/libavif', '-B', build, '-DCMAKE_BUILD_TYPE=Release',
@@ -177,7 +199,10 @@ def build_libavif(arch):
                '-DAVIF_LIBYUV=OFF', '-DAVIF_LIBSHARPYUV=OFF', '-DAVIF_LIBXML2=OFF', '-DAVIF_BUILD_APPS=OFF',
                '-DAVIF_BUILD_TESTS=OFF', '-DAVIF_BUILD_EXAMPLES=OFF',
                f'-DAOM_INCLUDE_DIR={ROOT / "build/aom-native-source"}',
-               f'-DAOM_LIBRARY={reference_build("release") / "libaom.a"}']
+               f'-DAOM_LIBRARY={reference_build("release", cross_x86_64=qemu) / "libaom.a"}']
+    if qemu:
+        command += ['-DCMAKE_SYSTEM_NAME=Linux', '-DCMAKE_SYSTEM_PROCESSOR=x86_64', f'-DCMAKE_C_COMPILER={CROSS_CC}',
+                    '-DCMAKE_CXX_COMPILER=x86_64-linux-gnu-g++']
     if MACOS and arch == 'x86_64':
         command.append('-DCMAKE_OSX_ARCHITECTURES=x86_64')
     if shutil.which('ninja'):
@@ -194,8 +219,8 @@ def build_libavif(arch):
                                'neither is reached with the default chroma downsampling'))
 
 
-def original_tools(build_name, libavif, arch):
-    cross = MACOS and arch == 'x86_64'
+def original_tools(build_name, libavif, arch, qemu=False):
+    cross = (MACOS or qemu) and arch == 'x86_64'
     profile_dir = reference_build('release', build_name, False, cross)
     profile_path = profile_dir / 'reference-profile.json'
     if not profile_path.exists():
@@ -208,9 +233,10 @@ def original_tools(build_name, libavif, arch):
         raise SystemExit(f'{profile_dir} is not the noncontracting {build_name} reference')
     tools = {}
     for name in ['encode_still', 'decode_still']:
-        binary = WORK / 'bin' / f'{name}-{build_name}-{arch}'
+        binary = WORK / 'bin' / f'{name}-{build_name}-{"linux-" if qemu else ""}{arch}'
         binary.parent.mkdir(parents=True, exist_ok=True)
-        run([os.environ.get('CC', 'cc'), *(['-arch', 'x86_64'] if cross else []), '-O2', '-ffp-contract=off', '-I', ROOT / 'upstream/libavif/include',
+        compiler = CROSS_CC if qemu else os.environ.get('CC', 'cc')
+        run([compiler, *(['-arch', 'x86_64'] if cross and not qemu else []), '-O2', '-ffp-contract=off', '-I', ROOT / 'upstream/libavif/include',
              ROOT / f'tools/{name}.c', libavif, profile_dir / 'libaom.a', '-lm', '-lpthread', '-o', binary])
         tools[name] = binary
     return tools, dict(build=str(profile_dir.relative_to(ROOT)), options=profile['options'],
@@ -222,7 +248,7 @@ def original_tools(build_name, libavif, arch):
 def port_tools(args):
     if args.port_bin:
         return {name: args.port_bin / name for name in ['encode_still', 'decode_planes']}
-    if args.x86_64:
+    if args.x86_64 or args.qemu:
         target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT.parents[1] / 'target'))
         tools = {name: target / 'x86_64-unknown-linux-gnu/release/examples' / name
                  for name in ['encode_still', 'decode_planes']}
@@ -233,6 +259,10 @@ def port_tools(args):
         cwd=ROOT)
     target = Path(os.environ.get('CARGO_TARGET_DIR', ROOT.parents[1] / 'target'))
     return {name: target / 'release/examples' / name for name in ['encode_still', 'decode_planes']}
+
+
+def qemu_version():
+    return subprocess.run(QEMU[:1] + ['--version'], capture_output=True, text=True).stdout.splitlines()[0]
 
 
 def environment(extra):
@@ -248,7 +278,10 @@ def arguments(settings):
 
 
 def in_container(image, command, env):
-    """The port command in an x86-64 GNU Linux container; Colima shares $HOME."""
+    """The port command in an x86-64 GNU Linux container; Colima shares $HOME.
+    With --qemu every x86-64 command runs under qemu-user instead."""
+    if image == 'qemu':
+        return QEMU + command
     if image is None:
         return command
     flags = [item for key, value in env.items() for item in ('-e', f'{key}={value}')]
@@ -264,13 +297,15 @@ def one_case(level, port, original, image, name, settings, directory, container=
                                           '--report-rtcd'], port_env),
                  env=environment(port_env), capture_output=True, text=True)
     rtcd = dict(line.split('=', 1) for line in result.stdout.split() if '=' in line)['rtcd']
-    run([original['encode_still'], image, c_avif, *arguments(settings)], env=environment(original_env),
-        capture_output=True)
+    run(in_container('qemu' if container == 'qemu' else None,
+                     [original['encode_still'], image, c_avif, *arguments(settings)], original_env),
+        env=environment(original_env), capture_output=True)
     port_bytes, c_bytes = port_avif.read_bytes(), c_avif.read_bytes()
     decoded = {}
     for side, tool, env in [('port', port['decode_planes'], port_env), ('c', original['decode_still'], original_env)]:
         planes, rgb = directory / f'{side}.planes', directory / f'{side}.rgb'
-        run(in_container(container if side == 'port' else None, [tool, port_avif, planes, rgb], env),
+        run(in_container(container if side == 'port' or container == 'qemu' else None,
+                         [tool, port_avif, planes, rgb], env),
             env=environment(env), capture_output=True)
         decoded[side] = (digest(planes.read_bytes()), digest(rgb.read_bytes()))
     record = dict(level=level, image=name, **settings, port_rtcd=rtcd, port_bytes=len(port_bytes),
@@ -302,15 +337,20 @@ def main():
                         help='On macOS ARM64: the x86-64 levels, with the port in --docker-image and the '
                              'originals under Rosetta 2')
     parser.add_argument('--docker-image', help='x86-64 GNU Linux image with glibc that runs the port (--x86-64)')
+    parser.add_argument('--qemu', action='store_true',
+                        help='In the AArch64 container of tools/qemu_x86_64: every x86-64 level, the port and '
+                             'the originals both GNU Linux x86-64 under qemu-x86_64 -cpu max')
     parser.add_argument('--jobs', type=int, default=4)
     parser.add_argument('--output', type=Path, help='Report path (default: build/aom-simd-original-<host>.json)')
     args = parser.parse_args()
-    if not (MACOS or LINUX):
+    if args.qemu and not QEMU_HOST:
+        raise SystemExit('--qemu runs in the AArch64 GNU Linux container of tools/qemu_x86_64')
+    if not (MACOS or LINUX or args.qemu):
         raise SystemExit('The port runs on macOS ARM64 and x86-64 GNU Linux only (crates/aom/src/lib.rs)')
     if args.x86_64 and not (MACOS and args.docker_image):
         raise SystemExit('--x86-64 runs on macOS ARM64 with --docker-image')
-    arch = 'x86_64' if args.x86_64 else ARCH
-    available = CROSS_LEVELS if args.x86_64 else HOST_LEVELS
+    arch = 'x86_64' if args.x86_64 or args.qemu else ARCH
+    available = CROSS_LEVELS if args.x86_64 else QEMU_LEVELS if args.qemu else HOST_LEVELS
     levels = args.level or available
     unsupported = [level for level in levels if level not in available]
     if unsupported:
@@ -318,12 +358,12 @@ def main():
 
     started = time.monotonic()
     WORK.mkdir(parents=True, exist_ok=True)
-    libavif, libavif_record = build_libavif(arch)
+    libavif, libavif_record = build_libavif(arch, args.qemu)
     originals, provenance = {}, {}
     for level in levels:
         build_name = LEVELS[level][2]
         if build_name not in originals:
-            originals[build_name], provenance[build_name] = original_tools(build_name, libavif, arch)
+            originals[build_name], provenance[build_name] = original_tools(build_name, libavif, arch, args.qemu)
     port = port_tools(args)
 
     images, corpus, cases = {}, [], []
@@ -354,9 +394,9 @@ def main():
         for level in levels:
             original = originals[LEVELS[level][2]]
             for index, (name, settings) in enumerate(cases):
-                directory = WORK / 'cases' / arch / level / f'{index:03d}'
+                directory = WORK / 'cases' / f'{"qemu-" if args.qemu else ""}{arch}' / level / f'{index:03d}'
                 jobs.append(pool.submit(one_case, level, port, original, images[name], name, settings, directory,
-                                        args.docker_image if args.x86_64 else None))
+                                        'qemu' if args.qemu else args.docker_image if args.x86_64 else None))
         records = []
         for job in jobs:
             record = job.result()
@@ -374,18 +414,22 @@ def main():
                'and decoded planes and RGB of the port AVIF, through the same libavif calls'),
         host=dict(system=platform.platform(), machine=platform.machine()),
         target=dict(arch=arch, port=('x86-64 GNU Linux build in ' + args.docker_image + ' (Rosetta 2 for Linux)'
-                                     if args.x86_64 else 'native'),
-                    originals='x86-64 macOS under Rosetta 2' if args.x86_64 else 'native'),
+                                     if args.x86_64 else 'x86-64 GNU Linux build under ' + ' '.join(QEMU)
+                                     + f' ({qemu_version()})' if args.qemu else 'native'),
+                    originals=('x86-64 macOS under Rosetta 2' if args.x86_64 else 'x86-64 GNU Linux (cross GCC) '
+                               'under the same QEMU' if args.qemu else 'native')),
         levels={level: dict(port_environment=LEVELS[level][0], port_rtcd=LEVELS[level][1],
                             original=LEVELS[level][2], original_environment=LEVELS[level][3])
                 for level in levels},
         originals=provenance, libavif=libavif_record,
         port=dict(binaries={name: str(path) for name, path in port.items()},
-                  rustc=subprocess.run(['rustc', '--version'], capture_output=True, text=True).stdout.strip()),
+                  rustc=(subprocess.run(['rustc', '--version'], capture_output=True, text=True).stdout.strip()
+                         if shutil.which('rustc') else 'host rustc (not in this environment)')),
         corpus=corpus, summary=summary, seconds=round(time.monotonic() - started, 1),
         cases=records, failed=[f'{r["level"]} {label(r["image"], r)}: {"; ".join(r["problems"])}' for r in failures])
     output = args.output or ROOT / ('build/aom-simd-original-'
-                                    + ('rosetta-x86_64' if args.x86_64 else 'macos-aarch64' if MACOS else 'linux-x86_64')
+                                    + ('rosetta-x86_64' if args.x86_64 else 'qemu-x86_64' if args.qemu
+                                       else 'macos-aarch64' if MACOS else 'linux-x86_64')
                                     + '.json')
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2) + '\n')

@@ -88,6 +88,12 @@ python3 tools/build_aom.py --library-only --simd neon   # --simd avx2 on x86-64
 python3 tools/check_aom_simd_original.py
 ```
 
+On macOS ARM64 the x86-64 levels, `avx2` included, run in an AArch64 container
+under qemu-user 10 with GNU Linux x86-64 builds of the port and the originals
+(`--qemu`; build the image from `tools/qemu_x86_64/Dockerfile`; ADR 0058,
+amendment of 2026-11-14). It is an emulator: one hosted x86-64 run per release
+candidate remains.
+
 The recorded default-configuration runs passed the same 64 upstream test registrations in C
 and Rust. The recorded complete supported-feature configuration passed 70 registrations
 containing 9,555 GoogleTest cases, plus the original C and shell integration

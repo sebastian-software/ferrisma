@@ -94,10 +94,18 @@ SIMD_REFERENCES = {
 RTCD_HEADERS = ['config/aom_dsp_rtcd.h', 'config/aom_scale_rtcd.h', 'config/av1_rtcd.h']
 
 
+# An AArch64 GNU Linux host (the QEMU container of check_aom_simd_original.py
+# --qemu) builds the x86-64 references for GNU Linux with Debian's
+# x86_64-linux-gnu cross GCC; they run under qemu-x86_64 -cpu max (AVX2).
+LINUX_CROSS_CC = 'x86_64-linux-gnu-gcc'
+LINUX_AARCH64 = sys.platform.startswith('linux') and platform.machine() in ('aarch64', 'arm64')
+
+
 def reference_build(profile, simd='generic', contract=False, cross_x86_64=False):
     """The build directory of a reference (see the module docstring)."""
-    name = ('aom-native' + ('' if simd == 'generic' else f'-{simd}')
-            + ('-x86_64' if cross_x86_64 and simd == 'generic' else '') + f'-{profile}')
+    linux = cross_x86_64 and LINUX_AARCH64
+    name = ('aom-native' + ('-linux' if linux else '') + ('' if simd == 'generic' else f'-{simd}')
+            + ('-x86_64' if cross_x86_64 and (simd == 'generic' or linux) else '') + f'-{profile}')
     return ROOT / 'build' / (name + ('-contract' if contract else ''))
 
 
@@ -127,7 +135,9 @@ def main():
                              "compiler default of upstream's release build, for diagnosis only")
     parser.add_argument('--x86-64', action='store_true',
                         help='On macOS ARM64, build the generic reference for x86-64 (Rosetta 2) '
-                             'into build/aom-native-x86_64-<profile>; requires --library-only')
+                             'into build/aom-native-x86_64-<profile>; on AArch64 GNU Linux, for '
+                             'x86-64 GNU Linux into build/aom-native-linux-x86_64-<profile>; '
+                             'requires --library-only')
     args = parser.parse_args()
     simd = SIMD_REFERENCES.get(args.simd)
     if args.x86_64 and (simd or not args.library_only):
@@ -143,14 +153,18 @@ def main():
     host_arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'x86_64', 'AMD64': 'x86_64'}[platform.machine()]
     target_arch = simd['arch'] if simd else ('x86_64' if args.x86_64 else host_arch)
     cross = target_arch != host_arch
-    if cross and (sys.platform != 'darwin' or target_arch != 'x86_64'):
-        raise SystemExit(f'References build natively, or for x86-64 on macOS (Rosetta 2); not {target_arch} here')
+    if cross and (target_arch != 'x86_64' or not (sys.platform == 'darwin' or LINUX_AARCH64)):
+        raise SystemExit(f'References build natively, or for x86-64 on macOS (Rosetta 2) or on AArch64 '
+                         f'GNU Linux (cross GCC, QEMU); not {target_arch} here')
     build = reference_build(profile, args.simd, args.fp_contract == 'on', cross)
     flags = (('-ffp-contract=off ' if args.fp_contract == 'off' else '')
              + f'-fmacro-prefix-map={source}=upstream/aom')
     options = [*(simd['options'] if simd else ['-DAOM_TARGET_CPU=generic']), '-DCONFIG_TUNE_VMAF=0',
                '-DCMAKE_POSITION_INDEPENDENT_CODE=ON', '-DENABLE_DOCS=OFF']
-    if cross:
+    if cross and LINUX_AARCH64:
+        options += ['-DCMAKE_SYSTEM_NAME=Linux', '-DCMAKE_SYSTEM_PROCESSOR=x86_64',
+                    f'-DCMAKE_C_COMPILER={LINUX_CROSS_CC}', '-DCMAKE_CXX_COMPILER=x86_64-linux-gnu-g++']
+    elif cross:
         options.append('-DCMAKE_OSX_ARCHITECTURES=x86_64')
     command = ['cmake', '-S', source, '-B', build, '-G', 'Ninja',
                f'-DCMAKE_BUILD_TYPE={profile.title()}',
@@ -212,7 +226,8 @@ def main():
                                        for name in RTCD_HEADERS},
                   archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
                   options=options, c_flags=flags.replace(str(source), '<source>'),
-                  compiler=subprocess.check_output([os.environ.get('CC', 'cc'), '--version'],
+                  compiler=subprocess.check_output([LINUX_CROSS_CC if cross and LINUX_AARCH64 else
+                                                    os.environ.get('CC', 'cc'), '--version'],
                                                    text=True).splitlines()[0],
                   library_only_reference=args.library_only, original_tests_executed=False,
                   library_translation_units=len(entries), generated_units=3,

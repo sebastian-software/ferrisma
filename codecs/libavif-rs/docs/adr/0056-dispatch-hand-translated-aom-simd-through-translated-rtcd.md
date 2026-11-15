@@ -162,7 +162,10 @@ x86-64 on the same host (`--x86-64`, see below): the port's GNU Linux build
 in an x86-64 Ubuntu 20.04 container (glibc 2.31) under Rosetta 2, and the
 x86-64 originals under Rosetta 2 on macOS. `sse4.1` 86 of 86 and `scalar` 86
 of 86 cases are identical, and the port reports `simd(sse4.1)` and `c`
-respectively. The `avx2` level has not run locally.
+respectively. The `avx2` level has not run locally. (Superseded on 2026-11-14:
+the x86-64 levels, `avx2` included, now run in one GNU Linux environment under
+qemu-user 10; see the ADR 0058 amendment of that date. First result: 82 of 82
+identical at each of `avx2`, `sse4.1` and `scalar`.)
 
 ### Issue #203
 
