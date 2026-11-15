@@ -2,8 +2,9 @@
 //! every remaining byte is passed unchanged to the selected image decoder.
 
 use ferrisma::pipeline::{
-    AvifEncoder, ImageFormat, InputProfilePolicy, JpegXlDecoder, Output, OutputFormat,
-    ProcessingError, TransformOptions, WorkingPrecision, transcode,
+    AvifEncoder, ImageFormat, InputProfilePolicy, JpegXlDecoder, JpegXlOptions, Output,
+    OutputFormat, ProcessingError, ResizeFit, ResizeOptions, TransformOptions, WorkingPrecision,
+    transcode, transcode_resized,
 };
 
 const MAX_INPUT_BYTES: usize = 512 * 1024;
@@ -41,6 +42,160 @@ pub fn run_own_avif_case(bytes: &[u8], depth: u8) -> Option<Result<Output, Proce
         JpegXlDecoder::JxlOxide,
         AvifEncoder::Libavif { depth },
     )
+}
+
+/// Engine-managed memory of the JPEG XL output lane. The lossless sink
+/// reserves its measured one-shot peak, about 76 bytes per opaque pixel and
+/// 101 with alpha (issue #223), on top of the 4-byte input frame. 32 MiB
+/// admits 320x320 with alpha (about 10 MiB) and the resample plan of the
+/// 8192x1 and 1x8192 classes (about 18 MB for a small input), so those
+/// reach the encoder. A request that does not fit is rejected with
+/// `ResourceExhausted`, which the lane accepts.
+const JXL_OUT_MAX_MANAGED_BYTES: usize = 32 * 1024 * 1024;
+
+/// What the JPEG XL output lane asked for, so the target can check the result.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct JxlOutRequest {
+    /// Lossless effort 2 rather than lossy VarDCT.
+    pub lossless: bool,
+    /// The requested output size.
+    pub geometry: JxlOutGeometry,
+}
+
+/// Output geometry of the JPEG XL output lane.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum JxlOutGeometry {
+    /// Exactly this width and height (`transcode`).
+    Exact(u32, u32),
+    /// Fit inside a square of this edge, never enlarged (`transcode_resized`):
+    /// small inputs keep their own size, so their alpha edges stay intact.
+    Inside(u32),
+}
+
+/// The JPEG XL output lane. Control byte, low bit first:
+///
+/// - bits 0–1: input JPEG (0), JPEG XL (1), AVIF (2), WebP (3);
+/// - bit 2: lossy `VarDCT` (0) or lossless effort 2 (1);
+/// - bits 3–4: the profile policy, as in [`run_case`];
+/// - bits 5–7: geometry class: 0 small (1–16 per axis, from the input
+///   length), 1 8192x1, 2 1x8192, 3 64x64, 4 inside 64x64 without
+///   enlargement (keeps a small input's alpha), 5 inside 320x320 without
+///   enlargement (crosses the 256-pixel group boundary), 6 and 7 64x64 at
+///   the smallest admitted lossy distance (0.05) and the largest below 3.0;
+///   lossless ignores the distance. Every other lossy class uses d1.0.
+///
+/// The encoder is serial (it requires `encoder_threads == 1`), so no bit
+/// selects a thread count. JPEG XL input uses the build's default reader,
+/// the workspace libjxl-rs decoder under `cli`.
+pub fn run_jxl_out_case(bytes: &[u8]) -> Option<(JxlOutRequest, Result<Output, ProcessingError>)> {
+    let (&control, encoded) = bytes.split_first()?;
+    if encoded.is_empty() || encoded.len() > MAX_INPUT_BYTES {
+        return None;
+    }
+    let kind = match control & 3 {
+        0 => ImageFormat::Jpeg,
+        1 => ImageFormat::JpegXl,
+        2 => ImageFormat::Avif,
+        _ => ImageFormat::WebP,
+    };
+    let lossless = control & 4 != 0;
+    let profile_policy = match (control >> 3) & 3 {
+        0 if kind == ImageFormat::JpegXl => InputProfilePolicy::UseRenderedIcc,
+        0 | 2 => InputProfilePolicy::AssumeSrgbIfMissing,
+        1 => InputProfilePolicy::Strict,
+        _ => InputProfilePolicy::UseRenderedIcc,
+    };
+    let class = control >> 5;
+    // Mutations change the length, so the small class covers all sizes.
+    let small = u32::try_from(encoded.len() % 256).unwrap_or(0);
+    let geometry = match class {
+        0 => JxlOutGeometry::Exact(1 + small % 16, 1 + small / 16),
+        1 => JxlOutGeometry::Exact(8192, 1),
+        2 => JxlOutGeometry::Exact(1, 8192),
+        4 => JxlOutGeometry::Inside(64),
+        5 => JxlOutGeometry::Inside(320),
+        _ => JxlOutGeometry::Exact(64, 64),
+    };
+    let distance = match class {
+        6 => JpegXlOptions::MIN_LOSSY_DISTANCE,
+        7 => 2.999,
+        _ => 1.0,
+    };
+    let (output_width, output_height) = match geometry {
+        JxlOutGeometry::Exact(width, height) => (width, height),
+        JxlOutGeometry::Inside(_) => (1, 1),
+    };
+    let options = TransformOptions {
+        output_format: OutputFormat::JpegXl,
+        jpeg_xl: if lossless {
+            JpegXlOptions::Lossless { effort: 2 }
+        } else {
+            JpegXlOptions::Lossy { distance }
+        },
+        output_width,
+        output_height,
+        profile_policy,
+        transform_threads: 1,
+        encoder_threads: 1,
+        max_input_bytes: MAX_INPUT_BYTES,
+        max_input_pixels: MAX_INPUT_PIXELS,
+        max_output_bytes: MAX_OUTPUT_BYTES,
+        max_managed_bytes: JXL_OUT_MAX_MANAGED_BYTES,
+        ..TransformOptions::default()
+    };
+    let result = match geometry {
+        JxlOutGeometry::Exact(..) => transcode(encoded, kind, options),
+        JxlOutGeometry::Inside(edge) => transcode_resized(
+            encoded,
+            kind,
+            options,
+            ResizeOptions {
+                width: Some(edge),
+                height: Some(edge),
+                fit: ResizeFit::Inside,
+                without_enlargement: true,
+            },
+        ),
+    };
+    Some((JxlOutRequest { lossless, geometry }, result))
+}
+
+/// The JPEG XL codestream signature and the container's signature box.
+const JXL_CODESTREAM: [u8; 2] = [0xff, 0x0a];
+const JXL_CONTAINER: [u8; 12] = [
+    0, 0, 0, 0x0c, b'J', b'X', b'L', b' ', 0x0d, 0x0a, 0x87, 0x0a,
+];
+
+/// Cheap invariants of a successful JPEG XL output; panics on a violation,
+/// which libFuzzer reports as a crash. The output is decoded back with the
+/// workspace decoder and its dimensions (not its pixels) are compared.
+///
+/// # Panics
+/// When the output is not JPEG XL, exceeds the output limit, has other
+/// dimensions than requested, or does not decode.
+pub fn assert_jxl_output(request: &JxlOutRequest, output: &Output) {
+    assert_eq!(output.format, OutputFormat::JpegXl);
+    assert!(
+        output.bytes.starts_with(&JXL_CODESTREAM) || output.bytes.starts_with(&JXL_CONTAINER),
+        "output lacks a JPEG XL signature"
+    );
+    assert!(output.bytes.len() <= MAX_OUTPUT_BYTES);
+    match request.geometry {
+        JxlOutGeometry::Exact(width, height) => {
+            assert_eq!((output.width, output.height), (width, height));
+        }
+        JxlOutGeometry::Inside(edge) => {
+            assert!((1..=edge).contains(&output.width) && (1..=edge).contains(&output.height));
+        }
+    }
+    let pixels = u64::from(output.width) * u64::from(output.height);
+    let info = ferrisma_jxl_decoder::inspect(&output.bytes, pixels)
+        .unwrap_or_else(|error| panic!("the engine's JPEG XL output does not parse: {error:?}"));
+    assert_eq!((info.width, info.height), (output.width, output.height));
+    assert!(matches!(info.channels, 3 | 4), "{} channels", info.channels);
+    let mut samples = vec![0.0; info.sample_count().expect("checked size")];
+    ferrisma_jxl_decoder::decode_into(&output.bytes, &info, &mut samples, pixels)
+        .unwrap_or_else(|error| panic!("the engine's JPEG XL output does not decode: {error:?}"));
 }
 
 fn run_case_with_backends(
@@ -155,6 +310,56 @@ mod tests {
         }
     }
 
+    const RGBA_JXL: &[u8] = include_bytes!("../../tests/fixtures/jxl-lossless/rgba-37x19.jxl");
+
+    /// Runs one framed seed through the JPEG XL output lane and checks the
+    /// target's invariants on success.
+    fn jxl_out(selector: u8, image: &[u8]) -> Result<Output, ProcessingError> {
+        let (request, result) =
+            run_jxl_out_case(&framed(selector, image)).expect("input admitted by the driver");
+        if let Ok(output) = &result {
+            assert_jxl_output(&request, output);
+        }
+        result
+    }
+
+    #[test]
+    fn jxl_output_lane_writes_both_profiles_from_every_input_format() {
+        for (selector, image) in [(0, JPEG), (1, JXL), (2, AVIF), (3, WEBP)] {
+            // Geometry class 3 (64x64), lossy then lossless, default policy.
+            for profile in [0, 4] {
+                let control = selector | profile | 3 << 5;
+                let output = jxl_out(control, image)
+                    .unwrap_or_else(|error| panic!("selector {control:#04x}: {error}"));
+                assert_eq!((output.width, output.height), (64, 64));
+                assert_eq!(output.report.decoder_requests, 1);
+            }
+        }
+        // The small class 0, the extreme aspect classes (1, 2) and the
+        // distance bounds (6, 7) reach the encoder within the lane's budget.
+        for class in [0_u8, 1, 2, 6, 7] {
+            for profile in [0, 4] {
+                let control = profile | class << 5;
+                jxl_out(control, JPEG)
+                    .unwrap_or_else(|error| panic!("selector {control:#04x}: {error}"));
+            }
+        }
+    }
+
+    #[test]
+    fn jxl_output_lane_keeps_alpha_in_both_profiles() {
+        for profile in [0, 4] {
+            let output = jxl_out(1 | profile | 4 << 5, RGBA_JXL).expect("alpha seed must encode");
+            assert_eq!((output.width, output.height), (37, 19));
+            let info = ferrisma_jxl_decoder::inspect(&output.bytes, 37 * 19).unwrap();
+            assert_eq!(info.channels, 4, "alpha survives the round trip");
+        }
+        assert!(run_jxl_out_case(&[4]).is_none());
+        // Strict policy still rejects the untagged JPEG before encoding.
+        let error = jxl_out(4 | 1 << 3, JPEG).unwrap_err();
+        assert_eq!(error.kind(), ProcessingErrorKind::UnsupportedColor);
+    }
+
     #[cfg(feature = "own-jxl")]
     #[test]
     fn workspace_jxl_reaches_both_encoders() {
@@ -203,6 +408,17 @@ mod tests {
                 "transcode_own_avif",
                 "depth=10",
                 (|bytes| run_own_avif_case(bytes, 10)) as CaseRunner,
+            ),
+            (
+                "transcode_jxl_out",
+                "jxl-out",
+                (|bytes| {
+                    let (request, result) = run_jxl_out_case(bytes)?;
+                    if let Ok(output) = &result {
+                        assert_jxl_output(&request, output);
+                    }
+                    Some(result)
+                }) as CaseRunner,
             ),
             #[cfg(feature = "own-jxl")]
             (

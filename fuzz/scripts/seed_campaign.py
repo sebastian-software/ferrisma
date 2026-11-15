@@ -45,6 +45,47 @@ seed("transcode_own_jxl", "jxl-unknown-colour-space", 5, hostile_jxl)
 for orientation in range(1, 9):
     seed("transcode_own_jxl", f"orientation-{orientation}", 1, read(f"tests/fixtures/orientation/jxl-{orientation}.jxl"))
 
+# JPEG XL output lane: control byte = input format | profile << 2 (0 lossy
+# d1.0, 1 lossless) | policy << 3 | geometry class << 5 (fuzz/src/lib.rs).
+def jxl_out(name, fmt, path, geometry, policy=0, profiles=("lossy", "lossless")):
+    image = read(path)
+    for profile in profiles:
+        selector = fmt | (4 if profile == "lossless" else 0) | policy << 3 | geometry << 5
+        seed("transcode_jxl_out", f"{name}-{profile}", selector, image)
+
+JXL_DATA = "codecs/libjxl-rs/tests/data/"
+for name, path, fmt in fixtures:
+    jxl_out(f"{name}-64x64", fmt, path, 3)
+jxl_out("jpeg-small", 0, "tests/fixtures/sample.jpg", 0)
+jxl_out("jpeg-min-distance", 0, "tests/fixtures/sample.jpg", 6, profiles=("lossy",))
+jxl_out("jpeg-max-distance", 0, "tests/fixtures/sample.jpg", 7, profiles=("lossy",))
+# Alpha at the input's own size (class 4 never enlarges a small input).
+jxl_out("jxl-rgba-37x19", 1, "tests/fixtures/jxl-lossless/rgba-37x19.jxl", 4)
+jxl_out("jxl-rgb-alpha8", 1, JXL_DATA + "effects_rgb_alpha8.jxl", 4)
+jxl_out("avif-alpha", 2, "codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_irot.avif", 4)
+# 16-bit and 12-bit gray with alpha, VarDCT and Modular. The pipeline refuses
+# gray JPEG XL under every policy; these seeds start on that rejection path.
+jxl_out("jxl-gray-alpha16-effects", 1, JXL_DATA + "effects_gray_alpha16.jxl", 4)
+jxl_out("jxl-gray-alpha16-vardct", 1, JXL_DATA + "vardct-gray-alpha16.jxl", 4)
+jxl_out("jxl-gray-alpha12-modular", 1, JXL_DATA + "modular-gray-alpha12.jxl", 4)
+# High bit depth RGB: 16-bit Modular palette (17x13), 31-bit Modular (3x8),
+# and a 12-bit AVIF built with a sample transform (8-bit alpha).
+jxl_out("jxl-rgb16-palette-17x13", 1, JXL_DATA + "modular-palette16.jxl", 4)
+jxl_out("jxl-rgb31-3x8", 1, JXL_DATA + "modular-rgb31.jxl", 4)
+jxl_out("avif-12bit-sample-transform", 2,
+        "codecs/libavif-rs/upstream/libavif/tests/data/weld_sato_12B_8B_q0.avif", 3)
+# Gray JPEG (no ICC: assume sRGB only because it is missing) and gray JPEG XL.
+jxl_out("jpeg-gray-9x7", 0, JXL_DATA + "ycbcr-jpeg-gray-9x7.jpg", 4, policy=2)
+jxl_out("jxl-gray-257x3", 1, JXL_DATA + "ycbcr-jpeg-gray-257x3.jxl", 4)
+# Extreme aspect ratios: wide and tall inputs to wide and tall outputs.
+jxl_out("jpeg-257x3-to-8192x1", 0, JXL_DATA + "ycbcr-jpeg-444-257x3.jpg", 1, policy=2)
+jxl_out("jpeg-3x257-to-1x8192", 0, JXL_DATA + "ycbcr-jpeg-444-3x257.jpg", 2, policy=2)
+jxl_out("jxl-257x3-inside", 1, JXL_DATA + "ycbcr-jpeg-420-257x3.jxl", 5)
+jxl_out("jxl-3x257-inside", 1, JXL_DATA + "ycbcr-jpeg-420-3x257.jxl", 5)
+# More than one 256x256 group: 300x260 at its own size.
+jxl_out("jxl-rgb-300x260", 1, "tests/fixtures/jxl-lossless/rgb-300x260.jxl", 5)
+jxl_out("jxl-unknown-colour-space", 1, "tests/fixtures/hostile/jxl-unknown-colour-space.jxl", 3)
+
 # JPEG APP2 carries a full ICC profile. Mutate the tag table count and the
 # first tag offset while retaining the container framing and a valid profile
 # baseline, so profile parsing is reached before or after mutation.

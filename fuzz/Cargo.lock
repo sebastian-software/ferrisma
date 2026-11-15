@@ -285,6 +285,7 @@ name = "ferrisma-fuzz"
 version = "0.0.0"
 dependencies = [
  "ferrisma",
+ "ferrisma-jxl-decoder",
  "libfuzzer-sys",
 ]
 

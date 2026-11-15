@@ -13,6 +13,8 @@ own-jxl = ["ferrisma/jpeg-xl-own-read"]
 [dependencies]
 libfuzzer-sys = "0.4"
 ferrisma = { path = "..", features = ["cli"] }
+# Reads the JPEG XL output lane's results back (already in the graph via `cli`).
+ferrisma-jxl-decoder = { path = "../crates/ferrisma-jxl-decoder" }
 
 [[bin]]
 name = "transcode"
@@ -24,6 +26,13 @@ bench = false
 [[bin]]
 name = "transcode_own_avif"
 path = "fuzz_targets/transcode_own_avif.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "transcode_jxl_out"
+path = "fuzz_targets/transcode_jxl_out.rs"
 test = false
 doc = false
 bench = false
