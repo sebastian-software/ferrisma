@@ -4142,7 +4142,8 @@ here: native Linux and the ASan/UBSan graph; x86-64 ran under Rosetta 2
 ## Encoder selection (2026-11-15, branch `v1/jxl-enc-select`)
 
 The encoder is ready to select its SIMD path by default
-(`hwy::ENCODER_SELECTS_SIMD`, still `false`; ADR 0004 "Encoder selection").
+(`hwy::ENCODER_SELECTS_SIMD`: `false` on `v1/jxl-enc-select`, on in
+`v1/jxl-enc-select-flip`; ADR 0004 "Encoder selection").
 `JxlEncoder` selects its target at creation and its work calls, and
 `LosslessThunderConfig::encode_pixels`, run inside
 `hwy::DispatchScope::Encoding`, where the encoder's kernels, the decoder code
@@ -4184,8 +4185,13 @@ The static stage now builds the x86-64 release `encode_lossy`,
 135,236 observations under Rosetta 2, so it was not committed (ADR 0004).
 
 Open: condition (e), the hosted x86-64 run of the encoder's binaries, and
-the encoder's AVX2 speed on hardware. `ENCODER_SELECTS_SIMD` is `false` on
-this branch; the switch is on in `v1/jxl-enc-select-flip`, which must not be
-merged before the hosted measurement is reviewed.
+the encoder's AVX2 speed on hardware. In this branch (`v1/jxl-enc-select-flip`,
+the last commit `feat(jxl)!`) `ENCODER_SELECTS_SIMD` is on for AArch64 and
+x86-64, after `origin/main` was merged (encoder lossless streaming, whose 9
+parity tests now select the scalar encoder path). Verified with the switch on:
+static stage, 1.95 check and Clippy; the whole `--stage test` on NEON without
+the scalar environment guard (explicit selections alone) 1,162 passed, 0
+failed, 2 ignored; the encoder's SIMD binaries on AVX2 under Rosetta 2 44
+passed, 1 ignored. Do not merge before the hosted measurement is reviewed.
 <!-- end encoder selection head -->
 ||||||| df6c83cf

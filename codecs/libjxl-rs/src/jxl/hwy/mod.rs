@@ -539,22 +539,25 @@ pub fn outside_decoding<R>(body: impl FnOnce() -> R) -> R {
 
 // encoder simd: the encoder's own dispatch point (port ADR 0004, "Encoder
 // path").
-/// Whether the encoder selects its SIMD kernels by default: off on every
-/// target. The encoder is gated byte for byte against the original's scalar
-/// build (`cjxl` in the scalar configuration). It may be turned on for a
-/// target only when, on that target, conditions (a) to (e) of ADR 0004
-/// "Encoder path" hold: every Highway export that an encoder setting in
-/// scope reaches is translated with parity against the original built for
-/// the same single Highway target, the selection reaches the decoder code
-/// inside the encoder and its plane padding ([`DispatchScope::Encoding`]),
-/// a whole-encode comparison against the original built for that target is
-/// byte-identical (`tests/simd_encoder_public.rs`), the scalar gates force
-/// the scalar path ([`select_scalar_encoder_for_test`],
-/// `JXL_ENCODER_TARGET=scalar`), and for AVX2 the same evidence exists from
-/// real x86-64 hardware. The selection is made when an encoder is created
-/// ([`encoder_default_target`]); flipping this constant per target is the
-/// whole change.
-pub const ENCODER_SELECTS_SIMD: bool = false;
+/// Whether the encoder selects its SIMD kernels by default: on for AArch64
+/// (NEON) and x86-64 (AVX2, when the CPU has Highway's AVX2 group; the
+/// selection is [`Target::detect`], as for the decoder). It was off while
+/// the encoder was gated byte for byte against the original's scalar build
+/// (`cjxl` in the scalar configuration); that gate still runs on the scalar
+/// path, which the scalar test stage forces
+/// ([`select_scalar_encoder_for_test`], `JXL_ENCODER_TARGET=scalar`). The
+/// switch is on for a target when, on that target, conditions (a) to (e) of
+/// ADR 0004 "Encoder path" hold: every Highway export that an encoder
+/// setting in scope reaches is translated with parity against the original
+/// built for the same single Highway target, the selection reaches the
+/// decoder code inside the encoder and its plane padding
+/// ([`DispatchScope::Encoding`]), a whole-encode comparison against the
+/// original built for that target is byte-identical
+/// (`tests/simd_encoder_public.rs`), the scalar gates force the scalar path,
+/// and for AVX2 the same evidence exists from real x86-64 hardware. The
+/// selection is made when an encoder is created
+/// ([`encoder_default_target`]).
+pub const ENCODER_SELECTS_SIMD: bool = cfg!(any(target_arch = "aarch64", target_arch = "x86_64"));
 
 /// [`encoder_target`] override: 0 follows [`ENCODER_SELECTS_SIMD`], 1 is the
 /// scalar path, 2 is the detected SIMD target.

@@ -2265,4 +2265,18 @@ SIMD binaries):
   skcms HSW engine (above), and every binary has std_detect's one `xgetbv`
   call. What remains for (e): the hosted Linux x86-64 run of the encoder's
   SIMD binaries and a measurement of the encoder's AVX2 speed on hardware.
+
+**The switch (branch `v1/jxl-enc-select-flip`, 2026-11-16).** The last
+commit sets `ENCODER_SELECTS_SIMD` to on for AArch64 and x86-64 (AVX2 by
+run-time detection, [`Target::detect`], as the decoder); the scalar path is
+forced by `select_scalar_encoder_for_test` and, in the oracle test builds,
+`JXL_ENCODER_TARGET=scalar`. With the switch on and without the environment
+guard, the whole `--stage test` on NEON passes (1,162 passed, 0 failed, 2
+ignored) after the 9 tests of `tests/parity/encoder_lossless.rs` (merged to
+`main` after the other sweeps) select the scalar encoder path, so the
+explicit selections alone keep the scalar-reference tests on the scalar path.
+The encoder's SIMD binaries pass on AVX2 under Rosetta 2 (44 passed, 1
+ignored), and the x86-64 static check holds (0 out-of-line calls in the
+port's functions; 806 in skcms HSW). Condition (e) stays open until the
+hosted measurement and a hosted x86-64 run are reviewed.
 <!-- end encoder selection -->
