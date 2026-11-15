@@ -527,6 +527,12 @@ amendment), or the port's encoder starts selecting SIMD by default.
   identical on both targets in this comparison and in `jxl_output_tests`
   (the cjxl reference files above pass under Rosetta), but resized rows
   depend on the kernel level as for lossy.
+- 2026-11-15 — Options note (ADR-0043 D4): the AVIF settings that a JPEG
+  XL output refuses as mismatched are now `AvifOptions` (formerly
+  `quality`, `speed`, `chroma_subsampling`), and the CLI flags rejected
+  with `.jxl` output are `--avif-*` and `--webp-*` ("… requires .avif
+  output"); `--quality=`, `--speed=` and `--chroma=` are unknown options.
+  `JpegXlOptions` is unchanged.
 - 2026-11-15 — Owner decision on the lossy default and the patches policy
   (#236): **lossy distance 1.0 by default, patches off; owner decision
   2026-11-15.** This confirms the 2026-11-12 "pending owner confirmation"

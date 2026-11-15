@@ -70,7 +70,7 @@ case "$kernel_level" in
   *) echo "BENCH_KERNEL_LEVEL must be best, scalar, neon or avx2" >&2; exit 2 ;;
 esac
 ferrisma_args=(${kernel_args[@]+"${kernel_args[@]}"} ${policy_args[@]+"${policy_args[@]}"} ${filter_args[@]+"${filter_args[@]}"} ${precision_args[@]+"${precision_args[@]}"}
-  "--quality=$quality" "--speed=$speed" "--encoder-threads=$encoder_threads" "--chroma=$chroma" "--max-input-mb=$max_input_mb")
+  "--avif-quality=$quality" "--avif-speed=$speed" "--encoder-threads=$encoder_threads" "--avif-chroma=$chroma" "--avif-depth=10" "--max-input-mb=$max_input_mb")
 
 sharp_available=0
 if [[ -n "${BENCH_SHARP_NODE_MODULES:-}" ]] \

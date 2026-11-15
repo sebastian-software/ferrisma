@@ -195,7 +195,8 @@ None: the open questions of the initial record were decided on
 - **Repeated CLI flags** (formerly the open question of that name):
   refused; owner decision of 2026-11-15 ("everything else is mostly a
   silent error"). A flag given twice, or a pair of mutually exclusive
-  flags, is an error naming the flags, before any input is read (`src/cli.rs`; inventory Q7).
+  flags, is an error naming the flags, before any input is read
+  (`src/cli.rs`; inventory Q7).
 - **A strict mode** (formerly the open question of that name): none for
   now; owner decision of 2026-11-15. No option turns
   `ProcessingReport::discarded` into a refusal: a caller checks the set,
@@ -210,7 +211,8 @@ None: the open questions of the initial record were decided on
   external backend are `InvalidOptions` before decoding (inventory Q1, Q2,
   Q5); a value the report states as replaced stays where it is documented
   (Q4, Q6, valid batch thread counts). Encoder scales are native per
-  format instead of aliased (ADR-0043 D4; inventory O8).
+  format instead of aliased (ADR-0043 D4; inventory O8): WebP lossy takes
+  libwebp's `method` 0–6, and the mapped `speed` is gone.
 
 ## Review when
 
@@ -248,3 +250,7 @@ None: the open questions of the initial record were decided on
   owner: refused where the caller set a nondefault value; implemented on
   `v1/engine-options` (inventory Q1, Q2, Q5) and moved to "Decided since
   2026-11-15"; no question remains open.
+- 2026-11-15 — The WebP part of the decision on options without effect is
+  implemented with ADR-0043 D4: libwebp's own `method` replaces the mapped
+  `speed` (inventory O8), and the AVIF quality is libavif's integer scale
+  (O3). No decision changed.

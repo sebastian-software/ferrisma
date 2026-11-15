@@ -9,18 +9,14 @@ use ferrisma_avif_write as writer;
 /// Workspace libavif with its AOM encoder, available with `avif-write`; the
 /// engine's built-in AVIF writer, also usable through `transcode_with`.
 ///
-/// Quality 0–100 and speed 0–10 use libavif's scales.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct LibavifBackend {
-    /// AV1 bit depth: 8 or 10.
-    pub depth: u8,
-}
-
-impl Default for LibavifBackend {
-    fn default() -> Self {
-        Self { depth: 10 }
-    }
-}
+/// Every setting comes from the request's [`AvifOptions`] on libavif's own
+/// scales (quality and alpha quality 0–100, speed 0–10, depth 8 or 10).
+/// Until 2026-11-15 the backend carried the depth itself
+/// (`LibavifBackend { depth }`), a second control for the same setting.
+///
+/// [`AvifOptions`]: crate::pipeline::AvifOptions
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct LibavifBackend;
 
 fn map_error(error: writer::EncodeError) -> EncodeError {
     let (error_kind, message) = error.into_parts();
@@ -33,25 +29,27 @@ fn map_error(error: writer::EncodeError) -> EncodeError {
 }
 
 impl LibavifBackend {
-    fn config(self, request: &EncodeRequest) -> Result<writer::Config, EncodeError> {
+    fn config(request: &EncodeRequest) -> Result<writer::Config, EncodeError> {
         if request.format != OutputFormat::Avif {
             return Err(EncodeError::new(
                 EncodeErrorKind::InvalidOptions,
                 "libavif-rs backend requires AVIF output",
             ));
         }
+        let avif = request.avif;
         Ok(writer::Config {
             width: request.width,
             height: request.height,
             has_alpha: request.has_alpha,
-            quality: request.quality,
-            speed: request.speed,
+            quality: avif.quality,
+            alpha_quality: avif.alpha_quality,
+            speed: avif.speed,
             threads: request.threads,
-            chroma: match request.chroma {
+            chroma: match avif.chroma {
                 ChromaSubsampling::Yuv444 => writer::Chroma::Yuv444,
                 ChromaSubsampling::Yuv420 => writer::Chroma::Yuv420,
             },
-            depth: self.depth,
+            depth: avif.depth,
         })
     }
 }
@@ -64,10 +62,10 @@ impl EncoderBackend for LibavifBackend {
         "libavif-rs/aom"
     }
     fn required_frame_bytes(&self, request: &EncodeRequest) -> Result<usize, EncodeError> {
-        writer::required_frame_bytes(&self.config(request)?).map_err(map_error)
+        writer::required_frame_bytes(&Self::config(request)?).map_err(map_error)
     }
     fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
-        let config = self.config(request)?;
+        let config = Self::config(request)?;
         let bytes = writer::required_frame_bytes(&config).map_err(map_error)?;
         let frame = writer::Frame::new(config).map_err(map_error)?;
         Ok(Box::new(Frame { frame, bytes }))
@@ -95,8 +93,11 @@ impl RowEncoder for Frame {
 
 /// Opaque 10-bit AVIF from the workspace writer at speed 10, one thread:
 /// the test fixtures of the AVIF reader (the rav1e sink wrote them until
-/// 2026-11-15). `row(y)` returns RGBA8 row `y`.
+/// 2026-11-15). `row(y)` returns RGBA8 row `y`. `quality` stays an `f32`
+/// of whole numbers, so the reader tests need no change; it is converted to
+/// libavif's integer scale.
 #[cfg(all(test, feature = "avif-read"))]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // Test literals 0-100.
 pub(crate) fn encode_for_test(
     width: u32,
     height: u32,
@@ -108,7 +109,8 @@ pub(crate) fn encode_for_test(
         width,
         height,
         has_alpha: false,
-        quality,
+        quality: quality as u8,
+        alpha_quality: quality as u8,
         speed: 10,
         threads: 1,
         chroma: match chroma {

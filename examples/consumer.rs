@@ -118,9 +118,10 @@ mod consumer {
     fn options(limits: Limits, policy: InputProfilePolicy) -> TransformOptions {
         TransformOptions {
             output_format: OutputFormat::WebP,
+            // libwebp's own scales: quality 1-100, method 0 (fastest) to 6.
             webp: WebpOptions::Lossy {
                 quality: 80.0,
-                speed: 6,
+                method: WebpOptions::DEFAULT_METHOD,
             },
             profile_policy: policy,
             max_input_bytes: limits.input_bytes,

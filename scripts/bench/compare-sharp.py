@@ -114,13 +114,17 @@ def wait_for_idle():
 
 def ferrisma_cmd(src, out, w, h, flag, quality, threads, chroma="444", speed=6, crop=None):
     # The engine's only AVIF encoder, the workspace libavif/AOM writer:
-    # --quality is libavif's 0-100 scale, --speed is AOM cpu-used. The
+    # --avif-quality is libavif's 0-100 scale, --avif-speed is AOM cpu-used
+    # (the flags were --quality/--speed/--chroma until 2026-11-15). The
+    # depth stays pinned at 10, the engine default of the recorded runs
+    # (the default follows avifenc, 8 bits, since 2026-11-15). The
     # comparisons recorded before 2026-11-15 ran rav1e, whose quality scale
     # is not libavif's (rav1e 70/80/90 is about libavif 50/55/78 at matched
     # SSIMULACRA2), so new runs are not comparable to those records at the
     # same number; compare matched scores and bytes, not quality settings.
-    cmd = [FERRISMA, src, out, w, h, flag, f"--quality={quality}",
-           f"--encoder-threads={threads}", f"--transform-threads={threads}", f"--chroma={chroma}", f"--speed={speed}"]
+    cmd = [FERRISMA, src, out, w, h, flag, f"--avif-quality={quality}",
+           f"--encoder-threads={threads}", f"--transform-threads={threads}", f"--avif-chroma={chroma}", f"--avif-speed={speed}",
+           "--avif-depth=10"]
     return [*cmd, f"--crop={crop}"] if crop else cmd
 
 

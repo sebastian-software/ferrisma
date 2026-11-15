@@ -22,6 +22,7 @@
     feature = "icc"
 ))]
 
+use ferrisma::pipeline::AvifOptions;
 #[cfg(all(feature = "avif-read", feature = "avif-write"))]
 use ferrisma::pipeline::ChromaSubsampling;
 use ferrisma::pipeline::{
@@ -86,7 +87,7 @@ const INPUT_BYTES: &str = "compressed image exceeds max_input_bytes";
 const ZERO_LIMIT: &str = "input byte/pixel limits must be nonzero";
 const OUTPUT_BYTES: &str = "encoded output exceeds max_output_bytes";
 const MISMATCHED: &str = "encoder options do not match the selected output format";
-const ENCODER_OPTIONS: &str = "encoder quality/speed or output dimensions are invalid";
+const ENCODER_OPTIONS: &str = "encoder settings or output dimensions are invalid";
 
 // ---------------------------------------------------------------------------
 // Helpers.
@@ -1051,9 +1052,13 @@ fn transparent_avif_source() -> Vec<u8> {
     avif("abc_color_irot_alpha_irot.avif")
 }
 
+/// The defaults are `avifenc`'s for 8-bit input (owner decision of
+/// 2026-11-15, ADR-0037): quality and alpha quality 60, speed 6, 8 bits,
+/// 4:4:4. Until 2026-11-15 the default was 10 bits at quality 75 (intended
+/// change; this test was `libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx`).
 #[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
-fn libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx() {
+fn libavif_is_the_default_avif_encoder_at_avifenc_defaults_with_nclx() {
     let output = transcode(
         SAMPLE_JPEG,
         ImageFormat::Jpeg,
@@ -1061,29 +1066,40 @@ fn libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx() {
     )
     .unwrap();
     assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
-    assert_eq!(av1_config(&output.bytes), (10, (false, false), false));
+    assert_eq!(av1_config(&output.bytes), (8, (false, false), false));
     assert_eq!(nclx(&output.bytes), Some((1, 13, 6, true)));
     assert!(
         find(&output.bytes, AVIF_ALPHA_URN).is_none(),
         "opaque: no alpha item"
     );
     read_back_avif_strict(&output);
+    let avifenc = AvifOptions {
+        quality: 60,
+        alpha_quality: 60,
+        speed: 6,
+        depth: 8,
+        chroma: ChromaSubsampling::Yuv444,
+    };
+    assert_eq!(AvifOptions::default(), avifenc);
 }
 
 #[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
-fn libavif_writes_eight_bit_and_420_on_request() {
+fn libavif_writes_ten_bit_and_420_on_request() {
     let output = transcode(
         SAMPLE_JPEG,
         ImageFormat::Jpeg,
         TransformOptions {
-            avif_depth: 8,
-            chroma_subsampling: ChromaSubsampling::Yuv420,
+            avif: AvifOptions {
+                depth: 10,
+                chroma: ChromaSubsampling::Yuv420,
+                ..AvifOptions::default()
+            },
             ..options(OutputFormat::Avif, ASSUME)
         },
     )
     .unwrap();
-    assert_eq!(av1_config(&output.bytes), (8, (true, true), false));
+    assert_eq!(av1_config(&output.bytes), (10, (true, true), false));
     assert_eq!(nclx(&output.bytes), Some((1, 13, 6, true)));
     read_back_avif_strict(&output);
 }
@@ -1104,36 +1120,79 @@ fn libavif_writes_an_alpha_item_only_for_transparent_input() {
 
 #[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
-fn libavif_quality_speed_and_depth_ranges() {
-    let run = |avif_depth, quality, speed| {
+fn libavif_quality_alpha_quality_speed_and_depth_ranges() {
+    let run = |depth, quality, alpha_quality, speed| {
         transcode(
             SAMPLE_JPEG,
             ImageFormat::Jpeg,
             TransformOptions {
-                avif_depth,
-                quality,
-                speed,
+                avif: AvifOptions {
+                    quality,
+                    alpha_quality,
+                    speed,
+                    depth,
+                    ..AvifOptions::default()
+                },
                 ..options(OutputFormat::Avif, ASSUME)
             },
         )
     };
-    let libavif = 10;
-    run(libavif, 0.0, 10).unwrap();
-    run(libavif, 100.0, 0).unwrap();
+    run(10, 0, 0, 10).unwrap();
+    run(8, 100, 100, 0).unwrap();
     rejected(
-        run(libavif, 100.5, 6),
+        run(8, 101, 60, 6),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif quality must be between 0 and 100",
     );
     rejected(
-        run(libavif, 75.0, 11),
+        run(8, 60, 101, 6),
+        ProcessingErrorKind::InvalidOptions,
+        "encoder backend: libavif alpha quality must be between 0 and 100",
+    );
+    rejected(
+        run(8, 60, 60, 11),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif speed must be between 0 and 10",
     );
     rejected(
-        run(12, 75.0, 6),
+        run(12, 60, 60, 6),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif-rs backend depth must be 8 or 10",
+    );
+}
+
+/// The alpha quality is its own setting (owner decision of 2026-11-15):
+/// it changes the alpha item of a transparent image and nothing of an
+/// opaque one, and it does not follow the color quality.
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
+#[test]
+fn libavif_alpha_quality_is_its_own_setting() {
+    let run = |source: &[u8], format, quality, alpha_quality| {
+        transcode(
+            source,
+            format,
+            TransformOptions {
+                avif: AvifOptions {
+                    quality,
+                    alpha_quality,
+                    ..AvifOptions::default()
+                },
+                ..options(OutputFormat::Avif, ASSUME)
+            },
+        )
+        .unwrap()
+        .bytes
+    };
+    let transparent = transparent_avif_source();
+    assert_ne!(
+        run(&transparent, ImageFormat::Avif, 60, 60),
+        run(&transparent, ImageFormat::Avif, 60, 10),
+        "alpha quality changes the alpha item"
+    );
+    assert_eq!(
+        run(SAMPLE_JPEG, ImageFormat::Jpeg, 60, 60),
+        run(SAMPLE_JPEG, ImageFormat::Jpeg, 60, 10),
+        "opaque output has no alpha item"
     );
 }
 
@@ -1181,21 +1240,37 @@ fn avif_output_drops_source_metadata_and_writes_upright_pixels() {
     }
 }
 
+/// Every AVIF setting is refused with another output (ADR-0043 D4). (Until
+/// 2026-11-15 the AVIF encoder selection, which held the depth, and then
+/// `avif_depth`, with its own message; this test was
+/// `avif_depth_conflicts_with_other_outputs`.)
 #[test]
-fn avif_depth_conflicts_with_other_outputs() {
-    // (Until 2026-11-15 the AVIF encoder selection, which held the depth.)
-    rejected(
-        transcode(
-            SAMPLE_JPEG,
-            ImageFormat::Jpeg,
-            TransformOptions {
-                avif_depth: 8,
-                ..options(OutputFormat::WebP, ASSUME)
-            },
-        ),
-        ProcessingErrorKind::InvalidOptions,
-        "AVIF depth conflicts with the requested output or external backend",
-    );
+fn avif_settings_conflict_with_other_outputs() {
+    for avif in [
+        AvifOptions {
+            depth: 10,
+            ..AvifOptions::default()
+        },
+        AvifOptions {
+            alpha_quality: 80,
+            ..AvifOptions::default()
+        },
+    ] {
+        for output_format in [OutputFormat::WebP, OutputFormat::JpegXl] {
+            rejected(
+                transcode(
+                    SAMPLE_JPEG,
+                    ImageFormat::Jpeg,
+                    TransformOptions {
+                        avif,
+                        ..options(output_format, ASSUME)
+                    },
+                ),
+                ProcessingErrorKind::InvalidOptions,
+                MISMATCHED,
+            );
+        }
+    }
 }
 
 // ===========================================================================
@@ -1257,8 +1332,12 @@ fn webp_straight_alpha_output_in_both_profiles() {
     }
 }
 
+/// libwebp's own scales (ADR-0043 D4): quality 1-100 and method 0-6 for
+/// lossy output, the preset level 0-9 for lossless output. (Until
+/// 2026-11-15 a `speed` 1-10 mapped onto the method; this test was
+/// `webp_quality_speed_and_level_ranges`.)
 #[test]
-fn webp_quality_speed_and_level_ranges() {
+fn webp_quality_method_and_level_ranges() {
     let run = |webp| {
         transcode(
             SAMPLE_JPEG,
@@ -1272,11 +1351,11 @@ fn webp_quality_speed_and_level_ranges() {
     for webp in [
         WebpOptions::Lossy {
             quality: 1.0,
-            speed: 1,
+            method: 0,
         },
         WebpOptions::Lossy {
             quality: 100.0,
-            speed: 10,
+            method: 6,
         },
         WebpOptions::Lossless { level: 0 },
         WebpOptions::Lossless { level: 9 },
@@ -1286,19 +1365,15 @@ fn webp_quality_speed_and_level_ranges() {
     for webp in [
         WebpOptions::Lossy {
             quality: 0.0,
-            speed: 6,
+            method: 4,
         },
         WebpOptions::Lossy {
             quality: 100.5,
-            speed: 6,
+            method: 4,
         },
         WebpOptions::Lossy {
             quality: 75.0,
-            speed: 0,
-        },
-        WebpOptions::Lossy {
-            quality: 75.0,
-            speed: 11,
+            method: 7,
         },
         WebpOptions::Lossless { level: 10 },
     ] {
@@ -1308,6 +1383,14 @@ fn webp_quality_speed_and_level_ranges() {
             ENCODER_OPTIONS,
         );
     }
+    assert_eq!(
+        WebpOptions::default(),
+        WebpOptions::Lossy {
+            quality: 75.0,
+            method: 4
+        },
+        "libwebp's defaults"
+    );
 }
 
 #[test]
@@ -1317,7 +1400,10 @@ fn avif_settings_with_webp_output_are_mismatched_options() {
             SAMPLE_JPEG,
             ImageFormat::Jpeg,
             TransformOptions {
-                quality: 80.0,
+                avif: AvifOptions {
+                    quality: 80,
+                    ..AvifOptions::default()
+                },
                 ..options(OutputFormat::WebP, ASSUME)
             },
         ),
@@ -1407,19 +1493,22 @@ fn jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding() {
             ImageFormat::Jpeg,
             TransformOptions {
                 jpeg_xl,
-                quality,
+                avif: AvifOptions {
+                    quality,
+                    ..AvifOptions::default()
+                },
                 ..options(OutputFormat::JpegXl, ASSUME)
             },
         )
     };
-    run(JpegXlOptions::Lossy { distance: 0.05 }, 75.0).unwrap();
-    run(JpegXlOptions::Lossy { distance: 2.99 }, 75.0).unwrap();
+    run(JpegXlOptions::Lossy { distance: 0.05 }, 60).unwrap();
+    run(JpegXlOptions::Lossy { distance: 2.99 }, 60).unwrap();
     for jpeg_xl in [
         JpegXlOptions::Lossy { distance: 0.049 },
         JpegXlOptions::Lossy { distance: 3.0 },
         JpegXlOptions::Lossless { effort: 3 },
     ] {
-        let error = run(jpeg_xl, 75.0).unwrap_err();
+        let error = run(jpeg_xl, 60).unwrap_err();
         assert_eq!(
             error.kind(),
             ProcessingErrorKind::InvalidOptions,
@@ -1431,7 +1520,7 @@ fn jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding() {
         );
     }
     rejected(
-        run(JpegXlOptions::default(), 80.0),
+        run(JpegXlOptions::default(), 80),
         ProcessingErrorKind::InvalidOptions,
         MISMATCHED,
     );
@@ -1440,7 +1529,10 @@ fn jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding() {
             SAMPLE_JPEG,
             ImageFormat::Jpeg,
             TransformOptions {
-                speed: 3,
+                avif: AvifOptions {
+                    speed: 3,
+                    ..AvifOptions::default()
+                },
                 ..options(OutputFormat::JpegXl, ASSUME)
             },
         ),

@@ -210,6 +210,38 @@ committed file `tests/fixtures/avif-color/identity-rgb-10bit.avif`, so no
 rav1e code is built anywhere in the root workspace (only the third-party
 crates of that fixture's one-time writing are gone from `Cargo.lock`).
 
+## Native AVIF options (2026-11-15, owner decision)
+
+**Decision.** Encoder controls are native per format (owner decision of
+2026-11-15, [ADR-0043](0043-formats-behave-alike.md) D4; #216). The AVIF
+writer's settings move out of the format-independent looking fields of
+`TransformOptions` into `AvifOptions`, parallel to `WebpOptions` and
+`JpegXlOptions` ([ADR-0040](0040-stable-public-contract-and-compatibility-policy.md)
+recommendation 2): `quality` and `alpha_quality` (libavif's `quality` and
+`qualityAlpha`, integers 0–100, passed unchanged; the former `f32` was
+rounded), `speed` (AOM `cpu-used` 0–10), `depth` (8 or 10; formerly
+`TransformOptions::avif_depth`) and `chroma` (formerly
+`TransformOptions::chroma_subsampling`). `TransformOptions::quality`,
+`speed`, `chroma_subsampling` and `avif_depth` are removed, as are the CLI
+flags `--quality=`, `--speed=` and `--chroma=`; the AVIF flags are
+`--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`,
+`--avif-depth=` and `--avif-chroma=`. A nondefault `AvifOptions` with
+another output is refused before decoding, as other foreign settings are.
+`EncodeRequest` carries `avif` instead of `quality`, `speed` and `chroma`,
+so an external backend receives the depth too; `LibavifBackend` no longer
+carries a depth of its own (`LibavifBackend { depth }` was a second control
+for the same setting, ADR-0040 problem 11) and is a unit struct.
+
+**Defaults: the original tool's.** The defaults are those of `avifenc` in
+the pinned libavif source, for the 8-bit RGB rows the writer receives:
+quality 60, alpha quality 60, speed 6, depth 8, 4:4:4. Sources, read from
+`codecs/libavif-rs/upstream/libavif` (libavif 1.4.2, revision `9b07a9d7`, `UPSTREAM.json`): quality 60 (`apps/avifenc.c:861` `#define DEFAULT_QUALITY 60`, applied at line 2353), alpha quality = the color quality when not given (`apps/avifenc.c:2369` `fileSettings->qualityAlpha = fileSettings->quality;`), speed 6 (`apps/avifenc.c:1514` `settings.speed = 6;`), depth = the input's, 8 for 8-bit input (`apps/shared/avifjpeg.c:1340` and `:1376` `avif->depth = requestedDepth ? requestedDepth : 8;`, `apps/shared/avifpng.c:376`-`379` for 8-bit PNG), chroma 4:4:4 for RGB input (`apps/shared/avifutil.h:141` `#define AVIF_APP_DEFAULT_PIXEL_FORMAT AVIF_PIXEL_FORMAT_YUV444`, used at `apps/shared/avifjpeg.c:1374` and `avifpng.c:373`). The alpha quality is explicit instead of following the
+color quality: `avifenc` copies the color quality only when no alpha
+quality is given, so its default for the default color quality is 60, and
+`AvifOptions::alpha_quality` keeps that value when only `quality` is
+changed. The default depth changes from 10 to 8 and the default quality
+from 75 to 60; default AVIF output therefore changes.
+
 ## Review when
 
 Reassess the selection and default when ADR-0025 evidence is complete, the
@@ -271,4 +303,10 @@ if hosted x86-64 golden evidence fails.
   ([analysis](../benchmarks/v1.0-engine-performance-analysis-2026-11-12.md#applied-fixes-2026-11-12-evening)).
 - 2026-11-13 — Owner decision D1, recorded in [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md): the workspace codec ports are the default paths even where they are slower than third-party libraries. The libavif/AOM writer therefore stays the default whenever `avif-own-write` is compiled in, and the comparison with rav1e (time, RSS, bytes at matched quality) is context, not a criterion; rav1e stays an explicit backend. Quiet-host timing and peak RSS are no longer gates for the default (D3); speed is reported against C libavif + libaom in ADR-0041's three columns. Still open and not decided by this amendment: the default AVIF quality per encoder (#216) and the other confirmations listed as ADR-0041 O5. The quality gate now applies to the writer's AOM port: its output must equal libaom's own builds on each target, including libaom's NEON build on AArch64, where the [CI record](../benchmarks/v1.0-ci-performance-2026-11-12.md#correctness-side-checks-all-hosts) found a difference against the release build. The hosted golden evidence (#134) stays a regression guard.
 - 2026-11-15 — Owner decision: rav1e leaves the engine and the workspace AOM writer is the only AVIF writer; `avif-own-write` is renamed `avif-write` and the depth moves to `TransformOptions::avif_depth` (working decisions, delegated). Recorded in [The only AVIF writer](#the-only-avif-writer-2026-11-15-owner-decision); the sections above are kept for history.
+- 2026-11-15 — Native AVIF options (owner decision; section above):
+  `AvifOptions` with quality, alpha quality, speed, depth and chroma on
+  libavif's scales and `avifenc`'s defaults (60, 60, 6, 8, 4:4:4, cited
+  from the pinned source); `avif_depth`, `quality`, `speed`,
+  `chroma_subsampling` and the CLI flags `--quality=`, `--speed=`,
+  `--chroma=` removed; `LibavifBackend` without its own depth. Closes #216.
 - 2026-11-15 — The workspace AVIF port builds on stable Rust 1.99 or later (libavif-rs [ADR 0060](../../codecs/libavif-rs/docs/adr/0060-build-the-translations-on-stable-rust.md)): the "pinned nightly" requirements above and the known cost of the rav1e removal (no AVIF on a stable toolchain) no longer apply; the native-target restriction stays. CI checks `avif-read`, `avif-write` and `cli` with `cargo +1.99.0`. Working decision 2026-11-15 (delegated, revisable by the owner).

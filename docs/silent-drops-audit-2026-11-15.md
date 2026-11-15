@@ -30,11 +30,11 @@ compositing JPEG XL layers into the displayed image).
 
 | Class | Items | Inputs (J, W, X, V) | Outputs (O) | Pipeline (P) | Options (Q) |
 | --- | --- | --- | --- | --- | --- |
-| A | 25 → 6 → 4 | 20 → 3 | 2 → 1 | 1 → 0 | 2 → 0 |
-| B | 29 → 13 → 12 → 10 | 12 → 3 | 8 → 4 → 3 | 6 → 3 | 3 → 1 |
+| A | 25 → 6 → 3 | 20 → 3 | 2 → 1 → 0 | 1 → 0 | 2 → 0 |
+| B | 29 → 13 → 12 → 9 | 12 → 3 | 8 → 4 → 3 → 2 | 6 → 3 | 3 → 1 |
 | C | 21 → 55 → 50 → 54 | 15 → 41 → 37 | 0 → 5 | 2 → 5 | 4 → 3 → 7 |
 | D | 11 | 8 | 3 | 0 | 0 |
-| resolved by decision | 0 → 1 | 0 | 0 | 0 → 1 | 0 |
+| resolved by decision | 0 → 1 → 3 | 0 | 0 → 2 | 0 → 1 | 0 |
 | resolved by removal | 0 → 6 | 0 → 4 | 0 → 1 | 0 | 0 → 1 |
 
 The first number is the state of the audit (`main` at `64284177`), the
@@ -49,10 +49,10 @@ items to (C); each row says what reports or refuses it and which test of
 `tests/discarded_report.rs` or `tests/silent_drops.rs` proves it. Still
 open under ADR-0042 D6: the remaining (A) items (J10 XMP-only
 orientation, X12 `intrinsic_size`, V8 the `sato` alternative, and the
-owner's open question O8; P4, the rendering intent, was resolved
-by the owner's decision of 2026-11-15, and Q5 and Q7, options without
-effect and repeated flags, by the owner's decisions of the same day,
-which `v1/engine-options` implements) and the (B)
+P4, the rendering intent, was resolved by the owner's decision of
+2026-11-15, and O8, Q5 and Q7, options without effect and repeated
+flags, by the owner's decisions of the same day, which
+`v1/engine-options` implements) and the (B)
 items that are documented but not reported. Of these, out-of-gamut
 clipping (P2, P3) cannot be detected cheaply and exactly: a value outside
 [0, 1] at quantization may be resampling overshoot as well as gamut, and
@@ -161,12 +161,12 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | --- | --- | --- | --- | --- | --- | --- |
 | O1 | AVIF (both encoders until 2026-11-15; libavif only since) | source EXIF/XMP/ICC | not written; sRGB signaled (libavif `nclx` 1/13/6 full; the removed rav1e in the AV1 header only). **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`, `IccProfile`** | matrix, Outputs | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels` | C |
 | O2 | AVIF libavif 10-bit (default) | precision | the 10-bit file carries 8-bit rows | matrix ("8-bit straight-alpha RGBA rows") | `libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx` | B |
-| O3 | AVIF libavif | `quality` fraction | rounded to an integer | rustdoc of `quality` | `libavif_quality_speed_and_depth_ranges` | B |
+| O3 | AVIF libavif | `quality` fraction | rounded to an integer. **Since `v1/engine-options` (owner decision of 2026-11-15, ADR-0043 D4): resolved by decision; `AvifOptions::quality` and `alpha_quality` are libavif's integers 0–100, passed unchanged** | `crates/ferrisma-avif-write` | rustdoc of `AvifOptions` | `supported_matrix::libavif_quality_alpha_quality_speed_and_depth_ranges` | resolved |
 | O4 | AVIF rav1e | depth, alpha quality | always 10-bit; alpha at fixed quality 80 whatever `quality` says. **Since `v1/remove-alt-backends`: resolved by removal; rav1e is no longer an encoder of the engine** | rustdoc, matrix | the tests `rav1e_writes_ten_bit_without_a_container_colr` and `rav1e_writes_an_alpha_item_for_transparent_input` were removed with it | removed |
 | O5 | All | orientation | applied, written upright with no transform property | matrix | `jpeg_xl_output_is_written_upright` and the AVIF/WebP cases | D |
 | O6 | All | fully opaque alpha | omitted (no information lost) | matrix | `libavif_writes_an_alpha_item_only_for_transparent_input` | D |
 | O7 | WebP lossy | chroma | always 4:2:0; a nondefault `chroma_subsampling` is refused | matrix | `avif_settings_with_webp_output_are_mismatched_options` | B |
-| O8 | WebP lossy | `speed` | 2/3, 5/6 and 8/9 give the same method and the same bytes | no (rustdoc promises 1–10) | `silent_drops::webp_lossy_speeds_collapse_in_pairs_today` | A |
+| O8 | WebP lossy | `speed` | 2/3, 5/6 and 8/9 give the same method and the same bytes. **Since `v1/engine-options` (owner decision of 2026-11-15, ADR-0043 D4): resolved by decision; `WebpOptions::Lossy { method }` is libwebp's method 0–6, passed unchanged, and every method gives its own bytes** | `src/webp_sink.rs` | rustdoc of `WebpOptions` | `silent_drops::webp_lossy_methods_are_libwebps_own_and_distinct` | resolved |
 | O9 | WebP | metadata | only the engine's sRGB `ICCP`; EXIF/XMP dropped. **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`, `IccProfile`** | matrix | `webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp` | C |
 | O10 | WebP lossless | color under alpha 0 | libwebp keeps it (`exact`), but the engine has already made it black (P5), so the "lossless" file does not keep hidden color. **Since `v1/engine-discarded`: reported: `Discarded::HiddenColor`** | ADR-0014 | P5 tests; `discarded_report::hidden_color_under_zero_alpha_is_reported` | C |
 | O11 | JPEG XL, both profiles | source EXIF/XMP | a raw codestream cannot carry them; the matrix does not say so for JPEG XL. **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`** | no | `silent_drops::source_exif_and_xmp_are_dropped_from_jpeg_xl_output_today` | C |
@@ -199,7 +199,7 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | Q6 | `Engine::new` above 256 | capped, `threads()` reports it | `Engine::new` | rustdoc | — | C |
 | Q7 | Repeated or contradictory CLI flags (`--assume-srgb` after `--use-rendered-icc`, two `--transform-threads=` (two `--jxl-decoder=` until that flag was removed on 2026-11-15), two `--quality=`) | the last one wins silently; only `--avif-encoder`/`--avif-depth` are refused when repeated. **Since `v1/engine-options` (owner decision of 2026-11-15): refused before any input is read: a repeated flag is "--… may only be given once", a pair of mutually exclusive flags (`--assume-srgb`/`--use-rendered-icc`, `--jxl-lossless`/`--jxl-distance=`, lossless WebP with lossy-only settings) names both flags; exit status 1** | `src/cli.rs` `run` (`refuse_exclusive_flags`, the repetition check) | usage text, compatibility guide | `silent_drops::cli_refuses_repeated_and_contradictory_flags`, `cli::tests::refuses_repeated_and_contradictory_flags_before_reading_input` | C |
 | Q8 | `--version` with other arguments | prints the version, ignores the rest | `is_version_request` | compatibility guide | `cli::tests` | B |
-| Q9 | Mismatched encoder settings (`quality` with WebP or JPEG XL, `webp` with AVIF, `--chroma` with WebP) | refused before decoding | `run`, `cli.rs` | matrix | `supported_matrix::avif_settings_with_webp_output_are_mismatched_options`, `jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding` | C |
+| Q9 | Mismatched encoder settings (`quality` with WebP or JPEG XL, `webp` with AVIF, `--chroma` with WebP; since `v1/engine-options`: a nondefault `AvifOptions`, `WebpOptions` or `JpegXlOptions` beside another output, `--avif-*`/`--webp-*` flags with another output) | refused before decoding | `run`, `cli.rs` | matrix | `supported_matrix::avif_settings_with_webp_output_are_mismatched_options`, `avif_settings_conflict_with_other_outputs`, `jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding` | C |
 
 ## Caught errors and fallbacks in the code
 
@@ -300,6 +300,14 @@ strict mode). Branch `v1/engine-options` implements them:
 - Q7: a repeated command-line flag, and a pair of contradictory flags, are
   errors that name the flags; nothing is "last one wins" any more. The
   former `_today` test is now `cli_refuses_repeated_and_contradictory_flags`.
+- O8, O3: encoder controls are native per format (ADR-0043 D4). WebP lossy
+  takes libwebp's own `method` 0–6 instead of a `speed` mapped onto it
+  (the former `_today` test is now
+  `webp_lossy_methods_are_libwebps_own_and_distinct`); AVIF takes
+  `AvifOptions` with libavif's integer quality and a separate alpha
+  quality, at `avifenc`'s defaults (ADR-0037). The general `quality`,
+  `speed`, `chroma_subsampling` and `avif_depth` are removed; a setting of
+  another output is refused (Q9).
 - No strict mode: no option turns `ProcessingReport::discarded` into a
   refusal; a caller or script checks the report. The CLI's `report:` line
   ends with `discarded=none` when nothing was left out

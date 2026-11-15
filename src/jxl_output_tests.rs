@@ -92,7 +92,10 @@ fn rejects_requests_outside_the_admitted_profile_before_allocating() {
         assert!(error.to_string().contains(expected), "{error}");
     }
     let chroma = TransformOptions {
-        chroma_subsampling: ChromaSubsampling::Yuv420,
+        avif: crate::pipeline::AvifOptions {
+            chroma: ChromaSubsampling::Yuv420,
+            ..crate::pipeline::AvifOptions::default()
+        },
         ..options(8, 8)
     };
     assert_eq!(
@@ -285,7 +288,10 @@ fn facade_rejects_mismatched_and_disabled_settings_before_decoding() {
     let garbage = b"not an image";
     for options in [
         TransformOptions {
-            quality: 50.0,
+            avif: crate::pipeline::AvifOptions {
+                quality: 50,
+                ..crate::pipeline::AvifOptions::default()
+            },
             ..options(8, 8)
         },
         TransformOptions {

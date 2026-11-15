@@ -38,7 +38,7 @@ use crate::encoder_backend::EncodedImage;
 use crate::error::Error;
 use crate::geometry::Size;
 use crate::memory::{ExternalReservation, ManagedBuffer, MemoryBudget};
-use crate::pipeline::{ChromaSubsampling, JpegXlOptions, OutputFormat, TransformOptions};
+use crate::pipeline::{AvifOptions, JpegXlOptions, OutputFormat, TransformOptions};
 
 /// Level 5 dimension and area limits (ISO/IEC 18181-2, Annex A). The raw
 /// codestream carries no `jxll` level box, so admitted images must also fit
@@ -210,8 +210,9 @@ impl JxlSink {
                 "the workspace encoder is serial; set encoder_threads to 1",
             ));
         }
-        if options.chroma_subsampling != ChromaSubsampling::Yuv444 || options.max_output_bytes == 0
-        {
+        // AVIF settings, the chroma layout among them (the facade refuses
+        // them first).
+        if options.avif != AvifOptions::default() || options.max_output_bytes == 0 {
             return Err(Error::InvalidEncodeOptions);
         }
         Ok(())

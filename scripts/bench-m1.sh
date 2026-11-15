@@ -50,7 +50,7 @@ for ((i=1; i<=repeats; i++)); do
     target/release/ferrisma \
     "$input" "$scratch/output.avif" "$width" "$height" \
     "${policy_args[@]}" "${filter_args[@]}" \
-    "--quality=$quality" "--speed=$speed" "--budget-mb=$budget" \
+    "--avif-quality=$quality" "--avif-speed=$speed" "--avif-depth=10" "--budget-mb=$budget" \
     >/dev/null
   timings=$(cat "$scratch/time.txt")
   bytes=$(wc -c < "$scratch/output.avif" | tr -d ' ')

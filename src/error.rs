@@ -174,7 +174,7 @@ impl fmt::Display for Error {
             Self::DecodeFailed => write!(f, "decoder rejected input or could not render it"),
             Self::NonFinitePixelSample => write!(f, "non-finite sample during resampling"),
             Self::InvalidEncodeOptions => {
-                write!(f, "encoder quality/speed or output dimensions are invalid")
+                write!(f, "encoder settings or output dimensions are invalid")
             }
             #[cfg(any(feature = "webp-write", feature = "jpeg-xl-write"))]
             Self::IncompleteOutput => write!(f, "output sink has not received every scanline"),

@@ -325,7 +325,10 @@ fn jpeg_thumbnail_reaches_avif() {
         TransformOptions {
             output_format: OutputFormat::Avif,
             profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            speed: 10,
+            avif: ferrisma::pipeline::AvifOptions {
+                speed: 10,
+                ..ferrisma::pipeline::AvifOptions::default()
+            },
             ..TransformOptions::default()
         },
         ResizeOptions {

@@ -64,10 +64,10 @@ From a checkout with Rust installed:
 
 ```sh
 cargo run -p ferrisma --release --features cli -- \
-  photo.jpg scaled.avif 1600 900 --assume-srgb --quality=80 --speed=8
+  photo.jpg scaled.avif 1600 900 --assume-srgb --avif-quality=80 --avif-speed=8
 
 cargo run -p ferrisma --release --features cli -- \
-  photo.jpg scaled.webp 1600 900 --assume-srgb --quality=80 --speed=8
+  photo.jpg scaled.webp 1600 900 --assume-srgb --webp-quality=80 --webp-method=6
 ```
 
 Use `--assume-srgb` only when that input assumption is appropriate; supported

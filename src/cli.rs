@@ -64,65 +64,79 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
         "--use-rendered-icc" => options.profile_policy = InputProfilePolicy::UseRenderedIcc,
         "--area" => options.filter = ResizeFilter::Area,
         "--reference" => options.precision = WorkingPrecision::F64Reference,
-        option if option.starts_with("--quality=") => match options.output_format {
-            OutputFormat::Avif => options.quality = option[10..].parse()?,
-            OutputFormat::WebP => match options.webp {
-                WebpOptions::Lossy { speed, .. } => {
-                    options.webp = WebpOptions::Lossy {
-                        quality: option[10..].parse()?,
-                        speed,
-                    }
-                }
-                WebpOptions::Lossless { .. } => {
-                    return Err("--quality is unsupported for lossless WebP".into());
-                }
-            },
-            OutputFormat::JpegXl => {
-                return Err(
-                    "--quality is unsupported for JPEG XL; use --jxl-distance or --jxl-lossless"
-                        .into(),
-                );
-            }
-        },
-        option if option.starts_with("--speed=") => match options.output_format {
-            OutputFormat::Avif => options.speed = option[8..].parse()?,
-            OutputFormat::WebP => match options.webp {
-                WebpOptions::Lossy { quality, .. } => {
-                    options.webp = WebpOptions::Lossy {
-                        quality,
-                        speed: option[8..].parse()?,
-                    }
-                }
-                WebpOptions::Lossless { .. } => {
-                    return Err("--speed is unsupported for lossless WebP; use --webp-level".into());
-                }
-            },
-            OutputFormat::JpegXl => {
-                return Err(
-                    "--speed is unsupported for JPEG XL; the admitted efforts are fixed \
-                     (7 lossy, 2 lossless)"
-                        .into(),
-                );
-            }
-        },
+        // The format-independent looking encoder flags were removed on
+        // 2026-11-15: each output has its encoder's own flags (ADR-0043 D4).
+        option
+            if ["--quality=", "--speed=", "--chroma="]
+                .iter()
+                .any(|removed| option.starts_with(removed)) =>
+        {
+            return Err(format!(
+                "unknown option: {option} (removed on 2026-11-15; encoder settings are per \
+                 format: --avif-quality=, --avif-speed=, --avif-chroma=, --webp-quality=, \
+                 --webp-method=, --jxl-distance=)"
+            )
+            .into());
+        }
         "--kernel-level=scalar" => options.kernel_level_ceiling = Some(KernelLevel::Scalar),
         "--kernel-level=neon" => options.kernel_level_ceiling = Some(KernelLevel::Neon),
         "--kernel-level=avx2" => options.kernel_level_ceiling = Some(KernelLevel::Avx2),
         "--kernel-level=avx512" => options.kernel_level_ceiling = Some(KernelLevel::Avx512),
-        "--chroma=444" | "--chroma=420" if options.output_format == OutputFormat::WebP => {
-            return Err("--chroma is unsupported for WebP".into());
+        option
+            if AVIF_FLAGS.contains(&flag_name(option))
+                && options.output_format != OutputFormat::Avif =>
+        {
+            return Err(format!("{} requires .avif output", flag_name(option)).into());
         }
-        "--chroma=444" | "--chroma=420" if options.output_format == OutputFormat::JpegXl => {
-            return Err("--chroma is unsupported for JPEG XL".into());
+        option if option.starts_with("--avif-quality=") => {
+            options.avif.quality = option["--avif-quality=".len()..].parse()?;
         }
-        "--chroma=444" => options.chroma_subsampling = ChromaSubsampling::Yuv444,
-        "--chroma=420" => options.chroma_subsampling = ChromaSubsampling::Yuv420,
-        "--webp-lossless" if options.output_format == OutputFormat::WebP => {
+        option if option.starts_with("--avif-alpha-quality=") => {
+            options.avif.alpha_quality = option["--avif-alpha-quality=".len()..].parse()?;
+        }
+        option if option.starts_with("--avif-speed=") => {
+            options.avif.speed = option["--avif-speed=".len()..].parse()?;
+        }
+        option if option.starts_with("--avif-depth=") => {
+            // The writer validates the depth (8 or 10) before decoding.
+            options.avif.depth = option["--avif-depth=".len()..].parse()?;
+        }
+        "--avif-chroma=444" => options.avif.chroma = ChromaSubsampling::Yuv444,
+        "--avif-chroma=420" => options.avif.chroma = ChromaSubsampling::Yuv420,
+        option
+            if WEBP_FLAGS.contains(&flag_name(option))
+                && options.output_format != OutputFormat::WebP =>
+        {
+            return Err(format!("{} requires .webp output", flag_name(option)).into());
+        }
+        "--webp-lossless" => {
             if !matches!(options.webp, WebpOptions::Lossless { .. }) {
                 options.webp = WebpOptions::Lossless { level: 4 };
             }
         }
-        "--webp-lossless" => return Err("--webp-lossless requires .webp output".into()),
+        option if option.starts_with("--webp-level=") => {
+            options.webp = WebpOptions::Lossless {
+                level: option["--webp-level=".len()..].parse()?,
+            };
+        }
+        // Lossy-only settings; `refuse_exclusive_flags` has already refused
+        // them beside the lossless flags.
+        option if option.starts_with("--webp-quality=") => {
+            if let WebpOptions::Lossy { method, .. } = options.webp {
+                options.webp = WebpOptions::Lossy {
+                    quality: option["--webp-quality=".len()..].parse()?,
+                    method,
+                };
+            }
+        }
+        option if option.starts_with("--webp-method=") => {
+            if let WebpOptions::Lossy { quality, .. } = options.webp {
+                options.webp = WebpOptions::Lossy {
+                    quality,
+                    method: option["--webp-method=".len()..].parse()?,
+                };
+            }
+        }
         "--jxl-lossless" if options.output_format == OutputFormat::JpegXl => {
             options.jpeg_xl = JpegXlOptions::Lossless { effort: 2 };
         }
@@ -135,14 +149,6 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
             options.jpeg_xl = JpegXlOptions::Lossy {
                 distance: option[15..].parse()?,
             };
-        }
-        option
-            if option.starts_with("--webp-level=")
-                && options.output_format == OutputFormat::WebP =>
-        {
-            options.webp = WebpOptions::Lossless {
-                level: option[13..].parse()?,
-            }
         }
         option if option.starts_with("--max-output-mb=") => {
             let megabytes: usize = option[16..].parse()?;
@@ -182,6 +188,23 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
     Ok(())
 }
 
+/// The AVIF writer's flags (libavif's own scales; ADR-0043 D4).
+const AVIF_FLAGS: &[&str] = &[
+    "--avif-quality",
+    "--avif-alpha-quality",
+    "--avif-speed",
+    "--avif-depth",
+    "--avif-chroma",
+];
+
+/// The WebP writer's flags (libwebp's own scales; ADR-0043 D4).
+const WEBP_FLAGS: &[&str] = &[
+    "--webp-quality",
+    "--webp-method",
+    "--webp-lossless",
+    "--webp-level",
+];
+
 /// The flag of one argument: `--name` of `--name=value`, or the switch.
 fn flag_name(option: &str) -> &str {
     option.split_once('=').map_or(option, |(name, _)| name)
@@ -189,15 +212,15 @@ fn flag_name(option: &str) -> &str {
 
 /// Flags that contradict each other. Giving both of a pair is an error
 /// that names the two flags; neither takes precedence (owner decision of
-/// 2026-11-15, ADR-0042). Lossless WebP has no quality or speed of its own:
-/// its level sets both.
+/// 2026-11-15, ADR-0042). Lossless WebP has no quality or method of its
+/// own: its level sets both.
 const EXCLUSIVE_FLAGS: &[(&str, &str)] = &[
     ("--assume-srgb", "--use-rendered-icc"),
     ("--jxl-lossless", "--jxl-distance"),
-    ("--webp-lossless", "--quality"),
-    ("--webp-lossless", "--speed"),
-    ("--webp-level", "--quality"),
-    ("--webp-level", "--speed"),
+    ("--webp-lossless", "--webp-quality"),
+    ("--webp-lossless", "--webp-method"),
+    ("--webp-level", "--webp-quality"),
+    ("--webp-level", "--webp-method"),
 ];
 
 /// Refuse the first pair of [`EXCLUSIVE_FLAGS`] that `options` contains,
@@ -253,9 +276,9 @@ fn version_text(build_id: Option<&str>) -> String {
 }
 
 /// Run the command with `args` (the program name first), encoding with
-/// `backend`, or with the built-in sink when it is `None`. An explicit
-/// `--avif-depth` cannot accompany an external backend: its depth is not
-/// available through the trait.
+/// `backend`, or with the built-in sink when it is `None`. Every encoder
+/// flag reaches an external backend in its request (`--avif-depth=` too,
+/// since 2026-11-15).
 ///
 /// # Errors
 /// Invalid arguments, unreadable input, unwritable output and every
@@ -276,7 +299,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--avif-depth=8|10 (default 10)] [--quality=75 (AVIF: libavif's 0-100)] [--speed=6 (AVIF: AOM cpu-used 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --quality or --speed."
+            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--avif-quality=60 --avif-alpha-quality=60 (libavif 0-100) --avif-speed=6 (AOM cpu-used 0-10) --avif-depth=8|10 (default 8) --avif-chroma=444|420] [--webp-quality=75 (libwebp 1-100) --webp-method=4 (libwebp 0-6)|--webp-lossless --webp-level=4 (libwebp 0-9)] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--encoder-threads=1] [--transform-threads=0] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --webp-quality or --webp-method. Defaults are the original tools' (avifenc, cwebp, cjxl)."
         );
         return Ok(ExitCode::from(2));
     }
@@ -298,14 +321,9 @@ pub fn run(
         ..TransformOptions::default()
     };
     refuse_exclusive_flags(&args[5..])?;
-    let mut avif_depth = None;
     let mut given: Vec<&str> = Vec::new();
     for option in args.iter().skip(5) {
-        if let Some(value) = option.strip_prefix("--avif-depth=") {
-            avif_depth = Some(value.parse::<u8>()?);
-        } else {
-            apply_option(&mut options, option)?;
-        }
+        apply_option(&mut options, option)?;
         // Owner decision of 2026-11-15 (ADR-0042): a repeated flag is an
         // error, never "the last one wins".
         let name = flag_name(option);
@@ -313,17 +331,6 @@ pub fn run(
             return Err(format!("{name} may only be given once").into());
         }
         given.push(name);
-    }
-    if let Some(depth) = avif_depth {
-        if backend.is_some() {
-            return Err("--avif-depth cannot be combined with an external backend".into());
-        }
-        if output_extension != Some("avif") {
-            return Err("--avif-depth requires .avif output".into());
-        }
-        // The only AVIF writer (libavif/AOM) validates the depth; the removed
-        // `--avif-encoder=` selector is an unknown option since 2026-11-15.
-        options.avif_depth = depth;
     }
     let format = parse_format(input_path)?;
     let data = read_input(std::fs::File::open(input_path)?, options.max_input_bytes)?;
@@ -532,10 +539,17 @@ mod tests {
         let mut options = jxl;
         apply_option(&mut options, "--jxl-lossless").unwrap();
         assert_eq!(options.jpeg_xl, JpegXlOptions::Lossless { effort: 2 });
-        for flag in ["--quality=80", "--speed=4", "--chroma=420", "--chroma=444"] {
+        // Another output's flags name the output they need.
+        for (flag, needs) in [
+            ("--avif-quality=80", "--avif-quality requires .avif output"),
+            ("--avif-speed=4", "--avif-speed requires .avif output"),
+            ("--avif-chroma=420", "--avif-chroma requires .avif output"),
+            ("--webp-quality=80", "--webp-quality requires .webp output"),
+            ("--webp-method=4", "--webp-method requires .webp output"),
+        ] {
             let mut options = jxl;
             let error = apply_option(&mut options, flag).unwrap_err();
-            assert!(error.to_string().contains("JPEG XL"), "{flag}: {error}");
+            assert_eq!(error.to_string(), needs, "{flag}");
         }
         // JPEG XL flags require .jxl output.
         for flag in ["--jxl-lossless", "--jxl-distance=1"] {
@@ -589,8 +603,8 @@ mod tests {
             ),
             (
                 "out.avif",
-                &["--quality=50", "--quality=60"],
-                "--quality may only be given once",
+                &["--avif-quality=50", "--avif-quality=60"],
+                "--avif-quality may only be given once",
             ),
             (
                 "out.avif",
@@ -624,13 +638,13 @@ mod tests {
             ),
             (
                 "out.webp",
-                &["--webp-level=6", "--quality=80"],
-                "--webp-level and --quality are mutually exclusive",
+                &["--webp-level=6", "--webp-quality=80"],
+                "--webp-level and --webp-quality are mutually exclusive",
             ),
             (
                 "out.webp",
-                &["--speed=4", "--webp-lossless"],
-                "--webp-lossless and --speed are mutually exclusive",
+                &["--webp-method=4", "--webp-lossless"],
+                "--webp-lossless and --webp-method are mutually exclusive",
             ),
             (
                 "out.jxl",
@@ -676,6 +690,70 @@ mod tests {
             ),
             "{line}"
         );
+    }
+
+    /// Owner decision of 2026-11-15 (ADR-0043 D4): each output has its
+    /// encoder's own flags on its own scale; the former
+    /// format-independent `--quality=`, `--speed=` and `--chroma=` are
+    /// unknown options that name the replacements.
+    #[test]
+    fn encoder_flags_are_per_format() {
+        use crate::pipeline::{AvifOptions, ChromaSubsampling, OutputFormat, WebpOptions};
+        let mut avif = TransformOptions::default();
+        for flag in [
+            "--avif-quality=70",
+            "--avif-alpha-quality=90",
+            "--avif-speed=8",
+            "--avif-depth=10",
+            "--avif-chroma=420",
+        ] {
+            apply_option(&mut avif, flag).unwrap();
+        }
+        assert_eq!(
+            avif.avif,
+            AvifOptions {
+                quality: 70,
+                alpha_quality: 90,
+                speed: 8,
+                depth: 10,
+                chroma: ChromaSubsampling::Yuv420,
+            }
+        );
+        let mut webp = TransformOptions {
+            output_format: OutputFormat::WebP,
+            ..TransformOptions::default()
+        };
+        apply_option(&mut webp, "--webp-quality=80").unwrap();
+        apply_option(&mut webp, "--webp-method=6").unwrap();
+        assert_eq!(
+            webp.webp,
+            WebpOptions::Lossy {
+                quality: 80.0,
+                method: 6
+            }
+        );
+        let mut lossless = TransformOptions {
+            output_format: OutputFormat::WebP,
+            ..TransformOptions::default()
+        };
+        apply_option(&mut lossless, "--webp-level=9").unwrap();
+        assert_eq!(lossless.webp, WebpOptions::Lossless { level: 9 });
+        for flag in ["--webp-quality=80", "--webp-level=4", "--webp-lossless"] {
+            let error = apply_option(&mut TransformOptions::default(), flag).unwrap_err();
+            assert!(
+                error.to_string().ends_with("requires .webp output"),
+                "{error}"
+            );
+        }
+        for flag in ["--quality=80", "--speed=6", "--chroma=420"] {
+            let error = apply_option(&mut TransformOptions::default(), flag).unwrap_err();
+            let message = error.to_string();
+            assert!(
+                message.starts_with(&format!("unknown option: {flag} (removed on 2026-11-15")),
+                "{message}"
+            );
+            assert!(message.contains("--avif-quality="), "{message}");
+        }
     }
 
     #[test]

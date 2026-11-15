@@ -46,7 +46,8 @@ the workspace libavif/AOM writer
 ([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)), the only AVIF
 writer since 2026-11-15 (owner decision; rav1e left the engine). Lossy d1.0
 with patches off is the confirmed JPEG XL output default (owner decision
-2026-11-15, ADR-0039); the default AVIF quality value is still open (#216).
+2026-11-15, ADR-0039); the AVIF defaults follow `avifenc` since 2026-11-15
+(owner decision, #216).
 
 ## Cargo features and builds
 
@@ -315,12 +316,12 @@ and is not claimed as supported.
 
 | | AVIF, libavif/AOM (the only AVIF writer; rav1e until 2026-11-15) | still WebP | JPEG XL |
 | --- | --- | --- | --- |
-| Feature / selection | `avif-write`; `.avif`; `avif_depth` / `--avif-depth=` | `webp-write`; `.webp` | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2 }` (`--jxl-lossless`) |
-| Bit depth | 10 (default) or 8 (`--avif-depth=8`) | 8 | 8 |
-| Chroma | 4:4:4 (default) or 4:2:0 | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling, patches off (equals `cjxl --patches=0 -e 7`); lossless: RGB Modular |
-| Quality | `quality` 0–100, rounded, 64 quantizer steps | `WebpOptions::Lossy { quality 1–100, speed }` or `Lossless { level 0–9 }` | lossy: Butteraugli distance 0.05 to below 3.0; `--quality` is rejected |
-| Speed | 0–10 (`cpu-used`) | lossy speed 1 (slowest)–10; lossless uses the level | fixed: effort 7 lossy, effort 2 lossless; `--speed` is rejected |
-| Alpha | auxiliary item at the color quality, omitted when opaque | straight alpha | unassociated (straight) alpha at 8 bits, coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
+| Feature / selection | `avif-write`; `.avif`; `AvifOptions` (`--avif-*`) | `webp-write`; `.webp`; `WebpOptions` (`--webp-*`) | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2 }` (`--jxl-lossless`) |
+| Bit depth | 8 (default, `avifenc` for 8-bit input) or 10 (`depth`, `--avif-depth=10`) | 8 | 8 |
+| Chroma | 4:4:4 (default) or 4:2:0 (`chroma`, `--avif-chroma=`) | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling, patches off (equals `cjxl --patches=0 -e 7`); lossless: RGB Modular |
+| Quality | `quality` 0–100 (default 60), libavif's integer scale unchanged (`--avif-quality=`) | `WebpOptions::Lossy { quality 1–100 (default 75), method }` (`--webp-quality=`) or `Lossless { level 0–9 }` (`--webp-level=`) | lossy: Butteraugli distance 0.05 to below 3.0; `--avif-*`/`--webp-*` are rejected |
+| Speed | `speed` 0–10 (AOM `cpu-used`, default 6, `--avif-speed=`) | lossy: libwebp `method` 0 (fastest)–6, default 4 (`--webp-method=`); lossless uses the level | fixed: effort 7 lossy, effort 2 lossless |
+| Alpha | auxiliary item at `alpha_quality` (0–100, default 60, `--avif-alpha-quality=`; its own setting since 2026-11-15, it does not follow `quality`), omitted when opaque | straight alpha | unassociated (straight) alpha at 8 bits, coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
 | Color signaling | AV1 header 1/13/6 full range **and** container `colr nclx` | embedded sRGB ICC | enum sRGB (lossy: XYB-encoded) |
 | Metadata | source EXIF/XMP/ICC not copied (no `Exif`/`mime` item, no `prof` `colr`); orientation applied, no `irot`/`imir`/`clap` written | source EXIF/XMP dropped, only the engine's sRGB `ICCP` chunk; orientation applied | orientation applied, written as 1 |
 | Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | ARGB frame and lossy planes reserved | lossless: the measured one-shot peak, 76 bytes per pixel of opaque RGB including the input frame (scaled by 4/3 with alpha, derived, not measured), at least the codec planes known from the source path; lossy: input frame plus a source-derived codec estimate; reserved before encoding |
@@ -335,40 +336,48 @@ pixels (its default skips patches there too); 1.1× to 3.8× larger below, on
 generated text-like images; photographs unchanged
 ([record](benchmarks/v1.0-jxl-patches-cost-2026-11-15.md)).
 
+**Native encoder settings since 2026-11-15** (owner decision, ADR-0043
+D4): each output has its encoder's own settings on its own scale
+(`AvifOptions`, `WebpOptions`, `JpegXlOptions`), and the settings of another
+output must stay at their defaults. The AVIF defaults are `avifenc`'s for
+8-bit input (quality 60, alpha quality 60, speed 6, 8 bits, 4:4:4; sources
+in ADR-0037), the WebP defaults libwebp's (quality 75, method 4).
 **One AVIF quality scale since 2026-11-15:** `quality` and `speed` go
 unchanged to libavif. A quality tuned for the former rav1e encoder is not
 comparable: at equal SSIMULACRA2 on the recorded photographs, rav1e 70/80/90
 matched roughly libavif 50/55/78; at `--quality=80` on the 800×533 flower,
 rav1e wrote 55,682 bytes (SSIMULACRA2 77.455) and libavif 10-bit 100,512
 bytes (88.307) ([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)).
-The default `quality` is 75 on libavif's scale; whether that default stays
-is open (#216).
+The default `quality` was 75 at 10 bits until the native options of
+2026-11-15 (#216); it is 60 at 8 bits since.
 
 Evidence through the public API (`supported_matrix::…`): libavif —
-`libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx` (encoder name
-`libavif-rs/aom`, `av1C` 10-bit 4:4:4, `colr nclx` 1/13/6 full range, no alpha
+`libavif_is_the_default_avif_encoder_at_avifenc_defaults_with_nclx` (encoder name
+`libavif-rs/aom`, `av1C` 8-bit 4:4:4, `colr nclx` 1/13/6 full range, no alpha
 item when opaque, read back under `Strict`),
-`libavif_writes_eight_bit_and_420_on_request`,
+`libavif_writes_ten_bit_and_420_on_request`,
+`libavif_alpha_quality_is_its_own_setting`,
 `libavif_writes_an_alpha_item_only_for_transparent_input`,
-`libavif_quality_speed_and_depth_ranges` (0–100, 0–10, depth 8/10, each
-rejection with libavif's reason),
+`libavif_quality_alpha_quality_speed_and_depth_ranges` (0–100, 0–100, 0–10,
+depth 8/10, each rejection with libavif's reason),
 `avif_output_drops_source_metadata_and_writes_upright_pixels`,
 `output_byte_limit_applies_at_the_exact_byte_for_avif`,
-`avif_depth_conflicts_with_other_outputs` (the rav1e cases and the encoder
+`avif_settings_conflict_with_other_outputs` (the rav1e cases and the encoder
 selection were removed with rav1e on 2026-11-15); WebP —
 `webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp` (`VP8 `/`VP8L`
 plus `ICCP`, no `EXIF`/`XMP `, read back through the ICC),
 `webp_straight_alpha_output_in_both_profiles` (`ALPH` for lossy),
-`webp_quality_speed_and_level_ranges`,
+`webp_quality_method_and_level_ranges`,
+`silent_drops::webp_lossy_methods_are_libwebps_own_and_distinct`,
 `avif_settings_with_webp_output_are_mismatched_options`; JPEG XL —
 `jpeg_xl_output_is_a_raw_codestream_that_reads_back` (the reader, and jxl-oxide as a test-only independent decoder),
 `jpeg_xl_output_keeps_straight_alpha_in_both_profiles`,
 `jpeg_xl_output_is_written_upright`,
 `jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding`
 (distance 0.05 and 2.99 accepted, 0.049 and 3.0 rejected, effort 3 rejected,
-`quality`/`speed` with JPEG XL output rejected),
+AVIF settings with JPEG XL output rejected),
 `output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`.
-The AVIF alpha quality (the color quality) and the materialization rows are
+The AVIF alpha quality and the materialization rows are
 read from the code (`src/own_avif.rs`, `src/webp_sink.rs`, `src/jxl_sink.rs`)
 and pinned by the unit tests below, not by the public-API cases.
 
@@ -541,11 +550,13 @@ ferrisma --version          # or -V; takes precedence over every other argument
 #   target: aarch64-macos
 #   features: jpeg-read, webp-read, webp-write, jpeg-xl-read, jpeg-xl-write, avif-read, avif-write, icc
 #   build: unknown
-# JPEG → AVIF with the libavif/AOM encoder, 10-bit 4:4:4
+# JPEG → AVIF with the libavif/AOM encoder at avifenc's defaults (8-bit 4:4:4, quality 60)
 ferrisma photo.jpg out.avif 64 48 --assume-srgb
 #   report: … encoder=libavif-rs/aom
-# libavif at 8 bits, 4:2:0
-ferrisma photo.jpg out.avif 64 48 --assume-srgb --avif-depth=8 --chroma=420
+# libavif at 10 bits, 4:2:0, quality 70, alpha quality 90
+ferrisma photo.jpg out.avif 64 48 --assume-srgb --avif-depth=10 --avif-chroma=420 --avif-quality=70 --avif-alpha-quality=90
+# Lossy WebP at libwebp's quality and method
+ferrisma photo.jpg out.webp 64 48 --assume-srgb --webp-quality=80 --webp-method=6
 # ICC-tagged AVIF through the rendered-ICC path
 ferrisma paris_icc_exif_xmp.avif out.webp 64 48 --use-rendered-icc
 # JPEG XL through its only reader (full-frame fallback); enum sRGB needs no
@@ -567,12 +578,13 @@ Rejected, with the error the CLI prints (exit status 1):
 | `ferrisma colors-animated-8bpc.avif …` | `UnsupportedInput` (`Animation`) | same |
 | `ferrisma clap_irot_imir_non_essential.avif …` | `UnsupportedInput` (`GeometricTransform`) "orientation, mirroring or clean-aperture transforms are not supported yet" | remove `clap` or crop explicitly with `--crop` on a file without it |
 | `ferrisma colors_hdr_rec2020.avif …` (PQ) | `UnsupportedColor` (`HdrTransfer`) | tone-map to SDR elsewhere; HDR is out of scope |
-| `ferrisma photo.jpg out.avif … --quality=101` | `InvalidOptions` | libavif's scale is 0–100 |
-| `ferrisma photo.jpg out.webp … --avif-depth=8` | "--avif-depth requires .avif output" | drop AVIF flags for WebP |
+| `ferrisma photo.jpg out.avif … --avif-quality=101` | `InvalidOptions` | libavif's scale is 0–100 |
+| `ferrisma photo.jpg out.webp … --avif-depth=8` | "--avif-depth requires .avif output" (every `--avif-*` and `--webp-*` flag with another output) | drop AVIF flags for WebP |
+| `ferrisma photo.jpg out.avif … --quality=80` | "unknown option: --quality=80 (removed on 2026-11-15; encoder settings are per format: …)" (likewise `--speed=`, `--chroma=`) | use `--avif-quality=`, `--webp-quality=` or `--jxl-distance=` |
 | `ferrisma photo.jpg out.webp … --transform-threads=4 --transform-threads=1` | "--transform-threads may only be given once" (every flag; owner decision of 2026-11-15) | give each flag once |
-| `ferrisma photo.jpg out.webp … --use-rendered-icc --assume-srgb` | "--assume-srgb and --use-rendered-icc are mutually exclusive" (likewise `--jxl-lossless`/`--jxl-distance=`, lossless WebP with lossy-only settings) | choose one |
+| `ferrisma photo.jpg out.webp … --use-rendered-icc --assume-srgb` | "--assume-srgb and --use-rendered-icc are mutually exclusive" (likewise `--jxl-lossless`/`--jxl-distance=`, `--webp-lossless`/`--webp-level=` with `--webp-quality=`/`--webp-method=`) | choose one |
 | `ferrisma photo.jpg out.avif … --avif-encoder=rav1e` | "unknown option: --avif-encoder=rav1e" (removed 2026-11-15) | drop the flag; libavif is the only AVIF writer |
-| `ferrisma photo.jpg out.jxl … --quality=80` | "--quality is unsupported for JPEG XL; use --jxl-distance or --jxl-lossless" | use `--jxl-distance` (lossy) or `--jxl-lossless` |
+| `ferrisma photo.jpg out.jxl … --avif-quality=80` | "--avif-quality requires .avif output" | use `--jxl-distance` (lossy) or `--jxl-lossless` |
 | `ferrisma photo.jpg out.png …` | "output must have a .avif, .webp or .jxl extension" | choose a supported output |
 | `ferrisma photo.jpg out.avif … --max-input-mpx=0` | `InvalidOptions` "input byte/pixel limits must be nonzero" | use a positive limit |
 
@@ -617,7 +629,8 @@ is left to the owner.
 7. The CLI's `--version` (`d9146dd0`) was missing from the examples.
 
 Still pending owner decisions, described as today's behavior above: the
-default AVIF quality per encoder (#216; 75 on the selected scale), lossy d1.0
+default AVIF quality per encoder (#216; 75 on the selected scale; decided later the
+same day: `avifenc`'s defaults, see Outputs), lossy d1.0
 as the JPEG XL output default (ADR-0041 O5), and whether the strict policy
 should accept transparent XYB JPEG XL written by the engine (#222, ADR-0015;
 today refused under `Strict`). Open questions of #250 are not decided here.

@@ -23,7 +23,10 @@ fn still_webp_reaches_avif_and_untagged_color_requires_policy() {
     let options = TransformOptions {
         output_width: 4,
         output_height: 4,
-        speed: 9,
+        avif: crate::pipeline::AvifOptions {
+            speed: 9,
+            ..crate::pipeline::AvifOptions::default()
+        },
         ..TransformOptions::default()
     };
     assert_eq!(
@@ -70,7 +73,10 @@ fn straight_alpha_webp_reaches_avif() {
             output_width: 4,
             output_height: 4,
             profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            speed: 9,
+            avif: crate::pipeline::AvifOptions {
+                speed: 9,
+                ..crate::pipeline::AvifOptions::default()
+            },
             ..TransformOptions::default()
         },
     )

@@ -30,10 +30,10 @@
 ))]
 
 use ferrisma::pipeline::{
-    BatchItem, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, Engine, ImageFormat,
-    InputProfilePolicy, InspectionLimits, JpegXlOptions, Output, OutputFormat, ProcessingError,
-    ProcessingErrorKind, RefusalReason, RowEncoder, TransformOptions, WebpOptions, inspect,
-    transcode, transcode_with,
+    AvifOptions, BatchItem, ChromaSubsampling, EncodeError, EncodeRequest, EncodedImage,
+    EncoderBackend, Engine, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions,
+    Output, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason, RowEncoder,
+    TransformOptions, WebpOptions, inspect, transcode, transcode_with,
 };
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
@@ -339,21 +339,24 @@ fn truncated_inputs_are_malformed() {
 // ---------------------------------------------------------------------------
 // Options that are accepted but have no (distinct) effect.
 
-/// `WebpOptions::Lossy::speed` maps to libwebp's method 0–6 with
-/// `(6 * (10 - speed) + 4) / 9`: speeds 2 and 3, 5 and 6, 8 and 9 select the
-/// same method and give the same bytes. The documented range 1–10 promises
-/// ten steps; three are silently merged. Not an endorsement.
+/// Until 2026-11-15 `WebpOptions::Lossy` took a `speed` 1–10 mapped onto
+/// libwebp's method 0–6 with `(6 * (10 - speed) + 4) / 9`, so speeds 2 and
+/// 3, 5 and 6, 8 and 9 gave the same bytes (audit row O8; this test was
+/// `webp_lossy_speeds_collapse_in_pairs_today`). Owner decision of
+/// 2026-11-15 (ADR-0043 D4): the encoder's own scale, libwebp's `method`,
+/// passed unchanged, so every value of it selects its own method and no
+/// two give the same bytes here.
 #[test]
-fn webp_lossy_speeds_collapse_in_pairs_today() {
+fn webp_lossy_methods_are_libwebps_own_and_distinct() {
     let jpeg = read("tests/fixtures/decoder-work/paris-420.jpg");
-    let encode = |speed| {
+    let encode = |method| {
         accepted(transcode(
             &jpeg,
             ImageFormat::Jpeg,
             TransformOptions {
                 webp: WebpOptions::Lossy {
                     quality: 75.0,
-                    speed,
+                    method,
                 },
                 output_width: 200,
                 output_height: 133,
@@ -362,16 +365,13 @@ fn webp_lossy_speeds_collapse_in_pairs_today() {
         ))
         .bytes
     };
-    let bytes: Vec<Vec<u8>> = (1..=10).map(encode).collect();
-    for speed in 1..10_u8 {
-        let same = bytes[usize::from(speed) - 1] == bytes[usize::from(speed)];
-        assert_eq!(
-            same,
-            matches!(speed, 2 | 5 | 8),
-            "speed {speed} against {}",
-            speed + 1
-        );
+    let bytes: Vec<Vec<u8>> = (0..=WebpOptions::MAX_METHOD).map(encode).collect();
+    for (first, a) in bytes.iter().enumerate() {
+        for (second, b) in bytes.iter().enumerate().skip(first + 1) {
+            assert_ne!(a, b, "methods {first} and {second}");
+        }
     }
+    assert_eq!(bytes[usize::from(WebpOptions::DEFAULT_METHOD)], encode(4));
 }
 
 /// `Engine::transcode_batch` replaces both thread counts with 1 (documented
@@ -457,52 +457,39 @@ impl RowEncoder for Rows {
 }
 
 /// An external backend receives every encoder setting in its
-/// `EncodeRequest` and validates it on its own scale. The AVIF depth is not
-/// part of the request, so a nondefault depth with an external backend is
-/// refused before decoding instead of being ignored (audit row Q2; owner
-/// decision of 2026-11-15, ADR-0042).
+/// `EncodeRequest` and validates it on its own scale. Until 2026-11-15 the
+/// AVIF depth was not part of the request and was refused when nondefault
+/// (audit row Q2; this test was
+/// `external_backends_refuse_settings_the_request_does_not_carry`); since
+/// the owner decision of that day it is `EncodeRequest::avif.depth`, beside
+/// the quality, alpha quality, speed and chroma layout.
 #[test]
-fn external_backends_refuse_settings_the_request_does_not_carry() {
+fn external_backends_receive_every_encoder_setting() {
     let jpeg = read("tests/fixtures/sample.jpg");
-    let avif = TransformOptions {
-        output_format: OutputFormat::Avif,
-        ..options(ASSUME)
+    let avif = AvifOptions {
+        quality: 42,
+        alpha_quality: 17,
+        speed: 3,
+        depth: 10,
+        chroma: ChromaSubsampling::Yuv420,
     };
     let backend = AvifRecorder(std::sync::Mutex::default());
-    let error = refused(
-        transcode_with(
-            &jpeg,
-            ImageFormat::Jpeg,
-            TransformOptions {
-                avif_depth: 8,
-                ..avif
-            },
-            &backend,
-        ),
-        ProcessingErrorKind::InvalidOptions,
-    );
-    assert!(
-        error
-            .to_string()
-            .starts_with("AVIF depth conflicts with the requested output or external backend"),
-        "{error}"
-    );
-    assert_eq!(error.refusal_reason(), None);
-    assert!(backend.0.lock().unwrap().is_empty(), "refused before begin");
     let output = accepted(transcode_with(
         &jpeg,
         ImageFormat::Jpeg,
         TransformOptions {
-            quality: 42.0,
-            speed: 3,
-            ..avif
+            output_format: OutputFormat::Avif,
+            avif,
+            ..options(ASSUME)
         },
         &backend,
     ));
     assert_eq!(output.report.encoder_backend, "avif-recorder");
     let request = backend.0.lock().unwrap()[0];
-    assert!((request.quality - 42.0).abs() < f32::EPSILON);
-    assert_eq!(request.speed, 3);
+    assert_eq!(request.avif, avif);
+    assert_eq!(request.webp, WebpOptions::default());
+    assert_eq!(request.jpeg_xl, JpegXlOptions::default());
+    assert_eq!(request.threads, 1);
 }
 
 // ---------------------------------------------------------------------------

@@ -154,7 +154,7 @@ class ComparisonContract(unittest.TestCase):
     def test_encoder_speed_is_explicit_and_sweep_overrides_it_once(self):
         image = ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6)
         cmd = bench.sweep_cmd(image, Path("corpus"), "ferrisma", 8, 80, "out.avif")
-        self.assertEqual([str(x) for x in cmd if str(x).startswith("--speed=")], ["--speed=8"])
+        self.assertEqual([str(x) for x in cmd if str(x).startswith("--avif-speed=")], ["--avif-speed=8"])
 
     def test_relative_target_is_resolved_against_the_comparison_checkout(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -166,8 +166,8 @@ class ComparisonContract(unittest.TestCase):
         image = ("dog", "dog.jpg", "--use-rendered-icc", "ignore", 1600, 2133, 6)
         cmd = bench.config_cmd("ferrisma", 0, "444", image, Path("corpus"), 80, "out.avif")
         self.assertFalse(any(str(arg).startswith("--avif-encoder") for arg in cmd))
-        self.assertIn("--quality=80", cmd)
-        self.assertIn("--speed=6", cmd)
+        self.assertIn("--avif-quality=80", cmd)
+        self.assertIn("--avif-speed=6", cmd)
 
     def test_retired_encoder_phases_refuse_with_the_record(self):
         with tempfile.TemporaryDirectory() as tmp:

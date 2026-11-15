@@ -15,10 +15,10 @@ else, including every private module, is outside the contract.
 | Area | Stable | Experimental (may change in a minor release) |
 | --- | --- | --- |
 | Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run` |
-| Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, quality, speed, chroma, threads, and the four resource limits; `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `avif_depth`, `JpegXlOptions` |
+| Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, threads, and the four resource limits; `WebpOptions` (libwebp quality and method, lossless level); `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifOptions` (`TransformOptions::avif`), `JpegXlOptions` |
 | Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
 | Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-write` (experimental until it builds on stable Rust; stable as the rav1e capability until 2026-11-15) |
-| CLI | Positional arguments, color policy, quality, speed, chroma, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-depth`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
+| CLI | Positional arguments, color policy, `--webp-quality=`, `--webp-method=`, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=`, `--avif-chroma=`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
 
 `jpeg-xl-read` promises the *capability* (JPEG XL input), not a particular
 backend: ADR-0025 may switch the backend behind it in a minor release when its
@@ -34,14 +34,25 @@ libavif/AOM writer, the only AVIF writer (owner decision;
 [ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)): the name used to
 select rav1e, and the workspace writer was `avif-own-write`, which is gone;
 `AvifEncoder`, `TransformOptions::avif_encoder` and `--avif-encoder=` are
-removed, and the depth is `TransformOptions::avif_depth` (`--avif-depth=`).
+removed, and the depth was `TransformOptions::avif_depth` (`--avif-depth=`)
+until the native options below.
 The known cost: AVIF output now needs the pinned nightly on macOS ARM64 or
 GNU Linux x86-64, as AVIF input already did; a stable-toolchain build can
 neither read nor write AVIF until the workspace AVIF port builds on stable
 Rust. _Working decision 2026-11-15 (delegated, revisable by the owner):_
-`avif-write` therefore moves to the experimental tier until then. AVIF
-`quality` and `speed` are libavif's scales and are not remapped. See the
+`avif-write` therefore moves to the experimental tier until then. See the
 [supported matrix](supported-matrix.md).
+
+Also since 2026-11-15 encoder settings are native per format (owner
+decision; [ADR-0043](adr/0043-formats-behave-alike.md) D4, pre-1.0 breaking
+change): `TransformOptions::quality`, `speed`, `chroma_subsampling` and
+`avif_depth` are replaced by `TransformOptions::avif: AvifOptions` (libavif
+quality, alpha quality, speed, depth and chroma at `avifenc`'s defaults 60,
+60, 6, 8 bits, 4:4:4), and `WebpOptions::Lossy { speed }` by `{ method }`,
+libwebp's own 0–6 (default 4). The CLI's `--quality=`, `--speed=` and
+`--chroma=` are replaced by `--avif-quality=`, `--avif-alpha-quality=`,
+`--avif-speed=`, `--avif-chroma=`, `--webp-quality=` and `--webp-method=`.
+Default AVIF and lossy WebP output changes with the new defaults.
 
 ## Refusal reasons
 

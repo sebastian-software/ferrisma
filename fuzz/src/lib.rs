@@ -2,7 +2,7 @@
 //! every remaining byte is passed unchanged to the selected image decoder.
 
 use ferrisma::pipeline::{
-    ImageFormat, InputProfilePolicy, JpegXlOptions, Output, OutputFormat, ProcessingError,
+    AvifOptions, ImageFormat, InputProfilePolicy, JpegXlOptions, Output, OutputFormat, ProcessingError,
     ResizeFit, ResizeOptions, TransformOptions, WorkingPrecision, transcode, transcode_resized,
 };
 
@@ -234,28 +234,25 @@ fn run_case_with_depth(bytes: &[u8], depth: u8) -> Option<Result<Output, Process
     };
     let options = TransformOptions {
         output_format,
-        // A nondefault AVIF depth conflicts with WebP output; WebP keeps the
-        // default, like the other shared AVIF options.
-        avif_depth: if output_format == OutputFormat::Avif {
-            depth
+        // AVIF settings other than the defaults conflict with WebP output;
+        // WebP keeps the defaults. The AVIF lane pins quality, speed and
+        // depth explicitly (the engine defaults follow `avifenc` since
+        // 2026-11-15).
+        avif: if output_format == OutputFormat::Avif {
+            AvifOptions {
+                quality: 60,
+                alpha_quality: 60,
+                speed: 10,
+                depth,
+                ..AvifOptions::default()
+            }
         } else {
-            10
+            AvifOptions::default()
         },
         output_width,
         output_height,
         profile_policy,
         precision,
-        // WebP requires these shared AVIF options to retain their defaults.
-        quality: if output_format == OutputFormat::Avif {
-            60.0
-        } else {
-            75.0
-        },
-        speed: if output_format == OutputFormat::Avif {
-            10
-        } else {
-            6
-        },
         transform_threads: 1,
         encoder_threads: 1,
         max_input_bytes: MAX_INPUT_BYTES,

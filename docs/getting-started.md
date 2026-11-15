@@ -13,10 +13,10 @@ needed (it was rav1e's, removed on 2026-11-15).
 git clone https://github.com/sebastian-software/ferrisma.git
 cd ferrisma
 cargo run --release --features cli -- \
-  photo.jpg scaled.avif 1600 900 --assume-srgb --quality=80 --speed=8
+  photo.jpg scaled.avif 1600 900 --assume-srgb --avif-quality=80 --avif-speed=8
 
 cargo run --release --features cli -- \
-  photo.jpg scaled.webp 1600 900 --assume-srgb --quality=80 --speed=8
+  photo.jpg scaled.webp 1600 900 --assume-srgb --webp-quality=80 --webp-method=6
 
 cargo run --release --features cli -- \
   drawing.webp resized.webp 800 600 --assume-srgb --webp-lossless --webp-level=6
@@ -29,12 +29,15 @@ time (`src/cli.rs`, #237).
 
 The `cli` feature enables JPEG, still WebP, JPEG XL and AVIF input, AVIF and
 still WebP output, and ICC support. The AVIF encoder is the workspace
-libavif/AOM writer (`avif-write`, 10-bit unless `--avif-depth=8`;
-`TransformOptions::avif_depth` in Rust), the only one since 2026-11-15:
+libavif/AOM writer (`avif-write`; `AvifOptions` in Rust, `--avif-*` on
+the command line), the only one since 2026-11-15:
 `rav1e`, `--avif-encoder=` and `AvifEncoder` were removed. The separate
 [`ferrisma-libavif` adapter](../crates/ferrisma-libavif/README.md) delegates
-to the same implementation. `--quality` and `--speed` go unchanged to it on
-libavif's scale: quality 0–100 in 64 quantizer steps, speed 0–10. A quality
+to the same implementation. `--avif-quality`, `--avif-alpha-quality`,
+`--avif-speed`, `--avif-depth` and `--avif-chroma` go unchanged to it on
+libavif's scales (quality 0–100 in 64 quantizer steps, speed 0–10, depth 8
+or 10), with `avifenc`'s defaults: quality and alpha quality 60, speed 6,
+8 bits, 4:4:4. A quality
 tuned for the former rav1e encoder is not comparable: at equal SSIMULACRA2
 on the recorded photographs, rav1e 70/80/90 matched roughly libavif
 50/55/78 ([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)).
@@ -45,9 +48,10 @@ nightly and a supported native target (macOS ARM64 or GNU Linux x86-64).
 The codec-free core and features without `avif-read`, `avif-write`, or `cli` retain stable Rust 1.98
 support; such a build has no AVIF input or output. See the [measured AVIF input trade-off](benchmarks/M2-avif-input.md).
 
-WebP lossy uses its own quality and speed settings. Lossless uses only
-`--webp-level=0..9`; `--quality`, `--speed`, `--chroma`, and multiple encoder
-threads are unsupported for that output. Still WebP output embeds an sRGB ICC
+WebP lossy uses libwebp's own quality (`--webp-quality=`, 1–100, default
+75) and method (`--webp-method=`, 0–6, default 4). Lossless uses only
+`--webp-level=0..9`; the lossy settings, the `--avif-*` flags and multiple
+encoder threads are refused for that output. Still WebP output embeds an sRGB ICC
 profile for the rendered samples and drops source EXIF orientation and XMP.
 `--max-output-mb` caps the retained file; the WebP writer checks it during
 encoding, while AVIF and external backends check after encoding.

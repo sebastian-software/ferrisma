@@ -64,7 +64,13 @@ Those settings are not made alike by mapping one scale onto all encoders:
 each output has its encoder's own scales (owner decision of 2026-11-15 on
 the WebP speed aliases), and a setting that belongs to another format is
 refused. Parity applies to what an image means and to what happens to it,
-not to tuning.
+not to tuning. _Implemented on 2026-11-15 (branch `v1/engine-options`):_
+`AvifOptions` (libavif quality, alpha quality, speed, depth, chroma),
+`WebpOptions` (libwebp quality and `method` 0–6 for lossy output, the
+lossless preset level 0–9) and `JpegXlOptions` (distance, effort) are the
+only encoder controls, each on its encoder's own scale; the general
+`quality`/`speed` fields and flags are removed, and a setting of another
+format is refused before decoding.
 
 **D5. The matrix is where parity is checked.** Each row of the supported
 matrix describes one property across the formats. A row whose cells differ
@@ -196,3 +202,6 @@ None. The grayscale question is decided (above).
 - 2026-11-15 — AVIF ICC beside `nclx` (MIAF) added as an application;
   every decision of the day is implemented and the state paragraph under
   Validation is updated.
+- 2026-11-15 — D4 implemented: per-format options types with native
+  scales (`AvifOptions`, libwebp's own `method` instead of a mapped
+  `speed`), the general `quality`/`speed` removed (ADR-0037, ADR-0040).

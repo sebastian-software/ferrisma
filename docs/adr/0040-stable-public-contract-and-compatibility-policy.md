@@ -53,11 +53,11 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `ResizeFilter` (`Area`, `Lanczos3`) | enum | Stable | Non-exhaustive |
 | `InputProfilePolicy` | enum | Stable | Non-exhaustive; `Strict` default |
 | `ImageFormat`, `OutputFormat` | enum | Stable | Non-exhaustive |
-| `WebpOptions` | enum | Stable | Non-exhaustive |
+| `WebpOptions` (`Lossy { quality, method }`, `Lossless { level }`) | enum | Stable | Non-exhaustive; libwebp's own scales; `speed` replaced by `method` on 2026-11-15 |
 | `JpegXlOptions` (`Lossy { distance }`, `Lossless { effort }`) | enum | Experimental (ADR-0039); default lossy d1.0 pending owner confirmation | Non-exhaustive; `PartialEq` only |
 | `ChromaSubsampling` | enum | Stable | Non-exhaustive |
-| `TransformOptions::avif_depth` | field | Experimental (working decision 2026-11-15; replaces `AvifEncoder::Libavif { depth }`) | 8 or 10, default 10 |
-| `LibavifBackend` | struct | Experimental (`avif-write`; stable Rust 1.99 since 2026-11-15, pinned nightly before) | ADR-0037; the built-in AVIF writer |
+| `AvifOptions` (`quality`, `alpha_quality`, `speed`, `depth`, `chroma`), `TransformOptions::avif` | struct, field | Experimental (owner decision 2026-11-15, ADR-0037; replaces `avif_depth`, `quality`, `speed`, `chroma_subsampling`) | libavif's scales; `avifenc` defaults 60, 60, 6, 8, 4:4:4; public fields, not non-exhaustive, like `TransformOptions` (problem 1) |
+| `LibavifBackend` | unit struct | Experimental (`avif-write`; stable Rust 1.99 since 2026-11-15, pinned nightly before) | ADR-0037; the built-in AVIF writer; reads every setting from the request since 2026-11-15 |
 | `WorkingPrecision` | enum | `F32` stable; `F64Reference` experimental (verification only) | Non-exhaustive |
 | `Output` | struct | Stable | Non-exhaustive; `format`, `bytes`, `width`, `height`, `report` |
 | `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive; new fields are additive. `decoder_backend` and `encoder_backend` strings are experimental values (2026-11-14, #217) |
@@ -93,12 +93,12 @@ binary's command line, not this function, is the stable CLI contract.
 | --- | --- |
 | Positional `INPUT OUTPUT WIDTH HEIGHT`; input format from the extension (`jpg`, `jpeg`, `webp`, `jxl`, `avif`); output from `.avif` or `.webp` | Stable |
 | `--assume-srgb`, `--use-rendered-icc` | Stable |
-| `--quality=`, `--speed=`, `--chroma=444\|420`, `--webp-lossless`, `--webp-level=` | Stable |
+| `--webp-quality=`, `--webp-method=`, `--webp-lossless`, `--webp-level=` | Stable (`--quality=`, `--speed=`, `--chroma=` removed on 2026-11-15) |
 | `--crop=x,y,w,h` | Stable |
 | `--max-input-mb=`, `--max-input-mpx=`, `--budget-mb=`, `--max-output-mb=` | Stable |
 | `--transform-threads=`, `--encoder-threads=` | Stable |
 | `--area` | Stable, see problem 15 |
-| `--avif-depth=8\|10` | Experimental |
+| `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=8\|10`, `--avif-chroma=444\|420` | Experimental, as `AvifOptions` |
 | `--reference`, `--kernel-level=scalar\|neon\|avx2\|avx512` | Experimental (verification and diagnostics) |
 | `.jxl` output, `--jxl-distance=`, `--jxl-lossless` (ADR-0039) | Experimental |
 | Exit status 0 success, 2 usage (fewer than four positional arguments), 1 any other error (Rust's default `Error: …` on stderr) | Stable |
@@ -172,7 +172,9 @@ cannot be fixed later without a major release.
    `chroma_subsampling`, and `avif_encoder` apply only to AVIF, while WebP uses
    `webp`; `quality`/`speed` change scale with the selected AVIF encoder.
    Recommendation: an `AvifOptions` value parallel to `WebpOptions`, or an
-   output enum carrying per-format settings.
+   output enum carrying per-format settings. _Done on 2026-11-15 (owner
+   decision, ADR-0037, ADR-0043 D4):_ `AvifOptions`, and the mixed fields
+   are removed.
 3. **Two geometry entry points.** `output_width`/`output_height` are ignored
    by `transcode_resized`. Recommendation: one geometry enum (exact or
    `ResizeOptions`) inside the options, or keep both functions and document
@@ -205,7 +207,9 @@ cannot be fixed later without a major release.
     example a caller-supplied ICC profile) would break it. Recommendation:
     drop `Copy` before 1.0 if such options are plausible.
 11. **`AvifEncoder::Libavif { depth }` and `LibavifBackend { depth }`
-    duplicate the same configuration.** Recommendation: one type.
+    duplicate the same configuration.** Recommendation: one type. _Done on
+    2026-11-15:_ the depth is `AvifOptions::depth` only; `LibavifBackend`
+    reads it from the request.
 12. **`cli::run` is a public library function** returning
     `Box<dyn Error>`. Recommendation: `#[doc(hidden)]` or move it to the
     binary's crate if adapters no longer need it.
@@ -392,3 +396,18 @@ reports that a stable item cannot express its use case.
   thread counts that `transcode` refuses before it replaces valid ones
   with 1, as `InvalidOptions`. A caller that relied on the ignored values
   gets an error instead of a silent choice.
+- 2026-11-15 — Native encoder options (owner decision, ADR-0043 D4,
+  ADR-0037): `AvifOptions` and `TransformOptions::avif` replace
+  `avif_depth`, `quality`, `speed` and `chroma_subsampling` (problem 2
+  done); `WebpOptions::Lossy { speed }` becomes `{ method }` on libwebp's
+  scale; `EncodeRequest` carries `avif` instead of `quality`, `speed` and
+  `chroma`; `LibavifBackend` loses its depth (problem 11 done). CLI:
+  `--quality=`, `--speed=` and `--chroma=` removed; `--avif-quality=`,
+  `--avif-alpha-quality=`, `--avif-speed=`, `--avif-chroma=`,
+  `--webp-quality=` and `--webp-method=` added. The AVIF defaults follow
+  `avifenc` (8 bits, quality 60), and the WebP lossy default is libwebp's
+  method 4, so default output bytes change. Breaking changes before 1.0,
+  intended. _Working decision 2026-11-15 (delegated, revisable by the
+  owner):_ `AvifOptions` is a plain struct with public fields and no
+  `#[non_exhaustive]`, as `TransformOptions` is until problem 1 is decided;
+  the CLI names; the WebP lossy default method 4.

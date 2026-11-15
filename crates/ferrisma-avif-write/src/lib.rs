@@ -14,13 +14,15 @@ pub enum Chroma {
 
 /// Configuration for one still image. `has_alpha` false ignores the row's
 /// alpha bytes; true treats them as straight alpha. `threads` is clamped to
-/// 1–256. Quality and speed use libavif's scales.
+/// 1–256. Quality, alpha quality and speed use libavif's integer scales and
+/// are passed unchanged (`avifEncoder::quality`, `qualityAlpha`, `speed`).
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
     pub width: u32,
     pub height: u32,
     pub has_alpha: bool,
-    pub quality: f32,
+    pub quality: u8,
+    pub alpha_quality: u8,
     pub speed: u8,
     pub threads: usize,
     pub chroma: Chroma,
@@ -69,6 +71,8 @@ const AVIF_RANGE_FULL: u32 = 1;
 const AVIF_COLOR_PRIMARIES_BT709: u16 = 1;
 const AVIF_TRANSFER_CHARACTERISTICS_SRGB: u16 = 13;
 const AVIF_MATRIX_COEFFICIENTS_BT601: u16 = 6;
+/// libavif's quality range ends at `AVIF_QUALITY_BEST` (lossless quantizer).
+const MAX_QUALITY: u8 = 100;
 /// libavif's speed range, `AVIF_SPEED_SLOWEST` to `AVIF_SPEED_FASTEST`.
 const MAX_SPEED: u8 = 10;
 /// Ferrisma caps encoder threads at 256 as well.
@@ -88,8 +92,11 @@ pub fn required_frame_bytes(request: &Config) -> Result<usize, EncodeError> {
     if !(request.depth == 8 || request.depth == 10) {
         return Err(invalid("libavif-rs backend depth must be 8 or 10"));
     }
-    if !request.quality.is_finite() || !(0.0..=100.0).contains(&request.quality) {
+    if request.quality > MAX_QUALITY {
         return Err(invalid("libavif quality must be between 0 and 100"));
+    }
+    if request.alpha_quality > MAX_QUALITY {
+        return Err(invalid("libavif alpha quality must be between 0 and 100"));
     }
     if request.speed > MAX_SPEED {
         return Err(invalid("libavif speed must be between 0 and 10"));
@@ -462,9 +469,6 @@ fn encode_image(request: &Config, image: &Image) -> Result<Vec<u8>, EncodeError>
         ));
     }
     let encoder = Encoder(encoder);
-    let quality = request.quality.round();
-    #[allow(clippy::cast_possible_truncation)] // 0..=100, checked in `begin`.
-    let quality = quality as i32;
     let threads = request.threads.clamp(1, MAX_THREADS);
     // SAFETY: `encoder.0` is a valid, exclusively owned `avifEncoder`; these
     // are plain fields of it.
@@ -472,8 +476,8 @@ fn encode_image(request: &Config, image: &Image) -> Result<Vec<u8>, EncodeError>
         // Select the reference encoder explicitly even if Cargo feature
         // unification enables additional libavif codecs.
         (*encoder.0).codecChoice = write::AVIF_CODEC_CHOICE_AOM;
-        (*encoder.0).quality = quality;
-        (*encoder.0).qualityAlpha = quality;
+        (*encoder.0).quality = i32::from(request.quality);
+        (*encoder.0).qualityAlpha = i32::from(request.alpha_quality);
         (*encoder.0).speed = i32::from(request.speed);
         (*encoder.0).maxThreads = i32::try_from(threads).unwrap_or(1);
         (*encoder.0).autoTiling = i32::from(threads != 1);
@@ -584,7 +588,8 @@ mod tests {
                             width,
                             height,
                             has_alpha,
-                            quality: 75.0,
+                            quality: 75,
+                            alpha_quality: 75,
                             speed: 6,
                             threads: 1,
                             chroma,

@@ -11,8 +11,11 @@ fn real_jpeg_reaches_valid_bytes_through_m1_graph() {
         output_height: 3,
         filter: ResizeFilter::Area,
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        quality: 85.0,
-        speed: 9,
+        avif: crate::pipeline::AvifOptions {
+            quality: 85,
+            speed: 9,
+            ..crate::pipeline::AvifOptions::default()
+        },
         max_managed_bytes: 1024 * 1024,
         ..TransformOptions::default()
     };
@@ -77,7 +80,10 @@ fn produced_avif_is_accepted_by_an_independent_decoder() {
         output_width: 4,
         output_height: 3,
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        speed: 9,
+        avif: crate::pipeline::AvifOptions {
+            speed: 9,
+            ..crate::pipeline::AvifOptions::default()
+        },
         ..TransformOptions::default()
     };
     let encoded = transcode(
@@ -105,7 +111,10 @@ fn jpeg_xl_icc_is_explicitly_transformed_and_encoded_from_a_full_frame() {
         output_width: 3,
         output_height: 2,
         profile_policy: InputProfilePolicy::UseRenderedIcc,
-        speed: 9,
+        avif: crate::pipeline::AvifOptions {
+            speed: 9,
+            ..crate::pipeline::AvifOptions::default()
+        },
         max_managed_bytes: 1024 * 1024,
         ..TransformOptions::default()
     };
@@ -129,7 +138,10 @@ fn compressed_bytes_and_decoded_pixel_caps_reject_before_processing() {
         output_width: 1,
         output_height: 1,
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        speed: 10,
+        avif: crate::pipeline::AvifOptions {
+            speed: 10,
+            ..crate::pipeline::AvifOptions::default()
+        },
         ..TransformOptions::default()
     };
     assert!(
@@ -177,7 +189,10 @@ fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
             output_width: 8,
             output_height: 6,
             profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            speed: 10,
+            avif: crate::pipeline::AvifOptions {
+                speed: 10,
+                ..crate::pipeline::AvifOptions::default()
+            },
             ..TransformOptions::default()
         },
     )
@@ -188,7 +203,10 @@ fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
         TransformOptions {
             output_width: 4,
             output_height: 3,
-            speed: 10,
+            avif: crate::pipeline::AvifOptions {
+                speed: 10,
+                ..crate::pipeline::AvifOptions::default()
+            },
             ..TransformOptions::default()
         },
     )
@@ -221,7 +239,10 @@ fn exif_rotated_jpeg_is_cropped_in_display_coordinates() {
             height: 20,
         }),
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        speed: 10,
+        avif: crate::pipeline::AvifOptions {
+            speed: 10,
+            ..crate::pipeline::AvifOptions::default()
+        },
         ..TransformOptions::default()
     };
     let output = transcode(rotated, ImageFormat::Jpeg, options).unwrap();
@@ -254,7 +275,10 @@ fn encoder_threads_trade_determinism_for_latency_explicitly() {
         output_width: 64,
         output_height: 48,
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        speed: 10,
+        avif: crate::pipeline::AvifOptions {
+            speed: 10,
+            ..crate::pipeline::AvifOptions::default()
+        },
         ..TransformOptions::default()
     };
     // One thread (the default): byte-identical output on every run.
@@ -295,7 +319,10 @@ fn engine_batches_match_single_image_results_in_order() {
     let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
     let options = TransformOptions {
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        speed: 10,
+        avif: crate::pipeline::AvifOptions {
+            speed: 10,
+            ..crate::pipeline::AvifOptions::default()
+        },
         transform_threads: 1,
         encoder_threads: 1,
         ..TransformOptions::default()
@@ -424,11 +451,16 @@ fn a_backend_receives_the_request_and_every_output_row() {
         output_width: 7,
         output_height: 5,
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        quality: 42.5,
-        // The backend validates speed on its own scale.
-        speed: 0,
+        // Every AVIF setting reaches the backend, which validates them on
+        // its own scale (the depth too, since 2026-11-15).
+        avif: crate::pipeline::AvifOptions {
+            quality: 42,
+            alpha_quality: 17,
+            speed: 0,
+            depth: 10,
+            chroma: ChromaSubsampling::Yuv420,
+        },
         encoder_threads: 3,
-        chroma_subsampling: ChromaSubsampling::Yuv420,
         ..TransformOptions::default()
     };
     let recorder = backend::Recorder::default();
@@ -438,10 +470,8 @@ fn a_backend_receives_the_request_and_every_output_row() {
     let request = requests[0];
     assert_eq!((request.width, request.height), (7, 5));
     assert!(!request.has_alpha);
-    assert!((request.quality - 42.5).abs() < f32::EPSILON);
-    assert_eq!(request.speed, 0);
+    assert_eq!(request.avif, options.avif);
     assert_eq!(request.threads, 3);
-    assert_eq!(request.chroma, ChromaSubsampling::Yuv420);
     // The "encoding" is the rows: opaque straight RGBA8, 7 x 5 pixels.
     assert_eq!(output.bytes.len(), 7 * 5 * 4);
     assert!(output.bytes.chunks(4).all(|pixel| pixel[3] == 255));
@@ -454,7 +484,10 @@ fn a_backend_receives_the_request_and_every_output_row() {
         jpeg,
         ImageFormat::Jpeg,
         TransformOptions {
-            speed: 9,
+            avif: crate::pipeline::AvifOptions {
+                speed: 9,
+                ..crate::pipeline::AvifOptions::default()
+            },
             ..options
         },
     )
