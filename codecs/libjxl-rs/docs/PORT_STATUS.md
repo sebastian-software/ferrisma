@@ -3956,3 +3956,47 @@ requests, each mode run with both the simple and the low-memory pipeline, with
 278 DC and 308 pass pauses, 1,392 successful and 196 rejected flushes, and 886
 truncated decodes. The `decode.cc` orchestration and container input on top of
 this interface followed in PR #50.
+
+<!-- encoder step 1 -->
+## Encoder step 1: upstream differential cases and checkpoints (2026-11-15)
+
+The remaining gate items of encoder step 1 (#118) other than native Linux
+runs and RoundtripGrayscale. `tools/oracle/encoder_step1.cc` and
+`tests/parity/encoder_step1.rs` run the upstream cases' own inputs and
+settings through the original and the port and compare every output exactly
+(exact bytes replace the tests' size, Butteraugli and distance checks; the
+tests' own properties are also asserted on the port).
+
+| Upstream case | Form | Result |
+| --- | --- | --- |
+| `coeff_order_test.cc`, all 12 | Rng(0) permutations, EncodePermutation bytes, DecodePermutation | 12 exact |
+| `quant_weights_test.cc` DC, AllDefault | SetCustomDC; SetCustom with Library<0> and DequantMatricesEncode | 2 exact |
+| `quant_weights_test.cc` single tables, RAW, DCTUniform | custom AC matrices | not admitted (step 1 writes default matrices only) |
+| `roundtrip_test.cc` Float/Uint16/Uint8 frame tests, lossy, 1 and 3 channels | encoder half with the extracted helpers; decoder half on the original's bytes | 6 admission histories: SetCodestreamLevel(10) writes a jxll box, so the output is a container (step 3); decoder half 6 exact |
+| `jxl_test.cc` RoundtripSinglePixel, SmallD1 (255, 100 nits), UnalignedD2, D2Consistent (serial, twice per width) | pristine EncodeImageJXL on the TestImage PackedPixelFile | 20 exact, 40 decode-back exact |
+| `speed_tier_test.cc` kSquirrel, shrink8 and full | as above, allow_expert_options, effort 7 | 2 exact, 4 decode-back exact; the shrink8 lossless second roundtrip is not admitted |
+| `enc_gaborish_test.cc` | `tests/enc_gaborish.rs` (earlier) | unchanged |
+| `jxl_test.cc` RoundtripGrayscale d1.0 (`test::EncodeFile`) | needs the ImageBundle EncodeFrame overload | open |
+
+PNG inputs are raw fixtures (`tests/data/encoder-step1/`, see its README
+section). The extras PNG decoder gives a still image's frame
+`save_as_reference = 1`; the admitted frame profile now accepts it on the last
+frame, where it changes only its header field (FrameHeader::CanBeReferenced).
+
+Checkpoints. `tools/oracle/encoder_step1_checkpoints.cc` compiles the
+unmodified enc_frame.cc with renamed external symbols and wrappers around the
+archive's LossyFrameHeuristics, InitializePassesEncoder and
+ComputeARHeuristics; `src/jxl/enc_checkpoints.rs` is the port's read-only
+observer at the same calls. `tests/parity/encoder_step1_checkpoints.rs`
+compares the Gaborished opsin, masking1x1, AC strategy, raw quant field,
+quantizer, CfL maps and DC correlation, EPF sharpness, block context map,
+dequant matrices, found splines/patches, loop filter and QM scales; the DC
+image, quantized DC and written AC coefficients; and the AR EPF field: 32
+public-encoder histories (gate sizes gray and RGB, 512x1024, d0.5 to d2.9,
+sRGB and linear, both intensity targets), 9,593,524 words exact. The oracle
+run's codestream equals the original public encoder's for each history.
+
+Evidence: macOS AArch64, checked profile, ordinary and O3 scalar oracle
+graphs; `tools/check.py --stage test` 1,097 passed, 1 ignored. Not verified
+here: native Linux, the ASan/UBSan graph.
+<!-- end encoder step 1 -->
