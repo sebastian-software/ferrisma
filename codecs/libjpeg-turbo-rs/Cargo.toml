@@ -2,7 +2,7 @@
 name = "libjpeg-turbo-rs"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.95"
+rust-version = "1.93"
 # The translated libjpeg API library is under the IJG License; the SIMD
 # extensions, once translated, are under the zlib License (LICENSE.md).
 license = "IJG AND Zlib"
