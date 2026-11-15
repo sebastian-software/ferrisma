@@ -37,11 +37,14 @@
 //!   for a nonnull buffer. A channel whose format was never set reports a
 //!   zero format (the source's is indeterminate there; it is only read
 //!   before a request that returns null).
-//! - JPEG input, CopyOutput, MakeContainerHeader, AppendBoxHeader and the
-//!   frame-index-box methods remain unported.
+//! - JPEG input and CopyOutput remain unported. WriteBoxHeader (declared
+//!   here, defined in encode.cc), AppendBoxHeader and MakeContainerHeader
+//!   write into byte slices and vectors (encoder container); the
+//!   frame-index-box methods are in `encode.rs`.
 
 use super::base::status::{Status, StatusCode, StatusOr};
 use super::codestream_header::{JxlBlendInfo, JxlFrameHeader};
+use super::common::JXL_SIGNATURE_BOX;
 use super::enc_params::CompressParams;
 use super::encode::{JxlChunkedFrameInputSource, JxlEncoderOutputProcessor};
 use super::memory_manager::JxlMemoryManager;
@@ -763,6 +766,104 @@ impl JxlEncoderQueuedInput {
 pub const SMALL_BOX_HEADER_SIZE: usize = 8;
 pub const LARGE_BOX_HEADER_SIZE: usize = 16;
 pub const LARGE_BOX_CONTENT_SIZE_THRESHOLD: usize = 0x1_0000_0000 - SMALL_BOX_HEADER_SIZE;
+
+// encoder container
+/// WriteBoxHeader (defined in encode.cc): writes the header of a box with
+/// `size` content bytes into `output` and returns its length. As in the
+/// source, the large-header test reads `box_size`, which is still 0 there, so
+/// only `force_large_box` selects the 64-bit size field; a larger `size`
+/// without it keeps the low 32 bits of the box size.
+#[allow(
+    clippy::absurd_extreme_comparisons,
+    reason = "Keep the source's test of the not yet assigned box_size."
+)]
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
+pub fn write_box_header(
+    box_type: &BoxType,
+    size: usize,
+    unbounded: bool,
+    force_large_box: bool,
+    output: &mut [u8],
+) -> usize {
+    let mut box_size: u64 = 0;
+    let mut large_size = false;
+    if !unbounded {
+        if box_size >= LARGE_BOX_CONTENT_SIZE_THRESHOLD as u64 || force_large_box {
+            large_size = true;
+            // TODO(firsching): send a separate CL for this (+ test),
+            // quick fix in the old code: box_size += 8
+            box_size = size.wrapping_add(LARGE_BOX_HEADER_SIZE) as u64;
+        } else {
+            box_size = size.wrapping_add(SMALL_BOX_HEADER_SIZE) as u64;
+        }
+    }
+
+    let mut idx = 0;
+    {
+        let store: u64 = if large_size { 1 } else { box_size };
+        for i in 0..4 {
+            output[idx] = ((store >> (8 * (3 - i))) & 0xff) as u8;
+            idx += 1;
+        }
+    }
+    for i in 0..4 {
+        output[idx] = box_type[i];
+        idx += 1;
+    }
+
+    if large_size {
+        for i in 0..8 {
+            output[idx] = ((box_size >> (8 * (7 - i))) & 0xff) as u8;
+            idx += 1;
+        }
+    }
+    idx
+}
+
+/// AppendBoxHeader: appends a JXL container box header with given type, size,
+/// and unbounded properties to output.
+pub fn append_box_header(box_type: &BoxType, size: usize, unbounded: bool, output: &mut Vec<u8>) {
+    let current_size = output.len();
+    output.resize(current_size + LARGE_BOX_HEADER_SIZE, 0);
+    let header_size = write_box_header(
+        box_type,
+        size,
+        unbounded,
+        /*force_large_box=*/ false,
+        &mut output[current_size..],
+    );
+    output.truncate(current_size + header_size);
+}
+
+/// MakeContainerHeader: the JXL container signature box and ftyp box.
+/// ftyp_version: 0 = standard delivery order, 1 = out-of-order jxlp boxes.
+pub fn make_container_header(ftyp_version: i32) -> Vec<u8> {
+    let mut out = JXL_SIGNATURE_BOX.to_vec();
+    // ftyp box: major brand "jxl ", minor version, compatible brand "jxl ".
+    let ftyp: [u8; 12] = [
+        b'j',
+        b'x',
+        b'l',
+        b' ',
+        0,
+        0,
+        0,
+        ftyp_version as u8,
+        b'j',
+        b'x',
+        b'l',
+        b' ',
+    ];
+    append_box_header(
+        &make_box_type(b"ftyp"),
+        ftyp.len(),
+        /*unbounded=*/ false,
+        &mut out,
+    );
+    out.extend_from_slice(&ftyp);
+    out
+}
+// end encoder container
 
 struct InternalBuffer {
     // Bytes in the range `[output_position - start_of_the_buffer,

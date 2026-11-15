@@ -60,8 +60,9 @@ transforms, AdaptiveDCSmoothing) and frames with a CMS, spot-color or
 tone-mapping stage stay serialized (see "Concurrent decoding and
 rendering" below); the encoder C ABI is absent; and the translated skcms SKX engine has no AVX-512
 acceptance. Every decoder owner allocates through the caller's memory manager
-(see "Decoder memory-manager propagation" below). Container writing, general
-encoding, the encoder C ABI and JxlEncoderSetParallelRunner remain unported.
+(see "Decoder memory-manager propagation" below). General encoding, the
+encoder C ABI and JxlEncoderSetParallelRunner remain unported; container and
+box writing is translated without brob compression (block "encoder container").
 The public encoder API's object lifecycle, option and metadata setters, frame
 and box queueing and ProcessOutput are translated with explicit admission
 results for every untranslated branch (see "Public encoder API admission and
@@ -374,6 +375,38 @@ decode-path Symmetric5 the lossy encoder runs, are translated with parity
 against the original's NEON and AVX2 (Rosetta 2) builds, behind the
 encoder's dispatch point (off by default).
 <!-- end encoder cfl -->
+
+<!-- encoder container -->
+Encoder step 3, container and box writing (2026-11-15, branch
+`v1/jxl-enc-container`, issue #116): `encode_internal.rs` translates
+WriteBoxHeader, AppendBoxHeader and MakeContainerHeader; `encode.rs`
+translates AppendBox, AppendBoxWithContents, WriteJxlpBoxCounter,
+EncodeVarInt, EncodeFrameIndexBox and the container branches of
+ProcessOneEnqueuedInput: the signature and ftyp boxes (ftyp version 1 when a
+queued input uses output mode 2), the jxll box for a level other than 5, the
+partial-header jxlp box (StoreJPEGMetadata, or a box before the first frame),
+the box-size estimate with its 64-bit header choice, the reserved jxlc or
+jxlp frame box with its counter, uncompressed metadata boxes, and the jxli
+frame index (also after a raw codestream, as the original writes it). The
+metadata header's BitWriter and bytes now allocate through the encoder's
+memory manager (`BitWriter::new_in`), as the original's do. The remaining
+EnqueuedInput admission results are an ICC profile (step 6) and a box queued
+with `compress_box` (brob, step 11). Level 10 is available, so the earlier
+container admission histories are exact.
+
+Evidence (macOS AArch64, both scalar references, checked profile), all
+exact: the box header writers (`ectr-box`, `ectr-append`, `ectr-ftyp`, 1,109
+requests: small sizes, sizes at and around kLargeBoxContentSizeThreshold,
+wrapping sizes, unbounded and forced 64-bit headers); one frame in a
+container in buffer mode, 54 histories (UseContainer, level 10, level 5 with
+a container, StoreJPEGMetadata, a level 10 that five extra channels require;
+1x1 to 512x1024 and streaming frames up to 2049x300 in output modes 0 and 1);
+the container histories decoded by both public decoders (box events included), 27; encode_test's
+boxes-and-output family, 47 exact (the 5 remaining admissions are brob
+boxes); and step 1's `roundtrip_test` frame instances, now 12 exact
+histories with and without JxlEncoderUseContainer (previously 6 admission
+histories).
+<!-- end encoder container -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
 
@@ -1593,7 +1626,7 @@ followed in PRs #46 to #50.
 | `enc_external_image.cc` | `enc_external_image.rs` | Complete null-pool ConvertFromExternalPlaneNoSizeCheck and checked plane ConvertFromExternal; ImageBundle and BufferToImage wrappers unported |
 | `dec_external_image.h`, `.cc`, used `alpha.cc` loop | `dec_external_image.rs` | Complete integer and Float16/Float32 buffer/null-pool specializations of ConvertChannelsToExternal and ConvertToExternal, original scalar FloatToU32/FloatToF16 with selected native-half-cast mapping, generic UndoOrientation, store order, nullable channels, checked output spans, and alpha unpremultiplication; callbacks, custom runners, and alternate Highway half-conversion compile branches unported |
 | `encode_internal.h`, out-of-line wrapper methods in `encode.cc` | `encode_internal.rs` | BitsPerChannel, BytesPerPixel, the buffer-backed adapter/channel construction, binding, copying, views and format accessors, MakeBoxType, frame-index-box storage, JxlEncoderFrameSettingsValues, queued frame/box/input owners, and the buffer mode of JxlEncoderOutputProcessorWrapper with JxlOutputProcessorBuffer and AppendData; callback/JPEG input, CopyFromBuffer, CopyOutput, the external output processor, container headers and frame-index-box methods unported |
-| `encode.cc` lifecycle, setters and queueing, JxlEncoder/JxlEncoderFrameSettings in `encode_internal.h`, values in `../include/jxl/encode.h` | `encode.rs` | Create/Reset/Destroy, GetError, version, container/level/box flags, VerifyLevelSettings, basic-info, extra-channel, upsampling, color and ICC setters, frame-settings creation and every option/float option, distances, frame header/blend/name/bit depth, AddImageFrame, AddBox, SetExtraChannelBuffer, Close* and ProcessOutput; the raw-codestream branch of ProcessOneEnqueuedInput; admission results at CanDoFastLossless, ProcessOneEnqueuedInput (alpha, ICC, containers, boxes) and the frame encoder; containers, JPEG/chunked input, output processors, runner, debug and statistics APIs and the C ABI unported |
+| `encode.cc` lifecycle, setters and queueing, JxlEncoder/JxlEncoderFrameSettings in `encode_internal.h`, values in `../include/jxl/encode.h` | `encode.rs` | Create/Reset/Destroy, GetError, version, container/level/box flags, VerifyLevelSettings, basic-info, extra-channel, upsampling, color and ICC setters, frame-settings creation and every option/float option, distances, frame header/blend/name/bit depth, AddImageFrame, AddBox, SetExtraChannelBuffer, Close* and ProcessOutput; the raw-codestream branch of ProcessOneEnqueuedInput; admission results at CanDoFastLossless, ProcessOneEnqueuedInput (ICC, brob boxes) and the frame encoder; the container branches of ProcessOneEnqueuedInput with AppendBox, AppendBoxWithContents, WriteJxlpBoxCounter and EncodeFrameIndexBox (encoder container); JPEG input, runner, debug and statistics APIs and the C ABI unported |
 | `luminance.h`, `.cc` | `luminance.rs` | Complete SetIntensityTarget |
 | `../include/jxl/types.h` | `types.rs` | Raw endianness/data-type values, pixel-format layout, and bit-depth descriptor storage; other public API types unported |
 | `base/override.h` | `base/override_option.rs` | Tri-state option storage, boolean conversion, and default behavior for other fixed-underlying enum values |

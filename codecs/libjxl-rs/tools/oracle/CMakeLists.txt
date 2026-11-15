@@ -425,3 +425,7 @@ target_sources(jxl_oracle PRIVATE encoder_step1_checkpoints.cc)
 set_source_files_properties(encoder_step1_checkpoints.cc PROPERTIES COMPILE_OPTIONS
   "-fno-rtti;-fno-access-control")
 # end encoder step 1
+# encoder container: the original's box header writers and the upstream
+# encode_test pixels (encoder step 3). The TU only calls original functions.
+target_sources(jxl_oracle PRIVATE encoder_container.cc)
+# end encoder container

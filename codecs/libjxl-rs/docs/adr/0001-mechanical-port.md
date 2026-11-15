@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-12
+- Updated: 2026-11-15
 
 The first phase translates libjxl into Rust while keeping the source and target
 easy to compare. Combining the port with algorithm, API, or performance changes
@@ -91,6 +91,15 @@ oracle evidence. Branches that do enter untranslated units (patches, alpha,
 ICC, containers, and streaming frames outside the profile) keep their own
 checkpoints, and the original's branch evidence for each is recorded by
 `epub-probe`.
+
+<!-- encoder container -->
+Amendment (2026-11-15, encoder step 3). The container branches of
+ProcessOneEnqueuedInput are translated: containers, the jxll level box, jxlp
+and jxlc frame boxes, uncompressed metadata boxes and the jxli frame index no
+longer return admission results. The `EnqueuedInput` checkpoint remains for
+an ICC profile (WriteICC, step 6) and for a box queued with `compress_box`
+(BrotliCompress into a brob box, step 11).
+<!-- end encoder container -->
 
 This preserves traceability at the cost of a less idiomatic initial Rust API.
 Revisit this decision after the complete migration contract passes, or if a

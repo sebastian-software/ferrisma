@@ -30,15 +30,20 @@
 //! JxlEncoderSetFrameName, JxlEncoderSetFrameBitDepth,
 //! JxlColorEncodingSetToSRGB, JxlColorEncodingSetToLinearSRGB,
 //! JxlEncoderAllowExpertOptions, JxlEncoderSetOutputProcessor and
-//! JxlEncoderFlushInput.
+//! JxlEncoderFlushInput. Encoder container: AppendBox, AppendBoxWithContents,
+//! WriteJxlpBoxCounter, EncodeVarInt, EncodeFrameIndexBox and the container
+//! branches of ProcessOneEnqueuedInput (the ftyp and jxll boxes, the
+//! partial-header jxlp box, jxlc and jxlp frame boxes with their counters,
+//! output mode 2, uncompressed metadata boxes and the jxli frame index).
 //!
 //! Admission (ADR 0001): the encoder runs before the frame encoder below it is
 //! complete. A call that would enter an untranslated branch returns
 //! JXL_ENC_ERROR with JXL_ENC_ERR_NOT_SUPPORTED at that source checkpoint,
 //! after every check the original performs before it. The checkpoints are
 //! [`JxlEncoderAdmission`]: the fast-lossless branch of AddImageFrameInternal
-//! (enc_fast_lossless.cc); ProcessOneEnqueuedInput's ICC, container and box
-//! branches; and the frame encoder's checkpoints (streaming, the admitted
+//! (enc_fast_lossless.cc); ProcessOneEnqueuedInput's ICC branch and its
+//! brob compression of a box (BrotliCompress, step 11); and the frame
+//! encoder's checkpoints (streaming, the admitted
 //! frame profile and patches), see
 //! `enc_frame_vardct.rs`.
 //! JxlEncoderAddChunkedFrame is translated with them.
@@ -90,6 +95,14 @@ use super::enc_frame::FrameInfo;
 use super::enc_frame_vardct::{EncodeFrameError, FrameAdmission, encode_frame};
 use super::enc_params::{CompressParams, MIN_BUTTERAUGLI_DISTANCE};
 use super::encode_internal::JxlEncoderFrameIndexBoxEntry;
+// encoder container
+use super::base::byte_order::store_be32;
+use super::base::status::Status;
+use super::encode_internal::{
+    BoxType, JxlOutputProcessorBuffer, LARGE_BOX_CONTENT_SIZE_THRESHOLD, LARGE_BOX_HEADER_SIZE,
+    SMALL_BOX_HEADER_SIZE, append_box_header, make_container_header, write_box_header,
+};
+// end encoder container
 use super::encode_internal::{
     JxlEncoderChunkedFrameAdapter, JxlEncoderFrameIndexBox, JxlEncoderFrameSettingsValues,
     JxlEncoderOutputProcessorWrapper, JxlEncoderQueuedBox, JxlEncoderQueuedFrame,
@@ -102,8 +115,9 @@ use super::memory_manager::{
     JxlMemoryManager, default_alloc, default_free, memory_manager_alloc, memory_manager_free,
     memory_manager_init,
 };
-use super::memory_manager_internal::MemoryManagerUniquePtr;
+use super::memory_manager_internal::{MemoryManagerPtr, MemoryManagerUniquePtr};
 use super::modular::options::Predictor;
+use super::padded_bytes::PaddedBytes;
 use super::types::{JxlBitDepth, JxlBitDepthType, JxlDataType, JxlPixelFormat};
 use std::convert::Infallible;
 use std::ffi::{CStr, c_void};
@@ -241,9 +255,9 @@ impl JxlEncoderFrameSettingId {
 pub enum JxlEncoderAdmission {
     /// AddImageFrameInternal when CanDoFastLossless selects enc_fast_lossless.
     FastLosslessFrame,
-    /// ProcessOneEnqueuedInput at a branch outside raw codestream output:
-    /// an ICC profile, a container (including the level 10 that alpha or
-    /// extra channels deeper than 12 bits require) or a box.
+    /// ProcessOneEnqueuedInput at an untranslated branch: an ICC profile
+    /// (WriteICC, step 6) or a box queued with `compress_box` (BrotliCompress
+    /// into a brob box, step 11).
     EnqueuedInput,
     /// EncodeFrame when CanDoStreamingEncoding selects the streaming encode.
     StreamingFrame,
@@ -2046,6 +2060,218 @@ fn must_use_container(enc: &JxlEncoder, output_mode: i32) -> bool {
         || output_mode == 2
 }
 
+// encoder container
+/// JxlEncoder::AppendBox. `write_box` must never seek before the position the
+/// output wrapper was at the moment of the call, and must leave the output
+/// wrapper such that its position is one byte past the end of the written
+/// box. It receives the encoder, whose output wrapper the source's lambdas
+/// capture.
+#[allow(
+    clippy::needless_late_init,
+    reason = "Keep the source's branch assignments."
+)]
+fn append_box(
+    enc: &mut JxlEncoder,
+    box_type: &BoxType,
+    unbounded: bool,
+    box_max_size: usize,
+    write_box: impl FnOnce(&mut JxlEncoder) -> Status,
+) -> Result<(), EnqueuedInputFailure> {
+    let current_position = enc.output_processor.current_position();
+    let large_box;
+    let box_header_size;
+    if box_max_size >= LARGE_BOX_CONTENT_SIZE_THRESHOLD && !unbounded {
+        box_header_size = LARGE_BOX_HEADER_SIZE;
+        large_box = true;
+    } else {
+        box_header_size = SMALL_BOX_HEADER_SIZE;
+        large_box = false;
+    }
+    enc.output_processor
+        .seek(current_position + box_header_size)?;
+    let box_contents_start = enc.output_processor.current_position();
+    write_box(enc)?;
+    let box_contents_end = enc.output_processor.current_position();
+    enc.output_processor.seek(current_position)?;
+    if box_contents_end < box_contents_start {
+        return Err(EnqueuedInputFailure::Failed);
+    }
+    if box_contents_end - box_contents_start > box_max_size {
+        return Err(enqueued_api_error(enc, JxlEncoderError::GENERIC));
+    }
+    // We need to release the buffer before Seek.
+    {
+        let mut buffer = enc
+            .output_processor
+            .get_buffer(box_contents_start - current_position, 0)?;
+        // The source writes the header into the buffer and advances it; the
+        // header is written into a local array and appended here.
+        let mut header = [0u8; LARGE_BOX_HEADER_SIZE];
+        let n = write_box_header(
+            box_type,
+            box_contents_end - box_contents_start,
+            unbounded,
+            large_box,
+            &mut header,
+        );
+        if n != box_header_size {
+            return Err(EnqueuedInputFailure::Failed);
+        }
+        buffer.append(&header[..n])?;
+    }
+    enc.output_processor.seek(box_contents_end)?;
+    enc.output_processor.set_finalized_position()?;
+    Ok(())
+}
+
+/// JxlEncoder::AppendBoxWithContents.
+fn append_box_with_contents(
+    enc: &mut JxlEncoder,
+    box_type: &BoxType,
+    contents: &[u8],
+) -> Result<(), EnqueuedInputFailure> {
+    let size = contents.len();
+    append_box(enc, box_type, /*unbounded=*/ false, size, |enc| {
+        append_data(&mut enc.output_processor, contents)
+    })
+}
+
+/// WriteJxlpBoxCounter into a 4-byte array.
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loop.")]
+fn write_jxlp_box_counter(mut counter: u32, last: bool, buffer: &mut [u8]) {
+    if last {
+        counter |= 0x8000_0000;
+    }
+    for i in 0..4 {
+        buffer[i] = ((counter >> (8 * (3 - i))) & 0xff) as u8;
+    }
+}
+
+/// WriteJxlpBoxCounter into an output buffer.
+fn write_jxlp_box_counter_to_buffer(
+    counter: u32,
+    last: bool,
+    buffer: &mut JxlOutputProcessorBuffer<'_>,
+) -> Status {
+    let mut buf = [0u8; 4];
+    write_jxlp_box_counter(counter, last, &mut buf);
+    buffer.append(&buf)?;
+    Ok(())
+}
+
+/// EncodeVarInt.
+fn encode_var_int(
+    mut value: u64,
+    output_size: usize,
+    output_pos: &mut usize,
+    output: &mut [u8],
+) -> bool {
+    // While more than 7 bits of data are left,
+    // store 7 bits and set the next byte flag
+    while value > 127 {
+        // TODO(eustas): should it be `>=` ?
+        if *output_pos > output_size {
+            return false;
+        }
+        // |128: Set the next byte flag
+        output[*output_pos] = ((value & 127) as u8) | 128;
+        *output_pos += 1;
+        // Remove the seven bits we just wrote
+        value >>= 7;
+    }
+    // TODO(eustas): should it be `>=` ?
+    if *output_pos > output_size {
+        return false;
+    }
+    output[*output_pos] = (value & 127) as u8;
+    *output_pos += 1;
+    true
+}
+
+/// EncodeFrameIndexBox. The source's `int` and `int32_t` counters keep their
+/// widths; their conversions to the varint's `uint64_t` sign-extend.
+#[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
+fn encode_frame_index_box(
+    frame_index_box: &JxlEncoderFrameIndexBox,
+    buffer_vec: &mut Vec<u8>,
+) -> bool {
+    let mut ok = true;
+    let mut nf: i32 = 0;
+    for i in 0..frame_index_box.entries.len() {
+        if i == 0 || frame_index_box.entries[i].to_be_indexed {
+            nf += 1;
+        }
+    }
+    // Frame index box contents varint + 8 bytes
+    // continue with NF * 3 * varint
+    // varint max length is 10 for 64 bit numbers, and these numbers
+    // are limited to 63 bits.
+    const VARINT_MAX_LENGTH: i32 = 10;
+    const FRAME_INDEX_BOX_HEADER_LENGTH: i32 = VARINT_MAX_LENGTH + 8;
+    const FRAME_INDEX_BOX_ELEMENT_LENGTH: i32 = 3 * VARINT_MAX_LENGTH;
+    let buffer_size = FRAME_INDEX_BOX_HEADER_LENGTH + nf * FRAME_INDEX_BOX_ELEMENT_LENGTH;
+    buffer_vec.resize(buffer_size as usize, 0);
+    let size = buffer_vec.len();
+    let buffer = buffer_vec.as_mut_slice();
+    let mut output_pos = 0;
+    ok &= encode_var_int(nf as i64 as u64, size, &mut output_pos, buffer);
+    store_be32(frame_index_box.tnum as u32, &mut buffer[output_pos..]);
+    output_pos += 4;
+    store_be32(frame_index_box.tden as u32, &mut buffer[output_pos..]);
+    output_pos += 4;
+    // When we record a frame in the index, the record needs to know
+    // how many frames until the next indexed frame. That is why
+    // we store the 'prev' record. That 'prev' record needs to store
+    // the offset byte position to previously recorded indexed frame,
+    // that's why we also trace previous to the previous frame.
+    let mut prev_prev_ix: i32 = -1; // For position offset (OFFi) delta coding.
+    let mut prev_ix: i32 = 0;
+    let mut t_prev: i32 = 0;
+    let mut t: i32 = 0;
+    for i in 1..frame_index_box.entries.len() {
+        if frame_index_box.entries[i].to_be_indexed {
+            // Now we can record the previous entry, since we need to store
+            // there how many frames until the next one.
+            let mut offi = frame_index_box.entries[prev_ix as usize].offi as i64;
+            if prev_prev_ix != -1 {
+                // Offi needs to be offset of start byte of this frame compared
+                // to start byte of previous frame from this index in the JPEG
+                // XL codestream. For the first frame, this is the offset from
+                // the first byte of the JPEG XL codestream.
+                offi =
+                    offi.wrapping_sub(frame_index_box.entries[prev_prev_ix as usize].offi as i64);
+            }
+            let ti: i32 = t_prev;
+            let fi: i32 = (i as i32).wrapping_sub(prev_ix);
+            ok &= encode_var_int(offi as u64, size, &mut output_pos, buffer);
+            ok &= encode_var_int(ti as i64 as u64, size, &mut output_pos, buffer);
+            ok &= encode_var_int(fi as i64 as u64, size, &mut output_pos, buffer);
+            prev_prev_ix = prev_ix;
+            prev_ix = i as i32;
+            t_prev = t;
+            t = t.wrapping_add(frame_index_box.entries[i].duration as i32);
+        }
+    }
+    {
+        // Last frame.
+        let i = frame_index_box.entries.len();
+        let mut offi = frame_index_box.entries[prev_ix as usize].offi as i64;
+        if prev_prev_ix != -1 {
+            offi = offi.wrapping_sub(frame_index_box.entries[prev_prev_ix as usize].offi as i64);
+        }
+        let ti: i32 = t_prev;
+        let fi: i32 = (i as i32).wrapping_sub(prev_ix);
+        ok &= encode_var_int(offi as u64, size, &mut output_pos, buffer);
+        ok &= encode_var_int(ti as i64 as u64, size, &mut output_pos, buffer);
+        ok &= encode_var_int(fi as i64 as u64, size, &mut output_pos, buffer);
+    }
+    if ok {
+        buffer_vec.truncate(output_pos);
+    }
+    ok
+}
+// end encoder container
+
 /// IsAlphaBufferOpaque.
 fn is_alpha_buffer_opaque(
     buffer: Option<&[u8]>,
@@ -2281,11 +2507,11 @@ fn strip_opaque_alpha(enc: &mut JxlEncoder) {
     }
 }
 
-/// JxlEncoder::ProcessOneEnqueuedInput for raw codestream output: the
-/// metadata header and one frame through EncodeFrame. The branches that
-/// enter untranslated units are admission results at their checkpoints:
-/// ICC profiles (WriteICC), containers and boxes (step 3), and the frame encoder's own
-/// checkpoints ([`FrameAdmission`]).
+/// JxlEncoder::ProcessOneEnqueuedInput: the metadata header, the container
+/// boxes, and one frame through EncodeFrame or one queued box. The branches
+/// that enter untranslated units are admission results at their
+/// checkpoints: ICC profiles (WriteICC), brob boxes (BrotliCompress), and the
+/// frame encoder's own checkpoints ([`FrameAdmission`]).
 #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputFailure> {
     let output_mode = enc.input_queue[0].output_mode; // resolved at queue time
@@ -2295,7 +2521,10 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
         return Err(enqueued_api_error(enc, JxlEncoderError::API_USAGE));
     }
 
-    let mut header_bytes: Vec<u8> = Vec::new();
+    // SAFETY: The encoder's manager cell outlives every owner that this
+    // call creates.
+    let manager = unsafe { MemoryManagerPtr::from_raw(enc.manager()) };
+    let mut header_bytes = PaddedBytes::new(manager);
     if !enc.wrote_bytes {
         strip_opaque_alpha(enc);
 
@@ -2316,7 +2545,7 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
         if required_level == -1 {
             return Err(enqueued_api_error(enc, JxlEncoderError::API_USAGE));
         }
-        let mut writer = BitWriter::new();
+        let mut writer = BitWriter::new_in(manager);
         if write_codestream_headers(&mut enc.metadata, &mut writer, None).is_err() {
             return Err(enqueued_api_error(enc, JxlEncoderError::GENERIC));
         }
@@ -2337,19 +2566,84 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
             },
             false,
         )?;
-        header_bytes = writer.take_bytes().as_slice().to_vec();
+        header_bytes = writer.take_bytes();
 
         // Not actually the end of frame, but the end of metadata/ICC, but helps
         // the next frame to start here for indexing purposes.
         enc.codestream_bytes_written_end_of_frame += header_bytes.len();
 
+        // encoder container
         if must_use_container(enc, output_mode) {
-            // The container header, the jxll box and the partial-header jxlp
-            // box are step 3.
-            return Err(EnqueuedInputFailure::Admission(
-                JxlEncoderAdmission::EnqueuedInput,
-            ));
+            // If any queued input uses output mode 2, ftyp version 1 is needed.
+            let mut ftyp_version = if output_mode == 2 { 1 } else { 0 };
+            for qi in &enc.input_queue {
+                if qi.output_mode == 2 {
+                    ftyp_version = 1;
+                    break;
+                }
+            }
+            enc.container_ftyp_version = ftyp_version;
+            // Add "JXL " and ftyp box.
+            append_data(
+                &mut enc.output_processor,
+                &make_container_header(ftyp_version),
+            )?;
+
+            if enc.codestream_level != 5 {
+                // Add jxll box directly after the ftyp box to indicate the
+                // codestream level.
+                let level = enc.codestream_level as u8;
+                let mut jxll_box = Vec::new();
+                append_box_header(
+                    &make_box_type(b"jxll"),
+                    1,
+                    /*unbounded=*/ false,
+                    &mut jxll_box,
+                );
+                jxll_box.push(level);
+                append_data(&mut enc.output_processor, &jxll_box)?;
+            }
+
+            // Whether to write the basic info and color profile header of the
+            // codestream into an early separate jxlp box, so that it comes
+            // before metadata or jpeg reconstruction boxes. In theory this
+            // could simply always be done, but there's no reason to add an
+            // extra box with box header overhead if the codestream will
+            // already come immediately after the signature and level boxes.
+            // A fast-lossless frame cannot be queued (encode_internal.rs).
+            let partial_header =
+                enc.store_jpeg_metadata || (enc.use_boxes && enc.input_queue[0].frame.is_none());
+
+            if partial_header {
+                let box_max_size = header_bytes.len() + 4;
+                let header = header_bytes.as_slice();
+                append_box(
+                    enc,
+                    &make_box_type(b"jxlp"),
+                    /*unbounded=*/ false,
+                    box_max_size,
+                    |enc| {
+                        let mut buffer = enc.output_processor.get_buffer(header.len() + 4, 0)?;
+                        let counter = enc.jxlp_counter;
+                        enc.jxlp_counter += 1;
+                        write_jxlp_box_counter_to_buffer(
+                            counter as u32,
+                            /*last=*/ false,
+                            &mut buffer,
+                        )?;
+                        buffer.append(header)?;
+                        Ok(())
+                    },
+                )?;
+                header_bytes.clear();
+            }
+
+            if enc.store_jpeg_metadata && !enc.jpeg_metadata.is_empty() {
+                let jpeg_metadata = enc.jpeg_metadata.clone();
+                append_box_with_contents(enc, &make_box_type(b"jbrd"), &jpeg_metadata)?;
+            }
         }
+        // end encoder container
         enc.wrote_bytes = true;
     }
 
@@ -2357,13 +2651,27 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
 
     // Choose frame or box processing: exactly one of the two owners (box or
     // frame) in the input queue item is non-null.
+    // encoder container
     if enc.input_queue[0].frame.is_none() {
-        // Box output (uncompressed or brob) needs a container, so it is
-        // reached only after the container admission above.
-        return Err(EnqueuedInputFailure::Admission(
-            JxlEncoderAdmission::EnqueuedInput,
-        ));
+        // Not a frame, so is a box instead
+        let mut input = enc.input_queue.remove(0);
+        let queued_box = input
+            .queued_box
+            .take()
+            .expect("a queued input without a frame is a box");
+        drop(input);
+        enc.num_queued_boxes -= 1;
+
+        if queued_box.compress_box {
+            // BrotliCompress into a brob box needs the Brotli encoder (step 11).
+            return Err(EnqueuedInputFailure::Admission(
+                JxlEncoderAdmission::EnqueuedInput,
+            ));
+        }
+        append_box_with_contents(enc, &queued_box.box_type, &queued_box.contents)?;
+        return Ok(());
     }
+    // end encoder container
     let mut input = enc.input_queue.remove(0);
     let mut input_frame = input.frame.take().expect("checked above");
     enc.num_queued_frames -= 1;
@@ -2391,16 +2699,77 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
 
     let last_frame = enc.frames_closed && enc.num_queued_frames == 0;
 
-    // The box-size estimate of the source (max_bits_per_sample, the upper
-    // bound and use_large_box) serves only the container branches.
-    let frame_start_pos = enc.output_processor.current_position();
+    // encoder container
+    let mut max_bits_per_sample = enc.metadata.m.bit_depth.bits_per_sample;
+    for info in &enc.metadata.m.extra_channel_info {
+        max_bits_per_sample = max_bits_per_sample.max(info.bit_depth.bits_per_sample);
+    }
+    // Heuristic upper bound on how many bits a single pixel in a single
+    // channel can use.
+    let bits_per_channels_estimate = 24u32.max(max_bits_per_sample.wrapping_add(3));
+    let upper_bound_on_compressed_size_bits = enc
+        .metadata
+        .xsize()
+        .wrapping_mul(enc.metadata.ysize())
+        .wrapping_mul(
+            enc.metadata
+                .m
+                .color_encoding
+                .channels()
+                .wrapping_add(enc.metadata.m.num_extra_channels as usize),
+        )
+        .wrapping_mul(bits_per_channels_estimate as usize);
+    // Add a 1MB = 0x100000 for an heuristic upper bound on small sizes.
+    let upper_bound_on_compressed_size_bytes =
+        0x100000usize.wrapping_add(upper_bound_on_compressed_size_bits >> 3);
+    let use_large_box = upper_bound_on_compressed_size_bytes >= LARGE_BOX_CONTENT_SIZE_THRESHOLD;
+    let mut box_header_size = if use_large_box {
+        LARGE_BOX_HEADER_SIZE
+    } else {
+        SMALL_BOX_HEADER_SIZE
+    };
+
+    let mut frame_start_pos = enc.output_processor.current_position();
     let n0 = enc.jxlp_counter;
+
+    if must_use_container(enc, output_mode) && output_mode != 2 {
+        if !last_frame || enc.jxlp_counter > 0 {
+            // If this is the last frame and no jxlp boxes were used yet, it's
+            // slightly more efficient to write a jxlc box since it has 4
+            // bytes less overhead.
+            box_header_size += 4; // jxlp_counter field
+        }
+        enc.output_processor
+            .seek(frame_start_pos + box_header_size)?;
+    }
     let content_start = enc.output_processor.current_position();
 
     if !header_bytes.is_empty() {
-        append_data(&mut enc.output_processor, &header_bytes)?;
+        if output_mode == 2 {
+            let mut hdr = [0u8; LARGE_BOX_HEADER_SIZE + 4];
+            let hdr_size = write_box_header(
+                &make_box_type(b"jxlp"),
+                4 + header_bytes.len(),
+                /*unbounded=*/ false,
+                /*force_large_box=*/ false,
+                &mut hdr,
+            );
+            let counter = enc.jxlp_counter;
+            enc.jxlp_counter += 1;
+            write_jxlp_box_counter(counter as u32, /*last=*/ false, &mut hdr[hdr_size..]);
+            append_data(&mut enc.output_processor, &hdr[..hdr_size + 4])?;
+        }
+        append_data(&mut enc.output_processor, header_bytes.as_slice())?;
     }
-    let _ = frame_start_pos;
+
+    // For mode 2: frame_start_pos points to where EncodeFrame may leave a
+    // 12-byte gap on one-shot fallback; we detect and fill it via n1 below.
+    if output_mode == 2 {
+        frame_start_pos = enc.output_processor.current_position();
+        box_header_size = 12;
+    }
+    let n1 = enc.jxlp_counter;
+    // end encoder container
 
     frame_index_box_add_frame(
         &mut enc.frame_index_box,
@@ -2454,6 +2823,7 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
     let mut frame_cparams = input_frame.option_values.cparams.clone();
     frame_cparams.output_mode = output_mode;
     let default_memory_manager = uses_default_memory_manager(enc);
+    let mut jxlp_ctr = enc.jxlp_counter as u32;
     match encode_frame(
         &frame_cparams,
         &frame_info,
@@ -2461,6 +2831,7 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
         &input_frame.frame_data,
         &mut enc.output_processor,
         default_memory_manager,
+        Some(&mut jxlp_ctr),
     ) {
         Ok(()) => {}
         Err(EncodeFrameError::Admission(checkpoint)) => {
@@ -2474,6 +2845,7 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
             return Err(enqueued_api_error(enc, JxlEncoderError::GENERIC));
         }
     }
+    enc.jxlp_counter = jxlp_ctr as usize;
     enc.last_used_cparams = input_frame.option_values.cparams.clone();
 
     let content_size = enc.output_processor.current_position() - content_start;
@@ -2481,14 +2853,74 @@ fn process_one_enqueued_input(enc: &mut JxlEncoder) -> Result<(), EnqueuedInputF
         .codestream_bytes_written_end_of_frame
         .wrapping_add(content_size)
         .wrapping_sub(header_bytes.len())
-        .wrapping_sub((enc.jxlp_counter - n0) * 12);
+        .wrapping_sub((enc.jxlp_counter.wrapping_sub(n0)).wrapping_mul(12));
 
+    // encoder container
+    if must_use_container(enc, output_mode) && (output_mode != 2 || enc.jxlp_counter == n1) {
+        enc.output_processor.seek(frame_start_pos)?;
+        let mut box_header = vec![0u8; box_header_size];
+        // For mode 2 fallback the box wraps only the frame data (not
+        // header_bytes).
+        let frame_content_size = if output_mode == 2 {
+            content_size
+                .wrapping_sub(frame_start_pos.wrapping_sub(content_start))
+                .wrapping_sub(12)
+        } else {
+            content_size
+        };
+        if !use_large_box && frame_content_size >= LARGE_BOX_CONTENT_SIZE_THRESHOLD {
+            // Assuming our upper bound estimate is correct, this should never
+            // happen.
+            return Err(enqueued_api_error(enc, JxlEncoderError::GENERIC));
+        }
+        if last_frame && enc.jxlp_counter == 0 {
+            let n = write_box_header(
+                &make_box_type(b"jxlc"),
+                frame_content_size,
+                /*unbounded=*/ false,
+                use_large_box,
+                &mut box_header,
+            );
+            if n != box_header_size {
+                return Err(EnqueuedInputFailure::Failed);
+            }
+        } else {
+            let n = write_box_header(
+                &make_box_type(b"jxlp"),
+                frame_content_size.wrapping_add(4),
+                /*unbounded=*/ false,
+                use_large_box,
+                &mut box_header,
+            );
+            if n != box_header_size - 4 {
+                return Err(EnqueuedInputFailure::Failed);
+            }
+            let counter = enc.jxlp_counter;
+            enc.jxlp_counter += 1;
+            write_jxlp_box_counter(
+                counter as u32,
+                last_frame,
+                &mut box_header[box_header_size - 4..],
+            );
+        }
+        append_data(&mut enc.output_processor, &box_header)?;
+        if enc.output_processor.current_position() != frame_start_pos + box_header_size {
+            return Err(EnqueuedInputFailure::Failed);
+        }
+        enc.output_processor.seek(content_start + content_size)?;
+    }
+    // end encoder container
     enc.output_processor.set_finalized_position()?;
     if last_frame && store_frame_index_box(&enc.frame_index_box) {
-        // The jxli box is container output (step 3).
-        return Err(EnqueuedInputFailure::Admission(
-            JxlEncoderAdmission::EnqueuedInput,
-        ));
+        // encoder container
+        let mut index_box_content = Vec::new();
+        // Enough buffer has been allocated, this function should never fail
+        // in writing.
+        if !encode_frame_index_box(&enc.frame_index_box, &mut index_box_content) {
+            return Err(EnqueuedInputFailure::Failed);
+        }
+        append_box_with_contents(enc, &make_box_type(b"jxli"), &index_box_content)?;
+        // end encoder container
     }
     drop(input_frame);
     drop(input);

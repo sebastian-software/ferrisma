@@ -3,11 +3,12 @@
 
 //! Ported from `lib/jxl/enc_bit_writer.{h,cc}`.
 //! Owned stack indices replace allotment parent pointers; closures receive an
-//! exclusive writer borrow. Custom allocators and PaddedBytes transfer remain
-//! outside the current boundary. See ADR 0003.
+//! exclusive writer borrow. `new` allocates natively; `new_in` takes the
+//! source's memory manager. See ADR 0003.
 
 use super::base::status::{Status, StatusCode};
 use super::enc_aux_out::{AuxOut, LayerType};
+use super::memory_manager_internal::MemoryManagerPtr;
 use super::padded_bytes::PaddedBytes;
 
 #[derive(Default)]
@@ -28,6 +29,16 @@ impl BitWriter {
 
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// The source BitWriter(JxlMemoryManager*) constructor: storage through
+    /// the given manager (encoder container: the public encoder's header).
+    pub fn new_in(memory_manager: MemoryManagerPtr) -> Self {
+        Self {
+            bits_written: 0,
+            storage: PaddedBytes::new(memory_manager),
+            allotments: Vec::new(),
+        }
     }
 
     pub fn bits_written(&self) -> usize {

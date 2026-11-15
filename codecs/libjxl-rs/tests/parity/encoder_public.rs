@@ -12,10 +12,13 @@ mod driver;
 use driver::JxlEncoderAdmission;
 
 pub(super) fn handles(kind: &str) -> bool {
-    kind == "epub-wrap" || kind == "epub-rect"
+    kind == "epub-wrap" || kind == "epub-rect" || encoder_container::handles(kind)
 }
 
 pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
+    if encoder_container::handles(kind) {
+        return encoder_container::observe(kind, args); // encoder container
+    }
     if kind == "epub-rect" {
         return driver::observe_rect(args); // encoder streaming
     }
@@ -2612,3 +2615,8 @@ fn public_encoder_streaming_gate_4000x3000_matches_original() {
     compare_gate("streaming-gate-4000x3000", gate_histories(4000, 3000, 2));
 }
 // end encoder streaming
+
+// encoder container
+#[path = "encoder_container.rs"]
+mod encoder_container;
+// end encoder container

@@ -574,6 +574,9 @@ bool EncoderEntropySimdCommand(const std::string&,std::istringstream&,JxlMemoryM
 bool EncoderStep1Command(const std::string&,std::istringstream&,JxlMemoryManager*);
 bool EncoderStep1CheckpointsCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 // end encoder step 1
+// encoder container
+bool EncoderContainerCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+// end encoder container
 
 int main() {
   try {
@@ -719,6 +722,9 @@ int main() {
       else if (EncoderStep1Command(command, in, &mm)) {}
       else if (EncoderStep1CheckpointsCommand(command, in, &mm)) {}
       // end encoder step 1
+      // encoder container
+      else if (EncoderContainerCommand(command, in, &mm)) {}
+      // end encoder container
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
       else throw std::runtime_error("unknown command");

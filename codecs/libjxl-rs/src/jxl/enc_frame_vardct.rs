@@ -1953,7 +1953,10 @@ pub fn encode_frame(
     frame_data: &JxlEncoderChunkedFrameAdapter<'_>,
     output_processor: &mut JxlEncoderOutputProcessorWrapper,
     default_memory_manager: bool,
+    // encoder container: the source's jxlp counter, used by output mode 2.
+    jxlp_counter: Option<&mut u32>,
 ) -> FrameResult {
+    let _ = jxlp_counter;
     let mut cparams = cparams_orig.clone();
     if cparams.speed_tier == SpeedTier::TectonicPlate && !cparams.is_lossless() {
         cparams.speed_tier = SpeedTier::Glacier;

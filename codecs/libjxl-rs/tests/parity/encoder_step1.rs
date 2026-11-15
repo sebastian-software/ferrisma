@@ -208,7 +208,7 @@ fn upstream_quant_weights_test_encode_halves_match_original() {
 
 // ---------------------------------------------------------------------------
 // roundtrip_test.cc Float/Uint16/Uint8FrameRoundtripTest, lossy, 1 and 3
-// channels, no extra channels, no container.
+// channels, no extra channels, with and without a container.
 
 /// roundtrip_test.cc GetTestImage<T> for `bytes`-wide samples converted by
 /// ConvertTestPixel<T>, as native-endian bytes.
@@ -368,54 +368,39 @@ fn roundtrip_encode_half(request: &str) -> (String, Option<JxlEncoderAdmission>)
 }
 
 /// The admitted instances of the three frame roundtrip tests: lossy, 1 and 3
-/// channels, no extra channels, no container. Each sets
-/// JxlEncoderSetCodestreamLevel(10), and the original writes the level in a
-/// jxll box, so its output is a container even with JxlEncoderUseContainer
-/// false. Containers are outside the step 1 profile (raw codestream output;
-/// step 3), so the port returns its EnqueuedInput admission result at the
-/// first ProcessOutput: these histories compare exactly up to that call, the
-/// original's bytes must be a container with a jxll box (the branch evidence),
-/// and the decoder half then runs on the original's bytes through both public
-/// decoders with the test's events and format.
+/// channels, no extra channels, with and without JxlEncoderUseContainer.
+/// Each sets JxlEncoderSetCodestreamLevel(10), and the original writes the
+/// level in a jxll box, so its output is a container even with
+/// JxlEncoderUseContainer false. Encoder container (step 3): every history,
+/// container output included, must match the original exactly, and the
+/// decoder half runs on the bytes through both public decoders with the
+/// test's events and format.
 #[test]
 fn upstream_roundtrip_test_frame_roundtrips_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
     let mut requests = Vec::new();
     for data_type in [0u32, 3, 2] {
         for channels in [1u32, 3] {
-            requests.push(format!("es1-rt {data_type} {channels} 0 0"));
+            for container in 0..2 {
+                requests.push(format!("es1-rt {data_type} {channels} 0 {container}"));
+            }
         }
     }
     let originals = super::original_observations(&requests);
     let mut decodes = Vec::new();
-    let (mut exact, mut admitted) = (0, 0);
+    let mut exact = 0;
     for (request, cpp) in requests.iter().zip(&originals) {
         let (rust, admission) = roundtrip_encode_half(request);
+        assert_eq!(admission, None, "no admission result: {request}");
+        assert_eq!(rust, *cpp, "{request}");
         let c: Vec<&str> = cpp.split(' ').collect();
-        let r: Vec<&str> = rust.split(' ').collect();
-        match admission {
-            None => {
-                assert_eq!(rust, *cpp, "{request}");
-                exact += 1;
-            }
-            Some(checkpoint) => {
-                assert_eq!(checkpoint, JxlEncoderAdmission::EnqueuedInput, "{request}");
-                assert_eq!(
-                    r[..],
-                    c[..r.len()],
-                    "prefix before the admission: {request}"
-                );
-                assert_eq!(r.len(), 12, "the admission is at ProcessOutput: {request}");
-                let bytes = c[13];
-                assert!(
-                    c[12] == "1"
-                        && bytes.starts_with("0000000c4a584c200d0a870a")
-                        && bytes.contains("6a786c6c"),
-                    "the original writes a container with a jxll box: {request}"
-                );
-                admitted += 1;
-            }
-        }
+        assert!(
+            c[12] == "1"
+                && c[13].starts_with("0000000c4a584c200d0a870a")
+                && c[13].contains("6a786c6c"),
+            "the original writes a container with a jxll box: {request}"
+        );
+        exact += 1;
         let data_type = request.split(' ').nth(1).unwrap();
         let nc = request.split(' ').nth(2).unwrap();
         decodes.push(format!(
@@ -423,11 +408,8 @@ fn upstream_roundtrip_test_frame_roundtrips_match_original() {
             c[13]
         ));
     }
-    println!(
-        "es1-roundtrip: {exact} C++/Rust histories matched exactly; {admitted} admission \
-         histories matched up to the admission call with original branch evidence (not parity)"
-    );
-    assert_eq!(exact + admitted, 6);
+    println!("es1-roundtrip: {exact} C++/Rust histories matched exactly");
+    assert_eq!(exact, 12);
     super::decoder_public::compare("es1-roundtrip-decode", decodes);
 }
 
