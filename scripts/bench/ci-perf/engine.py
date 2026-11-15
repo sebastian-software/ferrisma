@@ -17,10 +17,15 @@ input needs (`--assume-srgb` if it is accepted, else `--use-rendered-icc`).
   WebP (the cheapest encoder, constant across rows), resized to 2048 px wide
   and not resized, with one thread and all cores. Gives decode and transform
   per input format.
-- part `encode`: the JPEG q90 input to AVIF (workspace libavif/AOM writer and
-  rav1e), lossy WebP and lossless JPEG XL (effort 2, the only admitted output
-  profile), resized and not resized, one thread and all cores. Gives the
-  encode stage per output format.
+- part `encode`: the JPEG q90 input to AVIF (the workspace libavif/AOM
+  writer, the engine's only AVIF encoder since rav1e left on 2026-11-15; row
+  `avif-aom`, only with `--avif`), lossy WebP and lossless JPEG XL (effort 2,
+  the only admitted output profile), resized and not resized, one thread and
+  all cores. Gives the encode stage per output format.
+
+`--avif` says the CLI was built with AVIF input and the AOM writer, which
+build only on macOS ARM64 and GNU Linux x86-64 (ADR-0026); without it there
+is no AVIF input and no AVIF output row.
 
 The CLI report line provides open/decode/transform/encode/total and the
 engine's peak managed bytes; /usr/bin/time provides process wall and max RSS.
@@ -184,10 +189,11 @@ def plan(args):
                              "size": args.size}))
     else:
         entry = inputs["jpeg-q90"]
-        outputs = [("webp-q75", "webp", []),
-                   ("avif-rav1e", "avif", ["--avif-encoder=rav1e"])]
+        outputs = [("webp-q75", "webp", [])]
         if args.avif:
-            outputs.insert(0, ("avif-aom", "avif", ["--avif-encoder=libavif"]))
+            # The label stays `avif-aom` so evidence keys remain comparable
+            # with the runs before 2026-11-15 (then `--avif-encoder=libavif`).
+            outputs.insert(0, ("avif-aom", "avif", []))
         if args.jxl_out:
             # The CLI's default .jxl output is lossy (distance 1.0), so each
             # row names its mode. The serial lossy encoder takes about a

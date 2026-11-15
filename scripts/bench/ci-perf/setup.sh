@@ -7,8 +7,10 @@ set -euo pipefail
 job=${1:?job}
 if [[ "$(uname -s)" == Linux ]]; then
   packages=(time libjpeg-turbo-progs cmake build-essential pkg-config)
+  # nasm only for the C originals (libjpeg-turbo, libaom on x86-64); the
+  # engine's ports need no assembler since rav1e left (2026-11-15).
   case "$job" in
-    engine) packages+=(webp libjxl-tools libavif-bin nasm) ;;
+    engine) packages+=(webp libjxl-tools libavif-bin) ;;
     jpeg) packages+=(nasm) ;;
     webp) ;;
     jxl) packages+=(ninja-build clang libc++-dev libc++abi-dev) ;;

@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
-"""Compare the output semantics of the two AVIF encoders (issue #53).
+"""Inspect the output semantics of Ferrisma's AVIF encoder (issue #53).
 
-Encodes the same Ferrisma rows with `rav1e` (`--avif-encoder=rav1e`; the
-default until 2026-11-12) and the workspace libavif/AOM writer
-(`--avif-encoder=libavif`, now the `cli` default) and inspects every file with
-independent readers: FFmpeg/libdav1d (`ffprobe`), libheif (`heif-info`,
-`heif-dec`), and the standalone SSIMULACRA2 scorer, which decodes with
-`avif-decode`/rav1d. It records bit depth, chroma layout, CICP, alpha,
-dimensions, bytes and score. No timing is taken.
+Encodes the same Ferrisma rows with the engine's only AVIF encoder, the
+workspace libavif/AOM writer (report `encoder=libavif-rs/aom`), at 8 and 10
+bits (`--avif-depth=`), and inspects every file with independent readers:
+FFmpeg/libdav1d (`ffprobe`), libheif (`heif-info`, `heif-dec`), and the
+standalone SSIMULACRA2 scorer, which decodes with `avif-decode`/rav1d. It
+records bit depth, chroma layout, CICP, alpha, dimensions, bytes and score.
+No timing is taken.
+
+The rav1e lane (`--avif-encoder=rav1e`) left with rav1e on 2026-11-15; its
+recorded results are in
+docs/benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md (the encoder
+comparison itself in docs/benchmarks/encoder-adoption.md).
 
     cargo build --release --features cli --bin ferrisma
     cargo build --release --locked --manifest-path scripts/bench/quality-match/Cargo.toml
     python3 -I scripts/bench/avif-encoder-semantics.py OUT_DIR
 
-Scores are not quality-matched; use `compare-encoders.sh` for matching.
+Scores are not quality-matched.
 """
 
 import hashlib
@@ -30,9 +35,8 @@ FLOWER = ROOT / 'codecs/libjxl-rs/tests/data/decode-test/flower.png.im_q85_420.j
 ALPHA = ROOT / 'codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_irot.avif'
 
 ENCODERS = [
-    ('rav1e', ['--avif-encoder=rav1e']),
-    ('aom-8', ['--avif-encoder=libavif', '--avif-depth=8']),
-    ('aom-10', ['--avif-encoder=libavif', '--avif-depth=10']),
+    ('aom-8', ['--avif-depth=8']),
+    ('aom-10', ['--avif-depth=10']),
 ]
 SOURCES = [
     # name, input, width, height, policy, scorer source

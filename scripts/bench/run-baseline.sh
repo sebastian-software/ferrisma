@@ -91,9 +91,14 @@ command -v vipsthumbnail >/dev/null && vips_available=1
   fi
   rustc --version
   hyperfine --version
-  for crate in zune-jpeg jxl-oxide avif-decode rav1d ravif rav1e moxcms; do
-    version=$(grep -A1 "^name = \"$crate\"$" "$repo/Cargo.lock" | awk -F'"' '/version/{print $2}')
-    echo "crate: $crate $version"
+  # The codecs are workspace ports (recorded by the git line above); AVIF is
+  # encoded by the workspace libavif/AOM writer, the only AVIF encoder since
+  # rav1e left on 2026-11-15. Only third-party crates the engine links are
+  # listed; a crate missing from Cargo.lock is reported, not fatal.
+  echo "avif encoder: libavif-rs/aom (workspace)"
+  for crate in moxcms avif-serialize; do
+    version=$(grep -A1 "^name = \"$crate\"$" "$repo/Cargo.lock" | awk -F'"' '/version/{print $2}' || true)
+    echo "crate: $crate ${version:-not in Cargo.lock}"
   done
   command -v magick >/dev/null && magick --version | head -1
   if [[ $sharp_available == 1 ]]; then

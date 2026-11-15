@@ -14,11 +14,13 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install AV1 assembler, libvips, and GNU time
+      # rust-toolchain.toml pins the nightly the AOM writer needs (ADR-0026).
+      - name: Activate the pinned toolchain
+        run: rustup show active-toolchain
+      - name: Install libvips and GNU time
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y nasm libvips-tools time
+          sudo apt-get install -y libvips-tools time
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

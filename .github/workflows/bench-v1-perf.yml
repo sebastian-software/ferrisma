@@ -87,9 +87,11 @@ jobs:
         run: |
           if [[ "$(uname -s)-$(uname -m)" == Linux-aarch64 ]]; then
             # The generated libavif/AOM code does not build here (ADR-0026):
-            # no AVIF input and no workspace AOM writer.
+            # no AVIF input and no AVIF output. Since rav1e left the engine
+            # (2026-11-15) `avif-write` is the AOM writer, so it is not
+            # enabled here either; the encode part has no AVIF row on ARM64 Linux.
             cargo build --release --locked -p ferrisma --example cli_subset \
-              --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,avif-write,icc
+              --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc
             echo "CLI=$PWD/target/release/examples/cli_subset" >> "$GITHUB_ENV"
             echo "AVIF_FLAG=" >> "$GITHUB_ENV"
           else
