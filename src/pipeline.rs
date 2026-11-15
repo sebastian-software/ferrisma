@@ -69,12 +69,15 @@ pub enum JpegXlOptions {
         /// libjxl effort level; only `2` is admitted today.
         effort: u8,
     },
-    /// Lossy `VarDCT` encoding in XYB at libjxl effort 7 ("squirrel").
+    /// Lossy `VarDCT` encoding in XYB at libjxl effort 7 ("squirrel"),
+    /// with libjxl's patch search always off (the workspace encoder cannot
+    /// write the patch reference frame yet), so text-like content encodes
+    /// too.
     ///
-    /// Images with alpha below 255 fail with
-    /// [`ProcessingErrorKind::UnsupportedInput`] (use `Lossless`), as does
-    /// text-like content for which the encoder would need patches, which
-    /// the workspace encoder cannot write yet.
+    /// Images with alpha below 255 are admitted: the alpha channel is
+    /// written as one straight (unassociated) 8-bit extra channel, coded
+    /// losslessly, and color under fully transparent pixels is not kept
+    /// (libjxl's `keep_invisible` default). Fully opaque alpha is omitted.
     Lossy {
         /// Butteraugli distance, libjxl's quality target: the maximum
         /// perceptual difference the encoder aims for, in units of a just
