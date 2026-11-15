@@ -164,8 +164,7 @@ The scalar half exists on both targets. The SIMD half exists for the
 decoder: every decode-path Highway export has a SIMD translation for NEON
 and AVX2, compared with the original's single-target SIMD build (AVX2 is
 compile-checked locally and runs only on hosted x86-64), and the decoder
-selects NEON by default on AArch64. On x86-64 the decoder keeps the
-scalar path, and the encoder's Highway exports are unported on both targets
+selects NEON by default on AArch64. On x86-64 the decoder selects AVX2 when the CPU has Highway's complete AVX2 group, and the encoder's Highway exports are unported on both targets
 (#231, #243), so the encoder can meet only the scalar half (port
 [ADR 0004](../codecs/libjxl-rs/docs/adr/0004-simd-paths.md),
 [port status](../codecs/libjxl-rs/docs/PORT_STATUS.md),

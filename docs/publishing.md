@@ -69,7 +69,7 @@ decision, and then after `ferrisma`.
 
 ## Blockers before the first functional publication
 
-State on 2026-11-14 (branch `v1/release-plumbing`). "Proven" means measured
+State on 2026-11-14 (on `main` since `aba85c54`). "Proven" means measured
 today with the commands in [the evidence below](#evidence-2026-11-14);
 "decision" names who has to decide.
 
@@ -78,7 +78,7 @@ today with the commands in [the evidence below](#evidence-2026-11-14);
 | 1 | JPEG port's package name is taken on crates.io (#207) | Proven: still taken; candidate names checked; rename scope listed | Owner: the name (recommendation `ferrisma-libjpeg-turbo`) |
 | 2 | `libavif-aom` exceeds the 10 MiB upload limit (#208) | Proven: 16.6 MiB; the four profile translations are nearly all of it; no safe `include` trimming exists | Owner/codec: limit increase or split (recommendation below) |
 | 3 | AVIF packages need profile settings dependents do not inherit (#209) | Reproduced with outside consumers: no overflow failure found in the default `dev` profile; `panic = "abort"` is a compile-time error; the documented block works for dependents | Owner: accept option (a), requirement for `unwind`, recommendation for the overflow overrides; codec owners: one AOM test run with overflow checks on |
-| 4 | Exact `libc` and `c2rust-bitfields` pins | Fixed on this branch: caret requirements, same minimum, `Cargo.lock` unchanged | Codec owners: ABI checks against a newer `libc` (not run) |
+| 4 | Exact `libc` and `c2rust-bitfields` pins | Fixed on `main` since `aba85c54`: caret requirements, same minimum, `Cargo.lock` unchanged | Codec owners: ABI checks against a newer `libc` (not run) |
 | 5 | Versions (the AVIF bridges are 0.0.0) | Open | Owner: O3 (one shared version or per port), first versions |
 | 6 | License review gates | Open | Owner/legal (#66, #136) |
 | 7 | crates.io account setup: team owner, first-publish token, Trusted Publishing per crate | Open, outside Git | Owner |
@@ -315,7 +315,7 @@ redistributes its files; resolve or explicitly accept these items first.
 ## Evidence (2026-11-14)
 
 Run on `aarch64-apple-darwin` with the pinned nightly, from a clean checkout
-of branch `v1/release-plumbing`. Nothing was uploaded; no `publish = false`
+of the release-plumbing work, on `main` since `aba85c54`. Nothing was uploaded; no `publish = false`
 and no version was changed, not even temporarily.
 
 1. **Packaging of every crate, one at a time:**
@@ -374,7 +374,7 @@ then reverted. This proves that the packages contain what their library
 builds need; it does not run their tests, does not check the crates.io size
 limit, and does not exercise a consumer outside the workspace profiles.
 
-The same run exposed one packaging defect, fixed on this branch: the WebP
+The same run exposed one packaging defect, fixed on `main` since `aba85c54`: the WebP
 writer embedded the sRGB profile from the nested `libavif-rs` upstream
 snapshot, which the `ferrisma` package cannot contain. The profile now has a
 package-local copy in `assets/icc` (same SHA-256).

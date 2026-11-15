@@ -180,8 +180,8 @@ outside the current parity contract.
 
 ### Which decoder path a test runs
 
-On AArch64 the decoder selects NEON by default; on x86-64 it selects the
-scalar path ([ADR 0004](docs/adr/0004-simd-paths.md), "Default selection per
+On AArch64 the decoder selects NEON by default; on x86-64 it selects AVX2 when the CPU has
+Highway's complete AVX2 group ([ADR 0004](docs/adr/0004-simd-paths.md), "Default selection per
 target" and "Which path a test runs"). The selection applies only inside
 decoder entry points (the public decoder and the internal whole-decode
 helpers); code a test calls directly, such as a single stage or kernel, runs

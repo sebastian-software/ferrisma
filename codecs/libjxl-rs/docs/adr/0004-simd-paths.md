@@ -386,7 +386,7 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   `DECODER_SELECTS_SIMD` selection stayed off then because not every file
   matches; the remaining kernels on that path are the next candidates
   (`compressed_dc`'s DC dequantization and adaptive smoothing, upsampling).
-- **compressed_dc (2026-11-13, branch `v1/jxl-vardct-dc`).**
+- **compressed_dc (2026-11-13).**
   `compressed_dc_simd.rs` translates AdaptiveDCSmoothing (one-lane edge
   pixels computed in lane 0 of a full vector) and DequantDC; the decoder
   dispatches both on `hwy::decoder_target()`. NEON parity
@@ -824,7 +824,7 @@ waits for the other agents' exports (`to_linear`, tone mapping, CMS,
 <!-- end stages2 -->
 
 <!-- color -->
-## Color stages of Plan item 1 (2026-11-13, branch `v1/jxl-color`)
+## Color stages of Plan item 1 (2026-11-13)
 
 Row parity uses the `cl-*` requests of `tools/oracle/color_stages_simd.cc`
 (only the original's public factories, on 128-byte aligned rows sized for
@@ -896,7 +896,7 @@ path matches every word and the scalar path differs in at least one request.
 - **Decoder path (a), color part.** With these, `to_linear`, tone mapping
   and CMS of the list in "Decoder path" (a) have SIMD translations on both
   targets; NEON row parity holds, AVX2 is compile-checked only.
-- **AVX2 CMS contraction (2026-11-14, branch `v1/jxl-avx2-fixes`).** Hosted
+- **AVX2 CMS contraction (2026-11-14).** Hosted
   run 43544974125 (dispatch-build AVX2 oracle) failed one `cl-cms` request
   with an HLG destination by one ulp (word 295, 1065407993 vs 1065407992).
   `objdump -d` of upstream's `jxl_cms.cc` compiled for x86-64 with
@@ -945,7 +945,7 @@ path matches every word and the scalar path differs in at least one request.
 <!-- end color -->
 
 <!-- enable -->
-## Scope of the selection (2026-11-14, branch `v1/jxl-enable`)
+## Scope of the selection (2026-11-14)
 
 Before the default selection may be turned on for a target, the selection
 must reach the decoder and nothing else. The original has one process-wide
@@ -1054,7 +1054,7 @@ the scope is enforced and tested by selection, not by output bytes.
 <!-- end enable -->
 
 <!-- enable: default -->
-## Default selection per target (2026-11-14, branch `v1/jxl-enable`)
+## Default selection per target (2026-11-14)
 
 `hwy::DECODER_SELECTS_SIMD` was `cfg!(target_arch = "aarch64")`: a decoder
 created on AArch64 selects NEON; x86-64 kept the scalar path until
@@ -1293,7 +1293,7 @@ results that passed against the static build still pass.
 
 
 <!-- encoder simd -->
-## Encoder exports the engine's profiles reach (2026-11-14, branch `v1/jxl-enc-simd`)
+## Encoder exports the engine's profiles reach (2026-11-14)
 
 The engine encodes JPEG XL in two profiles (root ADR-0039): lossy VarDCT
 through the public encoder (effort 7, distance 0.05 to below 3.0, patches
@@ -1351,7 +1351,7 @@ plus `MaxVectorSize`. This branch translates them in the order of the
 encoder SIMD package: `enc_xyb`, `enc_transforms`, `enc_group`, then
 `enc_chroma_from_luma`.
 
-## Encoder path (2026-11-14, branch `v1/jxl-enc-simd`)
+## Encoder path (2026-11-14)
 
 **Dispatch point.** The encoder's translated kernels dispatch on
 `hwy::encoder_target()`, the encoder's counterpart of `HWY_DYNAMIC_DISPATCH`,
@@ -1514,7 +1514,7 @@ probe that calls no decoder entry point (Brotli, box contents, decoder
 input, the CMS and skcms probes).
 <!-- end audit-fix -->
 <!-- enable-x86 -->
-## Default selection on x86-64 (2026-11-14, branch `v1/jxl-enable-x86`)
+## Default selection on x86-64 (2026-11-14)
 
 `hwy::DECODER_SELECTS_SIMD` is `cfg!(any(target_arch = "aarch64",
 target_arch = "x86_64"))`: a decoder created on x86-64 selects AVX2 when
@@ -1560,7 +1560,7 @@ lost a signaling NaN's payload after LLVM merged its copy into the division
 <!-- end enable-x86 -->
 
 <!-- encoder acs -->
-## Encoder path: `enc_ac_strategy` (2026-11-14, branch `v1/jxl-enc-acs`)
+## Encoder path: `enc_ac_strategy` (2026-11-14)
 
 Addendum to "Encoder path", "Translated so far".
 
