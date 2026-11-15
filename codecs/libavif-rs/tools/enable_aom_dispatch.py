@@ -3,6 +3,7 @@
 
 Usage: python3 tools/enable_aom_dispatch.py NAME...            (Neon, macOS ARM64)
        python3 tools/enable_aom_dispatch.py --linux NAME_EXT...  (x86, GNU Linux x86-64)
+       python3 tools/enable_aom_dispatch.py --linux --check      (integer aliases of the Linux RTCD units)
 
 With --linux each argument is one specialization, `<function>_<sse2|ssse3|sse4_1|avx2>`,
 as crates/aom/rtcd/x86_64.pl lists them; the tool dispatches every listed
@@ -137,11 +138,51 @@ def header_variants(header_text, name):
     return re.findall(r'if \(flags & HAS_\w+\) ' + name + r' = ' + name + r'_(\w+);', header_text)
 
 
+INT_ALIASES = {f'{u}int{w}_t': (w, f'{"u" if u else "i"}{w}') for w in (8, 16, 32, 64) for u in ('', 'u')}
+
+
+def ensure_int_aliases(text, ftype):
+    """The glibc `<stdint.h>` aliases (`pub type __int64_t = i64;` and
+    `pub type int64_t = __int64_t;`) that a new declaration in a Linux RTCD
+    unit names but the unit does not define yet, inserted as C2Rust lays them
+    out: each after the last alias of a smaller width in its group."""
+    for name, (width, prim) in sorted(INT_ALIASES.items()):
+        if not re.search(r'\b' + name + r'\b', ftype) or re.search(r'^pub type ' + name + ' = ', text, re.M):
+            continue
+        for alias, value in ((f'__{name}', prim), (name, f'__{name}')):
+            if re.search(r'^pub type ' + alias + ' = ', text, re.M):
+                continue
+            group = r'__u?int(\d+)_t' if alias.startswith('__') else r'u?int(\d+)_t'
+            lines = [m for m in re.finditer(r'^pub type (' + group + r') = [^\n]*\n', text, re.M)
+                     if int(m.group(2)) < width]
+            if not lines:
+                raise SystemExit(f'no place for pub type {alias} in the RTCD unit')
+            pos = lines[-1].end()
+            text = text[:pos] + f'pub type {alias} = {value};\n' + text[pos:]
+    return text
+
+
+def check_int_aliases():
+    """--check: every integer alias the Linux RTCD units use is defined there
+    in its canonical form."""
+    bad = []
+    for profile in ['release', 'debug']:
+        for rel in RTCD_UNITS.values():
+            path = CRATE / f'src/linux/{profile}' / rel
+            text = path.read_text()
+            if ensure_int_aliases(text, text) != text:
+                bad.append(str(path.relative_to(ROOT)))
+    if bad:
+        raise SystemExit(f'integer aliases missing: {bad}')
+    print('Linux RTCD units: integer aliases complete')
+
+
 def edit_rtcd_unit_linux(text, name, params, ret, order, variants):
     ftype = fn_type(params, ret)
     opt = f'Option<{ftype}>'
     if re.search(r'pub static mut ' + name + r':', text):
         raise SystemExit(f'{name} is already dispatched')
+    text = ensure_int_aliases(text, ftype)
     decl_params = ', '.join(split_top(params))
     r = f' {ret}' if ret else ''
     anchor = 'extern "C-unwind" {\n'
@@ -244,6 +285,9 @@ def rehash():
 
 
 def main():
+    if LINUX and NAMES == ['--check']:
+        check_int_aliases()
+        return
     if NAMES == ['--rehash']:
         rehash()
         return

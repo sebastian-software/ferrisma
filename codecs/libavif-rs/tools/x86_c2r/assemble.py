@@ -394,6 +394,9 @@ def main():
                 if path.read_bytes() != (SIMD / rel).read_bytes():
                     bad.append(str(rel))
             print(f'{len(list(OUT.rglob("*.rs")))} files, {len(bad)} differ: {bad}')
+            # The integer aliases enable_aom_dispatch.py adds to the Linux RTCD units.
+            subprocess.run([sys.executable, str(ROOT / 'tools/enable_aom_dispatch.py'), '--linux', '--check'],
+                           check=True)
             if bad:
                 raise SystemExit(1)
 
