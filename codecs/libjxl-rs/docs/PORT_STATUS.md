@@ -359,7 +359,10 @@ and the admitted instances of encode_test's EncoderStreamingTest suite 128
 (the 128 instances with five extra channels need level 10 and a container:
 admission prefixes, step 3). The same wrapper, rect-bounds, rejection and
 suite tests pass for x86-64 under Rosetta 2 against the cross-built
-references. Output mode 2 remains the container admission result (step
+references. Step 2's gate sizes (768x768, 1024x1024, 2048x1536, 2049x2049,
+4000x3000; d1.0 and d2.0, gray and RGB, buffering -1 to 3, output modes -1,
+0 and 1, buffer mode and an output processor with and without seek): 40
+histories exact. Output mode 2 remains the container admission result (step
 3).
 <!-- end encoder streaming -->
 

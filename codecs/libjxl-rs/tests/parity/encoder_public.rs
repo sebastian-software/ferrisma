@@ -2528,4 +2528,87 @@ fn public_encoder_streaming_suite_instances_match_original() {
     compare("streaming-suite", requests);
 }
 
+/// The gate histories of encoder step 2 for one size: d1.0 and d2.0, gray
+/// and RGB, serial, each in buffer mode (ProcessOutput) and through an output
+/// processor (FlushInput), rotating the buffering values -1 to 3, the
+/// output modes -1 (resolved at queue time), 1 and 0, and the processor's
+/// seek support so that each size covers every buffering value, both output
+/// modes and both processor kinds. Buffer mode takes chunks of at most 4 MiB, so
+/// that an observation stays a few times the codestream's size.
+fn gate_histories(xsize: usize, ysize: usize, seed: usize) -> Vec<String> {
+    let mut requests = Vec::new();
+    let mut k = seed;
+    for distance in [1.0f32, 2.0] {
+        for gray in [false, true] {
+            for processor in [false, true] {
+                let buffering = [-1, 0, 1, 2, 3][k % 5];
+                let mut settings = if buffering == -1 {
+                    String::new()
+                } else {
+                    format!(" o0,34,{buffering}")
+                };
+                // JXL_ENC_FRAME_SETTING_OUTPUT_MODE: -1 resolves buffering 3
+                // to output mode 1 at queue time, the default 0 does not.
+                settings.push_str(&format!(" o0,40,{}", [-1, 1, 0][k % 3]));
+                let history =
+                    lossy_history(xsize, ysize, gray, k % 4, 4, distance, k, "", &settings);
+                let (input, _) = history.split_once(" Z ").unwrap();
+                let chunk = 4 << 20;
+                let count = (xsize * ysize * if gray { 1 } else { 3 }).div_ceil(chunk) + 1;
+                let output = if processor {
+                    format!("w{},0,0,0 i r", if k.is_multiple_of(2) { 0 } else { 4 })
+                } else {
+                    vec![format!("p{chunk}"); count].join(" ")
+                };
+                requests.push(run(0, 0, &format!("{input} Z {output}")));
+                k += 1;
+            }
+        }
+    }
+    requests
+}
+
+/// Every gate history must match without admission, and the original must
+/// encode it, in buffer or processor mode.
+fn compare_gate(family: &str, requests: Vec<String>) {
+    let count = requests.len();
+    for (request, cpp) in requests.iter().zip(super::original_observations(&requests)) {
+        let encoded = if request.contains(" i r") {
+            cpp.contains(" i:0/0 r:0;") && !cpp.contains(";0,0,0;")
+        } else {
+            cpp.rsplit(" p:").next().unwrap_or("").starts_with("0,")
+        };
+        assert!(encoded, "the original encodes the history: {request}");
+    }
+    let exact = compare_counted(family, requests);
+    assert_eq!(exact, count, "{family}: every gate history is exact");
+}
+
+/// Encoder step 2's gate at 768x768, 1024x1024 and 2048x1536.
+#[test]
+fn public_encoder_streaming_gate_sizes_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let mut requests = Vec::new();
+    for (index, (xsize, ysize)) in [(768, 768), (1024, 1024), (2048, 1536)]
+        .into_iter()
+        .enumerate()
+    {
+        requests.extend(gate_histories(xsize, ysize, 3 * index));
+    }
+    compare_gate("streaming-gate", requests);
+}
+
+/// Encoder step 2's gate at 2049x2049.
+#[test]
+fn public_encoder_streaming_gate_2049_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    compare_gate("streaming-gate-2049", gate_histories(2049, 2049, 1));
+}
+
+/// Encoder step 2's gate at 4000x3000.
+#[test]
+fn public_encoder_streaming_gate_4000x3000_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    compare_gate("streaming-gate-4000x3000", gate_histories(4000, 3000, 2));
+}
 // end encoder streaming
