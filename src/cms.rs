@@ -11,6 +11,13 @@
 //! like the color channels, float alpha copied as is), so the output stays
 //! linear-light sRGB with straight alpha (ADR-0014). Premultiplied and
 //! unspecified alpha are refused rather than guessed (ADR-0015).
+//!
+//! Gray and gray with straight alpha are accepted with a gray (`GRAY`)
+//! profile (owner decision 2026-11-15, ADR-0043): moxcms converts the gray
+//! channel through the profile's tone curve into linear-light sRGB RGB
+//! (R = G = B), and alpha bypasses the transform as for RGBA. A gray
+//! profile beside RGB samples, or an RGB profile beside gray samples, is
+//! refused (`IccColorSpaceMismatch`); neither is reinterpreted.
 
 use std::sync::Arc;
 
@@ -39,9 +46,13 @@ pub(crate) struct IccSrgbSource<'a> {
 pub(crate) struct IccConversion {
     transformer: Arc<TransformF32Executor>,
     input: SampleType,
-    /// Interleaved samples per pixel: 3 (opaque RGB) or 4 (RGB followed by
-    /// straight alpha, which bypasses the transform).
+    /// Interleaved input samples per pixel: 3 (opaque RGB) or 4 (RGB
+    /// followed by straight alpha, which bypasses the transform); 1 or 2 for
+    /// gray and gray with straight alpha.
     channels: usize,
+    /// Interleaved output samples per pixel: 3 or 4. Gray input emits RGB,
+    /// so its rows grow and its conversion is not deferred.
+    output_channels: usize,
     /// Per-channel contributions for 8-bit matrix-shaper input; `None`
     /// keeps every row on the moxcms transform.
     table: Option<ChannelTable>,
@@ -157,6 +168,9 @@ impl RowConversion for IccConversion {
         scratch: &mut [f32],
         out: &mut [f32],
     ) -> Result<(), Error> {
+        if self.channels < 3 {
+            return self.convert_gray(row, scratch, out);
+        }
         if row.len() != out.len()
             || row.len() != scratch.len()
             || row.sample_type() != self.input
@@ -194,6 +208,55 @@ impl RowConversion for IccConversion {
 }
 
 impl IccConversion {
+    /// Gray (`channels == 1`) or gray plus straight alpha (2) through a gray
+    /// profile: the gray samples are packed into `scratch`, moxcms converts
+    /// them into RGB in the first three quarters of `out`, and with alpha
+    /// `out` is widened to RGBA in place from the last pixel backwards, the
+    /// alpha sample carried over unchanged as for RGBA. `out` holds
+    /// `output_channels` samples per pixel, `scratch` at least one.
+    fn convert_gray(
+        &self,
+        row: DecodedRow<'_>,
+        scratch: &mut [f32],
+        out: &mut [f32],
+    ) -> Result<(), Error> {
+        let pixels = row.len() / self.channels;
+        if !row.len().is_multiple_of(self.channels)
+            || row.sample_type() != self.input
+            || out.len() != pixels * self.output_channels
+            || scratch.len() < pixels
+        {
+            return Err(Error::IncompleteDecoderOutput);
+        }
+        let gray = &mut scratch[..pixels];
+        match row {
+            DecodedRow::U8(values) => {
+                for (dst, src) in gray.iter_mut().zip(values.chunks_exact(self.channels)) {
+                    *dst = f32::from(src[0]) / 255.0;
+                }
+            }
+            DecodedRow::F32(values) => {
+                for (dst, src) in gray.iter_mut().zip(values.chunks_exact(self.channels)) {
+                    *dst = src[0];
+                }
+            }
+        }
+        self.transformer
+            .transform(gray, &mut out[..pixels * 3])
+            .map_err(|_| Error::UnsupportedColorEncoding)?;
+        if self.channels == 2 {
+            for pixel in (0..pixels).rev() {
+                let alpha = match row {
+                    DecodedRow::U8(values) => f32::from(values[pixel * 2 + 1]) / 255.0,
+                    DecodedRow::F32(values) => values[pixel * 2 + 1],
+                };
+                let rgb = [out[pixel * 3], out[pixel * 3 + 1], out[pixel * 3 + 2]];
+                out[pixel * 4..pixel * 4 + 4].copy_from_slice(&[rgb[0], rgb[1], rgb[2], alpha]);
+            }
+        }
+        Ok(())
+    }
+
     /// RGB plus straight alpha: the color channels are converted exactly as
     /// opaque RGB is (the channel table for 8-bit matrix-shaper input,
     /// moxcms otherwise), and the alpha sample is carried over unchanged.
@@ -269,12 +332,17 @@ impl<'a> IccSrgbSource<'a> {
         // transform (issue #222). Premultiplied color would have to be
         // divided by alpha before a nonlinear profile curve, and unspecified
         // alpha has no defined meaning; neither is guessed (ADR-0015).
-        let channels = match (info.layout, info.alpha) {
-            (ChannelLayout::Rgb, AlphaMode::Opaque) => 3,
-            (ChannelLayout::Rgba, AlphaMode::Straight) => 4,
-            (ChannelLayout::Rgba, _) => return Err(Error::UnsupportedAlphaMode),
+        let (channels, output_channels) = match (info.layout, info.alpha) {
+            (ChannelLayout::Rgb, AlphaMode::Opaque) => (3, 3),
+            (ChannelLayout::Rgba, AlphaMode::Straight) => (4, 4),
+            (ChannelLayout::Gray, AlphaMode::Opaque) => (1, 3),
+            (ChannelLayout::GrayAlpha, AlphaMode::Straight) => (2, 4),
+            (ChannelLayout::Rgba | ChannelLayout::GrayAlpha, _) => {
+                return Err(Error::UnsupportedAlphaMode);
+            }
             _ => return Err(Error::UnsupportedLayout),
         };
+        let gray = channels < 3;
         // Without a profile this policy has nothing to convert. A PQ or HLG
         // CICP is named as such: it is refused under every policy.
         let bytes = info.rendered_icc.as_deref().ok_or(
@@ -296,6 +364,12 @@ impl<'a> IccSrgbSource<'a> {
             .map_err(|_| Error::UnsupportedColorEncoding)?;
         let src =
             ColorProfile::new_from_slice(bytes).map_err(|_| Error::UnsupportedColorEncoding)?;
+        // The profile describes the decoded channels or it is not used: a
+        // gray profile is not an RGB profile, and the reverse.
+        match (gray, src.color_space) {
+            (true, DataColorSpace::Gray) | (false, DataColorSpace::Rgb) => {}
+            _ => return Err(Error::IccColorSpaceMismatch),
+        }
         // Linear-light sRGB: the working space of the resample chain, so
         // the executor neither re-encodes nor re-decodes the transfer curve
         // (an empty LUT is the identity curve, as in moxcms' linear ACEScg).
@@ -308,11 +382,15 @@ impl<'a> IccSrgbSource<'a> {
         // moxcms' extended floating-point path avoids the destination-gamut
         // clamp for matrix-shaper profiles; LUT-based profiles keep moxcms'
         // LUT path.
-        let extended_matrix_shaper = src.pcs == DataColorSpace::Xyz
-            && src.is_matrix_shaper()
-            && src.lut_a_to_b_perceptual.is_none()
+        let no_luts = src.lut_a_to_b_perceptual.is_none()
             && src.lut_a_to_b_colorimetric.is_none()
             && src.lut_a_to_b_saturation.is_none();
+        let extended_matrix_shaper =
+            src.pcs == DataColorSpace::Xyz && src.is_matrix_shaper() && no_luts;
+        // A gray tone-curve profile takes moxcms' extended gray path (no
+        // clamp), as a matrix-shaper RGB profile takes its extended path.
+        let extended_gray =
+            gray && src.pcs == DataColorSpace::Xyz && src.gray_trc.is_some() && no_luts;
         let options = TransformOptions {
             // Relative colorimetric, set here and never taken from the
             // library default (perceptual) or the profile header (owner
@@ -321,37 +399,15 @@ impl<'a> IccSrgbSource<'a> {
             // moxcms 0.9.1, no black-point scaling; matrix/TRC profiles do
             // not read the intent, so their output is unchanged.
             rendering_intent: RenderingIntent::RelativeColorimetric,
-            allow_extended_range_rgb_xyz: extended_matrix_shaper,
+            allow_extended_range_rgb_xyz: extended_matrix_shaper || extended_gray,
             ..TransformOptions::default()
         };
+        let layout = if gray { Layout::Gray } else { Layout::Rgb };
         let transformer = src
-            .create_transform_f32(Layout::Rgb, &dst, Layout::Rgb, options)
+            .create_transform_f32(layout, &dst, Layout::Rgb, options)
             .map_err(|_| Error::UnsupportedColorEncoding)?;
-        // CICP evidence beside the profile must agree with what the profile
-        // does (issues #17 and #41). The decoder's own CICP is independent
-        // evidence and is always checked. The profile's `cicp` tag is checked
-        // in full only when it is a well-formed RGB tag (matrix 0, full
-        // range); profiles in the wild carry miscoded tags (moxcms 0.9.1's
-        // own Display P3 profile writes `[11, 13, 1, 0]`), so a malformed tag
-        // is not trusted as a description, but its PQ/HLG transfer is still
-        // honored as a reason to reject.
-        if let Some(signal) = info.rendered_cicp {
-            check_cicp_agrees(signal, transformer.as_ref())?;
-        }
-        if let Some(cicp) = src.cicp.as_ref() {
-            let tag = [
-                cicp.color_primaries as u8,
-                cicp.transfer_characteristics as u8,
-                cicp.matrix_coefficients as u8,
-                u8::from(cicp.full_range),
-            ];
-            if tag[2] == 0 && tag[3] == 1 {
-                check_cicp_agrees(tag, transformer.as_ref())?;
-            } else if matches!(tag[1], 16 | 18) {
-                return Err(Error::CicpBesideIcc(HDR));
-            }
-        }
-        let table = if info.sample == SampleType::U8 && extended_matrix_shaper {
+        check_cicp_beside(info.rendered_cicp, &src, transformer.as_ref(), gray)?;
+        let table = if info.sample == SampleType::U8 && extended_matrix_shaper && !gray {
             ChannelTable::build(transformer.as_ref())
         } else {
             None
@@ -360,9 +416,15 @@ impl<'a> IccSrgbSource<'a> {
             transformer,
             input: info.sample,
             channels,
+            output_channels,
             table,
         });
         let mut output = info.clone();
+        output.layout = if output_channels == 4 {
+            ChannelLayout::Rgba
+        } else {
+            ChannelLayout::Rgb
+        };
         output.sample = SampleType::F32;
         output.rendered_icc = None;
         output.rendered_cicp = Some([1, 8, 0, 1]);
@@ -374,6 +436,48 @@ impl<'a> IccSrgbSource<'a> {
         })
     }
 }
+/// CICP evidence beside the rendered profile: the decoder's own signal and
+/// the profile's `cicp` tag (issues #17 and #41; see `check_cicp_agrees`).
+fn check_cicp_beside(
+    decoder_cicp: Option<[u8; 4]>,
+    src: &ColorProfile,
+    transformer: &TransformF32Executor,
+    gray: bool,
+) -> Result<(), Error> {
+    // CICP evidence beside the profile must agree with what the profile
+    // does (issues #17 and #41). The decoder's own CICP is independent
+    // evidence and is always checked. The profile's `cicp` tag is checked
+    // in full only when it is a well-formed RGB tag (matrix 0, full
+    // range); profiles in the wild carry miscoded tags (moxcms 0.9.1's
+    // own Display P3 profile writes `[11, 13, 1, 0]`), so a malformed tag
+    // is not trusted as a description, but its PQ/HLG transfer is still
+    // honored as a reason to reject.
+    if let Some(signal) = decoder_cicp {
+        // The probes are RGB colors; a gray profile cannot be checked
+        // against an RGB code point (no built-in reader reports one).
+        if gray {
+            return Err(Error::CicpBesideIcc(
+                "cannot be checked against a gray profile",
+            ));
+        }
+        check_cicp_agrees(signal, transformer)?;
+    }
+    if let Some(cicp) = src.cicp.as_ref() {
+        let tag = [
+            cicp.color_primaries as u8,
+            cicp.transfer_characteristics as u8,
+            cicp.matrix_coefficients as u8,
+            u8::from(cicp.full_range),
+        ];
+        if tag[2] == 0 && tag[3] == 1 && !gray {
+            check_cicp_agrees(tag, transformer)?;
+        } else if matches!(tag[1], 16 | 18) {
+            return Err(Error::CicpBesideIcc(HDR));
+        }
+    }
+    Ok(())
+}
+
 /// Fail closed unless a CICP signal next to the rendered ICC is an SDR
 /// family the engine can evaluate itself and the profile transform agrees
 /// with it (issues #17 and #41).
@@ -446,6 +550,10 @@ impl DecodeSource for IccSrgbSource<'_> {
         &self.output
     }
     fn defer_conversion(&mut self) -> Option<Arc<dyn RowConversion>> {
+        // A deferred row keeps its length; gray input grows to RGB.
+        if self.conversion.channels != self.conversion.output_channels {
+            return None;
+        }
         self.deferred = true;
         Some(self.conversion.clone())
     }
@@ -455,21 +563,22 @@ impl DecodeSource for IccSrgbSource<'_> {
         budget: &MemoryBudget,
         sink: &mut dyn FnMut(u32, DecodedRow<'_>) -> Result<(), Error>,
     ) -> Result<DecodeReport, Error> {
-        let channels = self.conversion.channels;
-        let len = usize::try_from(region.width)
-            .map_err(|_| Error::GeometryOverflow)?
-            .checked_mul(channels)
+        let channels = self.conversion.output_channels;
+        let width = usize::try_from(region.width).map_err(|_| Error::GeometryOverflow)?;
+        let input_len = width
+            .checked_mul(self.conversion.channels)
             .ok_or(Error::GeometryOverflow)?;
+        let len = width.checked_mul(channels).ok_or(Error::GeometryOverflow)?;
         let expected_sample = self.source.info().sample;
         let mut report = if self.deferred {
             self.source.read_region(region, budget, &mut |y, row| {
-                if row.len() != len || row.sample_type() != expected_sample {
+                if row.len() != input_len || row.sample_type() != expected_sample {
                     return Err(Error::IncompleteDecoderOutput);
                 }
                 sink(y, row)
             })?
         } else {
-            let mut scratch = budget.allocate_typed::<f32>(len)?;
+            let mut scratch = budget.allocate_typed::<f32>(input_len)?;
             let mut output = budget.allocate_typed::<f32>(len)?;
             let conversion = &*self.conversion;
             self.source.read_region(region, budget, &mut |y, row| {
@@ -501,6 +610,7 @@ mod tests {
     use crate::geometry::{Rect, Size};
     use crate::memory::MemoryBudget;
     use crate::working_color::decode_to_linear_srgb;
+    use moxcms::{ColorProfile, Layout, RenderingIntent, ToneReprCurve, TransformOptions};
 
     /// One row holding every value of a coarse 8-bit RGB grid.
     struct Grid {
@@ -718,6 +828,12 @@ mod tests {
             .unwrap_or_else(|_| panic!("ICC profile {name} panicked"));
             match outcome {
                 Ok(()) => accepted += 1,
+                // A header that names another data color space (GRAY, CMYK,
+                // Lab) is the named mismatch since 2026-11-15; every other
+                // rejection stays unsupported color.
+                Err(Error::IccColorSpaceMismatch) => {
+                    assert!(name.starts_with("space-16-"), "{name}");
+                }
                 Err(error) => assert_eq!(error, Error::UnsupportedColorEncoding, "{name}"),
             }
         }
@@ -1150,6 +1266,7 @@ mod tests {
             transformer: source.conversion.transformer.clone(),
             input: SampleType::U8,
             channels: 4,
+            output_channels: 4,
             table: None,
         };
         let mut scratch = vec![f32::NAN; row.len()];
@@ -1244,7 +1361,9 @@ mod tests {
     /// Issue #222: only straight alpha is admitted. Premultiplied color
     /// would need division before the nonlinear profile curve and
     /// unspecified alpha has no meaning; neither is guessed. Layouts other
-    /// than RGB and RGBA stay refused.
+    /// than RGB, RGBA, gray and gray with alpha stay refused, and a profile
+    /// of the other color space than the channels is refused (2026-11-15;
+    /// before, gray was `UnsupportedLayout` here).
     #[test]
     fn non_straight_alpha_and_other_layouts_are_refused() {
         for alpha in [
@@ -1260,20 +1379,128 @@ mod tests {
                 "{alpha:?}"
             );
         }
-        for (layout, alpha) in [
-            (ChannelLayout::Rgb, AlphaMode::Straight),
-            (ChannelLayout::Gray, AlphaMode::Opaque),
-            (ChannelLayout::GrayAlpha, AlphaMode::Straight),
-            (ChannelLayout::Cmyk, AlphaMode::Opaque),
+        for (layout, alpha, error) in [
+            (
+                ChannelLayout::Rgb,
+                AlphaMode::Straight,
+                Error::UnsupportedLayout,
+            ),
+            (
+                ChannelLayout::Cmyk,
+                AlphaMode::Opaque,
+                Error::UnsupportedLayout,
+            ),
+            (
+                ChannelLayout::GrayAlpha,
+                AlphaMode::Premultiplied,
+                Error::UnsupportedAlphaMode,
+            ),
+            // The Display P3 profile is an RGB profile.
+            (
+                ChannelLayout::Gray,
+                AlphaMode::Opaque,
+                Error::IccColorSpaceMismatch,
+            ),
+            (
+                ChannelLayout::GrayAlpha,
+                AlphaMode::Straight,
+                Error::IccColorSpaceMismatch,
+            ),
         ] {
             let mut grid = p3_grid(vec![1, 2, 3]);
             grid.info.layout = layout;
             grid.info.alpha = alpha;
             assert_eq!(
                 IccSrgbSource::new(Box::new(grid)).map(|_| ()),
-                Err(Error::UnsupportedLayout),
+                Err(error),
                 "{layout:?} {alpha:?}"
             );
+        }
+        let mut rgb = p3_grid(vec![1, 2, 3]);
+        rgb.info.rendered_icc = Some(gray_profile());
+        assert_eq!(
+            IccSrgbSource::new(Box::new(rgb)).map(|_| ()),
+            Err(Error::IccColorSpaceMismatch),
+            "a gray profile beside RGB samples"
+        );
+    }
+
+    /// The parity fixtures' gray profile: `GRAY`, one gamma-2.2 `kTRC`.
+    fn gray_profile() -> Vec<u8> {
+        include_bytes!("../tests/fixtures/parity/gray-gamma22.icc").to_vec()
+    }
+
+    /// Gray and gray with straight alpha through a gray profile (owner
+    /// decision 2026-11-15): the rows equal moxcms called directly on the
+    /// gray samples (Gray to RGB, linear sRGB destination, the stage's
+    /// options) bit for bit, R = G = B, alpha carried over; the conversion
+    /// is not deferred, because the rows grow.
+    #[test]
+    fn gray_profiles_convert_gray_into_rgb_like_moxcms() {
+        let gray: Vec<u8> = (0..=255).collect();
+        let mut linear = ColorProfile::new_srgb();
+        let identity = ToneReprCurve::Lut(Vec::new());
+        linear.red_trc = Some(identity.clone());
+        linear.green_trc = Some(identity.clone());
+        linear.blue_trc = Some(identity);
+        linear.cicp = None;
+        let direct = ColorProfile::new_from_slice(&gray_profile())
+            .unwrap()
+            .create_transform_f32(
+                Layout::Gray,
+                &linear,
+                Layout::Rgb,
+                TransformOptions {
+                    rendering_intent: RenderingIntent::RelativeColorimetric,
+                    allow_extended_range_rgb_xyz: true,
+                    ..TransformOptions::default()
+                },
+            )
+            .unwrap();
+        let input: Vec<f32> = gray.iter().map(|&v| f32::from(v) / 255.0).collect();
+        let mut expected = vec![0.0_f32; input.len() * 3];
+        direct.transform(&input, &mut expected).unwrap();
+        for (pixel, &v) in expected.as_chunks::<3>().0.iter().zip(&gray) {
+            assert!(
+                pixel.iter().all(|c| c.to_bits() == pixel[0].to_bits()),
+                "{v}: {pixel:?}"
+            );
+            let independent = (f64::from(v) / 255.0).powf(2.199_218_75);
+            assert!((f64::from(pixel[0]) - independent).abs() < 1e-5, "{v}");
+        }
+        let mut opaque = p3_grid(gray.clone());
+        opaque.info.size = Size::new(256, 1).unwrap();
+        opaque.info.layout = ChannelLayout::Gray;
+        opaque.info.rendered_icc = Some(gray_profile());
+        let mut source = IccSrgbSource::new(Box::new(opaque)).unwrap();
+        assert_eq!(source.info().layout, ChannelLayout::Rgb);
+        assert!(source.defer_conversion().is_none());
+        let rows = read_rows(&mut source, 256);
+        assert_eq!(
+            rows[0].iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+            expected.iter().map(|v| v.to_bits()).collect::<Vec<_>>()
+        );
+        let with_alpha: Vec<u8> = gray.iter().flat_map(|&v| [v, 255 - v]).collect();
+        let mut translucent = p3_grid(with_alpha);
+        translucent.info.size = Size::new(256, 1).unwrap();
+        translucent.info.layout = ChannelLayout::GrayAlpha;
+        translucent.info.alpha = AlphaMode::Straight;
+        translucent.info.rendered_icc = Some(gray_profile());
+        let mut source = IccSrgbSource::new(Box::new(translucent)).unwrap();
+        assert_eq!(source.info().layout, ChannelLayout::Rgba);
+        let rows = read_rows(&mut source, 256);
+        for ((pixel, rgb), &v) in rows[0]
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(expected.as_chunks::<3>().0)
+            .zip(&gray)
+        {
+            assert_eq!(
+                pixel[..3].iter().map(|v| v.to_bits()).collect::<Vec<_>>(),
+                rgb.map(f32::to_bits)
+            );
+            assert_eq!(pixel[3].to_bits(), (f32::from(255 - v) / 255.0).to_bits());
         }
     }
 

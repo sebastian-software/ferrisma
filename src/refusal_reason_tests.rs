@@ -10,7 +10,7 @@ use crate::pipeline::{
     ImageFormat, InputProfilePolicy, OutputFormat, RefusalReason, TransformOptions, transcode,
 };
 
-const ALL: [RefusalReason; 12] = [
+const ALL: [RefusalReason; 13] = [
     RefusalReason::Animation,
     RefusalReason::ColorSignalMissing,
     RefusalReason::RenderedIccRequiresOptIn,
@@ -23,6 +23,7 @@ const ALL: [RefusalReason; 12] = [
     RefusalReason::AlphaAssociation,
     RefusalReason::GeometricTransform,
     RefusalReason::UnsupportedEssentialProperty,
+    RefusalReason::IccColorSpaceMismatch,
 ];
 
 fn file(path: &str) -> Vec<u8> {
@@ -138,6 +139,14 @@ fn case(reason: RefusalReason) -> (usize, Vec<u8>, ImageFormat, InputProfilePoli
             format!("{LIBAVIF}clap_irot_imir_non_essential.avif"),
             ImageFormat::Avif,
             AssumeSrgbIfMissing,
+        ),
+        // Since 2026-11-15: an RGB profile beside the samples of a gray
+        // JPEG (`tests/fixtures/parity/README.md`).
+        RefusalReason::IccColorSpaceMismatch => (
+            12,
+            "tests/fixtures/parity/gray-rgb-icc.jpg".to_owned(),
+            ImageFormat::Jpeg,
+            UseRenderedIcc,
         ),
         RefusalReason::UnsupportedEssentialProperty => {
             return (

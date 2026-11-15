@@ -19,10 +19,27 @@ pub(crate) struct JpegSource<'a> {
     orientation: Orientation,
     discarded: DiscardedSet,
 }
-fn output_options() -> OutputOptions {
+/// RGB for color JPEG; the component itself for grayscale JPEG, which the
+/// pipeline expands to RGB with every other gray input (ADR-0043 D2).
+/// libjpeg's own gray-to-RGB output (`gray_rgb_convert`) copies the gray
+/// sample into R, G and B, so the result is the same, bit for bit.
+fn output_options(layout: ChannelLayout) -> OutputOptions {
     OutputOptions {
-        format: Some(PixelFormat::Rgb),
+        format: Some(if layout == ChannelLayout::Gray {
+            PixelFormat::Grayscale
+        } else {
+            PixelFormat::Rgb
+        }),
         ..OutputOptions::default()
+    }
+}
+
+/// The pixel format and component count the adapter requests for `layout`.
+fn expected_output(layout: ChannelLayout) -> (PixelFormat, u32) {
+    if layout == ChannelLayout::Gray {
+        (PixelFormat::Grayscale, 1)
+    } else {
+        (PixelFormat::Rgb, 3)
     }
 }
 fn decoder(bytes: &[u8]) -> Result<Decoder<'_>, Error> {
@@ -48,11 +65,16 @@ impl<'a> JpegSource<'a> {
         ) {
             return Err(Error::UnsupportedLayout);
         }
+        let layout = if decoder.header().color_space == ColorSpace::Grayscale {
+            ChannelLayout::Gray
+        } else {
+            ChannelLayout::Rgb
+        };
         let output = decoder
-            .output_info(&output_options())
+            .output_info(&output_options(layout))
             .map_err(|_| Error::DecodeFailed)?;
         let size = Size::new(output.width, output.height)?;
-        if output.format != PixelFormat::Rgb || output.components != 3 {
+        if (output.format, output.components) != expected_output(layout) {
             return Err(Error::UnsupportedLayout);
         }
         // EXIF orientation describes how the stored samples are displayed;
@@ -73,7 +95,7 @@ impl<'a> JpegSource<'a> {
             discarded,
             info: DecoderInfo {
                 size,
-                layout: ChannelLayout::Rgb,
+                layout,
                 sample: SampleType::U8,
                 access: DecodeAccess::CodecRegionRequest,
                 alpha: AlphaMode::Opaque,
@@ -169,8 +191,8 @@ fn finish_with_tail(
 }
 
 /// Pixel width of one RGB8 scanline of `row_bytes`.
-fn scanlines_width(row_bytes: usize) -> Result<u32, Error> {
-    u32::try_from(row_bytes / 3).map_err(|_| Error::GeometryOverflow)
+fn scanlines_width(row_bytes: usize, channels: usize) -> Result<u32, Error> {
+    u32::try_from(row_bytes / channels).map_err(|_| Error::GeometryOverflow)
 }
 
 /// Read the IFD0 `Orientation` tag (0x0112) from EXIF data starting at its
@@ -255,12 +277,13 @@ impl DecodeSource for JpegSource<'_> {
         }
         let decoder = decoder(self.bytes)?;
         let mut scanlines = decoder
-            .start(&output_options())
+            .start(&output_options(self.info.layout))
             .map_err(|_| Error::DecodeFailed)?;
+        let channels = usize::from(self.info.layout.channels());
         if scanlines.info().width != self.info.size.width
             || scanlines.info().height != self.info.size.height
-            || scanlines.info().format != PixelFormat::Rgb
-            || scanlines.info().components != 3
+            || (scanlines.info().format, scanlines.info().components)
+                != expected_output(self.info.layout)
         {
             return Err(Error::UnsupportedCodecLayout);
         }
@@ -288,11 +311,11 @@ impl DecodeSource for JpegSource<'_> {
             .ok_or(Error::UnsupportedCodecLayout)?;
         let x_bytes = usize::try_from(decoded_offset)
             .map_err(|_| Error::GeometryOverflow)?
-            .checked_mul(3)
+            .checked_mul(channels)
             .ok_or(Error::GeometryOverflow)?;
         let output_row_bytes = usize::try_from(region.width)
             .map_err(|_| Error::GeometryOverflow)?
-            .checked_mul(3)
+            .checked_mul(channels)
             .ok_or(Error::GeometryOverflow)?;
         if x_bytes
             .checked_add(output_row_bytes)
@@ -316,7 +339,7 @@ impl DecodeSource for JpegSource<'_> {
             rows += 1;
         }
         let tail_rows = finish_with_tail(scanlines, row.as_mut_slice(), self.info.size.height)?;
-        let decoded_width = scanlines_width(row_bytes)?;
+        let decoded_width = scanlines_width(row_bytes, channels)?;
         Ok(DecodeReport {
             requested: region,
             access: DecodeAccess::CodecRegionRequest,

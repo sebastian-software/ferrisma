@@ -449,38 +449,22 @@ fn jpeg_xl_straight_alpha_is_kept_through_rendered_icc() {
     assert!(webp_has_alpha(&output));
 }
 
+/// Intended change by owner decision of 2026-11-15 (ADR-0043): gray and
+/// gray+alpha JPEG XL are accepted and expanded to RGB(A) like grayscale
+/// JPEG; their enum gray sRGB is a typed signal, so every policy reads
+/// them. (Until then this case was
+/// `jpeg_xl_grayscale_is_rejected_under_every_policy`: `UnsupportedColor`
+/// `RenderedIccRequiresOptIn` under `Strict`/`AssumeSrgbIfMissing`,
+/// `UnsupportedInput` `UnsupportedLayout` under `UseRenderedIcc`.)
 #[test]
-fn jpeg_xl_grayscale_is_rejected_under_every_policy() {
-    // The reader delivers gray and gray+alpha samples, but no policy
-    // accepts them: their rendered ICC is not sRGB CICP, and the rendered-ICC
-    // transform takes RGB(A) only.
-    for name in ["ycbcr-jpeg-gray.jxl", "modular-gray-alpha12.jxl"] {
-        for (policy, kind, reason, refusal) in [
-            (
-                STRICT,
-                ProcessingErrorKind::UnsupportedColor,
-                COLOR,
-                RefusalReason::RenderedIccRequiresOptIn,
-            ),
-            (
-                ASSUME,
-                ProcessingErrorKind::UnsupportedColor,
-                COLOR,
-                RefusalReason::RenderedIccRequiresOptIn,
-            ),
-            (
-                RENDERED,
-                ProcessingErrorKind::UnsupportedInput,
-                LAYOUT,
-                RefusalReason::UnsupportedLayout,
-            ),
-        ] {
-            refused(
-                transcode(&jxl(name), ImageFormat::JpegXl, jxl_options(policy)),
-                kind,
-                reason,
-                Some(refusal),
-            );
+fn jpeg_xl_grayscale_is_expanded_to_rgb_under_every_policy() {
+    for (name, alpha) in [
+        ("ycbcr-jpeg-gray.jxl", false),
+        ("modular-gray-alpha12.jxl", true),
+    ] {
+        for policy in [STRICT, ASSUME, RENDERED] {
+            let output = to_webp(&jxl(name), ImageFormat::JpegXl, policy);
+            assert_eq!(webp_has_alpha(&output), alpha, "{name} {policy:?}");
         }
     }
 }
@@ -757,25 +741,20 @@ fn avif_image_sequences_are_rejected_without_a_first_frame_fallback() {
     }
 }
 
+/// Intended change by owner decision of 2026-11-15 (ADR-0043): monochrome
+/// AVIF is accepted and expanded to RGB like grayscale JPEG. (Until then
+/// this case was `avif_monochrome_is_rejected_at_every_depth`:
+/// `UnsupportedInput`, `UnsupportedLayout`.)
 #[cfg(feature = "avif-read")]
 #[test]
-fn avif_monochrome_is_rejected_at_every_depth() {
+fn avif_monochrome_is_expanded_to_rgb_at_every_depth() {
     for name in [
         "fox.profile0.8bpc.yuv420.monochrome.avif",
         "fox.profile0.10bpc.yuv420.monochrome.avif",
         "fox.profile2.12bpc.yuv420.monochrome.avif",
     ] {
         let bytes = read(&format!("{AVIF_ANDROID}avif/{name}"));
-        refused(
-            transcode(
-                &bytes,
-                ImageFormat::Avif,
-                options(OutputFormat::WebP, ASSUME),
-            ),
-            ProcessingErrorKind::UnsupportedInput,
-            LAYOUT,
-            Some(RefusalReason::UnsupportedLayout),
-        );
+        to_webp(&bytes, ImageFormat::Avif, ASSUME);
     }
 }
 

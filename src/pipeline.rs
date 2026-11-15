@@ -551,9 +551,10 @@ pub enum RefusalReason {
     /// [`ProcessingErrorKind::UnsupportedColor`].
     ContradictoryColorSignals,
     /// The channel layout, sample format or YUV matrix is outside the
-    /// engine's contract: CMYK/YCCK JPEG, monochrome AVIF,
-    /// constant-luminance BT.2020 AVIF, grayscale, CMYK, float or extra
-    /// channels in JPEG XL. Kind: [`ProcessingErrorKind::UnsupportedInput`].
+    /// engine's contract: CMYK/YCCK JPEG, constant-luminance BT.2020 AVIF,
+    /// CMYK, float or extra channels in JPEG XL. (Grayscale JPEG XL and
+    /// monochrome AVIF are accepted since 2026-11-15 and expanded to RGB,
+    /// as grayscale JPEG is.) Kind: [`ProcessingErrorKind::UnsupportedInput`].
     UnsupportedLayout,
     /// The alpha channel is premultiplied (associated) or its association
     /// is unspecified; only straight alpha is processed. Kind:
@@ -572,6 +573,12 @@ pub enum RefusalReason {
     /// so the kind is [`ProcessingErrorKind::UnsupportedInput`], not
     /// `MalformedInput`.
     UnsupportedEssentialProperty,
+    /// Under [`InputProfilePolicy::UseRenderedIcc`], the rendered ICC
+    /// profile describes another color space than the decoded channels: an
+    /// RGB profile beside gray samples, or a gray (`GRAY`) profile beside
+    /// RGB samples (since 2026-11-15). A gray profile beside gray samples is
+    /// converted. Kind: [`ProcessingErrorKind::UnsupportedColor`].
+    IccColorSpaceMismatch,
 }
 
 /// Public error that never exposes backend-specific types.
@@ -655,7 +662,9 @@ impl From<Error> for ProcessingError {
             Error::UnsupportedImageTransform => Kind::UnsupportedInput,
             Error::UnsupportedColorEncoding | Error::HdrTransfer => Kind::UnsupportedColor,
             #[cfg(feature = "icc")]
-            Error::CicpBesideIcc(_) | Error::RenderedIccMissing => Kind::UnsupportedColor,
+            Error::CicpBesideIcc(_) | Error::RenderedIccMissing | Error::IccColorSpaceMismatch => {
+                Kind::UnsupportedColor
+            }
             #[cfg(feature = "avif-read")]
             Error::ContradictoryColorSignals => Kind::UnsupportedColor,
             #[cfg(feature = "avif-read")]
@@ -682,6 +691,8 @@ impl From<Error> for ProcessingError {
             Error::CicpBesideIcc(_) => Some(RefusalReason::CicpBesideIcc),
             #[cfg(feature = "icc")]
             Error::RenderedIccMissing => Some(RefusalReason::RenderedIccMissing),
+            #[cfg(feature = "icc")]
+            Error::IccColorSpaceMismatch => Some(RefusalReason::IccColorSpaceMismatch),
             Error::HdrTransfer => Some(RefusalReason::HdrTransfer),
             #[cfg(feature = "avif-read")]
             Error::ContradictoryColorSignals => Some(RefusalReason::ContradictoryColorSignals),
@@ -1157,15 +1168,17 @@ fn run(
     // color under zero alpha, noticed in the rows it delivers.
     let mut discarded = source.discarded();
     let hidden_color = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let source: Box<dyn DecodeSource + '_> =
-        if source.info().layout == crate::decoder::ChannelLayout::Rgba {
-            Box::new(crate::discarded::HiddenColorProbe::new(
-                source,
-                hidden_color.clone(),
-            ))
-        } else {
-            source
-        };
+    let source: Box<dyn DecodeSource + '_> = if matches!(
+        source.info().layout,
+        crate::decoder::ChannelLayout::Rgba | crate::decoder::ChannelLayout::GrayAlpha
+    ) {
+        Box::new(crate::discarded::HiddenColorProbe::new(
+            source,
+            hidden_color.clone(),
+        ))
+    } else {
+        source
+    };
     // Present an upright image to the graph; crops are display coordinates.
     let source: Box<dyn DecodeSource + '_> = if source.orientation().is_identity() {
         source
@@ -1215,7 +1228,7 @@ fn run(
         } else {
             source
         };
-    let mut actual: Box<dyn DecodeSource + '_> = if source.info().rendered_icc.is_none()
+    let actual: Box<dyn DecodeSource + '_> = if source.info().rendered_icc.is_none()
         && source.info().rendered_cicp.is_none()
         && options.profile_policy == InputProfilePolicy::AssumeSrgbIfMissing
     {
@@ -1248,6 +1261,10 @@ fn run(
             "unsupported or ambiguous rendered color profile; a color-management transform is required",
         ));
     }
+    // Gray reaches the graph as RGB: the one expansion of every format
+    // (ADR-0043 D2), after color handling (a gray ICC profile was already
+    // converted to RGB by the rendered-ICC stage).
+    let mut actual = crate::gray::GrayToRgb::wrap(actual);
     let size = actual.info().size;
     let crop = if let Some(crop) = options.crop {
         Rect::new(crop.x, crop.y, crop.width, crop.height)?

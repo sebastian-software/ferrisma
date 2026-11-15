@@ -9,11 +9,13 @@
 //! upsampling. The adapter reports that rendered meaning as CICP
 //! `[primaries, transfer, 0, 1]` and any `colr`
 //! ICC profile. It fails closed when the container `nclx` disagrees with the
-//! bitstream, for monochrome input and for `clap`. `irot`/`imir` are reported
+//! bitstream and for `clap`. Monochrome input is emitted as gray (libavif's
+//! `GRAY`/`GRAYA` output, the converted Y plane), which the pipeline expands
+//! to RGB with every other gray input (ADR-0043 D2). `irot`/`imir` are reported
 //! as the source orientation and applied by the pipeline (ADR-0019).
 //! 10/12-bit input is emitted as normalized float samples.
 
-use ferrisma_avif_read::{Decoder, ReadError};
+use ferrisma_avif_read::{Decoder, ReadError, Samples};
 
 use super::avif_meta::{MetaError, PrimaryProperties, SequenceColor, primary_properties};
 use crate::color::AlphaMode;
@@ -75,6 +77,16 @@ pub(crate) fn rendered_cicp(
     }
     // Emitted samples are RGB (identity matrix) at full range.
     Ok(Some([primaries, transfer, 0, 1]))
+}
+
+/// The libavif output for an adapter layout.
+fn samples(layout: ChannelLayout) -> Samples {
+    match layout {
+        ChannelLayout::Gray => Samples::Gray,
+        ChannelLayout::GrayAlpha => Samples::GrayAlpha,
+        ChannelLayout::Rgba => Samples::Rgba,
+        _ => Samples::Rgb,
+    }
 }
 
 /// What the read leaves out of the output (ADR-0042 D2).
@@ -151,9 +163,6 @@ impl<'a> AvifSource<'a> {
             matrix: decoded_info.sequence.matrix,
             full_range: decoded_info.sequence.full_range,
         };
-        if sequence.monochrome {
-            return Err(Error::UnsupportedLayout);
-        }
         let rendered_cicp = rendered_cicp(&properties, sequence)?;
         let has_alpha = decoded_info.alpha;
         if decoded_info.image_count > 1 {
@@ -188,10 +197,11 @@ impl<'a> AvifSource<'a> {
             has_alpha && decoded_info.alpha_premultiplied,
             sequence.bit_depth,
         );
-        let layout = if has_alpha {
-            ChannelLayout::Rgba
-        } else {
-            ChannelLayout::Rgb
+        let layout = match (sequence.monochrome, has_alpha) {
+            (true, false) => ChannelLayout::Gray,
+            (true, true) => ChannelLayout::GrayAlpha,
+            (false, false) => ChannelLayout::Rgb,
+            (false, true) => ChannelLayout::Rgba,
         };
         let info = DecoderInfo {
             size,
@@ -275,11 +285,11 @@ impl DecodeSource for AvifSource<'_> {
         if self.info.sample == SampleType::U8 {
             let mut frame = budget.allocate(full_samples)?;
             self.decoder
-                .decode_u8(
+                .decode_u8_samples(
                     frame.as_mut_slice(),
                     size.width,
                     size.height,
-                    self.info.layout == ChannelLayout::Rgba,
+                    samples(self.info.layout),
                 )
                 .map_err(bridge_error)?;
             self.decoded = true;
@@ -298,11 +308,11 @@ impl DecodeSource for AvifSource<'_> {
             let mut frame = budget.allocate_typed::<u16>(full_samples)?;
             let mut scratch = budget.allocate_typed::<f32>(row_samples)?;
             self.decoder
-                .decode_u16(
+                .decode_u16_samples(
                     frame.as_mut_slice(),
                     size.width,
                     size.height,
-                    self.info.layout == ChannelLayout::Rgba,
+                    samples(self.info.layout),
                 )
                 .map_err(bridge_error)?;
             self.decoded = true;

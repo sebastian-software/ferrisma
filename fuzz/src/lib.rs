@@ -413,6 +413,15 @@ mod tests {
                         result.is_ok(),
                         "the supported ICC/alpha seed must reach encoding"
                     );
+                } else if name.starts_with("jxl-gray-") {
+                    // Gray and gray+alpha JPEG XL are expanded to RGB(A)
+                    // since 2026-11-15 (owner decision, ADR-0043); until
+                    // then these eight seeds were `UnsupportedInput`.
+                    assert!(
+                        result.is_ok(),
+                        "{lane}/{name}: gray JPEG XL must reach encoding: {:?}",
+                        result.as_ref().err()
+                    );
                 } else if name.starts_with("jxl-oversized-toc-section")
                     || name.starts_with("jxl-unknown-colour-space")
                 {

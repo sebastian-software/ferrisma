@@ -83,7 +83,7 @@ classified refusal; it is counted as (C).
 | J10 | Orientation in XMP (`tiff:Orientation`) without EXIF | ignored | only EXIF is read | no | no fixture | A |
 | J11 | EXIF orientation 1–8 | applied before crop | `src/orientation.rs` | matrix | `supported_matrix::jpeg_exif_orientations_are_applied_before_crop` | D |
 | J12 | EXIF orientation outside 1–8, malformed EXIF | refused (`GeometricTransform`; `MalformedInput`) | `JpegSource::new` | matrix | `codecs::jpeg::tests::exif_orientation_is_reported_and_invalid_values_fail_closed` | C |
-| J13 | Grayscale | expanded to RGB (value-preserving) | `output_options` | matrix | `supported_matrix::jpeg_grayscale_is_expanded_to_rgb` | B |
+| J13 | Grayscale | expanded to RGB (value-preserving). **Since 2026-11-15: the adapter emits libjpeg's gray component and the pipeline's one expansion copies it (`src/gray.rs`, the same bits as libjpeg's own gray-to-RGB output); a gray ICC profile is converted under `UseRenderedIcc`** | `output_options`, `src/gray.rs` | matrix | `supported_matrix::jpeg_grayscale_is_expanded_to_rgb`; `format_parity::gray_is_expanded_to_rgb_in_every_format_that_carries_it`, `a_gray_icc_profile_is_converted_by_its_tone_curve` | B |
 | J14 | Progressive scans | all decoded | libjpeg | — | `entropy_rows` = full height in the report | D |
 | J15 | Decoder warnings: missing EOI, truncation, marker damage | `fail_on_warning: true`: every libjpeg warning is `MalformedInput`, no partial image | `codecs/jpeg.rs` `decoder` | matrix ("truncated data") | `supported_matrix::jpeg_truncated_is_malformed`, `codecs::jpeg::tests::cropped_read_rejects_a_truncated_tail` | C |
 | J16 | Corrupted scan data that still parses | decodes without an error: libjpeg raises no warning for Huffman-coded garbage that stays decodable, so `fail_on_warning` has nothing to catch; nothing is swallowed by the engine | — | no | `silent_drops::corrupted_jpeg_scan_data_decodes_without_an_error_today` (16 inverted bytes in `paris-420.jpg`'s scan) | outside A–D (undetectable) |
@@ -117,7 +117,7 @@ classified refusal; it is counted as (C).
 | X11 | Preview frame | ignored. **Since `v1/engine-discarded`: reported: `Discarded::Preview`** | decoders | no | no fixture; `discarded_report::jpeg_xl_preview_is_reported` (the former jxl-oxide reader rejected that fixture as malformed) | C |
 | X12 | `intrinsic_size` (display size hint) | ignored | decoders | no | no fixture | A |
 | X13 | Animation | refused (`Animation`) | the adapter | matrix | `supported_matrix::jpeg_xl_animation_is_rejected` | C |
-| X14 | Gray, CMYK, float, premultiplied or unspecified alpha, PQ/HLG | refused with a reason | adapters, `cms.rs` | matrix | `supported_matrix` JPEG XL cases | C |
+| X14 | Gray, CMYK, float, premultiplied or unspecified alpha, PQ/HLG | refused with a reason. **Since 2026-11-15 gray and gray with alpha are accepted and expanded to RGB(A) (owner decision, ADR-0043; nothing is lost: R = G = B)** | adapters, `cms.rs` | matrix | `supported_matrix` JPEG XL cases | C |
 | X15 | Orientation | rendered upright by the decoder | decoders | matrix | `orientation_tests::jpeg_xl_orientations_are_rendered_upright_for_every_crop` | D |
 | X16 | Progressive passes, truncation | the full image is decoded; a truncated file is `MalformedInput` (no partial render) | `drive` | no | `silent_drops::truncated_inputs_are_malformed` | C |
 | X17 | Bit depth above 8 (16-bit, 31-bit integer samples) | decoded as float, then 8-bit output. **Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`** | — | matrix, Color policy ("8-bit … rows") | `modular-rgb31.jxl` with libjxl-rs (probe); `discarded_report::jpeg_xl_precision_above_eight_bits_is_reported` | C |
@@ -144,7 +144,7 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | V9 | Premultiplied alpha (`prem`) | libavif un-premultiplies into straight RGBA (`rgb.alphaPremultiplied = 0`); JPEG XL premultiplied alpha is refused instead. **Since `v1/engine-discarded`: reported: `Discarded::Unpremultiplied` (refusing it instead is an open question of ADR-0042 (premultiplied AVIF alpha))** | `crates/ferrisma-avif-read` `rgb` | no | no fixture; `discarded_report::premultiplied_avif_alpha_is_reported_as_unpremultiplied` (`prem` inserted into `abc_color_irot_alpha_irot.avif`) | C |
 | V10 | Depth and other auxiliary images in a still | ignored (only alpha is read) | libavif | matrix, AVIF details | no still fixture | B |
 | V11 | Grid, `pymd` pyramid | composed grid / primary item at full size | libavif | matrix | `supported_matrix::avif_alpha_and_grid_stills_are_accepted`; `pyramid_pymd.avif` (probe) | D |
-| V12 | Sequences, `clap`, `imir` before `irot`, monochrome, PQ/HLG | refused with a reason | `avif.rs` | matrix | `supported_matrix` AVIF cases | C |
+| V12 | Sequences, `clap`, `imir` before `irot`, monochrome, PQ/HLG | refused with a reason. **Since 2026-11-15 monochrome is accepted through libavif's gray output and expanded to RGB (owner decision, ADR-0043)** | `avif.rs` | matrix | `supported_matrix` AVIF cases | C |
 | V13 | `irot`/`imir` | applied before crop | `orientation.rs` | matrix | `supported_matrix::avif_irot_and_imir_are_applied_for_all_eight_orientations` | D |
 | V14 | 10/12-bit samples | normalized float, then 8-bit output. **Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`** | `avif.rs` `read_region` | matrix | `supported_matrix::avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted`; `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` (10-bit against 8-bit) | C |
 | V15 | Limited range | expanded to full range by libavif (value-preserving) | libavif | `avif.rs` module doc | — | D |
@@ -259,6 +259,12 @@ its test in `tests/format_parity.rs`:
   on the codestream's own ICC signal, so an XYB image with an embedded
   profile (whose DATA encoding is linear sRGB) is no longer silent. No item
   is lost: the profile libjxl synthesizes from an enum is derived from it.
+- J13, X14, V12: gray is accepted in JPEG, JPEG XL and AVIF and expanded
+  to RGB (gray with alpha to RGBA) by one exact copy after color handling;
+  a gray ICC profile is converted through its tone curve, a profile of the
+  other color space is refused (`IccColorSpaceMismatch`). Nothing is
+  dropped (R = G = B carries the gray value); hidden color under zero alpha
+  is now also noticed for gray with alpha.
 
 ## Part 2: proposal (not implemented; the owner decides)
 

@@ -65,7 +65,7 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `ColorSignal`, `ProcessingReport::color_signal` | enum, field | Experimental (working decision 2026-11-14, #212) | Non-exhaustive; reports the signal used, never a precedence |
 | `KernelLevel`, `KernelLevelReason`, `TransformOptions::kernel_level_ceiling` | re-exported enums, field | Experimental (diagnostics) | Couples to `ferrisma-kernels`; see problem 7 |
 | `ProcessingError`, `ProcessingErrorKind` | struct, enum | Stable | Kind is non-exhaustive; message text is not stable |
-| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decisions 2026-11-14 and 2026-11-15, #212) | Non-exhaustive closed vocabulary by refusal class (twelve variants since 2026-11-15); `None` outside it |
+| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decisions 2026-11-14 and 2026-11-15, #212) | Non-exhaustive closed vocabulary by refusal class (thirteen variants since 2026-11-15, `IccColorSpaceMismatch` added with gray input); `None` outside it |
 | `ProcessingReport::discarded`, `Discarded`, `DiscardedSet` | field, enum, set | Experimental (working decision 2026-11-15, ADR-0042 D2) | Non-exhaustive classes of information left out of a correct picture; CLI `discarded=` |
 | `Engine`, `BatchItem` | struct, struct | Stable | ADR-0022 |
 | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with` | fn | Experimental | ADR-0024 backend extension point |

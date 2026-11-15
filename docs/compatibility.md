@@ -62,9 +62,10 @@ meets several classes, the reason names the check that refused it first.
 | `HdrTransfer` | `UnsupportedColor` | PQ or HLG (JPEG XL, AVIF), under every policy | tone-map to SDR elsewhere |
 | `UnsupportedColorEncoding` | `UnsupportedColor` | SDR CICP (AVIF `nclx`, and since 2026-11-15 a JPEG XL enum encoding) outside sRGB, Display P3, linear sRGB without ICC (for example BT.2020 SDR, DCI-P3). (Until 2026-11-15 also a JPEG XL colour encoding jxl-oxide could not render; the workspace reader, like libjxl, rejects that file as `MalformedInput`.) | convert elsewhere |
 | `ContradictoryColorSignals` | `UnsupportedColor` | AVIF container `nclx`/ICC contradicting the AV1 sequence header | repair the file |
-| `UnsupportedLayout` | `UnsupportedInput` | CMYK/YCCK JPEG, monochrome AVIF, constant-luminance BT.2020, grayscale/CMYK/float/extra-channel JPEG XL | convert to RGB(A) first |
+| `UnsupportedLayout` | `UnsupportedInput` | CMYK/YCCK JPEG, constant-luminance BT.2020, CMYK/float/extra-channel JPEG XL (grayscale JPEG XL and monochrome AVIF are accepted since 2026-11-15) | convert to RGB(A) first |
 | `AlphaAssociation` | `UnsupportedInput` | premultiplied or unspecified alpha | convert to straight alpha first |
 | `GeometricTransform` | `UnsupportedInput` | AVIF `clap`, `imir` before `irot`, EXIF orientation outside 1 to 8 | remove the transform first |
+| `IccColorSpaceMismatch` | `UnsupportedColor` | under `UseRenderedIcc`, an RGB profile beside gray samples or a gray profile beside RGB samples (since 2026-11-15) | repair the profile |
 | `UnsupportedEssentialProperty` | `UnsupportedInput` | an AVIF item the reader uses (primary, grid cells, alpha) cites a property marked essential that the engine does not understand (alpha and cells since 2026-11-15, ADR-0042 D1) (since 2026-11-15; before, `MalformedInput` without a reason) | remove or convert that property first |
 
 New reasons may be added in a minor release (match with a wildcard arm); a

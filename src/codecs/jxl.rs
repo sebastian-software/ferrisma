@@ -115,14 +115,19 @@ impl<'a> JxlSource<'a> {
 /// is named here; whether the engine converts it is the color policy's
 /// decision, exactly as for AVIF `nclx`. JPEG XL's primaries and transfer
 /// enums use the H.273 values; its P3 primaries are DCI-P3 (11) with the
-/// DCI white point and Display P3 (12) with D65.
+/// DCI white point and Display P3 (12) with D65. A gray encoding has no
+/// primaries: with the D65 white point its samples mean R = G = B in any
+/// D65 RGB space, so it is named with sRGB primaries (1), as a monochrome
+/// AVIF's `nclx` usually is, and follows the same policy rules as its RGB
+/// counterpart (owner decision 2026-11-15, ADR-0043).
 fn h273(encoding: EncodedColor) -> Option<[u8; 4]> {
     let primaries = match (
         encoding.color_space,
         encoding.white_point,
         encoding.primaries,
     ) {
-        (ColorSpace::Rgb, WhitePoint::D65, Primaries::Srgb) => 1,
+        (ColorSpace::Rgb, WhitePoint::D65, Primaries::Srgb)
+        | (ColorSpace::Gray, WhitePoint::D65, _) => 1,
         (ColorSpace::Rgb, WhitePoint::D65, Primaries::Bt2100) => 9,
         (ColorSpace::Rgb, WhitePoint::D65, Primaries::P3) => 12,
         (ColorSpace::Rgb, WhitePoint::Dci, Primaries::P3) => 11,

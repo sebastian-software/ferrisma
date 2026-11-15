@@ -314,6 +314,225 @@ fn the_engine_reads_its_own_jpeg_xl_output_with_default_settings() {
 }
 
 // ---------------------------------------------------------------------------
+// Gray (owner decision 2026-11-15): accepted in every format that carries it
+// and expanded to RGB (gray with alpha to RGBA) by one copy, R = G = B,
+// after color handling (`src/gray.rs`). WebP has no gray layout (format
+// reason: VP8 and VP8L code RGB(A) only), so it has no case.
+
+#[cfg(feature = "avif-read")]
+const AVIF_ANDROID: &str =
+    "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/";
+
+/// The rows of a gray input at its own size, checked to be R = G = B.
+#[track_caller]
+fn assert_expanded_gray(
+    name: &str,
+    bytes: &[u8],
+    format: ImageFormat,
+    policy: InputProfilePolicy,
+    size: (u32, u32),
+) -> (Vec<u8>, ferrisma::pipeline::ProcessingReport) {
+    let (rows, report) = rows(bytes, format, policy, size)
+        .unwrap_or_else(|error| panic!("{name} under {policy:?}: {error:?}"));
+    assert_eq!(rows.len(), size.0 as usize * size.1 as usize * 4, "{name}");
+    for pixel in rows.as_chunks::<4>().0 {
+        assert!(
+            pixel[0] == pixel[1] && pixel[1] == pixel[2],
+            "{name}: {pixel:?}"
+        );
+    }
+    (rows, report)
+}
+
+/// Gray is accepted and expanded in JPEG, JPEG XL and AVIF. Each file's
+/// color signal is its own (untagged JPEG and the Android monochrome AVIF
+/// files need `AssumeSrgbIfMissing`; the JPEG XL file is enum gray sRGB, a
+/// typed signal), which the color-signaling rows cover; this row asserts
+/// the layout outcome: accepted, R = G = B, opaque. (Until 2026-11-15 only
+/// JPEG was accepted; JPEG XL and AVIF were refused with
+/// `UnsupportedLayout`.)
+#[test]
+fn gray_is_expanded_to_rgb_in_every_format_that_carries_it() {
+    let jpeg = read(&format!("{JXL_DATA}ycbcr-jpeg-gray.jpg"));
+    let jxl = read(&format!("{JXL_DATA}ycbcr-jpeg-gray.jxl"));
+    #[allow(unused_mut)]
+    let mut cases: Vec<(String, ImageFormat, Vec<u8>, ColorSignal)> = vec![
+        (
+            "ycbcr-jpeg-gray.jpg".into(),
+            ImageFormat::Jpeg,
+            jpeg,
+            ColorSignal::AssumedSrgb,
+        ),
+        (
+            "ycbcr-jpeg-gray.jxl".into(),
+            ImageFormat::JpegXl,
+            jxl,
+            ColorSignal::Cicp,
+        ),
+    ];
+    #[cfg(feature = "avif-read")]
+    for depth in ["profile0.8bpc", "profile0.10bpc", "profile2.12bpc"] {
+        let name = format!("fox.{depth}.yuv420.monochrome.avif");
+        let bytes = read(&format!("{AVIF_ANDROID}{name}"));
+        cases.push((name, ImageFormat::Avif, bytes, ColorSignal::AssumedSrgb));
+    }
+    for (name, format, bytes, signal) in &cases {
+        let (rows, report) = assert_expanded_gray(name, bytes, *format, ASSUME, (8, 6));
+        assert_eq!(report.color_signal, *signal, "{name}");
+        assert!(
+            rows.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 255),
+            "{name}"
+        );
+    }
+}
+
+/// Gray with straight alpha is accepted and expanded to RGBA with the alpha
+/// kept. JPEG has no alpha (format reason). AVIF can carry a monochrome
+/// image with an alpha item, but the repository has no such file and the
+/// workspace AVIF writer cannot write one, so AVIF gray with alpha is
+/// **untested** (no fixture) and not claimed; the code path is the gray
+/// path above plus libavif's `GRAYA` output.
+#[test]
+fn gray_with_alpha_is_expanded_to_rgba() {
+    for name in [
+        "modular-gray-alpha12.jxl",
+        "effects_gray_alpha16.jxl",
+        "vardct-gray-alpha16.jxl",
+    ] {
+        let bytes = read(&format!("{JXL_DATA}{name}"));
+        for policy in POLICIES {
+            let (rows, report) =
+                assert_expanded_gray(name, &bytes, ImageFormat::JpegXl, policy, (8, 6));
+            assert_eq!(report.color_signal, ColorSignal::Cicp, "{name}");
+            assert!(
+                rows.as_chunks::<4>().0.iter().any(|pixel| pixel[3] < 255),
+                "{name}: alpha"
+            );
+            assert!(
+                !report
+                    .discarded
+                    .iter()
+                    .any(|class| class == Discarded::Unpremultiplied)
+            );
+        }
+    }
+}
+
+/// A gray ICC profile (`GRAY`, one gamma-2.2 `kTRC` curve) is converted by
+/// its own tone curve under `UseRenderedIcc` and needs that policy like any
+/// profile. The result is checked against an independent computation,
+/// linear = (v / 255)^2.19921875 for every gray sample v, R = G = B, within
+/// the 8-bit encoding of a 1e-5 linear bound. For the JPEG XL file
+/// (lossless, written by cjxl) the samples are known from
+/// `tools/make.py`; the JPEG file is libjxl's gray JPEG with the profile
+/// inserted, whose samples are those of the same file without the profile,
+/// read as assumed sRGB at its own size (an identity that returns the
+/// decoded codes). AVIF can carry a gray profile beside a monochrome image,
+/// but no fixture exists: **untested**.
+#[test]
+fn a_gray_icc_profile_is_converted_by_its_tone_curve() {
+    let jpeg = read("tests/fixtures/parity/gray-gray-icc.jpg");
+    let jxl = read("tests/fixtures/parity/gray-gray-icc.jxl");
+    let cases: [(&str, ImageFormat, &[u8]); 2] = [
+        ("gray-gray-icc.jxl", ImageFormat::JpegXl, &jxl),
+        ("gray-gray-icc.jpg", ImageFormat::Jpeg, &jpeg),
+    ];
+    for policy in [STRICT, ASSUME] {
+        assert_row(
+            "gray ICC",
+            &cases,
+            policy,
+            &[],
+            &refused(
+                ProcessingErrorKind::UnsupportedColor,
+                RefusalReason::RenderedIccRequiresOptIn,
+            ),
+        );
+    }
+    let encode = |linear: f64| {
+        let encoded = if linear <= 0.003_130_8 {
+            12.92 * linear
+        } else {
+            1.055 * linear.powf(1.0 / 2.4) - 0.055
+        };
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let code = (encoded * 255.0).round().clamp(0.0, 255.0) as u8;
+        code
+    };
+    let known: Vec<u8> = (0..8)
+        .flat_map(|y| (0..16).map(move |x| u8::try_from((16 * x + 8 * y) % 256).unwrap()))
+        .collect();
+    let untagged = read(&format!("{JXL_DATA}ycbcr-jpeg-gray.jpg"));
+    let header = ferrisma::pipeline::inspect(
+        &untagged,
+        ImageFormat::Jpeg,
+        ferrisma::pipeline::InspectionLimits::default(),
+    )
+    .unwrap();
+    let jpeg_size = (header.width, header.height);
+    let (stored, _) = assert_expanded_gray(
+        "ycbcr-jpeg-gray.jpg",
+        &untagged,
+        ImageFormat::Jpeg,
+        ASSUME,
+        jpeg_size,
+    );
+    let stored: Vec<u8> = stored
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|pixel| pixel[0])
+        .collect();
+    for ((name, format, bytes), (samples, size)) in cases
+        .into_iter()
+        .zip([(known, (16, 8)), (stored, jpeg_size)])
+    {
+        let (rows, report) = assert_expanded_gray(name, bytes, format, RENDERED, size);
+        assert_eq!(report.color_signal, ColorSignal::RenderedIcc, "{name}");
+        assert!(
+            report
+                .discarded
+                .iter()
+                .any(|class| class == Discarded::IccProfile)
+        );
+        assert_eq!(rows.len(), samples.len() * 4, "{name}");
+        for (index, (pixel, &value)) in rows.as_chunks::<4>().0.iter().zip(&samples).enumerate() {
+            let linear = (f64::from(value) / 255.0).powf(2.199_218_75);
+            let (lo, hi) = (encode(linear - 1e-5), encode(linear + 1e-5));
+            assert!(
+                (lo..=hi).contains(&pixel[0]) && pixel[3] == 255,
+                "{name} pixel {index} (gray {value}): {} not in {lo}..={hi}",
+                pixel[0]
+            );
+        }
+    }
+}
+
+/// A profile of the other color space than the decoded channels (an RGB
+/// profile beside gray samples, a gray profile beside RGB samples) is
+/// refused under `UseRenderedIcc`, never reinterpreted (new reason
+/// `IccColorSpaceMismatch`, 2026-11-15). Only JPEG fixtures exist: JPEG XL
+/// requires a gray profile for gray channels in the codestream itself.
+#[test]
+fn an_icc_profile_of_the_other_color_space_is_refused() {
+    let gray_rgb = read("tests/fixtures/parity/gray-rgb-icc.jpg");
+    let rgb_gray = read("tests/fixtures/parity/rgb-gray-icc.jpg");
+    assert_row(
+        "ICC color space mismatch",
+        &[
+            ("gray-rgb-icc.jpg", ImageFormat::Jpeg, &gray_rgb),
+            ("rgb-gray-icc.jpg", ImageFormat::Jpeg, &rgb_gray),
+        ],
+        RENDERED,
+        &[],
+        &refused(
+            ProcessingErrorKind::UnsupportedColor,
+            RefusalReason::IccColorSpaceMismatch,
+        ),
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Alpha.
 
 /// Straight alpha is carried in every format that has alpha; JPEG has no

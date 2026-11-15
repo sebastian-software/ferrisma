@@ -1,6 +1,6 @@
 # ADR-0043: Formats behave alike where the format allows
 
-- **Status:** Accepted (the principle and decisions D1–D5). The [open question](#open-questions-pending-owner-decision) is not decided.
+- **Status:** Accepted (the principle and decisions D1–D5). The former open question (grayscale) was decided by the owner on 2026-11-15 and is recorded under [Decided applications](#decided-applications).
 - **Date:** 2026-11-15
 - **Last reviewed:** 2026-11-15
 - **Source:** owner statement of 2026-11-15, made with his decision on premultiplied alpha
@@ -80,6 +80,24 @@ it and assert the same outcome class, kind, reason and report entry.
   ported original, so the port stays identical with it (ADR-0041). The
   earlier refusal for JPEG XL is replaced. It counts as supported once a
   fixture exists for each format.
+- **Grayscale** (owner decision, 2026-11-15; formerly the open question
+  of this ADR): gray is accepted in every format that can carry it.
+  Grayscale JPEG, grayscale JPEG XL (gray and gray with alpha) and
+  monochrome AVIF are expanded to RGB, gray with alpha to RGBA, R = G = B,
+  by one operation at one stage (`src/gray.rs`): every reader emits gray
+  (libjpeg's own gray component, libjxl's gray samples, libavif's
+  `GRAY`/`GRAYA` output), the color stage handles the gray signal, and the
+  copy happens after it at the decoder's precision. Working decision
+  2026-11-15 (delegated, revisable by the owner): one place rather than
+  each decoder's own expansion, because the copy is exact either way
+  (libjpeg's `gray_rgb_convert` and libavif's RGB output of a monochrome
+  image copy the same value into R, G and B, which a test checks for
+  libavif), and only gray samples can enter a gray ICC profile. A gray ICC
+  profile is converted through its tone curve (moxcms, checked against
+  moxcms called directly and against the curve computed independently); a
+  profile of the other color space than the channels is refused
+  (`IccColorSpaceMismatch`). A typed gray signal follows the rules of its
+  RGB counterpart. WebP has no gray (format reason).
 - **JPEG XL enum color encoding is a typed signal** (owner decision,
   2026-11-15, #222; ADR-0015 section of that date): an enum encoding with
   an H.273 code point is reported as CICP, like AVIF `nclx`, so both get the
@@ -130,12 +148,7 @@ change, the parity tests and the matrix review are not implemented yet.
 
 ## Open questions (pending owner decision)
 
-1. **Grayscale.** JPEG expands gray to RGB; JPEG XL and AVIF refuse it.
-   Under D1 this difference has no format reason. Options: accept gray in
-   all three and expand it to RGB (or RGBA with alpha), which loses nothing;
-   refuse it in all three; or keep the difference and record why. A gray
-   image may carry a gray ICC profile, which must enter color handling
-   correctly or be refused with a reason, not guessed.
+None. The grayscale question is decided (above).
 
 ## Review when
 
@@ -150,3 +163,7 @@ change, the parity tests and the matrix review are not implemented yet.
 - 2026-11-15 — The JPEG XL enum encoding decision (#222) added as an
   application; `tests/format_parity.rs` started (D5) with color
   signaling, straight alpha, orientation and animation.
+- 2026-11-15 — Grayscale decided by the owner (accept everywhere, expand
+  to RGB): moved from the open questions to the decided applications, with
+  the working decision on where the expansion happens; parity rows for
+  gray, gray with alpha, gray ICC and ICC color-space mismatch.
