@@ -182,6 +182,37 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
     Ok(())
 }
 
+/// The flag of one argument: `--name` of `--name=value`, or the switch.
+fn flag_name(option: &str) -> &str {
+    option.split_once('=').map_or(option, |(name, _)| name)
+}
+
+/// Flags that contradict each other. Giving both of a pair is an error
+/// that names the two flags; neither takes precedence (owner decision of
+/// 2026-11-15, ADR-0042). Lossless WebP has no quality or speed of its own:
+/// its level sets both.
+const EXCLUSIVE_FLAGS: &[(&str, &str)] = &[
+    ("--assume-srgb", "--use-rendered-icc"),
+    ("--jxl-lossless", "--jxl-distance"),
+    ("--webp-lossless", "--quality"),
+    ("--webp-lossless", "--speed"),
+    ("--webp-level", "--quality"),
+    ("--webp-level", "--speed"),
+];
+
+/// Refuse the first pair of [`EXCLUSIVE_FLAGS`] that `options` contains,
+/// before any flag is applied.
+fn refuse_exclusive_flags(options: &[String]) -> Result<(), Box<dyn Error>> {
+    let given = |flag: &str| options.iter().any(|option| flag_name(option) == flag);
+    match EXCLUSIVE_FLAGS
+        .iter()
+        .find(|(first, second)| given(first) && given(second))
+    {
+        Some((first, second)) => Err(format!("{first} and {second} are mutually exclusive").into()),
+        None => Ok(()),
+    }
+}
+
 /// True when `--version` or `-V` appears after the program name. It takes
 /// precedence over every other argument, and no input is read.
 fn is_version_request(args: &[String]) -> bool {
@@ -245,7 +276,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--avif-depth=8|10 (default 10)] [--quality=75 (AVIF: libavif's 0-100)] [--speed=6 (AVIF: AOM cpu-used 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--avif-depth=8|10 (default 10)] [--quality=75 (AVIF: libavif's 0-100)] [--speed=6 (AVIF: AOM cpu-used 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --quality or --speed."
         );
         return Ok(ExitCode::from(2));
     }
@@ -266,37 +297,22 @@ pub fn run(
         output_height: args[4].parse()?,
         ..TransformOptions::default()
     };
-    if output_extension == Some("webp")
-        && args
-            .iter()
-            .skip(5)
-            .any(|arg| arg == "--webp-lossless" || arg.starts_with("--webp-level="))
-        && args
-            .iter()
-            .skip(5)
-            .any(|arg| arg.starts_with("--quality=") || arg.starts_with("--speed="))
-    {
-        return Err(
-            "--quality and --speed are unsupported for lossless WebP; use --webp-level".into(),
-        );
-    }
-    if args.iter().skip(5).any(|arg| arg == "--jxl-lossless")
-        && args
-            .iter()
-            .skip(5)
-            .any(|arg| arg.starts_with("--jxl-distance="))
-    {
-        return Err("--jxl-distance and --jxl-lossless are mutually exclusive".into());
-    }
+    refuse_exclusive_flags(&args[5..])?;
     let mut avif_depth = None;
+    let mut given: Vec<&str> = Vec::new();
     for option in args.iter().skip(5) {
         if let Some(value) = option.strip_prefix("--avif-depth=") {
-            if avif_depth.replace(value.parse::<u8>()?).is_some() {
-                return Err("--avif-depth may only be set once".into());
-            }
+            avif_depth = Some(value.parse::<u8>()?);
         } else {
             apply_option(&mut options, option)?;
         }
+        // Owner decision of 2026-11-15 (ADR-0042): a repeated flag is an
+        // error, never "the last one wins".
+        let name = flag_name(option);
+        if given.contains(&name) {
+            return Err(format!("{name} may only be given once").into());
+        }
+        given.push(name);
     }
     if let Some(depth) = avif_depth {
         if backend.is_some() {
@@ -542,7 +558,93 @@ mod tests {
         .map(String::from)
         .to_vec();
         let error = super::run(&args, None).unwrap_err();
-        assert!(error.to_string().contains("mutually exclusive"), "{error}");
+        assert_eq!(
+            error.to_string(),
+            "--jxl-lossless and --jxl-distance are mutually exclusive"
+        );
+    }
+
+    /// Owner decision of 2026-11-15: every flag may be given once, and a
+    /// pair of contradictory flags is refused with both names, before any
+    /// input is read (the input file does not exist).
+    #[test]
+    fn refuses_repeated_and_contradictory_flags_before_reading_input() {
+        let run = |output: &str, flags: &[&str]| {
+            let mut args: Vec<String> = ["ferrisma", "missing.jpg", output, "8", "8"]
+                .map(String::from)
+                .to_vec();
+            args.extend(flags.iter().map(|flag| (*flag).to_owned()));
+            super::run(&args, None).unwrap_err().to_string()
+        };
+        for (output, flags, message) in [
+            (
+                "out.webp",
+                &["--transform-threads=4", "--transform-threads=1"][..],
+                "--transform-threads may only be given once",
+            ),
+            (
+                "out.webp",
+                &["--transform-threads=1", "--transform-threads=1"],
+                "--transform-threads may only be given once",
+            ),
+            (
+                "out.avif",
+                &["--quality=50", "--quality=60"],
+                "--quality may only be given once",
+            ),
+            (
+                "out.avif",
+                &["--avif-depth=8", "--avif-depth=10"],
+                "--avif-depth may only be given once",
+            ),
+            (
+                "out.avif",
+                &["--kernel-level=scalar", "--kernel-level=neon"],
+                "--kernel-level may only be given once",
+            ),
+            (
+                "out.avif",
+                &["--area", "--area"],
+                "--area may only be given once",
+            ),
+            (
+                "out.webp",
+                &["--webp-lossless", "--webp-lossless"],
+                "--webp-lossless may only be given once",
+            ),
+            (
+                "out.webp",
+                &["--crop=0,0,4,4", "--crop=1,1,4,4"],
+                "--crop may only be given once",
+            ),
+            (
+                "out.webp",
+                &["--use-rendered-icc", "--assume-srgb"],
+                "--assume-srgb and --use-rendered-icc are mutually exclusive",
+            ),
+            (
+                "out.webp",
+                &["--webp-level=6", "--quality=80"],
+                "--webp-level and --quality are mutually exclusive",
+            ),
+            (
+                "out.webp",
+                &["--speed=4", "--webp-lossless"],
+                "--webp-lossless and --speed are mutually exclusive",
+            ),
+            (
+                "out.jxl",
+                &["--jxl-distance=1.5", "--jxl-lossless"],
+                "--jxl-lossless and --jxl-distance are mutually exclusive",
+            ),
+        ] {
+            assert_eq!(run(output, flags), message, "{flags:?}");
+        }
+        // An unknown flag stays unknown, even when repeated.
+        assert!(
+            run("out.webp", &["--fast", "--fast"]).starts_with("unknown option: --fast"),
+            "repeated unknown flag"
+        );
     }
 
     /// The `report:` line names both backends (issue #217), the color

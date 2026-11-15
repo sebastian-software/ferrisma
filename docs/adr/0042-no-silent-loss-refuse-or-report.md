@@ -181,9 +181,7 @@ first column of counts is the state of `main`.
    identical bytes; `transcode_batch` accepts thread counts that `transcode`
    rejects. Should an accepted option that has no effect be rejected,
    reported, or documented as an alias?
-2. **Repeated CLI flags.** The last value wins silently. Refusing a repeated
-   flag would break scripts that rely on it.
-3. **A strict mode.** Should there be an option that turns every D2 report
+2. **A strict mode.** Should there be an option that turns every D2 report
    into a refusal, for callers that must not lose metadata?
 
 ### Decided since 2026-11-15
@@ -198,6 +196,10 @@ first column of counts is the state of `main`.
   decided applications). Both readers convert with their original's own
   step and the report names it (`Discarded::Unpremultiplied`); the two
   steps' arithmetic differs and is written into the supported matrix.
+- **Repeated CLI flags** (formerly the open question of that name):
+  refused; owner decision of 2026-11-15 ("everything else is mostly a silent error"). A
+  flag given twice, or a pair of mutually exclusive flags, is an error
+  naming the flags, before any input is read (`src/cli.rs`; inventory Q7).
 
 ## Review when
 
@@ -225,3 +227,6 @@ first column of counts is the state of `main`.
   is removed (ADR-0032, owner decision), so JPEG XL has one reader; the
   state paragraph under Validation and the inventory (X6 to X9 and Q3
   resolved by removal) are updated. No decision changed.
+- 2026-11-15 — Open question on repeated CLI flags decided by the owner:
+  a repeated or contradictory flag is an error; implemented on `v1/engine-options` and moved to "Decided since
+  2026-11-15", the remaining questions renumbered.

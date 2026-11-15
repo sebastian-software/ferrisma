@@ -116,6 +116,11 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   (1,048,576 bytes); `--max-input-mpx` counts millions of pixels (10^6).
 - Exit status 0 means success; 2 means too few arguments (usage is printed);
   1 means any other error, with `Error: …` on standard error.
+- Every flag may be given once, and contradictory flags are refused with
+  both names (`--assume-srgb` with `--use-rendered-icc`, `--jxl-lossless`
+  with `--jxl-distance=`, `--webp-lossless` or `--webp-level=` with
+  lossy-only settings); neither takes precedence (owner decision of
+  2026-11-15). Until then the last value of a repeated flag won silently.
 - `--version` or `-V`, anywhere after the program name, prints four lines
   (package version, target, compiled engine features, build identity) and
   exits 0 without reading input (since 2026-11-13, #237). ADR-0040 does not

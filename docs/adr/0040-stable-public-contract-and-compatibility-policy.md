@@ -102,6 +102,7 @@ binary's command line, not this function, is the stable CLI contract.
 | `--reference`, `--kernel-level=scalar\|neon\|avx2\|avx512` | Experimental (verification and diagnostics) |
 | `.jxl` output, `--jxl-distance=`, `--jxl-lossless` (ADR-0039) | Experimental |
 | Exit status 0 success, 2 usage (fewer than four positional arguments), 1 any other error (Rust's default `Error: …` on stderr) | Stable |
+| Each flag at most once; mutually exclusive pairs refused with both names (owner decision 2026-11-15) | Stable |
 | `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, and `decoder` (appended 2026-11-14, #217) |
 | Human-readable `Encoded …`, `Timings: …` lines and the stderr memory note | Not stable |
 
@@ -374,3 +375,11 @@ reports that a stable item cannot express its use case.
   nightly, so it moves to the experimental tier until it builds on stable
   (working decisions 2026-11-15, delegated, revisable by the owner). A
   stable-toolchain consumer of the old `avif-write` loses AVIF output.
+- 2026-11-15 — Owner decision on repeated and contradictory command-line
+  flags (ADR-0042): every flag may be given once, and a pair of mutually
+  exclusive flags (`--assume-srgb`/`--use-rendered-icc`,
+  `--jxl-lossless`/`--jxl-distance=`, `--webp-lossless` or `--webp-level=`
+  with lossy-only settings) is refused with both names, exit status 1,
+  before any input is read. A script that relied on "the last one wins"
+  breaks; the old result was a silent choice between two instructions.
+  Added to the command-line inventory as stable.

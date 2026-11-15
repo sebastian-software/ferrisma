@@ -30,9 +30,9 @@ compositing JPEG XL layers into the displayed image).
 
 | Class | Items | Inputs (J, W, X, V) | Outputs (O) | Pipeline (P) | Options (Q) |
 | --- | --- | --- | --- | --- | --- |
-| A | 25 → 6 | 20 → 3 | 2 → 1 | 1 → 0 | 2 |
+| A | 25 → 6 → 5 | 20 → 3 | 2 → 1 | 1 → 0 | 2 → 1 |
 | B | 29 → 13 → 12 | 12 → 3 | 8 → 4 → 3 | 6 → 3 | 3 |
-| C | 21 → 55 → 50 | 15 → 41 → 37 | 0 → 5 | 2 → 5 | 4 → 3 |
+| C | 21 → 55 → 50 → 51 | 15 → 41 → 37 | 0 → 5 | 2 → 5 | 4 → 3 → 4 |
 | D | 11 | 8 | 3 | 0 | 0 |
 | resolved by decision | 0 → 1 | 0 | 0 | 0 → 1 | 0 |
 | resolved by removal | 0 → 6 | 0 → 4 | 0 → 1 | 0 | 0 → 1 |
@@ -40,15 +40,18 @@ compositing JPEG XL layers into the displayed image).
 The first number is the state of the audit (`main` at `64284177`), the
 second the state after branch `v1/engine-discarded` (2026-11-15), a third
 the state after branch `v1/remove-alt-backends` (2026-11-15, see
-[removal of the alternative backends](#update-removal-of-the-alternative-backends-2026-11-15)): the
+[removal of the alternative backends](#update-removal-of-the-alternative-backends-2026-11-15)), a
+fourth the state after branch `v1/engine-options` (2026-11-15, see
+[options and the command line](#update-options-and-the-command-line-2026-11-15)): the
 refusals of ADR-0042 D1 and D4 (V4, X6 to X9) and the report of D2,
 `ProcessingReport::discarded` with its CLI key `discarded=`, moved 48
 items to (C); each row says what reports or refuses it and which test of
 `tests/discarded_report.rs` or `tests/silent_drops.rs` proves it. Still
 open under ADR-0042 D6: the remaining (A) items (J10 XMP-only
 orientation, X12 `intrinsic_size`, V8 the `sato` alternative, and the
-owner's open questions O8, Q5, Q7; P4, the rendering intent, was resolved
-by the owner's decision of 2026-11-15) and the (B)
+owner's open questions O8, Q5; P4, the rendering intent, was resolved
+by the owner's decision of 2026-11-15, and Q7, repeated flags, by the
+owner's decision of the same day, which `v1/engine-options` implements) and the (B)
 items that are documented but not reported. Of these, out-of-gamut
 clipping (P2, P3) cannot be detected cheaply and exactly: a value outside
 [0, 1] at quantization may be resampling overshoot as well as gamut, and
@@ -193,7 +196,7 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | Q4 | `kernel_level_ceiling`, `transform_threads` with `F64Reference` | ignored; the report says `Scalar`/`Ceiling` and 1 thread | `run` | rustdoc of `ProcessingReport` | `pipeline_tests` | C |
 | Q5 | Thread counts in `Engine::transcode_batch` | replaced with 1 (reported); values above 256, which `transcode` refuses, are accepted and discarded | `batch` | `BatchItem::options` ("overrides … with 1"); the acceptance of invalid values is not | `silent_drops::batch_accepts_thread_counts_that_transcode_rejects_today` | A |
 | Q6 | `Engine::new` above 256 | capped, `threads()` reports it | `Engine::new` | rustdoc | — | C |
-| Q7 | Repeated or contradictory CLI flags (`--assume-srgb` after `--use-rendered-icc`, two `--transform-threads=` (two `--jxl-decoder=` until that flag was removed on 2026-11-15), two `--quality=`) | the last one wins silently; only `--avif-encoder`/`--avif-depth` are refused when repeated | `src/cli.rs` `apply_option` | no | `silent_drops::cli_later_flags_silently_replace_earlier_ones_today` | A |
+| Q7 | Repeated or contradictory CLI flags (`--assume-srgb` after `--use-rendered-icc`, two `--transform-threads=` (two `--jxl-decoder=` until that flag was removed on 2026-11-15), two `--quality=`) | the last one wins silently; only `--avif-encoder`/`--avif-depth` are refused when repeated. **Since `v1/engine-options` (owner decision of 2026-11-15): refused before any input is read: a repeated flag is "--… may only be given once", a pair of mutually exclusive flags (`--assume-srgb`/`--use-rendered-icc`, `--jxl-lossless`/`--jxl-distance=`, lossless WebP with lossy-only settings) names both flags; exit status 1** | `src/cli.rs` `run` (`refuse_exclusive_flags`, the repetition check) | usage text, compatibility guide | `silent_drops::cli_refuses_repeated_and_contradictory_flags`, `cli::tests::refuses_repeated_and_contradictory_flags_before_reading_input` | C |
 | Q8 | `--version` with other arguments | prints the version, ignores the rest | `is_version_request` | compatibility guide | `cli::tests` | B |
 | Q9 | Mismatched encoder settings (`quality` with WebP or JPEG XL, `webp` with AVIF, `--chroma` with WebP) | refused before decoding | `run`, `cli.rs` | matrix | `supported_matrix::avif_settings_with_webp_output_are_mismatched_options`, `jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding` | C |
 
@@ -273,6 +276,20 @@ its test in `tests/format_parity.rs`:
   `nclx` beside a profile, refused before, are converted through the
   profile. The `nclx` primaries and transfer are superseded, not dropped
   information; they are named in the matrix and not reported.
+
+## Update: options and the command line (2026-11-15)
+
+The owner decided on 2026-11-15 how options without effect and the command
+line behave (ADR-0042, open questions on options, repeated flags and a
+strict mode). Branch `v1/engine-options` implements them:
+
+- Q7: a repeated command-line flag, and a pair of contradictory flags, are
+  errors that name the flags; nothing is "last one wins" any more. The
+  former `_today` test is now `cli_refuses_repeated_and_contradictory_flags`.
+- No strict mode: no option turns `ProcessingReport::discarded` into a
+  refusal; a caller or script checks the report. The CLI's `report:` line
+  ends with `discarded=none` when nothing was left out
+  (`cli::tests::report_line_names_the_decoder_and_encoder_backends`).
 
 ## Part 2: proposal (not implemented; the owner decides)
 

@@ -568,6 +568,8 @@ Rejected, with the error the CLI prints (exit status 1):
 | `ferrisma colors_hdr_rec2020.avif …` (PQ) | `UnsupportedColor` (`HdrTransfer`) | tone-map to SDR elsewhere; HDR is out of scope |
 | `ferrisma photo.jpg out.avif … --quality=101` | `InvalidOptions` | libavif's scale is 0–100 |
 | `ferrisma photo.jpg out.webp … --avif-depth=8` | "--avif-depth requires .avif output" | drop AVIF flags for WebP |
+| `ferrisma photo.jpg out.webp … --transform-threads=4 --transform-threads=1` | "--transform-threads may only be given once" (every flag; owner decision of 2026-11-15) | give each flag once |
+| `ferrisma photo.jpg out.webp … --use-rendered-icc --assume-srgb` | "--assume-srgb and --use-rendered-icc are mutually exclusive" (likewise `--jxl-lossless`/`--jxl-distance=`, lossless WebP with lossy-only settings) | choose one |
 | `ferrisma photo.jpg out.avif … --avif-encoder=rav1e` | "unknown option: --avif-encoder=rav1e" (removed 2026-11-15) | drop the flag; libavif is the only AVIF writer |
 | `ferrisma photo.jpg out.jxl … --quality=80` | "--quality is unsupported for JPEG XL; use --jxl-distance or --jxl-lossless" | use `--jxl-distance` (lossy) or `--jxl-lossless` |
 | `ferrisma photo.jpg out.png …` | "output must have a .avif, .webp or .jxl extension" | choose a supported output |

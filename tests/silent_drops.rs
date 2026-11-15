@@ -546,44 +546,69 @@ fn truncated_avif_is_malformed() {
 // ---------------------------------------------------------------------------
 // The command line.
 
-/// The CLI applies flags in order and a later flag of the same kind
-/// silently replaces an earlier one (`--avif-encoder` and `--avif-depth`
-/// are the only flags refused when repeated). Contradictory instructions
-/// such as `--use-rendered-icc --assume-srgb` or two `--transform-threads=`
-/// values therefore succeed with the last one. Not an endorsement.
+/// Until 2026-11-15 the CLI applied flags in order and a later flag of the
+/// same kind silently replaced an earlier one (only `--avif-depth` was
+/// refused when repeated), so `--use-rendered-icc --assume-srgb` or two
+/// `--transform-threads=` values succeeded with the last one (audit row
+/// Q7). Owner decision of 2026-11-15 (ADR-0042): a repeated flag and a
+/// pair of contradictory flags are errors that name the flags, before any
+/// input is read; the binary exits with status 1.
 #[cfg(feature = "cli")]
 #[test]
-fn cli_later_flags_silently_replace_earlier_ones_today() {
+fn cli_refuses_repeated_and_contradictory_flags() {
     let dir = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
     let out = dir.join(format!("silent-drops-{}.webp", std::process::id()));
     let run = |input: &str, flags: &[&str]| {
-        let result = std::process::Command::new(env!("CARGO_BIN_EXE_ferrisma"))
+        std::process::Command::new(env!("CARGO_BIN_EXE_ferrisma"))
             .arg(format!("{ROOT}/{input}"))
             .arg(&out)
             .args(["6", "4"])
             .args(flags)
             .output()
-            .unwrap();
-        assert!(
-            result.status.success(),
-            "{flags:?}: {}",
-            String::from_utf8_lossy(&result.stderr)
-        );
-        String::from_utf8(result.stdout).unwrap()
+            .unwrap()
     };
-    let report = run(
+    for (input, flags, message) in [
+        (
+            "tests/fixtures/sample.jxl",
+            &[
+                "--use-rendered-icc",
+                "--transform-threads=4",
+                "--transform-threads=1",
+            ][..],
+            "--transform-threads may only be given once",
+        ),
+        (
+            "tests/fixtures/sample.jpg",
+            &["--use-rendered-icc", "--assume-srgb"],
+            "--assume-srgb and --use-rendered-icc are mutually exclusive",
+        ),
+    ] {
+        let result = run(input, flags);
+        assert_eq!(result.status.code(), Some(1), "{flags:?}");
+        let stderr = String::from_utf8_lossy(&result.stderr);
+        // `main` returns the error: Rust prints `Error: ` and its `Debug`.
+        assert!(
+            stderr.starts_with(&format!("Error: {message:?}")),
+            "{flags:?}: {stderr}"
+        );
+        assert!(
+            result.stdout.is_empty(),
+            "{flags:?}: nothing was transcoded"
+        );
+    }
+    // Each flag once still works.
+    let result = run(
         "tests/fixtures/sample.jxl",
-        &[
-            "--use-rendered-icc",
-            "--transform-threads=4",
-            "--transform-threads=1",
-        ],
+        &["--use-rendered-icc", "--transform-threads=1"],
     );
-    assert!(report.contains(" transform_threads=1 "), "{report}");
-    let report = run(
-        "tests/fixtures/sample.jpg",
-        &["--use-rendered-icc", "--assume-srgb"],
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
     );
-    assert!(report.contains("color_signal=AssumedSrgb"), "{report}");
+    assert!(
+        String::from_utf8_lossy(&result.stdout).contains(" transform_threads=1 "),
+        "one flag each"
+    );
     let _ = std::fs::remove_file(out);
 }
