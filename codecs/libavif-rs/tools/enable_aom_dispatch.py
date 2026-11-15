@@ -25,7 +25,6 @@ describes this tool.
 import hashlib
 import json
 import re
-import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -48,12 +47,14 @@ EXPECT = '.expect("non-null function pointer")'
 
 
 def update_overlay():
+    """Add NAMES to the overlay; return its previous text."""
     text = OVERLAY.read_text()
     table = 'ported_x86' if LINUX else 'ported_neon'
     m = re.search(r'(my %' + table + r' = map \{ \$_ => 1 \} qw/\n)(.*?)(/;\n)', text, re.S)
     names = set(m.group(2).split()) | set(NAMES)
     body = ''.join(f'  {n}\n' for n in sorted(names))
     OVERLAY.write_text(text[:m.start(2)] + body + text[m.end(2):])
+    return text
 
 
 def split_top(s):
@@ -342,8 +343,27 @@ def main():
     if NAMES == ['--rehash']:
         rehash()
         return
-    update_overlay()
+    # The header generator reads the overlay from disk, so it is updated first
+    # and restored if anything fails; every other file is written only after
+    # both profiles were edited without error.
+    overlay_before = update_overlay()
     report = []
+    try:
+        pending = plan(report)
+    except BaseException:
+        OVERLAY.write_text(overlay_before)
+        raise
+    for path, content in pending.items():
+        if isinstance(content, bytes):
+            path.write_bytes(content)
+        else:
+            path.write_text(content)
+    print('\n'.join(report))
+
+
+def plan(report):
+    """The new content of every file the dispatch changes, by path."""
+    pending = {}
     functions = NAMES
     if LINUX:
         functions = []
@@ -359,7 +379,7 @@ def main():
             dispatch = transpile_aom.dispatch_headers(PLATFORM, ref, Path(tmp))
             headers = {n: (Path(tmp) / n).read_text() for n in dispatch['headers']}
             for n in dispatch['headers']:
-                shutil.copy(Path(tmp) / n, ref / 'dispatch' / n)
+                pending[ref / 'dispatch' / n] = (Path(tmp) / n).read_bytes()
         manifest['rtcd_dispatch'] = dispatch
         units = {u['rust']: u for u in manifest['units']}
         texts = {r: (ROOT / r).read_text() for r in units}
@@ -392,13 +412,13 @@ def main():
                 texts[rel] = edit_caller(texts[rel], csource, name, params, ret, report, f'{profile}:{rel}')
         for rel, unit in units.items():
             if texts[rel] != original[rel]:
-                (ROOT / rel).write_text(texts[rel])
+                pending[ROOT / rel] = texts[rel]
                 unit['rust_sha256'] = hashlib.sha256(texts[rel].encode()).hexdigest()
                 if 'production_rust_sha256' in unit:
                     production = texts[rel].split('\n#[cfg(feature = "port-test-bridges")]', 1)[0]
                     unit['production_rust_sha256'] = hashlib.sha256(production.encode()).hexdigest()
-        manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
-    print('\n'.join(report))
+        pending[manifest_path] = json.dumps(manifest, indent=2) + '\n'
+    return pending
 
 
 if __name__ == '__main__':
