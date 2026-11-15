@@ -1574,3 +1574,8 @@ mod modular_image;
 #[path = "parity/encoder_step1.rs"]
 mod encoder_step1;
 // end encoder step 1
+
+// encoder step 1: checkpoint fixtures of LossyFrameHeuristics (#118).
+#[path = "parity/encoder_step1_checkpoints.rs"]
+mod encoder_step1_checkpoints;
+// end encoder step 1

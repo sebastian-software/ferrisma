@@ -48,6 +48,7 @@ use super::enc_ans_params::{HistogramParams, LZ77Method};
 use super::enc_aux_out::LayerType;
 use super::enc_bit_writer::BitWriter;
 use super::enc_cache::{PassesEncoderState, compute_ac_metadata, initialize_passes_encoder};
+use super::enc_checkpoints::{Checkpoint, observe};
 use super::enc_chroma_from_luma::color_correlation_encode_dc;
 use super::enc_coeff_order::{compute_coeff_order, compute_used_orders, encode_coeff_orders};
 use super::enc_context_map::CLUSTERS_LIMIT;
@@ -630,6 +631,12 @@ fn compute_var_dct_encoding_data(
     )?;
 
     lossy_frame_heuristics(frame_header, enc_state, linear, opsin, rect)?;
+    observe(
+        Checkpoint::LossyFrameHeuristics,
+        frame_header,
+        enc_state,
+        opsin,
+    );
 
     match initialize_passes_encoder(frame_header, opsin, rect, enc_state, enc_modular) {
         // The recursive DC frame of InitializePassesEncoder is step 9.
@@ -638,8 +645,20 @@ fn compute_var_dct_encoding_data(
         }
         result => result?,
     }
+    observe(
+        Checkpoint::InitializePassesEncoder,
+        frame_header,
+        enc_state,
+        opsin,
+    );
 
     compute_ar_heuristics_entry(frame_header, enc_state, &orig_opsin, rect)?;
+    observe(
+        Checkpoint::ArHeuristics,
+        frame_header,
+        enc_state,
+        &orig_opsin,
+    );
 
     compute_ac_metadata(enc_state, enc_modular)?;
     Ok(())

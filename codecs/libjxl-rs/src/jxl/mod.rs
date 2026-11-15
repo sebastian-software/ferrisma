@@ -154,3 +154,7 @@ pub mod enc_xyb_simd;
 // "Encoder path").
 pub mod enc_ac_strategy_simd;
 // end encoder acs
+// encoder step 1: read-only checkpoint observation of the frame encoder
+// (#118, tests/parity/encoder_step1_checkpoints.rs).
+pub mod enc_checkpoints;
+// end encoder step 1
