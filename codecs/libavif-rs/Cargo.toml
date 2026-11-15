@@ -17,7 +17,7 @@ name = "avif"
 crate-type = ["staticlib", "rlib", "cdylib"]
 
 [dependencies]
-libc = "=0.2.191"
+libc = "0.2.191"
 libavif-sharpyuv = { path = "crates/sharpyuv", version = "0.1.0" }
 libavif-dav1d = { path = "crates/dav1d", version = "0.1.0" }
 libavif-aom = { path = "crates/aom", version = "0.1.0" }
