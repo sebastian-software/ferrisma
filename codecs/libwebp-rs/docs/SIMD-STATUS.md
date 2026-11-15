@@ -75,7 +75,10 @@ the scalar, `avx2`, `sse41` and `sse2` modes pass in the dev, release and
 checked profiles, 4,488 tests passed, 0 failed. This replaces the earlier
 partial record (interrupted scalar mode, `wp5_cpu` failures before
 `simd_level_sharpyuv.c`). Rosetta 2 does not fault on misaligned SSE loads,
-so this result could not show #252 (below).
+so this result could not show #252 (below). On `9fcc9d16` (branch `v1/webp-hotspots`, 2026-11-15, after the
+#226 and #77 changes) the complete gate under Rosetta 2 passed again:
+scalar 1,107 and `avx2`, `sse41` and `sse2` 1,131 each, 4,500 passed,
+0 failed; the SIMD counts per level equal the hosted run's below.
 
 Native Linux x86-64: hosted run
 [43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624)
