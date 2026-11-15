@@ -1,12 +1,25 @@
 // Supplementary transcription of upstream/aom/test/intrapred_test.cc
 // (LowbdIntraPredTest.Bitexact, NEON instantiation
 // LowbdIntraPredTestVectorNeon) for the 8-bit predictors of
-// aom_dsp/arm/intrapred_neon.c. Seed, iteration count (count_test_block =
+// aom_dsp/arm/intrapred_neon.c and, on x86-64, the SSE2, SSSE3 and AVX2
+// instantiations (LowbdIntraPredTestVector, LowbdIntraPredTestVectorSsse3 and
+// LowbdIntraPredTestVectorAvx2) for aom_dsp/x86/intrapred_sse2.c,
+// intrapred_ssse3.c and intrapred_avx2.c. The 24 SSE2 entries whose
+// specialization exists only in aom_dsp/x86/intrapred_asm_sse2.asm (DC, DC_TOP,
+// DC_LEFT, DC_128, V and H at 4x4, 8x8, 16x16 and 32x32) are not transcribed:
+// the port keeps them on `_c` (working decision O4, 2026-11-13, delegated,
+// revisable by the owner). Seed, iteration count (count_test_block =
 // 100000), buffer layout (above_data + 16, stride 3 * width), edge fill
 // (saturated first, then Rand16() & mask), bit depth (8), and the exact-match
 // check follow the original. DISABLED_Speed is not transcribed.
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+#[cfg(target_arch = "aarch64")]
 use aom::simd::aom_dsp__arm__intrapred_neon::*;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::{
+    aom_dsp__x86__intrapred_avx2::*, aom_dsp__x86__intrapred_sse2::*,
+    aom_dsp__x86__intrapred_ssse3::*,
+};
 
 use super::acm_random::ACMRandom;
 
@@ -279,6 +292,7 @@ macro_rules! lowbd_entry {
 }
 
 /// lowbd_intrapred(dc, neon) of LowbdIntraPredTestVectorNeon.
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_intra_pred_dc_neon_bitexact() {
     run_all(&[
@@ -305,6 +319,7 @@ fn lowbd_intra_pred_dc_neon_bitexact() {
 }
 
 /// lowbd_intrapred(dc_top, neon) of LowbdIntraPredTestVectorNeon.
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_intra_pred_dc_top_neon_bitexact() {
     run_all(&[
@@ -331,6 +346,7 @@ fn lowbd_intra_pred_dc_top_neon_bitexact() {
 }
 
 /// lowbd_intrapred(dc_left, neon) of LowbdIntraPredTestVectorNeon.
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_intra_pred_dc_left_neon_bitexact() {
     run_all(&[
@@ -357,6 +373,7 @@ fn lowbd_intra_pred_dc_left_neon_bitexact() {
 }
 
 /// lowbd_intrapred(dc_128, neon) of LowbdIntraPredTestVectorNeon.
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_intra_pred_dc_128_neon_bitexact() {
     run_all(&[
@@ -383,6 +400,7 @@ fn lowbd_intra_pred_dc_128_neon_bitexact() {
 }
 
 /// lowbd_intrapred(v, neon) of LowbdIntraPredTestVectorNeon.
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_intra_pred_v_neon_bitexact() {
     run_all(&[
@@ -409,6 +427,7 @@ fn lowbd_intra_pred_v_neon_bitexact() {
 }
 
 /// lowbd_intrapred(h, neon) of LowbdIntraPredTestVectorNeon.
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_intra_pred_h_neon_bitexact() {
     run_all(&[
@@ -435,6 +454,7 @@ fn lowbd_intra_pred_h_neon_bitexact() {
 }
 
 /// lowbd_intrapred(smooth, neon) of LowbdIntraPredTestVectorNeon.
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_intra_pred_smooth_neon_bitexact() {
     run_all(&[
@@ -461,6 +481,7 @@ fn lowbd_intra_pred_smooth_neon_bitexact() {
 }
 
 /// lowbd_intrapred(smooth_v, neon) of LowbdIntraPredTestVectorNeon.
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_intra_pred_smooth_v_neon_bitexact() {
     run_all(&[
@@ -487,6 +508,7 @@ fn lowbd_intra_pred_smooth_v_neon_bitexact() {
 }
 
 /// lowbd_intrapred(smooth_h, neon) of LowbdIntraPredTestVectorNeon.
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_intra_pred_smooth_h_neon_bitexact() {
     run_all(&[
@@ -513,6 +535,7 @@ fn lowbd_intra_pred_smooth_h_neon_bitexact() {
 }
 
 /// lowbd_intrapred(paeth, neon) of LowbdIntraPredTestVectorNeon.
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn lowbd_intra_pred_paeth_neon_bitexact() {
     run_all(&[
@@ -535,5 +558,243 @@ fn lowbd_intra_pred_paeth_neon_bitexact() {
         lowbd_entry!(aom_paeth_predictor_64x16_neon, aom_paeth_predictor_64x16_c, 64, 16),
         lowbd_entry!(aom_paeth_predictor_64x32_neon, aom_paeth_predictor_64x32_c, 64, 32),
         lowbd_entry!(aom_paeth_predictor_64x64_neon, aom_paeth_predictor_64x64_c, 64, 64),
+    ]);
+}
+
+/// INSTANTIATE_TEST_SUITE_P(SSE2, LowbdIntraPredTest, LowbdIntraPredTestVector).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn lowbd_intra_pred_sse2_bitexact() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    run_all(&[
+        lowbd_entry!(aom_dc_predictor_4x8_sse2, aom_dc_predictor_4x8_c, 4, 8),
+        lowbd_entry!(aom_dc_predictor_4x16_sse2, aom_dc_predictor_4x16_c, 4, 16),
+        lowbd_entry!(aom_dc_predictor_8x4_sse2, aom_dc_predictor_8x4_c, 8, 4),
+        lowbd_entry!(aom_dc_predictor_8x16_sse2, aom_dc_predictor_8x16_c, 8, 16),
+        lowbd_entry!(aom_dc_predictor_8x32_sse2, aom_dc_predictor_8x32_c, 8, 32),
+        lowbd_entry!(aom_dc_predictor_16x4_sse2, aom_dc_predictor_16x4_c, 16, 4),
+        lowbd_entry!(aom_dc_predictor_16x8_sse2, aom_dc_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_dc_predictor_16x32_sse2, aom_dc_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_dc_predictor_16x64_sse2, aom_dc_predictor_16x64_c, 16, 64),
+        lowbd_entry!(aom_dc_predictor_32x8_sse2, aom_dc_predictor_32x8_c, 32, 8),
+        lowbd_entry!(aom_dc_predictor_32x16_sse2, aom_dc_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_dc_predictor_32x64_sse2, aom_dc_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_dc_predictor_64x16_sse2, aom_dc_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_dc_predictor_64x32_sse2, aom_dc_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_dc_predictor_64x64_sse2, aom_dc_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_dc_top_predictor_4x8_sse2, aom_dc_top_predictor_4x8_c, 4, 8),
+        lowbd_entry!(aom_dc_top_predictor_4x16_sse2, aom_dc_top_predictor_4x16_c, 4, 16),
+        lowbd_entry!(aom_dc_top_predictor_8x4_sse2, aom_dc_top_predictor_8x4_c, 8, 4),
+        lowbd_entry!(aom_dc_top_predictor_8x16_sse2, aom_dc_top_predictor_8x16_c, 8, 16),
+        lowbd_entry!(aom_dc_top_predictor_8x32_sse2, aom_dc_top_predictor_8x32_c, 8, 32),
+        lowbd_entry!(aom_dc_top_predictor_16x4_sse2, aom_dc_top_predictor_16x4_c, 16, 4),
+        lowbd_entry!(aom_dc_top_predictor_16x8_sse2, aom_dc_top_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_dc_top_predictor_16x32_sse2, aom_dc_top_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_dc_top_predictor_16x64_sse2, aom_dc_top_predictor_16x64_c, 16, 64),
+        lowbd_entry!(aom_dc_top_predictor_32x8_sse2, aom_dc_top_predictor_32x8_c, 32, 8),
+        lowbd_entry!(aom_dc_top_predictor_32x16_sse2, aom_dc_top_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_dc_top_predictor_32x64_sse2, aom_dc_top_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_dc_top_predictor_64x16_sse2, aom_dc_top_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_dc_top_predictor_64x32_sse2, aom_dc_top_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_dc_top_predictor_64x64_sse2, aom_dc_top_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_dc_left_predictor_4x8_sse2, aom_dc_left_predictor_4x8_c, 4, 8),
+        lowbd_entry!(aom_dc_left_predictor_4x16_sse2, aom_dc_left_predictor_4x16_c, 4, 16),
+        lowbd_entry!(aom_dc_left_predictor_8x4_sse2, aom_dc_left_predictor_8x4_c, 8, 4),
+        lowbd_entry!(aom_dc_left_predictor_8x16_sse2, aom_dc_left_predictor_8x16_c, 8, 16),
+        lowbd_entry!(aom_dc_left_predictor_8x32_sse2, aom_dc_left_predictor_8x32_c, 8, 32),
+        lowbd_entry!(aom_dc_left_predictor_16x4_sse2, aom_dc_left_predictor_16x4_c, 16, 4),
+        lowbd_entry!(aom_dc_left_predictor_16x8_sse2, aom_dc_left_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_dc_left_predictor_16x32_sse2, aom_dc_left_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_dc_left_predictor_16x64_sse2, aom_dc_left_predictor_16x64_c, 16, 64),
+        lowbd_entry!(aom_dc_left_predictor_32x8_sse2, aom_dc_left_predictor_32x8_c, 32, 8),
+        lowbd_entry!(aom_dc_left_predictor_32x16_sse2, aom_dc_left_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_dc_left_predictor_32x64_sse2, aom_dc_left_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_dc_left_predictor_64x16_sse2, aom_dc_left_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_dc_left_predictor_64x32_sse2, aom_dc_left_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_dc_left_predictor_64x64_sse2, aom_dc_left_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_dc_128_predictor_4x8_sse2, aom_dc_128_predictor_4x8_c, 4, 8),
+        lowbd_entry!(aom_dc_128_predictor_4x16_sse2, aom_dc_128_predictor_4x16_c, 4, 16),
+        lowbd_entry!(aom_dc_128_predictor_8x4_sse2, aom_dc_128_predictor_8x4_c, 8, 4),
+        lowbd_entry!(aom_dc_128_predictor_8x16_sse2, aom_dc_128_predictor_8x16_c, 8, 16),
+        lowbd_entry!(aom_dc_128_predictor_8x32_sse2, aom_dc_128_predictor_8x32_c, 8, 32),
+        lowbd_entry!(aom_dc_128_predictor_16x4_sse2, aom_dc_128_predictor_16x4_c, 16, 4),
+        lowbd_entry!(aom_dc_128_predictor_16x8_sse2, aom_dc_128_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_dc_128_predictor_16x32_sse2, aom_dc_128_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_dc_128_predictor_16x64_sse2, aom_dc_128_predictor_16x64_c, 16, 64),
+        lowbd_entry!(aom_dc_128_predictor_32x8_sse2, aom_dc_128_predictor_32x8_c, 32, 8),
+        lowbd_entry!(aom_dc_128_predictor_32x16_sse2, aom_dc_128_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_dc_128_predictor_32x64_sse2, aom_dc_128_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_dc_128_predictor_64x16_sse2, aom_dc_128_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_dc_128_predictor_64x32_sse2, aom_dc_128_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_dc_128_predictor_64x64_sse2, aom_dc_128_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_v_predictor_4x8_sse2, aom_v_predictor_4x8_c, 4, 8),
+        lowbd_entry!(aom_v_predictor_4x16_sse2, aom_v_predictor_4x16_c, 4, 16),
+        lowbd_entry!(aom_v_predictor_8x4_sse2, aom_v_predictor_8x4_c, 8, 4),
+        lowbd_entry!(aom_v_predictor_8x16_sse2, aom_v_predictor_8x16_c, 8, 16),
+        lowbd_entry!(aom_v_predictor_8x32_sse2, aom_v_predictor_8x32_c, 8, 32),
+        lowbd_entry!(aom_v_predictor_16x4_sse2, aom_v_predictor_16x4_c, 16, 4),
+        lowbd_entry!(aom_v_predictor_16x8_sse2, aom_v_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_v_predictor_16x32_sse2, aom_v_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_v_predictor_16x64_sse2, aom_v_predictor_16x64_c, 16, 64),
+        lowbd_entry!(aom_v_predictor_32x8_sse2, aom_v_predictor_32x8_c, 32, 8),
+        lowbd_entry!(aom_v_predictor_32x16_sse2, aom_v_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_v_predictor_32x64_sse2, aom_v_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_v_predictor_64x16_sse2, aom_v_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_v_predictor_64x32_sse2, aom_v_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_v_predictor_64x64_sse2, aom_v_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_h_predictor_4x8_sse2, aom_h_predictor_4x8_c, 4, 8),
+        lowbd_entry!(aom_h_predictor_4x16_sse2, aom_h_predictor_4x16_c, 4, 16),
+        lowbd_entry!(aom_h_predictor_8x4_sse2, aom_h_predictor_8x4_c, 8, 4),
+        lowbd_entry!(aom_h_predictor_8x16_sse2, aom_h_predictor_8x16_c, 8, 16),
+        lowbd_entry!(aom_h_predictor_8x32_sse2, aom_h_predictor_8x32_c, 8, 32),
+        lowbd_entry!(aom_h_predictor_16x4_sse2, aom_h_predictor_16x4_c, 16, 4),
+        lowbd_entry!(aom_h_predictor_16x8_sse2, aom_h_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_h_predictor_16x32_sse2, aom_h_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_h_predictor_16x64_sse2, aom_h_predictor_16x64_c, 16, 64),
+        lowbd_entry!(aom_h_predictor_32x8_sse2, aom_h_predictor_32x8_c, 32, 8),
+        lowbd_entry!(aom_h_predictor_32x16_sse2, aom_h_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_h_predictor_32x64_sse2, aom_h_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_h_predictor_64x16_sse2, aom_h_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_h_predictor_64x32_sse2, aom_h_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_h_predictor_64x64_sse2, aom_h_predictor_64x64_c, 64, 64),
+    ]);
+}
+
+/// INSTANTIATE_TEST_SUITE_P(SSSE3, LowbdIntraPredTest, LowbdIntraPredTestVectorSsse3).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn lowbd_intra_pred_ssse3_bitexact() {
+    if !std::is_x86_feature_detected!("ssse3") {
+        return;
+    }
+    run_all(&[
+        lowbd_entry!(aom_paeth_predictor_4x4_ssse3, aom_paeth_predictor_4x4_c, 4, 4),
+        lowbd_entry!(aom_paeth_predictor_4x8_ssse3, aom_paeth_predictor_4x8_c, 4, 8),
+        lowbd_entry!(aom_paeth_predictor_4x16_ssse3, aom_paeth_predictor_4x16_c, 4, 16),
+        lowbd_entry!(aom_paeth_predictor_8x4_ssse3, aom_paeth_predictor_8x4_c, 8, 4),
+        lowbd_entry!(aom_paeth_predictor_8x8_ssse3, aom_paeth_predictor_8x8_c, 8, 8),
+        lowbd_entry!(aom_paeth_predictor_8x16_ssse3, aom_paeth_predictor_8x16_c, 8, 16),
+        lowbd_entry!(aom_paeth_predictor_8x32_ssse3, aom_paeth_predictor_8x32_c, 8, 32),
+        lowbd_entry!(aom_paeth_predictor_16x4_ssse3, aom_paeth_predictor_16x4_c, 16, 4),
+        lowbd_entry!(aom_paeth_predictor_16x8_ssse3, aom_paeth_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_paeth_predictor_16x16_ssse3, aom_paeth_predictor_16x16_c, 16, 16),
+        lowbd_entry!(aom_paeth_predictor_16x32_ssse3, aom_paeth_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_paeth_predictor_16x64_ssse3, aom_paeth_predictor_16x64_c, 16, 64),
+        lowbd_entry!(aom_paeth_predictor_32x8_ssse3, aom_paeth_predictor_32x8_c, 32, 8),
+        lowbd_entry!(aom_paeth_predictor_32x16_ssse3, aom_paeth_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_paeth_predictor_32x32_ssse3, aom_paeth_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_paeth_predictor_32x64_ssse3, aom_paeth_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_paeth_predictor_64x16_ssse3, aom_paeth_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_paeth_predictor_64x32_ssse3, aom_paeth_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_paeth_predictor_64x64_ssse3, aom_paeth_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_smooth_predictor_4x4_ssse3, aom_smooth_predictor_4x4_c, 4, 4),
+        lowbd_entry!(aom_smooth_predictor_4x8_ssse3, aom_smooth_predictor_4x8_c, 4, 8),
+        lowbd_entry!(aom_smooth_predictor_4x16_ssse3, aom_smooth_predictor_4x16_c, 4, 16),
+        lowbd_entry!(aom_smooth_predictor_8x4_ssse3, aom_smooth_predictor_8x4_c, 8, 4),
+        lowbd_entry!(aom_smooth_predictor_8x8_ssse3, aom_smooth_predictor_8x8_c, 8, 8),
+        lowbd_entry!(aom_smooth_predictor_8x16_ssse3, aom_smooth_predictor_8x16_c, 8, 16),
+        lowbd_entry!(aom_smooth_predictor_8x32_ssse3, aom_smooth_predictor_8x32_c, 8, 32),
+        lowbd_entry!(aom_smooth_predictor_16x4_ssse3, aom_smooth_predictor_16x4_c, 16, 4),
+        lowbd_entry!(aom_smooth_predictor_16x8_ssse3, aom_smooth_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_smooth_predictor_16x16_ssse3, aom_smooth_predictor_16x16_c, 16, 16),
+        lowbd_entry!(aom_smooth_predictor_16x32_ssse3, aom_smooth_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_smooth_predictor_16x64_ssse3, aom_smooth_predictor_16x64_c, 16, 64),
+        lowbd_entry!(aom_smooth_predictor_32x8_ssse3, aom_smooth_predictor_32x8_c, 32, 8),
+        lowbd_entry!(aom_smooth_predictor_32x16_ssse3, aom_smooth_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_smooth_predictor_32x32_ssse3, aom_smooth_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_smooth_predictor_32x64_ssse3, aom_smooth_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_smooth_predictor_64x16_ssse3, aom_smooth_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_smooth_predictor_64x32_ssse3, aom_smooth_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_smooth_predictor_64x64_ssse3, aom_smooth_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_smooth_v_predictor_4x4_ssse3, aom_smooth_v_predictor_4x4_c, 4, 4),
+        lowbd_entry!(aom_smooth_v_predictor_4x8_ssse3, aom_smooth_v_predictor_4x8_c, 4, 8),
+        lowbd_entry!(aom_smooth_v_predictor_4x16_ssse3, aom_smooth_v_predictor_4x16_c, 4, 16),
+        lowbd_entry!(aom_smooth_v_predictor_8x4_ssse3, aom_smooth_v_predictor_8x4_c, 8, 4),
+        lowbd_entry!(aom_smooth_v_predictor_8x8_ssse3, aom_smooth_v_predictor_8x8_c, 8, 8),
+        lowbd_entry!(aom_smooth_v_predictor_8x16_ssse3, aom_smooth_v_predictor_8x16_c, 8, 16),
+        lowbd_entry!(aom_smooth_v_predictor_8x32_ssse3, aom_smooth_v_predictor_8x32_c, 8, 32),
+        lowbd_entry!(aom_smooth_v_predictor_16x4_ssse3, aom_smooth_v_predictor_16x4_c, 16, 4),
+        lowbd_entry!(aom_smooth_v_predictor_16x8_ssse3, aom_smooth_v_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_smooth_v_predictor_16x16_ssse3, aom_smooth_v_predictor_16x16_c, 16, 16),
+        lowbd_entry!(aom_smooth_v_predictor_16x32_ssse3, aom_smooth_v_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_smooth_v_predictor_16x64_ssse3, aom_smooth_v_predictor_16x64_c, 16, 64),
+        lowbd_entry!(aom_smooth_v_predictor_32x8_ssse3, aom_smooth_v_predictor_32x8_c, 32, 8),
+        lowbd_entry!(aom_smooth_v_predictor_32x16_ssse3, aom_smooth_v_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_smooth_v_predictor_32x32_ssse3, aom_smooth_v_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_smooth_v_predictor_32x64_ssse3, aom_smooth_v_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_smooth_v_predictor_64x16_ssse3, aom_smooth_v_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_smooth_v_predictor_64x32_ssse3, aom_smooth_v_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_smooth_v_predictor_64x64_ssse3, aom_smooth_v_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_smooth_h_predictor_4x4_ssse3, aom_smooth_h_predictor_4x4_c, 4, 4),
+        lowbd_entry!(aom_smooth_h_predictor_4x8_ssse3, aom_smooth_h_predictor_4x8_c, 4, 8),
+        lowbd_entry!(aom_smooth_h_predictor_4x16_ssse3, aom_smooth_h_predictor_4x16_c, 4, 16),
+        lowbd_entry!(aom_smooth_h_predictor_8x4_ssse3, aom_smooth_h_predictor_8x4_c, 8, 4),
+        lowbd_entry!(aom_smooth_h_predictor_8x8_ssse3, aom_smooth_h_predictor_8x8_c, 8, 8),
+        lowbd_entry!(aom_smooth_h_predictor_8x16_ssse3, aom_smooth_h_predictor_8x16_c, 8, 16),
+        lowbd_entry!(aom_smooth_h_predictor_8x32_ssse3, aom_smooth_h_predictor_8x32_c, 8, 32),
+        lowbd_entry!(aom_smooth_h_predictor_16x4_ssse3, aom_smooth_h_predictor_16x4_c, 16, 4),
+        lowbd_entry!(aom_smooth_h_predictor_16x8_ssse3, aom_smooth_h_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_smooth_h_predictor_16x16_ssse3, aom_smooth_h_predictor_16x16_c, 16, 16),
+        lowbd_entry!(aom_smooth_h_predictor_16x32_ssse3, aom_smooth_h_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_smooth_h_predictor_16x64_ssse3, aom_smooth_h_predictor_16x64_c, 16, 64),
+        lowbd_entry!(aom_smooth_h_predictor_32x8_ssse3, aom_smooth_h_predictor_32x8_c, 32, 8),
+        lowbd_entry!(aom_smooth_h_predictor_32x16_ssse3, aom_smooth_h_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_smooth_h_predictor_32x32_ssse3, aom_smooth_h_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_smooth_h_predictor_32x64_ssse3, aom_smooth_h_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_smooth_h_predictor_64x16_ssse3, aom_smooth_h_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_smooth_h_predictor_64x32_ssse3, aom_smooth_h_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_smooth_h_predictor_64x64_ssse3, aom_smooth_h_predictor_64x64_c, 64, 64),
+    ]);
+}
+
+/// INSTANTIATE_TEST_SUITE_P(AVX2, LowbdIntraPredTest, LowbdIntraPredTestVectorAvx2).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn lowbd_intra_pred_avx2_bitexact() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    run_all(&[
+        lowbd_entry!(aom_dc_predictor_32x16_avx2, aom_dc_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_dc_predictor_32x32_avx2, aom_dc_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_dc_predictor_32x64_avx2, aom_dc_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_dc_predictor_64x16_avx2, aom_dc_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_dc_predictor_64x32_avx2, aom_dc_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_dc_predictor_64x64_avx2, aom_dc_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_dc_top_predictor_32x16_avx2, aom_dc_top_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_dc_top_predictor_32x32_avx2, aom_dc_top_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_dc_top_predictor_32x64_avx2, aom_dc_top_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_dc_top_predictor_64x16_avx2, aom_dc_top_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_dc_top_predictor_64x32_avx2, aom_dc_top_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_dc_top_predictor_64x64_avx2, aom_dc_top_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_dc_left_predictor_32x16_avx2, aom_dc_left_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_dc_left_predictor_32x32_avx2, aom_dc_left_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_dc_left_predictor_32x64_avx2, aom_dc_left_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_dc_left_predictor_64x16_avx2, aom_dc_left_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_dc_left_predictor_64x32_avx2, aom_dc_left_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_dc_left_predictor_64x64_avx2, aom_dc_left_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_dc_128_predictor_32x16_avx2, aom_dc_128_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_dc_128_predictor_32x32_avx2, aom_dc_128_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_dc_128_predictor_32x64_avx2, aom_dc_128_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_dc_128_predictor_64x16_avx2, aom_dc_128_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_dc_128_predictor_64x32_avx2, aom_dc_128_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_dc_128_predictor_64x64_avx2, aom_dc_128_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_v_predictor_32x16_avx2, aom_v_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_v_predictor_32x32_avx2, aom_v_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_v_predictor_32x64_avx2, aom_v_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_v_predictor_64x16_avx2, aom_v_predictor_64x16_c, 64, 16),
+        lowbd_entry!(aom_v_predictor_64x32_avx2, aom_v_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_v_predictor_64x64_avx2, aom_v_predictor_64x64_c, 64, 64),
+        lowbd_entry!(aom_h_predictor_32x32_avx2, aom_h_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_paeth_predictor_16x8_avx2, aom_paeth_predictor_16x8_c, 16, 8),
+        lowbd_entry!(aom_paeth_predictor_16x16_avx2, aom_paeth_predictor_16x16_c, 16, 16),
+        lowbd_entry!(aom_paeth_predictor_16x32_avx2, aom_paeth_predictor_16x32_c, 16, 32),
+        lowbd_entry!(aom_paeth_predictor_32x16_avx2, aom_paeth_predictor_32x16_c, 32, 16),
+        lowbd_entry!(aom_paeth_predictor_32x32_avx2, aom_paeth_predictor_32x32_c, 32, 32),
+        lowbd_entry!(aom_paeth_predictor_32x64_avx2, aom_paeth_predictor_32x64_c, 32, 64),
+        lowbd_entry!(aom_paeth_predictor_64x32_avx2, aom_paeth_predictor_64x32_c, 64, 32),
+        lowbd_entry!(aom_paeth_predictor_64x64_avx2, aom_paeth_predictor_64x64_c, 64, 64),
     ]);
 }

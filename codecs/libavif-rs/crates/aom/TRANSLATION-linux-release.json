@@ -23,11 +23,11 @@
       "--disable-avx512"
     ],
     "overlay": "crates/aom/rtcd/x86_64.pl",
-    "overlay_sha256": "e0babeba914f9cc57829dc7010ed7a4eee34d756e0b5aacdcd2f17a07a1b4c21",
+    "overlay_sha256": "19a22a20128c170325fb3d27965a39c82f2943289643fd244117a682635fc131",
     "headers": {
-      "config/aom_dsp_rtcd.h": "4c647213e31b9c412843781b03e7d4f04356d37bb25924a4e3511d1bf89e932e",
+      "config/aom_dsp_rtcd.h": "ccb671dd39a450adccba02614750c1b6d148deb7978079619b7213c2f44ff8f3",
       "config/aom_scale_rtcd.h": "691037710b3c581297ce3d121638764eea39f2f3745ac58f4797e4b1a935cc91",
-      "config/av1_rtcd.h": "d4d6afd2d7e02585bcb7dd930d8680739a17c7422dd108f8c81a3b1998a0a7bf"
+      "config/av1_rtcd.h": "262b2cea4f5fbee07b2df1c1af4da0142e98f30e4e97366bbb0ff2df173fd64a"
     }
   },
   "optional_inline_test_bridges": [
@@ -97,8 +97,8 @@
       "source": "upstream/aom/aom_dsp/aom_dsp_rtcd.c",
       "rust": "crates/aom/src/linux/release/aom_dsp/aom_dsp_rtcd.rs",
       "raw_sha256": "66c6a1e8aff24675aa7fa54f2044c665320a7019568aa5bc745ef16b63fca494",
-      "rust_sha256": "2b6a2b1d846667790591edde480b2f7e221b46aa9623f2b34854f2b418e48b39",
-      "production_rust_sha256": "2b6a2b1d846667790591edde480b2f7e221b46aa9623f2b34854f2b418e48b39",
+      "rust_sha256": "96bc034a9393aa7a132a07d09636a5ecac51999e6d1b1b52069a9f44fe518414",
+      "production_rust_sha256": "96bc034a9393aa7a132a07d09636a5ecac51999e6d1b1b52069a9f44fe518414",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,
@@ -125,8 +125,8 @@
       "source": "upstream/aom/av1/common/av1_rtcd.c",
       "rust": "crates/aom/src/linux/release/av1/common/av1_rtcd.rs",
       "raw_sha256": "e0df845da0a02e4d946707c75b0af34ba483f83778b2926d35cf836dde4426a7",
-      "rust_sha256": "dc2262e4896d7c56d17160d698182a12720a77195f4c3d939ae60be3578f7106",
-      "production_rust_sha256": "dc2262e4896d7c56d17160d698182a12720a77195f4c3d939ae60be3578f7106",
+      "rust_sha256": "f752b0df84ef1d92d4eccf433dfb8da4b05c38e0b5bda8e04ba83b65c940665c",
+      "production_rust_sha256": "f752b0df84ef1d92d4eccf433dfb8da4b05c38e0b5bda8e04ba83b65c940665c",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,
@@ -1019,8 +1019,8 @@
       "source": "upstream/aom/av1/common/reconintra.c",
       "rust": "crates/aom/src/linux/release/av1/common/reconintra.rs",
       "raw_sha256": "70c2c19249446b837e5d7a3da04f4c8fd959042fd3bec43534adbb237d53ae76",
-      "rust_sha256": "e6181b6e23f107a64a4fa610b440e6920b5457e842732ecade9a5c0508a6f8ff",
-      "production_rust_sha256": "e6181b6e23f107a64a4fa610b440e6920b5457e842732ecade9a5c0508a6f8ff",
+      "rust_sha256": "c1df6744e5343cdbd8e29f251604c3140385c52e0816e651a032117c9743df81",
+      "production_rust_sha256": "c1df6744e5343cdbd8e29f251604c3140385c52e0816e651a032117c9743df81",
       "corrections": {
         "static-raw-address": 64,
         "target-libc-thread-storage": 1,

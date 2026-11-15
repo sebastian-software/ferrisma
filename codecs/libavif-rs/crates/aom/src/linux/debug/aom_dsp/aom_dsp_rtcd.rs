@@ -13,6 +13,385 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use core::arch::asm;
 extern "C-unwind" {
+    fn aom_v_predictor_8x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_8x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_8x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_8x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_8x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_8x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_64x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_64x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_64x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_64x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_64x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_64x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_64x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_64x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_64x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_4x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_4x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_4x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_4x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_32x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_32x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_32x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_32x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_32x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_32x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_32x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_32x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_32x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_32x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_16x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_16x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_16x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_16x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_16x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_16x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_16x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_v_predictor_16x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_8x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_8x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_8x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_8x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_8x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_8x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_8x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_8x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_64x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_64x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_64x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_64x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_64x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_64x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_4x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_4x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_4x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_4x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_4x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_4x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_32x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_32x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_32x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_32x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_32x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_32x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_32x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_32x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_16x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_16x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_16x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_16x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_16x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_16x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_16x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_16x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_16x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_v_predictor_16x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_8x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_8x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_8x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_8x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_8x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_8x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_8x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_8x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_64x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_64x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_64x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_64x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_64x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_64x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_4x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_4x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_4x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_4x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_4x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_4x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_32x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_32x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_32x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_32x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_32x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_32x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_32x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_32x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_16x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_16x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_16x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_16x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_16x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_16x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_16x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_16x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_16x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_predictor_16x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_8x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_8x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_8x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_8x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_8x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_8x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_8x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_8x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_64x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_64x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_64x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_64x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_64x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_64x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_4x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_4x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_4x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_4x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_4x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_4x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_32x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_32x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_32x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_32x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_32x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_32x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_32x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_32x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_16x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_16x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_16x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_16x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_16x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_16x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_16x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_16x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_16x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_smooth_h_predictor_16x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_8x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_8x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_8x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_8x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_8x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_8x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_8x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_8x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_64x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_64x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_64x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_64x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_64x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_64x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_64x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_64x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_64x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_4x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_4x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_4x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_4x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_4x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_4x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_32x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x8_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x8_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x64_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x4_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x32_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x16_ssse3(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_paeth_predictor_16x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_8x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_8x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_8x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_8x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_8x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_8x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_64x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_64x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_64x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_64x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_64x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_64x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_4x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_4x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_4x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_4x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_32x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_32x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_32x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_32x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_32x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_32x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_32x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_32x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_16x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_16x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_16x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_16x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_16x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_16x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_16x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_h_predictor_16x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_8x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_8x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_8x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_8x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_8x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_8x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_64x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_64x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_64x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_64x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_64x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_64x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_64x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_64x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_64x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_4x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_4x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_4x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_4x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_32x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_32x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_32x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_32x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_32x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_32x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_32x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_32x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_32x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_32x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_16x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_16x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_16x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_16x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_16x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_16x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_16x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_top_predictor_16x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_8x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_8x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_8x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_8x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_8x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_8x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_64x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_64x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_64x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_64x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_64x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_64x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_64x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_64x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_64x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_4x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_4x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_4x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_4x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_32x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_32x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_32x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_32x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_32x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_32x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_32x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_32x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_32x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_32x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_16x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_16x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_16x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_16x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_16x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_16x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_16x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_predictor_16x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_8x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_8x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_8x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_8x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_8x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_8x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_64x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_64x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_64x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_64x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_64x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_64x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_64x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_64x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_64x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_4x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_4x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_4x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_4x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_32x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_32x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_32x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_32x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_32x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_32x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_32x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_32x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_32x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_32x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_16x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_16x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_16x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_16x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_16x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_16x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_16x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_left_predictor_16x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_8x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_8x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_8x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_8x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_8x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_8x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_64x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_64x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_64x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_64x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_64x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_64x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_64x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_64x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_64x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_4x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_4x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_4x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_4x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_32x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_32x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_32x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_32x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_32x64_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_32x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_32x32_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_32x16_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_32x16_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_32x16_avx2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_16x8_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_16x8_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_16x64_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_16x64_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_16x4_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_16x4_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_16x32_c(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
+    fn aom_dc_128_predictor_16x32_sse2(dst: *mut uint8_t, y_stride: ptrdiff_t, above: *const uint8_t, left: *const uint8_t);
     fn aom_lpf_vertical_8_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
     fn aom_lpf_vertical_8_sse2(s: *mut uint8_t, pitch: core::ffi::c_int, blimit: *const uint8_t, limit: *const uint8_t, thresh: *const uint8_t);
     fn aom_lpf_vertical_8_quad_c(s: *mut uint8_t, pitch: core::ffi::c_int, blimit0: *const uint8_t, limit0: *const uint8_t, thresh0: *const uint8_t);
@@ -1059,6 +1438,166 @@ pub type pthread_once_t = libc::pthread_once_t;
 pub const NULL: *mut core::ffi::c_void = 0 as *mut core::ffi::c_void;
 pub const PTHREAD_ONCE_INIT: core::ffi::c_int = 0 as core::ffi::c_int;
 #[no_mangle]
+pub static mut aom_dc_128_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_128_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_left_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_dc_top_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_h_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
 pub static mut aom_highbd_dc_128_predictor_16x16: Option<
     unsafe extern "C-unwind" fn(
         *mut uint16_t,
@@ -1774,6 +2313,158 @@ pub static mut aom_lpf_vertical_8_dual: Option<unsafe extern "C-unwind" fn(*mut 
 #[no_mangle]
 pub static mut aom_lpf_vertical_8_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
+pub static mut aom_paeth_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_paeth_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_h_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_4x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_smooth_v_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
 pub static mut aom_subtract_block: Option<
     unsafe extern "C-unwind" fn(
         core::ffi::c_int,
@@ -1797,6 +2488,38 @@ unsafe extern "C-unwind" fn xgetbv() -> uint64_t {
     );
     return (edx as uint64_t) << 32 as core::ffi::c_int | eax as uint64_t;
 }
+#[no_mangle]
+pub static mut aom_v_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_16x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_16x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_16x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_32x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_32x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_32x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_32x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_4x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_4x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_64x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_64x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_64x64: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_v_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
 pub const HAS_MMX: core::ffi::c_int = 0x1 as core::ffi::c_int;
 pub const HAS_SSE: core::ffi::c_int = 0x2 as core::ffi::c_int;
 pub const HAS_SSE2: core::ffi::c_int = 0x4 as core::ffi::c_int;
@@ -1980,6 +2703,386 @@ unsafe extern "C-unwind" fn x86_simd_caps() -> core::ffi::c_int {
 }
 unsafe extern "C-unwind" fn setup_rtcd_internal() {
     let mut flags: core::ffi::c_int = x86_simd_caps();
+    aom_dc_128_predictor_16x32 = Some(aom_dc_128_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_16x32 = Some(aom_dc_128_predictor_16x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_16x4 = Some(aom_dc_128_predictor_16x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_16x4 = Some(aom_dc_128_predictor_16x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_16x64 = Some(aom_dc_128_predictor_16x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_16x64 = Some(aom_dc_128_predictor_16x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_16x8 = Some(aom_dc_128_predictor_16x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_16x8 = Some(aom_dc_128_predictor_16x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_32x16 = Some(aom_dc_128_predictor_32x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_32x16 = Some(aom_dc_128_predictor_32x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_128_predictor_32x16 = Some(aom_dc_128_predictor_32x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_32x32 = Some(aom_dc_128_predictor_32x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_128_predictor_32x32 = Some(aom_dc_128_predictor_32x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_32x64 = Some(aom_dc_128_predictor_32x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_32x64 = Some(aom_dc_128_predictor_32x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_128_predictor_32x64 = Some(aom_dc_128_predictor_32x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_32x8 = Some(aom_dc_128_predictor_32x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_32x8 = Some(aom_dc_128_predictor_32x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_4x16 = Some(aom_dc_128_predictor_4x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_4x16 = Some(aom_dc_128_predictor_4x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_4x8 = Some(aom_dc_128_predictor_4x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_4x8 = Some(aom_dc_128_predictor_4x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_64x16 = Some(aom_dc_128_predictor_64x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_64x16 = Some(aom_dc_128_predictor_64x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_128_predictor_64x16 = Some(aom_dc_128_predictor_64x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_64x32 = Some(aom_dc_128_predictor_64x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_64x32 = Some(aom_dc_128_predictor_64x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_128_predictor_64x32 = Some(aom_dc_128_predictor_64x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_64x64 = Some(aom_dc_128_predictor_64x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_64x64 = Some(aom_dc_128_predictor_64x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_128_predictor_64x64 = Some(aom_dc_128_predictor_64x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_8x16 = Some(aom_dc_128_predictor_8x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_8x16 = Some(aom_dc_128_predictor_8x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_8x32 = Some(aom_dc_128_predictor_8x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_8x32 = Some(aom_dc_128_predictor_8x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_128_predictor_8x4 = Some(aom_dc_128_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_128_predictor_8x4 = Some(aom_dc_128_predictor_8x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_16x32 = Some(aom_dc_left_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_16x32 = Some(aom_dc_left_predictor_16x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_16x4 = Some(aom_dc_left_predictor_16x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_16x4 = Some(aom_dc_left_predictor_16x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_16x64 = Some(aom_dc_left_predictor_16x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_16x64 = Some(aom_dc_left_predictor_16x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_16x8 = Some(aom_dc_left_predictor_16x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_16x8 = Some(aom_dc_left_predictor_16x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_32x16 = Some(aom_dc_left_predictor_32x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_32x16 = Some(aom_dc_left_predictor_32x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_left_predictor_32x16 = Some(aom_dc_left_predictor_32x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_32x32 = Some(aom_dc_left_predictor_32x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_left_predictor_32x32 = Some(aom_dc_left_predictor_32x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_32x64 = Some(aom_dc_left_predictor_32x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_32x64 = Some(aom_dc_left_predictor_32x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_left_predictor_32x64 = Some(aom_dc_left_predictor_32x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_32x8 = Some(aom_dc_left_predictor_32x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_32x8 = Some(aom_dc_left_predictor_32x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_4x16 = Some(aom_dc_left_predictor_4x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_4x16 = Some(aom_dc_left_predictor_4x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_4x8 = Some(aom_dc_left_predictor_4x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_4x8 = Some(aom_dc_left_predictor_4x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_64x16 = Some(aom_dc_left_predictor_64x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_64x16 = Some(aom_dc_left_predictor_64x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_left_predictor_64x16 = Some(aom_dc_left_predictor_64x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_64x32 = Some(aom_dc_left_predictor_64x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_64x32 = Some(aom_dc_left_predictor_64x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_left_predictor_64x32 = Some(aom_dc_left_predictor_64x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_64x64 = Some(aom_dc_left_predictor_64x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_64x64 = Some(aom_dc_left_predictor_64x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_left_predictor_64x64 = Some(aom_dc_left_predictor_64x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_8x16 = Some(aom_dc_left_predictor_8x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_8x16 = Some(aom_dc_left_predictor_8x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_8x32 = Some(aom_dc_left_predictor_8x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_8x32 = Some(aom_dc_left_predictor_8x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_left_predictor_8x4 = Some(aom_dc_left_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_left_predictor_8x4 = Some(aom_dc_left_predictor_8x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_16x32 = Some(aom_dc_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_16x32 = Some(aom_dc_predictor_16x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_16x4 = Some(aom_dc_predictor_16x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_16x4 = Some(aom_dc_predictor_16x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_16x64 = Some(aom_dc_predictor_16x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_16x64 = Some(aom_dc_predictor_16x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_16x8 = Some(aom_dc_predictor_16x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_16x8 = Some(aom_dc_predictor_16x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_32x16 = Some(aom_dc_predictor_32x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_32x16 = Some(aom_dc_predictor_32x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_predictor_32x16 = Some(aom_dc_predictor_32x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_32x32 = Some(aom_dc_predictor_32x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_predictor_32x32 = Some(aom_dc_predictor_32x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_32x64 = Some(aom_dc_predictor_32x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_32x64 = Some(aom_dc_predictor_32x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_predictor_32x64 = Some(aom_dc_predictor_32x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_32x8 = Some(aom_dc_predictor_32x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_32x8 = Some(aom_dc_predictor_32x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_4x16 = Some(aom_dc_predictor_4x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_4x16 = Some(aom_dc_predictor_4x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_4x8 = Some(aom_dc_predictor_4x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_4x8 = Some(aom_dc_predictor_4x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_64x16 = Some(aom_dc_predictor_64x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_64x16 = Some(aom_dc_predictor_64x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_predictor_64x16 = Some(aom_dc_predictor_64x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_64x32 = Some(aom_dc_predictor_64x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_64x32 = Some(aom_dc_predictor_64x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_predictor_64x32 = Some(aom_dc_predictor_64x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_64x64 = Some(aom_dc_predictor_64x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_64x64 = Some(aom_dc_predictor_64x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_predictor_64x64 = Some(aom_dc_predictor_64x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_8x16 = Some(aom_dc_predictor_8x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_8x16 = Some(aom_dc_predictor_8x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_8x32 = Some(aom_dc_predictor_8x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_8x32 = Some(aom_dc_predictor_8x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_predictor_8x4 = Some(aom_dc_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_predictor_8x4 = Some(aom_dc_predictor_8x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_16x32 = Some(aom_dc_top_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_16x32 = Some(aom_dc_top_predictor_16x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_16x4 = Some(aom_dc_top_predictor_16x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_16x4 = Some(aom_dc_top_predictor_16x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_16x64 = Some(aom_dc_top_predictor_16x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_16x64 = Some(aom_dc_top_predictor_16x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_16x8 = Some(aom_dc_top_predictor_16x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_16x8 = Some(aom_dc_top_predictor_16x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_32x16 = Some(aom_dc_top_predictor_32x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_32x16 = Some(aom_dc_top_predictor_32x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_top_predictor_32x16 = Some(aom_dc_top_predictor_32x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_32x32 = Some(aom_dc_top_predictor_32x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_top_predictor_32x32 = Some(aom_dc_top_predictor_32x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_32x64 = Some(aom_dc_top_predictor_32x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_32x64 = Some(aom_dc_top_predictor_32x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_top_predictor_32x64 = Some(aom_dc_top_predictor_32x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_32x8 = Some(aom_dc_top_predictor_32x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_32x8 = Some(aom_dc_top_predictor_32x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_4x16 = Some(aom_dc_top_predictor_4x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_4x16 = Some(aom_dc_top_predictor_4x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_4x8 = Some(aom_dc_top_predictor_4x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_4x8 = Some(aom_dc_top_predictor_4x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_64x16 = Some(aom_dc_top_predictor_64x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_64x16 = Some(aom_dc_top_predictor_64x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_top_predictor_64x16 = Some(aom_dc_top_predictor_64x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_64x32 = Some(aom_dc_top_predictor_64x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_64x32 = Some(aom_dc_top_predictor_64x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_top_predictor_64x32 = Some(aom_dc_top_predictor_64x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_64x64 = Some(aom_dc_top_predictor_64x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_64x64 = Some(aom_dc_top_predictor_64x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_dc_top_predictor_64x64 = Some(aom_dc_top_predictor_64x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_8x16 = Some(aom_dc_top_predictor_8x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_8x16 = Some(aom_dc_top_predictor_8x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_8x32 = Some(aom_dc_top_predictor_8x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_8x32 = Some(aom_dc_top_predictor_8x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_dc_top_predictor_8x4 = Some(aom_dc_top_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_dc_top_predictor_8x4 = Some(aom_dc_top_predictor_8x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_16x32 = Some(aom_h_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_16x32 = Some(aom_h_predictor_16x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_16x4 = Some(aom_h_predictor_16x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_16x4 = Some(aom_h_predictor_16x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_16x64 = Some(aom_h_predictor_16x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_16x64 = Some(aom_h_predictor_16x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_16x8 = Some(aom_h_predictor_16x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_16x8 = Some(aom_h_predictor_16x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_32x16 = Some(aom_h_predictor_32x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_32x16 = Some(aom_h_predictor_32x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_32x32 = Some(aom_h_predictor_32x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        aom_h_predictor_32x32 = Some(aom_h_predictor_32x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_32x64 = Some(aom_h_predictor_32x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_32x64 = Some(aom_h_predictor_32x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_32x8 = Some(aom_h_predictor_32x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_32x8 = Some(aom_h_predictor_32x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_4x16 = Some(aom_h_predictor_4x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_4x16 = Some(aom_h_predictor_4x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_4x8 = Some(aom_h_predictor_4x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_4x8 = Some(aom_h_predictor_4x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_64x16 = Some(aom_h_predictor_64x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_64x16 = Some(aom_h_predictor_64x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_64x32 = Some(aom_h_predictor_64x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_64x32 = Some(aom_h_predictor_64x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_64x64 = Some(aom_h_predictor_64x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_64x64 = Some(aom_h_predictor_64x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_8x16 = Some(aom_h_predictor_8x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_8x16 = Some(aom_h_predictor_8x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_8x32 = Some(aom_h_predictor_8x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_8x32 = Some(aom_h_predictor_8x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_h_predictor_8x4 = Some(aom_h_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_h_predictor_8x4 = Some(aom_h_predictor_8x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
     aom_highbd_dc_128_predictor_16x16 = Some(
         aom_highbd_dc_128_predictor_16x16_c
             as unsafe extern "C-unwind" fn(
@@ -4710,6 +5813,340 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     if flags & HAS_SSE2 != 0 {
         aom_lpf_vertical_8_quad = Some(aom_lpf_vertical_8_quad_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
     }
+    aom_paeth_predictor_16x16 = Some(aom_paeth_predictor_16x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_16x16 = Some(aom_paeth_predictor_16x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_paeth_predictor_16x16 = Some(aom_paeth_predictor_16x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_16x32 = Some(aom_paeth_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_16x32 = Some(aom_paeth_predictor_16x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_paeth_predictor_16x32 = Some(aom_paeth_predictor_16x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_16x4 = Some(aom_paeth_predictor_16x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_16x4 = Some(aom_paeth_predictor_16x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_16x64 = Some(aom_paeth_predictor_16x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_16x64 = Some(aom_paeth_predictor_16x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_paeth_predictor_16x64 = Some(aom_paeth_predictor_16x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_16x8 = Some(aom_paeth_predictor_16x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_16x8 = Some(aom_paeth_predictor_16x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_paeth_predictor_16x8 = Some(aom_paeth_predictor_16x8_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_32x16 = Some(aom_paeth_predictor_32x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_32x16 = Some(aom_paeth_predictor_32x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_paeth_predictor_32x16 = Some(aom_paeth_predictor_32x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_32x32 = Some(aom_paeth_predictor_32x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_32x32 = Some(aom_paeth_predictor_32x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_paeth_predictor_32x32 = Some(aom_paeth_predictor_32x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_32x64 = Some(aom_paeth_predictor_32x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_32x64 = Some(aom_paeth_predictor_32x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_paeth_predictor_32x64 = Some(aom_paeth_predictor_32x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_32x8 = Some(aom_paeth_predictor_32x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_32x8 = Some(aom_paeth_predictor_32x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_4x16 = Some(aom_paeth_predictor_4x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_4x16 = Some(aom_paeth_predictor_4x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_4x4 = Some(aom_paeth_predictor_4x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_4x4 = Some(aom_paeth_predictor_4x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_4x8 = Some(aom_paeth_predictor_4x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_4x8 = Some(aom_paeth_predictor_4x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_64x16 = Some(aom_paeth_predictor_64x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_64x16 = Some(aom_paeth_predictor_64x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_paeth_predictor_64x16 = Some(aom_paeth_predictor_64x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_64x32 = Some(aom_paeth_predictor_64x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_64x32 = Some(aom_paeth_predictor_64x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_paeth_predictor_64x32 = Some(aom_paeth_predictor_64x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_64x64 = Some(aom_paeth_predictor_64x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_64x64 = Some(aom_paeth_predictor_64x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_paeth_predictor_64x64 = Some(aom_paeth_predictor_64x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_8x16 = Some(aom_paeth_predictor_8x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_8x16 = Some(aom_paeth_predictor_8x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_8x32 = Some(aom_paeth_predictor_8x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_8x32 = Some(aom_paeth_predictor_8x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_8x4 = Some(aom_paeth_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_8x4 = Some(aom_paeth_predictor_8x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_paeth_predictor_8x8 = Some(aom_paeth_predictor_8x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_paeth_predictor_8x8 = Some(aom_paeth_predictor_8x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_16x16 = Some(aom_smooth_h_predictor_16x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_16x16 = Some(aom_smooth_h_predictor_16x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_16x32 = Some(aom_smooth_h_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_16x32 = Some(aom_smooth_h_predictor_16x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_16x4 = Some(aom_smooth_h_predictor_16x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_16x4 = Some(aom_smooth_h_predictor_16x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_16x64 = Some(aom_smooth_h_predictor_16x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_16x64 = Some(aom_smooth_h_predictor_16x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_16x8 = Some(aom_smooth_h_predictor_16x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_16x8 = Some(aom_smooth_h_predictor_16x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_32x16 = Some(aom_smooth_h_predictor_32x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_32x16 = Some(aom_smooth_h_predictor_32x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_32x32 = Some(aom_smooth_h_predictor_32x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_32x32 = Some(aom_smooth_h_predictor_32x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_32x64 = Some(aom_smooth_h_predictor_32x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_32x64 = Some(aom_smooth_h_predictor_32x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_32x8 = Some(aom_smooth_h_predictor_32x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_32x8 = Some(aom_smooth_h_predictor_32x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_4x16 = Some(aom_smooth_h_predictor_4x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_4x16 = Some(aom_smooth_h_predictor_4x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_4x4 = Some(aom_smooth_h_predictor_4x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_4x4 = Some(aom_smooth_h_predictor_4x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_4x8 = Some(aom_smooth_h_predictor_4x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_4x8 = Some(aom_smooth_h_predictor_4x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_64x16 = Some(aom_smooth_h_predictor_64x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_64x16 = Some(aom_smooth_h_predictor_64x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_64x32 = Some(aom_smooth_h_predictor_64x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_64x32 = Some(aom_smooth_h_predictor_64x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_64x64 = Some(aom_smooth_h_predictor_64x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_64x64 = Some(aom_smooth_h_predictor_64x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_8x16 = Some(aom_smooth_h_predictor_8x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_8x16 = Some(aom_smooth_h_predictor_8x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_8x32 = Some(aom_smooth_h_predictor_8x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_8x32 = Some(aom_smooth_h_predictor_8x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_8x4 = Some(aom_smooth_h_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_8x4 = Some(aom_smooth_h_predictor_8x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_h_predictor_8x8 = Some(aom_smooth_h_predictor_8x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_h_predictor_8x8 = Some(aom_smooth_h_predictor_8x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_16x16 = Some(aom_smooth_predictor_16x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_16x16 = Some(aom_smooth_predictor_16x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_16x32 = Some(aom_smooth_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_16x32 = Some(aom_smooth_predictor_16x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_16x4 = Some(aom_smooth_predictor_16x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_16x4 = Some(aom_smooth_predictor_16x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_16x64 = Some(aom_smooth_predictor_16x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_16x64 = Some(aom_smooth_predictor_16x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_16x8 = Some(aom_smooth_predictor_16x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_16x8 = Some(aom_smooth_predictor_16x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_32x16 = Some(aom_smooth_predictor_32x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_32x16 = Some(aom_smooth_predictor_32x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_32x32 = Some(aom_smooth_predictor_32x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_32x32 = Some(aom_smooth_predictor_32x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_32x64 = Some(aom_smooth_predictor_32x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_32x64 = Some(aom_smooth_predictor_32x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_32x8 = Some(aom_smooth_predictor_32x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_32x8 = Some(aom_smooth_predictor_32x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_4x16 = Some(aom_smooth_predictor_4x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_4x16 = Some(aom_smooth_predictor_4x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_4x4 = Some(aom_smooth_predictor_4x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_4x4 = Some(aom_smooth_predictor_4x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_4x8 = Some(aom_smooth_predictor_4x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_4x8 = Some(aom_smooth_predictor_4x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_64x16 = Some(aom_smooth_predictor_64x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_64x16 = Some(aom_smooth_predictor_64x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_64x32 = Some(aom_smooth_predictor_64x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_64x32 = Some(aom_smooth_predictor_64x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_64x64 = Some(aom_smooth_predictor_64x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_64x64 = Some(aom_smooth_predictor_64x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_8x16 = Some(aom_smooth_predictor_8x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_8x16 = Some(aom_smooth_predictor_8x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_8x32 = Some(aom_smooth_predictor_8x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_8x32 = Some(aom_smooth_predictor_8x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_8x4 = Some(aom_smooth_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_8x4 = Some(aom_smooth_predictor_8x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_predictor_8x8 = Some(aom_smooth_predictor_8x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_predictor_8x8 = Some(aom_smooth_predictor_8x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_16x16 = Some(aom_smooth_v_predictor_16x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_16x16 = Some(aom_smooth_v_predictor_16x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_16x32 = Some(aom_smooth_v_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_16x32 = Some(aom_smooth_v_predictor_16x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_16x4 = Some(aom_smooth_v_predictor_16x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_16x4 = Some(aom_smooth_v_predictor_16x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_16x64 = Some(aom_smooth_v_predictor_16x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_16x64 = Some(aom_smooth_v_predictor_16x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_16x8 = Some(aom_smooth_v_predictor_16x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_16x8 = Some(aom_smooth_v_predictor_16x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_32x16 = Some(aom_smooth_v_predictor_32x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_32x16 = Some(aom_smooth_v_predictor_32x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_32x32 = Some(aom_smooth_v_predictor_32x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_32x32 = Some(aom_smooth_v_predictor_32x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_32x64 = Some(aom_smooth_v_predictor_32x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_32x64 = Some(aom_smooth_v_predictor_32x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_32x8 = Some(aom_smooth_v_predictor_32x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_32x8 = Some(aom_smooth_v_predictor_32x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_4x16 = Some(aom_smooth_v_predictor_4x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_4x16 = Some(aom_smooth_v_predictor_4x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_4x4 = Some(aom_smooth_v_predictor_4x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_4x4 = Some(aom_smooth_v_predictor_4x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_4x8 = Some(aom_smooth_v_predictor_4x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_4x8 = Some(aom_smooth_v_predictor_4x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_64x16 = Some(aom_smooth_v_predictor_64x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_64x16 = Some(aom_smooth_v_predictor_64x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_64x32 = Some(aom_smooth_v_predictor_64x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_64x32 = Some(aom_smooth_v_predictor_64x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_64x64 = Some(aom_smooth_v_predictor_64x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_64x64 = Some(aom_smooth_v_predictor_64x64_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_8x16 = Some(aom_smooth_v_predictor_8x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_8x16 = Some(aom_smooth_v_predictor_8x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_8x32 = Some(aom_smooth_v_predictor_8x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_8x32 = Some(aom_smooth_v_predictor_8x32_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_8x4 = Some(aom_smooth_v_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_8x4 = Some(aom_smooth_v_predictor_8x4_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_smooth_v_predictor_8x8 = Some(aom_smooth_v_predictor_8x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSSE3 != 0 {
+        aom_smooth_v_predictor_8x8 = Some(aom_smooth_v_predictor_8x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
     aom_subtract_block = Some(
         aom_subtract_block_c
             as unsafe extern "C-unwind" fn(
@@ -4761,6 +6198,85 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                     ptrdiff_t,
                 ) -> (),
             >;
+    }
+    aom_v_predictor_16x32 = Some(aom_v_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_16x32 = Some(aom_v_predictor_16x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_16x4 = Some(aom_v_predictor_16x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_16x4 = Some(aom_v_predictor_16x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_16x64 = Some(aom_v_predictor_16x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_16x64 = Some(aom_v_predictor_16x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_16x8 = Some(aom_v_predictor_16x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_16x8 = Some(aom_v_predictor_16x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_32x16 = Some(aom_v_predictor_32x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_32x16 = Some(aom_v_predictor_32x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_v_predictor_32x16 = Some(aom_v_predictor_32x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_32x32 = Some(aom_v_predictor_32x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_AVX2 != 0 {
+        aom_v_predictor_32x32 = Some(aom_v_predictor_32x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_32x64 = Some(aom_v_predictor_32x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_32x64 = Some(aom_v_predictor_32x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_v_predictor_32x64 = Some(aom_v_predictor_32x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_32x8 = Some(aom_v_predictor_32x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_32x8 = Some(aom_v_predictor_32x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_4x16 = Some(aom_v_predictor_4x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_4x16 = Some(aom_v_predictor_4x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_4x8 = Some(aom_v_predictor_4x8_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_4x8 = Some(aom_v_predictor_4x8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_64x16 = Some(aom_v_predictor_64x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_64x16 = Some(aom_v_predictor_64x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_v_predictor_64x16 = Some(aom_v_predictor_64x16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_64x32 = Some(aom_v_predictor_64x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_64x32 = Some(aom_v_predictor_64x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_v_predictor_64x32 = Some(aom_v_predictor_64x32_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_64x64 = Some(aom_v_predictor_64x64_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_64x64 = Some(aom_v_predictor_64x64_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_v_predictor_64x64 = Some(aom_v_predictor_64x64_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_8x16 = Some(aom_v_predictor_8x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_8x16 = Some(aom_v_predictor_8x16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_8x32 = Some(aom_v_predictor_8x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_8x32 = Some(aom_v_predictor_8x32_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_v_predictor_8x4 = Some(aom_v_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_v_predictor_8x4 = Some(aom_v_predictor_8x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     }
 }
 unsafe extern "C-unwind" fn aom_once(mut func: Option<unsafe extern "C-unwind" fn() -> ()>) {

@@ -216,6 +216,26 @@ pub mod aom_dsp__x86__highbd_subtract_sse2;
 pub mod aom_dsp__x86__intrapred_avx2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/intrapred_sse2.rs"]
+pub mod aom_dsp__x86__intrapred_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/intrapred_sse4.rs"]
+pub mod aom_dsp__x86__intrapred_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/intrapred_ssse3.rs"]
+pub mod aom_dsp__x86__intrapred_ssse3;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/intrapred_utils.rs"]
+pub mod aom_dsp__x86__intrapred_utils;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/intrapred_x86.rs"]
+pub mod aom_dsp__x86__intrapred_x86;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/loopfilter_avx2.rs"]
 pub mod aom_dsp__x86__loopfilter_avx2;
 

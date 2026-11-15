@@ -5,8 +5,8 @@
 // exact-match check follow the original. DISABLED_Speed is not transcribed.
 // LowbdDrPredTest.SaturatedValues and LowbdDrPredTest.OperationCheck are
 // transcribed for the NEON instantiation (av1_dr_prediction_z{1,2,3}_neon of
-// aom_dsp/arm/intrapred_neon.c, AOM_BITS_8). The lowbd SSE4_1 and AVX2
-// instantiations belong to x86 files that are not part of this port.
+// aom_dsp/arm/intrapred_neon.c, AOM_BITS_8) and the SSE4_1 and AVX2
+// instantiations (aom_dsp/x86/intrapred_sse4.c and intrapred_avx2.c).
 #![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 use super::acm_random::ACMRandom;
 
@@ -281,11 +281,19 @@ mod neon {
     }
 }
 
-#[cfg(target_arch = "aarch64")]
-mod lowbd_neon {
+mod lowbd {
     use super::*;
+    #[cfg(target_arch = "aarch64")]
     use aom::simd::aom_dsp__arm__intrapred_neon::{
         av1_dr_prediction_z1_neon, av1_dr_prediction_z2_neon, av1_dr_prediction_z3_neon,
+    };
+    #[cfg(target_arch = "x86_64")]
+    use aom::simd::aom_dsp__x86__intrapred_avx2::{
+        av1_dr_prediction_z1_avx2, av1_dr_prediction_z2_avx2, av1_dr_prediction_z3_avx2,
+    };
+    #[cfg(target_arch = "x86_64")]
+    use aom::simd::aom_dsp__x86__intrapred_sse4::{
+        av1_dr_prediction_z1_sse4_1, av1_dr_prediction_z2_sse4_1, av1_dr_prediction_z3_sse4_1,
     };
 
     extern "C-unwind" {
@@ -407,11 +415,11 @@ mod lowbd_neon {
         }
     }
 
-    fn run_lowbd(needsaturation: bool) {
+    fn run_lowbd(needsaturation: bool, z1: Z1Lbd, z2: Z2Lbd, z3: Z3Lbd) {
         let params = [
-            (DrPred::Z1(av1_dr_prediction_z1_c), DrPred::Z1(av1_dr_prediction_z1_neon), K_Z1_START),
-            (DrPred::Z2(av1_dr_prediction_z2_c), DrPred::Z2(av1_dr_prediction_z2_neon), K_Z2_START),
-            (DrPred::Z3(av1_dr_prediction_z3_c), DrPred::Z3(av1_dr_prediction_z3_neon), K_Z3_START),
+            (DrPred::Z1(av1_dr_prediction_z1_c), DrPred::Z1(z1), K_Z1_START),
+            (DrPred::Z2(av1_dr_prediction_z2_c), DrPred::Z2(z2), K_Z2_START),
+            (DrPred::Z3(av1_dr_prediction_z3_c), DrPred::Z3(z3), K_Z3_START),
         ];
         let mut blocks = 0;
         for (r, t, start) in params {
@@ -422,14 +430,52 @@ mod lowbd_neon {
         eprintln!("3 parameter sets, {} blocks compared", blocks);
     }
 
+    #[cfg(target_arch = "aarch64")]
     #[test]
     fn lowbd_dr_pred_neon_saturated_values() {
-        run_lowbd(true);
+        run_lowbd(true, av1_dr_prediction_z1_neon, av1_dr_prediction_z2_neon, av1_dr_prediction_z3_neon);
     }
 
+    #[cfg(target_arch = "aarch64")]
     #[test]
     fn lowbd_dr_pred_neon_operation_check() {
-        run_lowbd(false);
+        run_lowbd(false, av1_dr_prediction_z1_neon, av1_dr_prediction_z2_neon, av1_dr_prediction_z3_neon);
+    }
+
+    /// INSTANTIATE_TEST_SUITE_P(SSE4_1, LowbdDrPredTest, ...).
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn lowbd_dr_pred_sse4_1_saturated_values() {
+        if std::arch::is_x86_feature_detected!("sse4.1") {
+            run_lowbd(true, av1_dr_prediction_z1_sse4_1, av1_dr_prediction_z2_sse4_1,
+                      av1_dr_prediction_z3_sse4_1);
+        }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn lowbd_dr_pred_sse4_1_operation_check() {
+        if std::arch::is_x86_feature_detected!("sse4.1") {
+            run_lowbd(false, av1_dr_prediction_z1_sse4_1, av1_dr_prediction_z2_sse4_1,
+                      av1_dr_prediction_z3_sse4_1);
+        }
+    }
+
+    /// INSTANTIATE_TEST_SUITE_P(AVX2, LowbdDrPredTest, ...).
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn lowbd_dr_pred_avx2_saturated_values() {
+        if std::arch::is_x86_feature_detected!("avx2") {
+            run_lowbd(true, av1_dr_prediction_z1_avx2, av1_dr_prediction_z2_avx2, av1_dr_prediction_z3_avx2);
+        }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn lowbd_dr_pred_avx2_operation_check() {
+        if std::arch::is_x86_feature_detected!("avx2") {
+            run_lowbd(false, av1_dr_prediction_z1_avx2, av1_dr_prediction_z2_avx2, av1_dr_prediction_z3_avx2);
+        }
     }
 }
 

@@ -194,6 +194,7 @@ Kernels that exist only as NASM stay on `_c` (working decision O4).
 | --- | --- | --- | --- |
 | 8-bit inverse transform | `av1/common/x86/av1_inv_txfm_ssse3.c` (+ `.h`), `av1_inv_txfm_avx2.c` (+ `.h`), the rest of `av1_txfm_sse2.h` | `av1_inv_txfm_add` (SSSE3, AVX2) | 82/82, 82/82, 82/82 |
 | Loop filter | `aom_dsp/x86/loopfilter_sse2.c`, `loopfilter_avx2.c`, `highbd_loopfilter_sse2.c`, `highbd_loopfilter_avx2.c`, the rest of `lpf_common_sse2.h` | 40 (40 SSE2, 4 8-bit quad and 6 high-bitdepth dual AVX2) | 82/82, 82/82, 82/82 |
+| 8-bit intra prediction | `aom_dsp/x86/intrapred_sse2.c`, `intrapred_ssse3.c`, `intrapred_sse4.c`, the 8-bit part of `intrapred_avx2.c`, `intrapred_x86.h`, `intrapred_utils.h` | 175 (90 SSE2, 76 SSSE3, 3 SSE4.1, 44 AVX2 specializations) | 82/82, 82/82, 82/82 |
 
 Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
 and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
@@ -204,4 +205,9 @@ kLoop8Test6Avx2, kHbdLoop8Test9Avx2). The SSE2 quad vertical filters call
 `aom_lpf_horizontal_*_quad` through RTCD, as upstream does, so the AVX2 level
 runs the AVX2 horizontal kernel there; the test sets RTCD up with
 `aom_dsp_rtcd()` as the original test main does. Under the QEMU container
-all 91 tests of `--test simd` pass for x86-64.
+all 91 tests of `--test simd` pass for x86-64. `lowbd_intrapred.rs` and
+`dr_prediction.rs` add the SSE2, SSSE3 and AVX2 instantiations of
+LowbdIntraPredTest and the SSE4_1 and AVX2 ones of LowbdDrPredTest; the 24
+SSE2 entries whose kernels exist only as NASM (DC, DC_TOP, DC_LEFT, DC_128, V,
+H at 4x4, 8x8, 16x16, 32x32) are not transcribed and stay on `_c` (O4).
+With them, 98 of 98 tests pass under QEMU.

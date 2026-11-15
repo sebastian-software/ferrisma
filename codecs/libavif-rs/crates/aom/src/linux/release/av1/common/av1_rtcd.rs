@@ -13,6 +13,15 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use core::arch::asm;
 extern "C-unwind" {
+    fn av1_dr_prediction_z3_c(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_left: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
+    fn av1_dr_prediction_z3_sse4_1(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_left: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
+    fn av1_dr_prediction_z3_avx2(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_left: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
+    fn av1_dr_prediction_z2_c(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_above: core::ffi::c_int, upsample_left: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
+    fn av1_dr_prediction_z2_sse4_1(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_above: core::ffi::c_int, upsample_left: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
+    fn av1_dr_prediction_z2_avx2(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_above: core::ffi::c_int, upsample_left: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
+    fn av1_dr_prediction_z1_c(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_above: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
+    fn av1_dr_prediction_z1_sse4_1(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_above: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
+    fn av1_dr_prediction_z1_avx2(dst: *mut uint8_t, stride: ptrdiff_t, bw: core::ffi::c_int, bh: core::ffi::c_int, above: *const uint8_t, left: *const uint8_t, upsample_above: core::ffi::c_int, dx: core::ffi::c_int, dy: core::ffi::c_int);
     fn av1_inv_txfm_add_c(dqcoeff: *const tran_low_t, dst: *mut uint8_t, stride: core::ffi::c_int, txfm_param: *const TxfmParam);
     fn av1_inv_txfm_add_ssse3(dqcoeff: *const tran_low_t, dst: *mut uint8_t, stride: core::ffi::c_int, txfm_param: *const TxfmParam);
     fn av1_inv_txfm_add_avx2(dqcoeff: *const tran_low_t, dst: *mut uint8_t, stride: core::ffi::c_int, txfm_param: *const TxfmParam);
@@ -856,6 +865,12 @@ pub static mut av1_block_error_lp: Option<
     unsafe extern "C-unwind" fn(*const int16_t, *const int16_t, intptr_t) -> int64_t,
 > = None;
 #[no_mangle]
+pub static mut av1_dr_prediction_z1: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut av1_dr_prediction_z2: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut av1_dr_prediction_z3: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
 pub static mut av1_filter_intra_edge: Option<
     unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int) -> (),
 > = None;
@@ -1386,6 +1401,27 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
             as Option<
                 unsafe extern "C-unwind" fn(*const int16_t, *const int16_t, intptr_t) -> int64_t,
             >;
+    }
+    av1_dr_prediction_z1 = Some(av1_dr_prediction_z1_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        av1_dr_prediction_z1 = Some(av1_dr_prediction_z1_sse4_1 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        av1_dr_prediction_z1 = Some(av1_dr_prediction_z1_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    av1_dr_prediction_z2 = Some(av1_dr_prediction_z2_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        av1_dr_prediction_z2 = Some(av1_dr_prediction_z2_sse4_1 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        av1_dr_prediction_z2 = Some(av1_dr_prediction_z2_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    av1_dr_prediction_z3 = Some(av1_dr_prediction_z3_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        av1_dr_prediction_z3 = Some(av1_dr_prediction_z3_sse4_1 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        av1_dr_prediction_z3 = Some(av1_dr_prediction_z3_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, core::ffi::c_int, core::ffi::c_int, *const uint8_t, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> ()>;
     }
     av1_filter_intra_edge = Some(
         av1_filter_intra_edge_c
