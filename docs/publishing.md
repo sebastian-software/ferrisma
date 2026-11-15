@@ -209,7 +209,11 @@ the workspace (macOS ARM64, pinned nightly):
   to 10, quality 0 to 100, one, two and four encoder threads, AVIF to AVIF
   and AVIF to WebP, truncated inputs) and decoded all 59 AVIF files of the
   libavif test data (21 decoded, 38 rejected with a typed error, 0 panics).
-  No overflow panic and no abort.
+  No overflow panic and no abort. The port's golden tier with overflow
+  checks on for every package (`CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true
+  python3 tools/check_aom_golden.py` in `codecs/libavif-rs`, release
+  optimization, Neon RTCD): 62 of 62 golden AVIF outputs identical (8, 10
+  and 12 bit, lossless, alpha, one and four threads), 62 of 62 C-confirmed.
 - **`panic = "abort"` is a build error, not a run-time abort.**
   `libavif-aom` has `#[cfg(panic = "abort")] compile_error!`; a dependent
   whose profile aborts gets "libaom's mapped nonlocal error handling
@@ -257,8 +261,8 @@ Options and their cost:
 **Recommendation:** (a). Keep `panic = "unwind"` as a stated requirement
 (it is enforced), state the four overflow overrides as recommended rather
 than required, since no failure was reproduced, and have the codec owners
-run the existing AOM kernel and golden tiers once with overflow checks on to
-turn this sample into coverage. Do not start (b). Use (c) only if such a run
+run the AOM kernel tier and the debug translation once with overflow checks
+on (the golden tier already passed that way, release translation only). Do not start (b). Use (c) only if such a run
 finds an overflow. Put the block into the `ferrisma` README before
 publication:
 
