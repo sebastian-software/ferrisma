@@ -60,20 +60,30 @@ one adapter. Since 2026-11-15 every format has one reader and one writer
 | `webp-read` | still WebP input | workspace `libwebp-rs` | only WebP reader | stable 1.98 | none | Stable |
 | `webp-write` | still WebP output | workspace `libwebp-rs` | only WebP writer | stable 1.98 | none | Stable |
 | `jpeg-xl-read` | JPEG XL input | workspace `libjxl-rs` via `ferrisma-jxl-decoder` | only JPEG XL reader (since 2026-11-15; this name selected `jxl-oxide` before, and the workspace reader was `jpeg-xl-own-read`) | stable 1.98 | none | Stable as capability |
-| `avif-read` | still AVIF input | workspace libavif/AOM via `ferrisma-avif-read` | only AVIF reader | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Experimental |
-| `avif-write` | AVIF output | workspace libavif/AOM via `ferrisma-avif-write` | only AVIF writer (since 2026-11-15; this name selected `rav1e` 0.8 + `avif-serialize` before, and the workspace writer was `avif-own-write`) | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Experimental until it builds on stable (working decision 2026-11-15) |
+| `avif-read` | still AVIF input | workspace libavif/AOM via `ferrisma-avif-read` | only AVIF reader | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental |
+| `avif-write` | AVIF output | workspace libavif/AOM via `ferrisma-avif-write` | only AVIF writer (since 2026-11-15; this name selected `rav1e` 0.8 + `avif-serialize` before, and the workspace writer was `avif-own-write`) | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental until it builds on stable (working decision 2026-11-15) |
 | `jpeg-xl-write` | JPEG XL output: lossy d1.0 (default) or lossless | workspace `libjxl-rs`: public encoder through `ferrisma-jxl-encoder` (lossy), fixed-profile entry point (lossless) | only JPEG XL writer; in `cli` since 2026-11-12 | stable 1.98 | none | Experimental |
 | `icc` | rendered-ICC → sRGB conversion | `moxcms` 0.9 | needed for `UseRenderedIcc` / `--use-rendered-icc` | stable 1.98 | none | Stable |
-| `cli` | the `ferrisma` binary | `jpeg-read`, `webp-read`, `jpeg-xl-read`, `avif-read`, `avif-write`, `webp-write`, `jpeg-xl-write`, `icc` | — | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Stable command line, experimental backends |
+| `cli` | the `ferrisma` binary | `jpeg-read`, `webp-read`, `jpeg-xl-read`, `avif-read`, `avif-write`, `webp-write`, `jpeg-xl-write`, `icc` | — | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Stable command line, experimental backends |
 
-The pinned nightly is `nightly-2026-09-07` from
-[`rust-toolchain.toml`](../rust-toolchain.toml); the generated AVIF code needs
-`extern_types` and `c_variadic`. Stable Rust 1.98 is the declared
-`rust-version`. The stable-compatible set is the one CI's `minimum-rust` job
-checks: `jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc`.
-**Known cost of the 2026-11-15 removal of rav1e:** a stable-toolchain build
-can neither read nor write AVIF (before, it wrote AVIF through rav1e) until
-the workspace AVIF port builds on stable Rust. NASM is no longer needed.
+Since 2026-11-15 every feature builds on stable Rust. The AVIF features need
+Rust 1.99 or later, the `rust-version` of the AVIF packages: the port's
+translations were rewritten for stable (`tools/stable_rust.py`, libavif-rs
+[ADR 0060](../codecs/libavif-rs/docs/adr/0060-build-the-translations-on-stable-rust.md)),
+and their C-variadic functions are stable Rust since 1.99. Stable Rust 1.98
+stays the engine's declared `rust-version` for every other feature
+(`jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc`, CI
+`minimum-rust` with `cargo +1.98.0`); CI checks `avif-read`, `avif-write` and
+`cli` with `cargo +1.99.0` in the same job (the local evidence of 2026-11-15
+used a 1.99.0 nightly with `-Zallow-features=`, which rejects every
+`#![feature]`; no stable 1.99 or 1.100 toolchain was installed). Whether
+the AVIF features leave the experimental tier is the owner's decision. Before 2026-11-15 the AVIF
+features needed the pinned nightly (`extern_types`, `core_intrinsics`,
+`c_variadic`), so a stable-toolchain build could neither read nor write AVIF.
+The pinned nightly `nightly-2026-09-07` from
+[`rust-toolchain.toml`](../rust-toolchain.toml) remains the workspace's
+development default (rustfmt options, AddressSanitizer). NASM is no longer
+needed.
 
 Evidence: CI `rust` job checks each feature alone (`cargo check
 --no-default-features --features <feature>` for every feature above);
@@ -408,8 +418,8 @@ internals) need the whole frame for any crop.
 
 | Target | Engine features on stable | `avif-read`, `avif-write`, `cli` | Verified by |
 | --- | --- | --- | --- |
-| macOS ARM64 | yes | yes (pinned nightly) | local run below; CI `native-adapters` (`macos-15`) |
-| GNU Linux x86-64 | yes | yes (pinned nightly) | CI `rust`, `minimum-rust`, `workspace`, `codecs` (`ubuntu-24.04`); **not re-run for this branch** |
+| macOS ARM64 | yes | yes (stable 1.99; before 2026-11-15 pinned nightly) | local run below; CI `native-adapters` (`macos-15`) |
+| GNU Linux x86-64 | yes | yes (stable 1.99; before 2026-11-15 pinned nightly) | CI `rust`, `minimum-rust`, `workspace`, `codecs` (`ubuntu-24.04`); **not re-run for this branch** |
 | GNU Linux ARM64 | codec-free engine and kernels tested in CI | not supported | CI `kernels-arm` (`ubuntu-24.04-arm`: `cargo test -p ferrisma -p ferrisma-kernels --all-targets`, no codec features) |
 | Windows, other targets | not verified | not supported | out of v1.0 scope (#158, #159) |
 

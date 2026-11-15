@@ -33,7 +33,8 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
   `--self-check` passes (10 scenarios) and runs in CI.
 - The `avif-read`, `avif-own-write`, and `cli` features require the pinned
   nightly and native macOS ARM64 or GNU Linux x86-64; everything else
-  builds on stable Rust 1.98 (CI MSRV job).
+  builds on stable Rust 1.98 (CI MSRV job). Since 2026-11-15 the AVIF features (`avif-read`,
+  `avif-write`, `cli`) build on stable Rust 1.99 instead (libavif-rs ADR 0060).
 - On this branch, every public facade item is documented
   (`#![warn(missing_docs)]`), and the growable enums and output-only structs
   are `#[non_exhaustive]` (see the inventory below).
@@ -56,7 +57,7 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `JpegXlOptions` (`Lossy { distance }`, `Lossless { effort }`) | enum | Experimental (ADR-0039); default lossy d1.0 pending owner confirmation | Non-exhaustive; `PartialEq` only |
 | `ChromaSubsampling` | enum | Stable | Non-exhaustive |
 | `TransformOptions::avif_depth` | field | Experimental (working decision 2026-11-15; replaces `AvifEncoder::Libavif { depth }`) | 8 or 10, default 10 |
-| `LibavifBackend` | struct | Experimental (`avif-write`, nightly) | ADR-0037; the built-in AVIF writer |
+| `LibavifBackend` | struct | Experimental (`avif-write`; stable Rust 1.99 since 2026-11-15, pinned nightly before) | ADR-0037; the built-in AVIF writer |
 | `WorkingPrecision` | enum | `F32` stable; `F64Reference` experimental (verification only) | Non-exhaustive |
 | `Output` | struct | Stable | Non-exhaustive; `format`, `bytes`, `width`, `height`, `report` |
 | `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive; new fields are additive. `decoder_backend` and `encoder_backend` strings are experimental values (2026-11-14, #217) |
@@ -83,8 +84,8 @@ binary's command line, not this function, is the stable CLI contract.
 | `jpeg-read`, `webp-read`, `webp-write`, `icc` | Stable | Stable 1.98 |
 | `jpeg-xl-read` | Stable as "JPEG XL input"; since 2026-11-15 the workspace libjxl-rs reader, the only one (ADR-0032) | Stable 1.98 |
 | `jpeg-xl-write` (in `cli` since 2026-11-12, ADR-0039) | Experimental | Stable 1.98 |
-| `avif-read`, `avif-write` | Experimental until they build on stable (`avif-write` was the stable rav1e capability until 2026-11-15) | Pinned nightly, native targets only |
-| `cli` | Stable command line; inherits the nightly requirement through `avif-read`/`avif-write` | Pinned nightly |
+| `avif-read`, `avif-write` | Experimental until they build on stable (`avif-write` was the stable rav1e capability until 2026-11-15); they build on stable 1.99 since 2026-11-15, the tier change is the owner's | Stable 1.99 (pinned nightly before 2026-11-15), native targets only |
+| `cli` | Stable command line; inherits the 1.99 floor through `avif-read`/`avif-write` (the nightly requirement until 2026-11-15) | Stable 1.99 |
 
 ### Command line (`ferrisma` binary, `cli` feature)
 
