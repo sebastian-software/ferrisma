@@ -8,6 +8,10 @@ typed refusals ([supported matrix](supported-matrix.md),
 [compatibility guide](compatibility.md#refusal-reasons)) satisfy it; this
 page lists what passes while something is lost.
 
+The principle and the decisions derived from this audit are recorded in
+[ADR-0042](adr/0042-no-silent-loss-refuse-or-report.md); this page is its
+inventory.
+
 **Base.** `origin/main` at `64284177`, branch `v1/engine-silent-drops`.
 Read-only audit of `src/`, the wrapper crates under `crates/` and the
 third-party decoders' relevant code (jxl-oxide 0.12.6, moxcms 0.9.1, the

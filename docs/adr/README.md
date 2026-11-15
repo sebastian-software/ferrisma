@@ -58,6 +58,7 @@ Every ADR contains **Status**, **Date**, **Last reviewed**, **Context**, **Decis
 | [0039](0039-jpeg-xl-output-through-the-workspace-encoder.md) | JPEG XL output through the workspace libjxl-rs encoder: lossy VarDCT by default (straight alpha, patches off) and the verified lossless profile; explicit output semantics and license gate; `jxl-encoder` stays excluded | Experimental |
 | [0040](0040-stable-public-contract-and-compatibility-policy.md) | Stable 1.0 public contract tiers, SemVer, Rust version, deprecation and upgrade policy; facade review recommendations | Proposed |
 | [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) | v1.0 quality gate: bit identity with the ported original per execution kind and target, NaN payloads excluded, NEON/AVX2 SIMD scope with AVX-512 off by default, local-first validation, three-column performance reporting without a performance gate, 0.x until the gate is met; partially supersedes 0007, 0020, 0025, 0027, 0032, 0037, 0040 | Accepted (open questions O1–O9 pending) |
+| [0042](0042-no-silent-loss-refuse-or-report.md) | No silent loss: the pipeline carries a part of the input over, refuses the input, or names in the result what it left out; errors keep their true class; readers of one format agree on refusals | Accepted (open questions pending) |
 
 ## Changing an ADR
 
