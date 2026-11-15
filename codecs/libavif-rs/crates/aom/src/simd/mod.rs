@@ -348,6 +348,18 @@ pub mod av1__common__x86__av1_txfm_sse4;
 pub mod av1__common__x86__cdef_block_avx2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/cfl_avx2.rs"]
+pub mod av1__common__x86__cfl_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/cfl_sse2.rs"]
+pub mod av1__common__x86__cfl_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/cfl_ssse3.rs"]
+pub mod av1__common__x86__cfl_ssse3;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/filterintra_sse4.rs"]
 pub mod av1__common__x86__filterintra_sse4;
 

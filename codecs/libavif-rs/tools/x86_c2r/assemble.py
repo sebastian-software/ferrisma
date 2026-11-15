@@ -371,6 +371,35 @@ def forward_transform():
           + run('highbd_fwd_txfm_sse4_fwht.json'))
 
 
+CFL_HEAD = ('\n// av1/common/blockd.h\n'
+            'pub const CFL_BUF_LINE: i32 = 32;\n'
+            'pub const CFL_BUF_LINE_I128: i32 = CFL_BUF_LINE >> 3;\n'
+            'pub const CFL_BUF_LINE_I256: i32 = CFL_BUF_LINE >> 4;\n'
+            '// av1/common/enums.h\n'
+            'const TX_SIZES_ALL: i32 = 19;\n\n'
+            '// av1/common/cfl.h and config/av1_rtcd.h: the function types the RTCD getters return.\n'
+            'pub type cfl_subsample_lbd_fn = Option<unsafe extern "C-unwind" fn(*const u8, i32, *mut u16)>;\n'
+            'pub type cfl_subsample_hbd_fn = Option<unsafe extern "C-unwind" fn(*const u16, i32, *mut u16)>;\n'
+            'pub type cfl_subtract_average_fn = Option<unsafe extern "C-unwind" fn(*const u16, *mut i16)>;\n'
+            'pub type cfl_predict_lbd_fn = Option<unsafe extern "C-unwind" fn(*const i16, *mut u8, i32, i32)>;\n'
+            'pub type cfl_predict_hbd_fn = Option<unsafe extern "C-unwind" fn(*const i16, *mut u16, i32, i32, i32)>;\n')
+CFL_NOTE = ('// The size wrappers and RTCD getters that the CFL_* macros of av1/common/cfl.h generate are\n'
+            '// expanded with the C preprocessor before printing (tools/x86_c2r/c2r.py `cpp`); the\n'
+            '// wrappers keep the C ABI because the getters return them as C function pointers.\n')
+
+
+def cfl():
+    x = 'use crate::simd::aom_dsp__x86__synonyms::*;\n'
+    simple_file('av1/common/x86/cfl_sse2.rs', 'cfl_sse2.json', 'av1/common/x86/cfl_sse2.c', 'sse2', x, CFL_HEAD,
+                note=CFL_NOTE)
+    simple_file('av1/common/x86/cfl_ssse3.rs', 'cfl_ssse3.json', 'av1/common/x86/cfl_ssse3.c', 'ssse3', x,
+                CFL_HEAD.replace('pub const CFL', 'const CFL').replace('pub type', 'type'), note=CFL_NOTE)
+    simple_file('av1/common/x86/cfl_avx2.rs', 'cfl_avx2.json', 'av1/common/x86/cfl_avx2.c', 'avx2',
+                x + 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n'
+                'use crate::simd::av1__common__x86__cfl_ssse3::*;\nuse crate::simd::av1__common__x86__cfl_sse2::*;\n',
+                CFL_HEAD.replace('pub const CFL', 'const CFL').replace('pub type', 'type'), note=CFL_NOTE)
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -387,6 +416,7 @@ def main():
         sse_and_sum_squares()
         txb()
         forward_transform()
+        cfl()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

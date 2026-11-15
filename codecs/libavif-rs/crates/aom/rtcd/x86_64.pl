@@ -428,6 +428,24 @@ my %ported_x86 = map { $_ => 1 } qw/
   cdef_filter_8_3_avx2
   cdef_find_dir_avx2
   cdef_find_dir_dual_avx2
+  cfl_get_luma_subsampling_420_hbd_avx2
+  cfl_get_luma_subsampling_420_hbd_ssse3
+  cfl_get_luma_subsampling_420_lbd_avx2
+  cfl_get_luma_subsampling_420_lbd_ssse3
+  cfl_get_luma_subsampling_422_hbd_avx2
+  cfl_get_luma_subsampling_422_hbd_ssse3
+  cfl_get_luma_subsampling_422_lbd_avx2
+  cfl_get_luma_subsampling_422_lbd_ssse3
+  cfl_get_luma_subsampling_444_hbd_avx2
+  cfl_get_luma_subsampling_444_hbd_ssse3
+  cfl_get_luma_subsampling_444_lbd_avx2
+  cfl_get_luma_subsampling_444_lbd_ssse3
+  cfl_get_predict_hbd_fn_avx2
+  cfl_get_predict_hbd_fn_ssse3
+  cfl_get_predict_lbd_fn_avx2
+  cfl_get_predict_lbd_fn_ssse3
+  cfl_get_subtract_average_fn_avx2
+  cfl_get_subtract_average_fn_sse2
 /;
 foreach my $fn (keys %ALL_FUNCS) {
   foreach my $ext (qw/sse2 ssse3 sse4_1 avx2/) {

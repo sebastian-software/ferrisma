@@ -162,6 +162,45 @@ def ensure_int_aliases(text, ftype):
     return text
 
 
+RUST_WORDS = {'unsafe', 'extern', 'fn', 'mut', 'const', 'Option', 'core', 'ffi', 'c_int', 'c_uint', 'c_char',
+              'c_void', 'c_long', 'c_ulong', 'c_short', 'c_ushort', 'c_uchar', 'c_schar', 'isize', 'usize', 'i8',
+              'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64', 'bool', 'C', 'unwind'}
+
+
+def type_definition(text, name):
+    """The text of `pub type NAME = ...;` (rustfmt may wrap it) in a unit, or None."""
+    m = re.search(r'^pub type ' + name + r' = ', text, re.M)
+    if not m:
+        return None
+    depth, k = 0, m.end()
+    while True:
+        ch = text[k]
+        if ch in '<([':
+            depth += 1
+        elif ch in '>)]' and text[k - 1] != '-':
+            depth -= 1
+        elif ch == ';' and depth == 0:
+            return text[m.start():k + 1] + '\n'
+        k += 1
+
+
+def ensure_copied_types(text, ftype, others):
+    """Type aliases a new RTCD declaration names (the CfL function-pointer
+    types) that the unit lacks, copied verbatim from the first unit of the
+    same profile that defines them, after the unit's last `pub type`."""
+    for name in sorted(set(re.findall(r'\b([A-Za-z_]\w*)\b', ftype)) - RUST_WORDS - set(INT_ALIASES)):
+        if re.search(r'^pub (type|struct|union) ' + name + r'\b', text, re.M):
+            continue
+        definition = next((d for d in (type_definition(o, name) for o in others) if d), None)
+        if definition is None:
+            raise SystemExit(f'no definition of type {name} to copy into the RTCD unit')
+        last = list(re.finditer(r'^pub type (\w+) = ', text, re.M))[-1]
+        pos = last.start() + len(type_definition(text[last.start():], last.group(1)))
+        text = text[:pos] + definition + text[pos:]
+        text = ensure_int_aliases(text, definition)
+    return text
+
+
 def check_int_aliases():
     """--check: every integer alias the Linux RTCD units use is defined there
     in its canonical form."""
@@ -170,19 +209,22 @@ def check_int_aliases():
         for rel in RTCD_UNITS.values():
             path = CRATE / f'src/linux/{profile}' / rel
             text = path.read_text()
-            if ensure_int_aliases(text, text) != text:
+            used = ' '.join(re.findall(r'^pub static mut \w+: (Option<.*?>) = None;', text, re.M | re.S))
+            others = [p.read_text() for p in sorted((CRATE / f'src/linux/{profile}').rglob('*.rs')) if p != path]
+            if ensure_int_aliases(text, text) != text or ensure_copied_types(text, used, others) != text:
                 bad.append(str(path.relative_to(ROOT)))
     if bad:
-        raise SystemExit(f'integer aliases missing: {bad}')
-    print('Linux RTCD units: integer aliases complete')
+        raise SystemExit(f'type aliases missing: {bad}')
+    print('Linux RTCD units: integer and copied type aliases complete')
 
 
-def edit_rtcd_unit_linux(text, name, params, ret, order, variants):
+def edit_rtcd_unit_linux(text, name, params, ret, order, variants, others=()):
     ftype = fn_type(params, ret)
     opt = f'Option<{ftype}>'
     if re.search(r'pub static mut ' + name + r':', text):
         raise SystemExit(f'{name} is already dispatched')
     text = ensure_int_aliases(text, ftype)
+    text = ensure_copied_types(text, ftype, others)
     decl_params = ', '.join(split_top(params))
     r = f' {ret}' if ret else ''
     anchor = 'extern "C-unwind" {\n'
@@ -328,8 +370,9 @@ def main():
                           if spec.startswith(name + '_') and spec[len(name) + 1:] in X86_EXTENSIONS]
                 if sorted(variants) != sorted(wanted):
                     raise SystemExit(f'{name}: header dispatches {variants}, requested {wanted}')
+                others = [texts[r] for r in sorted(units) if r != rtcd_rel]
                 texts[rtcd_rel] = edit_rtcd_unit_linux(texts[rtcd_rel], name, params, ret,
-                                                       header_order(headers[header[0]]), variants)
+                                                       header_order(headers[header[0]]), variants, others)
             else:
                 texts[rtcd_rel] = edit_rtcd_unit(texts[rtcd_rel], name, params, ret,
                                                  header_order(headers[header[0]]))
