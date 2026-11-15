@@ -23,25 +23,13 @@ extern "C-unwind" {
     fn aom_free(memblk: *mut core::ffi::c_void);
 }
 #[repr(C)]
-pub struct _IO_wide_data {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct _IO_wide_data([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct _IO_codecvt {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct _IO_codecvt([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct _IO_marker {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct _IO_marker([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct aom_metadata_array {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct aom_metadata_array([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type __uint8_t = u8;
 pub type __uint16_t = u16;

@@ -41,25 +41,13 @@ extern "C-unwind" {
     fn aom_free(memblk: *mut core::ffi::c_void);
 }
 #[repr(C)]
-pub struct __sFILEX {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct image_pyramid {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct image_pyramid([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct corner_list {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct corner_list([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct aom_noise_tx_t {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct aom_noise_tx_t([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __int64_t = i64;
 pub type __darwin_size_t = usize;
 pub type __darwin_off_t = __int64_t;

@@ -138,25 +138,13 @@ extern "C" {
     ) -> core::ffi::c_int;
 }
 #[repr(C)]
-pub struct avifEncoderData {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct avifEncoderData([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct avm_codec_priv {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct avm_codec_priv([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct avm_codec_iface {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct avm_codec_iface([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct avm_metadata_array {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct avm_metadata_array([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type int32_t = i32;
 pub type int64_t = i64;

@@ -193,25 +193,13 @@ extern "C-unwind" {
     ) -> core::ffi::c_uint;
 }
 #[repr(C)]
-pub struct __sFILEX {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct SB_FIRST_PASS_STATS {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct SB_FIRST_PASS_STATS([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct AVxWorkerImpl {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct aom_denoise_and_model_t {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct aom_denoise_and_model_t([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __int64_t = i64;
 pub type __darwin_size_t = usize;
 pub type __darwin_off_t = __int64_t;

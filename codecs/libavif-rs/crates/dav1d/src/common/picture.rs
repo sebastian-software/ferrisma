@@ -48,10 +48,7 @@ extern "C" {
     fn dav1d_log(c: *mut Dav1dContext, format: *const core::ffi::c_char, ...);
 }
 #[repr(C)]
-pub struct __sFILEX {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __builtin_va_list = *mut core::ffi::c_char;
 pub type int8_t = i8;
 pub type int16_t = i16;

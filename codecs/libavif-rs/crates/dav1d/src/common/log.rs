@@ -35,10 +35,7 @@ extern "C" {
     ) -> core::ffi::c_int;
 }
 #[repr(C)]
-pub struct __sFILEX {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __builtin_va_list = *mut core::ffi::c_char;
 pub type va_list<'a> = core::ffi::VaList<'a>;
 pub type __int64_t = i64;

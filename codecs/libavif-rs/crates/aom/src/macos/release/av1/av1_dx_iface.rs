@@ -132,10 +132,7 @@ extern "C-unwind" {
     ) -> aom_codec_err_t;
 }
 #[repr(C)]
-pub struct AVxWorkerImpl {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __builtin_va_list = *mut core::ffi::c_char;
 pub type __darwin_size_t = usize;
 #[derive(Copy, Clone)]

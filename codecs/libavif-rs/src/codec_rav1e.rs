@@ -73,25 +73,13 @@ extern "C" {
     ) -> *mut core::ffi::c_char;
 }
 #[repr(C)]
-pub struct avifEncoderData {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct avifEncoderData([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct RaContext {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct RaContext([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct RaFrame {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct RaFrame([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct RaConfig {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct RaConfig([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type ptrdiff_t = isize;
 pub type size_t = usize;
 pub type int32_t = i32;

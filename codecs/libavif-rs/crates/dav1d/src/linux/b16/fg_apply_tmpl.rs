@@ -47,10 +47,7 @@ extern "C" {
     ) -> *mut core::ffi::c_void;
 }
 #[repr(C)]
-pub struct Dav1dRef {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct Dav1dRef([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __int8_t = i8;
 pub type __uint8_t = u8;
 pub type __int16_t = i16;

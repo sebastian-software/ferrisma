@@ -27,7 +27,7 @@
         "raw-c-mutable-address": 2
       },
       "raw_sha256": "9e0c1c47b37c36c53259bdc2b1bca89bae87a05fcc28a96ce1ae02ddfcef5ab4",
-      "rust_sha256": "52033b274b1c669960d94726bf6044e28c866750ae54103120d44fe3ed41f3bd"
+      "rust_sha256": "d68e593ab34e403b09b1988058e4ebf7664eca99cb5962631c498d7df9b44330"
     },
     {
       "source": "upstream/dav1d/src/ctx.c",
@@ -50,7 +50,7 @@
         "raw-c-mutable-address": 9
       },
       "raw_sha256": "98ce73b1b9b171f07f848292b7b39b1449880d39c48d687acbe35e326b5fe610",
-      "rust_sha256": "88ce041623a00b206e3e879ad46e06990d2e82bf852d28109ce82cbc08d2b108"
+      "rust_sha256": "635a8ed6c083cc979ee1ea71552c2c684469ade7a873bcd21e055c548fcd7ce8"
     },
     {
       "source": "upstream/dav1d/src/decode.c",
@@ -146,7 +146,7 @@
         "original-c-record-field-alignment": 107
       },
       "raw_sha256": "f45b3dee80b8c7521ec5661087bc7add03247ec8dbb69718fc1848ec2f9f480f",
-      "rust_sha256": "436d35d1bccbd909170f48f002a8aa5bc1cd9bac9a81c2b9e4114fad28e1119c"
+      "rust_sha256": "fb09108330c87d6c7350255146dd67fd5dd94e2def157da2260c29520ab1d4f2"
     },
     {
       "source": "upstream/dav1d/src/log.c",
@@ -161,7 +161,7 @@
         "original-c-record-field-alignment": 107
       },
       "raw_sha256": "9c93a43153a370b7664feedf43e06147915053f5768834d431d8157294a08c6c",
-      "rust_sha256": "4b670708f6c0102913e2d4c294a83fcd7dc954af7cfbff5df3ab82109553f10d"
+      "rust_sha256": "3062e5be9985a3e1fc1835ad2ac5a812f0de4b670d23d30b48e38aad0e590918"
     },
     {
       "source": "upstream/dav1d/src/mem.c",
@@ -202,7 +202,7 @@
         "original-c-record-field-alignment": 107
       },
       "raw_sha256": "9c2c50a54a69901a295573e7b08876ed33be2e97b8897e0f6370cd932ffd4659",
-      "rust_sha256": "92e14b17603f128042897811b85244f495900aeb19da3eaa99d0058368761cf2"
+      "rust_sha256": "d4ed32008f98b2fea3ad85a5da417b9c5e976ca79353d5cad8b54b4f1b2dd944"
     },
     {
       "source": "upstream/dav1d/src/pal.c",
@@ -228,7 +228,7 @@
         "original-c-record-field-alignment": 107
       },
       "raw_sha256": "0a6fb77371bfe399bb0ac7267168e6927e0ab17a953a9520225c39397c6cb3be",
-      "rust_sha256": "50a91add41f06d5448425fbea68583bfff34baa545a7f6f8eb31ad08608d3091"
+      "rust_sha256": "8852d371cede4bc1fa7291279787f5c1131cfa943939393b641d35783f5ebed4"
     },
     {
       "source": "upstream/dav1d/src/qm.c",
@@ -368,7 +368,7 @@
         "original-c-object-alignment": 1
       },
       "raw_sha256": "bc0a1d3deacc32fa452ff34a9954a2675b4859b8bd85a89a396dc6537439da00",
-      "rust_sha256": "dc2efbb5344acf7fc46d373e004b92959087bfbd5c91f811753bf8312fc9f660"
+      "rust_sha256": "486104ba4c74e1a95dec3465e707a5156a563b8ce93f63a59e04ff97d66899ee"
     },
     {
       "source": "upstream/dav1d/src/filmgrain_tmpl.c",
@@ -494,7 +494,7 @@
         "original-c-record-field-alignment": 144
       },
       "raw_sha256": "020c7e3aed900670cd40df19aa3a62ce6beab9c5cad56b098f49365e3d86bfe8",
-      "rust_sha256": "07f7b07595eb675e58c7b53babf0caaab5758db4c6a9902f2db304e9c944fdce"
+      "rust_sha256": "e72c83598395887d01c238c5f774e35654100584db6bda995ad259edc6b40176"
     },
     {
       "source": "upstream/dav1d/src/cdef_apply_tmpl.c",
@@ -533,7 +533,7 @@
         "original-c-object-alignment": 1
       },
       "raw_sha256": "89f9c5c640849be71f7c6d399e2b3147f7553511cce3746ae467eeaa7cad2890",
-      "rust_sha256": "5c0e620f2d792c76e65e9f94ba166189adc1562358f60eb446037644d5840c0b"
+      "rust_sha256": "2acfe3887f56148f9a98a595faba28aa50bc7c3565a7449dccd74e64b5176a1f"
     },
     {
       "source": "upstream/dav1d/src/filmgrain_tmpl.c",
@@ -662,7 +662,7 @@
         "original-c-record-field-alignment": 144
       },
       "raw_sha256": "278efbaa38a3ae99498bc6a1fddb5a723ddfcf8c7a513af40681a9dcf29c39fb",
-      "rust_sha256": "e32edb8a0d6b15ead981273bd17677643d57738f1312dce7cb96959027f05b59"
+      "rust_sha256": "caec89da5a32e5aae95b63e985b163a7b0de10d81f4aec612ce38bd11574016b"
     }
   ]
 }

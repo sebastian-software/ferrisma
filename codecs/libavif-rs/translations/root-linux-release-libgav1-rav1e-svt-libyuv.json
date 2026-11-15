@@ -21,7 +21,7 @@
       "source_sha256": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/avif.rs",
       "raw_sha256": "b33659af823c518d3b2782804ae992bf67651ab664175d18c67fa2576d51b947",
-      "rust_sha256": "9562e74c96d2bc6d954e9b105a05b414366a357fb7a71ae7434ffd47e97f763a",
+      "rust_sha256": "4395ce7f554735c719705b419ad758dbde105b169d40679041419d9375f8cc34",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
@@ -83,7 +83,7 @@
       "source_sha256": "b0e08b3c6e683fce6dd13afff60a860909b19fc9ace9ebe659e2eee9b2ee78df",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/io.rs",
       "raw_sha256": "20fdc436080b460965b9b337c83745e8694f34b7d9921a91f16b351c6be36b1e",
-      "rust_sha256": "a76bac168e4a5dd0004db66c839abd3f891add54aa7f4fa1496d61869e7d193c",
+      "rust_sha256": "648f67891e9a7ee75aa579d39c28fb656ad15daa8e93ac5d6551467a6933089b",
       "corrections": {}
     },
     {
@@ -126,7 +126,7 @@
       "source_sha256": "ac3f6e6589287046fef789ca4584b13e6d9c6b3a3bb378d322b3d1cc2571d007",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/read.rs",
       "raw_sha256": "67090c5bbab5a191f2455773d6cc2dba2569243380a85fb623153bd7c4215df2",
-      "rust_sha256": "29ae5b8175754d7593ae583e23493445b9846ca7533064bb06484c6d28838218",
+      "rust_sha256": "9d39f0ac472ce35c45ffc3260cf598c664f3736e7e6fafd55644a778327d225e",
       "corrections": {
         "canonical-cfg-labels": 4,
         "static-raw-address": 1
@@ -153,7 +153,7 @@
       "source_sha256": "b7fe62ad4356eb68b2fefc7af5276a85d98ca2b84d2a833b69fae531e3c7b187",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/reformat_libyuv.rs",
       "raw_sha256": "6f3393c9e68c75b22cd74f9b7c3c594f91a370cf6312432fe99f73a2e749e07d",
-      "rust_sha256": "83b1797bfaf393166ed1479edf50214dfff5d4bc2a90e834d919eea8d87afecb",
+      "rust_sha256": "97f31055a7fc0e5212d59bd84ef9e039f20dda50d25c6e7e832e8235e02cb1b0",
       "corrections": {}
     },
     {
@@ -195,7 +195,7 @@
       "source_sha256": "98ca08fc448785dcb2ba62f0f33caa6d0a0dcda0af0b71e09c3c9ced3e68146b",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/write.rs",
       "raw_sha256": "2deaa3fe613d6e0952f793267180270004678e17d7b23f818621dcf549ea18ba",
-      "rust_sha256": "983ff6462ed21e1172d29fe8b6ab475abc7de2b5e0e9686dfb736c0ffc210296",
+      "rust_sha256": "ae864b70fb638f67c3bf25c238c17011f900dca0304ea98acdc95d712c4f07e0",
       "corrections": {
         "canonical-cfg-labels": 4,
         "static-raw-address": 13
@@ -206,7 +206,7 @@
       "source_sha256": "2bee3b437a7ca303c3e6a04512a35c3832507f4fc37d35d8ee587e9fe9aeff84",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/codec_dav1d.rs",
       "raw_sha256": "eecdf9b0497b64aa5292fd5b0df3728cc55975dd44079254454591abcfa21d7b",
-      "rust_sha256": "93deab34b527743bfa60d14ddc3d6166995fa1f298e333e26cf89097b333ae45",
+      "rust_sha256": "1be06d703c22f76c227a7a16c1a904e529d53a36b2e3ed8bfd22c31fcc2c7d02",
       "corrections": {
         "current-rust-variadic-list": 1
       }
@@ -216,7 +216,7 @@
       "source_sha256": "1cdd17b24d5d175cd610e6c2e93317bb3254ba73dda679b4fe7716904df41e0b",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/codec_libgav1.rs",
       "raw_sha256": "3167bad61ec5bd937437676b9b0e89589a8e0338ae59b8f109ec51d45264ce1c",
-      "rust_sha256": "9f9ad7b2321200c22ffc524ab4bd1057bb766f1c92db0ffea8c63687d6b63411",
+      "rust_sha256": "aeaafe7096a001e4c15cb808f079b12158edd418aea460349675de326c76aa64",
       "corrections": {}
     },
     {
@@ -224,7 +224,7 @@
       "source_sha256": "2b932404aac34300ca2bc71cad10ad8eec2bd2b13f6e8ff506d27b6c89267fde",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/codec_rav1e.rs",
       "raw_sha256": "5876277873efc9a92a927b2780dd71a08cf076fe22cf5b001aafac8a3a13ee99",
-      "rust_sha256": "d8736c845bfe95055b661d81c11e26162f1a2ebc2be2caec646da93c450e738b",
+      "rust_sha256": "d29f2c6fae5fb458563f2b926b64b47b5f87d7389cb743f90343e2680e213313",
       "corrections": {
         "canonical-cfg-labels": 9
       }
@@ -234,7 +234,7 @@
       "source_sha256": "6ee4fc1058372950652b0f161eab8b179a1b76576af22cfbd17b7458bd05c120",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/codec_svt.rs",
       "raw_sha256": "d7bc87ec166ef9e79f06b7093a78860886911adcaf9bbd79f902dfcc5182948e",
-      "rust_sha256": "e1d95fa67679acd8e010b0a18558f46add26b85dc1b24c3bddf63c7a4d29476d",
+      "rust_sha256": "87c220c87fc20dd5c84f52afe70958e8cfa3bf8344998cd4f17a88896be82658",
       "corrections": {
         "canonical-cfg-labels": 4
       }
@@ -244,7 +244,7 @@
       "source_sha256": "2257d152d6f7218f1057890f77a7e56dd2b34cf44403367eca7b4d53186b73f4",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/codec_aom.rs",
       "raw_sha256": "10d8c87df0eac7d0fa7ecac4e13351390cf6001415c449a97daeb2afa86b6a62",
-      "rust_sha256": "6abb9ac4cc79790cda2fbaafbff9d387a6ada365801c1a9cfdd814994b897743",
+      "rust_sha256": "4aaca649a033c5d47e64a3df9a8976f8280e4d5e1b2964fb3475c18ab0b5bc5a",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2

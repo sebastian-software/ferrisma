@@ -41,10 +41,7 @@ extern "C" {
     fn dav1d_ref_dec(ref_0: *mut *mut Dav1dRef);
 }
 #[repr(C)]
-pub struct __sFILEX {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type int64_t = i64;
 pub type uint8_t = u8;
 pub type __int64_t = i64;

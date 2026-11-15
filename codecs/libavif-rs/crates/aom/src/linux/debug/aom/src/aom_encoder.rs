@@ -20,15 +20,9 @@ extern "C-unwind" {
     fn aom_codec_destroy(ctx: *mut aom_codec_ctx_t) -> aom_codec_err_t;
 }
 #[repr(C)]
-pub struct aom_metadata_array {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct aom_metadata_array([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct aom_codec_alg_priv {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct aom_codec_alg_priv([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct __va_list_tag {

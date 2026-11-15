@@ -125,20 +125,11 @@ extern "C" {
     static mut dav1d_masks: Dav1dMasks;
 }
 #[repr(C)]
-pub struct _IO_wide_data {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct _IO_wide_data([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct _IO_codecvt {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct _IO_codecvt([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct _IO_marker {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct _IO_marker([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct __va_list_tag {

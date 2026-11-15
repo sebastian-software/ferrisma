@@ -28,10 +28,7 @@ extern "C" {
     fn ftello(__stream: *mut FILE) -> off_t;
 }
 #[repr(C)]
-pub struct __sFILEX {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type uint8_t = u8;
 pub type uint32_t = u32;

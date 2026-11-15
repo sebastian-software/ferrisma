@@ -158,10 +158,7 @@ extern "C-unwind" {
     fn av1_set_single_tile_decoding_mode(cm: *mut AV1_COMMON);
 }
 #[repr(C)]
-pub struct AVxWorkerImpl {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct yv12_buffer_config {

@@ -39,10 +39,7 @@ extern "C" {
     ) -> core::ffi::c_int;
 }
 #[repr(C)]
-pub struct Dav1dContext {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct Dav1dContext([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub const ENOSYS: core::ffi::c_int = 78 as core::ffi::c_int;
 pub const NULL: *mut core::ffi::c_void = 0 as *mut core::ffi::c_void;

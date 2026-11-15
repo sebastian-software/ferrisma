@@ -43,20 +43,11 @@ extern "C" {
     ) -> *mut core::ffi::c_void;
 }
 #[repr(C)]
-pub struct avifEncoderData {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct avifEncoderData([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct Dav1dRef {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct Dav1dRef([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct Dav1dContext {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct Dav1dContext([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct __va_list_tag {

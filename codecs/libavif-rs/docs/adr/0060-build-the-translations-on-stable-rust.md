@@ -66,14 +66,15 @@ machine code for the intrinsic and the helper at `opt-level=3` on
 
 ```rust
 #[repr(C)]
-pub struct X {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct X([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 ```
 
-zero-sized, not constructible outside its module, and neither `Send`, `Sync`
-nor `Unpin`. The compiler accepted the extern types only behind pointers
+zero-sized, not constructible outside its module (private fields), and
+neither `Send`, `Sync` nor `Unpin`. It is a tuple struct on purpose: the ABI
+layout checks (`tools/check_aom_abi.py`, `check_abi.py`,
+`check_dav1d_abi.py`, `dav1d_layout.py`) collect every `pub struct X {` as a
+C record to compare, and an opaque type has no C layout (a first version
+with named fields failed `check_aom_abi.py` on `aom_metadata_array`). The compiler accepted the extern types only behind pointers
 (they are unsized), so every existing use is a pointer to `X`; a pointer to a
 zero-sized struct is thin, so layouts and the C ABI do not change. Replacing
 the opaque types with the real definitions of other units (rav1d's route) is
@@ -122,7 +123,13 @@ they are stable now.
 - `cargo +stable` (1.99 or later) builds the three crates and the engine's
   AVIF features in every profile; the gates in the amendment below compare
   the result with the frozen behavior.
-- Reproducing the frozen translation from C2Rust now ends with
-  `tools/stable_rust.py`.
+- Reproducing the translations from C2Rust now ends with
+  `tools/stable_rust.py`: run the generator in write mode, then this tool,
+  and compare with Git. The generators' own `--check` modes
+  (`transpile_aom.py`, `transpile_dav1d.py`, `transpile_root.py` and the
+  root variant importers) compare the output before this step and fail
+  until they call it; they were not changed or run here.
+- `--check` runs in the pull-request static stage
+  (`cargo xtask codecs --codec avif --stage pr`) and CI's `workspace` job.
 - The C ABI is unchanged; C consumers and the nightly C oracles link the same
   symbols.

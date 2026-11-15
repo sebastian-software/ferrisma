@@ -132,10 +132,7 @@ extern "C-unwind" {
     fn aom_get_worker_interface() -> *const AVxWorkerInterface;
 }
 #[repr(C)]
-pub struct AVxWorkerImpl {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct __va_list_tag {

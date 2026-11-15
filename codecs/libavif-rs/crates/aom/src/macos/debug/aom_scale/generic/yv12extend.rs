@@ -27,15 +27,9 @@ extern "C-unwind" {
     fn aom_free_frame_buffer(ybf: *mut YV12_BUFFER_CONFIG) -> core::ffi::c_int;
 }
 #[repr(C)]
-pub struct corner_list {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct corner_list([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct image_pyramid {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct image_pyramid([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct yv12_buffer_config {

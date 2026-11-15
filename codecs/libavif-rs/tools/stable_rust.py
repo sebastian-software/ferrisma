@@ -19,8 +19,8 @@ by the same rewrite each time:
   changes.
 * `extern_types`: C2Rust declares each incomplete C struct as `pub type X;`
   inside an `extern` block. The rewrite removes the declaration and defines
-  `X` after that block as an opaque `#[repr(C)]` struct of size zero that
-  cannot be constructed outside its module and is neither `Send`, `Sync` nor
+  `X` after that block as an opaque `#[repr(C)]` tuple struct of size zero
+  (private fields) that cannot be constructed outside its module and is neither `Send`, `Sync` nor
   `Unpin` (the `PhantomData<(*mut u8, PhantomPinned)>` pattern). The compiler
   only accepted the extern types behind pointers, so every use stays a
   pointer to `X`, and a pointer to a zero-sized struct is thin, like a pointer
@@ -56,11 +56,11 @@ ATOMIC = re.compile(r'::core::intrinsics::atomic_(load|store|or|xadd|xsub|xchg|c
                     r'::<_, (?:_, )?' + ORDER + r'(?:, ' + ORDER + r'|, false)?>\(')
 EXTERN_OPEN = re.compile(r'^(?:unsafe )?extern "C(?:-unwind)?" \{$')
 EXTERN_TYPE = re.compile(r'^    pub type (\w+);$')
+# A tuple struct: the ABI layout checks (tools/check_*abi.py, dav1d_layout.py)
+# collect `pub struct X {` records as C layouts to compare, and an opaque type
+# has no C layout.
 OPAQUE = '''#[repr(C)]
-pub struct {name} {{
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}}'''
+pub struct {name}([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);'''
 
 
 def manifests():

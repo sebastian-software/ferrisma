@@ -27,15 +27,9 @@ extern "C" {
     ) -> Libgav1StatusCode;
 }
 #[repr(C)]
-pub struct avifEncoderData {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct avifEncoderData([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct Libgav1Decoder {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct Libgav1Decoder([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type int32_t = i32;
 pub type int64_t = i64;

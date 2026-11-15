@@ -52,15 +52,9 @@ extern "C" {
     ) -> *mut core::ffi::c_void;
 }
 #[repr(C)]
-pub struct avifEncoderData {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct avifEncoderData([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[repr(C)]
-pub struct SvtMetadataArray {
-    _opaque: [u8; 0],
-    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-}
+pub struct SvtMetadataArray([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type __int8_t = i8;
 pub type __uint8_t = u8;

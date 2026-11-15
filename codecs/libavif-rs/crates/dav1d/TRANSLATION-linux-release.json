@@ -28,7 +28,7 @@
         "raw-c-mutable-address": 2
       },
       "raw_sha256": "fe289b6998ddbed1fd98a33af4a13fa064abd9d3c4155ca0e6f868b003dd7e5e",
-      "rust_sha256": "fdc8d9f089a864f45d27f6d929673a10d7db3ef398ea0f8af7045860785c34d9"
+      "rust_sha256": "a20da7dfc0c3fe29d6683546a0bb1b7677c2cd3f5918f898bf8a55890cb33942"
     },
     {
       "source": "upstream/dav1d/src/ctx.c",
@@ -149,7 +149,7 @@
         "current-rust-variadic-list": 3
       },
       "raw_sha256": "a5b24e1bc1dccd3d3e5787c9173db762a3abaec9d5785ae4d74e431d0f8096b7",
-      "rust_sha256": "34faacd1f72686e5be04093b4e627d94ac8029f0d24dd93fcca84cbb068bb6a6"
+      "rust_sha256": "c724dcfaad83f68533a64d39b1c33343bfbabefeceb6b741d7fb5da70a6d61cb"
     },
     {
       "source": "upstream/dav1d/src/mem.c",
@@ -341,7 +341,7 @@
         "original-c-object-alignment": 2
       },
       "raw_sha256": "fc8d9908b6d85295384a422347f3e9e64c91a04b8cdfa57a4a22cb4f7a54b61a",
-      "rust_sha256": "e50b774630324d8093c3dfea403d4747f866e144c9400d0c19ba0b91f4bf070e"
+      "rust_sha256": "e0b45703295affccf17a790594be8b47bae9bf2279a79d888076d4a141d81e46"
     },
     {
       "source": "upstream/dav1d/src/filmgrain_tmpl.c",
@@ -463,7 +463,7 @@
         "empty-readwrite-register-barrier": 1
       },
       "raw_sha256": "55f0c72ddd55f611a47ceea5a657a7ec84abe278ae4cdd61e22011cf80a8c629",
-      "rust_sha256": "0a99bd390073b96ea60b9f420e121d2b8e4703ec2bb55de4ac691e77b1390a7a"
+      "rust_sha256": "f55e5910268d687cf616a9b8a2645fe8ea52087c4864dfe22983d64b134a16cc"
     },
     {
       "source": "upstream/dav1d/src/cdef_apply_tmpl.c",
@@ -499,7 +499,7 @@
         "original-c-object-alignment": 1
       },
       "raw_sha256": "33e9d9a5fb35956de02bd670b9b0857caa8c1ccd5b1b81f61ffcbedc43ddc3ab",
-      "rust_sha256": "87d5161a7c4a956efaedee4a35b3eea0ba0d844b7e16ed5897598c93522ecfc1"
+      "rust_sha256": "0e8d0e0e3acb5eb9b9564b45636666e58b576df0b8bd95b048eb21746b38c9ba"
     },
     {
       "source": "upstream/dav1d/src/filmgrain_tmpl.c",
@@ -621,7 +621,7 @@
         "empty-readwrite-register-barrier": 1
       },
       "raw_sha256": "aa354ae56b6d8021c43fc29366878b978f374d00bf2acef6a46b1e6757080e62",
-      "rust_sha256": "8bd31354c302a23dbd35492b184e3e3e5948579bb9e027a6637a560b86cbe15e"
+      "rust_sha256": "5afb5a5cfdc70b64b6160cf4073a42578ba3d9edd7e5653db67111c09df09c31"
     }
   ]
 }
