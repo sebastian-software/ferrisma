@@ -422,6 +422,14 @@ Lossy Modular uses float quantization in Squeeze. Patch detection relies on
 float similarity thresholds and an `std::sort` over patch sizes, whose order
 for equal areas follows libc++.
 
+**Progress (2026-11-15, issue #223).** The lossless profile at effort 2 is
+admitted through the public API, one-shot and on the streaming Modular path
+that CanDoStreamingEncoding selects for lossless images, byte-exact at the
+step-2 gate sizes (see
+[PORT_STATUS.md](PORT_STATUS.md), block "encoder lossless streaming"). The
+other efforts, lossy Modular, palettes and options beyond the defaults,
+Squeeze, float samples and the patch reference frame remain open.
+
 ### 6. Color profiles, ICC and HDR input
 
 **Scope.** Non-sRGB enum encodings and ICC input through
