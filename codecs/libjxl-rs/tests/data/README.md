@@ -252,3 +252,27 @@ Authors under the Creative Commons Attribution 4.0 International license; see
 `LICENSE-testdata-CC-BY-4.0.txt`. Only the testdata submodule's pinned revision
 was used; it is not needed to run the tests. `tests/parity/decode_test_inventory.rs`
 passes the files to the oracle and replays the test histories on them.
+
+## Encoder step 1 upstream fixtures
+
+<!-- encoder step 1 -->
+`encoder-step1/` holds raw pixel fixtures for the upstream test cases of
+encoder step 1 (#118) that read PNG files: `jxl_test.cc` RoundtripSinglePixel
+needs none; RoundtripSmallD1, RoundtripUnalignedD2 and `speed_tier_test.cc`
+read `external/wesaturate/500px/u76c0g_bliznaca_srgb8.png`, and
+RoundtripD2Consistent reads `jxl/flower/flower.png`, from the pinned testdata
+revision `73695d303670c90e4d506ea89d9901b081385089`. The oracle does not build
+the extras PNG decoder, so `tools/encoder_step1_fixtures.py` decodes each file
+once with the Python standard library and writes its 8-bit interleaved samples
+(`.u8`, the largest top-left crop a test reads: 500x500 and 48x15) and its
+decompressed iCCP profile (`.icc`). `fixtures.json` records the source paths,
+their SHA-256 values and the SHA-256 of every written file;
+`python3 tools/encoder_step1_fixtures.py upstream/libjxl/testdata
+tests/data/encoder-step1 --check` reproduces them. The flower crop equals the
+first 48x15 samples of the testdata's own `jxl/flower/flower.pnm`. Both encoders
+read the same bytes (`tests/parity/encoder_step1.rs`).
+
+The wesaturate image is CC0 (`LICENSE-wesaturate-CC0.md`, the testdata's
+`external/wesaturate/LICENSE.md`); the flower image is part of the libjxl
+testdata repository under CC BY 4.0 (`LICENSE-testdata-CC-BY-4.0.txt`).
+<!-- end encoder step 1 -->

@@ -125,8 +125,8 @@ fn admission<T>(checkpoint: FrameAdmission) -> FrameResult<T> {
 /// EncodeFrameOneShot:
 /// effort 7 (kSquirrel) lossy VarDCT with XYB at distances below
 /// kMinButteraugliForDots, gray or RGB enum sRGB or linear sRGB with the
-/// extra channels of [`admitted_extra_channels`], a single displayed full-size frame without blending, names or
-/// references, the default memory manager, serial, raw codestream output and
+/// extra channels of [`admitted_extra_channels`], a single displayed full-size frame without blending or
+/// names (a reference slot only on the last frame), the default memory manager, serial, raw codestream output and
 /// default perceptual and progressive options; the patches option at its
 /// default or off.
 pub fn admitted_frame_profile(
@@ -181,7 +181,9 @@ pub fn admitted_frame_profile(
         && !frame_info.is_preview
         && frame_info.frame_type == FrameType::REGULAR
         && frame_info.dc_level == 0
-        && frame_info.save_as_reference == 0
+        // A last frame cannot be referenced (FrameHeader::CanBeReferenced), so
+        // save_as_reference changes only its own header field: the extras PNG
+        // decoder sets it for a still image (jxl_test.cc, encoder step 1).
         && !frame_info.save_before_color_transform
         && frame_info.ib_needs_color_transform
         && frame_info.origin.x0 == 0
