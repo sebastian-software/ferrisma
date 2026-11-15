@@ -2,6 +2,35 @@
 
 Ferrisma itself is **MIT OR Apache-2.0** (see [ADR-0010](adr/0010-dual-licensing.md)). That license does **not** relicense embedded or transitive codec, compression, image, parser, assembler or CMS implementations.
 
+## Review decision for 1.0 (owner, 2026-11-15)
+
+Owner decision of 2026-11-15 on #136 and #66:
+
+- **The policy for project-owned code and per-crate metadata is
+  confirmed** ([below](#policy-for-project-owned-code-and-per-crate-metadata-136)):
+  Ferrisma's own packages are `MIT OR Apache-2.0`, and original additions
+  inside a port are contributed under that port's upstream terms.
+- **The documented self-review is accepted for 1.0.** There is no
+  independent legal review before 1.0. Where this page says that an
+  independent source and legal review remains open, read it as not required
+  for 1.0; advice can be taken later.
+- **The scope of the patent grants for the translated ports stays named as
+  not assessed** ([finding 6](#findings-from-the-2026-11-12-review)): the
+  bundles keep the upstream patent files, and whether those grants cover a
+  translated port or a given distribution is not assessed. Optional advice
+  later.
+- **`simd_helpers` is no longer in the graph.** It was a proc-macro of
+  rav1e, which left every build on 2026-11-15; the root `Cargo.lock` and
+  `fuzz/Cargo.lock` no longer contain it (checked on `main` at `679f382c`;
+  only the lockfile of the research experiment
+  `docs/research/encoder-experiment`, which is not a workspace package,
+  still lists it). Its notice item (finding 3) is moot for the published
+  set.
+
+**Not done yet**, after the package rename (#207), because the names
+change: regenerate the distribution inventory and the license bundles, and
+re-bind the JPEG source-bound evidence to the reviewed files (finding 2).
+
 ## Automated metadata screening
 
 ```sh
@@ -187,7 +216,9 @@ Workspace packages in the `cli` graph and their declared terms:
    published package or upstream revision. It is a proc-macro of `rav1e` and
    reaches `avif-write` and `cli`. Either obtain a notice from its author,
    confirm it is absent from the linked binary and document that, or keep the
-   item open. Do not invent a notice.
+   item open. Do not invent a notice. *2026-11-15:* moot for the published
+   set; rav1e and with it `simd_helpers` left the root lockfile
+   ([review decision](#review-decision-for-10-owner-2026-11-15)).
 4. **The ICC profile** is now a package-local copy (`assets/icc`), so the
    published `ferrisma` crate contains the file it embeds. The bundle collects
    the copy and its provenance file instead of the libavif test-data paths.
@@ -198,12 +229,15 @@ Workspace packages in the `cli` graph and their declared terms:
    (Google), `libjxl-rs` (Google, JPEG XL), and `libavif-aom` and
    `libavif-dav1d` (AOM) ship separate patent grants. The bundles retain
    them. Whether those grants cover a given distribution was not assessed.
+   *2026-11-15:* the owner keeps this named as not assessed for 1.0
+   ([review decision](#review-decision-for-10-owner-2026-11-15)).
 
 ### Policy for project-owned code and per-crate metadata (#136)
 
-Proposed on 2026-11-12 for maintainer confirmation; it applies the existing
-ADR-0010 and the codec ADRs 0014 and 0017 of libavif-rs to every workspace
-package:
+Proposed on 2026-11-12 and confirmed by the owner on 2026-11-15 (see
+[the review decision](#review-decision-for-10-owner-2026-11-15)); it applies
+the existing ADR-0010 and the codec ADRs 0014 and 0017 of libavif-rs to
+every workspace package:
 
 - **Standalone project-owned packages** (`ferrisma`, `ferrisma-kernels`,
   `ferrisma-avif-read`, `ferrisma-avif-write`, `ferrisma-jxl-decoder`,
@@ -269,7 +303,7 @@ The choices and their remaining gates are recorded in [ADR-0018](adr/0018-option
 - [x] Commit `Cargo.lock` for the CLI and reproducible measurements ([ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md)).
 - [ ] Check that the package advertises its required Rust version accurately and that the target platforms actually compile.
 - [ ] Record real AVIF output ICC/CICP and alpha behavior, HDR rejection, and total RSS on representative images.
-- [ ] Perform an independent source and legal review of third-party license obligations.
+- [ ] Perform an independent source and legal review of third-party license obligations. *Not required for 1.0* (owner decision 2026-11-15: the documented self-review is accepted; [review decision](#review-decision-for-10-owner-2026-11-15)).
 
 Do **not** declare M1 release-ready merely because the metadata gate passes.
 
