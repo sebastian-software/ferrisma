@@ -430,6 +430,21 @@ ProcessEncoder loop and output processors; boxes around streaming frames in
 output modes 0, 1 and 2); 20 jxli histories (one indexed frame, raw
 codestream or container, output mode 2, output processor; the setter stores
 the request for 0 and 1 alike). Multi-frame indexes need step 10.
+
+Rejections and upstream cases: 22 rejection histories exact (boxes after
+CloseBoxes or CloseInput or without UseBoxes, compressed reserved types,
+settings after output started, invalid levels, level 5 violations at
+SetBasicInfo and ProcessOutput, a level 10 violation only ProcessOutput
+sees, output mode 2 after an ftyp version 0 container) plus 2 brob admission
+prefixes with branch evidence. encode_test's SingleFrameBoundedJXLCTest,
+CodestreamLevelTest, CodestreamLevelVerificationTest and the two
+uncompressed EncodeBoxTest instances run with the tests' GetSomeTestImage
+pixels and ProcessEncoder loops: 5 exact, the box test's file decoded by both
+public decoders with box events. Not admitted: the two compressed
+EncodeBoxTest instances (brob, step 11), an admission after an exact prefix.
+Not reachable through the public API at a testable size: a 64-bit box size
+(a 4 GiB box or codestream) and an unbounded box, which the encoder never
+writes; the box header writers cover both directly.
 <!-- end encoder container -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)

@@ -640,3 +640,180 @@ fn public_encoder_container_frame_index_matches_original() {
         "container-frame-index: every history is exact"
     );
 }
+
+/// Encoder container, unit 4: rejections. Boxes after JxlEncoderCloseBoxes
+/// and CloseInput and without UseBoxes; compressed boxes of the reserved
+/// types (jxl*, jbrd, brob); the container, box, level and JPEG-metadata
+/// settings after output started; invalid levels; level 5 violations (five
+/// extra channels, a 16-bit alpha channel, dimensions above level 5, which
+/// SetBasicInfo or ProcessOutput rejects) and a level 10 violation that only
+/// ProcessOutput detects; output mode 2 after a container with ftyp version
+/// 0 was written. The `brob` compression of a box (step 11) is an admission
+/// result after an exact prefix with the original's branch evidence.
+#[test]
+fn public_encoder_container_rejections_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let (setup, frame) = setup_and_frame(8, 8, false, 1, "");
+    let (setup2, frame2) = setup_and_frame(43, 15, false, 2, " o0,40,2");
+    let bound = output_schedule(8 * 8 * 12 + 4096);
+    let mut scripts = vec![
+        format!("X {setup} Y O45786966,4,0 {frame} Z {bound} S"),
+        format!("X {setup} Z O45786966,4,0 {bound} S"),
+        format!("X {setup} O45786966,4,0 {frame} Z {bound} O786d6c20,3,0 S"),
+        format!("{setup} O45786966,4,0 {frame} Z {bound} S"),
+        format!("{setup} {frame} Z p64 X U1 U0 L10 L5 L-1 J1 J0 {bound} S"),
+        format!("X {setup} O45786966,4,0 p64 X U1 L10 Y {bound} S"),
+        format!("L0 L4 L6 L11 L-2 L2147483647 {setup} {frame} Z {bound} S"),
+        // Level 5 violations.
+        "L5 Bw:1073741824,h:8 S".to_string(),
+        "L5 Bw:8,h:262145 S".to_string(),
+        "L5 Bw:8,h:8,ec:5 S".to_string(),
+        "L-1 Bw:1073741825,h:8 Bw:2147483648,h:8 S".to_string(),
+        "X Bw:1073741824,h:2048 l O45786966,4,0 Z p64 S".to_string(),
+        "X L10 Bw:1073741824,h:2048 l O45786966,4,0 Z p64 S".to_string(),
+        // Mode 2 after a container with ftyp version 0.
+        format!("X {setup2} O45786966,4,0 p100 {frame2} Z {bound} S"),
+        format!("X {setup2} {frame2} O45786966,4,0 Z {bound} S"),
+    ];
+    // Five extra channels or a 16-bit alpha channel at level 5.
+    let mut ecs = String::new();
+    let mut buffers = String::new();
+    for i in 0..5 {
+        ecs.push_str(&format!(" K{i},6,8,0,0,0,0,0,0,0,0"));
+        buffers.push_str(&format!(" E0,1,2,0,0,64,{i},3,8,8"));
+    }
+    scripts.push(format!(
+        "L5 Bw:8,h:8,ec:5 G0{ecs} s- a0,3,2,0,0,192,3,8,8{buffers} Z {bound} S"
+    ));
+    scripts.push(format!(
+        "L5 Bw:8,h:8,bits:16,ec:1,ab:16 G0 s- a0,4,3,0,0,512,19,8,8 Z {bound} S"
+    ));
+    for compress in ["6a786c63", "6a786c70", "6a786c6c", "6a627264", "62726f62"] {
+        scripts.push(format!("X {setup} O{compress},4,1 {frame} Z {bound} S"));
+    }
+    // brob compression (admission result at ProcessOutput).
+    scripts.push(format!("X {setup} O45786966,40,1 {frame} Z {bound} S"));
+    scripts.push(format!(
+        "X {setup} {frame} F {bound} O786d6c20,40,1 Y {bound} S"
+    ));
+    let requests = scripts.iter().map(|script| run(0, 0, script)).collect();
+    super::compare("container-rejections", requests);
+}
+
+/// The pixels of an upstream encode_test case: GetSomeTestImage from the
+/// original's test helpers, as an `a` operation's explicit content.
+fn some_test_image(xsize: usize, ysize: usize, channels: usize, seed: usize) -> String {
+    let request = format!("ectr-pixels {xsize} {ysize} {channels} {seed}");
+    let pixels = super::super::original_observations(&[request]).remove(0);
+    assert_eq!(pixels.len(), xsize * ysize * channels * 2 * 2);
+    format!("x{pixels}")
+}
+
+/// The upstream encode_test cases of the gate in differential form, with the
+/// tests' inputs (GetSomeTestImage, RGBA uint16 big endian), settings and
+/// ProcessOutput loops (ProcessEncoder): SingleFrameBoundedJXLCTest,
+/// CodestreamLevelTest, CodestreamLevelVerificationTest and the uncompressed
+/// instances of EncodeBoxTest (both of its xml_box_size values, which the
+/// test does not use). Every call's status and the complete output are
+/// compared instead of the tests' container parse; the decoder half of the
+/// box test decodes the output through both public decoders with boxes
+/// subscribed. The compressed EncodeBoxTest instances are not admitted
+/// (brob compression, step 11): their history is an admission result after
+/// an exact prefix.
+#[test]
+fn upstream_encode_test_container_cases_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    // JxlBasicInfoSetFromPixelFormat for RGBA uint16 and uint8.
+    let rgba16 = |x: usize, y: usize| format!("Bw:{x},h:{y},bits:16,ec:1,ab:16");
+    let rgba8 = |x: usize, y: usize| format!("Bw:{x},h:{y},bits:8,ec:1,ab:8");
+    let frame = |x: usize, y: usize, pixels: &str| format!("a0,4,3,2,0,{},{pixels}", x * y * 8);
+    let mut requests = Vec::new();
+    // SingleFrameBoundedJXLCTest.
+    let pixels = some_test_image(71, 23, 4, 0);
+    requests.push(run(
+        0,
+        0,
+        &format!(
+            "U1 s- L10 {} G0 {} Z P64 S",
+            rgba16(71, 23),
+            frame(71, 23, &pixels)
+        ),
+    ));
+    // CodestreamLevelTest.
+    let pixels = some_test_image(64, 64, 4, 0);
+    requests.push(run(
+        0,
+        0,
+        &format!(
+            "L10 s- {} G0 {} Z P64 S",
+            rgba16(64, 64),
+            frame(64, 64, &pixels)
+        ),
+    ));
+    // CodestreamLevelVerificationTest.
+    requests.push(run(
+        0,
+        0,
+        &format!(
+            "{} l L5 {} L10 {} l {} S",
+            rgba8(64, 64),
+            rgba8(1 << 30, 64),
+            rgba8(1 << 30, 64),
+            rgba8(1 << 31, 64)
+        ),
+    ));
+    // EncodeBoxTest, uncompressed (the two xml_box_size instances).
+    let exif = format!("{}{}", "00000000", driver::hex(b"exif test data"));
+    let xml = driver::hex(b"<some random xml data>");
+    let pixels = some_test_image(50, 17, 4, 0);
+    let box_test = |compress: u8| {
+        format!(
+            "X s- L10 {} G0 O45786966,{},{compress},{exif} P64 {} F P64 O584d4c20,{},{compress},{xml} Y P64 S",
+            rgba16(50, 17),
+            exif.len() / 2,
+            frame(50, 17, &pixels),
+            xml.len() / 2
+        )
+    };
+    for _xml_box_size in [256usize, (1 << 32) - 8 + 77] {
+        requests.push(run(0, 0, &box_test(0)));
+    }
+    let originals = super::super::original_observations(&requests);
+    let mut decodes = Vec::new();
+    for (request, cpp) in requests.iter().zip(&originals) {
+        for field in cpp.split(' ').filter_map(|f| f.strip_prefix("P:")) {
+            let (statuses, bytes) = field.split_once(';').unwrap();
+            let bytes = bytes.split('/').next().unwrap();
+            assert!(
+                statuses.ends_with(&format!(".{}", bytes.len() / 2))
+                    && statuses.rsplit(':').next().unwrap().starts_with("0."),
+                "the original's ProcessEncoder loop succeeds: {request}"
+            );
+            if request.contains(" Y P64") && !field.contains(";/") {
+                decodes.push(bytes.to_string());
+            }
+        }
+    }
+    let count = requests.len();
+    let exact = super::compare_counted("upstream-encode-container", requests);
+    assert_eq!(exact, count, "every admitted upstream case is exact");
+    // The decoder half of EncodeBoxTest: the last ProcessEncoder output holds
+    // the whole file; frame and box events (JXL_DEC_FRAME | JXL_DEC_BOX).
+    let file = decodes.last().unwrap();
+    super::super::decoder_public::compare(
+        "upstream-encode-container-decode",
+        vec![
+            format!("dpub-run 0 0 {file} s17472 L1,1000000,64,1000,1"),
+            format!("dpub-run 0 0 {file} s5184 F4.3.2.0.0 L2,64,0,1000,1"),
+        ],
+    );
+    // Not admitted: the compressed EncodeBoxTest instances (brob, step 11).
+    // The probe reports its branch evidence at ProcessOutput calls ('p'), so
+    // these histories write through fixed ProcessOutput calls.
+    let compressed = vec![run(0, 0, &box_test(1).replace("P64", "p100000"))];
+    super::compare("upstream-encode-container-brob", compressed);
+    println!(
+        "upstream-encode-container: not admitted (brob compression, step 11): \
+         EncodeBoxTest Compressed_BoxSize_256 and Compressed_BoxSize_4294967365"
+    );
+}
