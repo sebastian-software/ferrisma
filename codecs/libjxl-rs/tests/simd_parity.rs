@@ -357,6 +357,18 @@ impl Kernel for Op<'_> {
             // render stages
             "load_dup128" => {
                 let block: Vec<f32> = self.input[..4].iter().map(|&w| f32::from_bits(w)).collect();
+                // LoadDup128 takes any address (Highway's LoadDup128 is an
+                // unaligned load): the same block at every float offset of
+                // a buffer gives the same vector.
+                let mut shifted = [0.0f32; 8];
+                for offset in 1..4 {
+                    shifted[offset..offset + 4].copy_from_slice(&block);
+                    let mut a = vec![0u32; 4 * n];
+                    let mut b = vec![0u32; 4 * n];
+                    put(d.load_dup128(&shifted[offset..offset + 4]), &mut a);
+                    put(d.load_dup128(&block), &mut b);
+                    assert_eq!(a, b, "load_dup128 at float offset {offset}");
+                }
                 put(d.load_dup128(&block), &mut out)
             }
             "broadcast_0" => put(d.broadcast::<0>(a), &mut out),

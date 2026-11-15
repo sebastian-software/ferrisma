@@ -424,9 +424,15 @@ impl SimdF32 for Avx2 {
     #[inline(always)]
     fn load_dup128(self, src: &[f32]) -> Self::V {
         let src = &src[..4];
-        // SAFETY: `src` holds four readable f32 values; loadu has no
-        // alignment requirement; AVX support as for every operation.
-        unsafe { _mm256_broadcast_ps(&*(src.as_ptr() as *const __m128)) }
+        // SAFETY: `src` holds four readable f32 values and `loadu` has no
+        // alignment requirement; the broadcast reads the aligned local, never
+        // `src` through a `&__m128` (which would require 16-byte alignment).
+        // The lanes are those of Highway's LoadDup128 (`vbroadcastf128`).
+        // AVX support as for every operation.
+        unsafe {
+            let block = _mm_loadu_ps(src.as_ptr());
+            _mm256_broadcast_ps(&block)
+        }
     }
     #[inline(always)]
     fn broadcast<const LANE: i32>(self, v: Self::V) -> Self::V {
