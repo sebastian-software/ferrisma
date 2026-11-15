@@ -146,9 +146,9 @@ fn observe_rct(request: &str) -> String {
     let h: usize = number(&mut args);
     let padded = round_up8(w);
     let mut from = ModularImage::create(w, h, 16, 3).unwrap();
-    for c in 0..3 {
+    for channel in from.channel.iter_mut().take(3) {
         for y in 0..h {
-            let row = from.channel[c].row_mut(y);
+            let row = channel.row_mut(y);
             assert!(row.len() >= padded, "row padding below 8 lanes");
             for value in &mut row[..padded] {
                 *value = number::<i64>(&mut args) as i32;
@@ -172,10 +172,10 @@ fn observe_rct(request: &str) -> String {
         print(&mut out, &from);
     } else {
         let mut to = ModularImage::create(w, h, 16, 3).unwrap();
-        for c in 0..3 {
+        for (c, channel) in to.channel.iter_mut().enumerate().take(3) {
             for y in 0..h {
                 for x in 0..padded {
-                    to.channel[c].row_mut(y)[x] = sentinel(c as u32, y * padded + x);
+                    channel.row_mut(y)[x] = sentinel(c as u32, y * padded + x);
                 }
             }
         }
