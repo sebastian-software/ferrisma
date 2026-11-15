@@ -2,9 +2,9 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-13
+- **Last reviewed:** 2026-11-15
 - **Supersedes:** None; settles the separate JPEG XL output gate left open by [0018](0018-optional-codec-and-cms-dependencies.md) and the [M1 plan](../milestones/M1-complete-image-pipeline.md)
-- **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0019](0019-source-side-orientation.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), [0032](0032-jpeg-xl-workspace-decoder-input.md), [0037](0037-selectable-workspace-avif-encoder.md), libjxl-rs [encoder plan](../../codecs/libjxl-rs/docs/ENCODER_EXPANSION.md) and [first image path](../../codecs/libjxl-rs/docs/FIRST_IMAGE.md), issues [#27](https://github.com/sebastian-software/ferrisma/issues/27), [#92](https://github.com/sebastian-software/ferrisma/issues/92), [#102](https://github.com/sebastian-software/ferrisma/issues/102), [#66](https://github.com/sebastian-software/ferrisma/issues/66)
+- **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0019](0019-source-side-orientation.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), [0032](0032-jpeg-xl-workspace-decoder-input.md), [0037](0037-selectable-workspace-avif-encoder.md), libjxl-rs [encoder plan](../../codecs/libjxl-rs/docs/ENCODER_EXPANSION.md) and [first image path](../../codecs/libjxl-rs/docs/FIRST_IMAGE.md), issues [#27](https://github.com/sebastian-software/ferrisma/issues/27), [#249](https://github.com/sebastian-software/ferrisma/issues/249), [#92](https://github.com/sebastian-software/ferrisma/issues/92), [#102](https://github.com/sebastian-software/ferrisma/issues/102), [#66](https://github.com/sebastian-software/ferrisma/issues/66)
 
 ## Context
 
@@ -95,7 +95,7 @@ These describe the emitted samples (ADR-0015):
 | Property | Lossy (default) | Lossless |
 | --- | --- | --- |
 | Container | Raw codestream (`FF 0A`); no ISOBMFF container, no `jxll`, no Exif/XMP/JUMBF boxes | Same |
-| Coding | VarDCT, effort 7, the requested Butteraugli distance, **patches off** (`JXL_ENC_FRAME_SETTING_PATCHES` = 0; the result equals `cjxl --patches=0 -e 7 -d <distance>`); default settings otherwise (dots, noise, splines off or absent as admitted) | Modular, effort 2; decoded samples equal the engine's finished rows exactly |
+| Coding | VarDCT, effort 7, the requested Butteraugli distance, **patches off** (`JXL_ENC_FRAME_SETTING_PATCHES` = 0; the result equals `cjxl --patches=0 -e 7 -d <distance> -x color_space=RGB_D65_SRG_Rel_SRG` from the finished rows as PPM/PAM, see the 2026-11-15 amendment); default settings otherwise (dots, noise, splines off or absent as admitted) | Modular, effort 2; decoded samples equal the engine's finished rows exactly; the file equals `cjxl -d 0 -e 2 --buffering=0 -x color_space=RGB_D65_SRG_Rel_SRG` from the finished rows (2026-11-15 amendment) |
 | Bit depth | 8-bit integer samples signaled (`bits_per_sample = 8`) | Same |
 | Color | `xyb_encoded = true`; the signaled enum color encoding (RGB, D65, sRGB primaries, sRGB transfer, relative intent) describes the decoded samples; no ICC | `xyb_encoded = false`; same enum encoding; no ICC |
 | Alpha | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel, coded losslessly (extra-channel distance 0), so decoded alpha equals the finished rows exactly. Color under zero alpha is **not** kept: libjxl's lossy default (`keep_invisible` off, SimplifyInvisible) replaces it. Fully opaque output has no extra channel; the engine omits it before encoding and does not rely on the encoder's `STRIP_ALPHA` decision. | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel; color under zero alpha is kept exactly. Fully opaque output has no extra channel. |
@@ -426,3 +426,37 @@ appears for this profile.
   lossless (about 27 B/px in C++, but different output bytes, so it needs
   oracle evidence), a measured peak with alpha, and the lossy estimate
   (`estimated_codec_bytes`, derived from the source, not measured).
+- 2026-11-15 — **Byte reference is the original's public tool (#249).**
+  The port's lossless codestream was 51 bytes smaller than `cjxl -d 0 -e 2
+  --codestream_level=10 --buffering=0` for the same PPM. Decoded, the two
+  differ in exactly two places and nowhere in the frame: (1) an explicit
+  `--codestream_level=10` makes libjxl write the ISOBMFF container
+  (`MustUseContainer`: signature 12 bytes, `ftyp` 20, `jxll` 9, `jxlc`
+  header 8, together 49) around an otherwise identical codestream; the
+  level-10 encoder parameters are the same at the automatic level, because
+  `cparams.level` only bounds the Modular bit depth (16 at level 5, 32 at
+  level 10), which 8-bit samples never reach; (2) cjxl's PPM/PAM reader
+  leaves the rendering intent at zero (perceptual, `ApplyColorHints` in
+  `lib/extras/dec/color_hints.cc`), while the port's fixed profile, like
+  libjxl's `ColorEncoding::SRGB()` and the public `JxlColorEncodingSetToSRGB`,
+  signals relative; the non-default intent costs 2 header bytes. The port's
+  bytes are therefore the original's own output for `cjxl -d 0 -e 2
+  --buffering=0 -x color_space=RGB_D65_SRG_Rel_SRG` (bare codestream), and
+  for the public API with `JxlColorEncodingSetToSRGB`, SetLossless, effort 2,
+  buffering 0 and no container; the sink does not change. Verified with
+  `cjxl v0.13.0 a16d32d0` (the scalar oracle configuration of
+  `scripts/bench/ci-perf/codec_jxl.sh`) on macOS AArch64: byte-identical
+  with the port at 37x19 RGB and RGBA, 300x260 and 4032x3024, with
+  `--num_threads=0` and with the default pool. The same flag explains the
+  lossy profile: the engine's lossy output for a 600x400 thumbnail of the
+  flower photograph equals `cjxl --patches=0 -e 7 -d 1 -x
+  color_space=RGB_D65_SRG_Rel_SRG` on the finished rows, and is 3 bytes
+  smaller than the same command without the color hint (the codec-level
+  gate's `encode_lossy` example deliberately reproduces cjxl's PPM call
+  sequence, perceptual intent included). The output-semantics table now
+  names these commands. `jxl_output_tests::lossless_output_equals_the_original_cjxl_bytes`
+  compares the sink's bytes with three files written by that cjxl command
+  (`tests/fixtures/jxl-lossless/`, with the generator of their input);
+  no existing pin changed. The CI performance record's lossless row compared
+  a container with level box and perceptual intent against the raw
+  codestream: the difference was signaling, not coding.

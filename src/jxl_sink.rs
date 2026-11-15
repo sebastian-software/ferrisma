@@ -5,14 +5,18 @@
 //! - **Lossless:** the port's fixed, oracle-verified `LosslessThunderConfig`
 //!   (Modular, effort 2, level-10 parameters, one-shot, raw codestream, enum
 //!   sRGB without ICC, 8-bit RGB with optional unassociated 8-bit alpha),
-//!   reached through its safe entry point.
+//!   reached through its safe entry point. Its bytes are the original's
+//!   `cjxl -d 0 -e 2 --buffering=0 -x color_space=RGB_D65_SRG_Rel_SRG`
+//!   (issue #249; `jxl_output_tests` compares them).
 //! - **Lossy:** the port's public encoder API through the safe
 //!   `ferrisma-jxl-encoder` bridge: `VarDCT` in XYB at effort 7, distance
 //!   0.05 to below 3.0, patches off, 8-bit RGB with enum sRGB and, when any
 //!   alpha sample is below 255, one straight 8-bit alpha channel coded
 //!   losslessly; one frame, raw codestream, serial. The result equals
-//!   `cjxl --patches=0 -e 7 -d <distance>` (byte-identical with pinned
-//!   libjxl in the port's own oracle tests).
+//!   `cjxl --patches=0 -e 7 -d <distance> -x color_space=RGB_D65_SRG_Rel_SRG`
+//!   on the finished rows (byte-identical with pinned libjxl in the port's
+//!   own oracle tests; the color hint selects the relative rendering intent
+//!   that `JxlColorEncodingSetToSRGB` signals, ADR-0039 2026-11-15).
 //!
 //! Patches are always off in lossy mode (ADR-0039): the port does not encode
 //! the patch reference frame yet, and with the search off every image encodes

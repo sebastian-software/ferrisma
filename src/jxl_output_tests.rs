@@ -189,6 +189,46 @@ fn incomplete_or_misordered_rows_are_rejected() {
     assert!(sink.finish().is_err());
 }
 
+/// The original's public tool is the byte reference of the lossless sink
+/// (issue #249, ADR-0039): each fixture was written by the pinned libjxl's
+/// own `cjxl -d 0 -e 2 --buffering=0 --num_threads=0 -x
+/// color_space=RGB_D65_SRG_Rel_SRG` from these `rows` as PPM or PAM
+/// (`tests/fixtures/jxl-lossless/README.md`). The sink must write the same
+/// file, byte for byte: this is the original's output, not a pin of the
+/// port's.
+#[test]
+fn lossless_output_equals_the_original_cjxl_bytes() {
+    for (width, height, alpha, reference) in [
+        (
+            37,
+            19,
+            false,
+            &include_bytes!("../tests/fixtures/jxl-lossless/rgb-37x19.jxl")[..],
+        ),
+        (
+            37,
+            19,
+            true,
+            &include_bytes!("../tests/fixtures/jxl-lossless/rgba-37x19.jxl")[..],
+        ),
+        (
+            300,
+            260,
+            false,
+            &include_bytes!("../tests/fixtures/jxl-lossless/rgb-300x260.jxl")[..],
+        ),
+    ] {
+        let budget = MemoryBudget::new(64 << 20);
+        let encoded = encode(width, height, &rows(width, height, alpha), &budget).unwrap();
+        assert!(
+            encoded == reference,
+            "{width}x{height} alpha={alpha}: {} bytes, cjxl wrote {}",
+            encoded.len(),
+            reference.len()
+        );
+    }
+}
+
 #[test]
 fn facade_rejects_mismatched_and_disabled_settings_before_decoding() {
     // Invalid compressed input proves the check precedes opening a decoder.
