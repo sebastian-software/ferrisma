@@ -153,9 +153,12 @@ def dog_photo(work):
     downscaled by 2: 1512x2016. djpeg's default integer IDCT is exact."""
     target = work / 'dog-1512x2016.bmp'
     djpeg = shutil.which('djpeg')
-    if not djpeg:
+    if not djpeg and not target.exists():
         raise SystemExit('The extended corpus needs djpeg (libjpeg-turbo) to decode the dog photograph')
-    version = subprocess.run([djpeg, '-version'], capture_output=True, text=True).stderr.strip().splitlines()
+    # A cached BMP (for example written by the --qemu container's djpeg) is
+    # reused; its digest is recorded below either way.
+    version = (subprocess.run([djpeg, '-version'], capture_output=True, text=True).stderr.strip().splitlines()
+               if djpeg else ['cached BMP, djpeg not on this host'])
     if not target.exists():
         ppm = subprocess.run([djpeg, '-dct', 'int', '-ppm', DATA / 'dog_exif_extended_xmp_icc.jpg'],
                              check=True, capture_output=True).stdout
