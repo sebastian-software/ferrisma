@@ -560,7 +560,6 @@ fn compute_tile_d<D: SimdF32>(
         // the kernel and runs in the target's attribute context (port ADR
         // 0004, "One attribute context per kernel on x86-64").
         #[inline(always)]
-        #[expect(clippy::too_many_arguments, reason = "the closure's captures")]
         fn scalar_pixel<D: SimdF32>(
             d: D,
             rows: [&[f32]; 3],
