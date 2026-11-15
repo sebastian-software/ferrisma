@@ -25,7 +25,7 @@ SPEC.loader.exec_module(AUDIT)
 NOTICE = re.compile(r"^(license|licence|copying|notice|patents?|authors|copyright)([._-].*)?$", re.I)
 TREE_LINE = re.compile(r"^([^ ]+) v([^ ]+)(?: .*)?$")
 EXTRA = {
-    "ferrisma": ["src/av1_tuning.rs", "THIRD-PARTY-NOTICES.md", "assets/icc/README.md", "assets/icc/sRGB2014.icc"],
+    "ferrisma": ["THIRD-PARTY-NOTICES.md", "assets/icc/README.md", "assets/icc/sRGB2014.icc"],
     "libjpeg-turbo-rs": ["README.ijg", "src/jdcolext_neon.rs", "src/jsimdcpu.rs"],
 }
 

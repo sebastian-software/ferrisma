@@ -153,7 +153,7 @@ Workspace packages in the `cli` graph and their declared terms:
 
 | Package | Expression | Notice files bundled | Source of the terms |
 | --- | --- | ---: | --- |
-| `ferrisma` | MIT OR Apache-2.0 | 6 | ADR-0010; plus `src/av1_tuning.rs` (BSD-3-Clause, ravif) and the ICC profile |
+| `ferrisma` | MIT OR Apache-2.0 | 6 | ADR-0010; plus the ICC profile (`src/av1_tuning.rs`, BSD-3-Clause, ravif, was removed with rav1e on 2026-11-15) |
 | `ferrisma-kernels`, `ferrisma-avif-read`, `ferrisma-avif-write` | MIT OR Apache-2.0 | 2 each | Project-owned |
 | `libjpeg-turbo-rs` | IJG AND Zlib | 4 | `README.ijg`, `LICENSE.md`, retained file headers |
 | `libwebp-rs` | BSD-3-Clause | 3 | `LICENSE`, `PATENTS`, `AUTHORS` |
@@ -220,8 +220,8 @@ package:
   their upstream license, notice, and patent files in their published
   contents (enforced with `include` lists).
 - **Code copied into a project-owned package** keeps its own header and is
-  listed in `THIRD-PARTY-NOTICES.md` (currently `src/av1_tuning.rs` and the
-  ICC profile).
+  listed in `THIRD-PARTY-NOTICES.md` (currently the ICC profile; `src/av1_tuning.rs`
+  was removed on 2026-11-15).
 
 Applied on this branch: `libavif-rs` expression corrected; license texts
 added to the project-owned bridge packages and `ferrisma-kernels`; `license`,
@@ -258,7 +258,7 @@ for comparison; it is not a `jpeg-read` runtime dependency. The workspace
 JPEG port retains its pinned upstream notices and its own scoped license
 terms; the engine's MIT OR Apache-2.0 license does not relicense that port.
 
-**Embedded third-party code.** `src/av1_tuning.rs` adapts `ravif` 0.13.0's quality-to-quantizer curve and speed overrides (BSD-3-Clause, Copyright (c) 2020, Kornel). The file carries the full license notice; binary distributions must reproduce it with the other third-party notices.
+**Embedded third-party code.** None of ravif's code remains: `src/av1_tuning.rs`, which adapted `ravif` 0.13.0's quality-to-quantizer curve (BSD-3-Clause), was removed with rav1e on 2026-11-15, and its notice left `THIRD-PARTY-NOTICES.md`.
 
 The choices and their remaining gates are recorded in [ADR-0018](adr/0018-optional-codec-and-cms-dependencies.md). A future JPEG XL encoder, including the AGPL-3.0/commercial `jxl-encoder` candidate, is **not** an approved default dependency and requires a separate ADR.
 
