@@ -242,7 +242,9 @@ Evidence per format:
   `coded_pixel_limit_reports_exact_sequence_geometry`. Through the public API:
   see [AVIF input](#avif-input-transforms-animation-channels-and-caps).
   Argon AV1 conformance was not run (ADR-0025); the reader relies on the
-  reference-origin route.
+  reference-origin route, which the owner confirmed on 2026-11-15 as its
+  1.0 evidence (bit identity with libaom; Argon is later extra evidence,
+  ADR-0031).
 
 ### AVIF input: transforms, animation, channels and caps
 
@@ -360,6 +362,14 @@ and is not claimed as supported.
 | Determinism | bytes can depend on thread count and host | — | both profiles byte-identical with the C++ encoder on the port's recorded requests (macOS AArch64) |
 | Threads | `encoder_threads` 0–256 | serial: `encoder_threads` must be 1 | serial: `encoder_threads` must be 1 |
 | `max_output_bytes` | checked after the encoder returns: "encoded output exceeds max_output_bytes" | checked while writing: "managed buffer needs … bytes with … available" | lossy: checked while writing, as WebP; lossless: after the encoder returns, as AVIF |
+
+**AVIF reference build** (owner decision of 2026-11-15, #203; libavif-rs
+[ADR 0056](../codecs/libavif-rs/docs/adr/0056-dispatch-hand-translated-aom-simd-through-translated-rtcd.md)).
+The AVIF port (writer and reader) is gated against libavif and libaom built with
+`-ffp-contract=off`, one reference for AArch64 and x86-64. A libavif built
+with the compiler's default contraction (Apple clang fuses the RGB-to-YUV
+sums of `reformat.c` on AArch64) can write different bytes from the same
+pixels; that build is not the reference.
 
 **JPEG XL lossy output is distance 1.0 with patches off** (owner decision
 2026-11-15, [ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)).
@@ -569,6 +579,16 @@ reintroduces the host dependence on purpose. Not yet confirmed on AVX-512
 hardware: the next hosted run on an AVX-512 runner must show
 `chosen level: avx2 (DefaultCeiling)` in the `ferrisma-kernels` `detect` step
 and resized-output hashes equal to those of an AVX2 runner.
+
+**Reproducibility across CPU vendors** (owner decision of 2026-11-15,
+[ADR-0044](adr/0044-no-assembly-acceleration-through-rust-intrinsics.md)
+D3). Where an original's SIMD build executes an instruction whose result
+depends on the CPU vendor, the port executes the same instruction: the AVX2
+paths of `libjxl-rs` use `rcpps` (`_mm256_rcp_ps`) as libjxl's AVX2 build
+does. On one machine port and original give the same bytes; on an Intel and
+an AMD machine (or under Rosetta 2) the AVX2 output of the JPEG XL decoder
+can differ, as the original's does. The scalar path does not depend on the
+vendor.
 
 ## Examples
 

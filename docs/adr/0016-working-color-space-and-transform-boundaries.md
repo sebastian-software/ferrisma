@@ -63,8 +63,9 @@ Real codec and encoder dataflow makes the proposed format contract too expensive
 - 2026-10-31 — Proposed an explicit, region-capable working-color transform boundary for M1.
 - 2026-11-12 — Independent resize oracle (#18), CICP checks beside the rendered ICC (#17, #41), and real-photograph LittleCMS evidence.
 - 2026-11-12 — PQ/HLG rejection from the JPEG XL transfer function itself, independent of CICP (review of the v1.0 integration).
-- 2026-11-12 — 8-bit matrix-shaper input is evaluated through a per-channel table built from and checked against moxcms (issue #219); bound 1.19e-7 linear over all 2^24 triplets for five profiles. Pending owner confirmation.
+- 2026-11-12 — 8-bit matrix-shaper input is evaluated through a per-channel table built from and checked against moxcms (issue #219); bound 1.19e-7 linear over all 2^24 triplets for five profiles. Confirmed by the owner on 2026-11-15 (see that section).
 - 2026-11-15 — Rendering intent: relative colorimetric, set explicitly (owner decision; see the section of that date below).
+- 2026-11-15 — The per-channel table for 8-bit matrix-shaper input (#219) is confirmed by the owner (owner decision of 2026-11-15); the "pending owner confirmation" labels of its section are replaced by a pointer to that decision.
 - 2026-11-15 — Gray ICC profiles are converted through their tone curve, and a profile of the other color space than the channels is refused (`IccColorSpaceMismatch`), with gray input accepted by the owner's grayscale decision (ADR-0043); see the section of that date below.
 
 ## 2026-10-31: narrow reference experiment (not acceptance)
@@ -98,9 +99,16 @@ CICP-beside-ICC check now name their reason (`CicpBesideIcc`). Evidence and
 the pending AVIF `nclx`-beside-ICC decision are recorded in ADR-0015
 (2026-11-12, review of the v1.0 integration).
 
-## 2026-11-12: per-channel table for 8-bit matrix-shaper input (issue #219; pending owner confirmation)
+## 2026-11-12: per-channel table for 8-bit matrix-shaper input (issue #219; confirmed 2026-11-15)
 
-**Pending owner confirmation; revert the commit `perf(icc): evaluate 8-bit matrix-shaper profiles through a channel table` to restore exact moxcms output.**
+**Confirmed by the owner on 2026-11-15** (until then pending owner
+confirmation, with the instruction to revert the commit `perf(icc): evaluate
+8-bit matrix-shaper profiles through a channel table` to restore exact
+moxcms output if rejected). The table stays, and moxcms stays the CMS: the
+table is built from and checked against moxcms, and deeper inputs, LUT
+profiles and gray profiles go through moxcms directly. Extending the table to
+10- and 12-bit input was discussed (technically possible, about 36 KiB and
+147 KiB); it is not done now and is a post-1.0 idea, to be measured first.
 
 **Mechanism.** A matrix-shaper profile converted into linear sRGB computes
 `M · [trc_r(r), trc_g(g), trc_b(b)]`. Each output is a sum of three
@@ -146,7 +154,7 @@ is in ADR-0023 and the
 [performance analysis](../benchmarks/v1.0-engine-performance-analysis-2026-11-12.md#applied-fixes-2026-11-12-evening).
 Re-evaluate if moxcms changes its matrix-shaper evaluation, if a profile
 class is admitted to the extended path whose transform is not separable, or
-if the owner rejects any output change on this path (then revert).
+if the owner revises the confirmation of 2026-11-15 (then revert).
 
 ## 2026-11-15: gray ICC profiles (owner decision on grayscale, ADR-0043)
 

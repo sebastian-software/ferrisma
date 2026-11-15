@@ -426,3 +426,26 @@ and `44191d50…`): `neon` 82 of 82 after each kernel, and on the final tree
 (`cargo xtask codecs --codec avif --stage pr`) passes, golden outputs 62 of
 62. The float `nn`/`cnn` kernels and all x86 counterparts are unchanged.
 
+## Amendment: owner decisions of 2026-11-15 (#203, O2)
+
+- **Floating-point contraction of the reference (#203).** The reference
+  stays the original built with `-ffp-contract=off`, for libaom and libavif,
+  one reference for AArch64 and x86-64 (owner decision of 2026-11-15). The
+  alternative under "Issue #203" above, fused `mul_add` at the libavif
+  sites on AArch64 only to match a contracting AArch64 build, is not taken,
+  so the golden record does not split. The owner asked whether the
+  contracting build would be faster: no measurable gain is expected, and
+  none was measured. The [supported matrix](../../../../docs/supported-matrix.md)
+  states the reference.
+- **libaom's video-only code (O2).** Kept; nothing is removed (owner
+  decision of 2026-11-15; reason given: animated AVIF may be wanted later,
+  and it needs this code; animated AVIF itself is not in scope). The
+  video-only kernels named in the amendment "still-image Neon kernels on
+  the frozen translation" keep running on the translated C path; SIMD stays
+  ported only on the still-image path.
+
+## Amendment log
+
+- 2026-11-15 — Owner decisions on #203 (non-contracting reference for both
+  targets) and O2 (video code kept, SIMD only on the still-image path).
+  Earlier amendments are the dated sections above.

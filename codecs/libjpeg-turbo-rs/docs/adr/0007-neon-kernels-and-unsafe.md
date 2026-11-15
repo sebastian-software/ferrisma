@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-08
-- Updated: 2026-11-13
+- Updated: 2026-11-15
 
 ## Context
 
@@ -166,6 +166,26 @@ for every intrinsic. The macro adds no `unsafe` code. This applies to
 ([ADR 0004](0004-simd-after-the-portable-port.md), amendment 2026-11-13);
 helpers that LLVM inlines stay functions.
 
+## Amendment 2026-11-15: owner decisions on O6
+
+Owner decision of 2026-11-15 on O6 of engine
+[ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md)
+(#250):
+
+1. **The macros are accepted.** `macro_rules!` is the Rust form of
+   upstream's `static INLINE` helpers where the amendment above applies
+   (the two always-inline pass-2 helpers of the islow IDCT).
+2. **The kernels keep safe row access.** They get no `unsafe` row-pointer
+   boundary; the row-store bounds checks that
+   [ADR 0004](0004-simd-after-the-portable-port.md) measures (amendment
+   2026-11-13, "Remaining gap") stay. Context recorded with the decision:
+   the JPEG port ran at about 1.0 of the original in the hosted run of that
+   time.
+3. **ITU T.83 clause 7 is not required for 1.0.** The conformance run keeps
+   recording the measured values without judging them against a bound
+   ([ADR 0002](0002-differential-oracle.md)); downloading the ITU data
+   (ferrisma#72) stays open as optional work.
+
 ## Review when
 
 - Rust accepts `#[inline(always)]` on `#[target_feature]` functions, which
@@ -175,3 +195,9 @@ helpers that LLVM inlines stay functions.
   stabilizes `std::simd`.
 - Upstream changes the layout of `simd/` or the decoder's `WITH_SIMD`
   branches.
+
+## Amendment log
+
+- 2026-11-15 — Owner decisions on O6: macros accepted, safe row access
+  kept, T.83 clause 7 not required for 1.0 (#72 optional). The amendment of
+  2026-11-13 is the dated section above.

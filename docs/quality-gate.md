@@ -3,7 +3,8 @@
 This page turns [ADR-0041](adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md)
 into commands. The ADR owns the rules; this page only shows how to check
 them and what cannot be checked yet. State on 2026-11-14, `main` at
-`5004f34e`. The commands are collected from each port's `tools/check.py`,
+`5004f34e`; the owner's decisions of 2026-11-15 on O1–O9 (ADR-0041) are
+entered where they apply. The commands are collected from each port's `tools/check.py`,
 `tools/build_oracle.py`, `tools/build_aom.py`,
 `tools/check_aom_simd_original.py`, `CONTRIBUTING.md` and port ADRs; they
 were not run for this page. The results quoted below are the recorded ones,
@@ -18,9 +19,9 @@ original selects on an AVX2 machine) must be bit-identical to the original's
 SIMD build at the same level. Integer and byte outputs are exact. For
 floating-point words, finite values, infinities and signed zeros are exact,
 a NaN must meet a NaN, and NaN payloads are ignored, except on copy-only
-paths. Inputs that contain NaN or infinity follow open question O1 (working
-rule pending owner confirmation). AVX-512, SVE and NEON DotProd/I8MM are not
-run. There is no performance gate.
+paths. Inputs that contain NaN or infinity follow the rule the owner
+confirmed on 2026-11-15 (formerly open question O1, ADR-0041). AVX-512, SVE
+and NEON DotProd/I8MM are not run. There is no performance gate.
 
 Never refresh an expected output, golden, tolerance or oracle pin to make a
 check pass. A failure is a finding: report it.
@@ -93,8 +94,9 @@ python3 tools/check.py --stage test --oracle-variant simd --arch x86_64
 `--arch x86_64` sets `ROSETTA_ADVERTISE_AVX=1` itself. The `simd` variant
 checks AVX2, SSE2 (`JSIMD_FORCESSE2=1`) and none (`JSIMD_FORCENONE=1`) on
 x86-64, and NEON and none on AArch64. The original's x86 SIMD is NASM
-assembly; the port's intrinsics are compared with its output (see open
-question O4 for assembly-only kernels in general).
+assembly; the port's intrinsics are compared with its output, which is the
+route [ADR-0044](adr/0044-no-assembly-acceleration-through-rust-intrinsics.md)
+prescribes for assembly-only kernels in general (owner decision 2026-11-15).
 
 ### libwebp-rs (`codecs/libwebp-rs`)
 
@@ -150,11 +152,14 @@ python3 tools/check.py --stage test --oracle --arch x86_64
   `wp10/dsp` probe passing misaligned rows to libwebp's SSE2 predictors,
   not libwebp or the port. The SIMD status page on `main` still says that
   no hosted rerun had finished; it predates this run.
-- **Open:** a few test domains are narrowed for the `release-simd`
-  comparison only, the `oracle` feature reads `LIBWEBP_SIMD_LEVEL`, and the
-  full x86-64 gate takes about two and a half hours under Rosetta; the owner
-  has not yet accepted these (open question O7,
-  [#250](https://github.com/sebastian-software/ferrisma/issues/250)).
+- **Accepted by the owner on 2026-11-15 (O7, ADR-0041):** the narrowed
+  test domains of the `release-simd` comparison, under the single
+  exception of ADR-0041 section 2 (only where libwebp itself is undefined,
+  with the reason in the code; the scalar comparison keeps the full
+  domain); the `oracle` feature reading `LIBWEBP_SIMD_LEVEL`; and the full
+  x86-64 gate (three levels by three profiles) running hosted in the
+  nightly on real x86-64, while a local Rosetta run covers what a change
+  affects.
   The SIMD status lists no untranslated x86 SIMD file of libwebp 1.6.0;
   the tracking issues #89 and #83 are still open.
 
@@ -226,18 +231,20 @@ python3 tools/check.py --stage test --target x86_64-apple-darwin
   cross-built scalar references contain only skcms's baseline engine
   (upstream's `skcms.cmake` keys the HSW engine on `CMAKE_SYSTEM_PROCESSOR`,
   the ARM64 host). The port's skcms HSW engine against the original's is
-  therefore provable only on native x86-64 (open question O9, #250).
+  therefore provable only on native x86-64. Owner decision of 2026-11-15
+  (O9): the cross builds get `-DCMAKE_SYSTEM_PROCESSOR=x86_64`, so they
+  contain the HSW engine; not implemented yet (port ADR 0004).
 - **NaN rule:** applied (port ADR 0002, 2026-11-13 section, `parity_eq` in
   `tests/parity.rs`). For requests that carry NaN or infinity, positions
   where the second scalar reference disagrees with the pinned one are not
-  compared: open question O1's working rule, pending owner confirmation.
+  compared: rule O1, confirmed by the owner on 2026-11-15 (ADR-0041).
 - **`rcpps`:** on AVX2 the SIMD DequantBlock executes the original's
   vendor-specific `_mm256_rcp_ps` estimate, so AVX2 output can differ
   between CPU vendors exactly as the original's does; identity is claimed
   per host against the original, never across hosts (port ADR 0004, VarDCT
-  decode kernels, "Dispatch": working decision 2026-11-13 evening,
-  delegated, revisable by the owner). Whether that is acceptable for
-  shipped defaults stays open question O4.
+  decode kernels, "Dispatch"). Owner decision of 2026-11-15 (O4,
+  [ADR-0044](adr/0044-no-assembly-acceleration-through-rust-intrinsics.md)
+  D3): the instruction stays as in the original, also in shipped defaults.
 - **Recorded results, AArch64 (NEON).** Row level on 2026-11-13 (macOS
   27.0.1, M1 Ultra): all 63 operations of that day on 85,085 requests, plus
   the Gaborish, YCbCr/chroma upsampling and EPF rows, with no finite word
@@ -276,7 +283,8 @@ python3 tools/check.py --stage test --target x86_64-apple-darwin
 - **Open:** x86-64 default selection (port ADR 0004 condition (d), #96);
   the dispatch-build AVX2 oracle on `main`; the encoder's Highway exports
   (#231, #243); `ToLinear` and `ToneMapping` in a whole decode (no HDR input
-  in the gate set); O1, O4 and O9 (#250).
+  in the gate set); the O9 cross-build flag (decided 2026-11-15, not
+  implemented).
 
 ### libavif-rs with libaom (`codecs/libavif-rs`)
 
@@ -343,9 +351,13 @@ python3 tools/check_aom_simd_identity.py
   unit or selector hash changed (`63d77626`, port ADR 0054 amendment,
   working decision 2026-11-13, delegated, revisable by the owner). No
   nightly has completed since the fix.
-- **Open:** O2 limits SIMD work to kernels on the still-image path; O4 covers
-  libaom's NASM-only predictors; O8 asks the owner to accept the dispatch
-  route through `tools/enable_aom_dispatch.py` (#250). The two kernels O8
+- **Decided by the owner on 2026-11-15 (ADR-0041):** O2 keeps libaom's
+  video code and limits SIMD work to kernels on the still-image path; the
+  NASM-only kernels stay on `_c` until they are measured and rebuilt with
+  intrinsics (O4,
+  [ADR-0044](adr/0044-no-assembly-acceleration-through-rust-intrinsics.md));
+  the translated code is owned code, changed only through committed tools
+  with a check mode in CI (O8, port ADR 0059). The two kernels #250
   names as staying on `_c` (`av1_get_nz_map_contexts`,
   `av1_round_shift_array`) are dispatched to Neon since the amendment above;
   `aom_quantize_b_helper` stays on `_c` because libaom calls only
