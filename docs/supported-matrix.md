@@ -479,30 +479,31 @@ output under the default options. Evidence:
 `associated_alpha_is_refused`).
 
 Lossless JPEG XL output is chunked like the original's default since
-2026-11-15 (#223, ADR-0039 amendment; owner decision 2026-11-15: the default
-budget stays at 256 MiB): above 8 groups the encoder works one 2048x2048 DC
+2026-11-15 (#223, ADR-0039 amendment; the default budget, 256 MiB then,
+is 1 GiB since a later owner decision of 2026-11-15, ADR-0004 amendment): above 8 groups the encoder works one 2048x2048 DC
 group at a time, and the file equals `cjxl -d 0 -e 2 -x
 color_space=RGB_D65_SRG_Rel_SRG` (`jxl_output_tests::lossless_output_equals_the_original_cjxl_bytes`).
 The sink reserves the measured peak of that path
 ([record](benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md)):
 24 MP opaque output now needs about 643 MB of budget instead of about
 1,824 MB, but images of a few megapixels still cost about one DC group's
-working set, so under the default budget the largest lossless output only
-moves from about 3.5 MP to 3.66 MP. Larger requests fail with
-`BudgetExceeded` (`ResourceExhausted`, "managed buffer needs …") before
-encoding (`supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`:
-a 1920×1920 request).
+working set, so under the former 256 MiB budget the largest lossless output
+only moved from about 3.5 MP to 3.66 MP; under the default 1 GiB it is about
+49.3 MP. Larger requests fail with `BudgetExceeded` (`ResourceExhausted`,
+"managed buffer needs …") before encoding
+(`supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`:
+a 7100×7000 request; at 256 MiB it was `…_above_about_3_7_megapixels`, 1920×1920).
 
-What the JPEG XL encoder's reservation admits under the default 256 MiB
-`--budget-mb` (encoder side: the engine's RGBA8 frame plus the codec
+What the JPEG XL encoder's reservation admits under the default 1 GiB
+`--budget-mb` (256 MiB until 2026-11-15, in parentheses) (encoder side: the engine's RGBA8 frame plus the codec
 reservation; the decoder and resampling buffers of the input come on top):
 
 | Output | Largest output | Source of the reservation |
 | --- | ---: | --- |
-| JPEG XL lossless, opaque | 3,655,036 px (≈ 1912×1912) | measured peak, 70 B/px + 12 MiB below one DC group |
-| JPEG XL lossless, with alpha | 2,842,806 px (≈ 1686×1686) | measured peak, 90 B/px + 12 MiB |
-| JPEG XL lossy, opaque (streaming) | about 35.7 MP | `estimated_codec_bytes`, derived, not measured (#223) |
-| JPEG XL lossy, with alpha (streaming) | about 31.4 MP | the same estimate |
+| JPEG XL lossless, opaque | 49,344,752 px (≈ 7024×7024; was 3,655,036) | measured peak, 70 B/px + 12 MiB below one DC group, 17 B/px + one DC group's 53 B/px + 12 MiB above |
+| JPEG XL lossless, with alpha | 38,377,881 px (≈ 6194×6194; was 2,842,806) | measured peak, 90 B/px + 12 MiB below one DC group, 20 B/px + 70 B/px of one DC group + 12 MiB above |
+| JPEG XL lossy, opaque (streaming) | about 144 MP (was 35.7 MP) | `estimated_codec_bytes`, derived, not measured (#223) |
+| JPEG XL lossy, with alpha (streaming) | about 126.8 MP (was 31.4 MP) | the same estimate |
 
 The lossy estimate is still open (#223). JPEG output does not exist and is
 not planned.
@@ -513,10 +514,16 @@ not planned.
 | --- | --- | --- | --- |
 | `max_input_bytes` / `--max-input-mb` (MiB) | 64 MiB | before any codec starts (`InputLimitExceeded`, "compressed image exceeds max_input_bytes"); zero is `InvalidOptions`; CLI stream read is capped | `supported_matrix::input_byte_limit_accepts_the_exact_size_and_rejects_one_byte_less`, `zero_input_limits_are_invalid_options`; `pipeline_tests::compressed_bytes_and_decoded_pixel_caps_reject_before_processing`; `cli::tests::accepts_input_at_the_limit_and_rejects_one_byte_more` |
 | `max_input_pixels` / `--max-input-mpx` (10^6 px) | 100,000,000 | from headers before pixel allocation (`InputLimitExceeded`): WebP, AVIF and libjxl-rs in the adapter ("input has N pixels, exceeding …"; AVIF also checks the coded sequence size), JPEG by the facade after the header ("image has N pixels; configured limit is M") | `supported_matrix::jpeg_pixel_limit_is_checked_after_the_header`, `webp_canvas_above_the_pixel_limit_is_rejected_from_the_header`, `jpeg_xl_pixel_limit_is_checked_before_decoding`, `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry`; `ferrisma_jxl_decoder::checks_pixel_limit_before_output` |
-| `max_managed_bytes` / `--budget-mb` | 256 MiB | engine buffers, known encoder frames, the measured lossless JPEG XL peak of its one-shot or chunked path (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`; `jxl_output_tests::input_frame_and_measured_lossless_peaks_are_reserved`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
+| `max_managed_bytes` / `--budget-mb` | 1 GiB (256 MiB until 2026-11-15; owner decision, ADR-0004 amendment) | engine buffers, known encoder frames, the measured lossless JPEG XL peak of its one-shot or chunked path (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`; `jxl_output_tests::input_frame_and_measured_lossless_peaks_are_reserved`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
 | `max_output_bytes` / `--max-output-mb` | 256 MiB | `ResourceExhausted` in every case. WebP and lossy JPEG XL while writing ("managed buffer needs …"); AVIF and lossless JPEG XL after the encoder returns ("encoded output exceeds max_output_bytes"); zero is `InvalidOptions` | `supported_matrix::output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`, `output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders`; `webp_output_tests::exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless`; `jxl_output_tests::encoded_output_limit_applies_at_the_exact_byte`, `jxl_lossy_tests::the_output_limit_applies_at_the_exact_byte`; `ferrisma-libavif` `output_limit_is_enforced_after_backend_finish` |
 | threads | `transform_threads` 0 (all cores), `encoder_threads` 1; at most 256; WebP and JPEG XL output need `encoder_threads` 1; `Engine::transcode_batch` runs each image with 1 and 1 (reported) and refuses counts above 256 as `transcode` does (since 2026-11-15) | before decoding (`InvalidOptions`) | `supported_matrix::thread_counts_above_256_and_parallel_webp_encoding_are_invalid`; `silent_drops::batch_refuses_thread_counts_that_transcode_rejects`; `pipeline_tests::encoder_threads_trade_determinism_for_latency_explicitly` |
 | `output_width`/`output_height` with `transcode_resized` | 1 | a value other than the default is refused before decoding (`InvalidOptions`, "output_width and output_height are not used with ResizeOptions…"; ignored until 2026-11-15) | `thumbnail_facade::resize_entry_points_refuse_an_exact_output_size` |
+
+What the budget covers: the engine's own buffers and the frames the encoders
+reserve are counted against it. Memory that codecs allocate internally is only
+partly counted (issues #48 and #199), so the budget is a bound on what the
+engine manages, not on the process's resident memory; protection against
+decompression bombs is the input pixel limit.
 
 Codec-internal allocations (all four decoders, all encoders) are opaque: the
 report sets `opaque_decoder_memory`/`opaque_encoder_memory`, and there is no

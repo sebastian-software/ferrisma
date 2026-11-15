@@ -996,18 +996,22 @@ fn managed_budget_exhaustion_is_reported() {
 }
 
 #[test]
-fn default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels() {
+fn default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels() {
     // The reservation is the measured peak of the chunked lossless encode
     // (issue #223, 2026-11-15, `docs/benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md`):
     // up to one 2048x2048 DC group, frame plus reservation are 70 B/px plus
-    // 12 MiB for opaque output, so the default 256 MiB budget holds at most
-    // 3,655,036 pixels (measured: 52.3 B/px RSS at 2048x2048). 1920 x 1920 =
-    // 3,686,400 pixels is just above. Until 2026-11-15 the limit was about
-    // 3.5 MP (the one-shot peak, 76 B/px) and this test used 2000 x 2000.
+    // 12 MiB for opaque output, and above it 17 B/px plus one DC group's
+    // 53 B/px plus 12 MiB, so the default 1 GiB budget (owner decision of
+    // 2026-11-15, ADR-0004 amendment) holds at most 49,344,752 pixels.
+    // 7100 x 7000 = 49,700,000 pixels is just above. Under the former
+    // 256 MiB default the limit was 3,655,036 pixels and this test was
+    // `default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`
+    // with 1920 x 1920; before the chunked encode it was about 3.5 MP and
+    // 2000 x 2000. The expectation changed by owner decision.
     let options = TransformOptions {
         jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
-        output_width: 1920,
-        output_height: 1920,
+        output_width: 7100,
+        output_height: 7000,
         ..options(OutputFormat::JpegXl, ASSUME)
     };
     rejected(

@@ -335,7 +335,9 @@ impl Default for TransformOptions {
             transform_threads: 0,
             profile_policy: InputProfilePolicy::Strict,
             encoder_threads: 1,
-            max_managed_bytes: 256 * 1024 * 1024,
+            // 1 GiB since 2026-11-15 (owner decision, ADR-0004 amendment);
+            // 256 MiB before.
+            max_managed_bytes: 1024 * 1024 * 1024,
             max_input_bytes: 64 * 1024 * 1024,
             max_input_pixels: 100_000_000,
             max_output_bytes: 256 * 1024 * 1024,

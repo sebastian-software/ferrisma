@@ -144,6 +144,10 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
 
 ## CLI units and exit status
 
+- The default managed-memory budget (`max_managed_bytes`, `--budget-mb`) is
+  1 GiB since 2026-11-15 (owner decision, ADR-0004 amendment; 256 MiB
+  before): a transcode that failed with `ResourceExhausted` at the old default
+  may now succeed; an operator who wants the former bound sets it.
 - `--max-input-mb`, `--budget-mb`, and `--max-output-mb` count MiB
   (1,048,576 bytes); `--max-input-mpx` counts millions of pixels (10^6).
 - Exit status 0 means success; 2 means too few arguments (usage is printed);
