@@ -1,11 +1,16 @@
 # Supported input, output, backend, and feature matrix
 
-**Reviewed: 2026-11-12** (issues #67 and #26; base `1593d6a8` plus the default
-switches of the same day); updated on 2026-11-14 for the straight-alpha
-rendered-ICC path (#222), the lossless JPEG XL reservation (#223) and the
-libjxl-rs decoder's run-time SIMD selection. The
-[verification record](#verification-record-2026-11-12-macos-arm64) below is
-still the one of 2026-11-12. This page is the single place that says what
+**Reviewed: 2026-11-15** (issue #67, base `aba85c54`): every input, output and
+limit row was checked against the code and against
+[`tests/supported_matrix.rs`](../tests/supported_matrix.rs), which exercises
+each claim through the public processing API with a real file from the
+repository; the corrections of that review are listed under
+[Corrections of 2026-11-15](#corrections-of-2026-11-15). Earlier: 2026-11-12
+(issues #67 and #26; base `1593d6a8` plus the default switches of the same
+day) and 2026-11-14 (straight-alpha rendered-ICC path #222, lossless JPEG XL
+reservation #223, the libjxl-rs decoder's run-time SIMD selection). The
+[verification records](#verification-record-2026-11-15-macos-arm64-and-x86-64-under-rosetta-2)
+are at the end. This page is the single place that says what
 Ferrisma accepts, what it rejects, which backend does the work, and which
 build provides it. It does not promise a stable API: the stability tiers come
 from the *proposed* [ADR-0040](adr/0040-stable-public-contract-and-compatibility-policy.md)
@@ -14,7 +19,12 @@ and the [compatibility guide](compatibility.md).
 Every row names the test or fixture that supports it. A claim without a named
 test is marked **untested** and is a statement about the code path only. Header
 inspection alone is never treated as proof that a file decodes or is
-supported.
+supported. A name of the form `supported_matrix::<case>` is a case of
+`tests/supported_matrix.rs`: it runs `transcode` (or `inspect` on an engine
+output) with a real file, a supported case decodes and encodes completely, and
+a rejected case asserts the public `ProcessingErrorKind` **and** the engine's
+reason, because one kind is shared by unrelated causes. Run it with
+`cargo test -p ferrisma --features cli --test supported_matrix`.
 
 Two defaults changed on 2026-11-12 under the owner's v1.0 direction, and the
 owner confirmed both on 2026-11-13
@@ -73,12 +83,12 @@ before crop; crop coordinates are upright display coordinates (ADR-0019).
 | | JPEG | still WebP | JPEG XL | still AVIF |
 | --- | --- | --- | --- | --- |
 | Feature | `jpeg-read` | `webp-read` | `jpeg-xl-own-read` (default) / `jpeg-xl-read` | `avif-read` |
-| Samples delivered | 8-bit RGB (adapter requests RGB) | 8-bit RGB or RGBA | F32 gray, gray+alpha, RGB, RGBA | 8-bit RGB(A); 10/12-bit as normalized float |
-| Alpha | none | straight | straight or premultiplied, from basic info | straight (libavif output) |
+| Samples delivered | 8-bit RGB (adapter requests RGB; grayscale JPEG is expanded to RGB) | 8-bit RGB or RGBA | F32 RGB or RGBA; the decoders also deliver gray and gray+alpha, which the pipeline refuses under every policy | 8-bit RGB(A); 10/12-bit as normalized float; 4:2:0, 4:2:2 and 4:4:4 at 8, 10 and 12 bits |
+| Alpha | none | straight | straight only: premultiplied (libjxl-rs) or unspecified (jxl-oxide) association is refused under every policy | straight (libavif output) |
 | Color evidence | embedded ICC | embedded RGB ICC | libjxl-rs: `DATA` ICC of the emitted samples; jxl-oxide: rendered ICC/CICP | container `nclx`/ICC cross-checked with the AV1 sequence header; reported as rendered CICP |
 | Orientation | EXIF 1–8 | EXIF 1–8 | codestream orientation, rendered upright by the decoder | `irot`/`imir` applied by the pipeline |
 | Crop access | codec crop request, iMCU column overfetch | lossy: crop from full-width rows; lossless: full reconstruction | libjxl-rs: **full-frame fallback for every crop**; jxl-oxide: codec region request | full-frame fallback |
-| Rejected | CMYK/YCCK (`UnsupportedInput`); malformed ICC; truncated data | animation (`UnsupportedInput`); malformed containers; canvas above the pixel cap | animation, CMYK, spot colors, float/HDR exponent channels, extra channels, PQ/HLG, unknown colour spaces, ICC > 16 MiB | animation/`avis`, `clap`, `imir` before `irot`, monochrome, contradictory `nclx`, PQ/HLG |
+| Rejected | CMYK/YCCK (`UnsupportedInput`); malformed ICC; truncated data | animation (`UnsupportedInput`); malformed containers; canvas above the pixel cap | animation, grayscale, CMYK, spot colors, float/HDR exponent channels, extra channels, premultiplied alpha, PQ/HLG, unknown colour spaces, ICC > 16 MiB (**untested**, code path) | animation/`avis`, `clap`, `imir` before `irot`, monochrome, contradictory `nclx`, PQ/HLG ([details](#avif-input-transforms-animation-channels-and-caps)) |
 
 Evidence per format:
 
@@ -91,6 +101,14 @@ Evidence per format:
   `every_exif_orientation_matches_the_reference_for_every_crop`;
   `pipeline_tests::exif_rotated_jpeg_is_cropped_in_display_coordinates`;
   `tests/decoder_work.rs::jpeg_crop_reports_imcu_column_overfetch_and_whole_entropy_pass`.
+  Through the public API: `supported_matrix::jpeg_rgb_is_accepted_when_srgb_is_assumed`,
+  `jpeg_untagged_is_rejected_under_the_strict_policy`,
+  `jpeg_cmyk_is_rejected_as_a_layout` (`decoder pixel or color layout is not
+  supported`), `jpeg_grayscale_is_expanded_to_rgb`
+  (`codecs/libjxl-rs/tests/data/ycbcr-jpeg-gray.jpg`), `jpeg_truncated_is_malformed`,
+  `jpeg_embedded_icc_needs_the_rendered_icc_policy` (libavif's
+  `paris_exif_xmp_icc.jpg`), `jpeg_exif_orientations_are_applied_before_crop`
+  (all eight orientation fixtures).
   12-bit, 16-bit and lossless JPEG are outside the port's scope (**untested**
   in the engine). JPEG has no animation; MPF secondary images are not read.
 - **WebP** — `codecs::webp::tests::keeps_rgb_icc_and_reports_source_orientation`,
@@ -101,7 +119,12 @@ Evidence per format:
   `tests/animated_input.rs::animated_webp_is_rejected`
   (`tests/fixtures/decoder-work/animated.webp`);
   `tests/decoder_work.rs::lossy_webp_crop_decodes_full_width_rows_from_the_top`,
-  `lossless_webp_crop_is_small_but_reconstruction_is_not`.
+  `lossless_webp_crop_is_small_but_reconstruction_is_not`. Through the public
+  API: `supported_matrix::webp_lossy_still_is_accepted`,
+  `webp_exif_orientation_is_applied_lossy_and_lossless`,
+  `webp_animation_is_rejected_without_a_first_frame_fallback`,
+  `webp_straight_alpha_input_keeps_alpha` (an engine-written transparent WebP
+  read back through its embedded ICC), `webp_canvas_above_the_pixel_limit_is_rejected_from_the_header`.
 - **JPEG XL** — default reader: `pipeline_tests::default_jpeg_xl_decoder_follows_the_compiled_backends`,
   `selected_local_jpeg_xl_decoder_reports_full_frame`;
   `tests/decoder_work.rs::libjxl_rs_crop_reports_the_full_frame_fallback`;
@@ -113,7 +136,21 @@ Evidence per format:
   `orientation_tests::jpeg_xl_orientations_are_rendered_upright_for_every_crop`,
   `lossy_jpeg_xl_orientations_and_crops_through_libjxl_rs`;
   `tests/animated_input.rs::animated_jpeg_xl_is_rejected_by_libjxl_rs`;
-  `hardening_tests::workspace_jxl_unknown_colour_space_is_a_controlled_error`.
+  `hardening_tests::workspace_jxl_unknown_colour_space_is_a_controlled_error`;
+  `jxl_alpha_tests::associated_alpha_is_refused` (premultiplied/unspecified
+  alpha under every policy, both readers). Through the public API, both
+  readers unless noted: `supported_matrix::jpeg_xl_rgb_needs_the_rendered_icc_policy_on_both_readers`
+  (also pins full-frame fallback for libjxl-rs, region request for jxl-oxide),
+  `jpeg_xl_straight_alpha_is_kept_through_rendered_icc`,
+  `jpeg_xl_grayscale_is_rejected_under_every_policy` (`UnsupportedColor` under
+  `Strict`/`AssumeSrgbIfMissing`, `UnsupportedInput` "decoder pixel or color
+  layout is not supported" under `UseRenderedIcc`, which takes RGB(A) only),
+  `jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected` (libjxl-rs),
+  `jpeg_xl_animation_is_rejected_by_both_readers`,
+  `jpeg_xl_pq_and_hlg_are_rejected_by_both_readers`,
+  `jpeg_xl_pixel_limit_is_checked_before_decoding`. CMYK JPEG XL has no
+  fixture in the repository; its rejection rests on the external conformance
+  run below.
   External: the pinned JPEG XL conformance corpus passes 27/27 level-10 and
   24/24 level-5 entries on macOS ARM64; through the engine wrapper 32 accepted
   cases pass and 8 (animation, CMYK, spot colors, float samples) are rejected
@@ -139,10 +176,38 @@ Evidence per format:
   `colors_hdr_rec2020.avif`/`seine_hdr_rec2020.avif` as `UnsupportedColor`);
   `ferrisma_avif_read` unit tests `twelve_bit_native_fixture_emits_sixteen_bit_rgb`,
   `animation_is_not_accepted_as_a_still_image`,
-  `coded_pixel_limit_reports_exact_sequence_geometry`. Monochrome AVIF is
-  rejected by the adapter (`UnsupportedInput`) but has **no named test**.
+  `coded_pixel_limit_reports_exact_sequence_geometry`. Through the public API:
+  see [AVIF input](#avif-input-transforms-animation-channels-and-caps).
   Argon AV1 conformance was not run (ADR-0025); the reader relies on the
   reference-origin route.
+
+### AVIF input: transforms, animation, channels and caps
+
+Checked in `AvifSource::new_bounded` (`src/codecs/avif.rs`) from the container
+and the AV1 sequence header, before any pixel is decoded. Fixtures are
+libavif's (`codecs/libavif-rs/upstream/libavif/tests/data/` and its Android
+test assets) and the libheif orientation set (`tests/fixtures/orientation/`).
+
+| Configuration | Behavior | Evidence (`supported_matrix::…` unless noted) |
+| --- | --- | --- |
+| `irot` and `imir`, all eight combinations | supported: reported as the source orientation and applied by the pipeline before crop; crops are upright display coordinates | `avif_irot_and_imir_are_applied_for_all_eight_orientations` (`avif-1…8.avif`, display size pinned by the crop bounds); `orientation_tests::avif_irot_imir_match_libheif` (pixels against libheif) |
+| `imir` associated before `irot` | `UnsupportedInput`, "orientation, mirroring or clean-aperture transforms are not supported yet" | `avif_imir_before_irot_is_rejected` (`avif-5.avif` with the two `ipma` associations swapped); `codecs::avif_meta_tests::records_mirror_before_rotation_association_order` |
+| `clap` (essential or not) | `UnsupportedInput`, same reason; there is no implicit crop | `avif_clean_aperture_is_rejected` (`clap_irot_imir_non_essential.avif`, Android `blue-and-magenta-crop.avif`); libavif's `clop_irot_imor.avif` (the same file with `clap`/`imir` renamed to unknown non-essential properties) is accepted |
+| Unknown essential property | `MalformedInput`, "decoder rejected input or could not render it" (the container parser's refusal is reported as malformed, not as unsupported) | `avif_unknown_essential_property_is_rejected_as_malformed` (`avif-1.avif` with `pixi` renamed and marked essential); `codecs::avif_meta_tests::rejects_ambiguous_and_unknown_essential_properties` |
+| Image sequence (`avis`), with or without alpha, depth, audio, EXIF/XMP | `UnsupportedInput`, "animated input is not supported; only still images are decoded"; **no first-frame fallback** | `avif_image_sequences_are_rejected_without_a_first_frame_fallback` (five `colors-animated-*.avif` files and `alpha_video.avif`); `tests/animated_input.rs::animated_avif_is_rejected` |
+| Monochrome (4:0:0) at 8, 10, 12 bits | `UnsupportedInput`, "decoder pixel or color layout is not supported" | `avif_monochrome_is_rejected_at_every_depth` (Android `fox.*.monochrome.avif`) |
+| Color 4:2:0, 4:2:2, 4:4:4 at 8, 10, 12 bits | supported | `avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted` (nine Android `fox.*.avif`) |
+| Alpha auxiliary image | supported, straight | `avif_alpha_and_grid_stills_are_accepted` (`abc_color_irot_alpha_irot.avif`, alpha read back from the WebP output) |
+| Grid stills | supported | same test (`color_grid_alpha_grid_shared_tiles.avif`, `sofa_grid1x5_420.avif`) |
+| Gain map (`tmap`) | ignored: the SDR base image is read, no tone mapping | `avif_gain_map_is_ignored_and_the_base_image_is_read` (`seine_sdr_gainmap_srgb.avif` under `Strict`) |
+| Other extra channels | only alpha is read; depth auxiliary images occur only in the rejected sequence fixture (**untested** for stills) | — |
+| Constant-luminance BT.2020 matrix (code 10) | `UnsupportedInput` (**untested**, code path) | — |
+| Container `nclx` that contradicts the AV1 sequence header | `UnsupportedColor`, "container color information contradicts the coded bitstream" | `codecs::avif::tests::container_signal_that_contradicts_the_bitstream_is_rejected` (engine-written file, patched) |
+| PQ (`colors_hdr_rec2020.avif`, `seine_hdr_rec2020.avif`) | `UnsupportedColor` under every policy | `avif_pq_is_rejected_under_every_policy` |
+| Container ICC | needs `UseRenderedIcc` | `avif_container_icc_needs_the_rendered_icc_policy` (`paris_icc_exif_xmp.avif`) |
+| Signalled sRGB | passes `Strict` | `avif_signalled_srgb_passes_the_strict_policy` (`colors_sdr_srgb.avif`) |
+| Rendered size, then coded sequence size, above `max_input_pixels` | `InputLimitExceeded` before decoding | `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry` |
+| ICC property above the parser's cap | `UnsupportedColor` before the copy | `codecs::avif_meta_tests::oversized_icc_property_is_rejected_before_copy` (synthetic) |
 
 ## Color policy
 
@@ -168,9 +233,11 @@ supported.
 | Speed | 0–10 (`cpu-used`) | 1–10 | lossy speed 1 (slowest)–10; lossless uses the level | fixed: effort 7 lossy, effort 2 lossless; `--speed` is rejected |
 | Alpha | auxiliary item at the color quality, omitted when opaque | separate 10-bit item at fixed quality 80, omitted when opaque | straight alpha | unassociated (straight) alpha at 8 bits, coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
 | Color signaling | AV1 header 1/13/6 full range **and** container `colr nclx` | AV1 header 1/13/6 full range; no container `colr` | embedded sRGB ICC | enum sRGB (lossy: XYB-encoded) |
-| Metadata | source EXIF/XMP/ICC not copied; orientation applied | same | same; EXIF orientation and XMP dropped | orientation applied, written as 1 |
+| Metadata | source EXIF/XMP/ICC not copied (no `Exif`/`mime` item, no `prof` `colr`); orientation applied, no `irot`/`imir`/`clap` written | same | source EXIF/XMP dropped, only the engine's sRGB `ICCP` chunk; orientation applied | orientation applied, written as 1 |
 | Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | padded 10-bit frame(s) | ARGB frame and lossy planes reserved | lossless: the measured one-shot peak, 76 bytes per pixel of opaque RGB including the input frame (scaled by 4/3 with alpha, derived, not measured), at least the codec planes known from the source path; lossy: input frame plus a source-derived codec estimate; reserved before encoding |
 | Determinism | bytes can depend on thread count and host | tiles derived from size: bytes independent of thread count | — | both profiles byte-identical with the C++ encoder on the port's recorded requests (macOS AArch64) |
+| Threads | `encoder_threads` 0–256 | `encoder_threads` 0–256 | serial: `encoder_threads` must be 1 | serial: `encoder_threads` must be 1 |
+| `max_output_bytes` | checked after the encoder returns: "encoded output exceeds max_output_bytes" | same | checked while writing: "managed buffer needs … bytes with … available" | lossy: checked while writing, as WebP; lossless: after the encoder returns, as AVIF |
 
 **The two AVIF quality scales are not comparable and are never remapped.**
 `quality` and `speed` go unchanged to the selected encoder. At equal
@@ -180,6 +247,38 @@ bytes (SSIMULACRA2 77.455) and libavif 10-bit 100,512 bytes (88.307)
 ([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)). A
 quality value tuned for rav1e gives larger files with libavif. The default
 `quality` is 75 on whichever scale is selected.
+
+Evidence through the public API (`supported_matrix::…`): libavif —
+`libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx` (encoder name
+`libavif-rs/aom`, `av1C` 10-bit 4:4:4, `colr nclx` 1/13/6 full range, no alpha
+item when opaque, read back under `Strict`),
+`libavif_writes_eight_bit_and_420_on_request`,
+`libavif_writes_an_alpha_item_only_for_transparent_input`,
+`libavif_quality_speed_and_depth_ranges` (0–100, 0–10, depth 8/10, each
+rejection with libavif's reason); rav1e —
+`rav1e_writes_ten_bit_without_a_container_colr` (4:4:4 and 4:2:0, no `colr`,
+read back under `Strict` from the AV1 header's 1/13/6),
+`rav1e_writes_an_alpha_item_for_transparent_input`,
+`rav1e_quality_and_speed_start_at_one`; both —
+`avif_output_drops_source_metadata_and_writes_upright_pixels`,
+`output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders`,
+`avif_encoder_selection_conflicts_with_other_outputs`; WebP —
+`webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp` (`VP8 `/`VP8L`
+plus `ICCP`, no `EXIF`/`XMP `, read back through the ICC),
+`webp_straight_alpha_output_in_both_profiles` (`ALPH` for lossy),
+`webp_quality_speed_and_level_ranges`,
+`avif_settings_with_webp_output_are_mismatched_options`; JPEG XL —
+`jpeg_xl_output_is_a_raw_codestream_that_reads_back_on_both_readers`,
+`jpeg_xl_output_keeps_straight_alpha_in_both_profiles`,
+`jpeg_xl_output_is_written_upright`,
+`jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding`
+(distance 0.05 and 2.99 accepted, 0.049 and 3.0 rejected, effort 3 rejected,
+`quality`/`speed` with JPEG XL output rejected),
+`output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`.
+The alpha quality of each AVIF encoder (libavif: the color quality; rav1e:
+fixed 80) and the materialization rows are read from the code
+(`src/own_avif.rs`, `src/avif_sink.rs`, `src/webp_sink.rs`, `src/jxl_sink.rs`)
+and pinned by the unit tests below, not by the public-API cases.
 
 Evidence: AVIF/libavif — `crates/ferrisma-libavif/tests/encode.rs`
 (`encodes_what_ferrisma_produced_with_the_same_color_signals`,
@@ -238,8 +337,10 @@ should pass it is an open owner question in ADR-0015. Evidence:
 The lossless reservation follows the measured one-shot peak since 2026-11-13
 (#223, ADR-0039 amendment): under the default 256 MiB `--budget-mb` the
 largest lossless JPEG XL output falls from about 9.5 MP to about 3.5 MP, and
-larger requests fail with `BudgetExceeded` before encoding instead of
-exceeding the budget in opaque codec memory. A measured peak with alpha and
+larger requests fail with `BudgetExceeded` (`ResourceExhausted`, "managed
+buffer needs …") before encoding instead of exceeding the budget in opaque
+codec memory (`supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_three_and_a_half_megapixels`:
+a 2000×2000 request). A measured peak with alpha and
 the lossy estimate are still open (#223). JPEG output does not exist and is
 not planned.
 
@@ -247,11 +348,11 @@ not planned.
 
 | Option / CLI | Default | Checked | Evidence |
 | --- | --- | --- | --- |
-| `max_input_bytes` / `--max-input-mb` (MiB) | 64 MiB | before any codec starts; CLI stream read is capped | `pipeline_tests::compressed_bytes_and_decoded_pixel_caps_reject_before_processing`; `cli::tests::accepts_input_at_the_limit_and_rejects_one_byte_more` |
-| `max_input_pixels` / `--max-input-mpx` (10^6 px) | 100,000,000 | from headers before pixel allocation (AVIF also checks coded frame size) | same; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry`; `ferrisma_jxl_decoder::checks_pixel_limit_before_output` |
-| `max_managed_bytes` / `--budget-mb` | 256 MiB | engine buffers, known encoder frames | `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
-| `max_output_bytes` / `--max-output-mb` | 256 MiB | WebP while writing; AVIF and JPEG XL after the encoder returns | `webp_output_tests::exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless`; `jxl_output_tests::encoded_output_limit_applies_at_the_exact_byte`; `ferrisma-libavif` `output_limit_is_enforced_after_backend_finish` |
-| threads | `transform_threads` 0 (all cores), `encoder_threads` 1; at most 256 | before decoding | `pipeline_tests::encoder_threads_trade_determinism_for_latency_explicitly` |
+| `max_input_bytes` / `--max-input-mb` (MiB) | 64 MiB | before any codec starts (`InputLimitExceeded`, "compressed image exceeds max_input_bytes"); zero is `InvalidOptions`; CLI stream read is capped | `supported_matrix::input_byte_limit_accepts_the_exact_size_and_rejects_one_byte_less`, `zero_input_limits_are_invalid_options`; `pipeline_tests::compressed_bytes_and_decoded_pixel_caps_reject_before_processing`; `cli::tests::accepts_input_at_the_limit_and_rejects_one_byte_more` |
+| `max_input_pixels` / `--max-input-mpx` (10^6 px) | 100,000,000 | from headers before pixel allocation (`InputLimitExceeded`): WebP, AVIF and libjxl-rs in the adapter ("input has N pixels, exceeding …"; AVIF also checks the coded sequence size), JPEG and jxl-oxide by the facade after the header ("image has N pixels; configured limit is M") | `supported_matrix::jpeg_pixel_limit_is_checked_after_the_header`, `webp_canvas_above_the_pixel_limit_is_rejected_from_the_header`, `jpeg_xl_pixel_limit_is_checked_before_decoding`, `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry`; `ferrisma_jxl_decoder::checks_pixel_limit_before_output` |
+| `max_managed_bytes` / `--budget-mb` | 256 MiB | engine buffers, known encoder frames, the lossless JPEG XL one-shot peak (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_three_and_a_half_megapixels`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
+| `max_output_bytes` / `--max-output-mb` | 256 MiB | `ResourceExhausted` in every case. WebP and lossy JPEG XL while writing ("managed buffer needs …"); AVIF (both encoders) and lossless JPEG XL after the encoder returns ("encoded output exceeds max_output_bytes"); zero is `InvalidOptions` | `supported_matrix::output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`, `output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders`; `webp_output_tests::exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless`; `jxl_output_tests::encoded_output_limit_applies_at_the_exact_byte`, `jxl_lossy_tests::the_output_limit_applies_at_the_exact_byte`; `ferrisma-libavif` `output_limit_is_enforced_after_backend_finish` |
+| threads | `transform_threads` 0 (all cores), `encoder_threads` 1; at most 256; WebP and JPEG XL output need `encoder_threads` 1 | before decoding (`InvalidOptions`) | `supported_matrix::thread_counts_above_256_and_parallel_webp_encoding_are_invalid`; `pipeline_tests::encoder_threads_trade_determinism_for_latency_explicitly` |
 
 Codec-internal allocations (all four decoders, all encoders) are opaque: the
 report sets `opaque_decoder_memory`/`opaque_encoder_memory`, and there is no
@@ -321,6 +422,12 @@ Supported (output of the debug `cli` build on 2026-11-12, report line
 abbreviated):
 
 ```sh
+# Build identity: version, target, compiled-in features, FERRISMA_BUILD_ID
+ferrisma --version          # or -V; takes precedence over every other argument
+#   ferrisma 0.1.0
+#   target: aarch64-macos
+#   features: jpeg-read, webp-read, webp-write, jpeg-xl-read, jpeg-xl-own-read, jpeg-xl-write, avif-read, avif-write, avif-own-write, icc
+#   build: unknown
 # JPEG → AVIF with the default libavif/AOM encoder, 10-bit 4:4:4
 ferrisma photo.jpg out.avif 64 48 --assume-srgb
 #   report: … encoder=libavif-rs/aom
@@ -359,6 +466,58 @@ Rejected, with the error the CLI prints (exit status 1):
 The Rust facade returns the same `ProcessingErrorKind` values;
 [`examples/consumer.rs`](../examples/consumer.rs) maps each kind to a
 reject/retry/alert decision and its `--self-check` asserts them.
+
+## Corrections of 2026-11-15
+
+The review against the code and `tests/supported_matrix.rs` changed these
+statements of the 2026-11-12/14 matrix to what the code does. None of them
+changed engine code; whether the behavior or the earlier text was the defect
+is left to the owner.
+
+1. **Grayscale JPEG XL** was listed as delivered (gray, gray+alpha). Both
+   readers deliver it, but the pipeline refuses it under every policy:
+   `UnsupportedColor` under `Strict` and `AssumeSrgbIfMissing` (the decoder
+   reports an ICC profile, not sRGB CICP), `UnsupportedInput` under
+   `UseRenderedIcc`, whose transform takes RGB(A) only.
+2. **Premultiplied JPEG XL alpha** was listed as accepted ("straight or
+   premultiplied"). JPEG XL input needs `UseRenderedIcc`, which refuses
+   premultiplied (libjxl-rs) and unspecified (jxl-oxide) association, so only
+   straight alpha is transcoded.
+3. **`max_output_bytes` for JPEG XL** was "after the encoder returns". That
+   holds for lossless; lossy JPEG XL is stopped while writing, like WebP, with
+   "managed buffer needs … bytes with … available". Every output-limit
+   failure is `ResourceExhausted`; the reason differs by encoder.
+4. **Monochrome AVIF** had no named test; it is now pinned at 8, 10 and 12
+   bits, as are `imir` before `irot` (previously only a synthetic unit test),
+   4:2:2 input (not listed before) and the gain-map behavior (the SDR base
+   image is read; not stated before).
+5. **The pixel-limit reason** differs by reader: the adapter checks WebP,
+   AVIF and libjxl-rs input, the facade checks JPEG and jxl-oxide input after
+   the header, with a different message. Both are `InputLimitExceeded` before
+   any pixel is decoded.
+6. An unknown essential AVIF property is rejected as `MalformedInput`, not
+   `UnsupportedInput`; this was not stated before.
+7. The CLI's `--version` (`d9146dd0`) was missing from the examples.
+
+Still pending owner decisions, described as today's behavior above: the
+default AVIF quality per encoder (#216; 75 on the selected scale), lossy d1.0
+as the JPEG XL output default (ADR-0041 O5), and whether the strict policy
+should accept transparent XYB JPEG XL written by the engine (#222, ADR-0015;
+today refused under `Strict`). Open questions of #250 are not decided here.
+
+## Verification record (2026-11-15, macOS ARM64 and x86-64 under Rosetta 2)
+
+Host: Apple Silicon, macOS (Darwin 27.2.0) arm64, shared with other build
+jobs (no timing recorded); pinned `nightly-2026-09-07`, `CARGO_BUILD_JOBS=4`,
+branch `v1/matrix` on `aba85c54`.
+
+| Command | Result |
+| --- | --- |
+| `cargo test -p ferrisma --features cli --test supported_matrix` | pass, 57 tests |
+| `cargo test -p ferrisma --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-own-read,jpeg-xl-write,icc --test supported_matrix` | pass, 35 tests (the AVIF cases are gated on their adapters) |
+| the same with `--target x86_64-apple-darwin` under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1`, `SDKROOT` set) | pass, 35 tests. The AVIF adapters cannot be built for x86-64 macOS (the generated libaom/dav1d/SharpYUV sources `compile_error!` outside macOS ARM64 and GNU Linux x86-64), so the AVIF cases have no local x86-64 run; GNU Linux x86-64 stays CI's |
+| `cargo clippy -p ferrisma --features cli --test supported_matrix --no-deps -- -D warnings`, and with the non-AVIF set | pass |
+| `cargo test -p ferrisma --all-targets --features cli` (under the gate lock) | pass: 326 tests in 18 binaries, 0 failed, 1 ignored (pre-existing `#[ignore]`) |
 
 ## Verification record (2026-11-12, macOS ARM64)
 
