@@ -871,10 +871,15 @@ Progress:
   RemoveUnusedHistograms and OutputAcGlobal, and the streaming branches of
   ComputeEncodingData, EncodeGroups and EncodeGlobalACInfo. Buffer-mode
   histories with more than 8 groups match the original byte for byte.
-  `JxlEncoderAddChunkedFrame`, `JxlEncoderSetOutputProcessor`,
-  `JxlEncoderFlushInput`, output mode 2 and step 2's own gate (sizes up to
-  4000x3000, output-processor call sequences, the encode_test streaming
-  suites) remain open.
+  Correction (2026-11-15): those histories ran output mode 0 only; buffering
+  3 resolves to output mode 1 only when JXL_ENC_FRAME_SETTING_OUTPUT_MODE is
+  -1, and the option's default is 0. Output mode 1 is admitted and compared
+  since then.
+  2026-11-15 (branch `v1/jxl-enc-stream`): `JxlEncoderSetOutputProcessor`
+  with the complete JxlEncoderOutputProcessorWrapper, `JxlEncoderFlushInput`
+  and `JxlEncoderAddChunkedFrame` with the callback-backed adapter; see
+  [PORT_STATUS.md](PORT_STATUS.md) (block "encoder streaming"). Output mode
+  2 is a container (step 3) and stays an admission result.
 
 Admitted encode profile (2026-11-12): the public API with the default memory
 manager, serial, raw codestream output in buffer mode; effort 7 (kSquirrel),
@@ -892,7 +897,8 @@ one frame closed before ProcessOutput, without crop, blending, name, reference,
 animation or preview; default perceptual, progressive, patch, dot, noise,
 Gaborish, EPF and group-order options, and the patches option at its default
 or 0; any size, through the one-shot path (at most 8 groups, or buffering 0)
-or the streaming path (output modes 0 and 1). With patches at the default,
+or the streaming path (output modes 0 and 1), in buffer mode or through an
+output processor, from a buffer or chunked input callbacks. With patches at the default,
 text-like content that FindTextLikePatches turns into patches remains an
 admission result; with `JXL_ENC_FRAME_SETTING_PATCHES` = 0 every image
 encodes.

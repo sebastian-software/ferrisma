@@ -28,8 +28,9 @@
 //! and the frame index's AddFrame and StoreFrameIndexBox,
 //! JxlEncoderSetFrameHeader, JxlEncoderSetExtraChannelBlendInfo,
 //! JxlEncoderSetFrameName, JxlEncoderSetFrameBitDepth,
-//! JxlColorEncodingSetToSRGB, JxlColorEncodingSetToLinearSRGB and
-//! JxlEncoderAllowExpertOptions.
+//! JxlColorEncodingSetToSRGB, JxlColorEncodingSetToLinearSRGB,
+//! JxlEncoderAllowExpertOptions, JxlEncoderSetOutputProcessor and
+//! JxlEncoderFlushInput.
 //!
 //! Admission (ADR 0001): the encoder runs before the frame encoder below it is
 //! complete. A call that would enter an untranslated branch returns
@@ -40,9 +41,10 @@
 //! branches; and the frame encoder's checkpoints (streaming, the admitted
 //! frame profile and patches), see
 //! `enc_frame_vardct.rs`.
-//! Untranslated public functions are absent: AddJPEGFrame, AddChunkedFrame,
-//! FlushInput, SetOutputProcessor, SetParallelRunner, SetDebugImageCallback
-//! and the statistics functions. The C ABI is not exported (ADR 0001).
+//! JxlEncoderAddChunkedFrame is translated with them.
+//! Untranslated public functions are absent: AddJPEGFrame,
+//! SetParallelRunner, SetDebugImageCallback and the statistics functions.
+//! The C ABI is not exported (ADR 0001).
 //!
 //! Language-required deviations, each local to its representation:
 //! - The encoder object is allocated through the caller's memory manager and
@@ -55,8 +57,10 @@
 //!   settings, each vector from its last element, as the source's reverse
 //!   member order and libc++'s vector clear do.
 //! - Owners that only untranslated functions install (thread pool,
-//!   fast-lossless frame, external output processor, statistics) are
-//!   uninhabited `Option<Infallible>` fields at their source positions.
+//!   fast-lossless frame, statistics) are uninhabited `Option<Infallible>`
+//!   fields at their source positions.
+//! - The output processor of encode.h is a `repr(C)` struct of optional C
+//!   function pointers with its opaque value, as in the source.
 //! - JXL_API_ERROR and JXL_API_ERROR_NOSET return JXL_ENC_ERROR; the release
 //!   reference's debug messages are not translated, and VerifyLevelSettings
 //!   therefore takes no debug string.
@@ -102,8 +106,62 @@ use super::memory_manager_internal::MemoryManagerUniquePtr;
 use super::modular::options::Predictor;
 use super::types::{JxlBitDepth, JxlBitDepthType, JxlDataType, JxlPixelFormat};
 use std::convert::Infallible;
-use std::ffi::CStr;
+use std::ffi::{CStr, c_void};
 use std::ptr;
+
+/// JxlChunkedFrameInputSource from encode.h: the caller's input callbacks.
+/// The encoder calls every callback it reaches without a null check, as the
+/// source does; a missing one panics here instead of calling null.
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+pub struct JxlChunkedFrameInputSource {
+    pub opaque: *mut c_void,
+    pub get_color_channels_pixel_format:
+        Option<unsafe extern "C" fn(opaque: *mut c_void, pixel_format: *mut JxlPixelFormat)>,
+    pub get_color_channel_data_at: Option<
+        unsafe extern "C" fn(
+            opaque: *mut c_void,
+            xpos: usize,
+            ypos: usize,
+            xsize: usize,
+            ysize: usize,
+            row_offset: *mut usize,
+        ) -> *const c_void,
+    >,
+    pub get_extra_channel_pixel_format: Option<
+        unsafe extern "C" fn(
+            opaque: *mut c_void,
+            ec_index: usize,
+            pixel_format: *mut JxlPixelFormat,
+        ),
+    >,
+    pub get_extra_channel_data_at: Option<
+        unsafe extern "C" fn(
+            opaque: *mut c_void,
+            ec_index: usize,
+            xpos: usize,
+            ypos: usize,
+            xsize: usize,
+            ysize: usize,
+            row_offset: *mut usize,
+        ) -> *const c_void,
+    >,
+    pub release_buffer: Option<unsafe extern "C" fn(opaque: *mut c_void, buf: *const c_void)>,
+}
+
+/// JxlEncoderOutputProcessor from encode.h: the caller's output callbacks.
+/// Every field but `seek` is required by JxlEncoderSetOutputProcessor.
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+pub struct JxlEncoderOutputProcessor {
+    pub opaque: *mut c_void,
+    pub get_buffer:
+        Option<unsafe extern "C" fn(opaque: *mut c_void, size: *mut usize) -> *mut c_void>,
+    pub release_buffer: Option<unsafe extern "C" fn(opaque: *mut c_void, written_bytes: usize)>,
+    pub seek: Option<unsafe extern "C" fn(opaque: *mut c_void, position: u64)>,
+    pub set_finalized_position:
+        Option<unsafe extern "C" fn(opaque: *mut c_void, finalized_position: u64)>,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(transparent)]
@@ -1629,7 +1687,15 @@ fn add_image_frame_outside_decoding(
     streaming: bool,
     mut frame_data: JxlEncoderChunkedFrameAdapter<'_>,
 ) -> JxlEncoderStatus {
-    let pixel_format = frame_data.get_color_channels_pixel_format();
+    let mut pixel_format = JxlPixelFormat {
+        num_channels: 4,
+        data_type: JxlDataType::UINT8,
+        endianness: super::types::JxlEndianness::NATIVE,
+        align: 0,
+    };
+    frame_data
+        .get_input_source()
+        .get_color_channels_pixel_format(&mut pixel_format);
     let num_channels = pixel_format.num_channels;
     let mut has_interleaved_alpha = usize::from(num_channels == 2 || num_channels == 4);
 
@@ -1753,6 +1819,59 @@ pub unsafe fn jxl_encoder_add_image_frame(
     }
     add_image_frame_internal(settings, enc, false, frame_data)
 }
+
+// encoder streaming
+/// JxlEncoderAddChunkedFrame.
+///
+/// # Safety
+/// As for [`jxl_encoder_set_frame_lossless`]; the input callbacks obey the
+/// contract of `JxlEncoderChunkedFrameAdapter::set_input_source` until this
+/// call returns, or, with an output processor set, until the frame is
+/// encoded within this call.
+#[allow(clippy::manual_slice_fill, reason = "Keep the source's loop.")]
+pub unsafe fn jxl_encoder_add_chunked_frame(
+    frame_settings: *const JxlEncoderFrameSettings,
+    is_last_frame: i32,
+    chunked_frame_input: JxlChunkedFrameInputSource,
+) -> JxlEncoderStatus {
+    // SAFETY: The caller supplies the frame-settings contract; the source
+    // accesses the settings as const.
+    let (settings, enc) = unsafe { settings_and_encoder(frame_settings.cast_mut()) };
+    let settings: &JxlEncoderFrameSettings = settings;
+    let mut xsize = 0;
+    let mut ysize = 0;
+    if get_current_dimensions(settings, enc, &mut xsize, &mut ysize) != JxlEncoderStatus::SUCCESS {
+        return api_error(enc, JxlEncoderError::GENERIC);
+    }
+    let streaming = enc.output_processor.output_processor_set();
+    let mut frame_data = JxlEncoderChunkedFrameAdapter::new(
+        xsize,
+        ysize,
+        enc.metadata.m.num_extra_channels as usize,
+    );
+    // SAFETY: The caller supplies the input contract.
+    unsafe { frame_data.set_input_source(chunked_frame_input) };
+    let status = add_image_frame_internal(settings, enc, streaming, frame_data);
+    if status != JxlEncoderStatus::SUCCESS {
+        return status;
+    }
+
+    let queued_frame = enc.input_queue.last_mut().expect("queued above");
+    if let Some(frame) = queued_frame.frame.as_deref_mut() {
+        for val in &mut frame.ec_initialized {
+            *val = 1;
+        }
+    }
+
+    if is_last_frame != 0 {
+        jxl_encoder_close_frames(enc);
+    }
+    if streaming {
+        return jxl_encoder_flush_input(enc);
+    }
+    JxlEncoderStatus::SUCCESS
+}
+// end encoder streaming
 
 pub fn jxl_encoder_use_boxes(enc: &mut JxlEncoder) -> JxlEncoderStatus {
     if enc.wrote_bytes {
@@ -2066,55 +2185,72 @@ fn strip_opaque_alpha(enc: &mut JxlEncoder) {
         && (strip_alpha == STRIP_ALPHA_IF_OPAQUE
             || (strip_alpha == STRIP_ALPHA_AUTO && !is_lossless))
     {
-        // The buffer-backed input source sets every callback.
-        let src = &first_frame.frame_data;
-        let color_fmt = src.get_color_channels_pixel_format();
-        let has_interleaved = color_fmt.num_channels == 2 || color_fmt.num_channels == 4;
-        let has_extra_channel = !has_interleaved;
-        if has_interleaved || has_extra_channel {
-            let ec_fmt = if has_extra_channel {
-                src.get_extra_channel_pixel_format(alpha_ec_idx)
-            } else {
-                color_fmt
+        let src = first_frame.frame_data.get_input_source();
+        if src.has_color_callbacks() {
+            let mut color_fmt = JxlPixelFormat {
+                num_channels: 0,
+                data_type: JxlDataType(0),
+                endianness: super::types::JxlEndianness(0),
+                align: 0,
             };
-            let fmt = if has_interleaved { color_fmt } else { ec_fmt };
-            let alpha_c = if has_interleaved {
-                color_fmt.num_channels as usize - 1
-            } else {
-                0
-            };
-            let is_chunk_opaque = |x: usize, y: usize, xs: usize, ys: usize| -> bool {
-                let mut row_offset = 0;
-                let buf = if has_interleaved {
-                    src.get_color_channel_data_at(x, y, xs, ys, &mut row_offset)
-                } else {
-                    src.get_extra_channel_data_at(alpha_ec_idx, x, y, xs, ys, &mut row_offset)
-                };
-                buf.is_some()
-                    && is_alpha_buffer_opaque(buf, &fmt, xs, ys, row_offset, alpha_c, alpha_bits)
-            };
+            src.get_color_channels_pixel_format(&mut color_fmt);
+            let has_interleaved = color_fmt.num_channels == 2 || color_fmt.num_channels == 4;
+            let has_extra_channel = !has_interleaved && src.has_extra_channel_callbacks();
 
-            const CHUNK_DIM_Y: usize = 256;
-            const CHUNK_DIM_X: usize = 2048;
-            let xsize = enc.metadata.xsize();
-            let ysize = enc.metadata.ysize();
-            let mut all_opaque = true;
-
-            let mut y = 0;
-            while y < ysize && all_opaque {
-                let chunk_ysize = CHUNK_DIM_Y.min(ysize - y);
-                let mut x = 0;
-                while x < xsize {
-                    let chunk_xsize = CHUNK_DIM_X.min(xsize - x);
-                    if !is_chunk_opaque(x, y, chunk_xsize, chunk_ysize) {
-                        all_opaque = false;
-                        break;
-                    }
-                    x += CHUNK_DIM_X;
+            if has_interleaved || has_extra_channel {
+                // The source's ec_fmt is uninitialized when unused.
+                let mut ec_fmt = color_fmt;
+                if has_extra_channel {
+                    src.get_extra_channel_pixel_format(alpha_ec_idx, &mut ec_fmt);
                 }
-                y += CHUNK_DIM_Y;
+                let fmt = if has_interleaved { color_fmt } else { ec_fmt };
+                let alpha_c = if has_interleaved {
+                    color_fmt.num_channels as usize - 1
+                } else {
+                    0
+                };
+                let bpp = super::encode_internal::bytes_per_pixel(fmt);
+                let is_chunk_opaque = |x: usize, y: usize, xs: usize, ys: usize| -> bool {
+                    let mut row_offset = 0;
+                    let buf = if has_interleaved {
+                        src.get_color_buffer(x, y, xs, ys, &mut row_offset)
+                    } else {
+                        src.get_extra_channel_buffer(alpha_ec_idx, x, y, xs, ys, &mut row_offset)
+                    };
+                    !buf.is_null()
+                        && is_alpha_buffer_opaque(
+                            Some(buf.bytes(ys, row_offset, xs * bpp)),
+                            &fmt,
+                            xs,
+                            ys,
+                            row_offset,
+                            alpha_c,
+                            alpha_bits,
+                        )
+                };
+
+                const CHUNK_DIM_Y: usize = 256;
+                const CHUNK_DIM_X: usize = 2048;
+                let xsize = enc.metadata.xsize();
+                let ysize = enc.metadata.ysize();
+                let mut all_opaque = true;
+
+                let mut y = 0;
+                while y < ysize && all_opaque {
+                    let chunk_ysize = CHUNK_DIM_Y.min(ysize - y);
+                    let mut x = 0;
+                    while x < xsize {
+                        let chunk_xsize = CHUNK_DIM_X.min(xsize - x);
+                        if !is_chunk_opaque(x, y, chunk_xsize, chunk_ysize) {
+                            all_opaque = false;
+                            break;
+                        }
+                        x += CHUNK_DIM_X;
+                    }
+                    y += CHUNK_DIM_Y;
+                }
+                should_strip = all_opaque;
             }
-            should_strip = all_opaque;
         }
     }
 
@@ -2503,3 +2639,55 @@ pub fn jxl_color_encoding_set_to_linear_srgb(color_encoding: &mut JxlColorEncodi
 pub fn jxl_encoder_allow_expert_options(enc: &mut JxlEncoder) {
     enc.allow_expert_options = true;
 }
+
+// encoder streaming
+/// JxlEncoderFlushInput. ProcessOneEnqueuedInput returns an admission result
+/// at its untranslated checkpoints (see the module header).
+pub fn jxl_encoder_flush_input(enc: &mut JxlEncoder) -> JxlEncoderStatus {
+    if !enc.output_processor.output_processor_set() {
+        return api_error(enc, JxlEncoderError::API_USAGE);
+    }
+    while !enc.input_queue.is_empty() {
+        // enable: encoder work runs outside the decoder's dispatch scope, also
+        // when a decoder callback calls it (port ADR 0004, "Scope of the
+        // selection"): the port's encoder is the scalar translation.
+        match super::hwy::outside_decoding(|| process_one_enqueued_input(enc)) {
+            Ok(()) => {}
+            Err(EnqueuedInputFailure::Failed) => return JxlEncoderStatus::ERROR,
+            Err(EnqueuedInputFailure::Admission(checkpoint)) => {
+                return admission(enc, checkpoint);
+            }
+        }
+    }
+    JxlEncoderStatus::SUCCESS
+}
+
+/// JxlEncoderSetOutputProcessor.
+///
+/// # Safety
+/// The processor's callbacks and opaque value obey encode.h whenever a later
+/// encoder call reaches them (FlushInput, AddChunkedFrame, Reset or Destroy
+/// end that), neither unwind nor reenter the encoder, and a buffer returned
+/// by `get_buffer` holds the returned size of writable bytes until the
+/// matching `release_buffer` call.
+pub unsafe fn jxl_encoder_set_output_processor(
+    enc: &mut JxlEncoder,
+    output_processor: JxlEncoderOutputProcessor,
+) -> JxlEncoderStatus {
+    if enc.output_processor.has_avail_out() {
+        return api_error(enc, JxlEncoderError::API_USAGE);
+    }
+    if output_processor.set_finalized_position.is_none()
+        || output_processor.get_buffer.is_none()
+        || output_processor.release_buffer.is_none()
+    {
+        return api_error(enc, JxlEncoderError::API_USAGE);
+    }
+    // SAFETY: The encoder's manager cell outlives its wrapper; the caller
+    // supplies the callback contract.
+    enc.output_processor = unsafe {
+        JxlEncoderOutputProcessorWrapper::with_processor(enc.manager(), output_processor)
+    };
+    JxlEncoderStatus::SUCCESS
+}
+// end encoder streaming

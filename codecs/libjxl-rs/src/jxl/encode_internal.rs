@@ -4,11 +4,12 @@
 //! Encoder-internal owners from lib/jxl/encode_internal.h: BitsPerChannel,
 //! BytesPerPixel, the buffer-backed input path of
 //! JxlEncoderChunkedFrameAdapter, MakeBoxType, the frame-index-box storage,
-//! JxlEncoderFrameSettingsValues, the queued frame/box/input owners, and the
-//! buffer mode of JxlEncoderOutputProcessorWrapper with
-//! JxlOutputProcessorBuffer and AppendData, whose out-of-line methods are in
-//! lib/jxl/encode.cc. The public encoder object and its functions are in
-//! `encode.rs`.
+//! JxlEncoderFrameSettingsValues, the queued frame/box/input owners, and
+//! JxlEncoderOutputProcessorWrapper (buffer mode and the external output
+//! processor: seek, finalized position, external buffers and
+//! AppendBufferToExternalProcessor) with JxlOutputProcessorBuffer and
+//! AppendData, whose out-of-line methods are in lib/jxl/encode.cc. The public
+//! encoder object and its functions are in `encode.rs`.
 //!
 //! Language-required deviations, each local to its representation:
 //! - Native borrows replace the buffer path's callback table and no-op
@@ -16,20 +17,33 @@
 //!   frame owns its copies, so `into_detached` drops the borrow lifetime once
 //!   CopyBuffers has released every caller buffer.
 //! - Owners that later steps install are uninhabited `Option<Infallible>`
-//!   fields at their source positions: the external output processor (until
-//!   JxlEncoderSetOutputProcessor), the fast-lossless frame (until
+//!   fields at their source positions: the fast-lossless frame (until
 //!   enc_fast_lossless) and the statistics `aux_out` (until
 //!   JxlEncoderCollectStats). Their source branches are therefore statically
 //!   unreachable and are written as matches on the uninhabited value.
+//! - The external output processor is held by value; the source's
+//!   `std::unique_ptr` allocation through the global allocator is not
+//!   observable. Its callbacks are called through the C function pointers of
+//!   encode.h, under the contract of
+//!   [`JxlEncoderOutputProcessorWrapper::with_processor`].
 //! - JxlOutputProcessorBuffer borrows its wrapper for its lifetime instead of
 //!   retaining a raw wrapper pointer; its destructor releases as the source's.
 //!   The source's move assignment is not reached and is absent.
-//! - Callback/JPEG input, CopyFromBuffer, CopyOutput, MakeContainerHeader,
-//!   AppendBoxHeader and the frame-index-box methods remain unported.
+//! - GetInputSource returns [`InputSource`]: the adapter's own channels (the
+//!   source's method callbacks, whose release is a no-op) or the caller's
+//!   callbacks of JxlEncoderAddChunkedFrame. GetColorBuffer and
+//!   GetExtraChannelBuffer return a [`ScopedInputBuffer`] that calls the
+//!   caller's release when dropped, as the source's unique_ptr deleter does
+//!   for a nonnull buffer. A channel whose format was never set reports a
+//!   zero format (the source's is indeterminate there; it is only read
+//!   before a request that returns null).
+//! - JPEG input, CopyOutput, MakeContainerHeader, AppendBoxHeader and the
+//!   frame-index-box methods remain unported.
 
 use super::base::status::{Status, StatusCode, StatusOr};
 use super::codestream_header::{JxlBlendInfo, JxlFrameHeader};
 use super::enc_params::CompressParams;
+use super::encode::{JxlChunkedFrameInputSource, JxlEncoderOutputProcessor};
 use super::memory_manager::JxlMemoryManager;
 use super::memory_manager_internal::{MemoryManagerPtr, MemoryManagerUniquePtr};
 use super::padded_bytes::PaddedBytes;
@@ -111,6 +125,38 @@ impl<'a> FrameInputChannel<'a> {
             .wrapping_add(self.xsize.wrapping_mul(self.bytes_per_pixel));
         min_buffer_size <= size
     }
+    fn copy_from_buffer(
+        &mut self,
+        buffer: *const u8,
+        format: JxlPixelFormat,
+        xs: usize,
+        ys: usize,
+        row_offset: usize,
+    ) -> bool {
+        if !self.set_format_and_dimensions(format, xs, ys) {
+            return false;
+        }
+        if self.stride > row_offset {
+            return false;
+        }
+        self.buffer = None;
+        // Safe: set_format_and_dimensions checked ys * stride.
+        self.copy.resize(ys * self.stride, 0);
+        for y in 0..ys {
+            // SAFETY: The input source contract: row `y` of the returned
+            // rectangle starts at `buffer + y * row_offset` and holds at
+            // least `stride <= row_offset` bytes (a full row of `xs`
+            // pixels; the format's alignment is ignored).
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    buffer.add(y * row_offset),
+                    self.copy.as_mut_ptr().add(y * self.stride),
+                    self.stride,
+                );
+            }
+        }
+        true
+    }
     fn copy_buffer(&mut self) {
         if let Some(buffer) = self.buffer {
             self.copy = buffer[..self.buffer_size].to_vec();
@@ -149,6 +195,14 @@ impl<'a> FrameInputChannel<'a> {
     pub fn format(&self) -> JxlPixelFormat {
         self.format.expect("source format must be initialized")
     }
+    fn format_or_zero(&self) -> JxlPixelFormat {
+        self.format.unwrap_or(JxlPixelFormat {
+            num_channels: 0,
+            data_type: JxlDataType(0),
+            endianness: super::types::JxlEndianness(0),
+            align: 0,
+        })
+    }
     pub fn xsize(&self) -> usize {
         self.xsize
     }
@@ -175,6 +229,7 @@ impl<'a> FrameInputChannel<'a> {
 pub struct JxlEncoderChunkedFrameAdapter<'a> {
     xsize: usize,
     ysize: usize,
+    input_source: Option<JxlChunkedFrameInputSource>,
     channels: Vec<FrameInputChannel<'a>>,
 }
 impl<'a> JxlEncoderChunkedFrameAdapter<'a> {
@@ -185,7 +240,29 @@ impl<'a> JxlEncoderChunkedFrameAdapter<'a> {
         Self {
             xsize: xs,
             ysize: ys,
+            input_source: None,
             channels,
+        }
+    }
+    /// SetInputSource.
+    ///
+    /// # Safety
+    /// The callbacks and opaque value obey encode.h whenever a later call of
+    /// this adapter or of the encoder reaches them, and neither unwind nor
+    /// reenter the encoder. A returned rectangle stays valid until its
+    /// release, its rows start `*row_offset` bytes apart and each holds the
+    /// requested width in the reported pixel format.
+    pub unsafe fn set_input_source(&mut self, input_source: JxlChunkedFrameInputSource) {
+        self.input_source = Some(input_source);
+    }
+    pub fn streaming_input(&self) -> bool {
+        self.input_source.is_some()
+    }
+    /// GetInputSource.
+    pub fn get_input_source(&self) -> InputSource<'_, 'a> {
+        match self.input_source {
+            Some(source) => InputSource::Callbacks(source),
+            None => InputSource::Adapter(self),
         }
     }
     pub fn xsize(&self) -> usize {
@@ -261,9 +338,63 @@ impl<'a> JxlEncoderChunkedFrameAdapter<'a> {
         accepted
     }
     pub fn copy_buffers(&mut self) -> bool {
-        // No SetInputSource API exists yet, so only the original buffer branch
-        // can be selected. Extra channel buffers were copied by SetFromBuffer.
-        self.channels[0].copy_buffer();
+        if let Some(source) = self.input_source {
+            let input = InputSource::Callbacks(source);
+            let mut format = JxlPixelFormat {
+                num_channels: 4,
+                data_type: JxlDataType::UINT8,
+                endianness: super::types::JxlEndianness::NATIVE,
+                align: 0,
+            };
+            input.get_color_channels_pixel_format(&mut format);
+            format.align = 0; // .align must be ignored
+            let mut row_offset = 0;
+            {
+                let buffer = input.get_color_buffer(0, 0, self.xsize, self.ysize, &mut row_offset);
+                if buffer.is_null() {
+                    return false;
+                }
+                if !self.channels[0].copy_from_buffer(
+                    buffer.as_ptr(),
+                    format,
+                    self.xsize,
+                    self.ysize,
+                    row_offset,
+                ) {
+                    return false;
+                }
+            }
+            let mut ec = 0;
+            while ec + 1 < self.channels.len() {
+                input.get_extra_channel_pixel_format(ec, &mut format);
+                format.align = 0; // .align must be ignored
+                let buffer = input.get_extra_channel_buffer(
+                    ec,
+                    0,
+                    0,
+                    self.xsize,
+                    self.ysize,
+                    &mut row_offset,
+                );
+                if buffer.is_null() {
+                    ec += 1;
+                    continue;
+                }
+                if !self.channels[1 + ec].copy_from_buffer(
+                    buffer.as_ptr(),
+                    format,
+                    self.xsize,
+                    self.ysize,
+                    row_offset,
+                ) {
+                    return false;
+                }
+                ec += 1;
+            }
+            self.input_source = None;
+        } else {
+            self.channels[0].copy_buffer();
+        }
         true
     }
     /// The owner a queued frame retains after CopyBuffers. Every channel then
@@ -273,6 +404,7 @@ impl<'a> JxlEncoderChunkedFrameAdapter<'a> {
         JxlEncoderChunkedFrameAdapter {
             xsize: self.xsize,
             ysize: self.ysize,
+            input_source: self.input_source,
             channels: self
                 .channels
                 .into_iter()
@@ -320,7 +452,204 @@ impl<'a> JxlEncoderChunkedFrameAdapter<'a> {
         ys: usize,
         row_offset: &mut usize,
     ) -> Option<&[u8]> {
+        if ec_index >= self.channels.len() - 1 {
+            return None;
+        }
         self.channels[ec_index.wrapping_add(1)].get_data_at(xpos, ypos, xs, ys, row_offset)
+    }
+}
+
+/// The JxlChunkedFrameInputSource that GetInputSource returns.
+#[derive(Clone, Copy)]
+pub enum InputSource<'s, 'a> {
+    /// The adapter's own channels: GetColorChannelsPixelFormat,
+    /// GetColorChannelDataAt, GetExtraChannelPixelFormat,
+    /// GetExtraChannelDataAt and the no-op ReleaseCurrentData.
+    Adapter(&'s JxlEncoderChunkedFrameAdapter<'a>),
+    /// The caller's callbacks of JxlEncoderAddChunkedFrame.
+    Callbacks(JxlChunkedFrameInputSource),
+}
+
+/// ScopedInputBuffer: a rectangle from an input source, released through the
+/// source's `release_buffer` when dropped if it is nonnull.
+pub struct ScopedInputBuffer<'s> {
+    data: *const u8,
+    /// The bytes after `data` for the adapter's own buffers.
+    own: Option<&'s [u8]>,
+    release: Option<JxlChunkedFrameInputSource>,
+}
+impl ScopedInputBuffer<'_> {
+    pub fn is_null(&self) -> bool {
+        self.data.is_null()
+    }
+    pub fn as_ptr(&self) -> *const u8 {
+        self.data
+    }
+    /// The rectangle's bytes for `ysize` rows of `row_bytes` bytes,
+    /// `row_offset` apart: the adapter's whole remaining buffer, or the
+    /// caller's rows under the input source contract.
+    pub fn bytes(&self, ysize: usize, row_offset: usize, row_bytes: usize) -> &[u8] {
+        if let Some(own) = self.own {
+            return own;
+        }
+        let len = if ysize == 0 {
+            0
+        } else {
+            (ysize - 1) * row_offset + row_bytes
+        };
+        // SAFETY: set_input_source's contract: a nonnull rectangle stays
+        // valid until its release, which happens when `self` drops, and
+        // holds `ysize` rows of `row_bytes` bytes `row_offset` apart.
+        unsafe { std::slice::from_raw_parts(self.data, len) }
+    }
+}
+impl Drop for ScopedInputBuffer<'_> {
+    fn drop(&mut self) {
+        if let Some(source) = self.release
+            && !self.data.is_null()
+        {
+            // SAFETY: set_input_source's contract.
+            unsafe {
+                source.release_buffer.expect("required input callback")(
+                    source.opaque,
+                    self.data.cast(),
+                );
+            }
+        }
+    }
+}
+
+impl<'s> InputSource<'s, '_> {
+    pub fn get_color_channels_pixel_format(&self, pixel_format: &mut JxlPixelFormat) {
+        match self {
+            Self::Adapter(adapter) => *pixel_format = adapter.channels[0].format_or_zero(),
+            // SAFETY: set_input_source's contract.
+            Self::Callbacks(source) => unsafe {
+                source
+                    .get_color_channels_pixel_format
+                    .expect("required input callback")(source.opaque, pixel_format);
+            },
+        }
+    }
+    pub fn get_extra_channel_pixel_format(
+        &self,
+        ec_index: usize,
+        pixel_format: &mut JxlPixelFormat,
+    ) {
+        match self {
+            Self::Adapter(adapter) => {
+                *pixel_format = adapter.channels[1 + ec_index].format_or_zero();
+            }
+            // SAFETY: set_input_source's contract.
+            Self::Callbacks(source) => unsafe {
+                source
+                    .get_extra_channel_pixel_format
+                    .expect("required input callback")(
+                    source.opaque, ec_index, pixel_format
+                );
+            },
+        }
+    }
+    /// Whether the callbacks the alpha check of ProcessOneEnqueuedInput
+    /// tests are present: color format, color data and release; and the
+    /// extra-channel format and data.
+    pub fn has_color_callbacks(&self) -> bool {
+        match self {
+            Self::Adapter(_) => true,
+            Self::Callbacks(source) => {
+                source.get_color_channels_pixel_format.is_some()
+                    && source.get_color_channel_data_at.is_some()
+                    && source.release_buffer.is_some()
+            }
+        }
+    }
+    pub fn has_extra_channel_callbacks(&self) -> bool {
+        match self {
+            Self::Adapter(_) => true,
+            Self::Callbacks(source) => {
+                source.get_extra_channel_pixel_format.is_some()
+                    && source.get_extra_channel_data_at.is_some()
+            }
+        }
+    }
+    /// GetColorBuffer.
+    pub fn get_color_buffer(
+        &self,
+        xpos: usize,
+        ypos: usize,
+        xsize: usize,
+        ysize: usize,
+        row_offset: &mut usize,
+    ) -> ScopedInputBuffer<'s> {
+        match *self {
+            Self::Adapter(adapter) => {
+                let own = adapter.get_color_channel_data_at(xpos, ypos, xsize, ysize, row_offset);
+                ScopedInputBuffer {
+                    data: own.map_or(std::ptr::null(), <[u8]>::as_ptr),
+                    own,
+                    release: None,
+                }
+            }
+            Self::Callbacks(source) => ScopedInputBuffer {
+                // SAFETY: set_input_source's contract.
+                data: unsafe {
+                    source
+                        .get_color_channel_data_at
+                        .expect("required input callback")(
+                        source.opaque,
+                        xpos,
+                        ypos,
+                        xsize,
+                        ysize,
+                        row_offset,
+                    )
+                }
+                .cast(),
+                own: None,
+                release: Some(source),
+            },
+        }
+    }
+    /// GetExtraChannelBuffer.
+    pub fn get_extra_channel_buffer(
+        &self,
+        ec_index: usize,
+        xpos: usize,
+        ypos: usize,
+        xsize: usize,
+        ysize: usize,
+        row_offset: &mut usize,
+    ) -> ScopedInputBuffer<'s> {
+        match *self {
+            Self::Adapter(adapter) => {
+                let own = adapter
+                    .get_extra_channel_data_at(ec_index, xpos, ypos, xsize, ysize, row_offset);
+                ScopedInputBuffer {
+                    data: own.map_or(std::ptr::null(), <[u8]>::as_ptr),
+                    own,
+                    release: None,
+                }
+            }
+            Self::Callbacks(source) => ScopedInputBuffer {
+                // SAFETY: set_input_source's contract.
+                data: unsafe {
+                    source
+                        .get_extra_channel_data_at
+                        .expect("required input callback")(
+                        source.opaque,
+                        ec_index,
+                        xpos,
+                        ypos,
+                        xsize,
+                        ysize,
+                        row_offset,
+                    )
+                }
+                .cast(),
+                own: None,
+                release: Some(source),
+            },
+        }
     }
 }
 
@@ -455,9 +784,7 @@ impl InternalBuffer {
     }
 }
 
-/// JxlEncoderOutputProcessorWrapper in buffer mode, with fields in source
-/// order. The external processor cannot be installed yet, so its branches
-/// match on an uninhabited value.
+/// JxlEncoderOutputProcessorWrapper, with fields in source order.
 pub struct JxlEncoderOutputProcessorWrapper {
     // Invariant: `internal_buffers` does not contain chunks that are entirely
     // below the output position.
@@ -474,7 +801,7 @@ pub struct JxlEncoderOutputProcessorWrapper {
     stop_requested: bool,
     has_buffer: bool,
     memory_manager: *const JxlMemoryManager,
-    external_output_processor: Option<Infallible>,
+    external_output_processor: Option<JxlEncoderOutputProcessor>,
 }
 
 macro_rules! ensure {
@@ -506,6 +833,24 @@ impl JxlEncoderOutputProcessorWrapper {
             external_output_processor: None,
         }
     }
+    /// The constructor with an external output processor.
+    ///
+    /// # Safety
+    /// As for [`Self::new`]; in addition, the processor's callbacks and
+    /// opaque value obey encode.h whenever a later wrapper call reaches them,
+    /// and neither unwind nor reenter the encoder. A buffer returned by
+    /// `get_buffer` holds the returned size of writable bytes until the
+    /// matching `release_buffer` call and does not overlap any buffer the
+    /// wrapper reads.
+    pub unsafe fn with_processor(
+        memory_manager: *const JxlMemoryManager,
+        processor: JxlEncoderOutputProcessor,
+    ) -> Self {
+        // SAFETY: The caller supplies the manager contract.
+        let mut wrapper = unsafe { Self::new(memory_manager) };
+        wrapper.external_output_processor = Some(processor);
+        wrapper
+    }
     pub fn has_avail_out(&self) -> bool {
         !self.avail_out.is_null()
     }
@@ -536,14 +881,56 @@ impl JxlEncoderOutputProcessorWrapper {
             return Err(StatusCode::NotEnoughBytes);
         }
         let requested_size = min_size.max(requested_size);
-        if let Some(never) = &self.external_output_processor {
-            match *never {}
+
+        // If we support seeking, output_position == position.
+        if let Some(processor) = &self.external_output_processor
+            && processor.seek.is_some()
+        {
+            ensure!(self.output_position == self.position);
         }
+        // Otherwise, output_position <= position.
         ensure!(self.output_position <= self.position);
         let additional_size = self.position - self.output_position;
         ensure!(!self.memory_manager.is_null());
-        if let Some(never) = &self.external_output_processor {
-            match *never {}
+
+        if let Some(processor) = self.external_output_processor {
+            // TODO(veluca): here, we cannot just ask for a larger buffer, as it
+            // will be released with a prefix of the buffer that has not been
+            // written yet. Figure out if there is a good way to do this more
+            // efficiently.
+            if additional_size == 0 {
+                let mut size = requested_size;
+                // SAFETY: with_processor's caller supplies the callback
+                // contract; `size` is a valid local.
+                let user_buffer = unsafe {
+                    processor.get_buffer.expect("checked by SetOutputProcessor")(
+                        processor.opaque,
+                        &mut size,
+                    )
+                }
+                .cast::<u8>();
+                if size == 0 || user_buffer.is_null() {
+                    self.stop_requested = true;
+                    return Err(StatusCode::NotEnoughBytes);
+                }
+                if size < min_size {
+                    // SAFETY: As above.
+                    unsafe {
+                        processor
+                            .release_buffer
+                            .expect("checked by SetOutputProcessor")(
+                            processor.opaque, 0
+                        );
+                    }
+                } else {
+                    let memory_manager = self.memory_manager;
+                    self.internal_buffers
+                        .entry(self.position)
+                        .or_insert_with(|| InternalBuffer::new(memory_manager));
+                    self.has_buffer = true;
+                    return Ok(JxlOutputProcessorBuffer::new(user_buffer, size, 0, self));
+                }
+            }
         } else if !self.avail_out.is_null() {
             // SAFETY: set_avail_out's caller keeps both caller pointers valid
             // while the wrapper writes through them.
@@ -590,8 +977,12 @@ impl JxlEncoderOutputProcessorWrapper {
 
     pub fn seek(&mut self, pos: usize) -> Status {
         ensure!(!self.has_buffer);
-        if let Some(never) = &self.external_output_processor {
-            match *never {}
+        if let Some(processor) = self.external_output_processor
+            && let Some(seek) = processor.seek
+        {
+            // SAFETY: with_processor's caller supplies the callback contract.
+            unsafe { seek(processor.opaque, pos as u64) };
+            self.output_position = pos;
         }
         ensure!(pos >= self.finalized_position);
         self.position = pos;
@@ -600,8 +991,18 @@ impl JxlEncoderOutputProcessorWrapper {
 
     pub fn set_finalized_position(&mut self) -> Status {
         ensure!(!self.has_buffer);
-        if let Some(never) = &self.external_output_processor {
-            match *never {}
+        if let Some(processor) = self.external_output_processor
+            && processor.seek.is_some()
+        {
+            // SAFETY: with_processor's caller supplies the callback contract.
+            unsafe {
+                processor
+                    .set_finalized_position
+                    .expect("checked by SetOutputProcessor")(
+                    processor.opaque,
+                    self.position as u64,
+                );
+            }
         }
         self.finalized_position = self.position;
         // SAFETY: The retained caller pointers are null or valid under
@@ -633,8 +1034,16 @@ impl JxlEncoderOutputProcessorWrapper {
         let position = self.position;
         ensure!(self.internal_buffers.contains_key(&position));
         if bytes_used == 0 {
-            if let Some(never) = &self.external_output_processor {
-                match *never {}
+            if let Some(processor) = self.external_output_processor {
+                // SAFETY: with_processor's caller supplies the callback
+                // contract.
+                unsafe {
+                    processor
+                        .release_buffer
+                        .expect("checked by SetOutputProcessor")(
+                        processor.opaque, bytes_used
+                    );
+                }
             }
             self.internal_buffers.remove(&position);
             return Ok(());
@@ -651,8 +1060,61 @@ impl JxlEncoderOutputProcessorWrapper {
         {
             ensure!(next >= self.position);
         }
-        if let Some(never) = &self.external_output_processor {
-            match *never {}
+
+        if let Some(processor) = self.external_output_processor {
+            let owned_empty = self.internal_buffers[&position].owned_data.is_empty();
+            // If the buffer was given by the user, tell the user it is not
+            // needed anymore.
+            if owned_empty {
+                // SAFETY: with_processor's caller supplies the callback
+                // contract.
+                unsafe {
+                    processor
+                        .release_buffer
+                        .expect("checked by SetOutputProcessor")(
+                        processor.opaque, bytes_used
+                    );
+                }
+                // If we don't support seeking, this implies we will never
+                // modify again the bytes that were written so far. Advance the
+                // finalized position and flush the output to clean up the
+                // internal buffers.
+                if processor.seek.is_none() {
+                    self.set_finalized_position()?;
+                    ensure!(self.output_position == self.finalized_position);
+                    ensure!(self.output_position == self.position);
+                } else {
+                    // Otherwise, advance the output position accordingly.
+                    self.output_position = self.output_position.wrapping_add(bytes_used);
+                    ensure!(self.output_position >= self.finalized_position);
+                    ensure!(self.output_position == self.position);
+                }
+            } else if let Some(seek) = processor.seek {
+                // If we had buffered the data internally, flush it out to the
+                // external processor if we can.
+                // SAFETY: As above.
+                unsafe { seek(processor.opaque, (self.position - bytes_used) as u64) };
+                self.output_position = self.position - bytes_used;
+                while self.output_position < self.position {
+                    let num_to_write = self.position - self.output_position;
+                    // The source's size_t sum `output_position - position + bytes_used`.
+                    let offset = self.output_position + bytes_used - self.position;
+                    let data = self.internal_buffers[&position].owned_data.as_slice()
+                        [offset..offset + num_to_write]
+                        .as_ptr();
+                    // SAFETY: `data` addresses `num_to_write` initialized
+                    // bytes of this internal buffer, which the call below
+                    // neither moves nor frees.
+                    if !unsafe { self.append_buffer_to_external_processor(data, num_to_write) } {
+                        return Ok(());
+                    }
+                }
+                self.internal_buffers
+                    .get_mut(&position)
+                    .expect("checked above")
+                    .owned_data
+                    .clear();
+            }
         }
         Ok(())
     }
@@ -694,14 +1156,23 @@ impl JxlEncoderOutputProcessorWrapper {
                         self.output_position += n;
                     }
                 } else {
-                    let Some(never) = &self.external_output_processor else {
-                        return Err(StatusCode::GenericError);
-                    };
-                    match *never {}
+                    ensure!(self.external_output_processor.is_some());
+                    let data =
+                        buffer.owned_data.as_slice()[start_in_buffer..][..num_to_write].as_ptr();
+                    // SAFETY: `data` addresses `num_to_write` initialized
+                    // bytes of the first internal buffer, which the call below
+                    // neither moves nor frees.
+                    if !unsafe { self.append_buffer_to_external_processor(data, num_to_write) } {
+                        return Ok(());
+                    }
                 }
             } else {
-                let advance = buffer_last_byte.min(self.finalized_position) - self.output_position;
-                self.output_position += advance;
+                // size_t arithmetic: a seek of an external processor can
+                // leave the output position past this buffer.
+                let advance = buffer_last_byte
+                    .min(self.finalized_position)
+                    .wrapping_sub(self.output_position);
+                self.output_position = self.output_position.wrapping_add(advance);
                 if !avail_out.is_null() {
                     // SAFETY: As above; the bytes were written in place into
                     // the caller's buffer by a direct GetBuffer.
@@ -714,11 +1185,58 @@ impl JxlEncoderOutputProcessorWrapper {
             if buffer_last_byte == self.output_position {
                 self.internal_buffers.remove(&start);
             }
-            if let Some(never) = &self.external_output_processor {
-                match *never {}
+            if let Some(processor) = self.external_output_processor
+                && processor.seek.is_none()
+            {
+                // SAFETY: with_processor's caller supplies the callback
+                // contract.
+                unsafe {
+                    processor
+                        .set_finalized_position
+                        .expect("checked by SetOutputProcessor")(
+                        processor.opaque,
+                        self.output_position as u64,
+                    );
+                }
             }
         }
         Ok(())
+    }
+
+    /// AppendBufferToExternalProcessor.
+    ///
+    /// # Safety
+    /// `data` addresses `count` initialized bytes that stay valid during the
+    /// call and do not overlap the processor's buffer.
+    unsafe fn append_buffer_to_external_processor(
+        &mut self,
+        data: *const u8,
+        count: usize,
+    ) -> bool {
+        let processor = self
+            .external_output_processor
+            .expect("only called with an external processor");
+        let mut n = count;
+        // SAFETY: with_processor's caller supplies the callback contract; `n`
+        // is a valid local.
+        let user_buffer = unsafe {
+            processor.get_buffer.expect("checked by SetOutputProcessor")(processor.opaque, &mut n)
+        };
+        if user_buffer.is_null() || n == 0 {
+            self.stop_requested = true;
+            return false;
+        }
+        n = n.min(count);
+        // SAFETY: The processor's buffer holds at least the returned `n`
+        // writable bytes; the caller supplies `count >= n` readable bytes.
+        unsafe {
+            std::ptr::copy_nonoverlapping(data, user_buffer.cast::<u8>(), n);
+            processor
+                .release_buffer
+                .expect("checked by SetOutputProcessor")(processor.opaque, n);
+        }
+        self.output_position = self.output_position.wrapping_add(n);
+        true
     }
 }
 

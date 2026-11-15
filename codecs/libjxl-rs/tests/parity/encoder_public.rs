@@ -12,10 +12,13 @@ mod driver;
 use driver::JxlEncoderAdmission;
 
 pub(super) fn handles(kind: &str) -> bool {
-    kind == "epub-wrap"
+    kind == "epub-wrap" || kind == "epub-rect"
 }
 
-pub(super) fn observe(_kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
+pub(super) fn observe(kind: &str, args: &mut std::str::SplitWhitespace<'_>) -> String {
+    if kind == "epub-rect" {
+        return driver::observe_rect(args); // encoder streaming
+    }
     driver::observe_wrapper(args)
 }
 
@@ -106,8 +109,13 @@ fn compare_counted(family: &str, requests: Vec<String>) -> usize {
                     .unwrap_or((&evidence[2..], ""));
                 let fields: Vec<usize> = queue.split(',').map(|v| v.parse().unwrap()).collect();
                 frame_branch_evidence(checkpoint, frame, request);
+                // ProcessOutput without, FlushInput and AddChunkedFrame with
+                // an output processor (encoder streaming).
                 assert!(
-                    kind == 'p' && fields[0] > 0 && fields[1] > 0 && fields[2] == 0,
+                    ((kind == 'p' && fields[2] == 0)
+                        || (matches!(kind, 'i' | 'c') && fields[2] == 1))
+                        && fields[0] > 0
+                        && fields[1] > 0,
                     "the original must call ProcessOneEnqueuedInput at {op}: {evidence} {request}"
                 );
                 enqueued += 1;
@@ -1919,3 +1927,605 @@ fn public_encoder_lossy_vardct_extra_channel_types_match_original() {
     }
     compare_admitted("extra-channel-types", requests);
 }
+
+// encoder streaming
+/// The external output processor of the original
+/// JxlEncoderOutputProcessorWrapper: GetBuffer through the caller's buffers
+/// (and internal buffers when a caller buffer is too small or the position
+/// is ahead of the processor's), ReleaseBuffer with and without seek
+/// support, Seek, SetFinalizedPosition, FlushOutput and
+/// AppendBufferToExternalProcessor, stop requests (null buffers and size 0)
+/// and seeks before the finalized position. Every callback the wrapper makes
+/// is compared in order (`r`), with the caller's file.
+#[test]
+fn public_encoder_output_wrapper_external_processor_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let mut requests = vec![
+        "epub-wrap E0,0,0,0 P r F P r".to_string(),
+        "epub-wrap E0,2,0,0 G1,4,3,1 F P r".into(),
+        "epub-wrap E4,2,0,0 G1,4,3,1 r D20,2 r F P r".into(),
+        "epub-wrap E0,1,0,0 D9,1 k4 D3,2 r F r K2 K12 F r P".into(),
+        "epub-wrap E4,1,0,0 D9,1 k4 D3,2 r F r K2 K12 F r P".into(),
+        "epub-wrap E0,0,0,0 H8,20,3 r F H16,0,4 F P r".into(),
+        "epub-wrap E4,3,0,0 H8,200,3 r F H16,90,4 F P r".into(),
+        "epub-wrap E0,2,2,0 D9,1 D9,2 r P F r".into(),
+        "epub-wrap E4,2,2,1 D9,1 D9,2 r P F r".into(),
+        "epub-wrap E0,3,1,0 G4,4,3,1 r P".into(),
+        "epub-wrap E4,0,3,1 H8,20,3 r F P r".into(),
+        "epub-wrap A8 E0,0,0,0 D9,1 r P".into(),
+    ];
+    let mut seed = 0xE57Au64;
+    let mut next = |bound: u64| super::next(&mut seed) % bound;
+    for _ in 0..800 {
+        let count = 6 + next(13) as usize;
+        let mask = if next(2) == 0 { 0 } else { 4 };
+        let stop = if next(4) == 0 { 1 + next(12) } else { 0 };
+        let mut ops = vec![format!("E{mask},{},{stop},{}", next(4), next(2))];
+        for _ in 0..count {
+            ops.push(match next(11) {
+                0 | 1 => format!("G{},{},{},{}", next(7), next(25), next(31), next(9)),
+                2 => format!("R{},{},{},{}", 1 + next(6), next(25), next(31), next(9)),
+                3 | 4 => format!("D{},{}", next(31), next(9)),
+                5 => format!("k{}", next(11)),
+                6 => format!("K{}", next(60)),
+                7 => format!("H{},{},{}", 1 + next(12), next(21), next(9)),
+                8 => "F".into(),
+                9 => "r".into(),
+                _ => "P".into(),
+            });
+        }
+        ops.push("F".into());
+        ops.push("P".into());
+        ops.push("r".into());
+        requests.push(format!("epub-wrap {}", ops.join(" ")));
+    }
+    // A history in which a buffer's release fails inside AppendData or a
+    // buffer's destructor trips the destructor's JXL_DASSERT, which the
+    // release reference compiles out and the checked profile keeps
+    // (`JxlOutputProcessorBuffer`'s Drop). Such debug-only aborts are outside
+    // the parity contract (CONTRIBUTING, "Oracle comparisons use the source's
+    // release status behavior"): with debug assertions those histories are
+    // counted and left out; without them every history is compared.
+    let total = requests.len();
+    if cfg!(debug_assertions) {
+        requests.retain(|request| {
+            let request = request.clone();
+            let result = std::panic::catch_unwind(move || {
+                let mut args = request.split_whitespace();
+                args.next();
+                driver::observe_wrapper(&mut args)
+            });
+            if let Err(payload) = &result {
+                let message = payload
+                    .downcast_ref::<&str>()
+                    .map(|m| m.to_string())
+                    .or_else(|| payload.downcast_ref::<String>().cloned())
+                    .unwrap_or_default();
+                assert_eq!(
+                    message, "assertion failed: result.is_ok()",
+                    "only the release assertion"
+                );
+            }
+            result.is_ok()
+        });
+    }
+    println!(
+        "external-processor wrapper: {} of {total} histories compared; {} trip the debug-only \
+         release assertion",
+        requests.len(),
+        total - requests.len()
+    );
+    super::compare(requests);
+}
+
+/// One lossy history of [`lossy_history`] whose output goes to an external
+/// output processor (`processor`, an `w` operation) set after CloseInput or,
+/// with `early`, before the frame is added, and flushed with FlushInput.
+#[expect(clippy::too_many_arguments, reason = "One history's fields")]
+fn processor_history(
+    xsize: usize,
+    ysize: usize,
+    gray: bool,
+    type_index: usize,
+    content: usize,
+    distance: f32,
+    variant: usize,
+    extra_settings: &str,
+    processor: &str,
+    early: bool,
+) -> String {
+    let history = lossy_history(
+        xsize,
+        ysize,
+        gray,
+        type_index,
+        content,
+        distance,
+        variant,
+        "",
+        extra_settings,
+    );
+    let (input, _) = history.split_once(" Z ").unwrap();
+    if early {
+        let (setup, frame) = input.rsplit_once(" a0,").unwrap();
+        format!("{setup} {processor} a0,{frame} Z i r S")
+    } else {
+        format!("{input} Z {processor} i r S")
+    }
+}
+
+/// Every history of an admitted processor family must match without
+/// admission, and the original must encode it: FlushInput succeeds and the
+/// processor received bytes.
+fn compare_admitted_processor(family: &str, requests: Vec<String>) {
+    let count = requests.len();
+    for (request, cpp) in requests.iter().zip(super::original_observations(&requests)) {
+        assert!(
+            cpp.contains(" i:0/0 r:0;") && !cpp.contains(";0,0,0;"),
+            "the original encodes the history: {request}"
+        );
+    }
+    let exact = compare_counted(family, requests);
+    assert_eq!(exact, count, "{family}: every admitted history is exact");
+}
+
+/// JxlEncoderSetOutputProcessor and JxlEncoderFlushInput for one-shot and
+/// streaming frames (output modes 0 and 1, every buffering value), with and
+/// without seek support and with every buffer schedule; the processor call
+/// sequence and the written file are compared exactly. The output-mode
+/// comparison of encode_test (OutputModeComparisonTest) at the admitted
+/// effort 7: modes 0 and 1 of the same image through the processor.
+#[test]
+fn public_encoder_output_processor_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let cases = [
+        (63, 129, -1, -1),
+        (512, 1024, 3, -1),
+        (768, 768, -1, -1),
+        (768, 768, -1, 1),
+        (768, 769, 0, -1),
+        (1031, 517, 3, -1),
+        (1031, 517, 2, 0),
+        (2049, 300, 1, 1),
+        (2049, 300, 2, -1),
+        (1024, 1024, -1, 0),
+        (1024, 1024, -1, 1),
+        (1000, 700, 3, 0),
+    ];
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize, buffering, output_mode)) in cases.iter().enumerate() {
+        for gray in [false, true] {
+            let variant = index * 2 + usize::from(gray);
+            let mut settings = String::new();
+            if buffering != -1 {
+                settings.push_str(&format!(" o0,34,{buffering}"));
+            }
+            if output_mode != -1 {
+                settings.push_str(&format!(" o0,40,{output_mode}"));
+            }
+            let mask = if variant % 3 == 1 { 4 } else { 0 };
+            let schedule = variant % 4;
+            // Small buffers make one callback pair per byte: keep them to
+            // the smaller images.
+            let schedule = if schedule == 1 && xsize * ysize > 600_000 {
+                3
+            } else {
+                schedule
+            };
+            requests.push(run(
+                0,
+                0,
+                &processor_history(
+                    xsize,
+                    ysize,
+                    gray,
+                    variant % 4,
+                    1 + variant % 4,
+                    [1.0, 2.0, 0.5, 1.5][variant % 4],
+                    variant,
+                    &settings,
+                    &format!("w{mask},{schedule},0,0"),
+                    variant % 5 == 2,
+                ),
+            ));
+        }
+    }
+    compare_admitted_processor("output-processor", requests);
+}
+
+/// Rejections and stops of the output processor: missing callbacks, a
+/// processor after ProcessOutput and ProcessOutput after a processor,
+/// FlushInput without a processor, stop requests at different callback
+/// counts (null buffers and size 0), FlushInput before CloseInput (the
+/// frame is not the last: an admission result after an exact prefix), a
+/// frame after FlushInput, Reset, and a custom memory manager.
+#[test]
+fn public_encoder_output_processor_rejections_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let image = "Bw:64,h:40 G0 s- d0,1065353216 a0,3,2,0,0,7680,4,64,40";
+    let large = "Bw:800,h:800 G0 s- d0,1065353216 a0,3,2,0,0,1920000,4,800,800";
+    let mut requests = Vec::new();
+    for mask in [1, 2, 3, 4, 8, 12, 15] {
+        requests.push(run(0, 0, &format!("{image} Z w{mask},0,0,0 i r S")));
+    }
+    for script in [
+        format!("{image} Z p0 w0,0,0,0 S p64"),
+        format!("{image} Z w0,0,0,0 p64 i r"),
+        format!("{image} Z i p4096"),
+        format!("i {image} Z w0,0,0,0 i i r S"),
+        format!("{image} w0,2,0,0 Z i r a0,3,2,0,0,7680,4,64,40 i r S"),
+        format!("{image} Z w0,0,0,0 x Bw:64,h:40 G0 s- a0,3,2,0,0,7680,4,64,40 Z p4096 S"),
+        format!("{image} Z w0,0,0,0 x Bw:64,h:40 G0 s- a0,3,2,0,0,7680,4,64,40 Z w4,2,0,0 i r S"),
+        format!("{image} w0,0,0,0 i r S"),
+        format!("{image} F w4,0,0,0 i r S"),
+    ] {
+        requests.push(run(0, 0, &script));
+    }
+    for (stop, kind) in [(1, 0), (1, 1), (2, 0), (3, 1), (5, 0), (9, 1), (40, 0)] {
+        for (mask, schedule) in [(0, 2), (4, 2), (0, 3), (4, 0)] {
+            requests.push(run(
+                0,
+                0,
+                &format!("{image} Z w{mask},{schedule},{stop},{kind} i r i r S"),
+            ));
+        }
+        requests.push(run(
+            0,
+            0,
+            &format!("{large} o0,34,3 Z w0,2,{stop},{kind} i r S"),
+        ));
+        requests.push(run(
+            0,
+            0,
+            &format!("{large} o0,34,3 Z w4,3,{stop},{kind} i r S"),
+        ));
+    }
+    requests.push(run(1, 0, &format!("{image} Z w0,0,0,0 i r S")));
+    compare("output-processor-rejections", requests);
+}
+
+/// encode_test's ChunkedFrameAdapterRectBounds: the input source of a
+/// buffer-backed adapter hands out no data from outside its image, whatever
+/// rectangle it is asked for, including rectangles whose end does not fit
+/// in size_t and a missing extra channel; and further sizes and channels.
+#[test]
+fn public_encoder_chunked_frame_adapter_rect_bounds_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let max = usize::MAX;
+    let mut requests = vec![format!(
+        "epub-rect 5 3 3 1 c0,0,5,3 c4,2,1,1 e0,0,0,5,3 c1,0,5,1 c0,1,1,3 c5,0,1,1 c0,3,1,1 \
+         c2,0,{max},1 c0,2,1,{max} e0,0,1,5,3 e1,0,0,1,1"
+    )];
+    let mut seed = 0x5EC7u64;
+    let mut next = |bound: u64| super::next(&mut seed) % bound;
+    for _ in 0..200 {
+        let (xs, ys) = (1 + next(9) as usize, 1 + next(9) as usize);
+        let channels = [1, 2, 3, 4][next(4) as usize];
+        let extra = next(3);
+        let mut ops = Vec::new();
+        for _ in 0..12 {
+            let mut values = [0u64; 5];
+            for value in &mut values {
+                *value = match next(8) {
+                    0 => max as u64,
+                    1 => (max - 1) as u64,
+                    _ => next(12),
+                };
+            }
+            let [a, b, c, d, e] = values;
+            if next(3) == 0 {
+                ops.push(format!("e{},{b},{c},{d},{e}", a % 4));
+            } else {
+                ops.push(format!("c{a},{b},{c},{d}"));
+            }
+        }
+        requests.push(format!(
+            "epub-rect {xs} {ys} {channels} {extra} {}",
+            ops.join(" ")
+        ));
+    }
+    super::compare(requests);
+}
+
+/// One JxlEncoderAddChunkedFrame history: basic info, color encoding,
+/// `thermal` thermal extra channels beside an optional interleaved alpha
+/// channel, settings, then the frame from a recording source with `pad`
+/// bytes after each row and the format's `align` (ignored by the encoder).
+/// Without `processor` the frame is copied and written through ProcessOutput;
+/// with it, the processor is set first and the frame is encoded from the
+/// source within AddChunkedFrame.
+#[expect(clippy::too_many_arguments, reason = "One history's fields")]
+fn chunked_history(
+    xsize: usize,
+    ysize: usize,
+    gray: bool,
+    alpha: bool,
+    thermal: usize,
+    type_index: usize,
+    content: usize,
+    distance: f32,
+    variant: usize,
+    settings: &str,
+    processor: Option<&str>,
+) -> String {
+    let (data_type, _, depth) = LOSSY_TYPES[type_index];
+    let color_channels = if gray { 1 } else { 3 };
+    let channels = color_channels + usize::from(alpha);
+    let num_ec = usize::from(alpha) + thermal;
+    let mut info = format!("Bw:{xsize},h:{ysize}{depth}");
+    if num_ec > 0 {
+        info.push_str(&format!(",ec:{num_ec}"));
+    }
+    if alpha {
+        info.push_str(ALPHA_DEPTHS[type_index]);
+    }
+    if gray {
+        info.push_str(",c:1");
+    }
+    let mut script = format!("{info} G{}", u8::from(gray));
+    for k in 0..thermal {
+        script.push_str(&format!(" K{},6,8,0,0,0,0,0,0,0,0", usize::from(alpha) + k));
+    }
+    script.push_str(&format!(" s- d0,{}{settings}", bits(distance)));
+    if let Some(processor) = processor {
+        script.push_str(&format!(" {processor}"));
+    }
+    let endianness = variant % 3;
+    let align = [0, 1, 4, 16, 128][variant % 5];
+    let pad = [0, 3, 0, 8, 1][variant % 5];
+    let content = content + 16 * usize::from(alpha) * (1 + variant % 3);
+    script.push_str(&format!(
+        " c0,1,{channels},{data_type},{endianness},{align},{content},{xsize},{ysize},{pad},0,2,{num_ec}"
+    ));
+    let encoded_bound = xsize * ysize * (channels + thermal) * 4 + 2048;
+    match processor {
+        Some(_) => format!("{script} Z r S"),
+        None => format!("{script} Z {} S", output_schedule(encoded_bound)),
+    }
+}
+
+/// Every history of an admitted chunked family must match without
+/// admission, and the original must encode it.
+fn compare_admitted_chunked(family: &str, requests: Vec<String>) {
+    let count = requests.len();
+    for (request, cpp) in requests.iter().zip(super::original_observations(&requests)) {
+        let encoded = if cpp.contains(" r:0;") {
+            !cpp.contains(";0,0,0;")
+        } else {
+            cpp.rsplit(" p:").next().unwrap_or("").starts_with("0,")
+                && !output_bytes(&cpp).is_empty()
+        };
+        assert!(
+            cpp.contains(" c:0;") && encoded,
+            "the original encodes the history: {request}"
+        );
+    }
+    let exact = compare_counted(family, requests);
+    assert_eq!(exact, count, "{family}: every admitted history is exact");
+}
+
+/// JxlEncoderAddChunkedFrame with input callbacks: the callback-backed
+/// JxlEncoderChunkedFrameAdapter, its CopyBuffers through CopyFromBuffer
+/// (buffer mode: the frame is copied in AddChunkedFrame), and, with an
+/// output processor, encoding straight from the callbacks (CopyColorChannels
+/// and CopyExtraChannels per DC group of the streaming encode, the opaque
+/// alpha check of ProcessOneEnqueuedInput). Every callback of the source and
+/// of the processor is compared in order. One-shot and streaming sizes,
+/// every buffering value, gray and RGB, interleaved alpha, thermal extra
+/// channels (at most four extra channels in all: level 5; more need level 10
+/// and a container), every sample type, row padding and an ignored
+/// alignment.
+#[test]
+fn public_encoder_chunked_frame_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let cases: [(usize, usize, i32, bool, usize); 12] = [
+        (1, 1, -1, false, 0),
+        (17, 19, -1, true, 0),
+        (63, 129, 0, false, 2),
+        (257, 259, 2, true, 3),
+        (257, 259, -1, false, 4),
+        (512, 1024, 3, false, 0),
+        (768, 768, -1, false, 0),
+        (768, 768, 1, true, 1),
+        (1031, 517, 3, false, 0),
+        (1031, 517, 2, false, 2),
+        (2049, 300, 0, false, 0),
+        (1024, 1024, 3, true, 0),
+    ];
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize, buffering, alpha, thermal)) in cases.iter().enumerate() {
+        for gray in [false, true] {
+            let variant = index * 2 + usize::from(gray);
+            let type_index = if alpha { variant % 2 } else { variant % 4 };
+            let settings = if buffering == -1 {
+                String::new()
+            } else {
+                format!(" o0,34,{buffering}")
+            };
+            for streaming in [false, true] {
+                let mask = if variant % 3 == 1 { 4 } else { 0 };
+                let schedule = if xsize * ysize > 300_000 {
+                    [0, 2, 3][variant % 3]
+                } else {
+                    variant % 4
+                };
+                let processor = format!("w{mask},{schedule},0,0");
+                requests.push(run(
+                    0,
+                    0,
+                    &chunked_history(
+                        xsize,
+                        ysize,
+                        gray,
+                        alpha,
+                        thermal,
+                        type_index,
+                        1 + variant % 4,
+                        [1.0, 2.0, 0.5, 1.5][variant % 4],
+                        variant,
+                        &settings,
+                        streaming.then_some(processor.as_str()),
+                    ),
+                ));
+            }
+        }
+    }
+    compare_admitted_chunked("chunked-frame", requests);
+}
+
+/// Rejections of chunked input: a callback that returns null at each data
+/// request (CopyBuffers fails with an API error in buffer mode; the frame
+/// encode fails in streaming mode), a chunked frame before the basic info,
+/// after CloseInput, gray input for an RGB image, and a frame that is not the
+/// last in buffer mode (an admission result after an exact prefix, with the
+/// original's evidence at ProcessOutput).
+#[test]
+fn public_encoder_chunked_frame_rejections_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let setup = "Bw:64,h:40,ec:2,ab:8 G0 K1,6,8,0,0,0,0,0,0,0,0 s- d0,1065353216";
+    let big = "Bw:800,h:800 G0 s- d0,1065353216 o0,34,2";
+    let mut requests = Vec::new();
+    for fail in 1..=4 {
+        requests.push(run(
+            0,
+            0,
+            &format!("{setup} c0,1,4,2,0,0,4,64,40,0,{fail},2,2 Z p4096 S"),
+        ));
+        requests.push(run(
+            0,
+            0,
+            &format!("{setup} w0,0,0,0 c0,1,4,2,0,0,4,64,40,0,{fail},2,2 Z r S"),
+        ));
+    }
+    for fail in [1, 2, 3, 5, 9, 13] {
+        requests.push(run(
+            0,
+            0,
+            &format!("{big} w4,0,0,0 c0,1,3,2,0,0,4,800,800,0,{fail},2,0 Z r S"),
+        ));
+    }
+    for script in [
+        "s- c0,1,3,2,0,0,4,8,8,0,0,2,0 S".to_string(),
+        "Bw:8,h:8 s- Z c0,1,3,2,0,0,4,8,8,0,0,2,0 S".into(),
+        "Bw:8,h:8 s- c0,1,1,2,0,0,4,8,8,0,0,2,0 S".into(),
+        "Bw:8,h:8,c:1 s- c0,1,3,2,0,0,4,8,8,0,0,2,0 S".into(),
+        "Bw:8,h:8 G0 s- c0,0,3,2,0,0,4,8,8,0,0,2,0 S p4096".into(),
+        "Bw:8,h:8 G0 s- w0,0,0,0 c0,1,3,2,0,0,4,8,8,0,0,2,0 c0,1,3,2,0,0,4,8,8,0,0,2,0 r S".into(),
+    ] {
+        requests.push(run(0, 0, &script));
+    }
+    compare("chunked-frame-rejections", requests);
+}
+
+/// The admitted instances of encode_test's EncoderStreamingTest suite
+/// (OutputCallback, ChunkedFrame, ChunkedAndOutputCallback): each parameter
+/// set without a container (level 10), multiple frames and fast lossless,
+/// whose histories are outside the admitted profile; output modes 0 and 1
+/// (mode 2 is a container); with and without seeking, large and small
+/// buffers, extra channels, alpha in the color buffer, one group (17x19 rows
+/// aligned to 128) or several (257x259). Each test's non-streaming reference
+/// encode is a history too. The test's RandomFill content is replaced by the
+/// drivers' noise content (content 3), which both drivers generate.
+#[test]
+fn public_encoder_streaming_suite_instances_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let mut requests = Vec::new();
+    for bitmask in 0..256usize {
+        let (container, large, multiple, fast_lossless) = (
+            bitmask & 1 != 0,
+            bitmask & 2 != 0,
+            bitmask & 4 != 0,
+            bitmask & 8 != 0,
+        );
+        let (seek, extra, alpha, onegroup) = (
+            bitmask & 16 != 0,
+            bitmask & 32 != 0,
+            bitmask & 64 != 0,
+            bitmask & 128 != 0,
+        );
+        if container || multiple || fast_lossless {
+            continue;
+        }
+        for mode in [0, 1] {
+            let (xsize, ysize): (usize, usize) = if onegroup { (17, 19) } else { (257, 259) };
+            let align: usize = if onegroup { 128 } else { 0 };
+            let channels = if alpha { 4 } else { 3 };
+            let thermal = if extra { 5 } else { 0 };
+            let num_ec = thermal + usize::from(alpha);
+            let mut info = format!("Bw:{xsize},h:{ysize}");
+            if num_ec > 0 {
+                info.push_str(&format!(",ec:{num_ec}"));
+            }
+            if alpha {
+                info.push_str(",ab:8");
+            }
+            let mut setup = format!("{info} G0");
+            for i in 0..thermal {
+                setup.push_str(&format!(" K{i},6,8,0,0,0,0,0,0,0,0"));
+            }
+            let settings = |streaming: bool| {
+                format!(
+                    " s- o0,34,{} o0,40,{mode} o0,38,0",
+                    if streaming { 2 } else { 0 }
+                )
+            };
+            let row = xsize * channels;
+            let stride = if align > 1 && !row.is_multiple_of(align) {
+                row + align - row % align
+            } else {
+                row
+            };
+            let size = stride * (ysize - 1) + row;
+            let ec_row = xsize;
+            let ec_stride = if align > 1 && !ec_row.is_multiple_of(align) {
+                ec_row + align - ec_row % align
+            } else {
+                ec_row
+            };
+            let ec_size = ec_stride * (ysize - 1) + ec_row;
+            let mut frame = format!("a0,{channels},2,0,{align},{size},3,{xsize},{ysize}");
+            for ec in 0..thermal {
+                frame.push_str(&format!(
+                    " E0,1,2,0,{align},{ec_size},{ec},3,{xsize},{ysize}"
+                ));
+            }
+            let chunked = format!(
+                "c0,1,{channels},2,0,{align},3,{xsize},{ysize},{},0,2,{num_ec}",
+                stride - row
+            );
+            let processor = format!(
+                "w{},{},0,0",
+                if seek { 0 } else { 4 },
+                if large { 0 } else { 1 }
+            );
+            let bound = output_schedule(xsize * ysize * (channels + thermal) * 4 + 2048);
+            // The non-streaming reference encode.
+            requests.push(run(
+                0,
+                0,
+                &format!("{setup}{} {frame} Z {bound}", settings(false)),
+            ));
+            // OutputCallback.
+            requests.push(run(
+                0,
+                0,
+                &format!("{setup}{} {frame} Z {processor} i r", settings(true)),
+            ));
+            // ChunkedFrame.
+            requests.push(run(
+                0,
+                0,
+                &format!("{setup}{} {chunked} {bound}", settings(true)),
+            ));
+            // ChunkedAndOutputCallback.
+            requests.push(run(
+                0,
+                0,
+                &format!("{setup}{} {processor} {chunked} r", settings(true)),
+            ));
+        }
+    }
+    compare("streaming-suite", requests);
+}
+
+// end encoder streaming

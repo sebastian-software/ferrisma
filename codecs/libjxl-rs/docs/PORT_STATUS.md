@@ -327,6 +327,41 @@ target forced is byte-identical with the original's `EFThunderOneShot` on
 both targets. A comparison through the public encoder against `cjxl` is
 still owed.
 <!-- end encoder entropy -->
+<!-- encoder streaming -->
+Encoder step 2, chunked I/O (2026-11-15, branch `v1/jxl-enc-stream`, issue
+#117): `encode_internal.rs` completes JxlEncoderOutputProcessorWrapper with
+the external output processor (GetBuffer through caller buffers, ReleaseBuffer
+with and without seek support, Seek, SetFinalizedPosition, FlushOutput,
+AppendBufferToExternalProcessor, stop requests) and the callback-backed
+JxlEncoderChunkedFrameAdapter (SetInputSource, GetInputSource as
+`InputSource`, CopyBuffers through CopyFromBuffer, GetColorBuffer and
+GetExtraChannelBuffer as `ScopedInputBuffer`); `encode.rs` translates
+JxlEncoderSetOutputProcessor, JxlEncoderFlushInput and
+JxlEncoderAddChunkedFrame, and the frame encoder and the opaque-alpha check
+read their pixels through the input source. The oracle's recording processor
+and input source (`tools/oracle/encoder_streaming.h`, mirrored in
+`tests/support/encoder_public.rs`) log every callback in order; the
+histories compare that log, the written file, every status and the stored
+state exactly (`tests/parity/encoder_public.rs`, block "encoder streaming").
+Output mode 1 (JXL_ENC_FRAME_SETTING_OUTPUT_MODE 1, or -1 with buffering
+3) is admitted by the frame profile; the earlier "streaming" histories at
+buffering 3 ran output mode 0, because the option's default is 0. Evidence
+(macOS AArch64, both scalar references, checked profile), all exact:
+external-processor wrapper 782 histories (30 more trip only the
+destructor's debug assertion and are counted, ADR 0002), buffer-mode
+wrapper 606, adapter rect bounds 201 (encode_test's
+ChunkedFrameAdapterRectBounds and random rectangles), output processor 24
+(63x129 to 2049x300, modes 0 and 1, all buffering values, seek and no
+seek, four buffer schedules), processor rejections 57 plus 2 admission
+prefixes, chunked frames 48 (buffer and streaming input, alpha, thermal
+channels, row padding, every sample type), chunked rejections 19 plus 1,
+and the admitted instances of encode_test's EncoderStreamingTest suite 128
+(the 128 instances with five extra channels need level 10 and a container:
+admission prefixes, step 3). The same wrapper, rect-bounds, rejection and
+suite tests pass for x86-64 under Rosetta 2 against the cross-built
+references. Output mode 2 remains the container admission result (step
+3).
+<!-- end encoder streaming -->
 
 <!-- encoder cfl -->
 Encoder SIMD, chroma from luma (2026-11-14, branch `v1/jxl-enc-cfl`, ADR

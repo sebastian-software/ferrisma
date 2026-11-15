@@ -15,7 +15,7 @@
 // took its fast-lossless branch or called ProcessOneEnqueuedInput. The latter
 // is the evidence for every admission result of the Rust encoder (ADR 0001).
 // epub-wrap drives the original JxlEncoderOutputProcessorWrapper in buffer
-// mode.
+// mode and with an external output processor (encoder streaming).
 #include <jxl/cms.h>
 #include <jxl/codestream_header.h>
 #include <jxl/color_encoding.h>
@@ -38,6 +38,7 @@
 #include <vector>
 
 #include "decoder_public_driver.h"
+#include "encoder_streaming.h"
 #include "lib/jxl/color_encoding_internal.h"
 #include "lib/jxl/enc_aux_out.h"
 #include "lib/jxl/enc_bit_writer.h"
@@ -229,6 +230,24 @@ class Driver {
   // The original's internal state at the admission checkpoints, observed
   // around the same public call.
   void Probe(char kind, const std::string& arg, const std::vector<std::string>& f) {
+    // encoder streaming: FlushInput calls ProcessOneEnqueuedInput as
+    // ProcessOutput does, with the output processor set.
+    if (kind == 'i') {
+      out_ << enc_->input_queue.size() << ",1," << enc_->output_processor.OutputProcessorSet();
+      FrameEvidence();
+      Result(kind, arg, f);
+      return;
+    }
+    // AddChunkedFrame with an output processor queues the frame and flushes
+    // it within the call: the evidence is the frame it queues, from the
+    // settings it copies.
+    if (kind == 'c' && enc_->output_processor.OutputProcessorSet() && enc_->basic_info_set) {
+      out_ << enc_->input_queue.size() + 1 << ",1," << enc_->output_processor.OutputProcessorSet();
+      Evidence(Settings(f[0])->values.cparams, enc_->metadata.xsize(), enc_->metadata.ysize());
+      Result(kind, arg, f);
+      return;
+    }
+    // end encoder streaming
     if (kind == 'p') {
       out_ << enc_->input_queue.size() << ',' << f[0] << ','
            << enc_->output_processor.OutputProcessorSet();
@@ -259,7 +278,10 @@ class Driver {
   void FrameEvidence() {
     if (enc_->input_queue.empty() || !enc_->input_queue[0].frame) return;
     const jxl::JxlEncoderQueuedFrame& frame = *enc_->input_queue[0].frame;
-    jxl::CompressParams c = frame.option_values.cparams;
+    Evidence(frame.option_values.cparams, frame.frame_data.xsize, frame.frame_data.ysize);
+  }
+  void Evidence(const jxl::CompressParams& cparams, size_t xsize, size_t ysize) {
+    jxl::CompressParams c = cparams;
     if (c.speed_tier == jxl::SpeedTier::kTectonicPlate && !c.IsLossless()) {
       c.speed_tier = jxl::SpeedTier::kGlacier;
     }
@@ -267,8 +289,8 @@ class Driver {
     bool ok = static_cast<bool>(jxl::ParamsPostInit(&c));
     out_ << ";" << ok << ',' << F32(c.butteraugli_distance) << ','
          << static_cast<int>(c.speed_tier) << ',' << c.buffering << ',' << c.epf << ','
-         << c.decoding_speed_tier << ',' << c.modular_mode << ',' << frame.frame_data.xsize
-         << ',' << frame.frame_data.ysize << ',' << enc_->metadata.m.xyb_encoded << ','
+         << c.decoding_speed_tier << ',' << c.modular_mode << ',' << xsize
+         << ',' << ysize << ',' << enc_->metadata.m.xyb_encoded << ','
          << enc_->metadata.m.num_extra_channels << ',' << c.resampling;
   }
 
@@ -540,6 +562,54 @@ class Driver {
         break;
       }
       case 'S': o << 0 << ';' << State(); break;
+      // encoder streaming
+      case 'w': {
+        // w<mask>,<schedule>,<stop_at>,<stop_kind>
+        processor_.schedule = uint32_t(std::stoul(f[1]));
+        processor_.stop_at = std::stoul(f[2]);
+        processor_.stop_kind = uint32_t(std::stoul(f[3]));
+        o << JxlEncoderSetOutputProcessor(enc_, processor_.Callbacks(uint32_t(std::stoul(f[0]))));
+        break;
+      }
+      case 'c': {
+        // c<settings>,<is_last>,<channels>,<type>,<endianness>,<align>,
+        // <content>,<xsize>,<ysize>,<pad>,<fail_at>,<ec type>,<ec count>:
+        // JxlEncoderAddChunkedFrame over a recording source; the result
+        // carries the source's callback log of this call.
+        auto source = std::make_unique<encoder_streaming::Source>();
+        source->color_format = Format(f, 2);
+        size_t xs = std::stoul(f[7]), ys = std::stoul(f[8]), pad = std::stoul(f[9]);
+        source->xsize = xs;
+        source->ysize = ys;
+        source->fail_at = std::stoul(f[10]);
+        source->ec_format = JxlPixelFormat{1, JxlDataType(std::stoul(f[11])),
+                                           source->color_format.endianness, 0};
+        uint32_t content = uint32_t(std::stoul(f[6]));
+        JxlPixelFormat packed = source->color_format;
+        packed.align = 0;
+        size_t row = xs * encoder_streaming::Source::BytesPerPixel(packed);
+        size_t alpha_c = packed.num_channels == 2 || packed.num_channels == 4
+                             ? packed.num_channels - 1
+                             : kNoAlpha;
+        source->color = encoder_streaming::Source::Padded(
+            Content(row * ys, packed, content, uint32_t(xs), uint32_t(ys), alpha_c), row, ys, pad);
+        source->color_stride = row + pad;
+        size_t ec_row = xs * encoder_streaming::Source::BytesPerPixel(source->ec_format);
+        for (size_t i = 0; i < std::stoul(f[12]); ++i) {
+          source->ec.push_back(encoder_streaming::Source::Padded(
+              Content(ec_row * ys, source->ec_format, content, uint32_t(xs), uint32_t(ys), 0),
+              ec_row, ys, pad));
+        }
+        source->ec_stride = ec_row + pad;
+        JxlEncoderStatus status =
+            JxlEncoderAddChunkedFrame(Settings(f[0]), int(std::stoul(f[1])), source->Callbacks());
+        o << status << ';' << encoder_streaming::Compress(source->events);
+        sources_.push_back(std::move(source));
+        break;
+      }
+      case 'i': o << JxlEncoderFlushInput(enc_); break;
+      case 'r': o << 0 << ';' << processor_.Report(HexOf); break;
+      // end encoder streaming
       default: throw std::runtime_error("encoder public op");
     }
     return o.str();
@@ -729,6 +799,11 @@ class Driver {
     return o.str();
   }
 
+  // encoder streaming
+  static std::string HexOf(const uint8_t* data, size_t size) { return Hex(Bytes(data, size)); }
+  encoder_streaming::Processor processor_;
+  std::vector<std::unique_ptr<encoder_streaming::Source>> sources_;
+  // end encoder streaming
   std::ostream& out_;
   JxlMemoryManager* mm_;
   bool probe_;
@@ -764,6 +839,7 @@ void RunHistory(std::istringstream& in, std::ostream& out, JxlMemoryManager* mm,
 // The buffer mode of the original JxlEncoderOutputProcessorWrapper.
 void RunWrapper(std::istringstream& in, std::ostream& out, JxlMemoryManager* mm) {
   JxlEncoderOutputProcessorWrapper wrapper(mm);
+  encoder_streaming::Processor processor;  // encoder streaming
   std::vector<uint8_t> caller;
   uint8_t* next = nullptr;
   size_t avail = 0;
@@ -829,6 +905,21 @@ void RunWrapper(std::istringstream& in, std::ostream& out, JxlMemoryManager* mm)
         out << (AppendData(wrapper, data) ? 0 : 1);
         break;
       }
+      // encoder streaming
+      case 'E':
+        // E<mask>,<schedule>,<stop_at>,<stop_kind>: the wrapper with an
+        // external output processor, as JxlEncoderSetOutputProcessor makes it.
+        processor.schedule = uint32_t(std::stoul(f[1]));
+        processor.stop_at = std::stoul(f[2]);
+        processor.stop_kind = uint32_t(std::stoul(f[3]));
+        wrapper = JxlEncoderOutputProcessorWrapper(
+            mm, processor.Callbacks(uint32_t(std::stoul(f[0]))));
+        out << 0;
+        break;
+      case 'r':
+        out << processor.Report([](const uint8_t* d, size_t n) { return Hex(Bytes(d, n)); });
+        break;
+      // end encoder streaming
       case 'P':
         out << wrapper.CurrentPosition() << ',' << wrapper.HasOutputToWrite() << ','
             << wrapper.WasStopRequested() << ',' << wrapper.HasAvailOut() << ','
@@ -857,6 +948,57 @@ bool EncoderPublicCommand(const std::string& command, std::istringstream& in,
     RunWrapper(in, std::cout, mm);
     return true;
   }
+  // encoder streaming
+  if (command == "epub-rect") {
+    // The buffer-backed adapter's input source (encode_test's
+    // ChunkedFrameAdapterRectBounds): epub-rect <xsize> <ysize> <channels>
+    // <extra channels> then requests c<x>,<y>,<xs>,<ys> and
+    // e<ec>,<x>,<y>,<xs>,<ys>; each prints the offset from its buffer and the
+    // row offset, or '-' for null.
+    size_t xsize, ysize, channels, extra;
+    in >> xsize >> ysize >> channels >> extra;
+    JxlPixelFormat color_format = {uint32_t(channels), JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+    JxlPixelFormat alpha_format = {1, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+    std::vector<uint8_t> color(xsize * ysize * channels);
+    std::vector<uint8_t> alpha(xsize * ysize);
+    jxl::JxlEncoderChunkedFrameAdapter adapter(xsize, ysize, extra);
+    std::cout << adapter.SetFromBuffer(0, color.data(), color.size(), color_format);
+    for (size_t ec = 0; ec < extra; ++ec) {
+      std::cout << adapter.SetFromBuffer(1 + ec, alpha.data(), alpha.size(), alpha_format);
+    }
+    JxlChunkedFrameInputSource input = adapter.GetInputSource();
+    std::string op;
+    while (in >> op) {
+      std::vector<std::string> f = Split(op.substr(1));
+      size_t row_offset = 0;
+      const void* p;
+      if (op[0] == 'c') {
+        p = input.get_color_channel_data_at(input.opaque, std::stoull(f[0]), std::stoull(f[1]),
+                                            std::stoull(f[2]), std::stoull(f[3]), &row_offset);
+      } else {
+        p = input.get_extra_channel_data_at(input.opaque, std::stoull(f[0]), std::stoull(f[1]),
+                                            std::stoull(f[2]), std::stoull(f[3]),
+                                            std::stoull(f[4]), &row_offset);
+      }
+      std::cout << ' ' << op[0] << ':';
+      if (p == nullptr) {
+        std::cout << '-';
+      } else {
+        // The color channel's buffer is the caller's; extra channels are
+        // copies, reported by their row offset only.
+        const uint8_t* b = static_cast<const uint8_t*>(p);
+        if (op[0] == 'c') {
+          std::cout << (b - color.data());
+        } else {
+          std::cout << '+';
+        }
+        std::cout << ',' << row_offset;
+      }
+    }
+    in.clear();
+    return true;
+  }
+  // end encoder streaming
   if (command == "epub-icc") {
     // An original profile generated by the original ColorEncoding code:
     // P3 primaries with a gamma curve (gray: gamma only).
