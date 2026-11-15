@@ -22,8 +22,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Activate the pinned native toolchain
         run: rustup show active-toolchain
-      - name: Install AV1 assembler
-        run: sudo apt-get update -qq && sudo apt-get install -y nasm
       - name: Install pinned fuzz driver
         run: cargo install cargo-fuzz --version 0.13.2 --locked
       - name: Verify real seeds reach both output encoders

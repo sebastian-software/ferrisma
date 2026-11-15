@@ -5,8 +5,6 @@
 use std::fmt;
 use std::time::{Duration, Instant};
 
-#[cfg(feature = "avif-write")]
-use crate::avif_sink::{AvifSink, EncodeSettings};
 use crate::color::ColorEncoding;
 use crate::decoder::{DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo};
 use crate::error::Error;
@@ -26,7 +24,7 @@ pub use crate::discarded::{Discarded, DiscardedSet};
 pub use crate::encoder_backend::{
     EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
 };
-#[cfg(feature = "avif-own-write")]
+#[cfg(feature = "avif-write")]
 pub use crate::own_avif::LibavifBackend;
 pub use crate::quality::Filter as ResizeFilter;
 pub use crate::resize_geometry::{ResizeFit, ResizeOptions};
@@ -48,7 +46,8 @@ pub enum ChromaSubsampling {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum OutputFormat {
-    /// Still AVIF; requires `avif-write`, `avif-own-write`, or an AVIF backend.
+    /// Still AVIF; requires `avif-write` (the workspace libavif/AOM writer) or
+    /// an AVIF backend.
     #[default]
     Avif,
     /// Still WebP; requires `webp-write` or a WebP backend.
@@ -147,46 +146,6 @@ pub enum ImageFormat {
     Avif,
 }
 
-/// AVIF output encoder.
-///
-/// The default is the workspace libavif/AOM writer at 10 bits whenever
-/// `avif-own-write` is compiled in, and Rav1e otherwise (ADR-0037). Because
-/// Cargo features are additive, a dependency that enables `avif-own-write`
-/// changes this default for the whole build; select a variant explicitly when
-/// the encoder must not depend on feature unification.
-///
-/// [`TransformOptions::quality`] and [`TransformOptions::speed`] are passed to
-/// the selected encoder unchanged. The two quality scales are **not**
-/// comparable and are never remapped: at matched SSIMULACRA2, Rav1e quality
-/// 70/80/90 corresponded to roughly libavif quality 50/55/78 on the recorded
-/// photographs, so the same number gives libavif larger, higher-quality files.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum AvifEncoder {
-    /// Rav1e; requires `avif-write`. Quality 1–100 through `ravif`'s
-    /// quantizer curve, speed 1–10; always 10-bit; alpha at a fixed quality 80.
-    /// Explicit opt-in when `avif-own-write` is also enabled.
-    Rav1e,
-    /// Workspace libavif/AOM; requires `avif-own-write`. Quality 0–100 (64
-    /// quantizer steps), speed 0–10 (`cpu-used`); depth 8 or 10; alpha uses the
-    /// color quality.
-    Libavif {
-        /// AV1 bit depth: 8 or 10.
-        depth: u8,
-    },
-}
-
-impl Default for AvifEncoder {
-    /// `Libavif { depth: 10 }` with `avif-own-write`, otherwise [`AvifEncoder::Rav1e`].
-    fn default() -> Self {
-        if cfg!(feature = "avif-own-write") {
-            Self::Libavif { depth: 10 }
-        } else {
-            Self::Rav1e
-        }
-    }
-}
-
 /// Source color handling policy; the default never guesses a color profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[non_exhaustive]
@@ -236,8 +195,10 @@ pub struct Crop {
 pub struct TransformOptions {
     /// Encoded output format.
     pub output_format: OutputFormat,
-    /// AVIF encoder selection; see [`AvifEncoder::default`].
-    pub avif_encoder: AvifEncoder,
+    /// AV1 bit depth of the AVIF output: 8 or 10 (the default). Must stay at
+    /// the default for other outputs and external backends. (Until
+    /// 2026-11-15 the depth was part of the removed `AvifEncoder::Libavif`.)
+    pub avif_depth: u8,
     /// Settings for the built-in WebP encoder.
     pub webp: WebpOptions,
     /// JPEG XL settings; must stay at the default for other formats.
@@ -267,17 +228,16 @@ pub struct TransformOptions {
     pub transform_threads: usize,
     /// How missing or rendered ICC color is handled.
     pub profile_policy: InputProfilePolicy,
-    /// AVIF quality on the selected encoder's own scale, passed unchanged:
-    /// Rav1e accepts 1–100, libavif accepts 0–100 and rounds to an integer
-    /// (64 quantizer steps). The scales are not comparable (see
-    /// [`AvifEncoder`]); the default 75 means a different quality per encoder.
+    /// AVIF quality on libavif's scale, passed unchanged: 0–100, rounded to
+    /// an integer (64 quantizer steps). Until 2026-11-15 rav1e was a second
+    /// AVIF encoder with an incomparable scale (rav1e 70/80/90 corresponded
+    /// to roughly libavif 50/55/78 at matched SSIMULACRA2).
     pub quality: f32,
-    /// AVIF speed on the selected encoder's own scale, passed unchanged:
-    /// Rav1e accepts 1–10, libavif accepts 0–10 (AOM `cpu-used`).
+    /// AVIF speed on libavif's scale, passed unchanged: 0–10 (AOM
+    /// `cpu-used`).
     pub speed: u8,
     /// AV1 encoder threads: 0 means available cores (capped at 256), and
-    /// explicit values must be at most 256. 1 uses one tile. Rav1e derives
-    /// other tile counts from image size; libavif uses automatic tiling and
+    /// explicit values must be at most 256. libavif uses automatic tiling and
     /// its encoded bytes can depend on the selected thread count. The
     /// built-in WebP and JPEG XL encoders are serial and require 1.
     pub encoder_threads: usize,
@@ -299,7 +259,7 @@ impl Default for TransformOptions {
     fn default() -> Self {
         Self {
             output_format: OutputFormat::Avif,
-            avif_encoder: AvifEncoder::default(),
+            avif_depth: 10,
             webp: WebpOptions::default(),
             jpeg_xl: JpegXlOptions::default(),
             output_width: 1,
@@ -443,9 +403,8 @@ pub struct ProcessingReport {
     /// Engine-managed bytes materialized to reorient the input; zero for
     /// upright input.
     pub orientation_buffer_bytes: usize,
-    /// Known pixel-frame bytes materialized by the selected encoder. Rav1e
-    /// reports its larger color or alpha frame; libavif reports its concurrent
-    /// RGBA and YUV(A) frames. Known bytes are charged to the managed budget.
+    /// Known pixel-frame bytes materialized by the selected encoder. libavif
+    /// reports its concurrent RGBA and YUV(A) frames. Known bytes are charged to the managed budget.
     pub encoder_output_frame_bytes: usize,
     /// Peak engine-managed bytes charged against `max_managed_bytes`.
     pub peak_managed_bytes: usize,
@@ -475,8 +434,8 @@ pub struct ProcessingReport {
     /// (AVIF), one per format. The strings are observations; new readers add
     /// new values.
     pub decoder_backend: &'static str,
-    /// The encoder that wrote the output: `"rav1e"` or `"libavif-rs/aom"`
-    /// (AVIF), `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL), or the
+    /// The encoder that wrote the output: `"libavif-rs/aom"` (AVIF),
+    /// `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL), or the
     /// [`EncoderBackend::name`] of an external backend (ADR-0024).
     pub encoder_backend: &'static str,
     /// The classes of input information this transcode left out of a
@@ -701,11 +660,7 @@ impl From<Error> for ProcessingError {
             }
             Error::Cancelled => Kind::Cancelled,
             Error::EncodeFailed => Kind::EncodeFailed,
-            #[cfg(any(
-                feature = "avif-write",
-                feature = "webp-write",
-                feature = "jpeg-xl-write"
-            ))]
+            #[cfg(any(feature = "webp-write", feature = "jpeg-xl-write"))]
             Error::IncompleteOutput => Kind::Internal,
             #[cfg(feature = "jpeg-xl-write")]
             Error::UnsupportedEncoderProfile(_) => Kind::InvalidOptions,
@@ -939,8 +894,8 @@ pub fn inspect(
 
 /// Convert one real input to SDR AVIF. Quality and profile constraints are
 /// enforced before executing a pixel transform, and only *one* decoder region
-/// is requested for the output. The encoder's input frame is explicitly
-/// materialized for `rav1e`, so memory is not O(output width).
+/// is requested for the output. The encoder's known input frames are
+/// reserved in the managed budget and reported.
 ///
 /// # Errors
 /// Returns an error for unsupported codec features, ambiguous profiles,
@@ -955,14 +910,14 @@ pub fn transcode(
 
 /// [`transcode`] with another encoder (ADR-0024): the same decode, color,
 /// crop, resample and quantization, then the output rows go to `backend`
-/// instead of the built-in `rav1e` sink. `quality`, `speed`,
+/// instead of the built-in sink. `quality`, `speed`,
 /// `encoder_threads` and `chroma_subsampling` are passed to the backend in
 /// an [`EncodeRequest`]; the backend validates them on its own scale.
 ///
 /// # Errors
 /// As [`transcode`], plus the backend's errors, mapped to their
-/// [`ProcessingErrorKind`]. A nondefault built-in AVIF selection conflicts
-/// with an external backend; the default selection leaves it authoritative.
+/// [`ProcessingErrorKind`]. A nondefault [`TransformOptions::avif_depth`]
+/// conflicts with an external backend; the default leaves it authoritative.
 pub fn transcode_with(
     encoded: &[u8],
     format: ImageFormat,
@@ -1003,8 +958,6 @@ pub fn transcode_resized_with(
 
 /// The output side of one transcode: the built-in sink or a backend's.
 enum Sink<'b> {
-    #[cfg(feature = "avif-write")]
-    Rav1e(Box<AvifSink>),
     #[cfg(feature = "webp-write")]
     WebP(Box<WebpSink>),
     #[cfg(feature = "jpeg-xl-write")]
@@ -1023,8 +976,6 @@ enum Sink<'b> {
 impl Sink<'_> {
     fn write_row(&mut self, y: u32, row: &[u8]) -> Result<(), Error> {
         match self {
-            #[cfg(feature = "avif-write")]
-            Self::Rav1e(sink) => sink.write_row(y, row),
             #[cfg(feature = "webp-write")]
             Self::WebP(sink) => sink.write_row(y, row),
             #[cfg(feature = "jpeg-xl-write")]
@@ -1045,8 +996,6 @@ impl Sink<'_> {
                 .take()
                 .map_or_else(|| error.into(), ProcessingError::from),
             Self::Backend { .. } => error.into(),
-            #[cfg(feature = "avif-write")]
-            Self::Rav1e(_) => error.into(),
             #[cfg(feature = "webp-write")]
             Self::WebP(_) => error.into(),
             #[cfg(feature = "jpeg-xl-write")]
@@ -1054,19 +1003,8 @@ impl Sink<'_> {
         }
     }
 
-    #[allow(unused_variables)] // Only the built-in AVIF sink consumes the budget on finish.
-    fn finish(self, budget: &MemoryBudget) -> Result<EncodedImage, ProcessingError> {
+    fn finish(self) -> Result<EncodedImage, ProcessingError> {
         match self {
-            #[cfg(feature = "avif-write")]
-            Self::Rav1e(sink) => {
-                let avif = sink.finish(budget)?;
-                Ok(EncodedImage::new(
-                    OutputFormat::Avif,
-                    avif.bytes,
-                    avif.frame_materialization_bytes,
-                    avif.opaque_encoder_memory_unbounded,
-                ))
-            }
             #[cfg(feature = "webp-write")]
             Self::WebP(sink) => Ok(sink.finish()?),
             #[cfg(feature = "jpeg-xl-write")]
@@ -1137,29 +1075,24 @@ fn run(
             "the WebP encoder is serial; set encoder_threads to 1",
         ));
     }
-    // Only an explicitly changed selection conflicts; the default never does.
-    if options.avif_encoder != AvifEncoder::default()
+    // Only an explicitly changed depth conflicts; the default never does.
+    if options.avif_depth != 10
         && (backend.is_some() || options.output_format != OutputFormat::Avif)
     {
         return Err(ProcessingError::new(
             ProcessingErrorKind::InvalidOptions,
-            "AVIF encoder selection conflicts with the requested output or external backend",
+            "AVIF depth conflicts with the requested output or external backend",
         ));
     }
-    #[cfg(feature = "avif-own-write")]
-    let own = match (options.output_format, options.avif_encoder) {
-        (OutputFormat::Avif, AvifEncoder::Libavif { depth }) => Some(LibavifBackend { depth }),
-        _ => None,
-    };
-    #[cfg(feature = "avif-own-write")]
+    // The built-in AVIF writer is the workspace libavif/AOM backend.
+    #[cfg(feature = "avif-write")]
+    let own = (backend.is_none() && options.output_format == OutputFormat::Avif).then_some(
+        LibavifBackend {
+            depth: options.avif_depth,
+        },
+    );
+    #[cfg(feature = "avif-write")]
     let backend = backend.or(own.as_ref().map(|encoder| encoder as &dyn EncoderBackend));
-    #[cfg(not(feature = "avif-own-write"))]
-    if matches!(options.avif_encoder, AvifEncoder::Libavif { .. }) {
-        return Err(ProcessingError::new(
-            ProcessingErrorKind::FeatureDisabled,
-            "enable the avif-own-write Cargo feature",
-        ));
-    }
     if let Some(backend) = backend
         && backend.format() != options.output_format
     {
@@ -1174,18 +1107,6 @@ fn run(
             .min(crate::thread_spawn::MAX_WORKERS),
         threads => threads,
     };
-    #[cfg(feature = "avif-write")]
-    let encode_settings = EncodeSettings {
-        quality: options.quality,
-        speed: options.speed,
-        threads: encoder_threads,
-        parallel_tiles: options.encoder_threads != 1,
-        chroma: options.chroma_subsampling,
-    };
-    #[cfg(feature = "avif-write")]
-    if backend.is_none() && options.output_format == OutputFormat::Avif {
-        encode_settings.validate()?;
-    }
     #[cfg(feature = "jpeg-xl-write")]
     if backend.is_none() && options.output_format == OutputFormat::JpegXl {
         JxlSink::validate(&options)?;
@@ -1337,23 +1258,12 @@ fn run(
     let transparent = actual.info().layout == crate::decoder::ChannelLayout::Rgba;
     let mut output_sink = match backend {
         None => match options.output_format {
+            // With `avif-write` the AOM writer is the backend above.
             OutputFormat::Avif => {
-                #[cfg(feature = "avif-write")]
-                {
-                    Sink::Rav1e(Box::new(AvifSink::new(
-                        target_size,
-                        transparent,
-                        encode_settings,
-                        &budget,
-                    )?))
-                }
-                #[cfg(not(feature = "avif-write"))]
-                {
-                    return Err(ProcessingError::new(
-                        ProcessingErrorKind::FeatureDisabled,
-                        "enable the avif-write Cargo feature",
-                    ));
-                }
+                return Err(ProcessingError::new(
+                    ProcessingErrorKind::FeatureDisabled,
+                    "enable the avif-write Cargo feature",
+                ));
             }
             OutputFormat::WebP => {
                 #[cfg(feature = "webp-write")]
@@ -1406,7 +1316,7 @@ fn run(
     };
     let encoder_backend = backend.map_or(
         match options.output_format {
-            OutputFormat::Avif => "rav1e",
+            OutputFormat::Avif => "libavif-rs/aom",
             OutputFormat::WebP => "libwebp-rs",
             OutputFormat::JpegXl => "libjxl-rs",
         },
@@ -1446,7 +1356,7 @@ fn run(
     };
     let processed = processed.map_err(|error| output_sink.explain(error))?;
     let encode_started = Instant::now();
-    let encoded_image = output_sink.finish(&budget)?;
+    let encoded_image = output_sink.finish()?;
     if encoded_image.format != options.output_format {
         return Err(ProcessingError::new(
             ProcessingErrorKind::EncodeFailed,

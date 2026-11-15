@@ -3,7 +3,7 @@
 use std::process::Command;
 
 #[test]
-fn normal_cli_selects_own_encoder_with_order_independent_depth() {
+fn cli_writes_avif_through_libavif_at_either_depth() {
     let input = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/sample.jpg");
     let output =
         std::env::temp_dir().join(format!("ferrisma-own-avif-{}-cli.avif", std::process::id()));
@@ -36,34 +36,28 @@ fn normal_cli_selects_own_encoder_with_order_independent_depth() {
             .expect("the report names the encoder")
             .to_owned()
     };
+    // One AVIF writer since 2026-11-15: libavif, with a depth.
     for flags in [
-        &["--avif-encoder=libavif", "--avif-depth=8"][..],
-        &["--avif-depth=8", "--avif-encoder=libavif"],
-        // `cli` includes `avif-own-write`, so libavif is the default encoder
-        // and a depth alone applies to it.
-        &[],
+        &[][..],
         &["--avif-depth=8"],
+        &["--avif-depth=10"],
         &["--quality=55"],
     ] {
         assert_eq!(encoder(flags), "libavif-rs/aom", "{flags:?}");
     }
-    // Rav1e stays an explicit backend with its own quality scale.
-    assert_eq!(encoder(&["--avif-encoder=rav1e"]), "rav1e");
-    assert_eq!(encoder(&["--avif-encoder=rav1e", "--quality=80"]), "rav1e");
-    let invalid = run(&["--avif-encoder=rav1e", "--avif-depth=8"]);
+    // The former selector is an unknown option, never silently ignored.
+    for flags in [&["--avif-encoder=libavif"][..], &["--avif-encoder=rav1e"]] {
+        let removed = run(flags);
+        assert!(!removed.status.success(), "{flags:?}");
+        assert!(
+            String::from_utf8_lossy(&removed.stderr).contains("unknown option"),
+            "{}",
+            String::from_utf8_lossy(&removed.stderr)
+        );
+    }
+    let invalid = run(&["--avif-depth=12"]);
     assert!(!invalid.status.success());
-    assert!(
-        String::from_utf8_lossy(&invalid.stderr).contains("requires the libavif encoder"),
-        "{}",
-        String::from_utf8_lossy(&invalid.stderr)
-    );
-    // Quality reaches only the selected encoder: Rav1e rejects 0 (its scale
-    // is 1-100), libavif accepts it on its own 0-100 scale.
-    assert!(
-        !run(&["--avif-encoder=rav1e", "--quality=0"])
-            .status
-            .success()
-    );
+    // libavif's scale is 0-100; quality 0 is accepted, not remapped.
     assert_eq!(encoder(&["--quality=0"]), "libavif-rs/aom");
     std::fs::remove_file(output).unwrap();
 }

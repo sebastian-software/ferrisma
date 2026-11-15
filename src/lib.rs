@@ -12,21 +12,10 @@
 // sink; some experimental internals are unreachable outside tests. With a
 // built-in sink, dead code is reported, except scoped architecture experiments.
 #![cfg_attr(
-    all(
-        not(test),
-        not(any(
-            feature = "avif-write",
-            feature = "webp-write",
-            feature = "jpeg-xl-write"
-        ))
-    ),
+    all(not(test), not(any(feature = "webp-write", feature = "jpeg-xl-write"))),
     allow(dead_code)
 )]
 
-#[cfg(feature = "avif-write")]
-mod av1_tuning;
-#[cfg(feature = "avif-write")]
-mod avif_sink;
 // The shared command accepts an external backend without a built-in writer;
 // missing decoder adapters report `FeatureDisabled`.
 pub mod cli;
@@ -70,7 +59,7 @@ mod jxl_sink;
 mod linear_srgb;
 mod memory;
 mod orientation;
-#[cfg(feature = "avif-own-write")]
+#[cfg(feature = "avif-write")]
 mod own_avif;
 mod parallel_execute;
 pub mod pipeline;
@@ -128,9 +117,6 @@ mod working_color_tests;
 
 #[cfg(test)]
 mod color_contract_tests;
-
-#[cfg(all(test, feature = "avif-write"))]
-mod avif_sink_tests;
 
 #[cfg(all(test, feature = "jpeg-read", feature = "avif-write"))]
 mod pipeline_tests;

@@ -48,7 +48,7 @@ can change lint results without a source change; a lint that differs between
 supported stable versions takes a function-scoped `#[allow(..., reason)]`
 instead of an `#[expect]` (ADR-0027). MSRV jobs also select their toolchain
 explicitly. This is a verifier exception, not another workspace or dependency graph.
-The codec-free engine and features without `avif-read`, `avif-own-write`, or `cli` still build on stable Rust 1.98;
+The codec-free engine and features without `avif-read`, `avif-write`, or `cli` still build on stable Rust 1.98;
 enabling either own AVIF feature reaches generated libavif/AOM code and requires the pinned
 nightly on macOS ARM64 or GNU Linux x86-64. The handwritten ports retain their
 own Rust 1.95 checks. An engine `--all-features` build is therefore not a
@@ -101,7 +101,7 @@ validation configurations still need scoped checks. The former
 `avif-decode`/libavif `dav1d_*` collision is removed; current AVIF input and
 the libavif encoder adapter can link together. Engine all-feature checks select
 `-p ferrisma -p ferrisma-kernels` on the pinned nightly; stable checks omit
-`avif-read` and `avif-own-write`. JXL's local Cargo configuration disables auto-vectorization for its
+`avif-read` and `avif-write`. JXL's local Cargo configuration disables auto-vectorization for its
 reference-sensitive checks. Run those checks through its script or from its
 directory. Rust artifacts live in the root `target/`; C/C++ reference outputs
 stay local to each codec. Generated AVIF source is excluded from rustfmt because

@@ -1,8 +1,9 @@
 //! Pluggable output encoders (ADR-0024).
 //!
-//! `transcode` writes AVIF with the built-in `rav1e` sink. An
-//! [`EncoderBackend`] lets a separate crate supply another encoder, such as
-//! the libavif-rs adapter in `crates/ferrisma-libavif`, without adding its
+//! `transcode` writes AVIF with the built-in workspace libavif/AOM writer,
+//! itself an [`EncoderBackend`] (`avif-write`). The trait lets a separate
+//! crate supply another encoder, such as the libavif-rs adapter in
+//! `crates/ferrisma-libavif`, without adding its
 //! dependencies, toolchain or `unsafe` code to this crate. The engine hands
 //! the backend finished output rows; everything up to and including the
 //! final sRGB8 quantization stays Ferrisma's.

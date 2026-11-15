@@ -2,9 +2,8 @@
 //! every remaining byte is passed unchanged to the selected image decoder.
 
 use ferrisma::pipeline::{
-    AvifEncoder, ImageFormat, InputProfilePolicy, JpegXlOptions, Output, OutputFormat,
-    ProcessingError, ResizeFit, ResizeOptions, TransformOptions, WorkingPrecision, transcode,
-    transcode_resized,
+    ImageFormat, InputProfilePolicy, JpegXlOptions, Output, OutputFormat, ProcessingError,
+    ResizeFit, ResizeOptions, TransformOptions, WorkingPrecision, transcode, transcode_resized,
 };
 
 const MAX_INPUT_BYTES: usize = 512 * 1024;
@@ -15,21 +14,31 @@ const MAX_MANAGED_BYTES: usize = 2 * 1024 * 1024;
 /// Returns `None` for a missing selector or an oversized input. Other errors
 /// are expected fuzz outcomes; a successful result reached the output encoder.
 ///
-/// Every lane pins its AVIF encoder explicitly, so the engine default never
-/// changes what a lane covers. JPEG XL input goes through the engine's only
-/// JPEG XL reader, the workspace libjxl-rs port (since 2026-11-15; the
-/// former `transcode_own_jxl` lane, which differed only by that reader, is
-/// merged into this one). This lane keeps rav1e.
+/// Every lane pins its AVIF depth explicitly, so the engine default never
+/// changes what a lane covers. Since 2026-11-15 the engine has one reader
+/// per input format and one AVIF writer (the workspace libavif/AOM port):
+/// the former `transcode_own_jxl` lane (another JPEG XL reader) and
+/// `transcode_own_avif` lane (another AVIF encoder) are merged into this
+/// one. This runs the 10-bit writer; [`avif_depths`] lists the depths the
+/// `transcode` target runs for one input.
 pub fn run_case(bytes: &[u8]) -> Option<Result<Output, ProcessingError>> {
-    run_case_with_backends(bytes, AvifEncoder::Rav1e)
+    run_case_at_depth(bytes, 10)
 }
 
-/// Runs AVIF-output inputs through the workspace AOM writer at the given depth.
-pub fn run_own_avif_case(bytes: &[u8], depth: u8) -> Option<Result<Output, ProcessingError>> {
-    if bytes.first()? & 4 != 0 {
-        return None;
+/// The AVIF depths the `transcode` target runs for `bytes`: 10 and 8 for an
+/// AVIF-output selector (bit 2 clear), only the default otherwise, as the
+/// former `transcode` and `transcode_own_avif` lanes did together.
+pub fn avif_depths(bytes: &[u8]) -> &'static [u8] {
+    match bytes.first() {
+        Some(control) if control & 4 == 0 => &[10, 8],
+        _ => &[10],
     }
-    run_case_with_backends(bytes, AvifEncoder::Libavif { depth })
+}
+
+/// [`run_case`] with AVIF output at `depth` (8 or 10); WebP output keeps the
+/// default depth, which it requires.
+pub fn run_case_at_depth(bytes: &[u8], depth: u8) -> Option<Result<Output, ProcessingError>> {
+    run_case_with_depth(bytes, depth)
 }
 
 /// Engine-managed memory of the JPEG XL output lane. The lossless sink
@@ -186,10 +195,7 @@ pub fn assert_jxl_output(request: &JxlOutRequest, output: &Output) {
         .unwrap_or_else(|error| panic!("the engine's JPEG XL output does not decode: {error:?}"));
 }
 
-fn run_case_with_backends(
-    bytes: &[u8],
-    avif_encoder: AvifEncoder,
-) -> Option<Result<Output, ProcessingError>> {
+fn run_case_with_depth(bytes: &[u8], depth: u8) -> Option<Result<Output, ProcessingError>> {
     let (&control, encoded) = bytes.split_first()?;
     if encoded.is_empty() || encoded.len() > MAX_INPUT_BYTES {
         return None;
@@ -226,12 +232,12 @@ fn run_case_with_backends(
     };
     let options = TransformOptions {
         output_format,
-        // A nondefault AVIF selection conflicts with WebP output; WebP keeps
-        // the build's default selection, like the other shared AVIF options.
-        avif_encoder: if output_format == OutputFormat::Avif {
-            avif_encoder
+        // A nondefault AVIF depth conflicts with WebP output; WebP keeps the
+        // default, like the other shared AVIF options.
+        avif_depth: if output_format == OutputFormat::Avif {
+            depth
         } else {
-            AvifEncoder::default()
+            10
         },
         output_width,
         output_height,
@@ -350,7 +356,7 @@ mod tests {
     fn workspace_avif_writer_reaches_both_depths_from_every_input_format() {
         for depth in [8, 10] {
             for (selector, image) in [(0, JPEG), (1, JXL), (2, AVIF), (3, WEBP)] {
-                let output = run_own_avif_case(&framed(selector, image), depth)
+                let output = run_case_at_depth(&framed(selector, image), depth)
                     .expect("input admitted by the driver")
                     .expect("fixture must reach the workspace AVIF writer");
                 assert_eq!(output.format, OutputFormat::Avif);
@@ -358,7 +364,8 @@ mod tests {
                 assert!(!output.bytes.is_empty());
             }
         }
-        assert!(run_own_avif_case(&framed(4, JPEG), 8).is_none());
+        assert_eq!(avif_depths(&framed(4, JPEG)), &[10]);
+        assert_eq!(avif_depths(&framed(0, JPEG)), &[10, 8]);
     }
 
     // The workflow supplies its generated corpus here, so these results cover
@@ -370,16 +377,11 @@ mod tests {
             return;
         };
         let lanes = [
-            ("transcode", "default", run_case as CaseRunner),
+            ("transcode", "depth=10", run_case as CaseRunner),
             (
-                "transcode_own_avif",
+                "transcode",
                 "depth=8",
-                (|bytes| run_own_avif_case(bytes, 8)) as CaseRunner,
-            ),
-            (
-                "transcode_own_avif",
-                "depth=10",
-                (|bytes| run_own_avif_case(bytes, 10)) as CaseRunner,
+                (|bytes| run_case_at_depth(bytes, 8)) as CaseRunner,
             ),
             (
                 "transcode_jxl_out",
@@ -430,7 +432,7 @@ mod tests {
                     Ok(output) => {
                         assert!(output.report.decoder_requests > 0);
                         assert!(!output.bytes.is_empty());
-                        if lane == "transcode_own_avif" {
+                        if output.format == OutputFormat::Avif {
                             assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
                         }
                         eprintln!(
@@ -458,7 +460,7 @@ mod tests {
             let error = run_case(&framed(selector, HOSTILE)).unwrap().unwrap_err();
             assert_eq!(error.kind(), ProcessingErrorKind::MalformedInput);
         }
-        let error = run_own_avif_case(&framed(1, HOSTILE), 8)
+        let error = run_case_at_depth(&framed(1, HOSTILE), 8)
             .unwrap()
             .unwrap_err();
         assert_eq!(error.kind(), ProcessingErrorKind::MalformedInput);

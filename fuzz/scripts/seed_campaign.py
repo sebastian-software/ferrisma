@@ -26,16 +26,14 @@ fixtures = [
 for name, path, selector in fixtures:
     for output, flag in [("avif", 0), ("webp", 4)]:
         seed("transcode", f"{name}-to-{output}", selector | flag, read(path))
-        if output == "avif":
-            seed("transcode_own_avif", f"{name}-to-{output}", selector, read(path))
 
 # A range of containers and rejection paths, not assertions of decoder support.
 for name in ["poc_b_506387278.avif", "color_grid_alpha_grid_shared_tiles.avif", "paris_icc_exif_xmp.avif"]:
     seed("transcode", name, 2 | 0x18, read("codecs/libavif-rs/upstream/libavif/tests/data/" + name))
 seed("transcode", "avif-alpha", 2,
      read("codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_irot.avif"))
-seed("transcode_own_avif", "avif-alpha", 2,
-     read("codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_irot.avif"))
+# The former `transcode_own_avif` lane (merged into `transcode` on
+# 2026-11-15) had byte-identical copies of the AVIF-output seeds above.
 # Retained regressions from earlier campaigns (inputs without their selector).
 hostile_jxl = read("tests/fixtures/hostile/jxl-unknown-colour-space.jxl")
 seed("transcode", "jxl-unknown-colour-space", 5, hostile_jxl)

@@ -31,11 +31,11 @@ compositing JPEG XL layers into the displayed image).
 | Class | Items | Inputs (J, W, X, V) | Outputs (O) | Pipeline (P) | Options (Q) |
 | --- | --- | --- | --- | --- | --- |
 | A | 25 → 6 | 20 → 3 | 2 → 1 | 1 → 0 | 2 |
-| B | 29 → 13 | 12 → 3 | 8 → 4 | 6 → 3 | 3 |
+| B | 29 → 13 → 12 | 12 → 3 | 8 → 4 → 3 | 6 → 3 | 3 |
 | C | 21 → 55 → 50 | 15 → 41 → 37 | 0 → 5 | 2 → 5 | 4 → 3 |
 | D | 11 | 8 | 3 | 0 | 0 |
 | resolved by decision | 0 → 1 | 0 | 0 | 0 → 1 | 0 |
-| resolved by removal | 0 → 5 | 0 → 4 | 0 | 0 | 0 → 1 |
+| resolved by removal | 0 → 6 | 0 → 4 | 0 → 1 | 0 | 0 → 1 |
 
 The first number is the state of the audit (`main` at `64284177`), the
 second the state after branch `v1/engine-discarded` (2026-11-15), a third
@@ -155,10 +155,10 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 
 | # | Output | Item | Today | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| O1 | AVIF, both encoders | source EXIF/XMP/ICC | not written; sRGB signaled (libavif `nclx` 1/13/6 full; rav1e AV1 header only). **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`, `IccProfile`** | matrix, Outputs | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels` | C |
+| O1 | AVIF (both encoders until 2026-11-15; libavif only since) | source EXIF/XMP/ICC | not written; sRGB signaled (libavif `nclx` 1/13/6 full; the removed rav1e in the AV1 header only). **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`, `IccProfile`** | matrix, Outputs | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels` | C |
 | O2 | AVIF libavif 10-bit (default) | precision | the 10-bit file carries 8-bit rows | matrix ("8-bit straight-alpha RGBA rows") | `libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx` | B |
 | O3 | AVIF libavif | `quality` fraction | rounded to an integer | rustdoc of `quality` | `libavif_quality_speed_and_depth_ranges` | B |
-| O4 | AVIF rav1e | depth, alpha quality | always 10-bit; alpha at fixed quality 80 whatever `quality` says | rustdoc, matrix | `rav1e_writes_ten_bit_without_a_container_colr`, `rav1e_writes_an_alpha_item_for_transparent_input` | B |
+| O4 | AVIF rav1e | depth, alpha quality | always 10-bit; alpha at fixed quality 80 whatever `quality` says. **Since `v1/remove-alt-backends`: resolved by removal; rav1e is no longer an encoder of the engine** | rustdoc, matrix | the tests `rav1e_writes_ten_bit_without_a_container_colr` and `rav1e_writes_an_alpha_item_for_transparent_input` were removed with it | removed |
 | O5 | All | orientation | applied, written upright with no transform property | matrix | `jpeg_xl_output_is_written_upright` and the AVIF/WebP cases | D |
 | O6 | All | fully opaque alpha | omitted (no information lost) | matrix | `libavif_writes_an_alpha_item_only_for_transparent_input` | D |
 | O7 | WebP lossy | chroma | always 4:2:0; a nondefault `chroma_subsampling` is refused | matrix | `avif_settings_with_webp_output_are_mismatched_options` | B |
@@ -188,7 +188,7 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
 | Q1 | `output_width`/`output_height` with `transcode_resized` | ignored; the actual size is in `Output` | `pipeline.rs` | rustdoc | `tests/thumbnail_facade.rs` | B |
-| Q2 | Default `avif_encoder` with an external backend | ignored, the backend decides | `run` | rustdoc of `transcode_with` | `pipeline_tests` | B |
+| Q2 | Default `avif_encoder` (since 2026-11-15: default `avif_depth`) with an external backend | ignored, the backend decides; a nondefault value is refused | `run` | rustdoc of `transcode_with` | `pipeline_tests` | B |
 | Q3 | `jxl_decoder` for non-JPEG XL input | ignored; `decoder_backend` names the reader that ran. **Since `v1/remove-alt-backends`: resolved by removal; the option does not exist** | `open_source` | no | the test `silent_drops::jpeg_xl_reader_selection_is_ignored_for_jpeg_input_and_reported` was removed with the option | removed |
 | Q4 | `kernel_level_ceiling`, `transform_threads` with `F64Reference` | ignored; the report says `Scalar`/`Ceiling` and 1 thread | `run` | rustdoc of `ProcessingReport` | `pipeline_tests` | C |
 | Q5 | Thread counts in `Engine::transcode_batch` | replaced with 1 (reported); values above 256, which `transcode` refuses, are accepted and discarded | `batch` | `BatchItem::options` ("overrides … with 1"); the acceptance of invalid values is not | `silent_drops::batch_accepts_thread_counts_that_transcode_rejects_today` | A |
@@ -221,8 +221,8 @@ conversions into a typed error:
 
 The owner decided on 2026-11-15 that jxl-oxide and rav1e leave the
 engine's runtime (ADR-0032, ADR-0037 amendments). Branch
-`v1/remove-alt-backends` removes the jxl-oxide reader, so every JPEG XL
-file has one reader and ADR-0042 D4 is met for JPEG XL by construction:
+`v1/remove-alt-backends` removes the jxl-oxide reader and the rav1e writer,
+so every JPEG XL file has one reader and AVIF one writer and ADR-0042 D4 is met for JPEG XL by construction:
 
 - X6 to X9 (the jxl-oxide reader's extra channels, spot colors, extra
   alpha, reserved types) are **resolved by removal**: the cases cannot
@@ -230,6 +230,11 @@ file has one reader and ADR-0042 D4 is met for JPEG XL by construction:
   reader (`silent_drops::jpeg_xl_reader_*`).
 - Q3 (`jxl_decoder` ignored for other formats) is **resolved by removal**:
   the option is gone, and its test went with it.
+- The same branch removes rav1e: O4 (rav1e's fixed 10-bit depth and fixed
+  alpha quality 80) is **resolved by removal**; O1 holds for libavif only;
+  Q2 now concerns `TransformOptions::avif_depth`, which replaces the removed
+  `avif_encoder` (a nondefault depth with a backend or another output is
+  refused, as a nondefault encoder selection was).
 - X10 lost its test: the jxl-oxide adapter's own tests were removed with
   the adapter. The compositing of layers into the displayed image by
   libjxl-rs has no engine test.

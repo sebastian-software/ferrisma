@@ -22,15 +22,12 @@
     feature = "icc"
 ))]
 
-#[cfg(all(
-    feature = "avif-read",
-    any(feature = "avif-write", feature = "avif-own-write")
-))]
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 use ferrisma::pipeline::ChromaSubsampling;
 use ferrisma::pipeline::{
-    AvifEncoder, Crop, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions, Output,
-    OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason, SourceAccess,
-    TransformOptions, WebpOptions, inspect, transcode,
+    Crop, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions, Output, OutputFormat,
+    ProcessingError, ProcessingErrorKind, RefusalReason, SourceAccess, TransformOptions,
+    WebpOptions, inspect, transcode,
 };
 
 // ---------------------------------------------------------------------------
@@ -201,19 +198,14 @@ fn webp_chunks(bytes: &[u8]) -> Vec<[u8; 4]> {
     chunks
 }
 
-// Only the AVIF input cases search boxes (a build with an AVIF writer but no
-// AVIF reader left this unused).
-#[cfg(feature = "avif-read")]
+#[cfg(any(feature = "avif-read", feature = "avif-write"))]
 fn find(bytes: &[u8], needle: &[u8]) -> Option<usize> {
     bytes
         .windows(needle.len())
         .position(|window| window == needle)
 }
 
-#[cfg(all(
-    feature = "avif-read",
-    any(feature = "avif-write", feature = "avif-own-write")
-))]
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 /// The AV1 configuration of the (first) `av1C` property: bit depth and
 /// chroma subsampling (x, y), and the monochrome flag.
 fn av1_config(bytes: &[u8]) -> (u8, (bool, bool), bool) {
@@ -233,10 +225,7 @@ fn av1_config(bytes: &[u8]) -> (u8, (bool, bool), bool) {
     )
 }
 
-#[cfg(all(
-    feature = "avif-read",
-    any(feature = "avif-write", feature = "avif-own-write")
-))]
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 /// The container's `colr nclx` code points and full-range flag, if any.
 fn nclx(bytes: &[u8]) -> Option<(u16, u16, u16, bool)> {
     let at = find(bytes, b"colrnclx")? + 8;
@@ -244,16 +233,10 @@ fn nclx(bytes: &[u8]) -> Option<(u16, u16, u16, bool)> {
     Some((u16_at(0), u16_at(2), u16_at(4), bytes[at + 6] & 0x80 != 0))
 }
 
-#[cfg(all(
-    feature = "avif-read",
-    any(feature = "avif-write", feature = "avif-own-write")
-))]
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 const AVIF_ALPHA_URN: &[u8] = b"urn:mpeg:mpegB:cicp:systems:auxiliary:alpha";
 
-#[cfg(all(
-    feature = "avif-read",
-    any(feature = "avif-write", feature = "avif-own-write")
-))]
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 /// Read an encoded AVIF back through the engine's own AVIF reader under the
 /// strict policy: only signalled sRGB passes it.
 fn read_back_avif_strict(output: &Output) -> Output {
@@ -999,19 +982,12 @@ fn output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl() {
     );
 }
 
-/// Both AVIF encoders are checked by the facade after the encoder returns.
-#[cfg(all(feature = "avif-write", feature = "avif-own-write"))]
+/// The AVIF writer is checked by the facade after the encoder returns.
+/// (Until 2026-11-15 this also ran on rav1e.)
+#[cfg(feature = "avif-write")]
 #[test]
-fn output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders() {
-    for avif_encoder in [AvifEncoder::Libavif { depth: 10 }, AvifEncoder::Rav1e] {
-        assert_exact_output_limit(
-            TransformOptions {
-                avif_encoder,
-                ..options(OutputFormat::Avif, ASSUME)
-            },
-            OUTPUT_BYTES,
-        );
-    }
+fn output_byte_limit_applies_at_the_exact_byte_for_avif() {
+    assert_exact_output_limit(options(OutputFormat::Avif, ASSUME), OUTPUT_BYTES);
 }
 
 #[test]
@@ -1070,18 +1046,16 @@ fn thread_counts_above_256_and_parallel_webp_encoding_are_invalid() {
 }
 
 // ===========================================================================
-// Outputs: AVIF through libavif/AOM (default) and rav1e.
+// Outputs: AVIF through libavif/AOM, the only AVIF writer (rav1e was a second
+// one until 2026-11-15).
 
-#[cfg(all(
-    feature = "avif-read",
-    any(feature = "avif-write", feature = "avif-own-write")
-))]
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 /// A transparent source: libavif's alpha still, decoded by the engine.
 fn transparent_avif_source() -> Vec<u8> {
     avif("abc_color_irot_alpha_irot.avif")
 }
 
-#[cfg(all(feature = "avif-read", feature = "avif-own-write"))]
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
 fn libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx() {
     let output = transcode(
@@ -1100,14 +1074,14 @@ fn libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx() {
     read_back_avif_strict(&output);
 }
 
-#[cfg(all(feature = "avif-read", feature = "avif-own-write"))]
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
 fn libavif_writes_eight_bit_and_420_on_request() {
     let output = transcode(
         SAMPLE_JPEG,
         ImageFormat::Jpeg,
         TransformOptions {
-            avif_encoder: AvifEncoder::Libavif { depth: 8 },
+            avif_depth: 8,
             chroma_subsampling: ChromaSubsampling::Yuv420,
             ..options(OutputFormat::Avif, ASSUME)
         },
@@ -1118,7 +1092,7 @@ fn libavif_writes_eight_bit_and_420_on_request() {
     read_back_avif_strict(&output);
 }
 
-#[cfg(all(feature = "avif-read", feature = "avif-own-write"))]
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
 fn libavif_writes_an_alpha_item_only_for_transparent_input() {
     let output = transcode(
@@ -1132,22 +1106,22 @@ fn libavif_writes_an_alpha_item_only_for_transparent_input() {
     assert!(webp_has_alpha(&back));
 }
 
-#[cfg(all(feature = "avif-read", feature = "avif-own-write"))]
+#[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
 fn libavif_quality_speed_and_depth_ranges() {
-    let run = |encoder, quality, speed| {
+    let run = |avif_depth, quality, speed| {
         transcode(
             SAMPLE_JPEG,
             ImageFormat::Jpeg,
             TransformOptions {
-                avif_encoder: encoder,
+                avif_depth,
                 quality,
                 speed,
                 ..options(OutputFormat::Avif, ASSUME)
             },
         )
     };
-    let libavif = AvifEncoder::Libavif { depth: 10 };
+    let libavif = 10;
     run(libavif, 0.0, 10).unwrap();
     run(libavif, 100.0, 0).unwrap();
     rejected(
@@ -1161,94 +1135,23 @@ fn libavif_quality_speed_and_depth_ranges() {
         "encoder backend: libavif speed must be between 0 and 10",
     );
     rejected(
-        run(AvifEncoder::Libavif { depth: 12 }, 75.0, 6),
+        run(12, 75.0, 6),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif-rs backend depth must be 8 or 10",
     );
 }
 
-#[cfg(all(feature = "avif-read", feature = "avif-write"))]
-#[test]
-fn rav1e_writes_ten_bit_without_a_container_colr() {
-    for (chroma, subsampled) in [
-        (ChromaSubsampling::Yuv444, (false, false)),
-        (ChromaSubsampling::Yuv420, (true, true)),
-    ] {
-        let output = transcode(
-            SAMPLE_JPEG,
-            ImageFormat::Jpeg,
-            TransformOptions {
-                avif_encoder: AvifEncoder::Rav1e,
-                chroma_subsampling: chroma,
-                ..options(OutputFormat::Avif, ASSUME)
-            },
-        )
-        .unwrap();
-        assert_eq!(output.report.encoder_backend, "rav1e");
-        assert!(
-            find(&output.bytes, AVIF_ALPHA_URN).is_none(),
-            "opaque: no alpha item"
-        );
-        assert_eq!(av1_config(&output.bytes), (10, subsampled, false));
-        assert_eq!(
-            nclx(&output.bytes),
-            None,
-            "rav1e signals color in the AV1 header only"
-        );
-        // The AV1 sequence header carries 1/13/6 full range: strict accepts it.
-        read_back_avif_strict(&output);
-    }
-}
-
-#[cfg(all(feature = "avif-read", feature = "avif-write"))]
-#[test]
-fn rav1e_writes_an_alpha_item_for_transparent_input() {
-    let output = transcode(
-        &transparent_avif_source(),
-        ImageFormat::Avif,
-        TransformOptions {
-            avif_encoder: AvifEncoder::Rav1e,
-            ..options(OutputFormat::Avif, ASSUME)
-        },
-    )
-    .unwrap();
-    assert!(find(&output.bytes, AVIF_ALPHA_URN).is_some());
-    assert!(webp_has_alpha(&read_back_avif_strict(&output)));
-}
-
 #[cfg(feature = "avif-write")]
-#[test]
-fn rav1e_quality_and_speed_start_at_one() {
-    for (quality, speed) in [(0.0, 6), (75.0, 0), (100.5, 6), (75.0, 11)] {
-        rejected(
-            transcode(
-                SAMPLE_JPEG,
-                ImageFormat::Jpeg,
-                TransformOptions {
-                    avif_encoder: AvifEncoder::Rav1e,
-                    quality,
-                    speed,
-                    ..options(OutputFormat::Avif, ASSUME)
-                },
-            ),
-            ProcessingErrorKind::InvalidOptions,
-            ENCODER_OPTIONS,
-        );
-    }
-}
-
-#[cfg(all(feature = "avif-write", feature = "avif-own-write"))]
 #[test]
 fn avif_output_drops_source_metadata_and_writes_upright_pixels() {
     // EXIF orientation 6 (24x16 stored): output is upright, without an
     // EXIF/XMP item or an irot/imir property.
     let oriented = read(&format!("{ORIENTATION}jpeg-6.jpg"));
-    for encoder in [AvifEncoder::Libavif { depth: 10 }, AvifEncoder::Rav1e] {
+    {
         let output = transcode(
             &oriented,
             ImageFormat::Jpeg,
             TransformOptions {
-                avif_encoder: encoder,
                 crop: Some(Crop {
                     x: 0,
                     y: 0,
@@ -1262,23 +1165,20 @@ fn avif_output_drops_source_metadata_and_writes_upright_pixels() {
         for absent in [&b"Exif"[..], b"mime", b"irot", b"imir", b"clap"] {
             assert!(
                 find(&output.bytes, absent).is_none(),
-                "{encoder:?}: {}",
+                "{}",
                 String::from_utf8_lossy(absent)
             );
         }
         let source_metadata = transcode(
             ICC_JPEG,
             ImageFormat::Jpeg,
-            TransformOptions {
-                avif_encoder: encoder,
-                ..options(OutputFormat::Avif, RENDERED)
-            },
+            options(OutputFormat::Avif, RENDERED),
         )
         .unwrap();
         for absent in [&b"Exif"[..], b"mime", b"prof"] {
             assert!(
                 find(&source_metadata.bytes, absent).is_none(),
-                "{encoder:?}: {}",
+                "{}",
                 String::from_utf8_lossy(absent)
             );
         }
@@ -1286,22 +1186,19 @@ fn avif_output_drops_source_metadata_and_writes_upright_pixels() {
 }
 
 #[test]
-fn avif_encoder_selection_conflicts_with_other_outputs() {
+fn avif_depth_conflicts_with_other_outputs() {
+    // (Until 2026-11-15 the AVIF encoder selection, which held the depth.)
     rejected(
         transcode(
             SAMPLE_JPEG,
             ImageFormat::Jpeg,
             TransformOptions {
-                avif_encoder: if AvifEncoder::default() == AvifEncoder::Rav1e {
-                    AvifEncoder::Libavif { depth: 10 }
-                } else {
-                    AvifEncoder::Rav1e
-                },
+                avif_depth: 8,
                 ..options(OutputFormat::WebP, ASSUME)
             },
         ),
         ProcessingErrorKind::InvalidOptions,
-        "AVIF encoder selection conflicts with the requested output or external backend",
+        "AVIF depth conflicts with the requested output or external backend",
     );
 }
 

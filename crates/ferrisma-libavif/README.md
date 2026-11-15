@@ -14,7 +14,7 @@ use ferrisma_libavif::LibavifBackend;
 let output = transcode_with(&jpeg, ImageFormat::Jpeg, options, &LibavifBackend::default())?;
 ```
 
-Ferrisma decodes, converts color, crops, resamples and quantizes as usual; this crate receives the finished sRGB8 rows, converts them with libavif's `avifImageRGBToYUV` and encodes with `avifEncoderWrite`. The output signals match Ferrisma's built-in `rav1e` sink: CICP 1/13/6, full range, 10 bits by default (`LibavifBackend { depth: 8 }` for 8 bits). `quality` (0–100) and `speed` (0–10) are libavif's own scales; compare backends at matched quality.
+Ferrisma decodes, converts color, crops, resamples and quantizes as usual; this crate receives the finished sRGB8 rows, converts them with libavif's `avifImageRGBToYUV` and encodes with `avifEncoderWrite`. The output equals Ferrisma's built-in AVIF writer (the same workspace encoder; the rav1e sink it was once compared with was removed on 2026-11-15): CICP 1/13/6, full range, 10 bits by default (`LibavifBackend { depth: 8 }` for 8 bits). `quality` (0–100) and `speed` (0–10) are libavif's own scales; compare backends at matched quality.
 
 The `ferrisma-libavif` command (feature `cli`) is Ferrisma's command line with this backend: same arguments, same `report:` line, with `encoder=libavif-rs/aom`.
 

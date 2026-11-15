@@ -55,8 +55,8 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `WebpOptions` | enum | Stable | Non-exhaustive |
 | `JpegXlOptions` (`Lossy { distance }`, `Lossless { effort }`) | enum | Experimental (ADR-0039); default lossy d1.0 pending owner confirmation | Non-exhaustive; `PartialEq` only |
 | `ChromaSubsampling` | enum | Stable | Non-exhaustive |
-| `AvifEncoder::Rav1e` | enum variant | Stable | Non-exhaustive enum |
-| `AvifEncoder::Libavif`, `LibavifBackend` | variant, struct | Experimental (`avif-own-write`, nightly) | ADR-0037 |
+| `TransformOptions::avif_depth` | field | Experimental (working decision 2026-11-15; replaces `AvifEncoder::Libavif { depth }`) | 8 or 10, default 10 |
+| `LibavifBackend` | struct | Experimental (`avif-write`, nightly) | ADR-0037; the built-in AVIF writer |
 | `WorkingPrecision` | enum | `F32` stable; `F64Reference` experimental (verification only) | Non-exhaustive |
 | `Output` | struct | Stable | Non-exhaustive; `format`, `bytes`, `width`, `height`, `report` |
 | `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive; new fields are additive. `decoder_backend` and `encoder_backend` strings are experimental values (2026-11-14, #217) |
@@ -81,11 +81,10 @@ binary's command line, not this function, is the stable CLI contract.
 | Feature | Proposed 1.0 tier | Toolchain |
 | --- | --- | --- |
 | `jpeg-read`, `webp-read`, `webp-write`, `icc` | Stable | Stable 1.98 |
-| `avif-write` (rav1e) | Stable as "AVIF output"; the backend behind it may change per ADR-0025 | Stable 1.98; NASM on x86-64 |
 | `jpeg-xl-read` | Stable as "JPEG XL input"; since 2026-11-15 the workspace libjxl-rs reader, the only one (ADR-0032) | Stable 1.98 |
 | `jpeg-xl-write` (in `cli` since 2026-11-12, ADR-0039) | Experimental | Stable 1.98 |
-| `avif-read`, `avif-own-write` | Experimental until they build on stable | Pinned nightly, native targets only |
-| `cli` | Stable command line; inherits the nightly requirement through `avif-read`/`avif-own-write` | Pinned nightly |
+| `avif-read`, `avif-write` | Experimental until they build on stable (`avif-write` was the stable rav1e capability until 2026-11-15) | Pinned nightly, native targets only |
+| `cli` | Stable command line; inherits the nightly requirement through `avif-read`/`avif-write` | Pinned nightly |
 
 ### Command line (`ferrisma` binary, `cli` feature)
 
@@ -98,7 +97,7 @@ binary's command line, not this function, is the stable CLI contract.
 | `--max-input-mb=`, `--max-input-mpx=`, `--budget-mb=`, `--max-output-mb=` | Stable |
 | `--transform-threads=`, `--encoder-threads=` | Stable |
 | `--area` | Stable, see problem 15 |
-| `--avif-encoder=rav1e\|libavif`, `--avif-depth=8\|10` | Experimental (selects experimental backends) |
+| `--avif-depth=8\|10` | Experimental |
 | `--reference`, `--kernel-level=scalar\|neon\|avx2\|avx512` | Experimental (verification and diagnostics) |
 | `.jxl` output, `--jxl-distance=`, `--jxl-lossless` (ADR-0039) | Experimental |
 | Exit status 0 success, 2 usage (fewer than four positional arguments), 1 any other error (Rust's default `Error: …` on stderr) | Stable |
@@ -364,3 +363,13 @@ reports that a stable item cannot express its use case.
   the owner). A build that enabled `jpeg-xl-read` keeps JPEG XL input; one
   that enabled `jpeg-xl-own-read` must rename it; code that set
   `jxl_decoder` must drop the field.
+- 2026-11-15 — Removed items (owner decision, ADR-0037; pre-1.0 breaking
+  change of the inventory): `AvifEncoder` with `Rav1e` (stable) and
+  `Libavif { depth }`, `TransformOptions::avif_encoder`, the CLI flag
+  `--avif-encoder=`, the `encoder_backend` value `"rav1e"`, the feature
+  `avif-own-write`, and the stable feature `avif-write` as the rav1e
+  capability. Added, experimental: `TransformOptions::avif_depth`. The name
+  `avif-write` now compiles the workspace AOM writer, which needs the pinned
+  nightly, so it moves to the experimental tier until it builds on stable
+  (working decisions 2026-11-15, delegated, revisable by the owner). A
+  stable-toolchain consumer of the old `avif-write` loses AVIF output.

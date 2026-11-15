@@ -37,15 +37,17 @@ automatically select them as engine backends. Ferrisma reads JPEG and WebP
 through the workspace `libjpeg-turbo-rs` and `libwebp-rs` ports, JPEG XL through
 the workspace libjxl-rs reference decoder (the only JPEG XL reader since
 2026-11-15; `jxl-oxide` remains only as a test cross-check), and AVIF through the workspace libavif/AOM reader; it writes AVIF
-through the workspace libavif/AOM encoder by default (with `rav1e` selectable
-explicitly; their quality scales differ), and still WebP through the workspace
+through the workspace libavif/AOM encoder (the only AVIF writer since
+2026-11-15; `rav1e` was removed), and still WebP through the workspace
 `libwebp-rs` encoder ([ADR-0032](docs/adr/0032-jpeg-xl-workspace-decoder-input.md),
 [ADR-0037](docs/adr/0037-selectable-workspace-avif-encoder.md)). These two
 defaults changed on 2026-11-12; the owner confirmed them on 2026-11-13
 ([ADR-0041](docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1).
-The default AVIF quality per encoder is still pending owner confirmation ([#216](https://github.com/sebastian-software/ferrisma/issues/216)).
-The own AVIF read/write features need the pinned nightly and a supported native
-target; features without `avif-read`, `avif-own-write`, or `cli` retain stable Rust 1.98 support.
+The default AVIF quality is still pending owner confirmation ([#216](https://github.com/sebastian-software/ferrisma/issues/216)).
+The AVIF read/write features need the pinned nightly and a supported native
+target (macOS ARM64, GNU Linux x86-64): a stable-toolchain build can neither
+read nor write AVIF until the workspace AVIF port builds on stable Rust;
+features without `avif-read`, `avif-write`, or `cli` retain stable Rust 1.98 support.
 On one 2268×1512 photo the AOM input path took 8–14% longer and used about
 2× peak RSS versus the former interim reader; see the
 [scoped measurement](docs/benchmarks/M2-avif-input.md).
@@ -58,7 +60,7 @@ architecture, development instructions, decisions, and recorded experiments.
 
 ## Try the experimental CLI
 
-From a checkout with Rust installed (NASM is also needed on x86-64):
+From a checkout with Rust installed:
 
 ```sh
 cargo run -p ferrisma --release --features cli -- \

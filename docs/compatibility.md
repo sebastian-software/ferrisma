@@ -15,27 +15,32 @@ else, including every private module, is outside the contract.
 | Area | Stable | Experimental (may change in a minor release) |
 | --- | --- | --- |
 | Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run` |
-| Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, quality, speed, chroma, threads, and the four resource limits; `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifEncoder::Libavif`, `JpegXlOptions` |
+| Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, quality, speed, chroma, threads, and the four resource limits; `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `avif_depth`, `JpegXlOptions` |
 | Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
-| Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `avif-write`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-own-write` |
-| CLI | Positional arguments, color policy, quality, speed, chroma, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-encoder`, `--avif-depth`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
+| Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-write` (experimental until it builds on stable Rust; stable as the rav1e capability until 2026-11-15) |
+| CLI | Positional arguments, color policy, quality, speed, chroma, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-depth`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
 
-`jpeg-xl-read` and `avif-write` promise the *capability* (JPEG XL input, AVIF
-output), not a particular backend: ADR-0025 may switch the backend behind them
-in a minor release when its evidence gates are met.
+`jpeg-xl-read` promises the *capability* (JPEG XL input), not a particular
+backend: ADR-0025 may switch the backend behind it in a minor release when its
+evidence gates are met.
 
 Since 2026-11-15 `jpeg-xl-read` is the workspace libjxl-rs reader, the only
 JPEG XL reader (owner decision; [ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)).
 The feature of that name used to select jxl-oxide, and the workspace reader
 was the experimental `jpeg-xl-own-read`, which is gone; `JpegXlDecoder`,
 `TransformOptions::jxl_decoder` and `--jxl-decoder=` are removed (pre-1.0
-breaking change). Since 2026-11-12 (confirmed by the owner on 2026-11-13,
-ADR-0041 D1), the default AVIF writer follows the compiled features: the
-workspace libavif/AOM writer (10-bit) whenever `avif-own-write` is enabled.
-`cli` enables it, so it runs this experimental backend by default;
-`--avif-encoder=rav1e` selects the other. AVIF `quality` and `speed` are interpreted on the selected
-encoder's own scale and are not remapped. Select a backend explicitly when the
-result must not depend on Cargo feature unification. See the
+breaking change). Likewise since 2026-11-15 `avif-write` is the workspace
+libavif/AOM writer, the only AVIF writer (owner decision;
+[ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)): the name used to
+select rav1e, and the workspace writer was `avif-own-write`, which is gone;
+`AvifEncoder`, `TransformOptions::avif_encoder` and `--avif-encoder=` are
+removed, and the depth is `TransformOptions::avif_depth` (`--avif-depth=`).
+The known cost: AVIF output now needs the pinned nightly on macOS ARM64 or
+GNU Linux x86-64, as AVIF input already did; a stable-toolchain build can
+neither read nor write AVIF until the workspace AVIF port builds on stable
+Rust. _Working decision 2026-11-15 (delegated, revisable by the owner):_
+`avif-write` therefore moves to the experimental tier until then. AVIF
+`quality` and `speed` are libavif's scales and are not remapped. See the
 [supported matrix](supported-matrix.md).
 
 ## Refusal reasons
@@ -97,8 +102,8 @@ set as the `discarded=` key of its `report:` line (`none` when empty).
 
 | Feature set | Toolchain | Targets |
 | --- | --- | --- |
-| No features, or any of `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `jpeg-xl-write`, `avif-write`, `icc` | Stable Rust 1.98 or newer (`rust-version`); NASM on x86-64 for `avif-write` | Any target these crates build for; CI covers macOS ARM64 and GNU Linux x86-64 |
-| `avif-read`, `avif-own-write`, `cli` | The pinned nightly in `rust-toolchain.toml` (`nightly-2026-09-07` today) | Native macOS ARM64 and GNU Linux x86-64 only |
+| No features, or any of `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `jpeg-xl-write`, `icc` | Stable Rust 1.98 or newer (`rust-version`) | Any target these crates build for; CI covers macOS ARM64 and GNU Linux x86-64 |
+| `avif-read`, `avif-write`, `cli` | The pinned nightly in `rust-toolchain.toml` (`nightly-2026-09-07` today) | Native macOS ARM64 and GNU Linux x86-64 only |
 
 Builds that enable the AVIF port features as a dependency also need the
 consumer profile settings listed in [publishing](publishing.md#blockers-before-the-first-functional-publication);

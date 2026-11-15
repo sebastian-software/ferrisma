@@ -12,9 +12,8 @@
 #![allow(dead_code, unused_imports)]
 
 use ferrisma::pipeline::{
-    AvifEncoder, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
-    InputProfilePolicy, Output, OutputFormat, RowEncoder, TransformOptions, transcode,
-    transcode_with,
+    EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
+    Output, OutputFormat, RowEncoder, TransformOptions, transcode, transcode_with,
 };
 
 /// Discards rows, so the readers run without a compiled writer.
@@ -110,14 +109,13 @@ fn avif_reader_is_reported() {
 
 /// One small JPEG through a built-in writer; `speed` applies to AVIF only.
 #[cfg(feature = "jpeg-read")]
-fn write(output_format: OutputFormat, avif_encoder: AvifEncoder, speed: u8) -> Output {
+fn write(output_format: OutputFormat, speed: u8) -> Output {
     let jpeg = include_bytes!("fixtures/decoder-work/paris-420.jpg");
     transcode(
         jpeg,
         ImageFormat::Jpeg,
         TransformOptions {
             output_format,
-            avif_encoder,
             speed,
             output_width: 16,
             output_height: 12,
@@ -131,7 +129,7 @@ fn write(output_format: OutputFormat, avif_encoder: AvifEncoder, speed: u8) -> O
 #[cfg(all(feature = "jpeg-read", feature = "webp-write"))]
 #[test]
 fn webp_writer_is_reported() {
-    let output = write(OutputFormat::WebP, AvifEncoder::default(), 6);
+    let output = write(OutputFormat::WebP, 6);
     assert_eq!(output.report.decoder_backend, "libjpeg-turbo-rs");
     assert_eq!(output.report.encoder_backend, "libwebp-rs");
 }
@@ -139,20 +137,13 @@ fn webp_writer_is_reported() {
 #[cfg(all(feature = "jpeg-read", feature = "jpeg-xl-write"))]
 #[test]
 fn jpeg_xl_writer_is_reported() {
-    let output = write(OutputFormat::JpegXl, AvifEncoder::default(), 6);
+    let output = write(OutputFormat::JpegXl, 6);
     assert_eq!(output.report.encoder_backend, "libjxl-rs");
 }
 
 #[cfg(all(feature = "jpeg-read", feature = "avif-write"))]
 #[test]
-fn explicitly_selected_rav1e_is_reported() {
-    let output = write(OutputFormat::Avif, AvifEncoder::Rav1e, 10);
-    assert_eq!(output.report.encoder_backend, "rav1e");
-}
-
-#[cfg(all(feature = "jpeg-read", feature = "avif-own-write"))]
-#[test]
-fn explicitly_selected_libavif_is_reported() {
-    let output = write(OutputFormat::Avif, AvifEncoder::Libavif { depth: 8 }, 10);
+fn avif_writer_is_reported() {
+    let output = write(OutputFormat::Avif, 10);
     assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
 }

@@ -52,23 +52,14 @@ fn truncated_and_mutated_jxl_headers_never_panic_in_adapter_setup() {
 #[cfg(all(feature = "avif-read", feature = "avif-write"))]
 #[test]
 fn avif_decoder_rejects_truncated_container_without_panicking() {
-    use crate::avif_sink::{AvifSink, test_settings};
     use crate::codecs::avif::AvifSource;
-    use crate::geometry::Size;
     use crate::memory::MemoryBudget;
+    use crate::pipeline::ChromaSubsampling;
 
     let budget = MemoryBudget::new(8 << 20);
-    let mut sink = AvifSink::new(
-        Size::new(4, 4).unwrap(),
-        false,
-        test_settings(80.0, 10),
-        &budget,
-    )
-    .unwrap();
-    for row in 0..4 {
-        sink.write_row(row, &[40, 60, 100, 255].repeat(4)).unwrap();
-    }
-    let file = sink.finish(&budget).unwrap().bytes;
+    let file = crate::own_avif::encode_for_test(4, 4, ChromaSubsampling::Yuv444, 80.0, |_| {
+        [40, 60, 100, 255].repeat(4)
+    });
     for length in [0, 1, 2, 4, 8, 16, file.len() / 2] {
         let truncated = &file[..length.min(file.len())];
         let result = catch_unwind(AssertUnwindSafe(|| AvifSource::new(truncated)));
@@ -97,28 +88,10 @@ fn api_rejects_invalid_quality_and_mismatched_input_format() {
     };
     assert!(transcode(jpeg, ImageFormat::Avif, options).is_err());
     assert!(transcode(&[0; 32], ImageFormat::Jpeg, options).is_err());
-    // Each encoder validates quality on its own scale: Rav1e 1-100.
-    let rav1e = TransformOptions {
-        avif_encoder: crate::pipeline::AvifEncoder::Rav1e,
-        ..options
-    };
-    for quality in [f32::NAN, f32::INFINITY, 0.0, 101.0] {
-        assert!(
-            transcode(
-                jpeg,
-                ImageFormat::Jpeg,
-                TransformOptions { quality, ..rav1e },
-            )
-            .is_err()
-        );
-    }
-    // libavif 0-100; quality 0 is valid there and not remapped.
-    #[cfg(feature = "avif-own-write")]
+    // libavif validates quality on its scale, 0-100; quality 0 is valid
+    // and not remapped. (Rav1e's 1-100 was checked here until 2026-11-15.)
     {
-        let libavif = TransformOptions {
-            avif_encoder: crate::pipeline::AvifEncoder::Libavif { depth: 10 },
-            ..options
-        };
+        let libavif = options;
         for quality in [f32::NAN, f32::INFINITY, -1.0, 100.5] {
             let result = transcode(
                 jpeg,

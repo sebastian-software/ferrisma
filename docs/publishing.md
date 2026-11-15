@@ -15,9 +15,27 @@ declared name and a matching version. This includes **optional**
 dependencies: crates.io resolves the whole manifest, not only the default
 features. A `ferrisma` release with its current features therefore needs every
 package reachable through `jpeg-read`, `webp-read`, `webp-write`,
-`jpeg-xl-read`, `jpeg-xl-write`, `avif-read`, and `avif-own-write`. (Until
-2026-11-15 the workspace JPEG XL reader was `jpeg-xl-own-read`; the dated
-packaging run below used that name.)
+`jpeg-xl-read`, `jpeg-xl-write`, `avif-read`, and `avif-write`. (Until
+2026-11-15 the workspace JPEG XL reader was `jpeg-xl-own-read` and the
+workspace AVIF writer `avif-own-write`; the dated packaging run below used
+those names.)
+
+**Fewer registry packages since 2026-11-15.** With jxl-oxide and rav1e out
+of the runtime (ADR-0032, ADR-0037), a published `ferrisma` no longer pulls
+in `jxl-oxide`, `jxl-grid` (direct), `rav1e` or `avif-serialize` through any
+feature. Measured on the fuzz workspace's lockfile, which resolves `cli` as a
+consumer does: 83 package entries left it, the jxl-oxide family
+(`jxl-oxide`, `jxl-bitstream`, `jxl-coding`, `jxl-color`, `jxl-frame`,
+`jxl-grid`, `jxl-image`, `jxl-jbr`, `jxl-modular`, `jxl-oxide-common`,
+`jxl-render`, `jxl-threadpool`, `jxl-vardct`), rav1e and its graph
+(`rav1e`, `avif-serialize`, `av-scenechange`, `av1-grain`, `nasm-rs`,
+`v_frame`, `rayon`, `rayon-core`, `crossbeam-*`, `bitstream-io`, `y4m`,
+`rand`, `thiserror`, `nom`, `itertools`, the `wasm-bindgen` and `syn`
+build-time chain, among others). The workspace's own chain of
+packages to publish (the table below) is unchanged except that no row
+needs NASM. The test-only dev-dependencies `jxl-oxide` and `ravif` (which
+pulls rav1e without assembly) stay in the root lockfile; dev-dependencies
+are not resolved for consumers.
 
 ## Packages
 
@@ -38,10 +56,10 @@ crates.io").
 | 2 | `libavif-sharpyuv` | 0.1.0 | BSD-3-Clause | yes | none (nightly) | yes | 21.8 KiB | SharpYUV C ABI for libavif |
 | 3 | `libavif-rs` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause | yes | none (nightly) | yes | 4.6 MiB | libavif port |
 | 4 | `ferrisma-avif-read` | **0.0.0** | MIT OR Apache-2.0 | yes | none (nightly) | yes (2026-11-14) | 10.0 KiB | `avif-read` safe bridge |
-| 4 | `ferrisma-avif-write` | **0.0.0** | MIT OR Apache-2.0 | yes | none (nightly) | yes (2026-11-14) | 12.5 KiB | `avif-own-write` safe bridge |
+| 4 | `ferrisma-avif-write` | **0.0.0** | MIT OR Apache-2.0 | yes | none (nightly) | yes (2026-11-14) | 12.5 KiB | `avif-write` safe bridge |
 | 4 | `ferrisma-jxl-decoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.95 | yes (2026-11-14) | 13.5 KiB | `jpeg-xl-read` safe bridge |
 | 4 | `ferrisma-jxl-encoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.95 | yes (2026-11-14) | 17.6 KiB, first packaged 2026-11-14 | `jpeg-xl-write` safe bridge (lossy) |
-| 5 | `ferrisma` | 0.1.0 | MIT OR Apache-2.0 | only for `avif-read`, `avif-own-write`, `cli` | 1.98 | yes | 606.9 KiB | Engine, facade, CLI binary |
+| 5 | `ferrisma` | 0.1.0 | MIT OR Apache-2.0 | only for `avif-read`, `avif-write`, `cli` | 1.98 | yes | 606.9 KiB | Engine, facade, CLI binary |
 
 Every package now has `description`, `license`, `repository`, `homepage`
 (`https://ferrisma.dev`, added to the ports, the AVIF sub-crates and
@@ -65,7 +83,7 @@ encoder bridge `ferrisma-jxl-encoder` is at level 4: it depends only on
 **Stay internal (never published):** `ferrisma-xtask` (workspace tooling),
 the isolated fuzz and benchmark workspaces, and `ferrisma-libavif`. The last
 is the ADR-0024 compatibility adapter; its encoder is reachable through
-`ferrisma`'s own `avif-own-write` feature (ADR-0037), and its dependency on
+`ferrisma`'s own `avif-write` feature (ADR-0037), and its dependency on
 `ferrisma` has no version requirement. Publish it only after an explicit
 decision, and then after `ferrisma`.
 
@@ -269,7 +287,7 @@ finds an overflow. Put the block into the `ferrisma` README before
 publication:
 
 ```toml
-# Required by the AVIF features (avif-read, avif-own-write, cli): the
+# Required by the AVIF features (avif-read, avif-write, cli): the
 # libaom port maps C's longjmp error recovery to unwinding.
 [profile.dev]
 panic = "unwind"

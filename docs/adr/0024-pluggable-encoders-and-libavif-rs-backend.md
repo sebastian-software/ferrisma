@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-06
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-15
 - **Supersedes:** None
 - **Partially superseded by:** [0026](0026-codecs-in-one-repository-and-workspace.md), repository/workspace placement and dependency pinning; [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), output result and feature coupling; [0031](0031-workspace-libavif-input-experiment.md), AVIF input and the former duplicate-symbol exclusion
 - **Related:** [0017](0017-minimal-public-facade-and-cli.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0022](0022-parallel-row-pipeline-and-engine.md), [M2 milestone](../milestones/M2-performance-architecture.md) work package 2, [Sharp comparison](../benchmarks/M2-sharp-comparison.md), [libavif-rs](../../codecs/libavif-rs), [libwebp-rs plan](../research/2026-11-05-libwebp-port-plan.md)
@@ -128,3 +128,4 @@ The remaining triggers are a stable libavif toolchain or safe API, material chan
   with default options; only a nondefault built-in selection conflicts with
   them. Quality and speed stay on the selected encoder's native scale. The
   ADR-0025 timing and peak-memory criteria remain open.
+- 2026-11-15 — Owner decision (ADR-0037): rav1e left the engine. Decision 4 ("`rav1e` stays the default") is superseded; the built-in AVIF writer is the workspace libavif/AOM backend, itself an `EncoderBackend`. The row-level `EncoderBackend`/`RowEncoder` extension point, `transcode_with` and the `crates/ferrisma-libavif` adapter stay as they are (experimental tier). The rav1e comparisons above remain the historical evidence of this record.

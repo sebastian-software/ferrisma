@@ -15,7 +15,7 @@ default = []
 cli = ["ferrisma/jpeg-read", "ferrisma/webp-read", "ferrisma/jpeg-xl-read", "ferrisma/avif-read", "ferrisma/icc"]
 
 [dependencies]
-ferrisma = { path = "../..", default-features = false, features = ["avif-own-write"] }
+ferrisma = { path = "../..", default-features = false, features = ["avif-write"] }
 
 [dev-dependencies]
 libavif-rs = { path = "../../codecs/libavif-rs", version = "0.1.0" }

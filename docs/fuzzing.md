@@ -1,6 +1,6 @@
 # Fuzzing and hostile-input policy
 
-**Status:** Harness and six-job ASan campaign workflow exist (eight jobs until 2026-11-15). The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure; a 20-minute local ASan run of the JPEG XL output lane `transcode_jxl_out` (2026-11-15) found none either. The hosted smoke [run 43690971661](https://github.com/sebastian-software/ferrisma/actions/runs/43690971661) (2026-11-15) found a 1 GiB allocation request in jxl-oxide from an 11-byte JPEG XL codestream; it was bounded by the input cap the same day ([details](#hosted-smoke-run-43690971661-2026-11-15)), and on 2026-11-15 jxl-oxide left the engine's runtime altogether (owner decision, [ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)): every lane now reads JPEG XL through the workspace libjxl-rs reader, and the `transcode_own_jxl` lane, which differed only by that reader, is merged into `transcode` ([lanes since 2026-11-15](#lanes-since-2026-11-15)). The sustained, coverage-reviewed campaign required for release has **not** completed; see [results](#campaign-results).
+**Status:** Harness and four-job ASan campaign workflow exist (eight jobs until 2026-11-15). The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure; a 20-minute local ASan run of the JPEG XL output lane `transcode_jxl_out` (2026-11-15) found none either. The hosted smoke [run 43690971661](https://github.com/sebastian-software/ferrisma/actions/runs/43690971661) (2026-11-15) found a 1 GiB allocation request in jxl-oxide from an 11-byte JPEG XL codestream; it was bounded by the input cap the same day ([details](#hosted-smoke-run-43690971661-2026-11-15)), and on 2026-11-15 jxl-oxide left the engine's runtime altogether (owner decision, [ADR-0032](adr/0032-jpeg-xl-workspace-decoder-input.md)): every lane now reads JPEG XL through the workspace libjxl-rs reader, and the `transcode_own_jxl` lane, which differed only by that reader, is merged into `transcode` ([lanes since 2026-11-15](#lanes-since-2026-11-15)). The sustained, coverage-reviewed campaign required for release has **not** completed; see [results](#campaign-results).
 
 Ferrisma's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and AVIF bytes. The core forbids unsafe Rust; optional decoder, assembler, SIMD and encoder dependencies do **not** inherit that guarantee. The workspace AVIF reader checks dimensions and reserves the emitted RGB frame before pixel decoding, but libavif/AOM still allocate opaque parser and codec buffers outside the engine budget.
 
@@ -134,11 +134,11 @@ lanes have not run.
 ## Sustained campaign workflow
 
 [M1 Sustained Fuzz Campaign](../.github/workflows/m1-fuzz-campaign.yml) is a
-manually dispatched, six-job experiment: the multi-format driver, the workspace
-AVIF/AOM writer and the
+manually dispatched, four-job experiment: the multi-format driver and the
 [JPEG XL output lane](#jpeg-xl-output-lane) each run on native Linux x86-64 and macOS
-ARM64 (until 2026-11-15 also an opt-in workspace JPEG XL decoder lane,
-merged into the multi-format driver when jxl-oxide left the runtime). Dispatch the registered `M1 Decoder Fuzz Smoke` workflow with the
+ARM64 (until 2026-11-15 also a workspace AVIF/AOM writer lane and an opt-in
+workspace JPEG XL decoder lane, merged into the multi-format driver when
+rav1e and jxl-oxide left the runtime). Dispatch the registered `M1 Decoder Fuzz Smoke` workflow with the
 `campaign` input set to `true` to run it on a branch; the default remains the
 quick smoke. Each job uses the pinned nightly and cargo-fuzz 0.13.2 with explicit
 AddressSanitizer, a libFuzzer seed of 1, and a 1,800-second mutation budget.
@@ -156,11 +156,11 @@ are reached for the applicable decoder. The generator hashes the exact starting
 bytes. Mutations and duration vary with scheduling and hardware despite the
 fixed PRNG seed; the seed does not make the resulting corpus deterministic.
 
-The own-AVIF lane accepts only AVIF-output selectors and runs each admitted
-input through the workspace AOM writer at both 8 and 10 bits. It uses the
-engine's only input decoders (JPEG XL through libjxl-rs since 2026-11-15).
-Its deterministic fixtures cover all four input formats and AVIF alpha; tests
-assert the reported encoder is `libavif-rs/aom`. Encoder choice and
+The `transcode` target runs each AVIF-output input through the workspace
+AOM writer at both 10 and 8 bits (`avif_depths`, `run_case_at_depth`), as
+the former `transcode` (rav1e) and `transcode_own_avif` lanes did together;
+WebP-output inputs run once. Tests assert the reported encoder is
+`libavif-rs/aom` for every AVIF output. Encoder choice and
 bit depth are explicit lane settings and do not consume or rewrite image bytes.
 
 Artifacts include the source commit and tree, toolchain, host, lockfile hashes,
@@ -198,7 +198,10 @@ workspace libjxl-rs reader, and the former `transcode_own_jxl` lane (and the
 fuzz crate's `own-jxl` feature), which differed from `transcode` only by
 that reader, is retired: its JPEG XL orientation seeds moved to
 `transcode` as `jxl-orientation-1` … `-8`, and its other seeds were
-byte-identical to seeds `transcode` already has. No seed was dropped. The
+byte-identical to seeds `transcode` already has. No seed was dropped. The `transcode_own_avif` lane, which differed from
+`transcode` only by its AVIF encoder once rav1e left (ADR-0037), is merged
+the same way: `transcode` runs AVIF-output inputs at 10 and 8 bits, and the
+own-AVIF seeds were byte-identical to `transcode`'s AVIF-output seeds. The
 deterministic replay re-classifies the two hostile JPEG XL seeds on
 `transcode` (they were read by jxl-oxide there before): the oversized TOC
 section is `MalformedInput` (before: `ResourceExhausted` from the adapter's

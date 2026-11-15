@@ -6,9 +6,10 @@ use crate::encoder_backend::{
 use crate::pipeline::{ChromaSubsampling, OutputFormat};
 use ferrisma_avif_write as writer;
 
-/// Workspace libavif with its AOM encoder, available with `avif-own-write`.
+/// Workspace libavif with its AOM encoder, available with `avif-write`; the
+/// engine's built-in AVIF writer, also usable through `transcode_with`.
 ///
-/// Quality 0–100 and speed 0–10 use libavif's scales, not Rav1e's.
+/// Quality 0–100 and speed 0–10 use libavif's scales.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LibavifBackend {
     /// AV1 bit depth: 8 or 10.
@@ -90,4 +91,35 @@ impl RowEncoder for Frame {
             true,
         ))
     }
+}
+
+/// Opaque 10-bit AVIF from the workspace writer at speed 10, one thread:
+/// the test fixtures of the AVIF reader (the rav1e sink wrote them until
+/// 2026-11-15). `row(y)` returns RGBA8 row `y`.
+#[cfg(all(test, feature = "avif-read"))]
+pub(crate) fn encode_for_test(
+    width: u32,
+    height: u32,
+    chroma: ChromaSubsampling,
+    quality: f32,
+    row: impl Fn(u32) -> Vec<u8>,
+) -> Vec<u8> {
+    let mut frame = writer::Frame::new(writer::Config {
+        width,
+        height,
+        has_alpha: false,
+        quality,
+        speed: 10,
+        threads: 1,
+        chroma: match chroma {
+            ChromaSubsampling::Yuv444 => writer::Chroma::Yuv444,
+            ChromaSubsampling::Yuv420 => writer::Chroma::Yuv420,
+        },
+        depth: 10,
+    })
+    .unwrap();
+    for y in 0..height {
+        frame.write_row(y, &row(y)).unwrap();
+    }
+    frame.finish().unwrap()
 }

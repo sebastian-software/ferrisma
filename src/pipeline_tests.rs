@@ -11,8 +11,6 @@ fn real_jpeg_reaches_valid_bytes_through_m1_graph() {
         output_height: 3,
         filter: ResizeFilter::Area,
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        // Rav1e's frame accounting is checked below; pin it explicitly.
-        avif_encoder: crate::pipeline::AvifEncoder::Rav1e,
         quality: 85.0,
         speed: 9,
         max_managed_bytes: 1024 * 1024,
@@ -24,7 +22,7 @@ fn real_jpeg_reaches_valid_bytes_through_m1_graph() {
     assert_eq!(image.report.decoder_requests, 1);
     assert_eq!(image.report.decoder_full_frame_buffers, 0);
     assert_eq!(image.report.engine_full_frame_intermediates, 0);
-    // rav1e's 10-bit 4:4:4 input frame, including its padding, is charged.
+    // The AVIF writer's known RGBA and YUV frames are charged.
     assert!(image.report.encoder_output_frame_bytes >= 3 * 3 * 3 * 2);
     assert!(image.report.peak_managed_bytes >= image.report.encoder_output_frame_bytes);
     // Stage timers are observations: the whole run covers every stage, and
@@ -427,7 +425,7 @@ fn a_backend_receives_the_request_and_every_output_row() {
         output_height: 5,
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
         quality: 42.5,
-        // Outside rav1e's range: the backend validates its own scale.
+        // The backend validates speed on its own scale.
         speed: 0,
         encoder_threads: 3,
         chroma_subsampling: ChromaSubsampling::Yuv420,
@@ -450,23 +448,8 @@ fn a_backend_receives_the_request_and_every_output_row() {
     assert_eq!(output.report.encoder_backend, "recorder");
     assert_eq!(output.report.encoder_output_frame_bytes, 7 * 5 * 4);
     assert!(output.report.opaque_encoder_memory);
-    assert_eq!(
-        transcode(
-            jpeg,
-            ImageFormat::Jpeg,
-            TransformOptions {
-                speed: 9,
-                avif_encoder: crate::pipeline::AvifEncoder::Rav1e,
-                ..options
-            }
-        )
-        .unwrap()
-        .report
-        .encoder_backend,
-        "rav1e"
-    );
-    // Without a backend or selection, the build's default encoder runs:
-    // the workspace libavif writer whenever `avif-own-write` is compiled in.
+    // Without a backend, the built-in AVIF writer runs: the workspace
+    // libavif writer (rav1e was selectable here until 2026-11-15).
     let default_backend = transcode(
         jpeg,
         ImageFormat::Jpeg,
@@ -478,14 +461,7 @@ fn a_backend_receives_the_request_and_every_output_row() {
     .unwrap()
     .report
     .encoder_backend;
-    assert_eq!(
-        default_backend,
-        if cfg!(feature = "avif-own-write") {
-            "libavif-rs/aom"
-        } else {
-            "rav1e"
-        }
-    );
+    assert_eq!(default_backend, "libavif-rs/aom");
     // The rows do not depend on the transform thread count.
     for threads in [1, 4] {
         let again = transcode_with(

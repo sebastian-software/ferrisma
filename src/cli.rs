@@ -8,8 +8,8 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use crate::pipeline::{
-    AvifEncoder, ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy,
-    JpegXlOptions, KernelLevel, Output, OutputFormat, ResizeFilter, TransformOptions, WebpOptions,
+    ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy, JpegXlOptions,
+    KernelLevel, Output, OutputFormat, ResizeFilter, TransformOptions, WebpOptions,
     WorkingPrecision, transcode, transcode_with,
 };
 
@@ -202,7 +202,6 @@ fn version_text(build_id: Option<&str>) -> String {
         (cfg!(feature = "jpeg-xl-write"), "jpeg-xl-write"),
         (cfg!(feature = "avif-read"), "avif-read"),
         (cfg!(feature = "avif-write"), "avif-write"),
-        (cfg!(feature = "avif-own-write"), "avif-own-write"),
         (cfg!(feature = "icc"), "icc"),
     ]
     .into_iter()
@@ -223,9 +222,9 @@ fn version_text(build_id: Option<&str>) -> String {
 }
 
 /// Run the command with `args` (the program name first), encoding with
-/// `backend`, or with the selected built-in sink when it is `None`. Explicit
-/// `--avif-encoder` or `--avif-depth` flags cannot accompany an external
-/// backend: its identity and depth are not available through the trait.
+/// `backend`, or with the built-in sink when it is `None`. An explicit
+/// `--avif-depth` cannot accompany an external backend: its depth is not
+/// available through the trait.
 ///
 /// # Errors
 /// Invalid arguments, unreadable input, unwritable output and every
@@ -246,7 +245,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--avif-encoder=libavif (default with avif-own-write)|rav1e] [--avif-depth=8|10 (libavif, default 10)] [--quality=75 (selected encoder's own scale; rav1e 1-100, libavif 0-100, not comparable)] [--speed=6 (rav1e 1-10, libavif 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
+            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--webp-lossless --webp-level=4] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--avif-depth=8|10 (default 10)] [--quality=75 (AVIF: libavif's 0-100)] [--speed=6 (AVIF: AOM cpu-used 0-10)] [--encoder-threads=1] [--transform-threads=0] [--chroma=444|420 (AVIF)] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]"
         );
         return Ok(ExitCode::from(2));
     }
@@ -289,14 +288,9 @@ pub fn run(
     {
         return Err("--jxl-distance and --jxl-lossless are mutually exclusive".into());
     }
-    let mut avif_encoder = None;
     let mut avif_depth = None;
     for option in args.iter().skip(5) {
-        if let Some(value) = option.strip_prefix("--avif-encoder=") {
-            if avif_encoder.replace(value).is_some() {
-                return Err("--avif-encoder may only be set once".into());
-            }
-        } else if let Some(value) = option.strip_prefix("--avif-depth=") {
+        if let Some(value) = option.strip_prefix("--avif-depth=") {
             if avif_depth.replace(value.parse::<u8>()?).is_some() {
                 return Err("--avif-depth may only be set once".into());
             }
@@ -304,30 +298,17 @@ pub fn run(
             apply_option(&mut options, option)?;
         }
     }
-    if backend.is_some() && (avif_encoder.is_some() || avif_depth.is_some()) {
-        return Err("AVIF encoder options cannot be combined with an external backend".into());
-    }
-    if output_extension != Some("avif") && (avif_encoder.is_some() || avif_depth.is_some()) {
-        return Err("AVIF encoder options require .avif output".into());
-    }
-    // Without a selector the build's default encoder applies (libavif when
-    // `avif-own-write` is compiled in). `--quality`/`--speed` are passed to
-    // the selected encoder unchanged, on its own scale.
-    let selected = match avif_encoder {
-        None => AvifEncoder::default(),
-        Some("rav1e") => AvifEncoder::Rav1e,
-        Some("libavif") => AvifEncoder::Libavif { depth: 10 },
-        Some(_) => return Err("--avif-encoder must be rav1e or libavif".into()),
-    };
-    options.avif_encoder = match (selected, avif_depth) {
-        (encoder, None) => encoder,
-        (AvifEncoder::Libavif { .. }, Some(depth)) => AvifEncoder::Libavif { depth },
-        (_, Some(_)) => {
-            return Err(
-                "--avif-depth requires the libavif encoder (--avif-encoder=libavif)".into(),
-            );
+    if let Some(depth) = avif_depth {
+        if backend.is_some() {
+            return Err("--avif-depth cannot be combined with an external backend".into());
         }
-    };
+        if output_extension != Some("avif") {
+            return Err("--avif-depth requires .avif output".into());
+        }
+        // The only AVIF writer (libavif/AOM) validates the depth; the removed
+        // `--avif-encoder=` selector is an unknown option since 2026-11-15.
+        options.avif_depth = depth;
+    }
     let format = parse_format(input_path)?;
     let data = read_input(std::fs::File::open(input_path)?, options.max_input_bytes)?;
     let output = match backend {
@@ -596,11 +577,17 @@ mod tests {
     }
 
     #[test]
-    fn the_removed_jpeg_xl_reader_selection_is_an_unknown_option() {
+    fn the_removed_backend_selections_are_unknown_options() {
         // One JPEG XL reader since 2026-11-15 (ADR-0032): the former
         // `--jxl-decoder=` selector is refused, not ignored.
         let mut options = TransformOptions::default();
-        for flag in ["--jxl-decoder=libjxl-rs", "--jxl-decoder=jxl-oxide"] {
+        // So is the former `--avif-encoder=` (one AVIF writer since then).
+        for flag in [
+            "--jxl-decoder=libjxl-rs",
+            "--jxl-decoder=jxl-oxide",
+            "--avif-encoder=libavif",
+            "--avif-encoder=rav1e",
+        ] {
             let error = apply_option(&mut options, flag).unwrap_err();
             assert!(error.to_string().starts_with("unknown option"), "{error}");
         }

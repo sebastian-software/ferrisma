@@ -21,13 +21,6 @@ doc = false
 bench = false
 
 [[bin]]
-name = "transcode_own_avif"
-path = "fuzz_targets/transcode_own_avif.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "transcode_jxl_out"
 path = "fuzz_targets/transcode_jxl_out.rs"
 test = false

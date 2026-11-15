@@ -197,18 +197,25 @@ fn oversized_per_image_threads_fail_before_opening_input() {
     }
 }
 
-#[cfg(not(feature = "avif-own-write"))]
+/// Without `avif-write` built-in AVIF output reports its missing feature.
+/// (Until 2026-11-15 this selected the libavif encoder explicitly.)
 #[test]
-fn own_avif_selection_requires_the_feature_before_opening_input() {
-    use crate::pipeline::{AvifEncoder, ProcessingErrorKind, transcode};
+fn built_in_avif_output_requires_the_feature() {
+    use crate::pipeline::{InputProfilePolicy, ProcessingErrorKind, transcode};
     let options = TransformOptions {
-        avif_encoder: AvifEncoder::Libavif { depth: 10 },
+        output_width: 2,
+        output_height: 2,
+        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
         ..TransformOptions::default()
     };
     assert_eq!(
-        transcode(&[], ImageFormat::Jpeg, options)
-            .unwrap_err()
-            .kind(),
+        transcode(
+            include_bytes!("../tests/fixtures/sample.jpg"),
+            ImageFormat::Jpeg,
+            options
+        )
+        .unwrap_err()
+        .kind(),
         ProcessingErrorKind::FeatureDisabled
     );
 }

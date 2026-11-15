@@ -7,7 +7,7 @@
 //!
 //! ```sh
 //! cargo build --release -p ferrisma --example cli_subset \
-//!   --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,avif-write,icc
+//!   --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc
 //! ```
 
 use std::error::Error;

@@ -2,8 +2,8 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-13
-- **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (the comparison with rav1e is context, not a criterion)
+- **Last reviewed:** 2026-11-15
+- **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (the comparison with rav1e is context, not a criterion); the owner decision of 2026-11-15 recorded [below](#the-only-avif-writer-2026-11-15-owner-decision) (the selection is gone: the workspace AOM writer is the only AVIF writer)
 - **Related:** [0018](0018-optional-codec-and-cms-dependencies.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0031](0031-workspace-libavif-input-experiment.md)
 
 ## Context
@@ -138,6 +138,75 @@ alone, explicit rav1e, and the per-encoder quality range; the
 `ferrisma-libavif` facade test checks that only a nondefault selection
 conflicts with WebP output or an external backend.
 
+## The only AVIF writer (2026-11-15, owner decision)
+
+**Decision.** rav1e leaves the engine; the workspace libavif/AOM writer is the
+only AVIF writer, so there is nothing left to select. Removed: the rav1e sink
+(`src/avif_sink.rs`, its quality/speed mapping `src/av1_tuning.rs` and its
+tests `src/avif_sink_tests.rs`), the dependencies `rav1e` (with `asm` and
+`threading`) and `avif-serialize`, `AvifEncoder` (`Rav1e`,
+`Libavif { depth }`), `TransformOptions::avif_encoder`, the CLI flag
+`--avif-encoder=`, the fallback "rav1e without the workspace feature", and
+the `encoder_backend` value `"rav1e"`. The AV1 depth, formerly carried by
+`AvifEncoder::Libavif`, is `TransformOptions::avif_depth` (8 or 10, default
+10; _working decision 2026-11-15, delegated, revisable by the owner_, kept
+deliberately small because the per-format options type follows in a
+separate change). A nondefault depth with another output or an external
+backend is refused, as a nondefault selection was. `quality` and `speed`
+keep their meaning for the AOM encoder (0–100, 0–10). `transcode_with`, the
+`EncoderBackend`/`RowEncoder` traits and `LibavifBackend` are unchanged
+(experimental tier); the built-in writer is that backend.
+
+**Why.** rav1e brought a second quality scale that is not comparable with
+libavif's (#216: rav1e 70/80/90 ≈ libavif 50/55/78), bytes that depend on the
+thread count and host, AVX-512 assembly outside the v1.0 SIMD scope
+(ADR-0041, ADR-0020 D6), and no gate against an original, while the v1.0 bar
+is bit identity with the ported original (ADR-0041). It was a transitional
+technology from before the workspace port existed.
+
+**Feature name.** _Working decision 2026-11-15 (delegated, revisable by the
+owner):_ the workspace writer takes the shorter name `avif-write`, as
+`webp-write` and `jpeg-xl-write` name the only writer of their format;
+`avif-own-write` is removed without an alias (pre-1.0). The name changed in
+the root `Cargo.toml` (`features`, `cli`), `crates/ferrisma-libavif/Cargo.toml`,
+`src/`, `tests/` and `crates/ferrisma-libavif/tests/` cfg gates,
+`src/cli.rs` (`--version` feature list), `.github/workflows/ci.yml` (`rust`
+feature loop), `.github/workflows/bench-v1-perf.yml`,
+`examples/cli_subset.rs`, the README, CONTRIBUTING, `docs/status.md`,
+`docs/compatibility.md`, `docs/supported-matrix.md`, `docs/architecture.md`,
+`docs/getting-started.md`, `docs/codecs.md`, `docs/publishing.md` and
+`crates/ferrisma-avif-write/README.md`. Dated records keep the old names.
+
+**Known cost.** `avif-write` built on stable Rust 1.98 with rav1e; the
+workspace writer needs the pinned nightly on native macOS ARM64 or GNU
+Linux x86-64, as AVIF input already does. A stable-toolchain build can
+neither read nor write AVIF until the workspace AVIF port builds on stable
+Rust (the task that follows). _Working decision 2026-11-15 (delegated,
+revisable by the owner):_ `avif-write` moves from the stable to the
+experimental tier until then (ADR-0040). CI's `minimum-rust` stable set
+drops `avif-write`. NASM was needed only for rav1e's assembly: the
+workspace AOM port is a Rust translation without an assembler step, so the
+engine's CI jobs (`rust`, `minimum-rust`) and the fuzz workflows no longer
+install it (the codec jobs that build the C originals keep it).
+
+**Tests.** Removed with rav1e: `avif_sink_tests` (opaque output in both
+chroma layouts, the alpha item, size-derived tiles and thread-count
+independence, the budget charge), `supported_matrix::rav1e_writes_ten_bit_without_a_container_colr`,
+`rav1e_writes_an_alpha_item_for_transparent_input`,
+`rav1e_quality_and_speed_start_at_one`,
+`tests/report_backends.rs::explicitly_selected_rav1e_is_reported`, and the
+rav1e halves of `hardening_tests::api_rejects_invalid_quality_and_mismatched_input_format`,
+`pipeline_tests::a_backend_receives_the_request_and_every_output_row`,
+`tests/own_avif_cli.rs` and the `ferrisma-libavif` conflict tests. Re-pointed
+to the workspace writer: the AVIF reader tests in `src/codecs/avif.rs` and
+`hardening_tests::avif_decoder_rejects_truncated_container_without_panicking`,
+which used the rav1e sink to write their fixtures
+(`own_avif::encode_for_test`), and the output-limit, metadata and
+selection-conflict cases of `supported_matrix` (now `avif_depth`). The CLI
+tests assert that `--avif-encoder=` is an unknown option. The test-only
+`ravif` dev-dependency stays for one identity-matrix fixture of the AVIF
+reader tests; it pulls rav1e without assembly into test builds only.
+
 ## Review when
 
 Reassess the selection and default when ADR-0025 evidence is complete, the
@@ -198,3 +267,4 @@ if hosted x86-64 golden evidence fails.
   [the unsafe review](../unsafe-review.md) and at each block
   ([analysis](../benchmarks/v1.0-engine-performance-analysis-2026-11-12.md#applied-fixes-2026-11-12-evening)).
 - 2026-11-13 — Owner decision D1, recorded in [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md): the workspace codec ports are the default paths even where they are slower than third-party libraries. The libavif/AOM writer therefore stays the default whenever `avif-own-write` is compiled in, and the comparison with rav1e (time, RSS, bytes at matched quality) is context, not a criterion; rav1e stays an explicit backend. Quiet-host timing and peak RSS are no longer gates for the default (D3); speed is reported against C libavif + libaom in ADR-0041's three columns. Still open and not decided by this amendment: the default AVIF quality per encoder (#216) and the other confirmations listed as ADR-0041 O5. The quality gate now applies to the writer's AOM port: its output must equal libaom's own builds on each target, including libaom's NEON build on AArch64, where the [CI record](../benchmarks/v1.0-ci-performance-2026-11-12.md#correctness-side-checks-all-hosts) found a difference against the release build. The hosted golden evidence (#134) stays a regression guard.
+- 2026-11-15 — Owner decision: rav1e leaves the engine and the workspace AOM writer is the only AVIF writer; `avif-own-write` is renamed `avif-write` and the depth moves to `TransformOptions::avif_depth` (working decisions, delegated). Recorded in [The only AVIF writer](#the-only-avif-writer-2026-11-15-owner-decision); the sections above are kept for history.

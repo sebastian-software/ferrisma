@@ -235,8 +235,9 @@ still open (see [publishing](publishing.md)).
 
 ## Current direct codec/CMS choices
 
-_Note 2026-11-15:_ `jxl-oxide` left the runtime (ADR-0032); the package
-counts and bundles above were measured before and still include it. They
+_Note 2026-11-15:_ `jxl-oxide` and `rav1e`/`avif-serialize` left the runtime
+(ADR-0032, ADR-0037); the package counts and bundles above were measured
+before and still include them. They
 have not been regenerated for this change.
 
 | Dependency | Cargo feature | Upstream metadata/license | Review focus |
@@ -248,7 +249,7 @@ have not been regenerated for this change.
 | workspace `libjxl-rs` encoder sources (`src/jxl/enc_*.rs`, `encode*.rs`, `modular/encoding/enc_*.rs`, `jpeg/enc_jpeg_data.rs`) | `jpeg-xl-write` (in `cli` since 2026-11-12): lossless entry point and, through `ferrisma-jxl-encoder`, the public lossy encoder (#27, #92) | Same package and expression; every encoder file reviewed on 2026-11-12 carries the JPEG XL Project Authors BSD-3-Clause header, and the package retains [LICENSE](../codecs/libjxl-rs/LICENSE) and [PATENTS](../codecs/libjxl-rs/PATENTS) | Reachable from the engine; the `cli` macOS ARM64 bundle was regenerated (above); the PATENTS scope question and the encoder's internal unsafe review ([unsafe review](unsafe-review.md)) remain open |
 | `jxl-oxide` | dev-dependency only since 2026-11-15 (it was `jpeg-xl-read`) | MIT OR Apache-2.0 | Independent cross-check in tests and the benchmark's context column; not linked into the library or CLI |
 | workspace `libavif-rs` / `libavif-aom` through `ferrisma-avif-read` | `avif-read` | libavif BSD-2-Clause; AOM port retains BSD-2-Clause, BSD-3-Clause, MIT notices and libaom's patent grant | Isolated unsafe boundary, generated-source provenance, AOM reference decode, normal dependency on the dav1d port and its retained notices, malformed bitstreams, native/nightly target matrix, opaque codec scratch and full Argon/dav1d gate |
-| `rav1e` / `avif-serialize` | `avif-write` | BSD-2-Clause encoder, BSD-3-Clause container writer; `rav1e` links hand-written assembly | Encoded CICP, alpha, frame materialization and opaque scratch |
+| `rav1e` / `avif-serialize` | none since 2026-11-15 (they were `avif-write`) | BSD-2-Clause encoder, BSD-3-Clause container writer | Removed from the runtime (ADR-0037); rav1e remains only inside the test-only `ravif` dev-dependency, without assembly |
 | `ravif` | dev-dependency only | BSD-3-Clause | Writes one test fixture; not linked into the library or CLI |
 | `moxcms` | `icc` | BSD-3-Clause OR Apache-2.0 | ICC parsing, color fidelity, malformed profiles, SIMD/native code |
 

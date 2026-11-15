@@ -349,25 +349,21 @@ impl DecodeSource for AvifSource<'_> {
 #[cfg(all(test, feature = "avif-write"))]
 mod tests {
     use super::{AvifSource, Decoder};
-    use crate::avif_sink::{AvifSink, test_settings};
     use crate::decoder::{DecodeSource, DecodedRow, SampleType};
     use crate::error::Error;
     use crate::geometry::{Rect, Size};
     use crate::memory::MemoryBudget;
 
+    /// A 6x4 AVIF from the workspace writer (the rav1e sink until
+    /// 2026-11-15).
     fn encoded() -> Vec<u8> {
-        let budget = MemoryBudget::new(8 << 20);
-        let mut sink = AvifSink::new(
-            Size::new(6, 4).unwrap(),
-            false,
-            test_settings(90.0, 10),
-            &budget,
+        crate::own_avif::encode_for_test(
+            6,
+            4,
+            crate::pipeline::ChromaSubsampling::Yuv444,
+            90.0,
+            |_| [200, 40, 90, 255].repeat(6),
         )
-        .unwrap();
-        for row in 0..4 {
-            sink.write_row(row, &[200, 40, 90, 255].repeat(6)).unwrap();
-        }
-        sink.finish(&budget).unwrap().bytes
     }
 
     fn nclx_offset(file: &[u8]) -> usize {
@@ -570,31 +566,24 @@ mod tests {
     /// emits exactly the single-thread samples.
     #[test]
     fn decode_threads_do_not_change_samples() {
-        use crate::avif_sink::EncodeSettings;
         use crate::pipeline::ChromaSubsampling;
         let (width, height) = (96_u32, 64_u32);
         let mut files = Vec::new();
         for chroma in [ChromaSubsampling::Yuv444, ChromaSubsampling::Yuv420] {
-            let budget = MemoryBudget::new(32 << 20);
-            let settings = EncodeSettings {
-                quality: 70.0,
-                speed: 10,
-                threads: 1,
-                parallel_tiles: false,
+            files.push(crate::own_avif::encode_for_test(
+                width,
+                height,
                 chroma,
-            };
-            let mut sink =
-                AvifSink::new(Size::new(width, height).unwrap(), false, settings, &budget).unwrap();
-            for y in 0..height {
-                let row: Vec<u8> = (0..width)
-                    .flat_map(|x| {
-                        let v = u8::try_from((x * 7 + y * 3) % 256).unwrap();
-                        [v, v.wrapping_mul(3), 255 - v, 255]
-                    })
-                    .collect();
-                sink.write_row(y, &row).unwrap();
-            }
-            files.push(sink.finish(&budget).unwrap().bytes);
+                70.0,
+                |y| {
+                    (0..width)
+                        .flat_map(|x| {
+                            let v = u8::try_from((x * 7 + y * 3) % 256).unwrap();
+                            [v, v.wrapping_mul(3), 255 - v, 255]
+                        })
+                        .collect()
+                },
+            ));
         }
         files.push(include_bytes!(
             "../../codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/fox.profile2.12bpc.yuv444.avif"

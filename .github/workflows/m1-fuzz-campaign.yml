@@ -23,28 +23,16 @@ jobs:
             target: transcode
             features: ''
           - runner: ubuntu-latest
-            target: transcode_own_avif
-            features: ''
-          - runner: ubuntu-latest
             target: transcode_jxl_out
             features: ''
           - runner: macos-15
             target: transcode
             features: ''
           - runner: macos-15
-            target: transcode_own_avif
-            features: ''
-          - runner: macos-15
             target: transcode_jxl_out
             features: ''
     steps:
       - uses: actions/checkout@v4
-      - name: Install AV1 assembler on Linux
-        if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y nasm
-      - name: Install AV1 assembler on macOS
-        if: runner.os == 'macOS'
-        run: command -v nasm || brew install nasm
       - name: Install LLVM coverage tools
         run: rustup component add llvm-tools-preview
       - name: Install pinned fuzz driver
@@ -63,7 +51,6 @@ jobs:
             rustc -Vv
             cargo -V
             cargo fuzz --version
-            nasm -v
             shasum -a 256 rust-toolchain.toml Cargo.lock fuzz/Cargo.lock
             shasum -a 256 Cargo.lock fuzz/Cargo.lock > fuzz/campaign/lockfiles.sha256
             echo "sanitizer=address; rustflags=--cfg libavif_rs_asan; seed=1; max_total_time=1800; rss_limit_mb=2048"

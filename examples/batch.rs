@@ -9,7 +9,7 @@ use std::error::Error;
 use std::time::Instant;
 
 use ferrisma::pipeline::{
-    AvifEncoder, BatchItem, Engine, ImageFormat, InputProfilePolicy, TransformOptions, transcode,
+    BatchItem, Engine, ImageFormat, InputProfilePolicy, TransformOptions, transcode,
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -32,9 +32,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let data: Vec<Vec<u8>> = files.iter().map(std::fs::read).collect::<Result<_, _>>()?;
     let base = TransformOptions {
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        // The recorded batch comparisons use rav1e's quality scale; keep that
-        // encoder explicit now that libavif is the `cli` default.
-        avif_encoder: AvifEncoder::Rav1e,
+        // libavif's quality scale; the batch records before 2026-11-15 used
+        // rav1e's, which is not comparable at the same number.
         quality: 80.0,
         speed: 6,
         ..TransformOptions::default()

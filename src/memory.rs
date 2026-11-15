@@ -147,15 +147,9 @@ pub(crate) fn try_filled_vec<T: Clone>(count: usize, value: T) -> Result<Vec<T>,
 /// Budgeted bytes owned by another component (see `reserve_external`).
 #[derive(Debug)]
 pub(crate) struct ExternalReservation {
-    #[cfg_attr(not(feature = "avif-write"), allow(dead_code))]
+    // Held for its `Drop`, which releases the bytes.
+    #[allow(dead_code)]
     reservation: Reservation,
-}
-
-impl ExternalReservation {
-    #[cfg(feature = "avif-write")]
-    pub(crate) fn bytes(&self) -> usize {
-        self.reservation.bytes
-    }
 }
 
 #[derive(Debug)]

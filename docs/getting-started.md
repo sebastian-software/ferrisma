@@ -6,8 +6,8 @@ and audit gates remain open; see [current status](status.md).
 ## Build the CLI
 
 Clone the repository and run from its root. The root toolchain file selects the
-nightly needed by the workspace's generated AVIF code. On x86-64, the AVIF
-path needs NASM.
+nightly needed by the workspace's generated AVIF code. NASM is no longer
+needed (it was rav1e's, removed on 2026-11-15).
 
 ```sh
 git clone https://github.com/sebastian-software/ferrisma.git
@@ -28,24 +28,22 @@ identity, which is `unknown` unless `FERRISMA_BUILD_ID` was set at compile
 time (`src/cli.rs`, #237).
 
 The `cli` feature enables JPEG, still WebP, JPEG XL and AVIF input, AVIF and
-still WebP output, and ICC support. Since 2026-11-12 the default AVIF encoder
-is the workspace libavif/AOM writer (`avif-own-write`, 10-bit unless
-`--avif-depth=8`); `--avif-encoder=rav1e` selects `rav1e` (`avif-write`)
-explicitly. Rust callers use `AvifEncoder::Rav1e` or
-`AvifEncoder::Libavif { depth: 8 }` in `TransformOptions`.
-The separate [`ferrisma-libavif` adapter](../crates/ferrisma-libavif/README.md)
-delegates to the same implementation. `--quality` and `--speed` go unchanged to
-the selected encoder, on its own scale: rav1e accepts quality 1–100, libavif
-0–100 in 64 quantizer steps, and the numbers are **not** comparable. At equal
-SSIMULACRA2 on the recorded photographs, rav1e 70/80/90 matched roughly
-libavif 50/55/78, so a quality value tuned for rav1e gives larger files with
-libavif ([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)).
+still WebP output, and ICC support. The AVIF encoder is the workspace
+libavif/AOM writer (`avif-write`, 10-bit unless `--avif-depth=8`;
+`TransformOptions::avif_depth` in Rust), the only one since 2026-11-15:
+`rav1e`, `--avif-encoder=` and `AvifEncoder` were removed. The separate
+[`ferrisma-libavif` adapter](../crates/ferrisma-libavif/README.md) delegates
+to the same implementation. `--quality` and `--speed` go unchanged to it on
+libavif's scale: quality 0–100 in 64 quantizer steps, speed 0–10. A quality
+tuned for the former rav1e encoder is not comparable: at equal SSIMULACRA2
+on the recorded photographs, rav1e 70/80/90 matched roughly libavif
+50/55/78 ([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)).
 The current `avif-read` uses the same
 workspace port's AOM decoder through an isolated safe wrapper, so the former
 `rav1d`/dav1d symbol collision is gone. Own AVIF reading and writing require the pinned
 nightly and a supported native target (macOS ARM64 or GNU Linux x86-64).
-The codec-free core and features without `avif-read`, `avif-own-write`, or `cli` retain stable Rust 1.98
-support. See the [measured AVIF input trade-off](benchmarks/M2-avif-input.md).
+The codec-free core and features without `avif-read`, `avif-write`, or `cli` retain stable Rust 1.98
+support; such a build has no AVIF input or output. See the [measured AVIF input trade-off](benchmarks/M2-avif-input.md).
 
 WebP lossy uses its own quality and speed settings. Lossless uses only
 `--webp-level=0..9`; `--quality`, `--speed`, `--chroma`, and multiple encoder

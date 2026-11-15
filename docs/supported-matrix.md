@@ -43,18 +43,16 @@ JPEG XL input defaults to the workspace libjxl-rs reader
 reader since 2026-11-15 (owner decision; `jxl-oxide` left the runtime and is a
 test-only cross-check), and AVIF output to
 the workspace libavif/AOM writer
-([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)). The default AVIF
-quality per encoder (#216) and lossy d1.0 as the JPEG XL output default are
+([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)), the only AVIF
+writer since 2026-11-15 (owner decision; rav1e left the engine). The default
+AVIF quality (#216) and lossy d1.0 as the JPEG XL output default are
 still **pending owner confirmation** (ADR-0041 O5).
 
 ## Cargo features and builds
 
 `default = []`: without features the engine has no codec. Each feature adds
-one adapter. Every input format has one reader (ADR-0043 D5). The default
-AVIF writer follows the compiled features; because Cargo unifies features, a
-dependency that enables a workspace feature changes the default of the whole
-build. Select the encoder explicitly (`TransformOptions::avif_encoder`) when
-that matters.
+one adapter. Since 2026-11-15 every format has one reader and one writer
+(ADR-0043 D5), so no backend follows feature unification any more.
 
 | Feature | Provides | Backend | Default role | Toolchain | Extra prerequisites | Proposed tier (ADR-0040) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -63,26 +61,26 @@ that matters.
 | `webp-write` | still WebP output | workspace `libwebp-rs` | only WebP writer | stable 1.98 | none | Stable |
 | `jpeg-xl-read` | JPEG XL input | workspace `libjxl-rs` via `ferrisma-jxl-decoder` | only JPEG XL reader (since 2026-11-15; this name selected `jxl-oxide` before, and the workspace reader was `jpeg-xl-own-read`) | stable 1.98 | none | Stable as capability |
 | `avif-read` | still AVIF input | workspace libavif/AOM via `ferrisma-avif-read` | only AVIF reader | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Experimental |
-| `avif-own-write` | AVIF output | workspace libavif/AOM via `ferrisma-avif-write` | **default AVIF encoder** when compiled in | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Experimental |
-| `avif-write` | AVIF output | `rav1e` 0.8 + `avif-serialize` | default only without `avif-own-write`; otherwise `--avif-encoder=rav1e` | stable 1.98 | NASM on x86-64 (rav1e assembly, ADR-0018) | Stable as capability |
+| `avif-write` | AVIF output | workspace libavif/AOM via `ferrisma-avif-write` | only AVIF writer (since 2026-11-15; this name selected `rav1e` 0.8 + `avif-serialize` before, and the workspace writer was `avif-own-write`) | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Experimental until it builds on stable (working decision 2026-11-15) |
 | `jpeg-xl-write` | JPEG XL output: lossy d1.0 (default) or lossless | workspace `libjxl-rs`: public encoder through `ferrisma-jxl-encoder` (lossy), fixed-profile entry point (lossless) | only JPEG XL writer; in `cli` since 2026-11-12 | stable 1.98 | none | Experimental |
 | `icc` | rendered-ICC → sRGB conversion | `moxcms` 0.9 | needed for `UseRenderedIcc` / `--use-rendered-icc` | stable 1.98 | none | Stable |
-| `cli` | the `ferrisma` binary | `jpeg-read`, `webp-read`, `jpeg-xl-read`, `avif-read`, `avif-write`, `avif-own-write`, `webp-write`, `jpeg-xl-write`, `icc` | — | pinned nightly | native macOS ARM64 or GNU Linux x86-64; NASM on x86-64 | Stable command line, experimental backends |
+| `cli` | the `ferrisma` binary | `jpeg-read`, `webp-read`, `jpeg-xl-read`, `avif-read`, `avif-write`, `webp-write`, `jpeg-xl-write`, `icc` | — | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Stable command line, experimental backends |
 
 The pinned nightly is `nightly-2026-09-07` from
 [`rust-toolchain.toml`](../rust-toolchain.toml); the generated AVIF code needs
 `extern_types` and `c_variadic`. Stable Rust 1.98 is the declared
 `rust-version`. The stable-compatible set is the one CI's `minimum-rust` job
-checks: `jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,avif-write,icc`.
-A stable-toolchain build that needs AVIF output therefore uses rav1e; a
-stable-toolchain build cannot read AVIF.
+checks: `jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc`.
+**Known cost of the 2026-11-15 removal of rav1e:** a stable-toolchain build
+can neither read nor write AVIF (before, it wrote AVIF through rav1e) until
+the workspace AVIF port builds on stable Rust. NASM is no longer needed.
 
 Evidence: CI `rust` job checks each feature alone (`cargo check
 --no-default-features --features <feature>` for every feature above);
 `minimum-rust` checks the stable set with `cargo +1.98.0`, including
 `jpeg-xl-write` since 2026-11-12 (before, a local check only);
 the local run in [Verification record](#verification-record-2026-11-12-macos-arm64)
-repeats both and confirms that `avif-own-write` fails on stable with `E0554`.
+repeats both and confirms that `avif-own-write` (now `avif-write`) fails on stable with `E0554`.
 
 ## Inputs
 
@@ -271,29 +269,29 @@ supported.
 
 ## Outputs
 
-| | AVIF, libavif/AOM (default) | AVIF, rav1e (explicit) | still WebP | JPEG XL |
-| --- | --- | --- | --- | --- |
-| Feature / selection | `avif-own-write`; `AvifEncoder::Libavif { depth }`, `--avif-encoder=libavif` | `avif-write`; `AvifEncoder::Rav1e`, `--avif-encoder=rav1e` | `webp-write`; `.webp` | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2 }` (`--jxl-lossless`) |
-| Bit depth | 10 (default) or 8 (`--avif-depth=8`) | always 10 | 8 | 8 |
-| Chroma | 4:4:4 (default) or 4:2:0 | 4:4:4 (default) or 4:2:0 | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling, patches off (equals `cjxl --patches=0 -e 7`); lossless: RGB Modular |
-| Quality | `quality` 0–100, rounded, 64 quantizer steps | `quality` 1–100 through `ravif`'s curve | `WebpOptions::Lossy { quality 1–100, speed }` or `Lossless { level 0–9 }` | lossy: Butteraugli distance 0.05 to below 3.0; `--quality` is rejected |
-| Speed | 0–10 (`cpu-used`) | 1–10 | lossy speed 1 (slowest)–10; lossless uses the level | fixed: effort 7 lossy, effort 2 lossless; `--speed` is rejected |
-| Alpha | auxiliary item at the color quality, omitted when opaque | separate 10-bit item at fixed quality 80, omitted when opaque | straight alpha | unassociated (straight) alpha at 8 bits, coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
-| Color signaling | AV1 header 1/13/6 full range **and** container `colr nclx` | AV1 header 1/13/6 full range; no container `colr` | embedded sRGB ICC | enum sRGB (lossy: XYB-encoded) |
-| Metadata | source EXIF/XMP/ICC not copied (no `Exif`/`mime` item, no `prof` `colr`); orientation applied, no `irot`/`imir`/`clap` written | same | source EXIF/XMP dropped, only the engine's sRGB `ICCP` chunk; orientation applied | orientation applied, written as 1 |
-| Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | padded 10-bit frame(s) | ARGB frame and lossy planes reserved | lossless: the measured one-shot peak, 76 bytes per pixel of opaque RGB including the input frame (scaled by 4/3 with alpha, derived, not measured), at least the codec planes known from the source path; lossy: input frame plus a source-derived codec estimate; reserved before encoding |
-| Determinism | bytes can depend on thread count and host | tiles derived from size: bytes independent of thread count | — | both profiles byte-identical with the C++ encoder on the port's recorded requests (macOS AArch64) |
-| Threads | `encoder_threads` 0–256 | `encoder_threads` 0–256 | serial: `encoder_threads` must be 1 | serial: `encoder_threads` must be 1 |
-| `max_output_bytes` | checked after the encoder returns: "encoded output exceeds max_output_bytes" | same | checked while writing: "managed buffer needs … bytes with … available" | lossy: checked while writing, as WebP; lossless: after the encoder returns, as AVIF |
+| | AVIF, libavif/AOM (the only AVIF writer; rav1e until 2026-11-15) | still WebP | JPEG XL |
+| --- | --- | --- | --- |
+| Feature / selection | `avif-write`; `.avif`; `avif_depth` / `--avif-depth=` | `webp-write`; `.webp` | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2 }` (`--jxl-lossless`) |
+| Bit depth | 10 (default) or 8 (`--avif-depth=8`) | 8 | 8 |
+| Chroma | 4:4:4 (default) or 4:2:0 | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling, patches off (equals `cjxl --patches=0 -e 7`); lossless: RGB Modular |
+| Quality | `quality` 0–100, rounded, 64 quantizer steps | `WebpOptions::Lossy { quality 1–100, speed }` or `Lossless { level 0–9 }` | lossy: Butteraugli distance 0.05 to below 3.0; `--quality` is rejected |
+| Speed | 0–10 (`cpu-used`) | lossy speed 1 (slowest)–10; lossless uses the level | fixed: effort 7 lossy, effort 2 lossless; `--speed` is rejected |
+| Alpha | auxiliary item at the color quality, omitted when opaque | straight alpha | unassociated (straight) alpha at 8 bits, coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
+| Color signaling | AV1 header 1/13/6 full range **and** container `colr nclx` | embedded sRGB ICC | enum sRGB (lossy: XYB-encoded) |
+| Metadata | source EXIF/XMP/ICC not copied (no `Exif`/`mime` item, no `prof` `colr`); orientation applied, no `irot`/`imir`/`clap` written | source EXIF/XMP dropped, only the engine's sRGB `ICCP` chunk; orientation applied | orientation applied, written as 1 |
+| Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | ARGB frame and lossy planes reserved | lossless: the measured one-shot peak, 76 bytes per pixel of opaque RGB including the input frame (scaled by 4/3 with alpha, derived, not measured), at least the codec planes known from the source path; lossy: input frame plus a source-derived codec estimate; reserved before encoding |
+| Determinism | bytes can depend on thread count and host | — | both profiles byte-identical with the C++ encoder on the port's recorded requests (macOS AArch64) |
+| Threads | `encoder_threads` 0–256 | serial: `encoder_threads` must be 1 | serial: `encoder_threads` must be 1 |
+| `max_output_bytes` | checked after the encoder returns: "encoded output exceeds max_output_bytes" | checked while writing: "managed buffer needs … bytes with … available" | lossy: checked while writing, as WebP; lossless: after the encoder returns, as AVIF |
 
-**The two AVIF quality scales are not comparable and are never remapped.**
-`quality` and `speed` go unchanged to the selected encoder. At equal
-SSIMULACRA2 on the recorded photographs, rav1e 70/80/90 matched roughly
-libavif 50/55/78; at `--quality=80` on the 800×533 flower, rav1e wrote 55,682
-bytes (SSIMULACRA2 77.455) and libavif 10-bit 100,512 bytes (88.307)
-([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)). A
-quality value tuned for rav1e gives larger files with libavif. The default
-`quality` is 75 on whichever scale is selected.
+**One AVIF quality scale since 2026-11-15:** `quality` and `speed` go
+unchanged to libavif. A quality tuned for the former rav1e encoder is not
+comparable: at equal SSIMULACRA2 on the recorded photographs, rav1e 70/80/90
+matched roughly libavif 50/55/78; at `--quality=80` on the 800×533 flower,
+rav1e wrote 55,682 bytes (SSIMULACRA2 77.455) and libavif 10-bit 100,512
+bytes (88.307) ([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)).
+The default `quality` is 75 on libavif's scale; whether that default stays
+is open (#216).
 
 Evidence through the public API (`supported_matrix::…`): libavif —
 `libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx` (encoder name
@@ -302,14 +300,11 @@ item when opaque, read back under `Strict`),
 `libavif_writes_eight_bit_and_420_on_request`,
 `libavif_writes_an_alpha_item_only_for_transparent_input`,
 `libavif_quality_speed_and_depth_ranges` (0–100, 0–10, depth 8/10, each
-rejection with libavif's reason); rav1e —
-`rav1e_writes_ten_bit_without_a_container_colr` (4:4:4 and 4:2:0, no `colr`,
-read back under `Strict` from the AV1 header's 1/13/6),
-`rav1e_writes_an_alpha_item_for_transparent_input`,
-`rav1e_quality_and_speed_start_at_one`; both —
+rejection with libavif's reason),
 `avif_output_drops_source_metadata_and_writes_upright_pixels`,
-`output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders`,
-`avif_encoder_selection_conflicts_with_other_outputs`; WebP —
+`output_byte_limit_applies_at_the_exact_byte_for_avif`,
+`avif_depth_conflicts_with_other_outputs` (the rav1e cases and the encoder
+selection were removed with rav1e on 2026-11-15); WebP —
 `webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp` (`VP8 `/`VP8L`
 plus `ICCP`, no `EXIF`/`XMP `, read back through the ICC),
 `webp_straight_alpha_output_in_both_profiles` (`ALPH` for lossy),
@@ -322,9 +317,8 @@ plus `ICCP`, no `EXIF`/`XMP `, read back through the ICC),
 (distance 0.05 and 2.99 accepted, 0.049 and 3.0 rejected, effort 3 rejected,
 `quality`/`speed` with JPEG XL output rejected),
 `output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`.
-The alpha quality of each AVIF encoder (libavif: the color quality; rav1e:
-fixed 80) and the materialization rows are read from the code
-(`src/own_avif.rs`, `src/avif_sink.rs`, `src/webp_sink.rs`, `src/jxl_sink.rs`)
+The AVIF alpha quality (the color quality) and the materialization rows are
+read from the code (`src/own_avif.rs`, `src/webp_sink.rs`, `src/jxl_sink.rs`)
 and pinned by the unit tests below, not by the public-API cases.
 
 Evidence: AVIF/libavif — `crates/ferrisma-libavif/tests/encode.rs`
@@ -334,13 +328,10 @@ Evidence: AVIF/libavif — `crates/ferrisma-libavif/tests/encode.rs`
 `output_limit_is_enforced_after_backend_finish`,
 `own_encoder_facade_handles_reference_batch_and_invalid_settings`,
 `independent_oriented_avif_reference_reaches_own_encoder`);
-`tests/own_avif_cli.rs::normal_cli_selects_own_encoder_with_order_independent_depth`;
+`tests/own_avif_cli.rs::cli_writes_avif_through_libavif_at_either_depth`;
 `hardening_tests::api_rejects_invalid_quality_and_mismatched_input_format`.
-AVIF/rav1e — `avif_sink_tests::opaque_output_decodes_without_alpha_in_both_chroma_layouts`,
-`transparent_output_carries_an_alpha_item`,
-`size_derived_tiles_make_bytes_independent_of_the_thread_count`,
-`the_encoder_frame_is_charged_to_the_budget`;
-`pipeline_tests::produced_avif_is_accepted_by_an_independent_decoder`.
+`pipeline_tests::produced_avif_is_accepted_by_an_independent_decoder`
+(the `avif_sink_tests` of rav1e were removed with it).
 The signaling and alpha-quality differences were observed with FFmpeg/libdav1d,
 libheif and rav1d in the evidence record above. WebP —
 `webp_output_tests::still_webp_outputs_decode_with_straight_alpha_and_srgb_metadata`,
@@ -398,7 +389,7 @@ not planned.
 | `max_input_bytes` / `--max-input-mb` (MiB) | 64 MiB | before any codec starts (`InputLimitExceeded`, "compressed image exceeds max_input_bytes"); zero is `InvalidOptions`; CLI stream read is capped | `supported_matrix::input_byte_limit_accepts_the_exact_size_and_rejects_one_byte_less`, `zero_input_limits_are_invalid_options`; `pipeline_tests::compressed_bytes_and_decoded_pixel_caps_reject_before_processing`; `cli::tests::accepts_input_at_the_limit_and_rejects_one_byte_more` |
 | `max_input_pixels` / `--max-input-mpx` (10^6 px) | 100,000,000 | from headers before pixel allocation (`InputLimitExceeded`): WebP, AVIF and libjxl-rs in the adapter ("input has N pixels, exceeding …"; AVIF also checks the coded sequence size), JPEG by the facade after the header ("image has N pixels; configured limit is M") | `supported_matrix::jpeg_pixel_limit_is_checked_after_the_header`, `webp_canvas_above_the_pixel_limit_is_rejected_from_the_header`, `jpeg_xl_pixel_limit_is_checked_before_decoding`, `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry`; `ferrisma_jxl_decoder::checks_pixel_limit_before_output` |
 | `max_managed_bytes` / `--budget-mb` | 256 MiB | engine buffers, known encoder frames, the lossless JPEG XL one-shot peak (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_three_and_a_half_megapixels`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
-| `max_output_bytes` / `--max-output-mb` | 256 MiB | `ResourceExhausted` in every case. WebP and lossy JPEG XL while writing ("managed buffer needs …"); AVIF (both encoders) and lossless JPEG XL after the encoder returns ("encoded output exceeds max_output_bytes"); zero is `InvalidOptions` | `supported_matrix::output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`, `output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders`; `webp_output_tests::exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless`; `jxl_output_tests::encoded_output_limit_applies_at_the_exact_byte`, `jxl_lossy_tests::the_output_limit_applies_at_the_exact_byte`; `ferrisma-libavif` `output_limit_is_enforced_after_backend_finish` |
+| `max_output_bytes` / `--max-output-mb` | 256 MiB | `ResourceExhausted` in every case. WebP and lossy JPEG XL while writing ("managed buffer needs …"); AVIF and lossless JPEG XL after the encoder returns ("encoded output exceeds max_output_bytes"); zero is `InvalidOptions` | `supported_matrix::output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`, `output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders`; `webp_output_tests::exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless`; `jxl_output_tests::encoded_output_limit_applies_at_the_exact_byte`, `jxl_lossy_tests::the_output_limit_applies_at_the_exact_byte`; `ferrisma-libavif` `output_limit_is_enforced_after_backend_finish` |
 | threads | `transform_threads` 0 (all cores), `encoder_threads` 1; at most 256; WebP and JPEG XL output need `encoder_threads` 1 | before decoding (`InvalidOptions`) | `supported_matrix::thread_counts_above_256_and_parallel_webp_encoding_are_invalid`; `pipeline_tests::encoder_threads_trade_determinism_for_latency_explicitly` |
 
 Codec-internal allocations (all four decoders, all encoders) are opaque: the
@@ -408,10 +399,10 @@ internals) need the whole frame for any crop.
 
 ## Native targets
 
-| Target | Engine features on stable | `avif-read`, `avif-own-write`, `cli` | Verified by |
+| Target | Engine features on stable | `avif-read`, `avif-write`, `cli` | Verified by |
 | --- | --- | --- | --- |
 | macOS ARM64 | yes | yes (pinned nightly) | local run below; CI `native-adapters` (`macos-15`) |
-| GNU Linux x86-64 | yes | yes (pinned nightly, NASM) | CI `rust`, `minimum-rust`, `workspace`, `codecs` (`ubuntu-24.04`); **not re-run for this branch** |
+| GNU Linux x86-64 | yes | yes (pinned nightly) | CI `rust`, `minimum-rust`, `workspace`, `codecs` (`ubuntu-24.04`); **not re-run for this branch** |
 | GNU Linux ARM64 | codec-free engine and kernels tested in CI | not supported | CI `kernels-arm` (`ubuntu-24.04-arm`: `cargo test -p ferrisma -p ferrisma-kernels --all-targets`, no codec features) |
 | Windows, other targets | not verified | not supported | out of v1.0 scope (#158, #159) |
 
@@ -435,7 +426,7 @@ used. Every place in the workspace that selects code at run time:
 | SharpYUV (`libavif-rs/crates/sharpyuv`, `crates/libsharpyuv-core`) | CPU query translated, SIMD conversion disabled | none | scalar | — | — |
 | `libwebp-rs` | `src/dsp/cpu.rs` `vp8_get_cpu_info` | none (libwebp has nothing above `kAVX2`/`kNEON`) | up to AVX2 / NEON | — | — |
 | `libjpeg-turbo-rs` | `src/jsimdcpu.rs` `jpeg_simd_cpu_support` | none (libjpeg-turbo has nothing above AVX2/NEON) | up to AVX2 / NEON | — | — |
-| rav1e 0.8.1 (third-party; `avif-write`, non-default AVIF encoder, `asm` enabled) | `src/cpu_features/x86.rs` in the crate | AVX-512 and AVX512ICL assembly | **not capped by Ferrisma**: AVX-512 hosts run its AVX-512 assembly | — | set `RAV1E_CPU_TARGET=avx2` in the process environment to cap it |
+| rav1e 0.8.1 (third-party; until 2026-11-15 the `avif-write` encoder with `asm`; now only a test-only dev-dependency through `ravif`, without assembly) | `src/cpu_features/x86.rs` in the crate | AVX-512 and AVX512ICL assembly | **not capped by Ferrisma**: AVX-512 hosts ran its AVX-512 assembly | — | set `RAV1E_CPU_TARGET=avx2` in the process environment to cap it |
 | moxcms 0.9.1 (third-party, `icc`) | crate-internal | `avx512` feature, not enabled | up to AVX2 / NEON | — | — |
 | jxl-oxide 0.12.6 (third-party; a test-only dev-dependency since 2026-11-15, not linked into the engine) | crate-internal | none (its detection stops at AVX2/FMA/SSE4.1/NEON) | up to AVX2 / NEON | — | — |
 
@@ -473,15 +464,12 @@ abbreviated):
 ferrisma --version          # or -V; takes precedence over every other argument
 #   ferrisma 0.1.0
 #   target: aarch64-macos
-#   features: jpeg-read, webp-read, webp-write, jpeg-xl-read, jpeg-xl-write, avif-read, avif-write, avif-own-write, icc
+#   features: jpeg-read, webp-read, webp-write, jpeg-xl-read, jpeg-xl-write, avif-read, avif-write, icc
 #   build: unknown
-# JPEG → AVIF with the default libavif/AOM encoder, 10-bit 4:4:4
+# JPEG → AVIF with the libavif/AOM encoder, 10-bit 4:4:4
 ferrisma photo.jpg out.avif 64 48 --assume-srgb
 #   report: … encoder=libavif-rs/aom
-# The same with rav1e; its quality 80 is not libavif's quality 80
-ferrisma photo.jpg out.avif 64 48 --assume-srgb --avif-encoder=rav1e --quality=80
-#   report: … encoder=rav1e
-# libavif at 8 bits, 4:2:0 (--avif-depth alone selects the default libavif)
+# libavif at 8 bits, 4:2:0
 ferrisma photo.jpg out.avif 64 48 --assume-srgb --avif-depth=8 --chroma=420
 # ICC-tagged AVIF through the rendered-ICC path
 ferrisma paris_icc_exif_xmp.avif out.webp 64 48 --use-rendered-icc
@@ -503,8 +491,9 @@ Rejected, with the error the CLI prints (exit status 1):
 | `ferrisma colors-animated-8bpc.avif …` | `UnsupportedInput` (`Animation`) | same |
 | `ferrisma clap_irot_imir_non_essential.avif …` | `UnsupportedInput` (`GeometricTransform`) "orientation, mirroring or clean-aperture transforms are not supported yet" | remove `clap` or crop explicitly with `--crop` on a file without it |
 | `ferrisma colors_hdr_rec2020.avif …` (PQ) | `UnsupportedColor` (`HdrTransfer`) | tone-map to SDR elsewhere; HDR is out of scope |
-| `ferrisma photo.jpg out.avif … --avif-encoder=rav1e --quality=0` | `InvalidOptions` | rav1e's scale starts at 1; libavif accepts 0 |
-| `ferrisma photo.jpg out.webp … --avif-encoder=rav1e` | "AVIF encoder options require .avif output" | drop AVIF flags for WebP |
+| `ferrisma photo.jpg out.avif … --quality=101` | `InvalidOptions` | libavif's scale is 0–100 |
+| `ferrisma photo.jpg out.webp … --avif-depth=8` | "--avif-depth requires .avif output" | drop AVIF flags for WebP |
+| `ferrisma photo.jpg out.avif … --avif-encoder=rav1e` | "unknown option: --avif-encoder=rav1e" (removed 2026-11-15) | drop the flag; libavif is the only AVIF writer |
 | `ferrisma photo.jpg out.jxl … --quality=80` | "--quality is unsupported for JPEG XL; use --jxl-distance or --jxl-lossless" | use `--jxl-distance` (lossy) or `--jxl-lossless` |
 | `ferrisma photo.jpg out.png …` | "output must have a .avif, .webp or .jxl extension" | choose a supported output |
 | `ferrisma photo.jpg out.avif … --max-input-mpx=0` | `InvalidOptions` "input byte/pixel limits must be nonzero" | use a positive limit |
