@@ -1,0 +1,20 @@
+{
+ "aligned_externs": [],
+ "comment_start": 12,
+ "consts": {},
+ "extern_c": [
+  "sqrtf"
+ ],
+ "feature": "sse4.1",
+ "macros": {},
+ "output": "rdopt_sse4.rs",
+ "prelude": "preludes/prelude_rdopt.h",
+ "public": [],
+ "public_all": false,
+ "rtcd": [
+  "av1_get_horver_correlation_full_sse4_1"
+ ],
+ "skip": [],
+ "source": "upstream/aom/av1/encoder/x86/rdopt_sse4.c",
+ "structs": {}
+}

@@ -13,6 +13,9 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use core::arch::asm;
 extern "C-unwind" {
+    fn av1_get_horver_correlation_full_c(diff: *const int16_t, stride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, hcorr: *mut core::ffi::c_float, vcorr: *mut core::ffi::c_float);
+    fn av1_get_horver_correlation_full_sse4_1(diff: *const int16_t, stride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, hcorr: *mut core::ffi::c_float, vcorr: *mut core::ffi::c_float);
+    fn av1_get_horver_correlation_full_avx2(diff: *const int16_t, stride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int, hcorr: *mut core::ffi::c_float, vcorr: *mut core::ffi::c_float);
     fn av1_apply_selfguided_restoration_c(dat8: *const uint8_t, width: core::ffi::c_int, height: core::ffi::c_int, stride: core::ffi::c_int, eps: core::ffi::c_int, xqd: *const core::ffi::c_int, dst8: *mut uint8_t, dst_stride: core::ffi::c_int, tmpbuf: *mut int32_t, bit_depth: core::ffi::c_int, highbd: core::ffi::c_int) -> core::ffi::c_int;
     fn av1_apply_selfguided_restoration_sse4_1(dat8: *const uint8_t, width: core::ffi::c_int, height: core::ffi::c_int, stride: core::ffi::c_int, eps: core::ffi::c_int, xqd: *const core::ffi::c_int, dst8: *mut uint8_t, dst_stride: core::ffi::c_int, tmpbuf: *mut int32_t, bit_depth: core::ffi::c_int, highbd: core::ffi::c_int) -> core::ffi::c_int;
     fn av1_apply_selfguided_restoration_avx2(dat8: *const uint8_t, width: core::ffi::c_int, height: core::ffi::c_int, stride: core::ffi::c_int, eps: core::ffi::c_int, xqd: *const core::ffi::c_int, dst8: *mut uint8_t, dst_stride: core::ffi::c_int, tmpbuf: *mut int32_t, bit_depth: core::ffi::c_int, highbd: core::ffi::c_int) -> core::ffi::c_int;
@@ -1168,6 +1171,8 @@ pub static mut av1_fwd_txfm2d_8x8: Option<
 > = None;
 #[no_mangle]
 pub static mut av1_fwht4x4: Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()> = None;
+#[no_mangle]
+pub static mut av1_get_horver_correlation_full: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()> = None;
 #[no_mangle]
 pub static mut av1_highbd_block_error: Option<
     unsafe extern "C-unwind" fn(
@@ -2502,6 +2507,13 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     av1_fwht4x4 = Some(av1_fwht4x4_c as unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()>;
     if flags & HAS_SSE4_1 != 0 {
         av1_fwht4x4 = Some(av1_fwht4x4_sse4_1 as unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, *mut tran_low_t, core::ffi::c_int) -> ()>;
+    }
+    av1_get_horver_correlation_full = Some(av1_get_horver_correlation_full_c as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
+    if flags & HAS_SSE4_1 != 0 {
+        av1_get_horver_correlation_full = Some(av1_get_horver_correlation_full_sse4_1 as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        av1_get_horver_correlation_full = Some(av1_get_horver_correlation_full_avx2 as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_float, *mut core::ffi::c_float) -> ()>;
     }
     av1_highbd_block_error = Some(
         av1_highbd_block_error_c

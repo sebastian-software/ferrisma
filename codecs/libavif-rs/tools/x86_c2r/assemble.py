@@ -439,6 +439,29 @@ def loop_restoration():
         simple_file(rel, cfg, src, feat, uses, extra, note=LR_NOTE)
 
 
+HORVER_NOTE = ('// The final floating-point block is the same sequence of single-precision\n'
+               '// conversions and operations as the original, with no contraction, and calls\n'
+               "// the C library's sqrtf as the original does.\n")
+SQRTF = '\nextern "C" {\n    fn sqrtf(_: f32) -> f32;\n}\n'
+
+
+def mem_sse2():
+    write('aom_dsp/x86/mem_sse2.rs', LIC(year_of('aom_dsp/x86/mem_sse2.h'))
+          + '\n// Translated from upstream/aom/aom_dsp/x86/mem_sse2.h (ADR 0056, ADR 0058).\n'
+          '// Only the functions the translated x86 kernels call are translated; they were\n// ' + PRINTER + '.\n'
+          + NOTES.format(feat='sse2') + '\n' + run('mem_sse2_h.json'))
+
+
+def horver_correlation():
+    mem_sse2()
+    x = 'use crate::simd::aom_dsp__x86__synonyms::*;\n'
+    simple_file('av1/encoder/x86/rdopt_sse4.rs', 'rdopt_sse4.json', 'av1/encoder/x86/rdopt_sse4.c', 'sse4.1',
+                x, SQRTF, note=HORVER_NOTE)
+    simple_file('av1/encoder/x86/rdopt_avx2.rs', 'rdopt_avx2.json', 'av1/encoder/x86/rdopt_avx2.c', 'avx2',
+                x + 'use crate::simd::aom_dsp__x86__mem_sse2::loadu_int64;\n'
+                'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n', SQRTF, note=HORVER_NOTE)
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -457,6 +480,7 @@ def main():
         forward_transform()
         cfl()
         loop_restoration()
+        horver_correlation()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

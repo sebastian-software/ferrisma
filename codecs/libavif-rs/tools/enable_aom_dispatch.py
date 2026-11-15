@@ -163,7 +163,7 @@ def ensure_int_aliases(text, ftype):
 
 
 RUST_WORDS = {'unsafe', 'extern', 'fn', 'mut', 'const', 'Option', 'core', 'ffi', 'c_int', 'c_uint', 'c_char',
-              'c_void', 'c_long', 'c_ulong', 'c_short', 'c_ushort', 'c_uchar', 'c_schar', 'isize', 'usize', 'i8',
+              'c_void', 'c_float', 'c_double', 'c_long', 'c_ulong', 'c_short', 'c_ushort', 'c_uchar', 'c_schar', 'isize', 'usize', 'i8',
               'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64', 'bool', 'C', 'unwind'}
 
 

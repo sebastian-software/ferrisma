@@ -396,6 +396,8 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_fwd_txfm2d_8x8_avx2
   av1_fwd_txfm2d_8x8_sse4_1
   av1_fwht4x4_sse4_1
+  av1_get_horver_correlation_full_avx2
+  av1_get_horver_correlation_full_sse4_1
   av1_highbd_block_error_avx2
   av1_highbd_dr_prediction_z1_avx2
   av1_highbd_dr_prediction_z2_avx2

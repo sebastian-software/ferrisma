@@ -1,0 +1,19 @@
+{
+ "aligned_externs": [],
+ "comment_start": 12,
+ "consts": {},
+ "extern_c": [],
+ "feature": "sse2",
+ "macros": {},
+ "only": [
+  "loadu_int64"
+ ],
+ "output": "mem_sse2_h.rs",
+ "prelude": "preludes/prelude_rdopt.h",
+ "public": [],
+ "public_all": true,
+ "rtcd": [],
+ "skip": [],
+ "source": "upstream/aom/aom_dsp/x86/mem_sse2.h",
+ "structs": {}
+}

@@ -23,11 +23,11 @@
       "--disable-avx512"
     ],
     "overlay": "crates/aom/rtcd/x86_64.pl",
-    "overlay_sha256": "549c1d313ffe9842d914e425d4000401ac90a40c5be496bbecdffb465695d4c3",
+    "overlay_sha256": "f05d0265a2a7b91a7bbfd53eb56c11d50bce660eac41ec168f7157133ba8dd61",
     "headers": {
       "config/aom_dsp_rtcd.h": "1f48551d90f6e4047fd1bc83e5b368c1711c3b6c2498e9fe351a730f1aa17ae2",
       "config/aom_scale_rtcd.h": "691037710b3c581297ce3d121638764eea39f2f3745ac58f4797e4b1a935cc91",
-      "config/av1_rtcd.h": "cb05468eb5e71365a8eaaa5a59556c04daf2edbaba9dcaf7d852e56f44519d46"
+      "config/av1_rtcd.h": "46f0f8a22dc4e11b5e6debe3a6a497097bc6fa6c2a019eb567ce6031bda91e08"
     }
   },
   "optional_inline_test_bridges": [
@@ -125,8 +125,8 @@
       "source": "upstream/aom/av1/common/av1_rtcd.c",
       "rust": "crates/aom/src/linux/release/av1/common/av1_rtcd.rs",
       "raw_sha256": "e0df845da0a02e4d946707c75b0af34ba483f83778b2926d35cf836dde4426a7",
-      "rust_sha256": "71faf081b3d6e3476855ee9732a5c921ae4aa041d9a0bd5e68d2bef776db12d1",
-      "production_rust_sha256": "71faf081b3d6e3476855ee9732a5c921ae4aa041d9a0bd5e68d2bef776db12d1",
+      "rust_sha256": "933a7e25af3d0263ba3f3cb7213e710e59e394484820dfb5d53bd523a214bc10",
+      "production_rust_sha256": "933a7e25af3d0263ba3f3cb7213e710e59e394484820dfb5d53bd523a214bc10",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,
@@ -2192,8 +2192,8 @@
       "source": "upstream/aom/av1/encoder/tx_search.c",
       "rust": "crates/aom/src/linux/release/av1/encoder/tx_search.rs",
       "raw_sha256": "3e1703cdb0fa75cf425a29690ceb9095ba570d6735dacbf455a62ff437c715b7",
-      "rust_sha256": "3f307198ddde29c06c535febb5c062e843698adfc4d8995716968f7087b79db1",
-      "production_rust_sha256": "3f307198ddde29c06c535febb5c062e843698adfc4d8995716968f7087b79db1",
+      "rust_sha256": "dbc218529f73ffcb4d0670d547f8444219fb4b9f74e1ca8123bd6088c3876179",
+      "production_rust_sha256": "dbc218529f73ffcb4d0670d547f8444219fb4b9f74e1ca8123bd6088c3876179",
       "corrections": {
         "static-raw-address": 127,
         "remove-inferred-identity-pointer-cast": 9,

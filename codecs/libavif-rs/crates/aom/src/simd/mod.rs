@@ -268,6 +268,10 @@ pub mod aom_dsp__x86__loopfilter_sse2;
 pub mod aom_dsp__x86__lpf_common_sse2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/mem_sse2.rs"]
+pub mod aom_dsp__x86__mem_sse2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/quantize_avx2.rs"]
 pub mod aom_dsp__x86__quantize_avx2;
 
@@ -462,3 +466,11 @@ pub mod av1__encoder__x86__highbd_fwd_txfm_avx2;
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/highbd_fwd_txfm_sse4.rs"]
 pub mod av1__encoder__x86__highbd_fwd_txfm_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/rdopt_avx2.rs"]
+pub mod av1__encoder__x86__rdopt_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/encoder/x86/rdopt_sse4.rs"]
+pub mod av1__encoder__x86__rdopt_sse4;

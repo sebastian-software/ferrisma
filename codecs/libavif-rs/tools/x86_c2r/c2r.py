@@ -53,11 +53,13 @@ class Unsupported(Exception):
 
 # Types: ('int', rust) | ('lit',) integer literal/const expr | ('bool',) | ('vec', name) |
 # ('ptr', T, const) | ('arr', T, size_rust) | ('fn', ret, [params], name) | ('fnptr', typedef) |
-# ('struct', name) | ('void',)
+# ('struct', name) | ('void',) | ('float', 'f32'|'f64') | ('flit',) floating literal
 def rust_type(t):
     k = t[0]
-    if k == 'int':
+    if k in ('int', 'float'):
         return t[1]
+    if k == 'flit':
+        return 'f64'
     if k == 'lit':
         return 'i32'
     if k == 'bool':
@@ -93,6 +95,11 @@ def promote(t):
 
 
 def common(a, b):
+    if a[0] in ('float', 'flit') or b[0] in ('float', 'flit'):
+        # float op double is double; an unsuffixed literal is a double.
+        if ('float', 'f64') in (a, b) or ('flit',) in (a, b) and a != b:
+            return ('float', 'f64') if ('flit',) not in (a, b) or ('float', 'f32') not in (a, b) else ('float', 'f64')
+        return a if a[0] == 'float' else b
     a, b = promote(a), promote(b)
     if a[0] == 'lit':
         return b
@@ -156,7 +163,8 @@ class Printer:
         if isinstance(node, c_ast.IdentifierType):
             name = ' '.join(node.names)
             if name in SCALAR:
-                return ('int', SCALAR[name]) if SCALAR[name] != 'bool' else ('bool',)
+                r = SCALAR[name]
+                return ('bool',) if r == 'bool' else ('float', r) if r in ('f32', 'f64') else ('int', r)
             if name in VECTORS:
                 return ('vec', name)
             if name == 'void':
@@ -215,6 +223,15 @@ class Printer:
         t = e.typ
         if target[0] == 'bool':
             return self.boolean(e)
+        if target[0] == 'float':
+            if t == target or t[0] == 'flit':
+                return e
+            if t[0] in ('int', 'lit', 'float'):
+                return E(f'{e.at("as")} as {target[1]}', target, 'as', e.const)
+            raise Unsupported(f'convert {t} to {target}')
+        if target[0] == 'int' and t[0] in ('float', 'flit'):
+            # C truncates toward zero; the values the kernels convert are in range.
+            return E(f'{e.at("as")} as {target[1]}', target, 'as', e.const)
         if target[0] == 'int':
             if t[0] == 'lit':
                 if target[1] == 'i32':
@@ -300,7 +317,8 @@ class Printer:
         if n.type == 'char':
             return E(n.value.replace("'", "b'", 1) + ' as i8', ('int', 'i8'), 'as', True)
         if n.type in ('double', 'float'):
-            return E(n.value, ('float', n.type), const=True)
+            v = n.value.rstrip('fF')
+            return E(v if '.' in v or 'e' in v.lower() else v + '.0', ('flit',), const=True)
         raise Unsupported(f'constant {n.type} {n.value}')
 
     def x_ID(self, n):
@@ -438,6 +456,11 @@ class Printer:
             if e.typ[0] == 'arr':
                 e = self.decay(e)
             return E(f'{e.at("as")} as {rust_type(target)}', target, 'as')
+        if target[0] == 'float':
+            e = self.as_int(e)
+            if e.typ == target:
+                return e
+            return E(f'{e.at("as")} as {target[1]}', target, 'as', e.const)
         raise Unsupported(f'cast to {target}')
 
     def x_BinaryOp(self, n):
@@ -466,8 +489,18 @@ class Printer:
         if op in ('<', '>', '<=', '>=') and a.typ[0] == 'ptr' and b.typ[0] == 'ptr':
             return E(f'{a.at("&")} {op} {self.cast(b, a.typ).at("&")}', ('bool',), op)
         a, b = self.as_int(a), self.as_int(b)
-        if a.typ[0] == 'float' or b.typ[0] == 'float':
-            raise Unsupported('floating point')
+        if a.typ[0] in ('float', 'flit') or b.typ[0] in ('float', 'flit'):
+            if op not in ('+', '-', '*', '/', '==', '!=', '<', '>', '<=', '>='):
+                raise Unsupported(f'floating point {op}')
+            t = common(a.typ, b.typ)
+            if t == ('flit',):
+                t = ('float', 'f64')
+            ac, bc = self.cast(a, t), self.cast(b, t)
+            if op in ('==', '!=', '<', '>', '<=', '>='):
+                left = ac.code if ac.prec > PREC['as'] else f'({ac.code})'
+                return E(f'{left} {op} {bc.at("&")}', ('bool',), op)
+            right = bc.code if bc.prec > PREC[op] else f'({bc.code})'
+            return E(f'{ac.at(op)} {op} {right}', t, op)
         if op in ('<<', '>>'):
             t = promote(a.typ)
             ac = self.cast(a, t) if t[0] != 'lit' else a
@@ -503,6 +536,11 @@ class Printer:
             t = common(a.typ, b.typ)
             if t[0] != 'lit':
                 a, b = self.cast(a, t), self.cast(b, t)
+        elif {a.typ[0], b.typ[0]} & {'float', 'flit'} and {a.typ[0], b.typ[0]} <= {'float', 'flit', 'int', 'lit'}:
+            t = common(self.as_int(a).typ, self.as_int(b).typ)
+            if t == ('flit',):
+                t = ('float', 'f64')
+            a, b = self.cast(a, t), self.cast(b, t)
         else:
             t = a.typ
             b = self.cast(b, t)
