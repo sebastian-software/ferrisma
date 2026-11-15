@@ -2,6 +2,8 @@
 name = "libavif-rs"
 version = "0.1.0"
 edition = "2021"
+# C-variadic definitions and core::ffi::VaList are stable since 1.99 (port ADR 0060).
+rust-version = "1.99"
 # libavif and its dav1d-derived OBU parser are BSD-2-Clause; the translated
 # libyuv fallback in src/libyuv is BSD-3-Clause (see LICENSE).
 license = "BSD-2-Clause AND BSD-3-Clause"
