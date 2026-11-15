@@ -202,6 +202,7 @@ Kernels that exist only as NASM stay on `_c` (working decision O4).
 | txb | `av1/encoder/x86/encodetxb_sse4.c`, `encodetxb_avx2.c` | 1 (`av1_txb_init_levels`, SSE4.1 and AVX2) | 82/82, 82/82, 82/82 |
 | 8-bit forward transform | `av1/encoder/x86/av1_fwd_txfm_sse2.c` (+ `.h`), the low-bitdepth part of `av1_fwd_txfm2d_sse4.c`, `av1_fwd_txfm2d_avx2.c` (+ `av1_fwd_txfm_avx2.h`), `av1_fwht4x4_sse4_1` of `highbd_fwd_txfm_sse4.c` | 2 (`av1_lowbd_fwd_txfm` SSE4.1 and AVX2, `av1_fwht4x4` SSE4.1) | 82/82, 82/82, 82/82 |
 | CfL | `av1/common/x86/cfl_sse2.c`, `cfl_ssse3.c`, `cfl_avx2.c` (with the CFL_* macros of `av1/common/cfl.h` expanded by the C preprocessor) | 9 getters (18 specializations) | 82/82, 82/82, 82/82 |
+| Loop restoration | `av1/common/x86/wiener_convolve_sse2.c`, `wiener_convolve_avx2.c`, `highbd_wiener_convolve_ssse3.c`, `highbd_wiener_convolve_avx2.c`, `selfguided_sse4.c`, `selfguided_avx2.c`, the Wiener part of `aom_dsp/x86/convolve_avx2.h` (with the restoration and filter macros of `restoration.h`, `aom_filter.h`, `convolve.h` expanded by the C preprocessor) | 4 (8 specializations) | 82/82, 82/82, 82/82 |
 
 Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
 and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
@@ -238,12 +239,24 @@ AVX2 instantiations of `cfl_test.cc` (215 tests pass). The CfL getters return
 C function pointers, so the size wrappers keep the C ABI; the RTCD units gain
 the five CfL function-pointer aliases, which `enable_aom_dispatch.py --linux`
 copies verbatim from the unit that defines them (`--check` requires them).
+`restoration.rs` adds the SSE2, SSSE3, SSE4_1 and AVX2 instantiations of
+`hiprec_convolve_test.cc` and `selfguided_filter_test.cc` and the supplementary
+`av1_selfguided_restoration` comparison for SSE4.1 and AVX2 (225 tests pass, in
+the release and the `checked` profile). The translated C calls
+`av1_selfguided_restoration_c` by name inside
+`av1_apply_selfguided_restoration_c`, so that call stays direct, as upstream
+has it. The RTCD units gain `WienerConvolveParams`, which the dispatch tool
+now copies like the aliases (a record with its attribute lines); the printer
+learned to expand `AOMMIN`/`AOMMAX` through the C preprocessor and to decay a
+table passed to a gather intrinsic (`_mm256_i32gather_epi32`).
 
 Since 2026-11-15 every family is verified before its push with all four
 translation profiles compiled (`cargo check -p libavif-aom --lib --tests` for
 GNU Linux x86-64 and macOS ARM64, dev and release), `--test simd` under QEMU
 in the release and the `checked` profile, both gates, the PR stage,
-`check_translation.py` and `tools/x86_c2r/assemble.py --check`. The dispatch
+`check_translation.py` and `tools/x86_c2r/assemble.py --check`; since the
+stable-Rust transformation (port ADR 0060) also `tools/stable_rust.py --check`
+and the four profiles once more with `RUSTFLAGS=-Zallow-features=`. The dispatch
 rewrite of `enable_aom_dispatch.py` leaves string, byte-string and char
 literals and comments alone (the Linux debug profile keeps the C text of
 `assert` as byte strings).

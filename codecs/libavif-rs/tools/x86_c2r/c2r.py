@@ -595,6 +595,8 @@ class Printer:
                 raise Unsupported(f'{name}: non-constant immediate at {n.coord}')
             rest = []
             for e in es[:-1]:
+                if e.typ[0] == 'arr':  # a table passed to a gather decays to its first element
+                    e = self.decay(e)
                 rest.append(self.cast(self.as_int(e), ('int', 'i32')).code if is_int(e.typ) else e.code)
             ret = MACRO_RET.get(name) or (('vec', '__m256i') if name.startswith('_mm256') else ('vec', '__m128i'))
             imm_code = imm.code if imm.prec == PREC['atom'] else f'{{ {imm.code} }}'

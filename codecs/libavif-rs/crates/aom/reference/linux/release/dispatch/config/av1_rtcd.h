@@ -112,7 +112,9 @@ void aom_upsampled_pred_c(MACROBLOCKD *xd, const struct AV1Common *const cm, int
 #define aom_upsampled_pred aom_upsampled_pred_c
 
 int av1_apply_selfguided_restoration_c(const uint8_t *dat, int width, int height, int stride, int eps, const int *xqd, uint8_t *dst, int dst_stride, int32_t *tmpbuf, int bit_depth, int highbd);
-#define av1_apply_selfguided_restoration av1_apply_selfguided_restoration_c
+int av1_apply_selfguided_restoration_sse4_1(const uint8_t *dat, int width, int height, int stride, int eps, const int *xqd, uint8_t *dst, int dst_stride, int32_t *tmpbuf, int bit_depth, int highbd);
+int av1_apply_selfguided_restoration_avx2(const uint8_t *dat, int width, int height, int stride, int eps, const int *xqd, uint8_t *dst, int dst_stride, int32_t *tmpbuf, int bit_depth, int highbd);
+RTCD_EXTERN int (*av1_apply_selfguided_restoration)(const uint8_t *dat, int width, int height, int stride, int eps, const int *xqd, uint8_t *dst, int dst_stride, int32_t *tmpbuf, int bit_depth, int highbd);
 
 void av1_apply_temporal_filter_c(const struct yv12_buffer_config *frame_to_filter, const struct macroblockd *mbd, const BLOCK_SIZE block_size, const int mb_row, const int mb_col, const int num_planes, const double *noise_levels, const MV *subblock_mvs, const int *subblock_mses, const int q_factor, const int filter_strength, int tf_wgt_calc_lvl, const uint8_t *pred, uint32_t *accum, uint16_t *count);
 #define av1_apply_temporal_filter av1_apply_temporal_filter_c
@@ -433,7 +435,9 @@ void av1_highbd_warp_affine_c(const int32_t *mat, const uint16_t *ref, int width
 #define av1_highbd_warp_affine av1_highbd_warp_affine_c
 
 void av1_highbd_wiener_convolve_add_src_c(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4, int w, int h, const WienerConvolveParams *conv_params, int bd);
-#define av1_highbd_wiener_convolve_add_src av1_highbd_wiener_convolve_add_src_c
+void av1_highbd_wiener_convolve_add_src_ssse3(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4, int w, int h, const WienerConvolveParams *conv_params, int bd);
+void av1_highbd_wiener_convolve_add_src_avx2(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4, int w, int h, const WienerConvolveParams *conv_params, int bd);
+RTCD_EXTERN void (*av1_highbd_wiener_convolve_add_src)(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4, int w, int h, const WienerConvolveParams *conv_params, int bd);
 
 void av1_interp_cubic_rate_dist_c(const double *p1, const double *p2, double x, double rate_dist_f[2]);
 #define av1_interp_cubic_rate_dist av1_interp_cubic_rate_dist_c
@@ -550,7 +554,15 @@ void av1_round_shift_array_c(int32_t *arr, int size, int bit);
 int av1_selfguided_restoration_c(const uint8_t *dgd8, int width, int height,
                                   int dgd_stride, int32_t *flt0, int32_t *flt1, int flt_stride,
                                   int sgr_params_idx, int bit_depth, int highbd);
-#define av1_selfguided_restoration av1_selfguided_restoration_c
+int av1_selfguided_restoration_sse4_1(const uint8_t *dgd8, int width, int height,
+                                  int dgd_stride, int32_t *flt0, int32_t *flt1, int flt_stride,
+                                  int sgr_params_idx, int bit_depth, int highbd);
+int av1_selfguided_restoration_avx2(const uint8_t *dgd8, int width, int height,
+                                  int dgd_stride, int32_t *flt0, int32_t *flt1, int flt_stride,
+                                  int sgr_params_idx, int bit_depth, int highbd);
+RTCD_EXTERN int (*av1_selfguided_restoration)(const uint8_t *dgd8, int width, int height,
+                                  int dgd_stride, int32_t *flt0, int32_t *flt1, int flt_stride,
+                                  int sgr_params_idx, int bit_depth, int highbd);
 
 void av1_txb_init_levels_c(const tran_low_t *const coeff, const int width, const int height, uint8_t *const levels);
 void av1_txb_init_levels_sse4_1(const tran_low_t *const coeff, const int width, const int height, uint8_t *const levels);
@@ -574,7 +586,9 @@ uint64_t av1_wedge_sse_from_residuals_c(const int16_t *r1, const int16_t *d, con
 #define av1_wedge_sse_from_residuals av1_wedge_sse_from_residuals_c
 
 void av1_wiener_convolve_add_src_c(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4, int w, int h, const WienerConvolveParams *conv_params);
-#define av1_wiener_convolve_add_src av1_wiener_convolve_add_src_c
+void av1_wiener_convolve_add_src_sse2(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4, int w, int h, const WienerConvolveParams *conv_params);
+void av1_wiener_convolve_add_src_avx2(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4, int w, int h, const WienerConvolveParams *conv_params);
+RTCD_EXTERN void (*av1_wiener_convolve_add_src)(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, const int16_t *filter_x, int x_step_q4, const int16_t *filter_y, int y_step_q4, int w, int h, const WienerConvolveParams *conv_params);
 
 void cdef_copy_rect8_16bit_to_16bit_c(uint16_t *dst, int dstride, const uint16_t *src, int sstride, int width, int height);
 void cdef_copy_rect8_16bit_to_16bit_avx2(uint16_t *dst, int dstride, const uint16_t *src, int sstride, int width, int height);
@@ -679,6 +693,9 @@ static void setup_rtcd_internal(void)
 
     (void)flags;
 
+    av1_apply_selfguided_restoration = av1_apply_selfguided_restoration_c;
+    if (flags & HAS_SSE4_1) av1_apply_selfguided_restoration = av1_apply_selfguided_restoration_sse4_1;
+    if (flags & HAS_AVX2) av1_apply_selfguided_restoration = av1_apply_selfguided_restoration_avx2;
     av1_block_error = av1_block_error_c;
     if (flags & HAS_AVX2) av1_block_error = av1_block_error_avx2;
     av1_block_error_lp = av1_block_error_lp_c;
@@ -759,6 +776,9 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_AVX2) av1_highbd_quantize_fp = av1_highbd_quantize_fp_avx2;
     av1_highbd_upsample_intra_edge = av1_highbd_upsample_intra_edge_c;
     if (flags & HAS_SSE4_1) av1_highbd_upsample_intra_edge = av1_highbd_upsample_intra_edge_sse4_1;
+    av1_highbd_wiener_convolve_add_src = av1_highbd_wiener_convolve_add_src_c;
+    if (flags & HAS_SSSE3) av1_highbd_wiener_convolve_add_src = av1_highbd_wiener_convolve_add_src_ssse3;
+    if (flags & HAS_AVX2) av1_highbd_wiener_convolve_add_src = av1_highbd_wiener_convolve_add_src_avx2;
     av1_inv_txfm_add = av1_inv_txfm_add_c;
     if (flags & HAS_SSSE3) av1_inv_txfm_add = av1_inv_txfm_add_ssse3;
     if (flags & HAS_AVX2) av1_inv_txfm_add = av1_inv_txfm_add_avx2;
@@ -775,11 +795,17 @@ static void setup_rtcd_internal(void)
     av1_quantize_lp = av1_quantize_lp_c;
     if (flags & HAS_SSE2) av1_quantize_lp = av1_quantize_lp_sse2;
     if (flags & HAS_AVX2) av1_quantize_lp = av1_quantize_lp_avx2;
+    av1_selfguided_restoration = av1_selfguided_restoration_c;
+    if (flags & HAS_SSE4_1) av1_selfguided_restoration = av1_selfguided_restoration_sse4_1;
+    if (flags & HAS_AVX2) av1_selfguided_restoration = av1_selfguided_restoration_avx2;
     av1_txb_init_levels = av1_txb_init_levels_c;
     if (flags & HAS_SSE4_1) av1_txb_init_levels = av1_txb_init_levels_sse4_1;
     if (flags & HAS_AVX2) av1_txb_init_levels = av1_txb_init_levels_avx2;
     av1_upsample_intra_edge = av1_upsample_intra_edge_c;
     if (flags & HAS_SSE4_1) av1_upsample_intra_edge = av1_upsample_intra_edge_sse4_1;
+    av1_wiener_convolve_add_src = av1_wiener_convolve_add_src_c;
+    if (flags & HAS_SSE2) av1_wiener_convolve_add_src = av1_wiener_convolve_add_src_sse2;
+    if (flags & HAS_AVX2) av1_wiener_convolve_add_src = av1_wiener_convolve_add_src_avx2;
     cdef_copy_rect8_16bit_to_16bit = cdef_copy_rect8_16bit_to_16bit_c;
     if (flags & HAS_AVX2) cdef_copy_rect8_16bit_to_16bit = cdef_copy_rect8_16bit_to_16bit_avx2;
     cdef_copy_rect8_8bit_to_16bit = cdef_copy_rect8_8bit_to_16bit_c;

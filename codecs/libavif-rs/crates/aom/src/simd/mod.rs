@@ -192,6 +192,10 @@ pub mod aom_dsp__x86__blk_sse_sum_avx2;
 pub mod aom_dsp__x86__blk_sse_sum_sse2;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/convolve_avx2.rs"]
+pub mod aom_dsp__x86__convolve_avx2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/highbd_adaptive_quantize_avx2.rs"]
 pub mod aom_dsp__x86__highbd_adaptive_quantize_avx2;
 
@@ -376,8 +380,32 @@ pub mod av1__common__x86__highbd_inv_txfm_sse4;
 pub mod av1__common__x86__highbd_txfm_utility_sse4;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/highbd_wiener_convolve_avx2.rs"]
+pub mod av1__common__x86__highbd_wiener_convolve_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/highbd_wiener_convolve_ssse3.rs"]
+pub mod av1__common__x86__highbd_wiener_convolve_ssse3;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/intra_edge_sse4.rs"]
 pub mod av1__common__x86__intra_edge_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/selfguided_avx2.rs"]
+pub mod av1__common__x86__selfguided_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/selfguided_sse4.rs"]
+pub mod av1__common__x86__selfguided_sse4;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/wiener_convolve_avx2.rs"]
+pub mod av1__common__x86__wiener_convolve_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "av1/common/x86/wiener_convolve_sse2.rs"]
+pub mod av1__common__x86__wiener_convolve_sse2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/encoder/x86/av1_fwd_txfm1d_sse4.rs"]

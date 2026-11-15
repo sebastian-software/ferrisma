@@ -400,6 +400,45 @@ def cfl():
                 CFL_HEAD.replace('pub const CFL', 'const CFL').replace('pub type', 'type'), note=CFL_NOTE)
 
 
+LR_NOTE = ('// The restoration and filter macros of av1/common/restoration.h, aom_dsp/aom_filter.h,\n'
+           '// av1/common/enums.h, aom_dsp/aom_dsp_common.h, aom_ports/mem.h and av1/common/convolve.h\n'
+           '// are expanded with the C preprocessor before printing (tools/x86_c2r/c2r.py `cpp`).\n')
+LR_ALIGNED16 = '\n#[repr(C, align(16))]\nstruct Aligned16<T>(T);\n'
+
+
+def loop_restoration():
+    x = 'use crate::simd::aom_dsp__x86__synonyms::*;\n'
+    y = x + 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n'
+    write('aom_dsp/x86/convolve_avx2.rs', LIC(year_of('aom_dsp/x86/convolve_avx2.h'))
+          + '\n// Translated from upstream/aom/aom_dsp/x86/convolve_avx2.h (ADR 0056, ADR 0058).\n'
+          '// Only the tables and inline functions the Wiener filter of\n'
+          '// av1/common/x86/wiener_convolve_avx2.c uses are translated (convolve, convolve_lowbd_x and\n'
+          '// the filter tables); the inter-prediction convolutions are not (working decision O2,\n'
+          '// 2026-11-13, delegated, revisable by the owner). They were\n// ' + PRINTER + '.\n'
+          + NOTES.format(feat='avx2') + y
+          + '\n#[repr(C, align(32))]\npub struct Aligned32<T>(pub T);\n\n' + run('convolve_avx2_h.json'))
+    wiener = ('use crate::av1__common__convolve::{\n    av1_highbd_wiener_convolve_add_src_c, av1_wiener_convolve_add_src_c, WienerConvolveParams,\n};\n')
+    for rel, cfg, src, feat, uses in [
+            ('av1/common/x86/wiener_convolve_sse2.rs', 'wiener_convolve_sse2.json', 'av1/common/x86/wiener_convolve_sse2.c',
+             'sse2', x + wiener),
+            ('av1/common/x86/wiener_convolve_avx2.rs', 'wiener_convolve_avx2.json', 'av1/common/x86/wiener_convolve_avx2.c',
+             'avx2', y + wiener + 'use crate::simd::aom_dsp__x86__convolve_avx2::*;\n'),
+            ('av1/common/x86/highbd_wiener_convolve_ssse3.rs', 'highbd_wiener_convolve_ssse3.json',
+             'av1/common/x86/highbd_wiener_convolve_ssse3.c', 'ssse3', x + wiener),
+            ('av1/common/x86/highbd_wiener_convolve_avx2.rs', 'highbd_wiener_convolve_avx2.json',
+             'av1/common/x86/highbd_wiener_convolve_avx2.c', 'avx2', y + wiener + 'use crate::simd::aom_dsp__x86__convolve_avx2::*;\n'),
+            ('av1/common/x86/selfguided_sse4.rs', 'selfguided_sse4.json', 'av1/common/x86/selfguided_sse4.c', 'sse4.1',
+             x + 'use crate::av1__common__restoration::{\n    av1_decode_xq, av1_one_by_x, av1_sgr_params, av1_x_by_xplus1, sgr_params_type,\n};\n'
+             'use crate::aom_mem__aom_mem::{aom_free, aom_memalign};\n'),
+            ('av1/common/x86/selfguided_avx2.rs', 'selfguided_avx2.json', 'av1/common/x86/selfguided_avx2.c', 'avx2',
+             y + 'use crate::av1__common__restoration::{\n    av1_decode_xq, av1_one_by_x, av1_sgr_params, av1_x_by_xplus1, sgr_params_type,\n};\n'
+             'use crate::aom_mem__aom_mem::{aom_free, aom_memalign};\n'
+             'use crate::simd::av1__common__x86__selfguided_sse4::{\n'
+             '    av1_apply_selfguided_restoration_sse4_1, av1_selfguided_restoration_sse4_1,\n};\n')]:
+        extra = LR_ALIGNED16 if feat in ('sse2', 'ssse3') else ''
+        simple_file(rel, cfg, src, feat, uses, extra, note=LR_NOTE)
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -417,6 +456,7 @@ def main():
         txb()
         forward_transform()
         cfl()
+        loop_restoration()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

@@ -168,7 +168,11 @@ RUST_WORDS = {'unsafe', 'extern', 'fn', 'mut', 'const', 'Option', 'core', 'ffi',
 
 
 def type_definition(text, name):
-    """The text of `pub type NAME = ...;` (rustfmt may wrap it) in a unit, or None."""
+    """The text of `pub type NAME = ...;` (rustfmt may wrap it) in a unit, or
+    of a plain `pub struct NAME { ... }` with its attribute lines, or None."""
+    m = re.search(r'^((?:#\[[^\n]*\]\n)*)pub struct ' + name + r' \{\n(?:    [^\n]*\n)*\}\n', text, re.M)
+    if m:
+        return m.group(0)
     m = re.search(r'^pub type ' + name + r' = ', text, re.M)
     if not m:
         return None
@@ -185,8 +189,8 @@ def type_definition(text, name):
 
 
 def ensure_copied_types(text, ftype, others):
-    """Type aliases a new RTCD declaration names (the CfL function-pointer
-    types) that the unit lacks, copied verbatim from the first unit of the
+    """Type aliases and records a new RTCD declaration names (the CfL
+    function-pointer types, WienerConvolveParams) that the unit lacks, copied verbatim from the first unit of the
     same profile that defines them, after the unit's last `pub type`."""
     for name in sorted(set(re.findall(r'\b([A-Za-z_]\w*)\b', ftype)) - RUST_WORDS - set(INT_ALIASES)):
         if re.search(r'^pub (type|struct|union) ' + name + r'\b', text, re.M):

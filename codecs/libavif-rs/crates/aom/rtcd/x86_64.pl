@@ -358,6 +358,8 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_var_2d_u16_sse2
   aom_var_2d_u8_avx2
   aom_var_2d_u8_sse2
+  av1_apply_selfguided_restoration_avx2
+  av1_apply_selfguided_restoration_sse4_1
   av1_block_error_avx2
   av1_block_error_lp_avx2
   av1_dr_prediction_z1_avx2
@@ -403,6 +405,8 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_highbd_inv_txfm_add_sse4_1
   av1_highbd_quantize_fp_avx2
   av1_highbd_upsample_intra_edge_sse4_1
+  av1_highbd_wiener_convolve_add_src_avx2
+  av1_highbd_wiener_convolve_add_src_ssse3
   av1_inv_txfm_add_avx2
   av1_inv_txfm_add_ssse3
   av1_lowbd_fwd_txfm_avx2
@@ -413,9 +417,13 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_quantize_fp_sse2
   av1_quantize_lp_avx2
   av1_quantize_lp_sse2
+  av1_selfguided_restoration_avx2
+  av1_selfguided_restoration_sse4_1
   av1_txb_init_levels_avx2
   av1_txb_init_levels_sse4_1
   av1_upsample_intra_edge_sse4_1
+  av1_wiener_convolve_add_src_avx2
+  av1_wiener_convolve_add_src_sse2
   cdef_copy_rect8_16bit_to_16bit_avx2
   cdef_copy_rect8_8bit_to_16bit_avx2
   cdef_filter_16_0_avx2
