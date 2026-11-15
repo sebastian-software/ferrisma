@@ -97,10 +97,25 @@ What a Rosetta run is: the x86-64 machine code of the port, including its
 AVX2 and FMA kernels and its scalar x86-64 build, executed by Rosetta 2's
 translation. What it is not: Linux, or x86-64 hardware. Rosetta 2 does not
 fault on a misaligned aligned move and is not a vendor's floating-point unit
-(`rcpps`, for example, is whatever Rosetta returns). The issue's Linux x86-64
-run stays open for a hosted run; the manual workflow
+(`rcpps`, for example, is whatever Rosetta returns). The manual workflow
 [`jxl-conformance.yml`](../../../.github/workflows/jxl-conformance.yml) runs
 `run.sh` on `ubuntu-24.04` with the default and the forced scalar path.
+
+### Native Linux x86-64 (2026-11-15)
+
+Hosted run
+[43690766156](https://github.com/sebastian-software/ferrisma/actions/runs/43690766156)
+of that workflow on `main` at `b3f29a71` (`ubuntu-24.04`, x86-64 hardware):
+
+| Configuration | Path (every decode) | Level 10 | Level 5 |
+| --- | --- | --- | --- |
+| Linux x86-64, default | AVX2, SIMD kernels ran | 27 / 27 | 24 / 24 |
+| Linux x86-64, forced scalar (`JXL_DECODER_TARGET=scalar`) | scalar, no SIMD kernel | 27 / 27 | 24 / 24 |
+
+The path is the decoder-path log of the 30 level-10 decodes of each job. The
+run's logs and result files are its artifacts (kept seven days); this table
+is the record. Peak error of `alpha_premultiplied`: 3.07e-06 on AVX2 and
+3.04e-06 on the scalar path.
 
 Peak error per case, the maximum over frames and channels, and in
 parentheses its share of the case's limit (the maximum over frames of
@@ -267,9 +282,6 @@ upsampling, patches, noise, splines and progressive input.
 
 ## Not established
 
-- Linux and x86-64 hardware: x86-64 ran under Rosetta 2 on macOS only. The
-  manual workflow `jxl-conformance.yml` covers native Linux x86-64 once it
-  is dispatched.
 - Linux AArch64.
 - A scheduled CI job: the run needs network access, the reference objects
   (about 0.6 GiB in `objects/`) and numpy plus Little CMS, so it is a manual
