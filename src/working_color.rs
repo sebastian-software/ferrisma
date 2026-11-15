@@ -152,6 +152,17 @@ pub(crate) fn decode_straight_to_premultiplied_linear_srgb(
 /// The final *explicit* SDR output gamut-mapping and transfer boundary.
 /// Intermediate working values may lie outside [0, 1], but AVIF sRGB8 cannot.
 pub(crate) fn encode_linear_srgb8(linear: f64) -> Result<u8, Error> {
+    // The same arithmetic as every other depth: `encode * 255`, rounded.
+    let code = encode_linear_srgb(linear, 255)?;
+    Ok(u8::try_from(code).unwrap_or(u8::MAX))
+}
+
+/// The final sRGB transfer boundary at any output depth (ADR-0021,
+/// amendment of 2026-11-15): clamp linear light to `[0, 1]`, apply the sRGB
+/// OETF, scale by the depth's largest code `max` (`2^depth - 1`) and round
+/// half away from zero. At `max = 255` this is the sRGB8 encoder above, bit
+/// for bit; there is no dithering at any depth.
+pub(crate) fn encode_linear_srgb(linear: f64, max: u16) -> Result<u16, Error> {
     if !linear.is_finite() {
         return Err(Error::NonFinitePixelSample);
     }
@@ -162,5 +173,5 @@ pub(crate) fn encode_linear_srgb8(linear: f64) -> Result<u8, Error> {
         1.055 * linear.powf(1.0 / 2.4) - 0.055
     };
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    Ok((encoded * 255.0).round() as u8)
+    Ok((encoded * f64::from(max)).round() as u16)
 }

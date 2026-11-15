@@ -7,13 +7,14 @@ use crate::decoder::{
     ChannelLayout, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo, SampleType,
 };
 use crate::error::Error;
-use crate::fast_execute::{execute_fast_srgb8, tables};
+use crate::fast_execute::{execute_fast, execute_fast_srgb8, tables};
 use crate::geometry::{Rect, Size};
 use crate::graph::{Graph, NodeId};
 use crate::memory::MemoryBudget;
+use crate::output_depth::{OutputRow, max_code};
 use crate::quality::Filter;
-use crate::quality_execute::execute_quality_srgb8;
-use crate::working_color::encode_linear_srgb8;
+use crate::quality_execute::{execute_quality, execute_quality_srgb8};
+use crate::working_color::{encode_linear_srgb, encode_linear_srgb8};
 use ferrisma_kernels::Kernels;
 
 const SRGB: [u8; 4] = [1, 13, 0, 1];
@@ -1060,4 +1061,374 @@ fn planning_reservation_is_shared_and_released() {
     ));
     drop(first);
     assert_eq!(budget.snapshot().live, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Output depths above 8 bits (ADR-0021, amendment of 2026-11-15).
+
+/// Render at `depth` bits with either executor (`threads` for the fast one).
+fn render_depth(
+    source: &TestSource,
+    crop: Option<Rect>,
+    size: Size,
+    filter: Filter,
+    fast: Option<(&Kernels, usize)>,
+    depth: u8,
+) -> Vec<u16> {
+    let (graph, input, output) = graph_for(source, crop, size, filter);
+    let mut source = source.clone();
+    let budget = MemoryBudget::new(64 * 1024 * 1024);
+    let mut samples = Vec::new();
+    let request = Rect::new(0, 0, size.width, size.height).unwrap();
+    let sink = |_: u32, row: OutputRow<'_>| {
+        match row {
+            OutputRow::U8(bytes) => samples.extend(bytes.iter().map(|&b| u16::from(b))),
+            OutputRow::U16(values) => {
+                assert!(depth > 8, "an 8-bit plan emits u8 rows");
+                samples.extend_from_slice(values);
+            }
+        }
+        Ok(())
+    };
+    let report = if let Some((kernels, threads)) = fast {
+        execute_fast(
+            &graph,
+            output,
+            input,
+            &mut source,
+            request,
+            &budget,
+            kernels,
+            threads,
+            depth,
+            sink,
+        )
+    } else {
+        execute_quality(
+            &graph,
+            output,
+            input,
+            &mut source,
+            request,
+            &budget,
+            depth,
+            sink,
+        )
+    }
+    .unwrap();
+    assert_eq!(source.calls, 1);
+    assert_eq!(report.decoder_requests, 1);
+    assert_eq!(budget.snapshot().live, 0);
+    samples
+}
+
+/// Deep inputs, as the AVIF and JPEG XL readers deliver them: float
+/// samples that are codes of a deeper integer format (AVIF arrives through
+/// libavif's 16-bit RGB output, `v / 65535`; JPEG XL as libjxl's floats).
+fn deep_cases() -> Vec<Case> {
+    let mut rng = Rng(0x5851_F42D_4C95_7F2D);
+    let mut cases = Vec::new();
+    let mut coded =
+        |name, class, bits: u32, alpha: bool, mut code: Box<dyn FnMut(u32, u32, usize) -> u32>| {
+            let max = f64::from((1_u32 << bits) - 1);
+            let channels = if alpha { 4 } else { 3 };
+            let mut data = Vec::new();
+            for y in 0..H {
+                for x in 0..W {
+                    for channel in 0..channels {
+                        #[allow(clippy::cast_possible_truncation)]
+                        data.push((f64::from(code(x, y, channel)) / max) as f32);
+                    }
+                }
+            }
+            cases.push(Case {
+                name,
+                class,
+                source: TestSource::new(
+                    Size::new(W, H).unwrap(),
+                    if alpha {
+                        ChannelLayout::Rgba
+                    } else {
+                        ChannelLayout::Rgb
+                    },
+                    SRGB,
+                    Samples::F32(data),
+                ),
+            });
+        };
+    let mut noise = Rng(rng.next() | 1);
+    coded(
+        "16-bit noise",
+        Class::FullRange,
+        16,
+        false,
+        Box::new(move |_, _, _| u32::try_from(noise.next() % 65_536).unwrap()),
+    );
+    let mut noise = Rng(rng.next() | 1);
+    coded(
+        "10-bit noise",
+        Class::FullRange,
+        10,
+        false,
+        Box::new(move |_, _, _| u32::try_from(noise.next() % 1024).unwrap()),
+    );
+    let mut noise = Rng(rng.next() | 1);
+    coded(
+        "12-bit dark noise",
+        Class::DarkOrTies,
+        12,
+        false,
+        Box::new(move |_, _, _| u32::try_from(noise.next() % 100).unwrap()),
+    );
+    coded(
+        "10-bit ramp",
+        Class::DarkOrTies,
+        10,
+        false,
+        Box::new(|x, y, channel| ((x + W * y) * 3 + u32::try_from(channel).unwrap()) % 1024),
+    );
+    let mut noise = Rng(rng.next() | 1);
+    coded(
+        "16-bit RGBA noise",
+        Class::FullRange,
+        16,
+        true,
+        Box::new(move |_, _, _| u32::try_from(noise.next() % 65_536).unwrap()),
+    );
+    cases
+}
+
+/// ADR-0021's bound at every deeper output depth: rule A (at most one code,
+/// every sample) and rule E hold as at 8 bits; the shares of exactly equal
+/// samples (rules B to D) are stated per depth from this test's measurement
+/// (ADR-0021 amendment of 2026-11-15), because one code is a finer step.
+#[test]
+fn deep_output_meets_the_bound_against_the_f64_oracle() {
+    let all: Vec<Case> = cases().into_iter().chain(deep_cases()).collect();
+    for kernels in Kernels::available() {
+        let level = kernels.level();
+        for depth in [10_u8, 12, 16] {
+            let mut worst = [1.0_f64; 2];
+            let mut worst_mean = 0.0_f64;
+            for case in &all {
+                let mut tally = Tally::default();
+                for filter in [Filter::Area, Filter::Lanczos3] {
+                    for (crop, width, height) in geometries() {
+                        let size = Size::new(width, height).unwrap();
+                        let reference = render_depth(&case.source, crop, size, filter, None, depth);
+                        let fast = render_depth(
+                            &case.source,
+                            crop,
+                            size,
+                            filter,
+                            Some((&kernels, 1)),
+                            depth,
+                        );
+                        assert_eq!(reference.len(), fast.len());
+                        for (index, (expected, actual)) in reference
+                            .as_chunks::<4>()
+                            .0
+                            .iter()
+                            .zip(fast.as_chunks::<4>().0)
+                            .enumerate()
+                        {
+                            let context = || {
+                                format!(
+                                    "{level} {depth}-bit {} {filter:?} {crop:?} {width}x{height} pixel {index}: oracle {expected:?} fast {actual:?}",
+                                    case.name
+                                )
+                            };
+                            assert!(expected.iter().chain(actual).all(|&v| v <= max_code(depth)));
+                            assert!(expected[3].abs_diff(actual[3]) <= 1, "{}", context());
+                            tally.alpha += 1;
+                            tally.alpha_exact += u64::from(expected[3] == actual[3]);
+                            if actual[3] == 0 {
+                                assert_eq!(actual[..3], [0, 0, 0], "{}", context());
+                            }
+                            if expected[3] == 0 || actual[3] == 0 {
+                                continue;
+                            }
+                            for channel in 0..3 {
+                                let error = expected[channel].abs_diff(actual[channel]);
+                                assert!(error <= 1, "{}", context());
+                                tally.rgb += 1;
+                                tally.rgb_exact += u64::from(error == 0);
+                                tally.absolute_error += u64::from(error);
+                            }
+                        }
+                    }
+                }
+                #[allow(clippy::cast_precision_loss)]
+                let exact = tally.rgb_exact as f64 / tally.rgb as f64;
+                #[allow(clippy::cast_precision_loss)]
+                let mean = tally.absolute_error as f64 / tally.rgb as f64;
+                eprintln!(
+                    "{level:<7} {depth:>2}-bit {:<22} {:?}: {:.4}% exact RGB, mean {:.5}",
+                    case.name,
+                    case.class,
+                    exact * 100.0,
+                    mean
+                );
+                let class = usize::from(case.class == Class::DarkOrTies);
+                worst[class] = worst[class].min(exact);
+                worst_mean = worst_mean.max(mean);
+            }
+            eprintln!(
+                "{level:<7} {depth:>2}-bit worst exact: full range {:.4}%, dark/ties {:.4}%; worst mean {:.5}",
+                worst[0] * 100.0,
+                worst[1] * 100.0,
+                worst_mean
+            );
+            let (full, dark, mean) = deep_bound(depth);
+            assert!(worst[0] >= full, "{depth}-bit full range {}", worst[0]);
+            assert!(worst[1] >= dark, "{depth}-bit dark/ties {}", worst[1]);
+            assert!(worst_mean <= mean, "{depth}-bit mean {worst_mean}");
+        }
+    }
+}
+
+/// Rules B, C and D at a deeper output depth (ADR-0021 amendment of
+/// 2026-11-15): (full-range exact share, dark and tie-prone exact share,
+/// largest mean absolute error in codes of that depth), each set below the
+/// minimum measured on 2026-11-15 (scalar and NEON identical: 10-bit 99.9974
+/// / 99.9854 % and 0.00015; 12-bit 99.9889 / 99.2742 % and 0.00726, the
+/// low value on 12-bit codes 0-99, whose linear-segment averages land on
+/// exact half codes; 16-bit 99.8929 / 99.8758 % and 0.00124). One code at
+/// 16 bits is 1/257 of an 8-bit code, so these shares bound a much smaller
+/// error than the 8-bit rules B and C do.
+fn deep_bound(depth: u8) -> (f64, f64, f64) {
+    match depth {
+        10 => (0.9999, 0.9995, 0.001),
+        12 => (0.9995, 0.99, 0.01),
+        _ => (0.998, 0.998, 0.002),
+    }
+}
+
+/// At 8 bits the depth-generic executors are the sRGB8 executors, bit for
+/// bit (the 8-bit path is unchanged).
+#[test]
+fn eight_bit_output_of_the_depth_generic_executors_is_the_srgb8_output() {
+    for case in cases().into_iter().take(4) {
+        for (crop, width, height) in geometries().into_iter().take(4) {
+            let size = Size::new(width, height).unwrap();
+            let reference = render(&case.source, crop, size, Filter::Lanczos3, None);
+            let fast = render(
+                &case.source,
+                crop,
+                size,
+                Filter::Lanczos3,
+                Some(&Kernels::best()),
+            );
+            let widen = |bytes: Vec<u8>| bytes.into_iter().map(u16::from).collect::<Vec<_>>();
+            assert_eq!(
+                render_depth(&case.source, crop, size, Filter::Lanczos3, None, 8),
+                widen(reference)
+            );
+            assert_eq!(
+                render_depth(
+                    &case.source,
+                    crop,
+                    size,
+                    Filter::Lanczos3,
+                    Some((&Kernels::best(), 1)),
+                    8
+                ),
+                widen(fast)
+            );
+        }
+    }
+}
+
+/// Every code of a 10-, 12- and 16-bit sRGB input survives an identity
+/// transform at its own depth, in both executors: no 8-bit bottleneck (an
+/// 8-bit one keeps at most 256 levels) and no padding (a padded 8-bit value
+/// would not equal the code).
+#[test]
+fn every_deep_code_survives_an_identity_transform_at_its_depth() {
+    for depth in [10_u8, 12, 16] {
+        let max = u32::from(max_code(depth));
+        let width = 256_u32;
+        let height = (max + 1).div_ceil(width);
+        let codes: Vec<u32> = (0..width * height).map(|i| i.min(max)).collect();
+        let data: Vec<f32> = codes
+            .iter()
+            .flat_map(|&code| {
+                #[allow(clippy::cast_possible_truncation)]
+                let value = (f64::from(code) / f64::from(max)) as f32;
+                [value; 3]
+            })
+            .collect();
+        let size = Size::new(width, height).unwrap();
+        let source = TestSource::new(size, ChannelLayout::Rgb, SRGB, Samples::F32(data));
+        for fast in [
+            None,
+            Some((&Kernels::best(), 1)),
+            Some((&Kernels::best(), 4)),
+        ] {
+            let out = render_depth(&source, None, size, Filter::Lanczos3, fast, depth);
+            for (pixel, &code) in out.as_chunks::<4>().0.iter().zip(&codes) {
+                let code = u16::try_from(code).unwrap();
+                assert_eq!(
+                    pixel,
+                    &[code, code, code, max_code(depth)],
+                    "{depth}-bit {fast:?}",
+                    fast = fast.map(|f| f.1)
+                );
+            }
+        }
+    }
+}
+
+/// The parallel pipeline emits the same deep rows as the sequential one.
+#[test]
+fn parallel_pipeline_is_identical_at_deeper_depths() {
+    for (name, source) in tall_sources() {
+        for depth in [10_u8, 16] {
+            let size = Size::new(37, 111).unwrap();
+            let one = render_depth(
+                &source,
+                None,
+                size,
+                Filter::Lanczos3,
+                Some((&Kernels::best(), 1)),
+                depth,
+            );
+            let four = render_depth(
+                &source,
+                None,
+                size,
+                Filter::Lanczos3,
+                Some((&Kernels::best(), 4)),
+                depth,
+            );
+            assert_eq!(one, four, "{name} {depth}-bit");
+        }
+    }
+}
+
+/// The deep encoder is the 8-bit encoder at `max = 255`, and every depth
+/// rounds the same way.
+#[test]
+fn the_encoder_is_one_function_for_every_depth() {
+    for code in 0..=255_u16 {
+        let encoded = f64::from(code) / 255.0;
+        let linear = crate::working_color::decode_srgb(encoded);
+        assert_eq!(encode_linear_srgb(linear, 255).unwrap(), code);
+        assert_eq!(u16::from(encode_linear_srgb8(linear).unwrap()), code);
+    }
+    let mut rng = Rng(0x2545_F491_4F6C_DD1D);
+    for _ in 0..100_000 {
+        let value = f64::from(rng.unit()) * 1.2 - 0.1;
+        assert_eq!(
+            u16::from(encode_linear_srgb8(value).unwrap()),
+            encode_linear_srgb(value, 255).unwrap()
+        );
+    }
+    assert_eq!(encode_linear_srgb(1.0, 1023).unwrap(), 1023);
+    assert_eq!(encode_linear_srgb(2.0, 65_535).unwrap(), 65_535);
+    assert_eq!(encode_linear_srgb(-1.0, 4095).unwrap(), 0);
+    assert_eq!(
+        encode_linear_srgb(f64::NAN, 4095),
+        Err(Error::NonFinitePixelSample)
+    );
 }

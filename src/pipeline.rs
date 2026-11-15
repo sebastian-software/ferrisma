@@ -734,7 +734,6 @@ impl From<Error> for ProcessingError {
             }
             Error::Cancelled => Kind::Cancelled,
             Error::EncodeFailed => Kind::EncodeFailed,
-            #[cfg(any(feature = "webp-write", feature = "jpeg-xl-write"))]
             Error::IncompleteOutput => Kind::Internal,
             #[cfg(feature = "jpeg-xl-write")]
             Error::UnsupportedEncoderProfile(_) => Kind::InvalidOptions,

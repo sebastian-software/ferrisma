@@ -26,9 +26,10 @@ use ferrisma_kernels::Kernels;
 use crate::decoder::{DecodeReport, DecodeSource, DecodedRow};
 use crate::error::Error;
 use crate::fast_execute::{
-    ConversionScratch, RowPlan, Tables, kernel_error, quantize_row, source_row_to_linear, tables,
+    ConversionScratch, RowPlan, Tables, kernel_error, quantize_into, source_row_to_linear, tables,
 };
 use crate::memory::{ManagedBuffer, MemoryBudget, try_filled_vec, try_vec};
+use crate::output_depth::{OutputBuffer, OutputRow};
 
 /// An owned copy of one decoded source row.
 enum Samples {
@@ -44,14 +45,8 @@ enum Job {
 }
 
 enum Done {
-    Horizontal {
-        rank: usize,
-        row: Row,
-    },
-    Vertical {
-        row: usize,
-        bytes: ManagedBuffer<u8>,
-    },
+    Horizontal { rank: usize, row: Row },
+    Vertical { row: usize, bytes: OutputBuffer },
 }
 
 /// Run `plan` on `threads` workers plus the calling thread.
@@ -61,7 +56,7 @@ pub(crate) fn run<const C: usize>(
     budget: &MemoryBudget,
     kernels: &Kernels,
     threads: usize,
-    mut sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
+    mut sink: impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
 ) -> Result<(DecodeReport, Duration, Duration), Error> {
     let tables = tables();
     let (done_sender, done) = mpsc::channel::<Result<Done, Error>>();
@@ -180,15 +175,15 @@ fn vertical<const C: usize>(
     tables: &Tables,
     inputs: &[(Row, f32)],
     accumulator: &mut [f32],
-) -> Result<ManagedBuffer<u8>, Error> {
+) -> Result<OutputBuffer, Error> {
     accumulator.fill(0.0);
     for (row, weight) in inputs {
         kernels
             .axpy(accumulator, row.as_slice(), *weight)
             .map_err(kernel_error)?;
     }
-    let mut bytes = budget.allocate_typed::<u8>(plan.row_samples)?;
-    quantize_row::<C>(accumulator, bytes.as_mut_slice(), tables)?;
+    let mut bytes = OutputBuffer::allocate(plan.depth, plan.row_samples, budget)?;
+    quantize_into::<C>(accumulator, &mut bytes, plan.depth, tables)?;
     Ok(bytes)
 }
 
@@ -203,7 +198,7 @@ struct Driver<'p> {
     next_emit: usize,
     /// Ranks below this are released.
     released: usize,
-    finished: BTreeMap<usize, ManagedBuffer<u8>>,
+    finished: BTreeMap<usize, OutputBuffer>,
     /// Jobs submitted and not yet answered.
     outstanding: usize,
 }
@@ -236,7 +231,7 @@ impl Driver<'_> {
     /// no future output row needs, and emit finished rows in order.
     fn advance(
         &mut self,
-        sink: &mut impl FnMut(u32, &[u8]) -> Result<(), Error>,
+        sink: &mut impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
     ) -> Result<(), Error> {
         let plan = self.plan;
         while self.next_vertical < plan.output_rows {
@@ -263,7 +258,7 @@ impl Driver<'_> {
             }
         }
         while let Some(bytes) = self.finished.remove(&self.next_emit) {
-            sink(plan.output_y(self.next_emit)?, bytes.as_slice())?;
+            sink(plan.output_y(self.next_emit)?, bytes.row())?;
             self.next_emit += 1;
         }
         Ok(())
@@ -272,7 +267,7 @@ impl Driver<'_> {
     fn drain_ready(
         &mut self,
         done: &Receiver<Result<Done, Error>>,
-        sink: &mut impl FnMut(u32, &[u8]) -> Result<(), Error>,
+        sink: &mut impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
     ) -> Result<(), Error> {
         while let Ok(result) = done.try_recv() {
             self.absorb(result)?;
@@ -287,7 +282,7 @@ fn drive<const C: usize>(
     budget: &MemoryBudget,
     jobs: SyncSender<Job>,
     done: &Receiver<Result<Done, Error>>,
-    sink: &mut impl FnMut(u32, &[u8]) -> Result<(), Error>,
+    sink: &mut impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
 ) -> Result<(DecodeReport, Duration, Duration), Error> {
     let mut driver = Driver {
         plan,
