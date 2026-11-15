@@ -115,8 +115,9 @@ operations for `HWY_NEON` and `HWY_AVX2`; the SIMD Gaborish, EPF (passes
 0–2), YCbCr and chroma upsampling stages are written against it. They match
 the NEON and AVX2 oracle variants at row level on both targets
 (`tests/simd_parity.rs`). The stage factories now dispatch on
-`hwy::decoder_target()` with target row padding, but the decoder does **not**
-select SIMD by default (`hwy::DECODER_SELECTS_SIMD` is off): the new
+`hwy::decoder_target()` with target row padding; at that point the decoder
+did not yet select SIMD by default (it has since 2026-11-14 on AArch64,
+see "Scope of the decoder's selection" below), because the then
 whole-decode comparison with the NEON oracle differs on every VarDCT file,
 with or without the SIMD stages, because the original's NEON build also runs
 dequantization, IDCT, XYB and output kernels as SIMD (ADR 0004 evidence).
@@ -147,7 +148,7 @@ owner; O4 #250 stays open for shipped defaults). AVX2 compiles but was not
 run. With the render stages and the SIMD AdaptiveDCSmoothing/DequantDC,
 all 24 admitted whole decodes of `decode_vardct` match the NEON oracle word
 for word and byte for byte; the whole-decode test now asserts that with the
-SIMD target forced. The default selection stays off until the per-target
+SIMD target forced. The default selection then stayed off until the per-target
 conditions of ADR 0004 "Decoder path" hold (all reachable exports, public
 decoder and low-memory pipeline comparison, a scalar gate that forces the
 scalar path, real x86-64 evidence for AVX2).

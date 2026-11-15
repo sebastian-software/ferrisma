@@ -355,7 +355,8 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   section 2), never across hosts or vendors. NEON's `vrecpe` is
   architecturally defined. The owner's open question O4 (#250) still covers
   whether that is acceptable for shipped defaults; the default selection
-  stays off. No other kernel of this package takes a scalar detour on
+  stayed off at the time (for its later state per target see "Default
+  selection per target"). No other kernel of this package takes a scalar detour on
   AVX2.
 - **Evidence (NEON, native, against `target/oracle-neon`).**
   `tests/simd_vardct.rs`, reusing the scalar suite's `dct-*`, `dq-*` and
@@ -381,7 +382,7 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   369,961/369,936 (the third color plane); no output byte differs on any
   file (scalar path: 1-696). With these kernels alone, on the earlier main
   without the render stages, 81-84 % of the words differed. The
-  `DECODER_SELECTS_SIMD` selection stays off because not every file
+  `DECODER_SELECTS_SIMD` selection stayed off then because not every file
   matches; the remaining kernels on that path are the next candidates
   (`compressed_dc`'s DC dequantization and adaptive smoothing, upsampling).
 - **compressed_dc (2026-11-13, branch `v1/jxl-vardct-dc`).**
@@ -394,7 +395,7 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   the original stores them from quantized samples it never initialized).
   With it, **all 24 admitted VarDCT files of the whole-decode comparison
   match the NEON oracle word for word** and no output byte differs. The
-  selection is not turned on: this ADR requires the comparison on every
+  selection was not turned on then: this ADR requires the comparison on every
   target in scope, AVX2 is not verified (hosted run pending), and the one `DECODER_SELECTS_SIMD` switch would
   also move the AArch64 decoder off the scalar oracle that the scalar gate
   compares with. The whole-decode test now asserts these zero differences
@@ -598,7 +599,7 @@ may need its own entries.
 | `conformance/noise` | 185761 / 909000 | 11 / 909000 | 2610 / 909000 | **noise**: Gab EPF1 ConvNoise AddNoise XYB FromLinear WritePixelCB; flags 0x1, upsampling 1, ec [] |
 | `conformance/upsampling` | 380366 / 2400000 | 23 / 2400000 | 5992 / 2400000 | **upsampling**: Gab EPF1 Upsample Upsample Upsample Upsample XYB FromLinear WritePixelCB; flags 0x0, upsampling 4, ec [4]; modular squeeze |
 
-The selection stays off: condition (b) now has its comparison, which does
+The selection stayed off then: condition (b) had its comparison, which did
 not report zero yet; the punch list is empty only when upsampling, noise
 and splines are translated (and then on each target separately).
 
