@@ -552,7 +552,8 @@ bool av1_resize_vert_dir_c(uint8_t *intbuf, uint8_t *output, int out_stride, int
 #define av1_resize_vert_dir av1_resize_vert_dir_c
 
 void av1_round_shift_array_c(int32_t *arr, int size, int bit);
-#define av1_round_shift_array av1_round_shift_array_c
+void av1_round_shift_array_sse4_1(int32_t *arr, int size, int bit);
+RTCD_EXTERN void (*av1_round_shift_array)(int32_t *arr, int size, int bit);
 
 int av1_selfguided_restoration_c(const uint8_t *dgd8, int width, int height,
                                   int dgd_stride, int32_t *flt0, int32_t *flt1, int flt_stride,
@@ -803,6 +804,8 @@ static void setup_rtcd_internal(void)
     av1_quantize_lp = av1_quantize_lp_c;
     if (flags & HAS_SSE2) av1_quantize_lp = av1_quantize_lp_sse2;
     if (flags & HAS_AVX2) av1_quantize_lp = av1_quantize_lp_avx2;
+    av1_round_shift_array = av1_round_shift_array_c;
+    if (flags & HAS_SSE4_1) av1_round_shift_array = av1_round_shift_array_sse4_1;
     av1_selfguided_restoration = av1_selfguided_restoration_c;
     if (flags & HAS_SSE4_1) av1_selfguided_restoration = av1_selfguided_restoration_sse4_1;
     if (flags & HAS_AVX2) av1_selfguided_restoration = av1_selfguided_restoration_avx2;

@@ -205,6 +205,7 @@ Kernels that exist only as NASM stay on `_c` (working decision O4).
 | Loop restoration | `av1/common/x86/wiener_convolve_sse2.c`, `wiener_convolve_avx2.c`, `highbd_wiener_convolve_ssse3.c`, `highbd_wiener_convolve_avx2.c`, `selfguided_sse4.c`, `selfguided_avx2.c`, the Wiener part of `aom_dsp/x86/convolve_avx2.h` (with the restoration and filter macros of `restoration.h`, `aom_filter.h`, `convolve.h` expanded by the C preprocessor) | 4 (8 specializations) | 82/82, 82/82, 82/82 |
 | Horizontal and vertical correlation | `av1/encoder/x86/rdopt_sse4.c`, `rdopt_avx2.c`, `loadu_int64` of `aom_dsp/x86/mem_sse2.h` | 1 (`av1_get_horver_correlation_full`, SSE4.1 and AVX2) | 82/82, 82/82, 82/82 |
 | Coefficient contexts | `av1/encoder/x86/encodetxb_sse2.c`, the 8-bit loads of `aom_dsp/x86/mem_sse2.h` | 1 (`av1_get_nz_map_contexts`, SSE2) | 82/82, 82/82, 82/82 |
+| Round shift | `av1/common/x86/av1_txfm_sse4.c` (translated by hand earlier with `av1_txfm_sse4.h`, `simd/av1/common/x86/av1_txfm_sse4.rs`) | 1 (`av1_round_shift_array`, SSE4.1) | 82/82, 82/82, 82/82 |
 
 Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
 and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
@@ -266,6 +267,12 @@ intrinsic sequence that differs from the C. `get_txb_bhl`, `get_txb_wide` and
 short hand part (`parts/txb_common_sse2.hand.rs`), as in the Neon port. The
 RTCD units gain `int8_t` and `TX_CLASS`; the dispatch tool now orders the
 glibc aliases by width with the signed one first, as C2Rust does.
+`av1_round_shift_array_sse4_1` assumes a 16-byte aligned array; its callers in
+the translated transforms pass the DECLARE_ALIGNED(32) buffers C2Rust kept
+aligned (`platform::Aligned32`). `round_shift_array.rs` adds the SSE4_1
+instantiation of AV1CompRoundShiftTest, and the transcriptions' scalar
+reference now selects `av1_round_shift_array_c` on x86-64 too (231 tests
+pass).
 
 Since 2026-11-15 every family is verified before its push with all four
 translation profiles compiled (`cargo check -p libavif-aom --lib --tests` for

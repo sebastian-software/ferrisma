@@ -420,6 +420,7 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_quantize_fp_sse2
   av1_quantize_lp_avx2
   av1_quantize_lp_sse2
+  av1_round_shift_array_sse4_1
   av1_selfguided_restoration_avx2
   av1_selfguided_restoration_sse4_1
   av1_txb_init_levels_avx2

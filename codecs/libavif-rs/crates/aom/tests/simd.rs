@@ -60,10 +60,9 @@ mod cfl;
 /// `av1_rtcd()` sets up in the original's test main. The transcriptions call
 /// those references without that setup, so they select the `_c` round shift,
 /// as `AOM_SIMD_CAPS_MASK=0` does, and keep the reference scalar throughout.
-/// The store is idempotent, so concurrent tests may repeat it. The x86-64
-/// overlay does not dispatch this function, so there is nothing to select.
+/// The store is idempotent, so concurrent tests may repeat it.
 pub(crate) fn scalar_round_shift_reference() {
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
     {
         extern "C-unwind" {
             fn av1_round_shift_array_c(arr: *mut i32, size: i32, bit: i32);
