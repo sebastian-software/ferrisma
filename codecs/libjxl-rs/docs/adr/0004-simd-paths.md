@@ -1721,3 +1721,92 @@ profile's encoder exports still untranslated are `enc_adaptive_quantization`,
 `enc_modular_simd` with alpha). `Symmetric5`, which "convolve_symmetric5
 and simd_util" above leaves as encoder work, is translated.
 <!-- end encoder cfl -->
+
+<!-- encoder aq -->
+### Encoder path: `enc_adaptive_quantization` (2026-11-14, branch `v1/jxl-enc-aq`)
+
+**What the export is.** `enc_adaptive_quantization.cc` exports one Highway
+function, `AdaptiveQuantizationMap`, dispatched from `InitialQuantField`;
+everything else in the file is outside `HWY_NAMESPACE` or unreached.
+Reading the code paths: the lossy profile (effort 7, Squirrel) calls
+`InitialQuantField` (enc_heuristics.cc, speed tier Hare or slower), and
+`FindBestQuantizer` returns without work, because its butteraugli loops
+(`FindBestQuantization`, `FindBestQuantizationMaxError`, `RoundtripImage`,
+`TileDistMap`) run only at Kitten and slower or in max-error mode. Those
+are scalar code outside `HWY_NAMESPACE` that would call butteraugli's own
+exports; they stay out of scope (and unported), as the profile list above
+says. `InitialQuantDC` and `AdjustQuantField` are scalar code outside
+`HWY_NAMESPACE` and keep the scalar translation on every target.
+
+**Translated** (`enc_adaptive_quantization_simd.rs`): AdaptiveQuantizationMap
+with AdaptiveQuantizationImpl::PrepareBuffers/ComputeTile (the
+`HWY_FULL` vector loop of the pre-erosion pass with its scalar first and
+last pixels), ComputeMask, RatioOfDerivativesOfCubicRootToSimpleGamma
+(vector and one-lane forms), GammaModulation, BlueModulation,
+HfModulation (kMaskRight), PerBlockModulations, MaskingSqrt (both forms)
+and FuzzyErosion; FastLog2f and FastPow2f are `simd_transfer`'s.
+`HWY_CAPPED(float, kBlockDim)` is the full vector on both targets (four
+NEON, eight AVX2 lanes); the `HWY_CAPPED(float, 1)` forms are lane 0 of
+the full vector operation on a broadcast (every operation they use is
+lane-wise; their MulAdd is fused). The whole export lies inside
+`HWY_NAMESPACE`, so the five contraction sites of
+`tools/encoder_heuristics_contraction.json` (PerBlockModulations' final
+scale, FuzzyErosion's weights and its four-product sum) are fused on both
+targets, including x86-64, where the scalar build keeps them separate.
+Products of two constants are folded before contraction and stay unfused
+(`kSGVOffset * kInvLog2e + kEpsilon`, `64 * kLimit - scalar_sum`; the
+latter is exact anyway). Blur1x1Masking is the scalar translation's (its
+one contractible product, `2 * kFilterMask1x1[3]`, is exact). The SIMD
+path dispatches at `initial_quant_field` through `hwy::encoder_target()`.
+
+**What remains of this export: nothing.** Blur1x1Masking calls
+`Symmetric5`, the separate `convolve_symmetric5` export, through its own
+dispatch (`convolve_symmetric5_simd`, translated on another branch), so
+with the encoder's selection forced the blur runs the SIMD Symmetric5 as
+in the original. The parity test compares `mask1x1` after the blur.
+
+**Tests.** `tests/simd_encoder_aq.rs`, request `eaq-map`
+(tools/oracle/encoder_aq_simd.cc): the original's public
+`InitialQuantField` on an `Image3F` whose row padding (up to
+`PixelsPerRow`; the strides themselves differ, since the encoder's planes
+keep the scalar padding, see above) holds one of four words (+0.0, a quiet NaN,
++inf, -1e30), because HfModulation's last vector reads one sample past
+each block, masked out; status, `aq_map`, `mask` and `mask1x1` printed in
+full. The domain: 14 whole images from 8x8 to 200x136 (one to four tiles
+per direction, every SIMD loop remainder of both lane counts), nine value
+kinds (photo-like, high-frequency noise, flat, ramps, blue-dominated
+blocks for BlueModulation's branches, negative samples, large magnitudes,
+special words sprinkled into photo content, special words only), ten
+distances across the FuzzyErosion branch and the dampening ramp (0.05 to
+20), three rescales, images larger than the rect by a partial block, and
+six rects inside a 152x144 image (the +-2 and +-4 pixel extensions). It
+runs through `initial_quant_field` with the encoder's selection forced and
+shows the scalar path differs. An 8-lane structure test in the same file
+(`Neon8`, two NEON halves, AArch64 only, no oracle) runs 108 requests:
+every 8-lane load and store stays inside the planes, and `mask1x1`, which
+only scalar pixels compute, equals the 4-lane result.
+
+**Evidence (2026-11-15, M1 Ultra).** NEON: `eaq-map`, 286 requests,
+1,203,950 words, zero differences (the scalar path differs in 277); the
+8-lane test passes. AVX2 under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1`,
+dispatch-build oracle): 240 of 286 requests match; **46 differ, all from
+the two special-word value kinds, only in `aq_map`** (`mask` and `mask1x1`
+match). Diagnosis of one of them (16x8, a signaling NaN in X and a quiet
+NaN in Y within one block): removing either NaN makes it match. The two
+NaNs reach different lanes of GammaModulation's `overall_ratio` and meet
+in SumOfLanes, where `Add` of two NaNs returns one of them (x86: the first
+source operand). FastLog2f then reads the NaN's bits as an integer, so the
+payload becomes a finite exponent and the block's quant field differs by
+orders of magnitude. The original's choice is not fixed by its source: in
+the AVX2 object, Clang commuted the reduction step
+`f(v03_12_12_03, Reverse2(...))` (`vshufps $0x1b` then `vaddps` with the
+shuffled vector first), as LLVM may for any `fadd`, and the port's Rust
+build makes its own choice. This is a finding, not fixed: decision D8 lets
+any NaN equal any NaN, but here a NaN payload chosen by the compiler turns
+into finite words, so no source-faithful translation can promise the
+original's words for inputs that put two NaNs into one block's reduction.
+It needs an owner decision (for example, that such inputs, which an
+encoder's XYB conversion cannot produce from finite pixels, are outside the
+parity domain, or that payload propagation is pinned). The test's domain is
+unchanged, so `simd_encoder_aq` fails on AVX2 until then.
+<!-- end encoder aq -->

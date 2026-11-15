@@ -159,3 +159,6 @@ pub mod enc_ac_strategy_simd;
 pub mod convolve_symmetric5_simd;
 pub mod enc_chroma_from_luma_simd;
 // end encoder cfl
+// encoder aq: the SIMD AdaptiveQuantizationMap (port ADR 0004, "Encoder path").
+pub mod enc_adaptive_quantization_simd;
+// end encoder aq

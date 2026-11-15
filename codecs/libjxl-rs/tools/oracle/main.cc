@@ -567,6 +567,9 @@ bool EncoderAcsSimdCommand(const std::string&,std::istringstream&,JxlMemoryManag
 // encoder cfl
 bool EncoderCflSimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 // end encoder cfl
+// encoder aq
+bool EncoderAqSimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+// end encoder aq
 
 int main() {
   try {
@@ -705,6 +708,9 @@ int main() {
       // encoder cfl
       else if (EncoderCflSimdCommand(command, in, &mm)) {}
       // end encoder cfl
+      // encoder aq
+      else if (EncoderAqSimdCommand(command, in, &mm)) {}
+      // end encoder aq
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
       else throw std::runtime_error("unknown command");

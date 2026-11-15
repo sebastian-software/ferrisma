@@ -399,3 +399,7 @@ target_sources(jxl_oracle PRIVATE encoder_acs_simd.cc)
 # ADR 0004, "Encoder path"). The TU only calls the original's public API.
 target_sources(jxl_oracle PRIVATE encoder_cfl_simd.cc)
 # end encoder cfl
+# encoder aq: requests of the encoder's SIMD AdaptiveQuantizationMap (port
+# ADR 0004, "Encoder path"). The TU only calls the original's InitialQuantField.
+target_sources(jxl_oracle PRIVATE encoder_aq_simd.cc)
+# end encoder aq
