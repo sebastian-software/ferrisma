@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! EstimateCost from lib/jxl/enc_modular_simd.cc, using the original one-lane
-//! Highway configuration. SIMD kernels/context maps remain unported. Residual
-//! subtraction retains the source's defined i32 arithmetic precondition.
+//! Highway configuration (the `HWY_SCALAR` branch). The vector branch with
+//! its context map is `enc_modular_simd_simd`'s, selected through
+//! `hwy::encoder_target()`. Residual subtraction retains the source's
+//! defined i32 arithmetic precondition.
 
 use super::base::status::StatusOr;
 use super::dec_ans::HybridUintConfig;
@@ -13,6 +15,11 @@ use super::modular::modular_image::Image;
 use super::pack_signed::pack_signed;
 
 pub fn estimate_cost(img: &Image) -> StatusOr<f32> {
+    // HWY_DYNAMIC_DISPATCH(EstimateCost): the encoder's own selection, off
+    // by default (port ADR 0004, "Encoder path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_modular_simd_simd::estimate_cost_simd(target, img);
+    }
     let mut histo_cost = 0usize;
     let mut histo_cost_frac = 0.0f32;
     let mut extra_bits = 0usize;

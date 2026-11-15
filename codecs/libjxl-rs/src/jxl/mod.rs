@@ -164,4 +164,5 @@ pub mod enc_chroma_from_luma_simd;
 pub mod enc_ans_simd;
 pub mod enc_cluster_simd;
 pub mod enc_entropy_coder_simd;
+pub mod enc_modular_simd_simd;
 // end encoder entropy

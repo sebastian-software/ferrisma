@@ -665,7 +665,7 @@ pub fn estimate_bits(counts: &[i32], num_symbols: usize) -> f32 {
     clippy::too_many_arguments,
     reason = "Preserve source split-node children and predictor fields"
 )]
-fn make_split_node(
+pub(crate) fn make_split_node(
     pos: usize,
     property: i32,
     splitval: i32,
@@ -683,12 +683,12 @@ fn make_split_node(
     tree.push(PropertyDecisionNode::leaf(lpred, loff, 1));
 }
 #[derive(Clone, Copy, Eq, PartialEq)]
-enum IntersectionType {
+pub(crate) enum IntersectionType {
     None,
     Partial,
     Inside,
 }
-fn box_intersects(
+pub(crate) fn box_intersects(
     needle: StaticPropRange,
     haystack: StaticPropRange,
     axis: &mut u32,
@@ -719,7 +719,7 @@ fn box_intersects(
         IntersectionType::Inside
     }
 }
-fn split_tree_samples<const S: bool>(
+pub(crate) fn split_tree_samples<const S: bool>(
     samples: &mut TreeSamples,
     begin: usize,
     pos: usize,
@@ -750,7 +750,7 @@ fn split_tree_samples<const S: bool>(
     clippy::too_many_arguments,
     reason = "Preserve source residual/property histogram workspaces"
 )]
-fn collect_extra_bits_increase<const S: bool>(
+pub(crate) fn collect_extra_bits_increase<const S: bool>(
     samples: &TreeSamples,
     rtokens: &[ResidualToken],
     count_increase: &mut [i32],
@@ -771,14 +771,14 @@ fn collect_extra_bits_increase<const S: bool>(
     }
 }
 #[derive(Clone, Copy)]
-struct SplitInfo {
-    prop: usize,
-    val: u32,
-    pos: usize,
-    lcost: f32,
-    rcost: f32,
-    lpred: Predictor,
-    rpred: Predictor,
+pub(crate) struct SplitInfo {
+    pub(crate) prop: usize,
+    pub(crate) val: u32,
+    pub(crate) pos: usize,
+    pub(crate) lcost: f32,
+    pub(crate) rcost: f32,
+    pub(crate) lpred: Predictor,
+    pub(crate) rpred: Predictor,
 }
 impl Default for SplitInfo {
     fn default() -> Self {
@@ -794,15 +794,15 @@ impl Default for SplitInfo {
     }
 }
 impl SplitInfo {
-    fn cost(self) -> f32 {
+    pub(crate) fn cost(self) -> f32 {
         self.lcost + self.rcost
     }
 }
 #[derive(Clone, Copy)]
-struct CostInfo {
-    cost: f32,
-    extra_cost: f32,
-    pred: Predictor,
+pub(crate) struct CostInfo {
+    pub(crate) cost: f32,
+    pub(crate) extra_cost: f32,
+    pub(crate) pred: Predictor,
 }
 impl Default for CostInfo {
     fn default() -> Self {
@@ -814,7 +814,7 @@ impl Default for CostInfo {
     }
 }
 impl CostInfo {
-    fn cost(self) -> f32 {
+    pub(crate) fn cost(self) -> f32 {
         self.cost + self.extra_cost
     }
 }
@@ -1143,6 +1143,20 @@ pub fn compute_best_tree(
     }
     if samples.num_distinct_samples() > u32::MAX as usize {
         return Err(StatusCode::GenericError);
+    }
+    // HWY_DYNAMIC_DISPATCH(FindBestSplit): the encoder's own selection, off
+    // by default (port ADR 0004, "Encoder path").
+    if let Some(target) = crate::jxl::hwy::encoder_target() {
+        super::enc_ma_simd::find_best_split_simd(
+            target,
+            samples,
+            threshold,
+            mul_info,
+            range,
+            fast_decode_multiplier,
+            tree,
+        );
+        return Ok(());
     }
     find_best_split(
         samples,

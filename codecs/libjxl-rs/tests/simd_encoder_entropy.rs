@@ -29,11 +29,15 @@ use jxl::jxl::enc_cluster_simd::{
 use jxl::jxl::enc_entropy::estimate_token_cost_dispatch;
 use jxl::jxl::enc_entropy_coder::tokenize_coefficients;
 use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
+use jxl::jxl::enc_modular_simd::estimate_cost;
 use jxl::jxl::encode_internal::JxlEncoderChunkedFrameAdapter;
 use jxl::jxl::frame_header::YCbCrChromaSubsampling;
 use jxl::jxl::hwy;
 use jxl::jxl::image::{Image3, Plane};
-use jxl::jxl::modular::modular_image::Image as ModularImage;
+use jxl::jxl::modular::encoding::enc_ma::{TreeSamples, compute_best_tree};
+use jxl::jxl::modular::encoding::enc_ma_simd::estimate_bits_simd;
+use jxl::jxl::modular::modular_image::{Channel, Image as ModularImage};
+use jxl::jxl::modular::options::{ModularMultiplierInfo, Predictor, TreeMode};
 use jxl::jxl::modular::transform::enc_rct::{fwd_rct, fwd_rct_channels};
 use jxl::jxl::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
 use simd_common::{check_rows, next, status};
@@ -1087,5 +1091,388 @@ fn check_tokens(requests: &[String]) {
             (observed, Box::new(all_defined))
         },
         no_float,
+    );
+}
+
+// enc_ma -------------------------------------------------------------------------
+// The `learn-estimate` and `learn-split` requests of tools/oracle/learn.inc
+// (the observation format of tests/parity/learn.rs, copied here so that
+// that binary stays untouched).
+
+fn values<T: std::str::FromStr>(args: &mut Args<'_>) -> Vec<T>
+where
+    T::Err: std::fmt::Debug,
+{
+    let n = number(args);
+    (0..n).map(|_| number(args)).collect()
+}
+fn output<T: std::fmt::Display>(out: &mut String, v: &[T]) {
+    write!(out, " {}", v.len()).unwrap();
+    for x in v {
+        write!(out, " {x}").unwrap();
+    }
+}
+fn tree_mode(v: usize) -> TreeMode {
+    [
+        TreeMode::GradientOnly,
+        TreeMode::WPOnly,
+        TreeMode::NoWP,
+        TreeMode::Default,
+    ][v]
+}
+fn samples_observation(out: &mut String, s: &TreeSamples) {
+    write!(out, " {}", s.num_predictors()).unwrap();
+    for i in 0..s.num_predictors() {
+        write!(out, " {}", s.predictor_from_index(i).0).unwrap();
+    }
+    write!(out, " {}", s.num_properties()).unwrap();
+    for i in 0..s.num_properties() {
+        write!(out, " {}", s.property_from_index(i)).unwrap();
+    }
+    write!(
+        out,
+        " {} {} {} {}",
+        s.num_static_props(),
+        s.num_samples(),
+        s.num_distinct_samples(),
+        u32::from(s.has_samples())
+    )
+    .unwrap();
+    for p in 0..s.num_properties() {
+        write!(out, " {}", s.num_property_values(p)).unwrap();
+        for q in 0..s.num_property_values(p) - 1 {
+            write!(out, " {}", s.unquantize_property(p, q as u32)).unwrap();
+        }
+        let mut previous = 0;
+        for v in -520..=520 {
+            let q = if p < s.num_static_props() {
+                s.quantize_static_property(p as u32, v)
+            } else {
+                s.quantize_property(p as u32, v)
+            };
+            if v == -520 || q != previous {
+                write!(out, " {v},{q}").unwrap();
+            }
+            previous = q;
+        }
+        out.push_str(" E");
+    }
+    for i in 0..s.num_distinct_samples() {
+        write!(out, " {}", s.count(i)).unwrap();
+        for p in 0..s.num_predictors() {
+            let t = s.rtoken(p, i);
+            write!(out, " {},{}", t.tok, t.nbits).unwrap();
+        }
+        for p in 0..s.num_static_props() {
+            write!(out, " {}", s.property::<true>(p, i)).unwrap();
+        }
+        for p in 0..s.num_properties() - s.num_static_props() {
+            write!(out, " {}", s.property::<false>(p, i)).unwrap();
+        }
+    }
+}
+
+/// The port's observation of a `learn-estimate` request (EstimateBits of
+/// the SIMD target) or a `learn-split` request (ComputeBestTree through the
+/// encoder's dispatch to FindBestSplit; the caller sets the selection).
+fn observe_learn(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    let kind = args.next().unwrap();
+    let args = &mut args;
+    if kind == "learn-estimate" {
+        let counts: Vec<i32> = values(args);
+        return estimate_bits_simd(simd_common::target(), &counts, counts.len())
+            .to_bits()
+            .to_string();
+    }
+    assert_eq!(kind, "learn-split");
+    let threshold = f32::from_bits(number(args));
+    let fast = f32::from_bits(number(args));
+    let predictor = Predictor(number(args));
+    let m = tree_mode(number(args));
+    let max = number(args);
+    let props = values(args);
+    let range = std::array::from_fn(|_| [number(args), number(args)]);
+    let n = number(args);
+    let mult: Vec<_> = (0..n)
+        .map(|_| ModularMultiplierInfo {
+            range: std::array::from_fn(|_| [number(args), number(args)]),
+            multiplier: number(args),
+        })
+        .collect();
+    let group = values(args);
+    let channel = values(args);
+    let mut pixel = values(args);
+    let mut diff = values(args);
+    let mut s = TreeSamples::default();
+    s.set_predictor(predictor, m).unwrap();
+    s.set_properties(&props, m).unwrap();
+    s.pre_quantize_properties(&range, &mult, &group, &channel, &mut pixel, &mut diff, max);
+    let mut out = "S".to_owned();
+    output(&mut out, &pixel);
+    output(&mut out, &diff);
+    samples_observation(&mut out, &s);
+    let batches = number(args);
+    for _ in 0..batches {
+        let extra = number(args);
+        let n = number(args);
+        let repeat = number(args);
+        s.prepare_for_samples(extra);
+        let data: Vec<_> = (0..n)
+            .map(|_| (number::<i64>(args), values(args), values::<i64>(args)))
+            .collect();
+        for _ in 0..repeat {
+            for (pixel, props, preds) in &data {
+                s.add_sample(*pixel, props, preds);
+            }
+        }
+        samples_observation(&mut out, &s);
+    }
+    let swaps = number(args);
+    for _ in 0..swaps {
+        if s.num_distinct_samples() != 0 {
+            s.swap(0, s.num_distinct_samples() - 1);
+        }
+        samples_observation(&mut out, &s);
+    }
+    s.all_samples_done();
+    let mut tree = Vec::new();
+    let status = compute_best_tree(&mut s, threshold, &mult, range, fast, &mut tree);
+    write!(out, " {}", jxl::jxl::base::status::status_code(&status)).unwrap();
+    write!(out, " {}", tree.len()).unwrap();
+    for n in tree {
+        write!(
+            out,
+            " {},{},{},{},{},{},{}",
+            n.property,
+            n.splitval,
+            n.lchild,
+            n.rchild,
+            n.predictor.0,
+            n.predictor_offset,
+            n.multiplier
+        )
+        .unwrap();
+    }
+    samples_observation(&mut out, &s);
+    out
+}
+
+/// A `learn-split` request with `count` distinct random samples in one
+/// batch: the 20 properties of the full list (or a subset), the 14
+/// predictions, pixels around a few levels so that splits pay.
+#[allow(clippy::too_many_arguments)]
+fn split_request(
+    threshold: f32,
+    fast: f32,
+    predictor: u32,
+    mode: usize,
+    max: usize,
+    variant: usize,
+    count: usize,
+    seed: &mut u64,
+) -> String {
+    let props = match variant % 3 {
+        0 => "20 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19",
+        1 => "5 4 6 9 15 18",
+        _ => "3 0 1 9",
+    };
+    let mult = // The multiplier ranges force splits on the static properties, which
+    // the request's property list must then contain (variant % 3 != 1), as
+    // in tests/parity/learn.rs.
+    if variant.is_multiple_of(2) && mode > 1 && variant % 3 != 1 {
+        "2 0 2 0 8 1 2 4 0 8 3"
+    } else {
+        "0"
+    };
+    let mut out = format!(
+        "learn-split {} {} {predictor} {mode} {max} {props} 0 4 0 8 {mult} 8 7 0 19 3 1 0 11 5 4 3 17 0 8 10 -31 -7 -1 0 1 3 7 19 31 511 10 -33 -11 -3 -1 0 2 4 17 255 512 1",
+        threshold.to_bits(),
+        fast.to_bits()
+    );
+    let repeat = 1 + variant % 3;
+    write!(out, " {} {count} {repeat}", count * repeat + 64).unwrap();
+    for _ in 0..count {
+        let r = next(seed);
+        let level = [0i64, 40, -300, 1000][(r % 4) as usize];
+        let pixel = level + (next(seed) % 61) as i64 - 30;
+        write!(out, " {pixel} 20").unwrap();
+        for q in 0..20 {
+            let v = match q {
+                0 => (next(seed) % 4) as i32,
+                1 => (next(seed) % 8) as i32,
+                _ => (next(seed) % 1025) as i32 - 512 + (level / 8) as i32,
+            };
+            write!(out, " {v}").unwrap();
+        }
+        out.push_str(" 14");
+        for pred in 0..14i64 {
+            let noise = (next(seed) % 21) as i64 - 10;
+            write!(out, " {}", level + noise * (pred % 5)).unwrap();
+        }
+    }
+    out.push_str(" 1");
+    out
+}
+
+#[test]
+fn enc_simd_estimate_bits_matches_the_original_target() {
+    let mut seed = 0xe57b_0000_0000_001du64;
+    let mut requests = Vec::new();
+    for n in [8usize, 16, 24, 64, 128, 256] {
+        for i in 0..60 {
+            let mut out = format!("learn-estimate {n}");
+            for k in 0..n {
+                let count = match i % 6 {
+                    0 => 0,
+                    1 => i32::from(k == n / 2) * 77,
+                    2 => (next(&mut seed) % 5) as i32,
+                    3 => (next(&mut seed) % 1_000_000) as i32,
+                    4 => {
+                        if k < 3 {
+                            (next(&mut seed) % 100_000) as i32
+                        } else {
+                            0
+                        }
+                    }
+                    _ => (next(&mut seed) % 1000) as i32,
+                };
+                write!(out, " {count}").unwrap();
+            }
+            requests.push(out);
+        }
+    }
+    let _lock = dispatch_lock();
+    check_rows(
+        "learn-estimate",
+        &requests,
+        |r| (observe_learn(r), Box::new(all_defined)),
+        no_float,
+    );
+}
+
+#[test]
+fn enc_simd_find_best_split_through_the_encoder_dispatch_matches_the_original_target() {
+    let mut seed = 0xf1d5_0000_0000_001fu64;
+    let mut requests = Vec::new();
+    for i in 0..120 {
+        let mode = i % 4;
+        let pred = if mode == 2 {
+            5
+        } else {
+            [0, 5, 6, 14, 15][(i / 4) % 5]
+        };
+        let threshold = [0.0f32, 0.5, 17.0, 96.0, 1000.0][i % 5];
+        let fast = [1.0f32, 1.01, 1.25][i % 3];
+        let count = [4usize, 16, 50, 200][i % 4];
+        requests.push(split_request(
+            threshold,
+            fast,
+            pred,
+            mode,
+            [2, 16, 32, 64, 256][(i / 3) % 5],
+            i,
+            count,
+            &mut seed,
+        ));
+    }
+    let _lock = dispatch_lock();
+    hwy::set_encoder_simd_for_test(Some(false));
+    let scalar: Vec<String> = requests.iter().map(|r| observe_learn(r)).collect();
+    hwy::set_encoder_simd_for_test(Some(true));
+    let simd: Vec<String> = requests.iter().map(|r| observe_learn(r)).collect();
+    hwy::set_encoder_simd_for_test(None);
+    let differing = scalar.iter().zip(&simd).filter(|(a, b)| a != b).count();
+    println!(
+        "learn-split: the scalar path differs in {differing} of {} requests",
+        requests.len()
+    );
+    let index = std::cell::Cell::new(0);
+    check_rows(
+        "learn-split",
+        &requests,
+        |_| {
+            let observed = simd[index.get()].clone();
+            index.set(index.get() + 1);
+            (observed, Box::new(all_defined))
+        },
+        no_float,
+    );
+}
+
+// enc_modular_simd ----------------------------------------------------------------
+
+/// The port's observation of an `ene-mcost` request through the dispatching
+/// EstimateCost (the caller sets the encoder's selection).
+fn observe_modular_cost(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("ene-mcost"));
+    let n: usize = number(&mut args);
+    let mut image = ModularImage::create(1, 1, 8, 0).unwrap();
+    for _ in 0..n {
+        let w: usize = number(&mut args);
+        let h: usize = number(&mut args);
+        let mut channel = Channel::create(w, h).unwrap();
+        for y in 0..h {
+            for x in 0..round_up8(w) {
+                channel.row_mut(y)[x] = number::<i64>(&mut args) as i32;
+            }
+        }
+        image.channel.push(channel);
+    }
+    match estimate_cost(&image) {
+        Ok(cost) => format!("S 0 {}", cost.to_bits()),
+        Err(e) => format!("S {} 0", status(&Err(e))),
+    }
+}
+
+#[test]
+fn enc_simd_modular_estimate_cost_through_the_encoder_dispatch_matches_the_original_target() {
+    let mut seed = 0xe5c0_0000_0000_0023u64;
+    let mut requests = Vec::new();
+    let shapes: &[&[(usize, usize)]] = &[
+        &[(1, 1)],
+        &[(3, 2)],
+        &[(8, 8)],
+        &[(9, 5), (4, 4), (17, 3)],
+        &[(33, 17)],
+        &[(64, 40), (32, 20), (32, 20)],
+        &[(0, 3), (5, 0), (13, 7)],
+        &[(129, 9)],
+    ];
+    for &shape in shapes {
+        for kind in 0..5 {
+            let mut s = format!("ene-mcost {}", shape.len());
+            for &(w, h) in shape {
+                write!(s, " {w} {h}").unwrap();
+                for y in 0..h {
+                    for x in 0..round_up8(w) {
+                        let r = next(&mut seed);
+                        let v: i64 = match kind {
+                            0 => ((x * 3 + y * 7) % 256) as i64,
+                            1 => (r % 256) as i64,
+                            2 => (r % 65536) as i64 - 32768,
+                            3 => [0, 255, 0, 1000, -7][(x / 3 + y) % 5],
+                            _ => r as u32 as i32 as i64 >> (r % 24),
+                        };
+                        write!(s, " {v}").unwrap();
+                    }
+                }
+            }
+            requests.push(s);
+        }
+    }
+    // Kind 4 (wide words) overflows the scalar branch's residual, which the
+    // source requires to fit; the vector branch wraps.
+    // The vector branch partitions the same contexts and forms the same
+    // tokens as the scalar branch; only the order of the float entropy sums
+    // differs, which the truncated integer cost hides in this domain.
+    check_through_dispatch_with(
+        "ene-mcost",
+        &requests,
+        |i| i % 5 != 4,
+        observe_modular_cost,
+        no_float,
+        false,
     );
 }

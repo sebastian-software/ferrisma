@@ -45,6 +45,13 @@
 //       the default BlockCtxMap, into a token vector holding one token and
 //       a sentinel-filled Image3I of nonzero counts. Prints the status, the
 //       tokens (context, value) and the three count planes.
+//   ene-mcost <n> <n * (w h <h * RoundUpTo(w, 8) words>)>
+//       EstimateCost of a modular image with the n channels (rows filled in
+//       their first RoundUpTo(w, 8) samples); prints the status and the
+//       cost's bits.
+// The enc_ma requests are tools/oracle/learn.inc's learn-estimate (the
+// target namespace's EstimateBits) and learn-split (ComputeBestTree, which
+// dispatches FindBestSplit).
 #include <jxl/memory_manager.h>
 
 #include <array>
@@ -307,6 +314,30 @@ bool EncoderEntropySimdCommand(const std::string& command, std::istringstream& i
       std::cout << " N";
       for (size_t y = 0; y < yb; ++y)
         for (size_t x = 0; x < xb; ++x) std::cout << ' ' << nzeroes.ConstPlaneRow(c, y)[x];
+    }
+    return true;
+  }
+  if (command == "ene-mcost") {
+    const size_t n = EneCount(in, 16);
+    auto created = jxl::Image::Create(mm, 1, 1, 8, 0);
+    if (!created.ok()) throw std::runtime_error("encoder entropy: modular image");
+    jxl::Image image = std::move(created).value_();
+    for (size_t c = 0; c < n; ++c) {
+      const size_t w = EneCount(in, 4096), h = EneCount(in, 4096);
+      auto ch = jxl::Channel::Create(mm, w, h);
+      if (!ch.ok()) throw std::runtime_error("encoder entropy: channel");
+      jxl::Channel channel = std::move(ch).value_();
+      if (h > 0 && w > 0 && size_t(channel.plane.PixelsPerRow()) < EneRoundUp8(w))
+        throw std::runtime_error("encoder entropy: row padding below 8 lanes");
+      for (size_t y = 0; y < h; ++y)
+        for (size_t x = 0; x < EneRoundUp8(w); ++x) channel.Row(y)[x] = EneInt(in);
+      image.channel.push_back(std::move(channel));
+    }
+    jxl::StatusOr<float> cost = jxl::EstimateCost(image);
+    if (cost.ok()) {
+      std::cout << "S 0 " << EneBits(std::move(cost).value_());
+    } else {
+      std::cout << "S " << int(cost.status().code()) << " 0";
     }
     return true;
   }
