@@ -97,7 +97,7 @@ jobs:
     needs: affected
     if: needs.affected.outputs.engine == 'true' || needs.affected.outputs.kernels == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Restore minimum-rust build cache
@@ -107,21 +107,16 @@ jobs:
           key: core-minimum-rust-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-${{ github.sha }}
           restore-keys: |
             core-minimum-rust-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-
-      - uses: dtolnay/rust-toolchain@1.98.0
-      - run: cargo +1.98.0 fetch --locked
-      # The engine's MSRV covers every feature except AVIF. NASM is no longer
-      # needed (it was rav1e's).
-      - run: cargo +1.98.0 check -p ferrisma -p ferrisma-kernels --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc --locked
-      - run: cargo +1.98.0 check -p ferrisma-xtask --all-targets --locked
-      # The AVIF port (the only AVIF reader and writer since 2026-11-15) builds
-      # on stable since its translations were rewritten (libavif-rs ADR 0060);
-      # its C-variadic functions need Rust 1.99, the AVIF packages' rust-version.
+      # The product's minimum Rust version is 1.99 (owner decision 2026-11-15,
+      # ADR-0040): the AVIF port's C-variadic functions are stable since 1.99
+      # (libavif-rs ADR 0060). Build and test the whole engine feature set at
+      # exactly the declared version so the declaration cannot go stale.
       - uses: dtolnay/rust-toolchain@1.99.0
-      - run: |
-          for feature in avif-read avif-write cli; do
-            cargo +1.99.0 check -p ferrisma --no-default-features --features "$feature" --locked
-          done
-      - run: cargo +1.99.0 test -p ferrisma --features avif-read,avif-write --locked
+      - run: cargo +1.99.0 fetch --locked
+      - run: cargo +1.99.0 check -p ferrisma -p ferrisma-kernels --all-targets --features cli --locked
+      - run: cargo +1.99.0 check -p ferrisma --all-targets --no-default-features --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc --locked
+      - run: cargo +1.99.0 check -p ferrisma-jxl-decoder -p ferrisma-jxl-encoder -p ferrisma-avif-read -p ferrisma-avif-write -p ferrisma-xtask --all-targets --locked
+      - run: cargo +1.99.0 test -p ferrisma -p ferrisma-kernels --all-targets --features cli --locked
   kernels-arm:
     needs: affected
     if: needs.affected.outputs.kernels == 'true' || needs.affected.outputs.engine == 'true'
@@ -183,11 +178,12 @@ jobs:
       - run: cargo check --workspace --all-targets --locked
       - run: cargo test -p libavif-sharpyuv --test cross_port --test cross_port_cold_threads --profile checked --locked
       - run: cargo test -p libavif-sharpyuv --test cross_port --test cross_port_cold_threads --release --locked
-      - name: Check shared SharpYUV core on its stable toolchain
+      - name: Check shared SharpYUV core at its declared rust-version
         run: |
-          rustup toolchain install 1.95 --profile minimal --component clippy
-          cargo +1.95 check -p libsharpyuv-core --all-targets --locked
-          cargo +1.95 clippy -p libsharpyuv-core --all-targets --no-deps --locked -- -D warnings
+          msrv="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' crates/libsharpyuv-core/Cargo.toml)"
+          rustup toolchain install "$msrv" --profile minimal --component clippy
+          cargo +"$msrv" check -p libsharpyuv-core --all-targets --locked
+          cargo +"$msrv" clippy -p libsharpyuv-core --all-targets --no-deps --locked -- -D warnings
       - working-directory: crates/ferrisma-libavif
         run: |
           cargo clippy --release --all-features --all-targets --locked --no-deps -- -D warnings
@@ -236,7 +232,20 @@ jobs:
           esac
       - run: cargo fetch --locked
       - run: rustup toolchain install stable --profile minimal --component clippy
-      - run: rustup toolchain install 1.95 --profile minimal
+      # The static stage's MSRV step (`check.py --msrv`) runs at the port's
+      # own declared rust-version, read from its Cargo.toml.
+      - name: Install the port's rust-version toolchain
+        env:
+          CODEC: ${{ matrix.codec }}
+        run: |
+          case "$CODEC" in
+            jpeg) manifest=codecs/libjpeg-turbo-rs/Cargo.toml ;;
+            webp) manifest=codecs/libwebp-rs/Cargo.toml ;;
+            jxl) manifest=codecs/libjxl-rs/Cargo.toml ;;
+            avif) exit 0 ;;
+            *) exit 1 ;;
+          esac
+          rustup toolchain install "$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' "$manifest")" --profile minimal
       - env:
           CODEC: ${{ matrix.codec }}
           ARCH: ${{ runner.arch }}

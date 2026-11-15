@@ -38,7 +38,7 @@ jobs:
       run:
         working-directory: codecs/libwebp-rs
   msrv:
-    name: 'WEBP: MSRV (Rust 1.95)'
+    name: 'WEBP: MSRV (rust-version)'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
