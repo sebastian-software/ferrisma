@@ -98,7 +98,8 @@ ProcessOneEnqueuedInput are translated: containers, the jxll level box, jxlp
 and jxlc frame boxes, uncompressed metadata boxes and the jxli frame index no
 longer return admission results. The `EnqueuedInput` checkpoint remains for
 an ICC profile (WriteICC, step 6) and for a box queued with `compress_box`
-(BrotliCompress into a brob box, step 11).
+(BrotliCompress into a brob box, step 11). The frame profile admits output
+mode 2 (out-of-order jxlp boxes).
 <!-- end encoder container -->
 
 This preserves traceability at the cost of a less idiomatic initial Rust API.

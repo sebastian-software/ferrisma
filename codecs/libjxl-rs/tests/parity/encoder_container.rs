@@ -242,3 +242,235 @@ fn public_encoder_container_decode_back_matches_original_decoder() {
     }
     super::super::decoder_public::compare("container-decode-back", requests);
 }
+
+/// Encoder container, unit 2: containers through an output processor
+/// (JxlEncoderSetOutputProcessor and JxlEncoderFlushInput). The jxlc and
+/// jxlp box headers are reserved by seeks and written after the frame, with
+/// and without the processor's seek callback (the wrapper then keeps the
+/// reserved bytes), and every buffer schedule; one-shot and streaming frames
+/// in output modes 0 and 1. The processor call sequence (get buffer,
+/// release, seek, finalized position) and the file are compared exactly.
+#[test]
+fn public_encoder_container_output_processor_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let prefixes = ["U1 ", "L10 ", "U1 L10 ", "J1 ", "U1 L5 "];
+    let cases = [
+        (1, 1, -1, -1),
+        (43, 15, 0, -1),
+        (63, 129, -1, -1),
+        (512, 1024, 3, -1),
+        (768, 768, -1, -1),
+        (768, 768, -1, 1),
+        (1031, 517, 3, -1),
+        (1031, 517, 2, 0),
+        (2049, 300, 1, 1),
+        (1024, 1024, -1, 0),
+    ];
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize, buffering, output_mode)) in cases.iter().enumerate() {
+        for gray in [false, true] {
+            let variant = index * 2 + usize::from(gray);
+            let mut settings = String::new();
+            if buffering != -1 {
+                settings.push_str(&format!(" o0,34,{buffering}"));
+            }
+            if output_mode != -1 {
+                settings.push_str(&format!(" o0,40,{output_mode}"));
+            }
+            let mask = if variant % 3 == 1 { 4 } else { 0 };
+            let schedule = variant % 4;
+            let schedule = if schedule == 1 && xsize * ysize > 600_000 {
+                3
+            } else {
+                schedule
+            };
+            let history = super::processor_history(
+                xsize,
+                ysize,
+                gray,
+                variant % 4,
+                1 + variant % 4,
+                [1.0, 2.0, 0.5, 1.5][variant % 4],
+                variant,
+                &settings,
+                &format!("w{mask},{schedule},0,0"),
+                variant % 5 == 2,
+            );
+            requests.push(run(
+                0,
+                0,
+                &format!("{}{history}", prefixes[variant % prefixes.len()]),
+            ));
+        }
+    }
+    super::compare_admitted_processor("container-output-processor", requests);
+}
+
+/// One output-mode-2 history: `o0,40,2` with the given buffering, in buffer
+/// mode (a ProcessOutput schedule) or through an output processor.
+#[expect(clippy::too_many_arguments, reason = "One history's fields")]
+fn mode2_history(
+    prefix: &str,
+    xsize: usize,
+    ysize: usize,
+    gray: bool,
+    buffering: i32,
+    distance: f32,
+    variant: usize,
+    processor: Option<&str>,
+) -> String {
+    let mut settings = String::new();
+    if buffering != -1 {
+        settings.push_str(&format!(" o0,34,{buffering}"));
+    }
+    settings.push_str(" o0,40,2");
+    let history = match processor {
+        Some(processor) => super::processor_history(
+            xsize,
+            ysize,
+            gray,
+            variant % 4,
+            1 + variant % 4,
+            distance,
+            variant,
+            &settings,
+            processor,
+            variant % 5 == 2,
+        ),
+        None => lossy_history(
+            xsize,
+            ysize,
+            gray,
+            variant % 4,
+            1 + variant % 4,
+            distance,
+            variant,
+            "",
+            &settings,
+        ),
+    };
+    run(0, 0, &format!("{prefix}{history}"))
+}
+
+/// Encoder container, unit 2: JXL_ENC_FRAME_SETTING_OUTPUT_MODE 2. Mode 2
+/// forces a container with ftyp version 1 and writes the codestream header
+/// as jxlp box 0. A frame that takes the one-shot path leaves the 12-byte gap
+/// that ProcessOneEnqueuedInput fills with its jxlp header; a streaming frame
+/// (more than 8 groups) writes out-of-order jxlp boxes: the frame header,
+/// the DC global section and every group section with its codestream
+/// position as counter, and the TOC as counter base + 1. Buffer mode and
+/// output processors with and without seek, every buffering value.
+#[test]
+fn public_encoder_output_mode_2_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let prefixes = ["", "U1 ", "L10 ", "J1 "];
+    let cases = [
+        (1, 1, -1),
+        (8, 8, 0),
+        (43, 15, 2),
+        (63, 129, -1),
+        (257, 255, 3),
+        (512, 1024, -1),
+        (768, 768, -1),
+        (768, 768, 0),
+        (768, 769, 2),
+        (1031, 517, 3),
+        (1024, 1024, 1),
+        (2049, 300, 1),
+        (2049, 300, -1),
+    ];
+    let mut requests = Vec::new();
+    let mut variant = 0;
+    for &(xsize, ysize, buffering) in &cases {
+        for gray in [false, true] {
+            for processor in [false, true] {
+                let mask = if variant % 3 == 1 { 4 } else { 0 };
+                let schedule = if xsize * ysize > 600_000 {
+                    [0, 2, 3][variant % 3]
+                } else {
+                    variant % 4
+                };
+                let callbacks = format!("w{mask},{schedule},0,0");
+                requests.push(mode2_history(
+                    prefixes[variant % prefixes.len()],
+                    xsize,
+                    ysize,
+                    gray,
+                    buffering,
+                    [1.0, 2.0, 0.5, 1.5][variant % 4],
+                    variant,
+                    processor.then_some(callbacks.as_str()),
+                ));
+                variant += 1;
+            }
+        }
+    }
+    let (buffer, processor): (Vec<String>, Vec<String>) = requests
+        .into_iter()
+        .partition(|request| !request.contains(" i r"));
+    compare_admitted("output-mode-2", buffer);
+    super::compare_admitted_processor("output-mode-2-processor", processor);
+}
+
+/// Encoder step 2's gate sizes in output mode 2 (#117): 768x768, 1024x1024,
+/// 2048x1536, 2049x2049 and 4000x3000 at d1.0 and d2.0, gray and RGB, buffer
+/// mode and an output processor with and without seek, rotating the
+/// buffering values -1 to 3.
+#[test]
+fn public_encoder_output_mode_2_gate_sizes_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let mut requests = Vec::new();
+    let mut k = 0;
+    for (xsize, ysize) in [
+        (768, 768),
+        (1024, 1024),
+        (2048, 1536),
+        (2049, 2049),
+        (4000, 3000),
+    ] {
+        for distance in [1.0f32, 2.0] {
+            for gray in [false, true] {
+                for processor in [false, true] {
+                    // 4000x3000: one history per distance and processor kind.
+                    if xsize == 4000 && gray == processor {
+                        continue;
+                    }
+                    let buffering = [-1, 0, 1, 2, 3][k % 5];
+                    let mut settings = if buffering == -1 {
+                        String::new()
+                    } else {
+                        format!(" o0,34,{buffering}")
+                    };
+                    settings.push_str(" o0,40,2");
+                    let history =
+                        lossy_history(xsize, ysize, gray, k % 4, 4, distance, k, "", &settings);
+                    let (input, _) = history.split_once(" Z ").unwrap();
+                    let chunk = 4 << 20;
+                    let count = (xsize * ysize * if gray { 1 } else { 3 }).div_ceil(chunk) + 1;
+                    let output = if processor {
+                        format!("w{},0,0,0 i r", if k.is_multiple_of(2) { 0 } else { 4 })
+                    } else {
+                        vec![format!("p{chunk}"); count].join(" ")
+                    };
+                    requests.push(run(0, 0, &format!("{input} Z {output}")));
+                    k += 1;
+                }
+            }
+        }
+    }
+    super::compare_gate("output-mode-2-gate", requests);
+}
+
+/// The EncoderStreamingTest instances that need the container: every
+/// instance with use_container (JxlEncoderSetCodestreamLevel(10)) in output
+/// modes 0, 1 and 2, and the instances without it in output mode 2. Multiple
+/// frames and fast lossless stay outside the admitted profile.
+#[test]
+fn public_encoder_streaming_suite_container_instances_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let mut requests = super::streaming_suite_requests(&[0, 1, 2], true);
+    requests.extend(super::streaming_suite_requests(&[2], false));
+    let count = requests.len();
+    let exact = super::compare_counted("streaming-suite-container", requests);
+    assert_eq!(exact, count, "every admitted instance is exact");
+}

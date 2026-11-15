@@ -406,6 +406,21 @@ boxes-and-output family, 47 exact (the 5 remaining admissions are brob
 boxes); and step 1's `roundtrip_test` frame instances, now 12 exact
 histories with and without JxlEncoderUseContainer (previously 6 admission
 histories).
+
+Output mode 2 (JXL_ENC_FRAME_SETTING_OUTPUT_MODE 2) is admitted by the frame
+profile. `enc_frame_vardct.rs` translates the one-shot path's 12-byte gap
+and EncodeFrameStreaming's out-of-order output (`write_jxlp`,
+`write_group_section`, the inverse permutation and the TOC as jxlp box
+counter base + 1); ProcessOneEnqueuedInput writes the codestream header as
+jxlp box 0 and fills the gap. Evidence, all exact: containers through an
+output processor, 20 histories (seek and no seek, every buffer schedule,
+one-shot and streaming frames); output mode 2, 26 buffer-mode and 26
+processor histories (1x1 to 2049x300, one-shot and out-of-order streaming,
+every buffering value); output mode 2 at step 2's gate sizes (768x768,
+1024x1024, 2048x1536, 2049x2049, 4000x3000; d1.0 and d2.0, gray and RGB,
+buffer and processor mode, 36 histories); EncoderStreamingTest's container and mode-2
+instances, 512 histories, and the earlier 256 instances, now all exact (the
+128 with five extra channels needed level 10 and were admission prefixes).
 <!-- end encoder container -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)

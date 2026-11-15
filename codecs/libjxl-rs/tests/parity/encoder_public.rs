@@ -2432,6 +2432,21 @@ fn public_encoder_chunked_frame_rejections_match_original() {
 #[test]
 fn public_encoder_streaming_suite_instances_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    // encoder container: the instances with five extra channels need level
+    // 10 and so a container; they are exact since the container port.
+    let requests = streaming_suite_requests(&[0, 1], false);
+    let count = requests.len();
+    let exact = compare_counted("streaming-suite", requests);
+    assert_eq!(
+        exact, count,
+        "streaming-suite: every admitted instance is exact"
+    );
+}
+
+/// The histories of encode_test's EncoderStreamingTest instances for the
+/// given output modes, without (or only with, `container`) the use_container
+/// bit; multiple frames and fast lossless are outside the admitted profile.
+fn streaming_suite_requests(modes: &[i32], container_only: bool) -> Vec<String> {
     let mut requests = Vec::new();
     for bitmask in 0..256usize {
         let (container, large, multiple, fast_lossless) = (
@@ -2446,10 +2461,10 @@ fn public_encoder_streaming_suite_instances_match_original() {
             bitmask & 64 != 0,
             bitmask & 128 != 0,
         );
-        if container || multiple || fast_lossless {
+        if container != container_only || multiple || fast_lossless {
             continue;
         }
-        for mode in [0, 1] {
+        for &mode in modes {
             let (xsize, ysize): (usize, usize) = if onegroup { (17, 19) } else { (257, 259) };
             let align: usize = if onegroup { 128 } else { 0 };
             let channels = if alpha { 4 } else { 3 };
@@ -2468,8 +2483,9 @@ fn public_encoder_streaming_suite_instances_match_original() {
             }
             let settings = |streaming: bool| {
                 format!(
-                    " s- o0,34,{} o0,40,{mode} o0,38,0",
-                    if streaming { 2 } else { 0 }
+                    " s- o0,34,{} o0,40,{mode} o0,38,0{}",
+                    if streaming { 2 } else { 0 },
+                    if container { " L10" } else { "" }
                 )
             };
             let row = xsize * channels;
@@ -2528,7 +2544,7 @@ fn public_encoder_streaming_suite_instances_match_original() {
             ));
         }
     }
-    compare("streaming-suite", requests);
+    requests
 }
 
 /// The gate histories of encoder step 2 for one size: d1.0 and d2.0, gray

@@ -4,7 +4,8 @@
 //! The general frame entry of lib/jxl/enc_frame.cc for the admitted lossy
 //! VarDCT profile: EncodeFrame (the JxlEncoderChunkedFrameAdapter overload)
 //! with its setting resolution, CanDoStreamingEncoding, EncodeFrameStreaming
-//! for output modes 0 and 1 with ComputePermutationForStreaming, TOCBucket,
+//! for output modes 0, 1 and 2 (out-of-order jxlp boxes, with the one-shot
+//! path's 12-byte gap) with ComputePermutationForStreaming, TOCBucket,
 //! TOCSize, ComputeGroupDataOffset, ComputeDcGlobalPadding, OutputGroups,
 //! RemoveUnusedHistograms and OutputAcGlobal, EncodeFrameOneShot,
 //! PermuteGroups' early return, GetBitDepth, general CopyColorChannels,
@@ -72,6 +73,9 @@ use super::encode_internal::{
     JxlEncoderChunkedFrameAdapter, JxlEncoderOutputProcessorWrapper, append_data, bits_per_channel,
     bytes_per_pixel,
 };
+// encoder container
+use super::base::byte_order::store_be32;
+use super::encode_internal::{LARGE_BOX_HEADER_SIZE, make_box_type, write_box_header};
 use super::fields::u32_coder::can_encode;
 use super::frame_dimensions::{BLOCK_DIM, FrameDimensions, GROUP_DIM_IN_BLOCKS};
 use super::frame_header::{
@@ -170,8 +174,8 @@ pub fn admitted_frame_profile(
         && !cparams.already_downsampled
         && !cparams.lossy_palette
         && cparams.quant_ac_rescale == CompressParams::default().quant_ac_rescale
-        // Output modes 0 and 1 (encoder step 2); mode 2 writes a container.
-        && (cparams.output_mode == 0 || cparams.output_mode == 1)
+        // Output modes 0 and 1 (encoder step 2) and 2 (encoder container).
+        && (cparams.output_mode == 0 || cparams.output_mode == 1 || cparams.output_mode == 2)
         && cparams.debug_image.is_none()
         && admitted_extra_channels(m)
         && !m.have_animation
@@ -1642,9 +1646,76 @@ fn output_ac_global(
     Ok(writer)
 }
 
-/// EncodeFrameStreaming for output modes 0 (collected sections) and 1
-/// (streaming output with the TOC written after the groups); mode 2 is a
-/// container mode outside the profile.
+// encoder container
+/// EncodeFrameStreaming's `write_jxlp` lambda: one jxlp box with its counter.
+fn write_jxlp(
+    output_processor: &mut JxlEncoderOutputProcessorWrapper,
+    counter: u32,
+    is_last: bool,
+    data: &[u8],
+) -> Status {
+    let mut hdr = [0u8; LARGE_BOX_HEADER_SIZE + 4];
+    let hdr_size = write_box_header(
+        &make_box_type(b"jxlp"),
+        4 + data.len(),
+        /*unbounded=*/ false,
+        /*force_large_box=*/ false,
+        &mut hdr,
+    );
+    store_be32(
+        counter | if is_last { 0x8000_0000 } else { 0 },
+        &mut hdr[hdr_size..],
+    );
+    append_data(output_processor, &hdr[..hdr_size + 4])?;
+    append_data(output_processor, data)
+}
+
+/// The state EncodeFrameStreaming's `write_group_section` lambda captures
+/// for out-of-order output (output mode 2).
+struct OutOfOrderSections<'a> {
+    ooo: bool,
+    inv_perm: &'a [usize],
+    encoding_pos: usize,
+    group_order_perm: &'a [CoeffOrder],
+    total_sections: usize,
+    is_last_frame: bool,
+    jxlp_base: u32,
+}
+
+/// EncodeFrameStreaming's `write_group_section` lambda.
+fn write_group_section(
+    bytes: &[u8],
+    group_sizes: &mut Vec<usize>,
+    sections: &mut OutOfOrderSections<'_>,
+    output_processor: &mut JxlEncoderOutputProcessorWrapper,
+) -> Status {
+    group_sizes.push(bytes.len());
+    if sections.ooo {
+        let canonical_idx = sections.inv_perm[sections.encoding_pos];
+        sections.encoding_pos += 1;
+        let cs_pos = if sections.group_order_perm.is_empty() {
+            canonical_idx
+        } else {
+            sections.group_order_perm[canonical_idx] as usize
+        };
+        let is_last = (cs_pos + 1 == sections.total_sections) && sections.is_last_frame;
+        return write_jxlp(
+            output_processor,
+            sections
+                .jxlp_base
+                .wrapping_add(cs_pos as u32)
+                .wrapping_add(2),
+            is_last,
+            bytes,
+        );
+    }
+    append_data(output_processor, bytes)
+}
+// end encoder container
+
+/// EncodeFrameStreaming for output modes 0 (collected sections), 1
+/// (streaming output with the TOC written after the groups) and 2
+/// (out-of-order jxlp boxes, encoder container).
 #[expect(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 fn encode_frame_streaming(
     cparams: &CompressParams<'static>,
@@ -1652,11 +1723,9 @@ fn encode_frame_streaming(
     metadata: &CodecMetadata,
     frame_data: &JxlEncoderChunkedFrameAdapter<'_>,
     output_processor: &mut JxlEncoderOutputProcessorWrapper,
+    jxlp_counter: Option<&mut u32>,
 ) -> FrameResult {
     let output_mode = cparams.output_mode;
-    if output_mode == 2 {
-        return admission(FrameAdmission::StreamingFrame);
-    }
     let mut enc_state = Box::new(PassesEncoderState::new());
     set_progressive_mode(cparams, &mut enc_state.progressive_splitter);
     let mut frame_header = FrameHeader::new(Some(metadata));
@@ -1694,6 +1763,7 @@ fn encode_frame_streaming(
     let mut group_sizes: Vec<usize> = Vec::new();
     let streaming_output = output_mode == 1;
     let streaming = output_mode >= 1;
+    let ooo = output_mode == 2 && jxlp_counter.is_some(); // encoder container
     let start_pos = if streaming_output {
         output_processor.current_position()
     } else {
@@ -1709,6 +1779,26 @@ fn encode_frame_streaming(
     // PermuteGroups: no center-first order in the admitted profile.
     let group_order_perm: Vec<CoeffOrder> = Vec::new();
     permute_groups(cparams, &full_dim, num_passes)?;
+    // encoder container
+    // For ooo mode, also compute inv_perm (encoding_pos -> canonical_idx).
+    let mut inv_perm: Vec<usize> = Vec::new();
+    if ooo {
+        inv_perm.resize(permutation.len(), 0);
+        for j in 0..permutation.len() {
+            inv_perm[permutation[j] as usize] = j;
+        }
+    }
+    let jxlp_base = jxlp_counter.as_deref().copied().unwrap_or(0);
+    let mut sections = OutOfOrderSections {
+        ooo,
+        inv_perm: &inv_perm,
+        encoding_pos: 0,
+        group_order_perm: &group_order_perm,
+        total_sections,
+        is_last_frame: frame_info.is_last,
+        jxlp_base,
+    };
+    // end encoder container
 
     for i in 0..dc_group_order.len() {
         let dc_ix = dc_group_order[i];
@@ -1769,6 +1859,22 @@ fn encode_frame_streaming(
                 )?;
                 group_sizes.push(dc_global_bytes.len());
                 output_processor.seek(start_pos + group_data_offset)?;
+            } else if ooo {
+                // encoder container
+                write_jxlp(
+                    output_processor,
+                    jxlp_base,
+                    /*is_last=*/ false,
+                    &frame_header_bytes,
+                )?;
+                let bytes = std::mem::take(&mut group_codes[0]).take_bytes();
+                write_group_section(
+                    bytes.as_slice(),
+                    &mut group_sizes,
+                    &mut sections,
+                    output_processor,
+                )?;
+                // end encoder container
             }
         }
         if streaming {
@@ -1777,12 +1883,20 @@ fn encode_frame_streaming(
                 return Err(StatusCode::GenericError.into());
             }
             let bytes = std::mem::take(&mut group_codes[1]).take_bytes();
-            group_sizes.push(bytes.len());
-            append_data(output_processor, bytes.as_slice())?;
+            write_group_section(
+                bytes.as_slice(),
+                &mut group_sizes,
+                &mut sections,
+                output_processor,
+            )?;
             for code in group_codes.iter_mut().skip(3) {
                 let bytes = std::mem::take(code).take_bytes();
-                group_sizes.push(bytes.len());
-                append_data(output_processor, bytes.as_slice())?;
+                write_group_section(
+                    bytes.as_slice(),
+                    &mut group_sizes,
+                    &mut sections,
+                    output_processor,
+                )?;
             }
         } else {
             if group_codes.len() < 4 {
@@ -1817,8 +1931,12 @@ fn encode_frame_streaming(
     writer.shrink()?;
     if streaming {
         let bytes = writer.take_bytes();
-        group_sizes.push(bytes.len());
-        append_data(output_processor, bytes.as_slice())?;
+        write_group_section(
+            bytes.as_slice(),
+            &mut group_sizes,
+            &mut sections,
+            output_processor,
+        )?;
     } else {
         global_group_codes[1 + dc_group_order.len()] = Some(writer);
     }
@@ -1847,6 +1965,38 @@ fn encode_frame_streaming(
             return Err(StatusCode::GenericError.into());
         }
         output_processor.seek(end_pos)?;
+    } else if ooo {
+        // encoder container
+        // Write TOC (in codestream order) as jxlp[jxlp_base+1]; counter +1
+        // means the decoder processes it before the group sections (counters
+        // >= +2).
+        if group_sizes.len() != permutation.len() {
+            return Err(StatusCode::GenericError.into());
+        }
+        let mut codestream_sizes = vec![0usize; permutation.len()];
+        for canonical_idx in 0..permutation.len() {
+            let cs_pos = if group_order_perm.is_empty() {
+                canonical_idx
+            } else {
+                group_order_perm[canonical_idx] as usize
+            };
+            codestream_sizes[cs_pos] = group_sizes[permutation[canonical_idx] as usize];
+        }
+        let mut toc_writer = BitWriter::new();
+        write_toc_sizes(&codestream_sizes, &mut toc_writer, None)?;
+        let toc_bytes = toc_writer.take_bytes();
+        write_jxlp(
+            output_processor,
+            jxlp_base.wrapping_add(1),
+            /*is_last=*/ false,
+            toc_bytes.as_slice(),
+        )?;
+        if let Some(jxlp_counter) = jxlp_counter {
+            *jxlp_counter = jxlp_base
+                .wrapping_add(total_sections as u32)
+                .wrapping_add(2);
+        }
+        // end encoder container
     } else {
         let mut codes = Vec::with_capacity(global_group_codes.len());
         for g in global_group_codes {
@@ -1953,10 +2103,8 @@ pub fn encode_frame(
     frame_data: &JxlEncoderChunkedFrameAdapter<'_>,
     output_processor: &mut JxlEncoderOutputProcessorWrapper,
     default_memory_manager: bool,
-    // encoder container: the source's jxlp counter, used by output mode 2.
-    jxlp_counter: Option<&mut u32>,
+    jxlp_counter: Option<&mut u32>, // encoder container
 ) -> FrameResult {
-    let _ = jxlp_counter;
     let mut cparams = cparams_orig.clone();
     if cparams.speed_tier == SpeedTier::TectonicPlate && !cparams.is_lossless() {
         cparams.speed_tier = SpeedTier::Glacier;
@@ -2031,9 +2179,15 @@ pub fn encode_frame(
             metadata,
             frame_data,
             output_processor,
+            jxlp_counter,
         );
     }
-    // output_mode 2 (the jxlp gap) is a container mode, outside the profile.
+    // encoder container
+    if cparams.output_mode == 2 && jxlp_counter.is_some() {
+        // Leave a 12-byte gap for the jxlp box header; encode.cc fills it in.
+        output_processor.seek(output_processor.current_position() + 12)?;
+    }
+    // end encoder container
     encode_frame_one_shot(&cparams, frame_info, metadata, frame_data, output_processor)
 }
 
