@@ -222,5 +222,19 @@
     "end": "\n\nvoid ConvolveGaborish(",
     "sha256": "fda7c2b944f56533dd012a04ea1809d781dc2212137d80c676a1e8df392eae50",
     "output": "original_gaborish_kernel.inc"
+  },
+  {
+    "path": "lib/jxl/roundtrip_test.cc",
+    "start": "template <typename T>\nT ConvertTestPixel(float val);",
+    "end": "\n\n// Generates some pixels using some dimensions",
+    "sha256": "d3c78d91ec6fb1b115f096926965ef5c9e660a4dcfb5ab3b0016b4041b61c4c5",
+    "output": "original_roundtrip_test_helpers.inc"
+  },
+  {
+    "path": "lib/jxl/test_utils.cc",
+    "start": "void JxlBasicInfoSetFromPixelFormat(",
+    "end": "\n\nColorEncoding ColorEncodingFromDescriptor(",
+    "sha256": "044bd2a63e0106d9cc4193a9e198afcc59305e7c86f8ffdc3c329ceac0712c12",
+    "output": "original_basic_info_from_pixel_format.inc"
   }
 ]

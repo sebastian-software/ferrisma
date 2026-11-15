@@ -17,11 +17,20 @@
 // es1-qw-default: quant_weights_test.cc AllDefault: DequantMatricesSetCustom
 //   with kNumQuantTables Library<0> encodings, the roundtripped encodings,
 //   and DequantMatricesEncode's bytes of the result.
+// es1-rt TYPE CHANNELS LOSSLESS CONTAINER: roundtrip_test.cc
+//   VerifyRoundtripCompression's encoder half at 63x129 for one interleaved
+//   frame of JxlDataType TYPE (GetTestImage<T> samples), every status the
+//   test compares and the compressed bytes. The decoder half runs through
+//   the dpub-run histories of both decoders (tests/parity/decoder_public.rs).
+#include <jxl/color_encoding.h>
+#include <jxl/encode.h>
 #include <jxl/memory_manager.h>
 
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -44,12 +53,16 @@
 #include "lib/jxl/enc_modular.h"
 #include "lib/jxl/enc_params.h"
 #include "lib/jxl/enc_quant_weights.h"
+#include "lib/jxl/encode_internal.h"
 #include "lib/jxl/frame_header.h"
 #include "lib/jxl/image_metadata.h"
 #include "lib/jxl/quant_weights.h"
 
 namespace {
 uint32_t Es1Bits(float v) { uint32_t b; std::memcpy(&b, &v, sizeof(b)); return b; }
+float Es1Float(std::istringstream& in) {
+  uint32_t bits; in >> bits; float v; std::memcpy(&v, &bits, sizeof(v)); return v;
+}
 void Es1Hex(jxl::Bytes bytes) {
   std::cout << ' ';
   if (bytes.size() == 0) std::cout << '-';
@@ -119,6 +132,82 @@ void Es1PrintEncoding(const jxl::QuantEncoding& e) {
 }
 }  // namespace
 
+// ---------------------------------------------------------------------------
+// roundtrip_test.cc and the EncodeImageJXL cases of jxl_test.cc and
+// speed_tier_test.cc.
+
+namespace jxl {
+namespace test {
+// The extracted original in decode_test_inputs.cc (original_check_impl.inc).
+void CheckImpl(bool ok, const char* condition, const char* file, int line);
+}  // namespace test
+}  // namespace jxl
+
+namespace es1_rt {
+// The test's EXPECT_EQ inside the extracted EncodeWithEncoder: recorded and
+// printed instead of reported to a test framework.
+bool expectations_held = true;
+#define EXPECT_EQ(a, b) (es1_rt::expectations_held &= ((a) == (b)))
+#define Check(OK) ::jxl::test::CheckImpl((OK), #OK, __FILE__, __LINE__)
+// test_utils.cc JxlBasicInfoSetFromPixelFormat.
+#include "original_basic_info_from_pixel_format.inc"
+// roundtrip_test.cc ConvertTestPixel, GetTestImage and EncodeWithEncoder.
+#include "original_roundtrip_test_helpers.inc"
+#undef Check
+#undef EXPECT_EQ
+
+// VerifyRoundtripCompression's encoder half for the admitted instances: one
+// interleaved color frame without extra channels, no resampling, no
+// container, lossy. Prints every status the test compares, the queue check
+// and the compressed bytes.
+template <typename T>
+void EncodeHalf(size_t xsize, size_t ysize, const JxlPixelFormat& input_pixel_format,
+                bool lossless, bool use_container) {
+  const std::vector<uint8_t> original_bytes =
+      GetTestImage<T>(xsize, ysize, input_pixel_format);
+  JxlEncoder* enc = JxlEncoderCreate(nullptr);
+  std::cout << "R " << (enc != nullptr);
+  std::cout << ' ' << JxlEncoderSetCodestreamLevel(enc, 10);
+  std::cout << ' ' << JxlEncoderUseContainer(enc, use_container);
+  JxlBasicInfo basic_info;
+  JxlBasicInfoSetFromPixelFormat(&basic_info, &input_pixel_format);
+  basic_info.xsize = xsize;
+  basic_info.ysize = ysize;
+  basic_info.uses_original_profile = lossless;
+  uint32_t num_channels = input_pixel_format.num_channels;
+  size_t has_interleaved_alpha = num_channels == 2 || num_channels == 4;
+  basic_info.num_extra_channels = 0 + has_interleaved_alpha;
+  std::cout << ' ' << JxlEncoderSetBasicInfo(enc, &basic_info);
+  std::cout << ' ' << enc->metadata.m.num_extra_channels;
+  JxlColorEncoding color_encoding;
+  if (input_pixel_format.data_type == JXL_TYPE_FLOAT) {
+    JxlColorEncodingSetToLinearSRGB(&color_encoding,
+                                    /*is_gray=*/input_pixel_format.num_channels < 3);
+  } else {
+    JxlColorEncodingSetToSRGB(&color_encoding,
+                              /*is_gray=*/input_pixel_format.num_channels < 3);
+  }
+  std::cout << ' ' << JxlEncoderSetColorEncoding(enc, &color_encoding);
+  std::cout << ' ' << JxlEncoderSetUpsamplingMode(enc, 1, -1);
+  JxlEncoderFrameSettings* frame_settings = JxlEncoderFrameSettingsCreate(enc, nullptr);
+  std::cout << ' ' << (frame_settings != nullptr);
+  std::cout << ' ' << JxlEncoderSetFrameLossless(frame_settings, lossless);
+  std::cout << ' '
+            << JxlEncoderAddImageFrame(frame_settings, &input_pixel_format,
+                                       static_cast<const void*>(original_bytes.data()),
+                                       original_bytes.size());
+  std::cout << ' ' << frame_settings->enc->input_queue.empty();
+  JxlEncoderCloseInput(enc);
+  std::vector<uint8_t> compressed;
+  expectations_held = true;
+  EncodeWithEncoder(enc, &compressed);
+  JxlEncoderDestroy(enc);
+  std::cout << ' ' << expectations_held;
+  Es1Hex(jxl::Bytes(compressed.data(), compressed.size()));
+}
+
+}  // namespace es1_rt
+
 bool EncoderStep1Command(const std::string& command, std::istringstream& in,
                          JxlMemoryManager* mm) {
   if (command.rfind("es1-", 0) != 0) return false;
@@ -158,6 +247,19 @@ bool EncoderStep1Command(const std::string& command, std::istringstream& in,
     writer.ZeroPadToByte();
     std::cout << " W " << int(encoded.code());
     Es1Hex(writer.GetSpan());
+    return true;
+  }
+  if (command == "es1-rt") {
+    unsigned type, channels, lossless, container;
+    in >> type >> channels >> lossless >> container;
+    const JxlPixelFormat format = {channels, JxlDataType(type), JXL_NATIVE_ENDIAN, 0};
+    if (type == JXL_TYPE_FLOAT) {
+      es1_rt::EncodeHalf<float>(63, 129, format, lossless != 0, container != 0);
+    } else if (type == JXL_TYPE_UINT16) {
+      es1_rt::EncodeHalf<uint16_t>(63, 129, format, lossless != 0, container != 0);
+    } else {
+      es1_rt::EncodeHalf<uint8_t>(63, 129, format, lossless != 0, container != 0);
+    }
     return true;
   }
   throw std::runtime_error("unknown encoder step 1 command");

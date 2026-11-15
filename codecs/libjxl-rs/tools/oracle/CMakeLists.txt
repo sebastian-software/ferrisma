@@ -399,4 +399,8 @@ target_sources(jxl_oracle PRIVATE encoder_acs_simd.cc)
 # differential form. The TU only calls the original's functions and the
 # public API, with the tests' own inputs.
 target_sources(jxl_oracle PRIVATE encoder_step1.cc)
+# Reconfigure when the pinned test sources of the extracted roundtrip_test.cc
+# helpers change (source_fragments.json).
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${UPSTREAM}/lib/jxl/roundtrip_test.cc")
 # end encoder step 1
