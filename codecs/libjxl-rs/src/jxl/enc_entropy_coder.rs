@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license in LICENSE.
 
 //! NumNonZeroExceptLLF, NumNonZero8x8ExceptDC and TokenizeCoefficients from
-//! lib/jxl/enc_entropy_coder.cc, for the one-lane (HWY_SCALAR) target. The
+//! lib/jxl/enc_entropy_coder.cc, for the one-lane (HWY_SCALAR) target (the
+//! NEON/AVX2 translation is `enc_entropy_coder_simd`'s). The
 //! vector masks count zero coefficients exactly as the lane loop does; integer
 //! arithmetic only, so there is no contraction site. Row pointers become
 //! slices and owner-relative offsets.
@@ -112,6 +113,23 @@ pub fn tokenize_coefficients(
     qf: &Plane<i32>,
     block_ctx_map: &BlockCtxMap,
 ) -> Status {
+    // HWY_DYNAMIC_DISPATCH(TokenizeCoefficients): the encoder's own
+    // selection, off by default (port ADR 0004, "Encoder path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_entropy_coder_simd::tokenize_coefficients_simd(
+            target,
+            orders,
+            rect,
+            ac_rows,
+            ac_strategy,
+            cs,
+            tmp_num_nzeroes,
+            output,
+            qdc,
+            qf,
+            block_ctx_map,
+        );
+    }
     let xsize_blocks = rect.xsize();
     let ysize_blocks = rect.ysize();
     output.clear();

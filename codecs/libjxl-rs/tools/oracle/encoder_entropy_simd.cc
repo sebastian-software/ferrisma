@@ -32,6 +32,19 @@
 //       ClusterHistograms (clustering 0: kFastest, 1: kFast, 2: kBest).
 //   Both print the status, the symbols (three sentinel 7s before the call),
 //   the input histograms' entropy caches and the output histograms.
+//   ene-cost <split_exponent> <msb_in_token> <lsb_in_token> <len>
+//            <RoundUpTo(len, 8) + 8 words>
+//       EstimateTokenCost(values, len, HybridUintConfig(...), tokens) with a
+//       token buffer of RoundUpTo(len, 8) + 8 sentinel words; prints the
+//       extra bits and every token word (the last vector stores whole).
+//   ene-tok <xb> <yb> <n> <n * (bx by raw)> <3 * xb * yb * 64 ints>
+//           <xb * yb qdc> <xb * yb qf>
+//       TokenizeCoefficients over Rect(0, 0, xb, yb) with the request's
+//       strategies (DCT8 elsewhere), coefficient rows, quant DC and quant
+//       field, the natural coefficient orders of every strategy, 4:4:4 and
+//       the default BlockCtxMap, into a token vector holding one token and
+//       a sentinel-filled Image3I of nonzero counts. Prints the status, the
+//       tokens (context, value) and the three count planes.
 #include <jxl/memory_manager.h>
 
 #include <array>
@@ -219,6 +232,82 @@ bool EncoderEntropySimdCommand(const std::string& command, std::istringstream& i
     for (const jxl::Histogram& h : histograms) std::cout << ' ' << EneBits(h.entropy);
     std::cout << " O " << out.size();
     for (const jxl::Histogram& h : out) EnePrintHistogram(h);
+    return true;
+  }
+  if (command == "ene-cost") {
+    const size_t split = EneCount(in, 15);
+    const size_t msb = EneCount(in, 15);
+    const size_t lsb = EneCount(in, 15);
+    const size_t len = EneCount(in, 1 << 16);
+    const size_t padded = EneRoundUp8(len) + kMaxLanes;
+    std::vector<uint32_t> values(padded);
+    for (uint32_t& v : values) in >> v;
+    auto tokens = jxl::AlignedMemory::Create(mm, padded * sizeof(uint32_t));
+    if (!tokens.ok()) throw std::runtime_error("encoder entropy: tokens");
+    jxl::AlignedMemory memory = std::move(tokens).value_();
+    uint32_t* out = memory.address<uint32_t>();
+    for (size_t i = 0; i < padded; ++i) out[i] = uint32_t(EneSentinel(4, i));
+    const uint32_t extra_bits =
+        jxl::EstimateTokenCost(values.data(), len,
+                               jxl::HybridUintConfig(split, msb, lsb), memory);
+    std::cout << "X " << extra_bits << " T";
+    for (size_t i = 0; i < padded; ++i) std::cout << ' ' << out[i];
+    return true;
+  }
+  if (command == "ene-tok") {
+    const size_t xb = EneCount(in, 64);
+    const size_t yb = EneCount(in, 64);
+    auto acs_or = jxl::AcStrategyImage::Create(mm, xb, yb);
+    if (!acs_or.ok()) throw std::runtime_error("encoder entropy: strategies");
+    jxl::AcStrategyImage ac_strategy = std::move(acs_or).value_();
+    ac_strategy.FillDCT8();
+    const size_t n = EneCount(in, 64 * 64);
+    for (size_t i = 0; i < n; ++i) {
+      const size_t bx = EneCount(in, 63), by = EneCount(in, 63);
+      const size_t raw = EneCount(in, jxl::AcStrategy::kNumValidStrategies - 1);
+      if (!ac_strategy.Set(bx, by, static_cast<jxl::AcStrategyType>(raw)))
+        throw std::runtime_error("encoder entropy: strategy");
+    }
+    std::vector<int32_t> coefficients[3];
+    for (auto& row : coefficients) {
+      row.resize(xb * yb * jxl::kDCTBlockSize);
+      for (int32_t& v : row) v = EneInt(in);
+    }
+    auto qdc_or = jxl::ImageB::Create(mm, xb, yb);
+    auto qf_or = jxl::ImageI::Create(mm, xb, yb);
+    auto nz_or = jxl::Image3I::Create(mm, xb, yb);
+    if (!qdc_or.ok() || !qf_or.ok() || !nz_or.ok()) throw std::runtime_error("encoder entropy: planes");
+    jxl::ImageB qdc = std::move(qdc_or).value_();
+    jxl::ImageI qf = std::move(qf_or).value_();
+    jxl::Image3I nzeroes = std::move(nz_or).value_();
+    for (size_t y = 0; y < yb; ++y)
+      for (size_t x = 0; x < xb; ++x) qdc.Row(y)[x] = uint8_t(EneCount(in, 255));
+    for (size_t y = 0; y < yb; ++y)
+      for (size_t x = 0; x < xb; ++x) qf.Row(y)[x] = EneInt(in);
+    for (size_t c = 0; c < 3; ++c)
+      for (size_t y = 0; y < yb; ++y)
+        for (size_t x = 0; x < xb; ++x) nzeroes.PlaneRow(c, y)[x] = EneSentinel(5 + c, y * xb + x);
+    std::vector<jxl::coeff_order_t> orders(jxl::kCoeffOrderMaxSize);
+    for (size_t raw = 0; raw < jxl::AcStrategy::kNumValidStrategies; ++raw) {
+      const jxl::AcStrategy acs =
+          jxl::AcStrategy::FromRawStrategy(static_cast<jxl::AcStrategyType>(raw));
+      for (size_t c = 0; c < 3; ++c)
+        acs.ComputeNaturalCoeffOrder(
+            &orders[jxl::kCoeffOrderOffset[3 * jxl::kStrategyOrder[raw] + c] * jxl::kDCTBlockSize]);
+    }
+    const int32_t* ac_rows[3] = {coefficients[0].data(), coefficients[1].data(),
+                                 coefficients[2].data()};
+    std::vector<jxl::Token> tokens = {jxl::Token(3, 3)};
+    const jxl::Status status = jxl::TokenizeCoefficients(
+        orders.data(), jxl::Rect(0, 0, xb, yb), ac_rows, ac_strategy,
+        jxl::YCbCrChromaSubsampling(), &nzeroes, &tokens, qdc, qf, jxl::BlockCtxMap());
+    std::cout << "S " << int(status.code()) << " T " << tokens.size();
+    for (const jxl::Token& t : tokens) std::cout << ' ' << t.context << ' ' << t.value;
+    for (size_t c = 0; c < 3; ++c) {
+      std::cout << " N";
+      for (size_t y = 0; y < yb; ++y)
+        for (size_t x = 0; x < xb; ++x) std::cout << ' ' << nzeroes.ConstPlaneRow(c, y)[x];
+    }
     return true;
   }
   throw std::runtime_error("unknown encoder entropy SIMD command");

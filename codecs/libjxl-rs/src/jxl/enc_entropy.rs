@@ -65,6 +65,22 @@ fn estimate_token_cost(values: &[u32], config: HybridUintConfig, out: &mut [u32]
     extra_bits
 }
 
+/// `HWY_DYNAMIC_DISPATCH(EstimateTokenCost)(values, len, cfg, tokens)`: the
+/// encoder's own selection, off by default (port ADR 0004, "Encoder path").
+/// `values` runs from the histogram's first value to the padded end, `out`
+/// is the token buffer.
+pub fn estimate_token_cost_dispatch(
+    values: &[u32],
+    len: usize,
+    config: HybridUintConfig,
+    out: &mut [u32],
+) -> u32 {
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_ans_simd::estimate_token_cost_simd(target, values, len, config, out);
+    }
+    estimate_token_cost(&values[..len], config, out)
+}
+
 impl EntropyEncodingData {
     pub fn choose_uint_configs(
         &mut self,
@@ -145,8 +161,11 @@ impl EntropyEncodingData {
         }
         // MaxVectorSize() returns four bytes in the scalar source. Upstream
         // adds that value to a count of u32 elements; retain that padding.
-        const MAX_VEC_SIZE: usize = 4;
-        let mut transposed = vec![0u32; offset[2 * num_histo] + MAX_VEC_SIZE];
+        // With the encoder's SIMD selection it is the target's vector bytes
+        // (16 NEON, 32 AVX2), as in the original's SIMD build: the SIMD
+        // EstimateTokenCost loads and stores a whole last vector.
+        let max_vec_size: usize = super::hwy::encoder_target().map_or(4, |t| 4 * t.lanes());
+        let mut transposed = vec![0u32; offset[2 * num_histo] + max_vec_size];
         {
             let mut next_offset = offset.clone();
             for stream in tokens {
@@ -177,7 +196,7 @@ impl EntropyEncodingData {
         }
         let mut tmp = AlignedMemory::create(
             super::memory_manager_internal::MemoryManagerPtr::NATIVE,
-            (max_volume + MAX_VEC_SIZE) * 4,
+            (max_volume + max_vec_size) * 4,
             0,
         )?;
         for h in 0..num_histo {
@@ -191,8 +210,12 @@ impl EntropyEncodingData {
                     continue;
                 }
                 let mut histo = Histogram::new(tok as usize + 1);
-                let extra_bits =
-                    estimate_token_cost(&transposed[offset[h]..offset[h + 1]], cfg, tmp.u32s_mut());
+                let extra_bits = estimate_token_cost_dispatch(
+                    &transposed[offset[h]..],
+                    volume[h],
+                    cfg,
+                    tmp.u32s_mut(),
+                );
                 for &tok in &tmp.u32s()[..volume[h]] {
                     histo.fast_add(tok as usize);
                 }
@@ -221,8 +244,9 @@ impl EntropyEncodingData {
             tok |= cfg.lsb_mask();
             tok = tok.wrapping_add(self.lz77.min_symbol);
             histo.ensure_capacity(tok as usize + 1);
-            estimate_token_cost(
-                &transposed[offset[num_histo + h]..offset[num_histo + h + 1]],
+            estimate_token_cost_dispatch(
+                &transposed[offset[num_histo + h]..],
+                len,
                 cfg,
                 tmp.u32s_mut(),
             );

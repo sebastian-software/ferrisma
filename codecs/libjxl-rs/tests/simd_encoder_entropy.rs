@@ -14,14 +14,25 @@
 
 mod simd_common;
 
+use jxl::jxl::ac_context::BlockCtxMap;
+use jxl::jxl::ac_strategy::{AcStrategy, AcStrategyImage, AcStrategyType, NUM_VALID_STRATEGIES};
+use jxl::jxl::base::rect::Rect;
+use jxl::jxl::coeff_order::{COEFF_ORDER_MAX_SIZE, STRATEGY_ORDER, coeff_order_offset};
+use jxl::jxl::coeff_order_fwd::coefficient_layout;
+use jxl::jxl::dec_ans::HybridUintConfig;
+use jxl::jxl::enc_ans::Token;
 use jxl::jxl::enc_ans_params::{ClusteringType, Histogram, HistogramParams};
 use jxl::jxl::enc_cluster::cluster_histograms;
 use jxl::jxl::enc_cluster_simd::{
     fast_cluster_histograms_simd, histogram_distance_simd, histogram_kl_divergence_simd,
 };
+use jxl::jxl::enc_entropy::estimate_token_cost_dispatch;
+use jxl::jxl::enc_entropy_coder::tokenize_coefficients;
 use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
 use jxl::jxl::encode_internal::JxlEncoderChunkedFrameAdapter;
+use jxl::jxl::frame_header::YCbCrChromaSubsampling;
 use jxl::jxl::hwy;
+use jxl::jxl::image::{Image3, Plane};
 use jxl::jxl::modular::modular_image::Image as ModularImage;
 use jxl::jxl::modular::transform::enc_rct::{fwd_rct, fwd_rct_channels};
 use jxl::jxl::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
@@ -776,6 +787,300 @@ fn enc_simd_lossless_thunder_frames_with_the_encoder_simd_target_match_the_origi
     check_rows(
         "lossless frames",
         &requests,
+        |_| {
+            let observed = simd[index.get()].clone();
+            index.set(index.get() + 1);
+            (observed, Box::new(all_defined))
+        },
+        no_float,
+    );
+}
+
+// enc_ans_simd -------------------------------------------------------------------
+
+/// The port's observation of an `ene-cost` request through the dispatching
+/// EstimateTokenCost (the caller sets the encoder's selection).
+fn observe_cost(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("ene-cost"));
+    let split_exponent: u32 = number(&mut args);
+    let msb_in_token: u32 = number(&mut args);
+    let lsb_in_token: u32 = number(&mut args);
+    let len: usize = number(&mut args);
+    let padded = round_up8(len) + 8;
+    let values: Vec<u32> = (0..padded).map(|_| number(&mut args)).collect();
+    let mut out: Vec<u32> = (0..padded).map(|i| sentinel(4, i) as u32).collect();
+    let cfg = HybridUintConfig::new(split_exponent, msb_in_token, lsb_in_token);
+    let extra_bits = estimate_token_cost_dispatch(&values, len, cfg, &mut out);
+    let mut s = format!("X {extra_bits} T");
+    for v in out {
+        write!(s, " {v}").unwrap();
+    }
+    s
+}
+
+#[test]
+fn enc_simd_estimate_token_cost_through_the_encoder_dispatch_matches_the_original_target() {
+    // Every configuration of the source's dispatch, the fallthrough
+    // branches included, and two outside it (the ~0 result).
+    let mut configs = vec![(0u32, 0u32, 0u32), (2, 0, 1)];
+    for (m, l) in [(1, 0), (1, 2), (2, 0), (2, 1)] {
+        configs.push((3, m, l));
+    }
+    for (m, l) in [(1, 0), (1, 2), (1, 3), (2, 0), (2, 1), (2, 2), (0, 0)] {
+        configs.push((4, m, l));
+    }
+    for (m, l) in [(1, 0), (1, 2), (1, 4), (2, 0), (2, 1), (2, 2), (2, 3)] {
+        configs.push((5, m, l));
+    }
+    for (m, l) in [(0, 0), (1, 5), (2, 4)] {
+        configs.push((6, m, l));
+    }
+    for e in 7..=12 {
+        configs.push((e, 0, 0));
+    }
+    configs.push((1, 0, 0));
+    configs.push((13, 0, 0));
+    let mut seed = 0xc057_0000_0000_0013u64;
+    let mut requests = Vec::new();
+    for &(e, m, l) in &configs {
+        for len in [0usize, 1, 3, 4, 5, 7, 8, 9, 16, 31, 100] {
+            for kind in 0..4 {
+                let mut s = format!("ene-cost {e} {m} {l} {len}");
+                for i in 0..round_up8(len) + 8 {
+                    let r = next(&mut seed);
+                    let v = match kind {
+                        // Literals and small tokens.
+                        0 => (r % 64) as u32,
+                        // Up to the large-value threshold (2^22 - 1) and past it.
+                        1 => (r % (1 << 23)) as u32,
+                        // Any word, the threshold neighbors and powers of two.
+                        2 => [
+                            r as u32,
+                            (1 << 22) - 1,
+                            1 << 22,
+                            (1 << 22) + 1,
+                            u32::MAX,
+                            1 << 31,
+                            (1 << e) - 1,
+                            1 << e,
+                        ][i % 8],
+                        _ => (r as u32) >> (r % 32),
+                    };
+                    write!(s, " {v}").unwrap();
+                }
+                requests.push(s);
+            }
+        }
+    }
+    check_through_dispatch("ene-cost", &requests, |_| true, observe_cost, no_float);
+}
+
+// enc_entropy_coder ----------------------------------------------------------------
+
+/// The port's observation of an `ene-tok` request through the dispatching
+/// TokenizeCoefficients (the caller sets the encoder's selection).
+fn observe_tokens(request: &str) -> String {
+    let mut args = request.split_whitespace();
+    assert_eq!(args.next(), Some("ene-tok"));
+    let xb: usize = number(&mut args);
+    let yb: usize = number(&mut args);
+    let mut ac_strategy = AcStrategyImage::create(xb, yb).unwrap();
+    ac_strategy.fill_dct8_full();
+    let n: usize = number(&mut args);
+    for _ in 0..n {
+        let bx: usize = number(&mut args);
+        let by: usize = number(&mut args);
+        let raw: u32 = number(&mut args);
+        ac_strategy.set(bx, by, AcStrategyType(raw)).unwrap();
+    }
+    let coefficients: Vec<Vec<i32>> = (0..3)
+        .map(|_| {
+            (0..xb * yb * 64)
+                .map(|_| number::<i64>(&mut args) as i32)
+                .collect()
+        })
+        .collect();
+    let mut qdc = Plane::<u8>::create(xb, yb).unwrap();
+    let mut qf = Plane::<i32>::create(xb, yb).unwrap();
+    let mut nzeroes = Image3::<i32>::create(xb, yb).unwrap();
+    for y in 0..yb {
+        for x in 0..xb {
+            qdc.row_mut(y)[x] = number(&mut args);
+        }
+    }
+    for y in 0..yb {
+        for x in 0..xb {
+            qf.row_mut(y)[x] = number::<i64>(&mut args) as i32;
+        }
+    }
+    for c in 0..3 {
+        for y in 0..yb {
+            for x in 0..xb {
+                nzeroes.plane_row_mut(c, y)[x] = sentinel(5 + c as u32, y * xb + x);
+            }
+        }
+    }
+    let mut orders = vec![0u32; COEFF_ORDER_MAX_SIZE];
+    for raw in 0..u32::from(NUM_VALID_STRATEGIES) {
+        let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+        for c in 0..3 {
+            let offset = coeff_order_offset(usize::from(STRATEGY_ORDER[raw as usize]), c);
+            acs.compute_natural_coeff_order(&mut orders[offset..]);
+        }
+    }
+    let mut tokens = vec![Token::new(3, 3)];
+    let s = tokenize_coefficients(
+        &orders,
+        Rect::new(0, 0, xb, yb),
+        [&coefficients[0], &coefficients[1], &coefficients[2]],
+        &ac_strategy,
+        &YCbCrChromaSubsampling::default(),
+        &mut nzeroes,
+        &mut tokens,
+        &qdc,
+        &qf,
+        &BlockCtxMap::default(),
+    );
+    let mut out = format!("S {} T {}", status(&s), tokens.len());
+    for t in &tokens {
+        write!(out, " {} {}", t.context(), t.value).unwrap();
+    }
+    for c in 0..3 {
+        out.push_str(" N");
+        for y in 0..yb {
+            for &v in &nzeroes.plane_row(c, y)[..xb] {
+                write!(out, " {v}").unwrap();
+            }
+        }
+    }
+    out
+}
+
+/// A strategy layout with `first` at the origin where it fits, then the
+/// larger transforms at aligned positions where they fit, DCT8 elsewhere.
+fn token_placements(xb: usize, yb: usize, first: u32, seed: &mut u64) -> Vec<(usize, usize, u32)> {
+    let mut taken = vec![false; xb * yb];
+    let mut out = Vec::new();
+    for by in 0..yb {
+        for bx in 0..xb {
+            if taken[by * xb + bx] {
+                continue;
+            }
+            let raw = if bx == 0 && by == 0 {
+                first
+            } else {
+                (next(seed) % u64::from(NUM_VALID_STRATEGIES)) as u32
+            };
+            let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+            let (cx, cy) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+            let fits = bx % cx == 0
+                && by % cy == 0
+                && bx + cx <= xb
+                && by + cy <= yb
+                && (0..cy).all(|y| (0..cx).all(|x| !taken[(by + y) * xb + bx + x]));
+            let (raw, cx, cy) = if fits { (raw, cx, cy) } else { (0, 1, 1) };
+            for y in 0..cy {
+                for x in 0..cx {
+                    taken[(by + y) * xb + bx + x] = true;
+                }
+            }
+            out.push((bx, by, raw));
+        }
+    }
+    out
+}
+
+#[test]
+fn enc_simd_tokenize_coefficients_through_the_encoder_dispatch_matches_the_original_target() {
+    let mut seed = 0x70c3_0000_0000_0017u64;
+    let mut requests = Vec::new();
+    let sizes = [(1usize, 1usize), (3, 2), (8, 8), (32, 32), (33, 9)];
+    for (xb, yb) in sizes {
+        // Every strategy at the origin of an 8x8-block rect; the transforms
+        // of 128 and 256 samples (the LLF mask's set words reach their rows
+        // only from 29 covered columns on) at the origin of the 32x32 rect.
+        let large = |raw: &u32| {
+            let acs = AcStrategy::from_raw_strategy(AcStrategyType(*raw));
+            acs.covered_blocks_x() >= 16 || acs.covered_blocks_y() >= 16
+        };
+        let firsts: Vec<u32> = match (xb, yb) {
+            (8, 8) => (0..u32::from(NUM_VALID_STRATEGIES)).collect(),
+            (32, 32) => (0..u32::from(NUM_VALID_STRATEGIES)).filter(large).collect(),
+            _ => vec![0, 4, 13],
+        };
+        let densities: &[u64] = if xb * yb > 64 {
+            &[0, 9, 100]
+        } else {
+            &[0, 2, 9, 60, 100]
+        };
+        for first in firsts {
+            for &density in densities {
+                let mut s = format!("ene-tok {xb} {yb}");
+                let p = token_placements(xb, yb, first, &mut seed);
+                write!(s, " {}", p.len()).unwrap();
+                for &(bx, by, raw) in &p {
+                    write!(s, " {bx} {by} {raw}").unwrap();
+                }
+                // The LLF positions of each block are 0, as in the encoder's
+                // quantized AC rows (the LLF is coded with the DC).
+                let mut llf = Vec::new();
+                for &(_, _, raw) in &p {
+                    let acs = AcStrategy::from_raw_strategy(AcStrategyType(raw));
+                    let (mut cx, mut cy) = (acs.covered_blocks_x(), acs.covered_blocks_y());
+                    coefficient_layout(&mut cy, &mut cx);
+                    for k in 0..cx * cy * 64 {
+                        llf.push(k / (cx * 8) < cy && k % (cx * 8) < cx);
+                    }
+                }
+                assert_eq!(llf.len(), xb * yb * 64);
+                for i in 0..3 * xb * yb * 64 {
+                    let r = next(&mut seed);
+                    let v = if !llf[i % (xb * yb * 64)] && r % 100 < density {
+                        match (r >> 8) % 5 {
+                            0 => 1,
+                            1 => -1,
+                            2 => ((r >> 16) % 2000) as i32 - 1000,
+                            3 => (r >> 32) as u32 as i32,
+                            _ => 3,
+                        }
+                    } else {
+                        0
+                    };
+                    write!(s, " {v}").unwrap();
+                }
+                // The quant DC context index: the default BlockCtxMap has one
+                // DC context, so it is 0 (the encoder's own qdc for it).
+                for _ in 0..xb * yb {
+                    s.push_str(" 0");
+                }
+                for _ in 0..xb * yb {
+                    write!(s, " {}", 1 + next(&mut seed) % 255).unwrap();
+                }
+                requests.push(s);
+            }
+        }
+    }
+    check_tokens(&requests);
+}
+
+/// TokenizeCoefficients is integer counting; the scalar path gives the same
+/// words, so the family only shows that both selections agree with the
+/// original's target (port ADR 0004: an exact integer export cannot be told
+/// apart by its results).
+fn check_tokens(requests: &[String]) {
+    let _lock = dispatch_lock();
+    hwy::set_encoder_simd_for_test(Some(false));
+    let scalar: Vec<String> = requests.iter().map(|r| observe_tokens(r)).collect();
+    hwy::set_encoder_simd_for_test(Some(true));
+    let simd: Vec<String> = requests.iter().map(|r| observe_tokens(r)).collect();
+    hwy::set_encoder_simd_for_test(None);
+    let differing = scalar.iter().zip(&simd).filter(|(a, b)| a != b).count();
+    assert_eq!(differing, 0, "ene-tok: the scalar and SIMD counts disagree");
+    let index = std::cell::Cell::new(0);
+    check_rows(
+        "ene-tok",
+        requests,
         |_| {
             let observed = simd[index.get()].clone();
             index.set(index.get() + 1);

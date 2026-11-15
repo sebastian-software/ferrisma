@@ -161,5 +161,7 @@ pub mod enc_chroma_from_luma_simd;
 // end encoder cfl
 // encoder entropy: the encoder's smaller SIMD exports (port ADR 0004,
 // "Encoder path").
+pub mod enc_ans_simd;
 pub mod enc_cluster_simd;
+pub mod enc_entropy_coder_simd;
 // end encoder entropy
