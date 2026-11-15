@@ -13,350 +13,46 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    fn aom_highbd_lpf_horizontal_14_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_horizontal_14_dual_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_horizontal_4_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_horizontal_4_dual_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_horizontal_6_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_horizontal_6_dual_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_horizontal_8_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_horizontal_8_dual_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_vertical_14_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_vertical_14_dual_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_vertical_4_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_vertical_4_dual_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_vertical_6_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_vertical_6_dual_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_vertical_8_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_highbd_lpf_vertical_8_dual_c(
-        s: *mut uint16_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-        bd: core::ffi::c_int,
-    );
-    fn aom_lpf_horizontal_14_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_14_dual_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_14_quad_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_4_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_4_dual_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_4_quad_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_6_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_6_dual_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_6_quad_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_8_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_8_dual_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-    );
-    fn aom_lpf_horizontal_8_quad_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-    );
-    fn aom_lpf_vertical_14_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-    );
-    fn aom_lpf_vertical_14_dual_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-    );
-    fn aom_lpf_vertical_14_quad_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-    );
-    fn aom_lpf_vertical_4_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-    );
-    fn aom_lpf_vertical_4_dual_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-    );
-    fn aom_lpf_vertical_4_quad_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-    );
-    fn aom_lpf_vertical_6_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-    );
-    fn aom_lpf_vertical_6_dual_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-    );
-    fn aom_lpf_vertical_6_quad_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-    );
-    fn aom_lpf_vertical_8_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit: *const uint8_t,
-        limit: *const uint8_t,
-        thresh: *const uint8_t,
-    );
-    fn aom_lpf_vertical_8_dual_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-        blimit1: *const uint8_t,
-        limit1: *const uint8_t,
-        thresh1: *const uint8_t,
-    );
-    fn aom_lpf_vertical_8_quad_c(
-        s: *mut uint8_t,
-        pitch: core::ffi::c_int,
-        blimit0: *const uint8_t,
-        limit0: *const uint8_t,
-        thresh0: *const uint8_t,
-    );
+    static mut aom_highbd_lpf_horizontal_14: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_horizontal_14_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_horizontal_4: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_horizontal_4_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_horizontal_6: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_horizontal_6_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_horizontal_8: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_horizontal_8_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_vertical_14: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_vertical_14_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_vertical_4: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_vertical_4_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_vertical_6: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_vertical_6_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_vertical_8: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_highbd_lpf_vertical_8_dual: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, core::ffi::c_int) -> ()>;
+    static mut aom_lpf_horizontal_14: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_14_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_14_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_4_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_4_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_6: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_6_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_6_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_8_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_horizontal_8_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_14: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_14_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_14_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_4_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_4_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_6: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_6_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_6_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_8_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
+    static mut aom_lpf_vertical_8_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
 }
 pub type __int8_t = i8;
@@ -4810,7 +4506,7 @@ unsafe extern "C-unwind" fn filter_vert(
         if use_filter_type as core::ffi::c_int == USE_QUAD as core::ffi::c_int {
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_vertical_4_dual_c(
+                    aom_highbd_lpf_vertical_4_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -4821,7 +4517,7 @@ unsafe extern "C-unwind" fn filter_vert(
                         ((*limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_4_dual_c(
+                    aom_highbd_lpf_vertical_4_dual.expect("non-null function pointer")(
                         dst_shortptr
                             .offset(
                                 (2 as core::ffi::c_int * MI_SIZE * dst_stride) as isize,
@@ -4837,7 +4533,7 @@ unsafe extern "C-unwind" fn filter_vert(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_vertical_6_dual_c(
+                    aom_highbd_lpf_vertical_6_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -4848,7 +4544,7 @@ unsafe extern "C-unwind" fn filter_vert(
                         ((*limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_6_dual_c(
+                    aom_highbd_lpf_vertical_6_dual.expect("non-null function pointer")(
                         dst_shortptr
                             .offset(
                                 (2 as core::ffi::c_int * MI_SIZE * dst_stride) as isize,
@@ -4864,7 +4560,7 @@ unsafe extern "C-unwind" fn filter_vert(
                     );
                 }
                 8 => {
-                    aom_highbd_lpf_vertical_8_dual_c(
+                    aom_highbd_lpf_vertical_8_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -4875,7 +4571,7 @@ unsafe extern "C-unwind" fn filter_vert(
                         ((*limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_8_dual_c(
+                    aom_highbd_lpf_vertical_8_dual.expect("non-null function pointer")(
                         dst_shortptr
                             .offset(
                                 (2 as core::ffi::c_int * MI_SIZE * dst_stride) as isize,
@@ -4891,7 +4587,7 @@ unsafe extern "C-unwind" fn filter_vert(
                     );
                 }
                 14 => {
-                    aom_highbd_lpf_vertical_14_dual_c(
+                    aom_highbd_lpf_vertical_14_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -4902,7 +4598,7 @@ unsafe extern "C-unwind" fn filter_vert(
                         ((*limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_14_dual_c(
+                    aom_highbd_lpf_vertical_14_dual.expect("non-null function pointer")(
                         dst_shortptr
                             .offset(
                                 (2 as core::ffi::c_int * MI_SIZE * dst_stride) as isize,
@@ -4922,7 +4618,7 @@ unsafe extern "C-unwind" fn filter_vert(
         } else if use_filter_type as core::ffi::c_int == USE_DUAL as core::ffi::c_int {
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_vertical_4_dual_c(
+                    aom_highbd_lpf_vertical_4_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -4935,7 +4631,7 @@ unsafe extern "C-unwind" fn filter_vert(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_vertical_6_dual_c(
+                    aom_highbd_lpf_vertical_6_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -4948,7 +4644,7 @@ unsafe extern "C-unwind" fn filter_vert(
                     );
                 }
                 8 => {
-                    aom_highbd_lpf_vertical_8_dual_c(
+                    aom_highbd_lpf_vertical_8_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -4961,7 +4657,7 @@ unsafe extern "C-unwind" fn filter_vert(
                     );
                 }
                 14 => {
-                    aom_highbd_lpf_vertical_14_dual_c(
+                    aom_highbd_lpf_vertical_14_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -4995,7 +4691,7 @@ unsafe extern "C-unwind" fn filter_vert(
             };
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_vertical_4_c(
+                    aom_highbd_lpf_vertical_4.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -5005,7 +4701,7 @@ unsafe extern "C-unwind" fn filter_vert(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_vertical_6_c(
+                    aom_highbd_lpf_vertical_6.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -5015,7 +4711,7 @@ unsafe extern "C-unwind" fn filter_vert(
                     );
                 }
                 8 => {
-                    aom_highbd_lpf_vertical_8_c(
+                    aom_highbd_lpf_vertical_8.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -5025,7 +4721,7 @@ unsafe extern "C-unwind" fn filter_vert(
                     );
                 }
                 14 => {
-                    aom_highbd_lpf_vertical_14_c(
+                    aom_highbd_lpf_vertical_14.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -5042,7 +4738,7 @@ unsafe extern "C-unwind" fn filter_vert(
     if use_filter_type as core::ffi::c_int == USE_QUAD as core::ffi::c_int {
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_vertical_4_quad_c(
+                aom_lpf_vertical_4_quad.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5051,7 +4747,7 @@ unsafe extern "C-unwind" fn filter_vert(
                 );
             }
             6 => {
-                aom_lpf_vertical_6_quad_c(
+                aom_lpf_vertical_6_quad.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5060,7 +4756,7 @@ unsafe extern "C-unwind" fn filter_vert(
                 );
             }
             8 => {
-                aom_lpf_vertical_8_quad_c(
+                aom_lpf_vertical_8_quad.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5069,7 +4765,7 @@ unsafe extern "C-unwind" fn filter_vert(
                 );
             }
             14 => {
-                aom_lpf_vertical_14_quad_c(
+                aom_lpf_vertical_14_quad.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5082,7 +4778,7 @@ unsafe extern "C-unwind" fn filter_vert(
     } else if use_filter_type as core::ffi::c_int == USE_DUAL as core::ffi::c_int {
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_vertical_4_dual_c(
+                aom_lpf_vertical_4_dual.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5094,7 +4790,7 @@ unsafe extern "C-unwind" fn filter_vert(
                 );
             }
             6 => {
-                aom_lpf_vertical_6_dual_c(
+                aom_lpf_vertical_6_dual.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5106,7 +4802,7 @@ unsafe extern "C-unwind" fn filter_vert(
                 );
             }
             8 => {
-                aom_lpf_vertical_8_dual_c(
+                aom_lpf_vertical_8_dual.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5118,7 +4814,7 @@ unsafe extern "C-unwind" fn filter_vert(
                 );
             }
             14 => {
-                aom_lpf_vertical_14_dual_c(
+                aom_lpf_vertical_14_dual.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5151,7 +4847,7 @@ unsafe extern "C-unwind" fn filter_vert(
         };
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_vertical_4_c(
+                aom_lpf_vertical_4.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5160,7 +4856,7 @@ unsafe extern "C-unwind" fn filter_vert(
                 );
             }
             6 => {
-                aom_lpf_vertical_6_c(
+                aom_lpf_vertical_6.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5169,7 +4865,7 @@ unsafe extern "C-unwind" fn filter_vert(
                 );
             }
             8 => {
-                aom_lpf_vertical_8_c(
+                aom_lpf_vertical_8.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5178,7 +4874,7 @@ unsafe extern "C-unwind" fn filter_vert(
                 );
             }
             14 => {
-                aom_lpf_vertical_14_c(
+                aom_lpf_vertical_14.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -5212,7 +4908,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
         if use_filter_type as core::ffi::c_int == USE_QUAD as core::ffi::c_int {
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_vertical_4_dual_c(
+                    aom_highbd_lpf_vertical_4_dual.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -5223,7 +4919,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_4_dual_c(
+                    aom_highbd_lpf_vertical_4_dual.expect("non-null function pointer")(
                         u_dst_shortptr
                             .offset(
                                 (2 as core::ffi::c_int * MI_SIZE * dst_stride) as isize,
@@ -5237,7 +4933,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_4_dual_c(
+                    aom_highbd_lpf_vertical_4_dual.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -5248,7 +4944,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                         ((*v_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_4_dual_c(
+                    aom_highbd_lpf_vertical_4_dual.expect("non-null function pointer")(
                         v_dst_shortptr
                             .offset(
                                 (2 as core::ffi::c_int * MI_SIZE * dst_stride) as isize,
@@ -5264,7 +4960,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_vertical_6_dual_c(
+                    aom_highbd_lpf_vertical_6_dual.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -5275,7 +4971,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_6_dual_c(
+                    aom_highbd_lpf_vertical_6_dual.expect("non-null function pointer")(
                         u_dst_shortptr
                             .offset(
                                 (2 as core::ffi::c_int * MI_SIZE * dst_stride) as isize,
@@ -5289,7 +4985,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_6_dual_c(
+                    aom_highbd_lpf_vertical_6_dual.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -5300,7 +4996,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                         ((*v_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_6_dual_c(
+                    aom_highbd_lpf_vertical_6_dual.expect("non-null function pointer")(
                         v_dst_shortptr
                             .offset(
                                 (2 as core::ffi::c_int * MI_SIZE * dst_stride) as isize,
@@ -5337,7 +5033,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
         } else if use_filter_type as core::ffi::c_int == USE_DUAL as core::ffi::c_int {
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_vertical_4_dual_c(
+                    aom_highbd_lpf_vertical_4_dual.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -5348,7 +5044,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_4_dual_c(
+                    aom_highbd_lpf_vertical_4_dual.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -5361,7 +5057,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_vertical_6_dual_c(
+                    aom_highbd_lpf_vertical_6_dual.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -5372,7 +5068,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_6_dual_c(
+                    aom_highbd_lpf_vertical_6_dual.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -5423,7 +5119,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
             };
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_vertical_4_c(
+                    aom_highbd_lpf_vertical_4.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -5431,7 +5127,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_4_c(
+                    aom_highbd_lpf_vertical_4.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -5441,7 +5137,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_vertical_6_c(
+                    aom_highbd_lpf_vertical_6.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -5449,7 +5145,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_vertical_6_c(
+                    aom_highbd_lpf_vertical_6.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -5483,14 +5179,14 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
     if use_filter_type as core::ffi::c_int == USE_QUAD as core::ffi::c_int {
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_vertical_4_quad_c(
+                aom_lpf_vertical_4_quad.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_vertical_4_quad_c(
+                aom_lpf_vertical_4_quad.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -5499,14 +5195,14 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                 );
             }
             6 => {
-                aom_lpf_vertical_6_quad_c(
+                aom_lpf_vertical_6_quad.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_vertical_6_quad_c(
+                aom_lpf_vertical_6_quad.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -5536,7 +5232,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
     } else if use_filter_type as core::ffi::c_int == USE_DUAL as core::ffi::c_int {
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_vertical_4_dual_c(
+                aom_lpf_vertical_4_dual.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
@@ -5546,7 +5242,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_vertical_4_dual_c(
+                aom_lpf_vertical_4_dual.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -5558,7 +5254,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                 );
             }
             6 => {
-                aom_lpf_vertical_6_dual_c(
+                aom_lpf_vertical_6_dual.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
@@ -5568,7 +5264,7 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_vertical_6_dual_c(
+                aom_lpf_vertical_6_dual.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -5618,14 +5314,14 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
         };
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_vertical_4_c(
+                aom_lpf_vertical_4.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_vertical_4_c(
+                aom_lpf_vertical_4.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -5634,14 +5330,14 @@ unsafe extern "C-unwind" fn filter_vert_chroma(
                 );
             }
             6 => {
-                aom_lpf_vertical_6_c(
+                aom_lpf_vertical_6.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_vertical_6_c(
+                aom_lpf_vertical_6.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -6004,7 +5700,7 @@ unsafe extern "C-unwind" fn filter_horz(
         if use_filter_type as core::ffi::c_int == USE_QUAD as core::ffi::c_int {
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_horizontal_4_dual_c(
+                    aom_highbd_lpf_horizontal_4_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6015,7 +5711,7 @@ unsafe extern "C-unwind" fn filter_horz(
                         ((*limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_4_dual_c(
+                    aom_highbd_lpf_horizontal_4_dual.expect("non-null function pointer")(
                         dst_shortptr.offset((2 as core::ffi::c_int * MI_SIZE) as isize),
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6028,7 +5724,7 @@ unsafe extern "C-unwind" fn filter_horz(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_horizontal_6_dual_c(
+                    aom_highbd_lpf_horizontal_6_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6039,7 +5735,7 @@ unsafe extern "C-unwind" fn filter_horz(
                         ((*limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_6_dual_c(
+                    aom_highbd_lpf_horizontal_6_dual.expect("non-null function pointer")(
                         dst_shortptr.offset((2 as core::ffi::c_int * MI_SIZE) as isize),
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6052,7 +5748,7 @@ unsafe extern "C-unwind" fn filter_horz(
                     );
                 }
                 8 => {
-                    aom_highbd_lpf_horizontal_8_dual_c(
+                    aom_highbd_lpf_horizontal_8_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6063,7 +5759,7 @@ unsafe extern "C-unwind" fn filter_horz(
                         ((*limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_8_dual_c(
+                    aom_highbd_lpf_horizontal_8_dual.expect("non-null function pointer")(
                         dst_shortptr.offset((2 as core::ffi::c_int * MI_SIZE) as isize),
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6076,7 +5772,7 @@ unsafe extern "C-unwind" fn filter_horz(
                     );
                 }
                 14 => {
-                    aom_highbd_lpf_horizontal_14_dual_c(
+                    aom_highbd_lpf_horizontal_14_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6087,7 +5783,7 @@ unsafe extern "C-unwind" fn filter_horz(
                         ((*limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_14_dual_c(
+                    aom_highbd_lpf_horizontal_14_dual.expect("non-null function pointer")(
                         dst_shortptr.offset((2 as core::ffi::c_int * MI_SIZE) as isize),
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6104,7 +5800,7 @@ unsafe extern "C-unwind" fn filter_horz(
         } else if use_filter_type as core::ffi::c_int == USE_DUAL as core::ffi::c_int {
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_horizontal_4_dual_c(
+                    aom_highbd_lpf_horizontal_4_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6117,7 +5813,7 @@ unsafe extern "C-unwind" fn filter_horz(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_horizontal_6_dual_c(
+                    aom_highbd_lpf_horizontal_6_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6130,7 +5826,7 @@ unsafe extern "C-unwind" fn filter_horz(
                     );
                 }
                 8 => {
-                    aom_highbd_lpf_horizontal_8_dual_c(
+                    aom_highbd_lpf_horizontal_8_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6143,7 +5839,7 @@ unsafe extern "C-unwind" fn filter_horz(
                     );
                 }
                 14 => {
-                    aom_highbd_lpf_horizontal_14_dual_c(
+                    aom_highbd_lpf_horizontal_14_dual.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6177,7 +5873,7 @@ unsafe extern "C-unwind" fn filter_horz(
             };
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_horizontal_4_c(
+                    aom_highbd_lpf_horizontal_4.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6187,7 +5883,7 @@ unsafe extern "C-unwind" fn filter_horz(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_horizontal_6_c(
+                    aom_highbd_lpf_horizontal_6.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6197,7 +5893,7 @@ unsafe extern "C-unwind" fn filter_horz(
                     );
                 }
                 8 => {
-                    aom_highbd_lpf_horizontal_8_c(
+                    aom_highbd_lpf_horizontal_8.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6207,7 +5903,7 @@ unsafe extern "C-unwind" fn filter_horz(
                     );
                 }
                 14 => {
-                    aom_highbd_lpf_horizontal_14_c(
+                    aom_highbd_lpf_horizontal_14.expect("non-null function pointer")(
                         dst_shortptr,
                         dst_stride,
                         ((*limits).mblim).as_ptr(),
@@ -6224,7 +5920,7 @@ unsafe extern "C-unwind" fn filter_horz(
     if use_filter_type as core::ffi::c_int == USE_QUAD as core::ffi::c_int {
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_horizontal_4_quad_c(
+                aom_lpf_horizontal_4_quad.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6233,7 +5929,7 @@ unsafe extern "C-unwind" fn filter_horz(
                 );
             }
             6 => {
-                aom_lpf_horizontal_6_quad_c(
+                aom_lpf_horizontal_6_quad.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6242,7 +5938,7 @@ unsafe extern "C-unwind" fn filter_horz(
                 );
             }
             8 => {
-                aom_lpf_horizontal_8_quad_c(
+                aom_lpf_horizontal_8_quad.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6251,7 +5947,7 @@ unsafe extern "C-unwind" fn filter_horz(
                 );
             }
             14 => {
-                aom_lpf_horizontal_14_quad_c(
+                aom_lpf_horizontal_14_quad.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6264,7 +5960,7 @@ unsafe extern "C-unwind" fn filter_horz(
     } else if use_filter_type as core::ffi::c_int == USE_DUAL as core::ffi::c_int {
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_horizontal_4_dual_c(
+                aom_lpf_horizontal_4_dual.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6276,7 +5972,7 @@ unsafe extern "C-unwind" fn filter_horz(
                 );
             }
             6 => {
-                aom_lpf_horizontal_6_dual_c(
+                aom_lpf_horizontal_6_dual.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6288,7 +5984,7 @@ unsafe extern "C-unwind" fn filter_horz(
                 );
             }
             8 => {
-                aom_lpf_horizontal_8_dual_c(
+                aom_lpf_horizontal_8_dual.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6300,7 +5996,7 @@ unsafe extern "C-unwind" fn filter_horz(
                 );
             }
             14 => {
-                aom_lpf_horizontal_14_dual_c(
+                aom_lpf_horizontal_14_dual.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6333,7 +6029,7 @@ unsafe extern "C-unwind" fn filter_horz(
         };
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_horizontal_4_c(
+                aom_lpf_horizontal_4.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6342,7 +6038,7 @@ unsafe extern "C-unwind" fn filter_horz(
                 );
             }
             6 => {
-                aom_lpf_horizontal_6_c(
+                aom_lpf_horizontal_6.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6351,7 +6047,7 @@ unsafe extern "C-unwind" fn filter_horz(
                 );
             }
             8 => {
-                aom_lpf_horizontal_8_c(
+                aom_lpf_horizontal_8.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6360,7 +6056,7 @@ unsafe extern "C-unwind" fn filter_horz(
                 );
             }
             14 => {
-                aom_lpf_horizontal_14_c(
+                aom_lpf_horizontal_14.expect("non-null function pointer")(
                     dst,
                     dst_stride,
                     ((*limits).mblim).as_ptr(),
@@ -6394,7 +6090,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
         if use_filter_type as core::ffi::c_int == USE_QUAD as core::ffi::c_int {
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_horizontal_4_dual_c(
+                    aom_highbd_lpf_horizontal_4_dual.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -6405,7 +6101,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_4_dual_c(
+                    aom_highbd_lpf_horizontal_4_dual.expect("non-null function pointer")(
                         u_dst_shortptr
                             .offset((2 as core::ffi::c_int * MI_SIZE) as isize),
                         dst_stride,
@@ -6417,7 +6113,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_4_dual_c(
+                    aom_highbd_lpf_horizontal_4_dual.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -6428,7 +6124,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                         ((*v_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_4_dual_c(
+                    aom_highbd_lpf_horizontal_4_dual.expect("non-null function pointer")(
                         v_dst_shortptr
                             .offset((2 as core::ffi::c_int * MI_SIZE) as isize),
                         dst_stride,
@@ -6442,7 +6138,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_horizontal_6_dual_c(
+                    aom_highbd_lpf_horizontal_6_dual.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -6453,7 +6149,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_6_dual_c(
+                    aom_highbd_lpf_horizontal_6_dual.expect("non-null function pointer")(
                         u_dst_shortptr
                             .offset((2 as core::ffi::c_int * MI_SIZE) as isize),
                         dst_stride,
@@ -6465,7 +6161,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_6_dual_c(
+                    aom_highbd_lpf_horizontal_6_dual.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -6476,7 +6172,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                         ((*v_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_6_dual_c(
+                    aom_highbd_lpf_horizontal_6_dual.expect("non-null function pointer")(
                         v_dst_shortptr
                             .offset((2 as core::ffi::c_int * MI_SIZE) as isize),
                         dst_stride,
@@ -6511,7 +6207,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
         } else if use_filter_type as core::ffi::c_int == USE_DUAL as core::ffi::c_int {
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_horizontal_4_dual_c(
+                    aom_highbd_lpf_horizontal_4_dual.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -6522,7 +6218,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_4_dual_c(
+                    aom_highbd_lpf_horizontal_4_dual.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -6535,7 +6231,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_horizontal_6_dual_c(
+                    aom_highbd_lpf_horizontal_6_dual.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -6546,7 +6242,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_6_dual_c(
+                    aom_highbd_lpf_horizontal_6_dual.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -6597,7 +6293,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
             };
             match (*params).filter_length as core::ffi::c_int {
                 4 => {
-                    aom_highbd_lpf_horizontal_4_c(
+                    aom_highbd_lpf_horizontal_4.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -6605,7 +6301,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_4_c(
+                    aom_highbd_lpf_horizontal_4.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -6615,7 +6311,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                     );
                 }
                 6 => {
-                    aom_highbd_lpf_horizontal_6_c(
+                    aom_highbd_lpf_horizontal_6.expect("non-null function pointer")(
                         u_dst_shortptr,
                         dst_stride,
                         ((*u_limits).mblim).as_ptr(),
@@ -6623,7 +6319,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                         ((*u_limits).hev_thr).as_ptr(),
                         bit_depth as core::ffi::c_int,
                     );
-                    aom_highbd_lpf_horizontal_6_c(
+                    aom_highbd_lpf_horizontal_6.expect("non-null function pointer")(
                         v_dst_shortptr,
                         dst_stride,
                         ((*v_limits).mblim).as_ptr(),
@@ -6657,14 +6353,14 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
     if use_filter_type as core::ffi::c_int == USE_QUAD as core::ffi::c_int {
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_horizontal_4_quad_c(
+                aom_lpf_horizontal_4_quad.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_horizontal_4_quad_c(
+                aom_lpf_horizontal_4_quad.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -6673,14 +6369,14 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                 );
             }
             6 => {
-                aom_lpf_horizontal_6_quad_c(
+                aom_lpf_horizontal_6_quad.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_horizontal_6_quad_c(
+                aom_lpf_horizontal_6_quad.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -6710,7 +6406,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
     } else if use_filter_type as core::ffi::c_int == USE_DUAL as core::ffi::c_int {
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_horizontal_4_dual_c(
+                aom_lpf_horizontal_4_dual.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
@@ -6720,7 +6416,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_horizontal_4_dual_c(
+                aom_lpf_horizontal_4_dual.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -6732,7 +6428,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                 );
             }
             6 => {
-                aom_lpf_horizontal_6_dual_c(
+                aom_lpf_horizontal_6_dual.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
@@ -6742,7 +6438,7 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_horizontal_6_dual_c(
+                aom_lpf_horizontal_6_dual.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -6792,14 +6488,14 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
         };
         match (*params).filter_length as core::ffi::c_int {
             4 => {
-                aom_lpf_horizontal_4_c(
+                aom_lpf_horizontal_4.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_horizontal_4_c(
+                aom_lpf_horizontal_4.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),
@@ -6808,14 +6504,14 @@ unsafe extern "C-unwind" fn filter_horz_chroma(
                 );
             }
             6 => {
-                aom_lpf_horizontal_6_c(
+                aom_lpf_horizontal_6.expect("non-null function pointer")(
                     u_dst,
                     dst_stride,
                     ((*u_limits).mblim).as_ptr(),
                     ((*u_limits).lim).as_ptr(),
                     ((*u_limits).hev_thr).as_ptr(),
                 );
-                aom_lpf_horizontal_6_c(
+                aom_lpf_horizontal_6.expect("non-null function pointer")(
                     v_dst,
                     dst_stride,
                     ((*v_limits).mblim).as_ptr(),

@@ -23,9 +23,9 @@
       "--disable-avx512"
     ],
     "overlay": "crates/aom/rtcd/x86_64.pl",
-    "overlay_sha256": "b034124fc00e91923c261b9f2bba4af6c77143985d136a7de3f47e8a25946e7c",
+    "overlay_sha256": "e0babeba914f9cc57829dc7010ed7a4eee34d756e0b5aacdcd2f17a07a1b4c21",
     "headers": {
-      "config/aom_dsp_rtcd.h": "9dde360816d7ffdf9c422fadf8423f09298b587fef066bfd412838634eab7fa8",
+      "config/aom_dsp_rtcd.h": "4c647213e31b9c412843781b03e7d4f04356d37bb25924a4e3511d1bf89e932e",
       "config/aom_scale_rtcd.h": "691037710b3c581297ce3d121638764eea39f2f3745ac58f4797e4b1a935cc91",
       "config/av1_rtcd.h": "d4d6afd2d7e02585bcb7dd930d8680739a17c7422dd108f8c81a3b1998a0a7bf"
     }
@@ -97,8 +97,8 @@
       "source": "upstream/aom/aom_dsp/aom_dsp_rtcd.c",
       "rust": "crates/aom/src/linux/debug/aom_dsp/aom_dsp_rtcd.rs",
       "raw_sha256": "66c6a1e8aff24675aa7fa54f2044c665320a7019568aa5bc745ef16b63fca494",
-      "rust_sha256": "984791e2062f4c4d2bdc4a5a0bca7e0c395a5bc483759efb7261d9985e18b66c",
-      "production_rust_sha256": "984791e2062f4c4d2bdc4a5a0bca7e0c395a5bc483759efb7261d9985e18b66c",
+      "rust_sha256": "2b6a2b1d846667790591edde480b2f7e221b46aa9623f2b34854f2b418e48b39",
+      "production_rust_sha256": "2b6a2b1d846667790591edde480b2f7e221b46aa9623f2b34854f2b418e48b39",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,
@@ -791,8 +791,8 @@
       "source": "upstream/aom/av1/common/av1_loopfilter.c",
       "rust": "crates/aom/src/linux/debug/av1/common/av1_loopfilter.rs",
       "raw_sha256": "1dba7a7b9fcfe4b56457f93a33cfd075848c7a92fb6e81e545583a59c7b1c3a7",
-      "rust_sha256": "1fdd3113c9d42983a7ea97ce2e84a7eaad733f2a66e7fa5a603a3b7b0d4cabe2",
-      "production_rust_sha256": "1fdd3113c9d42983a7ea97ce2e84a7eaad733f2a66e7fa5a603a3b7b0d4cabe2",
+      "rust_sha256": "69ad5db954547261e5c3721cc43d5637f9485db6422bd24018f59cec14175760",
+      "production_rust_sha256": "69ad5db954547261e5c3721cc43d5637f9485db6422bd24018f59cec14175760",
       "corrections": {
         "raw-c-mutable-address": 20,
         "original-c-record-field-alignment": 5,

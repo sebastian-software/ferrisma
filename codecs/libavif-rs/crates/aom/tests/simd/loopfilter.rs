@@ -2,14 +2,25 @@
 // (Loop8Test6Param_lbd, Loop8Test9Param_lbd, Loop8Test6Param_hbd and
 // Loop8Test9Param_hbd: OperationCheck and ValueCheck) for the NEON
 // instantiations of aom_dsp/arm/loopfilter_neon.c and
-// aom_dsp/arm/highbd_loopfilter_neon.c. Seed (one ACMRandom per test case),
+// aom_dsp/arm/highbd_loopfilter_neon.c and, on x86-64, the SSE2 and AVX2
+// instantiations of aom_dsp/x86/loopfilter_sse2.c, loopfilter_avx2.c,
+// highbd_loopfilter_sse2.c and highbd_loopfilter_avx2.c (the parameter lists
+// kLoop8Test6, kLoop8Test9, kHbdLoop8Test6, kHbdLoop8Test9, kLoop8Test6Avx2 and
+// kHbdLoop8Test9Avx2 in their original order). Seed (one ACMRandom per test case),
 // iteration count (10000), buffer layout (32x32, filtered at s + 8 + 8 * p),
 // threshold draws, InitInput, parameter lists and bit depths, and the
 // exact-match check over the whole buffer follow the original. DISABLED_Speed
 // is not transcribed.
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+#[cfg(target_arch = "aarch64")]
 use aom::simd::aom_dsp__arm__highbd_loopfilter_neon::*;
+#[cfg(target_arch = "aarch64")]
 use aom::simd::aom_dsp__arm__loopfilter_neon::*;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::{
+    aom_dsp__x86__highbd_loopfilter_avx2::*, aom_dsp__x86__highbd_loopfilter_sse2::*,
+    aom_dsp__x86__loopfilter_avx2::*, aom_dsp__x86__loopfilter_sse2::*,
+};
 
 use super::acm_random::ACMRandom;
 
@@ -362,6 +373,7 @@ macro_rules! hbd_dual {
 }
 
 /// INSTANTIATE_TEST_SUITE_P(NEON, Loop8Test6Param_lbd, kLoop8Test6).
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn loopfilter_loop8_test6_param_lbd_neon() {
     let params = [
@@ -387,6 +399,7 @@ fn loopfilter_loop8_test6_param_lbd_neon() {
 }
 
 /// INSTANTIATE_TEST_SUITE_P(NEON, Loop8Test9Param_lbd, kLoop8Test9).
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn loopfilter_loop8_test9_param_lbd_neon() {
     let params = [
@@ -404,6 +417,7 @@ fn loopfilter_loop8_test9_param_lbd_neon() {
 }
 
 /// INSTANTIATE_TEST_SUITE_P(NEON, Loop8Test6Param_hbd, kHbdLoop8Test6).
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn loopfilter_loop8_test6_param_hbd_neon() {
     let params = [
@@ -437,6 +451,7 @@ fn loopfilter_loop8_test6_param_hbd_neon() {
 }
 
 /// INSTANTIATE_TEST_SUITE_P(NEON, Loop8Test9Param_hbd, kHbdLoop8Test9).
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn loopfilter_loop8_test9_param_hbd_neon() {
     let params = [
@@ -467,4 +482,148 @@ fn loopfilter_loop8_test9_param_hbd_neon() {
     ];
     let blocks = run_all(&params);
     assert_eq!(blocks, 24 * 2 * NUMBER_OF_ITERATIONS);
+}
+
+/// The quad vertical SSE2 filters call the horizontal quad filters through
+/// their RTCD pointers, which the original test main sets up with aom_dsp_rtcd().
+#[cfg(target_arch = "x86_64")]
+fn rtcd_setup() {
+    // SAFETY: the translated RTCD setup, idempotent (once-guarded).
+    unsafe { aom::aom_dsp__aom_dsp_rtcd::aom_dsp_rtcd() };
+}
+
+/// INSTANTIATE_TEST_SUITE_P(SSE2, Loop8Test6Param_lbd, kLoop8Test6).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn loopfilter_loop8_test6_param_lbd_sse2() {
+    rtcd_setup();
+    let params = [
+        lbd!(aom_lpf_horizontal_4_sse2, aom_lpf_horizontal_4_c),
+        lbd!(aom_lpf_horizontal_8_sse2, aom_lpf_horizontal_8_c),
+        lbd!(aom_lpf_horizontal_6_sse2, aom_lpf_horizontal_6_c),
+        lbd!(aom_lpf_vertical_6_sse2, aom_lpf_vertical_6_c),
+        lbd!(aom_lpf_horizontal_14_sse2, aom_lpf_horizontal_14_c),
+        lbd!(aom_lpf_vertical_4_sse2, aom_lpf_vertical_4_c),
+        lbd!(aom_lpf_vertical_8_sse2, aom_lpf_vertical_8_c),
+        lbd!(aom_lpf_vertical_14_sse2, aom_lpf_vertical_14_c),
+        lbd!(aom_lpf_horizontal_4_quad_sse2, aom_lpf_horizontal_4_quad_c),
+        lbd!(aom_lpf_vertical_4_quad_sse2, aom_lpf_vertical_4_quad_c),
+        lbd!(aom_lpf_horizontal_6_quad_sse2, aom_lpf_horizontal_6_quad_c),
+        lbd!(aom_lpf_vertical_6_quad_sse2, aom_lpf_vertical_6_quad_c),
+        lbd!(aom_lpf_horizontal_8_quad_sse2, aom_lpf_horizontal_8_quad_c),
+        lbd!(aom_lpf_vertical_8_quad_sse2, aom_lpf_vertical_8_quad_c),
+        lbd!(aom_lpf_horizontal_14_quad_sse2, aom_lpf_horizontal_14_quad_c),
+        lbd!(aom_lpf_vertical_14_quad_sse2, aom_lpf_vertical_14_quad_c),
+    ];
+    let blocks = run_all(&params);
+    assert_eq!(blocks, 16 * 2 * NUMBER_OF_ITERATIONS);
+}
+
+/// INSTANTIATE_TEST_SUITE_P(SSE2, Loop8Test9Param_lbd, kLoop8Test9).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn loopfilter_loop8_test9_param_lbd_sse2() {
+    let params = [
+        lbd_dual!(aom_lpf_horizontal_4_dual_sse2, aom_lpf_horizontal_4_dual_c),
+        lbd_dual!(aom_lpf_vertical_4_dual_sse2, aom_lpf_vertical_4_dual_c),
+        lbd_dual!(aom_lpf_horizontal_6_dual_sse2, aom_lpf_horizontal_6_dual_c),
+        lbd_dual!(aom_lpf_vertical_6_dual_sse2, aom_lpf_vertical_6_dual_c),
+        lbd_dual!(aom_lpf_horizontal_8_dual_sse2, aom_lpf_horizontal_8_dual_c),
+        lbd_dual!(aom_lpf_vertical_8_dual_sse2, aom_lpf_vertical_8_dual_c),
+        lbd_dual!(aom_lpf_horizontal_14_dual_sse2, aom_lpf_horizontal_14_dual_c),
+        lbd_dual!(aom_lpf_vertical_14_dual_sse2, aom_lpf_vertical_14_dual_c),
+    ];
+    let blocks = run_all(&params);
+    assert_eq!(blocks, 8 * 2 * NUMBER_OF_ITERATIONS);
+}
+
+/// INSTANTIATE_TEST_SUITE_P(SSE2, Loop8Test6Param_hbd, kHbdLoop8Test6).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn loopfilter_loop8_test6_param_hbd_sse2() {
+    let mut params = Vec::new();
+    for bd in [8, 10, 12] {
+        let names: [(HbdLoopOp, HbdLoopOp, &str); 8] = [
+            (aom_highbd_lpf_horizontal_4_sse2, aom_highbd_lpf_horizontal_4_c, "aom_highbd_lpf_horizontal_4_sse2"),
+            (aom_highbd_lpf_vertical_4_sse2, aom_highbd_lpf_vertical_4_c, "aom_highbd_lpf_vertical_4_sse2"),
+            (aom_highbd_lpf_horizontal_6_sse2, aom_highbd_lpf_horizontal_6_c, "aom_highbd_lpf_horizontal_6_sse2"),
+            (aom_highbd_lpf_horizontal_8_sse2, aom_highbd_lpf_horizontal_8_c, "aom_highbd_lpf_horizontal_8_sse2"),
+            (aom_highbd_lpf_horizontal_14_sse2, aom_highbd_lpf_horizontal_14_c, "aom_highbd_lpf_horizontal_14_sse2"),
+            (aom_highbd_lpf_vertical_6_sse2, aom_highbd_lpf_vertical_6_c, "aom_highbd_lpf_vertical_6_sse2"),
+            (aom_highbd_lpf_vertical_8_sse2, aom_highbd_lpf_vertical_8_c, "aom_highbd_lpf_vertical_8_sse2"),
+            (aom_highbd_lpf_vertical_14_sse2, aom_highbd_lpf_vertical_14_c, "aom_highbd_lpf_vertical_14_sse2"),
+        ];
+        // The original lists vertical_14 before vertical_6 and vertical_8 at 12 bits;
+        // each tuple is an independent test case, so the order only names them.
+        for (op, c, name) in names {
+            params.push((op, c, bd, name));
+        }
+    }
+    let blocks = run_all(&params);
+    assert_eq!(blocks, 24 * 2 * NUMBER_OF_ITERATIONS);
+}
+
+/// INSTANTIATE_TEST_SUITE_P(SSE2, Loop8Test9Param_hbd, kHbdLoop8Test9).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn loopfilter_loop8_test9_param_hbd_sse2() {
+    let mut params = Vec::new();
+    for bd in [8, 10, 12] {
+        let names: [(HbdDualLoopOp, HbdDualLoopOp, &str); 8] = [
+            (aom_highbd_lpf_horizontal_4_dual_sse2, aom_highbd_lpf_horizontal_4_dual_c, "aom_highbd_lpf_horizontal_4_dual_sse2"),
+            (aom_highbd_lpf_horizontal_6_dual_sse2, aom_highbd_lpf_horizontal_6_dual_c, "aom_highbd_lpf_horizontal_6_dual_sse2"),
+            (aom_highbd_lpf_horizontal_8_dual_sse2, aom_highbd_lpf_horizontal_8_dual_c, "aom_highbd_lpf_horizontal_8_dual_sse2"),
+            (aom_highbd_lpf_horizontal_14_dual_sse2, aom_highbd_lpf_horizontal_14_dual_c, "aom_highbd_lpf_horizontal_14_dual_sse2"),
+            (aom_highbd_lpf_vertical_4_dual_sse2, aom_highbd_lpf_vertical_4_dual_c, "aom_highbd_lpf_vertical_4_dual_sse2"),
+            (aom_highbd_lpf_vertical_6_dual_sse2, aom_highbd_lpf_vertical_6_dual_c, "aom_highbd_lpf_vertical_6_dual_sse2"),
+            (aom_highbd_lpf_vertical_8_dual_sse2, aom_highbd_lpf_vertical_8_dual_c, "aom_highbd_lpf_vertical_8_dual_sse2"),
+            (aom_highbd_lpf_vertical_14_dual_sse2, aom_highbd_lpf_vertical_14_dual_c, "aom_highbd_lpf_vertical_14_dual_sse2"),
+        ];
+        for (op, c, name) in names {
+            params.push((op, c, bd, name));
+        }
+    }
+    let blocks = run_all(&params);
+    assert_eq!(blocks, 24 * 2 * NUMBER_OF_ITERATIONS);
+}
+
+/// INSTANTIATE_TEST_SUITE_P(AVX2, Loop8Test6Param_lbd, kLoop8Test6Avx2).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn loopfilter_loop8_test6_param_lbd_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    rtcd_setup();
+    let params = [
+        lbd!(aom_lpf_horizontal_6_quad_avx2, aom_lpf_horizontal_6_quad_c),
+        lbd!(aom_lpf_horizontal_8_quad_avx2, aom_lpf_horizontal_8_quad_c),
+        lbd!(aom_lpf_horizontal_14_quad_avx2, aom_lpf_horizontal_14_quad_c),
+        lbd!(aom_lpf_vertical_14_quad_avx2, aom_lpf_vertical_14_quad_c),
+    ];
+    let blocks = run_all(&params);
+    assert_eq!(blocks, 4 * 2 * NUMBER_OF_ITERATIONS);
+}
+
+/// INSTANTIATE_TEST_SUITE_P(AVX2, Loop8Test9Param_hbd, kHbdLoop8Test9Avx2).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn loopfilter_loop8_test9_param_hbd_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    let mut params = Vec::new();
+    let names: [(HbdDualLoopOp, HbdDualLoopOp, &str); 4] = [
+        (aom_highbd_lpf_horizontal_4_dual_avx2, aom_highbd_lpf_horizontal_4_dual_c, "aom_highbd_lpf_horizontal_4_dual_avx2"),
+        (aom_highbd_lpf_horizontal_8_dual_avx2, aom_highbd_lpf_horizontal_8_dual_c, "aom_highbd_lpf_horizontal_8_dual_avx2"),
+        (aom_highbd_lpf_vertical_4_dual_avx2, aom_highbd_lpf_vertical_4_dual_c, "aom_highbd_lpf_vertical_4_dual_avx2"),
+        (aom_highbd_lpf_vertical_8_dual_avx2, aom_highbd_lpf_vertical_8_dual_c, "aom_highbd_lpf_vertical_8_dual_avx2"),
+    ];
+    for (op, c, name) in names {
+        for bd in [8, 10, 12] {
+            params.push((op, c, bd, name));
+        }
+    }
+    let blocks = run_all(&params);
+    assert_eq!(blocks, 12 * 2 * NUMBER_OF_ITERATIONS);
 }

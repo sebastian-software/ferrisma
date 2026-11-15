@@ -45,10 +45,12 @@ for the x86 overlay and the Linux profiles (ADR 0058, amendment of 2026-11-14).
   entry points are not dispatched (see `rtcd/arm64.pl`), nor are the
   high-bitdepth Hadamard kernels (coefficient order).
   ADR 0056 lists what remains on `_c`.
-- x86-64: 105 RTCD functions dispatch through 113 kernel assignments, because
-  some functions have both an SSE4.1 (or SSSE3) and an AVX2 variant. Since
-  2026-11-14 that includes the 8-bit inverse transform `av1_inv_txfm_add`
-  (SSSE3 and AVX2, `av1_inv_txfm_ssse3.c` and `av1_inv_txfm_avx2.c`). The high-bitdepth DC
+- x86-64: 145 RTCD functions dispatch through 163 kernel assignments, because
+  some functions have both an SSE2, SSSE3 or SSE4.1 and an AVX2 variant.
+  Since 2026-11-14 that includes the 8-bit inverse transform
+  `av1_inv_txfm_add` (SSSE3 and AVX2) and the 40 loop filters (SSE2, and AVX2
+  for the quad and high-bitdepth dual kernels upstream has; the SSE2 quad
+  vertical filters call the horizontal ones through RTCD, as upstream does). The high-bitdepth DC
   and V predictors for 4x4 to 32x32 exist upstream only as NASM and stay on `_c`,
   as do the high-bitdepth smooth and Paeth predictors, which have no x86
   specialization. AVX-512 is not dispatched.

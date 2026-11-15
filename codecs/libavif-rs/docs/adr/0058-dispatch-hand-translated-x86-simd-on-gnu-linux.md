@@ -193,8 +193,15 @@ Kernels that exist only as NASM stay on `_c` (working decision O4).
 | Family | Original files | RTCD functions (variants) | Gate (`avx2`/`sse4.1`/`scalar`) |
 | --- | --- | --- | --- |
 | 8-bit inverse transform | `av1/common/x86/av1_inv_txfm_ssse3.c` (+ `.h`), `av1_inv_txfm_avx2.c` (+ `.h`), the rest of `av1_txfm_sse2.h` | `av1_inv_txfm_add` (SSSE3, AVX2) | 82/82, 82/82, 82/82 |
+| Loop filter | `aom_dsp/x86/loopfilter_sse2.c`, `loopfilter_avx2.c`, `highbd_loopfilter_sse2.c`, `highbd_loopfilter_avx2.c`, the rest of `lpf_common_sse2.h` | 40 (40 SSE2, 4 8-bit quad and 6 high-bitdepth dual AVX2) | 82/82, 82/82, 82/82 |
 
 Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
 and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
-`av1_inv_txfm_add_ssse3`/`_avx2` against `av1_inv_txfm_add_c`; under the
-QEMU container all 85 tests of `--test simd` pass for x86-64.
+`av1_inv_txfm_add_ssse3`/`_avx2` against `av1_inv_txfm_add_c`;
+`tests/simd/loopfilter.rs` transcribes the SSE2 and AVX2 parameter lists of
+`lpf_test.cc` (kLoop8Test6, kLoop8Test9, kHbdLoop8Test6, kHbdLoop8Test9,
+kLoop8Test6Avx2, kHbdLoop8Test9Avx2). The SSE2 quad vertical filters call
+`aom_lpf_horizontal_*_quad` through RTCD, as upstream does, so the AVX2 level
+runs the AVX2 horizontal kernel there; the test sets RTCD up with
+`aom_dsp_rtcd()` as the original test main does. Under the QEMU container
+all 91 tests of `--test simd` pass for x86-64.

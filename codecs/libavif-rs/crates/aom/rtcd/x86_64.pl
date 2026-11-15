@@ -61,6 +61,28 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_highbd_h_predictor_8x16_sse2
   aom_highbd_h_predictor_8x4_sse2
   aom_highbd_h_predictor_8x8_sse2
+  aom_highbd_lpf_horizontal_14_dual_avx2
+  aom_highbd_lpf_horizontal_14_dual_sse2
+  aom_highbd_lpf_horizontal_14_sse2
+  aom_highbd_lpf_horizontal_4_dual_avx2
+  aom_highbd_lpf_horizontal_4_dual_sse2
+  aom_highbd_lpf_horizontal_4_sse2
+  aom_highbd_lpf_horizontal_6_dual_sse2
+  aom_highbd_lpf_horizontal_6_sse2
+  aom_highbd_lpf_horizontal_8_dual_avx2
+  aom_highbd_lpf_horizontal_8_dual_sse2
+  aom_highbd_lpf_horizontal_8_sse2
+  aom_highbd_lpf_vertical_14_dual_avx2
+  aom_highbd_lpf_vertical_14_dual_sse2
+  aom_highbd_lpf_vertical_14_sse2
+  aom_highbd_lpf_vertical_4_dual_avx2
+  aom_highbd_lpf_vertical_4_dual_sse2
+  aom_highbd_lpf_vertical_4_sse2
+  aom_highbd_lpf_vertical_6_dual_sse2
+  aom_highbd_lpf_vertical_6_sse2
+  aom_highbd_lpf_vertical_8_dual_avx2
+  aom_highbd_lpf_vertical_8_dual_sse2
+  aom_highbd_lpf_vertical_8_sse2
   aom_highbd_quantize_b_32x32_adaptive_avx2
   aom_highbd_quantize_b_32x32_avx2
   aom_highbd_quantize_b_64x64_adaptive_sse2
@@ -74,6 +96,34 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_highbd_v_predictor_4x8_sse2
   aom_highbd_v_predictor_8x16_sse2
   aom_highbd_v_predictor_8x4_sse2
+  aom_lpf_horizontal_14_dual_sse2
+  aom_lpf_horizontal_14_quad_avx2
+  aom_lpf_horizontal_14_quad_sse2
+  aom_lpf_horizontal_14_sse2
+  aom_lpf_horizontal_4_dual_sse2
+  aom_lpf_horizontal_4_quad_sse2
+  aom_lpf_horizontal_4_sse2
+  aom_lpf_horizontal_6_dual_sse2
+  aom_lpf_horizontal_6_quad_avx2
+  aom_lpf_horizontal_6_quad_sse2
+  aom_lpf_horizontal_6_sse2
+  aom_lpf_horizontal_8_dual_sse2
+  aom_lpf_horizontal_8_quad_avx2
+  aom_lpf_horizontal_8_quad_sse2
+  aom_lpf_horizontal_8_sse2
+  aom_lpf_vertical_14_dual_sse2
+  aom_lpf_vertical_14_quad_avx2
+  aom_lpf_vertical_14_quad_sse2
+  aom_lpf_vertical_14_sse2
+  aom_lpf_vertical_4_dual_sse2
+  aom_lpf_vertical_4_quad_sse2
+  aom_lpf_vertical_4_sse2
+  aom_lpf_vertical_6_dual_sse2
+  aom_lpf_vertical_6_quad_sse2
+  aom_lpf_vertical_6_sse2
+  aom_lpf_vertical_8_dual_sse2
+  aom_lpf_vertical_8_quad_sse2
+  aom_lpf_vertical_8_sse2
   aom_subtract_block_avx2
   av1_block_error_avx2
   av1_block_error_lp_avx2
