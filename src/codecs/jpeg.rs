@@ -1,6 +1,7 @@
 //! Read-only JPEG source through the workspace codec's safe scanline API.
 //! No JPEG encoder or JPEG-first core assumptions.
 use crate::color::AlphaMode;
+use crate::discarded::{Discarded, DiscardedSet};
 use jpeg::decode::{ColorSpace, Decoder, DecoderOptions, OutputOptions, PixelFormat};
 
 use crate::decoder::{
@@ -16,6 +17,7 @@ pub(crate) struct JpegSource<'a> {
     bytes: &'a [u8],
     info: DecoderInfo,
     orientation: Orientation,
+    discarded: DiscardedSet,
 }
 fn output_options() -> OutputOptions {
     OutputOptions {
@@ -62,21 +64,79 @@ impl<'a> JpegSource<'a> {
             }
             Some(Err(())) => return Err(Error::DecodeFailed),
         };
+        let mut discarded = segment_discards(bytes);
+        let rendered_icc = decoder.icc_profile().map_err(|_| Error::DecodeFailed)?;
+        discarded.insert_if(rendered_icc.is_some(), Discarded::IccProfile);
         Ok(Self {
             bytes,
             orientation,
+            discarded,
             info: DecoderInfo {
                 size,
                 layout: ChannelLayout::Rgb,
                 sample: SampleType::U8,
                 access: DecodeAccess::CodecRegionRequest,
                 alpha: AlphaMode::Opaque,
-                rendered_icc: decoder.icc_profile().map_err(|_| Error::DecodeFailed)?,
+                rendered_icc,
                 rendered_cicp: None,
             },
         })
     }
 }
+/// The metadata segments before the first scan that the output will not
+/// carry (ADR-0042 D2), from the raw marker structure: EXIF, XMP (and
+/// extended XMP), MPF secondary images (gain maps), and other metadata:
+/// IPTC (APP13), comments (COM), JUMBF/C2PA (APP11), any other application
+/// segment, and a JFIF density other than "aspect ratio 1:1". JFIF, Adobe
+/// (APP14) and ICC (reported from the decoder) are not metadata here. The
+/// decoder has validated the structure; a scan that stops early reports
+/// what it saw.
+fn segment_discards(bytes: &[u8]) -> DiscardedSet {
+    let mut discarded = DiscardedSet::default();
+    let mut at = 2;
+    while let (Some(&0xff), Some(&marker)) = (bytes.get(at), bytes.get(at + 1)) {
+        if marker == 0xff {
+            at += 1;
+            continue;
+        }
+        // Start of scan, or a marker without a length: stop.
+        if marker == 0xda || matches!(marker, 0x01 | 0xd0..=0xd9) {
+            break;
+        }
+        let Some(length) = bytes
+            .get(at + 2..at + 4)
+            .map(|length| usize::from(u16::from_be_bytes([length[0], length[1]])))
+        else {
+            break;
+        };
+        let payload = bytes.get(at + 4..at + 2 + length).unwrap_or_default();
+        match marker {
+            0xe0 if payload.starts_with(b"JFIF\0") => {
+                // units, Xdensity, Ydensity after the version.
+                let density = payload.get(7..12);
+                discarded.insert_if(
+                    density.is_some_and(|density| density != [0, 0, 1, 0, 1]),
+                    Discarded::OtherMetadata,
+                );
+            }
+            0xe0 if payload.starts_with(b"JFXX\0") => {}
+            0xe1 if payload.starts_with(b"Exif\0") => discarded.insert(Discarded::Exif),
+            0xe1 if payload.starts_with(b"http://ns.adobe.com/xap/1.0/\0")
+                || payload.starts_with(b"http://ns.adobe.com/xmp/extension/\0") =>
+            {
+                discarded.insert(Discarded::Xmp);
+            }
+            0xe2 if payload.starts_with(b"ICC_PROFILE\0") => {}
+            0xe2 if payload.starts_with(b"MPF\0") => discarded.insert(Discarded::GainMap),
+            0xee if payload.starts_with(b"Adobe") => {}
+            0xe0..=0xef | 0xfe => discarded.insert(Discarded::OtherMetadata),
+            _ => {}
+        }
+        at += 2 + length;
+    }
+    discarded
+}
+
 /// Read to the end of the image and finish the decoder; returns the number
 /// of rows reconstructed below the request (0 or 1).
 ///
@@ -178,6 +238,10 @@ impl DecodeSource for JpegSource<'_> {
 
     fn orientation(&self) -> Orientation {
         self.orientation
+    }
+
+    fn discarded(&self) -> DiscardedSet {
+        self.discarded
     }
 
     fn read_region(

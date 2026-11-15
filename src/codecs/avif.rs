@@ -21,6 +21,7 @@ use crate::decoder::{
     ChannelLayout, CodecWork, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo,
     SampleType,
 };
+use crate::discarded::{Discarded, DiscardedSet};
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
@@ -76,17 +77,35 @@ pub(crate) fn rendered_cicp(
     Ok(Some([primaries, transfer, 0, 1]))
 }
 
+/// What the read leaves out of the output (ADR-0042 D2).
+fn discards(properties: &PrimaryProperties, premultiplied: bool, bit_depth: u8) -> DiscardedSet {
+    let findings = properties.findings;
+    let mut discarded = DiscardedSet::default();
+    discarded.insert_if(findings.gain_map, Discarded::GainMap);
+    discarded.insert_if(findings.exif, Discarded::Exif);
+    discarded.insert_if(findings.xmp, Discarded::Xmp);
+    discarded.insert_if(findings.other_metadata, Discarded::OtherMetadata);
+    discarded.insert_if(properties.icc.is_some(), Discarded::IccProfile);
+    discarded.insert_if(findings.unknown_properties, Discarded::UnknownContainerData);
+    // libavif un-premultiplies: the wrapper requests straight RGB.
+    discarded.insert_if(premultiplied, Discarded::Unpremultiplied);
+    discarded.insert_if(bit_depth > 8, Discarded::PrecisionReduced);
+    discarded
+}
+
 pub(crate) struct AvifSource<'a> {
     decoder: Decoder<'a>,
     decoded: bool,
     info: DecoderInfo,
     orientation: Orientation,
+    discarded: DiscardedSet,
 }
 
 impl<'a> AvifSource<'a> {
     /// Parse metadata and check frame dimensions *before* the decoder
     /// allocates a pixel surface. This is not an RSS limit: parsing and the
     /// later decode can still allocate opaque codec memory.
+    #[allow(clippy::too_many_lines)] // The checks stay in the order they run.
     pub(crate) fn new_bounded(bytes: &'a [u8], max_pixels: u64) -> Result<Self, Error> {
         let properties = primary_properties(bytes).map_err(|error| match error {
             MetaError::Allocation => Error::AllocationFailed,
@@ -164,6 +183,11 @@ impl<'a> AvifSource<'a> {
         if decoded_info.icc != properties.icc {
             return Err(Error::ContradictoryColorSignals);
         }
+        let discarded = discards(
+            &properties,
+            has_alpha && decoded_info.alpha_premultiplied,
+            sequence.bit_depth,
+        );
         let layout = if has_alpha {
             ChannelLayout::Rgba
         } else {
@@ -192,6 +216,7 @@ impl<'a> AvifSource<'a> {
             decoded: false,
             info,
             orientation,
+            discarded,
         })
     }
 
@@ -208,6 +233,10 @@ impl DecodeSource for AvifSource<'_> {
 
     fn orientation(&self) -> Orientation {
         self.orientation
+    }
+
+    fn discarded(&self) -> DiscardedSet {
+        self.discarded
     }
 
     fn set_decode_threads(&mut self, threads: usize) {

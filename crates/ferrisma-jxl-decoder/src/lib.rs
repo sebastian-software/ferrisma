@@ -44,6 +44,12 @@ pub struct ImageInfo {
     /// Transfer function of the DATA color encoding when it is enum-signalled;
     /// `None` when the emitted samples are described only by an ICC profile.
     pub data_transfer: Option<Transfer>,
+    /// Bits per color sample in the codestream header.
+    pub bits_per_sample: u32,
+    /// Bits per alpha sample; 0 without alpha.
+    pub alpha_bits: u32,
+    /// The codestream has a preview frame, which is not decoded.
+    pub have_preview: bool,
 }
 
 /// Transfer function of an enum-signalled color encoding.
@@ -209,6 +215,9 @@ impl<'a> Decoder<'a> {
             alpha_premultiplied: alpha && basic.alpha_premultiplied != 0,
             rendered_icc: Vec::new(),
             data_transfer: None,
+            bits_per_sample: basic.bits_per_sample,
+            alpha_bits: basic.alpha_bits,
+            have_preview: basic.have_preview != 0,
         })
     }
 

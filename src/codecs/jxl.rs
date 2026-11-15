@@ -8,6 +8,7 @@ use crate::decoder::{
     ChannelLayout, CodecWork, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo,
     SampleType,
 };
+use crate::discarded::{Discarded, DiscardedSet};
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
@@ -18,6 +19,7 @@ pub(crate) struct JxlSource<'a> {
     image: ImageInfo,
     info: DecoderInfo,
     max_pixels: u64,
+    discarded: DiscardedSet,
 }
 
 impl<'a> JxlSource<'a> {
@@ -74,11 +76,21 @@ impl<'a> JxlSource<'a> {
             rendered_icc: Some(image.rendered_icc.clone()),
             rendered_cicp: None,
         };
+        // ADR-0042 D2. An ICC-signalled DATA encoding has no enum
+        // transfer: the profile is embedded, not synthesized.
+        let mut discarded = super::jxl_container::container_discards(bytes);
+        discarded.insert_if(image.data_transfer.is_none(), Discarded::IccProfile);
+        discarded.insert_if(image.have_preview, Discarded::Preview);
+        discarded.insert_if(
+            image.bits_per_sample > 8 || image.alpha_bits > 8,
+            Discarded::PrecisionReduced,
+        );
         Ok(Self {
             bytes,
             image,
             info,
             max_pixels,
+            discarded,
         })
     }
 }
@@ -102,6 +114,10 @@ fn map_error(error: ferrisma_jxl_decoder::Error) -> Error {
 impl DecodeSource for JxlSource<'_> {
     fn info(&self) -> &DecoderInfo {
         &self.info
+    }
+
+    fn discarded(&self) -> DiscardedSet {
+        self.discarded
     }
 
     fn read_region(

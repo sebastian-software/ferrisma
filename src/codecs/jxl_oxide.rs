@@ -1,6 +1,7 @@
 //! JPEG XL adapter: codec-level ROI request, float output scanlines.
 //! ROI is a capability, not a guarantee of skipped internal codec work.
 use crate::color::AlphaMode;
+use crate::discarded::{Discarded, DiscardedSet};
 use jxl_oxide::{AllocTracker, CropInfo, JxlImage, PixelFormat};
 use std::io::Cursor;
 
@@ -15,6 +16,7 @@ use crate::memory::MemoryBudget;
 pub(crate) struct JxlSource {
     image: JxlImage,
     info: DecoderInfo,
+    discarded: DiscardedSet,
 }
 impl JxlSource {
     #[cfg(test)]
@@ -83,7 +85,31 @@ impl JxlSource {
             rendered_icc: Some(image.rendered_icc()),
             rendered_cicp: rendered_cicp(&image),
         };
-        Ok(Self { image, info })
+        // ADR-0042 D2: boxes, an embedded profile, a preview frame and
+        // samples deeper than the 8-bit rows that reach the encoder.
+        let metadata = &image.image_header().metadata;
+        let mut discarded = super::jxl_container::container_discards(bytes);
+        discarded.insert_if(
+            matches!(
+                metadata.colour_encoding,
+                jxl_oxide::color::ColourEncoding::IccProfile(_)
+            ),
+            Discarded::IccProfile,
+        );
+        discarded.insert_if(metadata.preview.is_some(), Discarded::Preview);
+        discarded.insert_if(
+            metadata.bit_depth.bits_per_sample() > 8
+                || metadata
+                    .ec_info
+                    .iter()
+                    .any(|channel| channel.bit_depth.bits_per_sample() > 8),
+            Discarded::PrecisionReduced,
+        );
+        Ok(Self {
+            image,
+            info,
+            discarded,
+        })
     }
 }
 
@@ -236,6 +262,10 @@ fn reject_hdr_transfer(image: &JxlImage) -> Result<(), Error> {
 impl DecodeSource for JxlSource {
     fn info(&self) -> &DecoderInfo {
         &self.info
+    }
+
+    fn discarded(&self) -> DiscardedSet {
+        self.discarded
     }
 
     fn read_region(

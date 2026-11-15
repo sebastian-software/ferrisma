@@ -44,6 +44,7 @@ mod color_contract;
 )]
 mod decoded_resize;
 mod decoder;
+mod discarded;
 mod encoder_backend;
 mod error;
 #[cfg_attr(

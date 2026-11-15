@@ -248,6 +248,12 @@ pub(crate) trait DecodeSource {
     /// Called before `read_region`; the default ignores it. A source may use
     /// threads only where its emitted samples do not depend on the count.
     fn set_decode_threads(&mut self, _threads: usize) {}
+    /// What this source reads past and the output will not carry
+    /// (ADR-0042 D2), known from the headers. Asked of the codec source
+    /// before any wrapper; the default is nothing.
+    fn discarded(&self) -> crate::discarded::DiscardedSet {
+        crate::discarded::DiscardedSet::default()
+    }
     /// Borrows each output row only for the duration of the sink callback.
     fn read_region(
         &mut self,

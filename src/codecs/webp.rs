@@ -8,6 +8,7 @@ use crate::decoder::{
     ChannelLayout, CodecWork, DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo,
     SampleType, WorkCount,
 };
+use crate::discarded::{Discarded, DiscardedSet};
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
@@ -18,6 +19,7 @@ pub(crate) struct WebpSource<'a> {
     features: Features,
     info: DecoderInfo,
     orientation: Orientation,
+    discarded: DiscardedSet,
 }
 
 impl<'a> WebpSource<'a> {
@@ -50,10 +52,12 @@ impl<'a> WebpSource<'a> {
         } else {
             DecodeAccess::FullFrameFallback
         };
+        let discarded = chunk_discards(bytes);
         Ok(Self {
             bytes,
             features,
             orientation,
+            discarded,
             info: DecoderInfo {
                 size,
                 layout: if features.has_alpha {
@@ -82,6 +86,10 @@ impl DecodeSource for WebpSource<'_> {
 
     fn orientation(&self) -> Orientation {
         self.orientation
+    }
+
+    fn discarded(&self) -> DiscardedSet {
+        self.discarded
     }
 
     fn read_region(
@@ -185,6 +193,34 @@ impl DecodeSource for WebpSource<'_> {
             work: webp_work(region, self.info.size, Rect::new(left, top, width, height)?),
         })
     }
+}
+
+/// The RIFF chunks the output will not carry (ADR-0042 D2): `EXIF`,
+/// `XMP `, `ICCP` (converted, see [`Discarded::IccProfile`]) and chunks
+/// the format lets a reader ignore. The container was validated by the
+/// decoder; a walk that stops early reports what it saw.
+fn chunk_discards(bytes: &[u8]) -> DiscardedSet {
+    let mut discarded = DiscardedSet::default();
+    let mut at = 12;
+    while let Some(header) = bytes.get(at..at + 8) {
+        let kind = &header[..4];
+        let size = u32::from_le_bytes([header[4], header[5], header[6], header[7]]) as usize;
+        match kind {
+            b"EXIF" => discarded.insert(Discarded::Exif),
+            b"XMP " => discarded.insert(Discarded::Xmp),
+            b"ICCP" => discarded.insert(Discarded::IccProfile),
+            b"VP8 " | b"VP8L" | b"VP8X" | b"ALPH" | b"ANIM" | b"ANMF" => {}
+            _ => discarded.insert(Discarded::UnknownContainerData),
+        }
+        let Some(next) = at
+            .checked_add(8)
+            .and_then(|end| end.checked_add(size.next_multiple_of(2)))
+        else {
+            break;
+        };
+        at = next;
+    }
+    discarded
 }
 
 /// VP8 and VP8L both decode from the first row and across the full width:

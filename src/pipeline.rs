@@ -22,6 +22,7 @@ use crate::quality_execute::execute_quality_srgb8;
 use crate::webp_sink::WebpSink;
 
 pub use crate::decoder::WorkCount;
+pub use crate::discarded::{Discarded, DiscardedSet};
 pub use crate::encoder_backend::{
     EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
 };
@@ -517,6 +518,10 @@ pub struct ProcessingReport {
     /// (AVIF), `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL), or the
     /// [`EncoderBackend::name`] of an external backend (ADR-0024).
     pub encoder_backend: &'static str,
+    /// The classes of input information this transcode left out of a
+    /// correct picture (ADR-0042 D2); empty when nothing was left out.
+    /// Experimental; see [`Discarded`].
+    pub discarded: DiscardedSet,
     /// Wall-clock observations per stage; not a performance claim.
     pub timings: StageTimings,
 }
@@ -1298,6 +1303,19 @@ fn run(
     )?;
     let decoder_backend = decoder_backend(format, options.jxl_decoder);
     source.set_decode_threads(transform_threads);
+    // ADR-0042 D2: what the codec reads past, from its headers, and hidden
+    // color under zero alpha, noticed in the rows it delivers.
+    let mut discarded = source.discarded();
+    let hidden_color = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let source: Box<dyn DecodeSource + '_> =
+        if source.info().layout == crate::decoder::ChannelLayout::Rgba {
+            Box::new(crate::discarded::HiddenColorProbe::new(
+                source,
+                hidden_color.clone(),
+            ))
+        } else {
+            source
+        };
     // Present an upright image to the graph; crops are display coordinates.
     let source: Box<dyn DecodeSource + '_> = if source.orientation().is_identity() {
         source
@@ -1532,6 +1550,10 @@ fn run(
         DecodeAccess::FullFrameFallback => SourceAccess::FullFrameFallback,
         DecodeAccess::CodecRegionRequest => SourceAccess::CodecRegionRequest,
     };
+    discarded.insert_if(
+        hidden_color.load(std::sync::atomic::Ordering::Relaxed),
+        Discarded::HiddenColor,
+    );
     let report = ProcessingReport {
         input_access,
         decoder_requests: processed.decoder_requests,
@@ -1561,6 +1583,7 @@ fn run(
         transform_threads,
         decoder_backend,
         encoder_backend,
+        discarded,
         timings: StageTimings {
             open,
             decode: processed.source_time,
