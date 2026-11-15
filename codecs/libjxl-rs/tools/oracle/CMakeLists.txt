@@ -404,3 +404,8 @@ target_sources(jxl_oracle PRIVATE encoder_cfl_simd.cc)
 # and, where it exports none, its target-namespace functions.
 target_sources(jxl_oracle PRIVATE encoder_entropy_simd.cc)
 # end encoder entropy
+# encoder step 1: the upstream test cases of encoder step 1 (#118) in
+# differential form. The TU only calls the original's functions and the
+# public API, with the tests' own inputs.
+target_sources(jxl_oracle PRIVATE encoder_step1.cc)
+# end encoder step 1

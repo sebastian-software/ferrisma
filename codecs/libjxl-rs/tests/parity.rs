@@ -1569,3 +1569,8 @@ mod group_render;
 
 #[path = "parity/modular_image.rs"]
 mod modular_image;
+
+// encoder step 1: the upstream test cases of encoder step 1 (#118).
+#[path = "parity/encoder_step1.rs"]
+mod encoder_step1;
+// end encoder step 1

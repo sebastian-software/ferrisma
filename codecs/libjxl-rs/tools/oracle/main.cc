@@ -570,6 +570,9 @@ bool EncoderCflSimdCommand(const std::string&,std::istringstream&,JxlMemoryManag
 // encoder entropy
 bool EncoderEntropySimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 // end encoder entropy
+// encoder step 1
+bool EncoderStep1Command(const std::string&,std::istringstream&,JxlMemoryManager*);
+// end encoder step 1
 
 int main() {
   try {
@@ -711,6 +714,9 @@ int main() {
       // encoder entropy
       else if (EncoderEntropySimdCommand(command, in, &mm)) {}
       // end encoder entropy
+      // encoder step 1
+      else if (EncoderStep1Command(command, in, &mm)) {}
+      // end encoder step 1
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
       else throw std::runtime_error("unknown command");
