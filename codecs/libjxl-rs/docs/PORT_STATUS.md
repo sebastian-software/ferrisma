@@ -4114,3 +4114,29 @@ condition (e), a run on x86-64 hardware, and the x86-64 performance of the
 AVX2 path. Indicative NEON timing of a 24 MP photograph, e7 d1.0: 47.2 s
 scalar, 13.2 s NEON, 9.9 s original (see ADR 0004).
 <!-- end encoder selection -->
+<!-- encoder selection head -->
+## Encoder selection, status at the head of `v1/jxl-enc-select` (2026-11-15, evening)
+
+Rebased onto `df6c83cf` (encoder step 3 and 4 on `main`). Verified at the
+head: `tools/check.py --stage static --msrv` and pinned-nightly Clippy pass;
+the whole `--stage test` on NEON 1,153 passed, 0 failed, 2 ignored; the
+encoder's SIMD binaries on AVX2 under Rosetta 2 (`dispatch_scope`,
+`simd_encoder`, `_acs`, `_aq`, `_cfl`, `_entropy`, `_public`) 44 passed, 1
+ignored, with 21,850 kernel requests per target and every whole encode
+byte-identical with the original's build for that target (ADR 0004
+"Encoder selection", conditions (a) to (d) met; AVX2 `aq_map` under the
+owner decision of 2026-11-15). Added here: the 13 encoder-step-3 container
+tests select the scalar encoder path.
+
+The static stage now builds the x86-64 release `encode_lossy`,
+`encode_lossless` and `conformance_decode` and fails on an out-of-line
+`core::arch` x86 or `fmaf` call in a port function (0 in each; 3,296 and
+2,905 before). The skcms HSW engine still has 799 such calls in
+`encode_lossy`: inlining its helpers removes them but changed 657 of
+135,236 observations under Rosetta 2, so it was not committed (ADR 0004).
+
+Open: condition (e), the hosted x86-64 run of the encoder's binaries, and
+the encoder's AVX2 speed on hardware. `ENCODER_SELECTS_SIMD` is `false` on
+this branch; the switch is on in `v1/jxl-enc-select-flip`, which must not be
+merged before the hosted measurement is reviewed.
+<!-- end encoder selection head -->

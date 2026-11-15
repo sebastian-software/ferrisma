@@ -2222,4 +2222,47 @@ original built with its HSW engine (a native hosted run, or an original
 built with the HSW file), a native run of the scratch example before and
 after, and then the change above, which is otherwise mechanical (about 60
 lines of `transform_x86.rs`).
+
+**Conditions (a) to (e) at the head of `v1/jxl-enc-select` (2026-11-15,
+evening, rebased onto `df6c83cf`).** Verified at the head (`tools/check.py
+--stage static --msrv`, pinned-nightly Clippy with `-D warnings`, then on
+NEON the whole `--stage test` and on AVX2 under Rosetta 2 the encoder's
+SIMD binaries):
+
+- (a) Met on NEON and AVX2. The encoder kernels' parity binaries
+  (`simd_encoder`, `_acs`, `_aq`, `_cfl`, `_entropy`) compare 21,850
+  requests per target with the original built for that target: NEON
+  206,861,173 words, AVX2 207,730,526 words, zero differing words except
+  the AVX2 `aq_map` words that the owner decision of 2026-11-15 excludes
+  (46 of 286 `eaq-map` requests, 4,295 words not compared, all inside the
+  class computed from the input; `mask`, `mask1x1` and every other request
+  exact).
+- (b) Met: `dispatch_scope` (3 tests, one thread and 0/1/2/8 runner
+  threads) passes on both targets; the whole-encode gate's trace shows the
+  decoder code and the plane padding selecting the target inside encodes.
+- (c) Met on NEON and AVX2: `simd_encoder_public` passes (NEON 11 tests,
+  AVX2 11 tests, 1 ignored). Per target: lossy 524, lossy alpha 279,
+  patches off and extra channels 177, output processor, chunked and
+  streaming suite 328 histories (all admitted since the container port,
+  none a prefix), engine e7 d1.0/d2.0 64, streaming gate 32 plus 8 of
+  4000x3000, lossy streaming 16, step-1 checkpoints 32 histories
+  (9,593,524 words), lossless effort 2 532 encodes; AVX2 additionally the
+  2268x1512 photograph (14 lossy, 8 lossless encodes): zero differing
+  encodes, and the scalar path differs from the SIMD path in many of them
+  (for example 39 of 524 lossy histories on AVX2), so the gate tells the
+  paths apart. The NEON photographs were not repeated at this head.
+- (d) Met: every scalar-reference test of the encoder parity files selects
+  the scalar path explicitly (`select_scalar_encoder_for_test`; the 13
+  tests of `tests/parity/encoder_container.rs`, merged after the first
+  sweep, were added), and `tools/check.py` sets `JXL_ENCODER_TARGET=scalar`
+  as a second guard. The whole `--stage test` on NEON: 1,153 passed, 0
+  failed, 2 ignored.
+- (e) Open. There is no run on x86-64 hardware: Rosetta 2 does not fault on
+  misaligned aligned moves, and its timings are no measurement. Static
+  evidence from this branch: the x86-64 release `encode_lossy`,
+  `encode_lossless` and `conformance_decode` have no out-of-line intrinsic
+  call in the port's own functions (0, 0, 0), `encode_lossy` has 799 in the
+  skcms HSW engine (above), and every binary has std_detect's one `xgetbv`
+  call. What remains for (e): the hosted Linux x86-64 run of the encoder's
+  SIMD binaries and a measurement of the encoder's AVX2 speed on hardware.
 <!-- end encoder selection -->
