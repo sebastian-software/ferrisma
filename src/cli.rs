@@ -9,8 +9,8 @@ use std::process::ExitCode;
 
 use crate::pipeline::{
     AvifEncoder, ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy,
-    JpegXlDecoder, JpegXlOptions, KernelLevel, OutputFormat, ResizeFilter, TransformOptions,
-    WebpOptions, WorkingPrecision, transcode, transcode_with,
+    JpegXlDecoder, JpegXlOptions, KernelLevel, Output, OutputFormat, ResizeFilter,
+    TransformOptions, WebpOptions, WorkingPrecision, transcode, transcode_with,
 };
 
 // Bound the stream itself: file metadata can be absent or change after opening.
@@ -356,29 +356,7 @@ pub fn run(
         timings.encode.as_secs_f64() * 1e3,
         timings.total.as_secs_f64() * 1e3,
     );
-    // One stable key=value line for benchmark scripts; values are integers.
-    println!(
-        "report: open_us={} decode_us={} transform_us={} encode_us={} total_us={} \
-         output_bytes={} peak_managed_bytes={} encoder_frame_bytes={} orientation_buffer_bytes={} \
-         decoder_requests={} decoder_full_frames={} precision={:?} encoder_threads={} kernel_level={} transform_threads={} \
-         encoder={}",
-        timings.open.as_micros(),
-        timings.decode.as_micros(),
-        timings.transform.as_micros(),
-        timings.encode.as_micros(),
-        timings.total.as_micros(),
-        output.bytes.len(),
-        output.report.peak_managed_bytes,
-        output.report.encoder_output_frame_bytes,
-        output.report.orientation_buffer_bytes,
-        output.report.decoder_requests,
-        output.report.decoder_full_frame_buffers,
-        output.report.working_precision,
-        output.report.encoder_threads,
-        output.report.kernel_level,
-        output.report.transform_threads,
-        output.report.encoder_backend,
-    );
+    println!("{}", report_line(&output));
     // Decoder work as rectangles `WxH+X+Y`; `>=` marks a lower bound. `crop`
     // and `requested` are upright display coordinates; `codec_request` and
     // `codec_output` are in the codec's frame (stored order, or display
@@ -404,6 +382,37 @@ pub fn run(
         );
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// One stable `key=value` line for benchmark scripts. Values are integers,
+/// except the precision, kernel level and the two backend names; new keys are
+/// appended (ADR-0040).
+fn report_line(output: &Output) -> String {
+    let report = &output.report;
+    let timings = report.timings;
+    format!(
+        "report: open_us={} decode_us={} transform_us={} encode_us={} total_us={} \
+         output_bytes={} peak_managed_bytes={} encoder_frame_bytes={} orientation_buffer_bytes={} \
+         decoder_requests={} decoder_full_frames={} precision={:?} encoder_threads={} kernel_level={} transform_threads={} \
+         encoder={} decoder={}",
+        timings.open.as_micros(),
+        timings.decode.as_micros(),
+        timings.transform.as_micros(),
+        timings.encode.as_micros(),
+        timings.total.as_micros(),
+        output.bytes.len(),
+        report.peak_managed_bytes,
+        report.encoder_output_frame_bytes,
+        report.orientation_buffer_bytes,
+        report.decoder_requests,
+        report.decoder_full_frame_buffers,
+        report.working_precision,
+        report.encoder_threads,
+        report.kernel_level,
+        report.transform_threads,
+        report.encoder_backend,
+        report.decoder_backend,
+    )
 }
 
 #[cfg(test)]
@@ -541,6 +550,32 @@ mod tests {
         .to_vec();
         let error = super::run(&args, None).unwrap_err();
         assert!(error.to_string().contains("mutually exclusive"), "{error}");
+    }
+
+    /// The `report:` line names both backends (issue #217); keys are
+    /// appended, so the existing ones keep their order.
+    #[cfg(all(feature = "jpeg-read", feature = "webp-write"))]
+    #[test]
+    fn report_line_names_the_decoder_and_encoder_backends() {
+        use crate::pipeline::{ImageFormat, InputProfilePolicy, OutputFormat, transcode};
+        let output = transcode(
+            include_bytes!("../tests/fixtures/sample.jpg"),
+            ImageFormat::Jpeg,
+            TransformOptions {
+                output_format: OutputFormat::WebP,
+                output_width: 8,
+                output_height: 8,
+                profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+                ..TransformOptions::default()
+            },
+        )
+        .unwrap();
+        let line = super::report_line(&output);
+        assert!(line.starts_with("report: open_us="), "{line}");
+        assert!(
+            line.ends_with(" encoder=libwebp-rs decoder=libjpeg-turbo-rs"),
+            "{line}"
+        );
     }
 
     #[test]

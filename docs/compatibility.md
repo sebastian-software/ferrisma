@@ -16,7 +16,7 @@ else, including every private module, is outside the contract.
 | --- | --- | --- |
 | Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run` |
 | Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, quality, speed, chroma, threads, and the four resource limits; `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifEncoder::Libavif`, `JpegXlDecoder::LibjxlRs`, `JpegXlOptions` |
-| Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `encoder_backend` strings, `KernelLevel`/`KernelLevelReason` |
+| Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason` |
 | Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `avif-write`, `icc`, `cli` | `jpeg-xl-own-read`, `jpeg-xl-write`, `avif-read`, `avif-own-write` |
 | CLI | Positional arguments, color policy, quality, speed, chroma, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-encoder`, `--avif-depth`, `--jxl-decoder`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
 

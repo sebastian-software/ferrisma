@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-13
+- **Last reviewed:** 2026-11-14
 - **Supersedes:** None. Once accepted, it replaces decision 6 ("no stability promise") of [ADR-0017](0017-minimal-public-facade-and-cli.md) for the items it marks stable.
 - **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (when the version 1.0 may be used, and the release tooling)
 - **Related:** [0010](0010-dual-licensing.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0034](0034-thumbnail-geometry.md), [0037](0037-selectable-workspace-avif-encoder.md), [publishing](../publishing.md), [release automation](../release-automation.md), [compatibility guide](../compatibility.md), tracker #196
@@ -60,7 +60,7 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `JpegXlDecoder` | enum | `JxlOxide` stable as "default JPEG XL reader"; `LibjxlRs` experimental (`jpeg-xl-own-read`) | Non-exhaustive |
 | `WorkingPrecision` | enum | `F32` stable; `F64Reference` experimental (verification only) | Non-exhaustive |
 | `Output` | struct | Stable | Non-exhaustive; `format`, `bytes`, `width`, `height`, `report` |
-| `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive; new fields are additive |
+| `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive; new fields are additive. `decoder_backend` and `encoder_backend` strings are experimental values (2026-11-14, #217) |
 | `StageTimings` | struct | Experimental values | Wall-clock observations, never a contract |
 | `KernelLevel`, `KernelLevelReason`, `TransformOptions::kernel_level_ceiling` | re-exported enums, field | Experimental (diagnostics) | Couples to `ferrisma-kernels`; see problem 7 |
 | `ProcessingError`, `ProcessingErrorKind` | struct, enum | Stable | Kind is non-exhaustive; message text is not stable |
@@ -101,7 +101,7 @@ binary's command line, not this function, is the stable CLI contract.
 | `--reference`, `--kernel-level=scalar\|neon\|avx2\|avx512` | Experimental (verification and diagnostics) |
 | `.jxl` output, `--jxl-distance=`, `--jxl-lossless` (ADR-0039) | Experimental |
 | Exit status 0 success, 2 usage (fewer than four positional arguments), 1 any other error (Rust's default `Error: …` on stderr) | Stable |
-| `report:` key=value line on stdout | Stable keys; new keys are additive; integer values |
+| `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, and `decoder` (appended 2026-11-14, #217) |
 | Human-readable `Encoded …`, `Timings: …` lines and the stderr memory note | Not stable |
 
 ## Decision
@@ -203,9 +203,11 @@ cannot be fixed later without a major release.
 12. **`cli::run` is a public library function** returning
     `Box<dyn Error>`. Recommendation: `#[doc(hidden)]` or move it to the
     binary's crate if adapters no longer need it.
-13. **CLI help and version.** There is no `--help` or `--version`; usage is
-    printed only for too few arguments, and an unknown flag exits 1.
-    Recommendation: add both before 1.0.
+13. **CLI help.** There is no `--help`; usage is printed only for too few
+    arguments, and an unknown flag exits 1. `--version` (and `-V`) exists
+    since 2026-11-13 (#237, [compatibility guide](../compatibility.md)) but
+    is not yet assigned to a tier. Recommendation: add `--help` and assign
+    both flags a tier before 1.0.
 14. **CLI units differ.** `--max-input-mb`, `--budget-mb`, and
     `--max-output-mb` use MiB, while `--max-input-mpx` uses 10^6 pixels.
     Recommendation: document the units (now in the compatibility guide) or
@@ -303,3 +305,13 @@ reports that a stable item cannot express its use case.
   confirmed by owner decision D1 ([ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md)
   section 7); the tier question it raised for `cli` stays open with this
   record's other recommendations.
+- 2026-11-14 — Decoder backend in the report (issue #217; design in
+  [ADR-0017](0017-minimal-public-facade-and-cli.md), amendment of the same
+  date): `ProcessingReport::decoder_backend: &'static str` is an additive
+  field of the non-exhaustive report (decision 2), and the `report:` line
+  appends `decoder=`. Working decision 2026-11-14 (delegated, revisable by
+  the owner): its string values share the experimental tier of the
+  `encoder_backend` strings; the field name follows the report's stable
+  field-name rule. Correction, no decision change: problem 13 said there is
+  no `--version`; the flag exists since 2026-11-13 (`src/cli.rs`, #237), so
+  the problem now covers `--help` and the tier of both flags.

@@ -474,8 +474,17 @@ pub struct ProcessingReport {
     /// Transform pipeline threads actually used; 1 for the sequential path
     /// and the `f64` reference.
     pub transform_threads: usize,
-    /// The encoder that wrote the output, such as `"rav1e"` or
-    /// `"libavif-rs/aom"` (ADR-0024).
+    /// The decoder that read the input and produced the source pixels
+    /// (issue #217). Built-in readers: `"libjpeg-turbo-rs"` (JPEG),
+    /// `"libwebp-rs"` (WebP), `"jxl-oxide"` or `"libjxl-rs"` (JPEG XL, per
+    /// [`TransformOptions::jxl_decoder`]) and `"libavif-rs/aom"` (AVIF). The
+    /// default JPEG XL reader depends on the compiled Cargo features, so this
+    /// field is how a caller learns which one ran. The strings are
+    /// observations; new readers add new values.
+    pub decoder_backend: &'static str,
+    /// The encoder that wrote the output: `"rav1e"` or `"libavif-rs/aom"`
+    /// (AVIF), `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL), or the
+    /// [`EncoderBackend::name`] of an external backend (ADR-0024).
     pub encoder_backend: &'static str,
     /// Wall-clock observations per stage; not a performance claim.
     pub timings: StageTimings,
@@ -723,6 +732,21 @@ fn open_source<'a>(
                 ))
             }
         }
+    }
+}
+
+/// The name reported in [`ProcessingReport::decoder_backend`] for the reader
+/// that [`open_source`] selects for `format`; only called after that reader
+/// was opened, so the name always belongs to a compiled backend.
+fn decoder_backend(format: ImageFormat, jxl_decoder: JpegXlDecoder) -> &'static str {
+    match format {
+        ImageFormat::Jpeg => "libjpeg-turbo-rs",
+        ImageFormat::WebP => "libwebp-rs",
+        ImageFormat::JpegXl => match jxl_decoder {
+            JpegXlDecoder::JxlOxide => "jxl-oxide",
+            JpegXlDecoder::LibjxlRs => "libjxl-rs",
+        },
+        ImageFormat::Avif => "libavif-rs/aom",
     }
 }
 
@@ -1106,6 +1130,7 @@ fn run(
         options.max_input_pixels,
         options.jxl_decoder,
     )?;
+    let decoder_backend = decoder_backend(format, options.jxl_decoder);
     source.set_decode_threads(transform_threads);
     // Present an upright image to the graph; crops are display coordinates.
     let source: Box<dyn DecodeSource + '_> = if source.orientation().is_identity() {
@@ -1348,6 +1373,7 @@ fn run(
         kernel_level_reason,
         encoder_threads,
         transform_threads,
+        decoder_backend,
         encoder_backend,
         timings: StageTimings {
             open,

@@ -174,10 +174,12 @@ mod consumer {
     fn describe(output: &Output) -> String {
         let report = &output.report;
         let mut text = format!(
-            "{}x{} WebP, {} bytes; peak managed {} bytes, encoder frame {} bytes",
+            "{}x{} WebP, {} bytes; read by {}, written by {}; peak managed {} bytes, encoder frame {} bytes",
             output.width,
             output.height,
             output.bytes.len(),
+            report.decoder_backend,
+            report.encoder_backend,
             report.peak_managed_bytes,
             report.encoder_output_frame_bytes
         );
