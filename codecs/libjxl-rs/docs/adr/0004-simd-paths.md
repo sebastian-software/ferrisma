@@ -1453,7 +1453,7 @@ be turned on for a target only when, on that target,
   domain on NEON (the rounded results agree), so those sites rest on the
   contraction analysis and, on x86-64, on the AVX2 run.
 
-**Evidence (2026-11-14, M1 Ultra).** `tests/simd_encoder.rs` against the
+**Evidence (2026-11-14, M1 Pro).** `tests/simd_encoder.rs` against the
 NEON build and, under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1`), against the
 AVX2 dispatch-build oracle (`5aaf0089`): zero differing words on both.
 
@@ -1629,7 +1629,7 @@ of the original's loop, every masking cut around the strategy's columns).
 | `esa-square` | 440 | 20,889,552 | 20,998,640 |
 | `esa-rect` | 178 | 29,825,905 | 29,825,905 |
 
-Zero differing words on both targets (M1 Ultra; AVX2 under Rosetta 2 with
+Zero differing words on both targets (M1 Pro; AVX2 under Rosetta 2 with
 `ROSETTA_ADVERTISE_AVX=1` for the SIMD test binary only, against the AVX2
 dispatch-build oracle built with `build_simd_oracle`'s CMake flags). The
 scratch word counts differ between the targets because the scratch layout
@@ -1805,7 +1805,7 @@ so no output byte depends on it, but the allocation should match the
 original before the default changes; (3) for AVX2, the same on real
 x86-64 hardware (condition (e)).
 
-**Evidence (2026-11-15, M1 Ultra).** `tests/simd_encoder_entropy.rs`
+**Evidence (2026-11-15, M1 Pro).** `tests/simd_encoder_entropy.rs`
 against tools/oracle/encoder_entropy_simd.cc (and learn.inc,
 decode_frame.inc) on NEON and, under Rosetta 2 with
 `ROSETTA_ADVERTISE_AVX=1` for the SIMD test binary only, against the AVX2

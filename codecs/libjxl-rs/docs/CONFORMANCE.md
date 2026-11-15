@@ -76,7 +76,7 @@ The runner's rules, unchanged:
 ## Results per decoder path (2026-11-15)
 
 Rust port at `36ffeb81` plus the `run.sh` and `conformance_decode` changes
-that add this section, on an M1 Ultra (macOS 27). The Python runner and Little
+that add this section, on an M1 Pro (macOS 27). The Python runner and Little
 CMS run natively (arm64) in all four configurations; only the decoder process
 changes.
 
