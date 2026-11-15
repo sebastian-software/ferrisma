@@ -58,6 +58,7 @@ fn sum_of_lanes_i32<D: SimdF32>(di: D, v: D::I) -> i32 {
         .fold(0i32, |sum, &x| sum.wrapping_add(x))
 }
 
+#[inline(always)]
 pub fn histogram_condition_d<D: SimdF32>(di: D, a: &mut Histogram) {
     let k_zero = di.set_i32(0);
     let mut total = k_zero;
@@ -79,6 +80,7 @@ pub fn histogram_condition_d<D: SimdF32>(di: D, a: &mut Histogram) {
     a.total_count = sum_of_lanes_i32(di, total) as isize as usize;
 }
 
+#[inline(always)]
 pub fn histogram_entropy_d<D: SimdF32>(df: D, a: &mut Histogram) {
     a.entropy = 0.0;
     if a.total_count == 0 {
@@ -99,6 +101,7 @@ pub fn histogram_entropy_d<D: SimdF32>(df: D, a: &mut Histogram) {
     a.entropy += df.get_lane(df.sum_of_lanes(entropy_lanes));
 }
 
+#[inline(always)]
 pub fn histogram_distance_d<D: SimdF32>(df: D, a: &Histogram, b: &Histogram) -> f32 {
     if a.total_count == 0 || b.total_count == 0 {
         return 0.0;
@@ -126,6 +129,7 @@ pub fn histogram_distance_d<D: SimdF32>(df: D, a: &Histogram, b: &Histogram) -> 
     total_distance - a.entropy - b.entropy
 }
 
+#[inline(always)]
 pub fn cluster_distance_d<D: SimdF32>(
     df: D,
     a: &Histogram,
@@ -147,6 +151,7 @@ pub fn cluster_distance_d<D: SimdF32>(
     if distance < single { single } else { distance }
 }
 
+#[inline(always)]
 pub fn histogram_kl_divergence_d<D: SimdF32>(df: D, actual: &Histogram, coding: &Histogram) -> f32 {
     if actual.total_count == 0 {
         return 0.0;
@@ -183,6 +188,7 @@ pub fn histogram_kl_divergence_d<D: SimdF32>(df: D, actual: &Histogram, coding: 
 
 /// `FastClusterHistograms`: the control flow of `enc_cluster`'s scalar
 /// translation with the vector helpers above.
+#[inline(always)]
 pub fn fast_cluster_histograms_d<D: SimdF32>(
     d: D,
     input: &mut [Histogram],

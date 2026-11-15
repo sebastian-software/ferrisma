@@ -556,7 +556,21 @@ fn compute_tile_d<D: SimdF32>(
         let row_in2 = xyb.plane_row(1, y2);
         let row_out = imp.diff_buffer.row_mut(thread);
 
-        let scalar_pixel = |row_out: &mut [f32], x: usize| {
+        // A nested function rather than a closure, so that it inlines into
+        // the kernel and runs in the target's attribute context (port ADR
+        // 0004, "One attribute context per kernel on x86-64").
+        #[inline(always)]
+        #[expect(clippy::too_many_arguments, reason = "the closure's captures")]
+        fn scalar_pixel<D: SimdF32>(
+            d: D,
+            rows: [&[f32]; 3],
+            row_out: &mut [f32],
+            x: usize,
+            (xsize, x_start, y): (usize, usize, usize),
+            match_gamma_offset: f32,
+            limit: f32,
+        ) {
+            let [row_in, row_in1, row_in2] = rows;
             let x2 = if x + 1 < xsize { x + 1 } else { x };
             let x1 = if x > 0 { x - 1 } else { x };
             let base = 0.25f32 * (row_in2[x] + row_in1[x] + row_in[x1] + row_in[x2]);
@@ -572,12 +586,14 @@ fn compute_tile_d<D: SimdF32>(
             } else {
                 row_out[x - x_start] = diff;
             }
-        };
+        }
+        let rows = [row_in, row_in1, row_in2];
+        let at = (xsize, x_start, y);
 
         let mut x = x_start;
         // First pixel of the row.
         if x_start == 0 {
-            scalar_pixel(row_out, x_start);
+            scalar_pixel(d, rows, row_out, x_start, at, match_gamma_offset, limit);
             x += 1;
         }
         // SIMD
@@ -603,7 +619,7 @@ fn compute_tile_d<D: SimdF32>(
         }
         // Scalar
         while x < x_end {
-            scalar_pixel(row_out, x);
+            scalar_pixel(d, rows, row_out, x, at, match_gamma_offset, limit);
             x += 1;
         }
         if y % 4 == 3 {
@@ -717,6 +733,7 @@ pub fn adaptive_quantization_map_simd(
 /// test, which runs a descriptor that is not a detected target.
 #[doc(hidden)]
 #[expect(clippy::too_many_arguments, reason = "mirrors the source signature")]
+#[inline(always)]
 pub fn adaptive_quantization_map_d<D: SimdF32>(
     d: D,
     butteraugli_target: f32,

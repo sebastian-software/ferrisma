@@ -33,6 +33,7 @@ use crate::jxl::render_pipeline::simd_transfer::fast_log2f;
 
 /// EstimateBits(counts, num_symbols): `num_symbols` is a multiple of the
 /// lane count (`Padded`).
+#[inline(always)]
 pub fn estimate_bits_d<D: SimdF32>(d: D, counts: &[i32], num_symbols: usize) -> f32 {
     let mut total_v = d.set_i32(0);
     let mut i = 0;
@@ -68,6 +69,7 @@ pub fn estimate_bits_d<D: SimdF32>(d: D, counts: &[i32], num_symbols: usize) -> 
     d.get_lane(d.sum_of_lanes(bits_lanes))
 }
 
+#[inline(always)]
 pub fn find_best_split_d<D: SimdF32>(
     d: D,
     samples: &mut TreeSamples,

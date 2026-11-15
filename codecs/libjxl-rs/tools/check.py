@@ -103,6 +103,61 @@ def check_static(msrv):
     run("cargo", "build", "--locked", "--offline", "--release", "--all-targets", "--all-features")
     for name in release_only_tests():
         run("cargo", "test", "--locked", "--offline", "--release", "--all-features", "--test", name)
+    # codegen check
+    check_attribute_context()
+    # end codegen check
+
+
+# codegen check: one attribute context per kernel on x86-64 (ADR 0004).
+# Port functions that call a core::arch x86 intrinsic out of line (or libm's
+# fmaf) run their vector operations outside the AVX2 attribute context. The
+# port's skcms HSW engine (jxl::skcms) is reported but not yet held to zero.
+CODEGEN_EXAMPLES = ["encode_lossy", "encode_lossless", "conformance_decode"]
+
+
+def check_attribute_context():
+    import platform
+    machine = platform.machine()
+    if machine in ("x86_64", "AMD64"):
+        target = None
+    elif platform.system() == "Darwin":
+        target = "x86_64-apple-darwin"
+    else:
+        print("Attribute-context check skipped: no x86-64 build on this host", flush=True)
+        return
+    build = ["cargo", "build", "--locked", "--offline", "--release", "-p", "libjxl-rs"]
+    for name in CODEGEN_EXAMPLES:
+        build += ["--example", name]
+    if target is not None:
+        build += ["--target", target]
+    run(*build)
+    metadata = json.loads(subprocess.check_output(
+        ["cargo", "metadata", "--format-version", "1", "--no-deps", "--offline"], cwd=ROOT, text=True))
+    out = Path(metadata["target_directory"]) / (target or "") / "release" / "examples"
+    failures = []
+    for name in CODEGEN_EXAMPLES:
+        disassembly = subprocess.check_output(
+            ["objdump", "-d", "--no-show-raw-insn", "-C", str(out / name)], text=True)
+        counts = {}
+        function = ""
+        for line in disassembly.splitlines():
+            header = re.match(r"^[0-9a-f]+ <(.*)>:$", line)
+            if header:
+                function = header[1]
+                continue
+            if not re.search(r"\bcall", line):
+                continue
+            if "core_arch::x86::" in line or re.search(r"\bfmaf\b", line):
+                module = "::".join(function.lstrip("<").split("::")[:3])
+                counts[module] = counts.get(module, 0) + 1
+        port = {m: n for m, n in counts.items() if m.startswith("jxl::jxl::")}
+        print(f"{name}: out-of-line x86 intrinsic and fmaf calls per module: {counts or 'none'}", flush=True)
+        if port:
+            failures.append(f"{name}: {port}")
+    if failures:
+        raise SystemExit("Kernel code outside the AVX2 attribute context (port ADR 0004, "
+                         "\"One attribute context per kernel on x86-64\"): " + "; ".join(failures))
+# end codegen check
 
 
 def cross_arguments(target, build):

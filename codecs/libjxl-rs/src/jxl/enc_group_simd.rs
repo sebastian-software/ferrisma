@@ -36,6 +36,7 @@ use super::quantizer::{DEFAULT_QUANT_BIAS, Quantizer};
 /// QuantizeBlockAC. The caller extracts `quant` from the raw quant field.
 /// `block_in` and `block_out` hold `xsize * ysize * 64` samples.
 #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+#[inline(always)]
 pub fn quantize_block_ac_d<D: SimdF32>(
     d: D,
     quantizer: &Quantizer,
@@ -100,6 +101,7 @@ pub fn quantize_block_ac_d<D: SimdF32>(
 /// QuantizeRoundtripYBlockAC. `inout` and `quantized` hold the three
 /// channels, `size` samples apart.
 #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+#[inline(always)]
 pub fn quantize_roundtrip_y_block_ac_d<D: SimdF32>(
     d: D,
     enc_state: &PassesEncoderState<'_>,
@@ -187,6 +189,7 @@ pub fn quantize_roundtrip_y_block_ac_d<D: SimdF32>(
     clippy::needless_range_loop,
     reason = "Keep the source pass and channel index loops."
 )]
+#[inline(always)]
 pub fn compute_coefficients_d<D: SimdF32>(
     d: D,
     group_idx: usize,

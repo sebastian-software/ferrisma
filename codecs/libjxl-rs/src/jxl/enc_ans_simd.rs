@@ -122,6 +122,7 @@ fn shift_right_u32_by<D: SimdF32>(d: D, v: D::I, bits: u32) -> D::I {
 }
 
 /// `EstimateTokenCostImpl<E, M, L>(values, len, out)`.
+#[inline(always)]
 pub fn estimate_token_cost_impl<D: SimdF32, const E: u32, const M: u32, const L: u32>(
     du: D,
     values: &[u32],
@@ -156,6 +157,7 @@ pub fn estimate_token_cost_impl<D: SimdF32, const E: u32, const M: u32, const L:
 }
 
 /// `EstimateTokenCost(values, len, cfg, tokens)` of a SIMD target.
+#[inline(always)]
 pub fn estimate_token_cost_d<D: SimdF32>(
     d: D,
     values: &[u32],

@@ -46,6 +46,7 @@ fn sum_of_lanes_i32<D: SimdF32>(di: D, v: D::I) -> i32 {
 /// Returns the number of non-zero coefficients, skipping the LLF, and writes
 /// the per-8x8 block counts starting at `nzeros_pos` in `nzeros`.
 #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+#[inline(always)]
 pub fn num_non_zero_except_llf_d<D: SimdF32>(
     di: D,
     cx: usize,
@@ -107,6 +108,7 @@ pub fn num_non_zero_except_llf_d<D: SimdF32>(
 }
 
 /// Specialization for 8x8, where only top-left is LLF/DC.
+#[inline(always)]
 pub fn num_non_zero_8x8_except_dc_d<D: SimdF32>(di: D, block: &[i32], nzeros_pos: &mut i32) -> i32 {
     let zero = di.set_i32(0);
     let mut neg_sum_zero = zero;
@@ -148,6 +150,7 @@ pub fn num_non_zero_8x8_except_dc_d<D: SimdF32>(di: D, block: &[i32], nzeros_pos
     clippy::needless_range_loop,
     reason = "Keep the source block index loop."
 )]
+#[inline(always)]
 pub fn tokenize_coefficients_d<D: SimdF32>(
     di: D,
     orders: &[CoeffOrder],

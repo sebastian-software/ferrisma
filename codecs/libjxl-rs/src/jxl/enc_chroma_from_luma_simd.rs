@@ -35,6 +35,7 @@ use super::quantizer::Quantizer;
 
 /// InitDCStorage: four rows of `RoundUpTo(num_blocks, Lanes(df))` samples,
 /// the last `Lanes(df)` of each zeroed.
+#[inline(always)]
 pub fn init_dc_storage_d<D: SimdF32>(
     _d: D,
     memory_manager: MemoryManagerPtr,
@@ -170,6 +171,7 @@ impl<D: SimdF32> CflFunction<'_, D> {
 
 /// FindBestMultiplier: chroma-from-luma search, values_m will have luma --
 /// and values_s chroma. `num` is a multiple of `D::LANES`.
+#[inline(always)]
 pub fn find_best_multiplier_d<D: SimdF32>(
     d: D,
     values_m: &[f32],
@@ -282,6 +284,7 @@ pub struct TileArgs<'a> {
     clippy::manual_is_multiple_of,
     reason = "the source checks num_ac % Lanes(df)"
 )]
+#[inline(always)]
 pub fn compute_tile_d<D: SimdF32>(
     d: D,
     args: TileArgs<'_>,
