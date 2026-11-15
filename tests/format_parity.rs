@@ -276,6 +276,74 @@ fn embedded_icc_needs_the_rendered_icc_policy_in_every_format() {
     );
 }
 
+/// An ICC profile beside a typed signal: only AVIF can carry both (`colr
+/// prof` and `colr nclx`); a JPEG XL codestream signals either an enum or a
+/// profile, and JPEG and WebP have no typed signal (format reasons). AVIF
+/// follows MIAF since 2026-11-15 (owner decision): the profile governs, so
+/// every `nclx` gets the embedded-ICC outcome above, whatever its primaries
+/// and transfer. Before, a concrete `nclx` other than sRGB beside the
+/// profile was refused with `CicpBesideIcc`.
+#[cfg(feature = "avif-read")]
+#[test]
+fn an_icc_profile_beside_nclx_governs_like_any_embedded_profile() {
+    let files = [
+        read("tests/fixtures/avif-color/icc-nclx-1-13-6.avif"),
+        read("tests/fixtures/avif-color/icc-nclx-1-1-6.avif"),
+        read(&format!("{AVIF_DATA}paris_icc_exif_xmp.avif")),
+        read("tests/fixtures/parity/icc-nclx-12-13-6.avif"),
+    ];
+    let names = [
+        "nclx 1/13/6",
+        "nclx 1/1/6",
+        "nclx 2/2/6 (avifenc)",
+        "nclx 12/13/6",
+    ];
+    let cases: Vec<(&str, ImageFormat, &[u8])> = names
+        .iter()
+        .zip(&files)
+        .map(|(name, bytes)| (*name, ImageFormat::Avif, bytes.as_slice()))
+        .collect();
+    for policy in [STRICT, ASSUME] {
+        assert_row(
+            "ICC beside nclx",
+            &cases,
+            policy,
+            &[],
+            &refused(
+                ProcessingErrorKind::UnsupportedColor,
+                RefusalReason::RenderedIccRequiresOptIn,
+            ),
+        );
+    }
+    assert_row(
+        "ICC beside nclx",
+        &cases,
+        RENDERED,
+        &[Discarded::IccProfile],
+        &accepted(ColorSignal::RenderedIcc, &[Discarded::IccProfile], false),
+    );
+}
+
+/// A `cicp` tag inside a profile is part of the profile (ADR-0016): when
+/// it contradicts the profile's own transform the file is refused with
+/// `CicpBesideIcc` in every format that embeds the profile; the fixture is
+/// JPEG (`rgb-icc-cicp-p3.jpg`), the code path is the one rendered-ICC
+/// stage for every format.
+#[test]
+fn a_contradicting_cicp_tag_inside_the_profile_is_refused() {
+    let jpeg = read("tests/fixtures/parity/rgb-icc-cicp-p3.jpg");
+    assert_row(
+        "cicp tag inside the profile",
+        &[("rgb-icc-cicp-p3.jpg", ImageFormat::Jpeg, &jpeg)],
+        RENDERED,
+        &[],
+        &refused(
+            ProcessingErrorKind::UnsupportedColor,
+            RefusalReason::CicpBesideIcc,
+        ),
+    );
+}
+
 /// The engine reads its own JPEG XL output, lossy (the default) and
 /// lossless, with default settings: the strict policy (#222). Failed before
 /// the owner decision of 2026-11-15 with `RenderedIccRequiresOptIn`.

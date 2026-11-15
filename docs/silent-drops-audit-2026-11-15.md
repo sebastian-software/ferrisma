@@ -134,7 +134,7 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
 | V1 | `Exif` and `mime` (XMP) items | ignored, dropped; an EXIF orientation inside is not applied (`irot`/`imir` govern). **Since `v1/engine-discarded`: reported: `Discarded::Exif`, `Discarded::Xmp`, `OtherMetadata` for other `mime`/`uri ` items** | `src/codecs/avif_meta.rs` reads the primary item's properties only | matrix, Outputs "Metadata" | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels`; `discarded_report::avif_metadata_items_icc_and_gain_maps_are_reported` | C |
-| V2 | `colr prof`/`rICC`, `nclx` | ICC converted under `UseRenderedIcc`; `nclx` checked against the AV1 header and beside the ICC | `avif.rs`, `cms.rs` | matrix | `supported_matrix::avif_container_icc_needs_the_rendered_icc_policy` | C |
+| V2 | `colr prof`/`rICC`, `nclx` | ICC converted under `UseRenderedIcc`; `nclx` checked against the AV1 header and beside the ICC. **Since 2026-11-15 (owner decision): beside an ICC profile the file follows MIAF; the profile governs primaries and transfer and the `nclx` primaries and transfer are not used (superseded by the standard, not reported); matrix and range are used by libavif** | `avif.rs`, `cms.rs` | matrix | `supported_matrix::avif_container_icc_needs_the_rendered_icc_policy` | C |
 | V3 | Gain map (`tmap`) | ignored, SDR base read. **Since `v1/engine-discarded`: reported: `Discarded::GainMap`** | libavif `imageContentToDecode` default | matrix, AVIF details | `supported_matrix::avif_gain_map_is_ignored_and_the_base_image_is_read`; `discarded_report::avif_metadata_items_icc_and_gain_maps_are_reported` | C |
 | V4 | Alpha item with an unknown **essential** property | libavif skips the item (`hasUnsupportedEssentialProperty`); the image is read as **opaque** without an error; the engine checks only the primary item. **Since `v1/engine-discarded`: refused with `UnsupportedEssentialProperty`, like the primary item; so are grid cells; an unused item is no reason (ADR-0042 D1)** | `avif_meta.rs` `primary_properties`; libavif `read.c` | no | `silent_drops::avif_alpha_item_with_an_unknown_essential_property_is_refused` (patched `abc_color_irot_alpha_irot.avif`), `avif_grid_cell_with_an_unknown_essential_property_is_refused`, `avif_unknown_essential_property_on_an_unused_item_is_not_a_refusal` | C |
 | V5 | Unknown essential property of the primary item | refused, `UnsupportedEssentialProperty` (since this branch; before, `MalformedInput`) | `avif.rs` `new_bounded` | matrix, compatibility | `supported_matrix::avif_unknown_essential_property_is_refused_as_unsupported` | C |
@@ -269,6 +269,10 @@ its test in `tests/format_parity.rs`:
   and reported as `Discarded::Unpremultiplied`, as AVIF's by libavif
   (owner decision; ADR-0042's former question 3). The two steps' rounding
   differs (matrix). The `Unspecified` alpha mode left with jxl-oxide.
+- V2: AVIF ICC beside `nclx` follows MIAF; files with a concrete non-sRGB
+  `nclx` beside a profile, refused before, are converted through the
+  profile. The `nclx` primaries and transfer are superseded, not dropped
+  information; they are named in the matrix and not reported.
 
 ## Part 2: proposal (not implemented; the owner decides)
 

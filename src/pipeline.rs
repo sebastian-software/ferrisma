@@ -389,6 +389,9 @@ pub enum ColorSignal {
     /// converted after the decoder's CICP beside it was checked and found to
     /// agree with the profile transform. Disagreement is refused with
     /// [`RefusalReason::CicpBesideIcc`]; neither signal takes precedence.
+    /// No built-in reader reports CICP beside a profile since 2026-11-15
+    /// (AVIF follows MIAF: the profile governs, owner decision), so this
+    /// signal is kept for a reader that does.
     RenderedIccWithAgreeingCicp,
 }
 
@@ -523,9 +526,11 @@ pub enum RefusalReason {
     /// `icc` feature). Kind: [`ProcessingErrorKind::UnsupportedColor`].
     RenderedIccRequiresOptIn,
     /// Under [`InputProfilePolicy::UseRenderedIcc`], CICP beside the
-    /// rendered ICC profile (from the decoder or the profile's own `cicp`
-    /// tag) signals HDR, cannot be checked, or disagrees with the profile;
-    /// the profile is not given precedence (ADR-0015 rule 4). Kind:
+    /// rendered ICC profile (the profile's own `cicp` tag, or a decoder's
+    /// CICP beside it) signals HDR, cannot be checked, or disagrees with
+    /// the profile; the profile is not given precedence (ADR-0015 rule 4).
+    /// AVIF `nclx` beside a profile is not such evidence since 2026-11-15:
+    /// MIAF gives the profile the primaries and transfer. Kind:
     /// [`ProcessingErrorKind::UnsupportedColor`].
     CicpBesideIcc,
     /// The decoder signals a PQ or HLG transfer (JPEG XL enum encoding,

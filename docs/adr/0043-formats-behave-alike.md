@@ -119,6 +119,11 @@ it and assert the same outcome class, kind, reason and report entry.
   embedded profile needs `UseRenderedIcc` in every format. An enum encoding
   without a code point (custom primaries or white point, gamma) has no
   AVIF counterpart: `nclx` cannot express it (format reason).
+- **AVIF ICC beside `nclx` follows MIAF** (owner decision, 2026-11-15;
+  ADR-0015 section of that date): the profile governs primaries and
+  transfer, so the file gets the outcome of any embedded profile in any
+  format (`RenderedIccRequiresOptIn`, or `RenderedIcc` under
+  `UseRenderedIcc`). Only AVIF carries both signals (format reason).
 
 ## Consequences
 
@@ -156,8 +161,13 @@ it and assert the same outcome class, kind, reason and report entry.
   the same property and get different outcomes without a format reason in
   the matrix.
 
-State on 2026-11-15: the principle is recorded; the premultiplied-alpha
-change, the parity tests and the matrix review are not implemented yet.
+State on 2026-11-15: the principle is recorded and its four applications
+of that day (premultiplied alpha, grayscale, JPEG XL enum encoding, AVIF
+ICC beside `nclx`) are implemented on branch `v1/engine-parity`, with the
+parity tests (`tests/format_parity.rs`) and the format-parity table of the
+supported matrix, where each row whose cells differ names its format
+reason. Not covered by a fixture, and therefore not claimed: AVIF gray
+with alpha and AVIF with a gray profile.
 
 ## Open questions (pending owner decision)
 
@@ -183,3 +193,6 @@ None. The grayscale question is decided (above).
 - 2026-11-15 — Premultiplied alpha implemented for JPEG XL (libjxl's
   step) and checked against AVIF's (libavif's): same outcome and report
   entry, different arithmetic, recorded as a format reason.
+- 2026-11-15 — AVIF ICC beside `nclx` (MIAF) added as an application;
+  every decision of the day is implemented and the state paragraph under
+  Validation is updated.

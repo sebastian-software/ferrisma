@@ -58,7 +58,7 @@ meets several classes, the reason names the check that refused it first.
 | `ColorSignalMissing` | `UnsupportedColor` | neither ICC nor CICP under `Strict` | `AssumeSrgbIfMissing` if sRGB is known |
 | `RenderedIccRequiresOptIn` | `UnsupportedColor` | ICC-described output under `Strict`/`AssumeSrgbIfMissing` (ICC-tagged JPEG, WebP, JPEG XL and AVIF; until 2026-11-15 every JPEG XL input, whose enum encoding is now a typed signal, #222) | `UseRenderedIcc` (`icc` feature) |
 | `RenderedIccMissing` | `UnsupportedColor` | `UseRenderedIcc`, but no ICC: untagged input, or a typed signal (AVIF `nclx`, JPEG XL enum) outside sRGB, Display P3 and linear sRGB; those three pass this policy since 2026-11-15 | another policy |
-| `CicpBesideIcc` | `UnsupportedColor` | under `UseRenderedIcc`, CICP beside the profile is HDR, uncheckable or disagrees | resolve the conflict upstream |
+| `CicpBesideIcc` | `UnsupportedColor` | under `UseRenderedIcc`, a `cicp` tag inside the profile (or a decoder's CICP beside it) is HDR, uncheckable or disagrees; AVIF `nclx` beside a profile no longer is (MIAF, since 2026-11-15) | resolve the conflict upstream |
 | `HdrTransfer` | `UnsupportedColor` | PQ or HLG (JPEG XL, AVIF), under every policy | tone-map to SDR elsewhere |
 | `UnsupportedColorEncoding` | `UnsupportedColor` | SDR CICP (AVIF `nclx`, and since 2026-11-15 a JPEG XL enum encoding) outside sRGB, Display P3, linear sRGB without ICC (for example BT.2020 SDR, DCI-P3). (Until 2026-11-15 also a JPEG XL colour encoding jxl-oxide could not render; the workspace reader, like libjxl, rejects that file as `MalformedInput`.) | convert elsewhere |
 | `ContradictoryColorSignals` | `UnsupportedColor` | AVIF container `nclx`/ICC contradicting the AV1 sequence header | repair the file |

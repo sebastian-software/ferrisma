@@ -13,6 +13,8 @@ tracked file by a documented byte patch; nothing here is hand-edited.
 | `gray-gray-icc.jpg` | libjxl's `ycbcr-jpeg-gray.jpg` with `gray-gamma22.icc` in an `APP2` segment | `tools/patch.py` | `ace8dd9fed0fc3acc016d87631a0ad077d0b8361bbf43a035bbee4eee7dcc638` |
 | `gray-rgb-icc.jpg` | the same gray JPEG with the RGB profile `../icc/paris-srgb.icc` (a mismatch) | `tools/patch.py` | `5429dfa4fa50b73f5e48d50489165d13e5039abb6b2e13b81a3daf9706ca9d45` |
 | `rgb-gray-icc.jpg` | `../sample.jpg` (RGB) with `gray-gamma22.icc` (a mismatch) | `tools/patch.py` | `acd5ba2630ce0c7eabaf89bd51ecc2675d98dfbf6803d42012ffd1e0e32bf978` |
+| `icc-nclx-12-13-6.avif` | libavif's `paris_icc_exif_xmp.avif` (avifenc: sRGB `prof` plus `nclx` 2/2/6) with the `nclx` primaries and transfer rewritten to 12/13 (Display P3); the AV1 sequence header keeps 2/2 | `tools/patch.py` | `ce4dc0ee2f9dbd85997d74b4dac36962dcb327c59031addb88b3ee7fab608ebf` |
+| `rgb-icc-cicp-p3.jpg` | `../sample.jpg` with `../icc/paris-srgb.icc` extended by a `cicp` tag 12/13/0/1 (an sRGB profile whose tag says Display P3) | `tools/patch.py` | `d6611acfd77d0f873710c3d7fec2d90b4af2519f5ba6c061ab810ace9f285484` |
 | `premultiplied-alpha.avif` | libavif's `abc_color_irot_alpha_irot.avif` with a `prem` reference (color item 1 to alpha item 2) appended to `iref`, which libavif reads as associated alpha; `iref`, `meta` and the two `iloc` offsets grow by 14 bytes | `tools/patch.py` | `9345ae041868be2737350f7b7ff127bb8bfcf2a0dba048222e35cc5f54fd4ccd` |
 
 ## Inputs

@@ -156,32 +156,37 @@ fn rendered_icc_conversion_reports_whether_cicp_was_checked_beside_it() {
     }
 }
 
-/// AVIF \`nclx\` beside an ICC profile is checked and, when it agrees, named in
-/// the report. Since 2026-11-15 only AVIF produces this signal; before, the
-/// jxl-oxide reader did too.
+/// AVIF `nclx` beside an ICC profile follows MIAF since 2026-11-15 (owner
+/// decision): the profile alone describes the samples, so the signal is
+/// `RenderedIcc`. Until then an agreeing `nclx` was checked and reported as
+/// `RenderedIccWithAgreeingCicp` (this test was
+/// `agreeing_cicp_beside_the_rendered_icc_is_reported`), which no built-in
+/// reader produces any more.
 #[cfg(all(feature = "avif-read", feature = "icc"))]
 #[test]
-fn agreeing_cicp_beside_the_rendered_icc_is_reported() {
-    let avif = include_bytes!("fixtures/avif-color/icc-nclx-1-13-6.avif");
-    let output = run(avif, ImageFormat::Avif, InputProfilePolicy::UseRenderedIcc).unwrap();
-    assert_eq!(
-        output.report.color_signal,
-        ColorSignal::RenderedIccWithAgreeingCicp
-    );
+fn nclx_beside_an_avif_icc_profile_is_governed_by_the_profile() {
+    for avif in [
+        &include_bytes!("fixtures/avif-color/icc-nclx-1-13-6.avif")[..],
+        include_bytes!("fixtures/avif-color/icc-nclx-1-1-6.avif"),
+    ] {
+        let output = run(avif, ImageFormat::Avif, InputProfilePolicy::UseRenderedIcc).unwrap();
+        assert_eq!(output.report.color_signal, ColorSignal::RenderedIcc);
+    }
 }
 
-/// BT.709 transfer in the AVIF `nclx` beside an sRGB profile cannot be
-/// checked against it, so it is refused rather than overridden by the ICC.
-/// (Until 2026-11-15 the fixture was JPEG XL DCI-P3, whose enum encoding
-/// is now a typed signal without a profile: see the next test.)
-#[cfg(all(feature = "avif-read", feature = "icc"))]
+/// A `cicp` tag inside the profile (ADR-0016) that contradicts it is
+/// refused, not overridden by the profile: an sRGB profile tagged Display
+/// P3 (`tests/fixtures/parity/rgb-icc-cicp-p3.jpg`). (Until 2026-11-15 the
+/// fixture of this reason was an AVIF `nclx` 1/1 beside an sRGB profile,
+/// which MIAF resolves in the profile's favor; before that, JPEG XL DCI-P3.)
+#[cfg(all(feature = "jpeg-read", feature = "icc"))]
 #[test]
 fn unverifiable_cicp_beside_the_rendered_icc_is_refused_with_its_reason() {
-    let avif = include_bytes!("fixtures/avif-color/icc-nclx-1-1-6.avif");
+    let jpeg = include_bytes!("fixtures/parity/rgb-icc-cicp-p3.jpg");
     assert_eq!(
         refusal(run(
-            avif,
-            ImageFormat::Avif,
+            jpeg,
+            ImageFormat::Jpeg,
             InputProfilePolicy::UseRenderedIcc
         )),
         (

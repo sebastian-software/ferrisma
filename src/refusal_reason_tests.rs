@@ -90,10 +90,13 @@ fn case(reason: RefusalReason) -> (usize, Vec<u8>, ImageFormat, InputProfilePoli
             ImageFormat::JpegXl,
             Strict,
         ),
+        // An sRGB profile whose own `cicp` tag says Display P3. (Until
+        // 2026-11-15 an AVIF `nclx` 1/1 beside an sRGB profile, which MIAF
+        // now resolves in the profile's favor; owner decision.)
         RefusalReason::CicpBesideIcc => (
             3,
-            "tests/fixtures/avif-color/icc-nclx-1-1-6.avif".to_owned(),
-            ImageFormat::Avif,
+            "tests/fixtures/parity/rgb-icc-cicp-p3.jpg".to_owned(),
+            ImageFormat::Jpeg,
             UseRenderedIcc,
         ),
         RefusalReason::HdrTransfer => (

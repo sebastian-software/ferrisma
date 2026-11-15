@@ -16,6 +16,12 @@ library only). Run from the repository root:
   ``iref``; ``iref`` and ``meta`` grow by 14 bytes and the two ``iloc``
   extent offsets move by 14 (the helper in ``tests/discarded_report.rs``
   does the same in memory).
+- ``rgb-icc-cicp-p3.jpg``: the repository's ``sample.jpg`` with
+  ``../icc/paris-srgb.icc`` extended by a ``cicp`` tag (type ``cicp``,
+  code points 12/13/0/1, Display P3, full range) and inserted as one
+  ``APP2`` segment: an sRGB profile whose own ``cicp`` tag contradicts it.
+  The tag table grows by one entry (12 bytes), every tag offset moves by
+  12, the 12-byte tag is appended and the header size updated.
 - ``icc-nclx-12-13-6.avif``: libavif's ``paris_icc_exif_xmp.avif`` (written
   by avifenc: sRGB ``prof`` plus ``nclx`` 2/2/6) with the ``nclx`` primaries
   and transfer rewritten to 12/13 (Display P3); the AV1 sequence header
@@ -36,6 +42,28 @@ def with_icc(jpeg, icc):
     payload = b"ICC_PROFILE\x00\x01\x01" + icc
     app2 = b"\xff\xe2" + struct.pack(">H", len(payload) + 2) + payload
     return jpeg[:2] + app2 + jpeg[2:]
+
+
+def with_cicp_tag(icc, cicp):
+    size, = struct.unpack(">I", icc[:4])
+    assert size == len(icc)
+    count, = struct.unpack(">I", icc[128:132])
+    entries = []
+    for index in range(count):
+        at = 132 + 12 * index
+        signature, offset, length = struct.unpack(">4sII", icc[at:at + 12])
+        assert signature != b"cicp"
+        entries.append((signature, offset + 12, length))
+    body = icc[132 + 12 * count:]
+    while (len(icc) + 12) % 4:
+        body += b"\0"
+    tag_offset = 132 + 12 * (count + 1) + len(body)
+    tag = b"cicp" + b"\0" * 4 + bytes(cicp)
+    entries.append((b"cicp", tag_offset, len(tag)))
+    table = struct.pack(">I", count + 1) + b"".join(struct.pack(">4sII", *e) for e in entries)
+    out = bytearray(icc[:128] + table + body + tag)
+    out[:4] = struct.pack(">I", len(out))
+    return bytes(out)
 
 
 GRAY_JPEG = JXL_DATA / "ycbcr-jpeg-gray.jpg"
@@ -81,6 +109,9 @@ def main():
     (OUT / "gray-rgb-icc.jpg").write_bytes(with_icc(GRAY_JPEG.read_bytes(), RGB_ICC.read_bytes()))
     (OUT / "rgb-gray-icc.jpg").write_bytes(
         with_icc((ROOT / "tests/fixtures/sample.jpg").read_bytes(), GRAY_ICC.read_bytes()))
+    (OUT / "rgb-icc-cicp-p3.jpg").write_bytes(with_icc(
+        (ROOT / "tests/fixtures/sample.jpg").read_bytes(),
+        with_cicp_tag(RGB_ICC.read_bytes(), [12, 13, 0, 1])))
     (OUT / "premultiplied-alpha.avif").write_bytes(premultiplied_avif())
     (OUT / "icc-nclx-12-13-6.avif").write_bytes(p3_nclx_beside_icc())
 
