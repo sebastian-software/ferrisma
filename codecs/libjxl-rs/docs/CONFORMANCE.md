@@ -24,16 +24,33 @@ compares against independently published reference images.
   `test.json` records before use. The `_5` cases link to the inputs of their
   level-10 siblings and differ only in references and tolerances.
 - Runner: the corpus's unmodified `scripts/conformance.py` with numpy 2.5.4 and
-  Little CMS 2.19.1 (Homebrew). The script decides pass or fail.
+  Little CMS 2.19.1 (Homebrew) on 2026-11-12; on 2026-11-15 with numpy 2.5.4
+  and Little CMS 2.17, the revision libjxl pins as `third_party/lcms`, built
+  as a local shared library (`LCMS2_LIB_PATH`). The AArch64 scalar run of
+  2026-11-15 reproduces every value of the 2026-11-12 tables, so the CMS
+  version does not show at the recorded precision. The script decides pass
+  or fail.
 
 ## Method
 
-`tools/conformance/run.sh <workdir>` downloads the archive at the pinned
-revision, verifies the manifest and every object, builds the
-[`conformance_decode`](../examples/conformance_decode.rs) example in release
-mode from this directory (so the port's scalar `.cargo/config.toml` flags
-apply), and runs `conformance.py` over `main_level10.txt` and
-`main_level5.txt`.
+`tools/conformance/run.sh [--target <triple>] <workdir>` downloads the
+archive at the pinned revision, verifies the manifest and every object
+(objects already in `<workdir>/objects` are reused after their check), builds
+the [`conformance_decode`](../examples/conformance_decode.rs) example in
+release mode from this directory (so the port's scalar `.cargo/config.toml`
+flags apply), for `--target` if given, and runs `conformance.py` over
+`main_level10.txt` and `main_level5.txt`.
+
+The decoder path is the port's default selection (NEON on AArch64, AVX2 on
+x86-64 when detected; port [ADR 0004](adr/0004-simd-paths.md), "Default
+selection on x86-64"); `JXL_DECODER_TARGET=scalar` in the environment makes
+`conformance_decode` force the scalar path. `run.sh` prints the path the
+decoder selects (`conformance_decode --decoder_path`), and every decode
+appends the selected path and whether a SIMD kernel ran
+(`hwy::simd_selections_on_this_thread`) to
+`<workdir>/decoder-path-level<N>.log`, which `run.sh` counts after each
+level. Under Rosetta 2 the x86-64 decoder needs `ROSETTA_ADVERTISE_AVX=1`,
+or it does not detect AVX2 and prints `scalar`.
 
 `conformance_decode` is a djxl-compatible front end that links only the Rust
 port. It mirrors the public-API sequence of the pinned
@@ -56,9 +73,112 @@ The runner's rules, unchanged:
 - The metadata check reaches the frame list and the first frame's name (the
   script returns from its first comparison).
 
-## Results (macOS ARM64, 2026-11-12)
+## Results per decoder path (2026-11-15)
 
-Rust port at the commit that adds this record. All 40 corpus directories are
+Rust port at `36ffeb81` plus the `run.sh` and `conformance_decode` changes
+that add this section, on an M1 Ultra (macOS 27). The Python runner and Little
+CMS run natively (arm64) in all four configurations; only the decoder process
+changes.
+
+| Configuration | Decoder build | Path (every decode) | Level 10 | Level 5 | Exact files | Wrapper `--lax` |
+| --- | --- | --- | --- | --- | --- | --- |
+| AArch64, default | `aarch64-apple-darwin` | NEON, SIMD kernels ran | 27 / 27 | 24 / 24 | all identical | 32 / 40 |
+| AArch64, forced scalar | `aarch64-apple-darwin`, `JXL_DECODER_TARGET=scalar` | scalar, no SIMD kernel | 27 / 27 | 24 / 24 | all identical | 32 / 40 |
+| x86-64 under Rosetta 2, default | `x86_64-apple-darwin`, `ROSETTA_ADVERTISE_AVX=1` | AVX2, SIMD kernels ran | 27 / 27 | 24 / 24 | all identical | 32 / 40 |
+| x86-64 under Rosetta 2, forced scalar | `x86_64-apple-darwin`, `ROSETTA_ADVERTISE_AVX=1`, `JXL_DECODER_TARGET=scalar` | scalar, no SIMD kernel | 27 / 27 | 24 / 24 | all identical | 32 / 40 |
+
+"Path" is the decoder-path log over all 30 level-10 and 27 level-5 decodes
+(one per frame set or reconstructed JPEG). The wrapper ignores
+`JXL_DECODER_TARGET` and runs the default path in every row; its eight
+failures are the by-design `Unsupported` rejections described below, the
+same in every configuration.
+
+What a Rosetta run is: the x86-64 machine code of the port, including its
+AVX2 and FMA kernels and its scalar x86-64 build, executed by Rosetta 2's
+translation. What it is not: Linux, or x86-64 hardware. Rosetta 2 does not
+fault on a misaligned aligned move and is not a vendor's floating-point unit
+(`rcpps`, for example, is whatever Rosetta returns). The issue's Linux x86-64
+run stays open for a hosted run; the manual workflow
+[`jxl-conformance.yml`](../../../.github/workflows/jxl-conformance.yml) runs
+`run.sh` on `ubuntu-24.04` with the default and the forced scalar path.
+
+Peak error per case, the maximum over frames and channels, and in
+parentheses its share of the case's limit (the maximum over frames of
+peak / limit; "-" for a lossless case with limit 0). Level-5 cases that are
+also listed at level 10 repeat that row.
+
+| Case | Peak limit | AArch64 scalar | AArch64 NEON | x86-64 scalar | x86-64 AVX2 |
+| --- | --- | --- | --- | --- | --- |
+| `alpha_nonpremultiplied` | 6.1035e-05 | 1.86e-09 (0.0 %) | 1.86e-09 (0.0 %) | 1.86e-09 (0.0 %) | 1.86e-09 (0.0 %) |
+| `alpha_premultiplied` | 3.815e-06 | 3.04e-06 (79.7 %) | 3.07e-06 (80.5 %) | 3.04e-06 (79.7 %) | 3.07e-06 (80.5 %) |
+| `alpha_triangles` | 0.00195312 | 2.98e-08 (0.0 %) | 2.98e-08 (0.0 %) | 2.98e-08 (0.0 %) | 2.98e-08 (0.0 %) |
+| `animation_icos4d` | 0.005 | 2.63e-05 (0.5 %) | 7.73e-05 (1.5 %) | 2.63e-05 (0.5 %) | 2.91e-05 (0.6 %) |
+| `animation_newtons_cradle` | 0.000976562 | 0 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) |
+| `animation_spline` | 0.004 | 1.17e-05 (0.3 %) | 1.17e-05 (0.3 %) | 1.4e-05 (0.4 %) | 1.39e-05 (0.3 %) |
+| `bench_oriented_brg` | 0.004 | 1.91e-06 (0.0 %) | 1.37e-05 (0.3 %) | 1.91e-06 (0.0 %) | 8.94e-07 (0.0 %) |
+| `bicycles` | 0.000976562 | 4.95e-06 (0.5 %) | 1.49e-08 (0.0 %) | 4.95e-06 (0.5 %) | 1.49e-08 (0.0 %) |
+| `bike` | 0.007 | 0.000249 (3.6 %) | 0.000258 (3.7 %) | 0.000249 (3.6 %) | 0.00025 (3.6 %) |
+| `blendmodes` | 0.0001 | 1.43e-06 (1.4 %) | 1.43e-06 (1.4 %) | 2.98e-08 (0.0 %) | 2.98e-08 (0.0 %) |
+| `cafe` | 0.004 | 4.95e-06 (0.1 %) | 3.51e-05 (0.9 %) | 4.95e-06 (0.1 %) | 2.62e-06 (0.1 %) |
+| `cmyk_layers` | 0.000976562 | 5.96e-08 (0.0 %) | 5.96e-08 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) |
+| `delta_palette` | 0.000976562 | 0 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) |
+| `grayscale_jpeg` | 0.004 | 1.79e-06 (0.0 %) | 1.31e-05 (0.3 %) | 1.79e-06 (0.0 %) | 8.94e-07 (0.0 %) |
+| `grayscale` | 0.004 | 0.000228 (5.7 %) | 0.000228 (5.7 %) | 0.000228 (5.7 %) | 0.000228 (5.7 %) |
+| `grayscale_public_university` | 0.000976562 | 8.05e-07 (0.1 %) | 0 (0.0 %) | 8.05e-07 (0.1 %) | 0 (0.0 %) |
+| `lossless_pfm` | 0 | 0 (-) | 0 (-) | 0 (-) | 0 (-) |
+| `lz77_flower` | 0.000976562 | 0 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) |
+| `mul_no_extra_channels` | 0.004 | 0 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) |
+| `noise` | 0.004 | 2.93e-05 (0.7 %) | 0.000166 (4.1 %) | 2.93e-05 (0.7 %) | 1.35e-05 (0.3 %) |
+| `opsin_inverse` | 0.004 | 7.62e-06 (0.2 %) | 4.2e-05 (1.0 %) | 7.62e-06 (0.2 %) | 7.64e-06 (0.2 %) |
+| `patches` | 0.004 | 6.68e-06 (0.2 %) | 4.72e-05 (1.2 %) | 6.68e-06 (0.2 %) | 3.76e-06 (0.1 %) |
+| `patches_lossless` | 0.000976562 | 0 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) | 0 (0.0 %) |
+| `progressive` | 0.02 | 2.01e-05 (0.1 %) | 0.000115 (0.6 %) | 2.01e-05 (0.1 %) | 1.03e-05 (0.1 %) |
+| `spot` | 3.815e-06 | 5.96e-08 (1.6 %) | 5.96e-08 (1.6 %) | 0 (0.0 %) | 0 (0.0 %) |
+| `sunset_logo` | 0.000244141 | 2.38e-07 (0.1 %) | 2.38e-07 (0.1 %) | 2.38e-07 (0.1 %) | 2.38e-07 (0.1 %) |
+| `upsampling` | 0.004 | 4.45e-05 (1.1 %) | 0.000295 (7.4 %) | 4.45e-05 (1.1 %) | 4.77e-05 (1.2 %) |
+| `animation_icos4d_5` | 0.06 | 0.0557 (92.9 %) | 0.0557 (92.9 %) | 0.0557 (92.9 %) | 0.0557 (92.9 %) |
+| `animation_spline_5` | 0.06 | 1.17e-05 (0.0 %) | 1.17e-05 (0.0 %) | 1.4e-05 (0.0 %) | 1.39e-05 (0.0 %) |
+| `bench_oriented_brg_5` | 0.06 | 1.91e-06 (0.0 %) | 1.37e-05 (0.0 %) | 1.91e-06 (0.0 %) | 8.94e-07 (0.0 %) |
+| `bike_5` | 0.06 | 0.000249 (0.4 %) | 0.000258 (0.4 %) | 0.000249 (0.4 %) | 0.00025 (0.4 %) |
+| `blendmodes_5` | 0.06 | 1.43e-06 (0.0 %) | 1.43e-06 (0.0 %) | 2.98e-08 (0.0 %) | 2.98e-08 (0.0 %) |
+| `cafe_5` | 0.06 | 4.95e-06 (0.0 %) | 3.51e-05 (0.1 %) | 4.95e-06 (0.0 %) | 2.62e-06 (0.0 %) |
+| `grayscale_5` | 0.06 | 0.000228 (0.4 %) | 0.000228 (0.4 %) | 0.000228 (0.4 %) | 0.000228 (0.4 %) |
+| `grayscale_jpeg_5` | 0.06 | 1.79e-06 (0.0 %) | 1.31e-05 (0.0 %) | 1.79e-06 (0.0 %) | 8.94e-07 (0.0 %) |
+| `noise_5` | 0.06 | 2.93e-05 (0.0 %) | 0.000166 (0.3 %) | 2.93e-05 (0.0 %) | 1.35e-05 (0.0 %) |
+| `opsin_inverse_5` | 0.06 | 7.62e-06 (0.0 %) | 4.2e-05 (0.1 %) | 7.62e-06 (0.0 %) | 7.64e-06 (0.0 %) |
+| `patches_5` | 0.06 | 0.0241 (40.1 %) | 0.024 (40.1 %) | 0.0241 (40.1 %) | 0.0241 (40.1 %) |
+| `progressive_5` | 0.06 | 2.01e-05 (0.0 %) | 0.000115 (0.2 %) | 2.01e-05 (0.0 %) | 1.03e-05 (0.0 %) |
+| `upsampling_5` | 0.06 | 0.0163 (27.2 %) | 0.0164 (27.3 %) | 0.0163 (27.2 %) | 0.0163 (27.2 %) |
+
+Margins:
+
+- No case changes result. The largest move between configurations is 6.3
+  points of a limit (`upsampling`, NEON). The closest margin is the same
+  everywhere:
+  `animation_icos4d_5` 0.0557 of 0.06 (92.9 %) on all four.
+- `alpha_premultiplied` (issue #215's "about 80 %"): 3.04e-06 of 3.815e-06
+  (79.7 %) on both scalar paths, 3.07e-06 (80.5 %) on NEON and on AVX2. The
+  SIMD paths are 0.8 points closer to the limit.
+- NEON is further from the references than the other three on the lossy
+  VarDCT cases (`upsampling` 7.4 % against 1.1-1.2 %, `noise` 4.1 % against
+  0.3-0.7 %, `cafe`, `patches`, `progressive`, `opsin_inverse`), and AVX2 is
+  at or below the scalar paths. This is the original's own target
+  difference, not a port defect: the public decoder gate
+  (`tests/simd_public.rs` with `JXL_CONFORMANCE_CORPUS` set, run again at
+  this revision on 2026-11-15) finds the port's NEON decodes word-identical
+  with libjxl's NEON build and its AVX2 decodes (Rosetta 2) with libjxl's
+  AVX2 build over these inputs. `djxl` itself was not run.
+- The two scalar paths differ slightly from each other on `animation_spline`,
+  `blendmodes`, `cmyk_layers` and `spot` (all far below their limits). The
+  scalar gate compares each target's scalar path with the scalar original
+  built for that target (`tools/check.py`, `--target x86_64-apple-darwin`);
+  this run did not compare them with `djxl`.
+
+## Detailed record: AArch64 scalar path (2026-11-12, reproduced 2026-11-15)
+
+Rust port at the commit that added this record, when the decoder still ran
+the scalar path by default on every target; the forced scalar AArch64 run of
+2026-11-15 gives the same values in every cell. All 40 corpus directories are
 covered by the union of the two lists. Every case passes; every
 `original.icc` and every reconstructed JPEG is byte-identical. Values are the
 maximum over frames and channels; "limit" is the case's tolerance.
@@ -147,8 +267,12 @@ upsampling, patches, noise, splines and progressive input.
 
 ## Not established
 
-- x86-64 and Linux results; only macOS ARM64 was run.
-- A CI job: the run needs network access, about 1.6 GiB of references and
-  numpy plus Little CMS, so it is a manual deep check for now.
+- Linux and x86-64 hardware: x86-64 ran under Rosetta 2 on macOS only. The
+  manual workflow `jxl-conformance.yml` covers native Linux x86-64 once it
+  is dispatched.
+- Linux AArch64.
+- A scheduled CI job: the run needs network access, the reference objects
+  (about 0.6 GiB in `objects/`) and numpy plus Little CMS, so it is a manual
+  deep check (`workflow_dispatch` only).
 - Preview output (`--preview_out`): no corpus case has a preview.
 - Encoder conformance: the corpus tests decoders only.

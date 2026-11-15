@@ -1,0 +1,42 @@
+# Manual deep check (issue #215): the pinned external JPEG XL conformance
+# corpus through tools/conformance/run.sh on native Linux x86-64, on the
+# decoder's default path (AVX2 where detected) and on the forced scalar path.
+# Needs network access for the corpus (about 0.6 GiB of reference objects).
+name: 'JXL: Conformance corpus (Linux x86-64)'
+'on':
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  conformance:
+    strategy:
+      fail-fast: false
+      matrix:
+        decoder-path: [default, scalar]
+    runs-on: ubuntu-24.04
+    name: 'JXL: conformance (${{ matrix.decoder-path }})'
+    defaults:
+      run:
+        working-directory: codecs/libjxl-rs
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Install numpy and Little CMS
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-numpy liblcms2-2
+    - name: Run the corpus
+      env:
+        JXL_DECODER_TARGET: ${{ matrix.decoder-path }}
+      run: tools/conformance/run.sh "$RUNNER_TEMP/conformance"
+    - name: Preserve the runner results
+      if: always()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: jxl-conformance-linux-x86_64-${{ matrix.decoder-path }}
+        path: |
+          ${{ runner.temp }}/conformance/*.json
+          ${{ runner.temp }}/conformance/*.log
+        if-no-files-found: error
+        retention-days: 7

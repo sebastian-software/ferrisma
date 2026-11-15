@@ -99,23 +99,28 @@ def _normalize(parent, link):
 
 def summarize(path):
     rows = json.loads(Path(path).read_text())
-    print("| Case | Result | Frames | Max RMSE / limit | Max peak / limit | Exact files |")
-    print("| --- | --- | ---: | --- | --- | --- |")
+    print("| Case | Result | Frames | Max RMSE / limit | Max peak / limit | Peak % of limit | Exact files |")
+    print("| --- | --- | ---: | --- | --- | ---: | --- |")
     for row in rows:
         frames = [row[f"frame{i}_compare_npy"] for i in range(row.get("num_frames", 0))]
         if frames and all("actual_rmse" in f for f in frames):
             rmse = f"{max(f['actual_rmse'] for f in frames):.3g} / {frames[0]['rmse_limit']:g}"
-            peak = f"{max(f['actual_peak_error'] for f in frames):.3g} / {frames[0]['peak_error']:g}"
+            peak_max = max(f['actual_peak_error'] for f in frames)
+            peak = f"{peak_max:.3g} / {frames[0]['peak_error']:g}"
+            # Per frame against that frame's own limit; "-" for a zero limit.
+            shares = [f["actual_peak_error"] / f["peak_error"] for f in frames if f["peak_error"] > 0]
+            share = f"{100 * max(shares):.1f} %" if shares else "-"
         else:
             message = row.get("message", "-")
             if message.startswith("Running the decoder"):
                 message = "decoder exited with an error"
             rmse = peak = message
+            share = "-"
         exact = ", ".join(
             f"{name} {'identical' if row[f'compare_binary_{name}']['success'] else 'DIFFERS'}"
             for name in row.get("exact_tests", [])) or "-"
         result = "pass" if row.get("success") else "FAIL"
-        print(f"| `{row['test_id']}` | {result} | {len(frames)} | {rmse} | {peak} | {exact} |")
+        print(f"| `{row['test_id']}` | {result} | {len(frames)} | {rmse} | {peak} | {share} | {exact} |")
     passed = sum(1 for row in rows if row.get("success"))
     print(f"\n{passed} of {len(rows)} passed")
     return passed == len(rows)

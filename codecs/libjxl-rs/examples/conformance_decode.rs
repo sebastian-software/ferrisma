@@ -14,7 +14,14 @@
 //! conformance_decode input.jxl out.npy [--icc_out f] [--orig_icc_out f]
 //!     [--metadata_out f] [--norender_spotcolors] [--preview_out f]
 //! conformance_decode input.jxl out.jpg
+//! conformance_decode --decoder_path
 //! ```
+//!
+//! Decoder path: the default selection (NEON on AArch64, AVX2 on x86-64 when
+//! detected, port ADR 0004), or the scalar path with
+//! `JXL_DECODER_TARGET=scalar`. `--decoder_path` prints the path a decode
+//! selects and exits. With `JXL_CONFORMANCE_PATH_LOG=<file>`, every decode
+//! appends the selected path and whether a SIMD kernel ran to that file.
 //!
 //! Differences from djxl: the image goes to an output buffer instead of the
 //! image-out callback (the API defines identical samples), and metadata keeps
@@ -25,6 +32,7 @@ use jxl::jxl::codestream_header::{
     JxlBasicInfo, JxlExtraChannelInfo, JxlExtraChannelType, JxlFrameHeader,
 };
 use jxl::jxl::decode::{self as api, JxlColorProfileTarget, JxlDecoderStatus as Status};
+use jxl::jxl::hwy;
 use jxl::jxl::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
 use std::process::ExitCode;
 
@@ -491,7 +499,49 @@ fn decode_jpeg(bytes: &[u8], args: &Args) -> Result<(), String> {
     std::fs::write(&args.output, jpeg).map_err(|e| format!("write {}: {e}", args.output))
 }
 
+/// Applies `JXL_DECODER_TARGET` and returns the path a decode selects.
+fn select_decoder_path() -> Result<&'static str, String> {
+    match std::env::var("JXL_DECODER_TARGET").as_deref() {
+        Err(std::env::VarError::NotPresent) | Ok("" | "default") => {}
+        Ok("scalar") => hwy::set_decoder_simd_for_test(Some(false)),
+        Ok(other) => return Err(format!("JXL_DECODER_TARGET={other}: use scalar or default")),
+        Err(e) => return Err(format!("JXL_DECODER_TARGET: {e}")),
+    }
+    Ok(hwy::decoder_target_for(hwy::DECODER_SELECTS_SIMD).map_or("scalar", hwy::Target::name))
+}
+
+/// Appends the selected path and whether a SIMD kernel ran during the decode.
+fn log_decoder_path(path: &str, input: &str) -> Result<(), String> {
+    use std::io::Write;
+    let Some(log) = std::env::var_os("JXL_CONFORMANCE_PATH_LOG") else {
+        return Ok(());
+    };
+    let simd = hwy::simd_selections_on_this_thread() > 0;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log)
+        .map_err(|e| format!("open {}: {e}", log.display()))?;
+    writeln!(
+        file,
+        "path={path} simd_kernels={}\t{input}",
+        if simd { "yes" } else { "no" }
+    )
+    .map_err(|e| format!("write {}: {e}", log.display()))
+}
+
 fn main() -> ExitCode {
+    let path = match select_decoder_path() {
+        Ok(path) => path,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if std::env::args().nth(1).as_deref() == Some("--decoder_path") {
+        println!("{path}");
+        return ExitCode::SUCCESS;
+    }
     let result = parse().and_then(|args| {
         let bytes = std::fs::read(&args.input).map_err(|e| format!("read {}: {e}", args.input))?;
         if api::jxl_signature_check(&bytes) == api::JxlSignature::INVALID {
@@ -503,7 +553,8 @@ fn main() -> ExitCode {
             decode_pixels(&bytes, &args)
         } else {
             Err("output must be .npy or .jpg".into())
-        }
+        }?;
+        log_decoder_path(path, &args.input)
     });
     match result {
         Ok(()) => ExitCode::SUCCESS,
