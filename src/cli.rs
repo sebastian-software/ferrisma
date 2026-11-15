@@ -385,8 +385,8 @@ pub fn run(
 }
 
 /// One stable `key=value` line for benchmark scripts. Values are integers,
-/// except the precision, kernel level and the two backend names; new keys are
-/// appended (ADR-0040).
+/// except the precision, kernel level, the two backend names and the color
+/// signal; new keys are appended (ADR-0040).
 fn report_line(output: &Output) -> String {
     let report = &output.report;
     let timings = report.timings;
@@ -394,7 +394,7 @@ fn report_line(output: &Output) -> String {
         "report: open_us={} decode_us={} transform_us={} encode_us={} total_us={} \
          output_bytes={} peak_managed_bytes={} encoder_frame_bytes={} orientation_buffer_bytes={} \
          decoder_requests={} decoder_full_frames={} precision={:?} encoder_threads={} kernel_level={} transform_threads={} \
-         encoder={} decoder={}",
+         encoder={} decoder={} color_signal={:?}",
         timings.open.as_micros(),
         timings.decode.as_micros(),
         timings.transform.as_micros(),
@@ -412,6 +412,7 @@ fn report_line(output: &Output) -> String {
         report.transform_threads,
         report.encoder_backend,
         report.decoder_backend,
+        report.color_signal,
     )
 }
 
@@ -552,8 +553,9 @@ mod tests {
         assert!(error.to_string().contains("mutually exclusive"), "{error}");
     }
 
-    /// The `report:` line names both backends (issue #217); keys are
-    /// appended, so the existing ones keep their order.
+    /// The `report:` line names both backends (issue #217) and the color
+    /// signal (issue #212); keys are appended, so the existing ones keep
+    /// their order.
     #[cfg(all(feature = "jpeg-read", feature = "webp-write"))]
     #[test]
     fn report_line_names_the_decoder_and_encoder_backends() {
@@ -573,7 +575,7 @@ mod tests {
         let line = super::report_line(&output);
         assert!(line.starts_with("report: open_us="), "{line}");
         assert!(
-            line.ends_with(" encoder=libwebp-rs decoder=libjpeg-turbo-rs"),
+            line.ends_with(" encoder=libwebp-rs decoder=libjpeg-turbo-rs color_signal=AssumedSrgb"),
             "{line}"
         );
     }

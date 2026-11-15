@@ -62,8 +62,10 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `Output` | struct | Stable | Non-exhaustive; `format`, `bytes`, `width`, `height`, `report` |
 | `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive; new fields are additive. `decoder_backend` and `encoder_backend` strings are experimental values (2026-11-14, #217) |
 | `StageTimings` | struct | Experimental values | Wall-clock observations, never a contract |
+| `ColorSignal`, `ProcessingReport::color_signal` | enum, field | Experimental (working decision 2026-11-14, #212) | Non-exhaustive; reports the signal used, never a precedence |
 | `KernelLevel`, `KernelLevelReason`, `TransformOptions::kernel_level_ceiling` | re-exported enums, field | Experimental (diagnostics) | Couples to `ferrisma-kernels`; see problem 7 |
 | `ProcessingError`, `ProcessingErrorKind` | struct, enum | Stable | Kind is non-exhaustive; message text is not stable |
+| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decision 2026-11-14, #212) | Non-exhaustive closed vocabulary; `None` outside it |
 | `Engine`, `BatchItem` | struct, struct | Stable | ADR-0022 |
 | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with` | fn | Experimental | ADR-0024 backend extension point |
 | `EncoderBackend`, `RowEncoder`, `EncodeRequest`, `EncodedImage`, `EncodeError`, `EncodeErrorKind` | traits, structs, enum | Experimental | Implementors break if a required method is added; the structs and kind are already non-exhaustive |
@@ -183,8 +185,9 @@ cannot be fixed later without a major release.
    buffer needs 12 bytes with 64 bytes available", which describes the
    pixel budget. Recommendation: an additive `OutputLimitExceeded` kind and
    an accurate message.
-6. **No structured error details.** `ProcessingError` exposes only `kind()`
-   and the message. Additive accessors (which limit, requested and allowed
+6. **No structured error details.** `ProcessingError` exposes `kind()`,
+   the message, and since 2026-11-14 `refusal_reason()` for four refusals
+   (#212). Additive accessors (which limit, requested and allowed
    values) and `source()` can follow after 1.0.
 7. **`KernelLevel` couples SemVer to `ferrisma-kernels`.** Recommendation:
    define the two diagnostic enums in `ferrisma` and map them, or keep them
@@ -315,3 +318,13 @@ reports that a stable item cannot express its use case.
   field-name rule. Correction, no decision change: problem 13 said there is
   no `--version`; the flag exists since 2026-11-13 (`src/cli.rs`, #237), so
   the problem now covers `--help` and the tier of both flags.
+- 2026-11-14 — Color signal and refusal reasons (issue #212; design in
+  [ADR-0017](0017-minimal-public-facade-and-cli.md), amendment of the same
+  date): `ColorSignal` with `ProcessingReport::color_signal`, and
+  `RefusalReason` with `ProcessingError::refusal_reason()`, both additive and
+  `#[non_exhaustive]` (decision 2: new variants are not breaking). The CLI
+  `report:` line appends `color_signal=`. Working decision 2026-11-14
+  (delegated, revisable by the owner): both enter the inventory as
+  experimental, and a reason, once documented, keeps its meaning; making
+  them stable is the owner's choice. Problem 6 is narrowed accordingly; which
+  limit was exceeded and `source()` remain open.

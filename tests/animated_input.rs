@@ -11,7 +11,7 @@
 
 use ferrisma::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
-    OutputFormat, ProcessingErrorKind, RowEncoder, TransformOptions, transcode_with,
+    OutputFormat, ProcessingErrorKind, RefusalReason, RowEncoder, TransformOptions, transcode_with,
 };
 
 struct Discard;
@@ -38,13 +38,9 @@ impl RowEncoder for DiscardRows {
     }
 }
 
-/// The animation-specific reason of the engine's `UnsupportedAnimation`
-/// error. The public kind alone (`UnsupportedInput`) is shared with unrelated
-/// layout errors, so every test also checks this message.
-const ANIMATION_REASON: &str = "animated input is not supported; only still images are decoded";
-
 /// Rejects with the public kind, and asserts that the reason is animation
-/// rather than an unrelated unsupported layout.
+/// rather than an unrelated unsupported layout: the kind alone
+/// (`UnsupportedInput`) is shared with those (issue #212).
 fn kind(bytes: &[u8], format: ImageFormat, options: TransformOptions) -> ProcessingErrorKind {
     let options = TransformOptions {
         output_format: OutputFormat::WebP,
@@ -54,7 +50,11 @@ fn kind(bytes: &[u8], format: ImageFormat, options: TransformOptions) -> Process
     };
     let error = transcode_with(bytes, format, options, &Discard)
         .expect_err("animated input must be rejected");
-    assert_eq!(error.to_string(), ANIMATION_REASON, "{format:?}");
+    assert_eq!(
+        error.refusal_reason(),
+        Some(RefusalReason::Animation),
+        "{format:?}: {error}"
+    );
     error.kind()
 }
 

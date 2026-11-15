@@ -435,6 +435,32 @@ fn public_rect(rect: Rect) -> Crop {
     }
 }
 
+/// The color signal that described the decoded samples when the engine
+/// converted them into its linear-sRGB working space (ADR-0015, issue
+/// #212). ICC and CICP are never ranked against each other: a conversion
+/// either uses one signal, or uses the rendered ICC profile after checking
+/// that the CICP beside it agrees.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ColorSignal {
+    /// The decoder's CICP alone (sRGB, Display P3 or linear sRGB); the
+    /// decoder reported no ICC profile.
+    Cicp,
+    /// The decoder reported neither ICC nor CICP, and
+    /// [`InputProfilePolicy::AssumeSrgbIfMissing`] supplied sRGB.
+    AssumedSrgb,
+    /// [`InputProfilePolicy::UseRenderedIcc`]: the decoder's rendered ICC
+    /// profile was converted; the decoder reported no CICP beside it. A
+    /// well-formed `cicp` tag inside the profile is checked as part of the
+    /// profile.
+    RenderedIcc,
+    /// [`InputProfilePolicy::UseRenderedIcc`]: the rendered ICC profile was
+    /// converted after the decoder's CICP beside it was checked and found to
+    /// agree with the profile transform. Disagreement is refused with
+    /// [`RefusalReason::CicpBesideIcc`]; neither signal takes precedence.
+    RenderedIccWithAgreeingCicp,
+}
+
 /// Report known materializations separately from opaque codec memory.
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
@@ -462,6 +488,8 @@ pub struct ProcessingReport {
     pub opaque_encoder_memory: bool,
     /// Requested versus decoded source regions and the decoder's work.
     pub decoder_work: DecoderWork,
+    /// The color signal the conversion into the working space used.
+    pub color_signal: ColorSignal,
     /// The executor that produced the pixels.
     pub working_precision: WorkingPrecision,
     /// SIMD level of the resample kernels and why it was chosen; the `f64`
@@ -536,17 +564,59 @@ pub enum ProcessingErrorKind {
     Internal,
 }
 
+/// Why an input was refused, beyond its [`ProcessingErrorKind`] (issue
+/// #212, ADR-0017 amendment of 2026-11-14). A closed vocabulary: each
+/// variant names one refusal the engine detects itself, and callers match on
+/// it instead of on message text. New reasons may be added; an existing
+/// reason keeps its meaning.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum RefusalReason {
+    /// The input is animated; only still images are decoded and there is no
+    /// first-frame fallback. Kind: [`ProcessingErrorKind::UnsupportedInput`].
+    Animation,
+    /// The decoder reports neither an ICC profile nor CICP for its output,
+    /// and the policy is [`InputProfilePolicy::Strict`]. A caller who knows
+    /// the input is sRGB may choose
+    /// [`InputProfilePolicy::AssumeSrgbIfMissing`]. Kind:
+    /// [`ProcessingErrorKind::UnsupportedColor`].
+    ColorSignalMissing,
+    /// The decoder describes its output with an ICC profile, and the policy
+    /// is not [`InputProfilePolicy::UseRenderedIcc`] (which requires the
+    /// `icc` feature). Kind: [`ProcessingErrorKind::UnsupportedColor`].
+    RenderedIccRequiresOptIn,
+    /// Under [`InputProfilePolicy::UseRenderedIcc`], CICP beside the
+    /// rendered ICC profile (from the decoder or the profile's own `cicp`
+    /// tag) signals HDR, cannot be checked, or disagrees with the profile;
+    /// the profile is not given precedence (ADR-0015 rule 4). Kind:
+    /// [`ProcessingErrorKind::UnsupportedColor`].
+    CicpBesideIcc,
+}
+
 /// Public error that never exposes backend-specific types.
 #[derive(Debug)]
 pub struct ProcessingError {
     kind: ProcessingErrorKind,
+    reason: Option<RefusalReason>,
     message: String,
 }
 impl ProcessingError {
     fn new(kind: ProcessingErrorKind, message: impl Into<String>) -> Self {
         Self {
             kind,
+            reason: None,
             message: message.into(),
+        }
+    }
+
+    fn refused(
+        kind: ProcessingErrorKind,
+        reason: Option<RefusalReason>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            reason,
+            ..Self::new(kind, message)
         }
     }
 
@@ -554,6 +624,15 @@ impl ProcessingError {
     #[must_use]
     pub fn kind(&self) -> ProcessingErrorKind {
         self.kind
+    }
+
+    /// The reason of a refusal, when the engine assigns one of the
+    /// documented [`RefusalReason`]s; `None` for every other error and for
+    /// refusals that have no stable reason yet (message text is never
+    /// stable).
+    #[must_use]
+    pub fn refusal_reason(&self) -> Option<RefusalReason> {
+        self.reason
     }
 }
 impl fmt::Display for ProcessingError {
@@ -621,7 +700,13 @@ impl From<Error> for ProcessingError {
             | Error::InvalidPlaneDimensions
             | Error::InsufficientPlaneStorage => Kind::Internal,
         };
-        Self::new(kind, value.to_string())
+        let reason = match &value {
+            Error::UnsupportedAnimation => Some(RefusalReason::Animation),
+            #[cfg(feature = "icc")]
+            Error::CicpBesideIcc(_) => Some(RefusalReason::CicpBesideIcc),
+            _ => None,
+        };
+        Self::refused(kind, reason, value.to_string())
     }
 }
 
@@ -1149,8 +1234,15 @@ fn run(
             ),
         ));
     }
+    let decoder_cicp = source.info().rendered_cicp.is_some();
+    let mut color_signal = ColorSignal::Cicp;
     let source: Box<dyn DecodeSource + '_> =
         if options.profile_policy == InputProfilePolicy::UseRenderedIcc {
+            color_signal = if decoder_cicp {
+                ColorSignal::RenderedIccWithAgreeingCicp
+            } else {
+                ColorSignal::RenderedIcc
+            };
             #[cfg(feature = "icc")]
             {
                 Box::new(crate::cms::IccSrgbSource::new(source)?)
@@ -1171,6 +1263,7 @@ fn run(
     {
         let mut info = source.info().clone();
         info.rendered_cicp = Some([1, 13, 0, 1]);
+        color_signal = ColorSignal::AssumedSrgb;
         Box::new(ExplicitSrgb {
             decoder: source,
             info,
@@ -1178,12 +1271,23 @@ fn run(
     } else {
         source
     };
+    let color = actual.info().semantics().color;
     if !matches!(
-        actual.info().semantics().color,
+        color,
         ColorEncoding::Cicp([1 | 12, 13, 0, 1] | [1, 8, 0, 1])
     ) {
-        return Err(ProcessingError::new(
+        // Under `UseRenderedIcc` the ICC stage emits linear sRGB, so ICC
+        // reaches this check only under the other two policies.
+        let reason = match color {
+            ColorEncoding::Unspecified => Some(RefusalReason::ColorSignalMissing),
+            ColorEncoding::Icc(_) | ColorEncoding::IccAndCicp { .. } => {
+                Some(RefusalReason::RenderedIccRequiresOptIn)
+            }
+            ColorEncoding::Cicp(_) => None,
+        };
+        return Err(ProcessingError::refused(
             ProcessingErrorKind::UnsupportedColor,
+            reason,
             "unsupported or ambiguous rendered color profile; a color-management transform is required",
         ));
     }
@@ -1368,6 +1472,7 @@ fn run(
             delivered_rows: processed.decoder.rows,
             wrapper_copied_bytes: processed.decoder.engine_copied_bytes,
         },
+        color_signal,
         working_precision: options.precision,
         kernel_level,
         kernel_level_reason,

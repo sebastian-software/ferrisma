@@ -274,6 +274,12 @@ fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
     )
     .unwrap();
     assert_eq!(&again.bytes[4..8], b"ftyp");
+    // Issue #212: the first run assumed sRGB, the second used the AVIF's
+    // own CICP under the strict policy.
+    use crate::pipeline::ColorSignal;
+    assert_eq!(srgb.report.color_signal, ColorSignal::AssumedSrgb);
+    assert_eq!(again.report.color_signal, ColorSignal::Cicp);
+    assert_eq!(again.report.decoder_backend, "libavif-rs/aom");
 }
 
 #[test]

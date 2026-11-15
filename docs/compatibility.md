@@ -16,7 +16,7 @@ else, including every private module, is outside the contract.
 | --- | --- | --- |
 | Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run` |
 | Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, quality, speed, chroma, threads, and the four resource limits; `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifEncoder::Libavif`, `JpegXlDecoder::LibjxlRs`, `JpegXlOptions` |
-| Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason` |
+| Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()` |
 | Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `avif-write`, `icc`, `cli` | `jpeg-xl-own-read`, `jpeg-xl-write`, `avif-read`, `avif-own-write` |
 | CLI | Positional arguments, color policy, quality, speed, chroma, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-encoder`, `--avif-depth`, `--jxl-decoder`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=` and `--jxl-lossless` |
 
@@ -41,8 +41,8 @@ result must not depend on Cargo feature unification. See the
   wildcard arm.
 - Add fields to `Output`, `ProcessingReport`, `StageTimings`, and
   `ImageMetadata`; these structs cannot be constructed outside Ferrisma.
-- Change error message text. Match on `ProcessingError::kind()`, never on
-  messages.
+- Change error message text. Match on `ProcessingError::kind()` and
+  `ProcessingError::refusal_reason()`, never on messages.
 - Change the encoded bytes for the same options when an encoder improves.
   The documented meaning of the output (format, dimensions, orientation,
   color, alpha) does not change in a minor release.

@@ -26,8 +26,8 @@ mod consumer {
 
     use ferrisma::pipeline::{
         ImageFormat, InputProfilePolicy, InspectionLimits, Output, OutputFormat, ProcessingError,
-        ProcessingErrorKind, ResizeFit, ResizeOptions, TransformOptions, WebpOptions, inspect,
-        transcode_resized,
+        ProcessingErrorKind, RefusalReason, ResizeFit, ResizeOptions, TransformOptions,
+        WebpOptions, inspect, transcode_resized,
     };
 
     /// Service limits. Every value is explicit; none relies on a default.
@@ -398,6 +398,18 @@ mod consumer {
                 println!("  expected {expected:?}");
             }
         }
+        // A refusal's reason says what the caller could change: here, an
+        // untagged file under the strict policy (issue #212).
+        let reason = run(&jpeg, ImageFormat::Jpeg, strict)
+            .err()
+            .and_then(|error| error.refusal_reason());
+        let verdict = if reason == Some(RefusalReason::ColorSignalMissing) {
+            "ok"
+        } else {
+            failures += 1;
+            "MISMATCH"
+        };
+        println!("{verdict}: refusal reason of the strict untagged JPEG: {reason:?}");
         if failures == 0 {
             println!("self-check passed");
             ExitCode::SUCCESS
