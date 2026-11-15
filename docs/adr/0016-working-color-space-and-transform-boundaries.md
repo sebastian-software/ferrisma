@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-15
 - **Supersedes:** None
 - **Related:** [0002](0002-semantic-graph-and-planner.md), [0004](0004-buffer-ownership-and-budget.md), [0005](0005-codec-capabilities-and-pixel-contracts.md), [0014](0014-linear-srgb-straight-alpha.md), [0015](0015-typed-output-color-signals.md), [M1](../milestones/M1-complete-image-pipeline.md)
 
@@ -64,6 +64,7 @@ Real codec and encoder dataflow makes the proposed format contract too expensive
 - 2026-11-12 — Independent resize oracle (#18), CICP checks beside the rendered ICC (#17, #41), and real-photograph LittleCMS evidence.
 - 2026-11-12 — PQ/HLG rejection from the JPEG XL transfer function itself, independent of CICP (review of the v1.0 integration).
 - 2026-11-12 — 8-bit matrix-shaper input is evaluated through a per-channel table built from and checked against moxcms (issue #219); bound 1.19e-7 linear over all 2^24 triplets for five profiles. Pending owner confirmation.
+- 2026-11-15 — Rendering intent: relative colorimetric, set explicitly (owner decision; see the section of that date below).
 
 ## 2026-10-31: narrow reference experiment (not acceptance)
 
@@ -145,3 +146,53 @@ is in ADR-0023 and the
 Re-evaluate if moxcms changes its matrix-shaper evaluation, if a profile
 class is admitted to the extended path whose transform is not separable, or
 if the owner rejects any output change on this path (then revert).
+
+## 2026-11-15: rendering intent is relative colorimetric (owner decision)
+
+**Decision (owner, 2026-11-15; not a working decision).** The rendered-ICC
+stage converts with the **relative colorimetric** intent. `src/cms.rs`
+sets `TransformOptions::rendering_intent` to `RelativeColorimetric`
+explicitly; the intent is neither the library default nor read from the
+profile header. It is a fixed part of the color contract, documented here
+and in the [supported matrix](../supported-matrix.md#color-policy); it is
+not per-input information, so the processing report does not carry it.
+This resolves open question 1 of [ADR-0042](0042-no-silent-loss-refuse-or-report.md).
+
+**What it means.**
+
+- *Matrix/TRC profiles* (colorants and tone curves, no `A2B*` tables;
+  every profile the repository's tests use): moxcms 0.9.1 does not read
+  the intent on its matrix-shaper path (`transform.rs`, the branch taken
+  when source and destination are both matrix shapers without LUTs). The
+  output does not change by one code value; the existing color tests and
+  oracles (`tests/resize_oracle.rs`, `tests/icc_photo.rs`,
+  `jxl_color_tests`, `cms::tests`, `tests/supported_matrix.rs`) pass
+  unchanged.
+- *LUT-based profiles* (`A2B0`/`A2B1`/`A2B2`, `mAB `): moxcms selects the
+  table by intent (`get_device_to_pcs`: `A2B0` for perceptual, `A2B1` for
+  relative colorimetric). Before this decision the engine used moxcms'
+  default, perceptual, so `A2B0`; now it uses `A2B1`. In moxcms 0.9.1 the
+  perceptual (and saturation) intent also triggers black-point detection
+  and scaling inside the LUT path (`conversions/bpc.rs`,
+  `lut_transforms.rs`); relative colorimetric applies none. moxcms has no
+  separate black-point-compensation switch (`TransformOptions` lists one
+  only as a comment), so there is nothing else to keep at its former
+  value; the other options (`allow_use_cicp_transfer`,
+  `prefer_fixed_point`, the interpolation method and weight scale) are
+  unchanged at moxcms' defaults.
+- Evidence: `cms::tests::lut_profiles_convert_with_the_relative_colorimetric_table`
+  builds an sRGB profile with distinct `A2B0` and `A2B1` lut16 tables
+  through moxcms' writer and shows that the engine's output equals moxcms
+  with `RelativeColorimetric` and differs from `Perceptual` (and fails
+  with the former default). The repository has no real LUT-based profile
+  fixture; one stays open under #17 and #211.
+
+**Alternatives considered.**
+
+- *Perceptual* (moxcms' default, used implicitly until now). Its
+  gamut-compression tables are vendor-defined and not uniquely specified,
+  so the same source differs between profile authors, and it brought
+  moxcms' black-point scaling with it.
+- *The intent in the profile header.* The header field is often an unset
+  default rather than an author's choice, so it is not a reliable signal
+  of intent.

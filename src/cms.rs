@@ -15,7 +15,8 @@
 use std::sync::Arc;
 
 use moxcms::{
-    ColorProfile, DataColorSpace, Layout, ToneReprCurve, TransformF32Executor, TransformOptions,
+    ColorProfile, DataColorSpace, Layout, RenderingIntent, ToneReprCurve, TransformF32Executor,
+    TransformOptions,
 };
 
 use crate::color::AlphaMode;
@@ -305,14 +306,21 @@ impl<'a> IccSrgbSource<'a> {
         dst.blue_trc = Some(linear);
         dst.cicp = None;
         // moxcms' extended floating-point path avoids the destination-gamut
-        // clamp for matrix-shaper profiles. Keep its existing LUT path and
-        // intent selection unchanged; those profiles need separate evidence.
+        // clamp for matrix-shaper profiles; LUT-based profiles keep moxcms'
+        // LUT path.
         let extended_matrix_shaper = src.pcs == DataColorSpace::Xyz
             && src.is_matrix_shaper()
             && src.lut_a_to_b_perceptual.is_none()
             && src.lut_a_to_b_colorimetric.is_none()
             && src.lut_a_to_b_saturation.is_none();
         let options = TransformOptions {
+            // Relative colorimetric, set here and never taken from the
+            // library default (perceptual) or the profile header (owner
+            // decision 2026-11-15, ADR-0016 amendment of that date). It
+            // selects a LUT profile's colorimetric table (A2B1) and, in
+            // moxcms 0.9.1, no black-point scaling; matrix/TRC profiles do
+            // not read the intent, so their output is unchanged.
+            rendering_intent: RenderingIntent::RelativeColorimetric,
             allow_extended_range_rgb_xyz: extended_matrix_shaper,
             ..TransformOptions::default()
         };
@@ -1431,5 +1439,102 @@ mod tests {
             .unwrap();
         assert_eq!(out[..3], table.apply([0, 10, 11]));
         assert_eq!(out[3..], table.apply([128, 200, 255]));
+    }
+
+    /// The repository has no LUT-based profile fixture (#17, #211), so this
+    /// profile is built with moxcms' own writer and read back: sRGB with an
+    /// `A2B0` (perceptual) and an `A2B1` (colorimetric) lut16 table that
+    /// map RGB to XYZ through two different 2x2x2 grids, the perceptual one
+    /// at half the colorimetric one. The engine must convert with the
+    /// colorimetric table (owner decision 2026-11-15, ADR-0016): its output
+    /// equals moxcms with `RelativeColorimetric` and differs from moxcms
+    /// with `Perceptual`, the library default used before.
+    #[test]
+    fn lut_profiles_convert_with_the_relative_colorimetric_table() {
+        use moxcms::{
+            ColorProfile, Layout, LutDataType, LutStore, LutType, LutWarehouse, Matrix3d,
+            RenderingIntent, ToneReprCurve,
+        };
+        let table = |scale: f64| {
+            // D50 XYZ of the eight RGB corners of sRGB, as u1Fixed15
+            // (1.0 = 0x8000) of the lut16 PCS encoding.
+            let srgb = ColorProfile::new_srgb();
+            let corners: Vec<u16> = (0..8_u8)
+                .flat_map(|corner| {
+                    let rgb = [corner >> 2 & 1, corner >> 1 & 1, corner & 1].map(f64::from);
+                    let xyz = [srgb.red_colorant, srgb.green_colorant, srgb.blue_colorant]
+                        .iter()
+                        .zip(rgb)
+                        .fold([0.0_f64; 3], |sum, (colorant, weight)| {
+                            [
+                                sum[0] + colorant.x * weight,
+                                sum[1] + colorant.y * weight,
+                                sum[2] + colorant.z * weight,
+                            ]
+                        });
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    xyz.map(|value| (value * scale * 32_768.0).round().min(65_535.0) as u16)
+                })
+                .collect();
+            LutWarehouse::Lut(LutDataType {
+                num_input_channels: 3,
+                num_output_channels: 3,
+                num_clut_grid_points: 2,
+                matrix: Matrix3d::IDENTITY,
+                num_input_table_entries: 2,
+                num_output_table_entries: 2,
+                input_table: LutStore::Store16(vec![0, 65_535, 0, 65_535, 0, 65_535]),
+                clut_table: LutStore::Store16(corners),
+                output_table: LutStore::Store16(vec![0, 65_535, 0, 65_535, 0, 65_535]),
+                lut_type: LutType::Lut16,
+            })
+        };
+        let mut profile = ColorProfile::new_srgb();
+        profile.cicp = None;
+        profile.lut_a_to_b_perceptual = Some(table(0.5));
+        profile.lut_a_to_b_colorimetric = Some(table(1.0));
+        let icc = profile.encode().unwrap();
+        let parsed = ColorProfile::new_from_slice(&icc).unwrap();
+        assert!(parsed.lut_a_to_b_perceptual.is_some());
+        assert!(parsed.lut_a_to_b_colorimetric.is_some());
+
+        let row: Vec<u8> = [[255, 255, 255], [128, 128, 128], [200, 40, 90]].concat();
+        let mut grid = p3_grid(row.clone());
+        grid.info.rendered_icc = Some(icc);
+        let mut source = IccSrgbSource::new(Box::new(grid)).unwrap();
+        let engine = read_rows(&mut source, 3).remove(0);
+
+        let mut linear = ColorProfile::new_srgb();
+        let identity = ToneReprCurve::Lut(Vec::new());
+        linear.red_trc = Some(identity.clone());
+        linear.green_trc = Some(identity.clone());
+        linear.blue_trc = Some(identity);
+        linear.cicp = None;
+        let direct = |rendering_intent| {
+            let transform = parsed
+                .create_transform_f32(
+                    Layout::Rgb,
+                    &linear,
+                    Layout::Rgb,
+                    moxcms::TransformOptions {
+                        rendering_intent,
+                        ..moxcms::TransformOptions::default()
+                    },
+                )
+                .unwrap();
+            let input: Vec<f32> = row.iter().map(|&value| f32::from(value) / 255.0).collect();
+            let mut output = vec![0.0_f32; input.len()];
+            transform.transform(&input, &mut output).unwrap();
+            output
+        };
+        let relative = direct(RenderingIntent::RelativeColorimetric);
+        let perceptual = direct(RenderingIntent::Perceptual);
+        assert_eq!(engine, relative, "the colorimetric table is used");
+        let largest = engine
+            .iter()
+            .zip(&perceptual)
+            .map(|(engine, perceptual)| (engine - perceptual).abs())
+            .fold(0.0_f32, f32::max);
+        assert!(largest > 0.1, "the perceptual table differs by {largest}");
     }
 }

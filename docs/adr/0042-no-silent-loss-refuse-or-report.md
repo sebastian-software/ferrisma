@@ -165,30 +165,32 @@ classes and the CLI key `discarded=`, each proven by
 not). D4 for JPEG XL is also met by removing the jxl-oxide runtime reader,
 which the owner decided on 2026-11-15 for after the libjxl-rs AVX2 speed
 fix. The [inventory](../silent-drops-audit-2026-11-15.md) moves 48 items to
-"reported"; open under D6 remain the documented-only items and seven
-undocumented ones, among them out-of-gamut clipping, which cannot be
+"reported"; open under D6 remain the documented-only items and six
+undocumented ones; among the documented ones is out-of-gamut clipping, which cannot be
 detected cheaply and exactly apart from resampling overshoot and is
 therefore not reported. Until the branch is on `main`, the inventory's
 first column of counts is the state of `main`.
 
 ## Open questions (pending owner decision)
 
-1. **Rendering intent.** The color-management step uses the perceptual
-   intent for every profile and does not consult the intent in the profile
-   header; ADR-0016 calls intents other than relative colorimetric "open",
-   which reads as if relative colorimetric were used. Which one is the
-   contract, and should the report name the intent used?
-2. **Options without effect.** WebP lossy speeds 2/3, 5/6 and 8/9 give
+1. **Options without effect.** WebP lossy speeds 2/3, 5/6 and 8/9 give
    identical bytes; `transcode_batch` accepts thread counts that `transcode`
    rejects. Should an accepted option that has no effect be rejected,
    reported, or documented as an alias?
-3. **Repeated CLI flags.** The last value wins silently. Refusing a repeated
+2. **Repeated CLI flags.** The last value wins silently. Refusing a repeated
    flag would break scripts that rely on it.
-4. **Premultiplied AVIF alpha.** It is un-premultiplied silently today. D2
+3. **Premultiplied AVIF alpha.** It is un-premultiplied silently today. D2
    will report it; should it be refused instead, as premultiplied JPEG XL
    alpha is?
-5. **A strict mode.** Should there be an option that turns every D2 report
+4. **A strict mode.** Should there be an option that turns every D2 report
    into a refusal, for callers that must not lose metadata?
+
+### Decided since 2026-11-15
+
+- **Rendering intent** (formerly open question 1): relative colorimetric,
+  set explicitly; owner decision of 2026-11-15, recorded in the
+  [ADR-0016 amendment](0016-working-color-space-and-transform-boundaries.md#2026-11-15-rendering-intent-is-relative-colorimetric-owner-decision).
+  The report does not name it: it is a fixed part of the contract.
 
 ## Review when
 
@@ -206,3 +208,6 @@ first column of counts is the state of `main`.
 - 2026-11-15 — Implementation of D1, D2 and D4 on `v1/engine-discarded`
   recorded in the state paragraph under Validation; clipping recorded as
   open under D6 because it cannot be detected exactly. No decision changed.
+- 2026-11-15 — Open question 1 (rendering intent) decided by the owner:
+  relative colorimetric, set explicitly (ADR-0016 amendment); moved to
+  "Decided since 2026-11-15", the remaining questions renumbered.
