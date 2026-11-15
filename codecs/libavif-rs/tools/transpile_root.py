@@ -15,6 +15,7 @@ from import_translation import translate
 from transpile_dav1d import current_variadic
 from root_assertions import LEXEME, delimiters, single_evaluation
 import root_variants
+from stable_rust import stable_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -203,6 +204,8 @@ def main():
         text, changes = corrected(source, raw, native)
         name = Path('libyuv') / relative.name if relative.parts[0] == 'third_party' else Path(relative.name)
         output = destination / name.with_suffix('.rs')
+        # The committed units are rewritten for stable Rust (ADR 0060).
+        text = stable_text(str(output.relative_to(ROOT)), text)
         if args.check:
             if (not output.is_file() or
                     comparable_profile(source, output.read_text()) != comparable_profile(source, text)):

@@ -132,6 +132,21 @@ def rewrite(rel, text, edits, counts):
     return apply_edits(rel, text, edits, counts)
 
 
+def stable_text(rel, text):
+    """The stable rewrite of one generated unit (ROOT-relative path `rel`).
+
+    The generators (transpile_aom.py, transpile_dav1d.py, transpile_root.py,
+    import_translation.py) call this on each unit's final text, before they
+    compare it with the committed unit or record its digest, so that their
+    `--check` modes compare like with like.
+    """
+    edits = {}
+    for edit in json.loads(EDITS.read_text())['edits']:
+        if edit['file'] == rel:
+            edits.setdefault(rel, []).append(edit)
+    return rewrite(rel, text, edits, {})
+
+
 def digests(text):
     production = text.split(PRODUCTION_SPLIT, 1)[0]
     return (hashlib.sha256(text.encode()).hexdigest(),

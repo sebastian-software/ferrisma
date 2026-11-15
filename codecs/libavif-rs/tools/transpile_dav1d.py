@@ -11,6 +11,7 @@ import sys
 
 from import_translation import translate
 from dav1d_layout import retain_alignment
+from stable_rust import stable_text
 
 ROOT = Path(__file__).resolve().parents[1]
 CRATE = ROOT / 'crates/dav1d'
@@ -174,6 +175,8 @@ def main():
             raw = (raw_root / 'src' / source.with_suffix('.rs').name).read_text()
             text, changes = corrected(source, raw, entry)
             target = CRATE / 'src' / source_prefix / group / source.with_suffix('.rs').name
+            # The committed units are rewritten for stable Rust (ADR 0060).
+            text = stable_text(str(target.relative_to(ROOT)), text)
             target.parent.mkdir(parents=True, exist_ok=True)
             if args.check:
                 if target.read_text() != text:

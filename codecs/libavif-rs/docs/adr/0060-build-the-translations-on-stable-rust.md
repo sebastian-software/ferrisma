@@ -123,12 +123,14 @@ they are stable now.
 - `cargo +stable` (1.99 or later) builds the three crates and the engine's
   AVIF features in every profile; the gates in the amendment below compare
   the result with the frozen behavior.
-- Reproducing the translations from C2Rust now ends with
-  `tools/stable_rust.py`: run the generator in write mode, then this tool,
-  and compare with Git. The generators' own `--check` modes
-  (`transpile_aom.py`, `transpile_dav1d.py`, `transpile_root.py` and the
-  root variant importers) compare the output before this step and fail
-  until they call it; they were not changed or run here.
+- The generators apply the same rewrite to each unit before they compare or
+  hash it (`stable_rust.stable_text`, called by `transpile_aom.py`,
+  `transpile_dav1d.py`, `transpile_root.py` and `import_translation.py`
+  since 2026-11-15), so their `--check` modes compare like with like. They
+  need C2Rust and run in the translate workflows. `transpile_aom.py --check`
+  still cannot pass: the libaom units are owned code since ADR 0059 (RTCD
+  dispatch edits, hand edits such as the Linux `int64_t` alias of
+  `59b35f83`), and the tool is kept for reproducing the frozen state only.
 - `--check` runs in the pull-request static stage
   (`cargo xtask codecs --codec avif --stage pr`) and CI's `workspace` job.
 - The C ABI is unchanged; C consumers and the nightly C oracles link the same

@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import re
 
+from stable_rust import stable_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -123,9 +125,13 @@ def main():
         target = target.with_suffix(".rs")
         raw = generated.read_text()
         text, changes = translate(source, raw)
+        # The committed units are rewritten for stable Rust (ADR 0060); the
+        # variant routing below compares with them.
+        text = stable_text(str(target.relative_to(ROOT)), text)
         owns_adapter = args.variant == "avm" and source.stem == "codec_avm"
         if args.variant != "default" and not owns_adapter and target.exists() and target.read_text() != text:
             target = ROOT / "src/variants" / args.variant / target.relative_to(ROOT / "src")
+            text = stable_text(str(target.relative_to(ROOT)), text)  # its hand edits, if any
         if args.check:
             if target.read_text() != text:
                 raise SystemExit(f"Translation is not reproducible: {target}")
