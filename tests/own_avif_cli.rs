@@ -41,6 +41,7 @@ fn cli_writes_avif_through_libavif_at_either_depth() {
         &[][..],
         &["--avif-depth=8"],
         &["--avif-depth=10"],
+        &["--avif-depth=12"],
         &["--avif-quality=55"],
         &[
             "--avif-alpha-quality=90",
@@ -60,8 +61,12 @@ fn cli_writes_avif_through_libavif_at_either_depth() {
             String::from_utf8_lossy(&removed.stderr)
         );
     }
-    let invalid = run(&["--avif-depth=12"]);
-    assert!(!invalid.status.success());
+    // 12 is AVIF's largest depth and admitted since 2026-11-15 (owner
+    // decision on the output depth); before, 12 was the refused example.
+    for depth in ["--avif-depth=9", "--avif-depth=16"] {
+        let invalid = run(&[depth]);
+        assert!(!invalid.status.success(), "{depth}");
+    }
     // libavif's scale is 0-100; quality 0 is accepted, not remapped.
     assert_eq!(encoder(&["--avif-quality=0"]), "libavif-rs/aom");
     // The format-independent flags were removed on 2026-11-15.

@@ -98,8 +98,9 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
             options.avif.speed = option["--avif-speed=".len()..].parse()?;
         }
         option if option.starts_with("--avif-depth=") => {
-            // The writer validates the depth (8 or 10) before decoding.
-            options.avif.depth = option["--avif-depth=".len()..].parse()?;
+            // Without the flag the depth follows the input; the engine
+            // refuses a depth other than 8, 10 or 12 before decoding.
+            options.avif.depth = Some(option["--avif-depth=".len()..].parse()?);
         }
         "--avif-chroma=444" => options.avif.chroma = ChromaSubsampling::Yuv444,
         "--avif-chroma=420" => options.avif.chroma = ChromaSubsampling::Yuv420,
@@ -299,7 +300,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--avif-quality=60 --avif-alpha-quality=60 (libavif 0-100) --avif-speed=6 (AOM cpu-used 0-10) --avif-depth=8|10 (default 8) --avif-chroma=444|420] [--webp-quality=75 (libwebp 1-100) --webp-method=4 (libwebp 0-6)|--webp-lossless --webp-level=4 (libwebp 0-9)] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--encoder-threads=1] [--transform-threads=0] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --webp-quality or --webp-method. Defaults are the original tools' (avifenc, cwebp, cjxl)."
+            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--avif-quality=60 --avif-alpha-quality=60 (libavif 0-100) --avif-speed=6 (AOM cpu-used 0-10) --avif-depth=8|10|12 (default: the input's) --avif-chroma=444|420] [--webp-quality=75 (libwebp 1-100) --webp-method=4 (libwebp 0-6)|--webp-lossless --webp-level=4 (libwebp 0-9)] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--encoder-threads=1] [--transform-threads=0] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --webp-quality or --webp-method. Defaults are the original tools' (avifenc, cwebp, cjxl)."
         );
         return Ok(ExitCode::from(2));
     }
@@ -715,7 +716,7 @@ mod tests {
                 quality: 70,
                 alpha_quality: 90,
                 speed: 8,
-                depth: 10,
+                depth: Some(10),
                 chroma: ChromaSubsampling::Yuv420,
             }
         );

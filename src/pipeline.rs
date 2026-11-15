@@ -152,9 +152,8 @@ impl Default for WebpOptions {
 
 /// Settings for the built-in AVIF writer, libavif with its AOM encoder
 /// (ADR-0037), on libavif's own scales (ADR-0043 D4). The defaults are those
-/// of the original tool, `avifenc` of the pinned libavif 1.4.2, for the
-/// 8-bit RGB rows the writer receives (ADR-0037, 2026-11-15). Must stay at
-/// the default for other outputs. External AVIF backends receive it in
+/// of the original tool, `avifenc` of the pinned libavif 1.4.2 (ADR-0037,
+/// 2026-11-15). Must stay at the default for other outputs. External AVIF backends receive it in
 /// [`EncodeRequest::avif`] and validate it on their own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AvifOptions {
@@ -170,13 +169,17 @@ pub struct AvifOptions {
     /// AOM speed (`cpu-used`), 0 (slowest) through 10 (fastest); default 6
     /// (`avifenc`).
     pub speed: u8,
-    /// AV1 bit depth, 8 or 10; default 8. `avifenc` writes the depth of its
-    /// input (8 from its JPEG reader); this writer always receives 8-bit
-    /// rows, and the fixed default 8 is a working decision of 2026-11-15
-    /// awaiting the owner's confirmation (until then the default was 10,
-    /// as `TransformOptions::avif_depth`). A deeper input is reported as
-    /// [`Discarded::PrecisionReduced`] at either depth.
-    pub depth: u8,
+    /// AV1 bit depth: `None` (the default) follows the input, as `avifenc`
+    /// does: the largest of 8, 10 and 12 that is at most the input's depth
+    /// (a 16-bit input becomes 12, AVIF's largest, as `avifenc` writes a
+    /// 16-bit PNG). `Some(8 | 10 | 12)` is explicit; another value is
+    /// refused. The samples are quantized at that depth by the engine (owner
+    /// decision of 2026-11-15, ADR-0021 amendment): a deeper input keeps
+    /// its precision, and a higher explicit depth carries correctly scaled
+    /// content. [`Discarded::PrecisionReduced`] is reported exactly when the
+    /// output depth is below the input's. Until 2026-11-15 this was a `u8`,
+    /// 8 or 10 (default 8), and every AVIF carried 8-bit content.
+    pub depth: Option<u8>,
     /// Chroma layout; default 4:4:4 (`avifenc` for RGB input).
     pub chroma: ChromaSubsampling,
 }
@@ -187,7 +190,7 @@ impl Default for AvifOptions {
             quality: 60,
             alpha_quality: 60,
             speed: 6,
-            depth: 8,
+            depth: None,
             chroma: ChromaSubsampling::Yuv444,
         }
     }
@@ -1382,7 +1385,17 @@ fn run(
         Some(backend) => backend.row_depths(),
         None => &[crate::output_depth::EIGHT],
     };
-    let output_depth = crate::output_depth::resolve(None, input_depth, admitted)?;
+    let requested = match options.output_format {
+        OutputFormat::Avif => options.avif.depth,
+        OutputFormat::WebP | OutputFormat::JpegXl => None,
+    };
+    let output_depth =
+        crate::output_depth::resolve(requested, input_depth, admitted).map_err(|_| {
+            ProcessingError::new(
+                ProcessingErrorKind::InvalidOptions,
+                "the requested output depth is not one this encoder writes",
+            )
+        })?;
     discarded.insert_if(output_depth < input_depth, Discarded::PrecisionReduced);
     let mut output_sink = match backend {
         None => match options.output_format {

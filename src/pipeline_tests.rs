@@ -457,7 +457,7 @@ fn a_backend_receives_the_request_and_every_output_row() {
             quality: 42,
             alpha_quality: 17,
             speed: 0,
-            depth: 10,
+            depth: Some(8),
             chroma: ChromaSubsampling::Yuv420,
         },
         encoder_threads: 3,
@@ -689,6 +689,143 @@ mod deep_rows {
             .iter()
             .any(|class| class == Discarded::PrecisionReduced);
         (request, rows, reduced)
+    }
+
+    /// A smooth gray ramp at `depth` with every code along x, as
+    /// libavif-ready `u16` rows (gray, so that 4:2:0 loses no chroma and the
+    /// round trip measures depth, not subsampling).
+    fn ramp(width: u32, height: u32, depth: u8) -> Vec<Vec<u16>> {
+        let max = (1_u32 << depth) - 1;
+        (0..height)
+            .map(|_| {
+                (0..width)
+                    .flat_map(|x| {
+                        let v = x * max / (width - 1);
+                        [v, v, v, max].map(|v| u16::try_from(v).unwrap())
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn encode(
+        rows: &[Vec<u16>],
+        width: u32,
+        depth: u8,
+        chroma: ferrisma_avif_write::Chroma,
+    ) -> Vec<u8> {
+        let mut frame = ferrisma_avif_write::Frame::new(ferrisma_avif_write::Config {
+            width,
+            height: u32::try_from(rows.len()).unwrap(),
+            has_alpha: false,
+            quality: 100,
+            alpha_quality: 100,
+            speed: 6,
+            threads: 1,
+            chroma,
+            depth,
+            sample_depth: depth,
+        })
+        .unwrap();
+        for (y, row) in rows.iter().enumerate() {
+            frame.write_row_u16(u32::try_from(y).unwrap(), row).unwrap();
+        }
+        frame.finish().unwrap()
+    }
+
+    /// The decoded samples of an AVIF at its own depth, through the engine's
+    /// reader, at identity geometry.
+    fn decode(bytes: &[u8], width: u32, height: u32) -> (EncodeRequest, Vec<u16>, bool) {
+        let backend = Deep {
+            depths: &[8, 10, 12, 16],
+            ..Deep::default()
+        };
+        let options = TransformOptions {
+            output_width: width,
+            output_height: height,
+            profile_policy: InputProfilePolicy::Strict,
+            ..TransformOptions::default()
+        };
+        let output = transcode_with(bytes, ImageFormat::Avif, options, &backend).unwrap();
+        let request = backend.requests.lock().unwrap()[0];
+        let rows = backend.rows.lock().unwrap().clone();
+        let reduced = output
+            .report
+            .discarded
+            .iter()
+            .any(|class| class == Discarded::PrecisionReduced);
+        (request, rows, reduced)
+    }
+
+    /// A 10-bit AVIF in, a 10-bit AVIF out (no resize, same color signal):
+    /// nothing is reported, and the decoded output differs from the source
+    /// ramp only by the codec (libavif's YUV round trip at quality 100), not
+    /// by an 8-bit bottleneck, which would keep at most 256 levels per
+    /// channel and an error of up to two 10-bit codes everywhere. The same
+    /// at 12 bits, in 4:4:4 and 4:2:0.
+    #[test]
+    fn a_deep_avif_keeps_its_depth_through_avif_output() {
+        use crate::pipeline::{AvifOptions, transcode};
+        let (width, height) = (1024_u32, 16_u32);
+        for depth in [10_u8, 12] {
+            for chroma in [
+                ferrisma_avif_write::Chroma::Yuv444,
+                ferrisma_avif_write::Chroma::Yuv420,
+            ] {
+                let source = ramp(width, height, depth);
+                let input = encode(&source, width, depth, chroma);
+                let transcoded = transcode(
+                    &input,
+                    ImageFormat::Avif,
+                    TransformOptions {
+                        output_width: width,
+                        output_height: height,
+                        profile_policy: InputProfilePolicy::Strict,
+                        avif: AvifOptions {
+                            quality: 100,
+                            ..AvifOptions::default()
+                        },
+                        ..TransformOptions::default()
+                    },
+                )
+                .unwrap();
+                assert!(
+                    !transcoded
+                        .report
+                        .discarded
+                        .iter()
+                        .any(|class| class == Discarded::PrecisionReduced),
+                    "{depth}-bit {chroma:?}"
+                );
+                let (request, decoded, reduced) = decode(&transcoded.bytes, width, height);
+                assert_eq!(request.depth, depth, "the output is {depth}-bit");
+                assert!(!reduced);
+                let expected: Vec<u16> = source.concat();
+                let mut error_sum = 0_u64;
+                let mut worst = 0;
+                for (&a, &b) in decoded.iter().zip(&expected) {
+                    let error = a.abs_diff(b);
+                    worst = worst.max(error);
+                    error_sum += u64::from(error);
+                }
+                #[allow(clippy::cast_precision_loss)]
+                let mean = error_sum as f64 / expected.len() as f64;
+                let mut red: Vec<u16> = decoded.chunks(4).map(|p| p[0]).collect();
+                red.sort_unstable();
+                red.dedup();
+                eprintln!(
+                    "{depth}-bit {chroma:?}: {} red levels, max error {worst}, mean {mean:.4}",
+                    red.len()
+                );
+                // An 8-bit bottleneck keeps at most 256 levels.
+                assert!(
+                    red.len() > 900,
+                    "{depth}-bit {chroma:?}: {} levels",
+                    red.len()
+                );
+                assert!(mean < 1.0, "{depth}-bit {chroma:?}: mean error {mean}");
+            }
+        }
     }
 
     #[test]

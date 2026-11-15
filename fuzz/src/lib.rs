@@ -243,7 +243,7 @@ fn run_case_with_depth(bytes: &[u8], depth: u8) -> Option<Result<Output, Process
                 quality: 60,
                 alpha_quality: 60,
                 speed: 10,
-                depth,
+                depth: Some(depth),
                 ..AvifOptions::default()
             }
         } else {

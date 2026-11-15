@@ -440,6 +440,9 @@ impl EncoderBackend for AvifRecorder {
     fn name(&self) -> &'static str {
         "avif-recorder"
     }
+    fn row_depths(&self) -> &'static [u8] {
+        &[8, 10]
+    }
     fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
         self.0.lock().unwrap().push(*request);
         Ok(Box::new(Rows(Vec::new())))
@@ -449,6 +452,11 @@ impl EncoderBackend for AvifRecorder {
 impl RowEncoder for Rows {
     fn write_row(&mut self, _: u32, rgba: &[u8]) -> Result<(), EncodeError> {
         self.0.extend_from_slice(rgba);
+        Ok(())
+    }
+    fn write_row_u16(&mut self, _: u32, rgba: &[u16]) -> Result<(), EncodeError> {
+        self.0
+            .extend(rgba.iter().flat_map(|sample| sample.to_le_bytes()));
         Ok(())
     }
     fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
@@ -462,7 +470,10 @@ impl RowEncoder for Rows {
 /// (audit row Q2; this test was
 /// `external_backends_refuse_settings_the_request_does_not_carry`); since
 /// the owner decision of that day it is `EncodeRequest::avif.depth`, beside
-/// the quality, alpha quality, speed and chroma layout.
+/// the quality, alpha quality, speed and chroma layout. Since the depth
+/// decision of the same day (ADR-0021 amendment) the resolved depth is
+/// `EncodeRequest::depth` and the rows arrive at it: an explicit 10 from an
+/// 8-bit JPEG gives this backend, which admits 8 and 10, 10-bit rows.
 #[test]
 fn external_backends_receive_every_encoder_setting() {
     let jpeg = read("tests/fixtures/sample.jpg");
@@ -470,7 +481,7 @@ fn external_backends_receive_every_encoder_setting() {
         quality: 42,
         alpha_quality: 17,
         speed: 3,
-        depth: 10,
+        depth: Some(10),
         chroma: ChromaSubsampling::Yuv420,
     };
     let backend = AvifRecorder(std::sync::Mutex::default());
@@ -487,6 +498,15 @@ fn external_backends_receive_every_encoder_setting() {
     assert_eq!(output.report.encoder_backend, "avif-recorder");
     let request = backend.0.lock().unwrap()[0];
     assert_eq!(request.avif, avif);
+    assert_eq!(request.depth, 10);
+    assert_eq!(output.bytes.len(), 2 * 4 * 6 * 4);
+    assert!(
+        output
+            .bytes
+            .chunks(8)
+            .all(|pixel| u16::from_le_bytes([pixel[6], pixel[7]]) == 1023),
+        "opaque at 10 bits"
+    );
     assert_eq!(request.webp, WebpOptions::default());
     assert_eq!(request.jpeg_xl, JpegXlOptions::default());
     assert_eq!(request.threads, 1);

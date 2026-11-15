@@ -1077,7 +1077,7 @@ fn libavif_is_the_default_avif_encoder_at_avifenc_defaults_with_nclx() {
         quality: 60,
         alpha_quality: 60,
         speed: 6,
-        depth: 8,
+        depth: None,
         chroma: ChromaSubsampling::Yuv444,
     };
     assert_eq!(AvifOptions::default(), avifenc);
@@ -1091,7 +1091,7 @@ fn libavif_writes_ten_bit_and_420_on_request() {
         ImageFormat::Jpeg,
         TransformOptions {
             avif: AvifOptions {
-                depth: 10,
+                depth: Some(10),
                 chroma: ChromaSubsampling::Yuv420,
                 ..AvifOptions::default()
             },
@@ -1137,28 +1137,34 @@ fn libavif_quality_alpha_quality_speed_and_depth_ranges() {
             },
         )
     };
-    run(10, 0, 0, 10).unwrap();
-    run(8, 100, 100, 0).unwrap();
+    run(Some(10), 0, 0, 10).unwrap();
+    run(Some(12), 0, 0, 10).unwrap();
+    run(Some(8), 100, 100, 0).unwrap();
     rejected(
-        run(8, 101, 60, 6),
+        run(Some(8), 101, 60, 6),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif quality must be between 0 and 100",
     );
     rejected(
-        run(8, 60, 101, 6),
+        run(Some(8), 60, 101, 6),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif alpha quality must be between 0 and 100",
     );
     rejected(
-        run(8, 60, 60, 11),
+        run(Some(8), 60, 60, 11),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif speed must be between 0 and 10",
     );
-    rejected(
-        run(12, 60, 60, 6),
-        ProcessingErrorKind::InvalidOptions,
-        "encoder backend: libavif-rs backend depth must be 8 or 10",
-    );
+    // 12 bits is admitted since 2026-11-15 (the depth decision); a depth
+    // AVIF does not have is refused by the engine before decoding (until
+    // then the writer refused 12 with "depth must be 8 or 10").
+    for depth in [0, 9, 11, 16] {
+        rejected(
+            run(Some(depth), 60, 60, 6),
+            ProcessingErrorKind::InvalidOptions,
+            "the requested output depth is not one this encoder writes",
+        );
+    }
 }
 
 /// The alpha quality is its own setting (owner decision of 2026-11-15):
@@ -1248,7 +1254,7 @@ fn avif_output_drops_source_metadata_and_writes_upright_pixels() {
 fn avif_settings_conflict_with_other_outputs() {
     for avif in [
         AvifOptions {
-            depth: 10,
+            depth: Some(10),
             ..AvifOptions::default()
         },
         AvifOptions {
