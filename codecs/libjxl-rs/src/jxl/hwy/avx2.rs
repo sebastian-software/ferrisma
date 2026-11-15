@@ -537,6 +537,12 @@ impl SimdF32 for Avx2 {
         avx!(_mm256_shuffle_epi8(bytes, from))
     }
     // end stages2
+    // codegen
+    #[inline(always)]
+    fn run_in_target<K: Kernel>(self, kernel: K) -> K::Output {
+        run(self, kernel)
+    }
+    // end codegen
 }
 
 #[inline(always)]

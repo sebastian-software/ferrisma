@@ -19,12 +19,21 @@
 //! The transposes move words only; their result does not depend on the
 //! original's 4x4 (NEON) or 8x8 (AVX2) vector blocking.
 use super::dct_scales::{SQRT2, wc_multipliers};
+#[cfg(target_arch = "x86_64")]
+use super::hwy::Kernel;
 use super::hwy::SimdF32;
 
 /// `HWY_CAPPED(float, SZ)` for the operations of dct-inl.h.
 pub(crate) trait Capped: Copy {
     type V: Copy;
+    /// The target whose attribute context the transform runs in.
+    type D: SimdF32;
     const SZ: usize;
+    #[cfg_attr(
+        not(target_arch = "x86_64"),
+        expect(dead_code, reason = "Only x86-64 enters the attribute context.")
+    )]
+    fn simd(self) -> Self::D;
     fn load(self, src: &[f32]) -> Self::V;
     fn store(self, v: Self::V, dst: &mut [f32]);
     fn set(self, v: f32) -> Self::V;
@@ -42,7 +51,12 @@ pub(crate) trait Capped: Copy {
 pub(crate) struct Full<D>(pub D);
 impl<D: SimdF32> Capped for Full<D> {
     type V = D::V;
+    type D = D;
     const SZ: usize = D::LANES;
+    #[inline(always)]
+    fn simd(self) -> D {
+        self.0
+    }
     #[inline(always)]
     fn load(self, src: &[f32]) -> Self::V {
         self.0.load(src)
@@ -77,13 +91,19 @@ impl<D: SimdF32> Capped for Full<D> {
     }
 }
 
-/// A partial vector of `N` lanes (fewer than the target's), computed lane by
-/// lane with the binary32 operation the original's partial vector performs.
+/// A partial vector of `N` lanes (fewer than the target's) of target `D`,
+/// computed lane by lane with the binary32 operation the original's partial
+/// vector performs.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Part<const N: usize>;
-impl<const N: usize> Capped for Part<N> {
+pub(crate) struct Part<D, const N: usize>(pub D);
+impl<D: SimdF32, const N: usize> Capped for Part<D, N> {
     type V = [f32; N];
+    type D = D;
     const SZ: usize = N;
+    #[inline(always)]
+    fn simd(self) -> D {
+        self.0
+    }
     #[inline(always)]
     fn load(self, src: &[f32]) -> Self::V {
         src[..N].try_into().unwrap()
@@ -207,13 +227,45 @@ fn multiply_and_add<C: Capped>(c: C, n: usize, coeff: &[f32], out: &mut [f32], o
     }
 }
 
+/// One level's trait method with its body. `always` inlines it into the
+/// caller. `root` leaves inlining to the compiler (`#[inline]`); on x86-64,
+/// where AVX2 is not part of the baseline, the body then runs in the
+/// target's attribute context ([`SimdF32::run_in_target`]), so a level the
+/// compiler keeps out of line is still compiled for the target and its
+/// operations inline (port ADR 0004, "One attribute context per kernel on
+/// x86-64"). On AArch64 the method is the body itself, as before.
+macro_rules! level_method {
+    (always, fn $method:ident($c:ident, $a:ident, $b:ident) $body:block) => {
+        #[inline(always)]
+        fn $method<C: Capped>($c: C, $a: &mut [f32], $b: &mut [f32]) $body
+    };
+    (root, fn $method:ident($c:ident, $a:ident, $b:ident) $body:block) => {
+        #[cfg(not(target_arch = "x86_64"))]
+        #[inline]
+        fn $method<C: Capped>($c: C, $a: &mut [f32], $b: &mut [f32]) $body
+        #[cfg(target_arch = "x86_64")]
+        #[inline]
+        fn $method<C: Capped>($c: C, $a: &mut [f32], $b: &mut [f32]) {
+            struct Root<'a, C>(C, &'a mut [f32], &'a mut [f32]);
+            impl<C: Capped> Kernel for Root<'_, C> {
+                type Output = ();
+                #[inline(always)]
+                fn run<D: SimdF32>(self, _d: D) {
+                    let Root($c, $a, $b) = self;
+                    $body
+                }
+            }
+            $c.simd().run_in_target(Root($c, $a, $b))
+        }
+    };
+}
+
 macro_rules! recursive_size {
-    ($name:ident, $n:literal, $half:ident, $inline:meta) => {
+    ($name:ident, $n:literal, $half:ident, $mode:ident) => {
         pub(crate) struct $name;
         impl Size for $name {
             const N: usize = $n;
-            #[$inline]
-            fn dct<C: Capped>(c: C, mem: &mut [f32], tmp: &mut [f32]) {
+            level_method!($mode, fn dct(c, mem, tmp) {
                 const N: usize = $n;
                 const H: usize = N / 2;
                 let sz = C::SZ;
@@ -261,19 +313,17 @@ macro_rules! recursive_size {
                 for i in H..N {
                     st(c, ld(c, tmp, i), mem, 2 * (i - H) + 1);
                 }
-            }
-            #[$inline]
-            fn idct_in_place<C: Capped>(c: C, mem: &mut [f32], tmp: &mut [f32]) {
+            });
+            level_method!($mode, fn idct_in_place(c, mem, tmp) {
                 const N: usize = $n;
                 let sz = C::SZ;
                 let mem = &mut mem[..N * sz];
                 let (tmp, rest) = tmp.split_at_mut(N * sz);
                 forward_even_odd(c, N, mem, sz, tmp);
-                Self::idct_finish(c, tmp, rest);
+                <$name as Size>::idct_finish(c, tmp, rest);
                 multiply_and_add(c, N, tmp, mem, sz);
-            }
-            #[$inline]
-            fn idct_finish<C: Capped>(c: C, tmp: &mut [f32], scratch: &mut [f32]) {
+            });
+            level_method!($mode, fn idct_finish(c, tmp, scratch) {
                 const N: usize = $n;
                 const H: usize = N / 2;
                 let sz = C::SZ;
@@ -292,20 +342,21 @@ macro_rules! recursive_size {
                     st(c, c.mul(in1, sqrt2), coeff, 0);
                 }
                 $half::idct_in_place(c, &mut tmp[H * sz..], scratch);
-            }
+            });
         }
     };
 }
 // Levels up to 32 points inline into their callers, as the original's
 // templates do and as the scalar translation (dct.rs) does; larger levels are
-// left to the compiler (code size).
-recursive_size!(Size4, 4, Size2, inline(always));
-recursive_size!(Size8, 8, Size4, inline(always));
-recursive_size!(Size16, 16, Size8, inline(always));
-recursive_size!(Size32, 32, Size16, inline(always));
-recursive_size!(Size64, 64, Size32, inline);
-recursive_size!(Size128, 128, Size64, inline);
-recursive_size!(Size256, 256, Size128, inline);
+// left to the compiler (code size); on x86-64 each of those runs in the
+// target's attribute context (`level_method!`).
+recursive_size!(Size4, 4, Size2, always);
+recursive_size!(Size8, 8, Size4, always);
+recursive_size!(Size16, 16, Size8, always);
+recursive_size!(Size32, 32, Size16, always);
+recursive_size!(Size64, 64, Size32, root);
+recursive_size!(Size128, 128, Size64, root);
+recursive_size!(Size256, 256, Size128, root);
 
 /// IDCT1DImpl<N, SZ>(from, from_stride, to, to_stride, tmp) with disjoint
 /// `from` and `to`.
@@ -384,9 +435,9 @@ fn idct1d<D: SimdF32, S: Size>(
         return;
     }
     match m {
-        1 => idct1d_impl::<_, S>(Part::<1>, from, from_stride, to, to_stride, tmp),
-        2 => idct1d_impl::<_, S>(Part::<2>, from, from_stride, to, to_stride, tmp),
-        4 => idct1d_impl::<_, S>(Part::<4>, from, from_stride, to, to_stride, tmp),
+        1 => idct1d_impl::<_, S>(Part::<_, 1>(d), from, from_stride, to, to_stride, tmp),
+        2 => idct1d_impl::<_, S>(Part::<_, 2>(d), from, from_stride, to, to_stride, tmp),
+        4 => idct1d_impl::<_, S>(Part::<_, 4>(d), from, from_stride, to, to_stride, tmp),
         _ => unreachable!("block widths are powers of two"),
     }
 }
@@ -416,9 +467,9 @@ fn dct1d<D: SimdF32, S: Size>(
         return;
     }
     match m {
-        1 => dct1d_group::<_, S>(Part::<1>, from, from_stride, to, to_stride, tmp),
-        2 => dct1d_group::<_, S>(Part::<2>, from, from_stride, to, to_stride, tmp),
-        4 => dct1d_group::<_, S>(Part::<4>, from, from_stride, to, to_stride, tmp),
+        1 => dct1d_group::<_, S>(Part::<_, 1>(d), from, from_stride, to, to_stride, tmp),
+        2 => dct1d_group::<_, S>(Part::<_, 2>(d), from, from_stride, to, to_stride, tmp),
+        4 => dct1d_group::<_, S>(Part::<_, 4>(d), from, from_stride, to, to_stride, tmp),
         _ => unreachable!("block widths are powers of two"),
     }
 }
@@ -442,9 +493,45 @@ fn transpose(
 }
 
 /// ComputeScaledIDCT<ROWS, COLS>: `from` (ROWS * COLS coefficients) is
-/// mutated as in the original; `scratch` holds the block and `tmp`.
+/// mutated as in the original; `scratch` holds the block and `tmp`. On
+/// x86-64 the shape's body runs in the target's attribute context, as the
+/// rooted transform levels do; elsewhere this is the body itself.
+#[cfg(target_arch = "x86_64")]
 #[inline]
 fn scaled_idct<D: SimdF32, R: Size, C: Size>(
+    d: D,
+    from: &mut [f32],
+    to: &mut [f32],
+    to_stride: usize,
+    scratch: &mut [f32],
+) {
+    struct Root<'a, R, C> {
+        from: &'a mut [f32],
+        to: &'a mut [f32],
+        to_stride: usize,
+        scratch: &'a mut [f32],
+        shape: core::marker::PhantomData<(R, C)>,
+    }
+    impl<R: Size, C: Size> Kernel for Root<'_, R, C> {
+        type Output = ();
+        #[inline(always)]
+        fn run<D: SimdF32>(self, d: D) {
+            scaled_idct_body::<D, R, C>(d, self.from, self.to, self.to_stride, self.scratch)
+        }
+    }
+    d.run_in_target(Root::<R, C> {
+        from,
+        to,
+        to_stride,
+        scratch,
+        shape: core::marker::PhantomData,
+    })
+}
+#[cfg(not(target_arch = "x86_64"))]
+use self::scaled_idct_body as scaled_idct;
+#[cfg_attr(target_arch = "x86_64", inline(always))]
+#[cfg_attr(not(target_arch = "x86_64"), inline)]
+fn scaled_idct_body<D: SimdF32, R: Size, C: Size>(
     d: D,
     from: &mut [f32],
     to: &mut [f32],
@@ -466,9 +553,44 @@ fn scaled_idct<D: SimdF32, R: Size, C: Size>(
 }
 
 /// ComputeScaledDCT<ROWS, COLS>: the maybe-transposed scaled DCT of the
-/// ROWS x COLS samples at `from` into `to`.
+/// ROWS x COLS samples at `from` into `to`, in the target's attribute
+/// context on x86-64 as `scaled_idct`.
+#[cfg(target_arch = "x86_64")]
 #[inline]
 fn scaled_dct<D: SimdF32, R: Size, C: Size>(
+    d: D,
+    from: &[f32],
+    from_stride: usize,
+    to: &mut [f32],
+    scratch: &mut [f32],
+) {
+    struct Root<'a, R, C> {
+        from: &'a [f32],
+        from_stride: usize,
+        to: &'a mut [f32],
+        scratch: &'a mut [f32],
+        shape: core::marker::PhantomData<(R, C)>,
+    }
+    impl<R: Size, C: Size> Kernel for Root<'_, R, C> {
+        type Output = ();
+        #[inline(always)]
+        fn run<D: SimdF32>(self, d: D) {
+            scaled_dct_body::<D, R, C>(d, self.from, self.from_stride, self.to, self.scratch)
+        }
+    }
+    d.run_in_target(Root::<R, C> {
+        from,
+        from_stride,
+        to,
+        scratch,
+        shape: core::marker::PhantomData,
+    })
+}
+#[cfg(not(target_arch = "x86_64"))]
+use self::scaled_dct_body as scaled_dct;
+#[cfg_attr(target_arch = "x86_64", inline(always))]
+#[cfg_attr(not(target_arch = "x86_64"), inline)]
+fn scaled_dct_body<D: SimdF32, R: Size, C: Size>(
     d: D,
     from: &[f32],
     from_stride: usize,

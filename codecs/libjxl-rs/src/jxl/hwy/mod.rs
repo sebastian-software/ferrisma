@@ -205,6 +205,20 @@ pub trait SimdF32: Copy + core::fmt::Debug + Send + Sync + 'static {
     /// 16 or more; `vpshufb`: 0 when bit 7 is set, else the low four bits).
     fn table_lookup_bytes(self, bytes: Self::I, from: Self::I) -> Self::I;
     // end stages2
+    // codegen: the target's attribute context (port ADR 0004, "One attribute
+    // context per kernel on x86-64").
+    /// Runs `kernel` inside a function compiled for this target, as every
+    /// function of an original `HWY_NAMESPACE` is compiled under `HWY_ATTR`.
+    /// A generic helper of a kernel that the compiler does not inline is a
+    /// function of its own and does not inherit the caller's target features;
+    /// such a helper enters the target again through this method, so its
+    /// operations inline. On NEON the features are part of the baseline and
+    /// this is the call itself; AVX2 enters `#[target_feature]` code.
+    #[inline(always)]
+    fn run_in_target<K: Kernel>(self, kernel: K) -> K::Output {
+        kernel.run(self)
+    }
+    // end codegen
 }
 
 /// The SIMD target a kernel runs on, capped at NEON/AVX2 (decision D6).

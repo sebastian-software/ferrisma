@@ -99,9 +99,19 @@ impl Kernel for SmoothRow<'_> {
         let n = D::LANES;
         let xsize = self.xsize;
         // One-lane pixels: lane 0 of a vector over a copy of the neighbors.
-        let one = |x: usize, out: &mut [Vec<f32>]| {
-            let local: Vec<[Vec<f32>; 3]> = self
-                .rows
+        // A nested function rather than a closure, so that it inlines into
+        // the kernel and runs in the target's attribute context (port ADR
+        // 0004, "One attribute context per kernel on x86-64").
+        #[inline(always)]
+        fn one<D: SimdF32>(
+            d: D,
+            dc_factors: &[f32],
+            rows: &[[&[f32]; 3]],
+            x: usize,
+            out: &mut [Vec<f32>],
+        ) {
+            let n = D::LANES;
+            let local: Vec<[Vec<f32>; 3]> = rows
                 .iter()
                 .map(|r| {
                     r.map(|row| {
@@ -115,15 +125,15 @@ impl Kernel for SmoothRow<'_> {
                 .iter()
                 .map(|r| [&r[0][..], &r[1][..], &r[2][..]])
                 .collect();
-            let mut lane: Vec<Vec<f32>> = vec![vec![0.0; n]; self.rows.len()];
-            pixel(d, self.dc_factors, &local_rows, &mut lane, 1, 0);
+            let mut lane: Vec<Vec<f32>> = vec![vec![0.0; n]; rows.len()];
+            pixel(d, dc_factors, &local_rows, &mut lane, 1, 0);
             for (o, l) in out.iter_mut().zip(&lane) {
                 o[x] = l[0];
             }
-        };
+        }
         let mut x = 1;
         while x < n.min(xsize - 1) {
-            one(x, self.out);
+            one(d, self.dc_factors, self.rows, x, self.out);
             x += 1;
         }
         while x + n <= xsize - 1 {
@@ -131,7 +141,7 @@ impl Kernel for SmoothRow<'_> {
             x += n;
         }
         while x < xsize - 1 {
-            one(x, self.out);
+            one(d, self.dc_factors, self.rows, x, self.out);
             x += 1;
         }
     }
