@@ -73,9 +73,11 @@ fn case(reason: RefusalReason) -> (usize, Vec<u8>, ImageFormat, InputProfilePoli
             ImageFormat::Jpeg,
             Strict,
         ),
+        // A real embedded profile. (Until 2026-11-15 `sample.jxl`, whose
+        // enum sRGB the strict policy now reads; owner decision, #222.)
         RefusalReason::RenderedIccRequiresOptIn => (
             2,
-            "tests/fixtures/sample.jxl".to_owned(),
+            "tests/fixtures/parity/rgb-p3-icc.jxl".to_owned(),
             ImageFormat::JpegXl,
             Strict,
         ),
@@ -99,10 +101,12 @@ fn case(reason: RefusalReason) -> (usize, Vec<u8>, ImageFormat, InputProfilePoli
             ImageFormat::Avif,
             Strict,
         ),
+        // Untagged. (Until 2026-11-15 signalled sRGB AVIF, which the
+        // rendered-ICC policy now converts as a typed signal.)
         RefusalReason::RenderedIccMissing => (
             6,
-            format!("{LIBAVIF}colors_sdr_srgb.avif"),
-            ImageFormat::Avif,
+            "tests/fixtures/sample.jpg".to_owned(),
+            ImageFormat::Jpeg,
             UseRenderedIcc,
         ),
         RefusalReason::ContradictoryColorSignals => {

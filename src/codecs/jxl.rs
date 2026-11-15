@@ -12,7 +12,10 @@ use crate::discarded::{Discarded, DiscardedSet};
 use crate::error::Error;
 use crate::geometry::{Rect, Size};
 use crate::memory::MemoryBudget;
-use ferrisma_jxl_decoder::{ImageInfo, Region, Transfer, decode_into, decode_region_into, inspect};
+use ferrisma_jxl_decoder::{
+    ColorSpace, EncodedColor, ImageInfo, Primaries, Region, Transfer, TransferFunction, WhitePoint,
+    decode_into, decode_region_into, inspect,
+};
 
 pub(crate) struct JxlSource<'a> {
     bytes: &'a [u8],
@@ -67,19 +70,30 @@ impl<'a> JxlSource<'a> {
             ),
             _ => return Err(Error::UnsupportedLayout),
         };
+        // A structurally signalled (enum) encoding with an H.273 code point
+        // is reported as that typed signal, like AVIF `nclx`, and the
+        // profile libjxl synthesizes from it is not reported beside it: it
+        // is derived from the same enum and adds no evidence (owner
+        // decision 2026-11-15, #222, ADR-0015 option 2). A file whose
+        // codestream carries a real ICC profile keeps the rendered ICC,
+        // whatever its DATA encoding, and so still needs `UseRenderedIcc`.
+        let typed = if image.original_icc {
+            None
+        } else {
+            image.data_encoding.and_then(h273)
+        };
         let info = DecoderInfo {
             size,
             layout,
             sample: SampleType::F32,
             access: DecodeAccess::FullFrameFallback,
             alpha,
-            rendered_icc: Some(image.rendered_icc.clone()),
-            rendered_cicp: None,
+            rendered_icc: typed.is_none().then(|| image.rendered_icc.clone()),
+            rendered_cicp: typed,
         };
-        // ADR-0042 D2. An ICC-signalled DATA encoding has no enum
-        // transfer: the profile is embedded, not synthesized.
+        // ADR-0042 D2: an embedded profile, not a synthesized one.
         let mut discarded = super::jxl_container::container_discards(bytes);
-        discarded.insert_if(image.data_transfer.is_none(), Discarded::IccProfile);
+        discarded.insert_if(image.original_icc, Discarded::IccProfile);
         discarded.insert_if(image.have_preview, Discarded::Preview);
         discarded.insert_if(
             image.bits_per_sample > 8 || image.alpha_bits > 8,
@@ -93,6 +107,37 @@ impl<'a> JxlSource<'a> {
             discarded,
         })
     }
+}
+
+/// The H.273 code point (primaries, transfer, identity matrix, full range)
+/// of an enum DATA encoding, or `None` when it has none (custom primaries or
+/// white point, a gamma exponent, an unknown transfer). Only the code point
+/// is named here; whether the engine converts it is the color policy's
+/// decision, exactly as for AVIF `nclx`. JPEG XL's primaries and transfer
+/// enums use the H.273 values; its P3 primaries are DCI-P3 (11) with the
+/// DCI white point and Display P3 (12) with D65.
+fn h273(encoding: EncodedColor) -> Option<[u8; 4]> {
+    let primaries = match (
+        encoding.color_space,
+        encoding.white_point,
+        encoding.primaries,
+    ) {
+        (ColorSpace::Rgb, WhitePoint::D65, Primaries::Srgb) => 1,
+        (ColorSpace::Rgb, WhitePoint::D65, Primaries::Bt2100) => 9,
+        (ColorSpace::Rgb, WhitePoint::D65, Primaries::P3) => 12,
+        (ColorSpace::Rgb, WhitePoint::Dci, Primaries::P3) => 11,
+        _ => return None,
+    };
+    let transfer = match encoding.transfer {
+        TransferFunction::Bt709 => 1,
+        TransferFunction::Linear => 8,
+        TransferFunction::Srgb => 13,
+        TransferFunction::Pq => 16,
+        TransferFunction::Dci => 17,
+        TransferFunction::Hlg => 18,
+        TransferFunction::Gamma | TransferFunction::Unknown => return None,
+    };
+    Some([primaries, transfer, 0, 1])
 }
 
 fn map_error(error: ferrisma_jxl_decoder::Error) -> Error {

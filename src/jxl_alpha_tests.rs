@@ -208,25 +208,29 @@ fn rendered_icc_reads_engine_written_straight_alpha() {
     }
 }
 
-/// The strict policy is unchanged: the engine's own JPEG XL output, opaque
-/// or transparent, is refused without `UseRenderedIcc`, because the reader
-/// describes XYB output with a rendered ICC profile (ADR-0015).
+/// The strict policy reads the engine's own JPEG XL output, opaque or
+/// transparent: the reader reports its enum sRGB as a typed signal (owner
+/// decision 2026-11-15, #222; until then this test,
+/// `strict_policy_still_refuses_engine_written_jpeg_xl`, pinned the
+/// refusal). `UseRenderedIcc` takes the same typed route, so both policies
+/// give the same rows, bit for bit.
 #[test]
-fn strict_policy_still_refuses_engine_written_jpeg_xl() {
+fn strict_policy_reads_engine_written_jpeg_xl() {
     let (width, height) = (32, 24);
     let transparent = encode_lossy(width, height, &translucent(width, height));
     let opaque = encode_lossy(width, height, &[90, 140, 200, 255].repeat(width * height));
     for (name, bytes) in [("transparent", &transparent), ("opaque", &opaque)] {
+        let size = (width as u32, height as u32);
+        let strict = read_back(bytes, InputProfilePolicy::Strict, size, 1)
+            .unwrap_or_else(|kind| panic!("{name}: {kind:?}"));
+        #[cfg(feature = "icc")]
         assert_eq!(
-            read_back(
-                bytes,
-                InputProfilePolicy::Strict,
-                (width as u32, height as u32),
-                1
-            ),
-            Err(ProcessingErrorKind::UnsupportedColor),
+            read_back(bytes, InputProfilePolicy::UseRenderedIcc, size, 1),
+            Ok(strict),
             "{name}"
         );
+        #[cfg(not(feature = "icc"))]
+        let _ = strict;
     }
 }
 

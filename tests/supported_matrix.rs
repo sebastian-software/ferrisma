@@ -412,13 +412,25 @@ fn jxl_options(policy: InputProfilePolicy) -> TransformOptions {
     options(OutputFormat::WebP, policy)
 }
 
+/// Intended change by owner decision of 2026-11-15 (#222): the enum sRGB
+/// of `sample.jxl` is a typed signal that every policy reads; only a real
+/// embedded profile needs the rendered-ICC policy. (Until then this case
+/// was `jpeg_xl_rgb_needs_the_rendered_icc_policy` and refused
+/// `sample.jxl` under `Strict` and `AssumeSrgbIfMissing`.)
 #[test]
-fn jpeg_xl_rgb_needs_the_rendered_icc_policy() {
-    let output = transcode(SAMPLE_JXL, ImageFormat::JpegXl, jxl_options(RENDERED)).unwrap();
-    assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
+fn jpeg_xl_enum_rgb_is_typed_and_embedded_icc_needs_the_rendered_icc_policy() {
+    for policy in [STRICT, ASSUME, RENDERED] {
+        let output = transcode(SAMPLE_JXL, ImageFormat::JpegXl, jxl_options(policy)).unwrap();
+        assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
+    }
+    let icc = read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/parity/rgb-p3-icc.jxl"
+    ));
+    transcode(&icc, ImageFormat::JpegXl, jxl_options(RENDERED)).unwrap();
     for policy in [STRICT, ASSUME] {
         refused(
-            transcode(SAMPLE_JXL, ImageFormat::JpegXl, jxl_options(policy)),
+            transcode(&icc, ImageFormat::JpegXl, jxl_options(policy)),
             ProcessingErrorKind::UnsupportedColor,
             COLOR,
             Some(RefusalReason::RenderedIccRequiresOptIn),

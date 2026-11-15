@@ -80,6 +80,13 @@ it and assert the same outcome class, kind, reason and report entry.
   ported original, so the port stays identical with it (ADR-0041). The
   earlier refusal for JPEG XL is replaced. It counts as supported once a
   fixture exists for each format.
+- **JPEG XL enum color encoding is a typed signal** (owner decision,
+  2026-11-15, #222; ADR-0015 section of that date): an enum encoding with
+  an H.273 code point is reported as CICP, like AVIF `nclx`, so both get the
+  same outcome, `ColorSignal` and `RefusalReason` under every policy; an
+  embedded profile needs `UseRenderedIcc` in every format. An enum encoding
+  without a code point (custom primaries or white point, gamma) has no
+  AVIF counterpart: `nclx` cannot express it (format reason).
 
 ## Consequences
 
@@ -140,3 +147,6 @@ change, the parity tests and the matrix review are not implemented yet.
 
 - 2026-11-15 — Initial record of the owner's principle, with the
   premultiplied-alpha decision as its first application.
+- 2026-11-15 — The JPEG XL enum encoding decision (#222) added as an
+  application; `tests/format_parity.rs` started (D5) with color
+  signaling, straight alpha, orientation and animation.

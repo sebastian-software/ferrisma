@@ -103,10 +103,10 @@ before crop; crop coordinates are upright display coordinates (ADR-0019).
 | Feature | `jpeg-read` | `webp-read` | `jpeg-xl-read` (libjxl-rs) | `avif-read` |
 | Samples delivered | 8-bit RGB (adapter requests RGB; grayscale JPEG is expanded to RGB) | 8-bit RGB or RGBA | F32 RGB or RGBA; the decoder also delivers gray and gray+alpha, which the pipeline refuses under every policy | 8-bit RGB(A); 10/12-bit as normalized float; 4:2:0, 4:2:2 and 4:4:4 at 8, 10 and 12 bits |
 | Alpha | none | straight | straight only: premultiplied association is refused under every policy | straight (libavif output) |
-| Color evidence | embedded ICC | embedded RGB ICC | `DATA` ICC of the emitted samples | container `nclx`/ICC cross-checked with the AV1 sequence header; reported as rendered CICP |
+| Color evidence | embedded ICC | embedded RGB ICC | an enum `DATA` encoding with an H.273 code point is reported as that CICP alone, a typed signal like AVIF `nclx` (owner decision 2026-11-15, #222); an embedded profile, or an enum encoding without a code point (custom primaries or white point, a gamma exponent), is reported as the `DATA` ICC of the emitted samples | container `nclx`/ICC cross-checked with the AV1 sequence header; reported as rendered CICP |
 | Orientation | EXIF 1–8 | EXIF 1–8 | codestream orientation, rendered upright by the decoder | `irot`/`imir` applied by the pipeline |
 | Crop access | codec crop request, iMCU column overfetch | lossy: crop from full-width rows; lossless: full reconstruction | **full-frame fallback for every crop** | full-frame fallback |
-| Rejected | CMYK/YCCK (`UnsupportedInput`, `UnsupportedLayout`); untagged under `Strict` (`ColorSignalMissing`); ICC without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); EXIF orientation outside 1–8 (`GeometricTransform`, **untested** through the API); malformed ICC; truncated data | animation (`UnsupportedInput`, `Animation`); malformed containers; canvas above the pixel cap | animation (`Animation`); any input without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); grayscale, CMYK, spot colors, float/HDR exponent channels, extra channels (`UnsupportedLayout` under `UseRenderedIcc`; the former jxl-oxide reader accepted some of these files while dropping or compositing their channels until 2026-11-15, [audit](silent-drops-audit-2026-11-15.md) X6 to X9); premultiplied alpha (`AlphaAssociation`); PQ/HLG (`HdrTransfer`); an unknown colour space (`MalformedInput`, no reason, as libjxl; `UnsupportedColorEncoding` on jxl-oxide until 2026-11-15); ICC > 16 MiB (**untested**, code path, no reason) | animation/`avis` (`Animation`), `clap` and `imir` before `irot` (`GeometricTransform`), monochrome (`UnsupportedLayout`), contradictory `nclx` (`ContradictoryColorSignals`), PQ/HLG (`HdrTransfer`), SDR CICP outside sRGB/P3/linear sRGB (`UnsupportedColorEncoding`), CICP-only under `UseRenderedIcc` (`RenderedIccMissing`), an unknown essential property of the primary item (`UnsupportedEssentialProperty`) ([details](#avif-input-transforms-animation-channels-and-caps)) |
+| Rejected | CMYK/YCCK (`UnsupportedInput`, `UnsupportedLayout`); untagged under `Strict` (`ColorSignalMissing`); ICC without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); EXIF orientation outside 1–8 (`GeometricTransform`, **untested** through the API); malformed ICC; truncated data | animation (`UnsupportedInput`, `Animation`); malformed containers; canvas above the pixel cap | animation (`Animation`); an embedded ICC profile, or an enum encoding without an H.273 code point, without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); an enum encoding outside sRGB, Display P3 and linear sRGB (`UnsupportedColorEncoding`; `RenderedIccMissing` under `UseRenderedIcc`, as AVIF CICP); grayscale, CMYK, spot colors, float/HDR exponent channels, extra channels (`UnsupportedLayout` under `UseRenderedIcc`; the former jxl-oxide reader accepted some of these files while dropping or compositing their channels until 2026-11-15, [audit](silent-drops-audit-2026-11-15.md) X6 to X9); premultiplied alpha (`AlphaAssociation`); PQ/HLG (`HdrTransfer`); an unknown colour space (`MalformedInput`, no reason, as libjxl; `UnsupportedColorEncoding` on jxl-oxide until 2026-11-15); ICC > 16 MiB (**untested**, code path, no reason) | animation/`avis` (`Animation`), `clap` and `imir` before `irot` (`GeometricTransform`), monochrome (`UnsupportedLayout`), contradictory `nclx` (`ContradictoryColorSignals`), PQ/HLG (`HdrTransfer`), SDR CICP outside sRGB/P3/linear sRGB (`UnsupportedColorEncoding`; `RenderedIccMissing` under `UseRenderedIcc`), an unknown essential property of the primary item (`UnsupportedEssentialProperty`) ([details](#avif-input-transforms-animation-channels-and-caps)) |
 
 The names in parentheses after a kind are the `RefusalReason` that
 `refusal_reason()` returns (the [compatibility guide](compatibility.md#refusal-reasons)
@@ -165,8 +165,11 @@ Evidence per format:
   `public_transcode_rejects_unknown_jxl_colour_space` (`MalformedInput`);
   `jxl_alpha_tests::associated_alpha_is_refused` (premultiplied alpha under
   every policy). Through the public API:
-  `supported_matrix::jpeg_xl_rgb_needs_the_rendered_icc_policy` (also pins the
-  full-frame fallback),
+  `supported_matrix::jpeg_xl_enum_rgb_is_typed_and_embedded_icc_needs_the_rendered_icc_policy`
+  (`sample.jxl` under every policy, `tests/fixtures/parity/rgb-p3-icc.jxl`
+  only under `UseRenderedIcc`; also pins the full-frame fallback; until
+  2026-11-15 `jpeg_xl_rgb_needs_the_rendered_icc_policy`, which refused
+  `sample.jxl` without `UseRenderedIcc`),
   `jpeg_xl_straight_alpha_is_kept_through_rendered_icc`,
   `jpeg_xl_grayscale_is_rejected_under_every_policy` (`UnsupportedColor` under
   `Strict`/`AssumeSrgbIfMissing`, `UnsupportedInput` "decoder pixel or color
@@ -230,7 +233,7 @@ test assets) and the libheif orientation set (`tests/fixtures/orientation/`).
 | PQ (`colors_hdr_rec2020.avif`, `seine_hdr_rec2020.avif`) | `UnsupportedColor`, `HdrTransfer`, under every policy | `avif_pq_is_rejected_under_every_policy` |
 | SDR CICP outside sRGB, Display P3 and linear sRGB, no ICC (`colors_text_wcg_sdr_rec2020.avif`, BT.2020 SDR) | `UnsupportedColor`, `UnsupportedColorEncoding` under `Strict`/`AssumeSrgbIfMissing`; `RenderedIccMissing` under `UseRenderedIcc` | `tests/color_signal_and_refusals.rs::sdr_cicp_outside_the_supported_families_is_refused_with_its_reason` |
 | Container ICC | needs `UseRenderedIcc` (`RenderedIccRequiresOptIn` otherwise) | `avif_container_icc_needs_the_rendered_icc_policy` (`paris_icc_exif_xmp.avif`) |
-| Signalled sRGB | passes `Strict`; refused under `UseRenderedIcc`, which needs a profile (`UnsupportedColor`, `RenderedIccMissing`) | `avif_signalled_srgb_passes_the_strict_policy` (`colors_sdr_srgb.avif`); `tests/color_signal_and_refusals.rs::rendered_icc_policy_without_a_profile_is_refused_with_its_reason` |
+| Signalled sRGB | passes every policy as `ColorSignal::Cicp`, as JPEG XL enum sRGB (until 2026-11-15 refused under `UseRenderedIcc` with `RenderedIccMissing`; working decision 2026-11-15, delegated, revisable by the owner) | `avif_signalled_srgb_passes_the_strict_policy` (`colors_sdr_srgb.avif`); `tests/color_signal_and_refusals.rs::rendered_icc_policy_without_a_profile_is_refused_with_its_reason`; `tests/format_parity.rs::typed_srgb_is_read_under_every_policy` |
 | Rendered size, then coded sequence size, above `max_input_pixels` | `InputLimitExceeded` before decoding | `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry` |
 | ICC property above the parser's cap | `UnsupportedColor` before the copy, no `RefusalReason` | `codecs::avif_meta_tests::oversized_icc_property_is_rejected_before_copy` (synthetic) |
 
@@ -268,9 +271,9 @@ alternative.
 
 | `InputProfilePolicy` / CLI | Behavior | Evidence |
 | --- | --- | --- |
-| `Strict` (default, no flag) | Accept only decoder-reported sRGB (for example signalled sRGB AVIF); untagged or ICC-tagged input fails with `UnsupportedColor` | `pipeline_tests::missing_color_information_requires_an_explicit_override`, `signalled_srgb_avif_transcodes_under_the_strict_profile_policy` |
+| `Strict` (default, no flag) | Accept only a typed signal the engine converts itself: sRGB, Display P3 or linear sRGB from AVIF `nclx` or a JPEG XL enum encoding (since 2026-11-15, owner decision, #222; the engine reads its own JPEG XL output under it); untagged or ICC-tagged input fails with `UnsupportedColor` | `pipeline_tests::missing_color_information_requires_an_explicit_override`, `signalled_srgb_avif_transcodes_under_the_strict_profile_policy`; `tests/format_parity.rs::the_engine_reads_its_own_jpeg_xl_output_with_default_settings`, `typed_srgb_is_read_under_every_policy` |
 | `AssumeSrgbIfMissing` / `--assume-srgb` | Treat input as sRGB **only** when it reports neither ICC nor CICP; an ICC-tagged file still needs `--use-rendered-icc` | same tests; upstream corpus pins `paris_icc_exif_xmp.avif` as `UnsupportedColor` without `UseRenderedIcc` |
-| `UseRenderedIcc` / `--use-rendered-icc` | Convert the decoder's rendered RGB ICC to the working space through `moxcms` (`icc`) with the **relative colorimetric** intent, set explicitly (owner decision 2026-11-15, [ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md); matrix/TRC profiles are not affected by the intent, LUT profiles use their `A2B1` table); opaque RGB and RGB with straight alpha (the alpha sample bypasses the transform); premultiplied or unspecified alpha is rejected | `tests/icc_photo.rs::real_srgb_icc_photograph_matches_littlecms`, `photograph_as_display_p3_matches_littlecms_out_of_gamut`; `tests/resize_oracle.rs::icc_tagged_straight_alpha_input_converts_color_and_keeps_alpha`; `cms::tests::malformed_and_hostile_profiles_are_controlled_errors`; `cms::tests::lut_profiles_convert_with_the_relative_colorimetric_table` |
+| `UseRenderedIcc` / `--use-rendered-icc` | A typed sRGB, Display P3 or linear sRGB signal without a profile is converted as under `Strict` (`ColorSignal::Cicp`; working decision 2026-11-15, delegated, revisable by the owner: the policy permits a profile conversion, it does not require one, so AVIF `nclx` and JPEG XL enum files get the same outcome under every policy); otherwise convert the decoder's rendered RGB ICC to the working space through `moxcms` (`icc`) with the **relative colorimetric** intent, set explicitly (owner decision 2026-11-15, [ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md); matrix/TRC profiles are not affected by the intent, LUT profiles use their `A2B1` table); opaque RGB and RGB with straight alpha (the alpha sample bypasses the transform); premultiplied or unspecified alpha is rejected | `tests/icc_photo.rs::real_srgb_icc_photograph_matches_littlecms`, `photograph_as_display_p3_matches_littlecms_out_of_gamut`; `tests/resize_oracle.rs::icc_tagged_straight_alpha_input_converts_color_and_keeps_alpha`; `cms::tests::malformed_and_hostile_profiles_are_controlled_errors`; `cms::tests::lut_profiles_convert_with_the_relative_colorimetric_table` |
 | PQ, HLG, unverifiable or contradictory signals | Always `UnsupportedColor` (`HdrTransfer`, `CicpBesideIcc`, `ContradictoryColorSignals`, `UnsupportedColorEncoding`); never reinterpreted as sRGB | `jxl_color_tests::hdr_and_unverifiable_encodings_are_rejected`; `codecs::avif_meta_tests::contradictory_container_and_bitstream_signals_fail_closed`; `color_contract_tests::two_present_signals_require_explicit_precedence_even_when_both_look_srgb` |
 
 Output is always SDR sRGB, 8-bit straight-alpha RGBA rows handed to the
@@ -490,8 +493,9 @@ ferrisma photo.jpg out.avif 64 48 --assume-srgb
 ferrisma photo.jpg out.avif 64 48 --assume-srgb --avif-depth=8 --chroma=420
 # ICC-tagged AVIF through the rendered-ICC path
 ferrisma paris_icc_exif_xmp.avif out.webp 64 48 --use-rendered-icc
-# JPEG XL through its only reader (full-frame fallback)
-ferrisma sample.jxl out.avif 6 4 --use-rendered-icc  # decoder_full_frames=1
+# JPEG XL through its only reader (full-frame fallback); enum sRGB needs no
+# policy flag since 2026-11-15 (#222), an embedded profile --use-rendered-icc
+ferrisma sample.jxl out.avif 6 4  # decoder_full_frames=1
 # Lossless WebP; lossy JPEG XL d1.0, also with alpha (needs --features cli,jpeg-xl-write)
 ferrisma photo.jpg out.webp 64 48 --assume-srgb --webp-lossless --webp-level=6
 ferrisma photo.jpg out.jxl 64 48 --assume-srgb
@@ -502,7 +506,7 @@ Rejected, with the error the CLI prints (exit status 1):
 | Command | Error | What to do |
 | --- | --- | --- |
 | `ferrisma photo.jpg out.avif 64 48` (untagged) | `UnsupportedColor` (`ColorSignalMissing`) "unsupported or ambiguous rendered color profile…" | add `--assume-srgb` if that assumption is acceptable |
-| `ferrisma sample.jxl out.avif 6 4 --assume-srgb` (ICC-tagged) | `UnsupportedColor` (`RenderedIccRequiresOptIn`) | use `--use-rendered-icc` (needs `icc`) |
+| `ferrisma rgb-p3-icc.jxl out.avif 6 4 --assume-srgb` (embedded ICC; `sample.jxl` until 2026-11-15, whose enum sRGB is now read under every policy) | `UnsupportedColor` (`RenderedIccRequiresOptIn`) | use `--use-rendered-icc` (needs `icc`) |
 | `ferrisma cmyk.jpg out.avif 64 48 --assume-srgb` | `UnsupportedInput` (`UnsupportedLayout`) "decoder pixel or color layout is not supported" | convert CMYK to RGB first |
 | `ferrisma animated.webp out.avif 64 48 --assume-srgb` | `UnsupportedInput` (`Animation`) "animated input is not supported…" | extract one frame first |
 | `ferrisma colors-animated-8bpc.avif …` | `UnsupportedInput` (`Animation`) | same |

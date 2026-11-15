@@ -40,13 +40,14 @@ fn open(bytes: &[u8]) -> Result<crate::decoder::DecoderInfo, Error> {
     crate::codecs::jxl::JxlSource::new(bytes).map(|source| source.info().clone())
 }
 
-/// The rendered signals of the reader: (CICP, the ICC's own `cicp` tag).
+/// The reader's typed signal for a file, and the `cicp` tag of the profile
+/// libjxl synthesizes for the same DATA encoding (read through the bridge
+/// directly; the adapter no longer reports that profile).
 fn signals(bytes: &[u8]) -> (Option<[u8; 4]>, Option<[u8; 4]>) {
     let info = open(bytes).unwrap();
-    let icc = info
-        .rendered_icc
-        .expect("JPEG XL adapters always render an ICC");
-    (info.rendered_cicp, icc_cicp_tag(&icc))
+    assert_eq!(info.rendered_icc, None, "a typed signal stands alone");
+    let image = ferrisma_jxl_decoder::inspect(bytes, 1 << 24).unwrap();
+    (info.rendered_cicp, icc_cicp_tag(&image.rendered_icc))
 }
 
 /// The payload of an ICC v4.4 `cicp` tag, read by tag-table offset.
@@ -61,12 +62,16 @@ fn icc_cicp_tag(icc: &[u8]) -> Option<[u8; 4]> {
     })
 }
 
-/// The declared meaning of each fixture's samples. The libjxl-rs adapter
-/// reports only the ICC, whose `cicp` tag carries the code points (the
-/// former jxl-oxide reader reported CICP beside its synthesized ICC). PQ
-/// and HLG files are refused before any profile is declared (review of
-/// 2026-11-12); before that change they declared `[9, 16, 0, 1]` and
-/// `[9, 18, 0, 1]` here and were rejected one stage later.
+/// The declared meaning of each fixture's samples. Since 2026-11-15 (owner
+/// decision, #222) an enum encoding with an H.273 code point is reported as
+/// that CICP and without the profile libjxl synthesizes from it; the code
+/// point equals the `cicp` tag libjxl itself writes into that profile, so
+/// the adapter's mapping agrees with the original's. (Before, the adapter
+/// reported only the profile, and this test read the code point from its
+/// tag.) PQ and HLG files are refused before any signal is declared
+/// (review of 2026-11-12); before that change they declared
+/// `[9, 16, 0, 1]` and `[9, 18, 0, 1]` here and were rejected one stage
+/// later.
 #[test]
 fn adapters_declare_the_emitted_encoding() {
     for name in ["lossless-pq", "lossless-hlg", "xyb-pq"]
@@ -86,8 +91,8 @@ fn adapters_declare_the_emitted_encoding() {
         ("xyb-p3", [12, 13, 0, 1]),
     ] {
         let (rendered, tagged) = signals(&fixture(name));
-        assert_eq!(rendered, None, "{name}");
-        assert_eq!(tagged, Some(cicp), "{name}");
+        assert_eq!(rendered, Some(cicp), "{name}");
+        assert_eq!(tagged, Some(cicp), "{name}: libjxl's own code point");
     }
 }
 
@@ -244,17 +249,15 @@ fn the_reader_agrees_with_jxl_oxide_on_xyb_rendered_into_display_p3() {
 }
 
 /// Controlled rejection: PQ and HLG (ADR-0016 rule 7) and a CICP family the
-/// engine cannot evaluate are refused under the rendered-ICC policy, with no
-/// output rows; the strict policy refuses every ICC-described JPEG XL.
+/// engine cannot evaluate are refused under the strict and the rendered-ICC
+/// policy, with no output rows. Display P3 passes the strict policy as a
+/// typed signal since 2026-11-15 (owner decision, #222; before, the strict
+/// policy refused it with the other files here, as every ICC-described
+/// JPEG XL).
 #[test]
 fn hdr_and_unverifiable_encodings_are_rejected() {
-    for name in [
-        "lossless-pq",
-        "lossless-hlg",
-        "xyb-pq",
-        "lossless-dci-p3",
-        "lossless-p3",
-    ] {
+    assert!(run(&fixture("lossless-p3"), InputProfilePolicy::Strict, (3, 2)).is_ok());
+    for name in ["lossless-pq", "lossless-hlg", "xyb-pq", "lossless-dci-p3"] {
         assert_eq!(
             run(&fixture(name), InputProfilePolicy::Strict, (3, 2)),
             Err(ProcessingErrorKind::UnsupportedColor),

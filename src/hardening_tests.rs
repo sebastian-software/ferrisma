@@ -325,15 +325,17 @@ fn public_transcode_ends_an_oversized_jxl_toc_section_in_a_controlled_error() {
     };
     // The fuzz driver's cap and the default cap.
     for max_input_bytes in [512 * 1024, TransformOptions::default().max_input_bytes] {
+        // The header's enum sRGB is a typed signal under every policy
+        // (owner decision 2026-11-15, #222; before, the strict and
+        // assume-if-missing policies refused its rendered ICC with
+        // `UnsupportedColor` before decoding), so the decode runs and finds
+        // the section missing.
         for (profile_policy, expected) in [
-            // The header's rendered ICC needs the explicit opt-in first.
-            (InputProfilePolicy::Strict, Kind::UnsupportedColor),
+            (InputProfilePolicy::Strict, Kind::MalformedInput),
             (
                 InputProfilePolicy::AssumeSrgbIfMissing,
-                Kind::UnsupportedColor,
+                Kind::MalformedInput,
             ),
-            // The rendered-ICC policy lets the header pass, so the decode
-            // runs and finds the section missing.
             #[cfg(feature = "icc")]
             (InputProfilePolicy::UseRenderedIcc, Kind::MalformedInput),
         ] {

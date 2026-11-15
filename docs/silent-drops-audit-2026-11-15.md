@@ -107,7 +107,7 @@ classified refusal; it is counted as (C).
 | X1 | `Exif` and `xml ` boxes | ignored by both readers, dropped. **Since `v1/engine-discarded`: reported: `Discarded::Exif`, `Discarded::Xmp`, by both readers** | `crates/ferrisma-jxl-decoder` subscribes to `BASIC_INFO`, `COLOR_ENCODING`, `FULL_IMAGE` only; jxl-oxide ignores boxes | matrix, Outputs "Metadata" | `silent_drops::jpeg_xl_container_boxes_are_dropped_today` (`decode-test/1x1_exif_xmp.jxl`); `discarded_report::jpeg_xl_boxes_are_reported` | C |
 | X2 | JPEG reconstruction data (`jbrd`) | ignored: the pixels are decoded, bit-exact JPEG recovery is lost. **Since `v1/engine-discarded`: reported: `Discarded::JpegReconstructionData`** | same | no | same fixture; `discarded_report::jpeg_xl_boxes_are_reported` | C |
 | X3 | JUMBF / C2PA (`jumb`), gain map (`jhgm`) | ignored. **Since `v1/engine-discarded`: reported: `jumb` as `OtherMetadata`, `jhgm` as `GainMap` (code path, no fixture)** | same | no | no fixture | C |
-| X4 | DATA ICC profile | converted under `UseRenderedIcc` (reported), otherwise refused | `src/codecs/jxl.rs` | matrix | `supported_matrix::jpeg_xl_rgb_needs_the_rendered_icc_policy` | C |
+| X4 | DATA ICC profile | converted under `UseRenderedIcc` (reported), otherwise refused. **Since 2026-11-15 (owner decision, #222): an enum encoding with an H.273 code point is reported as that CICP alone and the profile libjxl synthesizes from it is not reported (it is derived from the enum, nothing is lost); an embedded profile is reported as `Discarded::IccProfile` from the codestream's own signal (`original_icc`), which also covers an XYB image whose DATA encoding is linear sRGB (before, keyed on the DATA encoding, that case was not reported)** | `src/codecs/jxl.rs` | matrix | `supported_matrix::jpeg_xl_enum_rgb_is_typed_and_embedded_icc_needs_the_rendered_icc_policy` (until 2026-11-15 `jpeg_xl_rgb_needs_the_rendered_icc_policy`); `format_parity::embedded_icc_needs_the_rendered_icc_policy_in_every_format` (`tests/fixtures/parity/rgb-p3-icc.jxl`) | C |
 | X5 | Extra channels other than one alpha, **libjxl-rs** | refused (`UnsupportedLayout`) before pixels | `ferrisma-jxl-decoder` `Decoder::info` | matrix | `supported_matrix::jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected` | C |
 | X6 | Depth, selection mask, black next to RGB, CFA, thermal and optional extra channels, **jxl-oxide** | accepted; the channels are left out of the pixel stream (a black channel next to RGB is lost, so the colors change). **Since `v1/engine-discarded`: refused by jxl-oxide as `UnsupportedLayout`, as by libjxl-rs (ADR-0042 D1, D4); D4 for JPEG XL is also met by removing the jxl-oxide runtime reader (owner decision 2026-11-15, pending the libjxl-rs AVX2 fix). Since `v1/remove-alt-backends`: resolved by removal; the only reader refuses these files** | jxl-oxide 0.12.6 `PixelFormat` (removed) | no (matrix: "jxl-oxide reports some extra-channel files as unspecified alpha") | `silent_drops::jpeg_xl_reader_refuses_extra_channels_other_than_alpha` (`extra-channel-type-{1,2,3,4,5,6,16}.jxl`, all policies) | removed |
 | X7 | Spot colors, **jxl-oxide** | accepted; composited into the RGB samples (`render_spot_color`, default on for color images), an unrequested change of the color values. **Since `v1/engine-discarded`: refused, as X6; since `v1/remove-alt-backends`: resolved by removal** | jxl-oxide `fb.rs` | no | `silent_drops::jpeg_xl_reader_refuses_extra_channels_other_than_alpha` (`extra-channel-type-2.jxl`) | removed |
@@ -246,6 +246,19 @@ so every JPEG XL file has one reader and AVIF one writer and ADR-0042 D4 is met 
   the only reader, as libjxl rejects it; on jxl-oxide it was refused as
   `UnsupportedColor` with `UnsupportedColorEncoding`. A change of kind,
   not a silent drop.
+
+## Update: format parity (2026-11-15)
+
+The owner's decisions of 2026-11-15 that make the formats behave alike
+(ADR-0043; branch `v1/engine-parity`) change these rows. Each item names
+its test in `tests/format_parity.rs`:
+
+- X4: a JPEG XL enum encoding with an H.273 code point is a typed signal
+  (CICP), read under every policy like AVIF `nclx` (#222); only an embedded
+  profile needs `UseRenderedIcc`, and `Discarded::IccProfile` is now keyed
+  on the codestream's own ICC signal, so an XYB image with an embedded
+  profile (whose DATA encoding is linear sRGB) is no longer silent. No item
+  is lost: the profile libjxl synthesizes from an enum is derived from it.
 
 ## Part 2: proposal (not implemented; the owner decides)
 

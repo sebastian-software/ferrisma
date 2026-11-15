@@ -212,7 +212,9 @@ fn run_case_with_depth(bytes: &[u8], depth: u8) -> Option<Result<Output, Process
         OutputFormat::WebP
     };
     // Select an explicit policy; no profile is guessed when one is present.
-    // Existing selector 1's JXL fixture contains a rendered RGB ICC profile.
+    // Policy 0 keeps the rendered-ICC policy for JPEG XL, which before
+    // 2026-11-15 described every file by an ICC profile; it now reads enum
+    // encodings as typed signals under every policy (owner decision, #222).
     let profile_policy = match (control >> 3) & 3 {
         0 if kind == ImageFormat::JpegXl => InputProfilePolicy::UseRenderedIcc,
         0 | 2 => InputProfilePolicy::AssumeSrgbIfMissing,
@@ -476,7 +478,10 @@ mod tests {
         let strict_jpeg = run_case(&framed(8, JPEG)).unwrap().unwrap_err();
         assert_eq!(strict_jpeg.kind(), ProcessingErrorKind::UnsupportedColor);
         // An embedded ICC is not replaced by the assume-if-missing policy.
-        let tagged_jxl = run_case(&framed(1 | 0x10, JXL)).unwrap().unwrap_err();
+        // (Until 2026-11-15 `sample.jxl`, whose enum sRGB is now a typed
+        // signal; owner decision, #222.)
+        const ICC_JXL: &[u8] = include_bytes!("../../tests/fixtures/parity/rgb-p3-icc.jxl");
+        let tagged_jxl = run_case(&framed(1 | 0x10, ICC_JXL)).unwrap().unwrap_err();
         assert_eq!(tagged_jxl.kind(), ProcessingErrorKind::UnsupportedColor);
         assert!(run_case(&[]).is_none());
         assert!(run_case(&[0]).is_none());

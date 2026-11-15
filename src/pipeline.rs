@@ -159,7 +159,10 @@ pub enum InputProfilePolicy {
     /// Explicitly use the decoder-provided *rendered output* ICC as authoritative.
     /// Requires the optional `icc` feature and supports opaque RGB and RGB
     /// with straight alpha (alpha passes through the color transform
-    /// unchanged; premultiplied or unspecified alpha is refused).
+    /// unchanged; premultiplied or unspecified alpha is refused). Input
+    /// without a profile whose typed signal is sRGB, Display P3 or linear
+    /// sRGB (AVIF `nclx`, JPEG XL enum encoding) is converted as under
+    /// [`Self::Strict`] (since 2026-11-15).
     UseRenderedIcc,
 }
 
@@ -370,8 +373,9 @@ fn public_rect(rect: Rect) -> Crop {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ColorSignal {
-    /// The decoder's CICP alone (sRGB, Display P3 or linear sRGB); the
-    /// decoder reported no ICC profile.
+    /// The decoder's typed signal alone (sRGB, Display P3 or linear sRGB):
+    /// AVIF `nclx` or a JPEG XL enum color encoding; the decoder reported no
+    /// ICC profile. The same under every policy.
     Cicp,
     /// The decoder reported neither ICC nor CICP, and
     /// [`InputProfilePolicy::AssumeSrgbIfMissing`] supplied sRGB.
@@ -537,8 +541,9 @@ pub enum RefusalReason {
     /// [`ProcessingErrorKind::UnsupportedColor`].
     UnsupportedColorEncoding,
     /// The policy is [`InputProfilePolicy::UseRenderedIcc`], but the
-    /// decoder reports no ICC profile (CICP-only or untagged input); the
-    /// policy converts only through a profile. Kind:
+    /// decoder reports no ICC profile: untagged input, or a typed signal
+    /// outside sRGB, Display P3 and linear sRGB (those three are converted
+    /// as under the strict policy since 2026-11-15). Kind:
     /// [`ProcessingErrorKind::UnsupportedColor`].
     RenderedIccMissing,
     /// The AVIF container's color signals (`nclx`, ICC) contradict the AV1
@@ -1136,6 +1141,16 @@ fn run(
         (WorkingPrecision::F32, threads) => threads,
     };
     let mut source = open_source(encoded, format, options.max_input_pixels)?;
+    // Alpha is processed straight (ADR-0014); an association the reader
+    // did not convert is refused under every policy, before color, rather
+    // than guessed (ADR-0015).
+    if matches!(
+        source.info().layout,
+        crate::decoder::ChannelLayout::Rgba | crate::decoder::ChannelLayout::GrayAlpha
+    ) && source.info().alpha != crate::color::AlphaMode::Straight
+    {
+        return Err(Error::UnsupportedAlphaMode.into());
+    }
     let decoder_backend = decoder_backend(format);
     source.set_decode_threads(transform_threads);
     // ADR-0042 D2: what the codec reads past, from its headers, and hidden
@@ -1169,8 +1184,18 @@ fn run(
         ));
     }
     let mut color_signal = ColorSignal::Cicp;
+    // A typed signal the engine converts itself (sRGB, Display P3, linear
+    // sRGB) without a profile beside it takes the same route under every
+    // policy: `UseRenderedIcc` permits a profile conversion, it does not
+    // require one (working decision 2026-11-15, delegated, revisable by the
+    // owner; ADR-0043 D1 for JPEG XL enum and AVIF `nclx`, ADR-0015).
+    let typed = source.info().rendered_icc.is_none()
+        && source
+            .info()
+            .rendered_cicp
+            .is_some_and(crate::color_contract::is_typed_working_family);
     let source: Box<dyn DecodeSource + '_> =
-        if options.profile_policy == InputProfilePolicy::UseRenderedIcc {
+        if options.profile_policy == InputProfilePolicy::UseRenderedIcc && !typed {
             #[cfg(feature = "icc")]
             {
                 color_signal = if source.info().rendered_cicp.is_some() {
@@ -1205,10 +1230,8 @@ fn run(
         source
     };
     let color = actual.info().semantics().color;
-    if !matches!(
-        color,
-        ColorEncoding::Cicp([1 | 12, 13, 0, 1] | [1, 8, 0, 1])
-    ) {
+    if !matches!(color, ColorEncoding::Cicp(cicp) if crate::color_contract::is_typed_working_family(cicp))
+    {
         // Under `UseRenderedIcc` the ICC stage emits linear sRGB, so ICC
         // reaches this check only under the other two policies.
         let reason = match color {
