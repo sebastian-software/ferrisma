@@ -499,6 +499,70 @@ mod tests {
         );
     }
 
+    /// Grayscale JPEG is emitted as one gray sample per pixel (2026-11-15),
+    /// and a crop returns the same samples as the same rectangle of the
+    /// full read, at odd offsets and at the far edges; libjpeg's
+    /// gray-to-RGB output of the same file would repeat each sample three
+    /// times (`gray_rgb_convert`), which is what the pipeline's expansion
+    /// does.
+    #[test]
+    fn grayscale_is_emitted_as_gray_and_crops_match_the_full_read() {
+        use crate::decoder::{ChannelLayout, DecodeSource, DecodedRow};
+        use crate::geometry::Rect;
+        use crate::memory::MemoryBudget;
+
+        let bytes = include_bytes!("../../codecs/libjxl-rs/tests/data/ycbcr-jpeg-gray.jpg");
+        let read = |region: Rect| {
+            let mut source = JpegSource::new(bytes).unwrap();
+            assert_eq!(source.info().layout, ChannelLayout::Gray);
+            let mut rows = Vec::new();
+            source
+                .read_region(region, &MemoryBudget::new(1 << 20), &mut |_, row| {
+                    let DecodedRow::U8(row) = row else {
+                        panic!("JPEG rows are 8-bit")
+                    };
+                    assert_eq!(row.len(), region.width as usize);
+                    rows.extend_from_slice(row);
+                    Ok(())
+                })
+                .unwrap();
+            rows
+        };
+        let size = JpegSource::new(bytes).unwrap().info().size;
+        let (width, height) = (size.width, size.height);
+        let full = read(Rect::new(0, 0, width, height).unwrap());
+        // Odd offsets near the center, to the far edges.
+        let (cx, cy) = ((width / 2) | 1, (height / 2) | 1);
+        for (x, y, w, h) in [
+            (1, 1, 5, 3),
+            (cx, cy, width - cx, height - cy),
+            (width - 1, 0, 1, height),
+            (0, height - 1, width, 1),
+            (7, 3, 9, 2),
+        ] {
+            let crop = read(Rect::new(x, y, w, h).unwrap());
+            let mut want = Vec::new();
+            for row in y..y + h {
+                let start = (row * width + x) as usize;
+                want.extend_from_slice(&full[start..start + w as usize]);
+            }
+            assert_eq!(crop, want, "({x}, {y}) {w} x {h}");
+        }
+        // libjpeg's own RGB output of the same file repeats each gray sample.
+        let mut scanlines = super::decoder(bytes)
+            .unwrap()
+            .start(&super::output_options(ChannelLayout::Rgb))
+            .unwrap();
+        let mut row = vec![0_u8; scanlines.info().row_bytes()];
+        for y in 0..height as usize {
+            assert_eq!(scanlines.read_rows(&mut row).unwrap(), 1);
+            let gray = &full[y * width as usize..(y + 1) * width as usize];
+            for (rgb, &value) in row.as_chunks::<3>().0.iter().zip(gray) {
+                assert_eq!(*rgb, [value; 3], "row {y}");
+            }
+        }
+    }
+
     const PARIS_444: &[u8] = include_bytes!(
         "../../codecs/libavif-rs/upstream/libavif/tests/data/paris_exif_xmp_icc.jpg"
     );
