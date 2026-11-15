@@ -175,6 +175,7 @@ const RGB8: &str = "Bw:8,h:8";
 #[test]
 fn public_encoder_lifecycle_and_allocation_failures_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let scripts = [
         "V e x e S",
         "s- s- s0 S x S s- S",
@@ -205,6 +206,7 @@ fn public_encoder_lifecycle_and_allocation_failures_match_original() {
 #[test]
 fn public_encoder_basic_info_validation_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let nan = f32::NAN.to_bits();
     let infos = [
         String::new(),
@@ -299,6 +301,7 @@ fn public_encoder_basic_info_validation_matches_original() {
 #[test]
 fn public_encoder_extra_channel_setters_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let one = bits(1.0);
     let half = bits(0.5);
     let mut requests = Vec::new();
@@ -352,6 +355,7 @@ fn icc_profiles() -> (String, String) {
 #[test]
 fn public_encoder_color_setters_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let (rgb, gray) = icc_profiles();
     let gamma = 0.45f64.to_bits();
     let encodings = [
@@ -409,6 +413,7 @@ fn public_encoder_color_setters_match_original() {
 #[test]
 fn public_encoder_frame_setting_options_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut ids: Vec<u32> = (0..=43).collect();
     ids.extend([100, 65534, 65535]);
     let values: [i64; 24] = [
@@ -487,6 +492,7 @@ fn public_encoder_frame_setting_options_match_original() {
 #[test]
 fn public_encoder_distances_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let distances = [
         -1.0f32,
         -0.0,
@@ -554,6 +560,7 @@ fn public_encoder_distances_match_original() {
 #[test]
 fn public_encoder_frame_headers_and_names_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let headers = [
         "0,0,0,1,0,0,0,0,0,0,0,0,0,0",
         "5,7,3,0,0,0,0,0,0,2,1,0,1,1",
@@ -624,6 +631,7 @@ fn buffer_size(xsize: usize, ysize: usize, channels: usize, data_type: u32, alig
 #[test]
 fn public_encoder_frame_input_and_rejection_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let images = [
         ("Bw:8,h:8", 8, 8, 3, 0),
         ("Bw:7,h:5", 7, 5, 3, 0),
@@ -739,6 +747,7 @@ fn public_encoder_frame_input_and_rejection_match_original() {
 #[test]
 fn public_encoder_boxes_and_output_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let types = [
         "45786966", "786d6c20", "6a756d62", "6a786c63", "6a786c70", "6a627264", "62726f62",
         "6a786c69", "00000000",
@@ -769,6 +778,7 @@ fn public_encoder_boxes_and_output_match_original() {
 #[test]
 fn public_encoder_output_wrapper_buffer_mode_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = vec![
         "epub-wrap P F P".to_string(),
         "epub-wrap A0 G1,4,3,1 F P".into(),
@@ -901,6 +911,7 @@ fn compare_admitted(family: &str, requests: Vec<String>) {
 #[test]
 fn public_encoder_lossy_vardct_small_sizes_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut sizes = vec![(1, 1), (7, 7), (8, 8), (9, 17)];
     sizes.extend((41..=48).map(|x| (x, 15)));
     let mut requests = Vec::new();
@@ -928,6 +939,7 @@ fn public_encoder_lossy_vardct_small_sizes_match_original() {
 #[test]
 fn public_encoder_lossy_vardct_large_sizes_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let sizes = [(63, 129), (256, 256), (257, 255), (512, 1024)];
     let mut requests = Vec::new();
     let mut variant = 0;
@@ -960,6 +972,7 @@ fn public_encoder_lossy_vardct_large_sizes_match_original() {
 #[test]
 fn public_encoder_lossy_vardct_d05_and_settings_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let sizes = [
         (1, 1),
         (7, 7),
@@ -1062,6 +1075,7 @@ fn public_encoder_lossy_vardct_d05_and_settings_match_original() {
 #[test]
 fn public_encoder_lossy_vardct_admissions_and_rejections_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     // Distances from 0.7 run the AR heuristics (exact since the AR
     // translation), at the gate's d1.0, d1.5 and d2.9 and at 0.7.
@@ -1192,6 +1206,7 @@ fn encoded_bytes(request: &str) -> Vec<u8> {
 #[test]
 fn public_encoder_lossy_vardct_decode_back_matches_original_decoder() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut sizes = vec![
         (1, 1),
         (7, 7),
@@ -1240,6 +1255,7 @@ fn public_encoder_lossy_vardct_decode_back_matches_original_decoder() {
 #[test]
 fn public_encoder_lossy_vardct_streaming_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let cases = [
         (768, 768, -1),
         (768, 769, 0),
@@ -1282,6 +1298,7 @@ fn public_encoder_lossy_vardct_streaming_matches_original() {
 #[test]
 fn public_encoder_lossy_vardct_smoke_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     for (w, h) in [(8usize, 8usize), (1, 1), (17, 9)] {
         for d in [0.5f32, 0.1, 1.0] {
@@ -1388,6 +1405,7 @@ fn alpha_history(
 #[test]
 fn public_encoder_lossy_vardct_alpha_small_sizes_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut sizes = vec![(1, 1), (7, 7), (8, 8), (9, 17)];
     sizes.extend((41..=48).map(|x| (x, 15)));
     let mut requests = Vec::new();
@@ -1425,6 +1443,7 @@ fn public_encoder_lossy_vardct_alpha_small_sizes_match_original() {
 #[test]
 fn public_encoder_lossy_vardct_alpha_large_sizes_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     let mut variant = 0;
     for &(xsize, ysize) in &[(63, 129), (256, 256), (257, 255), (512, 1024)] {
@@ -1463,6 +1482,7 @@ fn public_encoder_lossy_vardct_alpha_large_sizes_match_original() {
 #[test]
 fn public_encoder_lossy_vardct_alpha_streaming_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let cases = [
         (768, 768, -1),
         (768, 769, 0),
@@ -1512,6 +1532,7 @@ fn public_encoder_lossy_vardct_alpha_streaming_matches_original() {
 #[test]
 fn public_encoder_lossy_vardct_alpha_variants_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     let mut push = |history: String| requests.push(run(0, 0, &history));
     for (index, &(xsize, ysize)) in [(1, 1), (9, 17), (45, 15), (256, 256), (768, 768)]
@@ -1590,6 +1611,7 @@ fn public_encoder_lossy_vardct_alpha_variants_match_original() {
 #[test]
 fn public_encoder_lossy_vardct_alpha_settings_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     for (index, &(xsize, ysize)) in [(1, 1), (9, 17), (45, 15), (63, 129), (257, 255), (768, 768)]
         .iter()
@@ -1655,6 +1677,7 @@ fn output_bytes(text: &str) -> Vec<u8> {
 #[ignore = "diagnostics for a request file"]
 fn public_encoder_first_divergence() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let Some(path) = std::env::var_os("JXL_ENCODER_PUBLIC_REQUESTS") else {
         return;
     };
@@ -1694,6 +1717,7 @@ fn public_encoder_first_divergence() {
 #[test]
 fn public_encoder_lossy_vardct_patches_off_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     const PATCHES_OFF: &str = " o0,8,0";
     let mut requests = Vec::new();
     let mut variant = 0;
@@ -1773,6 +1797,7 @@ fn public_encoder_lossy_vardct_patches_off_matches_original() {
 #[test]
 fn public_encoder_lossy_vardct_text_like_default_admission_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     for (index, &(xsize, ysize)) in [(64, 64), (96, 64), (63, 129), (256, 256)]
         .iter()
@@ -1893,6 +1918,7 @@ fn extra_channels_history(
 #[test]
 fn public_encoder_lossy_vardct_extra_channel_types_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let sets: [(bool, &[(u32, u32)]); 6] = [
         (true, &[(1, 8), (2, 8)]),
         (false, &[(6, 10)]),
@@ -1943,6 +1969,7 @@ fn public_encoder_lossy_vardct_extra_channel_types_match_original() {
 #[test]
 fn public_encoder_output_wrapper_external_processor_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = vec![
         "epub-wrap E0,0,0,0 P r F P r".to_string(),
         "epub-wrap E0,2,0,0 G1,4,3,1 F P r".into(),
@@ -2081,6 +2108,7 @@ fn compare_admitted_processor(family: &str, requests: Vec<String>) {
 #[test]
 fn public_encoder_output_processor_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let cases = [
         (63, 129, -1, -1),
         (512, 1024, 3, -1),
@@ -2145,6 +2173,7 @@ fn public_encoder_output_processor_matches_original() {
 #[test]
 fn public_encoder_output_processor_rejections_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let image = "Bw:64,h:40 G0 s- d0,1065353216 a0,3,2,0,0,7680,4,64,40";
     let large = "Bw:800,h:800 G0 s- d0,1065353216 a0,3,2,0,0,1920000,4,800,800";
     let mut requests = Vec::new();
@@ -2194,6 +2223,7 @@ fn public_encoder_output_processor_rejections_match_original() {
 #[test]
 fn public_encoder_chunked_frame_adapter_rect_bounds_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let max = usize::MAX;
     let mut requests = vec![format!(
         "epub-rect 5 3 3 1 c0,0,5,3 c4,2,1,1 e0,0,0,5,3 c1,0,5,1 c0,1,1,3 c5,0,1,1 c0,3,1,1 \
@@ -2321,6 +2351,7 @@ fn compare_admitted_chunked(family: &str, requests: Vec<String>) {
 #[test]
 fn public_encoder_chunked_frame_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let cases: [(usize, usize, i32, bool, usize); 12] = [
         (1, 1, -1, false, 0),
         (17, 19, -1, true, 0),
@@ -2385,6 +2416,7 @@ fn public_encoder_chunked_frame_matches_original() {
 #[test]
 fn public_encoder_chunked_frame_rejections_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let setup = "Bw:64,h:40,ec:2,ab:8 G0 K1,6,8,0,0,0,0,0,0,0,0 s- d0,1065353216";
     let big = "Bw:800,h:800 G0 s- d0,1065353216 o0,34,2";
     let mut requests = Vec::new();
@@ -2432,6 +2464,7 @@ fn public_encoder_chunked_frame_rejections_match_original() {
 #[test]
 fn public_encoder_streaming_suite_instances_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     // encoder container: the instances with five extra channels need level
     // 10 and so a container; they are exact since the container port.
     let requests = streaming_suite_requests(&[0, 1], false);
@@ -2607,6 +2640,7 @@ fn compare_gate(family: &str, requests: Vec<String>) {
 #[test]
 fn public_encoder_streaming_gate_sizes_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     for (index, (xsize, ysize)) in [(768, 768), (1024, 1024), (2048, 1536)]
         .into_iter()
@@ -2621,6 +2655,7 @@ fn public_encoder_streaming_gate_sizes_match_original() {
 #[test]
 fn public_encoder_streaming_gate_2049_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     compare_gate("streaming-gate-2049", gate_histories(2049, 2049, 1));
 }
 
@@ -2628,6 +2663,7 @@ fn public_encoder_streaming_gate_2049_matches_original() {
 #[test]
 fn public_encoder_streaming_gate_4000x3000_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     compare_gate("streaming-gate-4000x3000", gate_histories(4000, 3000, 2));
 }
 // end encoder streaming
