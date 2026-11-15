@@ -111,6 +111,15 @@ separate workspace members; they are grouped here by their shared port.
 | [`libavif-rs`](../codecs/libavif-rs/README.md), `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | AVIF container and codec ports, using generated and owned Rust with C-ABI boundaries | No stable safe Rust API claim; validated native hosts are macOS ARM64 and GNU Linux x86-64; package-specific deep gates remain |
 | [`ferrisma-xtask`](../tools/xtask) | Standard-library Rust control plane, invoked as `cargo xtask`, for affected components and validation stages | Existing Python oracle harnesses migrate incrementally without losing evidence |
 
+**Minimum Rust versions** (owner decision 2026-11-15, [ADR-0040](adr/0040-stable-public-contract-and-compatibility-policy.md)
+amendment): the engine needs Rust 1.99 or later for every feature, AVIF and
+`cli` included, and so do `ferrisma-kernels`, the bridges and the AVIF port.
+The ports published on their own declare their measured floors:
+`libjxl-rs` and `libsharpyuv-core` 1.88, `libjpeg-turbo-rs` 1.93,
+`libwebp-rs` 1.95. CI builds and tests each group at exactly its declared
+version ([minimum Rust versions](supported-matrix.md#minimum-rust-versions)).
+The pinned nightly is a development tool, not a requirement.
+
 The engine forbids unsafe code. The kernel, adapter, and codec boundaries have
 their own policies; that engine rule does not describe the entire dependency
 graph. Package versions, licenses, and eventual publication remain independent.

@@ -46,10 +46,10 @@ crates.io").
 
 | Order | Package | Version today | License expression | Needs nightly | `rust-version` | README | `.crate` size | Role |
 | --- | --- | --- | --- | --- | --- | --- | ---: | --- |
-| 1 | `libsharpyuv-core` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 21.1 KiB | Shared SharpYUV core |
-| 1 | `ferrisma-kernels` | 0.1.0 | MIT OR Apache-2.0 | no | 1.98 | yes | 18.3 KiB | Engine SIMD kernels (unconditional dependency) |
-| 1 | JPEG port, today `libjpeg-turbo-rs` | 0.1.0 | IJG AND Zlib | no | 1.95 | yes | 318.9 KiB | `jpeg-read` |
-| 1 | `libjxl-rs` | 0.1.0 | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | no | 1.95 | yes | 868.2 KiB | `jpeg-xl-read`, `jpeg-xl-write` |
+| 1 | `libsharpyuv-core` | 0.1.0 | BSD-3-Clause | no | 1.88 | yes | 21.1 KiB | Shared SharpYUV core |
+| 1 | `ferrisma-kernels` | 0.1.0 | MIT OR Apache-2.0 | no | 1.99 | yes | 18.3 KiB | Engine SIMD kernels (unconditional dependency) |
+| 1 | JPEG port, today `libjpeg-turbo-rs` | 0.1.0 | IJG AND Zlib | no | 1.93 | yes | 318.9 KiB | `jpeg-read` |
+| 1 | `libjxl-rs` | 0.1.0 | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | no | 1.88 | yes | 868.2 KiB | `jpeg-xl-read`, `jpeg-xl-write` |
 | 1 | `libavif-aom` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause AND MIT | no (since 2026-11-15) | 1.99 | yes | **16.6 MiB** | AVIF encode/decode |
 | 1 | `libavif-dav1d` | 0.1.0 | BSD-2-Clause | no (since 2026-11-15) | 1.99 | yes | 2.6 MiB | Normal dependency of `libavif-rs` |
 | 2 | `libwebp-rs` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 796.9 KiB | `webp-read`, `webp-write` |
@@ -57,9 +57,9 @@ crates.io").
 | 3 | `libavif-rs` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause | no (since 2026-11-15) | 1.99 | yes | 4.6 MiB | libavif port |
 | 4 | `ferrisma-avif-read` | **0.0.0** | MIT OR Apache-2.0 | no (since 2026-11-15) | 1.99 | yes (2026-11-14) | 10.0 KiB | `avif-read` safe bridge |
 | 4 | `ferrisma-avif-write` | **0.0.0** | MIT OR Apache-2.0 | no (since 2026-11-15) | 1.99 | yes (2026-11-14) | 12.5 KiB | `avif-write` safe bridge |
-| 4 | `ferrisma-jxl-decoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.95 | yes (2026-11-14) | 13.5 KiB | `jpeg-xl-read` safe bridge |
-| 4 | `ferrisma-jxl-encoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.95 | yes (2026-11-14) | 17.6 KiB, first packaged 2026-11-14 | `jpeg-xl-write` safe bridge (lossy) |
-| 5 | `ferrisma` | 0.1.0 | MIT OR Apache-2.0 | no (1.99 for `avif-read`, `avif-write`, `cli`) | 1.98 | yes | 606.9 KiB | Engine, facade, CLI binary |
+| 4 | `ferrisma-jxl-decoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.99 | yes (2026-11-14) | 13.5 KiB | `jpeg-xl-read` safe bridge |
+| 4 | `ferrisma-jxl-encoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.99 | yes (2026-11-14) | 17.6 KiB, first packaged 2026-11-14 | `jpeg-xl-write` safe bridge (lossy) |
+| 5 | `ferrisma` | 0.1.0 | MIT OR Apache-2.0 | no | 1.99 | yes | 606.9 KiB | Engine, facade, CLI binary |
 
 Every package now has `description`, `license`, `repository`, `homepage`
 (`https://ferrisma.dev`, added to the ports, the AVIF sub-crates and
@@ -72,7 +72,12 @@ Since the port's translations were rewritten for stable Rust (libavif-rs
 declare `rust-version = "1.99"` (C-variadic functions are stable since
 1.99), and `libavif-sharpyuv`, which never used a nightly feature, declares
 1.95. ADR-0040 decision 4 (naming the nightly in the release notes) no
-longer applies to them. The sizes moved since 2026-11-12: `libjxl-rs` 723 to 868 KiB and
+longer applies to them. Since the owner's MSRV decision of 2026-11-15
+(ADR-0040 amendment) the engine, `ferrisma-kernels` and the four bridges
+declare 1.99, the product's one minimum, and the ports published on their
+own declare their measured floors: `libjxl-rs` and `libsharpyuv-core` 1.88,
+`libjpeg-turbo-rs` 1.93, `libwebp-rs` 1.95
+([minimum Rust versions](supported-matrix.md#minimum-rust-versions)). The sizes moved since 2026-11-12: `libjxl-rs` 723 to 868 KiB and
 `libavif-aom` 16.4 to 16.6 MiB with their sources. `ferrisma` measured
 204.1 KiB on 2026-11-12 and 606.9 KiB now, although its `include` list and
 the size of its tracked `src`, `tests` and `examples` (1.69 versus 1.73 MB)

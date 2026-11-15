@@ -56,3 +56,10 @@ original compiler compatibility promises and independent reference comparisons
 remain; handwritten ports explicitly use stable Clippy and their MSRV jobs.
 Shared profiles retain the numeric and unwinding requirements of each port.
 Active workflows now live at the Ferrisma repository root.
+
+Amended 2026-11-15 (owner decision, [Ferrisma ADR-0040](../../../../docs/adr/0040-stable-public-contract-and-compatibility-policy.md)
+amendment): `rust-version = "1.93"`, the measured floor of the published
+crate. Rust 1.88 rejects the x86 SIMD modules' `_mm_sfence` calls outside an
+`unsafe` block (`E0133`); 1.93 accepts them. The rule for raising it is the
+engine's: deliberately, in its own change with a changelog note, to a release
+at least three months old.

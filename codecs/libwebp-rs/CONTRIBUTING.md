@@ -15,7 +15,7 @@ port. Read [PORTING.md](docs/PORTING.md),
 ## Prerequisites
 
 - The shared root toolchain, plus stable Clippy; the library supports Rust
-  1.95 or later. The `--msrv` check also needs the 1.95 toolchain
+  1.95 or later (`rust-version`). The `--msrv` check also needs that toolchain
   (`rustup toolchain install 1.95 --profile minimal`).
 - Python 3.9 or later, Git, CMake 3.18 or later and a C compiler (Clang on
   Linux and macOS) for the oracle.
@@ -134,7 +134,8 @@ on native Linux ARM64. The [nightly workflow](../../.github/workflows/nightly.ym
 calls [WebP's deep workflow](../../.github/workflows/webp-check.yml), which is
 also manually dispatchable. It retains:
 
-- static and scalar tests on Linux and macOS, plus Rust 1.95 checks;
+- static and scalar tests on Linux and macOS, plus checks at the declared
+  `rust-version`;
 - release, ASan/UBSan and debug oracles, differential and scalar checks,
   baseline records, and the benchmark.
 

@@ -57,8 +57,11 @@ Ferrisma differs from the blueprint repositories in four ways that matter:
    (2026-11-13, #248) every manifest keys them by package name; no
    `package =` entry is left, and the rehearsal of 2026-11-14 is clean for
    both configurations against those manifests.
-4. **The AVIF packages need the pinned nightly** (ADR-0026), so the publish
-   job must use `rust-toolchain.toml`, not `stable`.
+4. **The AVIF packages needed the pinned nightly** (ADR-0026) when this was
+   written. Since 2026-11-15 they build on stable Rust 1.99, the engine's
+   minimum ([ADR-0040](adr/0040-stable-public-contract-and-compatibility-policy.md)
+   amendment); the publish job may use `stable` (1.99 or later) or
+   `rust-toolchain.toml`.
 
 Existing version state (2026-11-13): every member is `0.1.0` except
 `ferrisma-avif-read`, `ferrisma-avif-write`, and `ferrisma-libavif` (`0.0.0`).

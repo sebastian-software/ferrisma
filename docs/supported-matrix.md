@@ -57,41 +57,73 @@ one adapter. Since 2026-11-15 every format has one reader and one writer
 
 | Feature | Provides | Backend | Default role | Toolchain | Extra prerequisites | Proposed tier (ADR-0040) |
 | --- | --- | --- | --- | --- | --- | --- |
-| `jpeg-read` | JPEG input | workspace `libjpeg-turbo-rs` | only JPEG reader | stable 1.98 | none | Stable |
-| `webp-read` | still WebP input | workspace `libwebp-rs` | only WebP reader | stable 1.98 | none | Stable |
-| `webp-write` | still WebP output | workspace `libwebp-rs` | only WebP writer | stable 1.98 | none | Stable |
-| `jpeg-xl-read` | JPEG XL input | workspace `libjxl-rs` via `ferrisma-jxl-decoder` | only JPEG XL reader (since 2026-11-15; this name selected `jxl-oxide` before, and the workspace reader was `jpeg-xl-own-read`) | stable 1.98 | none | Stable as capability |
+| `jpeg-read` | JPEG input | workspace `libjpeg-turbo-rs` | only JPEG reader | stable 1.99 | none | Stable |
+| `webp-read` | still WebP input | workspace `libwebp-rs` | only WebP reader | stable 1.99 | none | Stable |
+| `webp-write` | still WebP output | workspace `libwebp-rs` | only WebP writer | stable 1.99 | none | Stable |
+| `jpeg-xl-read` | JPEG XL input | workspace `libjxl-rs` via `ferrisma-jxl-decoder` | only JPEG XL reader (since 2026-11-15; this name selected `jxl-oxide` before, and the workspace reader was `jpeg-xl-own-read`) | stable 1.99 | none | Stable as capability |
 | `avif-read` | still AVIF input | workspace libavif/AOM via `ferrisma-avif-read` | only AVIF reader | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental |
 | `avif-write` | AVIF output | workspace libavif/AOM via `ferrisma-avif-write` | only AVIF writer (since 2026-11-15; this name selected `rav1e` 0.8 + `avif-serialize` before, and the workspace writer was `avif-own-write`) | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental until it builds on stable (working decision 2026-11-15) |
-| `jpeg-xl-write` | JPEG XL output: lossy d1.0 (default) or lossless | workspace `libjxl-rs`: public encoder through `ferrisma-jxl-encoder` (lossy), fixed-profile entry point (lossless) | only JPEG XL writer; in `cli` since 2026-11-12 | stable 1.98 | none | Experimental |
-| `icc` | rendered-ICC → sRGB conversion | `moxcms` 0.9 | needed for `UseRenderedIcc` / `--use-rendered-icc` | stable 1.98 | none | Stable |
+| `jpeg-xl-write` | JPEG XL output: lossy d1.0 (default) or lossless | workspace `libjxl-rs`: public encoder through `ferrisma-jxl-encoder` (lossy), fixed-profile entry point (lossless) | only JPEG XL writer; in `cli` since 2026-11-12 | stable 1.99 | none | Experimental |
+| `icc` | rendered-ICC → sRGB conversion | `moxcms` 0.9 | needed for `UseRenderedIcc` / `--use-rendered-icc` | stable 1.99 | none | Stable |
 | `cli` | the `ferrisma` binary | `jpeg-read`, `webp-read`, `jpeg-xl-read`, `avif-read`, `avif-write`, `webp-write`, `jpeg-xl-write`, `icc` | — | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Stable command line, experimental backends |
 
-Since 2026-11-15 every feature builds on stable Rust. The AVIF features need
-Rust 1.99 or later, the `rust-version` of the AVIF packages: the port's
-translations were rewritten for stable (`tools/stable_rust.py`, libavif-rs
-[ADR 0060](../codecs/libavif-rs/docs/adr/0060-build-the-translations-on-stable-rust.md)),
-and their C-variadic functions are stable Rust since 1.99. Stable Rust 1.98
-stays the engine's declared `rust-version` for every other feature
-(`jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc`, CI
-`minimum-rust` with `cargo +1.98.0`); CI checks `avif-read`, `avif-write` and
-`cli` with `cargo +1.99.0` in the same job (the local evidence of 2026-11-15
-used a 1.99.0 nightly with `-Zallow-features=`, which rejects every
-`#![feature]`; no stable 1.99 or 1.100 toolchain was installed). Whether
-the AVIF features leave the experimental tier is the owner's decision. Before 2026-11-15 the AVIF
-features needed the pinned nightly (`extern_types`, `core_intrinsics`,
-`c_variadic`), so a stable-toolchain build could neither read nor write AVIF.
-The pinned nightly `nightly-2026-09-07` from
-[`rust-toolchain.toml`](../rust-toolchain.toml) remains the workspace's
-development default (rustfmt options, AddressSanitizer). NASM is no longer
-needed.
+Since 2026-11-15 every feature builds on stable Rust, and the engine's
+minimum is **Rust 1.99 for every feature** (owner decision 2026-11-15,
+[ADR-0040](adr/0040-stable-public-contract-and-compatibility-policy.md)
+amendment): AVIF is the preferred output format, and the AVIF port defines
+C-variadic functions, which are stable Rust since 1.99 (libavif-rs
+[ADR 0060](../codecs/libavif-rs/docs/adr/0060-build-the-translations-on-stable-rust.md)).
+Until that day the engine declared 1.98, with 1.99 only for the AVIF
+features, and before the AVIF translations were rewritten for stable
+(`tools/stable_rust.py`) they needed the pinned nightly (`extern_types`,
+`core_intrinsics`, `c_variadic`). The pinned nightly `nightly-2026-09-07`
+from [`rust-toolchain.toml`](../rust-toolchain.toml) remains the workspace's
+development default (rustfmt options, AddressSanitizer, fuzzing), not a
+requirement for users. NASM is no longer needed. Whether the AVIF features
+leave the experimental tier is the owner's decision.
 
-Evidence: CI `rust` job checks each feature alone (`cargo check
---no-default-features --features <feature>` for every feature above);
-`minimum-rust` checks the stable set with `cargo +1.98.0`, including
-`jpeg-xl-write` since 2026-11-12 (before, a local check only);
-the local run in [Verification record](#verification-record-2026-11-12-macos-arm64)
-repeats both and confirms that `avif-own-write` (now `avif-write`) fails on stable with `E0554`.
+### Minimum Rust versions
+
+Each package declares `rust-version`; a CI job builds and tests each group at
+exactly that version. A minimum is raised only deliberately, in its own change
+with a changelog entry, and the new minimum is then at least three months old
+(ADR-0040 decision 4 and its 2026-11-15 amendment).
+
+| Package group | `rust-version` | What forces it | Checked at exactly that version by |
+| --- | --- | --- | --- |
+| `ferrisma` (every feature, `cli` included), `ferrisma-kernels`, `ferrisma-jxl-decoder`, `ferrisma-jxl-encoder`, `ferrisma-avif-read`, `ferrisma-avif-write`, `ferrisma-xtask` | 1.99 | the AVIF port's C-variadic functions (the product's one number; the bridges and kernels are used only through the engine) | CI `minimum-rust` (`cargo +1.99.0`, GNU Linux x86-64): check and test of `ferrisma` and `ferrisma-kernels` with `cli`, check of the non-AVIF set, the bridges and `ferrisma-xtask` |
+| `libavif-rs`, `libavif-aom`, `libavif-dav1d` | 1.99 | C-variadic function definitions | through the engine's `cli` in `minimum-rust` |
+| `libavif-sharpyuv` | 1.95 | unchanged with the AVIF port | not checked separately at 1.95 |
+| `libwebp-rs` | 1.95 | x86 SIMD calls `__cpuid_count` without an `unsafe` block, rejected with `E0133` by 1.93, accepted by 1.95 | `check.py --msrv` (codec PR job, `webp-check.yml`) |
+| `libjpeg-turbo-rs` | 1.93 | x86 SIMD calls `_mm_sfence` without an `unsafe` block, rejected with `E0133` by 1.88, accepted by 1.93 | `check.py --msrv` (codec PR job), `jpeg-check.yml` `msrv` |
+| `libjxl-rs` | 1.88 | lowest installed toolchain tested; edition 2024 allows nothing below 1.85 | `check.py --msrv` (codec PR job, `jxl-check.yml`) |
+| `libsharpyuv-core` | 1.88 | as `libjxl-rs` | CI `workspace` (check and Clippy) |
+
+Evidence (2026-11-15, macOS ARM64, with the installed toolchains 1.88, 1.93,
+1.95; none in between): `cargo +<version> check --locked -p <package>
+--all-targets --all-features` passes at the declared version for
+`aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`
+and `aarch64-unknown-linux-gnu`, and the next lower installed toolchain
+fails where the table names a cause. `cargo +<version> test --locked -p <package> --profile checked` without the
+C/C++ oracle, natively and for `x86_64-apple-darwin` under Rosetta 2
+(`ROSETTA_ADVERTISE_AVX=1` except for `libjxl-rs`, as its `check.py` does),
+with and without default features for JPEG and WebP: JPEG 96 and 95 tests
+(x86-64: 114 and 95), WebP 410 and 367 (x86-64: 376 and 368), `libjxl-rs`
+x86-64 436, all passed; `libsharpyuv-core` has no tests of its own (its
+cross-port tests run through `libavif-sharpyuv`). `libjxl-rs` on AArch64:
+444 passed and one failed, `patches::selected_original_alpha_max_retains_comparison_result`
+(a signaling-NaN alpha: the port should keep `kSmallAlpha` as libjxl's
+`std::max` does and returns the NaN instead). It fails identically with
+1.93, 1.95 and stable 1.98.1 and passes with the pinned nightly, so it does
+not separate the floors; it is a stable-versus-nightly code generation
+difference for a NaN input, recorded as a finding (the working NaN rule O1
+applies), not a reason for a higher floor. The engine without
+AVIF would need 1.89 on its own (`moxcms` 0.9.1 declares 1.89; a 1.88 check
+with `--ignore-rust-version` hides that), and `ferrisma-kernels` 1.93 on
+x86-64 (AVX-512 target features and `stdarch_x86_avx512`, `E0658` on 1.88).
+Versions 1.85 to 1.87, 1.89 to 1.92 and 1.94 were not tested. The `rust`
+job checks each feature alone (`cargo check --no-default-features
+--features <feature>`) on the pinned nightly.
 
 ## Inputs
 
@@ -483,7 +515,7 @@ internals) need the whole frame for any crop.
 
 ## Native targets
 
-| Target | Engine features on stable | `avif-read`, `avif-write`, `cli` | Verified by |
+| Target | Engine features on stable (Rust 1.99 or later) | `avif-read`, `avif-write`, `cli` | Verified by |
 | --- | --- | --- | --- |
 | macOS ARM64 | yes | yes (stable 1.99; before 2026-11-15 pinned nightly) | local run below; CI `native-adapters` (`macos-15`) |
 | GNU Linux x86-64 | yes | yes (stable 1.99; before 2026-11-15 pinned nightly) | CI `rust`, `minimum-rust`, `workspace`, `codecs` (`ubuntu-24.04`); **not re-run for this branch** |

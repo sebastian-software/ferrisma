@@ -143,8 +143,8 @@ The workspace AOM encoder is the engine's only AVIF writer since 2026-11-15
 independent `ferrisma-avif-write` wrapper owns the unsafe ABI boundary; both the
 engine's `avif-write` feature and the compatibility adapter use it without
 a dependency cycle. AVIF reading or writing
-requires the pinned nightly and supported native target; other engine features
-retain stable Rust 1.98. Known simultaneous RGBA/YUV(A) frames use the existing
+requires a supported native target; every engine feature builds on Rust 1.99
+or later (ADR-0040 amendment of 2026-11-15). Known simultaneous RGBA/YUV(A) frames use the existing
 reservation seam; compressed output and opaque codec scratch remain excluded.
 
 ## Orientation (experimental)
