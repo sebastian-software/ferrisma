@@ -445,6 +445,13 @@ EncodeBoxTest instances (brob, step 11), an admission after an exact prefix.
 Not reachable through the public API at a testable size: a 64-bit box size
 (a 4 GiB box or codestream) and an unbounded box, which the encoder never
 writes; the box header writers cover both directly.
+
+Step 4's 16-bit and float alpha (#115): 24 exact histories (uint16 input
+with 13- and 16-bit alpha, float16 and float32 alpha, interleaved and
+separate planes, translucent and premultiplied, 1x1 to 768x768) at the
+automatic level and level 10; roundtrip_test's ExtraBoxesTest (float RGBA,
+container, level 10) is exact, and its output with the test's appended crud
+box decodes identically through both public decoders.
 <!-- end encoder container -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)
@@ -520,9 +527,10 @@ the earlier lossy families and the lossless, transform, heuristics,
 coefficient and AR chains) passes against the ordinary and the ASan/UBSan
 oracle graphs (macOS AArch64, checked profile).
 
-Not done: the patch reference-frame encode (patches at the default), 16-bit
-and float alpha (container output, step 3), black channels, `dim_shift`,
-extra-channel resampling, native Linux x86-64 runs.
+Not done: the patch reference-frame encode (patches at the default), black
+channels, `dim_shift`, extra-channel resampling, native Linux x86-64 runs.
+(16-bit and float alpha are exact since the container port, block "encoder
+container".)
 
 ## Public lossy VarDCT encode below d0.7 (2026-11-12)
 

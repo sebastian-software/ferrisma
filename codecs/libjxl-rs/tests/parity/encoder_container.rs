@@ -817,3 +817,110 @@ fn upstream_encode_test_container_cases_match_original() {
          EncodeBoxTest Compressed_BoxSize_256 and Compressed_BoxSize_4294967365"
     );
 }
+
+/// Encoder step 4's 16-bit and float alpha (#115), which needed level 10 and
+/// so a container: alpha deeper than 12 bits clears
+/// modular_16_bit_buffer_sufficient. uint16 input with 13- and 16-bit alpha,
+/// float16 input with half-float alpha, float input with 32-bit float alpha;
+/// interleaved and separate alpha planes, translucent and premultiplied
+/// alpha, gray and RGB, one-shot and streaming sizes, at the automatic level
+/// and with JxlEncoderSetCodestreamLevel(10). Every history must be exact.
+#[test]
+fn public_encoder_alpha_16_bit_and_float_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let depths = [
+        (1, ",ab:16"),
+        (2, ",ab:16,aexp:5"),
+        (3, ",ab:32,aexp:8"),
+        (1, ",ab:13"),
+    ];
+    let mut requests = Vec::new();
+    let mut variant = 0;
+    for &(xsize, ysize) in &[(1, 1), (9, 17), (45, 15), (63, 129), (256, 256), (768, 768)] {
+        for &(type_index, depth) in &depths {
+            let gray = variant % 2 == 1;
+            let distance = [1.0, 0.5, 2.9, 1.5][variant % 4];
+            let prefix = if variant % 3 == 2 { "L10 " } else { "" };
+            let premultiplied = if variant % 5 == 4 { ",apre:1" } else { "" };
+            let history = super::alpha_history(
+                xsize,
+                ysize,
+                gray,
+                type_index,
+                1 + variant % 4,
+                2 + variant % 2,
+                distance,
+                variant,
+                variant % 4 == 1,
+                &format!("{depth}{premultiplied}"),
+                "",
+            );
+            requests.push(run(0, 0, &format!("{prefix}{history}")));
+            variant += 1;
+        }
+    }
+    compare_admitted("alpha-16-bit-and-float", requests);
+}
+
+/// roundtrip_test.cc GetTestImage<float> for four channels (the test's
+/// input, as in tests/parity/encoder_step1.rs, whose es1-rt requests check
+/// it against the original's helper), native-endian bytes.
+fn roundtrip_float_rgba(xsize: usize, ysize: usize) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for y in 0..ysize {
+        for x in 0..xsize {
+            for chan in 0..4 {
+                let val = match chan {
+                    0 => y as f32 / ysize as f32,
+                    1 => x as f32 / xsize as f32,
+                    2 => (x + y) as f32 / (xsize + ysize) as f32,
+                    _ => (x * y) as f32 / (xsize * ysize) as f32,
+                };
+                bytes.extend_from_slice(&val.to_ne_bytes());
+            }
+        }
+    }
+    bytes
+}
+
+/// roundtrip_test.cc ExtraBoxesTest in differential form: float RGBA (float
+/// alpha, level 10) at 61x71 with JxlEncoderUseContainer, linear sRGB, the
+/// test's EncodeWithEncoder loop (`P64`); then the test appends a 1023-byte
+/// `crud` box with the original's AppendBoxHeader, and both public decoders
+/// decode the result with the test's events and format.
+#[test]
+fn upstream_roundtrip_test_extra_boxes_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let (xsize, ysize) = (61, 71);
+    let pixels = driver::hex(&roundtrip_float_rgba(xsize, ysize));
+    let request = run(
+        0,
+        0,
+        &format!(
+            "U1 L10 Bw:{xsize},h:{ysize},bits:32,exp:8,ec:1,ab:32,aexp:8 g0 s- y0,0 a0,4,0,0,0,{},x{pixels} Z P64",
+            xsize * ysize * 16
+        ),
+    );
+    let cpp = super::super::original_observations(std::slice::from_ref(&request)).remove(0);
+    let exact = super::compare_counted("upstream-extra-boxes", vec![request]);
+    assert_eq!(exact, 1, "ExtraBoxesTest is exact");
+    let field = cpp
+        .split(' ')
+        .find_map(|f| f.strip_prefix("P:"))
+        .expect("the ProcessEncoder loop");
+    let (statuses, bytes) = field.split_once(';').unwrap();
+    assert!(statuses.rsplit(':').next().unwrap().starts_with("0."));
+    let bytes = bytes.split('/').next().unwrap();
+    // The test's crud box: its header from the original, then zero bytes.
+    let header =
+        super::super::original_observations(&["ectr-append - 63727564 1023 0".to_string()])
+            .remove(0);
+    let file = format!("{bytes}{header}{}", "00".repeat(1023));
+    super::super::decoder_public::compare(
+        "upstream-extra-boxes-decode",
+        vec![
+            format!("dpub-run 0 0 {file} s4416 F4.0.0.0.0 L1,1000000,0,1000,1"),
+            format!("dpub-run 0 0 {file} s4416 F4.0.0.0.0 L2,64,0,1000,1"),
+        ],
+    );
+}
