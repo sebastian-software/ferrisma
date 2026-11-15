@@ -65,7 +65,7 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `ColorSignal`, `ProcessingReport::color_signal` | enum, field | Experimental (working decision 2026-11-14, #212) | Non-exhaustive; reports the signal used, never a precedence |
 | `KernelLevel`, `KernelLevelReason`, `TransformOptions::kernel_level_ceiling` | re-exported enums, field | Experimental (diagnostics) | Couples to `ferrisma-kernels`; see problem 7 |
 | `ProcessingError`, `ProcessingErrorKind` | struct, enum | Stable | Kind is non-exhaustive; message text is not stable |
-| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decisions 2026-11-14 and 2026-11-15, #212) | Non-exhaustive closed vocabulary by refusal class (eleven variants since 2026-11-15); `None` outside it |
+| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decisions 2026-11-14 and 2026-11-15, #212) | Non-exhaustive closed vocabulary by refusal class (twelve variants since 2026-11-15); `None` outside it |
 | `Engine`, `BatchItem` | struct, struct | Stable | ADR-0022 |
 | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with` | fn | Experimental | ADR-0024 backend extension point |
 | `EncoderBackend`, `RowEncoder`, `EncodeRequest`, `EncodedImage`, `EncodeError`, `EncodeErrorKind` | traits, structs, enum | Experimental | Implementors break if a required method is added; the structs and kind are already non-exhaustive |
@@ -188,7 +188,7 @@ cannot be fixed later without a major release.
 6. **No structured error details.** `ProcessingError` exposes `kind()`,
    the message, and `refusal_reason()` (#212): since 2026-11-14 for four
    refusals, since 2026-11-15 for every documented refusal class of the
-   [supported matrix](../supported-matrix.md) (eleven reasons). Additive accessors (which limit, requested and allowed
+   [supported matrix](../supported-matrix.md) (twelve reasons). Additive accessors (which limit, requested and allowed
    values) and `source()` can follow after 1.0.
 7. **`KernelLevel` couples SemVer to `ferrisma-kernels`.** Recommendation:
    define the two diagnostic enums in `ferrisma` and map them, or keep them
@@ -342,3 +342,11 @@ reports that a stable item cannot express its use case.
   premultiplied JPEG XL should be accepted, the strict color policy (#222),
   and the kind of an unknown essential AVIF property (`MalformedInput`,
   #67), which keeps no reason.
+- 2026-11-15 — Correction of the entry above (issue #67, approved by the
+  owner through the v1.0 coordinator's brief): an unknown essential AVIF
+  property is `UnsupportedInput` with the additive
+  `RefusalReason::UnsupportedEssentialProperty` (twelve variants), no
+  longer `MalformedInput`; a malformed property box stays `MalformedInput`.
+  A changed kind for one input class, allowed in 0.x and recorded in
+  [ADR-0017](0017-minimal-public-facade-and-cli.md). Working decision
+  2026-11-15 (delegated, revisable by the owner): the variant name.

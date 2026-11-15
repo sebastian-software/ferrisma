@@ -2,15 +2,16 @@
 //! real fixture through the public `transcode`. The match in `case` is
 //! exhaustive, so a new variant does not compile until it has a fixture
 //! here; `ALL` is checked against the same match. Needs every input
-//! adapter, which the `cli` feature set provides (`ContradictoryColorSignals`
-//! and `GeometricTransform` are AVIF-only refusals).
+//! adapter, which the `cli` feature set provides (`ContradictoryColorSignals`,
+//! `GeometricTransform` and `UnsupportedEssentialProperty` are AVIF-only
+//! refusals).
 
 use crate::pipeline::{
     ImageFormat, InputProfilePolicy, JpegXlDecoder, OutputFormat, RefusalReason, TransformOptions,
     transcode,
 };
 
-const ALL: [RefusalReason; 11] = [
+const ALL: [RefusalReason; 12] = [
     RefusalReason::Animation,
     RefusalReason::ColorSignalMissing,
     RefusalReason::RenderedIccRequiresOptIn,
@@ -22,6 +23,7 @@ const ALL: [RefusalReason; 11] = [
     RefusalReason::UnsupportedLayout,
     RefusalReason::AlphaAssociation,
     RefusalReason::GeometricTransform,
+    RefusalReason::UnsupportedEssentialProperty,
 ];
 
 fn file(path: &str) -> Vec<u8> {
@@ -30,6 +32,30 @@ fn file(path: &str) -> Vec<u8> {
 
 const LIBAVIF: &str = "codecs/libavif-rs/upstream/libavif/tests/data/";
 const LIBJXL: &str = "codecs/libjxl-rs/tests/data/";
+
+/// `avif-1.avif` with the primary item's `pixi` (property 3 of `ipco`, one
+/// entry in a version-0 small-index `ipma`) renamed to an unknown type and
+/// its association marked essential, as in `tests/supported_matrix.rs`.
+fn unknown_essential_property() -> Vec<u8> {
+    let mut bytes = file("tests/fixtures/orientation/avif-1.avif");
+    let pixi = bytes
+        .windows(4)
+        .position(|window| window == b"pixi")
+        .unwrap();
+    bytes[pixi..pixi + 4].copy_from_slice(b"xyzw");
+    let ipma = bytes
+        .windows(4)
+        .position(|window| window == b"ipma")
+        .unwrap()
+        + 4;
+    assert_eq!(&bytes[ipma..ipma + 8], &[0, 0, 0, 0, 0, 0, 0, 1]);
+    let count = usize::from(bytes[ipma + 10]);
+    let association = (ipma + 11..ipma + 11 + count)
+        .find(|&at| bytes[at] & 0x7f == 3)
+        .unwrap();
+    bytes[association] |= 0x80;
+    bytes
+}
 
 /// One fixture, format, policy and JPEG XL reader per reason; the position
 /// in `ALL` is returned with it.
@@ -127,6 +153,15 @@ fn case(
             AssumeSrgbIfMissing,
             LibjxlRs,
         ),
+        RefusalReason::UnsupportedEssentialProperty => {
+            return (
+                11,
+                unknown_essential_property(),
+                ImageFormat::Avif,
+                AssumeSrgbIfMissing,
+                LibjxlRs,
+            );
+        }
     };
     (index, file(&path), format, policy, decoder)
 }

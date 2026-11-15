@@ -91,6 +91,11 @@ impl<'a> AvifSource<'a> {
         let properties = primary_properties(bytes).map_err(|error| match error {
             MetaError::Allocation => Error::AllocationFailed,
             MetaError::ProfileTooLarge => Error::UnsupportedColorEncoding,
+            // Well-formed, but marked essential and not understood: an
+            // unsupported input, not a malformed one.
+            MetaError::UnsupportedEssentialProperty(kind) => {
+                Error::UnsupportedEssentialProperty(kind)
+            }
             _ => Error::DecodeFailed,
         })?;
         // irot/imir are applied by the pipeline (ADR-0019); clap and an imir

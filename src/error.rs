@@ -55,6 +55,11 @@ pub(crate) enum Error {
     },
     #[cfg(feature = "avif-read")]
     ContradictoryColorSignals,
+    /// The primary AVIF item cites a property marked essential that the
+    /// container parser does not understand (ISO/IEC 23008-12 section
+    /// 10.2.1): a well-formed file the engine cannot process faithfully.
+    #[cfg(feature = "avif-read")]
+    UnsupportedEssentialProperty([u8; 4]),
     #[cfg_attr(
         not(any(feature = "jpeg-read", feature = "webp-read", feature = "avif-read")),
         allow(dead_code, reason = "constructed only by codec adapters")
@@ -221,6 +226,12 @@ impl fmt::Display for Error {
             Self::ContradictoryColorSignals => write!(
                 f,
                 "container color information contradicts the coded bitstream"
+            ),
+            #[cfg(feature = "avif-read")]
+            Self::UnsupportedEssentialProperty(kind) => write!(
+                f,
+                "an essential container property is not supported: '{}'",
+                kind.escape_ascii()
             ),
             Self::UnsupportedImageTransform => write!(
                 f,

@@ -56,6 +56,7 @@ meets several classes, the reason names the check that refused it first.
 | `UnsupportedLayout` | `UnsupportedInput` | CMYK/YCCK JPEG, monochrome AVIF, constant-luminance BT.2020, grayscale/CMYK/float/extra-channel JPEG XL | convert to RGB(A) first |
 | `AlphaAssociation` | `UnsupportedInput` | premultiplied or unspecified alpha | convert to straight alpha first |
 | `GeometricTransform` | `UnsupportedInput` | AVIF `clap`, `imir` before `irot`, EXIF orientation outside 1 to 8 | remove the transform first |
+| `UnsupportedEssentialProperty` | `UnsupportedInput` | the primary AVIF item cites a property marked essential that the engine does not understand (since 2026-11-15; before, `MalformedInput` without a reason) | remove or convert that property first |
 
 New reasons may be added in a minor release (match with a wildcard arm); a
 documented reason keeps its meaning.

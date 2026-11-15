@@ -80,6 +80,8 @@ const ANIMATION: &str = "animated input is not supported; only still images are 
 const LAYOUT: &str = "decoder pixel or color layout is not supported";
 #[cfg(feature = "avif-read")]
 const TRANSFORM: &str = "orientation, mirroring or clean-aperture transforms are not supported yet";
+#[cfg(feature = "avif-read")]
+const ESSENTIAL: &str = "an essential container property is not supported: 'xyzw'";
 const COLOR: &str =
     "unsupported or ambiguous rendered color profile; a color-management transform is required";
 const MALFORMED: &str = "decoder rejected input or could not render it";
@@ -746,11 +748,36 @@ fn unknown_essential_property(mut bytes: Vec<u8>) -> Vec<u8> {
 
 #[cfg(feature = "avif-read")]
 #[test]
-fn avif_unknown_essential_property_is_rejected_as_malformed() {
+fn avif_unknown_essential_property_is_refused_as_unsupported() {
     let patched = unknown_essential_property(read(&format!("{ORIENTATION}avif-1.avif")));
-    rejected(
+    refused(
         transcode(
             &patched,
+            ImageFormat::Avif,
+            options(OutputFormat::WebP, ASSUME),
+        ),
+        ProcessingErrorKind::UnsupportedInput,
+        ESSENTIAL,
+        Some(RefusalReason::UnsupportedEssentialProperty),
+    );
+}
+
+/// The same box, really malformed: the primary item's association points
+/// past the end of `ipco`. The container is broken, so this stays
+/// `MalformedInput` without a reason.
+#[cfg(feature = "avif-read")]
+#[test]
+fn avif_property_association_outside_ipco_is_malformed() {
+    let mut bytes = read(&format!("{ORIENTATION}avif-1.avif"));
+    let ipma = find(&bytes, b"ipma").unwrap() + 4;
+    // Version 0, small indices, one item with three associations; the
+    // last one (`pixi`, index 3) now names a property 0x7f that `ipco`,
+    // with three properties, does not have.
+    assert_eq!(&bytes[ipma..ipma + 11], &[0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 3]);
+    bytes[ipma + 13] = 0x7f;
+    rejected(
+        transcode(
+            &bytes,
             ImageFormat::Avif,
             options(OutputFormat::WebP, ASSUME),
         ),

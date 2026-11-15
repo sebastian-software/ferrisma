@@ -632,6 +632,13 @@ pub enum RefusalReason {
     /// EXIF orientation outside 1 to 8. Kind:
     /// [`ProcessingErrorKind::UnsupportedInput`].
     GeometricTransform,
+    /// The container marks a property of the image as essential (ISO/IEC
+    /// 23008-12 section 10.2.1: a reader must understand it to process the
+    /// image) and the engine does not understand it; today an unknown
+    /// essential property of the primary AVIF item. The file is well-formed,
+    /// so the kind is [`ProcessingErrorKind::UnsupportedInput`], not
+    /// `MalformedInput`.
+    UnsupportedEssentialProperty,
 }
 
 /// Public error that never exposes backend-specific types.
@@ -724,6 +731,8 @@ impl From<Error> for ProcessingError {
             Error::CicpBesideIcc(_) | Error::RenderedIccMissing => Kind::UnsupportedColor,
             #[cfg(feature = "avif-read")]
             Error::ContradictoryColorSignals => Kind::UnsupportedColor,
+            #[cfg(feature = "avif-read")]
+            Error::UnsupportedEssentialProperty(_) => Kind::UnsupportedInput,
             Error::AllocationFailed | Error::ThreadSpawnFailed | Error::BudgetExceeded { .. } => {
                 Kind::ResourceExhausted
             }
@@ -754,6 +763,10 @@ impl From<Error> for ProcessingError {
             Error::UnrenderableColorEncoding => Some(RefusalReason::UnsupportedColorEncoding),
             #[cfg(feature = "avif-read")]
             Error::ContradictoryColorSignals => Some(RefusalReason::ContradictoryColorSignals),
+            #[cfg(feature = "avif-read")]
+            Error::UnsupportedEssentialProperty(_) => {
+                Some(RefusalReason::UnsupportedEssentialProperty)
+            }
             Error::UnsupportedLayout => Some(RefusalReason::UnsupportedLayout),
             Error::UnsupportedAlphaMode => Some(RefusalReason::AlphaAssociation),
             Error::UnsupportedImageTransform => Some(RefusalReason::GeometricTransform),
