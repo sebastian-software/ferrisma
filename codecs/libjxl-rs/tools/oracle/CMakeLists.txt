@@ -412,3 +412,11 @@ target_sources(jxl_oracle PRIVATE "${UPSTREAM}/lib/extras/enc/jxl.cc"
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${UPSTREAM}/lib/jxl/roundtrip_test.cc")
 # end encoder step 1
+# encoder step 1: checkpoint fixtures of LossyFrameHeuristics (#118). The TU
+# compiles the unmodified enc_frame.cc with renamed external symbols and
+# wrappers around three archive calls (see its header); -fno-access-control
+# reads the encoder state it records.
+target_sources(jxl_oracle PRIVATE encoder_step1_checkpoints.cc)
+set_source_files_properties(encoder_step1_checkpoints.cc PROPERTIES COMPILE_OPTIONS
+  "-fno-rtti;-fno-access-control")
+# end encoder step 1

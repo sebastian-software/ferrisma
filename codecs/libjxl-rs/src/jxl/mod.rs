@@ -159,3 +159,7 @@ pub mod enc_ac_strategy_simd;
 pub mod convolve_symmetric5_simd;
 pub mod enc_chroma_from_luma_simd;
 // end encoder cfl
+// encoder step 1: read-only checkpoint observation of the frame encoder
+// (#118, tests/parity/encoder_step1_checkpoints.rs).
+pub mod enc_checkpoints;
+// end encoder step 1
