@@ -234,12 +234,12 @@ def year_of(src):
     return re.search(r'Copyright \(c\) (\d+)', (ROOT / 'upstream/aom' / src).read_text()).group(1)
 
 
-def simple_file(rel, cfg, src, feat, uses, extra=''):
+def simple_file(rel, cfg, src, feat, uses, extra='', note=''):
     """One printed C file with the standard header and notes."""
     text = run(cfg)
     write(rel, LIC(year_of(src)) + f'\n// Translated from upstream/aom/{src} (ADR 0056, ADR 0058).\n'
           f'// Upstream compiles it with -m{feat.replace(".", "")}. The functions were\n// {PRINTER}.\n'
-          + NOTES.format(feat=feat) + uses + extra + '\n' + text)
+          + note + NOTES.format(feat=feat) + uses + extra + '\n' + text)
 
 
 def quantizers():
@@ -272,6 +272,34 @@ const AOM_QM_BITS: i32 = 5;
                 'avx2', q + 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n', '\n// stdint.h\nconst INT16_MAX: i32 = 0x7fff;\n')
 
 
+def sse_and_sum_squares():
+    x = 'use crate::simd::aom_dsp__x86__synonyms::*;\n'
+    y = x + 'use crate::simd::aom_dsp__x86__synonyms_avx2::*;\n'
+    simple_file('aom_dsp/x86/sse_sse4.rs', 'sse_sse4.json', 'aom_dsp/x86/sse_sse4.c', 'sse4.1', x)
+    simple_file('aom_dsp/x86/sse_avx2.rs', 'sse_avx2.json', 'aom_dsp/x86/sse_avx2.c', 'avx2', y)
+    sq = 'use crate::aom_dsp__sum_squares::{aom_sum_squares_2d_i16_c, aom_sum_squares_i16_c, aom_sum_sse_2d_i16_c};\n'
+    blk = 'use crate::aom_dsp__blk_sse_sum::aom_get_blk_sse_sum_c;\n'
+    simple_file('aom_dsp/x86/sum_squares_sse2.rs', 'sum_squares_sse2.json', 'aom_dsp/x86/sum_squares_sse2.c', 'sse2',
+                x + sq)
+    simple_file('aom_dsp/x86/sum_squares_avx2.rs', 'sum_squares_avx2.json', 'aom_dsp/x86/sum_squares_avx2.c', 'avx2',
+                y + sq + 'use crate::simd::aom_dsp__x86__sum_squares_sse2::*;\n')
+    simple_file('aom_dsp/x86/blk_sse_sum_sse2.rs', 'blk_sse_sum_sse2.json', 'aom_dsp/x86/blk_sse_sum_sse2.c', 'sse2',
+                x + blk)
+    simple_file('aom_dsp/x86/blk_sse_sum_avx2.rs', 'blk_sse_sum_avx2.json', 'aom_dsp/x86/blk_sse_sum_avx2.c', 'avx2',
+                y + blk)
+    part_note = ('// Only the still-image functions of this file (aom_mse_wxh_16bit*, aom_mse_16xh_16bit*) and the\n'
+                 '// static helpers they call are translated; the inter-prediction variance kernels are not\n'
+                 '// (working decision O2, 2026-11-13, delegated, revisable by the owner).\n')
+    for rel, cfg, src, feat, uses in [
+            ('aom_dsp/x86/variance_sse2.rs', 'variance_sse2_mse.json', 'aom_dsp/x86/variance_sse2.c', 'sse2', x),
+            ('aom_dsp/x86/variance_avx2.rs', 'variance_avx2_mse.json', 'aom_dsp/x86/variance_avx2.c', 'avx2', y),
+            ('aom_dsp/x86/highbd_variance_sse2.rs', 'highbd_variance_sse2_mse.json', 'aom_dsp/x86/highbd_variance_sse2.c',
+             'sse2', x),
+            ('aom_dsp/x86/highbd_variance_avx2.rs', 'highbd_variance_avx2_mse.json', 'aom_dsp/x86/highbd_variance_avx2.c',
+             'avx2', y)]:
+        simple_file(rel, cfg, src, feat, uses, extra='', note=part_note)
+
+
 def main():
     global OUT, WORK
     parser = argparse.ArgumentParser(description=__doc__)
@@ -285,6 +313,7 @@ def main():
         loop_filter()
         intra_predictors()
         quantizers()
+        sse_and_sum_squares()
         if args.check:
             bad = []
             for path in sorted(OUT.rglob('*.rs')):

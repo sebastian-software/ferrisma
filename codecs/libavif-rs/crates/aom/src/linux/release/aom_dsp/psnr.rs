@@ -12,34 +12,10 @@
 // Mechanically translated from upstream/aom/aom_dsp/psnr.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    fn aom_highbd_sse_c(
-        a8: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b8: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
-    fn aom_sse_c(
-        a: *const uint8_t,
-        a_stride: core::ffi::c_int,
-        b: *const uint8_t,
-        b_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> int64_t;
-    fn aom_var_2d_u16_c(
-        src: *mut uint8_t,
-        src_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> uint64_t;
-    fn aom_var_2d_u8_c(
-        src: *mut uint8_t,
-        src_stride: core::ffi::c_int,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-    ) -> uint64_t;
+    static mut aom_highbd_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
+    static mut aom_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
+    static mut aom_var_2d_u16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    static mut aom_var_2d_u8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
 }
 pub type __uint8_t = u8;
 pub type __uint16_t = u16;
@@ -426,7 +402,7 @@ unsafe extern "C-unwind" fn get_sse(
         x = 0 as core::ffi::c_int;
         while x < width / 16 as core::ffi::c_int {
             total_sse
-                += aom_sse_c(
+                += aom_sse.expect("non-null function pointer")(
                     pa,
                     a_stride,
                     pb,
@@ -518,7 +494,7 @@ unsafe extern "C-unwind" fn highbd_get_sse(
         x = 0 as core::ffi::c_int;
         while x < width / 16 as core::ffi::c_int {
             total_sse
-                += aom_highbd_sse_c(
+                += aom_highbd_sse.expect("non-null function pointer")(
                     pa,
                     a_stride,
                     pb,
@@ -544,7 +520,7 @@ pub unsafe extern "C-unwind" fn aom_get_y_var(
     mut vstart: core::ffi::c_int,
     mut height: core::ffi::c_int,
 ) -> uint64_t {
-    return (aom_var_2d_u8_c(
+    return (aom_var_2d_u8.expect("non-null function pointer")(
         ((*a).c2rust_unnamed_4.c2rust_unnamed.y_buffer)
             .offset((vstart * (*a).c2rust_unnamed_3.c2rust_unnamed.y_stride) as isize)
             .offset(hstart as isize),
@@ -562,7 +538,7 @@ pub unsafe extern "C-unwind" fn aom_get_u_var(
     mut vstart: core::ffi::c_int,
     mut height: core::ffi::c_int,
 ) -> uint64_t {
-    return (aom_var_2d_u8_c(
+    return (aom_var_2d_u8.expect("non-null function pointer")(
         ((*a).c2rust_unnamed_4.c2rust_unnamed.u_buffer)
             .offset((vstart * (*a).c2rust_unnamed_3.c2rust_unnamed.uv_stride) as isize)
             .offset(hstart as isize),
@@ -580,7 +556,7 @@ pub unsafe extern "C-unwind" fn aom_get_v_var(
     mut vstart: core::ffi::c_int,
     mut height: core::ffi::c_int,
 ) -> uint64_t {
-    return (aom_var_2d_u8_c(
+    return (aom_var_2d_u8.expect("non-null function pointer")(
         ((*a).c2rust_unnamed_4.c2rust_unnamed.v_buffer)
             .offset((vstart * (*a).c2rust_unnamed_3.c2rust_unnamed.uv_stride) as isize)
             .offset(hstart as isize),
@@ -706,7 +682,7 @@ pub unsafe extern "C-unwind" fn aom_highbd_get_y_var(
     mut vstart: core::ffi::c_int,
     mut height: core::ffi::c_int,
 ) -> uint64_t {
-    return (aom_var_2d_u16_c(
+    return (aom_var_2d_u16.expect("non-null function pointer")(
         ((*a).c2rust_unnamed_4.c2rust_unnamed.y_buffer)
             .offset((vstart * (*a).c2rust_unnamed_3.c2rust_unnamed.y_stride) as isize)
             .offset(hstart as isize),
@@ -724,7 +700,7 @@ pub unsafe extern "C-unwind" fn aom_highbd_get_u_var(
     mut vstart: core::ffi::c_int,
     mut height: core::ffi::c_int,
 ) -> uint64_t {
-    return (aom_var_2d_u16_c(
+    return (aom_var_2d_u16.expect("non-null function pointer")(
         ((*a).c2rust_unnamed_4.c2rust_unnamed.u_buffer)
             .offset((vstart * (*a).c2rust_unnamed_3.c2rust_unnamed.uv_stride) as isize)
             .offset(hstart as isize),
@@ -742,7 +718,7 @@ pub unsafe extern "C-unwind" fn aom_highbd_get_v_var(
     mut vstart: core::ffi::c_int,
     mut height: core::ffi::c_int,
 ) -> uint64_t {
-    return (aom_var_2d_u16_c(
+    return (aom_var_2d_u16.expect("non-null function pointer")(
         ((*a).c2rust_unnamed_4.c2rust_unnamed.v_buffer)
             .offset((vstart * (*a).c2rust_unnamed_3.c2rust_unnamed.uv_stride) as isize)
             .offset(hstart as isize),

@@ -412,7 +412,9 @@ void aom_fft8x8_float_c(const float *input, float *temp, float *output);
 #define aom_fft8x8_float aom_fft8x8_float_c
 
 void aom_get_blk_sse_sum_c(const int16_t *data, int stride, int bw, int bh, int *x_sum, int64_t *x2_sum);
-#define aom_get_blk_sse_sum aom_get_blk_sse_sum_c
+void aom_get_blk_sse_sum_sse2(const int16_t *data, int stride, int bw, int bh, int *x_sum, int64_t *x2_sum);
+void aom_get_blk_sse_sum_avx2(const int16_t *data, int stride, int bw, int bh, int *x_sum, int64_t *x2_sum);
+RTCD_EXTERN void (*aom_get_blk_sse_sum)(const int16_t *data, int stride, int bw, int bh, int *x_sum, int64_t *x2_sum);
 
 unsigned int aom_get_mb_ss_c(const int16_t *);
 #define aom_get_mb_ss aom_get_mb_ss_c
@@ -2914,7 +2916,9 @@ void aom_highbd_smooth_v_predictor_8x8_c(uint16_t *dst, ptrdiff_t y_stride, cons
 #define aom_highbd_smooth_v_predictor_8x8 aom_highbd_smooth_v_predictor_8x8_c
 
 int64_t aom_highbd_sse_c(const uint8_t *a8, int a_stride, const uint8_t *b8,int b_stride, int width, int height);
-#define aom_highbd_sse aom_highbd_sse_c
+int64_t aom_highbd_sse_sse4_1(const uint8_t *a8, int a_stride, const uint8_t *b8,int b_stride, int width, int height);
+int64_t aom_highbd_sse_avx2(const uint8_t *a8, int a_stride, const uint8_t *b8,int b_stride, int width, int height);
+RTCD_EXTERN int64_t (*aom_highbd_sse)(const uint8_t *a8, int a_stride, const uint8_t *b8,int b_stride, int width, int height);
 
 void aom_highbd_ssim_parms_8x8_c(const uint16_t *s, int sp, const uint16_t *r, int rp, uint32_t *sum_s, uint32_t *sum_r, uint32_t *sum_sq_s, uint32_t *sum_sq_r, uint32_t *sum_sxr);
 #define aom_highbd_ssim_parms_8x8 aom_highbd_ssim_parms_8x8_c
@@ -3258,13 +3262,19 @@ unsigned int aom_mse8x8_c(const uint8_t *src_ptr, int  source_stride, const uint
 #define aom_mse8x8 aom_mse8x8_c
 
 uint64_t aom_mse_16xh_16bit_c(uint8_t *dst, int dstride,uint16_t *src, int w, int h);
-#define aom_mse_16xh_16bit aom_mse_16xh_16bit_c
+uint64_t aom_mse_16xh_16bit_sse2(uint8_t *dst, int dstride,uint16_t *src, int w, int h);
+uint64_t aom_mse_16xh_16bit_avx2(uint8_t *dst, int dstride,uint16_t *src, int w, int h);
+RTCD_EXTERN uint64_t (*aom_mse_16xh_16bit)(uint8_t *dst, int dstride,uint16_t *src, int w, int h);
 
 uint64_t aom_mse_wxh_16bit_c(uint8_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
-#define aom_mse_wxh_16bit aom_mse_wxh_16bit_c
+uint64_t aom_mse_wxh_16bit_sse2(uint8_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
+uint64_t aom_mse_wxh_16bit_avx2(uint8_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
+RTCD_EXTERN uint64_t (*aom_mse_wxh_16bit)(uint8_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
 
 uint64_t aom_mse_wxh_16bit_highbd_c(uint16_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
-#define aom_mse_wxh_16bit_highbd aom_mse_wxh_16bit_highbd_c
+uint64_t aom_mse_wxh_16bit_highbd_sse2(uint16_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
+uint64_t aom_mse_wxh_16bit_highbd_avx2(uint16_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
+RTCD_EXTERN uint64_t (*aom_mse_wxh_16bit_highbd)(uint16_t *dst, int dstride,uint16_t *src, int sstride, int w, int h);
 
 unsigned int aom_obmc_sad128x128_c(const uint8_t *pre, int pre_stride, const int32_t *wsrc, const int32_t *mask);
 #define aom_obmc_sad128x128 aom_obmc_sad128x128_c
@@ -4150,7 +4160,9 @@ void aom_smooth_v_predictor_8x8_ssse3(uint8_t *dst, ptrdiff_t y_stride, const ui
 RTCD_EXTERN void (*aom_smooth_v_predictor_8x8)(uint8_t *dst, ptrdiff_t y_stride, const uint8_t *above, const uint8_t *left);
 
 int64_t aom_sse_c(const uint8_t *a, int a_stride, const uint8_t *b,int b_stride, int width, int height);
-#define aom_sse aom_sse_c
+int64_t aom_sse_sse4_1(const uint8_t *a, int a_stride, const uint8_t *b,int b_stride, int width, int height);
+int64_t aom_sse_avx2(const uint8_t *a, int a_stride, const uint8_t *b,int b_stride, int width, int height);
+RTCD_EXTERN int64_t (*aom_sse)(const uint8_t *a, int a_stride, const uint8_t *b,int b_stride, int width, int height);
 
 void aom_ssim_parms_8x8_c(const uint8_t *s, int sp, const uint8_t *r, int rp, uint32_t *sum_s, uint32_t *sum_r, uint32_t *sum_sq_s, uint32_t *sum_sq_r, uint32_t *sum_sxr);
 #define aom_ssim_parms_8x8 aom_ssim_parms_8x8_c
@@ -4292,13 +4304,18 @@ void aom_subtract_block_avx2(int rows, int cols, int16_t *diff_ptr, ptrdiff_t di
 RTCD_EXTERN void (*aom_subtract_block)(int rows, int cols, int16_t *diff_ptr, ptrdiff_t diff_stride, const uint8_t *src_ptr, ptrdiff_t src_stride, const uint8_t *pred_ptr, ptrdiff_t pred_stride);
 
 uint64_t aom_sum_squares_2d_i16_c(const int16_t *src, int stride, int width, int height);
-#define aom_sum_squares_2d_i16 aom_sum_squares_2d_i16_c
+uint64_t aom_sum_squares_2d_i16_sse2(const int16_t *src, int stride, int width, int height);
+uint64_t aom_sum_squares_2d_i16_avx2(const int16_t *src, int stride, int width, int height);
+RTCD_EXTERN uint64_t (*aom_sum_squares_2d_i16)(const int16_t *src, int stride, int width, int height);
 
 uint64_t aom_sum_squares_i16_c(const int16_t *src, uint32_t N);
-#define aom_sum_squares_i16 aom_sum_squares_i16_c
+uint64_t aom_sum_squares_i16_sse2(const int16_t *src, uint32_t N);
+RTCD_EXTERN uint64_t (*aom_sum_squares_i16)(const int16_t *src, uint32_t N);
 
 uint64_t aom_sum_sse_2d_i16_c(const int16_t *src, int src_stride, int width, int height, int *sum);
-#define aom_sum_sse_2d_i16 aom_sum_sse_2d_i16_c
+uint64_t aom_sum_sse_2d_i16_sse2(const int16_t *src, int src_stride, int width, int height, int *sum);
+uint64_t aom_sum_sse_2d_i16_avx2(const int16_t *src, int src_stride, int width, int height, int *sum);
+RTCD_EXTERN uint64_t (*aom_sum_sse_2d_i16)(const int16_t *src, int src_stride, int width, int height, int *sum);
 
 void aom_v_predictor_16x16_c(uint8_t *dst, ptrdiff_t y_stride, const uint8_t *above, const uint8_t *left);
 #define aom_v_predictor_16x16 aom_v_predictor_16x16_c
@@ -4379,10 +4396,14 @@ void aom_v_predictor_8x8_c(uint8_t *dst, ptrdiff_t y_stride, const uint8_t *abov
 #define aom_v_predictor_8x8 aom_v_predictor_8x8_c
 
 uint64_t aom_var_2d_u16_c(uint8_t *src, int src_stride, int width, int height);
-#define aom_var_2d_u16 aom_var_2d_u16_c
+uint64_t aom_var_2d_u16_sse2(uint8_t *src, int src_stride, int width, int height);
+uint64_t aom_var_2d_u16_avx2(uint8_t *src, int src_stride, int width, int height);
+RTCD_EXTERN uint64_t (*aom_var_2d_u16)(uint8_t *src, int src_stride, int width, int height);
 
 uint64_t aom_var_2d_u8_c(uint8_t *src, int src_stride, int width, int height);
-#define aom_var_2d_u8 aom_var_2d_u8_c
+uint64_t aom_var_2d_u8_sse2(uint8_t *src, int src_stride, int width, int height);
+uint64_t aom_var_2d_u8_avx2(uint8_t *src, int src_stride, int width, int height);
+RTCD_EXTERN uint64_t (*aom_var_2d_u8)(uint8_t *src, int src_stride, int width, int height);
 
 unsigned int aom_variance128x128_c(const uint8_t *src_ptr, int source_stride, const uint8_t *ref_ptr, int ref_stride, unsigned int *sse);
 #define aom_variance128x128 aom_variance128x128_c
@@ -4611,6 +4632,9 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_SSE2) aom_dc_top_predictor_8x32 = aom_dc_top_predictor_8x32_sse2;
     aom_dc_top_predictor_8x4 = aom_dc_top_predictor_8x4_c;
     if (flags & HAS_SSE2) aom_dc_top_predictor_8x4 = aom_dc_top_predictor_8x4_sse2;
+    aom_get_blk_sse_sum = aom_get_blk_sse_sum_c;
+    if (flags & HAS_SSE2) aom_get_blk_sse_sum = aom_get_blk_sse_sum_sse2;
+    if (flags & HAS_AVX2) aom_get_blk_sse_sum = aom_get_blk_sse_sum_avx2;
     aom_h_predictor_16x32 = aom_h_predictor_16x32_c;
     if (flags & HAS_SSE2) aom_h_predictor_16x32 = aom_h_predictor_16x32_sse2;
     aom_h_predictor_16x4 = aom_h_predictor_16x4_c;
@@ -4785,6 +4809,9 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_SSE2) aom_highbd_quantize_b_64x64_adaptive = aom_highbd_quantize_b_64x64_adaptive_sse2;
     aom_highbd_quantize_b_adaptive = aom_highbd_quantize_b_adaptive_c;
     if (flags & HAS_AVX2) aom_highbd_quantize_b_adaptive = aom_highbd_quantize_b_adaptive_avx2;
+    aom_highbd_sse = aom_highbd_sse_c;
+    if (flags & HAS_SSE4_1) aom_highbd_sse = aom_highbd_sse_sse4_1;
+    if (flags & HAS_AVX2) aom_highbd_sse = aom_highbd_sse_avx2;
     aom_highbd_subtract_block = aom_highbd_subtract_block_c;
     if (flags & HAS_SSE2) aom_highbd_subtract_block = aom_highbd_subtract_block_sse2;
     aom_highbd_v_predictor_16x32 = aom_highbd_v_predictor_16x32_c;
@@ -4851,6 +4878,15 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_SSE2) aom_lpf_vertical_8_dual = aom_lpf_vertical_8_dual_sse2;
     aom_lpf_vertical_8_quad = aom_lpf_vertical_8_quad_c;
     if (flags & HAS_SSE2) aom_lpf_vertical_8_quad = aom_lpf_vertical_8_quad_sse2;
+    aom_mse_16xh_16bit = aom_mse_16xh_16bit_c;
+    if (flags & HAS_SSE2) aom_mse_16xh_16bit = aom_mse_16xh_16bit_sse2;
+    if (flags & HAS_AVX2) aom_mse_16xh_16bit = aom_mse_16xh_16bit_avx2;
+    aom_mse_wxh_16bit = aom_mse_wxh_16bit_c;
+    if (flags & HAS_SSE2) aom_mse_wxh_16bit = aom_mse_wxh_16bit_sse2;
+    if (flags & HAS_AVX2) aom_mse_wxh_16bit = aom_mse_wxh_16bit_avx2;
+    aom_mse_wxh_16bit_highbd = aom_mse_wxh_16bit_highbd_c;
+    if (flags & HAS_SSE2) aom_mse_wxh_16bit_highbd = aom_mse_wxh_16bit_highbd_sse2;
+    if (flags & HAS_AVX2) aom_mse_wxh_16bit_highbd = aom_mse_wxh_16bit_highbd_avx2;
     aom_paeth_predictor_16x16 = aom_paeth_predictor_16x16_c;
     if (flags & HAS_SSSE3) aom_paeth_predictor_16x16 = aom_paeth_predictor_16x16_ssse3;
     if (flags & HAS_AVX2) aom_paeth_predictor_16x16 = aom_paeth_predictor_16x16_avx2;
@@ -5021,8 +5057,19 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_SSSE3) aom_smooth_v_predictor_8x4 = aom_smooth_v_predictor_8x4_ssse3;
     aom_smooth_v_predictor_8x8 = aom_smooth_v_predictor_8x8_c;
     if (flags & HAS_SSSE3) aom_smooth_v_predictor_8x8 = aom_smooth_v_predictor_8x8_ssse3;
+    aom_sse = aom_sse_c;
+    if (flags & HAS_SSE4_1) aom_sse = aom_sse_sse4_1;
+    if (flags & HAS_AVX2) aom_sse = aom_sse_avx2;
     aom_subtract_block = aom_subtract_block_c;
     if (flags & HAS_AVX2) aom_subtract_block = aom_subtract_block_avx2;
+    aom_sum_squares_2d_i16 = aom_sum_squares_2d_i16_c;
+    if (flags & HAS_SSE2) aom_sum_squares_2d_i16 = aom_sum_squares_2d_i16_sse2;
+    if (flags & HAS_AVX2) aom_sum_squares_2d_i16 = aom_sum_squares_2d_i16_avx2;
+    aom_sum_squares_i16 = aom_sum_squares_i16_c;
+    if (flags & HAS_SSE2) aom_sum_squares_i16 = aom_sum_squares_i16_sse2;
+    aom_sum_sse_2d_i16 = aom_sum_sse_2d_i16_c;
+    if (flags & HAS_SSE2) aom_sum_sse_2d_i16 = aom_sum_sse_2d_i16_sse2;
+    if (flags & HAS_AVX2) aom_sum_sse_2d_i16 = aom_sum_sse_2d_i16_avx2;
     aom_v_predictor_16x32 = aom_v_predictor_16x32_c;
     if (flags & HAS_SSE2) aom_v_predictor_16x32 = aom_v_predictor_16x32_sse2;
     aom_v_predictor_16x4 = aom_v_predictor_16x4_c;
@@ -5060,6 +5107,12 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_SSE2) aom_v_predictor_8x32 = aom_v_predictor_8x32_sse2;
     aom_v_predictor_8x4 = aom_v_predictor_8x4_c;
     if (flags & HAS_SSE2) aom_v_predictor_8x4 = aom_v_predictor_8x4_sse2;
+    aom_var_2d_u16 = aom_var_2d_u16_c;
+    if (flags & HAS_SSE2) aom_var_2d_u16 = aom_var_2d_u16_sse2;
+    if (flags & HAS_AVX2) aom_var_2d_u16 = aom_var_2d_u16_avx2;
+    aom_var_2d_u8 = aom_var_2d_u8_c;
+    if (flags & HAS_SSE2) aom_var_2d_u8 = aom_var_2d_u8_sse2;
+    if (flags & HAS_AVX2) aom_var_2d_u8 = aom_var_2d_u8_avx2;
 }
 #endif
 

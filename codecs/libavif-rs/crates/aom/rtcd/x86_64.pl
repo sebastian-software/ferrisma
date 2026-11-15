@@ -99,6 +99,8 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_dc_top_predictor_8x16_sse2
   aom_dc_top_predictor_8x32_sse2
   aom_dc_top_predictor_8x4_sse2
+  aom_get_blk_sse_sum_avx2
+  aom_get_blk_sse_sum_sse2
   aom_h_predictor_16x32_sse2
   aom_h_predictor_16x4_sse2
   aom_h_predictor_16x64_sse2
@@ -189,6 +191,8 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_highbd_quantize_b_64x64_avx2
   aom_highbd_quantize_b_adaptive_avx2
   aom_highbd_quantize_b_avx2
+  aom_highbd_sse_avx2
+  aom_highbd_sse_sse4_1
   aom_highbd_subtract_block_sse2
   aom_highbd_v_predictor_16x32_sse2
   aom_highbd_v_predictor_16x8_sse2
@@ -224,6 +228,12 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_lpf_vertical_8_dual_sse2
   aom_lpf_vertical_8_quad_sse2
   aom_lpf_vertical_8_sse2
+  aom_mse_16xh_16bit_avx2
+  aom_mse_16xh_16bit_sse2
+  aom_mse_wxh_16bit_avx2
+  aom_mse_wxh_16bit_highbd_avx2
+  aom_mse_wxh_16bit_highbd_sse2
+  aom_mse_wxh_16bit_sse2
   aom_paeth_predictor_16x16_avx2
   aom_paeth_predictor_16x16_ssse3
   aom_paeth_predictor_16x32_avx2
@@ -315,7 +325,14 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_smooth_v_predictor_8x32_ssse3
   aom_smooth_v_predictor_8x4_ssse3
   aom_smooth_v_predictor_8x8_ssse3
+  aom_sse_avx2
+  aom_sse_sse4_1
   aom_subtract_block_avx2
+  aom_sum_squares_2d_i16_avx2
+  aom_sum_squares_2d_i16_sse2
+  aom_sum_squares_i16_sse2
+  aom_sum_sse_2d_i16_avx2
+  aom_sum_sse_2d_i16_sse2
   aom_v_predictor_16x32_sse2
   aom_v_predictor_16x4_sse2
   aom_v_predictor_16x64_sse2
@@ -337,6 +354,10 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_v_predictor_8x16_sse2
   aom_v_predictor_8x32_sse2
   aom_v_predictor_8x4_sse2
+  aom_var_2d_u16_avx2
+  aom_var_2d_u16_sse2
+  aom_var_2d_u8_avx2
+  aom_var_2d_u8_sse2
   av1_block_error_avx2
   av1_block_error_lp_avx2
   av1_dr_prediction_z1_avx2

@@ -13,6 +13,38 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use core::arch::asm;
 extern "C-unwind" {
+    fn aom_mse_wxh_16bit_highbd_c(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
+    fn aom_mse_wxh_16bit_highbd_sse2(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
+    fn aom_mse_wxh_16bit_highbd_avx2(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
+    fn aom_mse_16xh_16bit_c(dst: *mut uint8_t, dstride: core::ffi::c_int, src: *mut uint16_t, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
+    fn aom_mse_16xh_16bit_sse2(dst: *mut uint8_t, dstride: core::ffi::c_int, src: *mut uint16_t, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
+    fn aom_mse_16xh_16bit_avx2(dst: *mut uint8_t, dstride: core::ffi::c_int, src: *mut uint16_t, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
+    fn aom_mse_wxh_16bit_c(dst: *mut uint8_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
+    fn aom_mse_wxh_16bit_sse2(dst: *mut uint8_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
+    fn aom_mse_wxh_16bit_avx2(dst: *mut uint8_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
+    fn aom_get_blk_sse_sum_c(data: *const int16_t, stride: core::ffi::c_int, bw: core::ffi::c_int, bh: core::ffi::c_int, x_sum: *mut core::ffi::c_int, x2_sum: *mut int64_t);
+    fn aom_get_blk_sse_sum_sse2(data: *const int16_t, stride: core::ffi::c_int, bw: core::ffi::c_int, bh: core::ffi::c_int, x_sum: *mut core::ffi::c_int, x2_sum: *mut int64_t);
+    fn aom_get_blk_sse_sum_avx2(data: *const int16_t, stride: core::ffi::c_int, bw: core::ffi::c_int, bh: core::ffi::c_int, x_sum: *mut core::ffi::c_int, x2_sum: *mut int64_t);
+    fn aom_sum_sse_2d_i16_c(src: *const int16_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int, sum: *mut core::ffi::c_int) -> uint64_t;
+    fn aom_sum_sse_2d_i16_sse2(src: *const int16_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int, sum: *mut core::ffi::c_int) -> uint64_t;
+    fn aom_sum_sse_2d_i16_avx2(src: *const int16_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int, sum: *mut core::ffi::c_int) -> uint64_t;
+    fn aom_var_2d_u16_c(src: *mut uint8_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> uint64_t;
+    fn aom_var_2d_u16_sse2(src: *mut uint8_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> uint64_t;
+    fn aom_var_2d_u16_avx2(src: *mut uint8_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> uint64_t;
+    fn aom_var_2d_u8_c(src: *mut uint8_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> uint64_t;
+    fn aom_var_2d_u8_sse2(src: *mut uint8_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> uint64_t;
+    fn aom_var_2d_u8_avx2(src: *mut uint8_t, src_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> uint64_t;
+    fn aom_sum_squares_i16_c(src: *const int16_t, N: uint32_t) -> uint64_t;
+    fn aom_sum_squares_i16_sse2(src: *const int16_t, N: uint32_t) -> uint64_t;
+    fn aom_sum_squares_2d_i16_c(src: *const int16_t, stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> uint64_t;
+    fn aom_sum_squares_2d_i16_sse2(src: *const int16_t, stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> uint64_t;
+    fn aom_sum_squares_2d_i16_avx2(src: *const int16_t, stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> uint64_t;
+    fn aom_highbd_sse_c(a8: *const uint8_t, a_stride: core::ffi::c_int, b8: *const uint8_t, b_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> int64_t;
+    fn aom_highbd_sse_sse4_1(a8: *const uint8_t, a_stride: core::ffi::c_int, b8: *const uint8_t, b_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> int64_t;
+    fn aom_highbd_sse_avx2(a8: *const uint8_t, a_stride: core::ffi::c_int, b8: *const uint8_t, b_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> int64_t;
+    fn aom_sse_c(a: *const uint8_t, a_stride: core::ffi::c_int, b: *const uint8_t, b_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> int64_t;
+    fn aom_sse_sse4_1(a: *const uint8_t, a_stride: core::ffi::c_int, b: *const uint8_t, b_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> int64_t;
+    fn aom_sse_avx2(a: *const uint8_t, a_stride: core::ffi::c_int, b: *const uint8_t, b_stride: core::ffi::c_int, width: core::ffi::c_int, height: core::ffi::c_int) -> int64_t;
     fn aom_quantize_b_64x64_c(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
     fn aom_quantize_b_64x64_ssse3(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
     fn aom_quantize_b_64x64_avx2(coeff_ptr: *const tran_low_t, n_coeffs: intptr_t, zbin_ptr: *const int16_t, round_ptr: *const int16_t, quant_ptr: *const int16_t, quant_shift_ptr: *const int16_t, qcoeff_ptr: *mut tran_low_t, dqcoeff_ptr: *mut tran_low_t, dequant_ptr: *const int16_t, eob_ptr: *mut uint16_t, scan: *const int16_t, iscan: *const int16_t);
@@ -1433,12 +1465,14 @@ pub type __int16_t = i16;
 pub type __uint16_t = u16;
 pub type __int32_t = i32;
 pub type __uint32_t = u32;
+pub type __int64_t = i64;
 pub type __uint64_t = u64;
 pub type int16_t = __int16_t;
 pub type int32_t = __int32_t;
 pub type uint8_t = __uint8_t;
 pub type uint16_t = __uint16_t;
 pub type uint32_t = __uint32_t;
+pub type int64_t = __int64_t;
 pub type uint64_t = __uint64_t;
 pub type intptr_t = isize;
 pub type tran_low_t = int32_t;
@@ -1573,6 +1607,8 @@ pub static mut aom_dc_top_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mu
 pub static mut aom_dc_top_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
 pub static mut aom_dc_top_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_get_blk_sse_sum: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int, *mut int64_t) -> ()> = None;
 #[no_mangle]
 pub static mut aom_h_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
@@ -2200,6 +2236,8 @@ pub static mut aom_highbd_quantize_b_adaptive: Option<
     ) -> (),
 > = None;
 #[no_mangle]
+pub static mut aom_highbd_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t> = None;
+#[no_mangle]
 pub static mut aom_highbd_subtract_block: Option<
     unsafe extern "C-unwind" fn(
         core::ffi::c_int,
@@ -2320,6 +2358,12 @@ pub static mut aom_lpf_vertical_8: Option<unsafe extern "C-unwind" fn(*mut uint8
 pub static mut aom_lpf_vertical_8_dual: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
 pub static mut aom_lpf_vertical_8_quad: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_mse_16xh_16bit: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> uint64_t> = None;
+#[no_mangle]
+pub static mut aom_mse_wxh_16bit: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t> = None;
+#[no_mangle]
+pub static mut aom_mse_wxh_16bit_highbd: Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t> = None;
 #[no_mangle]
 pub static mut aom_paeth_predictor_16x16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
@@ -2479,6 +2523,8 @@ pub static mut aom_smooth_v_predictor_8x4: Option<unsafe extern "C-unwind" fn(*m
 #[no_mangle]
 pub static mut aom_smooth_v_predictor_8x8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
+pub static mut aom_sse: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t> = None;
+#[no_mangle]
 pub static mut aom_subtract_block: Option<
     unsafe extern "C-unwind" fn(
         core::ffi::c_int,
@@ -2502,6 +2548,12 @@ unsafe extern "C-unwind" fn xgetbv() -> uint64_t {
     );
     return (edx as uint64_t) << 32 as core::ffi::c_int | eax as uint64_t;
 }
+#[no_mangle]
+pub static mut aom_sum_squares_2d_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t> = None;
+#[no_mangle]
+pub static mut aom_sum_squares_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t> = None;
+#[no_mangle]
+pub static mut aom_sum_sse_2d_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t> = None;
 #[no_mangle]
 pub static mut aom_v_predictor_16x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
@@ -2534,6 +2586,10 @@ pub static mut aom_v_predictor_8x16: Option<unsafe extern "C-unwind" fn(*mut uin
 pub static mut aom_v_predictor_8x32: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
 #[no_mangle]
 pub static mut aom_v_predictor_8x4: Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()> = None;
+#[no_mangle]
+pub static mut aom_var_2d_u16: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t> = None;
+#[no_mangle]
+pub static mut aom_var_2d_u8: Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t> = None;
 pub const HAS_MMX: core::ffi::c_int = 0x1 as core::ffi::c_int;
 pub const HAS_SSE: core::ffi::c_int = 0x2 as core::ffi::c_int;
 pub const HAS_SSE2: core::ffi::c_int = 0x4 as core::ffi::c_int;
@@ -3032,6 +3088,13 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     aom_dc_top_predictor_8x4 = Some(aom_dc_top_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     if flags & HAS_SSE2 != 0 {
         aom_dc_top_predictor_8x4 = Some(aom_dc_top_predictor_8x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_get_blk_sse_sum = Some(aom_get_blk_sse_sum_c as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int, *mut int64_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int, *mut int64_t) -> ()>;
+    if flags & HAS_SSE2 != 0 {
+        aom_get_blk_sse_sum = Some(aom_get_blk_sse_sum_sse2 as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int, *mut int64_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int, *mut int64_t) -> ()>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_get_blk_sse_sum = Some(aom_get_blk_sse_sum_avx2 as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int, *mut int64_t) -> ()) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int, *mut int64_t) -> ()>;
     }
     aom_h_predictor_16x32 = Some(aom_h_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     if flags & HAS_SSE2 != 0 {
@@ -5427,6 +5490,13 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                 ) -> (),
             >;
     }
+    aom_highbd_sse = Some(aom_highbd_sse_c as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
+    if flags & HAS_SSE4_1 != 0 {
+        aom_highbd_sse = Some(aom_highbd_sse_sse4_1 as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_highbd_sse = Some(aom_highbd_sse_avx2 as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
+    }
     aom_highbd_subtract_block = Some(
         aom_highbd_subtract_block_c
             as unsafe extern "C-unwind" fn(
@@ -5827,6 +5897,27 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     if flags & HAS_SSE2 != 0 {
         aom_lpf_vertical_8_quad = Some(aom_lpf_vertical_8_quad_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *const uint8_t, *const uint8_t, *const uint8_t) -> ()>;
     }
+    aom_mse_16xh_16bit = Some(aom_mse_16xh_16bit_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    if flags & HAS_SSE2 != 0 {
+        aom_mse_16xh_16bit = Some(aom_mse_16xh_16bit_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_mse_16xh_16bit = Some(aom_mse_16xh_16bit_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
+    aom_mse_wxh_16bit = Some(aom_mse_wxh_16bit_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    if flags & HAS_SSE2 != 0 {
+        aom_mse_wxh_16bit = Some(aom_mse_wxh_16bit_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_mse_wxh_16bit = Some(aom_mse_wxh_16bit_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
+    aom_mse_wxh_16bit_highbd = Some(aom_mse_wxh_16bit_highbd_c as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    if flags & HAS_SSE2 != 0 {
+        aom_mse_wxh_16bit_highbd = Some(aom_mse_wxh_16bit_highbd_sse2 as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_mse_wxh_16bit_highbd = Some(aom_mse_wxh_16bit_highbd_avx2 as unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint16_t, core::ffi::c_int, *mut uint16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
     aom_paeth_predictor_16x16 = Some(aom_paeth_predictor_16x16_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     if flags & HAS_SSSE3 != 0 {
         aom_paeth_predictor_16x16 = Some(aom_paeth_predictor_16x16_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
@@ -6179,6 +6270,13 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     if flags & HAS_SSSE3 != 0 {
         aom_smooth_v_predictor_8x8 = Some(aom_smooth_v_predictor_8x8_ssse3 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     }
+    aom_sse = Some(aom_sse_c as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
+    if flags & HAS_SSE4_1 != 0 {
+        aom_sse = Some(aom_sse_sse4_1 as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_sse = Some(aom_sse_avx2 as unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t) as Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> int64_t>;
+    }
     aom_subtract_block = Some(
         aom_subtract_block_c
             as unsafe extern "C-unwind" fn(
@@ -6230,6 +6328,24 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                     ptrdiff_t,
                 ) -> (),
             >;
+    }
+    aom_sum_squares_2d_i16 = Some(aom_sum_squares_2d_i16_c as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    if flags & HAS_SSE2 != 0 {
+        aom_sum_squares_2d_i16 = Some(aom_sum_squares_2d_i16_sse2 as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_sum_squares_2d_i16 = Some(aom_sum_squares_2d_i16_avx2 as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
+    aom_sum_squares_i16 = Some(aom_sum_squares_i16_c as unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t>;
+    if flags & HAS_SSE2 != 0 {
+        aom_sum_squares_i16 = Some(aom_sum_squares_i16_sse2 as unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, uint32_t) -> uint64_t>;
+    }
+    aom_sum_sse_2d_i16 = Some(aom_sum_sse_2d_i16_c as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t>;
+    if flags & HAS_SSE2 != 0 {
+        aom_sum_sse_2d_i16 = Some(aom_sum_sse_2d_i16_sse2 as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_sum_sse_2d_i16 = Some(aom_sum_sse_2d_i16_avx2 as unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut core::ffi::c_int) -> uint64_t>;
     }
     aom_v_predictor_16x32 = Some(aom_v_predictor_16x32_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     if flags & HAS_SSE2 != 0 {
@@ -6309,6 +6425,20 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
     aom_v_predictor_8x4 = Some(aom_v_predictor_8x4_c as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
     if flags & HAS_SSE2 != 0 {
         aom_v_predictor_8x4 = Some(aom_v_predictor_8x4_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, ptrdiff_t, *const uint8_t, *const uint8_t) -> ()>;
+    }
+    aom_var_2d_u16 = Some(aom_var_2d_u16_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    if flags & HAS_SSE2 != 0 {
+        aom_var_2d_u16 = Some(aom_var_2d_u16_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_var_2d_u16 = Some(aom_var_2d_u16_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
+    aom_var_2d_u8 = Some(aom_var_2d_u8_c as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    if flags & HAS_SSE2 != 0 {
+        aom_var_2d_u8 = Some(aom_var_2d_u8_sse2 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        aom_var_2d_u8 = Some(aom_var_2d_u8_avx2 as unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t) as Option<unsafe extern "C-unwind" fn(*mut uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t>;
     }
 }
 unsafe extern "C-unwind" fn aom_once(mut func: Option<unsafe extern "C-unwind" fn() -> ()>) {

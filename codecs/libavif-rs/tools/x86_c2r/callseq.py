@@ -4,7 +4,7 @@ import re, sys
 from c2r import clean_source
 IGN_RS = {'offset', 'as_mut_ptr', 'as_ptr', 'unwrap', 'Some', 'read_unaligned', 'write_unaligned', 'debug_assert',
           'size_of', 'zeroed', 'is_null', 'is_none', 'step_by', '_mm_cvtsi32_si128', 'if', 'while', 'match', 'for', 'in', 'return', 'add', 'sub', 'cast', 'copy_nonoverlapping', 'write_bytes'}
-IGN_C = {'if', 'while', 'for', 'switch', 'return', 'sizeof', 'assert', 'defined', 'memcpy', 'memset', 'DECLARE_ALIGNED'}
+IGN_C = {'if', 'while', 'for', 'switch', 'return', 'sizeof', 'assert', 'defined', 'memcpy', 'memset', 'DECLARE_ALIGNED', 'LIKELY', 'UNLIKELY', 'CONVERT_TO_SHORTPTR', 'CONVERT_TO_BYTEPTR', 'static_assert'}
 SHIFT = {'_mm_sll_epi16': '_mm_slli_epi16', '_mm_sra_epi16': '_mm_srai_epi16', '_mm_srl_epi16': '_mm_srli_epi16',
          '_mm_sll_epi32': '_mm_slli_epi32', '_mm_sra_epi32': '_mm_srai_epi32', '_mm_srl_epi32': '_mm_srli_epi32',
          '_mm256_sll_epi16': '_mm256_slli_epi16', '_mm256_sra_epi16': '_mm256_srai_epi16',

@@ -1,14 +1,19 @@
 // Supplementary transcription of upstream/aom/test/sum_squares_test.cc
-// (SSE_Sum_Test, NEON instantiation aom_get_blk_sse_sum_neon over
+// (SSE_Sum_Test, NEON instantiation aom_get_blk_sse_sum_neon, and the SSE2 and AVX2 ones, over
 // kValidBlockSize: OperationCheck and ExtremeValues). Each parameter starts
 // from a fresh fixture seeded with ACMRandom::DeterministicSeed(); strides,
 // value ranges and the exact checks follow the original. The speed test is
 // not transcribed.
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 
+#[cfg(target_arch = "aarch64")]
 use aom::simd::aom_dsp__arm__blk_sse_sum_neon::aom_get_blk_sse_sum_neon;
 
 use super::acm_random::ACMRandom;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__blk_sse_sum_avx2::aom_get_blk_sse_sum_avx2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__blk_sse_sum_sse2::aom_get_blk_sse_sum_sse2;
 
 extern "C-unwind" {
     fn aom_get_blk_sse_sum_c(data: *const i16, stride: i32, bw: i32, bh: i32, x_sum: *mut i32,
@@ -69,6 +74,7 @@ fn sse_sum_run_test(ref_func: SseSumFunc, tst_func: SseSumFunc, is_random: bool,
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn get_blk_sse_sum_operation_check() {
     for tx_size in K_VALID_BLOCK_SIZE {
@@ -76,9 +82,55 @@ fn get_blk_sse_sum_operation_check() {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn get_blk_sse_sum_extreme_values() {
     for tx_size in K_VALID_BLOCK_SIZE {
         sse_sum_run_test(aom_get_blk_sse_sum_c, aom_get_blk_sse_sum_neon, false, tx_size);
+    }
+}
+
+// x86-64 instantiations of the same tests (upstream SSE2, SSE4_1 and AVX2).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn get_blk_sse_sum_operation_check_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    for tx_size in K_VALID_BLOCK_SIZE {
+        sse_sum_run_test(aom_get_blk_sse_sum_c, aom_get_blk_sse_sum_avx2, true, tx_size);
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn get_blk_sse_sum_operation_check_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    for tx_size in K_VALID_BLOCK_SIZE {
+        sse_sum_run_test(aom_get_blk_sse_sum_c, aom_get_blk_sse_sum_sse2, true, tx_size);
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn get_blk_sse_sum_extreme_values_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    for tx_size in K_VALID_BLOCK_SIZE {
+        sse_sum_run_test(aom_get_blk_sse_sum_c, aom_get_blk_sse_sum_avx2, false, tx_size);
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn get_blk_sse_sum_extreme_values_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    for tx_size in K_VALID_BLOCK_SIZE {
+        sse_sum_run_test(aom_get_blk_sse_sum_c, aom_get_blk_sse_sum_sse2, false, tx_size);
     }
 }

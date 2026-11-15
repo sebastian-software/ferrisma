@@ -293,7 +293,9 @@ class Printer:
         if n.type in ('int', 'unsigned int', 'long int', 'long long int', 'unsigned long long int'):
             v = n.value.rstrip('uUlL')
             if n.type.startswith('unsigned'):
-                return E(v, ('int', 'u32'), const=True)
+                # The suffix keeps the type through `!` and `as` (`~0u` is 0xffffffff).
+                t = 'u64' if 'long long' in n.type else 'u32'
+                return E(f'{v}_{t}', ('int', t), const=True)
             return E(v, ('lit',), const=True)
         if n.type == 'char':
             return E(n.value.replace("'", "b'", 1) + ' as i8', ('int', 'i8'), 'as', True)

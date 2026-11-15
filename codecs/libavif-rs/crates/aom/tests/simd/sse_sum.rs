@@ -1,5 +1,5 @@
 // Supplementary transcription of upstream/aom/test/sse_sum_test.cc for the NEON
-// instantiation: SumSSETest (aom_sum_sse_2d_i16_neon against
+// instantiation and the SSE2 and AVX2 ones (`_sse2`/`_avx2` tests): SumSSETest (aom_sum_sse_2d_i16_neon against
 // aom_sum_sse_2d_i16_c: OperationCheck, ExtremeValues,
 // ArbitraryWidthAndHeight). Each original TEST_P starts from a fresh fixture
 // seeded with ACMRandom::DeterministicSeed(); the buffer size, strides, value
@@ -7,11 +7,16 @@
 // sum follow the original. The speed test is not transcribed. C++ evaluates
 // `rnd_(2) ? rnd_(limit) : -rnd_(limit)` and the other draws in source order,
 // as transcribed here.
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 
+#[cfg(target_arch = "aarch64")]
 use aom::simd::aom_dsp__arm__sum_squares_neon::aom_sum_sse_2d_i16_neon;
 
 use super::acm_random::ACMRandom;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sum_squares_avx2::aom_sum_sse_2d_i16_avx2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sum_squares_sse2::aom_sum_sse_2d_i16_sse2;
 
 extern "C-unwind" {
     fn aom_sum_sse_2d_i16_c(src: *const i16, src_stride: i32, width: i32, height: i32,
@@ -75,20 +80,84 @@ fn run_test(ref_func: SSI16Func, tst_func: SSI16Func, is_random: bool, multiple_
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn sum_sse_2d_i16_operation_check() {
     // GenRandomData, width and height multiple of 4
     run_test(aom_sum_sse_2d_i16_c, aom_sum_sse_2d_i16_neon, true, true);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn sum_sse_2d_i16_extreme_values() {
     // GenExtremeData, width and height multiple of 4
     run_test(aom_sum_sse_2d_i16_c, aom_sum_sse_2d_i16_neon, false, true);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn sum_sse_2d_i16_arbitrary_width_and_height() {
     // GenRandomData, width and height not necessarily multiple of 4
     run_test(aom_sum_sse_2d_i16_c, aom_sum_sse_2d_i16_neon, true, false);
+}
+
+// x86-64 instantiations of the same tests (upstream SSE2, SSE4_1 and AVX2).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_sse_2d_i16_operation_check_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    // GenRandomData, width and height multiple of 4
+    run_test(aom_sum_sse_2d_i16_c, aom_sum_sse_2d_i16_avx2, true, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_sse_2d_i16_operation_check_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    // GenRandomData, width and height multiple of 4
+    run_test(aom_sum_sse_2d_i16_c, aom_sum_sse_2d_i16_sse2, true, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_sse_2d_i16_extreme_values_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    // GenExtremeData, width and height multiple of 4
+    run_test(aom_sum_sse_2d_i16_c, aom_sum_sse_2d_i16_avx2, false, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_sse_2d_i16_extreme_values_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    // GenExtremeData, width and height multiple of 4
+    run_test(aom_sum_sse_2d_i16_c, aom_sum_sse_2d_i16_sse2, false, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_sse_2d_i16_arbitrary_width_and_height_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    // GenRandomData, width and height not necessarily multiple of 4
+    run_test(aom_sum_sse_2d_i16_c, aom_sum_sse_2d_i16_avx2, true, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_sse_2d_i16_arbitrary_width_and_height_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    // GenRandomData, width and height not necessarily multiple of 4
+    run_test(aom_sum_sse_2d_i16_c, aom_sum_sse_2d_i16_sse2, true, false);
 }

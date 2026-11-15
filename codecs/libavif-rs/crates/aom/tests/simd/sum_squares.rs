@@ -1,5 +1,5 @@
 // Supplementary transcription of upstream/aom/test/sum_squares_test.cc for
-// the NEON instantiations: SumSquaresTest (aom_sum_squares_2d_i16_neon:
+// the NEON and x86-64 (SSE2, SSE4_1, AVX2) instantiations: SumSquaresTest (aom_sum_squares_2d_i16_neon:
 // OperationCheck, ExtremeValues, ArbitraryWidthAndHeight), SumSquares1DTest
 // (aom_sum_squares_i16_neon: RandomValues, ExtremeValues), SSETest
 // (aom_sse_neon and aom_highbd_sse_neon over widths 4..128 step 4:
@@ -10,13 +10,38 @@
 // follow the original. The speed tests are not transcribed. C++ evaluates
 // `rnd_(2) ? rnd_(limit) : -rnd_(limit)` and the other draws in source order,
 // as transcribed here.
-#![cfg(target_arch = "aarch64")]
+#![cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 
+#[cfg(target_arch = "aarch64")]
 use aom::simd::aom_dsp__arm__highbd_sse_neon::aom_highbd_sse_neon;
+#[cfg(target_arch = "aarch64")]
 use aom::simd::aom_dsp__arm__sse_neon::aom_sse_neon;
+#[cfg(target_arch = "aarch64")]
 use aom::simd::aom_dsp__arm__sum_squares_neon::*;
 
 use super::acm_random::ACMRandom;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sse_avx2::aom_highbd_sse_avx2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sse_avx2::aom_sse_avx2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sse_sse4::aom_highbd_sse_sse4_1;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sse_sse4::aom_sse_sse4_1;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sum_squares_avx2::aom_sum_squares_2d_i16_avx2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sum_squares_avx2::aom_var_2d_u16_avx2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sum_squares_avx2::aom_var_2d_u8_avx2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sum_squares_sse2::aom_sum_squares_2d_i16_sse2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sum_squares_sse2::aom_sum_squares_i16_sse2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sum_squares_sse2::aom_var_2d_u16_sse2;
+#[cfg(target_arch = "x86_64")]
+use aom::simd::aom_dsp__x86__sum_squares_sse2::aom_var_2d_u8_sse2;
 
 extern "C-unwind" {
     fn aom_sum_squares_2d_i16_c(src: *const i16, stride: i32, width: i32, height: i32) -> u64;
@@ -91,16 +116,19 @@ fn sum_squares_run_test(ref_func: SSI16Func, tst_func: SSI16Func, is_random: boo
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn sum_squares_2d_i16_operation_check() {
     sum_squares_run_test(aom_sum_squares_2d_i16_c, aom_sum_squares_2d_i16_neon, true, true);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn sum_squares_2d_i16_extreme_values() {
     sum_squares_run_test(aom_sum_squares_2d_i16_c, aom_sum_squares_2d_i16_neon, false, true);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn sum_squares_2d_i16_arbitrary_width_and_height() {
     sum_squares_run_test(aom_sum_squares_2d_i16_c, aom_sum_squares_2d_i16_neon, true, false);
@@ -132,11 +160,13 @@ fn sum_squares_1d(ref_func: F1D, tst_func: F1D, random: bool) {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn sum_squares_i16_random_values() {
     sum_squares_1d(aom_sum_squares_i16_c, aom_sum_squares_i16_neon, true);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn sum_squares_i16_extreme_values() {
     sum_squares_1d(aom_sum_squares_i16_c, aom_sum_squares_i16_neon, false);
@@ -239,21 +269,25 @@ fn sse_test(ref_func: SSEFunc, tst_func: SSEFunc, is_hbd: bool, is_random: bool)
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn sse_operation_check() {
     sse_test(aom_sse_c, aom_sse_neon, false, true);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn sse_extreme_values() {
     sse_test(aom_sse_c, aom_sse_neon, false, false);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_sse_operation_check() {
     sse_test(aom_highbd_sse_c, aom_highbd_sse_neon, true, true);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn highbd_sse_extreme_values() {
     sse_test(aom_highbd_sse_c, aom_highbd_sse_neon, true, false);
@@ -296,11 +330,13 @@ fn lowbd_2d_var_run_test(ref_func: Var2DFunc, tst_func: Var2DFunc, is_random: bo
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn var_2d_u8_operation_check() {
     lowbd_2d_var_run_test(aom_var_2d_u8_c, aom_var_2d_u8_neon, true);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn var_2d_u8_extreme_values() {
     lowbd_2d_var_run_test(aom_var_2d_u8_c, aom_var_2d_u8_neon, false);
@@ -349,17 +385,255 @@ fn highbd_2d_var_run_test(ref_func: Var2DFunc, tst_func: Var2DFunc, is_random: b
     }
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn var_2d_u16_operation_check() {
     highbd_2d_var_run_test(aom_var_2d_u16_c, aom_var_2d_u16_neon, true, true);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn var_2d_u16_extreme_values() {
     highbd_2d_var_run_test(aom_var_2d_u16_c, aom_var_2d_u16_neon, false, true);
 }
 
+#[cfg(target_arch = "aarch64")]
 #[test]
 fn var_2d_u16_arbitrary_width_and_height() {
     highbd_2d_var_run_test(aom_var_2d_u16_c, aom_var_2d_u16_neon, true, false);
+}
+
+// x86-64 instantiations of the same tests (upstream SSE2, SSE4_1 and AVX2).
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_squares_2d_i16_operation_check_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    sum_squares_run_test(aom_sum_squares_2d_i16_c, aom_sum_squares_2d_i16_avx2, true, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_squares_2d_i16_operation_check_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    sum_squares_run_test(aom_sum_squares_2d_i16_c, aom_sum_squares_2d_i16_sse2, true, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_squares_2d_i16_extreme_values_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    sum_squares_run_test(aom_sum_squares_2d_i16_c, aom_sum_squares_2d_i16_avx2, false, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_squares_2d_i16_extreme_values_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    sum_squares_run_test(aom_sum_squares_2d_i16_c, aom_sum_squares_2d_i16_sse2, false, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_squares_2d_i16_arbitrary_width_and_height_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    sum_squares_run_test(aom_sum_squares_2d_i16_c, aom_sum_squares_2d_i16_avx2, true, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_squares_2d_i16_arbitrary_width_and_height_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    sum_squares_run_test(aom_sum_squares_2d_i16_c, aom_sum_squares_2d_i16_sse2, true, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_squares_i16_random_values_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    sum_squares_1d(aom_sum_squares_i16_c, aom_sum_squares_i16_sse2, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sum_squares_i16_extreme_values_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    sum_squares_1d(aom_sum_squares_i16_c, aom_sum_squares_i16_sse2, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sse_operation_check_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    sse_test(aom_sse_c, aom_sse_avx2, false, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sse_operation_check_sse4_1() {
+    if !std::is_x86_feature_detected!("sse4.1") {
+        return;
+    }
+    sse_test(aom_sse_c, aom_sse_sse4_1, false, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sse_extreme_values_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    sse_test(aom_sse_c, aom_sse_avx2, false, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn sse_extreme_values_sse4_1() {
+    if !std::is_x86_feature_detected!("sse4.1") {
+        return;
+    }
+    sse_test(aom_sse_c, aom_sse_sse4_1, false, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn highbd_sse_operation_check_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    sse_test(aom_highbd_sse_c, aom_highbd_sse_avx2, true, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn highbd_sse_operation_check_sse4_1() {
+    if !std::is_x86_feature_detected!("sse4.1") {
+        return;
+    }
+    sse_test(aom_highbd_sse_c, aom_highbd_sse_sse4_1, true, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn highbd_sse_extreme_values_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    sse_test(aom_highbd_sse_c, aom_highbd_sse_avx2, true, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn highbd_sse_extreme_values_sse4_1() {
+    if !std::is_x86_feature_detected!("sse4.1") {
+        return;
+    }
+    sse_test(aom_highbd_sse_c, aom_highbd_sse_sse4_1, true, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn var_2d_u8_operation_check_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    lowbd_2d_var_run_test(aom_var_2d_u8_c, aom_var_2d_u8_avx2, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn var_2d_u8_operation_check_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    lowbd_2d_var_run_test(aom_var_2d_u8_c, aom_var_2d_u8_sse2, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn var_2d_u8_extreme_values_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    lowbd_2d_var_run_test(aom_var_2d_u8_c, aom_var_2d_u8_avx2, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn var_2d_u8_extreme_values_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    lowbd_2d_var_run_test(aom_var_2d_u8_c, aom_var_2d_u8_sse2, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn var_2d_u16_operation_check_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    highbd_2d_var_run_test(aom_var_2d_u16_c, aom_var_2d_u16_avx2, true, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn var_2d_u16_operation_check_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    highbd_2d_var_run_test(aom_var_2d_u16_c, aom_var_2d_u16_sse2, true, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn var_2d_u16_extreme_values_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    highbd_2d_var_run_test(aom_var_2d_u16_c, aom_var_2d_u16_avx2, false, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn var_2d_u16_extreme_values_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    highbd_2d_var_run_test(aom_var_2d_u16_c, aom_var_2d_u16_sse2, false, true);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn var_2d_u16_arbitrary_width_and_height_avx2() {
+    if !std::is_x86_feature_detected!("avx2") {
+        return;
+    }
+    highbd_2d_var_run_test(aom_var_2d_u16_c, aom_var_2d_u16_avx2, true, false);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[test]
+fn var_2d_u16_arbitrary_width_and_height_sse2() {
+    if !std::is_x86_feature_detected!("sse2") {
+        return;
+    }
+    highbd_2d_var_run_test(aom_var_2d_u16_c, aom_var_2d_u16_sse2, true, false);
 }

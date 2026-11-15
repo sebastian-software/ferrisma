@@ -184,6 +184,14 @@ pub mod aom_dsp__simd__v256_intrinsics_x86;
 pub mod aom_dsp__simd__v64_intrinsics_x86;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/blk_sse_sum_avx2.rs"]
+pub mod aom_dsp__x86__blk_sse_sum_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/blk_sse_sum_sse2.rs"]
+pub mod aom_dsp__x86__blk_sse_sum_sse2;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/highbd_adaptive_quantize_avx2.rs"]
 pub mod aom_dsp__x86__highbd_adaptive_quantize_avx2;
 
@@ -210,6 +218,14 @@ pub mod aom_dsp__x86__highbd_quantize_intrin_avx2;
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/highbd_subtract_sse2.rs"]
 pub mod aom_dsp__x86__highbd_subtract_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/highbd_variance_avx2.rs"]
+pub mod aom_dsp__x86__highbd_variance_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/highbd_variance_sse2.rs"]
+pub mod aom_dsp__x86__highbd_variance_sse2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/intrapred_avx2.rs"]
@@ -264,8 +280,24 @@ pub mod aom_dsp__x86__quantize_ssse3;
 pub mod aom_dsp__x86__quantize_x86;
 
 #[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/sse_avx2.rs"]
+pub mod aom_dsp__x86__sse_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/sse_sse4.rs"]
+pub mod aom_dsp__x86__sse_sse4;
+
+#[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/subtract_avx2.rs"]
 pub mod aom_dsp__x86__subtract_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/sum_squares_avx2.rs"]
+pub mod aom_dsp__x86__sum_squares_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/sum_squares_sse2.rs"]
+pub mod aom_dsp__x86__sum_squares_sse2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/synonyms.rs"]
@@ -286,6 +318,14 @@ pub mod aom_dsp__x86__txfm_common_avx2;
 #[cfg(target_arch = "x86_64")]
 #[path = "aom_dsp/x86/txfm_common_sse2.rs"]
 pub mod aom_dsp__x86__txfm_common_sse2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/variance_avx2.rs"]
+pub mod aom_dsp__x86__variance_avx2;
+
+#[cfg(target_arch = "x86_64")]
+#[path = "aom_dsp/x86/variance_sse2.rs"]
+pub mod aom_dsp__x86__variance_sse2;
 
 #[cfg(target_arch = "x86_64")]
 #[path = "av1/common/x86/av1_inv_txfm_avx2.rs"]
