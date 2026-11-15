@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-14
+- **Last reviewed:** 2026-11-15
 - **Supersedes:** None
 - **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0012](0012-codec-source-contract.md), [0013](0013-sample-domain-resize.md), [0014](0014-linear-srgb-straight-alpha.md)
 
@@ -63,6 +63,7 @@ A real decoder exposes a usable output-profile transform API; an ICC parser/CMM 
 - 2026-11-12 — Verified what jxl-oxide emits without a CMS and corrected its reported CICP; CICP beside a rendered ICC is checked, not ignored (#41).
 - 2026-11-12 — Review of the v1.0 integration: PQ/HLG JPEG XL is refused from the transfer function, also without any CICP; AVIF `nclx` beside ICC is refused unless it agrees, with a named reason (pending owner confirmation).
 - 2026-11-14 — The report now names the color signal a conversion used (`ProcessingReport::color_signal`), and the CICP-beside-ICC refusal has a machine-readable reason (`RefusalReason::CicpBesideIcc`); issue #212, designed in ADR-0017's amendment of that date. Observation only: rule 4 and the pending AVIF `nclx` outcome are unchanged.
+- 2026-11-15 — The color refusals of this ADR's rules now carry a machine-readable reason (`RefusalReason::HdrTransfer`, `UnsupportedColorEncoding`, `RenderedIccMissing`, `ContradictoryColorSignals`; issue #212, ADR-0017 amendment of that date). Observation only: no rule, kind or message changed.
 - 2026-11-13 — Straight alpha through the rendered-ICC stage (#222): RGBA with explicitly straight alpha converts its color channels and carries alpha unchanged; premultiplied and unspecified alpha stay refused; jxl-oxide declares straight alpha only from `alpha_associated == false`. The strict policy is unchanged; the question whether XYB-encoded enum sRGB should pass it is recorded below for the owner.
 
 ## 2026-11-12: JPEG XL emitted-sample evidence (#41)

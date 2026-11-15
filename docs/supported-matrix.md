@@ -22,8 +22,10 @@ inspection alone is never treated as proof that a file decodes or is
 supported. A name of the form `supported_matrix::<case>` is a case of
 `tests/supported_matrix.rs`: it runs `transcode` (or `inspect` on an engine
 output) with a real file, a supported case decodes and encodes completely, and
-a rejected case asserts the public `ProcessingErrorKind` **and** the engine's
-reason, because one kind is shared by unrelated causes. Run it with
+a rejected case asserts the public `ProcessingErrorKind`, the engine's
+reason in the message **and** the typed `ProcessingError::refusal_reason()`
+(since 2026-11-15, issue #212; `None` for malformed data, limits and invalid
+options), because one kind is shared by unrelated causes. Run it with
 `cargo test -p ferrisma --features cli --test supported_matrix`.
 
 Two defaults changed on 2026-11-12 under the owner's v1.0 direction, and the
@@ -88,7 +90,14 @@ before crop; crop coordinates are upright display coordinates (ADR-0019).
 | Color evidence | embedded ICC | embedded RGB ICC | libjxl-rs: `DATA` ICC of the emitted samples; jxl-oxide: rendered ICC/CICP | container `nclx`/ICC cross-checked with the AV1 sequence header; reported as rendered CICP |
 | Orientation | EXIF 1–8 | EXIF 1–8 | codestream orientation, rendered upright by the decoder | `irot`/`imir` applied by the pipeline |
 | Crop access | codec crop request, iMCU column overfetch | lossy: crop from full-width rows; lossless: full reconstruction | libjxl-rs: **full-frame fallback for every crop**; jxl-oxide: codec region request | full-frame fallback |
-| Rejected | CMYK/YCCK (`UnsupportedInput`); malformed ICC; truncated data | animation (`UnsupportedInput`); malformed containers; canvas above the pixel cap | animation, grayscale, CMYK, spot colors, float/HDR exponent channels, extra channels, premultiplied alpha, PQ/HLG, unknown colour spaces, ICC > 16 MiB (**untested**, code path) | animation/`avis`, `clap`, `imir` before `irot`, monochrome, contradictory `nclx`, PQ/HLG ([details](#avif-input-transforms-animation-channels-and-caps)) |
+| Rejected | CMYK/YCCK (`UnsupportedInput`, `UnsupportedLayout`); untagged under `Strict` (`ColorSignalMissing`); ICC without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); EXIF orientation outside 1–8 (`GeometricTransform`, **untested** through the API); malformed ICC; truncated data | animation (`UnsupportedInput`, `Animation`); malformed containers; canvas above the pixel cap | animation (`Animation`); any input without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); grayscale, CMYK, spot colors, float/HDR exponent channels, extra channels (`UnsupportedLayout` under `UseRenderedIcc`; jxl-oxide reports some extra-channel files as unspecified alpha, `AlphaAssociation`); premultiplied alpha (`AlphaAssociation`); PQ/HLG (`HdrTransfer`); unknown colour spaces (jxl-oxide, `UnsupportedColorEncoding`); ICC > 16 MiB (**untested**, code path, no reason) | animation/`avis` (`Animation`), `clap` and `imir` before `irot` (`GeometricTransform`), monochrome (`UnsupportedLayout`), contradictory `nclx` (`ContradictoryColorSignals`), PQ/HLG (`HdrTransfer`), SDR CICP outside sRGB/P3/linear sRGB (`UnsupportedColorEncoding`), CICP-only under `UseRenderedIcc` (`RenderedIccMissing`) ([details](#avif-input-transforms-animation-channels-and-caps)) |
+
+The names in parentheses after a kind are the `RefusalReason` that
+`refusal_reason()` returns (the [compatibility guide](compatibility.md#refusal-reasons)
+lists all eleven); where one input meets several classes, the reason names the
+check that refused it first, which can depend on the policy. Every reason is
+produced by a fixture in `refusal_reason_tests::every_refusal_reason_is_produced_by_a_fixture`
+and `tests/color_signal_and_refusals.rs`.
 
 Evidence per format:
 
@@ -191,23 +200,24 @@ test assets) and the libheif orientation set (`tests/fixtures/orientation/`).
 | Configuration | Behavior | Evidence (`supported_matrix::…` unless noted) |
 | --- | --- | --- |
 | `irot` and `imir`, all eight combinations | supported: reported as the source orientation and applied by the pipeline before crop; crops are upright display coordinates | `avif_irot_and_imir_are_applied_for_all_eight_orientations` (`avif-1…8.avif`, display size pinned by the crop bounds); `orientation_tests::avif_irot_imir_match_libheif` (pixels against libheif) |
-| `imir` associated before `irot` | `UnsupportedInput`, "orientation, mirroring or clean-aperture transforms are not supported yet" | `avif_imir_before_irot_is_rejected` (`avif-5.avif` with the two `ipma` associations swapped); `codecs::avif_meta_tests::records_mirror_before_rotation_association_order` |
-| `clap` (essential or not) | `UnsupportedInput`, same reason; there is no implicit crop | `avif_clean_aperture_is_rejected` (`clap_irot_imir_non_essential.avif`, Android `blue-and-magenta-crop.avif`); libavif's `clop_irot_imor.avif` (the same file with `clap`/`imir` renamed to unknown non-essential properties) is accepted |
-| Unknown essential property | `MalformedInput`, "decoder rejected input or could not render it" (the container parser's refusal is reported as malformed, not as unsupported) | `avif_unknown_essential_property_is_rejected_as_malformed` (`avif-1.avif` with `pixi` renamed and marked essential); `codecs::avif_meta_tests::rejects_ambiguous_and_unknown_essential_properties` |
-| Image sequence (`avis`), with or without alpha, depth, audio, EXIF/XMP | `UnsupportedInput`, "animated input is not supported; only still images are decoded"; **no first-frame fallback** | `avif_image_sequences_are_rejected_without_a_first_frame_fallback` (five `colors-animated-*.avif` files and `alpha_video.avif`); `tests/animated_input.rs::animated_avif_is_rejected` |
-| Monochrome (4:0:0) at 8, 10, 12 bits | `UnsupportedInput`, "decoder pixel or color layout is not supported" | `avif_monochrome_is_rejected_at_every_depth` (Android `fox.*.monochrome.avif`) |
+| `imir` associated before `irot` | `UnsupportedInput`, `GeometricTransform`, "orientation, mirroring or clean-aperture transforms are not supported yet" | `avif_imir_before_irot_is_rejected` (`avif-5.avif` with the two `ipma` associations swapped); `codecs::avif_meta_tests::records_mirror_before_rotation_association_order` |
+| `clap` (essential or not) | `UnsupportedInput`, `GeometricTransform`, same message; there is no implicit crop | `avif_clean_aperture_is_rejected` (`clap_irot_imir_non_essential.avif`, Android `blue-and-magenta-crop.avif`); libavif's `clop_irot_imor.avif` (the same file with `clap`/`imir` renamed to unknown non-essential properties) is accepted |
+| Unknown essential property | `MalformedInput`, no `RefusalReason`, "decoder rejected input or could not render it" (the container parser's refusal is reported as malformed, not as unsupported; whether that is right is an owner question, #67) | `avif_unknown_essential_property_is_rejected_as_malformed` (`avif-1.avif` with `pixi` renamed and marked essential); `codecs::avif_meta_tests::rejects_ambiguous_and_unknown_essential_properties` |
+| Image sequence (`avis`), with or without alpha, depth, audio, EXIF/XMP | `UnsupportedInput`, `Animation`, "animated input is not supported; only still images are decoded"; **no first-frame fallback** | `avif_image_sequences_are_rejected_without_a_first_frame_fallback` (five `colors-animated-*.avif` files and `alpha_video.avif`); `tests/animated_input.rs::animated_avif_is_rejected` |
+| Monochrome (4:0:0) at 8, 10, 12 bits | `UnsupportedInput`, `UnsupportedLayout`, "decoder pixel or color layout is not supported" | `avif_monochrome_is_rejected_at_every_depth` (Android `fox.*.monochrome.avif`) |
 | Color 4:2:0, 4:2:2, 4:4:4 at 8, 10, 12 bits | supported | `avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted` (nine Android `fox.*.avif`) |
 | Alpha auxiliary image | supported, straight | `avif_alpha_and_grid_stills_are_accepted` (`abc_color_irot_alpha_irot.avif`, alpha read back from the WebP output) |
 | Grid stills | supported | same test (`color_grid_alpha_grid_shared_tiles.avif`, `sofa_grid1x5_420.avif`) |
 | Gain map (`tmap`) | ignored: the SDR base image is read, no tone mapping | `avif_gain_map_is_ignored_and_the_base_image_is_read` (`seine_sdr_gainmap_srgb.avif` under `Strict`) |
 | Other extra channels | only alpha is read; depth auxiliary images occur only in the rejected sequence fixture (**untested** for stills) | — |
-| Constant-luminance BT.2020 matrix (code 10) | `UnsupportedInput` (**untested**, code path) | — |
-| Container `nclx` that contradicts the AV1 sequence header | `UnsupportedColor`, "container color information contradicts the coded bitstream" | `codecs::avif::tests::container_signal_that_contradicts_the_bitstream_is_rejected` (engine-written file, patched) |
-| PQ (`colors_hdr_rec2020.avif`, `seine_hdr_rec2020.avif`) | `UnsupportedColor` under every policy | `avif_pq_is_rejected_under_every_policy` |
-| Container ICC | needs `UseRenderedIcc` | `avif_container_icc_needs_the_rendered_icc_policy` (`paris_icc_exif_xmp.avif`) |
-| Signalled sRGB | passes `Strict` | `avif_signalled_srgb_passes_the_strict_policy` (`colors_sdr_srgb.avif`) |
+| Constant-luminance BT.2020 matrix (code 10) | `UnsupportedInput`, `UnsupportedLayout` (**untested**, code path) | `codecs::avif_meta_tests::contradictory_container_and_bitstream_signals_fail_closed` (synthetic sequence header, internal error only) |
+| Container `nclx` that contradicts the AV1 sequence header | `UnsupportedColor`, `ContradictoryColorSignals`, "container color information contradicts the coded bitstream" | `codecs::avif::tests::container_signal_that_contradicts_the_bitstream_is_rejected` (engine-written file, patched); `tests/color_signal_and_refusals.rs::contradictory_avif_color_signals_are_refused_with_their_reason` (`colors_sdr_srgb.avif` with its `nclx` matrix patched to 1) |
+| PQ (`colors_hdr_rec2020.avif`, `seine_hdr_rec2020.avif`) | `UnsupportedColor`, `HdrTransfer`, under every policy | `avif_pq_is_rejected_under_every_policy` |
+| SDR CICP outside sRGB, Display P3 and linear sRGB, no ICC (`colors_text_wcg_sdr_rec2020.avif`, BT.2020 SDR) | `UnsupportedColor`, `UnsupportedColorEncoding` under `Strict`/`AssumeSrgbIfMissing`; `RenderedIccMissing` under `UseRenderedIcc` | `tests/color_signal_and_refusals.rs::sdr_cicp_outside_the_supported_families_is_refused_with_its_reason` |
+| Container ICC | needs `UseRenderedIcc` (`RenderedIccRequiresOptIn` otherwise) | `avif_container_icc_needs_the_rendered_icc_policy` (`paris_icc_exif_xmp.avif`) |
+| Signalled sRGB | passes `Strict`; refused under `UseRenderedIcc`, which needs a profile (`UnsupportedColor`, `RenderedIccMissing`) | `avif_signalled_srgb_passes_the_strict_policy` (`colors_sdr_srgb.avif`); `tests/color_signal_and_refusals.rs::rendered_icc_policy_without_a_profile_is_refused_with_its_reason` |
 | Rendered size, then coded sequence size, above `max_input_pixels` | `InputLimitExceeded` before decoding | `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry` |
-| ICC property above the parser's cap | `UnsupportedColor` before the copy | `codecs::avif_meta_tests::oversized_icc_property_is_rejected_before_copy` (synthetic) |
+| ICC property above the parser's cap | `UnsupportedColor` before the copy, no `RefusalReason` | `codecs::avif_meta_tests::oversized_icc_property_is_rejected_before_copy` (synthetic) |
 
 ## Color policy
 
@@ -216,7 +226,7 @@ test assets) and the libheif orientation set (`tests/fixtures/orientation/`).
 | `Strict` (default, no flag) | Accept only decoder-reported sRGB (for example signalled sRGB AVIF); untagged or ICC-tagged input fails with `UnsupportedColor` | `pipeline_tests::missing_color_information_requires_an_explicit_override`, `signalled_srgb_avif_transcodes_under_the_strict_profile_policy` |
 | `AssumeSrgbIfMissing` / `--assume-srgb` | Treat input as sRGB **only** when it reports neither ICC nor CICP; an ICC-tagged file still needs `--use-rendered-icc` | same tests; upstream corpus pins `paris_icc_exif_xmp.avif` as `UnsupportedColor` without `UseRenderedIcc` |
 | `UseRenderedIcc` / `--use-rendered-icc` | Convert the decoder's rendered RGB ICC to the working space through `moxcms` (`icc`); opaque RGB and RGB with straight alpha (the alpha sample bypasses the transform); premultiplied or unspecified alpha is rejected | `tests/icc_photo.rs::real_srgb_icc_photograph_matches_littlecms`, `photograph_as_display_p3_matches_littlecms_out_of_gamut`; `tests/resize_oracle.rs::icc_tagged_straight_alpha_input_converts_color_and_keeps_alpha`; `cms::tests::malformed_and_hostile_profiles_are_controlled_errors` |
-| PQ, HLG, unverifiable or contradictory signals | Always `UnsupportedColor`; never reinterpreted as sRGB | `jxl_color_tests::hdr_and_unverifiable_encodings_are_rejected`; `codecs::avif_meta_tests::contradictory_container_and_bitstream_signals_fail_closed`; `color_contract_tests::two_present_signals_require_explicit_precedence_even_when_both_look_srgb` |
+| PQ, HLG, unverifiable or contradictory signals | Always `UnsupportedColor` (`HdrTransfer`, `CicpBesideIcc`, `ContradictoryColorSignals`, `UnsupportedColorEncoding`); never reinterpreted as sRGB | `jxl_color_tests::hdr_and_unverifiable_encodings_are_rejected`; `codecs::avif_meta_tests::contradictory_container_and_bitstream_signals_fail_closed`; `color_contract_tests::two_present_signals_require_explicit_precedence_even_when_both_look_srgb` |
 
 Output is always SDR sRGB, 8-bit straight-alpha RGBA rows handed to the
 encoder (ADR-0024, ADR-0030). HDR, tone mapping and wide-gamut output are not
@@ -450,20 +460,22 @@ Rejected, with the error the CLI prints (exit status 1):
 
 | Command | Error | What to do |
 | --- | --- | --- |
-| `ferrisma photo.jpg out.avif 64 48` (untagged) | `UnsupportedColor` "unsupported or ambiguous rendered color profile…" | add `--assume-srgb` if that assumption is acceptable |
-| `ferrisma sample.jxl out.avif 6 4 --assume-srgb` (ICC-tagged) | `UnsupportedColor` | use `--use-rendered-icc` (needs `icc`) |
-| `ferrisma cmyk.jpg out.avif 64 48 --assume-srgb` | `UnsupportedInput` "decoder pixel or color layout is not supported" | convert CMYK to RGB first |
-| `ferrisma animated.webp out.avif 64 48 --assume-srgb` | `UnsupportedInput` "animated input is not supported…" | extract one frame first |
-| `ferrisma colors-animated-8bpc.avif …` | `UnsupportedInput` | same |
-| `ferrisma clap_irot_imir_non_essential.avif …` | `UnsupportedInput` "orientation, mirroring or clean-aperture transforms are not supported yet" | remove `clap` or crop explicitly with `--crop` on a file without it |
-| `ferrisma colors_hdr_rec2020.avif …` (PQ) | `UnsupportedColor` | tone-map to SDR elsewhere; HDR is out of scope |
+| `ferrisma photo.jpg out.avif 64 48` (untagged) | `UnsupportedColor` (`ColorSignalMissing`) "unsupported or ambiguous rendered color profile…" | add `--assume-srgb` if that assumption is acceptable |
+| `ferrisma sample.jxl out.avif 6 4 --assume-srgb` (ICC-tagged) | `UnsupportedColor` (`RenderedIccRequiresOptIn`) | use `--use-rendered-icc` (needs `icc`) |
+| `ferrisma cmyk.jpg out.avif 64 48 --assume-srgb` | `UnsupportedInput` (`UnsupportedLayout`) "decoder pixel or color layout is not supported" | convert CMYK to RGB first |
+| `ferrisma animated.webp out.avif 64 48 --assume-srgb` | `UnsupportedInput` (`Animation`) "animated input is not supported…" | extract one frame first |
+| `ferrisma colors-animated-8bpc.avif …` | `UnsupportedInput` (`Animation`) | same |
+| `ferrisma clap_irot_imir_non_essential.avif …` | `UnsupportedInput` (`GeometricTransform`) "orientation, mirroring or clean-aperture transforms are not supported yet" | remove `clap` or crop explicitly with `--crop` on a file without it |
+| `ferrisma colors_hdr_rec2020.avif …` (PQ) | `UnsupportedColor` (`HdrTransfer`) | tone-map to SDR elsewhere; HDR is out of scope |
 | `ferrisma photo.jpg out.avif … --avif-encoder=rav1e --quality=0` | `InvalidOptions` | rav1e's scale starts at 1; libavif accepts 0 |
 | `ferrisma photo.jpg out.webp … --avif-encoder=rav1e` | "AVIF encoder options require .avif output" | drop AVIF flags for WebP |
 | `ferrisma photo.jpg out.jxl … --quality=80` | "--quality is unsupported for JPEG XL; use --jxl-distance or --jxl-lossless" | use `--jxl-distance` (lossy) or `--jxl-lossless` |
 | `ferrisma photo.jpg out.png …` | "output must have a .avif, .webp or .jxl extension" | choose a supported output |
 | `ferrisma photo.jpg out.avif … --max-input-mpx=0` | `InvalidOptions` "input byte/pixel limits must be nonzero" | use a positive limit |
 
-The Rust facade returns the same `ProcessingErrorKind` values;
+The CLI prints the message, not the reason in parentheses, which is what
+`refusal_reason()` returns through the Rust facade. The facade returns the
+same `ProcessingErrorKind` values;
 [`examples/consumer.rs`](../examples/consumer.rs) maps each kind to a
 reject/retry/alert decision and its `--self-check` asserts them.
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-14
+- **Last reviewed:** 2026-11-15
 - **Supersedes:** None. Once accepted, it replaces decision 6 ("no stability promise") of [ADR-0017](0017-minimal-public-facade-and-cli.md) for the items it marks stable.
 - **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (when the version 1.0 may be used, and the release tooling)
 - **Related:** [0010](0010-dual-licensing.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0034](0034-thumbnail-geometry.md), [0037](0037-selectable-workspace-avif-encoder.md), [publishing](../publishing.md), [release automation](../release-automation.md), [compatibility guide](../compatibility.md), tracker #196
@@ -65,7 +65,7 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `ColorSignal`, `ProcessingReport::color_signal` | enum, field | Experimental (working decision 2026-11-14, #212) | Non-exhaustive; reports the signal used, never a precedence |
 | `KernelLevel`, `KernelLevelReason`, `TransformOptions::kernel_level_ceiling` | re-exported enums, field | Experimental (diagnostics) | Couples to `ferrisma-kernels`; see problem 7 |
 | `ProcessingError`, `ProcessingErrorKind` | struct, enum | Stable | Kind is non-exhaustive; message text is not stable |
-| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decision 2026-11-14, #212) | Non-exhaustive closed vocabulary; `None` outside it |
+| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decisions 2026-11-14 and 2026-11-15, #212) | Non-exhaustive closed vocabulary by refusal class (eleven variants since 2026-11-15); `None` outside it |
 | `Engine`, `BatchItem` | struct, struct | Stable | ADR-0022 |
 | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with` | fn | Experimental | ADR-0024 backend extension point |
 | `EncoderBackend`, `RowEncoder`, `EncodeRequest`, `EncodedImage`, `EncodeError`, `EncodeErrorKind` | traits, structs, enum | Experimental | Implementors break if a required method is added; the structs and kind are already non-exhaustive |
@@ -186,8 +186,9 @@ cannot be fixed later without a major release.
    pixel budget. Recommendation: an additive `OutputLimitExceeded` kind and
    an accurate message.
 6. **No structured error details.** `ProcessingError` exposes `kind()`,
-   the message, and since 2026-11-14 `refusal_reason()` for four refusals
-   (#212). Additive accessors (which limit, requested and allowed
+   the message, and `refusal_reason()` (#212): since 2026-11-14 for four
+   refusals, since 2026-11-15 for every documented refusal class of the
+   [supported matrix](../supported-matrix.md) (eleven reasons). Additive accessors (which limit, requested and allowed
    values) and `source()` can follow after 1.0.
 7. **`KernelLevel` couples SemVer to `ferrisma-kernels`.** Recommendation:
    define the two diagnostic enums in `ferrisma` and map them, or keep them
@@ -328,3 +329,16 @@ reports that a stable item cannot express its use case.
   experimental, and a reason, once documented, keeps its meaning; making
   them stable is the owner's choice. Problem 6 is narrowed accordingly; which
   limit was exceeded and `source()` remain open.
+- 2026-11-15 — Refusal reasons for every documented refusal class (issue
+  #212; design in [ADR-0017](0017-minimal-public-facade-and-cli.md),
+  amendment of the same date): seven additive `RefusalReason` variants
+  (`HdrTransfer`, `UnsupportedColorEncoding`, `RenderedIccMissing`,
+  `ContradictoryColorSignals`, `UnsupportedLayout`, `AlphaAssociation`,
+  `GeometricTransform`), allowed by decision 2. No `ProcessingErrorKind` and
+  no message text changed. Inventory row and problem 6 updated. Working
+  decision 2026-11-15 (delegated, revisable by the owner): the enum stays
+  experimental; the names and class boundaries are the owner's to confirm.
+  Not decided here, and described as today's behavior: whether grayscale or
+  premultiplied JPEG XL should be accepted, the strict color policy (#222),
+  and the kind of an unknown essential AVIF property (`MalformedInput`,
+  #67), which keeps no reason.

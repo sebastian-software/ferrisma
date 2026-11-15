@@ -34,6 +34,32 @@ encoder's own scale and are not remapped. Select a backend explicitly when the
 result must not depend on Cargo feature unification. See the
 [supported matrix](supported-matrix.md).
 
+## Refusal reasons
+
+`ProcessingError::refusal_reason()` names the class of a refusal of
+well-formed but unsupported input, so a caller can decide without parsing the
+message (issue #212; experimental, working decisions 2026-11-14 and
+2026-11-15, delegated, revisable by the owner). Every other error, including
+malformed data, limits and invalid options, returns `None`. Where an input
+meets several classes, the reason names the check that refused it first.
+
+| `RefusalReason` | Kind | Refused input | What a caller can do |
+| --- | --- | --- | --- |
+| `Animation` | `UnsupportedInput` | animated WebP, JPEG XL, AVIF sequences; no first-frame fallback | extract one frame first |
+| `ColorSignalMissing` | `UnsupportedColor` | neither ICC nor CICP under `Strict` | `AssumeSrgbIfMissing` if sRGB is known |
+| `RenderedIccRequiresOptIn` | `UnsupportedColor` | ICC-described output under `Strict`/`AssumeSrgbIfMissing` (every JPEG XL input, ICC-tagged JPEG/AVIF) | `UseRenderedIcc` (`icc` feature) |
+| `RenderedIccMissing` | `UnsupportedColor` | `UseRenderedIcc`, but no ICC (untagged or CICP-only input) | another policy |
+| `CicpBesideIcc` | `UnsupportedColor` | under `UseRenderedIcc`, CICP beside the profile is HDR, uncheckable or disagrees | resolve the conflict upstream |
+| `HdrTransfer` | `UnsupportedColor` | PQ or HLG (JPEG XL, AVIF), under every policy | tone-map to SDR elsewhere |
+| `UnsupportedColorEncoding` | `UnsupportedColor` | SDR CICP outside sRGB, Display P3, linear sRGB without ICC (for example BT.2020 SDR); a JPEG XL colour encoding jxl-oxide cannot render | convert elsewhere |
+| `ContradictoryColorSignals` | `UnsupportedColor` | AVIF container `nclx`/ICC contradicting the AV1 sequence header | repair the file |
+| `UnsupportedLayout` | `UnsupportedInput` | CMYK/YCCK JPEG, monochrome AVIF, constant-luminance BT.2020, grayscale/CMYK/float/extra-channel JPEG XL | convert to RGB(A) first |
+| `AlphaAssociation` | `UnsupportedInput` | premultiplied or unspecified alpha | convert to straight alpha first |
+| `GeometricTransform` | `UnsupportedInput` | AVIF `clap`, `imir` before `irot`, EXIF orientation outside 1 to 8 | remove the transform first |
+
+New reasons may be added in a minor release (match with a wildcard arm); a
+documented reason keeps its meaning.
+
 ## What a minor release may change
 
 - Add enum variants. Every public enum that can grow is
