@@ -5,7 +5,7 @@
 - **Last reviewed:** 2026-11-15
 - **Source:** owner statement of 2026-11-15, made when he accepted the refusals recorded in the [supported matrix](../supported-matrix.md); the audit of the same day
 - **Supersedes:** None
-- **Related:** [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0040](0040-stable-public-contract-and-compatibility-policy.md), [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md), [silent-drops audit](../silent-drops-audit-2026-11-15.md), [supported matrix](../supported-matrix.md), [compatibility](../compatibility.md)
+- **Related:** [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0040](0040-stable-public-contract-and-compatibility-policy.md), [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md), [0043](0043-formats-behave-alike.md), [silent-drops audit](../silent-drops-audit-2026-11-15.md), [supported matrix](../supported-matrix.md), [compatibility](../compatibility.md)
 
 ## Context
 
