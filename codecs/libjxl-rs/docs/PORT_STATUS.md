@@ -375,6 +375,16 @@ decode-path Symmetric5 the lossy encoder runs, are translated with parity
 against the original's NEON and AVX2 (Rosetta 2) builds, behind the
 encoder's dispatch point (off by default).
 <!-- end encoder cfl -->
+<!-- encoder aq -->
+Encoder SIMD, `enc_adaptive_quantization` (2026-11-14, branch
+`v1/jxl-enc-aq`, ADR 0004 "Encoder path: `enc_adaptive_quantization`"):
+the export's one Highway function, AdaptiveQuantizationMap, is translated
+(`enc_adaptive_quantization_simd.rs`) and dispatched at
+`initial_quant_field` through `hwy::encoder_target()` (off by default), with
+parity against the original's NEON build in
+`tests/simd_encoder_aq.rs`. Nothing of this export remains; the AVX2 parity run has an open NaN-payload finding (ADR 0004). The
+`Symmetric5` it calls dispatches on its own (`convolve_symmetric5_simd`).
+<!-- end encoder aq -->
 
 <!-- encoder container -->
 Encoder step 3, container and box writing (2026-11-15, branch

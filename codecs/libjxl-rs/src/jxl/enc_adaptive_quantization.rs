@@ -37,14 +37,14 @@ use super::frame_dimensions::BLOCK_DIM;
 use super::image::{Image3F, ImageF};
 use super::memory_manager_internal::MemoryManagerPtr;
 
-const ENC_TILE_DIM_IN_BLOCKS: usize = ENC_TILE_DIM / BLOCK_DIM;
+pub(super) const ENC_TILE_DIM_IN_BLOCKS: usize = ENC_TILE_DIM / BLOCK_DIM;
 // base/common.h: constexpr float kInvLog2e = 0.6931471805599453;
 #[expect(clippy::approx_constant, reason = "the source's literal")]
-const INV_LOG2E: f32 = 0.6931471805599453f64 as f32;
+pub(super) const INV_LOG2E: f32 = 0.6931471805599453f64 as f32;
 
 // Hack for mask estimation. Eventually replace this code with butteraugli's
 // masking.
-fn compute_mask_for_ac_strategy_use(out_val: f32) -> f32 {
+pub(super) fn compute_mask_for_ac_strategy_use(out_val: f32) -> f32 {
     const MUL: f32 = 1.0;
     const OFFSET: f32 = 0.001;
     MUL / (out_val + OFFSET)
@@ -77,14 +77,14 @@ fn compute_mask(out_val: f32) -> f32 {
 
 // mul and mul2 represent a scaling difference between jxl and butteraugli.
 #[expect(clippy::excessive_precision, reason = "the source's decimal literals")]
-const SG_MUL: f32 = 226.77216153508914f32;
+pub(super) const SG_MUL: f32 = 226.77216153508914f32;
 #[expect(clippy::excessive_precision, reason = "the source's decimal literals")]
 const SG_MUL2: f32 = 1.0f32 / 73.377132366608819f32;
 // Includes correction factor for std::log -> log2.
 #[expect(clippy::excessive_precision, reason = "the source's decimal literals")]
-const SG_RET_MUL: f32 = SG_MUL2 * 18.6580932135f32 * INV_LOG2E;
+pub(super) const SG_RET_MUL: f32 = SG_MUL2 * 18.6580932135f32 * INV_LOG2E;
 #[expect(clippy::excessive_precision, reason = "the source's decimal literals")]
-const SG_V_OFFSET: f32 = 7.7825991679894591f32;
+pub(super) const SG_V_OFFSET: f32 = 7.7825991679894591f32;
 
 fn ratio_of_derivatives_of_cubic_root_to_simple_gamma(invert: bool, v: f32) -> f32 {
     // The opsin space in jxl is the cubic root of photons, i.e., v * v * v
@@ -287,7 +287,7 @@ fn masking_sqrt(v: f32) -> f32 {
     0.25f32 * (v * mul_v.sqrt() + offset_v).sqrt()
 }
 
-fn store_min4(v: f32, min: &mut [f32; 4]) {
+pub(super) fn store_min4(v: f32, min: &mut [f32; 4]) {
     if v < min[3] {
         if v < min[0] {
             min[3] = min[2];
@@ -639,7 +639,7 @@ impl AdaptiveQuantizationImpl {
     }
 }
 
-fn blur1x1_masking(
+pub(super) fn blur1x1_masking(
     memory_manager: MemoryManagerPtr,
     pool: Option<&ThreadPool>,
     mask1x1: &mut ImageF,
@@ -844,6 +844,20 @@ pub fn initial_quant_field(
     mask1x1: &mut ImageF,
 ) -> StatusOr<ImageF> {
     let quant_ac = AC_QUANT / butteraugli_target;
+    // HWY_DYNAMIC_DISPATCH(AdaptiveQuantizationMap): the encoder's own
+    // selection, off by default (port ADR 0004, "Encoder path").
+    if let Some(target) = super::hwy::encoder_target() {
+        return super::enc_adaptive_quantization_simd::adaptive_quantization_map_simd(
+            target,
+            butteraugli_target,
+            opsin,
+            rect,
+            quant_ac * rescale,
+            pool,
+            mask,
+            mask1x1,
+        );
+    }
     adaptive_quantization_map(
         butteraugli_target,
         opsin,
