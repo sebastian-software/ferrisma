@@ -327,7 +327,7 @@ fn jxl_oxide_unknown_colour_space_is_a_controlled_error() {
     let hostile = include_bytes!("../tests/fixtures/hostile/jxl-unknown-colour-space.jxl");
     let result = catch_unwind(AssertUnwindSafe(|| JxlSource::new(hostile)));
     let result = result.expect("JPEG XL adapter setup must not panic");
-    assert!(matches!(result, Err(Error::UnsupportedColorEncoding)));
+    assert!(matches!(result, Err(Error::UnrenderableColorEncoding)));
 }
 
 #[cfg(feature = "jpeg-xl-own-read")]

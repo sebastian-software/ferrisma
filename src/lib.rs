@@ -152,6 +152,18 @@ mod backend_only_tests;
 #[cfg(test)]
 mod hardening_tests;
 
+#[cfg(all(
+    test,
+    feature = "jpeg-read",
+    feature = "webp-read",
+    feature = "webp-write",
+    feature = "jpeg-xl-read",
+    feature = "jpeg-xl-own-read",
+    feature = "avif-read",
+    feature = "icc"
+))]
+mod refusal_reason_tests;
+
 #[cfg(all(test, any(feature = "jpeg-xl-read", feature = "jpeg-xl-own-read")))]
 mod jxl_color_tests;
 

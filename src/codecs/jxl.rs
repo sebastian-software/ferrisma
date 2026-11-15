@@ -26,7 +26,13 @@ impl<'a> JxlSource<'a> {
         Self::new_bounded(bytes, 100_000_000)
     }
     pub(crate) fn new_bounded(bytes: &'a [u8], max_pixels: u64) -> Result<Self, Error> {
-        let image = inspect(bytes, max_pixels).map_err(map_error)?;
+        // At inspection the wrapper's `Unsupported` means a layout outside
+        // the engine contract: float or exponent samples, a color channel
+        // count other than one or three, or extra channels besides one alpha.
+        let image = inspect(bytes, max_pixels).map_err(|error| match error {
+            ferrisma_jxl_decoder::Error::Unsupported => Error::UnsupportedLayout,
+            error => map_error(error),
+        })?;
         // PQ and HLG are refused from the transfer function itself (ADR-0016
         // rule 7, review of 2026-11-12): a gamut without an H.273 code point,
         // such as custom primaries or a white point other than D65 or DCI,
@@ -35,7 +41,7 @@ impl<'a> JxlSource<'a> {
         // ICC-signalled DATA encoding has no enum transfer; it stays covered
         // by the profile checks of that stage.
         if matches!(image.data_transfer, Some(Transfer::Pq | Transfer::Hlg)) {
-            return Err(Error::UnsupportedColorEncoding);
+            return Err(Error::HdrTransfer);
         }
         let size = Size::new(image.width, image.height)?;
         let (layout, alpha) = match image.channels {
@@ -57,7 +63,7 @@ impl<'a> JxlSource<'a> {
                     AlphaMode::Straight
                 },
             ),
-            _ => return Err(Error::UnsupportedCodecLayout),
+            _ => return Err(Error::UnsupportedLayout),
         };
         let info = DecoderInfo {
             size,
@@ -79,7 +85,9 @@ impl<'a> JxlSource<'a> {
 
 fn map_error(error: ferrisma_jxl_decoder::Error) -> Error {
     match error {
-        ferrisma_jxl_decoder::Error::Unsupported => Error::UnsupportedCodecLayout,
+        ferrisma_jxl_decoder::Error::Unsupported | ferrisma_jxl_decoder::Error::ProfileTooLarge => {
+            Error::UnsupportedCodecLayout
+        }
         ferrisma_jxl_decoder::Error::Animation => Error::UnsupportedAnimation,
         ferrisma_jxl_decoder::Error::PixelLimit { pixels, limit } => {
             Error::InputPixelLimitExceeded { pixels, limit }

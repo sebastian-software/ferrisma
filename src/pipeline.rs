@@ -565,10 +565,15 @@ pub enum ProcessingErrorKind {
 }
 
 /// Why an input was refused, beyond its [`ProcessingErrorKind`] (issue
-/// #212, ADR-0017 amendment of 2026-11-14). A closed vocabulary: each
-/// variant names one refusal the engine detects itself, and callers match on
-/// it instead of on message text. New reasons may be added; an existing
-/// reason keeps its meaning.
+/// #212, ADR-0017 amendments of 2026-11-14 and 2026-11-15). A closed
+/// vocabulary by refusal class, not one value per message: each variant
+/// names one class of well-formed but unsupported input that the engine
+/// detects itself, and callers match on it instead of on message text.
+/// Malformed data, limits, I/O, invalid options and internal failures carry
+/// no reason. New reasons may be added; an existing reason keeps its
+/// meaning. Where one input meets several classes, the reason names the
+/// first check that refused it (the order is documented in
+/// `docs/supported-matrix.md`), not every class it belongs to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum RefusalReason {
@@ -591,6 +596,42 @@ pub enum RefusalReason {
     /// the profile is not given precedence (ADR-0015 rule 4). Kind:
     /// [`ProcessingErrorKind::UnsupportedColor`].
     CicpBesideIcc,
+    /// The decoder signals a PQ or HLG transfer (JPEG XL enum encoding,
+    /// AVIF CICP), which needs reference-white and tone-mapping decisions
+    /// the engine does not make (ADR-0016 rule 7). Refused under every
+    /// policy. A PQ/HLG `cicp` beside a rendered ICC profile is
+    /// [`Self::CicpBesideIcc`] instead. Kind:
+    /// [`ProcessingErrorKind::UnsupportedColor`].
+    HdrTransfer,
+    /// The decoder describes its output with an SDR color encoding the
+    /// engine cannot convert: CICP outside sRGB, Display P3 and linear sRGB
+    /// without an ICC profile, or a JPEG XL enum encoding jxl-oxide cannot
+    /// render (unknown or XYB colour space, unknown transfer). Kind:
+    /// [`ProcessingErrorKind::UnsupportedColor`].
+    UnsupportedColorEncoding,
+    /// The policy is [`InputProfilePolicy::UseRenderedIcc`], but the
+    /// decoder reports no ICC profile (CICP-only or untagged input); the
+    /// policy converts only through a profile. Kind:
+    /// [`ProcessingErrorKind::UnsupportedColor`].
+    RenderedIccMissing,
+    /// The AVIF container's color signals (`nclx`, ICC) contradict the AV1
+    /// sequence header or libavif's parsed image. Kind:
+    /// [`ProcessingErrorKind::UnsupportedColor`].
+    ContradictoryColorSignals,
+    /// The channel layout, sample format or YUV matrix is outside the
+    /// engine's contract: CMYK/YCCK JPEG, monochrome AVIF,
+    /// constant-luminance BT.2020 AVIF, grayscale, CMYK, float or extra
+    /// channels in JPEG XL. Kind: [`ProcessingErrorKind::UnsupportedInput`].
+    UnsupportedLayout,
+    /// The alpha channel is premultiplied (associated) or its association
+    /// is unspecified; only straight alpha is processed. Kind:
+    /// [`ProcessingErrorKind::UnsupportedInput`].
+    AlphaAssociation,
+    /// A geometric transform the engine does not apply: AVIF clean aperture
+    /// (`clap`, essential or not), `imir` associated before `irot`, or an
+    /// EXIF orientation outside 1 to 8. Kind:
+    /// [`ProcessingErrorKind::UnsupportedInput`].
+    GeometricTransform,
 }
 
 /// Public error that never exposes backend-specific types.
@@ -671,13 +712,16 @@ impl From<Error> for ProcessingError {
             | Error::InvalidAlphaValue => Kind::MalformedInput,
             Error::UnsupportedAlphaMode
             | Error::UnsupportedCodecLayout
+            | Error::UnsupportedLayout
             | Error::UnsupportedPixelOperation
             | Error::ChromaPhaseRequiresResampling => Kind::UnsupportedInput,
             Error::UnsupportedAnimation => Kind::UnsupportedInput,
             Error::UnsupportedImageTransform => Kind::UnsupportedInput,
-            Error::UnsupportedColorEncoding => Kind::UnsupportedColor,
+            Error::UnsupportedColorEncoding
+            | Error::HdrTransfer
+            | Error::UnrenderableColorEncoding => Kind::UnsupportedColor,
             #[cfg(feature = "icc")]
-            Error::CicpBesideIcc(_) => Kind::UnsupportedColor,
+            Error::CicpBesideIcc(_) | Error::RenderedIccMissing => Kind::UnsupportedColor,
             #[cfg(feature = "avif-read")]
             Error::ContradictoryColorSignals => Kind::UnsupportedColor,
             Error::AllocationFailed | Error::ThreadSpawnFailed | Error::BudgetExceeded { .. } => {
@@ -704,6 +748,19 @@ impl From<Error> for ProcessingError {
             Error::UnsupportedAnimation => Some(RefusalReason::Animation),
             #[cfg(feature = "icc")]
             Error::CicpBesideIcc(_) => Some(RefusalReason::CicpBesideIcc),
+            #[cfg(feature = "icc")]
+            Error::RenderedIccMissing => Some(RefusalReason::RenderedIccMissing),
+            Error::HdrTransfer => Some(RefusalReason::HdrTransfer),
+            Error::UnrenderableColorEncoding => Some(RefusalReason::UnsupportedColorEncoding),
+            #[cfg(feature = "avif-read")]
+            Error::ContradictoryColorSignals => Some(RefusalReason::ContradictoryColorSignals),
+            Error::UnsupportedLayout => Some(RefusalReason::UnsupportedLayout),
+            Error::UnsupportedAlphaMode => Some(RefusalReason::AlphaAssociation),
+            Error::UnsupportedImageTransform => Some(RefusalReason::GeometricTransform),
+            // `UnsupportedColorEncoding` and `UnsupportedCodecLayout` remain
+            // for profile, transform and wrapper failures without a
+            // documented class; the engine-internal pixel-operation errors
+            // are not refusals of an input.
             _ => None,
         };
         Self::refused(kind, reason, value.to_string())
@@ -1282,7 +1339,8 @@ fn run(
             ColorEncoding::Icc(_) | ColorEncoding::IccAndCicp { .. } => {
                 Some(RefusalReason::RenderedIccRequiresOptIn)
             }
-            ColorEncoding::Cicp(_) => None,
+            ColorEncoding::Cicp([_, 16 | 18, ..]) => Some(RefusalReason::HdrTransfer),
+            ColorEncoding::Cicp(_) => Some(RefusalReason::UnsupportedColorEncoding),
         };
         return Err(ProcessingError::refused(
             ProcessingErrorKind::UnsupportedColor,

@@ -132,7 +132,7 @@ fn reject_unrenderable_colour_encoding(image: &JxlImage) -> Result<(), Error> {
     if known_space && known_transfer {
         Ok(())
     } else {
-        Err(Error::UnsupportedColorEncoding)
+        Err(Error::UnrenderableColorEncoding)
     }
 }
 
@@ -158,7 +158,7 @@ fn reject_hdr_transfer(image: &JxlImage) -> Result<(), Error> {
         .rendered_cicp()
         .is_some_and(|cicp| matches!(cicp[1], 16 | 18));
     if header_hdr || rendered_hdr {
-        Err(Error::UnsupportedColorEncoding)
+        Err(Error::HdrTransfer)
     } else {
         Ok(())
     }

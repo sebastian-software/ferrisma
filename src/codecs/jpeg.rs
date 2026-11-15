@@ -44,14 +44,14 @@ impl<'a> JpegSource<'a> {
             decoder.header().color_space,
             ColorSpace::Cmyk | ColorSpace::Ycck
         ) {
-            return Err(Error::UnsupportedCodecLayout);
+            return Err(Error::UnsupportedLayout);
         }
         let output = decoder
             .output_info(&output_options())
             .map_err(|_| Error::DecodeFailed)?;
         let size = Size::new(output.width, output.height)?;
         if output.format != PixelFormat::Rgb || output.components != 3 {
-            return Err(Error::UnsupportedCodecLayout);
+            return Err(Error::UnsupportedLayout);
         }
         // EXIF orientation describes how the stored samples are displayed;
         // the pipeline applies it (ADR-0019). Unknown values fail closed.
@@ -389,7 +389,7 @@ mod tests {
     fn does_not_label_cmyk_samples_as_rgb() {
         assert_eq!(
             JpegSource::new(include_bytes!("../../tests/fixtures/cmyk.jpg")).err(),
-            Some(Error::UnsupportedCodecLayout)
+            Some(Error::UnsupportedLayout)
         );
     }
 

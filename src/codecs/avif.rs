@@ -50,7 +50,7 @@ pub(crate) fn rendered_cicp(
 ) -> Result<Option<[u8; 4]>, Error> {
     // Constant-luminance BT.2020 needs a separately verified output contract.
     if sequence.matrix == 10 {
-        return Err(Error::UnsupportedCodecLayout);
+        return Err(Error::UnsupportedLayout);
     }
     let (primaries, transfer) = if let Some(nclx) = properties.nclx {
         let field_conflicts =
@@ -128,7 +128,7 @@ impl<'a> AvifSource<'a> {
             full_range: decoded_info.sequence.full_range,
         };
         if sequence.monochrome {
-            return Err(Error::UnsupportedCodecLayout);
+            return Err(Error::UnsupportedLayout);
         }
         let rendered_cicp = rendered_cicp(&properties, sequence)?;
         let has_alpha = decoded_info.alpha;

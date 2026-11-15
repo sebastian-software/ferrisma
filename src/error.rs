@@ -80,6 +80,32 @@ pub(crate) enum Error {
     UnsupportedEncoderProfile(&'static str),
     EncodeFailed,
     UnsupportedColorEncoding,
+    /// A PQ or HLG transfer in the decoder's own color signal (ADR-0016
+    /// rule 7); prints as [`Self::UnsupportedColorEncoding`].
+    #[cfg_attr(
+        not(any(
+            feature = "jpeg-xl-read",
+            feature = "jpeg-xl-own-read",
+            feature = "icc"
+        )),
+        allow(
+            dead_code,
+            reason = "constructed only by the JPEG XL adapters and the ICC stage"
+        )
+    )]
+    HdrTransfer,
+    /// A well-formed enum color encoding the decoder cannot render
+    /// (jxl-oxide: unknown or XYB colour space, unknown transfer); prints as
+    /// [`Self::UnsupportedColorEncoding`].
+    #[cfg_attr(
+        not(feature = "jpeg-xl-read"),
+        allow(dead_code, reason = "constructed only by the jxl-oxide adapter")
+    )]
+    UnrenderableColorEncoding,
+    /// The rendered-ICC policy, but the decoder reports no ICC profile;
+    /// prints as [`Self::UnsupportedColorEncoding`].
+    #[cfg(feature = "icc")]
+    RenderedIccMissing,
     /// CICP evidence beside the rendered ICC profile that the rendered-ICC
     /// stage cannot reconcile with it; the reason names the conflict. ICC is
     /// never given precedence over CICP silently (ADR-0015 rule 4).
@@ -98,9 +124,32 @@ pub(crate) enum Error {
         allow(dead_code, reason = "constructed only by animated-format adapters")
     )]
     UnsupportedAnimation,
+    /// A decoder or codec-wrapper refusal without a documented class (for
+    /// example an unexpected decoder status or an oversized embedded
+    /// profile); prints as [`Self::UnsupportedLayout`].
     #[allow(dead_code)]
     UnsupportedCodecLayout,
+    /// A channel layout, sample format or YUV matrix outside the engine's
+    /// contract: grayscale, CMYK/YCCK, monochrome AVIF, float or extra
+    /// channels, constant-luminance BT.2020.
+    #[cfg_attr(
+        not(any(
+            feature = "jpeg-read",
+            feature = "jpeg-xl-own-read",
+            feature = "avif-read",
+            feature = "icc"
+        )),
+        allow(
+            dead_code,
+            reason = "constructed only by codec adapters and the ICC stage"
+        )
+    )]
+    UnsupportedLayout,
 }
+
+/// One message for the color-encoding refusals that split by reason
+/// (issue #212); tests and `docs/` pin its text.
+const UNSUPPORTED_COLOR_ENCODING: &str = "linear-sRGB resize requires unambiguous full-range RGB sRGB CICP; ICC/unknown/HDR need a managed transform";
 
 impl fmt::Display for Error {
     #[allow(clippy::too_many_lines)] // One message per variant.
@@ -180,10 +229,11 @@ impl fmt::Display for Error {
             Self::InvalidAlphaValue => {
                 write!(f, "straight alpha must be finite and between zero and one")
             }
-            Self::UnsupportedColorEncoding => write!(
-                f,
-                "linear-sRGB resize requires unambiguous full-range RGB sRGB CICP; ICC/unknown/HDR need a managed transform"
-            ),
+            Self::UnsupportedColorEncoding
+            | Self::HdrTransfer
+            | Self::UnrenderableColorEncoding => f.write_str(UNSUPPORTED_COLOR_ENCODING),
+            #[cfg(feature = "icc")]
+            Self::RenderedIccMissing => f.write_str(UNSUPPORTED_COLOR_ENCODING),
             #[cfg(feature = "icc")]
             Self::CicpBesideIcc(reason) => write!(
                 f,
@@ -200,7 +250,7 @@ impl fmt::Display for Error {
             Self::IncompleteDecoderOutput => {
                 write!(f, "decoder did not provide the complete output region")
             }
-            Self::UnsupportedCodecLayout => {
+            Self::UnsupportedCodecLayout | Self::UnsupportedLayout => {
                 write!(f, "decoder pixel or color layout is not supported")
             }
         }

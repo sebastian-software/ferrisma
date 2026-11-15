@@ -2,8 +2,10 @@
 //! one claim of the matrix, checked through the public processing API
 //! (`transcode`, `transcode_resized`, `inspect`) with a real file from the
 //! repository. A supported case decodes and encodes completely; a rejected
-//! case asserts the public kind *and* the engine's specific reason, because
-//! one kind (for example `UnsupportedInput`) is shared by unrelated causes.
+//! case asserts the public kind, the message's reason *and* the typed
+//! `refusal_reason()` (issue #212; `None` for malformed data, limits and
+//! invalid options), because one kind (for example `UnsupportedInput`) is
+//! shared by unrelated causes.
 //! Header inspection alone is never taken as proof here.
 //!
 //! Run it with every adapter (`cargo test -p ferrisma --features cli --test
@@ -28,8 +30,8 @@
 use ferrisma::pipeline::ChromaSubsampling;
 use ferrisma::pipeline::{
     AvifEncoder, Crop, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlDecoder,
-    JpegXlOptions, Output, OutputFormat, ProcessingError, ProcessingErrorKind, SourceAccess,
-    TransformOptions, WebpOptions, inspect, transcode,
+    JpegXlOptions, Output, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason,
+    SourceAccess, TransformOptions, WebpOptions, inspect, transcode,
 };
 
 // ---------------------------------------------------------------------------
@@ -111,11 +113,26 @@ fn to_webp(bytes: &[u8], format: ImageFormat, policy: InputProfilePolicy) -> Out
         .unwrap_or_else(|error| panic!("{format:?} under {policy:?}: {error}"))
 }
 
+/// A rejection that is not a refusal class of `RefusalReason` (malformed
+/// data, limits, invalid options): its kind and message, and no reason.
 #[track_caller]
 fn rejected(
     result: Result<Output, ProcessingError>,
     kind: ProcessingErrorKind,
     reason: &str,
+) -> ProcessingError {
+    refused(result, kind, reason, None)
+}
+
+/// A rejection with its kind, its message prefix and its typed
+/// `refusal_reason()` (issue #212); the message stays asserted because the
+/// matrix documents it.
+#[track_caller]
+fn refused(
+    result: Result<Output, ProcessingError>,
+    kind: ProcessingErrorKind,
+    reason: &str,
+    refusal: Option<RefusalReason>,
 ) -> ProcessingError {
     let error = result.expect_err("the configuration must be rejected");
     assert_eq!(error.kind(), kind, "{error}");
@@ -123,6 +140,7 @@ fn rejected(
         error.to_string().starts_with(reason),
         "expected reason {reason:?}, got {error:?}"
     );
+    assert_eq!(error.refusal_reason(), refusal, "{error}");
     error
 }
 
@@ -260,7 +278,7 @@ fn jpeg_rgb_is_accepted_when_srgb_is_assumed() {
 
 #[test]
 fn jpeg_untagged_is_rejected_under_the_strict_policy() {
-    rejected(
+    refused(
         transcode(
             SAMPLE_JPEG,
             ImageFormat::Jpeg,
@@ -268,12 +286,13 @@ fn jpeg_untagged_is_rejected_under_the_strict_policy() {
         ),
         ProcessingErrorKind::UnsupportedColor,
         COLOR,
+        Some(RefusalReason::ColorSignalMissing),
     );
 }
 
 #[test]
 fn jpeg_cmyk_is_rejected_as_a_layout() {
-    rejected(
+    refused(
         transcode(
             CMYK_JPEG,
             ImageFormat::Jpeg,
@@ -281,6 +300,7 @@ fn jpeg_cmyk_is_rejected_as_a_layout() {
         ),
         ProcessingErrorKind::UnsupportedInput,
         LAYOUT,
+        Some(RefusalReason::UnsupportedLayout),
     );
 }
 
@@ -290,7 +310,7 @@ fn jpeg_grayscale_is_expanded_to_rgb() {
     // behaves like untagged RGB.
     let gray = jxl("ycbcr-jpeg-gray.jpg");
     to_webp(&gray, ImageFormat::Jpeg, ASSUME);
-    rejected(
+    refused(
         transcode(
             &gray,
             ImageFormat::Jpeg,
@@ -298,6 +318,7 @@ fn jpeg_grayscale_is_expanded_to_rgb() {
         ),
         ProcessingErrorKind::UnsupportedColor,
         COLOR,
+        Some(RefusalReason::ColorSignalMissing),
     );
 }
 
@@ -317,7 +338,7 @@ fn jpeg_truncated_is_malformed() {
 #[test]
 fn jpeg_embedded_icc_needs_the_rendered_icc_policy() {
     for policy in [STRICT, ASSUME] {
-        rejected(
+        refused(
             transcode(
                 ICC_JPEG,
                 ImageFormat::Jpeg,
@@ -325,6 +346,7 @@ fn jpeg_embedded_icc_needs_the_rendered_icc_policy() {
             ),
             ProcessingErrorKind::UnsupportedColor,
             COLOR,
+            Some(RefusalReason::RenderedIccRequiresOptIn),
         );
     }
     to_webp(ICC_JPEG, ImageFormat::Jpeg, RENDERED);
@@ -366,7 +388,7 @@ fn webp_exif_orientation_is_applied_lossy_and_lossless() {
 
 #[test]
 fn webp_animation_is_rejected_without_a_first_frame_fallback() {
-    rejected(
+    refused(
         transcode(
             ANIMATED_WEBP,
             ImageFormat::WebP,
@@ -374,6 +396,7 @@ fn webp_animation_is_rejected_without_a_first_frame_fallback() {
         ),
         ProcessingErrorKind::UnsupportedInput,
         ANIMATION,
+        Some(RefusalReason::Animation),
     );
 }
 
@@ -426,7 +449,7 @@ fn jpeg_xl_rgb_needs_the_rendered_icc_policy_on_both_readers() {
         };
         assert_eq!(output.report.input_access, expected, "{decoder:?}");
         for policy in [STRICT, ASSUME] {
-            rejected(
+            refused(
                 transcode(
                     SAMPLE_JXL,
                     ImageFormat::JpegXl,
@@ -434,6 +457,7 @@ fn jpeg_xl_rgb_needs_the_rendered_icc_policy_on_both_readers() {
                 ),
                 ProcessingErrorKind::UnsupportedColor,
                 COLOR,
+                Some(RefusalReason::RenderedIccRequiresOptIn),
             );
         }
     }
@@ -459,12 +483,27 @@ fn jpeg_xl_grayscale_is_rejected_under_every_policy() {
     // transform takes RGB(A) only.
     for name in ["ycbcr-jpeg-gray.jxl", "modular-gray-alpha12.jxl"] {
         for decoder in BOTH_JXL {
-            for (policy, kind, reason) in [
-                (STRICT, ProcessingErrorKind::UnsupportedColor, COLOR),
-                (ASSUME, ProcessingErrorKind::UnsupportedColor, COLOR),
-                (RENDERED, ProcessingErrorKind::UnsupportedInput, LAYOUT),
+            for (policy, kind, reason, refusal) in [
+                (
+                    STRICT,
+                    ProcessingErrorKind::UnsupportedColor,
+                    COLOR,
+                    RefusalReason::RenderedIccRequiresOptIn,
+                ),
+                (
+                    ASSUME,
+                    ProcessingErrorKind::UnsupportedColor,
+                    COLOR,
+                    RefusalReason::RenderedIccRequiresOptIn,
+                ),
+                (
+                    RENDERED,
+                    ProcessingErrorKind::UnsupportedInput,
+                    LAYOUT,
+                    RefusalReason::UnsupportedLayout,
+                ),
             ] {
-                rejected(
+                refused(
                     transcode(
                         &jxl(name),
                         ImageFormat::JpegXl,
@@ -472,6 +511,7 @@ fn jpeg_xl_grayscale_is_rejected_under_every_policy() {
                     ),
                     kind,
                     reason,
+                    Some(refusal),
                 );
             }
         }
@@ -485,7 +525,7 @@ fn jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected() {
         "extra-channel-spot-signed-extreme-binary-name.jxl",
         "extra-channel-multiple-alpha-spots-float.jxl",
     ] {
-        rejected(
+        refused(
             transcode(
                 &jxl(name),
                 ImageFormat::JpegXl,
@@ -493,6 +533,7 @@ fn jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected() {
             ),
             ProcessingErrorKind::UnsupportedInput,
             LAYOUT,
+            Some(RefusalReason::UnsupportedLayout),
         );
     }
 }
@@ -501,7 +542,7 @@ fn jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected() {
 fn jpeg_xl_animation_is_rejected_by_both_readers() {
     let animated = jxl("decoder-geometry/sequence-reference-overwrite-animation-1.jxl");
     for decoder in BOTH_JXL {
-        rejected(
+        refused(
             transcode(
                 &animated,
                 ImageFormat::JpegXl,
@@ -509,6 +550,7 @@ fn jpeg_xl_animation_is_rejected_by_both_readers() {
             ),
             ProcessingErrorKind::UnsupportedInput,
             ANIMATION,
+            Some(RefusalReason::Animation),
         );
     }
 }
@@ -533,6 +575,11 @@ fn jpeg_xl_pq_and_hlg_are_rejected_by_both_readers() {
                 // Both readers refuse the transfer function itself, before
                 // any profile policy applies.
                 assert!(error.to_string().starts_with(LINEAR_SRGB), "{error}");
+                assert_eq!(
+                    error.refusal_reason(),
+                    Some(RefusalReason::HdrTransfer),
+                    "{error}"
+                );
             }
         }
     }
@@ -579,7 +626,7 @@ fn avif_clean_aperture_is_rejected() {
         avif("clap_irot_imir_non_essential.avif"),
         read(&format!("{AVIF_ANDROID}avif/blue-and-magenta-crop.avif")),
     ] {
-        rejected(
+        refused(
             transcode(
                 &bytes,
                 ImageFormat::Avif,
@@ -587,6 +634,7 @@ fn avif_clean_aperture_is_rejected() {
             ),
             ProcessingErrorKind::UnsupportedInput,
             TRANSFORM,
+            Some(RefusalReason::GeometricTransform),
         );
     }
     // The same file with `clap` and `imir` renamed to unknown non-essential
@@ -646,7 +694,7 @@ fn mirror_before_rotation(mut bytes: Vec<u8>) -> Vec<u8> {
 #[test]
 fn avif_imir_before_irot_is_rejected() {
     let reordered = mirror_before_rotation(read(&format!("{ORIENTATION}avif-5.avif")));
-    rejected(
+    refused(
         transcode(
             &reordered,
             ImageFormat::Avif,
@@ -654,6 +702,7 @@ fn avif_imir_before_irot_is_rejected() {
         ),
         ProcessingErrorKind::UnsupportedInput,
         TRANSFORM,
+        Some(RefusalReason::GeometricTransform),
     );
 }
 
@@ -721,7 +770,7 @@ fn avif_image_sequences_are_rejected_without_a_first_frame_fallback() {
         avif("colors-animated-12bpc-keyframes-0-2-3.avif"),
         read(&format!("{AVIF_ANDROID}animated_avif/alpha_video.avif")),
     ] {
-        rejected(
+        refused(
             transcode(
                 &bytes,
                 ImageFormat::Avif,
@@ -729,6 +778,7 @@ fn avif_image_sequences_are_rejected_without_a_first_frame_fallback() {
             ),
             ProcessingErrorKind::UnsupportedInput,
             ANIMATION,
+            Some(RefusalReason::Animation),
         );
     }
 }
@@ -742,7 +792,7 @@ fn avif_monochrome_is_rejected_at_every_depth() {
         "fox.profile2.12bpc.yuv420.monochrome.avif",
     ] {
         let bytes = read(&format!("{AVIF_ANDROID}avif/{name}"));
-        rejected(
+        refused(
             transcode(
                 &bytes,
                 ImageFormat::Avif,
@@ -750,6 +800,7 @@ fn avif_monochrome_is_rejected_at_every_depth() {
             ),
             ProcessingErrorKind::UnsupportedInput,
             LAYOUT,
+            Some(RefusalReason::UnsupportedLayout),
         );
     }
 }
@@ -822,13 +873,19 @@ fn avif_pq_is_rejected_under_every_policy() {
                 "{name} {policy:?}: {error}"
             );
             // Rendered CICP 9/16 fails the sRGB check; the rendered-ICC
-            // stage refuses the file because it carries no ICC profile.
+            // stage refuses the file because it carries no ICC profile. The
+            // reason names the PQ transfer under every policy.
             let reason = if policy == RENDERED {
                 LINEAR_SRGB
             } else {
                 COLOR
             };
             assert!(error.to_string().starts_with(reason), "{error}");
+            assert_eq!(
+                error.refusal_reason(),
+                Some(RefusalReason::HdrTransfer),
+                "{error}"
+            );
         }
     }
 }
@@ -838,7 +895,7 @@ fn avif_pq_is_rejected_under_every_policy() {
 fn avif_container_icc_needs_the_rendered_icc_policy() {
     let bytes = avif("paris_icc_exif_xmp.avif");
     for policy in [STRICT, ASSUME] {
-        rejected(
+        refused(
             transcode(
                 &bytes,
                 ImageFormat::Avif,
@@ -846,6 +903,7 @@ fn avif_container_icc_needs_the_rendered_icc_policy() {
             ),
             ProcessingErrorKind::UnsupportedColor,
             COLOR,
+            Some(RefusalReason::RenderedIccRequiresOptIn),
         );
     }
     to_webp(&bytes, ImageFormat::Avif, RENDERED);

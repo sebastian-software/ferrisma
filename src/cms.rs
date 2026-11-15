@@ -272,12 +272,20 @@ impl<'a> IccSrgbSource<'a> {
             (ChannelLayout::Rgb, AlphaMode::Opaque) => 3,
             (ChannelLayout::Rgba, AlphaMode::Straight) => 4,
             (ChannelLayout::Rgba, _) => return Err(Error::UnsupportedAlphaMode),
-            _ => return Err(Error::UnsupportedCodecLayout),
+            _ => return Err(Error::UnsupportedLayout),
         };
-        let bytes = info
-            .rendered_icc
-            .as_deref()
-            .ok_or(Error::UnsupportedColorEncoding)?;
+        // Without a profile this policy has nothing to convert. A PQ or HLG
+        // CICP is named as such: it is refused under every policy.
+        let bytes = info.rendered_icc.as_deref().ok_or(
+            if info
+                .rendered_cicp
+                .is_some_and(|cicp| matches!(cicp[1], 16 | 18))
+            {
+                Error::HdrTransfer
+            } else {
+                Error::RenderedIccMissing
+            },
+        )?;
         if bytes.len() > 4 * 1024 * 1024 {
             return Err(Error::UnsupportedColorEncoding);
         }
@@ -1255,7 +1263,7 @@ mod tests {
             grid.info.alpha = alpha;
             assert_eq!(
                 IccSrgbSource::new(Box::new(grid)).map(|_| ()),
-                Err(Error::UnsupportedCodecLayout),
+                Err(Error::UnsupportedLayout),
                 "{layout:?} {alpha:?}"
             );
         }

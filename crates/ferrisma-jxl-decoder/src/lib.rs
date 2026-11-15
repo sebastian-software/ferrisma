@@ -20,6 +20,9 @@ use std::ptr::NonNull;
 pub enum Error {
     Decode,
     Unsupported,
+    /// The DATA ICC profile is larger than 16 MiB; reported apart from the
+    /// layout refusals of [`Self::Unsupported`].
+    ProfileTooLarge,
     /// The codestream is an animation; only still images are decoded.
     Animation,
     PixelLimit {
@@ -236,7 +239,7 @@ impl<'a> Decoder<'a> {
         ) != Status::SUCCESS
             || size > 16 * 1024 * 1024
         {
-            return Err(Error::Unsupported);
+            return Err(Error::ProfileTooLarge);
         }
         let mut profile = Vec::new();
         profile

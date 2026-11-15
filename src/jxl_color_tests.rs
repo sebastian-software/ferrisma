@@ -98,7 +98,7 @@ fn adapters_declare_the_emitted_encoding() {
         {
             assert_eq!(
                 open(decoder, &fixture(name)).err(),
-                Some(Error::UnsupportedColorEncoding),
+                Some(Error::HdrTransfer),
                 "{decoder:?} {name}"
             );
         }

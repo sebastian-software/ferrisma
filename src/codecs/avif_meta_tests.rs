@@ -409,7 +409,7 @@ fn contradictory_container_and_bitstream_signals_fail_closed() {
     }
     assert_eq!(
         rendered_cicp(&PrimaryProperties::default(), sequence(9, 16, 10, false)),
-        Err(Error::UnsupportedCodecLayout)
+        Err(Error::UnsupportedLayout)
     );
     assert_eq!(
         rendered_cicp(&with_nclx(300, 13, 6, true), sequence(2, 2, 6, true)),
