@@ -1,6 +1,6 @@
 # Fuzzing and hostile-input policy
 
-**Status:** Harness and six-lane ASan campaign workflow exist. The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure. The sustained, coverage-reviewed campaign required for release has **not** completed; see [results](#campaign-results).
+**Status:** Harness and eight-lane ASan campaign workflow exist. The first hosted campaign ([run 43117625746](https://github.com/sebastian-software/ferrisma/actions/runs/43117625746), 2026-11-11) found one JPEG XL panic and three macOS link failures; both are fixed. Bounded 10-minute local ASan runs of all three lanes on macOS ARM64 (2026-11-12) found no further failure; a 20-minute local ASan run of the JPEG XL output lane `transcode_jxl_out` (2026-11-15) found none either. The sustained, coverage-reviewed campaign required for release has **not** completed; see [results](#campaign-results).
 
 Ferrisma's public processing facade accepts untrusted JPEG, WebP, JPEG XL, and AVIF bytes. The core forbids unsafe Rust; optional decoder, assembler, SIMD and encoder dependencies do **not** inherit that guarantee. The workspace AVIF reader checks dimensions and reserves the emitted RGB frame before pixel decoding, but libavif/AOM still allocate opaque parser and codec buffers outside the engine budget.
 
@@ -49,11 +49,95 @@ revision when reporting hosted coverage.
 
 The default CI also runs **deterministic malformed-header smoke tests** for truncated JPEG/JXL/AVIF files and invalid API options, so regressions surface without an expensive nightly fuzz dependency.
 
+## JPEG XL output lane
+
+`transcode_jxl_out` (issues #27, #65) writes JPEG XL through the workspace
+libjxl-rs encoder ([ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)):
+lossy `VarDCT` through `ferrisma-jxl-encoder` and lossless effort 2 through
+the port's fixed-profile entry point, both behind `jpeg-xl-write` in `cli`.
+It uses the default features, so JPEG XL input goes through the workspace
+libjxl-rs reader.
+
+```sh
+cargo fuzz run --sanitizer address transcode_jxl_out -- \
+  -seed=1 -max_len=524289 -timeout=10 -rss_limit_mb=2048
+```
+
+One control byte, then unchanged image bytes (`run_jxl_out_case` in
+`fuzz/src/lib.rs`):
+
+| Bits | Selects |
+|---|---|
+| 0–1 | input JPEG (0), JPEG XL (1), AVIF (2), WebP (3) |
+| 2 | lossy d1.0 (0) or lossless effort 2 (1) |
+| 3–4 | profile policy, as in `transcode` |
+| 5–7 | geometry: 0 small (1–16 per axis, from the input length), 1 8192×1, 2 1×8192, 3 64×64, 4 inside 64×64 without enlargement (a small input keeps its size and its alpha edges), 5 inside 320×320 without enlargement (crosses the 256-pixel group), 6 and 7 64×64 at the lossy distance bounds 0.05 and 2.999 (lossless ignores the distance) |
+
+The encoder is serial and rejects `encoder_threads != 1` before decoding, so
+no bit selects a thread count. Limits: 512 KiB compressed input, 1 million
+input pixels, 512 KiB retained output, and **32 MiB** engine-managed memory.
+The lossless sink reserves its measured peak, about 76 bytes per opaque pixel
+and 101 with alpha (#223); 32 MiB admits 320×320 with alpha (about 10 MiB)
+and the resample plan of the 8192×1 and 1×8192 classes (about 18 MB for a
+small input; 16 MiB rejected it), so every class reaches the encoder. A
+request that does not fit is `ResourceExhausted`. Every `Err` from the public
+API is accepted. On success the target checks the JPEG XL signature (`FF 0A`
+or the container box), the output limit, the requested dimensions (exact, or
+within the bound for classes 4 and 5), and decodes the output with
+`ferrisma-jxl-decoder`: same width and height, three or four channels, a
+complete decode. Pixels are not compared.
+
+`seed_campaign.py` writes 46 seeds for the lane: the four base fixtures at
+64×64 in both profiles, the small class and the distance bounds, alpha
+(`jxl-lossless/rgba-37x19.jxl`, `effects_rgb_alpha8.jxl`, the libavif
+`abc_color_irot_alpha_irot.avif`), 16-, 31- and 12-bit RGB
+(`modular-palette16.jxl`, `modular-rgb31.jxl`, `weld_sato_12B_8B_q0.avif`),
+gray JPEG and gray JPEG XL (8-, 12- and 16-bit with alpha), 257×3 and 3×257
+inputs to 8192×1, 1×8192 and the bounded classes, the two-group
+`rgb-300x260.jxl`, and the hostile JPEG XL regression. The deterministic
+replay (`campaign_seeds_report_reachability`) classifies them: 36 encode, the
+eight gray JPEG XL seeds are `UnsupportedInput` (the pipeline refuses gray
+JPEG XL under every policy) and the hostile one is `MalformedInput` in both
+profiles. Two unit tests (`jxl_output_lane_*`) run in every smoke without the
+seed directory: all four inputs in both profiles, every exact geometry class
+from JPEG, and alpha surviving the round trip at 37×19 in both profiles.
+
+### Local ASan run, 2026-11-15
+
+| | `transcode_jxl_out` |
+|---|---|
+| Features | default (`cli`) |
+| Seed files | 46 (41 retained after the initial pass, 523 KB) |
+| `-max_total_time` (s) | 1,200 (wall clock 20 min 25 s including the no-op rebuild) |
+| Executions | 34,517 (28/s on a host shared with other agents' builds) |
+| Coverage at `INITED` | `cov: 56227 ft: 131600` |
+| Final coverage (`DONE`) | `cov: 67155 ft: 187437` |
+| Retained corpus | 1,893 files, 9,910 KB (993 lossy, 917 lossless selectors) |
+| libFuzzer peak RSS (MB) | 671 |
+| Slowest unit (s) | below 1 |
+| Crashes, leaks, timeouts, OOM, sanitizer reports | none |
+
+Settings: macOS 27.2.1 arm64 (Apple M1 Pro); `rustc 1.100.0-nightly
+(5a2be9f5f 2026-09-06)` from `rust-toolchain.toml`; cargo-fuzz 0.13.2;
+`--sanitizer address`, `RUSTFLAGS=--cfg libavif_rs_asan`; `-seed=1
+-max_total_time=1200 -max_len=524289 -timeout=10 -rss_limit_mb=2048`. The
+ASan build of the full `cli` feature set linked on macOS ARM64 (9 min 57 s,
+cold); no smaller feature set was needed. libFuzzer's length control
+reached 196,895 bytes, the largest seed. One corpus for both profiles; no
+dictionary. Source: fuzz driver at commit `325dc378` on `v1/fuzz-jxl-out`
+(engine at `bc566916`). SHA-256: `Cargo.lock` `a5196d3a…4b94`,
+`fuzz/Cargo.lock` `5b1dbea1…beba`, seed manifest `080d5e39…a6d8`, retained
+corpus manifest `132f1c5c…66cd`. The corpus and log stayed on the local
+host. This is a bounded local run, not the sustained, coverage-reviewed
+campaign; source coverage was not measured, and the hosted Linux and macOS
+lanes have not run.
+
 ## Sustained campaign workflow
 
 [M1 Sustained Fuzz Campaign](../.github/workflows/m1-fuzz-campaign.yml) is a
-manually dispatched, six-job experiment: the multi-format driver, the workspace
-AVIF/AOM writer, and the opt-in workspace JPEG XL decoder each run on native Linux x86-64 and macOS
+manually dispatched, eight-job experiment: the multi-format driver, the workspace
+AVIF/AOM writer, the opt-in workspace JPEG XL decoder and the
+[JPEG XL output lane](#jpeg-xl-output-lane) each run on native Linux x86-64 and macOS
 ARM64. Dispatch the registered `M1 Decoder Fuzz Smoke` workflow with the
 `campaign` input set to `true` to run it on a branch; the default remains the
 quick smoke. Each job uses the pinned nightly and cargo-fuzz 0.13.2 with explicit
@@ -198,7 +282,7 @@ JPEG XL decoder rejected the hostile seed as `MalformedInput`.
 ### Limitations
 
 - No coverage-reviewed sustained run exists yet; rerun the hosted workflow with
-  the fixes and record its six jobs here.
+  the fixes and record its eight jobs here.
 - Source coverage was not measured locally. An ASan coverage build of
   `transcode` (with the same cfg) linked on macOS ARM64 and replayed all 3,812
   retained inputs without a failure, but `llvm-tools-preview` is not installed
@@ -224,7 +308,7 @@ The existence of a fuzz target alone does not satisfy the M1 hardening acceptanc
 
 ## CI bounded smoke
 
-The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) uses the root pinned nightly and cargo-fuzz 0.13.2, verifies deterministic seed success, seeds eight input/output pairs from four real JPEG/JXL/AVIF/WebP fixtures, and runs **3,000 bounded attempts** with a 16 KiB maximum input and a 1 GiB process RSS cap. This is useful to catch shallow codec/protocol panics and integration bugs. It does **not** constitute a sustained, coverage-reviewed fuzz campaign and is not proof of process-wide memory safety; actual release acceptance still requires broader corpora, sanitizers and target-specific time budgets.
+The separate [M1 Decoder Fuzz Smoke](../.github/workflows/m1-fuzz-smoke.yml) uses the root pinned nightly and cargo-fuzz 0.13.2, verifies deterministic seed success, seeds eight input/output pairs from four real JPEG/JXL/AVIF/WebP fixtures, and runs **3,000 bounded attempts** with a 16 KiB maximum input and a 1 GiB process RSS cap. It then generates the campaign seeds, classifies them with `campaign_seeds_report_reachability` (the JPEG XL output lane's invariants included), and runs 3,000 bounded attempts of `transcode_jxl_out` from its 46 seeds with a 64 KiB maximum input, a 10-second timeout and the same RSS cap. This is useful to catch shallow codec/protocol panics and integration bugs. It does **not** constitute a sustained, coverage-reviewed fuzz campaign and is not proof of process-wide memory safety; actual release acceptance still requires broader corpora, sanitizers and target-specific time budgets.
 
 ### Expanded hosted smoke, 2026-11-11
 

@@ -255,8 +255,10 @@ Evidence on macOS ARM64, 2026-11-12, debug profile:
   lists ported units with unrecorded `fmuladd` sites. The admitted lossless
   path converts integers exactly; the open maps matter for the lossy steps.
 
-Not verified: x86-64, a C++ decoder (`djxl`) on engine output, the fuzz lanes
-(#65), and any speed or peak-RSS figure. No performance claim is made.
+Not verified: x86-64, a C++ decoder (`djxl`) on engine output, the hosted
+fuzz lanes (#65; the `transcode_jxl_out` lane and a bounded local ASan run of
+it, 2026-11-15, are in [fuzzing](../fuzzing.md#jpeg-xl-output-lane)), and any
+speed or peak-RSS figure. No performance claim is made.
 
 Lossy evidence, macOS ARM64, 2026-11-12, debug profile:
 
