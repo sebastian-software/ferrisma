@@ -114,6 +114,20 @@ other values are undefined in the original and abort its instrumented graph.
 Float and float16 caller samples are finite and small at any offset and byte
 order, so that the original's float-to-integer conversions stay defined.
 
+<!-- encoder streaming -->
+Encoder step 2 (2026-11-15) extends these histories with the caller
+callbacks of JxlEncoderSetOutputProcessor and JxlEncoderAddChunkedFrame. Both
+drivers implement the same recording output processor (buffer schedules,
+seek support, stop requests) and recording chunked input source (row
+padding, failing requests) in `tools/oracle/encoder_streaming.h` and
+`tests/support/encoder_public.rs`; every callback the encoder makes is logged
+in order with its arguments, and the log, the written file and the statuses
+are compared exactly. The log uses a lossless run-length notation, so that
+byte-sized buffers stay comparable. Wrapper histories in which a buffer's
+release fails inside its destructor trip a debug-only assertion the release
+reference compiles out; the checked profile counts and leaves them out.
+<!-- end encoder streaming -->
+
 The encoder transform unit `encoder_transforms.cc` calls the archive's own
 Symmetric5, SlowSymmetric3, GaborishInverse, TransformFromPixels,
 DCFromLowestFrequencies, AFVDCT4x4, ComputePremulAbsorb, LinearRGBRowToXYB

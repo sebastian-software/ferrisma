@@ -69,6 +69,7 @@ use super::enc_toc::{write_toc_permutation, write_toc_sizes};
 use super::enc_xyb::{XybInputEncoding, to_xyb};
 use super::encode_internal::{
     JxlEncoderChunkedFrameAdapter, JxlEncoderOutputProcessorWrapper, append_data, bits_per_channel,
+    bytes_per_pixel,
 };
 use super::fields::u32_coder::can_encode;
 use super::frame_dimensions::{BLOCK_DIM, FrameDimensions, GROUP_DIM_IN_BLOCKS};
@@ -83,7 +84,7 @@ use super::toc::{ac_group_index, num_toc_entries};
 
 /// kNumFixedHistograms from enc_ans.h.
 const NUM_FIXED_HISTOGRAMS: usize = 1;
-use super::types::{JxlBitDepth, JxlBitDepthType, JxlPixelFormat};
+use super::types::{JxlBitDepth, JxlBitDepthType, JxlDataType, JxlEndianness, JxlPixelFormat};
 
 /// The source checkpoints of the frame encoder at which the public encoder
 /// returns an admission result.
@@ -168,7 +169,8 @@ pub fn admitted_frame_profile(
         && !cparams.already_downsampled
         && !cparams.lossy_palette
         && cparams.quant_ac_rescale == CompressParams::default().quant_ac_rescale
-        && cparams.output_mode == 0
+        // Output modes 0 and 1 (encoder step 2); mode 2 writes a container.
+        && (cparams.output_mode == 0 || cparams.output_mode == 1)
         && cparams.debug_image.is_none()
         && admitted_extra_channels(m)
         && !m.have_animation
@@ -223,10 +225,10 @@ pub fn get_bit_depth(bit_depth: JxlBitDepth, metadata_bits: u32, format: JxlPixe
     }
 }
 
-/// CopyColorChannels with the buffer-backed input source. The release
-/// callback of the source's buffer is a no-op, represented by the borrow.
+/// CopyColorChannels, with the input source of `frame_data`
+/// (GetInputSource).
 pub fn copy_color_channels(
-    input: &JxlEncoderChunkedFrameAdapter<'_>,
+    frame_data: &JxlEncoderChunkedFrameAdapter<'_>,
     rect: Rect,
     frame_info: &FrameInfo,
     metadata: &ImageMetadata,
@@ -234,7 +236,14 @@ pub fn copy_color_channels(
     alpha: Option<&mut Plane<f32>>,
     has_interleaved_alpha: &mut bool,
 ) -> Status {
-    let mut format = input.get_color_channels_pixel_format();
+    let input = frame_data.get_input_source();
+    let mut format = JxlPixelFormat {
+        num_channels: 4,
+        data_type: JxlDataType::UINT8,
+        endianness: JxlEndianness::NATIVE,
+        align: 0,
+    };
+    input.get_color_channels_pixel_format(&mut format);
     format.align = 0; // align must be ignored.
     *has_interleaved_alpha = format.num_channels == 2 || format.num_channels == 4;
     let bits_per_sample = get_bit_depth(
@@ -243,15 +252,16 @@ pub fn copy_color_channels(
         format,
     ) as usize;
     let mut row_offset = 0;
-    let data = input
-        .get_color_channel_data_at(
-            rect.x0(),
-            rect.y0(),
-            rect.xsize(),
-            rect.ysize(),
-            &mut row_offset,
-        )
-        .ok_or(StatusCode::GenericError)?;
+    let buffer = input.get_color_buffer(
+        rect.x0(),
+        rect.y0(),
+        rect.xsize(),
+        rect.ysize(),
+        &mut row_offset,
+    );
+    if buffer.is_null() {
+        return Err(StatusCode::GenericError);
+    }
     let color_channels = if frame_info.ib_needs_color_transform {
         metadata.color_encoding.channels()
     } else {
@@ -260,6 +270,11 @@ pub fn copy_color_channels(
     if (format.num_channels as usize) < color_channels {
         return Err(StatusCode::GenericError);
     }
+    let data = buffer.bytes(
+        rect.ysize(),
+        row_offset,
+        rect.xsize() * bytes_per_pixel(format),
+    );
     for c in 0..color_channels {
         convert_from_external_plane_no_size_check(
             data,
@@ -298,16 +313,18 @@ pub fn copy_color_channels(
     Ok(())
 }
 
-/// CopyExtraChannels with the buffer-backed input source.
+/// CopyExtraChannels, with the input source of `frame_data`
+/// (GetInputSource).
 #[allow(clippy::needless_range_loop, reason = "Keep the source index loops.")]
 fn copy_extra_channels(
-    input: &JxlEncoderChunkedFrameAdapter<'_>,
+    frame_data: &JxlEncoderChunkedFrameAdapter<'_>,
     rect: Rect,
     frame_info: &FrameInfo,
     metadata: &ImageMetadata,
     mut has_interleaved_alpha: bool,
     extra_channels: &mut [Plane<f32>],
 ) -> Status {
+    let input = frame_data.get_input_source();
     for ec in 0..metadata.num_extra_channels as usize {
         if has_interleaved_alpha
             && metadata.extra_channel_info[ec].channel_type == ExtraChannel::ALPHA
@@ -317,24 +334,36 @@ fn copy_extra_channels(
             has_interleaved_alpha = false;
             continue;
         }
-        let mut ec_format = input.get_extra_channel_pixel_format(ec);
+        let mut ec_format = JxlPixelFormat {
+            num_channels: 1,
+            data_type: JxlDataType::UINT8,
+            endianness: JxlEndianness::NATIVE,
+            align: 0,
+        };
+        input.get_extra_channel_pixel_format(ec, &mut ec_format);
         ec_format.num_channels = 1;
         let mut row_offset = 0;
-        let buffer = input
-            .get_extra_channel_data_at(
-                ec,
-                rect.x0(),
-                rect.y0(),
-                rect.xsize(),
-                rect.ysize(),
-                &mut row_offset,
-            )
-            .ok_or(StatusCode::GenericError)?;
+        let scoped = input.get_extra_channel_buffer(
+            ec,
+            rect.x0(),
+            rect.y0(),
+            rect.xsize(),
+            rect.ysize(),
+            &mut row_offset,
+        );
+        if scoped.is_null() {
+            return Err(StatusCode::GenericError);
+        }
         let bits_per_sample = get_bit_depth(
             frame_info.image_bit_depth,
             metadata.extra_channel_info[ec].bit_depth.bits_per_sample,
             ec_format,
         ) as usize;
+        let buffer = scoped.bytes(
+            rect.ysize(),
+            row_offset,
+            rect.xsize() * bytes_per_pixel(ec_format),
+        );
         convert_from_external_plane_no_size_check(
             buffer,
             rect.xsize(),

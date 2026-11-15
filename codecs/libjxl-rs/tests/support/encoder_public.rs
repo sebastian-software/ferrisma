@@ -496,6 +496,12 @@ pub struct Driver {
     output: Vec<u8>,
     next_out: Box<*mut u8>,
     avail_out: Box<usize>,
+    // encoder streaming
+    processor: Box<Processor>,
+    // Boxed: the encoder retains each source's address as its opaque value.
+    #[allow(clippy::vec_box, reason = "Stable addresses for the callbacks")]
+    sources: Vec<Box<Source>>,
+    // end encoder streaming
 }
 
 impl Drop for Driver {
@@ -530,6 +536,8 @@ impl Driver {
             output: Vec::new(),
             next_out: Box::new(std::ptr::null_mut()),
             avail_out: Box::new(0),
+            processor: Box::default(),
+            sources: Vec::new(),
         }
     }
 
@@ -973,6 +981,75 @@ impl Driver {
                 )
             }
             'S' => format!("0;{}", self.state()),
+            // encoder streaming
+            'w' => {
+                self.processor.schedule = f[1].parse().unwrap();
+                self.processor.stop_at = f[2].parse().unwrap();
+                self.processor.stop_kind = f[3].parse().unwrap();
+                let callbacks = self.processor.callbacks(f[0].parse().unwrap());
+                // SAFETY: The boxed processor outlives the encoder, which the
+                // driver destroys first; its callbacks follow encode.h.
+                s(unsafe { api::jxl_encoder_set_output_processor(self.enc(), callbacks) })
+            }
+            'c' => {
+                // The oracle's 'c': AddChunkedFrame over a recording source.
+                let mut source = Box::<Source>::default();
+                let color_format = format(f, 2);
+                source.color_format = Some(color_format);
+                let (xs, ys, pad): (usize, usize, usize) = (
+                    f[7].parse().unwrap(),
+                    f[8].parse().unwrap(),
+                    f[9].parse().unwrap(),
+                );
+                source.xsize = xs;
+                source.ysize = ys;
+                source.fail_at = f[10].parse().unwrap();
+                let ec_format = JxlPixelFormat {
+                    num_channels: 1,
+                    data_type: JxlDataType(f[11].parse().unwrap()),
+                    endianness: color_format.endianness,
+                    align: 0,
+                };
+                source.ec_format = Some(ec_format);
+                let content_id: u32 = f[6].parse().unwrap();
+                let mut packed = color_format;
+                packed.align = 0;
+                let row = xs * source_bytes_per_pixel(&packed);
+                let alpha_c = matches!(packed.num_channels, 2 | 4).then(|| packed.num_channels - 1);
+                source.color = padded(
+                    &content(row * ys, &packed, content_id, xs as u32, ys as u32, alpha_c),
+                    row,
+                    ys,
+                    pad,
+                );
+                source.color_stride = row + pad;
+                let ec_row = xs * source_bytes_per_pixel(&ec_format);
+                for _ in 0..f[12].parse::<usize>().unwrap() {
+                    let data = content(
+                        ec_row * ys,
+                        &ec_format,
+                        content_id,
+                        xs as u32,
+                        ys as u32,
+                        Some(0),
+                    );
+                    source.ec.push(padded(&data, ec_row, ys, pad));
+                }
+                source.ec_stride = ec_row + pad;
+                let callbacks = source.callbacks();
+                let is_last: i32 = f[1].parse().unwrap();
+                // SAFETY: The boxed source outlives the encoder (the driver
+                // destroys the encoder first) and follows encode.h.
+                let status = unsafe {
+                    api::jxl_encoder_add_chunked_frame(self.settings(f[0]), is_last, callbacks)
+                };
+                let events = compress(&source.events);
+                self.sources.push(source);
+                format!("{};{}", status.0, events)
+            }
+            'i' => s(api::jxl_encoder_flush_input(self.enc())),
+            'r' => format!("0;{}", self.processor.report()),
+            // end encoder streaming
             _ => panic!("encoder public op"),
         }
     }
@@ -1133,6 +1210,7 @@ pub fn observe_wrapper(args: &mut std::str::SplitWhitespace<'_>) -> String {
     unsafe { memory_manager_init(&mut manager, std::ptr::null()) }.unwrap();
     // SAFETY: The local manager outlives the wrapper.
     let mut wrapper = unsafe { JxlEncoderOutputProcessorWrapper::new(&manager) };
+    let mut processor: Box<Processor> = Box::default(); // encoder streaming
     let mut caller: Vec<u8> = Vec::new();
     let mut next: Box<*mut u8> = Box::new(std::ptr::null_mut());
     let mut avail: Box<usize> = Box::new(0);
@@ -1182,6 +1260,12 @@ pub fn observe_wrapper(args: &mut std::str::SplitWhitespace<'_>) -> String {
                     write!(out, ",{}", st(buffer.append(&data))).unwrap();
                     if kind == 'R' {
                         write!(out, ",{}", st(buffer.release())).unwrap();
+                    } else {
+                        // The oracle's buffer destructor releases and ignores
+                        // the status (its JXL_DASSERT is off in the release
+                        // reference); release here so that the checked
+                        // profile's debug assertion in Drop sees no buffer.
+                        let _ = buffer.release(); // encoder streaming
                     }
                 }
             },
@@ -1209,6 +1293,23 @@ pub fn observe_wrapper(args: &mut std::str::SplitWhitespace<'_>) -> String {
                 let data = pattern(f[0], f[1]);
                 write!(out, "{}", st(append_data(&mut wrapper, &data))).unwrap();
             }
+            // encoder streaming
+            'E' => {
+                // The wrapper with an external output processor, as
+                // JxlEncoderSetOutputProcessor makes it.
+                processor.schedule = f[1] as u32;
+                processor.stop_at = f[2];
+                processor.stop_kind = f[3] as u32;
+                let callbacks = processor.callbacks(f[0] as u32);
+                // SAFETY: The local manager and the boxed processor outlive
+                // the wrapper.
+                wrapper = unsafe {
+                    JxlEncoderOutputProcessorWrapper::with_processor(&manager, callbacks)
+                };
+                out.push('0');
+            }
+            'r' => out.push_str(&processor.report()),
+            // end encoder streaming
             'P' => write!(
                 out,
                 "{},{},{},{},{}",
@@ -1236,3 +1337,367 @@ pub fn observe_wrapper(args: &mut std::str::SplitWhitespace<'_>) -> String {
     }
     out
 }
+
+// encoder streaming
+/// The run-length notation of a callback log (encoder_streaming.h Compress).
+pub fn compress(events: &[String]) -> String {
+    let mut out = String::new();
+    let mut i = 0;
+    while i < events.len() {
+        let (mut best_len, mut best_k) = (1, 1);
+        for len in 1..=3 {
+            if i + len > events.len() {
+                break;
+            }
+            let mut k = 1;
+            while i + (k + 1) * len <= events.len()
+                && events[i..i + len] == events[i + k * len..i + (k + 1) * len]
+            {
+                k += 1;
+            }
+            if k >= 2 && k * len > best_k * best_len {
+                best_len = len;
+                best_k = k;
+            }
+        }
+        if !out.is_empty() {
+            out.push('.');
+        }
+        if best_k == 1 {
+            out.push_str(&events[i]);
+        } else if best_len == 1 {
+            write!(out, "{}*{best_k}", events[i]).unwrap();
+        } else {
+            write!(out, "[{}]*{best_k}", events[i..i + best_len].join(",")).unwrap();
+        }
+        i += best_len * best_k;
+    }
+    if out.is_empty() { "-".into() } else { out }
+}
+
+/// The recording output processor of encoder_streaming.h, schedule for
+/// schedule.
+#[derive(Default)]
+pub struct Processor {
+    file: Vec<u8>,
+    position: usize,
+    finalized: usize,
+    schedule: u32,
+    stop_at: usize,
+    stop_kind: u32,
+    calls: usize,
+    last_suggested: usize,
+    last_given: usize,
+    events: Vec<String>,
+}
+
+unsafe extern "C" fn processor_get_buffer(opaque: *mut c_void, size: *mut usize) -> *mut c_void {
+    // SAFETY: The opaque value is the driver's boxed processor, and `size`
+    // is the encoder's valid local; no other reference is live.
+    let (p, size) = unsafe { (&mut *opaque.cast::<Processor>(), &mut *size) };
+    p.calls += 1;
+    let e = if p.calls > 1 && *size + p.last_given == p.last_suggested {
+        "g=>".to_string()
+    } else {
+        format!("g{size}>")
+    };
+    p.last_suggested = *size;
+    p.last_given = 0;
+    if p.stop_at != 0 && p.calls == p.stop_at {
+        if p.stop_kind == 0 {
+            p.events.push(format!("{e}~"));
+            return std::ptr::null_mut();
+        }
+        *size = 0;
+        p.events.push(format!("{e}0"));
+        if p.file.len() < p.position + 1 {
+            p.file.resize(p.position + 1, 0xDA);
+        }
+        return p.file[p.position..].as_mut_ptr().cast();
+    }
+    if p.schedule == 1 {
+        *size = 1;
+    } else if p.schedule == 3 {
+        const CYCLE: [usize; 3] = [3, 64, 4096];
+        *size = (*size).min(CYCLE[p.calls % 3]);
+    }
+    if p.position + *size > p.file.len() {
+        p.file.resize(p.position + *size, 0xDA);
+    }
+    if p.schedule == 0 {
+        *size = p.file.len() - p.position;
+    }
+    p.last_given = *size;
+    p.events.push(format!("{e}{size}"));
+    p.file[p.position..].as_mut_ptr().cast()
+}
+
+unsafe extern "C" fn processor_release_buffer(opaque: *mut c_void, written_bytes: usize) {
+    // SAFETY: As for processor_get_buffer.
+    let p = unsafe { &mut *opaque.cast::<Processor>() };
+    p.events.push(format!("r{written_bytes}"));
+    p.position += written_bytes;
+}
+
+unsafe extern "C" fn processor_seek(opaque: *mut c_void, position: u64) {
+    // SAFETY: As for processor_get_buffer.
+    let p = unsafe { &mut *opaque.cast::<Processor>() };
+    p.events.push(format!("k{position}"));
+    p.position = position as usize;
+}
+
+unsafe extern "C" fn processor_set_finalized_position(opaque: *mut c_void, finalized: u64) {
+    // SAFETY: As for processor_get_buffer.
+    let p = unsafe { &mut *opaque.cast::<Processor>() };
+    p.events.push(if finalized as usize == p.position {
+        "f=".to_string()
+    } else {
+        format!("f{finalized}")
+    });
+    p.finalized = finalized as usize;
+}
+
+impl Processor {
+    fn callbacks(&mut self, mask: u32) -> api::JxlEncoderOutputProcessor {
+        api::JxlEncoderOutputProcessor {
+            opaque: (self as *mut Processor).cast(),
+            get_buffer: (mask & 1 == 0).then_some(processor_get_buffer as _),
+            release_buffer: (mask & 2 == 0).then_some(processor_release_buffer as _),
+            seek: (mask & 4 == 0).then_some(processor_seek as _),
+            set_finalized_position: (mask & 8 == 0)
+                .then_some(processor_set_finalized_position as _),
+        }
+    }
+    fn report(&mut self) -> String {
+        let out = format!(
+            "{};{},{},{};{}",
+            compress(&self.events),
+            self.position,
+            self.finalized,
+            self.file.len(),
+            hex(&self.file)
+        );
+        self.events.clear();
+        out
+    }
+}
+
+/// The recording input source of encoder_streaming.h.
+#[derive(Default)]
+pub struct Source {
+    color_format: Option<JxlPixelFormat>,
+    ec_format: Option<JxlPixelFormat>,
+    xsize: usize,
+    ysize: usize,
+    color_stride: usize,
+    ec_stride: usize,
+    color: Vec<u8>,
+    ec: Vec<Vec<u8>>,
+    fail_at: usize,
+    requests: usize,
+    events: Vec<String>,
+}
+
+fn source_bytes_per_pixel(f: &JxlPixelFormat) -> usize {
+    let bytes = match f.data_type {
+        JxlDataType::UINT8 => 1,
+        JxlDataType::FLOAT => 4,
+        _ => 2,
+    };
+    f.num_channels as usize * bytes
+}
+
+fn padded(data: &[u8], row: usize, ysize: usize, pad: usize) -> Vec<u8> {
+    let mut out = vec![0xEE; (row + pad) * ysize + 1];
+    for y in 0..ysize {
+        out[y * (row + pad)..y * (row + pad) + row].copy_from_slice(&data[y * row..(y + 1) * row]);
+    }
+    out
+}
+
+impl Source {
+    fn inside(&self, x: usize, y: usize, xs: usize, ys: usize) -> bool {
+        x <= self.xsize && xs <= self.xsize - x && y <= self.ysize && ys <= self.ysize - y
+    }
+    #[allow(clippy::too_many_arguments, reason = "The oracle's Request")]
+    fn request(
+        &mut self,
+        e: String,
+        buffer: Option<*const u8>,
+        stride: usize,
+        bpp: usize,
+        (x, y, xs, ys): (usize, usize, usize, usize),
+        row_offset: *mut usize,
+    ) -> *const c_void {
+        self.requests += 1;
+        if self.fail_at != 0 && self.requests == self.fail_at {
+            self.events.push(format!("{e}~"));
+            return std::ptr::null();
+        }
+        let Some(buffer) = buffer.filter(|_| self.inside(x, y, xs, ys)) else {
+            self.events.push(format!("{e}!"));
+            return std::ptr::null();
+        };
+        self.events.push(e);
+        // SAFETY: The encoder's valid local; the offset is inside the
+        // buffer because the rectangle is inside the image.
+        unsafe {
+            *row_offset = stride;
+            buffer.add(y * stride + x * bpp).cast()
+        }
+    }
+    fn callbacks(&mut self) -> api::JxlChunkedFrameInputSource {
+        api::JxlChunkedFrameInputSource {
+            opaque: (self as *mut Source).cast(),
+            get_color_channels_pixel_format: Some(source_color_format),
+            get_color_channel_data_at: Some(source_color_at),
+            get_extra_channel_pixel_format: Some(source_extra_format),
+            get_extra_channel_data_at: Some(source_extra_at),
+            release_buffer: Some(source_release),
+        }
+    }
+}
+
+unsafe extern "C" fn source_color_format(opaque: *mut c_void, pixel_format: *mut JxlPixelFormat) {
+    // SAFETY: The opaque value is the driver's boxed source; the format is
+    // the encoder's valid local.
+    let s = unsafe { &mut *opaque.cast::<Source>() };
+    s.events.push("F".into());
+    unsafe { *pixel_format = s.color_format.unwrap() };
+}
+
+unsafe extern "C" fn source_color_at(
+    opaque: *mut c_void,
+    x: usize,
+    y: usize,
+    xs: usize,
+    ys: usize,
+    row_offset: *mut usize,
+) -> *const c_void {
+    // SAFETY: As for source_color_format.
+    let s = unsafe { &mut *opaque.cast::<Source>() };
+    let bpp = source_bytes_per_pixel(&s.color_format.unwrap());
+    let buffer = Some(s.color.as_ptr());
+    let stride = s.color_stride;
+    s.request(
+        format!("c{x},{y},{xs},{ys}"),
+        buffer,
+        stride,
+        bpp,
+        (x, y, xs, ys),
+        row_offset,
+    )
+}
+
+unsafe extern "C" fn source_extra_format(
+    opaque: *mut c_void,
+    ec_index: usize,
+    pixel_format: *mut JxlPixelFormat,
+) {
+    // SAFETY: As for source_color_format.
+    let s = unsafe { &mut *opaque.cast::<Source>() };
+    s.events.push(format!("E{ec_index}"));
+    unsafe { *pixel_format = s.ec_format.unwrap() };
+}
+
+unsafe extern "C" fn source_extra_at(
+    opaque: *mut c_void,
+    ec_index: usize,
+    x: usize,
+    y: usize,
+    xs: usize,
+    ys: usize,
+    row_offset: *mut usize,
+) -> *const c_void {
+    // SAFETY: As for source_color_format.
+    let s = unsafe { &mut *opaque.cast::<Source>() };
+    let bpp = source_bytes_per_pixel(&s.ec_format.unwrap());
+    let buffer = s.ec.get(ec_index).map(|b| b.as_ptr());
+    let stride = s.ec_stride;
+    s.request(
+        format!("e{ec_index},{x},{y},{xs},{ys}"),
+        buffer,
+        stride,
+        bpp,
+        (x, y, xs, ys),
+        row_offset,
+    )
+}
+
+unsafe extern "C" fn source_release(opaque: *mut c_void, buf: *const c_void) {
+    // SAFETY: As for source_color_format.
+    let s = unsafe { &mut *opaque.cast::<Source>() };
+    let p = buf as usize;
+    let mut e = "R?".to_string();
+    let base = s.color.as_ptr() as usize;
+    if p >= base && p < base + s.color.len() {
+        e = format!("Rc{}", p - base);
+    }
+    for (i, ec) in s.ec.iter().enumerate() {
+        let base = ec.as_ptr() as usize;
+        if p >= base && p < base + ec.len() {
+            e = format!("Re{i}:{}", p - base);
+        }
+    }
+    s.events.push(e);
+}
+
+/// Replays one epub-rect request on the translated buffer-backed adapter.
+pub fn observe_rect(args: &mut std::str::SplitWhitespace<'_>) -> String {
+    let mut n = || args.next().unwrap().parse::<usize>().unwrap();
+    let (xsize, ysize, channels, extra) = (n(), n(), n(), n());
+    let color_format = JxlPixelFormat {
+        num_channels: channels as u32,
+        data_type: JxlDataType::UINT8,
+        endianness: JxlEndianness::NATIVE,
+        align: 0,
+    };
+    let alpha_format = JxlPixelFormat {
+        num_channels: 1,
+        ..color_format
+    };
+    let color = vec![0u8; xsize * ysize * channels];
+    let alpha = vec![0u8; xsize * ysize];
+    let mut adapter = JxlEncoderChunkedFrameAdapter::new(xsize, ysize, extra);
+    let mut out = String::new();
+    write!(
+        out,
+        "{}",
+        u8::from(adapter.set_from_buffer(0, Some(&color), color.len(), color_format))
+    )
+    .unwrap();
+    for ec in 0..extra {
+        write!(
+            out,
+            "{}",
+            u8::from(adapter.set_from_buffer(1 + ec, Some(&alpha), alpha.len(), alpha_format))
+        )
+        .unwrap();
+    }
+    let input = adapter.get_input_source();
+    for op in args {
+        let f: Vec<usize> = op[1..].split(',').map(|v| v.parse().unwrap()).collect();
+        let mut row_offset = 0;
+        let kind = op.as_bytes()[0];
+        let buffer = if kind == b'c' {
+            input.get_color_buffer(f[0], f[1], f[2], f[3], &mut row_offset)
+        } else {
+            input.get_extra_channel_buffer(f[0], f[1], f[2], f[3], f[4], &mut row_offset)
+        };
+        write!(out, " {}:", kind as char).unwrap();
+        if buffer.is_null() {
+            out.push('-');
+        } else if kind == b'c' {
+            write!(
+                out,
+                "{},{row_offset}",
+                buffer.as_ptr() as usize - color.as_ptr() as usize
+            )
+            .unwrap();
+        } else {
+            write!(out, "+,{row_offset}").unwrap();
+        }
+    }
+    out
+}
+// end encoder streaming
