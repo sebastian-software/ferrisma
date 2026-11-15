@@ -61,6 +61,14 @@ cargo run --release --features cli -- \
   photo.jxl scaled.avif 1600 900 --use-rendered-icc
 ```
 
+Since 2026-11-15 a JPEG XL file whose color is signaled as an enum
+encoding (sRGB, Display P3 or linear sRGB; the engine's own JPEG XL output
+among them) is read under the default policy, without a flag, like AVIF
+`nclx`; only a file with an embedded ICC profile needs
+`--use-rendered-icc` (owner decision, #222). Gray and premultiplied input
+are accepted in every format that carries them ([format
+parity](supported-matrix.md#format-parity-adr-0043)).
+
 The decoder has no region request: it decodes and budgets a complete
 F32 input frame for every request, including crops, and reports a full-frame
 fallback. The owner accepted the workspace decoder as the default even where
