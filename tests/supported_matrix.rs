@@ -545,11 +545,16 @@ fn jpeg_xl_pixel_limit_is_checked_before_decoding() {
             max_input_pixels: 1,
             ..jxl_options(decoder, RENDERED)
         };
-        let error = transcode(SAMPLE_JXL, ImageFormat::JpegXl, options).unwrap_err();
-        assert_eq!(
-            error.kind(),
+        // libjxl-rs checks in the adapter, jxl-oxide in the facade after
+        // the header; neither decodes a pixel first.
+        let reason = match decoder {
+            JpegXlDecoder::LibjxlRs => "input has ",
+            _ => "image has ",
+        };
+        rejected(
+            transcode(SAMPLE_JXL, ImageFormat::JpegXl, options),
             ProcessingErrorKind::InputLimitExceeded,
-            "{decoder:?}: {error}"
+            reason,
         );
     }
 }
@@ -649,6 +654,59 @@ fn avif_imir_before_irot_is_rejected() {
         ),
         ProcessingErrorKind::UnsupportedInput,
         TRANSFORM,
+    );
+}
+
+/// Rename the `pixi` property of a real file to an unknown type and mark
+/// its association essential.
+#[cfg(feature = "avif-read")]
+fn unknown_essential_property(mut bytes: Vec<u8>) -> Vec<u8> {
+    let ipco = find(&bytes, b"ipco").unwrap();
+    let ipco_size = u32::from_be_bytes(bytes[ipco - 4..ipco].try_into().unwrap()) as usize;
+    let mut index = 0;
+    let mut at = ipco + 4;
+    let mut pixi = None;
+    while at < ipco - 4 + ipco_size {
+        let size = u32::from_be_bytes(bytes[at..at + 4].try_into().unwrap()) as usize;
+        index += 1;
+        if &bytes[at + 4..at + 8] == b"pixi" {
+            pixi = Some((at + 4, index));
+        }
+        at += size;
+    }
+    let (kind, pixi) = pixi.unwrap();
+    bytes[kind..kind + 4].copy_from_slice(b"xyzw");
+    let ipma = find(&bytes, b"ipma").unwrap() + 4;
+    assert!(bytes[ipma] == 0 && bytes[ipma + 3] & 1 == 0);
+    let entries = u32::from_be_bytes(bytes[ipma + 4..ipma + 8].try_into().unwrap());
+    let mut at = ipma + 8;
+    let mut marked = 0;
+    for _ in 0..entries {
+        let count = usize::from(bytes[at + 2]);
+        for association in &mut bytes[at + 3..at + 3 + count] {
+            if usize::from(*association & 0x7f) == pixi {
+                *association |= 0x80;
+                marked += 1;
+            }
+        }
+        at += 3 + count;
+    }
+    assert!(marked > 0);
+    bytes
+}
+
+#[cfg(feature = "avif-read")]
+#[test]
+fn avif_unknown_essential_property_is_rejected_as_malformed() {
+    let patched = unknown_essential_property(read(&format!("{ORIENTATION}avif-1.avif")));
+    rejected(
+        transcode(
+            &patched,
+            ImageFormat::Avif,
+            options(OutputFormat::WebP, ASSUME),
+        ),
+        ProcessingErrorKind::MalformedInput,
+        MALFORMED,
     );
 }
 
@@ -1090,6 +1148,10 @@ fn rav1e_writes_ten_bit_without_a_container_colr() {
         )
         .unwrap();
         assert_eq!(output.report.encoder_backend, "rav1e");
+        assert!(
+            find(&output.bytes, AVIF_ALPHA_URN).is_none(),
+            "opaque: no alpha item"
+        );
         assert_eq!(av1_config(&output.bytes), (10, subsampled, false));
         assert_eq!(
             nclx(&output.bytes),
@@ -1444,6 +1506,18 @@ fn jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding() {
     }
     rejected(
         run(JpegXlOptions::default(), 80.0),
+        ProcessingErrorKind::InvalidOptions,
+        MISMATCHED,
+    );
+    rejected(
+        transcode(
+            SAMPLE_JPEG,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                speed: 3,
+                ..options(OutputFormat::JpegXl, ASSUME)
+            },
+        ),
         ProcessingErrorKind::InvalidOptions,
         MISMATCHED,
     );
