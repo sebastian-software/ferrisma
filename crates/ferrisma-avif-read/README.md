@@ -14,9 +14,11 @@ its own.
   `rust-toolchain.toml` and builds only for macOS ARM64 and GNU Linux
   x86-64, the targets the generated libavif code supports
   ([ADR-0026](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0026-codecs-in-one-repository-and-workspace.md)).
-- Dependents need the profile settings listed in
-  [publishing](https://github.com/sebastian-software/ferrisma/blob/main/docs/publishing.md) (`panic = "unwind"` and, for debug
-  builds, `overflow-checks = false` for the four AVIF packages).
+- A dependent's build profile must keep `panic = "unwind"` (Cargo's default;
+  `panic = "abort"` is a compile error). Turning overflow checks off for the
+  four AVIF packages is recommended; see
+  [publishing](https://github.com/sebastian-software/ferrisma/blob/main/docs/publishing.md),
+  blocker 3.
 
 Experimental and unstable: its API may change in any 0.x release.
 

@@ -71,8 +71,11 @@ engine reaches sits in a separate package whose safe API the engine calls.
    AOM's error recovery would abort under `panic = "abort"`. The AVIF ABI
    probes (`codecs/libavif-rs/tools/check_aom_abi.py`, `check_abi.py`) set
    exactly these profile keys for their own consumers. This was derived from
-   the configuration and tooling; a debug-profile failure in an external
-   consumer was not reproduced here. Until the generated code no longer needs
+   the configuration and tooling. Reproduced on 2026-11-14 with consumers
+   outside the workspace ([publishing](publishing.md), blocker 3): no
+   overflow failure in a dependent's default `dev` profile across 23
+   encode/decode scenarios and the 59 libavif test files, and
+   `panic = "abort"` is rejected at compile time by `libavif-aom`. Until the generated code no longer needs
    the exception, the published documentation must state the required
    consumer profile (see [publishing](publishing.md)).
 2. **Global C symbol namespace.** The AVIF packages export about 17,300

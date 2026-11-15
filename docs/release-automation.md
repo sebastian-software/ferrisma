@@ -55,7 +55,8 @@ Ferrisma differs from the blueprint repositories in four ways that matter:
    `libavif-rs`. Release Please matches dependencies by key, not by
    `package` (see [known limits](#known-limits-measured)). Since `86f9e0df`
    (2026-11-13, #248) every manifest keys them by package name; no
-   `package =` entry is left.
+   `package =` entry is left, and the rehearsal of 2026-11-14 is clean for
+   both configurations against those manifests.
 4. **The AVIF packages need the pinned nightly** (ADR-0026), so the publish
    job must use `rust-toolchain.toml`, not `stable`.
 
@@ -64,9 +65,10 @@ Existing version state (2026-11-13): every member is `0.1.0` except
 Every package is `publish = false`. First-party requirements are **caret**
 requirements (`version = "0.1.0"`, and `"0.0.0"` for the two AVIF bridges,
 which under Cargo's 0.0.x rule is effectively exact). There is **no** `=` pin
-between first-party crates; the only exact pins are the external
-`libc = "=0.2.191"` (four AVIF packages) and `c2rust-bitfields = "=0.3.0"`
-(`libavif-aom`, `libavif-dav1d`), tracked in #209. Three secondary lockfiles
+between first-party crates. The external exact pins `libc = "=0.2.191"`
+(four AVIF packages) and `c2rust-bitfields = "=0.3.0"` (`libavif-aom`,
+`libavif-dav1d`) became caret requirements with the same minimum on
+2026-11-14 (branch `v1/release-plumbing`, #209). Three secondary lockfiles
 carry first-party versions: `fuzz/Cargo.lock` (all fourteen),
 `codecs/libjpeg-turbo-rs/fuzz/Cargo.lock`, and
 `codecs/libwebp-rs/fuzz/Cargo.lock`; both drafts update them as `toml`
@@ -371,7 +373,7 @@ proposed release.
 
 | Limit | Evidence | Consequence |
 | --- | --- | --- |
-| The Rust updater (`CargoToml`) and the `cargo-workspace` graph match path dependencies by their **key**, not by `package = …`. | The manifests before `86f9e0df`: A 24 findings, B 6 findings, all on the eight renamed entries (`webp`, `jxl`×4, `sharpyuv`, `dav1d`, `aom`). The first release looked clean only because everything is already 0.1.0. | Key those dependencies by package name: done on `main` in `86f9e0df` (#248); the rehearsal has not been repeated against the changed manifests. The library target names (`webp`, `jxl`, `sharpyuv`, `dav1d`, `aom`) stayed, so no Rust source changed; `dep:webp`/`dep:jxl` in the engine's features became `dep:libwebp-rs`/`dep:libjxl-rs`. Before that, applied temporarily on 2026-11-13: `cargo metadata --offline --locked` passed and `cargo check --offline --locked -p ferrisma --no-default-features --features webp-read,webp-write,jpeg-xl-write,jpeg-xl-own-read` passed (AArch64; the AVIF crates were not built). With it, both configurations rehearse with 0 findings. |
+| The Rust updater (`CargoToml`) and the `cargo-workspace` graph match path dependencies by their **key**, not by `package = …`. | The manifests before `86f9e0df`: A 24 findings, B 6 findings, all on the eight renamed entries (`webp`, `jxl`×4, `sharpyuv`, `dav1d`, `aom`). The first release looked clean only because everything is already 0.1.0. | Key those dependencies by package name: done on `main` in `86f9e0df` (#248). Re-rehearsed on 2026-11-14 against the committed manifests (`776747fd` plus the packaging metadata of branch `v1/release-plumbing`): A and B 0 findings, exit 0; `--key-by-package` is now a no-op and gives the same result. The library target names (`webp`, `jxl`, `sharpyuv`, `dav1d`, `aom`) stayed, so no Rust source changed; `dep:webp`/`dep:jxl` in the engine's features became `dep:libwebp-rs`/`dep:libjxl-rs`. Before that, applied temporarily on 2026-11-13: `cargo metadata --offline --locked` passed and `cargo check --offline --locked -p ferrisma --no-default-features --features webp-read,webp-write,jpeg-xl-write,jpeg-xl-own-read` passed (AArch64; the AVIF crates were not built). With it, both configurations rehearse with 0 findings. |
 | A path dependency without `version` is skipped. | release-please `src/updaters/rust/cargo-toml.ts`; ferromark rehearsal negative case. | Affects only `ferrisma-libavif → ferrisma` and dev-only `libavif-sharpyuv → libwebp-rs`, neither published. Every published requirement already has a `version`. |
 | `version.workspace = true` cannot be updated. | ferromark ADR-0020; its rehearsal negative case. | Not used in Ferrisma; keep it that way. |
 | A root package that is also a workspace root makes the `rust` strategy rewrite every member. | release-please `src/strategies/rust.ts`; B on today's layout. | Fine for A (that is A's mechanism). B needs a virtual root. |
@@ -474,7 +476,16 @@ Nothing below needs GitHub or crates.io credentials.
 
    `per-port` always applies the virtual-root move in memory. Exit status 0
    means no finding. Results on 2026-11-13: without the key fix, A 24 and B 6
-   findings (exit 1); with it, both clean (exit 0).
+   findings (exit 1); with it, both clean (exit 0). Results on 2026-11-14,
+   after #248 landed: A and B clean (exit 0) on the committed manifests, with
+   and without `--key-by-package` (which no longer changes anything). A
+   proposes 0.1.0 for all sixteen members on the first release, 0.1.1 for a
+   port fix, 0.2.0 for a feature and for a breaking change, and its negative
+   control still proposes 1.0.0 without `bump-minor-pre-major`; B gives the
+   per-component versions described under configuration B. Remaining library
+   warnings are the expected ones of an offline run (no release pull
+   request, no previous release) and "member . declared but did not find
+   Cargo.toml" (see the table above).
 
 3. Validate the drafts against the Release Please schema (`schemas/config.json`
    and `schemas/manifest.json` at v17.6.0 and at `main`), for example with Ajv
@@ -496,17 +507,20 @@ and the real `cargo publish` uploads.
 
 ## Blockers before a first 0.1.0
 
-| # | Blocker | Issue |
-| --- | --- | --- |
-| 1 | The JPEG port's package name `libjpeg-turbo-rs` belongs to an unrelated crates.io crate; rename the package (both drafts, the workflow list, and the lockfile jsonpaths use today's name and must follow). | #207 (name pending, O5) |
-| 2 | `libavif-aom` is 16.4 MiB compressed, above crates.io's 10 MiB limit: request a limit increase or split the platform translations (codec ADR). | #208 |
-| 3 | AVIF packages need `overflow-checks = false` and `panic = "unwind"` that dependents do not inherit; exact `libc = "=0.2.191"` and `c2rust-bitfields = "=0.3.0"` pins. | #209 |
-| 4 | Renamed first-party dependency keys break Release Please's version updates (measured above). Applied on `main` on 2026-11-13: the manifests key those dependencies by package name. The rehearsal has not been repeated against the changed manifests. | #248 |
-| 5 | Every package is `publish = false`; first-publication versions (the AVIF bridges are 0.0.0) and the published set. | #137, [publishing](publishing.md) blockers 5 |
-| 6 | License review gates for redistributing source crates (IJG terms, `simd_helpers` notice, independent review; per-crate license metadata). | #66, #136 |
-| 7 | Configuration B only: move the engine package out of the workspace root. | none; decision with O3 |
-| 8 | Repository setup outside Git: `RELEASE_PLEASE_TOKEN`, Trusted Publishing for each of the fourteen crates (after a one-time token bootstrap), crates.io team as co-owner, branch protection that lets the release pull request run CI. | #137 |
-| 9 | Release artifacts beyond crates. The CLI has `--version` since 2026-11-13; it prints the build identity only when `FERRISMA_BUILD_ID` is set at compile time, and no release workflow sets it yet (not needed for a crates-only 0.1.0). | #237, #196 |
+State on 2026-11-14; the evidence is in [publishing](publishing.md#blockers-before-the-first-functional-publication).
+
+| # | Blocker | State | Waits for | Issue |
+| --- | --- | --- | --- | --- |
+| 1 | The JPEG port's package name `libjpeg-turbo-rs` belongs to an unrelated crates.io crate; both drafts, the workflow list and the lockfile jsonpaths use today's name and must follow a rename. | Proven (still taken on 2026-11-14); candidates checked; rename scope listed | Owner: the name; recommendation `ferrisma-libjpeg-turbo` | #207 |
+| 2 | `libavif-aom` is 16.6 MiB compressed, above crates.io's 10 MiB limit. | Proven; no safe `include` trimming; split and limit options quantified | Owner: ask crates.io for a per-crate limit (recommended) or a codec ADR for a split | #208 |
+| 3 | AVIF packages and the dependent's build profile. | Reproduced on 2026-11-14: no overflow failure in a dependent's default `dev` profile; `panic = "abort"` fails at compile time; the profile block works when copied | Owner: option (a) (document; recommended), codec owners: an AOM test run with overflow checks | #209 |
+| 4 | Exact `libc = "=0.2.191"` and `c2rust-bitfields = "=0.3.0"` pins. | Fixed on branch `v1/release-plumbing`: caret requirements, same minimum, lockfile unchanged | Codec owners: ABI checks against a newer `libc` | #209 |
+| 5 | Renamed first-party dependency keys broke Release Please's version updates. | Fixed on `main` (`86f9e0df`); rehearsal clean for A and B on 2026-11-14 | Nobody | #248 |
+| 6 | Every package is `publish = false`; first-publication versions (the AVIF bridges are 0.0.0) and the published set. | Open | Owner: O3, then versions | #137 |
+| 7 | License review gates for redistributing source crates (IJG terms, `simd_helpers` notice, independent review). Per-crate license files and `include` lists are complete (the JPEG port's since 2026-11-14). | Open | Owner/legal | #66, #136 |
+| 8 | Configuration B only: move the engine package out of the workspace root. | Open | Owner: O3 | none |
+| 9 | Repository and registry setup outside Git: `RELEASE_PLEASE_TOKEN`, the crates.io team as co-owner, a one-time token for the first publish, Trusted Publishing per crate, branch protection that lets the release pull request run CI. | Open | Owner | #137 |
+| 10 | Release artifacts beyond crates. The CLI has `--version` since 2026-11-13; it prints the build identity only when `FERRISMA_BUILD_ID` is set at compile time, and no release workflow sets it yet (not needed for a crates-only 0.1.0). | Open, not blocking a crates-only 0.1.0 | Owner | #237, #196 |
 
 ## Decisions the owner still has to make
 
@@ -517,9 +531,11 @@ and the real `cargo publish` uploads.
    its cost is re-publishing unchanged ports. Revisit B when a port gets
    outside consumers who need independent versions; switching later keeps
    `ferrisma-v<version>` tags valid because both drafts use component tags.
-2. The JPEG port's new name (#207) and the `libavif-aom` size path (#208).
-3. Whether to key the renamed dependencies by package name (blocker 4), and
-   whether to drop `"."` from `[workspace].members`.
+2. The JPEG port's new name (#207; recommendation `ferrisma-libjpeg-turbo`)
+   and the `libavif-aom` size path (#208; recommendation: request a per-crate
+   limit, keep the per-platform split as the fallback).
+3. Whether to drop `"."` from `[workspace].members` (the dependency keys are
+   settled by #248).
 4. `bump-patch-for-minor-pre-major` (features as 0.x minors or patches), and
    whether to flag 0.x GitHub releases as prereleases (`prerelease: true`).
 5. Changelog sections versus ADR-0040 decision 6.
