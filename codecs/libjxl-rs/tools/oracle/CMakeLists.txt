@@ -399,3 +399,8 @@ target_sources(jxl_oracle PRIVATE encoder_acs_simd.cc)
 # ADR 0004, "Encoder path"). The TU only calls the original's public API.
 target_sources(jxl_oracle PRIVATE encoder_cfl_simd.cc)
 # end encoder cfl
+# encoder step 1: the upstream test cases of encoder step 1 (#118) in
+# differential form. The TU only calls the original's functions and the
+# public API, with the tests' own inputs.
+target_sources(jxl_oracle PRIVATE encoder_step1.cc)
+# end encoder step 1
