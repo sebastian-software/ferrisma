@@ -169,6 +169,31 @@ def edit_rtcd_unit_linux(text, name, params, ret, order, variants):
     return text[:insert] + block + text[insert:]
 
 
+LITERAL = re.compile(r'''b?r(#*)".*?"\1|b?"(?:\\.|[^"\\])*"|b?'(?:\\.|[^'\\])'|//[^\n]*''', re.S)
+
+
+def sub_code(pattern, repl, text):
+    """pattern.subn() applied only outside string, byte-string and char
+    literals and line comments: the debug profiles keep the C expression and
+    function text of `assert` as byte strings, which must stay unchanged."""
+    # ABI strings (`extern "C-unwind"`) are part of the code the patterns match.
+    abi = '\x00ABI\x00'
+    text = text.replace('extern "C-unwind"', abi)
+    out, total, pos = [], 0, 0
+    for m in LITERAL.finditer(text):
+        code, n = pattern.subn(repl, text[pos:m.start()].replace(abi, 'extern "C-unwind"'))
+        out += [code, m.group(0)]
+        total += n
+        pos = m.end()
+    code, n = pattern.subn(repl, text[pos:].replace(abi, 'extern "C-unwind"'))
+    out.append(code)
+    return ''.join(out).replace(abi, 'extern "C-unwind"'), total + n
+
+
+def count_code(pattern, text):
+    return sub_code(pattern, lambda m: m.group(0), text)[1]
+
+
 def edit_caller(text, csource, name, params, ret, report, rel):
     ftype = fn_type(params, ret)
     opt = f'Option<{ftype}>'
@@ -181,15 +206,15 @@ def edit_caller(text, csource, name, params, ret, report, rel):
         return text
     # function-pointer values: Some(F_c as fn(...) -> R)
     ptr = re.compile(r'Some\(\s*' + name + r'_c\s+as\s+unsafe extern "C-unwind" fn\((?:[^()]|\([^()]*\))*\)\s*->\s*[^,()]+?(?:\(\))?,?\s*\)', re.S)
-    text, n_ptr = ptr.subn(name, text)
+    text, n_ptr = sub_code(ptr, name, text)
     call = re.compile(r'(?<!fn )\b' + name + r'_c\(')
-    text, n_call = call.subn(name + EXPECT + '(', text)
+    text, n_call = sub_code(call, name + EXPECT + '(', text)
     if not (n_ptr or n_call):
         return text
     report.append(f'{rel}: {name} calls={n_call} pointers={n_ptr}')
     decl = re.compile(r'\n(\s*)fn ' + name + r'_c\((.*?)\)(\s*->\s*[^;{]+?)?;', re.S)
     static = f'static mut {name}: {opt};'
-    remaining = len(re.findall(r'\b' + name + r'_c\b', text))
+    remaining = count_code(re.compile(r'\b' + name + r'_c\b'), text)
     m = decl.search(text)
     if m and remaining == 1:
         text = text[:m.start()] + '\n' + m.group(1) + static + text[m.end():]

@@ -7167,7 +7167,7 @@ pub unsafe extern "C-unwind" fn av1_dr_prediction_z1_c(
                 [u8; 109],
                 [core::ffi::c_char; 109],
             >(
-                *b"void av1_dr_prediction_z1.expect("non-null function pointer")(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int)\0",
+                *b"void av1_dr_prediction_z1_c(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int)\0",
             ))
                 .as_ptr(),
         );
@@ -7182,7 +7182,7 @@ pub unsafe extern "C-unwind" fn av1_dr_prediction_z1_c(
                 [u8; 109],
                 [core::ffi::c_char; 109],
             >(
-                *b"void av1_dr_prediction_z1.expect("non-null function pointer")(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int)\0",
+                *b"void av1_dr_prediction_z1_c(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int)\0",
             ))
                 .as_ptr(),
         );
@@ -7255,7 +7255,7 @@ pub unsafe extern "C-unwind" fn av1_dr_prediction_z2_c(
                 [u8; 114],
                 [core::ffi::c_char; 114],
             >(
-                *b"void av1_dr_prediction_z2.expect("non-null function pointer")(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int, int)\0",
+                *b"void av1_dr_prediction_z2_c(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int, int)\0",
             ))
                 .as_ptr(),
         );
@@ -7270,7 +7270,7 @@ pub unsafe extern "C-unwind" fn av1_dr_prediction_z2_c(
                 [u8; 114],
                 [core::ffi::c_char; 114],
             >(
-                *b"void av1_dr_prediction_z2.expect("non-null function pointer")(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int, int)\0",
+                *b"void av1_dr_prediction_z2_c(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int, int)\0",
             ))
                 .as_ptr(),
         );
@@ -7313,7 +7313,7 @@ pub unsafe extern "C-unwind" fn av1_dr_prediction_z2_c(
                             [u8; 114],
                             [core::ffi::c_char; 114],
                         >(
-                            *b"void av1_dr_prediction_z2.expect("non-null function pointer")(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int, int)\0",
+                            *b"void av1_dr_prediction_z2_c(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int, int)\0",
                         ))
                             .as_ptr(),
                     );
@@ -7364,7 +7364,7 @@ pub unsafe extern "C-unwind" fn av1_dr_prediction_z3_c(
                 [u8; 109],
                 [core::ffi::c_char; 109],
             >(
-                *b"void av1_dr_prediction_z3.expect("non-null function pointer")(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int)\0",
+                *b"void av1_dr_prediction_z3_c(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int)\0",
             ))
                 .as_ptr(),
         );
@@ -7379,7 +7379,7 @@ pub unsafe extern "C-unwind" fn av1_dr_prediction_z3_c(
                 [u8; 109],
                 [core::ffi::c_char; 109],
             >(
-                *b"void av1_dr_prediction_z3.expect("non-null function pointer")(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int)\0",
+                *b"void av1_dr_prediction_z3_c(uint8_t *, ptrdiff_t, int, int, const uint8_t *, const uint8_t *, int, int, int)\0",
             ))
                 .as_ptr(),
         );
