@@ -474,3 +474,169 @@ fn public_encoder_streaming_suite_container_instances_match_original() {
     let exact = super::compare_counted("streaming-suite-container", requests);
     assert_eq!(exact, count, "every admitted instance is exact");
 }
+
+/// A history's setup (basic info, color, settings) and its frame operation,
+/// from [`lossy_history`].
+fn setup_and_frame(
+    xsize: usize,
+    ysize: usize,
+    gray: bool,
+    variant: usize,
+    extra_settings: &str,
+) -> (String, String) {
+    let history = lossy_history(
+        xsize,
+        ysize,
+        gray,
+        variant % 4,
+        1 + variant % 4,
+        [1.0, 2.0, 0.5, 1.5][variant % 4],
+        variant,
+        "",
+        extra_settings,
+    );
+    let (input, _) = history.split_once(" Z ").unwrap();
+    let (setup, frame) = input.rsplit_once(" a0,").unwrap();
+    (setup.to_string(), format!("a0,{frame}"))
+}
+
+/// Encoder container, unit 3: uncompressed metadata boxes through
+/// JxlEncoderUseBoxes, JxlEncoderAddBox and JxlEncoderCloseBoxes. Box types
+/// Exif, `xml `, jumb, an unregistered type, a zero type and the types the
+/// original only rejects for compressed boxes (jxlc, jxli, brob, jbrd), at
+/// sizes 0 to 70001 bytes; boxes before the frame (the codestream header
+/// then goes into jxlp box 0 and the frame into the last jxlp box), after the
+/// frame, before and after, several boxes in a row, boxes without a frame,
+/// UseBoxes without a box; ProcessOutput between the inputs, schedules that
+/// split every box header, the ProcessEncoder loop of encode_test (`P`), and
+/// an output processor with and without seek (FlushInput).
+#[test]
+fn public_encoder_container_metadata_boxes_match_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let types = [
+        "45786966", "786d6c20", "6a756d62", "61626364", "00000000", "6a786c63", "6a786c69",
+        "62726f62", "6a627264",
+    ];
+    let sizes = [0, 1, 7, 8, 255, 4096, 70001];
+    let mut requests = Vec::new();
+    let mut k = 0;
+    let mut next_box = || {
+        let b = format!(
+            "O{},{},0",
+            types[k % types.len()],
+            sizes[(k / 2) % sizes.len()]
+        );
+        k += 1;
+        b
+    };
+    for (index, &(xsize, ysize)) in [(8, 8), (43, 15), (63, 129), (257, 255)].iter().enumerate() {
+        for gray in [false, true] {
+            let variant = 2 * index + usize::from(gray);
+            let prefix = ["X ", "X U1 ", "X L10 ", "X J1 "][variant % 4];
+            let (setup, frame) = setup_and_frame(xsize, ysize, gray, variant, "");
+            let bound = output_schedule(xsize * ysize * 12 + 80_000);
+            let (b1, b2, b3) = (next_box(), next_box(), next_box());
+            let scripts = [
+                // Before the frame.
+                format!("{prefix}{setup} {b1} {b2} {frame} Z {bound}"),
+                // After the frame.
+                format!("{prefix}{setup} {frame} F p0 p1 {b1} {b3} Y {bound}"),
+                // EncodeBoxTest's order with the ProcessEncoder loop.
+                format!("{prefix}{setup} {b2} P64 {frame} F P64 {b3} Y P64 S"),
+                // Before and after, output after each input.
+                format!("{prefix}{setup} {b3} p9 p40 {frame} F {bound} {b1} {b2} Y {bound}"),
+                // Boxes and no frame.
+                format!("{prefix}{setup} {b1} {b2} Y {bound} S"),
+                // UseBoxes without a box.
+                format!("{prefix}{setup} {frame} Z {bound}"),
+                // Boxes only, before basic info.
+                format!("X {b1} {b3} Z {bound}"),
+            ];
+            for script in scripts {
+                requests.push(run(0, 0, &script));
+            }
+            // Through an output processor (FlushInput after each input).
+            let mask = if variant % 2 == 0 { 0 } else { 4 };
+            let processor = format!("w{mask},{},0,0", variant % 4);
+            requests.push(run(
+                0,
+                0,
+                &format!("{prefix}{setup} {processor} {b1} i {frame} F i {b2} {b3} Y i r S"),
+            ));
+            requests.push(run(
+                0,
+                0,
+                &format!("{prefix}{setup} {b2} {frame} Z {processor} i r S"),
+            ));
+        }
+    }
+    // Boxes around a streaming frame (more than 8 groups), output modes 0, 1
+    // and 2, buffer and processor mode.
+    for (index, mode) in [0, 1, 2].into_iter().enumerate() {
+        let settings = format!(" o0,34,{} o0,40,{mode}", [2, 3, -1][index]);
+        let (setup, frame) = setup_and_frame(768, 768, index == 1, index, &settings);
+        let (b1, b2) = (next_box(), next_box());
+        requests.push(run(
+            0,
+            0,
+            &format!(
+                "X {setup} {b1} {frame} F {b2} Y {}",
+                output_schedule(768 * 768 * 12)
+            ),
+        ));
+        requests.push(run(
+            0,
+            0,
+            &format!(
+                "X {setup} {b1} {frame} F {b2} Y w{},0,0,0 i r",
+                4 * (index % 2)
+            ),
+        ));
+    }
+    let count = requests.len();
+    let exact = super::compare_counted("container-boxes", requests);
+    assert_eq!(exact, count, "container-boxes: every history is exact");
+}
+
+/// Encoder container, unit 3: the frame index (JXL_ENC_FRAME_INDEX_BOX). For
+/// one frame, AddFrame records it as indexed and the original appends a jxli
+/// box after the frame, also after a raw codestream (the setter stores the
+/// request for the values 0 and 1 alike; other values are rejected); with
+/// boxes, a container, output mode 2 and an output processor.
+#[test]
+fn public_encoder_container_frame_index_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    let mut requests = Vec::new();
+    for (index, &(xsize, ysize)) in [(1, 1), (8, 8), (43, 15), (257, 255), (768, 768)]
+        .iter()
+        .enumerate()
+    {
+        for value in [1, 0, 2] {
+            let variant = 3 * index + value as usize;
+            let mode = if variant % 4 == 3 { " o0,40,2" } else { "" };
+            let (setup, frame) = setup_and_frame(
+                xsize,
+                ysize,
+                variant % 2 == 1,
+                variant,
+                &format!(" o0,31,{value}{mode}"),
+            );
+            let prefix = ["", "U1 ", "X ", "L10 "][variant % 4];
+            let bound = output_schedule(xsize * ysize * 12 + 4096);
+            requests.push(run(0, 0, &format!("{prefix}{setup} {frame} Z {bound} S")));
+            if variant.is_multiple_of(3) {
+                requests.push(run(
+                    0,
+                    0,
+                    &format!("{prefix}{setup} {frame} Z w0,0,0,0 i r S"),
+                ));
+            }
+        }
+    }
+    let count = requests.len();
+    let exact = super::compare_counted("container-frame-index", requests);
+    assert_eq!(
+        exact, count,
+        "container-frame-index: every history is exact"
+    );
+}

@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-13
+- Updated: 2026-11-15
 
 > **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** NaN payload bits are no longer part of the comparison: every finite word, infinity and signed zero stays bit-identical, a NaN must meet a NaN, and two NaNs compare equal whatever their sign and payload, except where the original only copies data (for example lossless float samples), where NaNs stay bit-exact. The competing-NaN-operand rules below (out-of-line accumulator-first additions, `-O0` observation units chosen to pin NaN payloads) are no longer required for the gate; the oracle's comparison changes accordingly. The oracle also gains a second half: a SIMD build of libjxl at the v1.0 level (NEON; AVX2 and the lower x86 levels) compared with the port's SIMD paths (#96), on AArch64 and on x86-64. Inputs that contain NaN or infinity follow ADR-0041's open question O1 (working rule pending owner confirmation). The mechanics change in separate work; the history below is unchanged.
 
@@ -127,6 +127,20 @@ byte-sized buffers stay comparable. Wrapper histories in which a buffer's
 release fails inside its destructor trip a debug-only assertion the release
 reference compiles out; the checked profile counts and leaves them out.
 <!-- end encoder streaming -->
+
+<!-- encoder container -->
+Encoder step 3 (2026-11-15) adds three kinds of observation. The `ectr-*`
+requests of `encoder_container.cc` call the original's WriteBoxHeader,
+AppendBoxHeader and MakeContainerHeader directly, because the public
+histories cannot reach a 64-bit box size (a 4 GiB box or codestream) and the
+encoder never writes an unbounded box. The `P` operation of both encoder
+drivers replays encode_test's ProcessEncoder loop on one caller buffer that
+persists across calls and doubles on NEED_MORE_OUTPUT, so the upstream
+container cases run with their own output schedule. Box contents (`O`) and
+pixels (`a`) may be given in hex; the upstream cases take their pixels from
+the original's GetSomeTestImage (`ectr-pixels`), which both drivers then
+pass to their encoder.
+<!-- end encoder container -->
 
 The encoder transform unit `encoder_transforms.cc` calls the archive's own
 Symmetric5, SlowSymmetric3, GaborishInverse, TransformFromPixels,

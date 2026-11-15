@@ -514,9 +514,16 @@ class Driver {
                              ? format.num_channels - 1
                              : kNoAlpha;
         std::vector<uint8_t> pixels =
-            f.size() > 6 ? Content(size, format, std::stoul(f[6]), std::stoul(f[7]),
-                                   std::stoul(f[8]), alpha_c)
-                         : Pattern(size, 7, FloatFormat(format));
+            f.size() > 6 && f[6][0] != 'x'
+                ? Content(size, format, std::stoul(f[6]), std::stoul(f[7]), std::stoul(f[8]),
+                          alpha_c)
+                : Pattern(size, 7, FloatFormat(format));
+        // encoder container: a0,...,size,x<hex>: explicit pixels.
+        if (f.size() > 6 && f[6][0] == 'x') {
+          pixels = Unhex(f[6].substr(1));
+          if (pixels.size() != size) throw std::runtime_error("pixel size");
+          pixels.push_back(0);
+        }
         o << JxlEncoderAddImageFrame(Settings(f[0]), &format, null ? nullptr : pixels.data(),
                                      size);
         break;
@@ -543,7 +550,13 @@ class Driver {
       case 'O': {
         std::vector<uint8_t> type = Unhex(f[0]);
         if (type.size() != 4) throw std::runtime_error("box type");
+        // encoder container: optional explicit contents in hex.
         std::vector<uint8_t> contents = Pattern(std::stoul(f[1]), 5);
+        if (f.size() > 3) {
+          contents = Unhex(f[3]);
+          if (contents.size() != std::stoul(f[1])) throw std::runtime_error("box contents size");
+          contents.push_back(0);
+        }
         o << JxlEncoderAddBox(enc_, reinterpret_cast<const char*>(type.data()), contents.data(), std::stoul(f[1]),
                               std::stoi(f[2]));
         break;
@@ -562,6 +575,31 @@ class Driver {
         break;
       }
       case 'S': o << 0 << ';' << State(); break;
+      // encoder container
+      case 'P': {
+        // P<size>: encode_test's ProcessEncoder loop; see the Rust driver.
+        if (!compressed_started_) {
+          compressed_.assign(std::stoul(f[0]), 0);
+          compressed_offset_ = 0;
+          compressed_started_ = true;
+        }
+        next_out_ = compressed_.data() + compressed_offset_;
+        avail_out_ = compressed_.size() - compressed_offset_;
+        size_t calls = 0;
+        for (;;) {
+          JxlEncoderStatus status = JxlEncoderProcessOutput(enc_, &next_out_, &avail_out_);
+          compressed_offset_ = next_out_ - compressed_.data();
+          o << (calls ? ":" : "") << status << '.' << compressed_offset_;
+          if (status != JXL_ENC_NEED_MORE_OUTPUT || ++calls == 64) break;
+          compressed_.resize(compressed_.size() * 2);
+          next_out_ = compressed_.data() + compressed_offset_;
+          avail_out_ = compressed_.size() - compressed_offset_;
+        }
+        compressed_.resize(compressed_offset_);
+        o << ';' << Hex(Bytes(compressed_.data(), compressed_.size()));
+        break;
+      }
+      // end encoder container
       // encoder streaming
       case 'w': {
         // w<mask>,<schedule>,<stop_at>,<stop_kind>
@@ -813,6 +851,11 @@ class Driver {
   std::vector<JxlEncoderFrameSettings*> settings_;
   // Extra channels of each queued frame with a successful buffer call.
   std::map<const jxl::JxlEncoderQueuedFrame*, std::set<size_t>> ec_set_;
+  // encoder container: the caller buffer of the 'P' ProcessEncoder loop.
+  std::vector<uint8_t> compressed_;
+  size_t compressed_offset_ = 0;
+  bool compressed_started_ = false;
+  // end encoder container
   // ProcessOutput's caller variables; the original retains their addresses.
   std::vector<uint8_t> output_;
   uint8_t* next_out_ = nullptr;

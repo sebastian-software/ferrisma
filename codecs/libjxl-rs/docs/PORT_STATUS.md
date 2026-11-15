@@ -421,6 +421,15 @@ every buffering value); output mode 2 at step 2's gate sizes (768x768,
 buffer and processor mode, 36 histories); EncoderStreamingTest's container and mode-2
 instances, 512 histories, and the earlier 256 instances, now all exact (the
 128 with five extra channels needed level 10 and were admission prefixes).
+
+Metadata boxes and the frame index, all exact: 78 box histories (Exif,
+`xml `, jumb, other and zero types, and the types only compressed boxes
+reject; 0 to 70001 bytes; boxes before, after, before and after the frame,
+boxes without a frame, UseBoxes without a box; buffer mode, encode_test's
+ProcessEncoder loop and output processors; boxes around streaming frames in
+output modes 0, 1 and 2); 20 jxli histories (one indexed frame, raw
+codestream or container, output mode 2, output processor; the setter stores
+the request for 0 and 1 alike). Multi-frame indexes need step 10.
 <!-- end encoder container -->
 
 ## Lossy VarDCT with extra channels and patches off (2026-11-12)

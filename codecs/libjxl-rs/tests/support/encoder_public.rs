@@ -502,6 +502,9 @@ pub struct Driver {
     #[allow(clippy::vec_box, reason = "Stable addresses for the callbacks")]
     sources: Vec<Box<Source>>,
     // end encoder streaming
+    // encoder container: the caller buffer of the 'P' ProcessEncoder loop.
+    compressed: Option<(Vec<u8>, usize)>,
+    // end encoder container
 }
 
 impl Drop for Driver {
@@ -538,6 +541,7 @@ impl Driver {
             avail_out: Box::new(0),
             processor: Box::default(),
             sources: Vec::new(),
+            compressed: None,
         }
     }
 
@@ -880,7 +884,13 @@ impl Driver {
                 let size = if null { 0 } else { f[5].parse().unwrap() };
                 // Optional image content: a7,...,size,content,xsize,ysize.
                 let alpha_c = matches!(format.num_channels, 2 | 4).then(|| format.num_channels - 1);
-                let pixels = if f.len() > 6 {
+                // encoder container: a0,...,size,x<hex>: explicit pixels.
+                let pixels = if let Some(hex) = f.get(6).and_then(|v| v.strip_prefix('x')) {
+                    let mut pixels = unhex(hex);
+                    assert_eq!(pixels.len(), size, "pixel size");
+                    pixels.push(0);
+                    pixels
+                } else if f.len() > 6 {
                     content(
                         size,
                         &format,
@@ -938,7 +948,16 @@ impl Driver {
             'O' => {
                 let box_type: [u8; 4] = unhex(f[0]).try_into().expect("box type");
                 let size: usize = f[1].parse().unwrap();
-                let contents = pattern(size, 5, false);
+                // encoder container: optional explicit contents in hex.
+                let contents = match f.get(3) {
+                    Some(hex) => {
+                        let mut contents = unhex(hex);
+                        assert_eq!(contents.len(), size, "box contents size");
+                        contents.push(0);
+                        contents
+                    }
+                    None => pattern(size, 5, false),
+                };
                 s(api::jxl_encoder_add_box(
                     self.enc(),
                     &box_type,
@@ -981,6 +1000,44 @@ impl Driver {
                 )
             }
             'S' => format!("0;{}", self.state()),
+            // encoder container
+            'P' => {
+                // P<size>: encode_test's ProcessEncoder loop on one caller
+                // buffer that persists across P calls (the first call
+                // creates it with `size` bytes): ProcessOutput, and on
+                // NEED_MORE_OUTPUT double the buffer and continue at the
+                // written offset; then shrink the buffer to the written
+                // bytes. Prints each status with its offset, then the bytes.
+                let (compressed, offset) = self
+                    .compressed
+                    .get_or_insert_with(|| (vec![0; f[0].parse().unwrap()], 0));
+                *self.next_out = compressed.as_mut_ptr().wrapping_add(*offset);
+                *self.avail_out = compressed.len() - *offset;
+                let mut statuses = Vec::new();
+                loop {
+                    let next_out: *mut *mut u8 = &mut *self.next_out;
+                    let avail_out: *mut usize = &mut *self.avail_out;
+                    // SAFETY: Both boxed caller variables outlive the
+                    // encoder, and the buffer holds avail_out writable bytes
+                    // at next_out.
+                    let status = unsafe {
+                        api::jxl_encoder_process_output(&mut *self.enc, next_out, avail_out)
+                    };
+                    // SAFETY: The call has returned; next_out points into the
+                    // buffer.
+                    *offset = unsafe { (*next_out).offset_from(compressed.as_ptr()) } as usize;
+                    statuses.push(format!("{}.{}", status.0, *offset));
+                    if status != JxlEncoderStatus::NEED_MORE_OUTPUT || statuses.len() == 64 {
+                        break;
+                    }
+                    compressed.resize(compressed.len() * 2, 0);
+                    *self.next_out = compressed.as_mut_ptr().wrapping_add(*offset);
+                    *self.avail_out = compressed.len() - *offset;
+                }
+                compressed.truncate(*offset);
+                format!("{};{}", statuses.join(":"), hex(compressed))
+            }
+            // end encoder container
             // encoder streaming
             'w' => {
                 self.processor.schedule = f[1].parse().unwrap();
