@@ -369,7 +369,10 @@ fn the_engine_reads_its_own_jpeg_xl_output_with_default_settings() {
         let again = transcode(
             &written.bytes,
             ImageFormat::JpegXl,
+            // The default policy (`Strict`) and options; WebP output so
+            // that builds without `avif-write` (x86-64 macOS) run it too.
             TransformOptions {
+                output_format: OutputFormat::WebP,
                 output_width: 24,
                 output_height: 16,
                 ..TransformOptions::default()
