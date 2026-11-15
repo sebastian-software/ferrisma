@@ -40,7 +40,7 @@ impl PatternSource {
                 access: DecodeAccess::CodecRegionRequest,
                 alpha: match layout {
                     ChannelLayout::GrayAlpha | ChannelLayout::Rgba | ChannelLayout::Cmyka => {
-                        AlphaMode::Unspecified
+                        AlphaMode::Premultiplied
                     }
                     ChannelLayout::Gray | ChannelLayout::Rgb | ChannelLayout::Cmyk => {
                         AlphaMode::Opaque
@@ -265,7 +265,7 @@ fn alpha_and_cmyk_are_not_accidentally_resized() {
         if layout == ChannelLayout::Rgba {
             assert_eq!(
                 graph.node(id).unwrap().semantics.alpha,
-                AlphaMode::Unspecified
+                AlphaMode::Premultiplied
             );
         }
     }

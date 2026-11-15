@@ -89,28 +89,24 @@ fn api_rejects_invalid_quality_and_mismatched_input_format() {
     assert!(transcode(jpeg, ImageFormat::Avif, options).is_err());
     assert!(transcode(&[0; 32], ImageFormat::Jpeg, options).is_err());
     // libavif validates quality on its scale, 0-100; quality 0 is valid
-    // and not remapped. (Rav1e's 1-100 was checked here until 2026-11-15.)
+    // and not remapped. (Rav1e's 1-100 was checked here until 2026-11-15;
+    // a fractional or non-finite quality cannot be expressed since the
+    // scale became libavif's integer one on 2026-11-15.)
     {
         let libavif = options;
-        for quality in [f32::NAN, f32::INFINITY, -1.0, 100.5] {
-            let result = transcode(
-                jpeg,
-                ImageFormat::Jpeg,
-                TransformOptions { quality, ..libavif },
-            );
-            assert!(result.is_err(), "libavif quality {quality}");
+        let with = |quality, alpha_quality| TransformOptions {
+            avif: crate::pipeline::AvifOptions {
+                quality,
+                alpha_quality,
+                ..libavif.avif
+            },
+            ..libavif
+        };
+        for (quality, alpha_quality) in [(101, 60), (60, 101), (u8::MAX, u8::MAX)] {
+            let result = transcode(jpeg, ImageFormat::Jpeg, with(quality, alpha_quality));
+            assert!(result.is_err(), "libavif quality {quality}/{alpha_quality}");
         }
-        assert!(
-            transcode(
-                jpeg,
-                ImageFormat::Jpeg,
-                TransformOptions {
-                    quality: 0.0,
-                    ..libavif
-                },
-            )
-            .is_ok()
-        );
+        assert!(transcode(jpeg, ImageFormat::Jpeg, with(0, 0)).is_ok());
     }
     assert!(
         transcode(
@@ -157,7 +153,10 @@ fn api_errors_carry_a_matchable_kind() {
             jpeg,
             ImageFormat::Jpeg,
             TransformOptions {
-                quality: 101.0,
+                avif: crate::pipeline::AvifOptions {
+                    quality: 101,
+                    ..options.avif
+                },
                 ..options
             }
         ),
@@ -317,23 +316,23 @@ fn public_transcode_ends_an_oversized_jxl_toc_section_in_a_controlled_error() {
         output_format: OutputFormat::WebP,
         output_width: 2,
         output_height: 2,
-        quality: 75.0,
-        speed: 6,
         profile_policy,
         max_input_bytes,
         ..TransformOptions::default()
     };
     // The fuzz driver's cap and the default cap.
     for max_input_bytes in [512 * 1024, TransformOptions::default().max_input_bytes] {
+        // The header's enum sRGB is a typed signal under every policy
+        // (owner decision 2026-11-15, #222; before, the strict and
+        // assume-if-missing policies refused its rendered ICC with
+        // `UnsupportedColor` before decoding), so the decode runs and finds
+        // the section missing.
         for (profile_policy, expected) in [
-            // The header's rendered ICC needs the explicit opt-in first.
-            (InputProfilePolicy::Strict, Kind::UnsupportedColor),
+            (InputProfilePolicy::Strict, Kind::MalformedInput),
             (
                 InputProfilePolicy::AssumeSrgbIfMissing,
-                Kind::UnsupportedColor,
+                Kind::MalformedInput,
             ),
-            // The rendered-ICC policy lets the header pass, so the decode
-            // runs and finds the section missing.
             #[cfg(feature = "icc")]
             (InputProfilePolicy::UseRenderedIcc, Kind::MalformedInput),
         ] {
@@ -375,8 +374,6 @@ fn public_transcode_rejects_unknown_jxl_colour_space() {
             output_format: OutputFormat::WebP,
             output_width: 2,
             output_height: 2,
-            quality: 75.0,
-            speed: 6,
             profile_policy,
             ..TransformOptions::default()
         };
@@ -446,8 +443,6 @@ fn upstream_libavif_corpus_returns_controlled_public_results() {
                 output_format: OutputFormat::WebP,
                 output_width: 7,
                 output_height: 5,
-                quality: 75.0,
-                speed: 6,
                 transform_threads: 1,
                 profile_policy,
                 max_input_pixels: 4_000_000,

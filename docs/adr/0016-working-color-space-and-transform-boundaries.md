@@ -65,6 +65,7 @@ Real codec and encoder dataflow makes the proposed format contract too expensive
 - 2026-11-12 — PQ/HLG rejection from the JPEG XL transfer function itself, independent of CICP (review of the v1.0 integration).
 - 2026-11-12 — 8-bit matrix-shaper input is evaluated through a per-channel table built from and checked against moxcms (issue #219); bound 1.19e-7 linear over all 2^24 triplets for five profiles. Pending owner confirmation.
 - 2026-11-15 — Rendering intent: relative colorimetric, set explicitly (owner decision; see the section of that date below).
+- 2026-11-15 — Gray ICC profiles are converted through their tone curve, and a profile of the other color space than the channels is refused (`IccColorSpaceMismatch`), with gray input accepted by the owner's grayscale decision (ADR-0043); see the section of that date below.
 
 ## 2026-10-31: narrow reference experiment (not acceptance)
 
@@ -146,6 +147,25 @@ is in ADR-0023 and the
 Re-evaluate if moxcms changes its matrix-shaper evaluation, if a profile
 class is admitted to the extended path whose transform is not separable, or
 if the owner rejects any output change on this path (then revert).
+
+## 2026-11-15: gray ICC profiles (owner decision on grayscale, ADR-0043)
+
+Gray input is accepted in every format since 2026-11-15. Under
+`UseRenderedIcc` a gray (`GRAY`) profile beside gray samples is converted
+by moxcms from `Layout::Gray` into linear-light sRGB RGB with the same
+destination, intent and extended range as RGB profiles: the profile's tone
+curve gives the luminance Y, which a D50 neutral carries to R = G = B in
+linear sRGB. Alpha bypasses the transform as for RGBA; the conversion is
+not deferred to the executor because its rows grow. A gray profile is not
+an RGB profile and the reverse: a profile whose data color space is not
+the one of the decoded channels is refused with `IccColorSpaceMismatch`,
+not reinterpreted. A CICP code point beside a gray profile cannot be
+checked with RGB probes and is refused (`CicpBesideIcc`); no built-in
+reader reports one. A gray profile's own `cicp` tag is honored only as an
+HDR refusal. Evidence: `cms::tests::gray_profiles_convert_gray_into_rgb_like_moxcms`
+(bit for bit against moxcms called directly, and within 1e-5 of the gamma
+curve computed independently) and `format_parity::a_gray_icc_profile_is_converted_by_its_tone_curve`
+(JPEG and JPEG XL files carrying the same gamma-2.2 profile).
 
 ## 2026-11-15: rendering intent is relative colorimetric (owner decision)
 

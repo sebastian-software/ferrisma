@@ -13,12 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type _IO_wide_data;
-    pub type _IO_codecvt;
-    pub type _IO_marker;
-    pub type SB_FIRST_PASS_STATS;
-    pub type AVxWorkerImpl;
-    pub type aom_denoise_and_model_t;
     fn aom_count_signed_primitive_refsubexpfin(
         n: uint16_t,
         k: uint16_t,
@@ -94,6 +88,18 @@ extern "C-unwind" {
         gm_erroradv_tr: core::ffi::c_double,
     ) -> int64_t;
 }
+#[repr(C)]
+pub struct _IO_wide_data([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct _IO_codecvt([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct _IO_marker([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct SB_FIRST_PASS_STATS([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_denoise_and_model_t([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type __int8_t = i8;
 pub type __uint8_t = u8;

@@ -1034,3 +1034,32 @@ contraction maps) and every floating-point operation are unchanged.
 
 Re-evaluate when the owner decides O1, after a compiler or target change, or
 if a stage gains a new sign test on a computed value.
+
+<!-- encoder lossless streaming -->
+## Encoder lossless streaming, 2026-11-15 (issue #223)
+
+The lossless Modular profile of the public encoder at effort 2 runs through
+the same `epub-run` histories as encoder steps 2 and 3; the oracle side
+needed no new request kind, because the histories already reach every
+setting (`uses_original_profile`, JxlEncoderSetFrameLossless, the buffering
+and output-mode options, output processors, chunked input, the container).
+Three rules apply:
+
+- The original selects its path itself. With the default buffering (-1)
+  CanDoStreamingEncoding takes EncodeFrameStreaming for a lossless kThunder
+  frame of more than 8 groups, and its bytes differ from the one-shot path's
+  (each DC group codes its streams with their own trees and histograms).
+  Every expected byte therefore comes from the original run with the same
+  history on the same host, never from the port and never from the one-shot
+  path. `public_encoder_lossless_streaming_takes_the_original_streaming_path`
+  records the evidence: the original's bytes differ from its `buffering = 0`
+  bytes exactly when it streams.
+- The existing one-shot histories of the fixed `LosslessThunderConfig`
+  entry point (`FIRST_IMAGE.md`) stay unchanged. The public API reaches the
+  Modular ComputeEncodingData through its own translation of the general
+  function (`compute_encoding_data_lossless`, one-shot and groupwise), which
+  these histories compare on their own.
+- Sizes up to 4000x3000 run in buffer mode with chunks of at most 4 MiB, as
+  the step-2 gate does, so that an observation stays a small multiple of the
+  codestream.
+<!-- end encoder lossless streaming -->

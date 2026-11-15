@@ -210,3 +210,10 @@ pub(crate) fn plan_to_linear_srgb(color: &ColorEncoding) -> LinearSrgbReadiness 
         }
     }
 }
+
+/// The typed signals the engine converts into its working space itself,
+/// without a profile: full-range RGB sRGB, Display P3 and linear sRGB
+/// (`working_color`). One list for every policy and format (ADR-0043 D1).
+pub(crate) fn is_typed_working_family(cicp: [u8; 4]) -> bool {
+    matches!(cicp, [1 | 12, 13, 0, 1] | [1, 8, 0, 1])
+}

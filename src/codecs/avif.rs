@@ -7,13 +7,17 @@
 //!
 //! libavif converts YUV to full-range RGB with nearest-neighbor chroma
 //! upsampling. The adapter reports that rendered meaning as CICP
-//! `[primaries, transfer, 0, 1]` and any `colr`
-//! ICC profile. It fails closed when the container `nclx` disagrees with the
-//! bitstream, for monochrome input and for `clap`. `irot`/`imir` are reported
+//! `[primaries, transfer, 0, 1]`, or, when the item has a `colr` ICC
+//! profile, as that profile alone: MIAF gives the profile the color
+//! primaries and transfer, and `nclx` only the matrix and range, which
+//! libavif has already applied (owner decision 2026-11-15). It fails closed when the container `nclx` disagrees with the
+//! bitstream and for `clap`. Monochrome input is emitted as gray (libavif's
+//! `GRAY`/`GRAYA` output, the converted Y plane), which the pipeline expands
+//! to RGB with every other gray input (ADR-0043 D2). `irot`/`imir` are reported
 //! as the source orientation and applied by the pipeline (ADR-0019).
 //! 10/12-bit input is emitted as normalized float samples.
 
-use ferrisma_avif_read::{Decoder, ReadError};
+use ferrisma_avif_read::{Decoder, ReadError, Samples};
 
 use super::avif_meta::{MetaError, PrimaryProperties, SequenceColor, primary_properties};
 use crate::color::AlphaMode;
@@ -75,6 +79,16 @@ pub(crate) fn rendered_cicp(
     }
     // Emitted samples are RGB (identity matrix) at full range.
     Ok(Some([primaries, transfer, 0, 1]))
+}
+
+/// The libavif output for an adapter layout.
+fn samples(layout: ChannelLayout) -> Samples {
+    match layout {
+        ChannelLayout::Gray => Samples::Gray,
+        ChannelLayout::GrayAlpha => Samples::GrayAlpha,
+        ChannelLayout::Rgba => Samples::Rgba,
+        _ => Samples::Rgb,
+    }
 }
 
 /// What the read leaves out of the output (ADR-0042 D2).
@@ -151,10 +165,21 @@ impl<'a> AvifSource<'a> {
             matrix: decoded_info.sequence.matrix,
             full_range: decoded_info.sequence.full_range,
         };
-        if sequence.monochrome {
-            return Err(Error::UnsupportedLayout);
-        }
-        let rendered_cicp = rendered_cicp(&properties, sequence)?;
+        // The container/bitstream consistency checks run either way.
+        let signalled_cicp = rendered_cicp(&properties, sequence)?;
+        // MIAF (ISO/IEC 23000-22, 7.3.6.4): with an ICC `colr` the profile
+        // governs color primaries and transfer; matrix coefficients and range
+        // come from `nclx`, and libavif's YUV-to-RGB conversion has used
+        // them. The emitted RGB samples are therefore described by the
+        // profile alone (owner decision 2026-11-15, ADR-0015); without
+        // `UseRenderedIcc` the file is refused like any ICC file. Until then
+        // the `nclx` primaries and transfer were reported beside the
+        // profile and had to agree with it (`CicpBesideIcc`).
+        let rendered_cicp = if properties.icc.is_some() {
+            None
+        } else {
+            signalled_cicp
+        };
         let has_alpha = decoded_info.alpha;
         if decoded_info.image_count > 1 {
             return Err(Error::UnsupportedAnimation);
@@ -188,10 +213,11 @@ impl<'a> AvifSource<'a> {
             has_alpha && decoded_info.alpha_premultiplied,
             sequence.bit_depth,
         );
-        let layout = if has_alpha {
-            ChannelLayout::Rgba
-        } else {
-            ChannelLayout::Rgb
+        let layout = match (sequence.monochrome, has_alpha) {
+            (true, false) => ChannelLayout::Gray,
+            (true, true) => ChannelLayout::GrayAlpha,
+            (false, false) => ChannelLayout::Rgb,
+            (false, true) => ChannelLayout::Rgba,
         };
         let info = DecoderInfo {
             size,
@@ -275,11 +301,11 @@ impl DecodeSource for AvifSource<'_> {
         if self.info.sample == SampleType::U8 {
             let mut frame = budget.allocate(full_samples)?;
             self.decoder
-                .decode_u8(
+                .decode_u8_samples(
                     frame.as_mut_slice(),
                     size.width,
                     size.height,
-                    self.info.layout == ChannelLayout::Rgba,
+                    samples(self.info.layout),
                 )
                 .map_err(bridge_error)?;
             self.decoded = true;
@@ -298,11 +324,11 @@ impl DecodeSource for AvifSource<'_> {
             let mut frame = budget.allocate_typed::<u16>(full_samples)?;
             let mut scratch = budget.allocate_typed::<f32>(row_samples)?;
             self.decoder
-                .decode_u16(
+                .decode_u16_samples(
                     frame.as_mut_slice(),
                     size.width,
                     size.height,
-                    self.info.layout == ChannelLayout::Rgba,
+                    samples(self.info.layout),
                 )
                 .map_err(bridge_error)?;
             self.decoded = true;

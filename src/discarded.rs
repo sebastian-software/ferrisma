@@ -49,7 +49,10 @@ pub enum Discarded {
     /// the output stores transparent black there (ADR-0014).
     HiddenColor,
     /// Premultiplied (associated) alpha was converted to straight alpha by
-    /// the decoder (AVIF `prem`); color at low alpha loses precision.
+    /// the decoder's own step: libavif's integer division for AVIF `prem`,
+    /// libjxl's float one for JPEG XL `alpha_associated` (since
+    /// 2026-11-15). Color at low alpha loses precision, and the two steps
+    /// round differently (`docs/supported-matrix.md`, format parity).
     Unpremultiplied,
     /// The input has more bits per sample than reach the encoder (8-bit
     /// rows): 10- or 12-bit AVIF, JPEG XL above 8 bits, color or alpha.
@@ -135,7 +138,7 @@ impl FromIterator<Discarded> for DiscardedSet {
 /// A pass-through source that notices input pixels whose alpha is exactly
 /// zero while a color sample is not, in the rows it delivers: their color
 /// is cleared to transparent black on output ([`Discarded::HiddenColor`]).
-/// Wraps the codec source of an RGBA layout, before any reorientation or
+/// Wraps the codec source of an RGBA or gray-with-alpha layout, before any reorientation or
 /// color conversion, so it sees the decoder's own samples of the region
 /// that is processed.
 pub(crate) struct HiddenColorProbe<'a> {
@@ -152,19 +155,17 @@ impl<'a> HiddenColorProbe<'a> {
     }
 }
 
-fn has_hidden_color(row: crate::decoder::DecodedRow<'_>) -> bool {
+/// A pixel of an RGBA (`channels == 4`) or gray-with-alpha (2) row whose
+/// alpha is exactly zero while a color sample is not.
+fn has_hidden_color(row: crate::decoder::DecodedRow<'_>, channels: usize) -> bool {
     use crate::decoder::DecodedRow;
     match row {
-        DecodedRow::U8(samples) => samples
-            .as_chunks::<4>()
-            .0
-            .iter()
-            .any(|pixel| pixel[3] == 0 && pixel[..3] != [0, 0, 0]),
-        DecodedRow::F32(samples) => samples
-            .as_chunks::<4>()
-            .0
-            .iter()
-            .any(|pixel| pixel[3] == 0.0 && pixel[..3].iter().any(|&value| value != 0.0)),
+        DecodedRow::U8(samples) => samples.chunks_exact(channels).any(|pixel| {
+            pixel[channels - 1] == 0 && pixel[..channels - 1].iter().any(|&value| value != 0)
+        }),
+        DecodedRow::F32(samples) => samples.chunks_exact(channels).any(|pixel| {
+            pixel[channels - 1] == 0.0 && pixel[..channels - 1].iter().any(|&value| value != 0.0)
+        }),
     }
 }
 
@@ -199,8 +200,10 @@ impl crate::decoder::DecodeSource for HiddenColorProbe<'_> {
         ) -> Result<(), crate::error::Error>,
     ) -> Result<crate::decoder::DecodeReport, crate::error::Error> {
         let found = &self.found;
+        let channels = usize::from(self.source.info().layout.channels());
         self.source.read_region(region, budget, &mut |y, row| {
-            if !found.load(std::sync::atomic::Ordering::Relaxed) && has_hidden_color(row) {
+            if !found.load(std::sync::atomic::Ordering::Relaxed) && has_hidden_color(row, channels)
+            {
                 found.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             sink(y, row)

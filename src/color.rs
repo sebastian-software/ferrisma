@@ -39,8 +39,10 @@ impl ColorEncoding {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AlphaMode {
     Opaque,
-    /// An alpha channel exists, but its association has not been established.
-    Unspecified,
+    // `Unspecified` (an alpha channel whose association was not
+    // established) was produced only by the jxl-oxide reader, removed from
+    // the runtime on 2026-11-15; no reader produces it, so it was removed
+    // with the premultiplied-alpha decision of that day (ADR-0043).
     Straight,
     Premultiplied,
 }

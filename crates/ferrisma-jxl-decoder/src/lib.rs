@@ -5,7 +5,7 @@
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 use jxl::jxl::codestream_header::JxlBasicInfo;
-use jxl::jxl::color_encoding::{JxlColorEncoding, TransferFunction};
+use jxl::jxl::color_encoding::{self as enc, JxlColorEncoding, TransferFunction as RawTransfer};
 use jxl::jxl::decode::{
     self as api, JxlColorProfileTarget, JxlDecoder, JxlDecoderStatus as Status,
 };
@@ -38,12 +38,26 @@ pub struct ImageInfo {
     pub width: u32,
     pub height: u32,
     pub channels: u32,
+    /// The codestream's alpha is associated (premultiplied). The decoded
+    /// samples are straight all the same: every decode asks libjxl to
+    /// un-premultiply (`JxlDecoderSetUnpremultiplyAlpha`).
     pub alpha_premultiplied: bool,
     /// The DATA profile describes the decoder's emitted float samples.
     pub rendered_icc: Vec<u8>,
     /// Transfer function of the DATA color encoding when it is enum-signalled;
     /// `None` when the emitted samples are described only by an ICC profile.
     pub data_transfer: Option<Transfer>,
+    /// The structured (enum) DATA color encoding, from libjxl's
+    /// `JxlDecoderGetColorAsEncodedProfile`; `None` when the emitted samples
+    /// are described only by an ICC profile.
+    pub data_encoding: Option<EncodedColor>,
+    /// The codestream signals its color by an embedded ICC profile
+    /// (`want_icc`), not by an enum encoding: libjxl's
+    /// `JxlDecoderGetColorAsEncodedProfile` fails for the ORIGINAL target.
+    /// For an XYB image the DATA encoding can still be an enum (the decoder
+    /// renders into linear sRGB then), so this is the only evidence of the
+    /// embedded profile.
+    pub original_icc: bool,
     /// Bits per color sample in the codestream header.
     pub bits_per_sample: u32,
     /// Bits per alpha sample; 0 without alpha.
@@ -61,6 +75,107 @@ pub enum Transfer {
     Hlg,
     /// Any other transfer function (sRGB, BT.709, linear, DCI, gamma, ...).
     Other,
+}
+
+/// A structured JPEG XL color encoding (`JxlColorEncoding`), reduced to
+/// the fields that name a color space. Custom chromaticities and the gamma
+/// exponent are not carried: an encoding that needs them has no H.273 code
+/// point, and its exact description is the synthesized DATA ICC profile.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct EncodedColor {
+    pub color_space: ColorSpace,
+    pub white_point: WhitePoint,
+    pub primaries: Primaries,
+    pub transfer: TransferFunction,
+}
+
+/// `JxlColorSpace`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ColorSpace {
+    Rgb,
+    Gray,
+    Xyb,
+    Unknown,
+}
+
+/// `JxlWhitePoint`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WhitePoint {
+    D65,
+    Dci,
+    E,
+    Custom,
+}
+
+/// `JxlPrimaries`; meaningless for gray.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Primaries {
+    Srgb,
+    Bt2100,
+    P3,
+    Custom,
+}
+
+/// `JxlTransferFunction`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TransferFunction {
+    Bt709,
+    Linear,
+    Srgb,
+    Pq,
+    Dci,
+    Hlg,
+    Gamma,
+    Unknown,
+}
+
+impl EncodedColor {
+    fn from_raw(raw: &JxlColorEncoding) -> Self {
+        let color_space = match raw.color_space {
+            enc::ColorSpace::RGB => ColorSpace::Rgb,
+            enc::ColorSpace::GRAY => ColorSpace::Gray,
+            enc::ColorSpace::XYB => ColorSpace::Xyb,
+            _ => ColorSpace::Unknown,
+        };
+        let white_point = match raw.white_point {
+            enc::WhitePoint::D65 => WhitePoint::D65,
+            enc::WhitePoint::DCI => WhitePoint::Dci,
+            enc::WhitePoint::E => WhitePoint::E,
+            _ => WhitePoint::Custom,
+        };
+        let primaries = match raw.primaries {
+            enc::Primaries::SRGB => Primaries::Srgb,
+            enc::Primaries::BT2100 => Primaries::Bt2100,
+            enc::Primaries::P3 => Primaries::P3,
+            _ => Primaries::Custom,
+        };
+        let transfer = match raw.transfer_function {
+            RawTransfer::BT709 => TransferFunction::Bt709,
+            RawTransfer::LINEAR => TransferFunction::Linear,
+            RawTransfer::SRGB => TransferFunction::Srgb,
+            RawTransfer::PQ => TransferFunction::Pq,
+            RawTransfer::DCI => TransferFunction::Dci,
+            RawTransfer::HLG => TransferFunction::Hlg,
+            RawTransfer::GAMMA => TransferFunction::Gamma,
+            _ => TransferFunction::Unknown,
+        };
+        Self {
+            color_space,
+            white_point,
+            primaries,
+            transfer,
+        }
+    }
+}
+
+impl Transfer {
+    fn of(encoding: &JxlColorEncoding) -> Self {
+        match encoding.transfer_function {
+            RawTransfer::PQ => Self::Pq,
+            RawTransfer::HLG => Self::Hlg,
+            _ => Self::Other,
+        }
+    }
 }
 
 impl ImageInfo {
@@ -152,6 +267,14 @@ impl<'a> Decoder<'a> {
         if api::jxl_decoder_subscribe_events(decoder.get(), events) != Status::SUCCESS {
             return Err(Error::Decode);
         }
+        // Associated (premultiplied) alpha is converted to straight alpha
+        // by libjxl's own step (`JxlDecoderSetUnpremultiplyAlpha`, ported
+        // in the render pipeline's write stage), so the samples stay
+        // bit-identical with the original's (owner decision 2026-11-15,
+        // ADR-0043). It has no effect without associated alpha.
+        if api::jxl_decoder_set_unpremultiply_alpha(decoder.get(), 1) != Status::SUCCESS {
+            return Err(Error::Decode);
+        }
         // Default keep_orientation=false makes dimensions and samples upright.
         // SAFETY: `input` is immutable and remains live through this decoder's
         // lifetime; a zero length input still has a valid slice pointer.
@@ -215,28 +338,22 @@ impl<'a> Decoder<'a> {
             alpha_premultiplied: alpha && basic.alpha_premultiplied != 0,
             rendered_icc: Vec::new(),
             data_transfer: None,
+            data_encoding: None,
+            original_icc: false,
             bits_per_sample: basic.bits_per_sample,
             alpha_bits: basic.alpha_bits,
             have_preview: basic.have_preview != 0,
         })
     }
 
-    /// The transfer function of the enum DATA encoding, if there is one.
-    fn data_transfer(&mut self) -> Option<Transfer> {
+    /// The enum encoding of `target`, if it has one (libjxl's
+    /// `JxlDecoderGetColorAsEncodedProfile`, which fails for an ICC-signalled
+    /// encoding).
+    fn encoded(&mut self, target: JxlColorProfileTarget) -> Option<JxlColorEncoding> {
         let mut encoding = JxlColorEncoding::default();
-        if api::jxl_decoder_get_color_as_encoded_profile(
-            self.get(),
-            JxlColorProfileTarget::DATA,
-            Some(&mut encoding),
-        ) != Status::SUCCESS
-        {
-            return None;
-        }
-        Some(match encoding.transfer_function {
-            TransferFunction::PQ => Transfer::Pq,
-            TransferFunction::HLG => Transfer::Hlg,
-            _ => Transfer::Other,
-        })
+        (api::jxl_decoder_get_color_as_encoded_profile(self.get(), target, Some(&mut encoding))
+            == Status::SUCCESS)
+            .then_some(encoding)
     }
 
     fn data_icc(&mut self) -> Result<Vec<u8>, Error> {
@@ -290,7 +407,10 @@ pub fn inspect(input: &[u8], max_pixels: u64) -> Result<ImageInfo, Error> {
             Status::COLOR_ENCODING => {
                 let mut info = info.ok_or(Error::Decode)?;
                 info.rendered_icc = decoder.data_icc()?;
-                info.data_transfer = decoder.data_transfer();
+                let data = decoder.encoded(JxlColorProfileTarget::DATA);
+                info.data_transfer = data.as_ref().map(Transfer::of);
+                info.data_encoding = data.as_ref().map(EncodedColor::from_raw);
+                info.original_icc = decoder.encoded(JxlColorProfileTarget::ORIGINAL).is_none();
                 return Ok(info);
             }
             Status::ERROR | Status::NEED_MORE_INPUT | Status::SUCCESS => return Err(Error::Decode),
@@ -835,6 +955,62 @@ mod tests {
             let info = inspect(&bytes, 1 << 20).unwrap();
             assert_eq!(info.data_transfer, Some(transfer), "{name}");
         }
+    }
+
+    /// Which of libjxl's two color routes a file has (#222): an embedded
+    /// profile (`original_icc`, no enum DATA encoding) or an enum encoding,
+    /// exposed field by field.
+    #[test]
+    fn exposes_the_embedded_profile_signal_and_the_enum_data_encoding() {
+        use super::{ColorSpace, EncodedColor, Primaries, TransferFunction, WhitePoint};
+        let read = |path: &str| std::fs::read(format!("{ROOT}{path}")).unwrap();
+        let icc = inspect(&read("tests/fixtures/parity/rgb-p3-icc.jxl"), 1 << 20).unwrap();
+        assert!(icc.original_icc);
+        assert_eq!(icc.data_encoding, None);
+        assert_eq!(icc.data_transfer, None);
+        for (path, expected) in [
+            (
+                "tests/fixtures/jxl-color/lossless-p3.jxl",
+                EncodedColor {
+                    color_space: ColorSpace::Rgb,
+                    white_point: WhitePoint::D65,
+                    primaries: Primaries::P3,
+                    transfer: TransferFunction::Srgb,
+                },
+            ),
+            (
+                "tests/fixtures/jxl-color/lossless-dci-p3.jxl",
+                EncodedColor {
+                    color_space: ColorSpace::Rgb,
+                    white_point: WhitePoint::Dci,
+                    primaries: Primaries::P3,
+                    transfer: TransferFunction::Dci,
+                },
+            ),
+            (
+                "tests/fixtures/sample.jxl",
+                EncodedColor {
+                    color_space: ColorSpace::Rgb,
+                    white_point: WhitePoint::D65,
+                    primaries: Primaries::Srgb,
+                    transfer: TransferFunction::Srgb,
+                },
+            ),
+        ] {
+            let info = inspect(&read(path), 1 << 20).unwrap();
+            assert!(!info.original_icc, "{path}");
+            assert_eq!(info.data_encoding, Some(expected), "{path}");
+        }
+        let gray = inspect(
+            &read("codecs/libjxl-rs/tests/data/jpeg-reconstruction/gray.jxl"),
+            1 << 20,
+        )
+        .unwrap();
+        let gray = gray.data_encoding.unwrap();
+        assert_eq!(
+            (gray.color_space, gray.white_point, gray.transfer),
+            (ColorSpace::Gray, WhitePoint::D65, TransferFunction::Srgb)
+        );
     }
 
     #[test]

@@ -46,7 +46,8 @@ the workspace libavif/AOM writer
 ([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)), the only AVIF
 writer since 2026-11-15 (owner decision; rav1e left the engine). Lossy d1.0
 with patches off is the confirmed JPEG XL output default (owner decision
-2026-11-15, ADR-0039); the default AVIF quality value is still open (#216).
+2026-11-15, ADR-0039); the AVIF defaults follow `avifenc` since 2026-11-15
+(owner decision, #216).
 
 ## Cargo features and builds
 
@@ -60,20 +61,30 @@ one adapter. Since 2026-11-15 every format has one reader and one writer
 | `webp-read` | still WebP input | workspace `libwebp-rs` | only WebP reader | stable 1.98 | none | Stable |
 | `webp-write` | still WebP output | workspace `libwebp-rs` | only WebP writer | stable 1.98 | none | Stable |
 | `jpeg-xl-read` | JPEG XL input | workspace `libjxl-rs` via `ferrisma-jxl-decoder` | only JPEG XL reader (since 2026-11-15; this name selected `jxl-oxide` before, and the workspace reader was `jpeg-xl-own-read`) | stable 1.98 | none | Stable as capability |
-| `avif-read` | still AVIF input | workspace libavif/AOM via `ferrisma-avif-read` | only AVIF reader | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Experimental |
-| `avif-write` | AVIF output | workspace libavif/AOM via `ferrisma-avif-write` | only AVIF writer (since 2026-11-15; this name selected `rav1e` 0.8 + `avif-serialize` before, and the workspace writer was `avif-own-write`) | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Experimental until it builds on stable (working decision 2026-11-15) |
+| `avif-read` | still AVIF input | workspace libavif/AOM via `ferrisma-avif-read` | only AVIF reader | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental |
+| `avif-write` | AVIF output | workspace libavif/AOM via `ferrisma-avif-write` | only AVIF writer (since 2026-11-15; this name selected `rav1e` 0.8 + `avif-serialize` before, and the workspace writer was `avif-own-write`) | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Experimental until it builds on stable (working decision 2026-11-15) |
 | `jpeg-xl-write` | JPEG XL output: lossy d1.0 (default) or lossless | workspace `libjxl-rs`: public encoder through `ferrisma-jxl-encoder` (lossy), fixed-profile entry point (lossless) | only JPEG XL writer; in `cli` since 2026-11-12 | stable 1.98 | none | Experimental |
 | `icc` | rendered-ICC → sRGB conversion | `moxcms` 0.9 | needed for `UseRenderedIcc` / `--use-rendered-icc` | stable 1.98 | none | Stable |
-| `cli` | the `ferrisma` binary | `jpeg-read`, `webp-read`, `jpeg-xl-read`, `avif-read`, `avif-write`, `webp-write`, `jpeg-xl-write`, `icc` | — | pinned nightly | native macOS ARM64 or GNU Linux x86-64 | Stable command line, experimental backends |
+| `cli` | the `ferrisma` binary | `jpeg-read`, `webp-read`, `jpeg-xl-read`, `avif-read`, `avif-write`, `webp-write`, `jpeg-xl-write`, `icc` | — | stable 1.99 | native macOS ARM64 or GNU Linux x86-64 | Stable command line, experimental backends |
 
-The pinned nightly is `nightly-2026-09-07` from
-[`rust-toolchain.toml`](../rust-toolchain.toml); the generated AVIF code needs
-`extern_types` and `c_variadic`. Stable Rust 1.98 is the declared
-`rust-version`. The stable-compatible set is the one CI's `minimum-rust` job
-checks: `jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc`.
-**Known cost of the 2026-11-15 removal of rav1e:** a stable-toolchain build
-can neither read nor write AVIF (before, it wrote AVIF through rav1e) until
-the workspace AVIF port builds on stable Rust. NASM is no longer needed.
+Since 2026-11-15 every feature builds on stable Rust. The AVIF features need
+Rust 1.99 or later, the `rust-version` of the AVIF packages: the port's
+translations were rewritten for stable (`tools/stable_rust.py`, libavif-rs
+[ADR 0060](../codecs/libavif-rs/docs/adr/0060-build-the-translations-on-stable-rust.md)),
+and their C-variadic functions are stable Rust since 1.99. Stable Rust 1.98
+stays the engine's declared `rust-version` for every other feature
+(`jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc`, CI
+`minimum-rust` with `cargo +1.98.0`); CI checks `avif-read`, `avif-write` and
+`cli` with `cargo +1.99.0` in the same job (the local evidence of 2026-11-15
+used a 1.99.0 nightly with `-Zallow-features=`, which rejects every
+`#![feature]`; no stable 1.99 or 1.100 toolchain was installed). Whether
+the AVIF features leave the experimental tier is the owner's decision. Before 2026-11-15 the AVIF
+features needed the pinned nightly (`extern_types`, `core_intrinsics`,
+`c_variadic`), so a stable-toolchain build could neither read nor write AVIF.
+The pinned nightly `nightly-2026-09-07` from
+[`rust-toolchain.toml`](../rust-toolchain.toml) remains the workspace's
+development default (rustfmt options, AddressSanitizer). NASM is no longer
+needed.
 
 Evidence: CI `rust` job checks each feature alone (`cargo check
 --no-default-features --features <feature>` for every feature above);
@@ -91,16 +102,16 @@ before crop; crop coordinates are upright display coordinates (ADR-0019).
 | | JPEG | still WebP | JPEG XL | still AVIF |
 | --- | --- | --- | --- | --- |
 | Feature | `jpeg-read` | `webp-read` | `jpeg-xl-read` (libjxl-rs) | `avif-read` |
-| Samples delivered | 8-bit RGB (adapter requests RGB; grayscale JPEG is expanded to RGB) | 8-bit RGB or RGBA | F32 RGB or RGBA; the decoder also delivers gray and gray+alpha, which the pipeline refuses under every policy | 8-bit RGB(A); 10/12-bit as normalized float; 4:2:0, 4:2:2 and 4:4:4 at 8, 10 and 12 bits |
-| Alpha | none | straight | straight only: premultiplied association is refused under every policy | straight (libavif output) |
-| Color evidence | embedded ICC | embedded RGB ICC | `DATA` ICC of the emitted samples | container `nclx`/ICC cross-checked with the AV1 sequence header; reported as rendered CICP |
+| Samples delivered | 8-bit RGB; grayscale JPEG as 8-bit gray (libjpeg's own component), expanded to RGB by the pipeline | 8-bit RGB or RGBA | F32 RGB, RGBA, gray or gray+alpha; gray expanded to RGB(A) by the pipeline (since 2026-11-15, owner decision; refused before) | 8-bit RGB(A); 10/12-bit as normalized float; 4:2:0, 4:2:2 and 4:4:4 at 8, 10 and 12 bits; monochrome (4:0:0) as gray through libavif's `GRAY`/`GRAYA` output, expanded to RGB(A) by the pipeline (since 2026-11-15; refused before) |
+| Alpha | none | straight | straight; associated (premultiplied) alpha converted to straight by libjxl's own step and reported as `Discarded::Unpremultiplied` (since 2026-11-15, owner decision; refused with `AlphaAssociation` before) | straight; `prem` converted to straight by libavif and reported as `Discarded::Unpremultiplied` |
+| Color evidence | embedded ICC (RGB, or `GRAY` for grayscale JPEG) | embedded RGB ICC | an enum `DATA` encoding with an H.273 code point is reported as that CICP alone, a typed signal like AVIF `nclx` (owner decision 2026-11-15, #222); an embedded profile, or an enum encoding without a code point (custom primaries or white point, a gamma exponent), is reported as the `DATA` ICC of the emitted samples | container `nclx`/ICC cross-checked with the AV1 sequence header; `nclx` reported as rendered CICP, or, beside an ICC `colr`, the profile alone (MIAF: the profile governs primaries and transfer, `nclx` gives matrix and range; owner decision 2026-11-15) |
 | Orientation | EXIF 1–8 | EXIF 1–8 | codestream orientation, rendered upright by the decoder | `irot`/`imir` applied by the pipeline |
 | Crop access | codec crop request, iMCU column overfetch | lossy: crop from full-width rows; lossless: full reconstruction | **full-frame fallback for every crop** | full-frame fallback |
-| Rejected | CMYK/YCCK (`UnsupportedInput`, `UnsupportedLayout`); untagged under `Strict` (`ColorSignalMissing`); ICC without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); EXIF orientation outside 1–8 (`GeometricTransform`, **untested** through the API); malformed ICC; truncated data | animation (`UnsupportedInput`, `Animation`); malformed containers; canvas above the pixel cap | animation (`Animation`); any input without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); grayscale, CMYK, spot colors, float/HDR exponent channels, extra channels (`UnsupportedLayout` under `UseRenderedIcc`; the former jxl-oxide reader accepted some of these files while dropping or compositing their channels until 2026-11-15, [audit](silent-drops-audit-2026-11-15.md) X6 to X9); premultiplied alpha (`AlphaAssociation`); PQ/HLG (`HdrTransfer`); an unknown colour space (`MalformedInput`, no reason, as libjxl; `UnsupportedColorEncoding` on jxl-oxide until 2026-11-15); ICC > 16 MiB (**untested**, code path, no reason) | animation/`avis` (`Animation`), `clap` and `imir` before `irot` (`GeometricTransform`), monochrome (`UnsupportedLayout`), contradictory `nclx` (`ContradictoryColorSignals`), PQ/HLG (`HdrTransfer`), SDR CICP outside sRGB/P3/linear sRGB (`UnsupportedColorEncoding`), CICP-only under `UseRenderedIcc` (`RenderedIccMissing`), an unknown essential property of the primary item (`UnsupportedEssentialProperty`) ([details](#avif-input-transforms-animation-channels-and-caps)) |
+| Rejected | CMYK/YCCK (`UnsupportedInput`, `UnsupportedLayout`); untagged under `Strict` (`ColorSignalMissing`); ICC without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); under `UseRenderedIcc`, an RGB profile beside gray samples or a gray profile beside RGB samples (`IccColorSpaceMismatch`, since 2026-11-15); EXIF orientation outside 1–8 (`GeometricTransform`, **untested** through the API); malformed ICC; truncated data | animation (`UnsupportedInput`, `Animation`); malformed containers; canvas above the pixel cap | animation (`Animation`); an embedded ICC profile, or an enum encoding without an H.273 code point, without `UseRenderedIcc` (`RenderedIccRequiresOptIn`); an enum encoding outside sRGB, Display P3 and linear sRGB (`UnsupportedColorEncoding`; `RenderedIccMissing` under `UseRenderedIcc`, as AVIF CICP); CMYK, spot colors, float/HDR exponent channels, extra channels (`UnsupportedLayout` under `UseRenderedIcc`; the former jxl-oxide reader accepted some of these files while dropping or compositing their channels until 2026-11-15, [audit](silent-drops-audit-2026-11-15.md) X6 to X9); PQ/HLG (`HdrTransfer`); an unknown colour space (`MalformedInput`, no reason, as libjxl; `UnsupportedColorEncoding` on jxl-oxide until 2026-11-15); ICC > 16 MiB (**untested**, code path, no reason) | animation/`avis` (`Animation`), `clap` and `imir` before `irot` (`GeometricTransform`), contradictory `nclx` (`ContradictoryColorSignals`), PQ/HLG (`HdrTransfer`), SDR CICP outside sRGB/P3/linear sRGB (`UnsupportedColorEncoding`; `RenderedIccMissing` under `UseRenderedIcc`), an unknown essential property of the primary item (`UnsupportedEssentialProperty`) ([details](#avif-input-transforms-animation-channels-and-caps)) |
 
 The names in parentheses after a kind are the `RefusalReason` that
 `refusal_reason()` returns (the [compatibility guide](compatibility.md#refusal-reasons)
-lists all twelve); where one input meets several classes, the reason names the
+lists all thirteen); where one input meets several classes, the reason names the
 check that refused it first, which can depend on the policy. Every reason is
 produced by a fixture in `refusal_reason_tests::every_refusal_reason_is_produced_by_a_fixture`
 and `tests/color_signal_and_refusals.rs`.
@@ -153,14 +164,20 @@ Evidence per format:
   `tests/animated_input.rs::animated_jpeg_xl_is_rejected`;
   `hardening_tests::workspace_jxl_unknown_colour_space_is_a_controlled_error`,
   `public_transcode_rejects_unknown_jxl_colour_space` (`MalformedInput`);
-  `jxl_alpha_tests::associated_alpha_is_refused` (premultiplied alpha under
-  every policy). Through the public API:
-  `supported_matrix::jpeg_xl_rgb_needs_the_rendered_icc_policy` (also pins the
-  full-frame fallback),
+  `jxl_alpha_tests::associated_alpha_is_unpremultiplied_by_libjxl`
+  (premultiplied alpha, read under every policy and checked bit for bit
+  against libjxl's step; until 2026-11-15 `associated_alpha_is_refused`). Through the public API:
+  `supported_matrix::jpeg_xl_enum_rgb_is_typed_and_embedded_icc_needs_the_rendered_icc_policy`
+  (`sample.jxl` under every policy, `tests/fixtures/parity/rgb-p3-icc.jxl`
+  only under `UseRenderedIcc`; also pins the full-frame fallback; until
+  2026-11-15 `jpeg_xl_rgb_needs_the_rendered_icc_policy`, which refused
+  `sample.jxl` without `UseRenderedIcc`),
   `jpeg_xl_straight_alpha_is_kept_through_rendered_icc`,
-  `jpeg_xl_grayscale_is_rejected_under_every_policy` (`UnsupportedColor` under
-  `Strict`/`AssumeSrgbIfMissing`, `UnsupportedInput` "decoder pixel or color
-  layout is not supported" under `UseRenderedIcc`, which takes RGB(A) only),
+  `jpeg_xl_grayscale_is_expanded_to_rgb_under_every_policy` (gray and
+  gray+alpha, enum gray sRGB read under every policy; until 2026-11-15
+  `jpeg_xl_grayscale_is_rejected_under_every_policy`, `UnsupportedColor`
+  under `Strict`/`AssumeSrgbIfMissing` and `UnsupportedLayout` under
+  `UseRenderedIcc`),
   `jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected`,
   `jpeg_xl_animation_is_rejected`,
   `jpeg_xl_pq_and_hlg_are_rejected`,
@@ -209,7 +226,7 @@ test assets) and the libheif orientation set (`tests/fixtures/orientation/`).
 | `clap` (essential or not) | `UnsupportedInput`, `GeometricTransform`, same message; there is no implicit crop | `avif_clean_aperture_is_rejected` (`clap_irot_imir_non_essential.avif`, Android `blue-and-magenta-crop.avif`); libavif's `clop_irot_imor.avif` (the same file with `clap`/`imir` renamed to unknown non-essential properties) is accepted |
 | Unknown essential property of an item the reader uses (primary, grid cells, alpha and its cells) | `UnsupportedInput`, `UnsupportedEssentialProperty`, "an essential container property is not supported: '…'" (since 2026-11-15; before, `MalformedInput` without a reason, corrected under #67). A broken property association (index outside `ipco`) stays `MalformedInput`. Alpha items and grid cells are checked since 2026-11-15 (ADR-0042 D1; before, libavif skipped such an alpha item and the image came out opaque, a grid cell surfaced as `MalformedInput`); a property of an item the reader never decodes (gain-map image, other auxiliary images) is not a reason to refuse | `avif_unknown_essential_property_is_refused_as_unsupported` (`avif-1.avif` with `pixi` renamed and marked essential), `avif_property_association_outside_ipco_is_malformed`; `codecs::avif_meta_tests::rejects_ambiguous_and_unknown_essential_properties`; `silent_drops::avif_alpha_item_with_an_unknown_essential_property_is_refused`, `avif_grid_cell_with_an_unknown_essential_property_is_refused`, `avif_unknown_essential_property_on_an_unused_item_is_not_a_refusal` |
 | Image sequence (`avis`), with or without alpha, depth, audio, EXIF/XMP | `UnsupportedInput`, `Animation`, "animated input is not supported; only still images are decoded"; **no first-frame fallback** | `avif_image_sequences_are_rejected_without_a_first_frame_fallback` (five `colors-animated-*.avif` files and `alpha_video.avif`); `tests/animated_input.rs::animated_avif_is_rejected` |
-| Monochrome (4:0:0) at 8, 10, 12 bits | `UnsupportedInput`, `UnsupportedLayout`, "decoder pixel or color layout is not supported" | `avif_monochrome_is_rejected_at_every_depth` (Android `fox.*.monochrome.avif`) |
+| Monochrome (4:0:0) at 8, 10, 12 bits | supported since 2026-11-15 (owner decision, ADR-0043): libavif's `GRAY` output (the range-converted Y plane, equal bit for bit to each channel of its RGB output) expanded to RGB by the pipeline, as grayscale JPEG and JPEG XL; before, `UnsupportedInput`, `UnsupportedLayout`. Monochrome with an alpha item and with a gray ICC profile: **untested** (no fixture) | `avif_monochrome_is_expanded_to_rgb_at_every_depth` (Android `fox.*.monochrome.avif`; until 2026-11-15 `avif_monochrome_is_rejected_at_every_depth`); `ferrisma_avif_read::monochrome_gray_output_equals_each_channel_of_the_rgb_output`; `format_parity::gray_is_expanded_to_rgb_in_every_format_that_carries_it` |
 | Color 4:2:0, 4:2:2, 4:4:4 at 8, 10, 12 bits | supported | `avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted` (nine Android `fox.*.avif`) |
 | Alpha auxiliary image | supported, straight | `avif_alpha_and_grid_stills_are_accepted` (`abc_color_irot_alpha_irot.avif`, alpha read back from the WebP output) |
 | Grid stills | supported | same test (`color_grid_alpha_grid_shared_tiles.avif`, `sofa_grid1x5_420.avif`) |
@@ -220,7 +237,8 @@ test assets) and the libheif orientation set (`tests/fixtures/orientation/`).
 | PQ (`colors_hdr_rec2020.avif`, `seine_hdr_rec2020.avif`) | `UnsupportedColor`, `HdrTransfer`, under every policy | `avif_pq_is_rejected_under_every_policy` |
 | SDR CICP outside sRGB, Display P3 and linear sRGB, no ICC (`colors_text_wcg_sdr_rec2020.avif`, BT.2020 SDR) | `UnsupportedColor`, `UnsupportedColorEncoding` under `Strict`/`AssumeSrgbIfMissing`; `RenderedIccMissing` under `UseRenderedIcc` | `tests/color_signal_and_refusals.rs::sdr_cicp_outside_the_supported_families_is_refused_with_its_reason` |
 | Container ICC | needs `UseRenderedIcc` (`RenderedIccRequiresOptIn` otherwise) | `avif_container_icc_needs_the_rendered_icc_policy` (`paris_icc_exif_xmp.avif`) |
-| Signalled sRGB | passes `Strict`; refused under `UseRenderedIcc`, which needs a profile (`UnsupportedColor`, `RenderedIccMissing`) | `avif_signalled_srgb_passes_the_strict_policy` (`colors_sdr_srgb.avif`); `tests/color_signal_and_refusals.rs::rendered_icc_policy_without_a_profile_is_refused_with_its_reason` |
+| Container ICC beside `nclx` | follows MIAF since 2026-11-15 (owner decision): the profile governs color primaries and transfer, `nclx` matrix and range (libavif applies them in its YUV-to-RGB step); converted through the profile under `UseRenderedIcc` (`RenderedIcc`), `RenderedIccRequiresOptIn` otherwise. The `nclx` primaries and transfer are not used and not reported (the standard defines them as superseded, not as left-out information). Checked on what is refused before the change: `nclx` 2/2/6, which avifenc writes for an ICC source (`paris_icc_exif_xmp.avif`, `seine_sdr_gainmap_srgb_icc.avif`), and the agreeing 1/13/6 converted already; 1/1/6 and 12/13/6 were refused with `CicpBesideIcc`. The container is still checked against the AV1 sequence header (`ContradictoryColorSignals`) | `tests/avif_icc_nclx.rs::every_nclx_beside_an_icc_profile_converts_through_the_profile` (1/13, 1/1, 2/2, 12/13; equal rows for 1/13 against 1/1 and 2/2 against 12/13), `icc_tagged_files_need_the_rendered_icc_policy`; `format_parity::an_icc_profile_beside_nclx_governs_like_any_embedded_profile` |
+| Signalled sRGB | passes every policy as `ColorSignal::Cicp`, as JPEG XL enum sRGB (until 2026-11-15 refused under `UseRenderedIcc` with `RenderedIccMissing`; working decision 2026-11-15, delegated, revisable by the owner) | `avif_signalled_srgb_passes_the_strict_policy` (`colors_sdr_srgb.avif`); `tests/color_signal_and_refusals.rs::rendered_icc_policy_without_a_profile_is_refused_with_its_reason`; `tests/format_parity.rs::typed_srgb_is_read_under_every_policy` |
 | Rendered size, then coded sequence size, above `max_input_pixels` | `InputLimitExceeded` before decoding | `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry` |
 | ICC property above the parser's cap | `UnsupportedColor` before the copy, no `RefusalReason` | `codecs::avif_meta_tests::oversized_icc_property_is_rejected_before_copy` (synthetic) |
 
@@ -245,7 +263,7 @@ Every class has a test with a fixture that has it and one that does not
 | `JpegReconstructionData` | a `jbrd` box | JPEG XL |
 | `Preview` | a preview frame | JPEG XL |
 | `HiddenColor` | an input pixel of the processed region with alpha exactly 0 and nonzero color (written as transparent black, ADR-0014) | any RGBA input |
-| `Unpremultiplied` | premultiplied alpha converted to straight by libavif (`prem`) | AVIF |
+| `Unpremultiplied` | premultiplied alpha converted to straight by the decoder: libavif (`prem`), libjxl (`alpha_associated`, since 2026-11-15) | AVIF, JPEG XL |
 | `PrecisionReduced` | more than 8 bits per color or alpha sample reached the 8-bit rows | AVIF, JPEG XL |
 
 Not reported, and documented here instead (open under ADR-0042 D6): values
@@ -258,25 +276,52 @@ alternative.
 
 | `InputProfilePolicy` / CLI | Behavior | Evidence |
 | --- | --- | --- |
-| `Strict` (default, no flag) | Accept only decoder-reported sRGB (for example signalled sRGB AVIF); untagged or ICC-tagged input fails with `UnsupportedColor` | `pipeline_tests::missing_color_information_requires_an_explicit_override`, `signalled_srgb_avif_transcodes_under_the_strict_profile_policy` |
+| `Strict` (default, no flag) | Accept only a typed signal the engine converts itself: sRGB, Display P3 or linear sRGB from AVIF `nclx` or a JPEG XL enum encoding (since 2026-11-15, owner decision, #222; the engine reads its own JPEG XL output under it); untagged or ICC-tagged input fails with `UnsupportedColor` | `pipeline_tests::missing_color_information_requires_an_explicit_override`, `signalled_srgb_avif_transcodes_under_the_strict_profile_policy`; `tests/format_parity.rs::the_engine_reads_its_own_jpeg_xl_output_with_default_settings`, `typed_srgb_is_read_under_every_policy` |
 | `AssumeSrgbIfMissing` / `--assume-srgb` | Treat input as sRGB **only** when it reports neither ICC nor CICP; an ICC-tagged file still needs `--use-rendered-icc` | same tests; upstream corpus pins `paris_icc_exif_xmp.avif` as `UnsupportedColor` without `UseRenderedIcc` |
-| `UseRenderedIcc` / `--use-rendered-icc` | Convert the decoder's rendered RGB ICC to the working space through `moxcms` (`icc`) with the **relative colorimetric** intent, set explicitly (owner decision 2026-11-15, [ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md); matrix/TRC profiles are not affected by the intent, LUT profiles use their `A2B1` table); opaque RGB and RGB with straight alpha (the alpha sample bypasses the transform); premultiplied or unspecified alpha is rejected | `tests/icc_photo.rs::real_srgb_icc_photograph_matches_littlecms`, `photograph_as_display_p3_matches_littlecms_out_of_gamut`; `tests/resize_oracle.rs::icc_tagged_straight_alpha_input_converts_color_and_keeps_alpha`; `cms::tests::malformed_and_hostile_profiles_are_controlled_errors`; `cms::tests::lut_profiles_convert_with_the_relative_colorimetric_table` |
-| PQ, HLG, unverifiable or contradictory signals | Always `UnsupportedColor` (`HdrTransfer`, `CicpBesideIcc`, `ContradictoryColorSignals`, `UnsupportedColorEncoding`); never reinterpreted as sRGB | `jxl_color_tests::hdr_and_unverifiable_encodings_are_rejected`; `codecs::avif_meta_tests::contradictory_container_and_bitstream_signals_fail_closed`; `color_contract_tests::two_present_signals_require_explicit_precedence_even_when_both_look_srgb` |
+| `UseRenderedIcc` / `--use-rendered-icc` | A typed sRGB, Display P3 or linear sRGB signal without a profile is converted as under `Strict` (`ColorSignal::Cicp`; working decision 2026-11-15, delegated, revisable by the owner: the policy permits a profile conversion, it does not require one, so AVIF `nclx` and JPEG XL enum files get the same outcome under every policy); otherwise convert the decoder's rendered RGB ICC to the working space through `moxcms` (`icc`) with the **relative colorimetric** intent, set explicitly (owner decision 2026-11-15, [ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md); matrix/TRC profiles are not affected by the intent, LUT profiles use their `A2B1` table); opaque RGB and RGB with straight alpha (the alpha sample bypasses the transform); since 2026-11-15 also gray and gray with straight alpha through a gray (`GRAY`) profile, whose tone curve moxcms applies into RGB (R = G = B); a profile of the other color space than the channels (RGB beside gray, gray beside RGB) is refused (`UnsupportedColor`, `IccColorSpaceMismatch`); premultiplied or unspecified alpha is rejected | `tests/icc_photo.rs::real_srgb_icc_photograph_matches_littlecms`, `photograph_as_display_p3_matches_littlecms_out_of_gamut`; `tests/resize_oracle.rs::icc_tagged_straight_alpha_input_converts_color_and_keeps_alpha`; `cms::tests::malformed_and_hostile_profiles_are_controlled_errors`; `cms::tests::lut_profiles_convert_with_the_relative_colorimetric_table`, `gray_profiles_convert_gray_into_rgb_like_moxcms`; `format_parity::a_gray_icc_profile_is_converted_by_its_tone_curve`, `an_icc_profile_of_the_other_color_space_is_refused` |
+| PQ, HLG, unverifiable or contradictory signals | Always `UnsupportedColor` (`HdrTransfer`, `CicpBesideIcc` for a `cicp` tag inside the profile that is HDR or contradicts it, `ContradictoryColorSignals`, `UnsupportedColorEncoding`); never reinterpreted as sRGB | `jxl_color_tests::hdr_and_unverifiable_encodings_are_rejected`; `codecs::avif_meta_tests::contradictory_container_and_bitstream_signals_fail_closed`; `color_contract_tests::two_present_signals_require_explicit_precedence_even_when_both_look_srgb` |
 
 Output is always SDR sRGB, 8-bit straight-alpha RGBA rows handed to the
 encoder (ADR-0024, ADR-0030). HDR, tone mapping and wide-gamut output are not
 supported.
 
+## Format parity (ADR-0043)
+
+One row per property that several input formats can carry; each cell is
+the outcome for that format, and `tests/format_parity.rs` runs the row's
+case for every format that has one (fixtures in `tests/fixtures/parity`,
+provenance in its README). A dash means the format cannot carry the
+property. Where the cells of a row differ, the last column names the
+format reason (ADR-0043 D1, D5); a cell marked **untested** has no fixture
+and is not claimed as supported.
+
+| Property | JPEG | WebP | JPEG XL | AVIF | Format reason where cells differ | Test (`format_parity::…`) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Gray | expanded to RGB (copy, R = G = B) | — | expanded | expanded (libavif `GRAY` output) | WebP: VP8/VP8L code RGB(A) only | `gray_is_expanded_to_rgb_in_every_format_that_carries_it` |
+| Gray with alpha | — | — | expanded to RGBA, alpha kept | **untested** (no fixture; code path as JPEG XL through `GRAYA`) | JPEG has no alpha | `gray_with_alpha_is_expanded_to_rgba` |
+| Gray ICC profile | converted by its tone curve under `UseRenderedIcc` (`RenderedIcc`); otherwise `RenderedIccRequiresOptIn` | — | same | **untested** (no fixture) | WebP's `ICCP` describes RGB data | `a_gray_icc_profile_is_converted_by_its_tone_curve` |
+| ICC profile of the other color space | `IccColorSpaceMismatch` under `UseRenderedIcc` | not tested | cannot occur: the codestream requires a gray profile for gray channels | **untested** | JPEG XL validates the profile's color space itself | `an_icc_profile_of_the_other_color_space_is_refused` |
+| Straight alpha | — | kept | kept | kept | JPEG has no alpha | `straight_alpha_is_kept_in_every_format` |
+| Premultiplied alpha | — | — | converted to straight by libjxl's step, `Discarded::Unpremultiplied` | converted to straight by libavif's step, `Discarded::Unpremultiplied` | JPEG and WebP have no associated alpha. The outcome is the same; the arithmetic is each original's (ADR-0041 keeps each port identical with it), and they differ: libavif divides integers at the decoded depth, `min(round(c · max / a), max)`, and writes color 0 under alpha 0 (`avifRGBImageUnpremultiplyAlpha`); libjxl multiplies floats by `1 / max(a, 2⁻²⁶)` without rounding or clamping (`UnpremultiplyAlpha`), so lossy color above its alpha stays above 1 into the working space and nonzero color under alpha 0 becomes large (and is then written as transparent black and reported as `HiddenColor`, which AVIF never reports for it). A format (original) reason under ADR-0043 D1, not hidden | `premultiplied_alpha_is_converted_and_reported_alike`; `jxl_alpha_tests::associated_alpha_is_unpremultiplied_by_libjxl` |
+| Typed sRGB, Display P3, linear sRGB | — | — | `Cicp` under every policy (enum encoding) | `Cicp` under every policy (`nclx`) | JPEG and WebP have no typed color signal, only ICC | `typed_srgb_is_read_under_every_policy`, `the_engine_reads_its_own_jpeg_xl_output_with_default_settings` |
+| Typed signal outside those three | — | — | `UnsupportedColorEncoding`; `RenderedIccMissing` under `UseRenderedIcc` | same | as above | `typed_signal_outside_the_supported_families_is_refused_alike` |
+| Typed signal without an H.273 code point (custom primaries or white point, gamma) | — | — | the exact profile libjxl synthesizes: `RenderedIccRequiresOptIn`, converted under `UseRenderedIcc` | cannot be signaled | `nclx` has only code points | `jxl_color_tests::rendered_icc_reproduces_known_samples_for_sdr_families` (enum files), source review |
+| Embedded ICC profile | `RenderedIccRequiresOptIn`; converted under `UseRenderedIcc`, `Discarded::IccProfile` | same | same | same | — | `embedded_icc_needs_the_rendered_icc_policy_in_every_format` |
+| ICC profile beside a typed signal | — | — | cannot occur: a codestream signals an enum or a profile | the profile governs (MIAF), same outcome as an embedded profile, whatever the `nclx` primaries and transfer | JPEG and WebP have no typed signal; JPEG XL has one color encoding | `an_icc_profile_beside_nclx_governs_like_any_embedded_profile` |
+| `cicp` tag inside the profile that contradicts it | `CicpBesideIcc` under `UseRenderedIcc` | same code path, no fixture | same code path, no fixture | same code path, no fixture | — (one rendered-ICC stage for every format) | `a_contradicting_cicp_tag_inside_the_profile_is_refused` |
+| Orientation | EXIF, applied by the pipeline | EXIF, applied by the pipeline | codestream, rendered upright by libjxl | `irot`/`imir`, applied by the pipeline | the outcome is the same exact permutation; libjxl applies the codestream orientation itself, as its API does by default | `orientation_is_applied_before_crop_in_every_format` |
+| Animation | — | `Animation` | `Animation` | `Animation` | JPEG cannot animate | `animation_is_refused_alike` |
+
 ## Outputs
 
 | | AVIF, libavif/AOM (the only AVIF writer; rav1e until 2026-11-15) | still WebP | JPEG XL |
 | --- | --- | --- | --- |
-| Feature / selection | `avif-write`; `.avif`; `avif_depth` / `--avif-depth=` | `webp-write`; `.webp` | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2 }` (`--jxl-lossless`) |
-| Bit depth | 10 (default) or 8 (`--avif-depth=8`) | 8 | 8 |
-| Chroma | 4:4:4 (default) or 4:2:0 | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling, patches off (equals `cjxl --patches=0 -e 7`); lossless: RGB Modular |
-| Quality | `quality` 0–100, rounded, 64 quantizer steps | `WebpOptions::Lossy { quality 1–100, speed }` or `Lossless { level 0–9 }` | lossy: Butteraugli distance 0.05 to below 3.0; `--quality` is rejected |
-| Speed | 0–10 (`cpu-used`) | lossy speed 1 (slowest)–10; lossless uses the level | fixed: effort 7 lossy, effort 2 lossless; `--speed` is rejected |
-| Alpha | auxiliary item at the color quality, omitted when opaque | straight alpha | unassociated (straight) alpha at 8 bits, coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
+| Feature / selection | `avif-write`; `.avif`; `AvifOptions` (`--avif-*`) | `webp-write`; `.webp`; `WebpOptions` (`--webp-*`) | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2 }` (`--jxl-lossless`) |
+| Bit depth | 8 (default) or 10 (`depth`, `--avif-depth=10`). `avifenc` writes its input's depth (8 from its JPEG reader, the PNG's own; ADR-0037 cites the lines); the engine's writer always receives 8-bit rows, and its fixed default 8 is a working decision submitted to the owner. A deeper input is reported as `Discarded::PrecisionReduced` at every output depth | 8 | 8 |
+| Chroma | 4:4:4 (default) or 4:2:0 (`chroma`, `--avif-chroma=`) | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling, patches off (equals `cjxl --patches=0 -e 7`); lossless: RGB Modular |
+| Quality | `quality` 0–100 (default 60), libavif's integer scale unchanged (`--avif-quality=`) | `WebpOptions::Lossy { quality 1–100 (default 75), method }` (`--webp-quality=`) or `Lossless { level 0–9 }` (`--webp-level=`) | lossy: Butteraugli distance 0.05 to below 3.0; `--avif-*`/`--webp-*` are rejected |
+| Speed | `speed` 0–10 (AOM `cpu-used`, default 6, `--avif-speed=`) | lossy: libwebp `method` 0 (fastest)–6, default 4 (`--webp-method=`); lossless uses the level | fixed: effort 7 lossy, effort 2 lossless |
+| Alpha | auxiliary item at `alpha_quality` (0–100, default 60, `--avif-alpha-quality=`; its own setting since 2026-11-15, it does not follow `quality`), omitted when opaque | straight alpha | unassociated (straight) alpha at 8 bits, coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
 | Color signaling | AV1 header 1/13/6 full range **and** container `colr nclx` | embedded sRGB ICC | enum sRGB (lossy: XYB-encoded) |
 | Metadata | source EXIF/XMP/ICC not copied (no `Exif`/`mime` item, no `prof` `colr`); orientation applied, no `irot`/`imir`/`clap` written | source EXIF/XMP dropped, only the engine's sRGB `ICCP` chunk; orientation applied | orientation applied, written as 1 |
 | Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | ARGB frame and lossy planes reserved | lossless: the measured one-shot peak, 76 bytes per pixel of opaque RGB including the input frame (scaled by 4/3 with alpha, derived, not measured), at least the codec planes known from the source path; lossy: input frame plus a source-derived codec estimate; reserved before encoding |
@@ -291,40 +336,48 @@ pixels (its default skips patches there too); 1.1× to 3.8× larger below, on
 generated text-like images; photographs unchanged
 ([record](benchmarks/v1.0-jxl-patches-cost-2026-11-15.md)).
 
+**Native encoder settings since 2026-11-15** (owner decision, ADR-0043
+D4): each output has its encoder's own settings on its own scale
+(`AvifOptions`, `WebpOptions`, `JpegXlOptions`), and the settings of another
+output must stay at their defaults. The AVIF defaults are `avifenc`'s for
+8-bit input (quality 60, alpha quality 60, speed 6, 8 bits, 4:4:4; sources
+in ADR-0037), the WebP defaults libwebp's (quality 75, method 4).
 **One AVIF quality scale since 2026-11-15:** `quality` and `speed` go
 unchanged to libavif. A quality tuned for the former rav1e encoder is not
 comparable: at equal SSIMULACRA2 on the recorded photographs, rav1e 70/80/90
 matched roughly libavif 50/55/78; at `--quality=80` on the 800×533 flower,
 rav1e wrote 55,682 bytes (SSIMULACRA2 77.455) and libavif 10-bit 100,512
 bytes (88.307) ([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)).
-The default `quality` is 75 on libavif's scale; whether that default stays
-is open (#216).
+The default `quality` was 75 at 10 bits until the native options of
+2026-11-15 (#216); it is 60 at 8 bits since.
 
 Evidence through the public API (`supported_matrix::…`): libavif —
-`libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx` (encoder name
-`libavif-rs/aom`, `av1C` 10-bit 4:4:4, `colr nclx` 1/13/6 full range, no alpha
+`libavif_is_the_default_avif_encoder_at_avifenc_defaults_with_nclx` (encoder name
+`libavif-rs/aom`, `av1C` 8-bit 4:4:4, `colr nclx` 1/13/6 full range, no alpha
 item when opaque, read back under `Strict`),
-`libavif_writes_eight_bit_and_420_on_request`,
+`libavif_writes_ten_bit_and_420_on_request`,
+`libavif_alpha_quality_is_its_own_setting`,
 `libavif_writes_an_alpha_item_only_for_transparent_input`,
-`libavif_quality_speed_and_depth_ranges` (0–100, 0–10, depth 8/10, each
-rejection with libavif's reason),
+`libavif_quality_alpha_quality_speed_and_depth_ranges` (0–100, 0–100, 0–10,
+depth 8/10, each rejection with libavif's reason),
 `avif_output_drops_source_metadata_and_writes_upright_pixels`,
 `output_byte_limit_applies_at_the_exact_byte_for_avif`,
-`avif_depth_conflicts_with_other_outputs` (the rav1e cases and the encoder
+`avif_settings_conflict_with_other_outputs` (the rav1e cases and the encoder
 selection were removed with rav1e on 2026-11-15); WebP —
 `webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp` (`VP8 `/`VP8L`
 plus `ICCP`, no `EXIF`/`XMP `, read back through the ICC),
 `webp_straight_alpha_output_in_both_profiles` (`ALPH` for lossy),
-`webp_quality_speed_and_level_ranges`,
+`webp_quality_method_and_level_ranges`,
+`silent_drops::webp_lossy_methods_are_libwebps_own_and_distinct`,
 `avif_settings_with_webp_output_are_mismatched_options`; JPEG XL —
 `jpeg_xl_output_is_a_raw_codestream_that_reads_back` (the reader, and jxl-oxide as a test-only independent decoder),
 `jpeg_xl_output_keeps_straight_alpha_in_both_profiles`,
 `jpeg_xl_output_is_written_upright`,
 `jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding`
 (distance 0.05 and 2.99 accepted, 0.049 and 3.0 rejected, effort 3 rejected,
-`quality`/`speed` with JPEG XL output rejected),
+AVIF settings with JPEG XL output rejected),
 `output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`.
-The AVIF alpha quality (the color quality) and the materialization rows are
+The AVIF alpha quality and the materialization rows are
 read from the code (`src/own_avif.rs`, `src/webp_sink.rs`, `src/jxl_sink.rs`)
 and pinned by the unit tests below, not by the public-API cases.
 
@@ -349,7 +402,8 @@ libheif and rav1d in the evidence record above. WebP —
 `oriented_input_is_written_upright_with_orientation_one`,
 `rejects_requests_outside_the_admitted_profile_before_allocating`,
 `facade_rejects_mismatched_and_disabled_settings_before_decoding`,
-`input_frame_and_measured_one_shot_peak_are_reserved`; lossy —
+`input_frame_and_measured_lossless_peaks_are_reserved`,
+`lossless_output_equals_the_original_cjxl_bytes`; lossy —
 `jxl_lossy_tests::lossy_output_decodes_within_the_pinned_error` (one-shot and
 streaming), `the_workspace_decoder_agrees_with_jxl_oxide`,
 `photograph_thumbnail_decodes_near_the_finished_rows`,
@@ -372,21 +426,43 @@ encodes; its size cost against libjxl's default is not measured. Since
 `--use-rendered-icc`: the rendered-ICC stage accepts RGBA with straight
 alpha, and the reader declares straight alpha only when the alpha channel
 is not associated (#222,
-[ADR-0015](adr/0015-typed-output-color-signals.md)). Under the default
-`Strict` policy that output is still refused; whether XYB with enum sRGB
-should pass it is an open owner question in ADR-0015. Evidence:
+[ADR-0015](adr/0015-typed-output-color-signals.md)). Whether the default
+`Strict` policy should read that output (XYB with enum sRGB) was decided by
+the owner on 2026-11-15 (#222): it does, and the engine reads its own JPEG XL
+output under the default options. Evidence:
 `jxl_alpha_tests::rendered_icc_reads_engine_written_straight_alpha`,
-`strict_policy_still_refuses_engine_written_jpeg_xl`,
-`associated_alpha_is_refused`.
+`strict_policy_reads_engine_written_jpeg_xl` (until 2026-11-15
+`strict_policy_still_refuses_engine_written_jpeg_xl`),
+`associated_alpha_is_unpremultiplied_by_libjxl` (until 2026-11-15
+`associated_alpha_is_refused`).
 
-The lossless reservation follows the measured one-shot peak since 2026-11-13
-(#223, ADR-0039 amendment): under the default 256 MiB `--budget-mb` the
-largest lossless JPEG XL output falls from about 9.5 MP to about 3.5 MP, and
-larger requests fail with `BudgetExceeded` (`ResourceExhausted`, "managed
-buffer needs …") before encoding instead of exceeding the budget in opaque
-codec memory (`supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_three_and_a_half_megapixels`:
-a 2000×2000 request). A measured peak with alpha and
-the lossy estimate are still open (#223). JPEG output does not exist and is
+Lossless JPEG XL output is chunked like the original's default since
+2026-11-15 (#223, ADR-0039 amendment; owner decision 2026-11-15: the default
+budget stays at 256 MiB): above 8 groups the encoder works one 2048x2048 DC
+group at a time, and the file equals `cjxl -d 0 -e 2 -x
+color_space=RGB_D65_SRG_Rel_SRG` (`jxl_output_tests::lossless_output_equals_the_original_cjxl_bytes`).
+The sink reserves the measured peak of that path
+([record](benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md)):
+24 MP opaque output now needs about 643 MB of budget instead of about
+1,824 MB, but images of a few megapixels still cost about one DC group's
+working set, so under the default budget the largest lossless output only
+moves from about 3.5 MP to 3.66 MP. Larger requests fail with
+`BudgetExceeded` (`ResourceExhausted`, "managed buffer needs …") before
+encoding (`supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`:
+a 1920×1920 request).
+
+What the JPEG XL encoder's reservation admits under the default 256 MiB
+`--budget-mb` (encoder side: the engine's RGBA8 frame plus the codec
+reservation; the decoder and resampling buffers of the input come on top):
+
+| Output | Largest output | Source of the reservation |
+| --- | ---: | --- |
+| JPEG XL lossless, opaque | 3,655,036 px (≈ 1912×1912) | measured peak, 70 B/px + 12 MiB below one DC group |
+| JPEG XL lossless, with alpha | 2,842,806 px (≈ 1686×1686) | measured peak, 90 B/px + 12 MiB |
+| JPEG XL lossy, opaque (streaming) | about 35.7 MP | `estimated_codec_bytes`, derived, not measured (#223) |
+| JPEG XL lossy, with alpha (streaming) | about 31.4 MP | the same estimate |
+
+The lossy estimate is still open (#223). JPEG output does not exist and is
 not planned.
 
 ## Limits and memory
@@ -395,9 +471,10 @@ not planned.
 | --- | --- | --- | --- |
 | `max_input_bytes` / `--max-input-mb` (MiB) | 64 MiB | before any codec starts (`InputLimitExceeded`, "compressed image exceeds max_input_bytes"); zero is `InvalidOptions`; CLI stream read is capped | `supported_matrix::input_byte_limit_accepts_the_exact_size_and_rejects_one_byte_less`, `zero_input_limits_are_invalid_options`; `pipeline_tests::compressed_bytes_and_decoded_pixel_caps_reject_before_processing`; `cli::tests::accepts_input_at_the_limit_and_rejects_one_byte_more` |
 | `max_input_pixels` / `--max-input-mpx` (10^6 px) | 100,000,000 | from headers before pixel allocation (`InputLimitExceeded`): WebP, AVIF and libjxl-rs in the adapter ("input has N pixels, exceeding …"; AVIF also checks the coded sequence size), JPEG by the facade after the header ("image has N pixels; configured limit is M") | `supported_matrix::jpeg_pixel_limit_is_checked_after_the_header`, `webp_canvas_above_the_pixel_limit_is_rejected_from_the_header`, `jpeg_xl_pixel_limit_is_checked_before_decoding`, `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry`; `ferrisma_jxl_decoder::checks_pixel_limit_before_output` |
-| `max_managed_bytes` / `--budget-mb` | 256 MiB | engine buffers, known encoder frames, the lossless JPEG XL one-shot peak (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_three_and_a_half_megapixels`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
+| `max_managed_bytes` / `--budget-mb` | 256 MiB | engine buffers, known encoder frames, the measured lossless JPEG XL peak of its one-shot or chunked path (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`; `jxl_output_tests::input_frame_and_measured_lossless_peaks_are_reserved`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
 | `max_output_bytes` / `--max-output-mb` | 256 MiB | `ResourceExhausted` in every case. WebP and lossy JPEG XL while writing ("managed buffer needs …"); AVIF and lossless JPEG XL after the encoder returns ("encoded output exceeds max_output_bytes"); zero is `InvalidOptions` | `supported_matrix::output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`, `output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders`; `webp_output_tests::exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless`; `jxl_output_tests::encoded_output_limit_applies_at_the_exact_byte`, `jxl_lossy_tests::the_output_limit_applies_at_the_exact_byte`; `ferrisma-libavif` `output_limit_is_enforced_after_backend_finish` |
-| threads | `transform_threads` 0 (all cores), `encoder_threads` 1; at most 256; WebP and JPEG XL output need `encoder_threads` 1 | before decoding (`InvalidOptions`) | `supported_matrix::thread_counts_above_256_and_parallel_webp_encoding_are_invalid`; `pipeline_tests::encoder_threads_trade_determinism_for_latency_explicitly` |
+| threads | `transform_threads` 0 (all cores), `encoder_threads` 1; at most 256; WebP and JPEG XL output need `encoder_threads` 1; `Engine::transcode_batch` runs each image with 1 and 1 (reported) and refuses counts above 256 as `transcode` does (since 2026-11-15) | before decoding (`InvalidOptions`) | `supported_matrix::thread_counts_above_256_and_parallel_webp_encoding_are_invalid`; `silent_drops::batch_refuses_thread_counts_that_transcode_rejects`; `pipeline_tests::encoder_threads_trade_determinism_for_latency_explicitly` |
+| `output_width`/`output_height` with `transcode_resized` | 1 | a value other than the default is refused before decoding (`InvalidOptions`, "output_width and output_height are not used with ResizeOptions…"; ignored until 2026-11-15) | `thumbnail_facade::resize_entry_points_refuse_an_exact_output_size` |
 
 Codec-internal allocations (all four decoders, all encoders) are opaque: the
 report sets `opaque_decoder_memory`/`opaque_encoder_memory`, and there is no
@@ -408,8 +485,8 @@ internals) need the whole frame for any crop.
 
 | Target | Engine features on stable | `avif-read`, `avif-write`, `cli` | Verified by |
 | --- | --- | --- | --- |
-| macOS ARM64 | yes | yes (pinned nightly) | local run below; CI `native-adapters` (`macos-15`) |
-| GNU Linux x86-64 | yes | yes (pinned nightly) | CI `rust`, `minimum-rust`, `workspace`, `codecs` (`ubuntu-24.04`); **not re-run for this branch** |
+| macOS ARM64 | yes | yes (stable 1.99; before 2026-11-15 pinned nightly) | local run below; CI `native-adapters` (`macos-15`) |
+| GNU Linux x86-64 | yes | yes (stable 1.99; before 2026-11-15 pinned nightly) | CI `rust`, `minimum-rust`, `workspace`, `codecs` (`ubuntu-24.04`); **not re-run for this branch** |
 | GNU Linux ARM64 | codec-free engine and kernels tested in CI | not supported | CI `kernels-arm` (`ubuntu-24.04-arm`: `cargo test -p ferrisma -p ferrisma-kernels --all-targets`, no codec features) |
 | Windows, other targets | not verified | not supported | out of v1.0 scope (#158, #159) |
 
@@ -473,15 +550,18 @@ ferrisma --version          # or -V; takes precedence over every other argument
 #   target: aarch64-macos
 #   features: jpeg-read, webp-read, webp-write, jpeg-xl-read, jpeg-xl-write, avif-read, avif-write, icc
 #   build: unknown
-# JPEG → AVIF with the libavif/AOM encoder, 10-bit 4:4:4
+# JPEG → AVIF with the libavif/AOM encoder at avifenc's defaults (8-bit 4:4:4, quality 60)
 ferrisma photo.jpg out.avif 64 48 --assume-srgb
 #   report: … encoder=libavif-rs/aom
-# libavif at 8 bits, 4:2:0
-ferrisma photo.jpg out.avif 64 48 --assume-srgb --avif-depth=8 --chroma=420
+# libavif at 10 bits, 4:2:0, quality 70, alpha quality 90
+ferrisma photo.jpg out.avif 64 48 --assume-srgb --avif-depth=10 --avif-chroma=420 --avif-quality=70 --avif-alpha-quality=90
+# Lossy WebP at libwebp's quality and method
+ferrisma photo.jpg out.webp 64 48 --assume-srgb --webp-quality=80 --webp-method=6
 # ICC-tagged AVIF through the rendered-ICC path
 ferrisma paris_icc_exif_xmp.avif out.webp 64 48 --use-rendered-icc
-# JPEG XL through its only reader (full-frame fallback)
-ferrisma sample.jxl out.avif 6 4 --use-rendered-icc  # decoder_full_frames=1
+# JPEG XL through its only reader (full-frame fallback); enum sRGB needs no
+# policy flag since 2026-11-15 (#222), an embedded profile --use-rendered-icc
+ferrisma sample.jxl out.avif 6 4  # decoder_full_frames=1
 # Lossless WebP; lossy JPEG XL d1.0, also with alpha (needs --features cli,jpeg-xl-write)
 ferrisma photo.jpg out.webp 64 48 --assume-srgb --webp-lossless --webp-level=6
 ferrisma photo.jpg out.jxl 64 48 --assume-srgb
@@ -492,16 +572,19 @@ Rejected, with the error the CLI prints (exit status 1):
 | Command | Error | What to do |
 | --- | --- | --- |
 | `ferrisma photo.jpg out.avif 64 48` (untagged) | `UnsupportedColor` (`ColorSignalMissing`) "unsupported or ambiguous rendered color profile…" | add `--assume-srgb` if that assumption is acceptable |
-| `ferrisma sample.jxl out.avif 6 4 --assume-srgb` (ICC-tagged) | `UnsupportedColor` (`RenderedIccRequiresOptIn`) | use `--use-rendered-icc` (needs `icc`) |
+| `ferrisma rgb-p3-icc.jxl out.avif 6 4 --assume-srgb` (embedded ICC; `sample.jxl` until 2026-11-15, whose enum sRGB is now read under every policy) | `UnsupportedColor` (`RenderedIccRequiresOptIn`) | use `--use-rendered-icc` (needs `icc`) |
 | `ferrisma cmyk.jpg out.avif 64 48 --assume-srgb` | `UnsupportedInput` (`UnsupportedLayout`) "decoder pixel or color layout is not supported" | convert CMYK to RGB first |
 | `ferrisma animated.webp out.avif 64 48 --assume-srgb` | `UnsupportedInput` (`Animation`) "animated input is not supported…" | extract one frame first |
 | `ferrisma colors-animated-8bpc.avif …` | `UnsupportedInput` (`Animation`) | same |
 | `ferrisma clap_irot_imir_non_essential.avif …` | `UnsupportedInput` (`GeometricTransform`) "orientation, mirroring or clean-aperture transforms are not supported yet" | remove `clap` or crop explicitly with `--crop` on a file without it |
 | `ferrisma colors_hdr_rec2020.avif …` (PQ) | `UnsupportedColor` (`HdrTransfer`) | tone-map to SDR elsewhere; HDR is out of scope |
-| `ferrisma photo.jpg out.avif … --quality=101` | `InvalidOptions` | libavif's scale is 0–100 |
-| `ferrisma photo.jpg out.webp … --avif-depth=8` | "--avif-depth requires .avif output" | drop AVIF flags for WebP |
+| `ferrisma photo.jpg out.avif … --avif-quality=101` | `InvalidOptions` | libavif's scale is 0–100 |
+| `ferrisma photo.jpg out.webp … --avif-depth=8` | "--avif-depth requires .avif output" (every `--avif-*` and `--webp-*` flag with another output) | drop AVIF flags for WebP |
+| `ferrisma photo.jpg out.avif … --quality=80` | "unknown option: --quality=80 (removed on 2026-11-15; encoder settings are per format: …)" (likewise `--speed=`, `--chroma=`) | use `--avif-quality=`, `--webp-quality=` or `--jxl-distance=` |
+| `ferrisma photo.jpg out.webp … --transform-threads=4 --transform-threads=1` | "--transform-threads may only be given once" (every flag; owner decision of 2026-11-15) | give each flag once |
+| `ferrisma photo.jpg out.webp … --use-rendered-icc --assume-srgb` | "--assume-srgb and --use-rendered-icc are mutually exclusive" (likewise `--jxl-lossless`/`--jxl-distance=`, `--webp-lossless`/`--webp-level=` with `--webp-quality=`/`--webp-method=`) | choose one |
 | `ferrisma photo.jpg out.avif … --avif-encoder=rav1e` | "unknown option: --avif-encoder=rav1e" (removed 2026-11-15) | drop the flag; libavif is the only AVIF writer |
-| `ferrisma photo.jpg out.jxl … --quality=80` | "--quality is unsupported for JPEG XL; use --jxl-distance or --jxl-lossless" | use `--jxl-distance` (lossy) or `--jxl-lossless` |
+| `ferrisma photo.jpg out.jxl … --avif-quality=80` | "--avif-quality requires .avif output" | use `--jxl-distance` (lossy) or `--jxl-lossless` |
 | `ferrisma photo.jpg out.png …` | "output must have a .avif, .webp or .jxl extension" | choose a supported output |
 | `ferrisma photo.jpg out.avif … --max-input-mpx=0` | `InvalidOptions` "input byte/pixel limits must be nonzero" | use a positive limit |
 
@@ -546,7 +629,8 @@ is left to the owner.
 7. The CLI's `--version` (`d9146dd0`) was missing from the examples.
 
 Still pending owner decisions, described as today's behavior above: the
-default AVIF quality per encoder (#216; 75 on the selected scale), lossy d1.0
+default AVIF quality per encoder (#216; 75 on the selected scale; decided later the
+same day: `avifenc`'s defaults, see Outputs), lossy d1.0
 as the JPEG XL output default (ADR-0041 O5), and whether the strict policy
 should accept transparent XYB JPEG XL written by the engine (#222, ADR-0015;
 today refused under `Strict`). Open questions of #250 are not decided here.

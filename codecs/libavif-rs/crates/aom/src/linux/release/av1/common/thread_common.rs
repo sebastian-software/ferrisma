@@ -13,7 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type AVxWorkerImpl;
     fn aom_extend_frame_borders_plane_row_c(
         ybf: *const yv12_buffer_config,
         plane: core::ffi::c_int,
@@ -197,6 +196,8 @@ extern "C-unwind" {
         hsize: core::ffi::c_int,
     );
 }
+#[repr(C)]
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type __int8_t = i8;
 pub type __uint8_t = u8;

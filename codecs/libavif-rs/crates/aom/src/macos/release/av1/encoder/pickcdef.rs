@@ -13,10 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type __sFILEX;
-    pub type SB_FIRST_PASS_STATS;
-    pub type AVxWorkerImpl;
-    pub type aom_denoise_and_model_t;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
     fn aom_calloc(num: size_t, size: size_t) -> *mut core::ffi::c_void;
@@ -92,6 +88,14 @@ extern "C-unwind" {
     );
     fn av1_cdef_mse_calc_frame_mt(cpi: *mut AV1_COMP);
 }
+#[repr(C)]
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct SB_FIRST_PASS_STATS([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_denoise_and_model_t([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type float_t = core::ffi::c_float;
 pub type ptrdiff_t = isize;
 pub type size_t = usize;

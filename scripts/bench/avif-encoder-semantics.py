@@ -88,8 +88,8 @@ def main():
         for chroma in ('444', '420'):
             for label, flags in ENCODERS:
                 avif = out / f'{name}-{chroma}-{label}.avif'
-                cmd = [CLI, source, avif, width, height, policy, '--quality=80', '--speed=6',
-                       '--encoder-threads=1', '--transform-threads=1', f'--chroma={chroma}', *flags]
+                cmd = [CLI, source, avif, width, height, policy, '--avif-quality=80', '--avif-speed=6',
+                       '--encoder-threads=1', '--transform-threads=1', f'--avif-chroma={chroma}', *flags]
                 result = run(cmd)
                 # Keep the byte and memory fields of the report, never its timings.
                 report = next((line for line in result.stdout.splitlines()

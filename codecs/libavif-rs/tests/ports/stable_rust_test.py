@@ -1,0 +1,42 @@
+"""Regression checks for the stable-Rust rewrite the generators apply (ADR 0060)."""
+from pathlib import Path
+import sys
+import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
+from stable_rust import stable_text
+
+ORDER = '{core::intrinsics::AtomicOrdering::SeqCst}'
+GENERATED = f'''extern "C" {{
+    pub type __sFILEX;
+    fn fflush(_: *mut FILE) -> core::ffi::c_int;
+}}
+pub unsafe fn f(p: *mut core::ffi::c_int) -> core::ffi::c_int {{
+    ::core::intrinsics::atomic_store::<_, {ORDER}, false>(p, 1 as core::ffi::c_int);
+    let (v, ok) = ::core::intrinsics::atomic_cxchg::<_, {ORDER}, {ORDER}>(p, 1, 2);
+    ::core::intrinsics::atomic_xadd::<_, _, {{core::intrinsics::AtomicOrdering::Relaxed}}>(p, 1)
+}}
+'''
+COMMITTED = '''extern "C" {
+    fn fflush(_: *mut FILE) -> core::ffi::c_int;
+}
+#[repr(C)]
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+pub unsafe fn f(p: *mut core::ffi::c_int) -> core::ffi::c_int {
+    crate::platform::atomic_store_seqcst(p, 1 as core::ffi::c_int);
+    let (v, ok) = crate::platform::atomic_cxchg_seqcst_seqcst(p, 1, 2);
+    crate::platform::atomic_xadd_relaxed(p, 1)
+}
+'''
+
+
+class StableTextTest(unittest.TestCase):
+    def test_generator_output_becomes_the_committed_form(self):
+        self.assertEqual(stable_text('crates/dav1d/src/common/example.rs', GENERATED), COMMITTED)
+
+    def test_the_rewrite_is_idempotent(self):
+        self.assertEqual(stable_text('crates/dav1d/src/common/example.rs', COMMITTED), COMMITTED)
+
+
+if __name__ == '__main__':
+    unittest.main()

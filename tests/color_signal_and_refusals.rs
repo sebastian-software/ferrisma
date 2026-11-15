@@ -112,12 +112,16 @@ fn other_errors_have_no_refusal_reason() {
     );
 }
 
-/// The JPEG XL reader describes its output with an ICC profile, so the two
-/// policies without ICC conversion refuse it and name the opt-in.
+/// A JPEG XL file with an embedded ICC profile (written by cjxl,
+/// `tests/fixtures/parity/README.md`): the reader describes its output with
+/// that profile, so the two policies without ICC conversion refuse it and
+/// name the opt-in. (Until 2026-11-15 every JPEG XL file was described by a
+/// profile, and this test used the enum-sRGB `orientation/jxl-1.jxl`, which
+/// the strict policy now reads; owner decision, #222.)
 #[cfg(feature = "jpeg-xl-read")]
 #[test]
 fn rendered_icc_without_the_opt_in_is_refused_with_its_reason() {
-    let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
+    let jxl = include_bytes!("fixtures/parity/rgb-p3-icc.jxl");
     for policy in [
         InputProfilePolicy::Strict,
         InputProfilePolicy::AssumeSrgbIfMissing,
@@ -133,41 +137,56 @@ fn rendered_icc_without_the_opt_in_is_refused_with_its_reason() {
     }
 }
 
-/// The libjxl-rs adapter reports only the rendered ICC, without CICP beside
-/// it (ADR-0015, 2026-11-12). (The former jxl-oxide reader reported the
-/// header's enum encoding as CICP beside it, `RenderedIccWithAgreeingCicp`.)
+/// The libjxl-rs adapter reports an embedded profile alone, without CICP
+/// beside it (ADR-0015, 2026-11-12), and an enum encoding as CICP alone
+/// (since 2026-11-15), which every policy converts as a typed signal. (The
+/// former jxl-oxide reader reported the header's enum encoding as CICP
+/// beside its synthesized ICC, `RenderedIccWithAgreeingCicp`; until
+/// 2026-11-15 `lossless-p3.jxl` reported `RenderedIcc` here.)
 #[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
 #[test]
 fn rendered_icc_conversion_reports_whether_cicp_was_checked_beside_it() {
-    let jxl = include_bytes!("fixtures/jxl-color/lossless-p3.jxl");
-    let output = run(jxl, ImageFormat::JpegXl, InputProfilePolicy::UseRenderedIcc).unwrap();
+    let icc = include_bytes!("fixtures/parity/rgb-p3-icc.jxl");
+    let output = run(icc, ImageFormat::JpegXl, InputProfilePolicy::UseRenderedIcc).unwrap();
     assert_eq!(output.report.color_signal, ColorSignal::RenderedIcc);
+    let jxl = include_bytes!("fixtures/jxl-color/lossless-p3.jxl");
+    for policy in POLICIES {
+        let output = run(jxl, ImageFormat::JpegXl, policy).unwrap();
+        assert_eq!(output.report.color_signal, ColorSignal::Cicp, "{policy:?}");
+    }
 }
 
-/// AVIF \`nclx\` beside an ICC profile is checked and, when it agrees, named in
-/// the report. Since 2026-11-15 only AVIF produces this signal; before, the
-/// jxl-oxide reader did too.
+/// AVIF `nclx` beside an ICC profile follows MIAF since 2026-11-15 (owner
+/// decision): the profile alone describes the samples, so the signal is
+/// `RenderedIcc`. Until then an agreeing `nclx` was checked and reported as
+/// `RenderedIccWithAgreeingCicp` (this test was
+/// `agreeing_cicp_beside_the_rendered_icc_is_reported`), which no built-in
+/// reader produces any more.
 #[cfg(all(feature = "avif-read", feature = "icc"))]
 #[test]
-fn agreeing_cicp_beside_the_rendered_icc_is_reported() {
-    let avif = include_bytes!("fixtures/avif-color/icc-nclx-1-13-6.avif");
-    let output = run(avif, ImageFormat::Avif, InputProfilePolicy::UseRenderedIcc).unwrap();
-    assert_eq!(
-        output.report.color_signal,
-        ColorSignal::RenderedIccWithAgreeingCicp
-    );
+fn nclx_beside_an_avif_icc_profile_is_governed_by_the_profile() {
+    for avif in [
+        &include_bytes!("fixtures/avif-color/icc-nclx-1-13-6.avif")[..],
+        include_bytes!("fixtures/avif-color/icc-nclx-1-1-6.avif"),
+    ] {
+        let output = run(avif, ImageFormat::Avif, InputProfilePolicy::UseRenderedIcc).unwrap();
+        assert_eq!(output.report.color_signal, ColorSignal::RenderedIcc);
+    }
 }
 
-/// DCI-P3 (primaries 11, transfer 17) beside the rendered profile cannot be
-/// checked against it, so it is refused rather than overridden by the ICC.
-#[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
+/// A `cicp` tag inside the profile (ADR-0016) that contradicts it is
+/// refused, not overridden by the profile: an sRGB profile tagged Display
+/// P3 (`tests/fixtures/parity/rgb-icc-cicp-p3.jpg`). (Until 2026-11-15 the
+/// fixture of this reason was an AVIF `nclx` 1/1 beside an sRGB profile,
+/// which MIAF resolves in the profile's favor; before that, JPEG XL DCI-P3.)
+#[cfg(all(feature = "jpeg-read", feature = "icc"))]
 #[test]
 fn unverifiable_cicp_beside_the_rendered_icc_is_refused_with_its_reason() {
-    let jxl = include_bytes!("fixtures/jxl-color/lossless-dci-p3.jxl");
+    let jpeg = include_bytes!("fixtures/parity/rgb-icc-cicp-p3.jpg");
     assert_eq!(
         refusal(run(
-            jxl,
-            ImageFormat::JpegXl,
+            jpeg,
+            ImageFormat::Jpeg,
             InputProfilePolicy::UseRenderedIcc
         )),
         (
@@ -175,6 +194,36 @@ fn unverifiable_cicp_beside_the_rendered_icc_is_refused_with_its_reason() {
             Some(RefusalReason::CicpBesideIcc)
         )
     );
+}
+
+/// JPEG XL DCI-P3 (primaries 11, transfer 17) is a typed signal outside
+/// sRGB, Display P3 and linear sRGB, refused with the reasons AVIF CICP
+/// outside them gets (ADR-0043 D3; `sdr_cicp_outside_the_supported_families_is_refused_with_its_reason`,
+/// `rendered_icc_policy_without_a_profile_is_refused_with_its_reason`).
+#[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
+#[test]
+fn jpeg_xl_enum_outside_the_supported_families_is_refused_like_avif_cicp() {
+    let jxl = include_bytes!("fixtures/jxl-color/lossless-dci-p3.jxl");
+    for (policy, reason) in [
+        (
+            InputProfilePolicy::Strict,
+            RefusalReason::UnsupportedColorEncoding,
+        ),
+        (
+            InputProfilePolicy::AssumeSrgbIfMissing,
+            RefusalReason::UnsupportedColorEncoding,
+        ),
+        (
+            InputProfilePolicy::UseRenderedIcc,
+            RefusalReason::RenderedIccMissing,
+        ),
+    ] {
+        assert_eq!(
+            refusal(run(jxl, ImageFormat::JpegXl, policy)),
+            (ProcessingErrorKind::UnsupportedColor, Some(reason)),
+            "{policy:?}"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -285,8 +334,11 @@ fn sdr_cicp_outside_the_supported_families_is_refused_with_its_reason() {
     }
 }
 
-/// The rendered-ICC policy needs a profile: untagged JPEG and CICP-only
-/// AVIF have none.
+/// The rendered-ICC policy needs a profile unless the typed signal is one
+/// the engine converts itself: untagged JPEG and BT.2020 SDR AVIF have
+/// none. Signalled sRGB AVIF passes it as `Cicp` since 2026-11-15 (working
+/// decision, delegated, revisable by the owner; until then it was the AVIF
+/// case of this test).
 #[cfg(all(feature = "jpeg-read", feature = "icc"))]
 #[test]
 fn rendered_icc_policy_without_a_profile_is_refused_with_its_reason() {
@@ -296,13 +348,22 @@ fn rendered_icc_policy_without_a_profile_is_refused_with_its_reason() {
     );
     assert_eq!(refusal(jpeg(InputProfilePolicy::UseRenderedIcc)), expected);
     #[cfg(feature = "avif-read")]
-    assert_eq!(
-        avif_refusal(
+    {
+        assert_eq!(
+            avif_refusal(
+                &avif("colors_text_wcg_sdr_rec2020.avif"),
+                InputProfilePolicy::UseRenderedIcc
+            ),
+            expected
+        );
+        let output = run(
             &avif("colors_sdr_srgb.avif"),
-            InputProfilePolicy::UseRenderedIcc
-        ),
-        expected
-    );
+            ImageFormat::Avif,
+            InputProfilePolicy::UseRenderedIcc,
+        )
+        .unwrap();
+        assert_eq!(output.report.color_signal, ColorSignal::Cicp);
+    }
 }
 
 /// `colors_sdr_srgb.avif` with its container `nclx` matrix changed from 6
@@ -349,27 +410,30 @@ fn cmyk_jpeg_is_refused_as_a_layout() {
 }
 
 /// Premultiplied alpha (libjxl's conformance fixture with
-/// `alpha_associated`): libjxl-rs reports it as premultiplied; the
-/// rendered-ICC stage refuses it for its alpha.
+/// `alpha_associated`) is converted to straight alpha by libjxl and
+/// reported as `Discarded::Unpremultiplied`, under every policy (owner
+/// decision 2026-11-15, ADR-0043). Until then this test,
+/// `associated_alpha_is_refused_with_its_reason`, pinned the refusal
+/// `AlphaAssociation`, which no built-in reader produces any more.
 #[cfg(all(feature = "jpeg-xl-read", feature = "icc"))]
 #[test]
-fn associated_alpha_is_refused_with_its_reason() {
+fn associated_alpha_is_converted_and_reported() {
     let jxl = std::fs::read(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/codecs/libjxl-rs/tests/data/extra-channel-alpha-1-up-1-shift-0.jxl"
     ))
     .unwrap();
-    assert_eq!(
-        refusal(run(
-            &jxl,
-            ImageFormat::JpegXl,
-            InputProfilePolicy::UseRenderedIcc
-        )),
-        (
-            ProcessingErrorKind::UnsupportedInput,
-            Some(RefusalReason::AlphaAssociation)
-        )
-    );
+    for policy in POLICIES {
+        let output = run(&jxl, ImageFormat::JpegXl, policy).unwrap();
+        assert!(
+            output
+                .report
+                .discarded
+                .iter()
+                .any(|class| class == ferrisma::pipeline::Discarded::Unpremultiplied),
+            "{policy:?}"
+        );
+    }
 }
 
 /// AVIF clean aperture and an `imir` before `irot` are not applied.

@@ -28,7 +28,6 @@
 // Mechanically translated from upstream/dav1d/src/picture.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type __sFILEX;
     static mut __stderrp: *mut FILE;
     fn fprintf(_: *mut FILE, _: *const core::ffi::c_char, ...) -> core::ffi::c_int;
     fn free(_: *mut core::ffi::c_void);
@@ -48,6 +47,8 @@ extern "C" {
     fn dav1d_data_props_set_defaults(props: *mut Dav1dDataProps);
     fn dav1d_log(c: *mut Dav1dContext, format: *const core::ffi::c_char, ...);
 }
+#[repr(C)]
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __builtin_va_list = *mut core::ffi::c_char;
 pub type int8_t = i8;
 pub type int16_t = i16;
@@ -2199,7 +2200,7 @@ unsafe extern "C" fn dav1d_ref_init(
 }
 #[inline]
 unsafe extern "C" fn dav1d_ref_inc(ref_0: *mut Dav1dRef) {
-    ::core::intrinsics::atomic_xadd::<_, _, {core::intrinsics::AtomicOrdering::Relaxed}>(
+    crate::platform::atomic_xadd_relaxed(
         &raw mut (*ref_0).ref_cnt,
         1 as core::ffi::c_int,
     );

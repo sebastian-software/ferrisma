@@ -12,11 +12,12 @@
 // Mechanically translated from upstream/aom/av1/encoder/cnn.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type AVxWorkerImpl;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
     fn aom_free(memblk: *mut core::ffi::c_void);
     fn aom_get_worker_interface() -> *const AVxWorkerInterface;
 }
+#[repr(C)]
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __uint8_t = u8;
 pub type __uint16_t = u16;
 pub type size_t = usize;

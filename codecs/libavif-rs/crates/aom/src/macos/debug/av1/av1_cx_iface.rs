@@ -13,9 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type AVxWorkerImpl;
-    pub type __sFILEX;
-    pub type aom_denoise_and_model_t;
     fn aom_uleb_size_in_bytes(value: uint64_t) -> size_t;
     fn aom_img_plane_width(
         img: *const aom_image_t,
@@ -289,6 +286,12 @@ extern "C-unwind" {
     );
     static g_av1_codec_arg_defs: av1_codec_arg_definitions_t;
 }
+#[repr(C)]
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_denoise_and_model_t([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __builtin_va_list = *mut core::ffi::c_char;
 pub type float_t = core::ffi::c_float;
 pub type jmp_buf = [core::ffi::c_int; 48];

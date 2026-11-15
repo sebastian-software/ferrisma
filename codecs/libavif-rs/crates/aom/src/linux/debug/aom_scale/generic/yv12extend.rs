@@ -12,8 +12,6 @@
 // Mechanically translated from upstream/aom/aom_scale/generic/yv12extend.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type corner_list;
-    pub type image_pyramid;
     fn aom_alloc_frame_buffer(
         ybf: *mut YV12_BUFFER_CONFIG,
         width: core::ffi::c_int,
@@ -28,6 +26,10 @@ extern "C-unwind" {
     ) -> core::ffi::c_int;
     fn aom_free_frame_buffer(ybf: *mut YV12_BUFFER_CONFIG) -> core::ffi::c_int;
 }
+#[repr(C)]
+pub struct corner_list([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct image_pyramid([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct yv12_buffer_config {

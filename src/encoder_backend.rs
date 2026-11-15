@@ -10,16 +10,26 @@
 
 use std::fmt;
 
-use crate::pipeline::{ChromaSubsampling, JpegXlOptions, OutputFormat, WebpOptions};
+use crate::pipeline::{AvifOptions, JpegXlOptions, OutputFormat, WebpOptions};
 
-/// What one image's encoder is asked to produce. AVIF quality and speed are
-/// passed through as the caller set them; WebP settings are in `webp`.
-/// Compare backends at matched quality, not equal numeric settings.
+/// What one image's encoder is asked to produce: every encoder setting of
+/// the transcode, as the caller set it, in the settings of the requested
+/// format (the other formats' settings are at their defaults; the engine
+/// refuses anything else before decoding). A backend validates the settings
+/// of its format on its own scale and refuses, with
+/// [`EncodeErrorKind::InvalidOptions`], a setting it cannot honor instead of
+/// ignoring it (ADR-0042). Compare backends at matched quality, not equal
+/// numeric settings.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct EncodeRequest {
     /// Requested output format.
     pub format: OutputFormat,
+    /// Format-specific settings when `format` is AVIF: quality, alpha
+    /// quality, speed, depth and chroma layout (since 2026-11-15; they were
+    /// the fields `quality`, `speed` and `chroma` before, and the depth was
+    /// not passed).
+    pub avif: AvifOptions,
     /// Format-specific settings when `format` is WebP.
     pub webp: WebpOptions,
     /// Format-specific settings when `format` is JPEG XL.
@@ -31,15 +41,9 @@ pub struct EncodeRequest {
     /// The rows carry straight alpha that may be below 255; when false
     /// every alpha byte is 255.
     pub has_alpha: bool,
-    /// AVIF quality; for WebP use `webp`.
-    pub quality: f32,
-    /// AVIF speed; for WebP use `webp`.
-    pub speed: u8,
     /// Encoder threads, resolved (at least 1); 1 means the caller asked
     /// for single-threaded encoding.
     pub threads: usize,
-    /// AVIF chroma layout.
-    pub chroma: ChromaSubsampling,
 }
 
 /// The encoded image and what the backend knows about its memory.
@@ -80,8 +84,8 @@ impl EncodedImage {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum EncodeErrorKind {
-    /// The request is outside what the backend supports (quality, speed,
-    /// geometry, alpha or chroma layout).
+    /// The request is outside what the backend supports (an encoder
+    /// setting, geometry or alpha).
     InvalidOptions,
     /// The backend could not allocate memory.
     ResourceExhausted,

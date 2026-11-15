@@ -51,6 +51,45 @@ pub struct SequenceInfo {
     pub full_range: bool,
 }
 
+/// The interleaved samples libavif writes: its RGB formats, and since
+/// libavif 1.3 the gray ones (`AVIF_RGB_FORMAT_GRAY`, `GRAYA`), which carry
+/// the converted Y plane of a monochrome image as one channel.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Samples {
+    Gray,
+    GrayAlpha,
+    Rgb,
+    Rgba,
+}
+
+impl Samples {
+    /// RGB or RGBA.
+    #[must_use]
+    pub fn rgb(alpha: bool) -> Self {
+        if alpha { Self::Rgba } else { Self::Rgb }
+    }
+
+    /// Interleaved samples per pixel.
+    #[must_use]
+    pub fn channels(self) -> usize {
+        match self {
+            Self::Gray => 1,
+            Self::GrayAlpha => 2,
+            Self::Rgb => 3,
+            Self::Rgba => 4,
+        }
+    }
+
+    fn format(self) -> api::avifRGBFormat {
+        match self {
+            Self::Gray => api::AVIF_RGB_FORMAT_GRAY,
+            Self::GrayAlpha => api::AVIF_RGB_FORMAT_GRAYA,
+            Self::Rgb => api::AVIF_RGB_FORMAT_RGB,
+            Self::Rgba => api::AVIF_RGB_FORMAT_RGBA,
+        }
+    }
+}
+
 /// Owns one libavif decoder. The input slice must outlive its memory reader;
 /// the borrow checker enforces that the decoder cannot outlive its input:
 ///
@@ -266,7 +305,7 @@ impl<'a> Decoder<'a> {
         width: u32,
         height: u32,
         depth: u32,
-        alpha: bool,
+        samples: Samples,
     ) -> Result<(), ReadError> {
         let image = self.next_image()?;
         // SAFETY: Both modules reproduce the same repr(C) libavif image ABI.
@@ -279,11 +318,7 @@ impl<'a> Decoder<'a> {
                 return Err(ReadError::OutputSize);
             }
             rgb.depth = depth;
-            rgb.format = if alpha {
-                api::AVIF_RGB_FORMAT_RGBA
-            } else {
-                api::AVIF_RGB_FORMAT_RGB
-            };
+            rgb.format = samples.format();
             rgb.alphaPremultiplied = 0;
             rgb.chromaUpsampling = api::AVIF_CHROMA_UPSAMPLING_NEAREST;
             rgb.maxThreads = i32::try_from(self.threads).unwrap_or(1);
@@ -308,7 +343,18 @@ impl<'a> Decoder<'a> {
         height: u32,
         alpha: bool,
     ) -> Result<(), ReadError> {
-        let channels = if alpha { 4_usize } else { 3 };
+        self.decode_u8_samples(pixels, width, height, Samples::rgb(alpha))
+    }
+
+    /// [`Self::decode_u8`] into the given interleaved samples.
+    pub fn decode_u8_samples(
+        &mut self,
+        pixels: &mut [u8],
+        width: u32,
+        height: u32,
+        samples: Samples,
+    ) -> Result<(), ReadError> {
+        let channels = samples.channels();
         let row_bytes = usize::try_from(width)
             .ok()
             .and_then(|n| n.checked_mul(channels))
@@ -326,7 +372,7 @@ impl<'a> Decoder<'a> {
             width,
             height,
             8,
-            alpha,
+            samples,
         )
     }
 
@@ -337,7 +383,18 @@ impl<'a> Decoder<'a> {
         height: u32,
         alpha: bool,
     ) -> Result<(), ReadError> {
-        let channels = if alpha { 4_usize } else { 3 };
+        self.decode_u16_samples(pixels, width, height, Samples::rgb(alpha))
+    }
+
+    /// [`Self::decode_u16`] into the given interleaved samples.
+    pub fn decode_u16_samples(
+        &mut self,
+        pixels: &mut [u16],
+        width: u32,
+        height: u32,
+        samples: Samples,
+    ) -> Result<(), ReadError> {
+        let channels = samples.channels();
         let row_samples = usize::try_from(width)
             .ok()
             .and_then(|n| n.checked_mul(channels))
@@ -356,7 +413,7 @@ impl<'a> Decoder<'a> {
             width,
             height,
             16,
-            alpha,
+            samples,
         )
     }
 }
@@ -498,5 +555,51 @@ mod tests {
             Decoder::parse(&other_brand, 100_000_000),
             Err(ReadError::Animation)
         ));
+    }
+
+    /// libavif's gray output of a monochrome image is the converted Y plane,
+    /// and its RGB output of the same image copies that value into R, G and
+    /// B: channel 0 of the RGB output equals the gray output, bit for bit,
+    /// at 8, 10 and 12 bits (ADR-0043 D2: the engine expands gray to RGB by
+    /// the same copy for every format).
+    #[test]
+    fn monochrome_gray_output_equals_each_channel_of_the_rgb_output() {
+        use super::Samples;
+        const ASSETS: &str = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/"
+        );
+        for name in [
+            "fox.profile0.8bpc.yuv420.monochrome.avif",
+            "fox.profile0.10bpc.yuv420.monochrome.avif",
+            "fox.profile2.12bpc.yuv420.monochrome.avif",
+        ] {
+            let bytes = std::fs::read(format!("{ASSETS}{name}")).unwrap();
+            let (_, info) = Decoder::parse(&bytes, 100_000_000).unwrap();
+            assert!(info.sequence.monochrome, "{name}");
+            let pixels = info.width as usize * info.height as usize;
+            let decode = |samples: Samples| {
+                let (mut decoder, _) = Decoder::parse(&bytes, 100_000_000).unwrap();
+                let mut out = vec![0_u16; pixels * samples.channels()];
+                if info.depth == 8 {
+                    let mut bytes = vec![0_u8; out.len()];
+                    decoder
+                        .decode_u8_samples(&mut bytes, info.width, info.height, samples)
+                        .unwrap();
+                    out = bytes.into_iter().map(u16::from).collect();
+                } else {
+                    decoder
+                        .decode_u16_samples(&mut out, info.width, info.height, samples)
+                        .unwrap();
+                }
+                out
+            };
+            let gray = decode(Samples::Gray);
+            let rgb = decode(Samples::Rgb);
+            assert!(gray.iter().any(|&v| v != gray[0]), "{name}: not flat");
+            for (pixel, value) in rgb.as_chunks::<3>().0.iter().zip(&gray) {
+                assert_eq!(*pixel, [*value; 3], "{name}");
+            }
+        }
     }
 }

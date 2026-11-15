@@ -48,7 +48,7 @@ for iteration in 1 2; do
     /usr/bin/time -f '%e,%M' -o "$tmp/ferrisma-time" \
         "$repo_dir/target/release/ferrisma" \
         "$tmp/source.jpg" "$tmp/ferrisma.avif" 640 427 \
-        --assume-srgb --quality=80 --speed=10 --budget-mb=192 \
+        --assume-srgb --avif-quality=80 --avif-speed=10 --avif-depth=10 --budget-mb=192 \
         > "$tmp/ferrisma-log"
     IFS=, read -r elapsed rss < "$tmp/ferrisma-time"
     bytes=$(wc -c < "$tmp/ferrisma.avif" | tr -d ' ')

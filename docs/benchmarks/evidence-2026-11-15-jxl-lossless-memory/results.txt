@@ -1,0 +1,180 @@
+c700x700-port-fixed-1 status=0 max_rss=34553856 heap_peak=35545739
+c700x700-port-api0-1 status=0 max_rss=35913728 heap_peak=37087681
+c700x700-port-api-default-1 status=0 max_rss=32440320 heap_peak=26194080
+c700x700-cjxl-buffering0-1 status=0 max_rss=38420480 heap_peak=-
+c700x700-cjxl-default-1 status=0 max_rss=34504704 heap_peak=-
+c700x700-port-fixed-2 status=0 max_rss=32423936 heap_peak=35545739
+c700x700-port-api0-2 status=0 max_rss=34881536 heap_peak=37087681
+c700x700-port-api-default-2 status=0 max_rss=31604736 heap_peak=26194080
+c700x700-cjxl-buffering0-2 status=0 max_rss=40534016 heap_peak=-
+c700x700-cjxl-default-2 status=0 max_rss=33931264 heap_peak=-
+c700x700a-port-fixed-1 status=0 max_rss=42303488 heap_peak=47132003
+c700x700a-port-api0-1 status=0 max_rss=48316416 heap_peak=49163869
+c700x700a-port-api-default-1 status=0 max_rss=39206912 heap_peak=34643501
+c700x700a-cjxl-buffering0-1 status=0 max_rss=52609024 heap_peak=-
+c700x700a-cjxl-default-1 status=0 max_rss=42860544 heap_peak=-
+c700x700a-port-fixed-2 status=0 max_rss=43122688 heap_peak=47132003
+c700x700a-port-api0-2 status=0 max_rss=44204032 heap_peak=49163869
+c700x700a-port-api-default-2 status=0 max_rss=39141376 heap_peak=34643501
+c700x700a-cjxl-buffering0-2 status=0 max_rss=47300608 heap_peak=-
+c700x700a-cjxl-default-2 status=0 max_rss=44204032 heap_peak=-
+c1024x1024-port-fixed-1 status=0 max_rss=84869120 heap_peak=75177464
+c1024x1024-port-api0-1 status=0 max_rss=85688320 heap_peak=78395134
+c1024x1024-port-api-default-1 status=0 max_rss=58081280 heap_peak=54793105
+c1024x1024-cjxl-buffering0-1 status=0 max_rss=86540288 heap_peak=-
+c1024x1024-cjxl-default-1 status=0 max_rss=66486272 heap_peak=-
+c1024x1024-port-fixed-2 status=0 max_rss=84459520 heap_peak=75177464
+c1024x1024-port-api0-2 status=0 max_rss=84787200 heap_peak=78395134
+c1024x1024-port-api-default-2 status=0 max_rss=65437696 heap_peak=54793105
+c1024x1024-cjxl-buffering0-2 status=0 max_rss=89980928 heap_peak=-
+c1024x1024-cjxl-default-2 status=0 max_rss=68501504 heap_peak=-
+c1024x1024a-port-fixed-1 status=0 max_rss=105332736 heap_peak=99868708
+c1024x1024a-port-api0-1 status=0 max_rss=105021440 heap_peak=104134878
+c1024x1024a-port-api-default-1 status=0 max_rss=84246528 heap_peak=72664865
+c1024x1024a-cjxl-buffering0-1 status=0 max_rss=110821376 heap_peak=-
+c1024x1024a-cjxl-default-1 status=0 max_rss=89833472 heap_peak=-
+c1024x1024a-port-fixed-2 status=0 max_rss=104808448 heap_peak=99868708
+c1024x1024a-port-api0-2 status=0 max_rss=105021440 heap_peak=104134878
+c1024x1024a-port-api-default-2 status=0 max_rss=85000192 heap_peak=72664865
+c1024x1024a-cjxl-buffering0-2 status=0 max_rss=110837760 heap_peak=-
+c1024x1024a-cjxl-default-2 status=0 max_rss=88096768 heap_peak=-
+c2048x2048-port-fixed-1 status=0 max_rss=317751296 heap_peak=292622810
+c2048x2048-port-api0-1 status=0 max_rss=317259776 heap_peak=305277664
+c2048x2048-port-api-default-1 status=0 max_rss=218628096 heap_peak=206196640
+c2048x2048-cjxl-buffering0-1 status=0 max_rss=338608128 heap_peak=-
+c2048x2048-cjxl-default-1 status=0 max_rss=233193472 heap_peak=-
+c2048x2048-port-fixed-2 status=0 max_rss=299352064 heap_peak=292622810
+c2048x2048-port-api0-2 status=0 max_rss=325238784 heap_peak=305277664
+c2048x2048-port-api-default-2 status=0 max_rss=219217920 heap_peak=206196640
+c2048x2048-cjxl-buffering0-2 status=0 max_rss=327450624 heap_peak=-
+c2048x2048-cjxl-default-2 status=0 max_rss=233914368 heap_peak=-
+c2048x2048a-port-fixed-1 status=0 max_rss=398082048 heap_peak=389052928
+c2048x2048a-port-api0-1 status=0 max_rss=403587072 heap_peak=405902010
+c2048x2048a-port-api-default-1 status=0 max_rss=293699584 heap_peak=273799218
+c2048x2048a-cjxl-buffering0-1 status=0 max_rss=419364864 heap_peak=-
+c2048x2048a-cjxl-default-1 status=0 max_rss=298532864 heap_peak=-
+c2048x2048a-port-fixed-2 status=0 max_rss=397246464 heap_peak=389052928
+c2048x2048a-port-api0-2 status=0 max_rss=404045824 heap_peak=405902010
+c2048x2048a-port-api-default-2 status=0 max_rss=290242560 heap_peak=273799218
+c2048x2048a-cjxl-buffering0-2 status=0 max_rss=421494784 heap_peak=-
+c2048x2048a-cjxl-default-2 status=0 max_rss=312328192 heap_peak=-
+c3000x2000-port-fixed-1 status=0 max_rss=440909824 heap_peak=416021088
+c3000x2000-port-api0-1 status=0 max_rss=435748864 heap_peak=434093030
+c3000x2000-port-api-default-1 status=0 max_rss=304316416 heap_peak=212286342
+c3000x2000-cjxl-buffering0-1 status=0 max_rss=451231744 heap_peak=-
+c3000x2000-cjxl-default-1 status=0 max_rss=325435392 heap_peak=-
+c3000x2000-port-fixed-2 status=0 max_rss=442679296 heap_peak=416021088
+c3000x2000-port-api0-2 status=0 max_rss=444530688 heap_peak=434093030
+c3000x2000-port-api-default-2 status=0 max_rss=308609024 heap_peak=212286342
+c3000x2000-cjxl-buffering0-2 status=0 max_rss=459358208 heap_peak=-
+c3000x2000-cjxl-default-2 status=0 max_rss=323076096 heap_peak=-
+c3000x2000a-port-fixed-1 status=0 max_rss=566345728 heap_peak=553216374
+c3000x2000a-port-api0-1 status=0 max_rss=568950784 heap_peak=577288240
+c3000x2000a-port-api-default-1 status=0 max_rss=396967936 heap_peak=281943353
+c3000x2000a-cjxl-buffering0-1 status=0 max_rss=601882624 heap_peak=-
+c3000x2000a-cjxl-default-1 status=0 max_rss=419037184 heap_peak=-
+c3000x2000a-port-fixed-2 status=0 max_rss=568000512 heap_peak=553216374
+c3000x2000a-port-api0-2 status=0 max_rss=567836672 heap_peak=577288240
+c3000x2000a-port-api-default-2 status=0 max_rss=400621568 heap_peak=281943353
+c3000x2000a-cjxl-buffering0-2 status=0 max_rss=597065728 heap_peak=-
+c3000x2000a-cjxl-default-2 status=0 max_rss=408862720 heap_peak=-
+photo12-port-fixed-1 status=0 max_rss=909148160 heap_peak=842905834
+photo12-port-api0-1 status=0 max_rss=911261696 heap_peak=879556080
+photo12-port-api-default-1 status=0 max_rss=402882560 heap_peak=254389177
+photo12-cjxl-buffering0-1 status=0 max_rss=984006656 heap_peak=-
+photo12-cjxl-default-1 status=0 max_rss=426377216 heap_peak=-
+photo12-port-fixed-2 status=0 max_rss=905953280 heap_peak=842905834
+photo12-port-api0-2 status=0 max_rss=917749760 heap_peak=879556080
+photo12-port-api-default-2 status=0 max_rss=371490816 heap_peak=254389177
+photo12-cjxl-buffering0-2 status=0 max_rss=967524352 heap_peak=-
+photo12-cjxl-default-2 status=0 max_rss=456114176 heap_peak=-
+photo12a-port-fixed-1 status=0 max_rss=1101807616 heap_peak=1121048170
+photo12a-port-api0-1 status=0 max_rss=1167458304 heap_peak=1169891108
+photo12a-port-api-default-1 status=0 max_rss=516194304 heap_peak=338055034
+photo12a-cjxl-buffering0-1 status=0 max_rss=1224130560 heap_peak=-
+photo12a-cjxl-default-1 status=0 max_rss=566984704 heap_peak=-
+photo12a-port-fixed-2 status=0 max_rss=1102315520 heap_peak=1121048170
+photo12a-port-api0-2 status=0 max_rss=1170292736 heap_peak=1169891108
+photo12a-port-api-default-2 status=0 max_rss=499286016 heap_peak=338055034
+photo12a-cjxl-buffering0-2 status=0 max_rss=1220378624 heap_peak=-
+photo12a-cjxl-default-2 status=0 max_rss=585564160 heap_peak=-
+photo24-port-fixed-1 status=0 max_rss=1751056384 heap_peak=1658346523
+photo24-port-api0-1 status=0 max_rss=1778925568 heap_peak=1730418465
+photo24-port-api-default-1 status=0 max_rss=462372864 heap_peak=328007343
+photo24-cjxl-buffering0-1 status=0 max_rss=1854259200 heap_peak=-
+photo24-cjxl-default-1 status=0 max_rss=555761664 heap_peak=-
+photo24-port-fixed-2 status=0 max_rss=1745436672 heap_peak=1658346523
+photo24-port-api0-2 status=0 max_rss=1757003776 heap_peak=1730418465
+photo24-port-api-default-2 status=0 max_rss=477724672 heap_peak=328007343
+photo24-cjxl-buffering0-2 status=0 max_rss=1870430208 heap_peak=-
+photo24-cjxl-default-2 status=0 max_rss=634863616 heap_peak=-
+photo24a-port-fixed-1 status=0 max_rss=2284322816 heap_peak=2205924035
+photo24a-port-api0-1 status=0 max_rss=2324054016 heap_peak=2301995901
+photo24a-port-api-default-1 status=0 max_rss=670547968 heap_peak=438756615
+photo24a-cjxl-buffering0-1 status=0 max_rss=2412707840 heap_peak=-
+photo24a-cjxl-default-1 status=0 max_rss=833994752 heap_peak=-
+photo24a-port-fixed-2 status=0 max_rss=2284388352 heap_peak=2205924035
+photo24a-port-api0-2 status=0 max_rss=2324480000 heap_peak=2301995901
+photo24a-port-api-default-2 status=0 max_rss=693764096 heap_peak=438756615
+photo24a-cjxl-buffering0-2 status=0 max_rss=2411790336 heap_peak=-
+photo24a-cjxl-default-2 status=0 max_rss=771997696 heap_peak=-
+0055030d2bd2bb6a6da103c8ef99552d9d8809bf170554bc9f3b14797cadf4d8  ./c1024x1024-cjxl-buffering0.jxl
+f2014b98a92843db9b3462c8ba8a7927825a2296cfcc138a864829875a636642  ./c1024x1024-cjxl-default.jxl
+f2014b98a92843db9b3462c8ba8a7927825a2296cfcc138a864829875a636642  ./c1024x1024-port-api-default.jxl
+0055030d2bd2bb6a6da103c8ef99552d9d8809bf170554bc9f3b14797cadf4d8  ./c1024x1024-port-api0.jxl
+0055030d2bd2bb6a6da103c8ef99552d9d8809bf170554bc9f3b14797cadf4d8  ./c1024x1024-port-fixed.jxl
+d79fe18f75c8a3b6074dfd41602dd9c0ba4a15a5049a7b23757dd7d0ec3d930a  ./c1024x1024a-cjxl-buffering0.jxl
+24a1479417112d127abe26941e7e69b7ca110a2eb22da6fd657a4806cd7318f4  ./c1024x1024a-cjxl-default.jxl
+24a1479417112d127abe26941e7e69b7ca110a2eb22da6fd657a4806cd7318f4  ./c1024x1024a-port-api-default.jxl
+d79fe18f75c8a3b6074dfd41602dd9c0ba4a15a5049a7b23757dd7d0ec3d930a  ./c1024x1024a-port-api0.jxl
+d79fe18f75c8a3b6074dfd41602dd9c0ba4a15a5049a7b23757dd7d0ec3d930a  ./c1024x1024a-port-fixed.jxl
+d9a2712645b3fda67dcb94c6a325ce126f14732590b172625bb948aa9d2c06d2  ./c2048x2048-cjxl-buffering0.jxl
+a642c11e88bc478459c0810c9dd3d4b9197ee4e1ffdf152cef2a75c49a66d93a  ./c2048x2048-cjxl-default.jxl
+a642c11e88bc478459c0810c9dd3d4b9197ee4e1ffdf152cef2a75c49a66d93a  ./c2048x2048-port-api-default.jxl
+d9a2712645b3fda67dcb94c6a325ce126f14732590b172625bb948aa9d2c06d2  ./c2048x2048-port-api0.jxl
+d9a2712645b3fda67dcb94c6a325ce126f14732590b172625bb948aa9d2c06d2  ./c2048x2048-port-fixed.jxl
+72c3f6e4b4779d2a094e0b0930b93536bef617b8fbfb516ba2153afef68f863a  ./c2048x2048a-cjxl-buffering0.jxl
+e3c9de68c1d5313bd51f6e545f4add95db66c40ce1c67b166391652b313237ac  ./c2048x2048a-cjxl-default.jxl
+e3c9de68c1d5313bd51f6e545f4add95db66c40ce1c67b166391652b313237ac  ./c2048x2048a-port-api-default.jxl
+72c3f6e4b4779d2a094e0b0930b93536bef617b8fbfb516ba2153afef68f863a  ./c2048x2048a-port-api0.jxl
+72c3f6e4b4779d2a094e0b0930b93536bef617b8fbfb516ba2153afef68f863a  ./c2048x2048a-port-fixed.jxl
+9f6fd77a6752bfef8b731b616e2621433a49467729978cf7a1796711d32dd473  ./c3000x2000-cjxl-buffering0.jxl
+b3ef067a886f85ef12bd7dc33fb40127dee0d58c8570cb5896fc0d8c4dfcbaac  ./c3000x2000-cjxl-default.jxl
+b3ef067a886f85ef12bd7dc33fb40127dee0d58c8570cb5896fc0d8c4dfcbaac  ./c3000x2000-port-api-default.jxl
+9f6fd77a6752bfef8b731b616e2621433a49467729978cf7a1796711d32dd473  ./c3000x2000-port-api0.jxl
+9f6fd77a6752bfef8b731b616e2621433a49467729978cf7a1796711d32dd473  ./c3000x2000-port-fixed.jxl
+b51ea5f5d8eebc22245b39a2ca44a305d933ccee3a376517f9e1f28d5e6bc5f2  ./c3000x2000a-cjxl-buffering0.jxl
+03ec78d2fcada4ce0efac7354f41a11dfc7c602e55e04c725a84c204aa84659e  ./c3000x2000a-cjxl-default.jxl
+03ec78d2fcada4ce0efac7354f41a11dfc7c602e55e04c725a84c204aa84659e  ./c3000x2000a-port-api-default.jxl
+b51ea5f5d8eebc22245b39a2ca44a305d933ccee3a376517f9e1f28d5e6bc5f2  ./c3000x2000a-port-api0.jxl
+b51ea5f5d8eebc22245b39a2ca44a305d933ccee3a376517f9e1f28d5e6bc5f2  ./c3000x2000a-port-fixed.jxl
+c378078a46853e8fb52aabfae64f52241fad531b73f8e1bbd733914d94a665eb  ./c700x700-cjxl-buffering0.jxl
+8b1d2d27c403d8cf4ba9f88002b9b4ddaa9063fb41c77a1eb1d306d654c9f8e9  ./c700x700-cjxl-default.jxl
+8b1d2d27c403d8cf4ba9f88002b9b4ddaa9063fb41c77a1eb1d306d654c9f8e9  ./c700x700-port-api-default.jxl
+c378078a46853e8fb52aabfae64f52241fad531b73f8e1bbd733914d94a665eb  ./c700x700-port-api0.jxl
+c378078a46853e8fb52aabfae64f52241fad531b73f8e1bbd733914d94a665eb  ./c700x700-port-fixed.jxl
+c8321ca15f8e49c08feda003e6ff5ab548d60c98a6c96ccf3729d63ceed394d7  ./c700x700a-cjxl-buffering0.jxl
+4d8f836cb6fe4cb5383ffdaef7d76cf20cba5879d3bb917b3ced9876c38c075b  ./c700x700a-cjxl-default.jxl
+4d8f836cb6fe4cb5383ffdaef7d76cf20cba5879d3bb917b3ced9876c38c075b  ./c700x700a-port-api-default.jxl
+c8321ca15f8e49c08feda003e6ff5ab548d60c98a6c96ccf3729d63ceed394d7  ./c700x700a-port-api0.jxl
+c8321ca15f8e49c08feda003e6ff5ab548d60c98a6c96ccf3729d63ceed394d7  ./c700x700a-port-fixed.jxl
+582d8088dd8652205e6e7325c8c121ad9a232d50b8d8c11ff552a23acdd1eebd  ./photo12-cjxl-buffering0.jxl
+7d38843b60af456ec9d77428ee29c4a1b629e9cc74dc522d311263de8bbc07e1  ./photo12-cjxl-default.jxl
+7d38843b60af456ec9d77428ee29c4a1b629e9cc74dc522d311263de8bbc07e1  ./photo12-port-api-default.jxl
+582d8088dd8652205e6e7325c8c121ad9a232d50b8d8c11ff552a23acdd1eebd  ./photo12-port-api0.jxl
+582d8088dd8652205e6e7325c8c121ad9a232d50b8d8c11ff552a23acdd1eebd  ./photo12-port-fixed.jxl
+3f96e62eb845f0babce44ad677c4bcad1d1b356d240edfbd1d97ce3c3bdce3ec  ./photo12a-cjxl-buffering0.jxl
+4063a4de6d9f65d2648a135df494a519c7b0fd97907bb13265ab496d40746ec6  ./photo12a-cjxl-default.jxl
+4063a4de6d9f65d2648a135df494a519c7b0fd97907bb13265ab496d40746ec6  ./photo12a-port-api-default.jxl
+3f96e62eb845f0babce44ad677c4bcad1d1b356d240edfbd1d97ce3c3bdce3ec  ./photo12a-port-api0.jxl
+3f96e62eb845f0babce44ad677c4bcad1d1b356d240edfbd1d97ce3c3bdce3ec  ./photo12a-port-fixed.jxl
+69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a  ./photo24-cjxl-buffering0.jxl
+893315da9939729efad7098905d180bdc798d75e1f14f9838818f7c52b1445d6  ./photo24-cjxl-default.jxl
+893315da9939729efad7098905d180bdc798d75e1f14f9838818f7c52b1445d6  ./photo24-port-api-default.jxl
+69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a  ./photo24-port-api0.jxl
+69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a  ./photo24-port-fixed.jxl
+d61ecbd7dfbca2be1d4a2e2815a18dc4413a1b3bf802dcf3cd5d46deef4cc223  ./photo24a-cjxl-buffering0.jxl
+e358f6bbdfefbee42a9a25e74de0bce3ff96f4189dbba3d477ca5011deca43a1  ./photo24a-cjxl-default.jxl
+e358f6bbdfefbee42a9a25e74de0bce3ff96f4189dbba3d477ca5011deca43a1  ./photo24a-port-api-default.jxl
+d61ecbd7dfbca2be1d4a2e2815a18dc4413a1b3bf802dcf3cd5d46deef4cc223  ./photo24a-port-api0.jxl
+d61ecbd7dfbca2be1d4a2e2815a18dc4413a1b3bf802dcf3cd5d46deef4cc223  ./photo24a-port-fixed.jxl

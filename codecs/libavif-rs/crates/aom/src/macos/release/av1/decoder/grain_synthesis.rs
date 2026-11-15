@@ -17,13 +17,15 @@
 // Mechanically translated from upstream/aom/av1/decoder/grain_synthesis.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type __sFILEX;
-    pub type aom_metadata_array;
     static mut __stderrp: *mut FILE;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
     fn aom_calloc(num: size_t, size: size_t) -> *mut core::ffi::c_void;
     fn aom_free(memblk: *mut core::ffi::c_void);
 }
+#[repr(C)]
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_metadata_array([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __int64_t = i64;
 pub type __darwin_size_t = usize;
 pub type __darwin_off_t = __int64_t;

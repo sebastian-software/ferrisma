@@ -30,7 +30,7 @@ pub use crate::quality::Filter as ResizeFilter;
 pub use crate::resize_geometry::{ResizeFit, ResizeOptions};
 pub use ferrisma_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelReason};
 
-/// Chroma layout for AVIF output and AVIF encoder backends.
+/// Chroma layout of AVIF output ([`AvifOptions::chroma`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum ChromaSubsampling {
@@ -104,29 +104,90 @@ impl Default for JpegXlOptions {
     }
 }
 
-/// Settings for the built-in still WebP encoder.
+/// Settings for the built-in still WebP encoder, on libwebp's own scales
+/// (ADR-0043 D4: no scale is mapped onto another encoder's). Each libwebp
+/// concept has one control: lossy output takes libwebp's `quality` and
+/// `method` (`cwebp -q`, `-m`); lossless output takes libwebp's lossless
+/// preset level (`cwebp -z`), which sets libwebp's method and quality
+/// itself. Must stay at the default for other outputs.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum WebpOptions {
-    /// Quality is 1–100; speed is 1 (slowest) through 10 (fastest).
+    /// Lossy VP8 at libwebp's quality and method.
     Lossy {
-        /// Quality from 1 through 100.
+        /// libwebp quality, 1 through 100; default 75 (libwebp's).
         quality: f32,
-        /// Speed from 1 (slowest) through 10 (fastest).
-        speed: u8,
+        /// libwebp method, 0 (fastest) through 6 (slowest, smallest);
+        /// default 4 (libwebp's `WebPConfigInit`, `cwebp -m`). Every value
+        /// is passed unchanged. Until 2026-11-15 this was a `speed` 1–10
+        /// mapped onto the methods, which gave three pairs of speeds the
+        /// same bytes.
+        method: u8,
     },
-    /// Level 0 is fastest; 9 gives the smallest lossless files.
+    /// Lossless VP8L at libwebp's preset level (`WebPConfigLosslessPreset`):
+    /// 0 is fastest, 9 gives the smallest files.
     Lossless {
-        /// Effort level from 0 through 9.
+        /// Preset level from 0 through 9.
         level: u8,
     },
 }
 
+impl WebpOptions {
+    /// libwebp's default lossy method (`WebPConfigInit`).
+    pub const DEFAULT_METHOD: u8 = 4;
+    /// The slowest lossy method libwebp has.
+    pub const MAX_METHOD: u8 = 6;
+}
+
 impl Default for WebpOptions {
+    /// Lossy at libwebp's defaults: quality 75, method 4.
     fn default() -> Self {
         Self::Lossy {
             quality: 75.0,
+            method: Self::DEFAULT_METHOD,
+        }
+    }
+}
+
+/// Settings for the built-in AVIF writer, libavif with its AOM encoder
+/// (ADR-0037), on libavif's own scales (ADR-0043 D4). The defaults are those
+/// of the original tool, `avifenc` of the pinned libavif 1.4.2, for the
+/// 8-bit RGB rows the writer receives (ADR-0037, 2026-11-15). Must stay at
+/// the default for other outputs. External AVIF backends receive it in
+/// [`EncodeRequest::avif`] and validate it on their own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AvifOptions {
+    /// Color quality, libavif's `avifEncoder::quality`: 0 (worst) through
+    /// 100 (lossless quantizer); default 60 (`avifenc`).
+    pub quality: u8,
+    /// Alpha quality, libavif's `avifEncoder::qualityAlpha`, on the same
+    /// scale; used only when an alpha sample is below 255; default 60.
+    /// Explicit: `avifenc` copies the color quality into it when it is not
+    /// given, so its default is the color default, and this field does not
+    /// follow `quality` when only that one is changed.
+    pub alpha_quality: u8,
+    /// AOM speed (`cpu-used`), 0 (slowest) through 10 (fastest); default 6
+    /// (`avifenc`).
+    pub speed: u8,
+    /// AV1 bit depth, 8 or 10; default 8. `avifenc` writes the depth of its
+    /// input (8 from its JPEG reader); this writer always receives 8-bit
+    /// rows, and the fixed default 8 is a working decision of 2026-11-15
+    /// awaiting the owner's confirmation (until then the default was 10,
+    /// as `TransformOptions::avif_depth`). A deeper input is reported as
+    /// [`Discarded::PrecisionReduced`] at either depth.
+    pub depth: u8,
+    /// Chroma layout; default 4:4:4 (`avifenc` for RGB input).
+    pub chroma: ChromaSubsampling,
+}
+
+impl Default for AvifOptions {
+    fn default() -> Self {
+        Self {
+            quality: 60,
+            alpha_quality: 60,
             speed: 6,
+            depth: 8,
+            chroma: ChromaSubsampling::Yuv444,
         }
     }
 }
@@ -159,7 +220,10 @@ pub enum InputProfilePolicy {
     /// Explicitly use the decoder-provided *rendered output* ICC as authoritative.
     /// Requires the optional `icc` feature and supports opaque RGB and RGB
     /// with straight alpha (alpha passes through the color transform
-    /// unchanged; premultiplied or unspecified alpha is refused).
+    /// unchanged; premultiplied or unspecified alpha is refused). Input
+    /// without a profile whose typed signal is sRGB, Display P3 or linear
+    /// sRGB (AVIF `nclx`, JPEG XL enum encoding) is converted as under
+    /// [`Self::Strict`] (since 2026-11-15).
     UseRenderedIcc,
 }
 
@@ -193,19 +257,25 @@ pub struct Crop {
 /// Encoder scratch allocations are opaque and not constrained by the budget.
 #[derive(Clone, Copy, Debug)]
 pub struct TransformOptions {
-    /// Encoded output format.
+    /// Encoded output format. Each format has its own settings below, on
+    /// its encoder's own scales; the settings of the other formats must
+    /// stay at their defaults, or the transcode is refused before decoding
+    /// (until 2026-11-15 the AVIF settings were the format-independent
+    /// looking `quality`, `speed`, `chroma_subsampling` and `avif_depth`).
     pub output_format: OutputFormat,
-    /// AV1 bit depth of the AVIF output: 8 or 10 (the default). Must stay at
-    /// the default for other outputs and external backends. (Until
-    /// 2026-11-15 the depth was part of the removed `AvifEncoder::Libavif`.)
-    pub avif_depth: u8,
-    /// Settings for the built-in WebP encoder.
+    /// AVIF settings; must stay at the default for other formats.
+    pub avif: AvifOptions,
+    /// WebP settings; must stay at the default for other formats.
     pub webp: WebpOptions,
     /// JPEG XL settings; must stay at the default for other formats.
     pub jpeg_xl: JpegXlOptions,
-    /// Exact output width; ignored by [`transcode_resized`].
+    /// Exact output width. [`transcode_resized`] and
+    /// [`transcode_resized_with`] take the size from [`ResizeOptions`] and
+    /// refuse a value other than the default (1) with
+    /// [`ProcessingErrorKind::InvalidOptions`] instead of ignoring it.
     pub output_width: u32,
-    /// Exact output height; ignored by [`transcode_resized`].
+    /// Exact output height; as `output_width`, refused by the resize entry
+    /// points unless it is the default (1).
     pub output_height: u32,
     /// Optional crop in upright display coordinates, applied before resizing.
     pub crop: Option<Crop>,
@@ -228,21 +298,11 @@ pub struct TransformOptions {
     pub transform_threads: usize,
     /// How missing or rendered ICC color is handled.
     pub profile_policy: InputProfilePolicy,
-    /// AVIF quality on libavif's scale, passed unchanged: 0–100, rounded to
-    /// an integer (64 quantizer steps). Until 2026-11-15 rav1e was a second
-    /// AVIF encoder with an incomparable scale (rav1e 70/80/90 corresponded
-    /// to roughly libavif 50/55/78 at matched SSIMULACRA2).
-    pub quality: f32,
-    /// AVIF speed on libavif's scale, passed unchanged: 0–10 (AOM
-    /// `cpu-used`).
-    pub speed: u8,
     /// AV1 encoder threads: 0 means available cores (capped at 256), and
     /// explicit values must be at most 256. libavif uses automatic tiling and
     /// its encoded bytes can depend on the selected thread count. The
     /// built-in WebP and JPEG XL encoders are serial and require 1.
     pub encoder_threads: usize,
-    /// Chroma layout of the AVIF output; 4:4:4 by default.
-    pub chroma_subsampling: ChromaSubsampling,
     /// Engine-managed memory budget in bytes. Opaque codec scratch memory is
     /// not bounded by it; see [`ProcessingReport`].
     pub max_managed_bytes: usize,
@@ -259,7 +319,7 @@ impl Default for TransformOptions {
     fn default() -> Self {
         Self {
             output_format: OutputFormat::Avif,
-            avif_depth: 10,
+            avif: AvifOptions::default(),
             webp: WebpOptions::default(),
             jpeg_xl: JpegXlOptions::default(),
             output_width: 1,
@@ -270,10 +330,7 @@ impl Default for TransformOptions {
             kernel_level_ceiling: None,
             transform_threads: 0,
             profile_policy: InputProfilePolicy::Strict,
-            quality: 75.0,
-            speed: 6,
             encoder_threads: 1,
-            chroma_subsampling: ChromaSubsampling::Yuv444,
             max_managed_bytes: 256 * 1024 * 1024,
             max_input_bytes: 64 * 1024 * 1024,
             max_input_pixels: 100_000_000,
@@ -370,8 +427,9 @@ fn public_rect(rect: Rect) -> Crop {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ColorSignal {
-    /// The decoder's CICP alone (sRGB, Display P3 or linear sRGB); the
-    /// decoder reported no ICC profile.
+    /// The decoder's typed signal alone (sRGB, Display P3 or linear sRGB):
+    /// AVIF `nclx` or a JPEG XL enum color encoding; the decoder reported no
+    /// ICC profile. The same under every policy.
     Cicp,
     /// The decoder reported neither ICC nor CICP, and
     /// [`InputProfilePolicy::AssumeSrgbIfMissing`] supplied sRGB.
@@ -385,6 +443,9 @@ pub enum ColorSignal {
     /// converted after the decoder's CICP beside it was checked and found to
     /// agree with the profile transform. Disagreement is refused with
     /// [`RefusalReason::CicpBesideIcc`]; neither signal takes precedence.
+    /// No built-in reader reports CICP beside a profile since 2026-11-15
+    /// (AVIF follows MIAF: the profile governs, owner decision), so this
+    /// signal is kept for a reader that does.
     RenderedIccWithAgreeingCicp,
 }
 
@@ -467,8 +528,9 @@ pub struct Output {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ProcessingErrorKind {
-    /// Options are invalid: quality, speed, zero limits, output geometry, a
-    /// crop outside the image, or a geometry calculation that overflows.
+    /// Options are invalid: an encoder setting outside its scale or for
+    /// another output, zero limits, output geometry, a crop outside the
+    /// image, or a geometry calculation that overflows.
     InvalidOptions,
     /// The compressed size or decoded pixel count exceeds a configured limit.
     InputLimitExceeded,
@@ -519,9 +581,11 @@ pub enum RefusalReason {
     /// `icc` feature). Kind: [`ProcessingErrorKind::UnsupportedColor`].
     RenderedIccRequiresOptIn,
     /// Under [`InputProfilePolicy::UseRenderedIcc`], CICP beside the
-    /// rendered ICC profile (from the decoder or the profile's own `cicp`
-    /// tag) signals HDR, cannot be checked, or disagrees with the profile;
-    /// the profile is not given precedence (ADR-0015 rule 4). Kind:
+    /// rendered ICC profile (the profile's own `cicp` tag, or a decoder's
+    /// CICP beside it) signals HDR, cannot be checked, or disagrees with
+    /// the profile; the profile is not given precedence (ADR-0015 rule 4).
+    /// AVIF `nclx` beside a profile is not such evidence since 2026-11-15:
+    /// MIAF gives the profile the primaries and transfer. Kind:
     /// [`ProcessingErrorKind::UnsupportedColor`].
     CicpBesideIcc,
     /// The decoder signals a PQ or HLG transfer (JPEG XL enum encoding,
@@ -537,8 +601,9 @@ pub enum RefusalReason {
     /// [`ProcessingErrorKind::UnsupportedColor`].
     UnsupportedColorEncoding,
     /// The policy is [`InputProfilePolicy::UseRenderedIcc`], but the
-    /// decoder reports no ICC profile (CICP-only or untagged input); the
-    /// policy converts only through a profile. Kind:
+    /// decoder reports no ICC profile: untagged input, or a typed signal
+    /// outside sRGB, Display P3 and linear sRGB (those three are converted
+    /// as under the strict policy since 2026-11-15). Kind:
     /// [`ProcessingErrorKind::UnsupportedColor`].
     RenderedIccMissing,
     /// The AVIF container's color signals (`nclx`, ICC) contradict the AV1
@@ -546,9 +611,10 @@ pub enum RefusalReason {
     /// [`ProcessingErrorKind::UnsupportedColor`].
     ContradictoryColorSignals,
     /// The channel layout, sample format or YUV matrix is outside the
-    /// engine's contract: CMYK/YCCK JPEG, monochrome AVIF,
-    /// constant-luminance BT.2020 AVIF, grayscale, CMYK, float or extra
-    /// channels in JPEG XL. Kind: [`ProcessingErrorKind::UnsupportedInput`].
+    /// engine's contract: CMYK/YCCK JPEG, constant-luminance BT.2020 AVIF,
+    /// CMYK, float or extra channels in JPEG XL. (Grayscale JPEG XL and
+    /// monochrome AVIF are accepted since 2026-11-15 and expanded to RGB,
+    /// as grayscale JPEG is.) Kind: [`ProcessingErrorKind::UnsupportedInput`].
     UnsupportedLayout,
     /// The alpha channel is premultiplied (associated) or its association
     /// is unspecified; only straight alpha is processed. Kind:
@@ -567,6 +633,12 @@ pub enum RefusalReason {
     /// so the kind is [`ProcessingErrorKind::UnsupportedInput`], not
     /// `MalformedInput`.
     UnsupportedEssentialProperty,
+    /// Under [`InputProfilePolicy::UseRenderedIcc`], the rendered ICC
+    /// profile describes another color space than the decoded channels: an
+    /// RGB profile beside gray samples, or a gray (`GRAY`) profile beside
+    /// RGB samples (since 2026-11-15). A gray profile beside gray samples is
+    /// converted. Kind: [`ProcessingErrorKind::UnsupportedColor`].
+    IccColorSpaceMismatch,
 }
 
 /// Public error that never exposes backend-specific types.
@@ -650,7 +722,9 @@ impl From<Error> for ProcessingError {
             Error::UnsupportedImageTransform => Kind::UnsupportedInput,
             Error::UnsupportedColorEncoding | Error::HdrTransfer => Kind::UnsupportedColor,
             #[cfg(feature = "icc")]
-            Error::CicpBesideIcc(_) | Error::RenderedIccMissing => Kind::UnsupportedColor,
+            Error::CicpBesideIcc(_) | Error::RenderedIccMissing | Error::IccColorSpaceMismatch => {
+                Kind::UnsupportedColor
+            }
             #[cfg(feature = "avif-read")]
             Error::ContradictoryColorSignals => Kind::UnsupportedColor,
             #[cfg(feature = "avif-read")]
@@ -677,6 +751,8 @@ impl From<Error> for ProcessingError {
             Error::CicpBesideIcc(_) => Some(RefusalReason::CicpBesideIcc),
             #[cfg(feature = "icc")]
             Error::RenderedIccMissing => Some(RefusalReason::RenderedIccMissing),
+            #[cfg(feature = "icc")]
+            Error::IccColorSpaceMismatch => Some(RefusalReason::IccColorSpaceMismatch),
             Error::HdrTransfer => Some(RefusalReason::HdrTransfer),
             #[cfg(feature = "avif-read")]
             Error::ContradictoryColorSignals => Some(RefusalReason::ContradictoryColorSignals),
@@ -910,14 +986,15 @@ pub fn transcode(
 
 /// [`transcode`] with another encoder (ADR-0024): the same decode, color,
 /// crop, resample and quantization, then the output rows go to `backend`
-/// instead of the built-in sink. `quality`, `speed`,
-/// `encoder_threads` and `chroma_subsampling` are passed to the backend in
-/// an [`EncodeRequest`]; the backend validates them on its own scale.
+/// instead of the built-in sink. Every encoder setting (`avif`, `webp`,
+/// `jpeg_xl`, `encoder_threads`) is passed to the backend in an
+/// [`EncodeRequest`]; the backend validates it on its own scale and refuses
+/// what it cannot honor (since 2026-11-15 the AVIF depth is part of the
+/// request, in [`AvifOptions`]).
 ///
 /// # Errors
 /// As [`transcode`], plus the backend's errors, mapped to their
-/// [`ProcessingErrorKind`]. A nondefault [`TransformOptions::avif_depth`]
-/// conflicts with an external backend; the default leaves it authoritative.
+/// [`ProcessingErrorKind`].
 pub fn transcode_with(
     encoded: &[u8],
     format: ImageFormat,
@@ -927,12 +1004,16 @@ pub fn transcode_with(
     run(encoded, format, options, Some(backend), None)
 }
 
-/// Transcode using aspect-aware thumbnail geometry. The `output_width` and
-/// `output_height` fields of `options` are ignored; all other options apply.
-/// See [`ResizeOptions`] and ADR-0034 for integer rounding and crop semantics.
+/// Transcode using aspect-aware thumbnail geometry. The size comes from
+/// `resize`; the `output_width` and `output_height` fields of `options` must
+/// stay at their defaults. All other options apply. See [`ResizeOptions`]
+/// and ADR-0034 for integer rounding and crop semantics.
 ///
 /// # Errors
-/// Returns the same errors as [`transcode`], including invalid resize geometry.
+/// Returns the same errors as [`transcode`], including invalid resize
+/// geometry, and [`ProcessingErrorKind::InvalidOptions`] when
+/// `output_width` or `output_height` differs from its default (until
+/// 2026-11-15 they were ignored).
 pub fn transcode_resized(
     encoded: &[u8],
     format: ImageFormat,
@@ -945,7 +1026,7 @@ pub fn transcode_resized(
 /// [`transcode_resized`] with a caller-provided encoder backend.
 ///
 /// # Errors
-/// Returns the same errors as [`transcode_with`].
+/// Returns the same errors as [`transcode_with`] and [`transcode_resized`].
 pub fn transcode_resized_with(
     encoded: &[u8],
     format: ImageFormat,
@@ -954,6 +1035,20 @@ pub fn transcode_resized_with(
     backend: &dyn EncoderBackend,
 ) -> Result<Output, ProcessingError> {
     run(encoded, format, options, Some(backend), Some(resize))
+}
+
+/// Thread counts above 256 are invalid everywhere, in a batch too (owner
+/// decision of 2026-11-15: an option is refused rather than ignored).
+fn validate_thread_counts(options: &TransformOptions) -> Result<(), ProcessingError> {
+    if options.transform_threads > crate::thread_spawn::MAX_WORKERS
+        || options.encoder_threads > crate::thread_spawn::MAX_WORKERS
+    {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
+            "transform and encoder threads must be between 0 and 256",
+        ));
+    }
+    Ok(())
 }
 
 /// The output side of one transcode: the built-in sink or a backend's.
@@ -1037,33 +1132,21 @@ fn run(
             "max_output_bytes must be nonzero",
         ));
     }
-    let avif_settings_are_default = options.quality.to_bits() == 75.0_f32.to_bits()
-        && options.speed == 6
-        && options.chroma_subsampling == ChromaSubsampling::Yuv444;
-    if match options.output_format {
-        OutputFormat::Avif => {
-            options.webp != WebpOptions::default() || options.jpeg_xl != JpegXlOptions::default()
-        }
-        OutputFormat::WebP => {
-            !avif_settings_are_default || options.jpeg_xl != JpegXlOptions::default()
-        }
-        OutputFormat::JpegXl => {
-            !avif_settings_are_default || options.webp != WebpOptions::default()
-        }
+    // A setting of another output is refused, never ignored (ADR-0043 D4).
+    let avif = options.avif == AvifOptions::default();
+    let webp = options.webp == WebpOptions::default();
+    let jpeg_xl = options.jpeg_xl == JpegXlOptions::default();
+    if !match options.output_format {
+        OutputFormat::Avif => webp && jpeg_xl,
+        OutputFormat::WebP => avif && jpeg_xl,
+        OutputFormat::JpegXl => avif && webp,
     } {
         return Err(ProcessingError::new(
             ProcessingErrorKind::InvalidOptions,
             "encoder options do not match the selected output format",
         ));
     }
-    if options.transform_threads > crate::thread_spawn::MAX_WORKERS
-        || options.encoder_threads > crate::thread_spawn::MAX_WORKERS
-    {
-        return Err(ProcessingError::new(
-            ProcessingErrorKind::InvalidOptions,
-            "transform and encoder threads must be between 0 and 256",
-        ));
-    }
+    validate_thread_counts(&options)?;
     // The built-in WebP encoder is serial, as is the JPEG XL one; 0 would
     // mean "available cores" and be reported as such.
     if backend.is_none()
@@ -1075,22 +1158,11 @@ fn run(
             "the WebP encoder is serial; set encoder_threads to 1",
         ));
     }
-    // Only an explicitly changed depth conflicts; the default never does.
-    if options.avif_depth != 10
-        && (backend.is_some() || options.output_format != OutputFormat::Avif)
-    {
-        return Err(ProcessingError::new(
-            ProcessingErrorKind::InvalidOptions,
-            "AVIF depth conflicts with the requested output or external backend",
-        ));
-    }
-    // The built-in AVIF writer is the workspace libavif/AOM backend.
+    // The built-in AVIF writer is the workspace libavif/AOM backend; it
+    // reads every AVIF setting from the request.
     #[cfg(feature = "avif-write")]
-    let own = (backend.is_none() && options.output_format == OutputFormat::Avif).then_some(
-        LibavifBackend {
-            depth: options.avif_depth,
-        },
-    );
+    let own = (backend.is_none() && options.output_format == OutputFormat::Avif)
+        .then_some(LibavifBackend);
     #[cfg(feature = "avif-write")]
     let backend = backend.or(own.as_ref().map(|encoder| encoder as &dyn EncoderBackend));
     if let Some(backend) = backend
@@ -1112,6 +1184,18 @@ fn run(
         JxlSink::validate(&options)?;
     }
     if let Some(resize) = resize {
+        // Owner decision of 2026-11-15 (ADR-0042): an option that would be
+        // ignored is refused. The aspect-aware entry points take their
+        // size from `ResizeOptions`; a changed exact size is a mistake.
+        let default = TransformOptions::default();
+        if (options.output_width, options.output_height)
+            != (default.output_width, default.output_height)
+        {
+            return Err(ProcessingError::new(
+                ProcessingErrorKind::InvalidOptions,
+                "output_width and output_height are not used with ResizeOptions; leave them at their defaults",
+            ));
+        }
         crate::resize_geometry::validate(resize)?;
     } else {
         Size::new(options.output_width, options.output_height)?;
@@ -1136,21 +1220,33 @@ fn run(
         (WorkingPrecision::F32, threads) => threads,
     };
     let mut source = open_source(encoded, format, options.max_input_pixels)?;
+    // Alpha is processed straight (ADR-0014); an association the reader
+    // did not convert is refused under every policy, before color, rather
+    // than guessed (ADR-0015).
+    if matches!(
+        source.info().layout,
+        crate::decoder::ChannelLayout::Rgba | crate::decoder::ChannelLayout::GrayAlpha
+    ) && source.info().alpha != crate::color::AlphaMode::Straight
+    {
+        return Err(Error::UnsupportedAlphaMode.into());
+    }
     let decoder_backend = decoder_backend(format);
     source.set_decode_threads(transform_threads);
     // ADR-0042 D2: what the codec reads past, from its headers, and hidden
     // color under zero alpha, noticed in the rows it delivers.
     let mut discarded = source.discarded();
     let hidden_color = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let source: Box<dyn DecodeSource + '_> =
-        if source.info().layout == crate::decoder::ChannelLayout::Rgba {
-            Box::new(crate::discarded::HiddenColorProbe::new(
-                source,
-                hidden_color.clone(),
-            ))
-        } else {
-            source
-        };
+    let source: Box<dyn DecodeSource + '_> = if matches!(
+        source.info().layout,
+        crate::decoder::ChannelLayout::Rgba | crate::decoder::ChannelLayout::GrayAlpha
+    ) {
+        Box::new(crate::discarded::HiddenColorProbe::new(
+            source,
+            hidden_color.clone(),
+        ))
+    } else {
+        source
+    };
     // Present an upright image to the graph; crops are display coordinates.
     let source: Box<dyn DecodeSource + '_> = if source.orientation().is_identity() {
         source
@@ -1169,8 +1265,18 @@ fn run(
         ));
     }
     let mut color_signal = ColorSignal::Cicp;
+    // A typed signal the engine converts itself (sRGB, Display P3, linear
+    // sRGB) without a profile beside it takes the same route under every
+    // policy: `UseRenderedIcc` permits a profile conversion, it does not
+    // require one (working decision 2026-11-15, delegated, revisable by the
+    // owner; ADR-0043 D1 for JPEG XL enum and AVIF `nclx`, ADR-0015).
+    let typed = source.info().rendered_icc.is_none()
+        && source
+            .info()
+            .rendered_cicp
+            .is_some_and(crate::color_contract::is_typed_working_family);
     let source: Box<dyn DecodeSource + '_> =
-        if options.profile_policy == InputProfilePolicy::UseRenderedIcc {
+        if options.profile_policy == InputProfilePolicy::UseRenderedIcc && !typed {
             #[cfg(feature = "icc")]
             {
                 color_signal = if source.info().rendered_cicp.is_some() {
@@ -1190,7 +1296,7 @@ fn run(
         } else {
             source
         };
-    let mut actual: Box<dyn DecodeSource + '_> = if source.info().rendered_icc.is_none()
+    let actual: Box<dyn DecodeSource + '_> = if source.info().rendered_icc.is_none()
         && source.info().rendered_cicp.is_none()
         && options.profile_policy == InputProfilePolicy::AssumeSrgbIfMissing
     {
@@ -1205,10 +1311,8 @@ fn run(
         source
     };
     let color = actual.info().semantics().color;
-    if !matches!(
-        color,
-        ColorEncoding::Cicp([1 | 12, 13, 0, 1] | [1, 8, 0, 1])
-    ) {
+    if !matches!(color, ColorEncoding::Cicp(cicp) if crate::color_contract::is_typed_working_family(cicp))
+    {
         // Under `UseRenderedIcc` the ICC stage emits linear sRGB, so ICC
         // reaches this check only under the other two policies.
         let reason = match color {
@@ -1225,6 +1329,10 @@ fn run(
             "unsupported or ambiguous rendered color profile; a color-management transform is required",
         ));
     }
+    // Gray reaches the graph as RGB: the one expansion of every format
+    // (ADR-0043 D2), after color handling (a gray ICC profile was already
+    // converted to RGB by the rendered-ICC stage).
+    let mut actual = crate::gray::GrayToRgb::wrap(actual);
     let size = actual.info().size;
     let crop = if let Some(crop) = options.crop {
         Rect::new(crop.x, crop.y, crop.width, crop.height)?
@@ -1295,15 +1403,13 @@ fn run(
         Some(backend) => {
             let request = EncodeRequest {
                 format: options.output_format,
+                avif: options.avif,
                 webp: options.webp,
                 jpeg_xl: options.jpeg_xl,
                 width: target_size.width,
                 height: target_size.height,
                 has_alpha: transparent,
-                quality: options.quality,
-                speed: options.speed,
                 threads: encoder_threads,
-                chroma: options.chroma_subsampling,
             };
             let frame_reservation =
                 budget.reserve_external(backend.required_frame_bytes(&request)?)?;
@@ -1432,7 +1538,10 @@ pub struct BatchItem<'a> {
     pub encoded: &'a [u8],
     /// Input format.
     pub format: ImageFormat,
-    /// Options; the engine overrides both thread counts with 1.
+    /// Options; the engine replaces both thread counts with 1 and reports
+    /// the 1. A count that [`transcode`] refuses (above 256) is refused for
+    /// this item with [`ProcessingErrorKind::InvalidOptions`] (until
+    /// 2026-11-15 it was accepted and replaced).
     pub options: TransformOptions,
 }
 
@@ -1516,12 +1625,16 @@ fn batch(
                 loop {
                     let index = next.fetch_add(1, Ordering::Relaxed);
                     let Some(item) = items.get(index) else { break };
-                    let options = TransformOptions {
-                        transform_threads: 1,
-                        encoder_threads: 1,
-                        ..item.options
-                    };
-                    let result = run(item.encoded, item.format, options, backend, None);
+                    // Counts that `transcode` refuses are refused here
+                    // before they are replaced by 1.
+                    let result = validate_thread_counts(&item.options).and_then(|()| {
+                        let options = TransformOptions {
+                            transform_threads: 1,
+                            encoder_threads: 1,
+                            ..item.options
+                        };
+                        run(item.encoded, item.format, options, backend, None)
+                    });
                     if let Ok(mut slot) = results[index].lock() {
                         *slot = Some(result);
                     }

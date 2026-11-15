@@ -28,7 +28,6 @@
 // Mechanically translated from upstream/dav1d/src/cpu.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type Dav1dContext;
     fn __error() -> *mut core::ffi::c_int;
     fn dav1d_log(c: *mut Dav1dContext, format: *const core::ffi::c_char, ...);
     fn sysctlbyname(
@@ -39,6 +38,8 @@ extern "C" {
         newlen: size_t,
     ) -> core::ffi::c_int;
 }
+#[repr(C)]
+pub struct Dav1dContext([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub const ENOSYS: core::ffi::c_int = 78 as core::ffi::c_int;
 pub const NULL: *mut core::ffi::c_void = 0 as *mut core::ffi::c_void;

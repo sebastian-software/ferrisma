@@ -116,7 +116,10 @@ fn write(output_format: OutputFormat, speed: u8) -> Output {
         ImageFormat::Jpeg,
         TransformOptions {
             output_format,
-            speed,
+            avif: ferrisma::pipeline::AvifOptions {
+                speed,
+                ..ferrisma::pipeline::AvifOptions::default()
+            },
             output_width: 16,
             output_height: 12,
             transform_threads: 1,

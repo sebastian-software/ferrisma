@@ -14,7 +14,6 @@
 use ::c2rust_bitfields;
 extern "C-unwind" {
     static mut av1_inv_txfm_add: Option<unsafe extern "C-unwind" fn(*const tran_low_t, *mut uint8_t, core::ffi::c_int, *const TxfmParam) -> ()>;
-    pub type aom_internal_error_info;
     static mut av1_highbd_inv_txfm_add: Option<
         unsafe extern "C-unwind" fn(
             *const tran_low_t,
@@ -169,6 +168,8 @@ extern "C-unwind" {
         bd: core::ffi::c_int,
     );
 }
+#[repr(C)]
+pub struct aom_internal_error_info([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type int8_t = i8;
 pub type int16_t = i16;

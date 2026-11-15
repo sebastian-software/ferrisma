@@ -50,26 +50,29 @@ crates.io").
 | 1 | `ferrisma-kernels` | 0.1.0 | MIT OR Apache-2.0 | no | 1.98 | yes | 18.3 KiB | Engine SIMD kernels (unconditional dependency) |
 | 1 | JPEG port, today `libjpeg-turbo-rs` | 0.1.0 | IJG AND Zlib | no | 1.95 | yes | 318.9 KiB | `jpeg-read` |
 | 1 | `libjxl-rs` | 0.1.0 | BSD-3-Clause AND MIT AND (Apache-2.0 WITH LLVM-exception) | no | 1.95 | yes | 868.2 KiB | `jpeg-xl-read`, `jpeg-xl-write` |
-| 1 | `libavif-aom` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause AND MIT | yes | none (nightly) | yes | **16.6 MiB** | AVIF encode/decode |
-| 1 | `libavif-dav1d` | 0.1.0 | BSD-2-Clause | yes | none (nightly) | yes | 2.6 MiB | Normal dependency of `libavif-rs` |
+| 1 | `libavif-aom` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause AND MIT | no (since 2026-11-15) | 1.99 | yes | **16.6 MiB** | AVIF encode/decode |
+| 1 | `libavif-dav1d` | 0.1.0 | BSD-2-Clause | no (since 2026-11-15) | 1.99 | yes | 2.6 MiB | Normal dependency of `libavif-rs` |
 | 2 | `libwebp-rs` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 796.9 KiB | `webp-read`, `webp-write` |
-| 2 | `libavif-sharpyuv` | 0.1.0 | BSD-3-Clause | yes | none (nightly) | yes | 21.8 KiB | SharpYUV C ABI for libavif |
-| 3 | `libavif-rs` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause | yes | none (nightly) | yes | 4.6 MiB | libavif port |
-| 4 | `ferrisma-avif-read` | **0.0.0** | MIT OR Apache-2.0 | yes | none (nightly) | yes (2026-11-14) | 10.0 KiB | `avif-read` safe bridge |
-| 4 | `ferrisma-avif-write` | **0.0.0** | MIT OR Apache-2.0 | yes | none (nightly) | yes (2026-11-14) | 12.5 KiB | `avif-write` safe bridge |
+| 2 | `libavif-sharpyuv` | 0.1.0 | BSD-3-Clause | no | 1.95 | yes | 21.8 KiB | SharpYUV C ABI for libavif |
+| 3 | `libavif-rs` | 0.1.0 | BSD-2-Clause AND BSD-3-Clause | no (since 2026-11-15) | 1.99 | yes | 4.6 MiB | libavif port |
+| 4 | `ferrisma-avif-read` | **0.0.0** | MIT OR Apache-2.0 | no (since 2026-11-15) | 1.99 | yes (2026-11-14) | 10.0 KiB | `avif-read` safe bridge |
+| 4 | `ferrisma-avif-write` | **0.0.0** | MIT OR Apache-2.0 | no (since 2026-11-15) | 1.99 | yes (2026-11-14) | 12.5 KiB | `avif-write` safe bridge |
 | 4 | `ferrisma-jxl-decoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.95 | yes (2026-11-14) | 13.5 KiB | `jpeg-xl-read` safe bridge |
 | 4 | `ferrisma-jxl-encoder` | 0.1.0 | MIT OR Apache-2.0 | no | 1.95 | yes (2026-11-14) | 17.6 KiB, first packaged 2026-11-14 | `jpeg-xl-write` safe bridge (lossy) |
-| 5 | `ferrisma` | 0.1.0 | MIT OR Apache-2.0 | only for `avif-read`, `avif-write`, `cli` | 1.98 | yes | 606.9 KiB | Engine, facade, CLI binary |
+| 5 | `ferrisma` | 0.1.0 | MIT OR Apache-2.0 | no (1.99 for `avif-read`, `avif-write`, `cli`) | 1.98 | yes | 606.9 KiB | Engine, facade, CLI binary |
 
 Every package now has `description`, `license`, `repository`, `homepage`
 (`https://ferrisma.dev`, added to the ports, the AVIF sub-crates and
 `libsharpyuv-core` on 2026-11-14), an `include` list, and a README in the
-package. The six nightly-only AVIF packages declare no `rust-version` on
-purpose: a value cannot say "the pinned nightly". Measured: `rust-version =
-"1.100"` accepts the pinned `1.100.0-nightly` and refuses 1.95 with a clear
-message, but would also accept a future stable 1.100 that rejects
-`#![feature]`. ADR-0040 decision 4 names the nightly in the release notes
-instead. The sizes moved since 2026-11-12: `libjxl-rs` 723 to 868 KiB and
+package. Until 2026-11-15 the six AVIF packages needed the pinned nightly and declared
+no `rust-version` on purpose (a value cannot say "the pinned nightly").
+Since the port's translations were rewritten for stable Rust (libavif-rs
+[ADR 0060](../codecs/libavif-rs/docs/adr/0060-build-the-translations-on-stable-rust.md)),
+`libavif-aom`, `libavif-dav1d`, `libavif-rs` and the two AVIF bridges
+declare `rust-version = "1.99"` (C-variadic functions are stable since
+1.99), and `libavif-sharpyuv`, which never used a nightly feature, declares
+1.95. ADR-0040 decision 4 (naming the nightly in the release notes) no
+longer applies to them. The sizes moved since 2026-11-12: `libjxl-rs` 723 to 868 KiB and
 `libavif-aom` 16.4 to 16.6 MiB with their sources. `ferrisma` measured
 204.1 KiB on 2026-11-12 and 606.9 KiB now, although its `include` list and
 the size of its tracked `src`, `tests` and `examples` (1.69 versus 1.73 MB)
@@ -276,7 +279,9 @@ Options and their cost:
   nightly a library can detect the setting at compile time
   (`#![feature(cfg_overflow_checks)]`, `#[cfg(overflow_checks)]`; measured),
   so the AVIF crates could reject or warn about it the way they reject
-  `panic = "abort"`; that is a source change in the codec crates.
+  `panic = "abort"`; that is a source change in the codec crates. Since the
+  AVIF packages build on stable Rust (2026-11-15), this option would bring a
+  nightly requirement back and is no longer open without that cost.
 
 **Recommendation:** (a). Keep `panic = "unwind"` as a stated requirement
 (it is enforced), state the four overflow overrides as recommended rather

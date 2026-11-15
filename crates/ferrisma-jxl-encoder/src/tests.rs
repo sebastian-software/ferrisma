@@ -5,7 +5,7 @@ use jxl_oxide::{ExtraChannelType, JxlImage};
 
 use super::{
     Admission, Alpha, Color, ColorChannels, Encoder, Error, FrameOptions, ImageInfo, Stage, encode,
-    estimated_codec_bytes,
+    encode_lossless, estimated_codec_bytes,
 };
 
 const LIMIT: usize = 1 << 26;
@@ -528,4 +528,117 @@ fn glyphs(xsize: usize, ysize: usize, glyph: usize, copies: usize, seed: u64) ->
         }
     }
     data
+}
+
+/// Decode a lossless codestream and return its interleaved 8-bit samples,
+/// checking the lossless signaling: no XYB, and alpha (when present) one
+/// straight 8-bit channel.
+fn decode_lossless(bytes: &[u8], channels: usize) -> Vec<u8> {
+    let image = decode(bytes);
+    let metadata = &image.image_header().metadata;
+    assert!(!metadata.xyb_encoded);
+    assert_eq!(
+        metadata.ec_info.len(),
+        usize::from(channels.is_multiple_of(2))
+    );
+    if channels.is_multiple_of(2) {
+        assert_eq!(
+            metadata.ec_info[0].ty,
+            ExtraChannelType::Alpha {
+                alpha_associated: false
+            }
+        );
+    }
+    let render = image.render_frame(0).unwrap();
+    let mut stream = render.stream();
+    assert_eq!(stream.channels() as usize, channels);
+    let mut samples = vec![0_u8; (stream.width() * stream.height()) as usize * channels];
+    stream.write_to_buffer(&mut samples);
+    samples
+}
+
+/// Lossless effort 2 (issue #223): gray and RGB, with and without straight
+/// alpha (zero alpha with nonzero color is kept), one-shot (at most 8
+/// groups) and the streaming path (more than 8 groups: 2049x300 has 18,
+/// 768x768 9), decoded by jxl-oxide to exactly the input samples; the port
+/// records no admission result. Byte identity with the original is the
+/// port's gate (`tests/parity/encoder_lossless.rs`), not checked here.
+#[test]
+fn lossless_effort_2_round_trips_exactly_one_shot_and_streaming() {
+    take_admissions();
+    for (width, height) in [(1, 1), (61, 37), (300, 260), (2049, 300), (768, 768)] {
+        for (channels, alpha) in [
+            (ColorChannels::Rgb, Alpha::None),
+            (ColorChannels::Rgb, Alpha::Straight8),
+            (ColorChannels::Gray, Alpha::None),
+            (ColorChannels::Gray, Alpha::Straight8),
+        ] {
+            let image = ImageInfo {
+                width: width as u32,
+                height: height as u32,
+                channels,
+                color: Color::Srgb,
+                alpha,
+            };
+            let color_channels = if channels == ColorChannels::Gray {
+                1
+            } else {
+                3
+            };
+            let pixels = if alpha == Alpha::None {
+                photo(width, height, color_channels)
+            } else {
+                with_alpha(width, height, color_channels)
+            };
+            let mut out = Vec::new();
+            encode_lossless(image, &pixels, &mut out, LIMIT).unwrap();
+            assert_eq!(&out[..2], &[0xff, 0x0a], "raw codestream");
+            assert_eq!(
+                decode_lossless(&out, image.channel_count() as usize),
+                pixels,
+                "{width}x{height} {channels:?} {alpha:?}"
+            );
+            assert_eq!(take_admissions(), Vec::<JxlEncoderAdmission>::new());
+        }
+    }
+}
+
+#[test]
+fn lossless_profile_misuse_is_rejected_before_the_port() {
+    let mut encoder = Encoder::new().unwrap();
+    assert!(matches!(encoder.set_lossless(), Err(Error::Misuse(_))));
+    encoder.set_lossless_image(ImageInfo::srgb8(8, 8)).unwrap();
+    encoder.set_lossless().unwrap();
+    assert!(matches!(encoder.set_lossless(), Err(Error::Misuse(_))));
+    assert!(matches!(
+        encoder.set_frame_options(FrameOptions::default()),
+        Err(Error::Misuse(_))
+    ));
+    // An XYB image cannot be lossless: the port's API usage error.
+    let mut encoder = Encoder::new().unwrap();
+    encoder.set_image(ImageInfo::srgb8(8, 8)).unwrap();
+    assert_eq!(
+        encoder.set_lossless(),
+        Err(Error::ApiUsage(Stage::FrameSettings))
+    );
+    // The output limit applies at the exact byte, as for lossy output.
+    let pixels = photo(40, 30, 3);
+    let mut full = Vec::new();
+    encode_lossless(ImageInfo::srgb8(40, 30), &pixels, &mut full, LIMIT).unwrap();
+    let mut exact = Vec::new();
+    encode_lossless(ImageInfo::srgb8(40, 30), &pixels, &mut exact, full.len()).unwrap();
+    assert_eq!(exact, full);
+    let mut short = vec![9];
+    assert_eq!(
+        encode_lossless(
+            ImageInfo::srgb8(40, 30),
+            &pixels,
+            &mut short,
+            full.len() - 1
+        ),
+        Err(Error::OutputLimit {
+            limit: full.len() - 1
+        })
+    );
+    assert_eq!(short, vec![9]);
 }

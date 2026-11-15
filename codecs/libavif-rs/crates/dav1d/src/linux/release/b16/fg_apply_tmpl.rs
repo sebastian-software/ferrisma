@@ -29,7 +29,6 @@
 // Mechanically translated from upstream/dav1d/src/fg_apply_tmpl.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type Dav1dRef;
     fn memcpy(
         __dest: *mut core::ffi::c_void,
         __src: *const core::ffi::c_void,
@@ -41,6 +40,8 @@ extern "C" {
         __n: size_t,
     ) -> *mut core::ffi::c_void;
 }
+#[repr(C)]
+pub struct Dav1dRef([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __int8_t = i8;
 pub type __uint8_t = u8;
 pub type __int16_t = i16;

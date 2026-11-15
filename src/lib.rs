@@ -47,6 +47,7 @@ mod execute;
 mod fast_execute;
 mod geometry;
 mod graph;
+mod gray;
 #[cfg(feature = "jpeg-xl-write")]
 mod jxl_sink;
 #[cfg_attr(

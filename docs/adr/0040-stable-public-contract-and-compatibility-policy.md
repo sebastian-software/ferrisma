@@ -33,7 +33,8 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
   `--self-check` passes (10 scenarios) and runs in CI.
 - The `avif-read`, `avif-own-write`, and `cli` features require the pinned
   nightly and native macOS ARM64 or GNU Linux x86-64; everything else
-  builds on stable Rust 1.98 (CI MSRV job).
+  builds on stable Rust 1.98 (CI MSRV job). Since 2026-11-15 the AVIF features (`avif-read`,
+  `avif-write`, `cli`) build on stable Rust 1.99 instead (libavif-rs ADR 0060).
 - On this branch, every public facade item is documented
   (`#![warn(missing_docs)]`), and the growable enums and output-only structs
   are `#[non_exhaustive]` (see the inventory below).
@@ -52,11 +53,11 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `ResizeFilter` (`Area`, `Lanczos3`) | enum | Stable | Non-exhaustive |
 | `InputProfilePolicy` | enum | Stable | Non-exhaustive; `Strict` default |
 | `ImageFormat`, `OutputFormat` | enum | Stable | Non-exhaustive |
-| `WebpOptions` | enum | Stable | Non-exhaustive |
+| `WebpOptions` (`Lossy { quality, method }`, `Lossless { level }`) | enum | Stable | Non-exhaustive; libwebp's own scales; `speed` replaced by `method` on 2026-11-15 |
 | `JpegXlOptions` (`Lossy { distance }`, `Lossless { effort }`) | enum | Experimental (ADR-0039); default lossy d1.0 pending owner confirmation | Non-exhaustive; `PartialEq` only |
 | `ChromaSubsampling` | enum | Stable | Non-exhaustive |
-| `TransformOptions::avif_depth` | field | Experimental (working decision 2026-11-15; replaces `AvifEncoder::Libavif { depth }`) | 8 or 10, default 10 |
-| `LibavifBackend` | struct | Experimental (`avif-write`, nightly) | ADR-0037; the built-in AVIF writer |
+| `AvifOptions` (`quality`, `alpha_quality`, `speed`, `depth`, `chroma`), `TransformOptions::avif` | struct, field | Experimental (owner decision 2026-11-15, ADR-0037; replaces `avif_depth`, `quality`, `speed`, `chroma_subsampling`) | libavif's scales; `avifenc` defaults 60, 60, 6, 8, 4:4:4; public fields, not non-exhaustive, like `TransformOptions` (problem 1) |
+| `LibavifBackend` | unit struct | Experimental (`avif-write`; stable Rust 1.99 since 2026-11-15, pinned nightly before) | ADR-0037; the built-in AVIF writer; reads every setting from the request since 2026-11-15 |
 | `WorkingPrecision` | enum | `F32` stable; `F64Reference` experimental (verification only) | Non-exhaustive |
 | `Output` | struct | Stable | Non-exhaustive; `format`, `bytes`, `width`, `height`, `report` |
 | `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive; new fields are additive. `decoder_backend` and `encoder_backend` strings are experimental values (2026-11-14, #217) |
@@ -64,7 +65,7 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `ColorSignal`, `ProcessingReport::color_signal` | enum, field | Experimental (working decision 2026-11-14, #212) | Non-exhaustive; reports the signal used, never a precedence |
 | `KernelLevel`, `KernelLevelReason`, `TransformOptions::kernel_level_ceiling` | re-exported enums, field | Experimental (diagnostics) | Couples to `ferrisma-kernels`; see problem 7 |
 | `ProcessingError`, `ProcessingErrorKind` | struct, enum | Stable | Kind is non-exhaustive; message text is not stable |
-| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decisions 2026-11-14 and 2026-11-15, #212) | Non-exhaustive closed vocabulary by refusal class (twelve variants since 2026-11-15); `None` outside it |
+| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decisions 2026-11-14 and 2026-11-15, #212) | Non-exhaustive closed vocabulary by refusal class (thirteen variants since 2026-11-15, `IccColorSpaceMismatch` added with gray input); `None` outside it |
 | `ProcessingReport::discarded`, `Discarded`, `DiscardedSet` | field, enum, set | Experimental (working decision 2026-11-15, ADR-0042 D2) | Non-exhaustive classes of information left out of a correct picture; CLI `discarded=` |
 | `Engine`, `BatchItem` | struct, struct | Stable | ADR-0022 |
 | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with` | fn | Experimental | ADR-0024 backend extension point |
@@ -83,8 +84,8 @@ binary's command line, not this function, is the stable CLI contract.
 | `jpeg-read`, `webp-read`, `webp-write`, `icc` | Stable | Stable 1.98 |
 | `jpeg-xl-read` | Stable as "JPEG XL input"; since 2026-11-15 the workspace libjxl-rs reader, the only one (ADR-0032) | Stable 1.98 |
 | `jpeg-xl-write` (in `cli` since 2026-11-12, ADR-0039) | Experimental | Stable 1.98 |
-| `avif-read`, `avif-write` | Experimental until they build on stable (`avif-write` was the stable rav1e capability until 2026-11-15) | Pinned nightly, native targets only |
-| `cli` | Stable command line; inherits the nightly requirement through `avif-read`/`avif-write` | Pinned nightly |
+| `avif-read`, `avif-write` | Experimental until they build on stable (`avif-write` was the stable rav1e capability until 2026-11-15); they build on stable 1.99 since 2026-11-15, the tier change is the owner's | Stable 1.99 (pinned nightly before 2026-11-15), native targets only |
+| `cli` | Stable command line; inherits the 1.99 floor through `avif-read`/`avif-write` (the nightly requirement until 2026-11-15) | Stable 1.99 |
 
 ### Command line (`ferrisma` binary, `cli` feature)
 
@@ -92,15 +93,16 @@ binary's command line, not this function, is the stable CLI contract.
 | --- | --- |
 | Positional `INPUT OUTPUT WIDTH HEIGHT`; input format from the extension (`jpg`, `jpeg`, `webp`, `jxl`, `avif`); output from `.avif` or `.webp` | Stable |
 | `--assume-srgb`, `--use-rendered-icc` | Stable |
-| `--quality=`, `--speed=`, `--chroma=444\|420`, `--webp-lossless`, `--webp-level=` | Stable |
+| `--webp-quality=`, `--webp-method=`, `--webp-lossless`, `--webp-level=` | Stable (`--quality=`, `--speed=`, `--chroma=` removed on 2026-11-15) |
 | `--crop=x,y,w,h` | Stable |
 | `--max-input-mb=`, `--max-input-mpx=`, `--budget-mb=`, `--max-output-mb=` | Stable |
 | `--transform-threads=`, `--encoder-threads=` | Stable |
 | `--area` | Stable, see problem 15 |
-| `--avif-depth=8\|10` | Experimental |
+| `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=8\|10`, `--avif-chroma=444\|420` | Experimental, as `AvifOptions` |
 | `--reference`, `--kernel-level=scalar\|neon\|avx2\|avx512` | Experimental (verification and diagnostics) |
 | `.jxl` output, `--jxl-distance=`, `--jxl-lossless` (ADR-0039) | Experimental |
 | Exit status 0 success, 2 usage (fewer than four positional arguments), 1 any other error (Rust's default `Error: …` on stderr) | Stable |
+| Each flag at most once; mutually exclusive pairs refused with both names (owner decision 2026-11-15) | Stable |
 | `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, and `decoder` (appended 2026-11-14, #217) |
 | Human-readable `Encoded …`, `Timings: …` lines and the stderr memory note | Not stable |
 
@@ -170,11 +172,15 @@ cannot be fixed later without a major release.
    `chroma_subsampling`, and `avif_encoder` apply only to AVIF, while WebP uses
    `webp`; `quality`/`speed` change scale with the selected AVIF encoder.
    Recommendation: an `AvifOptions` value parallel to `WebpOptions`, or an
-   output enum carrying per-format settings.
+   output enum carrying per-format settings. _Done on 2026-11-15 (owner
+   decision, ADR-0037, ADR-0043 D4):_ `AvifOptions`, and the mixed fields
+   are removed.
 3. **Two geometry entry points.** `output_width`/`output_height` are ignored
    by `transcode_resized`. Recommendation: one geometry enum (exact or
    `ResizeOptions`) inside the options, or keep both functions and document
-   the ignored fields (done in rustdoc).
+   the ignored fields (done in rustdoc). _Since 2026-11-15 (owner decision,
+   ADR-0042):_ not ignored but refused when they differ from the default;
+   the geometry enum stays a recommendation.
 4. **Backend variants double the API.** Each entry point has a `_with`
    twin. Recommendation: keep the twins experimental for 1.0, or fold the
    backend into an options value later.
@@ -201,7 +207,9 @@ cannot be fixed later without a major release.
     example a caller-supplied ICC profile) would break it. Recommendation:
     drop `Copy` before 1.0 if such options are plausible.
 11. **`AvifEncoder::Libavif { depth }` and `LibavifBackend { depth }`
-    duplicate the same configuration.** Recommendation: one type.
+    duplicate the same configuration.** Recommendation: one type. _Done on
+    2026-11-15:_ the depth is `AvifOptions::depth` only; `LibavifBackend`
+    reads it from the request.
 12. **`cli::run` is a public library function** returning
     `Box<dyn Error>`. Recommendation: `#[doc(hidden)]` or move it to the
     binary's crate if adapters no longer need it.
@@ -373,3 +381,33 @@ reports that a stable item cannot express its use case.
   nightly, so it moves to the experimental tier until it builds on stable
   (working decisions 2026-11-15, delegated, revisable by the owner). A
   stable-toolchain consumer of the old `avif-write` loses AVIF output.
+- 2026-11-15 — Owner decision on repeated and contradictory command-line
+  flags (ADR-0042): every flag may be given once, and a pair of mutually
+  exclusive flags (`--assume-srgb`/`--use-rendered-icc`,
+  `--jxl-lossless`/`--jxl-distance=`, `--webp-lossless` or `--webp-level=`
+  with lossy-only settings) is refused with both names, exit status 1,
+  before any input is read. A script that relied on "the last one wins"
+  breaks; the old result was a silent choice between two instructions.
+  Added to the command-line inventory as stable.
+- 2026-11-15 — Owner decision on options without effect (ADR-0042):
+  behavior of stable items changes, no signature. `transcode_resized` and
+  `transcode_resized_with` refuse an `output_width`/`output_height` other
+  than the default (problem 3), and `Engine::transcode_batch` refuses the
+  thread counts that `transcode` refuses before it replaces valid ones
+  with 1, as `InvalidOptions`. A caller that relied on the ignored values
+  gets an error instead of a silent choice.
+- 2026-11-15 — Native encoder options (owner decision, ADR-0043 D4,
+  ADR-0037): `AvifOptions` and `TransformOptions::avif` replace
+  `avif_depth`, `quality`, `speed` and `chroma_subsampling` (problem 2
+  done); `WebpOptions::Lossy { speed }` becomes `{ method }` on libwebp's
+  scale; `EncodeRequest` carries `avif` instead of `quality`, `speed` and
+  `chroma`; `LibavifBackend` loses its depth (problem 11 done). CLI:
+  `--quality=`, `--speed=` and `--chroma=` removed; `--avif-quality=`,
+  `--avif-alpha-quality=`, `--avif-speed=`, `--avif-chroma=`,
+  `--webp-quality=` and `--webp-method=` added. The AVIF defaults follow
+  `avifenc` (8 bits, quality 60), and the WebP lossy default is libwebp's
+  method 4, so default output bytes change. Breaking changes before 1.0,
+  intended. _Working decision 2026-11-15 (delegated, revisable by the
+  owner):_ `AvifOptions` is a plain struct with public fields and no
+  `#[non_exhaustive]`, as `TransformOptions` is until problem 1 is decided;
+  the CLI names; the WebP lossy default method 4.

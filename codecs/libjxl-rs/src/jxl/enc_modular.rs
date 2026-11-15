@@ -4,8 +4,11 @@
 //! Sample conversion and transform/tree helpers from lib/jxl/enc_modular.cc.
 //! Frame stream state uses the null-pool configuration. Pixel preparation is
 //! translated for enc_frame::LosslessThunderConfig's fixed source path and for
-//! the extra channels of VarDCT frames (`do_color = false`); the color pixel
-//! preparation of general Modular frames remains unported. The VarDCT AddVarDCTDC and
+//! the extra channels of VarDCT frames (`do_color = false`), and for the
+//! lossless Modular frames of the public encoder at effort 2, one-shot and
+//! streaming (`compute_encoding_data_lossless`); the color pixel preparation
+//! of other Modular frames (lossy, XYB, float, slower efforts) remains
+//! unported. The VarDCT AddVarDCTDC and
 //! AddACMetadata are translated; their frame orchestration is not.
 //! Owning vectors replace their C++ owners;
 //! borrowed custom parameter views retain their original lifetime obligations.
@@ -2167,3 +2170,365 @@ pub fn float_to_int(
     }
     Ok(())
 }
+
+// encoder lossless streaming
+impl ModularFrameEncoder<'_> {
+    /// ComputeEncodingData with `do_color = true` for the lossless Modular
+    /// frames of the public encoder (`enc_frame_vardct.rs`,
+    /// `admitted_frame_profile`): the whole frame one-shot, or one DC group
+    /// in streaming mode (`groupwise`), with its extra channels. The caller
+    /// admits only lossless integer samples without XYB, at a speed tier
+    /// above kCheetah with the default Modular options; the branches that
+    /// profile cannot reach (GaborishInverse, FindBestPatchDictionary, custom
+    /// splines, float samples, the XYB factors and the lossy quantization)
+    /// return `Unsupported` at their checkpoints instead of being translated.
+    /// RunOnPool without a runner: rows and stream parameters in index order.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Preserve the source's ComputeEncodingData parameters"
+    )]
+    pub fn compute_encoding_data_lossless(
+        &mut self,
+        frame_header: &FrameHeader<'_>,
+        metadata: &super::image_metadata::ImageMetadata,
+        color: &Image3<f32>,
+        extra_channels: &[Plane<f32>],
+        group_rect: Rect,
+        patch_dim: &FrameDimensions,
+        frame_area_rect: Rect,
+        num_passes: usize,
+        groupwise: bool,
+    ) -> Status {
+        let do_color = true;
+        if do_color && frame_header.loop_filter.gab && !groupwise {
+            // GaborishInverse: VarDCT-only by default, outside the profile.
+            return Err(StatusCode::Unsupported);
+        }
+        if do_color
+            && metadata.bit_depth.bits_per_sample <= 16
+            && self.cparams.speed_tier < SpeedTier::Cheetah
+            && self.cparams.decoding_speed_tier < 2
+            && !groupwise
+        {
+            // FindBestPatchDictionary and SubtractFrom (encoder step 5).
+            return Err(StatusCode::Unsupported);
+        }
+        if self.cparams.custom_splines.has_any() {
+            return Err(StatusCode::Unsupported);
+        }
+
+        // Convert ImageBundle to modular Image object
+        let xsize = patch_dim.xsize;
+        let ysize = patch_dim.ysize;
+
+        let gray_none = metadata.color_encoding.is_gray()
+            && self.cparams.color_transform == ColorTransform::NONE;
+        let mut nb_chans = 3usize;
+        if gray_none {
+            nb_chans = 1;
+        }
+        nb_chans += extra_channels.len();
+
+        let fp = metadata.bit_depth.floating_point_sample
+            && self.cparams.color_transform != ColorTransform::XYB;
+        if fp {
+            // Float samples (encoder step 5).
+            return Err(StatusCode::Unsupported);
+        }
+
+        // bits_per_sample is just metadata for XYB images.
+        if metadata.bit_depth.bits_per_sample >= 32
+            && do_color
+            && self.cparams.color_transform != ColorTransform::XYB
+            && (metadata.bit_depth.bits_per_sample == 32 && !fp
+                || metadata.bit_depth.bits_per_sample > 32)
+        {
+            return Err(StatusCode::GenericError);
+        }
+
+        // in the non-float case, there is an implicit 0 sign bit
+        let mut max_bitdepth = if do_color {
+            metadata.bit_depth.bits_per_sample as i32 + if fp { 0 } else { 1 }
+        } else {
+            0
+        };
+        self.stream_images[0] = Image::create(
+            xsize,
+            ysize,
+            metadata.bit_depth.bits_per_sample as i32,
+            nb_chans as i32,
+        )?;
+        if self.cparams.color_transform == ColorTransform::XYB && self.cparams.modular_mode {
+            // The XYB DC factors of modular XYB (encoder step 5).
+            return Err(StatusCode::Unsupported);
+        }
+        let bitdepth = self.stream_images[0].bitdepth;
+        let mut maxval: i32 = if bitdepth < 32 {
+            ((1u32 << bitdepth) - 1) as i32
+        } else {
+            0
+        };
+        let mut c = 0usize;
+        if do_color {
+            while c < 3 {
+                if gray_none && c != 0 {
+                    c += 1;
+                    continue;
+                }
+                let c_out = c;
+                let factor = f64::from(maxval);
+                let bits = metadata.bit_depth.bits_per_sample;
+                let exp_bits = metadata.bit_depth.exponent_bits_per_sample;
+                let ch = &mut self.stream_images[0].channel[c_out];
+                ch.hshift = frame_header.chroma_subsampling.h_shift(c) as i32;
+                ch.vshift = frame_header.chroma_subsampling.v_shift(c) as i32;
+                let xsize_shifted = xsize.div_ceil(1 << ch.hshift);
+                let ysize_shifted = ysize.div_ceil(1 << ch.vshift);
+                ch.shrink_to(xsize_shifted as i32, ysize_shifted as i32)?;
+                for y in 0..ysize_shifted {
+                    let row_in = &color.plane_row(c, y + group_rect.y0())[group_rect.x0()..];
+                    float_to_int(
+                        row_in,
+                        ch.row_mut(y),
+                        xsize_shifted,
+                        bits,
+                        exp_bits,
+                        fp,
+                        factor,
+                    )?;
+                }
+                c += 1;
+            }
+            if gray_none {
+                c = 1;
+            }
+        }
+
+        for (ec, extra) in extra_channels.iter().enumerate() {
+            let eci = &metadata.extra_channel_info[ec];
+            let ecups = frame_header.extra_channel_upsampling[ec] as usize;
+            let ch = &mut self.stream_images[0].channel[c];
+            ch.shrink_to(
+                patch_dim.xsize_upsampled.div_ceil(ecups) as i32,
+                patch_dim.ysize_upsampled.div_ceil(ecups) as i32,
+            )?;
+            ch.hshift =
+                ceil_log2_nonzero(ecups) as i32 - ceil_log2_nonzero(frame_header.upsampling) as i32;
+            ch.vshift = ch.hshift;
+            let bits = eci.bit_depth.bits_per_sample;
+            let exp_bits = eci.bit_depth.exponent_bits_per_sample;
+            let ec_fp = eci.bit_depth.floating_point_sample;
+            let factor = if ec_fp {
+                1.0
+            } else {
+                f64::from((1u32 << bits) - 1)
+            };
+            if bits as i32 + i32::from(!ec_fp) > max_bitdepth {
+                max_bitdepth = bits as i32 + i32::from(!ec_fp);
+            }
+            for y in 0..ch.plane.ysize() {
+                let row_in = &extra.row(y + group_rect.y0())[group_rect.x0()..];
+                let width = ch.plane.xsize();
+                float_to_int(row_in, ch.row_mut(y), width, bits, exp_bits, ec_fp, factor)?;
+            }
+            c += 1;
+        }
+        if c != nb_chans {
+            return Err(StatusCode::GenericError);
+        }
+
+        let level_max_bitdepth = if self.cparams.level == 5 { 16 } else { 32 };
+        if max_bitdepth > level_max_bitdepth {
+            return Err(StatusCode::GenericError);
+        }
+
+        // Set options and apply transformations
+        if !self.cparams.modular_part_is_lossless() {
+            // Lossy Modular (encoder step 5).
+            return Err(StatusCode::Unsupported);
+        }
+
+        // Global palette transforms
+        let mut channel_colors_percent = 0.0f32;
+        if !self.cparams.lossy_palette
+            && (self.cparams.speed_tier <= SpeedTier::Thunder
+                || (do_color && metadata.bit_depth.bits_per_sample > 8))
+        {
+            channel_colors_percent = self.cparams.channel_colors_pre_transform_percent;
+        }
+        // Global palette causes bad progressive loading due to interpolation
+        // but lossy palette is still required for JXL art.
+        if !groupwise
+            && (self.cparams.lossy_palette
+                || !(self.cparams.responsive != 0 && self.cparams.modular_part_is_lossless()))
+        {
+            try_palettes(
+                &mut self.stream_images[0],
+                &mut max_bitdepth,
+                &mut maxval,
+                &self.cparams,
+                channel_colors_percent,
+            )?;
+        }
+
+        // don't do an RCT if we're short on bits
+        {
+            let gi = &mut self.stream_images[0];
+            if self.cparams.color_transform == ColorTransform::NONE
+                && do_color
+                && gi.channel.len().wrapping_sub(gi.nb_meta_channels) >= 3
+                && max_bitdepth + 1 < level_max_bitdepth
+            {
+                if self.cparams.colorspace < 0
+                    && (!self.cparams.modular_part_is_lossless()
+                        || self.cparams.speed_tier > SpeedTier::Hare)
+                {
+                    let mut ycocg = Transform::new(TransformId::RCT);
+                    ycocg.rct_type = 6;
+                    ycocg.begin_c = gi.nb_meta_channels as u32;
+                    do_transform(gi, &ycocg, &weighted::Header::default(), false);
+                    max_bitdepth += 1;
+                } else if self.cparams.colorspace > 0 {
+                    let mut sg = Transform::new(TransformId::RCT);
+                    sg.begin_c = gi.nb_meta_channels as u32;
+                    sg.rct_type = self.cparams.colorspace as u32;
+                    do_transform(gi, &sg, &weighted::Header::default(), false);
+                    max_bitdepth += 1;
+                }
+            }
+        }
+
+        if self.cparams.move_to_front_from_channel > 0 {
+            let gi = &mut self.stream_images[0];
+            let mut tgt = 0usize;
+            while tgt + (self.cparams.move_to_front_from_channel as usize) < gi.channel.len() {
+                let mut pos = self.cparams.move_to_front_from_channel as usize;
+                while pos > 0 {
+                    let mut mv = Transform::new(TransformId::RCT);
+                    if pos == 1 {
+                        mv.begin_c = tgt as u32;
+                        mv.rct_type = 28; // RGB -> GRB
+                        pos -= 1;
+                    } else {
+                        mv.begin_c = (tgt + pos - 2) as u32;
+                        mv.rct_type = 14; // RGB -> BRG
+                        pos -= 2;
+                    }
+                    do_transform(gi, &mv, &weighted::Header::default(), false);
+                }
+                tgt += 1;
+            }
+        }
+
+        // don't do squeeze if we don't have some spare bits
+        if !groupwise
+            && self.cparams.responsive != 0
+            && !self.stream_images[0].channel.is_empty()
+            && max_bitdepth + 2 < level_max_bitdepth
+        {
+            // Squeeze for progressive lossless (encoder step 5).
+            return Err(StatusCode::Unsupported);
+        }
+
+        if max_bitdepth + 1 > level_max_bitdepth {
+            // force no group RCTs if we don't have a spare bit
+            self.cparams.colorspace = 0;
+        }
+        if max_bitdepth > level_max_bitdepth {
+            return Err(StatusCode::GenericError);
+        }
+
+        // Fill other groups.
+        // DC
+        for group_id in 0..patch_dim.num_dc_groups {
+            let rgx = group_id % patch_dim.xsize_dc_groups;
+            let rgy = group_id / patch_dim.xsize_dc_groups;
+            let rect = Rect::new(
+                rgx * patch_dim.dc_group_dim,
+                rgy * patch_dim.dc_group_dim,
+                patch_dim.dc_group_dim,
+                patch_dim.dc_group_dim,
+            );
+            let gx = rgx + frame_area_rect.x0() / 2048;
+            let gy = rgy + frame_area_rect.y0() / 2048;
+            let real_group_id = gy * self.frame_dim.xsize_dc_groups + gx;
+            // minShift==3 because (frame_dim.dc_group_dim >> 3) == frame_dim.group_dim
+            // maxShift==1000 is infinity
+            self.stream_params.push(GroupParams {
+                rect,
+                min_shift: 3,
+                max_shift: 1000,
+                id: ModularStreamId::modular_dc(real_group_id),
+            });
+        }
+        // AC global -> nothing.
+        // AC
+        for group_id in 0..patch_dim.num_groups {
+            let rgx = group_id % patch_dim.xsize_groups;
+            let rgy = group_id / patch_dim.xsize_groups;
+            let mrect = Rect::new(
+                rgx * patch_dim.group_dim,
+                rgy * patch_dim.group_dim,
+                patch_dim.group_dim,
+                patch_dim.group_dim,
+            );
+            let gx = rgx + frame_area_rect.x0() / self.frame_dim.group_dim;
+            let gy = rgy + frame_area_rect.y0() / self.frame_dim.group_dim;
+            let real_group_id = gy * self.frame_dim.xsize_groups + gx;
+            for i in 0..num_passes {
+                let (min_shift, max_shift) = frame_header.passes.get_downsampling_bracket(i);
+                self.stream_params.push(GroupParams {
+                    rect: mrect,
+                    min_shift,
+                    max_shift,
+                    id: ModularStreamId::modular_ac(real_group_id, i),
+                });
+            }
+        }
+        // if there's only one group, everything ends up in GlobalModular
+        // in that case, also try RCTs/WP params for the one group
+        if self.stream_params.len() == 2 {
+            self.stream_params.push(GroupParams {
+                rect: Rect::new(0, 0, xsize, ysize),
+                min_shift: 0,
+                max_shift: 1000,
+                id: ModularStreamId::global(),
+            });
+        }
+        self.gi_channel
+            .resize_with(self.stream_images.len(), Vec::new);
+
+        for i in 0..self.stream_params.len() {
+            let group = self.stream_params[i];
+            let stream = group.id.id(&self.frame_dim);
+            if stream != 0 {
+                self.stream_options[stream] = self.stream_options[0].clone();
+            }
+            self.prepare_stream_params(
+                &group.rect,
+                group.min_shift,
+                group.max_shift,
+                &group.id,
+                do_color,
+                groupwise,
+            )?;
+        }
+        {
+            // Clear out channels that have been copied to groups.
+            let full_image = &mut self.stream_images[0];
+            let mut ch = full_image.nb_meta_channels;
+            while ch < full_image.channel.len() {
+                let fc = &full_image.channel[ch];
+                if fc.w > self.frame_dim.group_dim || fc.h > self.frame_dim.group_dim {
+                    break;
+                }
+                ch += 1;
+            }
+            for channel in &mut full_image.channel[ch..] {
+                channel.plane = Plane::default();
+            }
+        }
+        validate_channel_dimensions(&self.stream_images[0], &self.stream_options[0])
+    }
+}
+// end encoder lossless streaming

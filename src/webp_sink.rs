@@ -11,7 +11,7 @@ use crate::encoder_backend::EncodedImage;
 use crate::error::Error;
 use crate::geometry::Size;
 use crate::memory::{ExternalReservation, ManagedBuffer, MemoryBudget};
-use crate::pipeline::{ChromaSubsampling, OutputFormat, TransformOptions, WebpOptions};
+use crate::pipeline::{AvifOptions, OutputFormat, TransformOptions, WebpOptions};
 
 // The unchanged ICC sRGB2014 profile (assets/icc/README.md) describes the
 // emitted sRGB8 samples. It is a package-local copy so the published crate
@@ -40,7 +40,7 @@ impl WebpSink {
         if size.width > 16_383
             || size.height > 16_383
             || options.encoder_threads != 1
-            || options.chroma_subsampling != ChromaSubsampling::Yuv444
+            || options.avif != AvifOptions::default()
             || options.max_output_bytes == 0
         {
             return Err(Error::InvalidEncodeOptions);
@@ -50,12 +50,12 @@ impl WebpSink {
         let pixels = width.checked_mul(height).ok_or(Error::GeometryOverflow)?;
         let config = match options.webp {
             WebpOptions::Lossless { level } if level <= 9 => Config::new().lossless_level(level),
-            WebpOptions::Lossy { quality, speed }
+            // libwebp's own method, passed unchanged (ADR-0043 D4).
+            WebpOptions::Lossy { quality, method }
                 if quality.is_finite()
                     && (1.0..=100.0).contains(&quality)
-                    && (1..=10).contains(&speed) =>
+                    && method <= WebpOptions::MAX_METHOD =>
             {
-                let method = (6 * (10 - speed) + 4) / 9;
                 Config::preset(Preset::Default, quality).map(|config| config.method(method))
             }
             _ => return Err(Error::InvalidEncodeOptions),

@@ -22,7 +22,7 @@ repo=$(cd "$(dirname "$0")/../.." && pwd)
 (cd "$repo" && cargo build --release --features cli >/dev/null)
 bin=$repo/target/release/ferrisma
 mkdir -p "$out"
-args=("$input" "$out/profile-output.avif" "$width" "$height" --assume-srgb --quality=80 --speed=6 --max-input-mb=512 "$@")
+args=("$input" "$out/profile-output.avif" "$width" "$height" --assume-srgb --avif-quality=80 --avif-speed=6 --avif-depth=10 --max-input-mb=512 "$@")
 
 demangle() {
   if command -v rustfilt >/dev/null; then rustfilt; else cat; fi

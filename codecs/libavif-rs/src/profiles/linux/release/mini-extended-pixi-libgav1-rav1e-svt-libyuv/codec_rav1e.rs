@@ -4,10 +4,6 @@
 // Mechanically translated from upstream/libavif/src/codec_rav1e.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type avifEncoderData;
-    pub type RaContext;
-    pub type RaFrame;
-    pub type RaConfig;
     fn avifFree(p: *mut core::ffi::c_void);
     fn avifCalloc(count: size_t, size: size_t) -> *mut core::ffi::c_void;
     fn avifCodecEncodeOutputAddSample(
@@ -80,6 +76,14 @@ extern "C" {
         __c: core::ffi::c_int,
     ) -> *mut core::ffi::c_char;
 }
+#[repr(C)]
+pub struct avifEncoderData([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct RaContext([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct RaFrame([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct RaConfig([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type ptrdiff_t = isize;
 pub type size_t = usize;
 pub type __uint8_t = u8;

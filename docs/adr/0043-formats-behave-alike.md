@@ -1,6 +1,6 @@
 # ADR-0043: Formats behave alike where the format allows
 
-- **Status:** Accepted (the principle and decisions D1–D5). The [open question](#open-questions-pending-owner-decision) is not decided.
+- **Status:** Accepted (the principle and decisions D1–D5). The former open question (grayscale) was decided by the owner on 2026-11-15 and is recorded under [Decided applications](#decided-applications).
 - **Date:** 2026-11-15
 - **Last reviewed:** 2026-11-15
 - **Source:** owner statement of 2026-11-15, made with his decision on premultiplied alpha
@@ -64,7 +64,13 @@ Those settings are not made alike by mapping one scale onto all encoders:
 each output has its encoder's own scales (owner decision of 2026-11-15 on
 the WebP speed aliases), and a setting that belongs to another format is
 refused. Parity applies to what an image means and to what happens to it,
-not to tuning.
+not to tuning. _Implemented on 2026-11-15 (branch `v1/engine-options`):_
+`AvifOptions` (libavif quality, alpha quality, speed, depth, chroma),
+`WebpOptions` (libwebp quality and `method` 0–6 for lossy output, the
+lossless preset level 0–9) and `JpegXlOptions` (distance, effort) are the
+only encoder controls, each on its encoder's own scale; the general
+`quality`/`speed` fields and flags are removed, and a setting of another
+format is refused before decoding.
 
 **D5. The matrix is where parity is checked.** Each row of the supported
 matrix describes one property across the formats. A row whose cells differ
@@ -79,13 +85,56 @@ it and assert the same outcome class, kind, reason and report entry.
   report names the conversion. JPEG XL uses the un-premultiply step of the
   ported original, so the port stays identical with it (ADR-0041). The
   earlier refusal for JPEG XL is replaced. It counts as supported once a
-  fixture exists for each format.
+  fixture exists for each format. *Implemented 2026-11-15:* the JPEG XL
+  bridge sets `JxlDecoderSetUnpremultiplyAlpha` (translated in the port
+  and compared with the original in its `output_stage`, `decoder_geometry`
+  and `uint_output` parity tests); the engine's samples equal libjxl's
+  `c · 1 / max(a, 2⁻²⁶)` bit for bit. D2 check: libavif's step is integer
+  division at the decoded depth with rounding, a clamp and color 0 under
+  alpha 0, libjxl's a float multiplication without either; the pipeline
+  has no un-premultiply step of its own, so each reader keeps its
+  original's (ADR-0041), and the difference is a format reason recorded in
+  the supported matrix. Fixtures: libjxl's `extra-channel-alpha-1-*`
+  conformance files and `tests/fixtures/parity/premultiplied-alpha.avif`
+  (a `prem` reference inserted into a libavif test file). The
+  `Unspecified` alpha mode, produced only by the removed jxl-oxide reader,
+  is gone, and `RefusalReason::AlphaAssociation` is no longer produced by
+  a built-in reader.
+- **Grayscale** (owner decision, 2026-11-15; formerly the open question
+  of this ADR): gray is accepted in every format that can carry it.
+  Grayscale JPEG, grayscale JPEG XL (gray and gray with alpha) and
+  monochrome AVIF are expanded to RGB, gray with alpha to RGBA, R = G = B,
+  by one operation at one stage (`src/gray.rs`): every reader emits gray
+  (libjpeg's own gray component, libjxl's gray samples, libavif's
+  `GRAY`/`GRAYA` output), the color stage handles the gray signal, and the
+  copy happens after it at the decoder's precision. Working decision
+  2026-11-15 (delegated, revisable by the owner): one place rather than
+  each decoder's own expansion, because the copy is exact either way
+  (libjpeg's `gray_rgb_convert` and libavif's RGB output of a monochrome
+  image copy the same value into R, G and B, which a test checks for
+  libavif), and only gray samples can enter a gray ICC profile. A gray ICC
+  profile is converted through its tone curve (moxcms, checked against
+  moxcms called directly and against the curve computed independently); a
+  profile of the other color space than the channels is refused
+  (`IccColorSpaceMismatch`). A typed gray signal follows the rules of its
+  RGB counterpart. WebP has no gray (format reason).
+- **JPEG XL enum color encoding is a typed signal** (owner decision,
+  2026-11-15, #222; ADR-0015 section of that date): an enum encoding with
+  an H.273 code point is reported as CICP, like AVIF `nclx`, so both get the
+  same outcome, `ColorSignal` and `RefusalReason` under every policy; an
+  embedded profile needs `UseRenderedIcc` in every format. An enum encoding
+  without a code point (custom primaries or white point, gamma) has no
+  AVIF counterpart: `nclx` cannot express it (format reason).
+- **AVIF ICC beside `nclx` follows MIAF** (owner decision, 2026-11-15;
+  ADR-0015 section of that date): the profile governs primaries and
+  transfer, so the file gets the outcome of any embedded profile in any
+  format (`RenderedIccRequiresOptIn`, or `RenderedIcc` under
+  `UseRenderedIcc`). Only AVIF carries both signals (format reason).
 
 ## Consequences
 
-- Some refusals become conversions (premultiplied JPEG XL alpha). Where the
-  open question below is answered in favor of accepting, grayscale JPEG XL
-  and monochrome AVIF follow.
+- Some refusals become conversions (premultiplied JPEG XL alpha,
+  grayscale JPEG XL and monochrome AVIF, all 2026-11-15).
 - Adapters lose freedom: a new reader or format has to be fitted to the
   existing outcome for each shared property, or its difference justified.
 - The supported matrix becomes a checked artifact, and the parity tests
@@ -118,17 +167,17 @@ it and assert the same outcome class, kind, reason and report entry.
   the same property and get different outcomes without a format reason in
   the matrix.
 
-State on 2026-11-15: the principle is recorded; the premultiplied-alpha
-change, the parity tests and the matrix review are not implemented yet.
+State on 2026-11-15: the principle is recorded and its four applications
+of that day (premultiplied alpha, grayscale, JPEG XL enum encoding, AVIF
+ICC beside `nclx`) are implemented on branch `v1/engine-parity`, with the
+parity tests (`tests/format_parity.rs`) and the format-parity table of the
+supported matrix, where each row whose cells differ names its format
+reason. Not covered by a fixture, and therefore not claimed: AVIF gray
+with alpha and AVIF with a gray profile.
 
 ## Open questions (pending owner decision)
 
-1. **Grayscale.** JPEG expands gray to RGB; JPEG XL and AVIF refuse it.
-   Under D1 this difference has no format reason. Options: accept gray in
-   all three and expand it to RGB (or RGBA with alpha), which loses nothing;
-   refuse it in all three; or keep the difference and record why. A gray
-   image may carry a gray ICC profile, which must enter color handling
-   correctly or be refused with a reason, not guessed.
+None. The grayscale question is decided (above).
 
 ## Review when
 
@@ -140,3 +189,19 @@ change, the parity tests and the matrix review are not implemented yet.
 
 - 2026-11-15 — Initial record of the owner's principle, with the
   premultiplied-alpha decision as its first application.
+- 2026-11-15 — The JPEG XL enum encoding decision (#222) added as an
+  application; `tests/format_parity.rs` started (D5) with color
+  signaling, straight alpha, orientation and animation.
+- 2026-11-15 — Grayscale decided by the owner (accept everywhere, expand
+  to RGB): moved from the open questions to the decided applications, with
+  the working decision on where the expansion happens; parity rows for
+  gray, gray with alpha, gray ICC and ICC color-space mismatch.
+- 2026-11-15 — Premultiplied alpha implemented for JPEG XL (libjxl's
+  step) and checked against AVIF's (libavif's): same outcome and report
+  entry, different arithmetic, recorded as a format reason.
+- 2026-11-15 — AVIF ICC beside `nclx` (MIAF) added as an application;
+  every decision of the day is implemented and the state paragraph under
+  Validation is updated.
+- 2026-11-15 — D4 implemented: per-format options types with native
+  scales (`AvifOptions`, libwebp's own `method` instead of a mapped
+  `speed`), the general `quality`/`speed` removed (ADR-0037, ADR-0040).

@@ -97,7 +97,7 @@ jobs:
     needs: affected
     if: needs.affected.outputs.engine == 'true' || needs.affected.outputs.kernels == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Restore minimum-rust build cache
@@ -109,11 +109,19 @@ jobs:
             core-minimum-rust-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml') }}-
       - uses: dtolnay/rust-toolchain@1.98.0
       - run: cargo +1.98.0 fetch --locked
-      # AVIF input and output use the native nightly port (the only AVIF writer
-      # since rav1e left on 2026-11-15); the remaining engine features keep the
-      # stable MSRV contract. NASM is no longer needed (it was rav1e's).
+      # The engine's MSRV covers every feature except AVIF. NASM is no longer
+      # needed (it was rav1e's).
       - run: cargo +1.98.0 check -p ferrisma -p ferrisma-kernels --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc --locked
       - run: cargo +1.98.0 check -p ferrisma-xtask --all-targets --locked
+      # The AVIF port (the only AVIF reader and writer since 2026-11-15) builds
+      # on stable since its translations were rewritten (libavif-rs ADR 0060);
+      # its C-variadic functions need Rust 1.99, the AVIF packages' rust-version.
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - run: |
+          for feature in avif-read avif-write cli; do
+            cargo +1.99.0 check -p ferrisma --no-default-features --features "$feature" --locked
+          done
+      - run: cargo +1.99.0 test -p ferrisma --features avif-read,avif-write --locked
   kernels-arm:
     needs: affected
     if: needs.affected.outputs.kernels == 'true' || needs.affected.outputs.engine == 'true'
@@ -188,6 +196,7 @@ jobs:
         run: |
           python3 tools/verify_upstream.py --tracked
           python3 tools/check_translation.py
+          python3 -I tools/stable_rust.py --check
           python3 tools/generate_licenses.py --check
           python3 -m unittest discover -s tests/ports -p '*_test.py'
   codecs:

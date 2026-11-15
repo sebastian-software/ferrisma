@@ -92,6 +92,11 @@ pub(crate) enum Error {
     /// never given precedence over CICP silently (ADR-0015 rule 4).
     #[cfg(feature = "icc")]
     CicpBesideIcc(&'static str),
+    /// The rendered ICC profile's color space (gray or RGB) is not the one
+    /// of the decoded channels: an RGB profile beside gray samples or a
+    /// gray profile beside RGB samples. Neither is reinterpreted.
+    #[cfg(feature = "icc")]
+    IccColorSpaceMismatch,
     UnsupportedAlphaMode,
     /// Animated input; only still images are decoded (no first-frame
     /// fallback).
@@ -106,8 +111,8 @@ pub(crate) enum Error {
     #[allow(dead_code)]
     UnsupportedCodecLayout,
     /// A channel layout, sample format or YUV matrix outside the engine's
-    /// contract: grayscale, CMYK/YCCK, monochrome AVIF, float or extra
-    /// channels, constant-luminance BT.2020.
+    /// contract: CMYK/YCCK, float or extra channels, constant-luminance
+    /// BT.2020. (Gray is accepted since 2026-11-15.)
     #[cfg_attr(
         not(any(
             feature = "jpeg-read",
@@ -169,7 +174,7 @@ impl fmt::Display for Error {
             Self::DecodeFailed => write!(f, "decoder rejected input or could not render it"),
             Self::NonFinitePixelSample => write!(f, "non-finite sample during resampling"),
             Self::InvalidEncodeOptions => {
-                write!(f, "encoder quality/speed or output dimensions are invalid")
+                write!(f, "encoder settings or output dimensions are invalid")
             }
             #[cfg(any(feature = "webp-write", feature = "jpeg-xl-write"))]
             Self::IncompleteOutput => write!(f, "output sink has not received every scanline"),
@@ -208,6 +213,11 @@ impl fmt::Display for Error {
             }
             #[cfg(feature = "icc")]
             Self::RenderedIccMissing => f.write_str(UNSUPPORTED_COLOR_ENCODING),
+            #[cfg(feature = "icc")]
+            Self::IccColorSpaceMismatch => write!(
+                f,
+                "the rendered ICC profile's color space does not match the decoded gray or color channels"
+            ),
             #[cfg(feature = "icc")]
             Self::CicpBesideIcc(reason) => write!(
                 f,

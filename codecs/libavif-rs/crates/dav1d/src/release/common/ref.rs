@@ -176,7 +176,7 @@ pub unsafe extern "C" fn dav1d_ref_dec(pref: *mut *mut Dav1dRef) {
         return;
     }
     *pref = 0 as *mut Dav1dRef;
-    if ::core::intrinsics::atomic_xsub::<_, _, {core::intrinsics::AtomicOrdering::SeqCst}>(
+    if crate::platform::atomic_xsub_seqcst(
         &raw mut (*ref_0).ref_cnt as *mut atomic_int,
         1 as core::ffi::c_int,
     ) == 1 as core::ffi::c_int

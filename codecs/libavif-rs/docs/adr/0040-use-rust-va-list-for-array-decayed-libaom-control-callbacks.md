@@ -1,5 +1,7 @@
 # Use Rust VaList for array-decayed libaom control callbacks
 
+> **2026-11-15: amended by [ADR 0060](0060-build-the-translations-on-stable-rust.md).** `core::ffi::VaList` and C-variadic definitions are stable since Rust 1.99; the port builds on stable 1.99 or later and is no longer tied to the pinned nightly. The mapping below is unchanged.
+
 Map the selected GNU x86-64 `aom_codec_control_fn_t` parameter to Rust's
 `core::ffi::VaList`, matching the translated callback definitions and variadic
 dispatcher. Clang decays glibc's one-element `va_list` array to a pointer in

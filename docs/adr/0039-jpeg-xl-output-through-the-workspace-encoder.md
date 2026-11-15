@@ -95,7 +95,7 @@ These describe the emitted samples (ADR-0015):
 | Property | Lossy (default) | Lossless |
 | --- | --- | --- |
 | Container | Raw codestream (`FF 0A`); no ISOBMFF container, no `jxll`, no Exif/XMP/JUMBF boxes | Same |
-| Coding | VarDCT, effort 7, the requested Butteraugli distance, **patches off** (`JXL_ENC_FRAME_SETTING_PATCHES` = 0; the result equals `cjxl --patches=0 -e 7 -d <distance> -x color_space=RGB_D65_SRG_Rel_SRG` from the finished rows as PPM/PAM, see the 2026-11-15 amendment); default settings otherwise (dots, noise, splines off or absent as admitted) | Modular, effort 2; decoded samples equal the engine's finished rows exactly; the file equals `cjxl -d 0 -e 2 --buffering=0 -x color_space=RGB_D65_SRG_Rel_SRG` from the finished rows (2026-11-15 amendment) |
+| Coding | VarDCT, effort 7, the requested Butteraugli distance, **patches off** (`JXL_ENC_FRAME_SETTING_PATCHES` = 0; the result equals `cjxl --patches=0 -e 7 -d <distance> -x color_space=RGB_D65_SRG_Rel_SRG` from the finished rows as PPM/PAM, see the 2026-11-15 amendment); default settings otherwise (dots, noise, splines off or absent as admitted) | Modular, effort 2, default buffering (chunked above 8 groups, as the original's default); decoded samples equal the engine's finished rows exactly; the file equals `cjxl -d 0 -e 2 -x color_space=RGB_D65_SRG_Rel_SRG` from the finished rows (2026-11-15 amendments; until the chunked amendment `--buffering=0`, the same file at most 8 groups) |
 | Bit depth | 8-bit integer samples signaled (`bits_per_sample = 8`) | Same |
 | Color | `xyb_encoded = true`; the signaled enum color encoding (RGB, D65, sRGB primaries, sRGB transfer, relative intent) describes the decoded samples; no ICC | `xyb_encoded = false`; same enum encoding; no ICC |
 | Alpha | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel, coded losslessly (extra-channel distance 0), so decoded alpha equals the finished rows exactly. Color under zero alpha is **not** kept: libjxl's lossy default (`keep_invisible` off, SimplifyInvisible) replaces it. Fully opaque output has no extra channel; the engine omits it before encoding and does not rely on the encoder's `STRIP_ALPHA` decision. | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel; color under zero alpha is kept exactly. Fully opaque output has no extra channel. |
@@ -139,6 +139,18 @@ group streaming (one more byte per pixel plus 887,808 bytes). Tokens, histograms
 section writers and the encoded output (held by the encoder and copied once
 into the returned `Vec`) are opaque; the report sets
 `opaque_encoder_memory`.
+
+Lossless (amended 2026-11-15, #223, superseding the next paragraph): it
+encodes through the bridge's `encode_lossless` with the default buffering
+and reserves the **measured** peak of the path the encoder takes
+([chunked memory record](../benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md)):
+at most 8 groups the one-shot path, 76 B/px opaque and 97 B/px with alpha;
+above, the chunked path, 16 B/px of the frame (20 with alpha) plus 53 B/px
+(70) of `min(frame, one 2048x2048 DC group)`; plus 12 MiB on both paths;
+minus the input the measured process held (3 or 4 B/px), so that the 4 B/px
+frame plus the reservation cover every measured peak. The alpha terms are
+measured, not scaled. On the one-shot path the source-path planes remain a
+floor. The report keeps `opaque_encoder_memory`.
 
 Lossless (amended 2026-11-13, #223): it reserves the **measured** peak of
 the admitted one-shot profile, `LOSSLESS_ONE_SHOT_PEAK_BYTES_PER_RGB_PIXEL`
@@ -515,6 +527,12 @@ amendment), or the port's encoder starts selecting SIMD by default.
   identical on both targets in this comparison and in `jxl_output_tests`
   (the cjxl reference files above pass under Rosetta), but resized rows
   depend on the kernel level as for lossy.
+- 2026-11-15 — Options note (ADR-0043 D4): the AVIF settings that a JPEG
+  XL output refuses as mismatched are now `AvifOptions` (formerly
+  `quality`, `speed`, `chroma_subsampling`), and the CLI flags rejected
+  with `.jxl` output are `--avif-*` and `--webp-*` ("… requires .avif
+  output"); `--quality=`, `--speed=` and `--chroma=` are unknown options.
+  `JpegXlOptions` is unchanged.
 - 2026-11-15 — Owner decision on the lossy default and the patches policy
   (#236): **lossy distance 1.0 by default, patches off; owner decision
   2026-11-15.** This confirms the 2026-11-12 "pending owner confirmation"
@@ -528,3 +546,57 @@ amendment), or the port's encoder starts selecting SIMD by default.
   at d1.0) and scored 0.33 to 3.89 SSIMULACRA2 points lower; photographs are
   unchanged. The "unmeasured" cost above is superseded by that record, and
   the review trigger (encoder step 5) stands.
+- 2026-11-15 — **Lossless output is chunked like the original's default
+  (#223). Owner decision 2026-11-15: the default budget stays at 256 MiB, and
+  the chunked lossless encode is ported.** Path analysis: for the engine's
+  profile (`cjxl -d 0 -e 2`, SetLossless at kThunder) the original's
+  CanDoStreamingEncoding returns true at its default buffering (-1) once the
+  frame has more than 8 groups of 256x256 (also at buffering 1 above 2048
+  pixels per side, 2 and 3): Modular mode with `color_transform` kNone is the
+  accepted transform, and as the modular part is lossless the extra-channel
+  and `responsive` exclusions do not apply. EncodeFrame then runs
+  EncodeFrameStreaming: one ComputeEncodingData per 2048x2048 DC group in
+  streaming mode, whose ModularFrameEncoder::ComputeEncodingData runs
+  groupwise (no global palette, the YCoCg RCT per DC group, stream
+  parameters per group through PrepareStreamParams and
+  ComputeStreamingAbsoluteAcGroupId); ComputeTree and ComputeTokens are
+  skipped, EncodeGlobalInfo writes "no global tree", and every DC and AC
+  group stream is coded by ModularGenericCompress with its own predefined
+  kGradientFixedDC tree and histograms, cleared (ClearModularStreamData)
+  before the next DC group; the Modular frame's AC-global section is empty.
+  Encoder step 2 had ported the frame-level streaming (EncodeFrameStreaming,
+  permutation, TOC, output modes, the output processor and chunked input)
+  and the groupwise extra-channel path (`do_color = false`) for VarDCT; the
+  lossless path needed beyond it the `do_color = true` ComputeEncodingData
+  of the Modular frame encoder, the Modular branches of enc_frame's
+  ComputeEncodingData, the empty AC-global section and the admission of the
+  profile through the public API. All are now translated and byte-exact
+  against the original public API in buffer and output-processor mode, with
+  chunked input and the container, at sizes up to 4000x3000 (libjxl-rs
+  `PORT_STATUS.md`, block "encoder lossless streaming"). **Bytes:** the
+  chunked files differ from the one-shot files (different trees and
+  histograms per group), so the reference is the original's default
+  command, `cjxl -d 0 -e 2 -x color_space=RGB_D65_SRG_Rel_SRG`; at most 8
+  groups both commands write the same file. `jxl_output_tests::lossless_output_equals_the_original_cjxl_bytes`
+  now also compares two 2049x40 patterns (9 groups, two DC groups) with
+  files the original wrote in its default mode
+  (`tests/fixtures/jxl-lossless/README.md`); the three earlier fixtures are
+  unchanged. **Engine:** the sink calls the bridge's new `encode_lossless`
+  (effort 2, JxlEncoderSetFrameLossless, `uses_original_profile`, default
+  buffering) instead of `LosslessThunderConfig::encode_pixels`; the output
+  limit is still checked after the encoder returns. **Memory:** measured
+  peak RSS at 24 MP opaque, port chunked 19.9 B/px against 74.1 one-shot
+  (original 26.5 against 77.9), with alpha 28.9 against 96.9 (original 34.7
+  against 100.5); below one DC group the chunked path still costs about
+  52-66 B/px. The reservation follows the measured model above; frame plus
+  reservation at 24 MP opaque are 643 MB instead of 1,824 MB. Under the
+  default 256 MiB budget the largest lossless output moves from about
+  3.53 MP to 3.66 MP opaque (2.84 MP with alpha), because images of a few
+  megapixels are dominated by one DC group's working set;
+  `supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`
+  (1920x1920, renamed from `..._above_about_three_and_a_half_megapixels`
+  with 2000x2000) and
+  `jxl_output_tests::input_frame_and_measured_lossless_peaks_are_reserved`
+  (every measured peak fits) pin it. Not measured: gray or 16-bit input
+  (the engine writes neither), other hosts and allocators, and the lossy
+  estimate.

@@ -2,7 +2,7 @@
 //! every remaining byte is passed unchanged to the selected image decoder.
 
 use ferrisma::pipeline::{
-    ImageFormat, InputProfilePolicy, JpegXlOptions, Output, OutputFormat, ProcessingError,
+    AvifOptions, ImageFormat, InputProfilePolicy, JpegXlOptions, Output, OutputFormat, ProcessingError,
     ResizeFit, ResizeOptions, TransformOptions, WorkingPrecision, transcode, transcode_resized,
 };
 
@@ -212,7 +212,9 @@ fn run_case_with_depth(bytes: &[u8], depth: u8) -> Option<Result<Output, Process
         OutputFormat::WebP
     };
     // Select an explicit policy; no profile is guessed when one is present.
-    // Existing selector 1's JXL fixture contains a rendered RGB ICC profile.
+    // Policy 0 keeps the rendered-ICC policy for JPEG XL, which before
+    // 2026-11-15 described every file by an ICC profile; it now reads enum
+    // encodings as typed signals under every policy (owner decision, #222).
     let profile_policy = match (control >> 3) & 3 {
         0 if kind == ImageFormat::JpegXl => InputProfilePolicy::UseRenderedIcc,
         0 | 2 => InputProfilePolicy::AssumeSrgbIfMissing,
@@ -232,28 +234,25 @@ fn run_case_with_depth(bytes: &[u8], depth: u8) -> Option<Result<Output, Process
     };
     let options = TransformOptions {
         output_format,
-        // A nondefault AVIF depth conflicts with WebP output; WebP keeps the
-        // default, like the other shared AVIF options.
-        avif_depth: if output_format == OutputFormat::Avif {
-            depth
+        // AVIF settings other than the defaults conflict with WebP output;
+        // WebP keeps the defaults. The AVIF lane pins quality, speed and
+        // depth explicitly (the engine defaults follow `avifenc` since
+        // 2026-11-15).
+        avif: if output_format == OutputFormat::Avif {
+            AvifOptions {
+                quality: 60,
+                alpha_quality: 60,
+                speed: 10,
+                depth,
+                ..AvifOptions::default()
+            }
         } else {
-            10
+            AvifOptions::default()
         },
         output_width,
         output_height,
         profile_policy,
         precision,
-        // WebP requires these shared AVIF options to retain their defaults.
-        quality: if output_format == OutputFormat::Avif {
-            60.0
-        } else {
-            75.0
-        },
-        speed: if output_format == OutputFormat::Avif {
-            10
-        } else {
-            6
-        },
         transform_threads: 1,
         encoder_threads: 1,
         max_input_bytes: MAX_INPUT_BYTES,
@@ -411,6 +410,15 @@ mod tests {
                         result.is_ok(),
                         "the supported ICC/alpha seed must reach encoding"
                     );
+                } else if name.starts_with("jxl-gray-") {
+                    // Gray and gray+alpha JPEG XL are expanded to RGB(A)
+                    // since 2026-11-15 (owner decision, ADR-0043); until
+                    // then these eight seeds were `UnsupportedInput`.
+                    assert!(
+                        result.is_ok(),
+                        "{lane}/{name}: gray JPEG XL must reach encoding: {:?}",
+                        result.as_ref().err()
+                    );
                 } else if name.starts_with("jxl-oversized-toc-section")
                     || name.starts_with("jxl-unknown-colour-space")
                 {
@@ -476,7 +484,10 @@ mod tests {
         let strict_jpeg = run_case(&framed(8, JPEG)).unwrap().unwrap_err();
         assert_eq!(strict_jpeg.kind(), ProcessingErrorKind::UnsupportedColor);
         // An embedded ICC is not replaced by the assume-if-missing policy.
-        let tagged_jxl = run_case(&framed(1 | 0x10, JXL)).unwrap().unwrap_err();
+        // (Until 2026-11-15 `sample.jxl`, whose enum sRGB is now a typed
+        // signal; owner decision, #222.)
+        const ICC_JXL: &[u8] = include_bytes!("../../tests/fixtures/parity/rgb-p3-icc.jxl");
+        let tagged_jxl = run_case(&framed(1 | 0x10, ICC_JXL)).unwrap().unwrap_err();
         assert_eq!(tagged_jxl.kind(), ProcessingErrorKind::UnsupportedColor);
         assert!(run_case(&[]).is_none());
         assert!(run_case(&[0]).is_none());

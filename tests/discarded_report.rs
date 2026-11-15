@@ -237,6 +237,36 @@ mod avif {
         assert_eq!(avif(&ten, ASSUME), [UnknownContainerData, PrecisionReduced]);
     }
 
+    /// `avifenc` writes the depth of its input; the engine's AVIF writer has
+    /// a fixed default depth of 8 (working decision 2026-11-15, ADR-0037).
+    /// A 10-bit input encoded at that default loses precision, and the
+    /// report says so; an 8-bit input does not. (Every input reaches the
+    /// encoder as 8-bit rows, so a 10-bit output reports it too: the class
+    /// names what the pipeline drops, not the output depth.)
+    #[cfg(feature = "avif-write")]
+    #[test]
+    fn deeper_input_at_the_default_avif_depth_reports_precision_reduced() {
+        use ferrisma::pipeline::AvifOptions;
+        assert_eq!(AvifOptions::default().depth, 8);
+        let to_avif = |bytes: &[u8]| {
+            let output = transcode(
+                bytes,
+                ImageFormat::Avif,
+                TransformOptions {
+                    output_format: OutputFormat::Avif,
+                    ..options(ASSUME)
+                },
+            )
+            .unwrap();
+            assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+            output.report.discarded.iter().collect::<Vec<_>>()
+        };
+        let ten = read(&format!("{ANDROID}fox.profile0.10bpc.yuv420.avif"));
+        assert!(to_avif(&ten).contains(&PrecisionReduced));
+        let eight = read(&format!("{ANDROID}fox.profile0.8bpc.yuv420.avif"));
+        assert!(!to_avif(&eight).contains(&PrecisionReduced));
+    }
+
     /// Insert a `prem` reference (color item 1 to alpha item 2) into the
     /// `iref` of libavif's `abc_color_irot_alpha_irot.avif`, which libavif
     /// reads as premultiplied alpha. The 14 inserted bytes grow `iref` and
@@ -319,5 +349,23 @@ fn the_cli_report_line_names_the_discarded_classes() {
     );
     let report = run("tests/fixtures/sample.jxl");
     assert!(report.contains(" discarded=none\n"), "{report}");
+    // No strict mode (owner decision of 2026-11-15, ADR-0042): a script
+    // tests the key itself. It is the last key of the `report:` line, and
+    // its value is `none` exactly when nothing was left out.
+    let discarded = |report: &str| {
+        let line = report
+            .lines()
+            .find(|line| line.starts_with("report: "))
+            .expect("one report line");
+        let last = line.split_whitespace().last().unwrap().to_owned();
+        last.strip_prefix("discarded=")
+            .expect("discarded= is the last key")
+            .to_owned()
+    };
+    assert_eq!(discarded(&report), "none");
+    assert_eq!(
+        discarded(&run(&format!("{AVIF_DATA}paris_exif_xmp_icc.jpg"))),
+        "Exif,Xmp,OtherMetadata,IccProfile"
+    );
     let _ = std::fs::remove_file(out);
 }

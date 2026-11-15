@@ -1,4 +1,4 @@
-# JPEG XL lossless references written by the original (issue #249)
+# JPEG XL lossless references written by the original (issues #249, #223)
 
 The byte reference of the engine's lossless JPEG XL sink (ADR-0039) is the
 pinned original's public tool, not the port: each file here was written by
@@ -48,3 +48,42 @@ Together these are the 51 bytes of issue #249.
 | `rgb-37x19.jxl` | `rows.py 37 19 0` (PPM) | 1,891 | `e7097e61cbe690732f314662f330af7023874b57939e7d933359b245624df2b4` |
 | `rgba-37x19.jxl` | `rows.py 37 19 1` (PAM, `RGB_ALPHA`) | 2,153 | `f771a37fde48d32bf4d44818bff7aedd4432a825a0164763cfb006b16ec6e6af` |
 | `rgb-300x260.jxl` | `rows.py 300 260 0` (PPM, 2x2 groups) | 196,894 | `c9ee45da8e128b11ad15ccaf99aa1bd85975087e84c1ee6e53ee95a616e0e544` |
+
+## Default (chunked) buffering, 2026-11-15 (issue #223)
+
+Since 2026-11-15 the sink encodes through the port's public encoder with the
+default buffering, as `cjxl` does without `--buffering`: above 8 groups the
+original then encodes in chunks (EncodeFrameStreaming, one 2048x2048 DC group
+at a time, with its own trees and histograms per group), which writes other
+bytes than `--buffering=0`. The reference command is therefore `cjxl`'s
+default:
+
+```sh
+python3 -I rows.py 2049 40 0 rgb-2049x40.ppm
+python3 -I rows.py 2049 40 1 rgba-2049x40.pam
+for f in rgb-37x19.ppm rgba-37x19.pam rgb-300x260.ppm rgb-2049x40.ppm rgba-2049x40.pam; do
+  cjxl "$f" "${f%.*}.jxl" -d 0 -e 2 --num_threads=0 \
+    -x color_space=RGB_D65_SRG_Rel_SRG
+done
+```
+
+with `cjxl v0.13.0 a16d32d [_SCALAR_] {AppleClang 21.0.0.21000401}` (libjxl
+`a16d32d0ac113f5e54125e49bb571281c5d0b704`, the same `build-scalar`
+configuration, rebuilt for this change) on macOS AArch64. Results:
+
+- The three files above are unchanged: they have at most 8 groups (37x19 one,
+  300x260 four), where the original takes its one-shot path with every
+  buffering value, so the default command writes the same bytes as
+  `--buffering=0` (checked: identical SHA-256). They are kept as they are and
+  are now the reference of both commands.
+- `rgb-2049x40.jxl` and `rgba-2049x40.jxl` are new: 2049x40 has 9 groups in
+  two DC groups, so the default command takes the chunked path. With
+  `--buffering=0` the original writes other files (206,276 and 228,069 bytes);
+  those one-shot files are not the engine's reference and are not kept.
+- With the default thread pool (`--num_threads` omitted) the same command
+  wrote the same bytes for all five inputs.
+
+| File | Input | Bytes | SHA-256 |
+| --- | --- | ---: | --- |
+| `rgb-2049x40.jxl` | `rows.py 2049 40 0` (PPM, 9 groups, chunked) | 208,070 | `b9652d54090abeb2900148fa3fe411d387b26252f7f5656b0c80fbeabe41d64a` |
+| `rgba-2049x40.jxl` | `rows.py 2049 40 1` (PAM, `RGB_ALPHA`, 9 groups, chunked) | 234,342 | `da0e26b893379754e3aa3f5a26bd36303fea234fa9db0e0d636eb894f77e8f69` |

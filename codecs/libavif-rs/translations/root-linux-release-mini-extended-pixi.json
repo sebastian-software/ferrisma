@@ -21,7 +21,7 @@
       "source_sha256": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
       "rust": "src/profiles/linux/release/mini-extended-pixi/avif.rs",
       "raw_sha256": "bf6c56ec886bd9d9fc3bba0e777dbd39139f821e391b324e600987527a6cd699",
-      "rust_sha256": "8520366d3e24f55652ff35fc46802903ebb536fe20f273f2face0af29a1aa471",
+      "rust_sha256": "d4914ca7a860c2f79e5f1ebea75804478199b42ef0478fd8991d078cf375882b",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
@@ -83,7 +83,7 @@
       "source_sha256": "b0e08b3c6e683fce6dd13afff60a860909b19fc9ace9ebe659e2eee9b2ee78df",
       "rust": "src/profiles/linux/release/mini-extended-pixi/io.rs",
       "raw_sha256": "20fdc436080b460965b9b337c83745e8694f34b7d9921a91f16b351c6be36b1e",
-      "rust_sha256": "f5e649ffb5e0de71b03714b014fa1dd38c1b6fed14044b5ad94d349d83d02e47",
+      "rust_sha256": "648f67891e9a7ee75aa579d39c28fb656ad15daa8e93ac5d6551467a6933089b",
       "corrections": {}
     },
     {
@@ -126,7 +126,7 @@
       "source_sha256": "ac3f6e6589287046fef789ca4584b13e6d9c6b3a3bb378d322b3d1cc2571d007",
       "rust": "src/profiles/linux/release/mini-extended-pixi/read.rs",
       "raw_sha256": "4ba9824418a6a0df149d6f683bd3b30cc5126c977168236b5d5845f0b4cbf359",
-      "rust_sha256": "3bc3fc1a43c5675889c678ca3cf307c54f5043e02f934cfbdff19dba2616b1ea",
+      "rust_sha256": "d87cc1a8ad951005470134b0947c236692896deb1441640b87c36be8502f3a35",
       "corrections": {
         "canonical-cfg-labels": 4,
         "static-raw-address": 1
@@ -195,7 +195,7 @@
       "source_sha256": "98ca08fc448785dcb2ba62f0f33caa6d0a0dcda0af0b71e09c3c9ced3e68146b",
       "rust": "src/profiles/linux/release/mini-extended-pixi/write.rs",
       "raw_sha256": "db7092ea8224083be13b4aaccbe671a6211a5f6de985ba8963aea092839cc411",
-      "rust_sha256": "697cf55f1e2640ff5b57e5baf58e8e8136b13e973820bd40b4d7311a728d9e79",
+      "rust_sha256": "5b62eedafe47a1392de9885582f584776e0eb3353722c5573c76704534232d7c",
       "corrections": {
         "canonical-cfg-labels": 4,
         "static-raw-address": 13
@@ -246,7 +246,7 @@
       "source_sha256": "2bee3b437a7ca303c3e6a04512a35c3832507f4fc37d35d8ee587e9fe9aeff84",
       "rust": "src/profiles/linux/release/mini-extended-pixi/codec_dav1d.rs",
       "raw_sha256": "eecdf9b0497b64aa5292fd5b0df3728cc55975dd44079254454591abcfa21d7b",
-      "rust_sha256": "e490ca062279f8fde09f46c038ffeabe1033c4464a63d2e7418c37c6a235d0a3",
+      "rust_sha256": "1be06d703c22f76c227a7a16c1a904e529d53a36b2e3ed8bfd22c31fcc2c7d02",
       "corrections": {
         "current-rust-variadic-list": 1
       }
@@ -256,7 +256,7 @@
       "source_sha256": "2257d152d6f7218f1057890f77a7e56dd2b34cf44403367eca7b4d53186b73f4",
       "rust": "src/profiles/linux/release/mini-extended-pixi/codec_aom.rs",
       "raw_sha256": "10d8c87df0eac7d0fa7ecac4e13351390cf6001415c449a97daeb2afa86b6a62",
-      "rust_sha256": "d552f9d58fd1b036cb032302a1028962c9d7468c59f1cc17402b2812fa372331",
+      "rust_sha256": "4aaca649a033c5d47e64a3df9a8976f8280e4d5e1b2964fb3475c18ab0b5bc5a",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 2

@@ -34,9 +34,6 @@
 // Mechanically translated from upstream/aom/aom_dsp/grain_table.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type _IO_wide_data;
-    pub type _IO_codecvt;
-    pub type _IO_marker;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
     fn aom_internal_error(
         info: *mut aom_internal_error_info,
@@ -46,6 +43,12 @@ extern "C-unwind" {
     );
     fn aom_free(memblk: *mut core::ffi::c_void);
 }
+#[repr(C)]
+pub struct _IO_wide_data([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct _IO_codecvt([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct _IO_marker([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __uint16_t = u16;
 pub type __int64_t = i64;
 pub type __off_t = core::ffi::c_long;

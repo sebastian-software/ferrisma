@@ -1,0 +1,30 @@
+c512x1024-port-fixed-1 status=0 max_rss=42729472 heap_peak=39006292
+c512x1024-port-api0-1 status=0 max_rss=44318720 heap_peak=40651098
+c512x1024-port-api-default-1 status=0 max_rss=43057152 heap_peak=40651106
+c512x1024-cjxl-buffering0-1 status=0 max_rss=45940736 heap_peak=-
+c512x1024-cjxl-default-1 status=0 max_rss=46546944 heap_peak=-
+c512x1024-port-fixed-2 status=0 max_rss=43991040 heap_peak=39006292
+c512x1024-port-api0-2 status=0 max_rss=43974656 heap_peak=40651098
+c512x1024-port-api-default-2 status=0 max_rss=44990464 heap_peak=40651106
+c512x1024-cjxl-buffering0-2 status=0 max_rss=45989888 heap_peak=-
+c512x1024-cjxl-default-2 status=0 max_rss=46088192 heap_peak=-
+c512x1024a-port-fixed-1 status=0 max_rss=55558144 heap_peak=51744270
+c512x1024a-port-api0-1 status=0 max_rss=58834944 heap_peak=53913288
+c512x1024a-port-api-default-1 status=0 max_rss=59375616 heap_peak=53913296
+c512x1024a-cjxl-buffering0-1 status=0 max_rss=59490304 heap_peak=-
+c512x1024a-cjxl-default-1 status=0 max_rss=59211776 heap_peak=-
+c512x1024a-port-fixed-2 status=0 max_rss=56180736 heap_peak=51744270
+c512x1024a-port-api0-2 status=0 max_rss=57556992 heap_peak=53913288
+c512x1024a-port-api-default-2 status=0 max_rss=58507264 heap_peak=53913296
+c512x1024a-cjxl-buffering0-2 status=0 max_rss=58507264 heap_peak=-
+c512x1024a-cjxl-default-2 status=0 max_rss=58900480 heap_peak=-
+2a591146b669f47869bb2869694a82fb6438ec6259ed9e85bfaad8f8e2ec3240  ./c512x1024-cjxl-buffering0.jxl
+2a591146b669f47869bb2869694a82fb6438ec6259ed9e85bfaad8f8e2ec3240  ./c512x1024-cjxl-default.jxl
+2a591146b669f47869bb2869694a82fb6438ec6259ed9e85bfaad8f8e2ec3240  ./c512x1024-port-api-default.jxl
+2a591146b669f47869bb2869694a82fb6438ec6259ed9e85bfaad8f8e2ec3240  ./c512x1024-port-api0.jxl
+2a591146b669f47869bb2869694a82fb6438ec6259ed9e85bfaad8f8e2ec3240  ./c512x1024-port-fixed.jxl
+5b13aacd7acccb7f8d97749af24ceafb15a83dcca743ce87a7efe08dd92dc643  ./c512x1024a-cjxl-buffering0.jxl
+5b13aacd7acccb7f8d97749af24ceafb15a83dcca743ce87a7efe08dd92dc643  ./c512x1024a-cjxl-default.jxl
+5b13aacd7acccb7f8d97749af24ceafb15a83dcca743ce87a7efe08dd92dc643  ./c512x1024a-port-api-default.jxl
+5b13aacd7acccb7f8d97749af24ceafb15a83dcca743ce87a7efe08dd92dc643  ./c512x1024a-port-api0.jxl
+5b13aacd7acccb7f8d97749af24ceafb15a83dcca743ce87a7efe08dd92dc643  ./c512x1024a-port-fixed.jxl

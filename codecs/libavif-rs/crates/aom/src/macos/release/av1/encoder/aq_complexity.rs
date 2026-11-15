@@ -13,11 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type __sFILEX;
-    pub type aom_denoise_and_model_t;
-    pub type EncWorkerData;
-    pub type AVxWorkerImpl;
-    pub type SB_FIRST_PASS_STATS;
     fn av1_clearall_segfeatures(seg: *mut segmentation);
     fn av1_enable_segfeature(
         seg: *mut segmentation,
@@ -62,6 +57,16 @@ extern "C-unwind" {
         feature_id: SEG_LVL_FEATURES,
     );
 }
+#[repr(C)]
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_denoise_and_model_t([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct EncWorkerData([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct SB_FIRST_PASS_STATS([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type float_t = core::ffi::c_float;
 pub type size_t = usize;
 pub type int8_t = i8;

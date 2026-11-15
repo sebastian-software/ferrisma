@@ -28,7 +28,6 @@
 // Mechanically translated from upstream/dav1d/src/data.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type __sFILEX;
     fn malloc(__size: size_t) -> *mut core::ffi::c_void;
     fn abort() -> !;
     fn memset(
@@ -41,6 +40,8 @@ extern "C" {
     fn dav1d_ref_create(size: size_t) -> *mut Dav1dRef;
     fn dav1d_ref_dec(ref_0: *mut *mut Dav1dRef);
 }
+#[repr(C)]
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type int64_t = i64;
 pub type uint8_t = u8;
 pub type __int64_t = i64;
@@ -162,7 +163,7 @@ unsafe extern "C" fn dav1d_ref_init(
 }
 #[inline]
 unsafe extern "C" fn dav1d_ref_inc(ref_0: *mut Dav1dRef) {
-    ::core::intrinsics::atomic_xadd::<_, _, {core::intrinsics::AtomicOrdering::Relaxed}>(
+    crate::platform::atomic_xadd_relaxed(
         &raw mut (*ref_0).ref_cnt,
         1 as core::ffi::c_int,
     );

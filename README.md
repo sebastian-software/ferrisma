@@ -43,7 +43,7 @@ through the workspace libavif/AOM encoder (the only AVIF writer since
 [ADR-0037](docs/adr/0037-selectable-workspace-avif-encoder.md)). These two
 defaults changed on 2026-11-12; the owner confirmed them on 2026-11-13
 ([ADR-0041](docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1).
-The default AVIF quality is still pending owner confirmation ([#216](https://github.com/sebastian-software/ferrisma/issues/216)).
+AVIF settings are libavif's own, at `avifenc`'s defaults (owner decision of 2026-11-15, [#216](https://github.com/sebastian-software/ferrisma/issues/216)); the fixed default depth of 8 awaits the owner's confirmation.
 The AVIF read/write features need the pinned nightly and a supported native
 target (macOS ARM64, GNU Linux x86-64): a stable-toolchain build can neither
 read nor write AVIF until the workspace AVIF port builds on stable Rust;
@@ -64,10 +64,10 @@ From a checkout with Rust installed:
 
 ```sh
 cargo run -p ferrisma --release --features cli -- \
-  photo.jpg scaled.avif 1600 900 --assume-srgb --quality=80 --speed=8
+  photo.jpg scaled.avif 1600 900 --assume-srgb --avif-quality=80 --avif-speed=8
 
 cargo run -p ferrisma --release --features cli -- \
-  photo.jpg scaled.webp 1600 900 --assume-srgb --quality=80 --speed=8
+  photo.jpg scaled.webp 1600 900 --assume-srgb --webp-quality=80 --webp-method=6
 ```
 
 Use `--assume-srgb` only when that input assumption is appropriate; supported

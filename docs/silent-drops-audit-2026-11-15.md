@@ -30,25 +30,29 @@ compositing JPEG XL layers into the displayed image).
 
 | Class | Items | Inputs (J, W, X, V) | Outputs (O) | Pipeline (P) | Options (Q) |
 | --- | --- | --- | --- | --- | --- |
-| A | 25 → 6 | 20 → 3 | 2 → 1 | 1 → 0 | 2 |
-| B | 29 → 13 → 12 | 12 → 3 | 8 → 4 → 3 | 6 → 3 | 3 |
-| C | 21 → 55 → 50 | 15 → 41 → 37 | 0 → 5 | 2 → 5 | 4 → 3 |
+| A | 25 → 6 → 3 | 20 → 3 | 2 → 1 → 0 | 1 → 0 | 2 → 0 |
+| B | 29 → 13 → 12 → 9 | 12 → 3 | 8 → 4 → 3 → 2 | 6 → 3 | 3 → 1 |
+| C | 21 → 55 → 50 → 54 | 15 → 41 → 37 | 0 → 5 | 2 → 5 | 4 → 3 → 7 |
 | D | 11 | 8 | 3 | 0 | 0 |
-| resolved by decision | 0 → 1 | 0 | 0 | 0 → 1 | 0 |
+| resolved by decision | 0 → 1 → 3 | 0 | 0 → 2 | 0 → 1 | 0 |
 | resolved by removal | 0 → 6 | 0 → 4 | 0 → 1 | 0 | 0 → 1 |
 
 The first number is the state of the audit (`main` at `64284177`), the
 second the state after branch `v1/engine-discarded` (2026-11-15), a third
 the state after branch `v1/remove-alt-backends` (2026-11-15, see
-[removal of the alternative backends](#update-removal-of-the-alternative-backends-2026-11-15)): the
+[removal of the alternative backends](#update-removal-of-the-alternative-backends-2026-11-15)), a
+fourth the state after branch `v1/engine-options` (2026-11-15, see
+[options and the command line](#update-options-and-the-command-line-2026-11-15)): the
 refusals of ADR-0042 D1 and D4 (V4, X6 to X9) and the report of D2,
 `ProcessingReport::discarded` with its CLI key `discarded=`, moved 48
 items to (C); each row says what reports or refuses it and which test of
 `tests/discarded_report.rs` or `tests/silent_drops.rs` proves it. Still
 open under ADR-0042 D6: the remaining (A) items (J10 XMP-only
 orientation, X12 `intrinsic_size`, V8 the `sato` alternative, and the
-owner's open questions O8, Q5, Q7; P4, the rendering intent, was resolved
-by the owner's decision of 2026-11-15) and the (B)
+P4, the rendering intent, was resolved by the owner's decision of
+2026-11-15, and O8, Q5 and Q7, options without effect and repeated
+flags, by the owner's decisions of the same day, which
+`v1/engine-options` implements) and the (B)
 items that are documented but not reported. Of these, out-of-gamut
 clipping (P2, P3) cannot be detected cheaply and exactly: a value outside
 [0, 1] at quantization may be resampling overshoot as well as gamut, and
@@ -83,7 +87,7 @@ classified refusal; it is counted as (C).
 | J10 | Orientation in XMP (`tiff:Orientation`) without EXIF | ignored | only EXIF is read | no | no fixture | A |
 | J11 | EXIF orientation 1–8 | applied before crop | `src/orientation.rs` | matrix | `supported_matrix::jpeg_exif_orientations_are_applied_before_crop` | D |
 | J12 | EXIF orientation outside 1–8, malformed EXIF | refused (`GeometricTransform`; `MalformedInput`) | `JpegSource::new` | matrix | `codecs::jpeg::tests::exif_orientation_is_reported_and_invalid_values_fail_closed` | C |
-| J13 | Grayscale | expanded to RGB (value-preserving) | `output_options` | matrix | `supported_matrix::jpeg_grayscale_is_expanded_to_rgb` | B |
+| J13 | Grayscale | expanded to RGB (value-preserving). **Since 2026-11-15: the adapter emits libjpeg's gray component and the pipeline's one expansion copies it (`src/gray.rs`, the same bits as libjpeg's own gray-to-RGB output); a gray ICC profile is converted under `UseRenderedIcc`** | `output_options`, `src/gray.rs` | matrix | `supported_matrix::jpeg_grayscale_is_expanded_to_rgb`; `format_parity::gray_is_expanded_to_rgb_in_every_format_that_carries_it`, `a_gray_icc_profile_is_converted_by_its_tone_curve` | B |
 | J14 | Progressive scans | all decoded | libjpeg | — | `entropy_rows` = full height in the report | D |
 | J15 | Decoder warnings: missing EOI, truncation, marker damage | `fail_on_warning: true`: every libjpeg warning is `MalformedInput`, no partial image | `codecs/jpeg.rs` `decoder` | matrix ("truncated data") | `supported_matrix::jpeg_truncated_is_malformed`, `codecs::jpeg::tests::cropped_read_rejects_a_truncated_tail` | C |
 | J16 | Corrupted scan data that still parses | decodes without an error: libjpeg raises no warning for Huffman-coded garbage that stays decodable, so `fail_on_warning` has nothing to catch; nothing is swallowed by the engine | — | no | `silent_drops::corrupted_jpeg_scan_data_decodes_without_an_error_today` (16 inverted bytes in `paris-420.jpg`'s scan) | outside A–D (undetectable) |
@@ -107,7 +111,7 @@ classified refusal; it is counted as (C).
 | X1 | `Exif` and `xml ` boxes | ignored by both readers, dropped. **Since `v1/engine-discarded`: reported: `Discarded::Exif`, `Discarded::Xmp`, by both readers** | `crates/ferrisma-jxl-decoder` subscribes to `BASIC_INFO`, `COLOR_ENCODING`, `FULL_IMAGE` only; jxl-oxide ignores boxes | matrix, Outputs "Metadata" | `silent_drops::jpeg_xl_container_boxes_are_dropped_today` (`decode-test/1x1_exif_xmp.jxl`); `discarded_report::jpeg_xl_boxes_are_reported` | C |
 | X2 | JPEG reconstruction data (`jbrd`) | ignored: the pixels are decoded, bit-exact JPEG recovery is lost. **Since `v1/engine-discarded`: reported: `Discarded::JpegReconstructionData`** | same | no | same fixture; `discarded_report::jpeg_xl_boxes_are_reported` | C |
 | X3 | JUMBF / C2PA (`jumb`), gain map (`jhgm`) | ignored. **Since `v1/engine-discarded`: reported: `jumb` as `OtherMetadata`, `jhgm` as `GainMap` (code path, no fixture)** | same | no | no fixture | C |
-| X4 | DATA ICC profile | converted under `UseRenderedIcc` (reported), otherwise refused | `src/codecs/jxl.rs` | matrix | `supported_matrix::jpeg_xl_rgb_needs_the_rendered_icc_policy` | C |
+| X4 | DATA ICC profile | converted under `UseRenderedIcc` (reported), otherwise refused. **Since 2026-11-15 (owner decision, #222): an enum encoding with an H.273 code point is reported as that CICP alone and the profile libjxl synthesizes from it is not reported (it is derived from the enum, nothing is lost); an embedded profile is reported as `Discarded::IccProfile` from the codestream's own signal (`original_icc`), which also covers an XYB image whose DATA encoding is linear sRGB (before, keyed on the DATA encoding, that case was not reported)** | `src/codecs/jxl.rs` | matrix | `supported_matrix::jpeg_xl_enum_rgb_is_typed_and_embedded_icc_needs_the_rendered_icc_policy` (until 2026-11-15 `jpeg_xl_rgb_needs_the_rendered_icc_policy`); `format_parity::embedded_icc_needs_the_rendered_icc_policy_in_every_format` (`tests/fixtures/parity/rgb-p3-icc.jxl`) | C |
 | X5 | Extra channels other than one alpha, **libjxl-rs** | refused (`UnsupportedLayout`) before pixels | `ferrisma-jxl-decoder` `Decoder::info` | matrix | `supported_matrix::jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected` | C |
 | X6 | Depth, selection mask, black next to RGB, CFA, thermal and optional extra channels, **jxl-oxide** | accepted; the channels are left out of the pixel stream (a black channel next to RGB is lost, so the colors change). **Since `v1/engine-discarded`: refused by jxl-oxide as `UnsupportedLayout`, as by libjxl-rs (ADR-0042 D1, D4); D4 for JPEG XL is also met by removing the jxl-oxide runtime reader (owner decision 2026-11-15, pending the libjxl-rs AVX2 fix). Since `v1/remove-alt-backends`: resolved by removal; the only reader refuses these files** | jxl-oxide 0.12.6 `PixelFormat` (removed) | no (matrix: "jxl-oxide reports some extra-channel files as unspecified alpha") | `silent_drops::jpeg_xl_reader_refuses_extra_channels_other_than_alpha` (`extra-channel-type-{1,2,3,4,5,6,16}.jxl`, all policies) | removed |
 | X7 | Spot colors, **jxl-oxide** | accepted; composited into the RGB samples (`render_spot_color`, default on for color images), an unrequested change of the color values. **Since `v1/engine-discarded`: refused, as X6; since `v1/remove-alt-backends`: resolved by removal** | jxl-oxide `fb.rs` | no | `silent_drops::jpeg_xl_reader_refuses_extra_channels_other_than_alpha` (`extra-channel-type-2.jxl`) | removed |
@@ -117,7 +121,7 @@ classified refusal; it is counted as (C).
 | X11 | Preview frame | ignored. **Since `v1/engine-discarded`: reported: `Discarded::Preview`** | decoders | no | no fixture; `discarded_report::jpeg_xl_preview_is_reported` (the former jxl-oxide reader rejected that fixture as malformed) | C |
 | X12 | `intrinsic_size` (display size hint) | ignored | decoders | no | no fixture | A |
 | X13 | Animation | refused (`Animation`) | the adapter | matrix | `supported_matrix::jpeg_xl_animation_is_rejected` | C |
-| X14 | Gray, CMYK, float, premultiplied or unspecified alpha, PQ/HLG | refused with a reason | adapters, `cms.rs` | matrix | `supported_matrix` JPEG XL cases | C |
+| X14 | Gray, CMYK, float, premultiplied or unspecified alpha, PQ/HLG | refused with a reason. **Since 2026-11-15 gray and gray with alpha are accepted and expanded to RGB(A) (owner decision, ADR-0043; nothing is lost: R = G = B)** | adapters, `cms.rs` | matrix | `supported_matrix` JPEG XL cases | C |
 | X15 | Orientation | rendered upright by the decoder | decoders | matrix | `orientation_tests::jpeg_xl_orientations_are_rendered_upright_for_every_crop` | D |
 | X16 | Progressive passes, truncation | the full image is decoded; a truncated file is `MalformedInput` (no partial render) | `drive` | no | `silent_drops::truncated_inputs_are_malformed` | C |
 | X17 | Bit depth above 8 (16-bit, 31-bit integer samples) | decoded as float, then 8-bit output. **Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`** | — | matrix, Color policy ("8-bit … rows") | `modular-rgb31.jxl` with libjxl-rs (probe); `discarded_report::jpeg_xl_precision_above_eight_bits_is_reported` | C |
@@ -134,17 +138,17 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
 | V1 | `Exif` and `mime` (XMP) items | ignored, dropped; an EXIF orientation inside is not applied (`irot`/`imir` govern). **Since `v1/engine-discarded`: reported: `Discarded::Exif`, `Discarded::Xmp`, `OtherMetadata` for other `mime`/`uri ` items** | `src/codecs/avif_meta.rs` reads the primary item's properties only | matrix, Outputs "Metadata" | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels`; `discarded_report::avif_metadata_items_icc_and_gain_maps_are_reported` | C |
-| V2 | `colr prof`/`rICC`, `nclx` | ICC converted under `UseRenderedIcc`; `nclx` checked against the AV1 header and beside the ICC | `avif.rs`, `cms.rs` | matrix | `supported_matrix::avif_container_icc_needs_the_rendered_icc_policy` | C |
+| V2 | `colr prof`/`rICC`, `nclx` | ICC converted under `UseRenderedIcc`; `nclx` checked against the AV1 header and beside the ICC. **Since 2026-11-15 (owner decision): beside an ICC profile the file follows MIAF; the profile governs primaries and transfer and the `nclx` primaries and transfer are not used (superseded by the standard, not reported); matrix and range are used by libavif** | `avif.rs`, `cms.rs` | matrix | `supported_matrix::avif_container_icc_needs_the_rendered_icc_policy` | C |
 | V3 | Gain map (`tmap`) | ignored, SDR base read. **Since `v1/engine-discarded`: reported: `Discarded::GainMap`** | libavif `imageContentToDecode` default | matrix, AVIF details | `supported_matrix::avif_gain_map_is_ignored_and_the_base_image_is_read`; `discarded_report::avif_metadata_items_icc_and_gain_maps_are_reported` | C |
 | V4 | Alpha item with an unknown **essential** property | libavif skips the item (`hasUnsupportedEssentialProperty`); the image is read as **opaque** without an error; the engine checks only the primary item. **Since `v1/engine-discarded`: refused with `UnsupportedEssentialProperty`, like the primary item; so are grid cells; an unused item is no reason (ADR-0042 D1)** | `avif_meta.rs` `primary_properties`; libavif `read.c` | no | `silent_drops::avif_alpha_item_with_an_unknown_essential_property_is_refused` (patched `abc_color_irot_alpha_irot.avif`), `avif_grid_cell_with_an_unknown_essential_property_is_refused`, `avif_unknown_essential_property_on_an_unused_item_is_not_a_refusal` | C |
 | V5 | Unknown essential property of the primary item | refused, `UnsupportedEssentialProperty` (since this branch; before, `MalformedInput`) | `avif.rs` `new_bounded` | matrix, compatibility | `supported_matrix::avif_unknown_essential_property_is_refused_as_unsupported` | C |
 | V6 | Unknown non-essential properties, unknown `colr` types | ignored, as ISO/IEC 23008-12 permits. **Since `v1/engine-discarded`: reported: `Discarded::UnknownContainerData`** | `avif_meta.rs` `read_property` (`_ => {}`) | no | `silent_drops::avif_non_essential_unknown_properties_are_ignored_today` (`circle_custom_properties.avif`); `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` | C |
 | V7 | `pasp` (pixel aspect ratio) | ignored (same path). **Since `v1/engine-discarded`: reported: `Discarded::UnknownContainerData`** | same | no | no fixture; `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` (Android `fox.*.avif` carry `pasp`) | C |
 | V8 | Sample-transform (`sato`) alternative with more precision | the 12-bit primary is read | libavif without its experimental `sato` support | no | `silent_drops::avif_sample_transform_alternative_is_ignored_today` | A |
-| V9 | Premultiplied alpha (`prem`) | libavif un-premultiplies into straight RGBA (`rgb.alphaPremultiplied = 0`); JPEG XL premultiplied alpha is refused instead. **Since `v1/engine-discarded`: reported: `Discarded::Unpremultiplied` (refusing it instead is an open question of ADR-0042 (premultiplied AVIF alpha))** | `crates/ferrisma-avif-read` `rgb` | no | no fixture; `discarded_report::premultiplied_avif_alpha_is_reported_as_unpremultiplied` (`prem` inserted into `abc_color_irot_alpha_irot.avif`) | C |
+| V9 | Premultiplied alpha (`prem`) | libavif un-premultiplies into straight RGBA (`rgb.alphaPremultiplied = 0`); JPEG XL premultiplied alpha is refused instead. **Since `v1/engine-discarded`: reported: `Discarded::Unpremultiplied` (refusing it instead is an open question of ADR-0042 (premultiplied AVIF alpha)). Since 2026-11-15: decided by the owner (accept and convert, ADR-0042 and ADR-0043); JPEG XL is converted by libjxl and reported the same way** | `crates/ferrisma-avif-read` `rgb` | matrix | `tests/fixtures/parity/premultiplied-alpha.avif` (the same `prem` insertion, committed); `discarded_report::premultiplied_avif_alpha_is_reported_as_unpremultiplied`; `format_parity::premultiplied_alpha_is_converted_and_reported_alike` | C |
 | V10 | Depth and other auxiliary images in a still | ignored (only alpha is read) | libavif | matrix, AVIF details | no still fixture | B |
 | V11 | Grid, `pymd` pyramid | composed grid / primary item at full size | libavif | matrix | `supported_matrix::avif_alpha_and_grid_stills_are_accepted`; `pyramid_pymd.avif` (probe) | D |
-| V12 | Sequences, `clap`, `imir` before `irot`, monochrome, PQ/HLG | refused with a reason | `avif.rs` | matrix | `supported_matrix` AVIF cases | C |
+| V12 | Sequences, `clap`, `imir` before `irot`, monochrome, PQ/HLG | refused with a reason. **Since 2026-11-15 monochrome is accepted through libavif's gray output and expanded to RGB (owner decision, ADR-0043)** | `avif.rs` | matrix | `supported_matrix` AVIF cases | C |
 | V13 | `irot`/`imir` | applied before crop | `orientation.rs` | matrix | `supported_matrix::avif_irot_and_imir_are_applied_for_all_eight_orientations` | D |
 | V14 | 10/12-bit samples | normalized float, then 8-bit output. **Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`** | `avif.rs` `read_region` | matrix | `supported_matrix::avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted`; `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` (10-bit against 8-bit) | C |
 | V15 | Limited range | expanded to full range by libavif (value-preserving) | libavif | `avif.rs` module doc | — | D |
@@ -157,12 +161,12 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | --- | --- | --- | --- | --- | --- | --- |
 | O1 | AVIF (both encoders until 2026-11-15; libavif only since) | source EXIF/XMP/ICC | not written; sRGB signaled (libavif `nclx` 1/13/6 full; the removed rav1e in the AV1 header only). **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`, `IccProfile`** | matrix, Outputs | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels` | C |
 | O2 | AVIF libavif 10-bit (default) | precision | the 10-bit file carries 8-bit rows | matrix ("8-bit straight-alpha RGBA rows") | `libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx` | B |
-| O3 | AVIF libavif | `quality` fraction | rounded to an integer | rustdoc of `quality` | `libavif_quality_speed_and_depth_ranges` | B |
+| O3 | AVIF libavif | `quality` fraction | rounded to an integer. **Since `v1/engine-options` (owner decision of 2026-11-15, ADR-0043 D4): resolved by decision; `AvifOptions::quality` and `alpha_quality` are libavif's integers 0–100, passed unchanged** | `crates/ferrisma-avif-write` | rustdoc of `AvifOptions` | `supported_matrix::libavif_quality_alpha_quality_speed_and_depth_ranges` | resolved |
 | O4 | AVIF rav1e | depth, alpha quality | always 10-bit; alpha at fixed quality 80 whatever `quality` says. **Since `v1/remove-alt-backends`: resolved by removal; rav1e is no longer an encoder of the engine** | rustdoc, matrix | the tests `rav1e_writes_ten_bit_without_a_container_colr` and `rav1e_writes_an_alpha_item_for_transparent_input` were removed with it | removed |
 | O5 | All | orientation | applied, written upright with no transform property | matrix | `jpeg_xl_output_is_written_upright` and the AVIF/WebP cases | D |
 | O6 | All | fully opaque alpha | omitted (no information lost) | matrix | `libavif_writes_an_alpha_item_only_for_transparent_input` | D |
 | O7 | WebP lossy | chroma | always 4:2:0; a nondefault `chroma_subsampling` is refused | matrix | `avif_settings_with_webp_output_are_mismatched_options` | B |
-| O8 | WebP lossy | `speed` | 2/3, 5/6 and 8/9 give the same method and the same bytes | no (rustdoc promises 1–10) | `silent_drops::webp_lossy_speeds_collapse_in_pairs_today` | A |
+| O8 | WebP lossy | `speed` | 2/3, 5/6 and 8/9 give the same method and the same bytes. **Since `v1/engine-options` (owner decision of 2026-11-15, ADR-0043 D4): resolved by decision; `WebpOptions::Lossy { method }` is libwebp's method 0–6, passed unchanged, and every method gives its own bytes** | `src/webp_sink.rs` | rustdoc of `WebpOptions` | `silent_drops::webp_lossy_methods_are_libwebps_own_and_distinct` | resolved |
 | O9 | WebP | metadata | only the engine's sRGB `ICCP`; EXIF/XMP dropped. **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`, `IccProfile`** | matrix | `webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp` | C |
 | O10 | WebP lossless | color under alpha 0 | libwebp keeps it (`exact`), but the engine has already made it black (P5), so the "lossless" file does not keep hidden color. **Since `v1/engine-discarded`: reported: `Discarded::HiddenColor`** | ADR-0014 | P5 tests; `discarded_report::hidden_color_under_zero_alpha_is_reported` | C |
 | O11 | JPEG XL, both profiles | source EXIF/XMP | a raw codestream cannot carry them; the matrix does not say so for JPEG XL. **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`** | no | `silent_drops::source_exif_and_xmp_are_dropped_from_jpeg_xl_output_today` | C |
@@ -187,15 +191,15 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| Q1 | `output_width`/`output_height` with `transcode_resized` | ignored; the actual size is in `Output` | `pipeline.rs` | rustdoc | `tests/thumbnail_facade.rs` | B |
-| Q2 | Default `avif_encoder` (since 2026-11-15: default `avif_depth`) with an external backend | ignored, the backend decides; a nondefault value is refused | `run` | rustdoc of `transcode_with` | `pipeline_tests` | B |
+| Q1 | `output_width`/`output_height` with `transcode_resized` | ignored; the actual size is in `Output`. **Since `v1/engine-options` (owner decision of 2026-11-15): a value other than the default (1) is refused before decoding by `transcode_resized` and `transcode_resized_with` (`InvalidOptions`, "output_width and output_height are not used with ResizeOptions…")** | `pipeline.rs` `run` | rustdoc | `thumbnail_facade::resize_entry_points_refuse_an_exact_output_size` | C |
+| Q2 | Default `avif_encoder` (since 2026-11-15: default `avif_depth`) with an external backend | ignored, the backend decides; a nondefault value is refused. **Since `v1/engine-options`: every other encoder setting reaches the backend in its `EncodeRequest`; the depth, which the request does not carry, is refused when nondefault (pinned through the public API)** | `run` | rustdoc of `transcode_with` | `silent_drops::external_backends_refuse_settings_the_request_does_not_carry` | C |
 | Q3 | `jxl_decoder` for non-JPEG XL input | ignored; `decoder_backend` names the reader that ran. **Since `v1/remove-alt-backends`: resolved by removal; the option does not exist** | `open_source` | no | the test `silent_drops::jpeg_xl_reader_selection_is_ignored_for_jpeg_input_and_reported` was removed with the option | removed |
 | Q4 | `kernel_level_ceiling`, `transform_threads` with `F64Reference` | ignored; the report says `Scalar`/`Ceiling` and 1 thread | `run` | rustdoc of `ProcessingReport` | `pipeline_tests` | C |
-| Q5 | Thread counts in `Engine::transcode_batch` | replaced with 1 (reported); values above 256, which `transcode` refuses, are accepted and discarded | `batch` | `BatchItem::options` ("overrides … with 1"); the acceptance of invalid values is not | `silent_drops::batch_accepts_thread_counts_that_transcode_rejects_today` | A |
+| Q5 | Thread counts in `Engine::transcode_batch` | replaced with 1 (reported); values above 256, which `transcode` refuses, are accepted and discarded. **Since `v1/engine-options` (owner decision of 2026-11-15): values above 256 are refused for the item as by `transcode` (`InvalidOptions`, same message); valid values are still replaced with 1, documented and reported** | `batch` | `BatchItem::options` | `silent_drops::batch_refuses_thread_counts_that_transcode_rejects` | C |
 | Q6 | `Engine::new` above 256 | capped, `threads()` reports it | `Engine::new` | rustdoc | — | C |
-| Q7 | Repeated or contradictory CLI flags (`--assume-srgb` after `--use-rendered-icc`, two `--transform-threads=` (two `--jxl-decoder=` until that flag was removed on 2026-11-15), two `--quality=`) | the last one wins silently; only `--avif-encoder`/`--avif-depth` are refused when repeated | `src/cli.rs` `apply_option` | no | `silent_drops::cli_later_flags_silently_replace_earlier_ones_today` | A |
+| Q7 | Repeated or contradictory CLI flags (`--assume-srgb` after `--use-rendered-icc`, two `--transform-threads=` (two `--jxl-decoder=` until that flag was removed on 2026-11-15), two `--quality=`) | the last one wins silently; only `--avif-encoder`/`--avif-depth` are refused when repeated. **Since `v1/engine-options` (owner decision of 2026-11-15): refused before any input is read: a repeated flag is "--… may only be given once", a pair of mutually exclusive flags (`--assume-srgb`/`--use-rendered-icc`, `--jxl-lossless`/`--jxl-distance=`, lossless WebP with lossy-only settings) names both flags; exit status 1** | `src/cli.rs` `run` (`refuse_exclusive_flags`, the repetition check) | usage text, compatibility guide | `silent_drops::cli_refuses_repeated_and_contradictory_flags`, `cli::tests::refuses_repeated_and_contradictory_flags_before_reading_input` | C |
 | Q8 | `--version` with other arguments | prints the version, ignores the rest | `is_version_request` | compatibility guide | `cli::tests` | B |
-| Q9 | Mismatched encoder settings (`quality` with WebP or JPEG XL, `webp` with AVIF, `--chroma` with WebP) | refused before decoding | `run`, `cli.rs` | matrix | `supported_matrix::avif_settings_with_webp_output_are_mismatched_options`, `jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding` | C |
+| Q9 | Mismatched encoder settings (`quality` with WebP or JPEG XL, `webp` with AVIF, `--chroma` with WebP; since `v1/engine-options`: a nondefault `AvifOptions`, `WebpOptions` or `JpegXlOptions` beside another output, `--avif-*`/`--webp-*` flags with another output) | refused before decoding | `run`, `cli.rs` | matrix | `supported_matrix::avif_settings_with_webp_output_are_mismatched_options`, `avif_settings_conflict_with_other_outputs`, `jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding` | C |
 
 ## Caught errors and fallbacks in the code
 
@@ -246,6 +250,68 @@ so every JPEG XL file has one reader and AVIF one writer and ADR-0042 D4 is met 
   the only reader, as libjxl rejects it; on jxl-oxide it was refused as
   `UnsupportedColor` with `UnsupportedColorEncoding`. A change of kind,
   not a silent drop.
+
+## Update: format parity (2026-11-15)
+
+The owner's decisions of 2026-11-15 that make the formats behave alike
+(ADR-0043; branch `v1/engine-parity`) change these rows. Each item names
+its test in `tests/format_parity.rs`:
+
+- X4: a JPEG XL enum encoding with an H.273 code point is a typed signal
+  (CICP), read under every policy like AVIF `nclx` (#222); only an embedded
+  profile needs `UseRenderedIcc`, and `Discarded::IccProfile` is now keyed
+  on the codestream's own ICC signal, so an XYB image with an embedded
+  profile (whose DATA encoding is linear sRGB) is no longer silent. No item
+  is lost: the profile libjxl synthesizes from an enum is derived from it.
+- J13, X14, V12: gray is accepted in JPEG, JPEG XL and AVIF and expanded
+  to RGB (gray with alpha to RGBA) by one exact copy after color handling;
+  a gray ICC profile is converted through its tone curve, a profile of the
+  other color space is refused (`IccColorSpaceMismatch`). Nothing is
+  dropped (R = G = B carries the gray value); hidden color under zero alpha
+  is now also noticed for gray with alpha.
+- V9, X14: premultiplied JPEG XL alpha is converted by libjxl's own step
+  and reported as `Discarded::Unpremultiplied`, as AVIF's by libavif
+  (owner decision; ADR-0042's former question 3). The two steps' rounding
+  differs (matrix). The `Unspecified` alpha mode left with jxl-oxide.
+- V2: AVIF ICC beside `nclx` follows MIAF; files with a concrete non-sRGB
+  `nclx` beside a profile, refused before, are converted through the
+  profile. The `nclx` primaries and transfer are superseded, not dropped
+  information; they are named in the matrix and not reported.
+
+## Update: options and the command line (2026-11-15)
+
+The owner decided on 2026-11-15 how options without effect and the command
+line behave (ADR-0042, open questions on options, repeated flags and a
+strict mode). Branch `v1/engine-options` implements them:
+
+- Q1, Q2, Q5: an option that would have no effect is refused where the
+  caller set a value other than the default: an exact output size with the
+  resize entry points, a thread count above 256 in a batch (as `transcode`
+  refuses it; valid counts are still replaced with 1 and reported), and an
+  AVIF depth with an external backend, whose request does not carry it.
+  Kept, because the report states the value that was used and the rustdoc
+  documents it: Q4 (`kernel_level_ceiling` and `transform_threads` under
+  `F64Reference`: the report says `Scalar`/`Ceiling` and 1 thread), Q5's
+  replacement of valid batch thread counts with 1 (the report says 1), Q6
+  (`Engine::new` caps at 256, `threads()` says so) and Q8 (`--version`
+  takes precedence over every other argument and produces no image).
+  The former `_today` test of Q5 is now
+  `batch_refuses_thread_counts_that_transcode_rejects`.
+- Q7: a repeated command-line flag, and a pair of contradictory flags, are
+  errors that name the flags; nothing is "last one wins" any more. The
+  former `_today` test is now `cli_refuses_repeated_and_contradictory_flags`.
+- O8, O3: encoder controls are native per format (ADR-0043 D4). WebP lossy
+  takes libwebp's own `method` 0–6 instead of a `speed` mapped onto it
+  (the former `_today` test is now
+  `webp_lossy_methods_are_libwebps_own_and_distinct`); AVIF takes
+  `AvifOptions` with libavif's integer quality and a separate alpha
+  quality, at `avifenc`'s defaults (ADR-0037). The general `quality`,
+  `speed`, `chroma_subsampling` and `avif_depth` are removed; a setting of
+  another output is refused (Q9).
+- No strict mode: no option turns `ProcessingReport::discarded` into a
+  refusal; a caller or script checks the report. The CLI's `report:` line
+  ends with `discarded=none` when nothing was left out
+  (`cli::tests::report_line_names_the_decoder_and_encoder_backends`).
 
 ## Part 2: proposal (not implemented; the owner decides)
 

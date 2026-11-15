@@ -4,8 +4,6 @@
 // Mechanically translated from upstream/libavif/src/codec_svt.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type avifEncoderData;
-    pub type SvtMetadataArray;
     fn avifAlloc(size: size_t) -> *mut core::ffi::c_void;
     fn avifFree(p: *mut core::ffi::c_void);
     fn avifCalloc(count: size_t, size: size_t) -> *mut core::ffi::c_void;
@@ -53,6 +51,10 @@ extern "C" {
         __n: size_t,
     ) -> *mut core::ffi::c_void;
 }
+#[repr(C)]
+pub struct avifEncoderData([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct SvtMetadataArray([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type __int8_t = i8;
 pub type __uint8_t = u8;

@@ -4,10 +4,6 @@
 // Mechanically translated from upstream/libavif/src/codec_aom.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type avifEncoderData;
-    pub type aom_codec_priv;
-    pub type aom_codec_iface;
-    pub type aom_metadata_array;
     fn avifFree(p: *mut core::ffi::c_void);
     fn avifResultToString(result: avifResult) -> *const core::ffi::c_char;
     fn avifGetPixelFormatInfo(format: avifPixelFormat, info: *mut avifPixelFormatInfo);
@@ -128,6 +124,14 @@ extern "C" {
         __n: size_t,
     ) -> core::ffi::c_int;
 }
+#[repr(C)]
+pub struct avifEncoderData([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_codec_priv([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_codec_iface([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_metadata_array([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type int32_t = i32;
 pub type int64_t = i64;

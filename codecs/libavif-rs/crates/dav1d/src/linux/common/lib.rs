@@ -28,9 +28,6 @@
 // Mechanically translated from upstream/dav1d/src/lib.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type _IO_wide_data;
-    pub type _IO_codecvt;
-    pub type _IO_marker;
     fn memset(
         __s: *mut core::ffi::c_void,
         __c: core::ffi::c_int,
@@ -186,6 +183,12 @@ extern "C" {
     fn dav1d_decode_frame_exit(f: *mut Dav1dFrameContext, retval: core::ffi::c_int);
     fn dav1d_init_ii_wedge_masks();
 }
+#[repr(C)]
+pub struct _IO_wide_data([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct _IO_codecvt([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct _IO_marker([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct __va_list_tag {
@@ -3135,25 +3138,25 @@ unsafe extern "C" fn drain_picture(
         let out_delayed: *mut Dav1dThreadPicture = &raw mut *((*c).frame_thread.out_delayed)
             .offset(next as isize) as *mut Dav1dThreadPicture;
         if !((*out_delayed).p.data[0 as core::ffi::c_int as usize]).is_null()
-            || ::core::intrinsics::atomic_load::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>(
+            || crate::platform::atomic_load_seqcst(
                 &raw mut (*f).task_thread.error as *mut atomic_int,
             ) != 0
         {
-            let mut first: core::ffi::c_uint = ::core::intrinsics::atomic_load::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>(
+            let mut first: core::ffi::c_uint = crate::platform::atomic_load_seqcst(
                 &raw mut (*c).task_thread.first,
             );
             if first.wrapping_add(1 as core::ffi::c_uint) < (*c).n_fc {
-                ::core::intrinsics::atomic_xadd::<_, _, {core::intrinsics::AtomicOrdering::SeqCst}>(
+                crate::platform::atomic_xadd_seqcst(
                     &raw mut (*c).task_thread.first,
                     1 as core::ffi::c_uint,
                 );
             } else {
-                ::core::intrinsics::atomic_store::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>(
+                crate::platform::atomic_store_seqcst(
                     &raw mut (*c).task_thread.first,
                     0 as core::ffi::c_int as core::ffi::c_uint,
                 );
             }
-            let fresh5 = ::core::intrinsics::atomic_cxchg::<_, {core::intrinsics::AtomicOrdering::SeqCst}, {core::intrinsics::AtomicOrdering::SeqCst}>(
+            let fresh5 = crate::platform::atomic_cxchg_seqcst_seqcst(
                 &raw mut (*c).task_thread.reset_task_cur,
                 *&raw mut first,
                 (2147483647 as core::ffi::c_uint)
@@ -3183,7 +3186,7 @@ unsafe extern "C" fn drain_picture(
             return error;
         }
         if !((*out_delayed).p.data[0 as core::ffi::c_int as usize]).is_null() {
-            let progress: core::ffi::c_uint = ::core::intrinsics::atomic_load::<_, {core::intrinsics::AtomicOrdering::Relaxed}, false>(
+            let progress: core::ffi::c_uint = crate::platform::atomic_load_relaxed(
                 &raw mut *((*out_delayed).progress).offset(1 as core::ffi::c_int as isize)
                     as *mut atomic_uint,
             );
@@ -3498,7 +3501,7 @@ pub unsafe extern "C" fn dav1d_flush(c: *mut Dav1dContext) {
     if (*c).n_fc == 1 as core::ffi::c_uint && (*c).n_tc == 1 as core::ffi::c_uint {
         return;
     }
-    ::core::intrinsics::atomic_store::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>((*c).flush, 1 as core::ffi::c_int);
+    crate::platform::atomic_store_seqcst((*c).flush, 1 as core::ffi::c_int);
     if (*c).n_tc > 1 as core::ffi::c_uint {
         pthread_mutex_lock(&raw mut (*c).task_thread.lock);
         let mut i_0: core::ffi::c_uint = 0 as core::ffi::c_uint;
@@ -3539,13 +3542,13 @@ pub unsafe extern "C" fn dav1d_flush(c: *mut Dav1dContext) {
         }
         *&raw mut (*c).task_thread.first = 0 as core::ffi::c_int as core::ffi::c_uint;
         (*c).task_thread.cur = (*c).n_fc;
-        ::core::intrinsics::atomic_store::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>(
+        crate::platform::atomic_store_seqcst(
             &raw mut (*c).task_thread.reset_task_cur,
             (2147483647 as core::ffi::c_uint)
                 .wrapping_mul(2 as core::ffi::c_uint)
                 .wrapping_add(1 as core::ffi::c_uint),
         );
-        ::core::intrinsics::atomic_store::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>(
+        crate::platform::atomic_store_seqcst(
             &raw mut (*c).task_thread.cond_signaled,
             0 as core::ffi::c_int,
         );
@@ -3576,7 +3579,7 @@ pub unsafe extern "C" fn dav1d_flush(c: *mut Dav1dContext) {
         }
         (*c).frame_thread.next = 0 as core::ffi::c_uint;
     }
-    ::core::intrinsics::atomic_store::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>((*c).flush, 0 as core::ffi::c_int);
+    crate::platform::atomic_store_seqcst((*c).flush, 0 as core::ffi::c_int);
 }
 #[no_mangle]
 #[cold]

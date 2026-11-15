@@ -65,6 +65,8 @@ A real decoder exposes a usable output-profile transform API; an ICC parser/CMM 
 - 2026-11-14 — The report now names the color signal a conversion used (`ProcessingReport::color_signal`), and the CICP-beside-ICC refusal has a machine-readable reason (`RefusalReason::CicpBesideIcc`); issue #212, designed in ADR-0017's amendment of that date. Observation only: rule 4 and the pending AVIF `nclx` outcome are unchanged.
 - 2026-11-15 — The color refusals of this ADR's rules now carry a machine-readable reason (`RefusalReason::HdrTransfer`, `UnsupportedColorEncoding`, `RenderedIccMissing`, `ContradictoryColorSignals`; issue #212, ADR-0017 amendment of that date). Observation only: no rule, kind or message changed.
 - 2026-11-13 — Straight alpha through the rendered-ICC stage (#222): RGBA with explicitly straight alpha converts its color channels and carries alpha unchanged; premultiplied and unspecified alpha stay refused; jxl-oxide declares straight alpha only from `alpha_associated == false`. The strict policy is unchanged; the question whether XYB-encoded enum sRGB should pass it is recorded below for the owner.
+- 2026-11-15 — Owner decision (#222): a JPEG XL enum color encoding is a typed signal. Option 2 of the 2026-11-13 entry is implemented: the reader reports an enum DATA encoding with an H.273 code point as that CICP and no synthesized profile, so the strict policy reads the engine's own JPEG XL output; a file with an embedded profile still needs `UseRenderedIcc`. With it, a typed sRGB, Display P3 or linear sRGB signal without a profile takes the same route under `UseRenderedIcc` as under `Strict` (working decision, delegated, revisable by the owner). See the section of that date below.
+- 2026-11-15 — Owner decision (O5, third item): AVIF with an ICC profile and an `nclx` beside it follows MIAF. The profile governs color primaries and transfer; matrix coefficients and range come from `nclx`. The adapter reports the profile alone; `CicpBesideIcc` remains for a `cicp` tag inside a profile. See the last section.
 
 ## 2026-11-12: JPEG XL emitted-sample evidence (#41)
 
@@ -98,7 +100,9 @@ existing CICP check). An ICC-signalled JPEG XL file with an unrecognized PQ/HLG
 profile is still covered only by the profile's own `cicp` tag; no fixture
 exists for it.
 
-**AVIF `nclx` beside an ICC `colr` (decision pending owner confirmation).**
+**AVIF `nclx` beside an ICC `colr` (decision pending owner confirmation;
+superseded by the owner's decision of 2026-11-15, see the section of that
+date at the end).**
 MIAF gives an ICC `colr` precedence over `nclx` for color interpretation.
 Rule 4 above forbids a default precedence, so the engine keeps both signals
 and applies MIAF's rule only where the two agree: under `UseRenderedIcc` an
@@ -201,3 +205,105 @@ dual signal instead of adding an exception. It changes what `Strict`
 accepts, so it needs the owner's decision. Re-evaluate this entry with that
 decision, or if a decoder renders an enum-signalled file into another
 encoding.
+
+**Decided 2026-11-15 (owner): option 2.** See the next section.
+
+## 2026-11-15: a JPEG XL enum encoding is a typed signal (owner decision, #222)
+
+**Decision (owner, 2026-11-15).** A JPEG XL file whose color encoding is
+signaled structurally, not as an ICC profile, and maps to a color space the
+engine converts itself (sRGB, Display P3, linear sRGB: the set the AVIF path
+accepts for `nclx`) is accepted under `Strict` and reported with the same
+`ColorSignal` an equivalent AVIF gets (`Cicp`). A JPEG XL file with a real
+embedded ICC profile still needs `UseRenderedIcc`. The engine reads its own
+default JPEG XL output, lossy and lossless, with default settings. Parity
+with AVIF follows ADR-0043.
+
+**Implementation.** The reader bridge exposes which of the two the file
+has, from libjxl's own API, without parsing a synthesized profile:
+`ImageInfo::original_icc` is true when `JxlDecoderGetColorAsEncodedProfile`
+fails for the ORIGINAL target (the codestream's `want_icc`), and
+`ImageInfo::data_encoding` carries the DATA target's enum encoding (color
+space, white point, primaries, transfer). The adapter maps an enum to its
+H.273 code point (primaries 1, 9, 12 with D65 and 11 with the DCI white;
+transfers 1, 8, 13, 16, 17, 18; identity matrix, full range) and reports it
+as `rendered_cicp` without `rendered_icc`; the code point equals the `cicp`
+tag libjxl writes into the profile it synthesizes for the same encoding
+(`jxl_color_tests::adapters_declare_the_emitted_encoding`). An encoding
+without a code point (custom primaries or white point, a gamma exponent)
+keeps the synthesized DATA profile: it is exact, AVIF `nclx` cannot express
+such an encoding, so it has no AVIF counterpart (format reason, ADR-0043
+D1), and it still needs `UseRenderedIcc`. A file with an embedded profile
+keeps its DATA profile whatever its DATA encoding (for XYB the decoder
+renders into linear sRGB then), and `Discarded::IccProfile` is now keyed on
+that signal. PQ and HLG stay refused in front, from the DATA transfer.
+
+**The policies, per typed signal.** Under every policy the engine converts
+a typed sRGB, Display P3 or linear sRGB signal without a profile through
+its own transfer and matrix (`working_color`, extended range, so XYB's
+slightly out-of-range float values are kept as on the rendered-ICC path).
+*Working decision 2026-11-15 (delegated, revisable by the owner):* this
+includes `UseRenderedIcc`, which permits a profile conversion and no longer
+requires one for these signals; before, a signalled sRGB AVIF was refused
+under it with `RenderedIccMissing`, and an enum JPEG XL file went through
+the synthesized profile (`ColorSignal::RenderedIcc`). Without this, JPEG XL
+and AVIF would differ under that policy (or every caller who passed
+`--use-rendered-icc` to read JPEG XL would be refused). A typed signal
+outside the three families is `UnsupportedColorEncoding` under `Strict` and
+`AssumeSrgbIfMissing` and `RenderedIccMissing` under `UseRenderedIcc`, in
+both formats (JPEG XL DCI-P3, which was `CicpBesideIcc` through the
+synthesized profile's `cicp` tag, now gets the AVIF reasons).
+
+**Evidence.** `tests/format_parity.rs`:
+`the_engine_reads_its_own_jpeg_xl_output_with_default_settings` (lossy
+d1.0 and lossless effort 2, read back under the default options; failed
+before with `RenderedIccRequiresOptIn`), `typed_srgb_is_read_under_every_policy`,
+`typed_signal_outside_the_supported_families_is_refused_alike`,
+`embedded_icc_needs_the_rendered_icc_policy_in_every_format` (a cjxl file
+with an embedded profile, `tests/fixtures/parity`). `jxl_alpha_tests::strict_policy_reads_engine_written_jpeg_xl`
+reads translucent and opaque lossy output under `Strict` and finds the
+same rows, bit for bit, as under `UseRenderedIcc`.
+
+## 2026-11-15: AVIF ICC beside `nclx` follows MIAF (owner decision)
+
+**Decision (owner, 2026-11-15).** An AVIF file with an ICC `colr` and an
+`nclx` `colr` follows the standard (MIAF, ISO/IEC 23000-22 7.3.6.4): the
+ICC profile governs color primaries and transfer; matrix coefficients and
+range come from `nclx`. With `UseRenderedIcc` such a file is converted
+through its profile; without the opt-in it is refused like any ICC file,
+with `RenderedIccRequiresOptIn`. This supersedes the refusal recorded on
+2026-11-12 (rule 4 allows a precedence that the format's standard defines).
+
+**What was refused before, on real files.** avifenc 1.4.2 writes `nclx`
+with primaries and transfer unspecified (2/2) and its default matrix 6
+whenever the source has an ICC profile (`apps/avifenc.c`: it sets sRGB
+code points only for a source without a profile; libavif always writes an
+`nclx` beside a `prof`, `src/write.c`); libavif's own test files
+`paris_icc_exif_xmp.avif` and `seine_sdr_gainmap_srgb_icc.avif` carry 2/2/6.
+Those converted before (2/2 is no CICP), as did the heif-enc file with an
+agreeing 1/13/6 (`RenderedIccWithAgreeingCicp`). Refused with
+`CicpBesideIcc` were the heif-enc file with 1/1/6 (BT.709 transfer:
+"cannot be checked") and `paris_icc_exif_xmp.avif` with its `nclx` patched
+to 12/13/6 (Display P3: "disagrees with the profile transform";
+`tests/fixtures/parity/icc-nclx-12-13-6.avif`).
+
+**Implementation.** The AVIF adapter reports no rendered CICP when the item
+has an ICC profile: libavif's YUV-to-RGB step has already used the `nclx`
+matrix and range, and the profile describes the RGB samples. The
+container-against-bitstream check (`ContradictoryColorSignals`) still runs.
+All four files now convert under `UseRenderedIcc` as `RenderedIcc`; the
+1/13 and 1/1 files give identical rows, as do 2/2 and 12/13
+(`tests/avif_icc_nclx.rs`). The `nclx` primaries and transfer are not
+reported as discarded: the standard defines them as superseded by the
+profile, not as information the output leaves out (working decision
+2026-11-15, delegated, revisable by the owner).
+
+**`CicpBesideIcc` remains reachable and keeps its name**: it is the
+refusal of a `cicp` tag inside the profile (checked as part of the
+profile, ADR-0016) that is HDR, cannot be checked or contradicts the
+profile, and of a decoder's CICP beside a profile, which no built-in reader
+reports any more. Evidence: `tests/fixtures/parity/rgb-icc-cicp-p3.jpg`
+(an sRGB profile with a Display P3 `cicp` tag) in
+`refusal_reason_tests` and `format_parity::a_contradicting_cicp_tag_inside_the_profile_is_refused`.
+`ColorSignal::RenderedIccWithAgreeingCicp` is no longer produced by a
+built-in reader and is kept for one that reports CICP beside a profile.

@@ -19,10 +19,27 @@ pub(crate) struct JpegSource<'a> {
     orientation: Orientation,
     discarded: DiscardedSet,
 }
-fn output_options() -> OutputOptions {
+/// RGB for color JPEG; the component itself for grayscale JPEG, which the
+/// pipeline expands to RGB with every other gray input (ADR-0043 D2).
+/// libjpeg's own gray-to-RGB output (`gray_rgb_convert`) copies the gray
+/// sample into R, G and B, so the result is the same, bit for bit.
+fn output_options(layout: ChannelLayout) -> OutputOptions {
     OutputOptions {
-        format: Some(PixelFormat::Rgb),
+        format: Some(if layout == ChannelLayout::Gray {
+            PixelFormat::Grayscale
+        } else {
+            PixelFormat::Rgb
+        }),
         ..OutputOptions::default()
+    }
+}
+
+/// The pixel format and component count the adapter requests for `layout`.
+fn expected_output(layout: ChannelLayout) -> (PixelFormat, u32) {
+    if layout == ChannelLayout::Gray {
+        (PixelFormat::Grayscale, 1)
+    } else {
+        (PixelFormat::Rgb, 3)
     }
 }
 fn decoder(bytes: &[u8]) -> Result<Decoder<'_>, Error> {
@@ -48,11 +65,16 @@ impl<'a> JpegSource<'a> {
         ) {
             return Err(Error::UnsupportedLayout);
         }
+        let layout = if decoder.header().color_space == ColorSpace::Grayscale {
+            ChannelLayout::Gray
+        } else {
+            ChannelLayout::Rgb
+        };
         let output = decoder
-            .output_info(&output_options())
+            .output_info(&output_options(layout))
             .map_err(|_| Error::DecodeFailed)?;
         let size = Size::new(output.width, output.height)?;
-        if output.format != PixelFormat::Rgb || output.components != 3 {
+        if (output.format, output.components) != expected_output(layout) {
             return Err(Error::UnsupportedLayout);
         }
         // EXIF orientation describes how the stored samples are displayed;
@@ -73,7 +95,7 @@ impl<'a> JpegSource<'a> {
             discarded,
             info: DecoderInfo {
                 size,
-                layout: ChannelLayout::Rgb,
+                layout,
                 sample: SampleType::U8,
                 access: DecodeAccess::CodecRegionRequest,
                 alpha: AlphaMode::Opaque,
@@ -169,8 +191,8 @@ fn finish_with_tail(
 }
 
 /// Pixel width of one RGB8 scanline of `row_bytes`.
-fn scanlines_width(row_bytes: usize) -> Result<u32, Error> {
-    u32::try_from(row_bytes / 3).map_err(|_| Error::GeometryOverflow)
+fn scanlines_width(row_bytes: usize, channels: usize) -> Result<u32, Error> {
+    u32::try_from(row_bytes / channels).map_err(|_| Error::GeometryOverflow)
 }
 
 /// Read the IFD0 `Orientation` tag (0x0112) from EXIF data starting at its
@@ -255,12 +277,13 @@ impl DecodeSource for JpegSource<'_> {
         }
         let decoder = decoder(self.bytes)?;
         let mut scanlines = decoder
-            .start(&output_options())
+            .start(&output_options(self.info.layout))
             .map_err(|_| Error::DecodeFailed)?;
+        let channels = usize::from(self.info.layout.channels());
         if scanlines.info().width != self.info.size.width
             || scanlines.info().height != self.info.size.height
-            || scanlines.info().format != PixelFormat::Rgb
-            || scanlines.info().components != 3
+            || (scanlines.info().format, scanlines.info().components)
+                != expected_output(self.info.layout)
         {
             return Err(Error::UnsupportedCodecLayout);
         }
@@ -288,11 +311,11 @@ impl DecodeSource for JpegSource<'_> {
             .ok_or(Error::UnsupportedCodecLayout)?;
         let x_bytes = usize::try_from(decoded_offset)
             .map_err(|_| Error::GeometryOverflow)?
-            .checked_mul(3)
+            .checked_mul(channels)
             .ok_or(Error::GeometryOverflow)?;
         let output_row_bytes = usize::try_from(region.width)
             .map_err(|_| Error::GeometryOverflow)?
-            .checked_mul(3)
+            .checked_mul(channels)
             .ok_or(Error::GeometryOverflow)?;
         if x_bytes
             .checked_add(output_row_bytes)
@@ -316,7 +339,7 @@ impl DecodeSource for JpegSource<'_> {
             rows += 1;
         }
         let tail_rows = finish_with_tail(scanlines, row.as_mut_slice(), self.info.size.height)?;
-        let decoded_width = scanlines_width(row_bytes)?;
+        let decoded_width = scanlines_width(row_bytes, channels)?;
         Ok(DecodeReport {
             requested: region,
             access: DecodeAccess::CodecRegionRequest,
@@ -474,6 +497,70 @@ mod tests {
             ),
             Err(Error::DecodeFailed)
         );
+    }
+
+    /// Grayscale JPEG is emitted as one gray sample per pixel (2026-11-15),
+    /// and a crop returns the same samples as the same rectangle of the
+    /// full read, at odd offsets and at the far edges; libjpeg's
+    /// gray-to-RGB output of the same file would repeat each sample three
+    /// times (`gray_rgb_convert`), which is what the pipeline's expansion
+    /// does.
+    #[test]
+    fn grayscale_is_emitted_as_gray_and_crops_match_the_full_read() {
+        use crate::decoder::{ChannelLayout, DecodeSource, DecodedRow};
+        use crate::geometry::Rect;
+        use crate::memory::MemoryBudget;
+
+        let bytes = include_bytes!("../../codecs/libjxl-rs/tests/data/ycbcr-jpeg-gray.jpg");
+        let read = |region: Rect| {
+            let mut source = JpegSource::new(bytes).unwrap();
+            assert_eq!(source.info().layout, ChannelLayout::Gray);
+            let mut rows = Vec::new();
+            source
+                .read_region(region, &MemoryBudget::new(1 << 20), &mut |_, row| {
+                    let DecodedRow::U8(row) = row else {
+                        panic!("JPEG rows are 8-bit")
+                    };
+                    assert_eq!(row.len(), region.width as usize);
+                    rows.extend_from_slice(row);
+                    Ok(())
+                })
+                .unwrap();
+            rows
+        };
+        let size = JpegSource::new(bytes).unwrap().info().size;
+        let (width, height) = (size.width, size.height);
+        let full = read(Rect::new(0, 0, width, height).unwrap());
+        // Odd offsets near the center, to the far edges.
+        let (cx, cy) = ((width / 2) | 1, (height / 2) | 1);
+        for (x, y, w, h) in [
+            (1, 1, 5, 3),
+            (cx, cy, width - cx, height - cy),
+            (width - 1, 0, 1, height),
+            (0, height - 1, width, 1),
+            (7, 3, 9, 2),
+        ] {
+            let crop = read(Rect::new(x, y, w, h).unwrap());
+            let mut want = Vec::new();
+            for row in y..y + h {
+                let start = (row * width + x) as usize;
+                want.extend_from_slice(&full[start..start + w as usize]);
+            }
+            assert_eq!(crop, want, "({x}, {y}) {w} x {h}");
+        }
+        // libjpeg's own RGB output of the same file repeats each gray sample.
+        let mut scanlines = super::decoder(bytes)
+            .unwrap()
+            .start(&super::output_options(ChannelLayout::Rgb))
+            .unwrap();
+        let mut row = vec![0_u8; scanlines.info().row_bytes()];
+        for y in 0..height as usize {
+            assert_eq!(scanlines.read_rows(&mut row).unwrap(), 1);
+            let gray = &full[y * width as usize..(y + 1) * width as usize];
+            for (rgb, &value) in row.as_chunks::<3>().0.iter().zip(gray) {
+                assert_eq!(*rgb, [value; 3], "row {y}");
+            }
+        }
     }
 
     const PARIS_444: &[u8] = include_bytes!(

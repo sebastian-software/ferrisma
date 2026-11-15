@@ -13,9 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type __sFILEX;
-    pub type aom_denoise_and_model_t;
-    pub type AVxWorkerImpl;
     fn aom_uleb_size_in_bytes(value: uint64_t) -> size_t;
     fn aom_uleb_decode(
         buffer: *const uint8_t,
@@ -7765,6 +7762,12 @@ extern "C-unwind" {
         content_lowsumdiff: core::ffi::c_int,
     );
 }
+#[repr(C)]
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_denoise_and_model_t([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __int64_t = i64;
 pub type __darwin_size_t = usize;
 pub type __darwin_off_t = __int64_t;

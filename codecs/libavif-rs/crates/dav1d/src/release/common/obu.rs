@@ -2253,7 +2253,7 @@ unsafe extern "C" fn dav1d_ref_init(
 }
 #[inline]
 unsafe extern "C" fn dav1d_ref_inc(ref_0: *mut Dav1dRef) {
-    ::core::intrinsics::atomic_xadd::<_, _, {core::intrinsics::AtomicOrdering::Relaxed}>(
+    crate::platform::atomic_xadd_relaxed(
         &raw mut (*ref_0).ref_cnt,
         1 as core::ffi::c_int,
     );
@@ -4915,7 +4915,7 @@ pub unsafe extern "C" fn dav1d_parse_obus(
                                                     }
                                                 } else {
                                                     if !(!((*c).itut_t35_ref).is_null()
-                                                        && ::core::intrinsics::atomic_load::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>(
+                                                        && crate::platform::atomic_load_seqcst(
                                                             &raw mut (*(*c).itut_t35_ref).ref_cnt as *mut atomic_int,
                                                         ) == 1 as core::ffi::c_int)
                                                     {
@@ -5311,25 +5311,25 @@ pub unsafe extern "C" fn dav1d_parse_obus(
                                                                             .offset(next as isize) as *mut Dav1dThreadPicture;
                                                                         if !((*out_delayed).p.data[0 as core::ffi::c_int as usize])
                                                                             .is_null()
-                                                                            || ::core::intrinsics::atomic_load::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>(
+                                                                            || crate::platform::atomic_load_seqcst(
                                                                                 &raw mut (*f).task_thread.error as *mut atomic_int,
                                                                             ) != 0
                                                                         {
-                                                                            let mut first: core::ffi::c_uint = ::core::intrinsics::atomic_load::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>(
+                                                                            let mut first: core::ffi::c_uint = crate::platform::atomic_load_seqcst(
                                                                                 &raw mut (*c).task_thread.first,
                                                                             );
                                                                             if first.wrapping_add(1 as core::ffi::c_uint) < (*c).n_fc {
-                                                                                ::core::intrinsics::atomic_xadd::<_, _, {core::intrinsics::AtomicOrdering::SeqCst}>(
+                                                                                crate::platform::atomic_xadd_seqcst(
                                                                                     &raw mut (*c).task_thread.first,
                                                                                     1 as core::ffi::c_uint,
                                                                                 );
                                                                             } else {
-                                                                                ::core::intrinsics::atomic_store::<_, {core::intrinsics::AtomicOrdering::SeqCst}, false>(
+                                                                                crate::platform::atomic_store_seqcst(
                                                                                     &raw mut (*c).task_thread.first,
                                                                                     0 as core::ffi::c_int as core::ffi::c_uint,
                                                                                 );
                                                                             }
-                                                                            let fresh2 = ::core::intrinsics::atomic_cxchg::<_, {core::intrinsics::AtomicOrdering::SeqCst}, {core::intrinsics::AtomicOrdering::SeqCst}>(
+                                                                            let fresh2 = crate::platform::atomic_cxchg_seqcst_seqcst(
                                                                                 &raw mut (*c).task_thread.reset_task_cur,
                                                                                 *&raw mut first,
                                                                                 (2147483647 as core::ffi::c_uint)
@@ -5359,7 +5359,7 @@ pub unsafe extern "C" fn dav1d_parse_obus(
                                                                             .data[0 as core::ffi::c_int as usize])
                                                                             .is_null()
                                                                         {
-                                                                            let progress: core::ffi::c_uint = ::core::intrinsics::atomic_load::<_, {core::intrinsics::AtomicOrdering::Relaxed}, false>(
+                                                                            let progress: core::ffi::c_uint = crate::platform::atomic_load_relaxed(
                                                                                 &raw mut *((*out_delayed).progress)
                                                                                     .offset(1 as core::ffi::c_int as isize) as *mut atomic_uint,
                                                                             );

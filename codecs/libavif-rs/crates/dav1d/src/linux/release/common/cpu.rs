@@ -28,7 +28,6 @@
 // Mechanically translated from upstream/dav1d/src/cpu.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type Dav1dContext;
     fn __errno_location() -> *mut core::ffi::c_int;
     fn dav1d_log(c: *mut Dav1dContext, format: *const core::ffi::c_char, ...);
     fn __sched_cpucount(__setsize: size_t, __setp: *const cpu_set_t) -> core::ffi::c_int;
@@ -39,6 +38,8 @@ extern "C" {
         __cpuset: *mut cpu_set_t,
     ) -> core::ffi::c_int;
 }
+#[repr(C)]
+pub struct Dav1dContext([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 #[derive(Copy, Clone)]
 #[repr(C)]

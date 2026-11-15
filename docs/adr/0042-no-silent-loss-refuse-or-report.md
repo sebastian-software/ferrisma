@@ -177,17 +177,8 @@ first column of counts is the state of `main`.
 
 ## Open questions (pending owner decision)
 
-1. **Options without effect.** WebP lossy speeds 2/3, 5/6 and 8/9 give
-   identical bytes; `transcode_batch` accepts thread counts that `transcode`
-   rejects. Should an accepted option that has no effect be rejected,
-   reported, or documented as an alias?
-2. **Repeated CLI flags.** The last value wins silently. Refusing a repeated
-   flag would break scripts that rely on it.
-3. **Premultiplied AVIF alpha.** It is un-premultiplied silently today. D2
-   will report it; should it be refused instead, as premultiplied JPEG XL
-   alpha is?
-4. **A strict mode.** Should there be an option that turns every D2 report
-   into a refusal, for callers that must not lose metadata?
+None: the open questions of the initial record were decided on
+2026-11-15 (below).
 
 ### Decided since 2026-11-15
 
@@ -195,6 +186,33 @@ first column of counts is the state of `main`.
   set explicitly; owner decision of 2026-11-15, recorded in the
   [ADR-0016 amendment](0016-working-color-space-and-transform-boundaries.md#2026-11-15-rendering-intent-is-relative-colorimetric-owner-decision).
   The report does not name it: it is a fixed part of the contract.
+- **Premultiplied AVIF alpha** (formerly open question 3): accepted and
+  converted, not refused; owner decision of 2026-11-15, which also makes
+  premultiplied JPEG XL alpha accepted instead of refused (ADR-0043,
+  decided applications). Both readers convert with their original's own
+  step and the report names it (`Discarded::Unpremultiplied`); the two
+  steps' arithmetic differs and is written into the supported matrix.
+- **Repeated CLI flags** (formerly the open question of that name):
+  refused; owner decision of 2026-11-15 ("everything else is mostly a
+  silent error"). A flag given twice, or a pair of mutually exclusive
+  flags, is an error naming the flags, before any input is read
+  (`src/cli.rs`; inventory Q7).
+- **A strict mode** (formerly the open question of that name): none for
+  now; owner decision of 2026-11-15. No option turns
+  `ProcessingReport::discarded` into a refusal: a caller checks the set,
+  and a script checks the CLI's `discarded=` key, the last of the
+  `report:` line, which is `none` when nothing was left out. An option can
+  be added later without breaking anything; preserving metadata is a
+  separate feature question.
+- **Options without effect** (formerly the open question of that name):
+  rejected where the caller set a value other than the default; owner
+  decision of 2026-11-15. A thread count above 256 in a batch, an exact
+  output size with the resize entry points and an AVIF depth with an
+  external backend are `InvalidOptions` before decoding (inventory Q1, Q2,
+  Q5); a value the report states as replaced stays where it is documented
+  (Q4, Q6, valid batch thread counts). Encoder scales are native per
+  format instead of aliased (ADR-0043 D4; inventory O8): WebP lossy takes
+  libwebp's `method` 0–6, and the mapped `speed` is gone.
 
 ## Review when
 
@@ -215,7 +233,24 @@ first column of counts is the state of `main`.
 - 2026-11-15 — Open question 1 (rendering intent) decided by the owner:
   relative colorimetric, set explicitly (ADR-0016 amendment); moved to
   "Decided since 2026-11-15", the remaining questions renumbered.
+- 2026-11-15 — Open question 3 (premultiplied AVIF alpha) decided by the
+  owner: accept and convert in both formats (ADR-0043); moved to "Decided
+  since 2026-11-15", the remaining question renumbered.
 - 2026-11-15 — D4 for JPEG XL met by removal: the jxl-oxide runtime reader
   is removed (ADR-0032, owner decision), so JPEG XL has one reader; the
   state paragraph under Validation and the inventory (X6 to X9 and Q3
   resolved by removal) are updated. No decision changed.
+- 2026-11-15 — Open question on repeated CLI flags decided by the owner:
+  a repeated or contradictory flag is an error; implemented on
+  `v1/engine-options` and moved to "Decided since 2026-11-15".
+- 2026-11-15 — Open question on a strict mode decided by the owner: no
+  option for now; moved to "Decided since 2026-11-15". The CLI test now
+  reads `discarded=` as a script would.
+- 2026-11-15 — Open question on options without effect decided by the
+  owner: refused where the caller set a nondefault value; implemented on
+  `v1/engine-options` (inventory Q1, Q2, Q5) and moved to "Decided since
+  2026-11-15"; no question remains open.
+- 2026-11-15 — The WebP part of the decision on options without effect is
+  implemented with ADR-0043 D4: libwebp's own `method` replaces the mapped
+  `speed` (inventory O8), and the AVIF quality is libavif's integer scale
+  (O3). No decision changed.

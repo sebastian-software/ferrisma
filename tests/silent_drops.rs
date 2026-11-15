@@ -30,9 +30,10 @@
 ))]
 
 use ferrisma::pipeline::{
-    BatchItem, Engine, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions, Output,
-    OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason, TransformOptions,
-    WebpOptions, inspect, transcode,
+    AvifOptions, BatchItem, ChromaSubsampling, EncodeError, EncodeRequest, EncodedImage,
+    EncoderBackend, Engine, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions,
+    Output, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason, RowEncoder,
+    TransformOptions, WebpOptions, inspect, transcode, transcode_with,
 };
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
@@ -338,21 +339,24 @@ fn truncated_inputs_are_malformed() {
 // ---------------------------------------------------------------------------
 // Options that are accepted but have no (distinct) effect.
 
-/// `WebpOptions::Lossy::speed` maps to libwebp's method 0–6 with
-/// `(6 * (10 - speed) + 4) / 9`: speeds 2 and 3, 5 and 6, 8 and 9 select the
-/// same method and give the same bytes. The documented range 1–10 promises
-/// ten steps; three are silently merged. Not an endorsement.
+/// Until 2026-11-15 `WebpOptions::Lossy` took a `speed` 1–10 mapped onto
+/// libwebp's method 0–6 with `(6 * (10 - speed) + 4) / 9`, so speeds 2 and
+/// 3, 5 and 6, 8 and 9 gave the same bytes (audit row O8; this test was
+/// `webp_lossy_speeds_collapse_in_pairs_today`). Owner decision of
+/// 2026-11-15 (ADR-0043 D4): the encoder's own scale, libwebp's `method`,
+/// passed unchanged, so every value of it selects its own method and no
+/// two give the same bytes here.
 #[test]
-fn webp_lossy_speeds_collapse_in_pairs_today() {
+fn webp_lossy_methods_are_libwebps_own_and_distinct() {
     let jpeg = read("tests/fixtures/decoder-work/paris-420.jpg");
-    let encode = |speed| {
+    let encode = |method| {
         accepted(transcode(
             &jpeg,
             ImageFormat::Jpeg,
             TransformOptions {
                 webp: WebpOptions::Lossy {
                     quality: 75.0,
-                    speed,
+                    method,
                 },
                 output_width: 200,
                 output_height: 133,
@@ -361,40 +365,60 @@ fn webp_lossy_speeds_collapse_in_pairs_today() {
         ))
         .bytes
     };
-    let bytes: Vec<Vec<u8>> = (1..=10).map(encode).collect();
-    for speed in 1..10_u8 {
-        let same = bytes[usize::from(speed) - 1] == bytes[usize::from(speed)];
-        assert_eq!(
-            same,
-            matches!(speed, 2 | 5 | 8),
-            "speed {speed} against {}",
-            speed + 1
-        );
+    let bytes: Vec<Vec<u8>> = (0..=WebpOptions::MAX_METHOD).map(encode).collect();
+    for (first, a) in bytes.iter().enumerate() {
+        for (second, b) in bytes.iter().enumerate().skip(first + 1) {
+            assert_ne!(a, b, "methods {first} and {second}");
+        }
     }
+    assert_eq!(bytes[usize::from(WebpOptions::DEFAULT_METHOD)], encode(4));
 }
 
 /// `Engine::transcode_batch` replaces both thread counts with 1 (documented
-/// on `BatchItem::options`, and the report says 1), so a value that
-/// `transcode` rejects as `InvalidOptions` (above 256) is accepted and
-/// discarded in a batch. Not an endorsement.
+/// on `BatchItem::options`, and the report says 1). Until 2026-11-15 a value
+/// that `transcode` rejects as `InvalidOptions` (above 256) was accepted and
+/// discarded in a batch (audit row Q5). Owner decision of 2026-11-15
+/// (ADR-0042): the batch refuses it as `transcode` does, with the same
+/// message and no reason; a valid count is still replaced and reported.
 #[test]
-fn batch_accepts_thread_counts_that_transcode_rejects_today() {
+fn batch_refuses_thread_counts_that_transcode_rejects() {
+    const THREADS: &str = "transform and encoder threads must be between 0 and 256";
     let jpeg = read("tests/fixtures/sample.jpg");
+    for (transform_threads, encoder_threads) in [(1000, 1), (1, 1000), (257, 257)] {
+        let item = BatchItem {
+            encoded: &jpeg,
+            format: ImageFormat::Jpeg,
+            options: TransformOptions {
+                transform_threads,
+                encoder_threads,
+                ..options(ASSUME)
+            },
+        };
+        let single = refused(
+            transcode(&jpeg, ImageFormat::Jpeg, item.options),
+            ProcessingErrorKind::InvalidOptions,
+        );
+        let results = Engine::new(1).transcode_batch(&[item]);
+        let Err(batched) = &results[0] else {
+            panic!("{transform_threads}/{encoder_threads}: accepted in a batch")
+        };
+        for error in [&single, batched] {
+            assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions);
+            assert!(error.to_string().starts_with(THREADS), "{error}");
+            assert_eq!(error.refusal_reason(), None);
+        }
+    }
+    // A count `transcode` accepts is replaced by 1, as documented.
     let item = BatchItem {
         encoded: &jpeg,
         format: ImageFormat::Jpeg,
         options: TransformOptions {
-            transform_threads: 1000,
-            encoder_threads: 1000,
+            transform_threads: 256,
             ..options(ASSUME)
         },
     };
-    refused(
-        transcode(&jpeg, ImageFormat::Jpeg, item.options),
-        ProcessingErrorKind::InvalidOptions,
-    );
     let results = Engine::new(1).transcode_batch(&[item]);
-    let output = results[0].as_ref().expect("accepted in a batch today");
+    let output = results[0].as_ref().expect("a valid count is accepted");
     assert_eq!(
         (
             output.report.transform_threads,
@@ -402,6 +426,70 @@ fn batch_accepts_thread_counts_that_transcode_rejects_today() {
         ),
         (1, 1)
     );
+}
+
+/// An AVIF backend that records what it is asked for and returns the rows.
+struct AvifRecorder(std::sync::Mutex<Vec<EncodeRequest>>);
+
+struct Rows(Vec<u8>);
+
+impl EncoderBackend for AvifRecorder {
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Avif
+    }
+    fn name(&self) -> &'static str {
+        "avif-recorder"
+    }
+    fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+        self.0.lock().unwrap().push(*request);
+        Ok(Box::new(Rows(Vec::new())))
+    }
+}
+
+impl RowEncoder for Rows {
+    fn write_row(&mut self, _: u32, rgba: &[u8]) -> Result<(), EncodeError> {
+        self.0.extend_from_slice(rgba);
+        Ok(())
+    }
+    fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
+        Ok(EncodedImage::new(OutputFormat::Avif, self.0, 0, false))
+    }
+}
+
+/// An external backend receives every encoder setting in its
+/// `EncodeRequest` and validates it on its own scale. Until 2026-11-15 the
+/// AVIF depth was not part of the request and was refused when nondefault
+/// (audit row Q2; this test was
+/// `external_backends_refuse_settings_the_request_does_not_carry`); since
+/// the owner decision of that day it is `EncodeRequest::avif.depth`, beside
+/// the quality, alpha quality, speed and chroma layout.
+#[test]
+fn external_backends_receive_every_encoder_setting() {
+    let jpeg = read("tests/fixtures/sample.jpg");
+    let avif = AvifOptions {
+        quality: 42,
+        alpha_quality: 17,
+        speed: 3,
+        depth: 10,
+        chroma: ChromaSubsampling::Yuv420,
+    };
+    let backend = AvifRecorder(std::sync::Mutex::default());
+    let output = accepted(transcode_with(
+        &jpeg,
+        ImageFormat::Jpeg,
+        TransformOptions {
+            output_format: OutputFormat::Avif,
+            avif,
+            ..options(ASSUME)
+        },
+        &backend,
+    ));
+    assert_eq!(output.report.encoder_backend, "avif-recorder");
+    let request = backend.0.lock().unwrap()[0];
+    assert_eq!(request.avif, avif);
+    assert_eq!(request.webp, WebpOptions::default());
+    assert_eq!(request.jpeg_xl, JpegXlOptions::default());
+    assert_eq!(request.threads, 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -546,44 +634,69 @@ fn truncated_avif_is_malformed() {
 // ---------------------------------------------------------------------------
 // The command line.
 
-/// The CLI applies flags in order and a later flag of the same kind
-/// silently replaces an earlier one (`--avif-encoder` and `--avif-depth`
-/// are the only flags refused when repeated). Contradictory instructions
-/// such as `--use-rendered-icc --assume-srgb` or two `--transform-threads=`
-/// values therefore succeed with the last one. Not an endorsement.
+/// Until 2026-11-15 the CLI applied flags in order and a later flag of the
+/// same kind silently replaced an earlier one (only `--avif-depth` was
+/// refused when repeated), so `--use-rendered-icc --assume-srgb` or two
+/// `--transform-threads=` values succeeded with the last one (audit row
+/// Q7). Owner decision of 2026-11-15 (ADR-0042): a repeated flag and a
+/// pair of contradictory flags are errors that name the flags, before any
+/// input is read; the binary exits with status 1.
 #[cfg(feature = "cli")]
 #[test]
-fn cli_later_flags_silently_replace_earlier_ones_today() {
+fn cli_refuses_repeated_and_contradictory_flags() {
     let dir = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
     let out = dir.join(format!("silent-drops-{}.webp", std::process::id()));
     let run = |input: &str, flags: &[&str]| {
-        let result = std::process::Command::new(env!("CARGO_BIN_EXE_ferrisma"))
+        std::process::Command::new(env!("CARGO_BIN_EXE_ferrisma"))
             .arg(format!("{ROOT}/{input}"))
             .arg(&out)
             .args(["6", "4"])
             .args(flags)
             .output()
-            .unwrap();
-        assert!(
-            result.status.success(),
-            "{flags:?}: {}",
-            String::from_utf8_lossy(&result.stderr)
-        );
-        String::from_utf8(result.stdout).unwrap()
+            .unwrap()
     };
-    let report = run(
+    for (input, flags, message) in [
+        (
+            "tests/fixtures/sample.jxl",
+            &[
+                "--use-rendered-icc",
+                "--transform-threads=4",
+                "--transform-threads=1",
+            ][..],
+            "--transform-threads may only be given once",
+        ),
+        (
+            "tests/fixtures/sample.jpg",
+            &["--use-rendered-icc", "--assume-srgb"],
+            "--assume-srgb and --use-rendered-icc are mutually exclusive",
+        ),
+    ] {
+        let result = run(input, flags);
+        assert_eq!(result.status.code(), Some(1), "{flags:?}");
+        let stderr = String::from_utf8_lossy(&result.stderr);
+        // `main` returns the error: Rust prints `Error: ` and its `Debug`.
+        assert!(
+            stderr.starts_with(&format!("Error: {message:?}")),
+            "{flags:?}: {stderr}"
+        );
+        assert!(
+            result.stdout.is_empty(),
+            "{flags:?}: nothing was transcoded"
+        );
+    }
+    // Each flag once still works.
+    let result = run(
         "tests/fixtures/sample.jxl",
-        &[
-            "--use-rendered-icc",
-            "--transform-threads=4",
-            "--transform-threads=1",
-        ],
+        &["--use-rendered-icc", "--transform-threads=1"],
     );
-    assert!(report.contains(" transform_threads=1 "), "{report}");
-    let report = run(
-        "tests/fixtures/sample.jpg",
-        &["--use-rendered-icc", "--assume-srgb"],
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
     );
-    assert!(report.contains("color_signal=AssumedSrgb"), "{report}");
+    assert!(
+        String::from_utf8_lossy(&result.stdout).contains(" transform_threads=1 "),
+        "one flag each"
+    );
     let _ = std::fs::remove_file(out);
 }

@@ -13,9 +13,6 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use ::c2rust_bitfields;
 extern "C-unwind" {
-    pub type __sFILEX;
-    pub type AVxWorkerImpl;
-    pub type aom_denoise_and_model_t;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
     fn aom_memalign(align: size_t, size: size_t) -> *mut core::ffi::c_void;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
@@ -362,6 +359,12 @@ extern "C-unwind" {
         mi_col: core::ffi::c_int,
     ) -> core::ffi::c_int;
 }
+#[repr(C)]
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_denoise_and_model_t([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type float_t = core::ffi::c_float;
 pub type __int64_t = i64;
 pub type __darwin_size_t = usize;

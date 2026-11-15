@@ -4090,6 +4090,54 @@ Evidence: macOS AArch64, checked profile, ordinary and O3 scalar oracle
 graphs; `tools/check.py --stage test` 1,097 passed, 1 ignored. Not verified
 here: native Linux, the ASan/UBSan graph.
 <!-- end encoder step 1 -->
+
+<!-- encoder lossless streaming -->
+## Encoder lossless streaming: the lossless Modular profile at effort 2 (2026-11-15)
+
+Issue #223 (owner decision 2026-11-15: port the chunked lossless encode).
+The public encoder admits libjxl's lossless setting (JxlEncoderSetFrameLossless
+with `uses_original_profile`) at effort 2 (kThunder): integer gray or RGB up
+to 16 bits, optional extra channels of the VarDCT profile's kinds (alpha
+straight or premultiplied, integer, invisible pixels kept), any enum color
+encoding without ICC, the default Modular options, one displayed frame,
+serial, output modes 0, 1 and 2 (`admitted_lossless_profile` in
+`enc_frame_vardct.rs`). It runs on the path the original selects:
+EncodeFrameOneShot at most 8 groups and for buffering 0 (or 1 up to 2048
+pixels per side), EncodeFrameStreaming otherwise.
+
+Translated: ModularFrameEncoder::ComputeEncodingData with `do_color = true`
+for this profile, one-shot and groupwise (`compute_encoding_data_lossless`
+in `enc_modular.rs`: float_to_int at the group rectangle, the global palette
+one-shot only, the YCoCg RCT, stream parameters per DC group); the Modular
+branches of enc_frame's ComputeEncodingData and the tree/token step of the
+one-shot path (skipped at buffering 3, which codes every stream with its own
+tree, as streaming does); the empty AC-global section of a Modular frame in
+EncodeFrameStreaming. The profile's unreachable branches (GaborishInverse,
+patches, splines, float and XYB samples, lossy quantization, Squeeze) return
+`Unsupported` at their checkpoints. The fixed `LosslessThunderConfig` entry
+and its corpus are unchanged.
+
+Evidence (`tests/parity/encoder_lossless.rs`; macOS AArch64, checked
+profile, ordinary and O3 scalar oracle graphs), every history exact against
+the original public API: one-shot 96 (1x1 to 1031x517, gray and RGB, 8 and
+16 bits, with and without alpha, every content, buffering -1 to 3, buffer
+and processor mode), streaming 80 (buffering -1, 1 above 2048 pixels, 2 and
+3; output modes 0 and 1; processors with and without seek), encoder step
+2's gate sizes 768x768, 1024x1024, 2048x1536 (48), 2049x2049 (16) and
+4000x3000 (16), JxlEncoderAddChunkedFrame 32 (buffer mode and encoding from
+the callbacks, row padding), the container, level 10 and output mode 2 with
+out-of-order jxlp boxes 32, decode-back 20 through both decoders, and 12
+histories of branch evidence (the original's bytes differ from its
+buffering-0 bytes exactly when it streams). 16-bit samples need level 10,
+so the original and the port write a container for them.
+`tools/check.py --stage test`: 1,148 passed, 0 failed, 1 ignored (1,139
+before). Whole images through the same API (the memory probe of
+`docs/benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md` at the
+repository root, 0.5 to 24 MP, RGB and RGBA) equal `cjxl -d 0 -e 2` with its
+default buffering, and with `--buffering=0` the one-shot files. Not verified
+here: native Linux and the ASan/UBSan graph; x86-64 ran under Rosetta 2
+(see the branch report).
+<!-- end encoder lossless streaming -->
 <!-- encoder selection -->
 ## Encoder selection (2026-11-15, branch `v1/jxl-enc-select`)
 
@@ -4140,3 +4188,4 @@ the encoder's AVX2 speed on hardware. `ENCODER_SELECTS_SIMD` is `false` on
 this branch; the switch is on in `v1/jxl-enc-select-flip`, which must not be
 merged before the hosted measurement is reviewed.
 <!-- end encoder selection head -->
+||||||| df6c83cf

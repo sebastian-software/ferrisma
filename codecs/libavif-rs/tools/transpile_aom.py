@@ -19,6 +19,7 @@ from aom_inline_bridges import SUBJECTS, append_bridges
 from aom_jumps import map_jumps
 from build_aom import LIBRARY_UNITS, library_entries
 from transpile_dav1d import corrected
+from stable_rust import stable_text
 
 ROOT = Path(__file__).resolve().parents[1]
 CRATE = ROOT / 'crates/aom'
@@ -236,6 +237,8 @@ def main():
         if original.name == 'tx_search.c':
             changes['name-static-float-compound-literals'] = 9
         text = text.replace('__dav1d_align_', '__aom_align_')
+        # The committed units are rewritten for stable Rust (ADR 0060).
+        text = stable_text(str((CRATE / f'src/{platform}/{profile}' / relative.with_suffix('.rs')).relative_to(ROOT)), text)
         production_sha256 = hashlib.sha256(text.encode()).hexdigest()
         text, bridge_names = append_bridges(text, emitted_bridges)
         for name in bridge_names:

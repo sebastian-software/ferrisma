@@ -2,6 +2,7 @@
 name = "libavif-sharpyuv"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.95"
 license = "BSD-3-Clause"
 description = "SharpYUV 0.4.2 C ABI adapter over the shared safe conversion core"
 homepage = "https://ferrisma.dev"

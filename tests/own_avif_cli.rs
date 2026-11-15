@@ -36,12 +36,17 @@ fn cli_writes_avif_through_libavif_at_either_depth() {
             .expect("the report names the encoder")
             .to_owned()
     };
-    // One AVIF writer since 2026-11-15: libavif, with a depth.
+    // One AVIF writer since 2026-11-15: libavif, with its own settings.
     for flags in [
         &[][..],
         &["--avif-depth=8"],
         &["--avif-depth=10"],
-        &["--quality=55"],
+        &["--avif-quality=55"],
+        &[
+            "--avif-alpha-quality=90",
+            "--avif-speed=8",
+            "--avif-chroma=420",
+        ],
     ] {
         assert_eq!(encoder(flags), "libavif-rs/aom", "{flags:?}");
     }
@@ -58,6 +63,16 @@ fn cli_writes_avif_through_libavif_at_either_depth() {
     let invalid = run(&["--avif-depth=12"]);
     assert!(!invalid.status.success());
     // libavif's scale is 0-100; quality 0 is accepted, not remapped.
-    assert_eq!(encoder(&["--quality=0"]), "libavif-rs/aom");
+    assert_eq!(encoder(&["--avif-quality=0"]), "libavif-rs/aom");
+    // The format-independent flags were removed on 2026-11-15.
+    for flags in [&["--quality=55"][..], &["--speed=6"], &["--chroma=420"]] {
+        let removed = run(flags);
+        assert_eq!(removed.status.code(), Some(1), "{flags:?}");
+        assert!(
+            String::from_utf8_lossy(&removed.stderr).starts_with("Error: \"unknown option: --"),
+            "{}",
+            String::from_utf8_lossy(&removed.stderr)
+        );
+    }
     std::fs::remove_file(output).unwrap();
 }

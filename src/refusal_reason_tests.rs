@@ -10,7 +10,7 @@ use crate::pipeline::{
     ImageFormat, InputProfilePolicy, OutputFormat, RefusalReason, TransformOptions, transcode,
 };
 
-const ALL: [RefusalReason; 12] = [
+const ALL: [RefusalReason; 13] = [
     RefusalReason::Animation,
     RefusalReason::ColorSignalMissing,
     RefusalReason::RenderedIccRequiresOptIn,
@@ -23,7 +23,16 @@ const ALL: [RefusalReason; 12] = [
     RefusalReason::AlphaAssociation,
     RefusalReason::GeometricTransform,
     RefusalReason::UnsupportedEssentialProperty,
+    RefusalReason::IccColorSpaceMismatch,
 ];
+
+/// Reasons no built-in reader produces any more; their former fixture must
+/// now be accepted. `AlphaAssociation`: premultiplied JPEG XL alpha is
+/// converted by libjxl since 2026-11-15 (owner decision, ADR-0043), as AVIF
+/// alpha is by libavif, so every reader delivers straight alpha; the
+/// variant stays for a future reader (the enum is non-exhaustive and a
+/// documented reason keeps its meaning).
+const RETIRED: [RefusalReason; 1] = [RefusalReason::AlphaAssociation];
 
 fn file(path: &str) -> Vec<u8> {
     std::fs::read(format!("{}/{path}", env!("CARGO_MANIFEST_DIR"))).unwrap()
@@ -73,16 +82,21 @@ fn case(reason: RefusalReason) -> (usize, Vec<u8>, ImageFormat, InputProfilePoli
             ImageFormat::Jpeg,
             Strict,
         ),
+        // A real embedded profile. (Until 2026-11-15 `sample.jxl`, whose
+        // enum sRGB the strict policy now reads; owner decision, #222.)
         RefusalReason::RenderedIccRequiresOptIn => (
             2,
-            "tests/fixtures/sample.jxl".to_owned(),
+            "tests/fixtures/parity/rgb-p3-icc.jxl".to_owned(),
             ImageFormat::JpegXl,
             Strict,
         ),
+        // An sRGB profile whose own `cicp` tag says Display P3. (Until
+        // 2026-11-15 an AVIF `nclx` 1/1 beside an sRGB profile, which MIAF
+        // now resolves in the profile's favor; owner decision.)
         RefusalReason::CicpBesideIcc => (
             3,
-            "tests/fixtures/avif-color/icc-nclx-1-1-6.avif".to_owned(),
-            ImageFormat::Avif,
+            "tests/fixtures/parity/rgb-icc-cicp-p3.jpg".to_owned(),
+            ImageFormat::Jpeg,
             UseRenderedIcc,
         ),
         RefusalReason::HdrTransfer => (
@@ -99,10 +113,12 @@ fn case(reason: RefusalReason) -> (usize, Vec<u8>, ImageFormat, InputProfilePoli
             ImageFormat::Avif,
             Strict,
         ),
+        // Untagged. (Until 2026-11-15 signalled sRGB AVIF, which the
+        // rendered-ICC policy now converts as a typed signal.)
         RefusalReason::RenderedIccMissing => (
             6,
-            format!("{LIBAVIF}colors_sdr_srgb.avif"),
-            ImageFormat::Avif,
+            "tests/fixtures/sample.jpg".to_owned(),
+            ImageFormat::Jpeg,
             UseRenderedIcc,
         ),
         RefusalReason::ContradictoryColorSignals => {
@@ -123,6 +139,7 @@ fn case(reason: RefusalReason) -> (usize, Vec<u8>, ImageFormat, InputProfilePoli
             ImageFormat::Jpeg,
             AssumeSrgbIfMissing,
         ),
+        // Retired: the former fixture, now accepted.
         RefusalReason::AlphaAssociation => (
             9,
             format!("{LIBJXL}extra-channel-alpha-1-up-1-shift-0.jxl"),
@@ -134,6 +151,14 @@ fn case(reason: RefusalReason) -> (usize, Vec<u8>, ImageFormat, InputProfilePoli
             format!("{LIBAVIF}clap_irot_imir_non_essential.avif"),
             ImageFormat::Avif,
             AssumeSrgbIfMissing,
+        ),
+        // Since 2026-11-15: an RGB profile beside the samples of a gray
+        // JPEG (`tests/fixtures/parity/README.md`).
+        RefusalReason::IccColorSpaceMismatch => (
+            12,
+            "tests/fixtures/parity/gray-rgb-icc.jpg".to_owned(),
+            ImageFormat::Jpeg,
+            UseRenderedIcc,
         ),
         RefusalReason::UnsupportedEssentialProperty => {
             return (
@@ -163,6 +188,18 @@ fn every_refusal_reason_is_produced_by_a_fixture() {
             profile_policy,
             ..TransformOptions::default()
         };
+        if RETIRED.contains(&reason) {
+            let output = transcode(&bytes, format, options)
+                .unwrap_or_else(|error| panic!("{reason:?} is retired: {error}"));
+            assert!(
+                output
+                    .report
+                    .discarded
+                    .iter()
+                    .any(|class| class == crate::pipeline::Discarded::Unpremultiplied)
+            );
+            continue;
+        }
         let error = transcode(&bytes, format, options).expect_err("the fixture must be refused");
         assert_eq!(error.refusal_reason(), Some(reason), "{error}");
     }

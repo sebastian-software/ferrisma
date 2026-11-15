@@ -2672,3 +2672,8 @@ fn public_encoder_streaming_gate_4000x3000_matches_original() {
 #[path = "encoder_container.rs"]
 mod encoder_container;
 // end encoder container
+
+// encoder lossless streaming
+#[path = "encoder_lossless.rs"]
+mod encoder_lossless;
+// end encoder lossless streaming

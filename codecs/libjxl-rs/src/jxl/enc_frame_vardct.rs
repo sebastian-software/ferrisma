@@ -16,6 +16,11 @@
 //! EncodeGlobalACInfo and EncodeGroups, with their streaming branches. Serial: RunOnPool
 //! without a runner runs one thread in index order. The fixed lossless
 //! Thunder configuration in `enc_frame.rs` remains a separate internal entry.
+//! Encoder lossless streaming (issue #223): the same functions also encode
+//! the admitted lossless Modular profile at effort 2 (see
+//! `admitted_lossless_profile`), one-shot and through EncodeFrameStreaming,
+//! with the Modular ComputeEncodingData of `do_color = true` in
+//! `enc_modular.rs`.
 //!
 //! Admission (ADR 0001): a branch of these functions that enters an
 //! untranslated unit returns [`EncodeFrameError::Admission`] at that branch;
@@ -141,6 +146,17 @@ pub fn admitted_frame_profile(
     frame_data: &JxlEncoderChunkedFrameAdapter<'_>,
     default_memory_manager: bool,
 ) -> bool {
+    // encoder lossless streaming
+    if cparams.modular_mode {
+        return admitted_lossless_profile(
+            cparams,
+            frame_info,
+            metadata,
+            frame_data,
+            default_memory_manager,
+        );
+    }
+    // end encoder lossless streaming
     let m = &metadata.m;
     default_memory_manager
         && cparams.speed_tier == SpeedTier::Squirrel
@@ -218,6 +234,96 @@ fn admitted_extra_channels(m: &ImageMetadata) -> bool {
             .iter()
             .all(|eci| eci.channel_type != ExtraChannel::BLACK && eci.dim_shift == 0)
 }
+
+// encoder lossless streaming
+/// The admitted lossless Modular profile (issue #223): libjxl's own
+/// lossless setting (JxlEncoderSetFrameLossless, SetLossless) at effort 2
+/// (kThunder), one-shot or streaming as CanDoStreamingEncoding selects, on
+/// integer gray or RGB samples of at most 16 bits with the extra channels of
+/// [`admitted_extra_channels`] (integer, invisible pixels kept), no ICC
+/// profile, default Modular options (predictor, group size, palette, RCT,
+/// tree learning and responsive settings) and the frame conditions of the
+/// lossy profile: a single displayed full-size frame, the default memory
+/// manager, serial, output modes 0, 1 and 2.
+fn admitted_lossless_profile(
+    cparams: &CompressParams<'_>,
+    frame_info: &FrameInfo,
+    metadata: &CodecMetadata,
+    frame_data: &JxlEncoderChunkedFrameAdapter<'_>,
+    default_memory_manager: bool,
+) -> bool {
+    let m = &metadata.m;
+    let defaults = CompressParams::default();
+    default_memory_manager
+        && cparams.speed_tier == SpeedTier::Thunder
+        && cparams.modular_mode
+        && cparams.is_lossless()
+        && cparams.color_transform == ColorTransform::NONE
+        && !m.xyb_encoded
+        && !cparams.max_error_mode
+        && !cparams.disable_perceptual_optimizations
+        && cparams.decoding_speed_tier == 0
+        && cparams.noise == Override::DEFAULT
+        && cparams.dots == Override::DEFAULT
+        && cparams.patches == Override::DEFAULT
+        && cparams.gaborish == Override::DEFAULT
+        && cparams.epf == -1
+        && cparams.progressive_mode == Override::DEFAULT
+        && cparams.qprogressive_mode == Override::DEFAULT
+        && cparams.custom_progressive_mode.is_none()
+        && cparams.progressive_dc == 0
+        && cparams.responsive < 1
+        && !cparams.centerfirst
+        // keep_invisible on (the lossless default): no SimplifyInvisible.
+        && apply_override(cparams.keep_invisible, true)
+        && cparams.photon_noise_iso == 0.0
+        && cparams.manual_noise.is_empty()
+        && cparams.manual_xyb_factors.is_empty()
+        && !cparams.custom_splines.has_any()
+        && cparams.resampling == 1
+        && cparams.ec_resampling == 1
+        && !cparams.already_downsampled
+        && !cparams.lossy_palette
+        && cparams.modular_group_size_shift == defaults.modular_group_size_shift
+        && cparams.colorspace == defaults.colorspace
+        && cparams.move_to_front_from_channel == defaults.move_to_front_from_channel
+        && cparams.channel_colors_pre_transform_percent
+            == defaults.channel_colors_pre_transform_percent
+        && cparams.channel_colors_percent == defaults.channel_colors_percent
+        && cparams.palette_colors == defaults.palette_colors
+        && cparams.options.predictor == defaults.options.predictor
+        && cparams.options.max_properties == defaults.options.max_properties
+        && cparams.options.nb_repeats == defaults.options.nb_repeats
+        && cparams.custom_fixed_tree.is_empty()
+        && (cparams.output_mode == 0 || cparams.output_mode == 1 || cparams.output_mode == 2)
+        && cparams.debug_image.is_none()
+        && !m.bit_depth.floating_point_sample
+        && m.bit_depth.bits_per_sample <= 16
+        && admitted_extra_channels(m)
+        && m.extra_channel_info
+            .iter()
+            .all(|eci| !eci.bit_depth.floating_point_sample)
+        && !m.have_animation
+        && !m.have_preview
+        && !m.color_encoding.want_icc()
+        && frame_info.is_last
+        && !frame_info.is_preview
+        && frame_info.frame_type == FrameType::REGULAR
+        && frame_info.dc_level == 0
+        && !frame_info.save_before_color_transform
+        && frame_info.ib_needs_color_transform
+        && frame_info.origin.x0 == 0
+        && frame_info.origin.y0 == 0
+        && !frame_info.blend
+        && frame_info.blendmode == BlendMode::REPLACE
+        && frame_info.duration == 0
+        && frame_info.timecode == 0
+        && frame_info.name.is_empty()
+        && frame_data.xsize() == metadata.xsize()
+        && frame_data.ysize() == metadata.ysize()
+        && frame_data.channels().len() > m.num_extra_channels as usize
+}
+// end encoder lossless streaming
 
 /// GetBitDepth.
 pub fn get_bit_depth(bit_depth: JxlBitDepth, metadata_bits: u32, format: JxlPixelFormat) -> u32 {
@@ -1217,10 +1323,13 @@ fn compute_encoding_data<'m>(
             &mut color,
             None,
         )?;
-    } else {
+    } else if mutable_frame_header.encoding == FrameEncoding::VAR_DCT {
         // RGB or YCbCr input, or a special frame already in XYB: VarDCT
         // without the XYB transform is outside the profile.
         return admission(FrameAdmission::FrameProfile);
+    } else {
+        // encoder lossless streaming: nothing to do for the admitted
+        // lossless Modular frame (RGB or gray without a color transform).
     }
     let lossless = cparams.is_lossless();
     if let Some(alpha_idx) = alpha_idx
@@ -1267,39 +1376,48 @@ fn compute_encoding_data<'m>(
         group_rect = Rect::new(0, 0, color.xsize(), color.ysize());
     }
 
-    if mutable_frame_header.encoding != FrameEncoding::VAR_DCT {
-        return admission(FrameAdmission::FrameProfile);
-    }
     let num_passes = enc_state.progressive_splitter.get_num_passes();
-    if num_passes != 1 {
-        // SplitACCoefficients for several passes is step 9.
-        return admission(FrameAdmission::FrameProfile);
-    }
-    enc_state.passes.resize_with(num_passes, Default::default);
-    for pass in &mut enc_state.passes {
-        pass.ac_tokens.resize_with(frame_dim.num_groups, Vec::new);
-    }
     let frame_header: &FrameHeader<'_> = mutable_frame_header;
-    compute_var_dct_encoding_data(
-        frame_header,
-        linear,
-        &mut color,
-        group_rect,
-        enc_modular,
-        enc_state,
-    )?;
-    compute_all_coeff_orders(enc_state, &frame_dim)?;
-    if !enc_state.streaming_mode {
-        enc_state.shared.num_histograms = 1;
-        enc_state.histogram_idx.resize(frame_dim.num_groups, 0);
+    if frame_header.encoding == FrameEncoding::VAR_DCT {
+        if num_passes != 1 {
+            // SplitACCoefficients for several passes is step 9.
+            return admission(FrameAdmission::FrameProfile);
+        }
+        enc_state.passes.resize_with(num_passes, Default::default);
+        for pass in &mut enc_state.passes {
+            pass.ac_tokens.resize_with(frame_dim.num_groups, Vec::new);
+        }
+        compute_var_dct_encoding_data(
+            frame_header,
+            linear,
+            &mut color,
+            group_rect,
+            enc_modular,
+            enc_state,
+        )?;
+        compute_all_coeff_orders(enc_state, &frame_dim)?;
+        if !enc_state.streaming_mode {
+            enc_state.shared.num_histograms = 1;
+            enc_state.histogram_idx.resize(frame_dim.num_groups, 0);
+        }
+        tokenize_all_coefficients(frame_header, enc_state)?;
     }
-    tokenize_all_coefficients(frame_header, enc_state)?;
 
+    // encoder lossless streaming: ComputeEncodingData with do_color =
+    // modular_mode, for the admitted lossless Modular frame.
     if cparams.modular_mode {
-        // The do_color branches of the modular ComputeEncodingData (step 5).
-        return admission(FrameAdmission::FrameProfile);
-    }
-    if !extra_channels.is_empty() {
+        enc_modular.compute_encoding_data_lossless(
+            frame_header,
+            &metadata.m,
+            &color,
+            &extra_channels,
+            group_rect,
+            &frame_dim,
+            frame_area_rect,
+            num_passes,
+            enc_state.streaming_mode,
+        )?;
+    } else if !extra_channels.is_empty() {
         enc_modular.compute_encoding_data_extra_channels(
             frame_header,
             &metadata.m,
@@ -1927,18 +2045,26 @@ fn encode_frame_streaming(
             }
         }
     }
-    let mut writer = output_ac_global(&mut enc_state, &full_dim)?;
-    writer.shrink()?;
-    if streaming {
-        let bytes = writer.take_bytes();
-        write_group_section(
-            bytes.as_slice(),
-            &mut group_sizes,
-            &mut sections,
-            output_processor,
-        )?;
+    if frame_header.encoding == FrameEncoding::VAR_DCT {
+        let mut writer = output_ac_global(&mut enc_state, &full_dim)?;
+        writer.shrink()?;
+        if streaming {
+            let bytes = writer.take_bytes();
+            write_group_section(
+                bytes.as_slice(),
+                &mut group_sizes,
+                &mut sections,
+                output_processor,
+            )?;
+        } else {
+            global_group_codes[1 + dc_group_order.len()] = Some(writer);
+        }
+    } else if streaming {
+        // encoder lossless streaming: a Modular frame's AC global section is
+        // empty.
+        write_group_section(&[], &mut group_sizes, &mut sections, output_processor)?;
     } else {
-        global_group_codes[1 + dc_group_order.len()] = Some(writer);
+        global_group_codes[1 + dc_group_order.len()] = Some(BitWriter::new());
     }
     if streaming_output {
         if group_sizes.len() != permutation.len() {

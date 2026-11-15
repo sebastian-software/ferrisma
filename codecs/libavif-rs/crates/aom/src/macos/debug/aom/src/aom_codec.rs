@@ -17,9 +17,11 @@
 // Mechanically translated from upstream/aom/aom/src/aom_codec.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C-unwind" {
-    pub type aom_metadata_array;
-    pub type aom_codec_alg_priv;
 }
+#[repr(C)]
+pub struct aom_metadata_array([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_codec_alg_priv([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type __builtin_va_list = *mut core::ffi::c_char;
 pub type va_list<'a> = core::ffi::VaList<'a>;
 pub type __darwin_size_t = usize;

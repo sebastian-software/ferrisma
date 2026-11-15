@@ -64,8 +64,10 @@ jxl_out("jpeg-max-distance", 0, "tests/fixtures/sample.jpg", 7, profiles=("lossy
 jxl_out("jxl-rgba-37x19", 1, "tests/fixtures/jxl-lossless/rgba-37x19.jxl", 4)
 jxl_out("jxl-rgb-alpha8", 1, JXL_DATA + "effects_rgb_alpha8.jxl", 4)
 jxl_out("avif-alpha", 2, "codecs/libavif-rs/upstream/libavif/tests/data/abc_color_irot_alpha_irot.avif", 4)
-# 16-bit and 12-bit gray with alpha, VarDCT and Modular. The pipeline refuses
-# gray JPEG XL under every policy; these seeds start on that rejection path.
+# 16-bit and 12-bit gray with alpha, VarDCT and Modular. Since 2026-11-15
+# (owner decision, ADR-0043) the pipeline expands gray JPEG XL to RGB(A), so
+# these seeds and `jxl-gray-257x3` reach the encoder (`fuzz/src/lib.rs`
+# asserts it); until then they started on the `UnsupportedInput` path.
 jxl_out("jxl-gray-alpha16-effects", 1, JXL_DATA + "effects_gray_alpha16.jxl", 4)
 jxl_out("jxl-gray-alpha16-vardct", 1, JXL_DATA + "vardct-gray-alpha16.jxl", 4)
 jxl_out("jxl-gray-alpha12-modular", 1, JXL_DATA + "modular-gray-alpha12.jxl", 4)

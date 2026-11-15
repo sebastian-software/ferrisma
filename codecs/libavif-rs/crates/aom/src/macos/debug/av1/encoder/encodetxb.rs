@@ -15,11 +15,6 @@ use ::c2rust_bitfields;
 extern "C-unwind" {
     static mut av1_get_nz_map_contexts: Option<unsafe extern "C-unwind" fn(*const uint8_t, *const int16_t, core::ffi::c_int, TX_SIZE, TX_CLASS, *mut int8_t) -> ()>;
     static mut av1_txb_init_levels: Option<unsafe extern "C-unwind" fn(*const tran_low_t, core::ffi::c_int, core::ffi::c_int, *mut uint8_t) -> ()>;
-    pub type __sFILEX;
-    pub type SB_FIRST_PASS_STATS;
-    pub type AVxWorkerImpl;
-    pub type aom_denoise_and_model_t;
-    pub type EncWorkerData;
     static av1_ss_size_lookup: [[[BLOCK_SIZE; 2]; 2]; 22];
     fn aom_memalign(align: size_t, size: size_t) -> *mut core::ffi::c_void;
     fn aom_malloc(size: size_t) -> *mut core::ffi::c_void;
@@ -75,6 +70,16 @@ extern "C-unwind" {
         w: *mut aom_writer,
     );
 }
+#[repr(C)]
+pub struct __sFILEX([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct SB_FIRST_PASS_STATS([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct AVxWorkerImpl([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct aom_denoise_and_model_t([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct EncWorkerData([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type int8_t = i8;
 pub type int16_t = i16;

@@ -319,7 +319,7 @@ export default function Home() {
         <MonoWide>
           <MonoCode caption="From the repository root" file="Terminal">
             {
-              "cargo run --release --features cli -- \\\n  photo.jpg scaled.avif 1600 900 \\\n  --assume-srgb --quality=80 --speed=8"
+              "cargo run --release --features cli -- \\\n  photo.jpg scaled.avif 1600 900 \\\n  --assume-srgb --avif-quality=80 --avif-speed=8"
             }
           </MonoCode>
         </MonoWide>

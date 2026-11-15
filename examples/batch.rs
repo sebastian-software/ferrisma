@@ -9,7 +9,7 @@ use std::error::Error;
 use std::time::Instant;
 
 use ferrisma::pipeline::{
-    BatchItem, Engine, ImageFormat, InputProfilePolicy, TransformOptions, transcode,
+    AvifOptions, BatchItem, Engine, ImageFormat, InputProfilePolicy, TransformOptions, transcode,
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -33,9 +33,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let base = TransformOptions {
         profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
         // libavif's quality scale; the batch records before 2026-11-15 used
-        // rav1e's, which is not comparable at the same number.
-        quality: 80.0,
-        speed: 6,
+        // rav1e's, which is not comparable at the same number, and 10 bits
+        // (the default before 2026-11-15; `avifenc`'s default for 8-bit
+        // input, 8, since).
+        avif: AvifOptions {
+            quality: 80,
+            depth: 10,
+            ..AvifOptions::default()
+        },
         ..TransformOptions::default()
     };
     let height = args

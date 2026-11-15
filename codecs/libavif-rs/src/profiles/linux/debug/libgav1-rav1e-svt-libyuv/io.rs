@@ -4,9 +4,6 @@
 // Mechanically translated from upstream/libavif/src/io.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 extern "C" {
-    pub type _IO_wide_data;
-    pub type _IO_codecvt;
-    pub type _IO_marker;
     fn avifFree(p: *mut core::ffi::c_void);
     fn avifRWDataRealloc(raw: *mut avifRWData, newSize: size_t) -> avifResult;
     fn avifRWDataFree(raw: *mut avifRWData);
@@ -30,6 +27,12 @@ extern "C" {
     fn ftello(__stream: *mut FILE) -> __off64_t;
     fn ferror(__stream: *mut FILE) -> core::ffi::c_int;
 }
+#[repr(C)]
+pub struct _IO_wide_data([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct _IO_codecvt([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
+#[repr(C)]
+pub struct _IO_marker([u8; 0], core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>);
 pub type size_t = usize;
 pub type __uint8_t = u8;
 pub type __uint32_t = u32;

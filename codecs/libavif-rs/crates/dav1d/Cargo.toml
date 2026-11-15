@@ -2,6 +2,8 @@
 name = "libavif-dav1d"
 version = "0.1.0"
 edition = "2021"
+# C-variadic definitions and core::ffi::VaList are stable since 1.99 (port ADR 0060).
+rust-version = "1.99"
 license = "BSD-2-Clause"
 description = "Mechanical portable Rust translation of dav1d 1.5.4"
 homepage = "https://ferrisma.dev"
