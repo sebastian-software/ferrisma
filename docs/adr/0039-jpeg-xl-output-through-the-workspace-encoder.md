@@ -4,7 +4,7 @@
 - **Date:** 2026-11-12
 - **Last reviewed:** 2026-11-15
 - **Supersedes:** None; settles the separate JPEG XL output gate left open by [0018](0018-optional-codec-and-cms-dependencies.md) and the [M1 plan](../milestones/M1-complete-image-pipeline.md)
-- **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0019](0019-source-side-orientation.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), [0032](0032-jpeg-xl-workspace-decoder-input.md), [0037](0037-selectable-workspace-avif-encoder.md), libjxl-rs [encoder plan](../../codecs/libjxl-rs/docs/ENCODER_EXPANSION.md) and [first image path](../../codecs/libjxl-rs/docs/FIRST_IMAGE.md), issues [#27](https://github.com/sebastian-software/ferrisma/issues/27), [#249](https://github.com/sebastian-software/ferrisma/issues/249), [#92](https://github.com/sebastian-software/ferrisma/issues/92), [#102](https://github.com/sebastian-software/ferrisma/issues/102), [#66](https://github.com/sebastian-software/ferrisma/issues/66)
+- **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0019](0019-source-side-orientation.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), [0032](0032-jpeg-xl-workspace-decoder-input.md), [0037](0037-selectable-workspace-avif-encoder.md), libjxl-rs [encoder plan](../../codecs/libjxl-rs/docs/ENCODER_EXPANSION.md) and [first image path](../../codecs/libjxl-rs/docs/FIRST_IMAGE.md), issues [#27](https://github.com/sebastian-software/ferrisma/issues/27), [#249](https://github.com/sebastian-software/ferrisma/issues/249), [#238](https://github.com/sebastian-software/ferrisma/issues/238), [#92](https://github.com/sebastian-software/ferrisma/issues/92), [#102](https://github.com/sebastian-software/ferrisma/issues/102), [#66](https://github.com/sebastian-software/ferrisma/issues/66)
 
 ## Context
 
@@ -101,6 +101,7 @@ These describe the emitted samples (ADR-0015):
 | Alpha | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel, coded losslessly (extra-channel distance 0), so decoded alpha equals the finished rows exactly. Color under zero alpha is **not** kept: libjxl's lossy default (`keep_invisible` off, SimplifyInvisible) replaces it. Fully opaque output has no extra channel; the engine omits it before encoding and does not rely on the encoder's `STRIP_ALPHA` decision. | If any finished alpha sample is below 255: one 8-bit, unassociated (straight) alpha extra channel; color under zero alpha is kept exactly. Fully opaque output has no extra channel. |
 | Orientation | 1; the engine has already applied source orientation, so samples are upright | Same |
 | Other metadata | Default intensity target (255), no animation, no preview, no intrinsic size | Same |
+| Determinism | Per target and engine kernel level, not across targets (2026-11-15 amendment): the same input, options and target give the same bytes on every host and thread count; AArch64 and x86-64 may differ, and so may two kernel levels of one target when the output is resized | Same rule; the lossless coding itself is integer and was identical on both targets in every comparison so far |
 
 Both write gray content as RGB. Not supported: other efforts, alpha deeper
 than 8 bits (the engine's rows are 8-bit; the port needs a container above
@@ -362,7 +363,9 @@ estimate or the lossless reservation (in particular with alpha, whose 4/3
 scaling is not measured); if a non-sRGB or HDR output contract is needed (step 6, #113);
 if serial encoding is too slow for the supported path (step 13, #106); or if
 a decoder rejects the unsignaled level or a byte mismatch against libjxl
-appears for this profile.
+appears for this profile; or if two hosts of one target at one kernel level
+write different bytes (the determinism contract of the 2026-11-15
+amendment), or the port's encoder starts selecting SIMD by default.
 
 ## Amendment log
 
@@ -460,3 +463,53 @@ appears for this profile.
   no existing pin changed. The CI performance record's lossless row compared
   a container with level box and perceptual intent against the raw
   codestream: the difference was signaling, not coding.
+- 2026-11-15 — **Determinism is per target and kernel level (#238).** The
+  engine's default lossy output for the same JPEG differed by a byte or two
+  between AArch64 and x86-64 (CI: 12 MP 2,070,600 against 2,070,601 bytes;
+  2048 px wide 539,604 against 539,603 on AVX2). Reproduced locally on
+  macOS AArch64 and x86-64 under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1`) with
+  the CI input rebuilt from its recipe (`photo12`: the libavif dog
+  photograph decoded by libjpeg-turbo `djpeg`, re-encoded by `cjpeg
+  -quality 90`; here the pinned libjpeg-turbo submodule's scalar build), the
+  same byte counts on both targets. The RGBA rows each sink receives were
+  dumped through an `EncoderBackend` and fed to the pinned original `cjxl
+  --patches=0 -e 7 -d 1 -x color_space=RGB_D65_SRG_Rel_SRG`, built as the
+  scalar oracle configuration natively and as an x86-64 binary
+  (`CMAKE_OSX_ARCHITECTURES=x86_64`). Two separate sources, each attributed:
+  - **No resize: the encoder's target, not the engine path.** JPEG decode,
+    linearize and quantize give byte-identical rows on both targets and at
+    every kernel level (equal to the decoder's own output; 4032x3024 and
+    the 2268x1512 flower photograph). The bytes still differ, and the
+    original differs the same way: AArch64 `cjxl` writes the AArch64 engine
+    file, x86-64 `cjxl` the x86-64 engine file, from the same rows. The
+    port's encoder runs its scalar translation on both targets
+    (`ENCODER_SELECTS_SIMD = false`), so this is the original's own
+    target-specific arithmetic in the scalar build, which ADR-0041 section 2
+    keeps ("identity across targets is not required"); the likely mechanism
+    is Clang's default contraction on AArch64 (FMA is baseline there, not on
+    x86-64), not attributed to a site here. It is content-dependent: the
+    codec gate's master PPM and the 2048 px rows below encode identically on
+    both targets.
+  - **Resize: the engine's f32 resample kernel level.** With the default
+    ceiling, x86-64 runs `Avx2` and its 2048x1536 Lanczos3 rows differ from
+    the `Scalar` rows in 19 of 12,582,912 samples, each by one code (600x400
+    flower thumbnail: 4 of 960,000); with `kernel_level_ceiling =
+    Scalar` the x86-64 rows equal the AArch64 rows (`Neon` and `Scalar`
+    agreed on both inputs, an observation, not a guarantee). This is the
+    bound ADR-0021 documents ("`f32` SIMD output can differ between ISAs by
+    one code at ties"). The encoder then writes the same bytes from the
+    same rows on both targets, and each original target writes the engine's
+    bytes from that target's rows.
+  No defect was found: on each target the engine's file equals the
+  original's output for the rows the sink received, the rows stay within
+  ADR-0021, and the transform's arithmetic is unchanged. **Contract:** the
+  lossy bytes are deterministic per target and engine kernel level, across
+  hosts, CPUs and transform or encoder thread counts of that target (the CI
+  record); they are not promised across targets or kernel levels. Callers
+  that need identical files on both targets need the same kernel level
+  (`kernel_level_ceiling`) and still can get different bytes from the
+  encoder; pixel equality to a tolerance is the cross-target contract, as
+  for AVIF (#203). Lossless uses the same rule; its integer coding was
+  identical on both targets in this comparison and in `jxl_output_tests`
+  (the cjxl reference files above pass under Rosetta), but resized rows
+  depend on the kernel level as for lossy.
