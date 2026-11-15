@@ -44,9 +44,9 @@ reader since 2026-11-15 (owner decision; `jxl-oxide` left the runtime and is a
 test-only cross-check), and AVIF output to
 the workspace libavif/AOM writer
 ([ADR-0037](adr/0037-selectable-workspace-avif-encoder.md)), the only AVIF
-writer since 2026-11-15 (owner decision; rav1e left the engine). The default
-AVIF quality (#216) and lossy d1.0 as the JPEG XL output default are
-still **pending owner confirmation** (ADR-0041 O5).
+writer since 2026-11-15 (owner decision; rav1e left the engine). Lossy d1.0
+with patches off is the confirmed JPEG XL output default (owner decision
+2026-11-15, ADR-0039); the default AVIF quality value is still open (#216).
 
 ## Cargo features and builds
 
@@ -283,6 +283,13 @@ supported.
 | Determinism | bytes can depend on thread count and host | — | both profiles byte-identical with the C++ encoder on the port's recorded requests (macOS AArch64) |
 | Threads | `encoder_threads` 0–256 | serial: `encoder_threads` must be 1 | serial: `encoder_threads` must be 1 |
 | `max_output_bytes` | checked after the encoder returns: "encoded output exceeds max_output_bytes" | checked while writing: "managed buffer needs … bytes with … available" | lossy: checked while writing, as WebP; lossless: after the encoder returns, as AVIF |
+
+**JPEG XL lossy output is distance 1.0 with patches off** (owner decision
+2026-11-15, [ADR-0039](adr/0039-jpeg-xl-output-through-the-workspace-encoder.md)).
+Measured cost, from the original `cjxl -e 7`: none above 8 groups of 256×256
+pixels (its default skips patches there too); 1.1× to 3.8× larger below, on
+generated text-like images; photographs unchanged
+([record](benchmarks/v1.0-jxl-patches-cost-2026-11-15.md)).
 
 **One AVIF quality scale since 2026-11-15:** `quality` and `speed` go
 unchanged to libavif. A quality tuned for the former rav1e encoder is not
