@@ -1640,7 +1640,7 @@ impl<St: super::render_pipeline_stage::RenderPipelineStage + ?Sized> RenderCx<'_
             self.render_rect(
                 thread_id,
                 input,
-                lent(thread_data),
+                lent(thread_data).as_mut_slice(),
                 data_max_color_channel_rect,
                 image_max_color_channel_rect,
             )?;
