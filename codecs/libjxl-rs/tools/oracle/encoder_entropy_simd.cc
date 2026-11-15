@@ -40,9 +40,10 @@
 //   ene-tok <xb> <yb> <n> <n * (bx by raw)> <3 * xb * yb * 64 ints>
 //           <xb * yb qdc> <xb * yb qf>
 //       TokenizeCoefficients over Rect(0, 0, xb, yb) with the request's
-//       strategies (DCT8 elsewhere), coefficient rows, quant DC and quant
-//       field, the natural coefficient orders of every strategy, 4:4:4 and
-//       the default BlockCtxMap, into a token vector holding one token and
+//       strategies (DCT8 elsewhere), coefficient rows (Image3I rows, aligned
+//       as the original's caller passes them), quant DC and quant field,
+//       the natural coefficient orders of every strategy, 4:4:4 and the
+//       default BlockCtxMap, into a token vector holding one token and
 //       a sentinel-filled Image3I of nonzero counts. Prints the status, the
 //       tokens (context, value) and the three count planes.
 //   ene-mcost <n> <n * (w h <h * RoundUpTo(w, 8) words>)>
@@ -275,10 +276,19 @@ bool EncoderEntropySimdCommand(const std::string& command, std::istringstream& i
       if (!ac_strategy.Set(bx, by, static_cast<jxl::AcStrategyType>(raw)))
         throw std::runtime_error("encoder entropy: strategy");
     }
-    std::vector<int32_t> coefficients[3];
-    for (auto& row : coefficients) {
-      row.resize(xb * yb * jxl::kDCTBlockSize);
-      for (int32_t& v : row) v = EneInt(in);
+    // The coefficient rows live in an Image3I, as the original's caller
+    // passes them (EncodeGroups: the rows of enc_state->coeffs, an
+    // ACImageT<int32_t>, i.e. an Image3<int32_t> with one row per group).
+    // NumNonZero8x8ExceptDC and NumNonZeroExceptLLF read each block with
+    // aligned whole-vector Loads; a std::vector's 16-byte malloc alignment
+    // faults the AVX2 build's vmovdqa on x86-64 hardware (Rosetta 2 and NEON
+    // do not check it).
+    auto coefficients_or = jxl::Image3I::Create(mm, xb * yb * jxl::kDCTBlockSize, 1);
+    if (!coefficients_or.ok()) throw std::runtime_error("encoder entropy: coefficients");
+    jxl::Image3I coefficients = std::move(coefficients_or).value_();
+    for (size_t c = 0; c < 3; ++c) {
+      int32_t* row = coefficients.PlaneRow(c, 0);
+      for (size_t i = 0; i < xb * yb * jxl::kDCTBlockSize; ++i) row[i] = EneInt(in);
     }
     auto qdc_or = jxl::ImageB::Create(mm, xb, yb);
     auto qf_or = jxl::ImageI::Create(mm, xb, yb);
@@ -302,8 +312,8 @@ bool EncoderEntropySimdCommand(const std::string& command, std::istringstream& i
         acs.ComputeNaturalCoeffOrder(
             &orders[jxl::kCoeffOrderOffset[3 * jxl::kStrategyOrder[raw] + c] * jxl::kDCTBlockSize]);
     }
-    const int32_t* ac_rows[3] = {coefficients[0].data(), coefficients[1].data(),
-                                 coefficients[2].data()};
+    const int32_t* ac_rows[3] = {coefficients.ConstPlaneRow(0, 0), coefficients.ConstPlaneRow(1, 0),
+                                 coefficients.ConstPlaneRow(2, 0)};
     std::vector<jxl::Token> tokens = {jxl::Token(3, 3)};
     const jxl::Status status = jxl::TokenizeCoefficients(
         orders.data(), jxl::Rect(0, 0, xb, yb), ac_rows, ac_strategy,
