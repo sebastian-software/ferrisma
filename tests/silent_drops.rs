@@ -489,18 +489,35 @@ fn mark_unknown_essential(mut bytes: Vec<u8>, index: usize) -> Vec<u8> {
     bytes
 }
 
+/// An unknown essential property on any item the reader consumes refuses
+/// the file, as on the primary item. Before 2026-11-15 libavif skipped the
+/// alpha item (`hasUnsupportedEssentialProperty` in `read.c`) and the image
+/// came out opaque without an error; a grid cell made libavif fail the grid,
+/// which surfaced as `MalformedInput`.
+#[cfg(feature = "avif-read")]
+#[track_caller]
+fn assert_refused_as_essential(bytes: &[u8]) {
+    let error = refused(
+        transcode(
+            bytes,
+            ImageFormat::Avif,
+            options(ASSUME, JpegXlDecoder::default()),
+        ),
+        ProcessingErrorKind::UnsupportedInput,
+    );
+    assert_eq!(
+        error.refusal_reason(),
+        Some(RefusalReason::UnsupportedEssentialProperty),
+        "{error}"
+    );
+}
+
 /// libavif's `abc_color_irot_alpha_irot.avif`, whose alpha item has its own
 /// `pixi` (property 6; the color item uses property 2): that property
-/// renamed to an unknown type and marked essential. The engine checks the
-/// essential properties of the primary item only; libavif skips any item
-/// with an unsupported essential property (`hasUnsupportedEssentialProperty`
-/// in `read.c`), so the alpha plane is not found and the image is read as
-/// opaque, without an error. The same property on the primary item is a
-/// refusal (`supported_matrix::avif_unknown_essential_property_is_refused_as_unsupported`).
-/// Not an endorsement.
+/// renamed to an unknown type and marked essential.
 #[cfg(feature = "avif-read")]
 #[test]
-fn avif_alpha_item_with_an_unknown_essential_property_is_dropped_today() {
+fn avif_alpha_item_with_an_unknown_essential_property_is_refused() {
     let original = read(&format!("{AVIF_DATA}abc_color_irot_alpha_irot.avif"));
     let output = accepted(transcode(
         &original,
@@ -508,13 +525,42 @@ fn avif_alpha_item_with_an_unknown_essential_property_is_dropped_today() {
         options(ASSUME, JpegXlDecoder::default()),
     ));
     assert!(webp_has_alpha(&output), "the unpatched file keeps alpha");
-    let patched = mark_unknown_essential(original, 6);
-    let output = accepted(transcode(
-        &patched,
+    assert_refused_as_essential(&mark_unknown_essential(original, 6));
+}
+
+/// libavif's `sofa_grid1x5_420.avif`: the five grid cells share an `ispe`
+/// (property 4) that the grid item itself does not use; renamed to an
+/// unknown type and marked essential, it refuses the file.
+#[cfg(feature = "avif-read")]
+#[test]
+fn avif_grid_cell_with_an_unknown_essential_property_is_refused() {
+    let original = read(&format!("{AVIF_DATA}sofa_grid1x5_420.avif"));
+    accepted(transcode(
+        &original,
         ImageFormat::Avif,
         options(ASSUME, JpegXlDecoder::default()),
     ));
-    assert!(!webp_has_alpha(&output), "alpha is dropped today");
+    assert_refused_as_essential(&mark_unknown_essential(original, 4));
+}
+
+/// An item the reader never decodes is no reason to refuse:
+/// `abc_color_irot_alpha_irot.avif` with the alpha item's `auxC` type
+/// changed from `…auxiliary:alpha` to `…auxiliary:alphx` (an auxiliary
+/// image of unknown kind, which libavif does not read) and that item's own
+/// `pixi` (property 6) renamed and marked essential: the color image is
+/// still read.
+#[cfg(feature = "avif-read")]
+#[test]
+fn avif_unknown_essential_property_on_an_unused_item_is_not_a_refusal() {
+    let mut bytes = read(&format!("{AVIF_DATA}abc_color_irot_alpha_irot.avif"));
+    let urn = find(&bytes, b"urn:mpeg:mpegB:cicp:systems:auxiliary:alpha").unwrap();
+    bytes[urn + 42] = b'x';
+    let output = accepted(transcode(
+        &mark_unknown_essential(bytes, 6),
+        ImageFormat::Avif,
+        options(ASSUME, JpegXlDecoder::default()),
+    ));
+    assert!(!webp_has_alpha(&output));
 }
 
 /// Non-essential properties the parser does not know (`1234`, `abcd` and a

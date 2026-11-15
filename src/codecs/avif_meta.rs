@@ -51,6 +51,29 @@ pub(crate) struct PrimaryProperties {
     /// `imir` is associated before `irot`. Transformative properties apply
     /// in association order, so this is a different transform.
     pub mirror_before_rotation: bool,
+    /// What the file carries that the engine reads past (issue: silent-drop
+    /// audit 2026-11-15), for `ProcessingReport::discarded`.
+    pub findings: ContainerFindings,
+}
+
+/// Container content that a successful read does not carry into the
+/// output: metadata items, a gain map, and properties of the items the
+/// reader consumes that the engine does not interpret.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // Independent findings, one flag each.
+pub(crate) struct ContainerFindings {
+    /// A tone-map derived item (`tmap`): a gain map that is not applied.
+    pub gain_map: bool,
+    /// An `Exif` item.
+    pub exif: bool,
+    /// A `mime` item of type `application/rdf+xml` (XMP).
+    pub xmp: bool,
+    /// Another `mime` or a `uri ` item.
+    pub other_metadata: bool,
+    /// A property of a consumed item, or a `colr` type, the engine does not
+    /// interpret and libavif does not use to decode (for example `pasp`,
+    /// `clli`, custom or `uuid` properties).
+    pub unknown_properties: bool,
 }
 
 const MAX_ICC_BYTES: usize = 16 * 1024 * 1024;
@@ -168,7 +191,138 @@ const UNDERSTOOD_PROPERTIES: [&[u8; 4]; 8] = [
     b"av1C", b"ispe", b"colr", b"pixi", b"irot", b"imir", b"clap", b"auxC",
 ];
 
-/// Read the primary item's associated properties from an AVIF file.
+/// Properties libavif uses to decode (operating point, layer selection and
+/// layer sizes of progressive files); they carry nothing the output loses.
+const DECODER_PROPERTIES: [&[u8; 4]; 3] = [b"a1op", b"lsel", b"a1lx"];
+
+/// The `auxC` types libavif recognizes as an alpha plane.
+const ALPHA_URNS: [&[u8]; 2] = [
+    b"urn:mpeg:mpegB:cicp:systems:auxiliary:alpha",
+    b"urn:mpeg:hevc:2015:auxid:1",
+];
+
+/// An `infe` entry: item id, item type and, for `mime`, the content type.
+type ItemType = (u32, [u8; 4], Vec<u8>);
+
+/// An `iref` entry: reference type, from item, to items.
+type Reference = ([u8; 4], u32, Vec<u32>);
+
+/// The `infe` entries of `iinf`.
+fn item_types(children: &[IsoBox<'_>]) -> Result<Vec<ItemType>, MetaError> {
+    let Some(iinf) = unique(children, *b"iinf")? else {
+        return Ok(Vec::new());
+    };
+    let mut reader = Reader::new(iinf.body);
+    let (version, _) = reader.full_box_header()?;
+    if version == 0 {
+        reader.u16()?;
+    } else {
+        reader.u32()?;
+    }
+    let mut items = Vec::new();
+    for infe in boxes(reader.rest())?
+        .iter()
+        .filter(|entry| &entry.kind == b"infe")
+    {
+        let mut entry = Reader::new(infe.body);
+        let (version, _) = entry.full_box_header()?;
+        if version < 2 {
+            // Versions 0 and 1 carry no item type; nothing here uses them.
+            continue;
+        }
+        let id = if version == 2 {
+            u32::from(entry.u16()?)
+        } else {
+            entry.u32()?
+        };
+        entry.u16()?; // item_protection_index
+        let kind = entry.array::<4>()?;
+        let rest = entry.rest();
+        let mut strings = rest.split(|&byte| byte == 0);
+        strings.next(); // item_name
+        let content_type = if &kind == b"mime" {
+            strings.next().unwrap_or_default().to_vec()
+        } else {
+            Vec::new()
+        };
+        items.push((id, kind, content_type));
+    }
+    Ok(items)
+}
+
+/// The entries of `iref`.
+fn references(children: &[IsoBox<'_>]) -> Result<Vec<Reference>, MetaError> {
+    let Some(iref) = unique(children, *b"iref")? else {
+        return Ok(Vec::new());
+    };
+    let mut reader = Reader::new(iref.body);
+    let (version, _) = reader.full_box_header()?;
+    let id = |reader: &mut Reader<'_>| -> Result<u32, MetaError> {
+        if version == 0 {
+            reader.u16().map(u32::from)
+        } else {
+            reader.u32()
+        }
+    };
+    let mut parsed = Vec::new();
+    for reference in boxes(reader.rest())? {
+        let mut body = Reader::new(reference.body);
+        let from = id(&mut body)?;
+        let count = body.u16()?;
+        let mut to = Vec::with_capacity(usize::from(count));
+        for _ in 0..count {
+            to.push(id(&mut body)?);
+        }
+        parsed.push((reference.kind, from, to));
+    }
+    Ok(parsed)
+}
+
+/// The items the reader consumes besides `primary`: the cells of a grid
+/// (`dimg` from a consumed item) and the alpha planes (`auxl` to a consumed
+/// color item, with an alpha `auxC`), and their cells. Gain maps,
+/// thumbnails, depth and other auxiliary images are not decoded.
+fn consumed_items(
+    primary: u32,
+    references: &[Reference],
+    is_alpha: &dyn Fn(u32) -> bool,
+) -> Vec<u32> {
+    let mut consumed = vec![primary];
+    let cells = |consumed: &mut Vec<u32>, from: usize| {
+        let mut at = from;
+        while at < consumed.len() {
+            let item = consumed[at];
+            for (kind, source, targets) in references {
+                if kind == b"dimg" && *source == item {
+                    for target in targets {
+                        if !consumed.contains(target) {
+                            consumed.push(*target);
+                        }
+                    }
+                }
+            }
+            at += 1;
+        }
+    };
+    cells(&mut consumed, 0);
+    let color = consumed.len();
+    for (kind, source, targets) in references {
+        if kind == b"auxl"
+            && targets
+                .iter()
+                .any(|target| consumed[..color].contains(target))
+            && is_alpha(*source)
+            && !consumed.contains(source)
+        {
+            consumed.push(*source);
+        }
+    }
+    cells(&mut consumed, color);
+    consumed
+}
+
+/// Read the primary item's associated properties from an AVIF file, and
+/// check the essential properties of every item the reader consumes.
 pub(crate) fn primary_properties(file: &[u8]) -> Result<PrimaryProperties, MetaError> {
     let top = boxes(file)?;
     let mut meta = Reader::new(required(&top, *b"meta")?.body);
@@ -187,6 +341,7 @@ pub(crate) fn primary_properties(file: &[u8]) -> Result<PrimaryProperties, MetaE
 
     let iprp = boxes(required(&children, *b"iprp")?.body)?;
     let properties = boxes(required(&iprp, *b"ipco")?.body)?;
+    // (item, essential, one-based property index), in association order.
     let mut associated = Vec::new();
     for ipma in iprp.iter().filter(|item| &item.kind == b"ipma") {
         let mut reader = Reader::new(ipma.body);
@@ -208,28 +363,98 @@ pub(crate) fn primary_properties(file: &[u8]) -> Result<PrimaryProperties, MetaE
                     let raw = reader.u8()?;
                     (raw & 0x80 != 0, usize::from(raw & 0x7f))
                 };
-                if item == primary {
-                    associated.push((essential, index));
-                }
+                associated.push((item, essential, index));
             }
         }
     }
-
-    let mut result = PrimaryProperties::default();
-    for (essential, index) in associated {
+    let property = |index: usize| -> Result<Option<&IsoBox<'_>>, MetaError> {
         // Index zero means "no property"; property indices are one-based.
         if index == 0 {
+            return Ok(None);
+        }
+        properties
+            .get(index - 1)
+            .map(Some)
+            .ok_or(MetaError::InvalidPropertyIndex)
+    };
+
+    let mut result = PrimaryProperties::default();
+    for &(item, essential, index) in &associated {
+        if item != primary {
             continue;
         }
-        let property = properties
-            .get(index - 1)
-            .ok_or(MetaError::InvalidPropertyIndex)?;
+        let Some(property) = property(index)? else {
+            continue;
+        };
         read_property(property, &mut result)?;
         if essential && !UNDERSTOOD_PROPERTIES.contains(&&property.kind) {
             return Err(MetaError::UnsupportedEssentialProperty(property.kind));
         }
     }
+
+    let items = item_types(&children)?;
+    let references = references(&children)?;
+    let is_alpha = |item: u32| {
+        associated.iter().any(|&(owner, _, index)| {
+            owner == item
+                && property(index).ok().flatten().is_some_and(|property| {
+                    property.kind == *b"auxC" && {
+                        let body = property.body.get(4..).unwrap_or_default();
+                        let urn = body.split(|&byte| byte == 0).next().unwrap_or_default();
+                        ALPHA_URNS.contains(&urn)
+                    }
+                })
+        })
+    };
+    let consumed = consumed_items(primary, &references, &is_alpha);
+    result.findings = findings(&consumed, &associated, &property, &items)?;
     Ok(result)
+}
+
+/// Check the essential properties of every consumed item and collect what
+/// the read does not carry into the output.
+fn findings<'a>(
+    consumed: &[u32],
+    associated: &[(u32, bool, usize)],
+    property: &dyn Fn(usize) -> Result<Option<&'a IsoBox<'a>>, MetaError>,
+    items: &[ItemType],
+) -> Result<ContainerFindings, MetaError> {
+    let mut findings = ContainerFindings::default();
+    for &(item, essential, index) in associated {
+        if !consumed.contains(&item) {
+            continue;
+        }
+        let Some(property) = property(index)? else {
+            continue;
+        };
+        let understood = UNDERSTOOD_PROPERTIES.contains(&&property.kind);
+        // libavif skips an alpha item, and fails a grid, whose properties
+        // include an unknown essential one; the engine refuses the file
+        // instead of delivering an opaque image or a misreported error.
+        if essential && !understood {
+            return Err(MetaError::UnsupportedEssentialProperty(property.kind));
+        }
+        if !understood && !DECODER_PROPERTIES.contains(&&property.kind) {
+            findings.unknown_properties = true;
+        }
+        if property.kind == *b"colr"
+            && !matches!(property.body.get(..4), Some(b"nclx" | b"prof" | b"rICC"))
+        {
+            findings.unknown_properties = true;
+        }
+    }
+    for (_, kind, content_type) in items {
+        match kind {
+            b"tmap" => findings.gain_map = true,
+            b"Exif" => findings.exif = true,
+            b"mime" if content_type.as_slice() == b"application/rdf+xml" => {
+                findings.xmp = true;
+            }
+            b"mime" | b"uri " => findings.other_metadata = true,
+            _ => {}
+        }
+    }
+    Ok(findings)
 }
 
 fn read_property(property: &IsoBox<'_>, result: &mut PrimaryProperties) -> Result<(), MetaError> {

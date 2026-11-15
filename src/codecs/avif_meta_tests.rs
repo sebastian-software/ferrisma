@@ -1,6 +1,6 @@
 use super::{
-    IsoBox, MAX_ICC_BYTES, MetaError, Nclx, PrimaryProperties, SequenceColor, primary_properties,
-    read_property, sequence_color,
+    ContainerFindings, IsoBox, MAX_ICC_BYTES, MetaError, Nclx, PrimaryProperties, SequenceColor,
+    primary_properties, read_property, sequence_color,
 };
 use crate::codecs::avif::rendered_cicp;
 use crate::color::ColorEncoding;
@@ -113,6 +113,7 @@ fn reads_only_the_primary_items_color_extent_and_transforms() {
             mirror: Some(1),
             clean_aperture: true,
             mirror_before_rotation: false,
+            findings: ContainerFindings::default(),
         }
     );
 }
@@ -132,10 +133,17 @@ fn rejects_ambiguous_and_unknown_essential_properties() {
         primary_properties(&unknown),
         Err(MetaError::UnsupportedEssentialProperty(*b"xyzw"))
     );
+    // A non-essential unknown property is ignored, and reported as such.
     let optional = file(&[boxed(*b"xyzw", &[])], &[(1, false, 1)]);
     assert_eq!(
         primary_properties(&optional),
-        Ok(PrimaryProperties::default())
+        Ok(PrimaryProperties {
+            findings: ContainerFindings {
+                unknown_properties: true,
+                ..ContainerFindings::default()
+            },
+            ..PrimaryProperties::default()
+        })
     );
     let out_of_range = file(&[ispe(1, 1)], &[(1, false, 2)]);
     assert_eq!(
