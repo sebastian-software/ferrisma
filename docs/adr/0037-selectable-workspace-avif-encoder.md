@@ -242,6 +242,21 @@ quality is given, so its default for the default color quality is 60, and
 changed. The default depth changes from 10 to 8 and the default quality
 from 75 to 60; default AVIF output therefore changes.
 
+**Depth: what `avifenc` does, and the engine's fixed default.** `avifenc`
+has no fixed depth: without `--depth` it writes the depth of its input.
+Its JPEG reader delivers 8 bits (`apps/shared/avifjpeg.c:1340` and `:1376`,
+`avif->depth = requestedDepth ? requestedDepth : 8;`), its PNG reader the
+PNG's (8 for 8-bit PNG, otherwise 12: `apps/shared/avifpng.c:376`-`382`),
+and Y4M input keeps its own (`apps/avifenc.c:706`). The engine's writer
+always receives 8-bit rows, whatever the input's depth, so "the input's
+depth" has no single equivalent; the engine uses a fixed default of 8,
+which is what `avifenc` writes for the inputs its readers deliver at 8
+bits. _Working decision 2026-11-15 (delegated, revisable by the owner),
+submitted to the owner for confirmation:_ the fixed default 8 (the
+engine's default was 10 before). A deeper input is reported, whatever the
+output depth, as `Discarded::PrecisionReduced`
+(`discarded_report::avif::deeper_input_at_the_default_avif_depth_reports_precision_reduced`).
+
 ## Review when
 
 Reassess the selection and default when ADR-0025 evidence is complete, the

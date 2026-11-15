@@ -317,7 +317,7 @@ and is not claimed as supported.
 | | AVIF, libavif/AOM (the only AVIF writer; rav1e until 2026-11-15) | still WebP | JPEG XL |
 | --- | --- | --- | --- |
 | Feature / selection | `avif-write`; `.avif`; `AvifOptions` (`--avif-*`) | `webp-write`; `.webp`; `WebpOptions` (`--webp-*`) | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2 }` (`--jxl-lossless`) |
-| Bit depth | 8 (default, `avifenc` for 8-bit input) or 10 (`depth`, `--avif-depth=10`) | 8 | 8 |
+| Bit depth | 8 (default) or 10 (`depth`, `--avif-depth=10`). `avifenc` writes its input's depth (8 from its JPEG reader, the PNG's own; ADR-0037 cites the lines); the engine's writer always receives 8-bit rows, and its fixed default 8 is a working decision submitted to the owner. A deeper input is reported as `Discarded::PrecisionReduced` at every output depth | 8 | 8 |
 | Chroma | 4:4:4 (default) or 4:2:0 (`chroma`, `--avif-chroma=`) | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling, patches off (equals `cjxl --patches=0 -e 7`); lossless: RGB Modular |
 | Quality | `quality` 0–100 (default 60), libavif's integer scale unchanged (`--avif-quality=`) | `WebpOptions::Lossy { quality 1–100 (default 75), method }` (`--webp-quality=`) or `Lossless { level 0–9 }` (`--webp-level=`) | lossy: Butteraugli distance 0.05 to below 3.0; `--avif-*`/`--webp-*` are rejected |
 | Speed | `speed` 0–10 (AOM `cpu-used`, default 6, `--avif-speed=`) | lossy: libwebp `method` 0 (fastest)–6, default 4 (`--webp-method=`); lossless uses the level | fixed: effort 7 lossy, effort 2 lossless |

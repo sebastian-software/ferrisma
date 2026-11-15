@@ -415,7 +415,8 @@ These are **not** decided. Do not implement them beyond what is stated.
   default and patches always off; the rendered-ICC channel table; refusing
   AVIF with ICC plus a non-sRGB nclx (decided by the owner 2026-11-15: no
   refusal, the file follows MIAF and the profile governs; ADR-0015); the default AVIF quality per encoder
-  (#216); the stable toolchain policy (#235); the licensing policy for
+  (#216; decided by the owner 2026-11-15: `avifenc`'s defaults, ADR-0037;
+  the fixed default depth 8 is a working decision awaiting confirmation); the stable toolchain policy (#235); the licensing policy for
   additions inside a port (#136); the new package name for the JPEG port
   (#207).
 

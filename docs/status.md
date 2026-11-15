@@ -227,8 +227,9 @@ universal speed claim.
   ([#250](https://github.com/sebastian-software/ferrisma/issues/250)). The
   workspace JPEG XL reader and AVIF writer are the confirmed defaults
   (ADR-0041 D1); x86-64 JPEG XL conformance stays open, and lossy d1.0 JPEG
-  XL output (ADR-0039) and the default AVIF quality (#216) are still pending
-  owner confirmation (ADR-0041 O5). The
+  XL output (ADR-0039) is still pending owner confirmation (ADR-0041 O5);
+  the AVIF defaults follow `avifenc` since 2026-11-15 (#216, ADR-0037), with
+  the fixed default depth 8 awaiting confirmation. The
   [supported matrix](supported-matrix.md) lists the current defaults, their
   limits and the 2026-11-12 macOS ARM64 verification.
 - Validate the extracted shared SharpYUV core with native Linux and macOS

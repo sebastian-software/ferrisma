@@ -169,9 +169,12 @@ pub struct AvifOptions {
     /// AOM speed (`cpu-used`), 0 (slowest) through 10 (fastest); default 6
     /// (`avifenc`).
     pub speed: u8,
-    /// AV1 bit depth, 8 or 10; default 8: `avifenc` keeps the depth of its
-    /// input, and the writer receives 8-bit rows (until 2026-11-15 the
-    /// default was 10, as `TransformOptions::avif_depth`).
+    /// AV1 bit depth, 8 or 10; default 8. `avifenc` writes the depth of its
+    /// input (8 from its JPEG reader); this writer always receives 8-bit
+    /// rows, and the fixed default 8 is a working decision of 2026-11-15
+    /// awaiting the owner's confirmation (until then the default was 10,
+    /// as `TransformOptions::avif_depth`). A deeper input is reported as
+    /// [`Discarded::PrecisionReduced`] at either depth.
     pub depth: u8,
     /// Chroma layout; default 4:4:4 (`avifenc` for RGB input).
     pub chroma: ChromaSubsampling,
