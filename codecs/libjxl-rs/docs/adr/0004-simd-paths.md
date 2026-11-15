@@ -2189,4 +2189,37 @@ repetitions under the gate lock on the shared machine (load average 85 to
 original (port NEON about 1.3x the original); lossless 2.04 s scalar,
 1.92 s NEON, 1.77 s original. No conclusion about x86-64 speed may be drawn
 from Rosetta.
+
+**The skcms HSW engine: an attempt that changed results (2026-11-15, not
+committed).** With every helper of `transform_x86.rs` marked
+`#[inline(always)]` and the function-pointer table of `exec_stages`
+replaced by a selector `match`, 189 of the 799 out-of-line calls remained
+in `encode_lossy` (the matrix rows built with `std::array::from_fn`, whose
+`try_from_fn` stays out of line, and the `write` closure of
+`store_pixels`); with those turned into loops and nested inline functions
+too, the x86-64 release `encode_lossy` has no out-of-line intrinsic call
+left in `jxl::skcms` (799 to 0). The results
+changed, however: a scratch example ran the 135,236 requests of the
+`skcms_transform` case lists (`tests/common/skcms_transform.rs`: formats,
+color, alias, guard, program, half domain, rounding, partial context and
+selection requests) on the HSW engine under Rosetta 2
+(`ROSETTA_ADVERTISE_AVX=1`) before and after, and 657 observations differ
+(the baseline engine's 135,236 are identical). For example Alpha_8 to
+RGBA_8888_sRGB with one pixel writes R=G=B=-13 instead of 0: the inlined
+transfer function took the branch for `x >= d` at `x = 0` and returned the
+exponent offset `e`. Bisecting by `#[inline(never)]`: every change but the
+selector keeps all 135,236 observations identical (inline-only, `write`);
+the selector with `apply_tf`, `approx_pow` or the whole `apply` kept out of
+line is identical again; `strip_sign`/`apply_sign` or `approx_exp2`/
+`approx_log2` alone out of line is not. So `approx_pow`'s own body
+(`equal`, the `[bool; N]` `from_fn`, `select`) behaves differently when
+compiled inside the `avx,avx2,f16c` context than in the baseline context;
+whether the cause is the compiler or Rosetta 2's AVX2 emulation is not
+established. The change was therefore not committed. The HSW engine cannot
+be compared with the original on this machine (O9: the cross-built
+originals contain only the baseline engine). What it needs: an x86-64
+original built with its HSW engine (a native hosted run, or an original
+built with the HSW file), a native run of the scratch example before and
+after, and then the change above, which is otherwise mechanical (about 60
+lines of `transform_x86.rs`).
 <!-- end encoder selection -->
