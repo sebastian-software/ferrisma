@@ -6,7 +6,7 @@
 //! callbacks, error state, and thread synchronization follow the original
 //! headers in `upstream/aom`. These entry points retain those unsafe caller
 //! contracts.
-#![feature(core_intrinsics, extern_types, c_variadic)]
+#![feature(extern_types, c_variadic)]
 #![cfg_attr(libavif_rs_asan, feature(sanitize))]
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 #![allow(dead_code, unused_assignments, unused_mut)]

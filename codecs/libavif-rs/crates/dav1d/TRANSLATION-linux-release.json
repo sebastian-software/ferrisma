@@ -17,7 +17,7 @@
         "original-c-record-field-alignment": 109
       },
       "raw_sha256": "6bd75e9d4218585ce1bf3dab83a4a02e10c3f36021d069776663141c7963333e",
-      "rust_sha256": "fb476ba19fee61140ac6be4ecb13a9c21c5c7153633b1959d4a3123a2b721772"
+      "rust_sha256": "4fc5db7c1af82fb0ac5414766178212155f2d1f1ad10a250bbd27f885ec80aab"
     },
     {
       "source": "upstream/dav1d/src/cpu.c",
@@ -49,7 +49,7 @@
         "raw-c-mutable-address": 9
       },
       "raw_sha256": "6af508a020b885149f949187779a81c05d9df4362bade680da8d40aa67e6acf1",
-      "rust_sha256": "40604dcfaf12f4dafcd07227ce6ac7c8d0a2ab2e833282a86e4444bda82f90f3"
+      "rust_sha256": "d0d516d66616f9a0ce3ab2b60df6b66e509191b8a0aa49bd3331421ef6ce2e9d"
     },
     {
       "source": "upstream/dav1d/src/decode.c",
@@ -66,7 +66,7 @@
         "original-c-object-alignment": 4
       },
       "raw_sha256": "73049667f2b7b20c0799fb47c2244510615bb9380e60b74924e8dcca4ba8eeba",
-      "rust_sha256": "ad9435f9f80b4d747cd0241d7ee1fc9a4fb726468073463ce999d743456587da"
+      "rust_sha256": "fe06a6b608ec5dcfd383bcdc70f496fd31e954c7fc9232bed75ac73cd7457f7e"
     },
     {
       "source": "upstream/dav1d/src/dequant_tables.c",
@@ -135,7 +135,7 @@
         "original-c-record-field-alignment": 107
       },
       "raw_sha256": "2058302b6f7ea9f98fe4eb5e8ee8a7bda1925013260f88b5e17596d5302adef4",
-      "rust_sha256": "37bc5ac95b4c621838bc25e848fe6a336212054877626304129329a79da04401"
+      "rust_sha256": "08e5b2001c42c149169e5f6379755a45f719f1df1eb028b74f0a5bf3e325b965"
     },
     {
       "source": "upstream/dav1d/src/log.c",
@@ -186,7 +186,7 @@
         "original-c-record-field-alignment": 107
       },
       "raw_sha256": "8553a667681effdbd8e0d8337c0f145fc619bdf23c0ff4c0853780b760f5edd2",
-      "rust_sha256": "aca0943134b61204394b8a12f8dc023ea0525a16098ca1c3cac7c292e70430da"
+      "rust_sha256": "e6daa9c71ce4db52a0ebc298544dca0c9dcabf9d9c657fbccde3def7969eabff"
     },
     {
       "source": "upstream/dav1d/src/pal.c",
@@ -210,7 +210,7 @@
         "original-c-record-field-alignment": 107
       },
       "raw_sha256": "2386c48326916359d744c8f35c1ec8383abc7ca4790960cb14925844d7b886a7",
-      "rust_sha256": "80614f6b9e6e1dc7a0f6e27cd2bd932531c4ff0d8455c704eb2b830b8390e4a4"
+      "rust_sha256": "64c2aea02bbe3bdc830bf883b5587bc90509ea2177f7ddbce60264e82cc79a20"
     },
     {
       "source": "upstream/dav1d/src/qm.c",
@@ -229,7 +229,7 @@
         "raw-c-mutable-address": 5
       },
       "raw_sha256": "854bf97d76c864668287565e31893b2ec3863138bda2d2cc3fbf7b4c90dc0ae7",
-      "rust_sha256": "814005cd02804e2c8508fe68147afb43a0daad5735862abe49d6d6156b72b6ae"
+      "rust_sha256": "fd46015b8bbec0c2b2db01df9a259d504488dfa4ffea9ef8eb33c58ff7bdc595"
     },
     {
       "source": "upstream/dav1d/src/refmvs.c",
@@ -282,7 +282,7 @@
         "original-c-record-field-alignment": 107
       },
       "raw_sha256": "2a63d0ff9384dcdaf9f9c311ff2c2b08a1a3074b17b86c6191f3828c60659d74",
-      "rust_sha256": "5f7a16d50968c27a00aa9ef0a55d52d064b2484f7787ce02b5649e663891fb28"
+      "rust_sha256": "58980346125bdc6401cabab96f93d2bd20a7b3311206c0f9e0c67edc56cd5c16"
     },
     {
       "source": "upstream/dav1d/src/warpmv.c",

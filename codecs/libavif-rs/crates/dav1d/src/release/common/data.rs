@@ -110,7 +110,7 @@ unsafe extern "C" fn dav1d_ref_init(
 }
 #[inline]
 unsafe extern "C" fn dav1d_ref_inc(ref_0: *mut Dav1dRef) {
-    ::core::intrinsics::atomic_xadd::<_, _, {core::intrinsics::AtomicOrdering::Relaxed}>(
+    crate::platform::atomic_xadd_relaxed(
         &raw mut (*ref_0).ref_cnt,
         1 as core::ffi::c_int,
     );
