@@ -177,10 +177,8 @@ first column of counts is the state of `main`.
 
 ## Open questions (pending owner decision)
 
-1. **Options without effect.** WebP lossy speeds 2/3, 5/6 and 8/9 give
-   identical bytes; `transcode_batch` accepts thread counts that `transcode`
-   rejects. Should an accepted option that has no effect be rejected,
-   reported, or documented as an alias?
+None: the open questions of the initial record were decided on
+2026-11-15 (below).
 
 ### Decided since 2026-11-15
 
@@ -196,9 +194,8 @@ first column of counts is the state of `main`.
   steps' arithmetic differs and is written into the supported matrix.
 - **Repeated CLI flags** (formerly the open question of that name):
   refused; owner decision of 2026-11-15 ("everything else is mostly a
-  silent error"). A
-  flag given twice, or a pair of mutually exclusive flags, is an error
-  naming the flags, before any input is read (`src/cli.rs`; inventory Q7).
+  silent error"). A flag given twice, or a pair of mutually exclusive
+  flags, is an error naming the flags, before any input is read (`src/cli.rs`; inventory Q7).
 - **A strict mode** (formerly the open question of that name): none for
   now; owner decision of 2026-11-15. No option turns
   `ProcessingReport::discarded` into a refusal: a caller checks the set,
@@ -206,6 +203,14 @@ first column of counts is the state of `main`.
   `report:` line, which is `none` when nothing was left out. An option can
   be added later without breaking anything; preserving metadata is a
   separate feature question.
+- **Options without effect** (formerly the open question of that name):
+  rejected where the caller set a value other than the default; owner
+  decision of 2026-11-15. A thread count above 256 in a batch, an exact
+  output size with the resize entry points and an AVIF depth with an
+  external backend are `InvalidOptions` before decoding (inventory Q1, Q2,
+  Q5); a value the report states as replaced stays where it is documented
+  (Q4, Q6, valid batch thread counts). Encoder scales are native per
+  format instead of aliased (ADR-0043 D4; inventory O8).
 
 ## Review when
 
@@ -234,7 +239,12 @@ first column of counts is the state of `main`.
   state paragraph under Validation and the inventory (X6 to X9 and Q3
   resolved by removal) are updated. No decision changed.
 - 2026-11-15 — Open question on repeated CLI flags decided by the owner:
-  a repeated or contradictory flag is an error; implemented on `v1/engine-options` and moved to "Decided since
-  2026-11-15", the remaining questions renumbered.
-- 2026-11-15 — Open question on a strict mode decided by the owner: no option for now; moved to "Decided since
-  2026-11-15". The CLI test now reads `discarded=` as a script would.
+  a repeated or contradictory flag is an error; implemented on
+  `v1/engine-options` and moved to "Decided since 2026-11-15".
+- 2026-11-15 — Open question on a strict mode decided by the owner: no
+  option for now; moved to "Decided since 2026-11-15". The CLI test now
+  reads `discarded=` as a script would.
+- 2026-11-15 — Open question on options without effect decided by the
+  owner: refused where the caller set a nondefault value; implemented on
+  `v1/engine-options` (inventory Q1, Q2, Q5) and moved to "Decided since
+  2026-11-15"; no question remains open.

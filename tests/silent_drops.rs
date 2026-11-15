@@ -30,9 +30,10 @@
 ))]
 
 use ferrisma::pipeline::{
-    BatchItem, Engine, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions, Output,
-    OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason, TransformOptions,
-    WebpOptions, inspect, transcode,
+    BatchItem, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, Engine, ImageFormat,
+    InputProfilePolicy, InspectionLimits, JpegXlOptions, Output, OutputFormat, ProcessingError,
+    ProcessingErrorKind, RefusalReason, RowEncoder, TransformOptions, WebpOptions, inspect,
+    transcode, transcode_with,
 };
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
@@ -374,27 +375,50 @@ fn webp_lossy_speeds_collapse_in_pairs_today() {
 }
 
 /// `Engine::transcode_batch` replaces both thread counts with 1 (documented
-/// on `BatchItem::options`, and the report says 1), so a value that
-/// `transcode` rejects as `InvalidOptions` (above 256) is accepted and
-/// discarded in a batch. Not an endorsement.
+/// on `BatchItem::options`, and the report says 1). Until 2026-11-15 a value
+/// that `transcode` rejects as `InvalidOptions` (above 256) was accepted and
+/// discarded in a batch (audit row Q5). Owner decision of 2026-11-15
+/// (ADR-0042): the batch refuses it as `transcode` does, with the same
+/// message and no reason; a valid count is still replaced and reported.
 #[test]
-fn batch_accepts_thread_counts_that_transcode_rejects_today() {
+fn batch_refuses_thread_counts_that_transcode_rejects() {
+    const THREADS: &str = "transform and encoder threads must be between 0 and 256";
     let jpeg = read("tests/fixtures/sample.jpg");
+    for (transform_threads, encoder_threads) in [(1000, 1), (1, 1000), (257, 257)] {
+        let item = BatchItem {
+            encoded: &jpeg,
+            format: ImageFormat::Jpeg,
+            options: TransformOptions {
+                transform_threads,
+                encoder_threads,
+                ..options(ASSUME)
+            },
+        };
+        let single = refused(
+            transcode(&jpeg, ImageFormat::Jpeg, item.options),
+            ProcessingErrorKind::InvalidOptions,
+        );
+        let results = Engine::new(1).transcode_batch(&[item]);
+        let Err(batched) = &results[0] else {
+            panic!("{transform_threads}/{encoder_threads}: accepted in a batch")
+        };
+        for error in [&single, batched] {
+            assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions);
+            assert!(error.to_string().starts_with(THREADS), "{error}");
+            assert_eq!(error.refusal_reason(), None);
+        }
+    }
+    // A count `transcode` accepts is replaced by 1, as documented.
     let item = BatchItem {
         encoded: &jpeg,
         format: ImageFormat::Jpeg,
         options: TransformOptions {
-            transform_threads: 1000,
-            encoder_threads: 1000,
+            transform_threads: 256,
             ..options(ASSUME)
         },
     };
-    refused(
-        transcode(&jpeg, ImageFormat::Jpeg, item.options),
-        ProcessingErrorKind::InvalidOptions,
-    );
     let results = Engine::new(1).transcode_batch(&[item]);
-    let output = results[0].as_ref().expect("accepted in a batch today");
+    let output = results[0].as_ref().expect("a valid count is accepted");
     assert_eq!(
         (
             output.report.transform_threads,
@@ -402,6 +426,83 @@ fn batch_accepts_thread_counts_that_transcode_rejects_today() {
         ),
         (1, 1)
     );
+}
+
+/// An AVIF backend that records what it is asked for and returns the rows.
+struct AvifRecorder(std::sync::Mutex<Vec<EncodeRequest>>);
+
+struct Rows(Vec<u8>);
+
+impl EncoderBackend for AvifRecorder {
+    fn format(&self) -> OutputFormat {
+        OutputFormat::Avif
+    }
+    fn name(&self) -> &'static str {
+        "avif-recorder"
+    }
+    fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+        self.0.lock().unwrap().push(*request);
+        Ok(Box::new(Rows(Vec::new())))
+    }
+}
+
+impl RowEncoder for Rows {
+    fn write_row(&mut self, _: u32, rgba: &[u8]) -> Result<(), EncodeError> {
+        self.0.extend_from_slice(rgba);
+        Ok(())
+    }
+    fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
+        Ok(EncodedImage::new(OutputFormat::Avif, self.0, 0, false))
+    }
+}
+
+/// An external backend receives every encoder setting in its
+/// `EncodeRequest` and validates it on its own scale. The AVIF depth is not
+/// part of the request, so a nondefault depth with an external backend is
+/// refused before decoding instead of being ignored (audit row Q2; owner
+/// decision of 2026-11-15, ADR-0042).
+#[test]
+fn external_backends_refuse_settings_the_request_does_not_carry() {
+    let jpeg = read("tests/fixtures/sample.jpg");
+    let avif = TransformOptions {
+        output_format: OutputFormat::Avif,
+        ..options(ASSUME)
+    };
+    let backend = AvifRecorder(std::sync::Mutex::default());
+    let error = refused(
+        transcode_with(
+            &jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                avif_depth: 8,
+                ..avif
+            },
+            &backend,
+        ),
+        ProcessingErrorKind::InvalidOptions,
+    );
+    assert!(
+        error
+            .to_string()
+            .starts_with("AVIF depth conflicts with the requested output or external backend"),
+        "{error}"
+    );
+    assert_eq!(error.refusal_reason(), None);
+    assert!(backend.0.lock().unwrap().is_empty(), "refused before begin");
+    let output = accepted(transcode_with(
+        &jpeg,
+        ImageFormat::Jpeg,
+        TransformOptions {
+            quality: 42.0,
+            speed: 3,
+            ..avif
+        },
+        &backend,
+    ));
+    assert_eq!(output.report.encoder_backend, "avif-recorder");
+    let request = backend.0.lock().unwrap()[0];
+    assert!((request.quality - 42.0).abs() < f32::EPSILON);
+    assert_eq!(request.speed, 3);
 }
 
 // ---------------------------------------------------------------------------

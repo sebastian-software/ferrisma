@@ -206,9 +206,13 @@ pub struct TransformOptions {
     pub webp: WebpOptions,
     /// JPEG XL settings; must stay at the default for other formats.
     pub jpeg_xl: JpegXlOptions,
-    /// Exact output width; ignored by [`transcode_resized`].
+    /// Exact output width. [`transcode_resized`] and
+    /// [`transcode_resized_with`] take the size from [`ResizeOptions`] and
+    /// refuse a value other than the default (1) with
+    /// [`ProcessingErrorKind::InvalidOptions`] instead of ignoring it.
     pub output_width: u32,
-    /// Exact output height; ignored by [`transcode_resized`].
+    /// Exact output height; as `output_width`, refused by the resize entry
+    /// points unless it is the default (1).
     pub output_height: u32,
     /// Optional crop in upright display coordinates, applied before resizing.
     pub crop: Option<Crop>,
@@ -931,14 +935,18 @@ pub fn transcode(
 
 /// [`transcode`] with another encoder (ADR-0024): the same decode, color,
 /// crop, resample and quantization, then the output rows go to `backend`
-/// instead of the built-in sink. `quality`, `speed`,
+/// instead of the built-in sink. `quality`, `speed`, `webp`, `jpeg_xl`,
 /// `encoder_threads` and `chroma_subsampling` are passed to the backend in
-/// an [`EncodeRequest`]; the backend validates them on its own scale.
+/// an [`EncodeRequest`]; the backend validates them on its own scale and
+/// refuses what it cannot honor. A setting the request does not carry is
+/// refused rather than ignored.
 ///
 /// # Errors
 /// As [`transcode`], plus the backend's errors, mapped to their
 /// [`ProcessingErrorKind`]. A nondefault [`TransformOptions::avif_depth`]
-/// conflicts with an external backend; the default leaves it authoritative.
+/// is not part of the request and is refused with
+/// [`ProcessingErrorKind::InvalidOptions`]; the default leaves the depth to
+/// the backend.
 pub fn transcode_with(
     encoded: &[u8],
     format: ImageFormat,
@@ -948,12 +956,16 @@ pub fn transcode_with(
     run(encoded, format, options, Some(backend), None)
 }
 
-/// Transcode using aspect-aware thumbnail geometry. The `output_width` and
-/// `output_height` fields of `options` are ignored; all other options apply.
-/// See [`ResizeOptions`] and ADR-0034 for integer rounding and crop semantics.
+/// Transcode using aspect-aware thumbnail geometry. The size comes from
+/// `resize`; the `output_width` and `output_height` fields of `options` must
+/// stay at their defaults. All other options apply. See [`ResizeOptions`]
+/// and ADR-0034 for integer rounding and crop semantics.
 ///
 /// # Errors
-/// Returns the same errors as [`transcode`], including invalid resize geometry.
+/// Returns the same errors as [`transcode`], including invalid resize
+/// geometry, and [`ProcessingErrorKind::InvalidOptions`] when
+/// `output_width` or `output_height` differs from its default (until
+/// 2026-11-15 they were ignored).
 pub fn transcode_resized(
     encoded: &[u8],
     format: ImageFormat,
@@ -966,7 +978,7 @@ pub fn transcode_resized(
 /// [`transcode_resized`] with a caller-provided encoder backend.
 ///
 /// # Errors
-/// Returns the same errors as [`transcode_with`].
+/// Returns the same errors as [`transcode_with`] and [`transcode_resized`].
 pub fn transcode_resized_with(
     encoded: &[u8],
     format: ImageFormat,
@@ -975,6 +987,20 @@ pub fn transcode_resized_with(
     backend: &dyn EncoderBackend,
 ) -> Result<Output, ProcessingError> {
     run(encoded, format, options, Some(backend), Some(resize))
+}
+
+/// Thread counts above 256 are invalid everywhere, in a batch too (owner
+/// decision of 2026-11-15: an option is refused rather than ignored).
+fn validate_thread_counts(options: &TransformOptions) -> Result<(), ProcessingError> {
+    if options.transform_threads > crate::thread_spawn::MAX_WORKERS
+        || options.encoder_threads > crate::thread_spawn::MAX_WORKERS
+    {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::InvalidOptions,
+            "transform and encoder threads must be between 0 and 256",
+        ));
+    }
+    Ok(())
 }
 
 /// The output side of one transcode: the built-in sink or a backend's.
@@ -1077,14 +1103,7 @@ fn run(
             "encoder options do not match the selected output format",
         ));
     }
-    if options.transform_threads > crate::thread_spawn::MAX_WORKERS
-        || options.encoder_threads > crate::thread_spawn::MAX_WORKERS
-    {
-        return Err(ProcessingError::new(
-            ProcessingErrorKind::InvalidOptions,
-            "transform and encoder threads must be between 0 and 256",
-        ));
-    }
+    validate_thread_counts(&options)?;
     // The built-in WebP encoder is serial, as is the JPEG XL one; 0 would
     // mean "available cores" and be reported as such.
     if backend.is_none()
@@ -1133,6 +1152,18 @@ fn run(
         JxlSink::validate(&options)?;
     }
     if let Some(resize) = resize {
+        // Owner decision of 2026-11-15 (ADR-0042): an option that would be
+        // ignored is refused. The aspect-aware entry points take their
+        // size from `ResizeOptions`; a changed exact size is a mistake.
+        let default = TransformOptions::default();
+        if (options.output_width, options.output_height)
+            != (default.output_width, default.output_height)
+        {
+            return Err(ProcessingError::new(
+                ProcessingErrorKind::InvalidOptions,
+                "output_width and output_height are not used with ResizeOptions; leave them at their defaults",
+            ));
+        }
         crate::resize_geometry::validate(resize)?;
     } else {
         Size::new(options.output_width, options.output_height)?;
@@ -1477,7 +1508,10 @@ pub struct BatchItem<'a> {
     pub encoded: &'a [u8],
     /// Input format.
     pub format: ImageFormat,
-    /// Options; the engine overrides both thread counts with 1.
+    /// Options; the engine replaces both thread counts with 1 and reports
+    /// the 1. A count that [`transcode`] refuses (above 256) is refused for
+    /// this item with [`ProcessingErrorKind::InvalidOptions`] (until
+    /// 2026-11-15 it was accepted and replaced).
     pub options: TransformOptions,
 }
 
@@ -1561,12 +1595,16 @@ fn batch(
                 loop {
                     let index = next.fetch_add(1, Ordering::Relaxed);
                     let Some(item) = items.get(index) else { break };
-                    let options = TransformOptions {
-                        transform_threads: 1,
-                        encoder_threads: 1,
-                        ..item.options
-                    };
-                    let result = run(item.encoded, item.format, options, backend, None);
+                    // Counts that `transcode` refuses are refused here
+                    // before they are replaced by 1.
+                    let result = validate_thread_counts(&item.options).and_then(|()| {
+                        let options = TransformOptions {
+                            transform_threads: 1,
+                            encoder_threads: 1,
+                            ..item.options
+                        };
+                        run(item.encoded, item.format, options, backend, None)
+                    });
                     if let Ok(mut slot) = results[index].lock() {
                         *slot = Some(result);
                     }

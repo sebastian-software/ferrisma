@@ -176,7 +176,9 @@ cannot be fixed later without a major release.
 3. **Two geometry entry points.** `output_width`/`output_height` are ignored
    by `transcode_resized`. Recommendation: one geometry enum (exact or
    `ResizeOptions`) inside the options, or keep both functions and document
-   the ignored fields (done in rustdoc).
+   the ignored fields (done in rustdoc). _Since 2026-11-15 (owner decision,
+   ADR-0042):_ not ignored but refused when they differ from the default;
+   the geometry enum stays a recommendation.
 4. **Backend variants double the API.** Each entry point has a `_with`
    twin. Recommendation: keep the twins experimental for 1.0, or fold the
    backend into an options value later.
@@ -383,3 +385,10 @@ reports that a stable item cannot express its use case.
   before any input is read. A script that relied on "the last one wins"
   breaks; the old result was a silent choice between two instructions.
   Added to the command-line inventory as stable.
+- 2026-11-15 — Owner decision on options without effect (ADR-0042):
+  behavior of stable items changes, no signature. `transcode_resized` and
+  `transcode_resized_with` refuse an `output_width`/`output_height` other
+  than the default (problem 3), and `Engine::transcode_batch` refuses the
+  thread counts that `transcode` refuses before it replaces valid ones
+  with 1, as `InvalidOptions`. A caller that relied on the ignored values
+  gets an error instead of a silent choice.

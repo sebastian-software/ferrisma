@@ -82,6 +82,18 @@ is not empty; the classes and when each applies are in the
 be added in a minor release; a class keeps its meaning. The CLI prints the
 set as the `discarded=` key of its `report:` line (`none` when empty).
 
+## Options without effect
+
+An option that would have no effect is refused, not ignored, when it is
+set to a value other than its default (owner decision of 2026-11-15,
+ADR-0042): `output_width`/`output_height` with `transcode_resized`, a
+thread count above 256 in `Engine::transcode_batch`, a setting of another
+output format, and a setting an external backend's request does not carry.
+Each is `InvalidOptions` before decoding. Where the engine replaces a value
+and reports the one it used, the replacement is documented instead: the
+batch runs each image with one transform and one encoder thread, and the
+`F64Reference` executor runs scalar and single-threaded.
+
 ## What a minor release may change
 
 - Add enum variants. Every public enum that can grow is

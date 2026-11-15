@@ -193,6 +193,41 @@ fn resized_backend_receives_the_same_rows_as_manual_cover_without_enlargement() 
     assert_eq!(actual.bytes, expected.bytes);
 }
 
+/// Until 2026-11-15 the resize entry points ignored `output_width` and
+/// `output_height` (audit row Q1). Owner decision of 2026-11-15 (ADR-0042):
+/// a value other than the default is refused before decoding, by both
+/// entry points; the defaults still work.
+#[test]
+fn resize_entry_points_refuse_an_exact_output_size() {
+    use ferrisma::pipeline::transcode_resized_with;
+    const UNUSED: &str = "output_width and output_height are not used with ResizeOptions; leave them at their defaults";
+    let jpeg = include_bytes!("fixtures/sample.jpg");
+    let resize = ResizeOptions {
+        width: Some(4),
+        height: None,
+        ..ResizeOptions::default()
+    };
+    for (output_width, output_height) in [(4, 1), (1, 3), (4, 3)] {
+        let options = TransformOptions {
+            output_width,
+            output_height,
+            ..options()
+        };
+        let errors = [
+            transcode_resized(jpeg, ImageFormat::Jpeg, options, resize).unwrap_err(),
+            transcode_resized_with(jpeg, ImageFormat::Jpeg, options, resize, &RowCapture)
+                .unwrap_err(),
+        ];
+        for error in errors {
+            assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions, "{error}");
+            assert!(error.to_string().starts_with(UNUSED), "{error}");
+            assert_eq!(error.refusal_reason(), None);
+        }
+    }
+    let output = transcode_resized(jpeg, ImageFormat::Jpeg, options(), resize).unwrap();
+    assert_eq!(output.width, 4);
+}
+
 #[test]
 fn inspection_enforces_byte_and_pixel_limits_and_does_not_assume_color() {
     let jpeg = include_bytes!("fixtures/sample.jpg");

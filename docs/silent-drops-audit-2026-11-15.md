@@ -30,9 +30,9 @@ compositing JPEG XL layers into the displayed image).
 
 | Class | Items | Inputs (J, W, X, V) | Outputs (O) | Pipeline (P) | Options (Q) |
 | --- | --- | --- | --- | --- | --- |
-| A | 25 → 6 → 5 | 20 → 3 | 2 → 1 | 1 → 0 | 2 → 1 |
-| B | 29 → 13 → 12 | 12 → 3 | 8 → 4 → 3 | 6 → 3 | 3 |
-| C | 21 → 55 → 50 → 51 | 15 → 41 → 37 | 0 → 5 | 2 → 5 | 4 → 3 → 4 |
+| A | 25 → 6 → 4 | 20 → 3 | 2 → 1 | 1 → 0 | 2 → 0 |
+| B | 29 → 13 → 12 → 10 | 12 → 3 | 8 → 4 → 3 | 6 → 3 | 3 → 1 |
+| C | 21 → 55 → 50 → 54 | 15 → 41 → 37 | 0 → 5 | 2 → 5 | 4 → 3 → 7 |
 | D | 11 | 8 | 3 | 0 | 0 |
 | resolved by decision | 0 → 1 | 0 | 0 | 0 → 1 | 0 |
 | resolved by removal | 0 → 6 | 0 → 4 | 0 → 1 | 0 | 0 → 1 |
@@ -49,9 +49,10 @@ items to (C); each row says what reports or refuses it and which test of
 `tests/discarded_report.rs` or `tests/silent_drops.rs` proves it. Still
 open under ADR-0042 D6: the remaining (A) items (J10 XMP-only
 orientation, X12 `intrinsic_size`, V8 the `sato` alternative, and the
-owner's open questions O8, Q5; P4, the rendering intent, was resolved
-by the owner's decision of 2026-11-15, and Q7, repeated flags, by the
-owner's decision of the same day, which `v1/engine-options` implements) and the (B)
+owner's open question O8; P4, the rendering intent, was resolved
+by the owner's decision of 2026-11-15, and Q5 and Q7, options without
+effect and repeated flags, by the owner's decisions of the same day,
+which `v1/engine-options` implements) and the (B)
 items that are documented but not reported. Of these, out-of-gamut
 clipping (P2, P3) cannot be detected cheaply and exactly: a value outside
 [0, 1] at quantization may be resampling overshoot as well as gamut, and
@@ -190,11 +191,11 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| Q1 | `output_width`/`output_height` with `transcode_resized` | ignored; the actual size is in `Output` | `pipeline.rs` | rustdoc | `tests/thumbnail_facade.rs` | B |
-| Q2 | Default `avif_encoder` (since 2026-11-15: default `avif_depth`) with an external backend | ignored, the backend decides; a nondefault value is refused | `run` | rustdoc of `transcode_with` | `pipeline_tests` | B |
+| Q1 | `output_width`/`output_height` with `transcode_resized` | ignored; the actual size is in `Output`. **Since `v1/engine-options` (owner decision of 2026-11-15): a value other than the default (1) is refused before decoding by `transcode_resized` and `transcode_resized_with` (`InvalidOptions`, "output_width and output_height are not used with ResizeOptions…")** | `pipeline.rs` `run` | rustdoc | `thumbnail_facade::resize_entry_points_refuse_an_exact_output_size` | C |
+| Q2 | Default `avif_encoder` (since 2026-11-15: default `avif_depth`) with an external backend | ignored, the backend decides; a nondefault value is refused. **Since `v1/engine-options`: every other encoder setting reaches the backend in its `EncodeRequest`; the depth, which the request does not carry, is refused when nondefault (pinned through the public API)** | `run` | rustdoc of `transcode_with` | `silent_drops::external_backends_refuse_settings_the_request_does_not_carry` | C |
 | Q3 | `jxl_decoder` for non-JPEG XL input | ignored; `decoder_backend` names the reader that ran. **Since `v1/remove-alt-backends`: resolved by removal; the option does not exist** | `open_source` | no | the test `silent_drops::jpeg_xl_reader_selection_is_ignored_for_jpeg_input_and_reported` was removed with the option | removed |
 | Q4 | `kernel_level_ceiling`, `transform_threads` with `F64Reference` | ignored; the report says `Scalar`/`Ceiling` and 1 thread | `run` | rustdoc of `ProcessingReport` | `pipeline_tests` | C |
-| Q5 | Thread counts in `Engine::transcode_batch` | replaced with 1 (reported); values above 256, which `transcode` refuses, are accepted and discarded | `batch` | `BatchItem::options` ("overrides … with 1"); the acceptance of invalid values is not | `silent_drops::batch_accepts_thread_counts_that_transcode_rejects_today` | A |
+| Q5 | Thread counts in `Engine::transcode_batch` | replaced with 1 (reported); values above 256, which `transcode` refuses, are accepted and discarded. **Since `v1/engine-options` (owner decision of 2026-11-15): values above 256 are refused for the item as by `transcode` (`InvalidOptions`, same message); valid values are still replaced with 1, documented and reported** | `batch` | `BatchItem::options` | `silent_drops::batch_refuses_thread_counts_that_transcode_rejects` | C |
 | Q6 | `Engine::new` above 256 | capped, `threads()` reports it | `Engine::new` | rustdoc | — | C |
 | Q7 | Repeated or contradictory CLI flags (`--assume-srgb` after `--use-rendered-icc`, two `--transform-threads=` (two `--jxl-decoder=` until that flag was removed on 2026-11-15), two `--quality=`) | the last one wins silently; only `--avif-encoder`/`--avif-depth` are refused when repeated. **Since `v1/engine-options` (owner decision of 2026-11-15): refused before any input is read: a repeated flag is "--… may only be given once", a pair of mutually exclusive flags (`--assume-srgb`/`--use-rendered-icc`, `--jxl-lossless`/`--jxl-distance=`, lossless WebP with lossy-only settings) names both flags; exit status 1** | `src/cli.rs` `run` (`refuse_exclusive_flags`, the repetition check) | usage text, compatibility guide | `silent_drops::cli_refuses_repeated_and_contradictory_flags`, `cli::tests::refuses_repeated_and_contradictory_flags_before_reading_input` | C |
 | Q8 | `--version` with other arguments | prints the version, ignores the rest | `is_version_request` | compatibility guide | `cli::tests` | B |
@@ -283,6 +284,19 @@ The owner decided on 2026-11-15 how options without effect and the command
 line behave (ADR-0042, open questions on options, repeated flags and a
 strict mode). Branch `v1/engine-options` implements them:
 
+- Q1, Q2, Q5: an option that would have no effect is refused where the
+  caller set a value other than the default: an exact output size with the
+  resize entry points, a thread count above 256 in a batch (as `transcode`
+  refuses it; valid counts are still replaced with 1 and reported), and an
+  AVIF depth with an external backend, whose request does not carry it.
+  Kept, because the report states the value that was used and the rustdoc
+  documents it: Q4 (`kernel_level_ceiling` and `transform_threads` under
+  `F64Reference`: the report says `Scalar`/`Ceiling` and 1 thread), Q5's
+  replacement of valid batch thread counts with 1 (the report says 1), Q6
+  (`Engine::new` caps at 256, `threads()` says so) and Q8 (`--version`
+  takes precedence over every other argument and produces no image).
+  The former `_today` test of Q5 is now
+  `batch_refuses_thread_counts_that_transcode_rejects`.
 - Q7: a repeated command-line flag, and a pair of contradictory flags, are
   errors that name the flags; nothing is "last one wins" any more. The
   former `_today` test is now `cli_refuses_repeated_and_contradictory_flags`.

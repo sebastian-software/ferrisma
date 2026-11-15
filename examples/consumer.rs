@@ -368,6 +368,22 @@ mod consumer {
                 Some(ProcessingErrorKind::ResourceExhausted),
             ),
             (
+                // The thumbnail size comes from `THUMBNAIL`; an exact size
+                // beside it would be ignored, so it is refused (owner
+                // decision of 2026-11-15).
+                "exact output size beside the resize options",
+                run(
+                    &jpeg,
+                    ImageFormat::Jpeg,
+                    TransformOptions {
+                        output_width: 64,
+                        output_height: 64,
+                        ..assumed
+                    },
+                ),
+                Some(ProcessingErrorKind::InvalidOptions),
+            ),
+            (
                 "header inspection with a pixel limit",
                 inspect(
                     &jpeg,
