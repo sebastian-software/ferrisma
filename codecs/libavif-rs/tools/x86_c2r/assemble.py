@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+"""Reproduce the x86 kernel files that tools/x86_c2r/c2r.py generated.
+
+Usage: python3 tools/x86_c2r/assemble.py [--out DIR] [--check]
+
+Each file is the printer output for one original C file or header (configs/)
+plus the hand-written parts in parts/: file headers with the translation
+notes, the Rust macros for C statement macros, and the hand translations that
+existed before (parts/*.hand.rs, the files as they were on main before the
+printer was used). Without --out the files are written into
+crates/aom/src/simd; --check writes them into a scratch directory and fails
+unless every one equals the committed file.
+
+Families: the 8-bit inverse transform, the loop filters and the 8-bit intra
+predictors (port ADR 0058, amendment of 2026-11-14).
+"""
+import argparse, re, subprocess, sys, tempfile
+from pathlib import Path
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import c2r  # noqa: E402
+ROOT = c2r.ROOT
+SIMD = ROOT / 'crates/aom/src/simd'
+U = str(ROOT / 'upstream/aom') + '/'
+OUT = None
+WORK = None
+
+
+LIC = lambda year: f'''/*
+ * Copyright (c) {year}, Alliance for Open Media. All rights reserved.
+ *
+ * This source code is subject to the terms of the BSD 2 Clause License and
+ * the Alliance for Open Media Patent License 1.0. If the BSD 2 Clause License
+ * was not distributed with this source code in the LICENSE file, you can
+ * obtain it at www.aomedia.org/license/software. If the Alliance for Open
+ * Media Patent License 1.0 was not distributed with this source code in the
+ * PATENTS file, you can obtain it at www.aomedia.org/license/patent.
+ */
+'''
+NOTES = '''//
+// Translation notes:
+// - Every function carries `{feat}`, the flag upstream compiles the file with.
+//   The RTCD specializations are exported under their upstream names.
+// - Pointer and array parameters stay raw pointers; local arrays are Rust
+//   arrays and start zeroed. DECLARE_ALIGNED arrays keep their alignment
+//   through `Aligned16`/`Aligned32`.
+// - C integer conversions are explicit (`as`); `assert` becomes
+//   `debug_assert!`. Immediate operands become const generics; shift counts
+//   that are run-time `int` values use the count-register intrinsics, which is
+//   what GCC and Clang emit for a non-constant count.
+// - Scalar accesses through cast pointers (`*(int *)p`) are unaligned reads
+//   and writes, as x86 compilers emit them.
+#![allow(non_snake_case, non_upper_case_globals, unused_assignments, unused_mut, unused_parens)]
+#![allow(unused_variables, dead_code, clippy::all)]
+
+use core::arch::x86_64::*;
+'''
+PRINTER = ('transliterated with a typing-aware C-subset printer (not C2Rust) and\n'
+           '// reviewed against the C function by function: the same sequence of intrinsic\n'
+           '// and helper calls, constants and operators in order (ADR 0058)')
+ALIGN = '''
+#[repr(C, align(16))]
+struct Aligned16<T>(T);
+#[repr(C, align(32))]
+struct Aligned32<T>(T);
+'''
+MACROS = '''
+// From aom_dsp/x86/lpf_common_sse2.h: `memcpy` of the low or high 8 bytes of a
+// vector.
+macro_rules! mm_storelu {
+    ($dst:expr, $v:expr) => {
+        core::ptr::copy_nonoverlapping((&raw const $v).cast::<u8>(), ($dst).cast::<u8>(), 8)
+    };
+}
+pub(crate) use mm_storelu;
+macro_rules! mm_storehu {
+    ($dst:expr, $v:expr) => {
+        core::ptr::copy_nonoverlapping((&raw const $v).cast::<u8>().add(8), ($dst).cast::<u8>(), 8)
+    };
+}
+pub(crate) use mm_storehu;
+'''
+
+def run(cfg):
+    return c2r.translate(HERE / 'configs' / cfg, WORK)
+
+
+def write(rel, text):
+    path = OUT / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    subprocess.run(['rustfmt', '--edition', '2021', str(path)], capture_output=True)
+
+
+def part(name):
+    return (HERE / 'parts' / name).read_text()
+
+
+def inverse_transform():
+    sse2 = run('av1_txfm_sse2_h.json')
+    sse2 = '\n'.join(l for l in sse2.split('\n') if l not in ('// vertical and horizontal', '// __cplusplus'))
+    write('av1/common/x86/av1_txfm_sse2.rs', part('txfm_sse2_head.rs')
+          + 'use crate::simd::aom_dsp__x86__txfm_common_sse2::pair_set_epi16;\n\n// From av1/common/av1_txfm.h.\n'
+          'const NewSqrt2Bits: i32 = 12;\n// 2^12 * sqrt(2)\nconst NewSqrt2: i32 = 5793;\n\n' + sse2)
+    hand = part('av1_inv_txfm_ssse3.hand.rs').split('\n', 27)[27]
+    hand = re.sub(r'^static tx_size_wide:', 'pub static tx_size_wide:', hand, flags=re.M)
+    hand = re.sub(r'^static tx_size_high:', 'pub static tx_size_high:', hand, flags=re.M)
+    hand = re.sub(r'^fn AOMMIN', 'pub fn AOMMIN', hand, flags=re.M)
+    write('av1/common/x86/av1_inv_txfm_ssse3.rs', part('ssse3_head.rs') + hand + part('ssse3_mid.rs')
+          + run('av1_inv_txfm_ssse3.json'))
+    h = run('av1_inv_txfm_avx2_h.json')
+    h = '\n'.join(l for l in h.split('\n') if l not in ('// half input is zero', '// AOM_AV1_COMMON_X86_AV1_INV_TXFM_AVX2_H_'))
+    write('av1/common/x86/av1_inv_txfm_avx2.rs', part('avx2_head.rs') + h
+          + '\n// ---------------------------------------------------------------------------\n'
+          '// av1/common/x86/av1_inv_txfm_avx2.c\n\n' + run('av1_inv_txfm_avx2.json'))
+
+
+def loop_filter():
+    # lpf_common_sse2.rs: the existing hand translation plus the rest of the header.
+    orig = part('lpf_common_sse2.hand.rs')
+    head_end = orig.index('use core::arch::x86_64::*;')
+    body = orig[orig.index('\n', head_end) + 1:]
+    lpfh = run('lpf_common_sse2_h.json')
+    write('aom_dsp/x86/lpf_common_sse2.rs', LIC(2017) + '''
+// Translated from upstream/aom/aom_dsp/x86/lpf_common_sse2.h (ADR 0056, ADR
+// 0058). The high-bitdepth transposes that the directional predictors of
+// aom_dsp/x86/intrapred_avx2.c call (highbd_transpose4x8_8x4{,_low,_high}_sse2
+// and highbd_transpose8x8{,_low,_high}_sse2) were translated by hand first;
+// the other inline functions, which the loop filters use, were
+// ''' + PRINTER + '''. mm_storelu and mm_storehu
+// become macro_rules with the same `memcpy`. Every helper carries `sse2`. The
+// `__m128i *` parameters stay raw pointers, so the callers' `&x[i]` arguments
+// keep the C aliasing.
+#![allow(non_snake_case, non_upper_case_globals, unused_assignments, unused_mut, unused_parens)]
+#![allow(unused_variables, dead_code, clippy::all)]
+
+use core::arch::x86_64::*;
+''' + MACROS + body.rstrip() + '\n\n' + lpfh)
+
+    USE_LPF = 'use crate::simd::aom_dsp__x86__lpf_common_sse2::*;\nuse crate::simd::aom_dsp__x86__synonyms::*;\n'
+    for rel, cfg, year, feat, src, extra in [
+            ('aom_dsp/x86/loopfilter_sse2.rs', 'loopfilter_sse2.json', 2017, 'sse2', 'loopfilter_sse2.c',
+             'use crate::aom_dsp__aom_dsp_rtcd::{aom_lpf_horizontal_14_quad, aom_lpf_horizontal_6_quad,\n    aom_lpf_horizontal_8_quad};\n'),
+            ('aom_dsp/x86/loopfilter_avx2.rs', 'loopfilter_avx2.json', 2018, 'avx2', 'loopfilter_avx2.c', ''),
+            ('aom_dsp/x86/highbd_loopfilter_sse2.rs', 'highbd_loopfilter_sse2.json', 2016, 'sse2', 'highbd_loopfilter_sse2.c', ''),
+            ('aom_dsp/x86/highbd_loopfilter_avx2.rs', 'highbd_loopfilter_avx2.json', 2017, 'avx2', 'highbd_loopfilter_avx2.c',
+             'use crate::simd::aom_dsp__x86__highbd_loopfilter_sse2::*;\n')]:
+        text = run(cfg)
+        import re as _re
+        year = _re.search(r'Copyright \(c\) (\d+)', open(U + 'aom_dsp/x86/' + src).read()).group(1)
+        write(rel, LIC(year) + f'\n// Translated from upstream/aom/aom_dsp/x86/{src} (ADR 0056, ADR 0058).\n'
+              f'// Upstream compiles it with -m{feat}. The functions were\n// {PRINTER}.\n'
+              + NOTES.format(feat=feat) + USE_LPF + extra + ALIGN + '\n' + text)
+
+
+
+def intra_predictors():
+    def year(src):
+        return re.search(r'Copyright \(c\) (\d+)', open(U + src).read()).group(1)
+    ALIGN = '''
+#[repr(C, align(8))]
+struct Aligned8<T>(T);
+#[repr(C, align(16))]
+pub struct Aligned16<T>(pub T);
+#[repr(C, align(32))]
+pub struct Aligned32<T>(pub T);
+'''
+    common = run('intrapred_common_h.json').replace('pub static', 'static')
+    common = '\n// From aom_dsp/intrapred_common.h.\n' + common
+    x86h = run('intrapred_x86_h.json')
+    write('aom_dsp/x86/intrapred_x86.rs', LIC(year('aom_dsp/x86/intrapred_x86.h')) +
+          '\n// Translated from upstream/aom/aom_dsp/x86/intrapred_x86.h (ADR 0056, ADR 0058).\n'
+          f'// The inline functions were\n// {PRINTER}.\n' + NOTES.format(feat='sse2') + '\n' + x86h)
+    utils = run('intrapred_utils_h.json')
+    write('aom_dsp/x86/intrapred_utils.rs', LIC(year('aom_dsp/x86/intrapred_utils.h')) +
+          '\n// Translated from upstream/aom/aom_dsp/x86/intrapred_utils.h (ADR 0056, ADR 0058).\n'
+          f'// The tables and inline functions were\n// {PRINTER}.\n' + NOTES.format(feat='sse2')
+          + ALIGN.replace('struct Aligned8<T>(T);', 'pub struct Aligned8<T>(pub T);') + '\n' + utils)
+    USE = ('use crate::simd::aom_dsp__x86__intrapred_x86::*;\nuse crate::simd::aom_dsp__x86__intrapred_utils::*;\n'
+           'use crate::simd::aom_dsp__x86__lpf_common_sse2::*;\nuse crate::simd::aom_dsp__x86__synonyms::*;\n')
+    for rel, cfg, src, feat, tables in [
+            ('aom_dsp/x86/intrapred_sse2.rs', 'intrapred_sse2.json', 'aom_dsp/x86/intrapred_sse2.c', 'sse2', False),
+            ('aom_dsp/x86/intrapred_ssse3.rs', 'intrapred_ssse3.json', 'aom_dsp/x86/intrapred_ssse3.c', 'ssse3', True),
+            ('aom_dsp/x86/intrapred_sse4.rs', 'intrapred_sse4.json', 'aom_dsp/x86/intrapred_sse4.c', 'sse4.1', False)]:
+        text = run(cfg)
+        write(rel, LIC(year(src)) + f'\n// Translated from upstream/aom/{src} (ADR 0056, ADR 0058).\n'
+              f'// Upstream compiles it with -m{feat.replace(".", "")}. The functions were\n// {PRINTER}.\n'
+              + NOTES.format(feat=feat) + USE
+              + (common if tables else '\nconst SMOOTH_WEIGHT_LOG2_SCALE: i32 = 8;\n') + '\n' + text)
+    # intrapred_avx2.rs: the existing high-bitdepth translation plus the 8-bit functions.
+    orig = part('intrapred_avx2.hand.rs')
+    new = run('intrapred_avx2.json')
+    head, rest = orig.split('use core::arch::x86_64::*;\n', 1)
+    head = head.replace('''// Only the high-bitdepth directional predictors are translated:
+// av1_highbd_dr_prediction_z1_avx2, av1_highbd_dr_prediction_z2_avx2 and
+// av1_highbd_dr_prediction_z3_avx2, with the CONFIG_AV1_HIGHBITDEPTH tables
+// and transposes and the static helpers they call. The low-bitdepth DC, V, H,
+// Paeth and directional predictors of the same file are not translated.''', f'''// The high-bitdepth directional predictors (av1_highbd_dr_prediction_z1_avx2,
+// av1_highbd_dr_prediction_z2_avx2 and av1_highbd_dr_prediction_z3_avx2, with
+// the CONFIG_AV1_HIGHBITDEPTH tables and transposes and the static helpers they
+// call) were translated by hand first. The low-bitdepth DC, V, H, Paeth, smooth
+// and directional predictors that follow them were
+// {PRINTER}, with the notes of the other x86 files below.''')
+    head = head.replace('''// The predictors use no helper from intrapred_x86.h or intrapred_utils.h (the
+// tables and transposes there are low-bitdepth); the high-bitdepth transposes
+// they call from lpf_common_sse2.h are in crate::simd::aom_dsp__x86__lpf_common_sse2.
+''', '''// The high-bitdepth predictors use no helper from intrapred_x86.h or
+// intrapred_utils.h (the tables and transposes there are low-bitdepth); the
+// 8-bit ones use them from crate::simd::aom_dsp__x86__intrapred_x86 and
+// crate::simd::aom_dsp__x86__intrapred_utils. The transposes from
+// lpf_common_sse2.h are in crate::simd::aom_dsp__x86__lpf_common_sse2.
+''')
+    rest = rest.replace('use crate::simd::aom_dsp__x86__lpf_common_sse2::*;\n',
+                        USE.replace('use crate::simd::aom_dsp__x86__intrapred_utils::*;\n',
+                                    'use crate::simd::aom_dsp__x86__intrapred_utils::{\n    transpose16x16_sse2, transpose4x16_sse2, transpose, transpose_TX_16X16, EvenOddMaskx,\n    LoadMaskx, LoadMaskz2,\n};\n'), 1)
+    write('aom_dsp/x86/intrapred_avx2.rs', head.rstrip() + '\n#![allow(non_snake_case, non_upper_case_globals, unused_assignments, unused_mut, unused_parens)]\n'
+          '#![allow(unused_variables, dead_code, clippy::all)]\n\nuse core::arch::x86_64::*;\n' + rest.rstrip()
+          + '\n' + common.replace('Aligned8', 'Aligned8Table')
+          + '\n#[repr(C, align(8))]\nstruct Aligned8Table<T>(T);\n\n'
+          + '// ---------------------------------------------------------------------------\n'
+          + '// The 8-bit predictors of aom_dsp/x86/intrapred_avx2.c.\n\n' + new)
+
+
+
+def main():
+    global OUT, WORK
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--out', type=Path)
+    parser.add_argument('--check', action='store_true')
+    args = parser.parse_args()
+    with tempfile.TemporaryDirectory() as tmp:
+        WORK = Path(tmp) / 'work'
+        OUT = args.out or (Path(tmp) / 'simd' if args.check else SIMD)
+        inverse_transform()
+        loop_filter()
+        intra_predictors()
+        if args.check:
+            bad = []
+            for path in sorted(OUT.rglob('*.rs')):
+                rel = path.relative_to(OUT)
+                if path.read_bytes() != (SIMD / rel).read_bytes():
+                    bad.append(str(rel))
+            print(f'{len(list(OUT.rglob("*.rs")))} files, {len(bad)} differ: {bad}')
+            if bad:
+                raise SystemExit(1)
+
+
+if __name__ == '__main__':
+    main()

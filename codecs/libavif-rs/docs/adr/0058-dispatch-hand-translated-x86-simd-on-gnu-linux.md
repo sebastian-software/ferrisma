@@ -182,8 +182,10 @@ that amendment: each original intrinsics file is translated to
 owner), and committed only when `check_aom_simd_original.py --qemu` stays
 identical at `avx2`, `sse4.1` (where the original selects the SSSE3 or SSE2
 variant) and `scalar`. The files are transliterated with a typing-aware
-C-subset printer as the high-bitdepth transforms were (pycparser based, not
-part of the build): C's integer conversions are explicit, immediate operands
+C-subset printer as the high-bitdepth transforms were (`tools/x86_c2r/c2r.py`,
+pycparser based, not part of the build; `tools/x86_c2r/assemble.py --check`
+regenerates every printed file from the original C, `configs/`, `preludes/`
+and the hand-written `parts/`, and requires it to equal the committed file): C's integer conversions are explicit, immediate operands
 become const generics, run-time shift counts use the count-register
 intrinsics, scalar accesses through cast pointers are unaligned, and
 DECLARE_ALIGNED arrays keep their alignment. For every function the
