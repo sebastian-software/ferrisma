@@ -201,6 +201,7 @@ Kernels that exist only as NASM stay on `_c` (working decision O4).
 | SSE and distortion | `aom_dsp/x86/sse_sse4.c`, `sse_avx2.c`, `sum_squares_sse2.c`, `sum_squares_avx2.c`, `blk_sse_sum_sse2.c`, `blk_sse_sum_avx2.c`, the 16-bit MSE functions of `variance_sse2.c`, `variance_avx2.c`, `highbd_variance_sse2.c`, `highbd_variance_avx2.c` | 11 (21 specializations) | 82/82, 82/82, 82/82 |
 | txb | `av1/encoder/x86/encodetxb_sse4.c`, `encodetxb_avx2.c` | 1 (`av1_txb_init_levels`, SSE4.1 and AVX2) | 82/82, 82/82, 82/82 |
 | 8-bit forward transform | `av1/encoder/x86/av1_fwd_txfm_sse2.c` (+ `.h`), the low-bitdepth part of `av1_fwd_txfm2d_sse4.c`, `av1_fwd_txfm2d_avx2.c` (+ `av1_fwd_txfm_avx2.h`), `av1_fwht4x4_sse4_1` of `highbd_fwd_txfm_sse4.c` | 2 (`av1_lowbd_fwd_txfm` SSE4.1 and AVX2, `av1_fwht4x4` SSE4.1) | 82/82, 82/82, 82/82 |
+| CfL | `av1/common/x86/cfl_sse2.c`, `cfl_ssse3.c`, `cfl_avx2.c` (with the CFL_* macros of `av1/common/cfl.h` expanded by the C preprocessor) | 9 getters (18 specializations) | 82/82, 82/82, 82/82 |
 
 Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
 and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
@@ -232,7 +233,11 @@ EncodeTxbInitLevelTest (165 tests pass). `lowbd_fwd_txfm.rs` and `fwht4x4.rs`
 add the SSE4_1 and AVX2 instantiations of AV1FwdTxfm2dTest.match (all 19 sizes)
 and the SSE4_1 Trans4x4WHT (205 tests pass). `av1_lowbd_fwd_txfm_sse2` is
 translated because the SSE4.1 and AVX2 entries call its 2D functions; it is
-the RTCD specialization only on 32-bit x86.
+the RTCD specialization only on 32-bit x86. `cfl.rs` adds the SSE2, SSSE3 and
+AVX2 instantiations of `cfl_test.cc` (215 tests pass). The CfL getters return
+C function pointers, so the size wrappers keep the C ABI; the RTCD units gain
+the five CfL function-pointer aliases, which `enable_aom_dispatch.py --linux`
+copies verbatim from the unit that defines them (`--check` requires them).
 
 Since 2026-11-15 every family is verified before its push with all four
 translation profiles compiled (`cargo check -p libavif-aom --lib --tests` for

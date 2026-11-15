@@ -625,31 +625,49 @@ void cdef_find_dir_dual_avx2(const uint16_t *img1, const uint16_t *img2, int str
 RTCD_EXTERN void (*cdef_find_dir_dual)(const uint16_t *img1, const uint16_t *img2, int stride, int32_t *var1, int32_t *var2, int coeff_shift, int *out1, int *out2);
 
 cfl_subsample_hbd_fn cfl_get_luma_subsampling_420_hbd_c(TX_SIZE tx_size);
-#define cfl_get_luma_subsampling_420_hbd cfl_get_luma_subsampling_420_hbd_c
+cfl_subsample_hbd_fn cfl_get_luma_subsampling_420_hbd_ssse3(TX_SIZE tx_size);
+cfl_subsample_hbd_fn cfl_get_luma_subsampling_420_hbd_avx2(TX_SIZE tx_size);
+RTCD_EXTERN cfl_subsample_hbd_fn (*cfl_get_luma_subsampling_420_hbd)(TX_SIZE tx_size);
 
 cfl_subsample_lbd_fn cfl_get_luma_subsampling_420_lbd_c(TX_SIZE tx_size);
-#define cfl_get_luma_subsampling_420_lbd cfl_get_luma_subsampling_420_lbd_c
+cfl_subsample_lbd_fn cfl_get_luma_subsampling_420_lbd_ssse3(TX_SIZE tx_size);
+cfl_subsample_lbd_fn cfl_get_luma_subsampling_420_lbd_avx2(TX_SIZE tx_size);
+RTCD_EXTERN cfl_subsample_lbd_fn (*cfl_get_luma_subsampling_420_lbd)(TX_SIZE tx_size);
 
 cfl_subsample_hbd_fn cfl_get_luma_subsampling_422_hbd_c(TX_SIZE tx_size);
-#define cfl_get_luma_subsampling_422_hbd cfl_get_luma_subsampling_422_hbd_c
+cfl_subsample_hbd_fn cfl_get_luma_subsampling_422_hbd_ssse3(TX_SIZE tx_size);
+cfl_subsample_hbd_fn cfl_get_luma_subsampling_422_hbd_avx2(TX_SIZE tx_size);
+RTCD_EXTERN cfl_subsample_hbd_fn (*cfl_get_luma_subsampling_422_hbd)(TX_SIZE tx_size);
 
 cfl_subsample_lbd_fn cfl_get_luma_subsampling_422_lbd_c(TX_SIZE tx_size);
-#define cfl_get_luma_subsampling_422_lbd cfl_get_luma_subsampling_422_lbd_c
+cfl_subsample_lbd_fn cfl_get_luma_subsampling_422_lbd_ssse3(TX_SIZE tx_size);
+cfl_subsample_lbd_fn cfl_get_luma_subsampling_422_lbd_avx2(TX_SIZE tx_size);
+RTCD_EXTERN cfl_subsample_lbd_fn (*cfl_get_luma_subsampling_422_lbd)(TX_SIZE tx_size);
 
 cfl_subsample_hbd_fn cfl_get_luma_subsampling_444_hbd_c(TX_SIZE tx_size);
-#define cfl_get_luma_subsampling_444_hbd cfl_get_luma_subsampling_444_hbd_c
+cfl_subsample_hbd_fn cfl_get_luma_subsampling_444_hbd_ssse3(TX_SIZE tx_size);
+cfl_subsample_hbd_fn cfl_get_luma_subsampling_444_hbd_avx2(TX_SIZE tx_size);
+RTCD_EXTERN cfl_subsample_hbd_fn (*cfl_get_luma_subsampling_444_hbd)(TX_SIZE tx_size);
 
 cfl_subsample_lbd_fn cfl_get_luma_subsampling_444_lbd_c(TX_SIZE tx_size);
-#define cfl_get_luma_subsampling_444_lbd cfl_get_luma_subsampling_444_lbd_c
+cfl_subsample_lbd_fn cfl_get_luma_subsampling_444_lbd_ssse3(TX_SIZE tx_size);
+cfl_subsample_lbd_fn cfl_get_luma_subsampling_444_lbd_avx2(TX_SIZE tx_size);
+RTCD_EXTERN cfl_subsample_lbd_fn (*cfl_get_luma_subsampling_444_lbd)(TX_SIZE tx_size);
 
 cfl_predict_hbd_fn cfl_get_predict_hbd_fn_c(TX_SIZE tx_size);
-#define cfl_get_predict_hbd_fn cfl_get_predict_hbd_fn_c
+cfl_predict_hbd_fn cfl_get_predict_hbd_fn_ssse3(TX_SIZE tx_size);
+cfl_predict_hbd_fn cfl_get_predict_hbd_fn_avx2(TX_SIZE tx_size);
+RTCD_EXTERN cfl_predict_hbd_fn (*cfl_get_predict_hbd_fn)(TX_SIZE tx_size);
 
 cfl_predict_lbd_fn cfl_get_predict_lbd_fn_c(TX_SIZE tx_size);
-#define cfl_get_predict_lbd_fn cfl_get_predict_lbd_fn_c
+cfl_predict_lbd_fn cfl_get_predict_lbd_fn_ssse3(TX_SIZE tx_size);
+cfl_predict_lbd_fn cfl_get_predict_lbd_fn_avx2(TX_SIZE tx_size);
+RTCD_EXTERN cfl_predict_lbd_fn (*cfl_get_predict_lbd_fn)(TX_SIZE tx_size);
 
 cfl_subtract_average_fn cfl_get_subtract_average_fn_c(TX_SIZE tx_size);
-#define cfl_get_subtract_average_fn cfl_get_subtract_average_fn_c
+cfl_subtract_average_fn cfl_get_subtract_average_fn_sse2(TX_SIZE tx_size);
+cfl_subtract_average_fn cfl_get_subtract_average_fn_avx2(TX_SIZE tx_size);
+RTCD_EXTERN cfl_subtract_average_fn (*cfl_get_subtract_average_fn)(TX_SIZE tx_size);
 
 void av1_rtcd(void);
 
@@ -786,6 +804,33 @@ static void setup_rtcd_internal(void)
     if (flags & HAS_AVX2) cdef_find_dir = cdef_find_dir_avx2;
     cdef_find_dir_dual = cdef_find_dir_dual_c;
     if (flags & HAS_AVX2) cdef_find_dir_dual = cdef_find_dir_dual_avx2;
+    cfl_get_luma_subsampling_420_hbd = cfl_get_luma_subsampling_420_hbd_c;
+    if (flags & HAS_SSSE3) cfl_get_luma_subsampling_420_hbd = cfl_get_luma_subsampling_420_hbd_ssse3;
+    if (flags & HAS_AVX2) cfl_get_luma_subsampling_420_hbd = cfl_get_luma_subsampling_420_hbd_avx2;
+    cfl_get_luma_subsampling_420_lbd = cfl_get_luma_subsampling_420_lbd_c;
+    if (flags & HAS_SSSE3) cfl_get_luma_subsampling_420_lbd = cfl_get_luma_subsampling_420_lbd_ssse3;
+    if (flags & HAS_AVX2) cfl_get_luma_subsampling_420_lbd = cfl_get_luma_subsampling_420_lbd_avx2;
+    cfl_get_luma_subsampling_422_hbd = cfl_get_luma_subsampling_422_hbd_c;
+    if (flags & HAS_SSSE3) cfl_get_luma_subsampling_422_hbd = cfl_get_luma_subsampling_422_hbd_ssse3;
+    if (flags & HAS_AVX2) cfl_get_luma_subsampling_422_hbd = cfl_get_luma_subsampling_422_hbd_avx2;
+    cfl_get_luma_subsampling_422_lbd = cfl_get_luma_subsampling_422_lbd_c;
+    if (flags & HAS_SSSE3) cfl_get_luma_subsampling_422_lbd = cfl_get_luma_subsampling_422_lbd_ssse3;
+    if (flags & HAS_AVX2) cfl_get_luma_subsampling_422_lbd = cfl_get_luma_subsampling_422_lbd_avx2;
+    cfl_get_luma_subsampling_444_hbd = cfl_get_luma_subsampling_444_hbd_c;
+    if (flags & HAS_SSSE3) cfl_get_luma_subsampling_444_hbd = cfl_get_luma_subsampling_444_hbd_ssse3;
+    if (flags & HAS_AVX2) cfl_get_luma_subsampling_444_hbd = cfl_get_luma_subsampling_444_hbd_avx2;
+    cfl_get_luma_subsampling_444_lbd = cfl_get_luma_subsampling_444_lbd_c;
+    if (flags & HAS_SSSE3) cfl_get_luma_subsampling_444_lbd = cfl_get_luma_subsampling_444_lbd_ssse3;
+    if (flags & HAS_AVX2) cfl_get_luma_subsampling_444_lbd = cfl_get_luma_subsampling_444_lbd_avx2;
+    cfl_get_predict_hbd_fn = cfl_get_predict_hbd_fn_c;
+    if (flags & HAS_SSSE3) cfl_get_predict_hbd_fn = cfl_get_predict_hbd_fn_ssse3;
+    if (flags & HAS_AVX2) cfl_get_predict_hbd_fn = cfl_get_predict_hbd_fn_avx2;
+    cfl_get_predict_lbd_fn = cfl_get_predict_lbd_fn_c;
+    if (flags & HAS_SSSE3) cfl_get_predict_lbd_fn = cfl_get_predict_lbd_fn_ssse3;
+    if (flags & HAS_AVX2) cfl_get_predict_lbd_fn = cfl_get_predict_lbd_fn_avx2;
+    cfl_get_subtract_average_fn = cfl_get_subtract_average_fn_c;
+    if (flags & HAS_SSE2) cfl_get_subtract_average_fn = cfl_get_subtract_average_fn_sse2;
+    if (flags & HAS_AVX2) cfl_get_subtract_average_fn = cfl_get_subtract_average_fn_avx2;
 }
 #endif
 

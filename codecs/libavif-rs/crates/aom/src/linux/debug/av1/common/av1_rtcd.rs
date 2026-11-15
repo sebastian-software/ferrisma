@@ -13,6 +13,33 @@
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
 use core::arch::asm;
 extern "C-unwind" {
+    fn cfl_get_predict_hbd_fn_c(tx_size: TX_SIZE) -> cfl_predict_hbd_fn;
+    fn cfl_get_predict_hbd_fn_ssse3(tx_size: TX_SIZE) -> cfl_predict_hbd_fn;
+    fn cfl_get_predict_hbd_fn_avx2(tx_size: TX_SIZE) -> cfl_predict_hbd_fn;
+    fn cfl_get_predict_lbd_fn_c(tx_size: TX_SIZE) -> cfl_predict_lbd_fn;
+    fn cfl_get_predict_lbd_fn_ssse3(tx_size: TX_SIZE) -> cfl_predict_lbd_fn;
+    fn cfl_get_predict_lbd_fn_avx2(tx_size: TX_SIZE) -> cfl_predict_lbd_fn;
+    fn cfl_get_luma_subsampling_444_hbd_c(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_444_hbd_ssse3(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_444_hbd_avx2(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_422_hbd_c(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_422_hbd_ssse3(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_422_hbd_avx2(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_420_hbd_c(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_420_hbd_ssse3(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_420_hbd_avx2(tx_size: TX_SIZE) -> cfl_subsample_hbd_fn;
+    fn cfl_get_luma_subsampling_444_lbd_c(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_444_lbd_ssse3(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_444_lbd_avx2(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_422_lbd_c(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_422_lbd_ssse3(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_422_lbd_avx2(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_420_lbd_c(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_420_lbd_ssse3(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_luma_subsampling_420_lbd_avx2(tx_size: TX_SIZE) -> cfl_subsample_lbd_fn;
+    fn cfl_get_subtract_average_fn_c(tx_size: TX_SIZE) -> cfl_subtract_average_fn;
+    fn cfl_get_subtract_average_fn_sse2(tx_size: TX_SIZE) -> cfl_subtract_average_fn;
+    fn cfl_get_subtract_average_fn_avx2(tx_size: TX_SIZE) -> cfl_subtract_average_fn;
     fn av1_fwht4x4_c(input: *const int16_t, output: *mut tran_low_t, stride: core::ffi::c_int);
     fn av1_fwht4x4_sse4_1(input: *const int16_t, output: *mut tran_low_t, stride: core::ffi::c_int);
     fn av1_lowbd_fwd_txfm_c(src_diff: *const int16_t, coeff: *mut tran_low_t, diff_stride: core::ffi::c_int, txfm_param: *mut TxfmParam);
@@ -863,6 +890,32 @@ pub struct txfm_param {
 }
 pub type TxfmParam = txfm_param;
 pub type pthread_once_t = libc::pthread_once_t;
+pub type cfl_subtract_average_fn = Option<
+    unsafe extern "C-unwind" fn(*const uint16_t, *mut int16_t) -> (),
+>;
+pub type cfl_subsample_lbd_fn = Option<
+    unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, *mut uint16_t) -> (),
+>;
+pub type cfl_subsample_hbd_fn = Option<
+    unsafe extern "C-unwind" fn(*const uint16_t, core::ffi::c_int, *mut uint16_t) -> (),
+>;
+pub type cfl_predict_lbd_fn = Option<
+    unsafe extern "C-unwind" fn(
+        *const int16_t,
+        *mut uint8_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
+pub type cfl_predict_hbd_fn = Option<
+    unsafe extern "C-unwind" fn(
+        *const int16_t,
+        *mut uint16_t,
+        core::ffi::c_int,
+        core::ffi::c_int,
+        core::ffi::c_int,
+    ) -> (),
+>;
 pub const NULL: *mut core::ffi::c_void = 0 as *mut core::ffi::c_void;
 #[no_mangle]
 pub unsafe extern "C-unwind" fn av1_rtcd() {
@@ -3565,6 +3618,69 @@ unsafe extern "C-unwind" fn setup_rtcd_internal() {
                 ) -> (),
             >;
     }
+    cfl_get_luma_subsampling_420_hbd = Some(cfl_get_luma_subsampling_420_hbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    if flags & HAS_SSSE3 != 0 {
+        cfl_get_luma_subsampling_420_hbd = Some(cfl_get_luma_subsampling_420_hbd_ssse3 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cfl_get_luma_subsampling_420_hbd = Some(cfl_get_luma_subsampling_420_hbd_avx2 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    }
+    cfl_get_luma_subsampling_420_lbd = Some(cfl_get_luma_subsampling_420_lbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    if flags & HAS_SSSE3 != 0 {
+        cfl_get_luma_subsampling_420_lbd = Some(cfl_get_luma_subsampling_420_lbd_ssse3 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cfl_get_luma_subsampling_420_lbd = Some(cfl_get_luma_subsampling_420_lbd_avx2 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    }
+    cfl_get_luma_subsampling_422_hbd = Some(cfl_get_luma_subsampling_422_hbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    if flags & HAS_SSSE3 != 0 {
+        cfl_get_luma_subsampling_422_hbd = Some(cfl_get_luma_subsampling_422_hbd_ssse3 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cfl_get_luma_subsampling_422_hbd = Some(cfl_get_luma_subsampling_422_hbd_avx2 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    }
+    cfl_get_luma_subsampling_422_lbd = Some(cfl_get_luma_subsampling_422_lbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    if flags & HAS_SSSE3 != 0 {
+        cfl_get_luma_subsampling_422_lbd = Some(cfl_get_luma_subsampling_422_lbd_ssse3 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cfl_get_luma_subsampling_422_lbd = Some(cfl_get_luma_subsampling_422_lbd_avx2 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    }
+    cfl_get_luma_subsampling_444_hbd = Some(cfl_get_luma_subsampling_444_hbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    if flags & HAS_SSSE3 != 0 {
+        cfl_get_luma_subsampling_444_hbd = Some(cfl_get_luma_subsampling_444_hbd_ssse3 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cfl_get_luma_subsampling_444_hbd = Some(cfl_get_luma_subsampling_444_hbd_avx2 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn>;
+    }
+    cfl_get_luma_subsampling_444_lbd = Some(cfl_get_luma_subsampling_444_lbd_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    if flags & HAS_SSSE3 != 0 {
+        cfl_get_luma_subsampling_444_lbd = Some(cfl_get_luma_subsampling_444_lbd_ssse3 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cfl_get_luma_subsampling_444_lbd = Some(cfl_get_luma_subsampling_444_lbd_avx2 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn>;
+    }
+    cfl_get_predict_hbd_fn = Some(cfl_get_predict_hbd_fn_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn>;
+    if flags & HAS_SSSE3 != 0 {
+        cfl_get_predict_hbd_fn = Some(cfl_get_predict_hbd_fn_ssse3 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cfl_get_predict_hbd_fn = Some(cfl_get_predict_hbd_fn_avx2 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn>;
+    }
+    cfl_get_predict_lbd_fn = Some(cfl_get_predict_lbd_fn_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn>;
+    if flags & HAS_SSSE3 != 0 {
+        cfl_get_predict_lbd_fn = Some(cfl_get_predict_lbd_fn_ssse3 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cfl_get_predict_lbd_fn = Some(cfl_get_predict_lbd_fn_avx2 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn>;
+    }
+    cfl_get_subtract_average_fn = Some(cfl_get_subtract_average_fn_c as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn>;
+    if flags & HAS_SSE2 != 0 {
+        cfl_get_subtract_average_fn = Some(cfl_get_subtract_average_fn_sse2 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn>;
+    }
+    if flags & HAS_AVX2 != 0 {
+        cfl_get_subtract_average_fn = Some(cfl_get_subtract_average_fn_avx2 as unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn) as Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn>;
+    }
 }
 #[inline]
 unsafe extern "C-unwind" fn xgetbv() -> uint64_t {
@@ -3577,6 +3693,24 @@ unsafe extern "C-unwind" fn xgetbv() -> uint64_t {
     );
     return (edx as uint64_t) << 32 as core::ffi::c_int | eax as uint64_t;
 }
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_420_hbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_420_lbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_422_hbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_422_lbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_444_hbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_hbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_luma_subsampling_444_lbd: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subsample_lbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_predict_hbd_fn: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_hbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_predict_lbd_fn: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_predict_lbd_fn> = None;
+#[no_mangle]
+pub static mut cfl_get_subtract_average_fn: Option<unsafe extern "C-unwind" fn(TX_SIZE) -> cfl_subtract_average_fn> = None;
 pub const HAS_MMX: core::ffi::c_int = 0x1 as core::ffi::c_int;
 pub const HAS_SSE: core::ffi::c_int = 0x2 as core::ffi::c_int;
 pub const HAS_SSE2: core::ffi::c_int = 0x4 as core::ffi::c_int;

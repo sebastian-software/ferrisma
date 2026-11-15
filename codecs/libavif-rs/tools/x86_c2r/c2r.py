@@ -37,7 +37,7 @@ SCALAR = {
     'int8_t': 'i8', 'int16_t': 'i16', 'int32_t': 'i32', 'int64_t': 'i64', 'uint8_t': 'u8', 'uint16_t': 'u16',
     'uint32_t': 'u32', 'uint64_t': 'u64', 'size_t': 'usize', 'intptr_t': 'isize', 'ptrdiff_t': 'isize',
     'tran_low_t': 'i32', 'TX_SIZE': 'u8', 'TX_TYPE': 'u8', 'ITX_TYPE_1D': 'u8', 'bool': 'bool',
-    'double': 'f64', 'float': 'f32', 'TX_CLASS': 'u8', 'PREDICTION_MODE': 'u8', 'qm_val_t': 'u8', 'TXFM_TYPE': 'u8', 'TX_TYPE_1D': 'u8',
+    'double': 'f64', 'float': 'f32', 'TX_CLASS': 'u8', 'PREDICTION_MODE': 'u8', 'qm_val_t': 'u8', 'CONV_BUF_TYPE': 'u16', 'TXFM_TYPE': 'u8', 'TX_TYPE_1D': 'u8',
 }
 VECTORS = {'__m128i', '__m256i', '__m128', '__m256', '__m128d', '__m256d', '__m64'}
 RANK = {'i32': (1, False), 'u32': (1, True), 'i64': (2, False), 'u64': (2, True), 'isize': (2, False),
@@ -527,6 +527,10 @@ class Printer:
             if name == 'CONVERT_TO_BYTEPTR':
                 x = self.expr(args[0])
                 return E(f'(({x.at("as")} as usize) >> 1) as *mut u8', ('ptr', ('int', 'u8'), False), 'as')
+            if name == '_MM_SHUFFLE':
+                # xmmintrin.h: (((z) << 6) | ((y) << 4) | ((x) << 2) | (w))
+                z, y, x, w = (self.as_int(self.expr(a)) for a in args)
+                return E(f'(({z.code}) << 6) | (({y.code}) << 4) | (({x.code}) << 2) | ({w.code})', ('lit',), '|', True)
             if name in ('LIKELY', 'UNLIKELY'):
                 # aom_dsp/aom_dsp_common.h: __builtin_expect(v, 1), a hint only.
                 return self.expr(args[0])
@@ -683,6 +687,9 @@ class Printer:
             raise Unsupported(f'local function declaration {n.name}')
         const = isinstance(n.type, c_ast.TypeDecl) and 'const' in n.type.quals
         name = rename(n.name)
+        if n.init is not None and any(isinstance(c, c_ast.ID) and c.name == n.name for c in walk(n.init)):
+            # C puts the declarator in scope in its own initializer (`T *p = f(sizeof(*p))`).
+            self.scopes[-1][n.name] = t
         if const:
             self.const_vars.add(n.name)
         else:
@@ -703,8 +710,9 @@ class Printer:
             if n.init is None:
                 if t[0] in ('int', 'bool'):
                     self.line(f'let mut {name}: {rust_type(t)} = {"false" if t[0] == "bool" else 0};')
-                elif address_taken(self.fn_body, n.name):
-                    # Written through `&name` by a callee: starts zeroed.
+                elif address_taken(self.fn_body, n.name) or n.name in self.cfg.get('zero_init', []):
+                    # Written through `&name` by a callee, or (zero_init) first written under a
+                    # condition the borrow checker cannot follow: starts zeroed.
                     self.line(f'let mut {name}: {rust_type(t)} = core::mem::zeroed();')
                 else:
                     self.line(f'let mut {name}: {rust_type(t)};')
@@ -731,6 +739,10 @@ class Printer:
             self.s_Decl(d)
 
     def s_Assignment(self, n):
+        if isinstance(n.rvalue, c_ast.Assignment) and n.op == '=':
+            # `a = b = v`: the inner assignment first, then `a = b`.
+            self.s_Assignment(n.rvalue)
+            n = c_ast.Assignment('=', n.lvalue, n.rvalue.lvalue, n.coord)
         lhs = self.expr(n.lvalue)
         rhs = self.expr(n.rvalue)
         op = n.op
@@ -823,6 +835,10 @@ class Printer:
         if isinstance(cond, c_ast.UnaryOp) and cond.op in ('++', '--') and isinstance(cond.expr, c_ast.ID):
             self.s_UnaryOp(cond)
             cond = cond.expr
+        elif isinstance(cond, c_ast.BinaryOp) and isinstance(cond.left, c_ast.Assignment):
+            # `while ((p += n) < end)`: the assignment, then the test of the new value.
+            self.s_Assignment(cond.left)
+            cond = c_ast.BinaryOp(cond.op, cond.left.lvalue, cond.right, cond.coord)
         elif isinstance(cond, c_ast.BinaryOp) and isinstance(cond.left, c_ast.UnaryOp) and \
                 cond.left.op in ('++', '--') and isinstance(cond.left.expr, c_ast.ID):
             # `while (++i < n)`: the increment, then the test of the new value.
@@ -994,7 +1010,7 @@ class Printer:
             if self.out[-1] == '':
                 self.out.pop()
             self.line(f'#[target_feature(enable = "{self.feature}")]')
-            if name in self.cfg.get('extern_c', []):
+            if name in self.cfg.get('extern_c', []) or re.match(self.cfg.get('extern_c_regex', '$^'), name):
                 self.out[-1] = self.out[-1]
                 self.line(f'pub unsafe extern "C-unwind" fn {name}({args}){r} {{')
                 self.fn_ret = ret
@@ -1215,9 +1231,14 @@ def clean_source(text):
             if lines[0].startswith('/*') and len(lines) == 1:
                 comments.setdefault(line, []).append('// ' + chunk[2:-2].strip())
             else:
-                body = [l.strip().lstrip('*').rstrip() for l in lines]
-                body[0] = body[0][2:] if body[0].startswith('/*') else body[0]
-                body[-1] = body[-1][:-2].rstrip('*').rstrip() if body[-1].endswith('*/') else body[-1]
+                raw = [l.strip() for l in lines]
+                raw[0] = raw[0][2:].lstrip('*') if raw[0].startswith('/*') else raw[0]
+                raw[-1] = raw[-1][:-2].rstrip('*') if raw[-1].endswith('*/') else raw[-1]
+                body = [l.lstrip('*').rstrip() for l in raw]
+                if body and not body[0].strip():
+                    body = body[1:]
+                if body and not body[-1].strip():
+                    body = body[:-1]
                 comments.setdefault(line, []).extend('//' + (' ' + b.strip() if b.strip() else '')
                                                      for b in body if True)
             buf.append(''.join('\n' if ch == '\n' else ' ' for ch in chunk))
@@ -1289,6 +1310,70 @@ def clean_source(text):
     return '\n'.join(lines), comments, pre
 
 
+def declare_aligned(text):
+    """(alignment, type, declarator, start, end) of every DECLARE_ALIGNED(n, type, decl),
+    with balanced parentheses in the declarator."""
+    out = []
+    for m in re.finditer(r'DECLARE_ALIGNED\(\s*(\d+)\s*,\s*', text):
+        depth, k = 1, m.end()
+        while depth:
+            depth += {'(': 1, ')': -1}.get(text[k], 0)
+            k += 1
+        inner = text[m.end():k - 1]
+        typ, decl = inner.split(',', 1) if ',' in inner else (inner, '')
+        out.append((int(m.group(1)), typ.strip(), decl.strip().split('[')[0].strip(), m.start(), k))
+    return out
+
+
+def strip_declare_aligned(text):
+    for align, typ, name, start, end in reversed(declare_aligned(text)):
+        inner = text[text.index('(', start) + 1:end - 1]
+        typ, decl = inner.split(',', 1)[1].split(',', 1)
+        text = text[:start] + typ.strip() + ' ' + decl.strip() + text[end:]
+    return text
+
+
+def macro_blocks(text, pattern):
+    """The `#define NAME...` blocks (with continuation lines) whose NAME matches."""
+    out, lines, k = [], text.split('\n'), 0
+    while k < len(lines):
+        m = re.match(r'\s*#\s*define\s+(\w+)', lines[k])
+        start = k
+        while lines[k].rstrip().endswith('\\'):
+            k += 1
+        if m and re.match(pattern, m.group(1)):
+            out.append((start, k))
+        k += 1
+    return out
+
+
+def cpp_expand(text, spec):
+    """Expand the function-generating macros of `spec['headers']` (and the
+    source's own matching macros) with the C preprocessor; everything else of
+    the source is kept, #include lines are dropped, and the reference
+    configuration (CONFIG) is defined. Used for the CfL wrapper macros."""
+    import subprocess
+    defs = []
+    for header in spec['headers']:
+        h = (ROOT / header).read_text().split('\n')
+        keep = set()
+        for a, b in macro_blocks('\n'.join(h), spec['macros']):
+            keep |= set(range(a, b + 1))
+        # The conditional directives too, so that a macro defined twice under
+        # `#if CONFIG_...` / `#else` takes the reference configuration's form.
+        keep |= {k for k, l in enumerate(h) if re.match(r'\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b', l)}
+        defs.append('\n'.join(h[k] for k in sorted(keep)))
+    src = text.split('\n')
+    src = [l if not re.match(r'\s*#\s*include\b', l) else '' for l in src]
+    full = '\n'.join(defs) + '\n' + '\n'.join(src)
+    args = (['cc', '-E', '-P', '-C', '-x', 'c', '-'] + [f'-D{k}={v}' for k, v in CONFIG.items() if k != '__cplusplus']
+            + [f'-D{d}' for d in spec.get('defines', [])])
+    r = subprocess.run(args, input=full, capture_output=True, text=True)
+    if r.returncode:
+        raise SystemExit(f'cpp failed: {r.stderr[:2000]}')
+    return r.stdout
+
+
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 
@@ -1303,6 +1388,8 @@ def translate(config_path, work=None):
     base = HERE
     src_path = ROOT / cfg['source']
     text = src_path.read_text()
+    if cfg.get('cpp'):
+        text = cpp_expand(text, cfg['cpp'])
     for a, b in cfg.get('replace', []):
         if a not in text:
             raise SystemExit(f'replace target not found: {a[:60]}')
@@ -1321,9 +1408,8 @@ def translate(config_path, work=None):
         else:
             if os.environ.get('C2R_VERBOSE'):
                 print(f'note: function-like or complex #define {dname} {value}', file=sys.stderr)
-    aligned = {m.group(3).split('[')[0].strip(): int(m.group(1)) for m in
-               re.finditer(r'DECLARE_ALIGNED\(\s*(\d+)\s*,\s*([^,]+?),\s*([^)]*?)\)', clean)}
-    clean = re.sub(r'DECLARE_ALIGNED\(\s*\d+\s*,\s*([^,]+?),\s*([^)]*?)\)', r'\1 \2', clean)
+    aligned = {name: align for align, _, name, _, _ in declare_aligned(clean)}
+    clean = strip_declare_aligned(clean)
     if cfg.get('only'):
         # File-scope invocations of function-generating macros (AOM_VAR_*, VAR_FN,
         # ...) define functions outside `only`; they are blanked before parsing.
