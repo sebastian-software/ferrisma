@@ -324,9 +324,12 @@ fn outside_decoding_the_selection_is_the_scalar_path() {
     assert_eq!(max_vector_size(), 4);
     // The selection a decoder makes: NEON (or AVX2) only when the default is
     // on for this target and the scalar gate does not force the scalar path.
-    // The per-target default: NEON on AArch64, scalar on x86-64 until
-    // hosted AVX2 evidence exists (ADR 0004 "Default selection per target").
-    assert_eq!(DECODER_SELECTS_SIMD, cfg!(target_arch = "aarch64"));
+    // The per-target default: NEON on AArch64, AVX2 on x86-64 when the CPU
+    // has Highway's AVX2 group (ADR 0004 "Default selection per target").
+    assert_eq!(
+        DECODER_SELECTS_SIMD,
+        cfg!(any(target_arch = "aarch64", target_arch = "x86_64"))
+    );
     let expected = expected_decoder_target();
     assert_eq!(
         expected.is_some(),

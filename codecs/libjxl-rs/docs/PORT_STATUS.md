@@ -233,11 +233,29 @@ with the scalar row padding. `tests/dispatch_scope.rs` proves the encoder's
 bytes and its zero SIMD selections in both orders, inside a decoder
 callback and concurrently, and the decoder's target in every public decode
 (ADR 0004 "Scope of the selection"). The decoder selects NEON by default
-on AArch64 (`hwy::DECODER_SELECTS_SIMD`); x86-64 stays on the scalar path
-until hosted AVX2 evidence exists. `ToLinear` and `ToneMapping` are covered
+on AArch64 (`hwy::DECODER_SELECTS_SIMD`), and AVX2 on x86-64 since the
+x86-64 evidence below. `ToLinear` and `ToneMapping` are covered
 by row-level parity only (no gate input reaches them; ADR 0004 "Default
 selection per target").
 <!-- end enable -->
+
+<!-- enable-x86 -->
+Default selection on x86-64 (2026-11-14, branch `v1/jxl-enable-x86`): a
+decoder on x86-64 selects AVX2 when the CPU has Highway's AVX2 group
+(working decision, delegated, revisable by the owner). Evidence under
+Rosetta 2 on this machine: the x86-64 test stage (scalar stage and every
+SIMD binary on AVX2), the public-decoder gate with the pinned conformance
+corpus for the first time on x86-64 (704 decodes of 352 files match,
+issue #215), the plain checked suite with the default on, the encoder
+parity tests and the engine's JPEG XL tests; native evidence is hosted run
+43599382021 and the hosted run of this branch. Not covered locally: native
+alignment faults (Rosetta does not raise them) and skcms's HSW engine (the
+cross-built originals contain only the baseline engine, O9). AVX2 output
+can differ between CPU vendors as the original's does (`rcpps`, O4). Two
+defects found on the way are fixed: an aligned `&__m128` formed by
+`Avx2::load_dup128` from unaligned rows, and a signaling NaN quieted in
+`DequantMatrices::set_dc_quant` (ADR 0004 "Default selection on x86-64").
+<!-- end enable-x86 -->
 <!-- avx2 oracle -->
 AVX2 reference (2026-11-14, working decision, delegated and revisable by
 the owner): the AVX2 oracle variant is upstream's dispatch build capped at

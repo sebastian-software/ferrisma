@@ -104,8 +104,9 @@ point (see "Scope of the selection": the encoder stays on the scalar path);
 tests switch it like Highway's `SetSupportedTargetsForTest`
 (`hwy::set_decoder_simd_for_test`).
 
-The selection is **on for AArch64 (NEON) and off for x86-64** since
-2026-11-14 ("Default selection per target"). Working decision 2026-11-13
+The selection is **on for AArch64 (NEON) and for x86-64 (AVX2)** since
+2026-11-14 ("Default selection per target", "Default selection on
+x86-64"). Working decision 2026-11-13
 (delegated, revisable by the owner): it is turned on per target, and only
 when on that target
 
@@ -1055,8 +1056,9 @@ the scope is enforced and tested by selection, not by output bytes.
 <!-- enable: default -->
 ## Default selection per target (2026-11-14, branch `v1/jxl-enable`)
 
-`hwy::DECODER_SELECTS_SIMD` is `cfg!(target_arch = "aarch64")`: a decoder
-created on AArch64 selects NEON, a decoder on x86-64 keeps the scalar path.
+`hwy::DECODER_SELECTS_SIMD` was `cfg!(target_arch = "aarch64")`: a decoder
+created on AArch64 selects NEON; x86-64 kept the scalar path until
+"Default selection on x86-64" (2026-11-14) below.
 Working decision 2026-11-14 (delegated, revisable by the owner), on the
 evidence of "Decoder path":
 
@@ -1070,8 +1072,8 @@ evidence of "Decoder path":
   evidence is the row-level parity of `tests/simd_color.rs` only, not a
   whole decode;
 - (c) the scalar gate forces the scalar path (`JXL_DECODER_TARGET=scalar`);
-- (d) does not hold for AVX2 yet: there is no hosted x86-64 run of the
-  combined branch, so x86-64 stays on the scalar path.
+- (d) did not hold for AVX2 then: there was no hosted x86-64 run of the
+  combined branch. For its later state see "Default selection on x86-64".
 
 The selection is scoped to decoding ("Scope of the selection"): the
 encoder, including the decoder code it runs, stays on the scalar path on
@@ -1511,3 +1513,48 @@ tools' other children run only the original, a relinked original or a Rust
 probe that calls no decoder entry point (Brotli, box contents, decoder
 input, the CMS and skcms probes).
 <!-- end audit-fix -->
+<!-- enable-x86 -->
+## Default selection on x86-64 (2026-11-14, branch `v1/jxl-enable-x86`)
+
+`hwy::DECODER_SELECTS_SIMD` is `cfg!(any(target_arch = "aarch64",
+target_arch = "x86_64"))`: a decoder created on x86-64 selects AVX2 when
+`Target::detect()` finds Highway's complete AVX2 group, and the scalar path
+otherwise (AVX-512 is never selected, D6). Working decision 2026-11-14
+(delegated, revisable by the owner), on this evidence:
+
+- (a) every decode-path Highway export of the Plan has an AVX2 translation;
+  the SIMD binaries match the AVX2 oracle (upstream's dispatch build capped
+  at AVX2, "AVX2 reference: upstream's dispatch build") under Rosetta 2 on
+  this machine and on hosted Linux x86-64 (run 43599382021);
+- (b) the public decoder gate on AVX2 under Rosetta 2: 650 decodes of 325
+  files without the corpus and, for the first time on x86-64 (issue #215),
+  704 decodes of 352 files with the pinned conformance corpus, all
+  matching; hosted run 43599382021 matched the gate without the corpus on
+  native hardware. As on AArch64, no input reaches `ToLinear` or
+  `ToneMapping`; their evidence is the row-level parity of
+  `tests/simd_color.rs` (also matching on AVX2);
+- (c) the scalar gate forces the scalar path on x86-64 as well
+  (`tools/check.py --target x86_64-apple-darwin`, and the explicit
+  scalar-reference selection of "Which path a test runs");
+- (d) native x86-64 evidence is hosted run 43599382021 plus the hosted run
+  of this branch; Rosetta 2 is not native hardware (it does not fault on a
+  misaligned aligned move, for example), so the local runs do not replace
+  them.
+
+Limits. AVX2 output can differ between CPU vendors exactly as the
+original's AVX2 build does (`rcpps` in AdjustQuantBias, open question O4);
+identity is per host. The originals cross-built on this machine contain only
+skcms's baseline engine (CMake sees the host's `arm64` processor, upstream's
+`skcms.cmake` then defines `SKCMS_DISABLE_HSW`), so the port's skcms HSW
+engine was not compared with the original's HSW engine locally; hosted Linux
+builds both with HSW (open question O9). Engine selection in skcms does not
+depend on this default.
+
+Defects found by the x86-64 runs with the default on (fixed before it):
+`Avx2::load_dup128` formed a `&__m128` from a slice pointer, which requires
+16-byte alignment (undefined behavior for an unaligned row; a debug build of
+`ferrisma-jxl-decoder`'s tests aborted on it); it now loads unaligned into a
+local and broadcasts that, the same lanes. `DequantMatrices::set_dc_quant`
+lost a signaling NaN's payload after LLVM merged its copy into the division
+(`dc / 1.0`) in one x86-64 build; the copy is now a separate array copy.
+<!-- end enable-x86 -->
