@@ -21,12 +21,33 @@ DAV1D_ENTRY = re.compile(r'        \{\n            let mut init = AvailableCodec
                          r'                choice: AVIF_CODEC_CHOICE_DAV1D,\n.*?\n            init\n        \},\n', re.S)
 
 
+# The DAV1D=ON entry as C2Rust translated it (translations/codec-registry.json before ADR 0061).
+DAV1D_BLOCK = """        {
+            let mut init = AvailableCodec {
+                choice: AVIF_CODEC_CHOICE_DAV1D,
+                type_0: AVIF_CODEC_TYPE_AV1,
+                name: b"dav1d\\0" as *const u8 as *const core::ffi::c_char,
+                version: Some(
+                    avifCodecVersionDav1d
+                        as unsafe extern "C" fn() -> *const core::ffi::c_char,
+                ),
+                create: Some(
+                    avifCodecCreateDav1d as unsafe extern "C" fn() -> *mut avifCodec,
+                ),
+                flags: AVIF_CODEC_FLAG_CAN_DECODE as core::ffi::c_int as uint32_t,
+            };
+            init
+        },
+"""
+
+
 def raw_registry(with_dav1d):
     """Undo the registry's feature guards: the shape of C2Rust's all-guards avif.c table."""
     committed = json.loads((REPOSITORY / 'translations/codec-registry.json').read_text())
     table = re.sub(r'        #\[cfg\(feature = "\w+"\)\]\n', '', committed['table'])
-    if not with_dav1d:
-        table = DAV1D_ENTRY.sub('', table)
+    table = DAV1D_ENTRY.sub('', table)
+    if with_dav1d:
+        table = table.replace('    [\n', '    [\n' + DAV1D_BLOCK, 1)
     count = table.count('let mut init = AvailableCodec {')
     table = table.replace(committed['array_type'], f'[AvailableCodec; {count}]')
     return table + '\nstatic mut availableCodecsCount: core::ffi::c_int = 0;\n'
@@ -116,6 +137,26 @@ class Generation(unittest.TestCase):
         self.assertEqual(rebased[0]['command'], 'clang -c avif.c')
         with self.assertRaises(SystemExit):
             import_translation.rebased([dict(file='/elsewhere/avif.c', command='')], REPOSITORY)
+
+
+class AvmProjection(unittest.TestCase):
+    def test_projection_requires_a_dav1d_on_input(self):
+        import project_dav1d_off
+        registry = json.loads((REPOSITORY / 'translations/codec-registry.json').read_text())
+        text = (REPOSITORY / 'src/avif.rs').read_text()
+        with self.assertRaisesRegex(SystemExit, 'not a DAV1D=ON translation'):
+            project_dav1d_off.project(text, registry)
+
+    def test_projected_variants_are_reproducible(self):
+        result = subprocess.run([sys.executable, str(REPOSITORY / 'tools/project_dav1d_off.py'), '--check'],
+                                cwd=REPOSITORY, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_no_translation_of_the_dav1d_adapter_remains(self):
+        result = subprocess.run([sys.executable, str(REPOSITORY / 'tools/check_translation.py')],
+                                cwd=REPOSITORY, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(list((REPOSITORY / 'src').rglob('codec_dav1d.rs')))
 
 
 if __name__ == '__main__':

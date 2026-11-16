@@ -23,7 +23,6 @@ pub mod scale;
 pub mod stream;
 pub mod utils;
 pub mod write;
-pub mod codec_dav1d;
 pub mod codec_aom;
 pub mod libyuv {
     pub mod scale;

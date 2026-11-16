@@ -6,7 +6,7 @@
   "generation_target": "x86_64-unknown-linux-gnu",
   "preprocessing_profile": "release",
   "variant": "mini-extended-pixi",
-  "original_translation_units": 28,
+  "original_translation_units": 27,
   "units": [
     {
       "source": "upstream/libavif/src/alpha.c",
@@ -20,8 +20,8 @@
       "source": "upstream/libavif/src/avif.c",
       "source_sha256": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
       "rust": "src/profiles/linux/release/mini-extended-pixi/avif.rs",
-      "raw_sha256": "bf6c56ec886bd9d9fc3bba0e777dbd39139f821e391b324e600987527a6cd699",
-      "rust_sha256": "d4914ca7a860c2f79e5f1ebea75804478199b42ef0478fd8991d078cf375882b",
+      "raw_sha256": "a1bf1c229681c8ac042eb4b1fb8ab27025c85d50ab369c7a47c6c751226cf8da",
+      "rust_sha256": "ab2ef5fae73e88e5695686ff30f712789f2da4b2c90a6eb6348f79ae43861488",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
@@ -242,16 +242,6 @@
       "corrections": {}
     },
     {
-      "source": "upstream/libavif/src/codec_dav1d.c",
-      "source_sha256": "2bee3b437a7ca303c3e6a04512a35c3832507f4fc37d35d8ee587e9fe9aeff84",
-      "rust": "src/profiles/linux/release/mini-extended-pixi/codec_dav1d.rs",
-      "raw_sha256": "eecdf9b0497b64aa5292fd5b0df3728cc55975dd44079254454591abcfa21d7b",
-      "rust_sha256": "1be06d703c22f76c227a7a16c1a904e529d53a36b2e3ed8bfd22c31fcc2c7d02",
-      "corrections": {
-        "current-rust-variadic-list": 1
-      }
-    },
-    {
       "source": "upstream/libavif/src/codec_aom.c",
       "source_sha256": "2257d152d6f7218f1057890f77a7e56dd2b34cf44403367eca7b4d53186b73f4",
       "rust": "src/profiles/linux/release/mini-extended-pixi/codec_aom.rs",
@@ -264,9 +254,9 @@
     }
   ],
   "selector": "src/profiles/linux/release/mini-extended-pixi/modules.rs",
-  "selector_sha256": "6a00d1d4f764fdb23921dbd7a8e9ac96ec42d09d4c9280204a46eb2284459471",
-  "original_compile_commands_sha256": "9ffdc3d4fa8bd5b49b3f8a04dcd48e71645692c4ae5022766783f1e419f564a0",
-  "original_cmake_cache_sha256": "aa456d3aa9875dfcb81be6ff201585a29b3942adfcb17e1318fce4f3ff307fc4",
+  "selector_sha256": "12df2cac66297e119bf942c59a0bca7493e7b4ac4ab8875826e84d03a00d07c2",
+  "original_compile_commands_sha256": "fd67b93379735e1bc770d81d4211055a877d94950249bd7d8d8c02515c930a58",
+  "original_cmake_cache_sha256": "7389e3623fa0a6a5a7a5a8e2cd63631995e0125b5b95a3b7bb740d0c55456202",
   "original_tests_executed": false,
   "native_acceptance_claimed": false
 }

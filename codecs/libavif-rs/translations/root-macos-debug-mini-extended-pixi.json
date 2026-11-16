@@ -6,7 +6,7 @@
   "generation_target": "aarch64-apple-darwin",
   "preprocessing_profile": "debug",
   "variant": "mini-extended-pixi",
-  "original_translation_units": 28,
+  "original_translation_units": 27,
   "units": [
     {
       "source": "upstream/libavif/src/alpha.c",
@@ -20,8 +20,8 @@
       "source": "upstream/libavif/src/avif.c",
       "source_sha256": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
       "rust": "src/profiles/macos/debug/mini-extended-pixi/avif.rs",
-      "raw_sha256": "1c71d86b6792eb49f72ef9c7a8dfba0982c167a3889ed84e99a9f0a008381edf",
-      "rust_sha256": "49a4c1730172a6232a30b68fe2e573e47c275639c2120972539376e1b4196a40",
+      "raw_sha256": "56a5b978107f8cc51fc06ec2f5b3a210858b5a339322546f00f1cdded6e96f09",
+      "rust_sha256": "f2ad2e8e3ddb7c9b1f49202bf92180236b69d60ab28b1710e5a343c2b6c72570",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
@@ -245,16 +245,6 @@
       "corrections": {}
     },
     {
-      "source": "upstream/libavif/src/codec_dav1d.c",
-      "source_sha256": "2bee3b437a7ca303c3e6a04512a35c3832507f4fc37d35d8ee587e9fe9aeff84",
-      "rust": "src/profiles/macos/debug/mini-extended-pixi/codec_dav1d.rs",
-      "raw_sha256": "7b1fdfc3cad1c44fc3979322387e19e34fd30c428e217899132f18914600e1a2",
-      "rust_sha256": "21a5b0be6a8494b2be357c4792bb4b94faa9c764c907542c14bdff596ed4c007",
-      "corrections": {
-        "variadic-abi": 1
-      }
-    },
-    {
       "source": "upstream/libavif/src/codec_aom.c",
       "source_sha256": "2257d152d6f7218f1057890f77a7e56dd2b34cf44403367eca7b4d53186b73f4",
       "rust": "src/profiles/macos/debug/mini-extended-pixi/codec_aom.rs",
@@ -267,9 +257,9 @@
     }
   ],
   "selector": "src/profiles/macos/debug/mini-extended-pixi/modules.rs",
-  "selector_sha256": "02db9fe4ae1601c4c10494dfade8a241af9153e9c5cc95664fd1287abd482ca1",
-  "original_compile_commands_sha256": "ef876cf5c59fcec6569b698a7a1dc38bc8c4d39f3a2026e0def9c9c0b1de0bd6",
-  "original_cmake_cache_sha256": "dfabfb5c56708ff43621b9adbe306a559b5db8120fb565476ce2e68cc547a015",
+  "selector_sha256": "0b51bd2accea13d1e14fbb2884e25213118fc2cac2cc8df16de84398bacef85d",
+  "original_compile_commands_sha256": "4b840a2be53ea50cc2edfa2c0d0694e06c858d5b6c1d2a0be21c606aa3b1f72d",
+  "original_cmake_cache_sha256": "7e0cf4787822d9d995c5780906b258f3e7cbe7056cd30ab615644c054366b488",
   "original_tests_executed": false,
   "native_acceptance_claimed": false
 }

@@ -28,8 +28,15 @@ for path in manifests:
         sources.add(source.resolve())
         outputs.add(target.resolve())
 # Units the root configuration does not compile (codec_dav1d.c: libavif with
-# AVIF_CODEC_DAV1D=OFF, port ADR 0061) need no translation.
+# AVIF_CODEC_DAV1D=OFF, port ADR 0061) have no translation in the root, its
+# profiles or its variants.
 excluded = {(ROOT / name).resolve() for name in EXCLUDED}
+if excluded & sources:
+    raise SystemExit("Translated units outside the root configuration: "
+                     + ", ".join(str(path.relative_to(ROOT)) for path in sorted(excluded & sources)))
+for name in ["src/codec_dav1d.rs", *map(str, (ROOT / "src").glob("profiles/*/*/*/codec_dav1d.rs"))]:
+    if (ROOT / name).exists():
+        raise SystemExit(f"Translation of a unit outside the root configuration: {name}")
 expected = set((ROOT / "upstream/libavif/src").glob("*.c")) - excluded
 missing = expected - sources
 if missing:

@@ -14,11 +14,18 @@
       "source": "upstream/libavif/src/avif.c",
       "rust": "src/variants/extended-pixi-avm/avif.rs",
       "raw_sha256": "be03a200653d83aa34b6c70b15fbf4055768fd331808a36c90cdf60569ab0d9c",
-      "rust_sha256": "5a8d5c2e51c8de3057cfbf70d46129a0a3f8481b0d8c3040447d71717866006a",
+      "rust_sha256": "fd0bccb6b39d103408605ca62735e0fd4874238990917fa1b3ed84844cad3833",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
         "codec-feature-guards": 3
+      },
+      "projection": {
+        "tool": "tools/project_dav1d_off.py",
+        "configuration": "AVIF_CODEC_DAV1D=OFF",
+        "raw_sha256_configuration": "AVIF_CODEC_DAV1D=ON: C2Rust output of the AVM v1.0.0 build, not regenerated",
+        "from_revision": "d23958895eaf39700f43e40c45ee4354e41e077d",
+        "from_rust_sha256": "5a8d5c2e51c8de3057cfbf70d46129a0a3f8481b0d8c3040447d71717866006a"
       }
     },
     {
@@ -214,15 +221,6 @@
       "corrections": {}
     },
     {
-      "source": "upstream/libavif/src/codec_dav1d.c",
-      "rust": "src/codec_dav1d.rs",
-      "raw_sha256": "7b1fdfc3cad1c44fc3979322387e19e34fd30c428e217899132f18914600e1a2",
-      "rust_sha256": "21a5b0be6a8494b2be357c4792bb4b94faa9c764c907542c14bdff596ed4c007",
-      "corrections": {
-        "variadic-abi": 1
-      }
-    },
-    {
       "source": "upstream/libavif/src/codec_aom.c",
       "rust": "src/codec_aom.rs",
       "raw_sha256": "00387d2ae94d8b36a8c8975638466d59c1adf6e30821877b0bbfd13f71afcc8b",
@@ -242,5 +240,81 @@
         "static-raw-address": 1
       }
     }
-  ]
+  ],
+  "projection": {
+    "tool": "tools/project_dav1d_off.py",
+    "configuration": "AVIF_CODEC_DAV1D=OFF (port ADR 0061)",
+    "from_revision": "d23958895eaf39700f43e40c45ee4354e41e077d",
+    "reason": "AVM v1.0.0 variants regenerate only locally; the rule reproduces the real DAV1D=OFF regenerations",
+    "verified_against": [
+      {
+        "rust": "src/avif.rs",
+        "reproduced": "byte-identical"
+      },
+      {
+        "rust": "src/profiles/linux/debug/default/avif.rs",
+        "reproduced": "comparable (assertion file names and unused labels)"
+      },
+      {
+        "rust": "src/profiles/linux/debug/extended-pixi/avif.rs",
+        "reproduced": "comparable (assertion file names and unused labels)"
+      },
+      {
+        "rust": "src/profiles/linux/debug/libgav1-rav1e-svt-libyuv/avif.rs",
+        "reproduced": "comparable (assertion file names and unused labels)"
+      },
+      {
+        "rust": "src/profiles/linux/debug/mini-extended-pixi-libgav1-rav1e-svt-libyuv/avif.rs",
+        "reproduced": "comparable (assertion file names and unused labels)"
+      },
+      {
+        "rust": "src/profiles/linux/debug/mini-extended-pixi/avif.rs",
+        "reproduced": "comparable (assertion file names and unused labels)"
+      },
+      {
+        "rust": "src/profiles/linux/debug/mini/avif.rs",
+        "reproduced": "comparable (assertion file names and unused labels)"
+      },
+      {
+        "rust": "src/profiles/linux/release/default/avif.rs",
+        "reproduced": "byte-identical"
+      },
+      {
+        "rust": "src/profiles/linux/release/extended-pixi/avif.rs",
+        "reproduced": "byte-identical"
+      },
+      {
+        "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/avif.rs",
+        "reproduced": "byte-identical"
+      },
+      {
+        "rust": "src/profiles/linux/release/mini-extended-pixi-libgav1-rav1e-svt-libyuv/avif.rs",
+        "reproduced": "byte-identical"
+      },
+      {
+        "rust": "src/profiles/linux/release/mini-extended-pixi/avif.rs",
+        "reproduced": "byte-identical"
+      },
+      {
+        "rust": "src/profiles/linux/release/mini/avif.rs",
+        "reproduced": "byte-identical"
+      },
+      {
+        "rust": "src/profiles/macos/debug/default/avif.rs",
+        "reproduced": "byte-identical"
+      },
+      {
+        "rust": "src/profiles/macos/debug/mini-extended-pixi/avif.rs",
+        "reproduced": "byte-identical"
+      },
+      {
+        "rust": "src/profiles/macos/release/default/avif.rs",
+        "reproduced": "byte-identical"
+      },
+      {
+        "rust": "src/profiles/macos/release/mini-extended-pixi/avif.rs",
+        "reproduced": "byte-identical"
+      }
+    ]
+  }
 }

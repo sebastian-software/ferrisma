@@ -6,7 +6,7 @@
   "generation_target": "x86_64-unknown-linux-gnu",
   "preprocessing_profile": "release",
   "variant": "mini-extended-pixi-libgav1-rav1e-svt-libyuv",
-  "original_translation_units": 26,
+  "original_translation_units": 25,
   "units": [
     {
       "source": "upstream/libavif/src/alpha.c",
@@ -20,8 +20,8 @@
       "source": "upstream/libavif/src/avif.c",
       "source_sha256": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
       "rust": "src/profiles/linux/release/mini-extended-pixi-libgav1-rav1e-svt-libyuv/avif.rs",
-      "raw_sha256": "b33659af823c518d3b2782804ae992bf67651ab664175d18c67fa2576d51b947",
-      "rust_sha256": "4395ce7f554735c719705b419ad758dbde105b169d40679041419d9375f8cc34",
+      "raw_sha256": "3f0bc4605eb1be1b060fe262d7e2ca8b20c00fc184edc0db5a925fe590e2355d",
+      "rust_sha256": "1a38280979d790e7de71f80089844af734411dcc601e814b73b021b8a3deab71",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
@@ -202,16 +202,6 @@
       }
     },
     {
-      "source": "upstream/libavif/src/codec_dav1d.c",
-      "source_sha256": "2bee3b437a7ca303c3e6a04512a35c3832507f4fc37d35d8ee587e9fe9aeff84",
-      "rust": "src/profiles/linux/release/mini-extended-pixi-libgav1-rav1e-svt-libyuv/codec_dav1d.rs",
-      "raw_sha256": "eecdf9b0497b64aa5292fd5b0df3728cc55975dd44079254454591abcfa21d7b",
-      "rust_sha256": "1be06d703c22f76c227a7a16c1a904e529d53a36b2e3ed8bfd22c31fcc2c7d02",
-      "corrections": {
-        "current-rust-variadic-list": 1
-      }
-    },
-    {
       "source": "upstream/libavif/src/codec_libgav1.c",
       "source_sha256": "1cdd17b24d5d175cd610e6c2e93317bb3254ba73dda679b4fe7716904df41e0b",
       "rust": "src/profiles/linux/release/mini-extended-pixi-libgav1-rav1e-svt-libyuv/codec_libgav1.rs",
@@ -253,9 +243,9 @@
   ],
   "libyuv_translation_overlay_sha256": "a46a17e4eed90097148736fb3ee2ef7e780aa588305771fba46d6a04a44779fb",
   "selector": "src/profiles/linux/release/mini-extended-pixi-libgav1-rav1e-svt-libyuv/modules.rs",
-  "selector_sha256": "77f4bec7770739667adeccbb5e53495db364a23256950a8c94d843b813851ada",
-  "original_compile_commands_sha256": "57ffff0b10b7767326bfb392ac63c1434e8a2e55978280d7494ff1c3a9b55223",
-  "original_cmake_cache_sha256": "63c5c6f35a65d9ad16f8f8541115e24b6ce72345cad8525cbb8ffc895d06c2a0",
+  "selector_sha256": "42144fce744b015af7628ecac64f8bfc5ae2cb36424ac7055652a576a95f879e",
+  "original_compile_commands_sha256": "bf491af3aaa72897a0e03ed6b7b5fd68e0ddb0b4afa204a00ea0b98501d1b550",
+  "original_cmake_cache_sha256": "d2bb68c7bde6a8a33152e1e454dce57bc74d2385ee62e6d852fd69f9a610d2e0",
   "original_tests_executed": false,
   "native_acceptance_claimed": false
 }

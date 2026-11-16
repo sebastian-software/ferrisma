@@ -95,11 +95,7 @@ class ProductionSelection(unittest.TestCase):
             for profile in ['release', 'debug']:
                 record = json.loads((REPOSITORY / f'translations/root-linux-{profile}-{variant}.json').read_text())
                 self.assertEqual(record['selector'], f'src/profiles/linux/{profile}/{variant}/modules.rs')
-                # Transitional (port ADR 0061): the committed profiles still
-                # carry codec_dav1d until their AVIF_CODEC_DAV1D=OFF
-                # regeneration lands; that commit restores the plain count.
-                units = [unit for unit in record['units'] if unit['source'] not in root_variants.EXCLUDED]
-                self.assertEqual(len(units), len(root_variants.sources(variant)))
+                self.assertEqual(len(record['units']), len(root_variants.sources(variant)))
 
     def test_crate_root_keeps_the_macos_tree_and_gates_linux(self):
         text = (REPOSITORY / 'src/lib.rs').read_text()
@@ -124,7 +120,7 @@ class ProductionSourceProof(unittest.TestCase):
     def test_linux_package_must_compile_exactly_the_profile(self):
         record = self.record('debug', 'mini-extended-pixi')
         compiled = self.linux_sources(record)
-        self.assertEqual(production.match_profile(compiled, record, production.LINUX)['units'], 28)
+        self.assertEqual(production.match_profile(compiled, record, production.LINUX)['units'], 27)
         for change in ['missing', 'extra', 'hash', 'release', 'selector', 'owned']:
             with self.subTest(change=change):
                 altered = dict(compiled)

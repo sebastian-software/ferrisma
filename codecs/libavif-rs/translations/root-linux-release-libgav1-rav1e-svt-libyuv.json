@@ -6,7 +6,7 @@
   "generation_target": "x86_64-unknown-linux-gnu",
   "preprocessing_profile": "release",
   "variant": "libgav1-rav1e-svt-libyuv",
-  "original_translation_units": 26,
+  "original_translation_units": 25,
   "units": [
     {
       "source": "upstream/libavif/src/alpha.c",
@@ -20,8 +20,8 @@
       "source": "upstream/libavif/src/avif.c",
       "source_sha256": "13dffe5ffe26db236502ea7cbe2d7252a7cfde18e3ba7a2229c0945fd728b457",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/avif.rs",
-      "raw_sha256": "b33659af823c518d3b2782804ae992bf67651ab664175d18c67fa2576d51b947",
-      "rust_sha256": "4395ce7f554735c719705b419ad758dbde105b169d40679041419d9375f8cc34",
+      "raw_sha256": "3f0bc4605eb1be1b060fe262d7e2ca8b20c00fc184edc0db5a925fe590e2355d",
+      "rust_sha256": "1a38280979d790e7de71f80089844af734411dcc601e814b73b021b8a3deab71",
       "corrections": {
         "loader-array-sanitizer-layout": 1,
         "static-raw-address": 1,
@@ -202,16 +202,6 @@
       }
     },
     {
-      "source": "upstream/libavif/src/codec_dav1d.c",
-      "source_sha256": "2bee3b437a7ca303c3e6a04512a35c3832507f4fc37d35d8ee587e9fe9aeff84",
-      "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/codec_dav1d.rs",
-      "raw_sha256": "eecdf9b0497b64aa5292fd5b0df3728cc55975dd44079254454591abcfa21d7b",
-      "rust_sha256": "1be06d703c22f76c227a7a16c1a904e529d53a36b2e3ed8bfd22c31fcc2c7d02",
-      "corrections": {
-        "current-rust-variadic-list": 1
-      }
-    },
-    {
       "source": "upstream/libavif/src/codec_libgav1.c",
       "source_sha256": "1cdd17b24d5d175cd610e6c2e93317bb3254ba73dda679b4fe7716904df41e0b",
       "rust": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/codec_libgav1.rs",
@@ -253,9 +243,9 @@
   ],
   "libyuv_translation_overlay_sha256": "a46a17e4eed90097148736fb3ee2ef7e780aa588305771fba46d6a04a44779fb",
   "selector": "src/profiles/linux/release/libgav1-rav1e-svt-libyuv/modules.rs",
-  "selector_sha256": "142716bcfd744e0fbf5fe187422959e184c1a8320530fb9387140747aa824670",
-  "original_compile_commands_sha256": "b03fbd991dad441da9488b8e192d178da5916578af76df3c2e6ba54f99d35751",
-  "original_cmake_cache_sha256": "4826893870bd734fc0a5c63ad40c0c018dfab3c2428a0867cb9eae79980fb23e",
+  "selector_sha256": "7738f099a881403f41d20c63eb9aab1f29e4c7534b7760de465ff6b56e73fd08",
+  "original_compile_commands_sha256": "f92285014a33bb04107173c910087b5b719b510e9d4f3ca546585d463bc42e89",
+  "original_cmake_cache_sha256": "1f1f243d95cbbe3d375f9a4a43f0a535877e5f30c425a4c75da8b4d18285b92b",
   "original_tests_executed": false,
   "native_acceptance_claimed": false
 }

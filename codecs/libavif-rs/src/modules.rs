@@ -108,8 +108,6 @@ pub mod utils;
 #[cfg_attr(all(feature = "mini", feature = "extended-pixi", feature = "avm"), path = "variants/mini-extended-pixi-avm/write.rs")]
 pub mod write;
 
-pub mod codec_dav1d;
-
 pub mod codec_aom;
 
 #[cfg(not(feature = "libyuv"))]

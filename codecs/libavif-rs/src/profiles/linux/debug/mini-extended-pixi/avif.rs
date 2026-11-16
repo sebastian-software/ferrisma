@@ -41,8 +41,6 @@ extern "C" {
     fn avifIsValidUUID(uuid: *const uint8_t) -> avifBool;
     fn avifCodecCreateAOM() -> *mut avifCodec;
     fn avifCodecVersionAOM() -> *const core::ffi::c_char;
-    fn avifCodecCreateDav1d() -> *mut avifCodec;
-    fn avifCodecVersionDav1d() -> *const core::ffi::c_char;
     fn avifDiagnosticsPrintf(
         diag: *mut avifDiagnostics,
         format: *const core::ffi::c_char,
@@ -830,12 +828,12 @@ pub unsafe extern "C" fn avifImageCopySamples(
     mut srcImage: *const avifImage,
     mut planes: avifPlanesFlags,
 ) {
-    'c_4743: {
+    'c_4727: {
         if (*srcImage).depth == (*dstImage).depth {} else {
             __assert_fail(
                 b"srcImage->depth == dstImage->depth\0" as *const u8
                     as *const core::ffi::c_char,
-                b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/avif.c\0"
+                b"/home/runner/work/ferrisma/ferrisma/codecs/libavif-rs/upstream/libavif/src/avif.c\0"
                     as *const u8 as *const core::ffi::c_char,
                 189 as core::ffi::c_uint,
                 __ASSERT_FUNCTION.as_ptr(),
@@ -843,14 +841,14 @@ pub unsafe extern "C" fn avifImageCopySamples(
         }
     };
     if planes & AVIF_PLANES_YUV as core::ffi::c_int as avifPlanesFlags != 0 {
-        'c_4689: {
+        'c_4673: {
             if (*srcImage).yuvFormat as core::ffi::c_uint
                 == (*dstImage).yuvFormat as core::ffi::c_uint
             {} else {
                 __assert_fail(
                     b"srcImage->yuvFormat == dstImage->yuvFormat\0" as *const u8
                         as *const core::ffi::c_char,
-                    b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/avif.c\0"
+                    b"/home/runner/work/ferrisma/ferrisma/codecs/libavif-rs/upstream/libavif/src/avif.c\0"
                         as *const u8 as *const core::ffi::c_char,
                     191 as core::ffi::c_uint,
                     __ASSERT_FUNCTION.as_ptr(),
@@ -878,13 +876,13 @@ pub unsafe extern "C" fn avifImageCopySamples(
             let mut dstRow: *mut uint8_t = avifImagePlane(dstImage, c);
             let srcRowBytes: uint32_t = avifImagePlaneRowBytes(srcImage, c) as uint32_t;
             let dstRowBytes: uint32_t = avifImagePlaneRowBytes(dstImage, c) as uint32_t;
-            'c_4603: {
+            'c_4587: {
                 if srcRow.is_null() as core::ffi::c_int
                     == dstRow.is_null() as core::ffi::c_int
                 {} else {
                     __assert_fail(
                         b"!srcRow == !dstRow\0" as *const u8 as *const core::ffi::c_char,
-                        b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/avif.c\0"
+                        b"/home/runner/work/ferrisma/ferrisma/codecs/libavif-rs/upstream/libavif/src/avif.c\0"
                             as *const u8 as *const core::ffi::c_char,
                         211 as core::ffi::c_uint,
                         __ASSERT_FUNCTION.as_ptr(),
@@ -892,24 +890,24 @@ pub unsafe extern "C" fn avifImageCopySamples(
                 }
             };
             if !srcRow.is_null() {
-                'c_4547: {
+                'c_4531: {
                     if planeWidth == avifImagePlaneWidth(dstImage, c) {} else {
                         __assert_fail(
                             b"planeWidth == avifImagePlaneWidth(dstImage, c)\0"
                                 as *const u8 as *const core::ffi::c_char,
-                            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/avif.c\0"
+                            b"/home/runner/work/ferrisma/ferrisma/codecs/libavif-rs/upstream/libavif/src/avif.c\0"
                                 as *const u8 as *const core::ffi::c_char,
                             215 as core::ffi::c_uint,
                             __ASSERT_FUNCTION.as_ptr(),
                         );
                     }
                 };
-                'c_4485: {
+                'c_4469: {
                     if planeHeight == avifImagePlaneHeight(dstImage, c) {} else {
                         __assert_fail(
                             b"planeHeight == avifImagePlaneHeight(dstImage, c)\0"
                                 as *const u8 as *const core::ffi::c_char,
-                            b"/home/runner/work/libavif-rs/libavif-rs/upstream/libavif/src/avif.c\0"
+                            b"/home/runner/work/ferrisma/ferrisma/codecs/libavif-rs/upstream/libavif/src/avif.c\0"
                                 as *const u8 as *const core::ffi::c_char,
                             216 as core::ffi::c_uint,
                             __ASSERT_FUNCTION.as_ptr(),
@@ -2310,24 +2308,8 @@ pub unsafe extern "C" fn avifCodecSpecificOptionsSet(
     }
     return AVIF_RESULT_OK;
 }
-static mut availableCodecs: [AvailableCodec; 3 + cfg!(feature = "libgav1") as usize + cfg!(feature = "rav1e") as usize + cfg!(feature = "svt") as usize + cfg!(feature = "avm") as usize] = unsafe {
+static mut availableCodecs: [AvailableCodec; 2 + cfg!(feature = "libgav1") as usize + cfg!(feature = "rav1e") as usize + cfg!(feature = "svt") as usize + cfg!(feature = "avm") as usize] = unsafe {
     [
-        {
-            let mut init = AvailableCodec {
-                choice: AVIF_CODEC_CHOICE_DAV1D,
-                type_0: AVIF_CODEC_TYPE_AV1,
-                name: b"dav1d\0" as *const u8 as *const core::ffi::c_char,
-                version: Some(
-                    avifCodecVersionDav1d
-                        as unsafe extern "C" fn() -> *const core::ffi::c_char,
-                ),
-                create: Some(
-                    avifCodecCreateDav1d as unsafe extern "C" fn() -> *mut avifCodec,
-                ),
-                flags: AVIF_CODEC_FLAG_CAN_DECODE as core::ffi::c_int as uint32_t,
-            };
-            init
-        },
         #[cfg(feature = "libgav1")]
         {
             let mut init = AvailableCodec {
@@ -2641,7 +2623,7 @@ pub unsafe extern "C" fn avifGainMapDestroy(mut gainMap: *mut avifGainMap) {
     avifFree(gainMap as *mut core::ffi::c_void);
 }
 unsafe extern "C" fn run_static_initializers() {
-    availableCodecsCount = (::core::mem::size_of::<[AvailableCodec; 3 + cfg!(feature = "libgav1") as usize + cfg!(feature = "rav1e") as usize + cfg!(feature = "svt") as usize + cfg!(feature = "avm") as usize]>() as usize)
+    availableCodecsCount = (::core::mem::size_of::<[AvailableCodec; 2 + cfg!(feature = "libgav1") as usize + cfg!(feature = "rav1e") as usize + cfg!(feature = "svt") as usize + cfg!(feature = "avm") as usize]>() as usize)
         .wrapping_div(::core::mem::size_of::<AvailableCodec>() as usize)
         .wrapping_sub(1 as usize) as core::ffi::c_int;
 }

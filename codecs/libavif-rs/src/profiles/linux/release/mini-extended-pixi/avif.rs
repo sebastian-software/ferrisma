@@ -41,8 +41,6 @@ extern "C" {
     fn avifIsValidUUID(uuid: *const uint8_t) -> avifBool;
     fn avifCodecCreateAOM() -> *mut avifCodec;
     fn avifCodecVersionAOM() -> *const core::ffi::c_char;
-    fn avifCodecCreateDav1d() -> *mut avifCodec;
-    fn avifCodecVersionDav1d() -> *const core::ffi::c_char;
     fn avifDiagnosticsPrintf(
         diag: *mut avifDiagnostics,
         format: *const core::ffi::c_char,
@@ -2234,24 +2232,8 @@ pub unsafe extern "C" fn avifCodecSpecificOptionsSet(
     }
     return AVIF_RESULT_OK;
 }
-static mut availableCodecs: [AvailableCodec; 3 + cfg!(feature = "libgav1") as usize + cfg!(feature = "rav1e") as usize + cfg!(feature = "svt") as usize + cfg!(feature = "avm") as usize] = unsafe {
+static mut availableCodecs: [AvailableCodec; 2 + cfg!(feature = "libgav1") as usize + cfg!(feature = "rav1e") as usize + cfg!(feature = "svt") as usize + cfg!(feature = "avm") as usize] = unsafe {
     [
-        {
-            let mut init = AvailableCodec {
-                choice: AVIF_CODEC_CHOICE_DAV1D,
-                type_0: AVIF_CODEC_TYPE_AV1,
-                name: b"dav1d\0" as *const u8 as *const core::ffi::c_char,
-                version: Some(
-                    avifCodecVersionDav1d
-                        as unsafe extern "C" fn() -> *const core::ffi::c_char,
-                ),
-                create: Some(
-                    avifCodecCreateDav1d as unsafe extern "C" fn() -> *mut avifCodec,
-                ),
-                flags: AVIF_CODEC_FLAG_CAN_DECODE as core::ffi::c_int as uint32_t,
-            };
-            init
-        },
         #[cfg(feature = "libgav1")]
         {
             let mut init = AvailableCodec {
@@ -2565,7 +2547,7 @@ pub unsafe extern "C" fn avifGainMapDestroy(mut gainMap: *mut avifGainMap) {
     avifFree(gainMap as *mut core::ffi::c_void);
 }
 unsafe extern "C" fn run_static_initializers() {
-    availableCodecsCount = (::core::mem::size_of::<[AvailableCodec; 3 + cfg!(feature = "libgav1") as usize + cfg!(feature = "rav1e") as usize + cfg!(feature = "svt") as usize + cfg!(feature = "avm") as usize]>() as usize)
+    availableCodecsCount = (::core::mem::size_of::<[AvailableCodec; 2 + cfg!(feature = "libgav1") as usize + cfg!(feature = "rav1e") as usize + cfg!(feature = "svt") as usize + cfg!(feature = "avm") as usize]>() as usize)
         .wrapping_div(::core::mem::size_of::<AvailableCodec>() as usize)
         .wrapping_sub(1 as usize) as core::ffi::c_int;
 }

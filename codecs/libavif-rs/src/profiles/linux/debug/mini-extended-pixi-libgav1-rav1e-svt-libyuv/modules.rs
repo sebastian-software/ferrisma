@@ -23,7 +23,6 @@ pub mod scale;
 pub mod stream;
 pub mod utils;
 pub mod write;
-pub mod codec_dav1d;
 pub mod codec_libgav1;
 pub mod codec_rav1e;
 pub mod codec_svt;
