@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-16
 - **Supersedes:** None. Once accepted, it replaces decision 6 ("no stability promise") of [ADR-0017](0017-minimal-public-facade-and-cli.md) for the items it marks stable.
 - **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (when the version 1.0 may be used, and the release tooling)
 - **Related:** [0010](0010-dual-licensing.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0034](0034-thumbnail-geometry.md), [0037](0037-selectable-workspace-avif-encoder.md), [publishing](../publishing.md), [release automation](../release-automation.md), [compatibility guide](../compatibility.md), tracker #196
@@ -522,3 +522,26 @@ reports that a stable item cannot express its use case.
   backend API gains `EncodeRequest::depth`, `EncoderBackend::row_depths`
   and `RowEncoder::write_row_u16` with defaults, so existing backends need
   no change.
+- 2026-11-16 — **API hardening from the API review of 2026-11-16**
+  (working decisions, delegated, revisable by the owner; the record stays
+  Proposed). Changes that need no API-shape decision:
+  1. **Panic policy.** The public entry points (`transcode`,
+     `transcode_resized`, `inspect`, the `_with` variants, and each item of
+     `Engine::transcode_batch` and `transcode_batch_with`) catch a panic
+     with `std::panic::catch_unwind` and return
+     `ProcessingErrorKind::Internal` with a message that says a panic was
+     caught (and the panic's text, when it is a `&str` or `String`). Before,
+     a panic in a codec port or a backend unwound into the caller, and one
+     panicking batch item re-panicked `std::thread::scope` after the join,
+     so every result of the batch was lost; now only that item fails.
+     Promised: no unwinding out of those functions, kind `Internal`, and a
+     later call is unaffected (the memory budget is per call and released
+     while unwinding; the argument is at `contain_panic` in
+     `src/pipeline.rs`). Not promised: a panic stays a defect, not an input
+     class; with `panic = "abort"` the process aborts (the AVIF features do
+     not compile with it); a panic that has to cross a C-ABI frame inside a
+     codec port aborts; the state of a caller's `EncoderBackend` after its
+     own panic is the backend's. Evidence: `tests/panic_containment.rs`
+     provokes a panic through the public backend API in
+     `required_frame_bytes`, `begin`, `write_row` and `finish`, with one and
+     four transform threads and in a batch.

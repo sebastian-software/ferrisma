@@ -123,6 +123,32 @@ and reports the one it used, the replacement is documented instead: the
 batch runs each image with one transform and one encoder thread, and the
 `F64Reference` executor runs scalar and single-threaded.
 
+## Panics
+
+A panic inside Ferrisma, one of its codecs or an encoder backend does not
+unwind out of the public functions (since 2026-11-16; ADR-0040 amendment of
+that date, working decision, delegated, revisable by the owner):
+`transcode`, `transcode_resized`, `inspect`, the `_with` variants and each
+item of `Engine::transcode_batch` and `transcode_batch_with` catch it and
+return `ProcessingErrorKind::Internal`, whose message says that a panic was
+caught and includes the panic's message when it is text. In a batch, only
+the panicking item fails; the other items keep their results. A later call
+starts from a fresh memory budget, so nothing of the failed call stays
+reserved.
+
+What this does not promise:
+
+- A panic is still a defect. Please report it; the `Internal` kind is not a
+  class of input to handle like a refusal, and Rust's panic hook still
+  prints its message to standard error.
+- With `panic = "abort"` nothing unwinds, so the process aborts. The AVIF
+  features (`avif-read`, `avif-write`, and `cli`, which enables them) do not
+  compile with `panic = "abort"` at all ([publishing](publishing.md)).
+- A panic that would have to cross a C-ABI frame inside a codec port aborts
+  the process instead of reaching the boundary.
+- The state of a caller-supplied `EncoderBackend` after its own panic is the
+  backend's concern; in a batch the same backend serves the other items.
+
 ## What a minor release may change
 
 - Add enum variants. Every public enum that can grow is
