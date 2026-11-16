@@ -302,6 +302,7 @@ impl<T: Sample> Image3<T> {
     pub(crate) fn planes_mut(&mut self) -> &mut [Plane<T>; 3] {
         &mut self.planes
     }
+    #[inline(always)]
     pub fn plane_row(&self, c: usize, y: usize) -> &[T] {
         assert!(c < 3 && y < self.ysize());
         let stride = self.planes[0].bytes_per_row();

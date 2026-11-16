@@ -116,19 +116,23 @@ impl<'a> AcsConfig<'a> {
         }
     }
     /// `&config.Pixel(c, x, y)` and the source row from there on.
+    #[inline(always)]
     pub fn pixel(&self, c: usize, x: usize, y: usize) -> &'a [f32] {
         &self.src_rows[c][y * self.src_stride + x..]
     }
+    #[inline(always)]
     pub fn masking(&self, bx: usize, by: usize) -> f32 {
         let row = self.masking_field_row.expect("a masking field");
         debug_assert!(row[by * self.masking_field_stride + bx] > 0.0);
         row[by * self.masking_field_stride + bx]
     }
+    #[inline(always)]
     pub fn masking_ptr1x1(&self, bx: usize, by: usize) -> &'a [f32] {
         let row = self.masking1x1_field_row.expect("a pixel masking field");
         debug_assert!(row[by * self.masking1x1_field_stride + bx] > 0.0);
         &row[by * self.masking1x1_field_stride + bx..]
     }
+    #[inline(always)]
     pub fn quant(&self, bx: usize, by: usize) -> f32 {
         debug_assert!(self.quant_field_row[by * self.quant_field_stride + bx] > 0.0);
         self.quant_field_row[by * self.quant_field_stride + bx]

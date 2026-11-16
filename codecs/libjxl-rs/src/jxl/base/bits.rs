@@ -32,11 +32,13 @@ unsigned_word!(u32);
 unsigned_word!(u64);
 unsigned_word!(usize);
 
+#[inline(always)]
 pub fn num0_bits_above_ms1_bit_nonzero<T: UnsignedWord>(x: T) -> usize {
     assert_ne!(x.as_u64(), 0);
     x.leading_zeros() as usize
 }
 
+#[inline(always)]
 pub fn num0_bits_below_ls1_bit_nonzero<T: UnsignedWord>(x: T) -> usize {
     assert_ne!(x.as_u64(), 0);
     x.trailing_zeros() as usize
@@ -58,10 +60,12 @@ pub fn num0_bits_below_ls1_bit<T: UnsignedWord>(x: T) -> usize {
     }
 }
 
+#[inline(always)]
 pub fn floor_log2_nonzero<T: UnsignedWord>(x: T) -> usize {
     (T::BITS - 1) ^ num0_bits_above_ms1_bit_nonzero(x)
 }
 
+#[inline(always)]
 pub fn ceil_log2_nonzero<T: UnsignedWord>(x: T) -> usize {
     let floor_log2 = floor_log2_nonzero(x);
     let value = x.as_u64();
