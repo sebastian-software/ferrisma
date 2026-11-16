@@ -102,7 +102,9 @@ class RootProfileGuards(unittest.TestCase):
         self.previous = subject.ROOT
         subject.ROOT = self.root
         self.addCleanup(setattr, subject, 'ROOT', self.previous)
-        units = json.loads((REPOSITORY / 'TRANSLATION.json').read_text())['units']
+        closure = set(root_variants.sources('default'))
+        units = [unit for unit in json.loads((REPOSITORY / 'TRANSLATION.json').read_text())['units']
+                 if unit['source'] in closure]
         (self.root / 'TRANSLATION.json').write_text(json.dumps(dict(units=units)))
         prefix = Path('src/profiles/linux/release/default')
         entries = []
@@ -119,7 +121,7 @@ class RootProfileGuards(unittest.TestCase):
         selector = prefix / 'modules.rs'
         (self.root / selector).write_text('// Guard fixture; this is not codec execution evidence.\n')
         self.record = dict(generation_target='x86_64-unknown-linux-gnu', preprocessing_profile='release',
-                           variant='default', original_translation_units=28, units=entries,
+                           variant='default', original_translation_units=27, units=entries,
                            selector=str(selector), selector_sha256=subject.digest(self.root / selector))
         self.manifest = self.root / 'profile.json'
 
@@ -149,7 +151,7 @@ class RootProfileGuards(unittest.TestCase):
             subject.link_manifest_includes(selector, work)
 
     def test_complete_matching_profile_is_readable(self):
-        self.assertEqual(len(self.validate()['units']), 28)
+        self.assertEqual(len(self.validate()['units']), 27)
 
     def test_missing_original_unit_is_rejected(self):
         self.record['units'].pop()
@@ -194,7 +196,8 @@ class RootProfileGuards(unittest.TestCase):
     def test_original_c_profile_mismatch_is_rejected_by_build_cli(self):
         target = 'aarch64-apple-darwin' if platform.system() == 'Darwin' else 'x86_64-unknown-linux-gnu'
         (self.root / 'reference-profile.json').write_text(json.dumps(dict(
-            target=target, profile='release', original_dav1d_units=51, original_sharpyuv_units=7)))
+            target=target, profile='release', original_sharpyuv_units=7,
+            references=dict(sharpyuv=dict(path=str(self.root / 'libsharpyuv.a'), sha256='0' * 64)))))
         result = subprocess.run([sys.executable, str(REPOSITORY / 'tools/build.py'), 'baseline',
                                  '--debug', '--upstream-debug', '--root-references', str(self.root)],
                                 cwd=REPOSITORY, capture_output=True, text=True)
@@ -207,18 +210,18 @@ class RootConfigurationGuards(unittest.TestCase):
     def test_container_names_keep_their_existing_closure(self):
         for variant in ['default', 'mini', 'extended-pixi', 'mini-extended-pixi']:
             with self.subTest(variant=variant):
-                self.assertEqual(len(root_variants.sources(variant)), 28)
+                self.assertEqual(len(root_variants.sources(variant)), 27)
                 self.assertEqual(root_variants.name(root_variants.features(variant)), variant)
 
     def test_external_libyuv_replaces_only_the_bundled_scaler(self):
         sources = root_variants.sources('libyuv')
-        self.assertEqual(len(sources), 23)
+        self.assertEqual(len(sources), 22)
         self.assertFalse(any('/third_party/libyuv/' in source for source in sources))
         self.assertIn('upstream/libavif/src/reformat_libyuv.c', sources)
 
     def test_each_selected_adapter_is_an_original_unit(self):
         sources = root_variants.sources('mini-extended-pixi-libgav1-rav1e-svt-libyuv')
-        self.assertEqual(len(sources), 26)
+        self.assertEqual(len(sources), 25)
         for adapter in ['codec_libgav1', 'codec_rav1e', 'codec_svt']:
             self.assertIn(f'upstream/libavif/src/{adapter}.c', sources)
             self.assertTrue((REPOSITORY / f'upstream/libavif/src/{adapter}.c').is_file())
@@ -239,7 +242,7 @@ class RootConfigurationGuards(unittest.TestCase):
 
 
 class SanitizerReferenceGuards(unittest.TestCase):
-    def database(self, build, extra=(), drop=None, units=28):
+    def database(self, build, extra=(), drop=None, units=27):
         build.mkdir(parents=True, exist_ok=True)
         entries = []
         for index in range(units):
@@ -280,7 +283,7 @@ class SanitizerReferenceGuards(unittest.TestCase):
 
     def test_incomplete_library_closure_is_rejected(self):
         build = self.database(self.root / 'root-c-linux-release-default-asan',
-                              ['-fsanitize=address', '-fno-omit-frame-pointer'], units=27)
+                              ['-fsanitize=address', '-fno-omit-frame-pointer'], units=26)
         with self.assertRaises(SystemExit):
             validator.library_commands(build, 'address')
 

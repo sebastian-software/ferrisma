@@ -329,7 +329,8 @@ def main():
                         help='C libavif baseline build (default: build/root-c-<os>-release-default)')
     parser.add_argument('--c-aom', type=Path, help='C libaom reference (default: build/aom-native-release)')
     parser.add_argument('--c-references', type=Path,
-                        help='dav1d and SharpYUV references (default: build/root-references-<target>-release)')
+                        help='SharpYUV reference (default: build/root-references-<target>-release); a dav1d '
+                             'archive found there is linked too, as in records made before ADR 0061')
     parser.add_argument('--golden', type=Path,
                         help='Golden file (default: crates/aom/golden/<profile>.json if present, '
                              'else crates/aom/golden/release.json)')

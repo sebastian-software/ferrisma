@@ -11,6 +11,16 @@ not accept `--sanitizer` yet. `--package production` runs the same checks
 against the real package archives instead of the isolated profile; the
 decisions are in ADRs 0050 to 0054. Native Linux and macOS runs never share
 headers or CMake caches.
+
+The generate phase first translates the original codec registry from the
+Release C reference (`tools/translate_registry.py`) and compares it with
+`translations/codec-registry.json` (`tools/import_optional.py --registry-only
+--check`), because every profile's avif.rs takes its table from that record.
+`--regenerate` is for a changed original configuration (AVIF_CODEC_DAV1D=OFF,
+port ADR 0061): it writes the registry and replaces the profiles
+(`tools/transpile_root.py --replace`) instead of refusing a difference. Its
+output is reviewed and committed from the run's artifact; ordinary runs never
+pass it.
 """
 import argparse
 from pathlib import Path
@@ -42,6 +52,8 @@ def main():
                         help='Also build and compare separately instrumented original C and Rust consumers')
     parser.add_argument('--package', choices=['profile', 'production'], default='profile',
                         help='Link consumers to an isolated generated profile or to the production package')
+    parser.add_argument('--regenerate', action='store_true',
+                        help='Write the codec registry and replace differing profiles (port ADR 0061)')
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error('--jobs must be positive')
@@ -53,6 +65,8 @@ def main():
         parser.error(str(error))
     engines = root_variants.engines(args.variant)
     production = args.package == 'production'
+    if args.regenerate and production:
+        parser.error('The production package compiles the committed profiles; regenerate isolated profiles')
     if production and args.sanitizer != 'none':
         parser.error('Production sanitizer parity is not yet part of the admission evidence')
     if args.sanitizer != 'none' and engines:
@@ -102,8 +116,16 @@ def main():
                          '--jobs', args.jobs, *features, '--root-references', references,
                          '--build-dir', baseline + '-asan'])
             elif phase == 'generate':
+                run(['python3', 'tools/translate_registry.py', '--build', baseline,
+                     '--clang-include', args.clang_include])
+                # The committed registry comes from the Release reference; a
+                # Debug reference (assertions enabled) is compared with it.
+                write_registry = args.regenerate and profile == 'release'
+                run(['python3', 'tools/import_optional.py', '--registry-only',
+                     *([] if write_registry else ['--check'])])
                 run(['python3', 'tools/transpile_root.py', '--build', baseline, '--profile', profile,
-                     '--variant', args.variant, '--clang-include', args.clang_include])
+                     '--variant', args.variant, '--clang-include', args.clang_include,
+                     *(['--replace'] if args.regenerate else [])])
                 if production:
                     # The package compiles the committed profile; regeneration
                     # from this host's actual C reference must not change it.

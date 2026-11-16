@@ -108,14 +108,47 @@ def translate(source: Path, raw: str, codec_registry: bool = True) -> tuple[str,
     return header + text, changes
 
 
+def rebased(entries, root=ROOT):
+    """Map a compilation database written in another checkout onto this one.
+
+    `tools/transpile_root.py` records the C commands of the hosted checkout
+    (for example /Users/runner/work/ferrisma/ferrisma/codecs/libavif-rs). Only
+    each entry's file path is mapped, by its part below upstream/libavif; the
+    C2Rust output was produced from that database and is imported unchanged.
+    """
+    result = []
+    for entry in entries:
+        path = Path(entry["file"])
+        parts = path.parts
+        for index in range(len(parts) - 1):
+            if parts[index:index + 2] == ("upstream", "libavif"):
+                result.append(dict(entry, file=str(root.joinpath(*parts[index:]))))
+                break
+        else:
+            raise SystemExit(f"The compilation database names a file outside upstream/libavif: {path}")
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw", type=Path, default=ROOT / "build/generated")
     parser.add_argument("--database", type=Path, default=ROOT / "build/translate/compile_commands.json")
+    parser.add_argument("--generation", type=Path,
+                        help="Import the raw output and database of a native root generation "
+                             "(build/root-translate-macos-release-<variant> of tools/transpile_root.py, "
+                             "for example from a hosted artifact) instead of --raw and --database")
     parser.add_argument("--check", action="store_true", help="Compare without writing translated files")
     parser.add_argument("--variant", choices=["default", "mini", "extended-pixi", "mini-extended-pixi", "avm", "mini-avm", "extended-pixi-avm", "mini-extended-pixi-avm"], default="default")
     args = parser.parse_args()
+    if args.generation:
+        # The macOS release root generation translates the same original C
+        # commands as tools/transpile.py; its raw and corrected units equal the
+        # base tree's (compare translations/root-macos-release-default.json
+        # with TRANSLATION.json).
+        args.raw, args.database = args.generation / "raw", args.generation / "compile_commands.json"
     entries = json.loads(args.database.read_text())
+    if args.generation:
+        entries = rebased(entries)
     manifest = []
     for entry in entries:
         source = Path(entry["file"])
@@ -146,15 +179,28 @@ def main():
             "corrections": changes,
         })
     record = {"translator": "c2rust 0.21.0", "llvm": "16.0.6", "variant": args.variant, "units": manifest}
-    if not args.check:
-        destination = ROOT / "TRANSLATION.json" if args.variant == "default" else ROOT / "translations" / f"{args.variant}.json"
+    destination = ROOT / "TRANSLATION.json" if args.variant == "default" else ROOT / "translations" / f"{args.variant}.json"
+    # A unit the configuration no longer compiles (codec_dav1d.c since port
+    # ADR 0061) leaves the tree: its own file for the base configuration, a
+    # variant-specific file for a variant.
+    current = {unit["rust"] for unit in manifest}
+
+    def owned(name):
+        if args.variant == "default":
+            return name.startswith("src/") and not name.startswith("src/variants/")
+        return name.startswith(f"src/variants/{args.variant}/")
+
+    stale = []
+    if destination.exists():
+        stale = [unit["rust"] for unit in json.loads(destination.read_text())["units"]
+                 if owned(unit["rust"]) and unit["rust"] not in current]
+    if args.check:
+        if destination.exists() and json.loads(destination.read_text()) != record:
+            raise SystemExit(f"Translation manifest is not reproducible: {destination}")
+    else:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        if destination.exists() and args.variant != "default":
-            previous = json.loads(destination.read_text())["units"]
-            current = {unit["rust"] for unit in manifest}
-            for unit in previous:
-                if unit["rust"].startswith(f"src/variants/{args.variant}/") and unit["rust"] not in current:
-                    (ROOT / unit["rust"]).unlink(missing_ok=True)
+        for name in stale:
+            (ROOT / name).unlink(missing_ok=True)
         destination.write_text(json.dumps(record, indent=2) + "\n")
     print(f"{'Verified' if args.check else 'Imported'} {len(manifest)} mechanical Rust translation units")
 

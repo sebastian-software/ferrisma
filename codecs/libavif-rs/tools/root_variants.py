@@ -22,6 +22,11 @@ BUNDLED_SCALER = '/third_party/libyuv/'
 # final consumer checks with the real package in Release and Debug (ADR 0054).
 LINUX_PRODUCTION = ['default', 'mini', 'extended-pixi', 'mini-extended-pixi', 'libgav1-rav1e-svt-libyuv',
                     'mini-extended-pixi-libgav1-rav1e-svt-libyuv']
+# Original units that the root configuration does not compile. The root is
+# upstream libavif built with AVIF_CODEC_DAV1D=OFF (port ADR 0061): AV1
+# decoding goes through the libaom translation, and the dav1d translation stays
+# an independent cross-check outside the runtime (engine ADR-0031).
+EXCLUDED = {'upstream/libavif/src/codec_dav1d.c': 'AVIF_CODEC_DAV1D=OFF (port ADR 0061)'}
 
 
 def features(variant):
@@ -56,7 +61,8 @@ def engines(variant):
 def sources(variant):
     """Return the original libavif units that upstream CMake compiles for the configuration."""
     selected = features(variant)
-    units = [unit['source'] for unit in json.loads((ROOT / 'TRANSLATION.json').read_text())['units']]
+    units = [unit['source'] for unit in json.loads((ROOT / 'TRANSLATION.json').read_text())['units']
+             if unit['source'] not in EXCLUDED]
     if 'libyuv' in selected:
         # External libyuv replaces the bundled scalar subset; see ADR 0007.
         units = [source for source in units if BUNDLED_SCALER not in source]

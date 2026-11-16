@@ -29,13 +29,16 @@ function(libavif_rs_use_rust_library)
     # requirements. This empty file defines no implementation or fallback.
     file(WRITE "${CMAKE_BINARY_DIR}/rust_archive_anchor.c" "/* Rust archive linkage anchor; no C implementation. */\n")
     set_property(TARGET avif_obj PROPERTY SOURCES "${CMAKE_BINARY_DIR}/rust_archive_anchor.c")
-    # The Rust archive contains workspace SharpYUV and dav1d translations.
-    # Remove their native libraries from build and install link requirements.
+    # The Rust archive contains the workspace SharpYUV translation. Remove its
+    # native library from build and install link requirements. The root is
+    # configured with AVIF_CODEC_DAV1D=OFF (port ADR 0061), so no dav1d library
+    # is filtered: one that appears here is a configuration error that the
+    # linkage audits report.
     foreach(target avif_obj avif)
         foreach(property LINK_LIBRARIES INTERFACE_LINK_LIBRARIES)
             get_target_property(libraries ${target} ${property})
             if(libraries)
-                list(FILTER libraries EXCLUDE REGEX "sharpyuv|dav1d")
+                list(FILTER libraries EXCLUDE REGEX "sharpyuv")
                 set_property(TARGET ${target} PROPERTY ${property} "${libraries}")
             endif()
         endforeach()

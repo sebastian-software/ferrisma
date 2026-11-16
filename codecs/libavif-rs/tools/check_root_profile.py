@@ -5,7 +5,8 @@ The profile guards reject missing source units, changed source or output hashes,
 cross-target evidence, and changed module selectors. The existing macOS
 translation bodies stay unchanged. `root-translate-linux.yml` prepares isolated
 native root source profiles from the actual C compilation database and the pinned
-original decoder and conversion archives; its generated-source and typecheck
+original conversion archive (the root is libavif with AVIF_CODEC_DAV1D=OFF,
+ADR 0061); its generated-source and typecheck
 artifacts are preparation evidence and do not establish native execution
 acceptance (ADR 0050).
 """
@@ -124,16 +125,19 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     selector = ROOT / record['selector']
     link_manifest_includes(selector, work)
-    (work / 'lib.rs').write_text('#![feature(extern_types, c_variadic)]\n'
-        + ('#![cfg_attr(libavif_rs_asan, feature(sanitize))]\n' if args.sanitizer else '')
+    # The profiles build on stable Rust (port ADR 0060): no feature gate
+    # except the sanitizer attribute of an instrumented build. The root is
+    # libavif with AVIF_CODEC_DAV1D=OFF (port ADR 0061): no dav1d crate.
+    (work / 'lib.rs').write_text(
+        ('#![cfg_attr(libavif_rs_asan, feature(sanitize))]\n' if args.sanitizer else '')
         + '#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]\n'
         '#![allow(dead_code, unused_assignments, unused_mut)]\n'
-        'extern crate aom as _;\nextern crate dav1d as _;\nextern crate sharpyuv as _;\n'
+        'extern crate aom as _;\nextern crate sharpyuv as _;\n'
         + f'include!({json.dumps(str(selector))});\n')
     manifest = ('[package]\nname="libavif-native-root-profile"\nversion="0.0.0"\nedition="2021"\n'
                 '[workspace]\n[lib]\nname="avif"\npath="lib.rs"\n'
                 'crate-type=["staticlib","rlib","cdylib"]\n[dependencies]\nlibc="=0.2.191"\n')
-    for alias, name in [('aom', 'aom'), ('dav1d', 'dav1d'), ('sharpyuv', 'sharpyuv')]:
+    for alias, name in [('aom', 'aom'), ('sharpyuv', 'sharpyuv')]:
         manifest += f'{alias}={{package="libavif-{name}",path={json.dumps(str(ROOT / "crates" / name))}}}\n'
     manifest += ('[features]\ndefault=[]\nmini=[]\nextended-pixi=[]\nlibgav1=[]\nrav1e=[]\nsvt=[]\nlibyuv=[]\navm=[]\n'
                  '[profile.dev]\noverflow-checks=false\npanic="unwind"\n'

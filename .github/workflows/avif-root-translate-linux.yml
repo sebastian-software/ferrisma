@@ -52,6 +52,11 @@ name: 'AVIF: Native root profiles'
         - profile
         - production
         default: profile
+      regenerate:
+        description: Replace the isolated profiles and write the codec registry after a changed original
+          configuration (port ADR 0061); review and commit them from the artifact
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       runner:
@@ -72,6 +77,9 @@ name: 'AVIF: Native root profiles'
       package:
         type: string
         default: profile
+      regenerate:
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -114,9 +122,6 @@ jobs:
         rustup show active-toolchain
         rustup toolchain install 1.80.1 --profile minimal
         cargo +1.80.1 install c2rust --version 0.21.0 --locked
-        python3 -m venv build/root-tools
-        build/root-tools/bin/python -m pip install meson==1.7.2
-        echo "$GITHUB_WORKSPACE/codecs/libavif-rs/build/root-tools/bin" >> "$GITHUB_PATH"
     - name: Verify source, provenance, and artifact guards
       run: |
         python3 tools/verify_upstream.py --tracked
@@ -147,10 +152,12 @@ jobs:
         REQUESTED_TIER: ${{ inputs.tier }}
         REQUESTED_SANITIZER: ${{ inputs.sanitizer }}
         REQUESTED_PACKAGE: ${{ inputs.package }}
+        REQUESTED_REGENERATE: ${{ inputs.regenerate }}
       run: |
         python3 tools/root_pipeline.py --phase generate --profile "$REQUESTED_PROFILE" \
           --variant "$REQUESTED_VARIANT" --tier "$REQUESTED_TIER" --jobs 2 \
-          --sanitizer "$REQUESTED_SANITIZER" --package "$REQUESTED_PACKAGE" --clang-include "$CLANG_INCLUDE"
+          --sanitizer "$REQUESTED_SANITIZER" --package "$REQUESTED_PACKAGE" --clang-include "$CLANG_INCLUDE" \
+          $(test "$REQUESTED_REGENERATE" = true && echo --regenerate)
     - name: Build unchanged original consumers against native Rust profiles
       if: inputs.tier != 'prepare'
       env:
@@ -185,6 +192,10 @@ jobs:
         path: |
           codecs/libavif-rs/src/profiles/
           codecs/libavif-rs/translations/root-*.json
+          codecs/libavif-rs/translations/codec-registry.json
+          codecs/libavif-rs/build/translate-avm-registry/
+          codecs/libavif-rs/build/generated-avm-registry/src/avif.rs
+          codecs/libavif-rs/build/transpile-avm-registry.log
           codecs/libavif-rs/build/root-translate-*/
           codecs/libavif-rs/build/root-c-*/CMakeCache.txt
           codecs/libavif-rs/build/root-c-*/compile_commands.json
@@ -200,9 +211,6 @@ jobs:
           codecs/libavif-rs/build/root-rust-*/production-package.json
           codecs/libavif-rs/build/abi-*/summary.json
           codecs/libavif-rs/build/root-references-*/reference-profile.json
-          codecs/libavif-rs/build/root-references-*/dav1d/meson-logs/
-          codecs/libavif-rs/build/root-references-*/dav1d/config.h
-          codecs/libavif-rs/build/root-references-*/dav1d/compile_commands.json
           codecs/libavif-rs/build/root-references-*/sharpyuv/CMakeCache.txt
           codecs/libavif-rs/build/root-references-*/sharpyuv/CMakeFiles/CMakeConfigureLog.yaml
           codecs/libavif-rs/build/root-references-*/sharpyuv/compile_commands.json

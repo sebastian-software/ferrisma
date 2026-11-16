@@ -17,8 +17,9 @@ Ninja, GoogleTest v1.17.0 (52eb8108c5bdec04579160ae17225d66034bd723),
 libargparse ee74d1b53bd680748af14e737378de57e2a0a954, and the PNG, JPEG, and
 libxml2 gain-map applications enabled. The primary C references use
 `-ffp-contract=off` (ADR 0024); the Rust side uses the nightly pinned in
-`rust-toolchain.toml`. The AOM, dav1d, and SharpYUV references are the pinned
-portable C builds from this repository, not system packages.
+`rust-toolchain.toml`. The AOM and SharpYUV references are the pinned
+portable C builds from this repository, not system packages; the root is
+configured with AVIF_CODEC_DAV1D=OFF (ADR 0061).
 """
 import argparse
 import json

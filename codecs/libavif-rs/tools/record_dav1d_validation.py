@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Record completed native dav1d comparisons and local libavif integration.
+"""Record completed native dav1d comparisons and the local standalone checks.
+
+The libavif root no longer contains dav1d (it is built with AVIF_CODEC_DAV1D=OFF,
+port ADR 0061; engine ADR-0031): this record is the standalone crate's
+independent cross-check and has no libavif integration part.
 
 The record is written to build/dav1d-validation-results.json by default. It is
 not committed; attach it to a release or an evidence tag if it has to stay
@@ -13,7 +17,6 @@ import json
 from pathlib import Path
 import subprocess
 
-from record_sharpyuv_validation import inventory
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -143,7 +146,9 @@ def main():
               'linux_translation_verification': translation_ci, 'native_targets': {},
               'local_integration': {'platform': 'macOS ARM64',
                                     'head_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-                                    'rustc': subprocess.check_output(['rustc', '--version'], text=True).strip()}}
+                                    'rustc': subprocess.check_output(['rustc', '--version'], text=True).strip(),
+                                    'libavif_root_integration': 'none: libavif is built with AVIF_CODEC_DAV1D=OFF '
+                                                                '(port ADR 0061)'}}
     for path in sorted((ROOT / 'crates/dav1d').glob('TRANSLATION*.json')):
         relative = str(path.relative_to(ROOT))
         committed = subprocess.check_output(['git', 'show', f"{native_ci['headSha']}:./{relative}"], cwd=ROOT)
@@ -182,14 +187,6 @@ def main():
                     'inventory_sha256': digest(dsp_path), 'results_sha256': digest(artifact / f'dav1d-dsp-{profile}/results.log')},
                 'linkage': linkage(artifact / f'dav1d-rust-{profile}/linkage-audit.json')}
         record['native_targets'][name] = target
-    for label, baseline, candidate in [
-        ('default', 'baseline', 'port'), ('debug', 'baseline', 'port-debug'),
-        ('asan', 'baseline-asan-llvm16', 'port-asan-llvm16'),
-        ('all_features', 'baseline-mini-extended-pixi-libgav1-rav1e-svt-libyuv-avm',
-         'port-mini-extended-pixi-libgav1-rav1e-svt-libyuv-avm')]:
-        record['local_integration'][label] = inventory(ROOT / 'build' / f'{baseline}-results.xml',
-                                                      ROOT / 'build' / f'{candidate}-results.xml')
-    record['local_integration']['decoder_linkage'] = linkage(ROOT / 'build/port/dav1d-linkage-audit.json')
     initial_path = ROOT / 'build/dav1d-rust-debug-original-limits.json'
     initial = read(initial_path)
     timeouts = [row for row in initial if row['result'] == 'TIMEOUT']
@@ -207,15 +204,9 @@ def main():
         'asan': faults(ROOT / 'build/dav1d-faults-release-asan/summary.json', 'address')},
         'native_linux_x86_64': {profile: faults(args.translation_artifacts / 'build' /
                 f'dav1d-faults-{profile}/summary.json') for profile in ['release', 'debug']}}
-    differential = ROOT / 'build/differential/summary.json'
-    scenarios = read(differential)
-    if len(scenarios) != 10 or not all(row['png_byte_equal'] for row in scenarios):
-        raise SystemExit('Strict downstream image parity not established')
-    record['local_integration']['differential'] = {'exact_avif_scenarios': 10, 'exact_png_scenarios': 10,
-                                                  'summary_sha256': digest(differential)}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(record, indent=2) + '\n')
-    print('Recorded four native decoder profiles, original test inventories, and downstream integration')
+    print('Recorded four native decoder profiles and the original test inventories')
 
 
 if __name__ == '__main__':

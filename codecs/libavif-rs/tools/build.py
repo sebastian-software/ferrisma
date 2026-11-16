@@ -53,7 +53,7 @@ def main():
     parser.add_argument("--upstream-debug", action="store_true",
                         help="Use original Debug C preprocessing as well as unoptimized Rust; requires --debug")
     parser.add_argument("--root-references", type=Path,
-                        help="Use the pinned original dav1d/SharpYUV archives from build_root_references.py")
+                        help="Use the pinned original SharpYUV archive from build_root_references.py")
     parser.add_argument("--root-profile", type=Path,
                         help="Build an isolated native generated profile for pre-admission original consumer checks")
     parser.add_argument("--production-profile", type=Path,
@@ -94,8 +94,11 @@ def main():
                            else 'x86_64-unknown-linux-gnu' if sys.platform == 'linux' and platform.machine() == 'x86_64'
                            else None)
         expected_profile = 'debug' if args.upstream_debug else 'release'
+        # The root is libavif with AVIF_CODEC_DAV1D=OFF (port ADR 0061): its
+        # references contain SharpYUV only, never a dav1d archive.
         if (record['target'] != expected_target or record['profile'] != expected_profile
-                or record['original_dav1d_units'] != 51 or record['original_sharpyuv_units'] != 7):
+                or record.get('original_sharpyuv_units') != 7 or set(record['references']) != {'sharpyuv'}
+                or 'original_dav1d_units' in record):
             raise SystemExit('Original root references have a different target, C profile, or source closure')
         for name, item in record['references'].items():
             path = Path(item['path']).resolve()
@@ -146,7 +149,7 @@ def main():
         "-DCMAKE_BUILD_TYPE=" + ('Debug' if args.upstream_debug else 'Release'), "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         "-DCMAKE_C_FLAGS=" + numeric_flags,
         "-DBUILD_SHARED_LIBS=OFF", "-DAVIF_BUILD_TESTS=ON", "-DAVIF_BUILD_APPS=ON",
-        "-DAVIF_CODEC_AOM=SYSTEM", "-DAVIF_CODEC_DAV1D=SYSTEM", f"-DAVIF_LIBYUV={'SYSTEM' if args.libyuv else 'OFF'}",
+        "-DAVIF_CODEC_AOM=SYSTEM", "-DAVIF_CODEC_DAV1D=OFF", f"-DAVIF_LIBYUV={'SYSTEM' if args.libyuv else 'OFF'}",
         "-DAVIF_LIBSHARPYUV=SYSTEM", "-DAVIF_LIBXML2=SYSTEM", "-DAVIF_GTEST=LOCAL",
         f"-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST={dependency_root}/build/deps/googletest",
         f"-DFETCHCONTENT_SOURCE_DIR_LIBARGPARSE={dependency_root}/build/deps/libargparse",
@@ -160,9 +163,7 @@ def main():
         f"-DCMAKE_PROJECT_libavif_INCLUDE={ROOT}/tools/local-dependencies.cmake",
     ]
     if root_references:
-        command += [f'-DDAV1D_LIBRARY={root_references}/dav1d/src/libdav1d.a',
-                    f'-DDAV1D_INCLUDE_DIR={ROOT}/upstream/dav1d/include;{root_references}/dav1d/include',
-                    f'-DLIBSHARPYUV_LIBRARY={root_references}/sharpyuv/libsharpyuv.a',
+        command += [f'-DLIBSHARPYUV_LIBRARY={root_references}/sharpyuv/libsharpyuv.a',
                     f'-DLIBSHARPYUV_INCLUDE_DIR={ROOT}/upstream/libwebp']
     if args.implementation == 'port':
         command += ['-DLIBAVIF_RS_AOM_IN_RUST=ON', '-DCMAKE_DISABLE_FIND_PACKAGE_aom=TRUE']

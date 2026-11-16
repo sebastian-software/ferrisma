@@ -52,11 +52,6 @@ jobs:
         done
         echo "PKG_CONFIG_PATH=$(brew --prefix libxml2)/lib/pkgconfig" >> "$GITHUB_ENV"
         echo "CLANG_INCLUDE=$(clang -print-resource-dir)/include" >> "$GITHUB_ENV"
-    - name: Install Meson for the dav1d reference
-      run: |
-        python3 -m venv build/root-tools
-        build/root-tools/bin/python -m pip install meson==1.7.2
-        echo "$GITHUB_WORKSPACE/codecs/libavif-rs/build/root-tools/bin" >> "$GITHUB_PATH"
     - name: Build the original C references of root parity validation
       run: |
         python3 tools/root_pipeline.py --phase references --profile release --variant default \

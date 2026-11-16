@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 
 from aom_jumps import NONLOCAL_CALL
+from root_variants import EXCLUDED
 
 ROOT = Path(__file__).resolve().parents[1]
 subprocess.run(["python3", str(ROOT / "tools/verify_upstream.py")], check=True)
@@ -26,11 +27,15 @@ for path in manifests:
                 raise SystemExit(f'Production translation body differs from its manifest: {target}')
         sources.add(source.resolve())
         outputs.add(target.resolve())
-expected = set((ROOT / "upstream/libavif/src").glob("*.c"))
+# Units the root configuration does not compile (codec_dav1d.c: libavif with
+# AVIF_CODEC_DAV1D=OFF, port ADR 0061) need no translation.
+excluded = {(ROOT / name).resolve() for name in EXCLUDED}
+expected = set((ROOT / "upstream/libavif/src").glob("*.c")) - excluded
 missing = expected - sources
 if missing:
     raise SystemExit("Untranslated library sources: " + ", ".join(str(path) for path in sorted(missing)))
-print(f"All {len(expected)} libavif C source files are represented; verified {len(outputs)} Rust implementation files")
+print(f"All {len(expected)} libavif C source files of the root configuration are represented "
+      f"({len(excluded)} excluded by configuration); verified {len(outputs)} Rust implementation files")
 sharp = set((ROOT / "upstream/libwebp/sharpyuv").glob("*.c"))
 if sharp - sources:
     raise SystemExit("Untranslated portable SharpYUV sources")

@@ -93,6 +93,14 @@ def elf_dynamic_graph(start):
     return graph
 
 
+def reject_dav1d(name, owners):
+    """The root is libavif with AVIF_CODEC_DAV1D=OFF (port ADR 0061): no consumer
+    loads a dav1d implementation, translated or native."""
+    dav1d = sorted(symbol for symbol in owners if symbol.startswith('dav1d_'))
+    if dav1d:
+        raise SystemExit(f'dav1d implementation loaded in a root consumer: {name}: {", ".join(dav1d)}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
@@ -136,8 +144,8 @@ def main():
         for symbol, member in loaded.items():
             if not member.startswith(str(archive) + '(aom.') or not member.endswith('.rcgu.o)'):
                 raise SystemExit(f'Original AOM implementation loaded outside Rust: {name}: {symbol}: {member}')
-        for prefix, symbols in [('dav1d', ['dav1d_open', 'dav1d_get_picture']),
-                                ('sharpyuv', ['SharpYuvConvert', 'SharpYuvInit'])]:
+        reject_dav1d(name, owners)
+        for prefix, symbols in [('sharpyuv', ['SharpYuvConvert', 'SharpYuvInit'])]:
             for symbol in symbols:
                 if symbol in owners and not (owners[symbol].startswith(str(archive) + '(' + prefix + '.')
                                                and owners[symbol].endswith('.rcgu.o)')):

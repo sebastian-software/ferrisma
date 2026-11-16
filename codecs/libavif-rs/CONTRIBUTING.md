@@ -273,9 +273,12 @@ python3 tools/check_dav1d_api.py --asan
 python3 tools/check_dav1d_faults.py
 python3 tools/check_dav1d_faults.py --debug
 python3 tools/check_dav1d_faults.py --asan
-python3 tools/build.py port
-python3 tools/check_dav1d_linkage.py --root-library
 ```
+
+The libavif root configuration is upstream libavif built with
+`AVIF_CODEC_DAV1D=OFF` (ADR 0061), and `tools/check_aom_root_linkage.py`
+rejects a dav1d implementation in any root consumer. This crate's suite is the
+independent cross-check of the dav1d translation.
 
 Run the original C suites separately:
 
@@ -302,10 +305,8 @@ python3 tools/record_dav1d_validation.py \
   --translation-artifacts build/dav1d-linux-verification-artifact
 ```
 
-This requires the local API sanitizer, downstream test inventories,
-`python3 tools/check_dav1d_linkage.py --root-library`, and strict differential
-reports. Run the root build with its default features before the linkage audit
-if the shared Cargo output was most recently built with optional features. The
+This requires the local API sanitizer, Debug time-budget and fault-fuzzer
+reports; it has no libavif integration part since ADR 0061. The
 record goes to `build/dav1d-validation-results.json` (`--output` changes it). It is
 not committed; attach it to a release or an evidence tag if it has to stay
 retrievable.
@@ -393,9 +394,11 @@ select them with the runner's `--fixtures` option.
 ## Native root profiles
 
 The root harness builds isolated native profiles with the actual C compilation
-database and the pinned original decoder and conversion archives, and compares
-the original consumers against the Rust build (ADRs 0050 to 0054). Prepare Meson
-1.7.2, LLVM 16 with C2Rust 0.21.0, the pinned Rust nightly, and the native
+database and the pinned original SharpYUV conversion archive, and compares
+the original consumers against the Rust build (ADRs 0050 to 0054). The C
+reference is upstream libavif with `AVIF_CODEC_DAV1D=OFF` (ADR 0061), so AV1
+decoding in both the original and the port goes through libaom. Prepare
+LLVM 16 with C2Rust 0.21.0, the pinned Rust nightly, and the native
 development dependencies first. For a native Linux Release default profile:
 
 ```sh
@@ -405,6 +408,9 @@ python3 tools/build.py baseline --fetch-deps --jobs 2 \
   --aom-reference-build build/aom-native-release \
   --root-references build/root-references-x86_64-unknown-linux-gnu-release \
   --build-dir build/root-c-linux-release-default
+python3 tools/translate_registry.py --build build/root-c-linux-release-default \
+  --clang-include /usr/lib/llvm-16/lib/clang/16/include
+python3 tools/import_optional.py --registry-only --check
 python3 tools/transpile_root.py --build build/root-c-linux-release-default \
   --profile release --clang-include /usr/lib/llvm-16/lib/clang/16/include
 python3 tools/build.py port --jobs 2 \
@@ -417,7 +423,19 @@ python3 tools/validate_root_profile.py --baseline build/root-c-linux-release-def
 ```
 
 Use the Debug counterparts plus `--debug --upstream-debug` for both the original
-C and the Rust consumers. `tools/root_pipeline.py` runs the same phases and
+C and the Rust consumers.
+
+A changed original configuration (such as `AVIF_CODEC_DAV1D=OFF`) is
+regenerated, not edited: `tools/root_pipeline.py --regenerate` (the workflow's
+`regenerate` input) writes the codec registry from the Release reference and
+passes `--replace` to `tools/transpile_root.py`, which overwrites differing
+units and removes units outside the closure. Without it the generator refuses
+any difference. Review the artifact's diff before committing it. The base tree
+and the `mini`, `extended-pixi` and `mini-extended-pixi` variants are imported
+from the macOS Release generations with
+`python3 tools/import_translation.py --generation build/root-translate-macos-release-<variant>
+--variant <variant>` (base first), then `tools/update_modules.py`; the macOS
+Release root units equal the base tree's. `tools/root_pipeline.py` runs the same phases and
 documents the AddressSanitizer, engine-variant, and production-package options.
 The `smoke` tier selects eight original test executables; the `full` tier
 requires every registration from the native CMake inventory and the exact ordered

@@ -15,8 +15,9 @@ Facts that shape the checks:
   also have separate Cargo output directories, so building another feature
   profile cannot replace an earlier archive or shared library.
 - The sanitizer reference keeps the ordinary original C build as the source of
-  the generated profile. Its AddressSanitizer C baseline must equal the 28
-  libavif compile commands exactly, apart from the two appended
+  the generated profile. Its AddressSanitizer C baseline must equal the
+  profile's libavif compile commands exactly (27 since AVIF_CODEC_DAV1D=OFF,
+  port ADR 0061), apart from the two appended
   instrumentation flags, and links the complete instrumented original AOM
   closure. The Rust profile uses separate work and Cargo target directories,
   and both consumer sets link the selected nightly's static ASan runtime once
@@ -64,7 +65,7 @@ def inventory(build):
 SANITIZER_FLAGS = {'address': ['-fsanitize=address', '-fno-omit-frame-pointer']}
 
 
-def library_commands(build, sanitizer=None, units=28):
+def library_commands(build, sanitizer=None, units=27):
     """Return each original libavif unit's flags with build-local paths normalized."""
     entries = [entry for entry in json.loads((build / 'compile_commands.json').read_text())
                if 'avif_obj.dir' in entry['command']]
@@ -207,7 +208,7 @@ def main():
         c_archive = baseline / 'libavif.a'
         # Every workspace codegen unit must be instrumented; the staticlib also
         # contains the precompiled standard library and allocator shim.
-        if (not instrumented(archive, tuple(f'{name}.{name}.' for name in ['avif', 'aom', 'dav1d', 'sharpyuv'])) or not instrumented(c_archive)
+        if (not instrumented(archive, tuple(f'{name}.{name}.' for name in ['avif', 'aom', 'sharpyuv'])) or not instrumented(c_archive)
                 or not instrumented(aom_reference / 'libaom.a')):
             raise SystemExit('A compared library lacks AddressSanitizer instrumentation')
         executables = {name: consumer_executables(build) for name, build in [('c', baseline), ('rust', port)]}

@@ -108,6 +108,12 @@ def comparable_profile(source, text):
     return text
 
 
+def stale_units(destination, units, selector, root=ROOT):
+    """Return profile files outside the closure, such as codec_dav1d.rs after port ADR 0061."""
+    produced = {root / unit['rust'] for unit in units}
+    return sorted(path for path in destination.rglob('*.rs') if path not in produced and path != selector)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build', required=True, type=Path)
@@ -117,7 +123,13 @@ def main():
     parser.add_argument('--clang-include', required=True, type=Path)
     parser.add_argument('--c2rust', default='c2rust-transpile')
     parser.add_argument('--check', action='store_true')
+    parser.add_argument('--replace', action='store_true',
+                        help='Regenerate a profile whose original configuration changed (for example '
+                             'AVIF_CODEC_DAV1D=OFF, port ADR 0061): overwrite differing units and remove '
+                             'units outside the closure. Without it a differing unit is refused.')
     args = parser.parse_args()
+    if args.check and args.replace:
+        parser.error('--check compares the committed profile; --replace regenerates it')
     try:
         selected = root_variants.features(args.variant)
     except ValueError as error:
@@ -143,6 +155,8 @@ def main():
             raise SystemExit(f'The actual C container configuration differs: {setting}')
     if settings.get('AVIF_CODEC_AVM') != 'OFF':
         raise SystemExit('AVM/AV2 is a separate configuration outside this root-generation closure')
+    if settings.get('AVIF_CODEC_DAV1D') != 'OFF':
+        raise SystemExit('The root is libavif with AVIF_CODEC_DAV1D=OFF (port ADR 0061)')
     for engine, setting in root_variants.CMAKE_OPTIONS.items():
         if settings.get(setting) != ('SYSTEM' if engine in selected else 'OFF'):
             raise SystemExit(f'The actual C engine configuration differs: {setting}')
@@ -211,11 +225,11 @@ def main():
                     comparable_profile(source, output.read_text()) != comparable_profile(source, text)):
                 raise SystemExit(f'Native root translation is not reproducible: {output}')
         else:
-            if output.exists():
-                existing = output.read_text()
-                if comparable_profile(source, existing) != comparable_profile(source, text):
-                    raise SystemExit(f'Refusing to overwrite a different generated root profile: {output}')
+            existing = output.read_text() if output.exists() else None
+            if existing is not None and comparable_profile(source, existing) == comparable_profile(source, text):
                 text = existing  # Keep tracked bytes and manifest hashes unchanged.
+            elif existing is not None and not args.replace:
+                raise SystemExit(f'Refusing to overwrite a different generated root profile: {output}')
             else:
                 output.parent.mkdir(parents=True, exist_ok=True)
                 output.write_text(text)
@@ -235,6 +249,12 @@ def main():
         lines += ['pub mod libyuv {'] + [f'    pub mod {name};' for name in bundled] + ['}']
     module_text = '\n'.join(lines) + '\n'
     selector = destination / 'modules.rs'
+    stale = stale_units(destination, units, selector)
+    if stale and not args.replace:
+        raise SystemExit('Native root profile units outside the original closure: '
+                         + ', '.join(str(path.relative_to(ROOT)) for path in stale))
+    for path in stale:
+        path.unlink()
     if args.check:
         if selector.read_text() != module_text:
             raise SystemExit('The native root module selector differs')
