@@ -192,6 +192,17 @@ remaining assembly stays as long as it is true.
   so the page does not say.
 - **Gate state from data**: see "What is provisional" above.
 
+## Round five (2026-11-17): the headline
+
+The owner chose candidate B: "One image pipeline for Rust, every codec
+included", second line "JPEG, WebP, JPEG XL and AVIF through one API, built
+by Cargo alone". It is in the page title, the meta description and the site
+description in `ardo.config.ts`, which Ardo also writes into `llms.txt`. The
+site has no Open Graph tags. The lead no longer repeats the formats and "one
+API": it says what the headline does not (crop and resize, the sharp
+comparison, no C library underneath, the originals' pictures), and the first
+section's standfirst starts from the outputs.
+
 ## Round four (2026-11-16): the benefit first
 
 Owner feedback: the port is a good technical story but belongs on a sub-page;

@@ -25,11 +25,11 @@ import { FAMILY_SITE, REPOSITORY, SPEED_RECORD, blob, path } from "../ferrisma";
 
 export const handle = { layout: "bare" };
 export const meta: ArdoMetaFunction = () => [
-  { title: "Ferrisma: an image pipeline for Rust, written in Rust" },
+  { title: "Ferrisma: one image pipeline for Rust, every codec included" },
   {
     name: "description",
     content:
-      "Read JPEG, WebP, JPEG XL and AVIF, crop and resize, and write AVIF, WebP or JPEG XL with one Rust API and one CLI. Every codec is Rust, translated from the originals and held to their output bit for bit. Experimental.",
+      "One image pipeline for Rust, every codec included: JPEG, WebP, JPEG XL and AVIF through one API, built by Cargo alone. Crop and resize in linear light, with codecs translated from the originals and held to their output bit for bit. Experimental.",
   },
 ];
 
@@ -81,13 +81,15 @@ function Opening() {
       </figure>
       <p className="mono-kicker">Ferrisma · An image pipeline for Rust</p>
       <h1 id="fx-title">
-        Image processing for Rust, written in Rust
-        <span className="mono-second">down to the codecs, with the originals' pictures</span>
+        One image pipeline for Rust, every codec included
+        <span className="mono-second">
+          JPEG, WebP, JPEG XL and AVIF through one API, built by Cargo alone
+        </span>
       </h1>
       <p className="mono-standfirst">
-        Read JPEG, WebP, JPEG XL and AVIF, crop and resize, and write AVIF, WebP or JPEG XL, with
-        one API and one command line that treat every format alike. Like sharp for Node.js,
-        but for Rust, and with no C library underneath.
+        Crop, resize and convert images the way sharp does for Node.js, from a Rust application
+        or the command line, with no C library underneath. The codecs are translations of the
+        originals, held to their output bit for bit.
       </p>
       <div className="mono-actions">
         <MonoAction href={path("guide/getting-started")} primary detail="from the repository">
@@ -106,9 +108,9 @@ function Opening() {
         </li>
         <li>
           <strong>
-            <em>Rust</em>
+            <em>Bit for bit</em>
           </strong>
-          codecs included, built by Cargo
+          what each port must match
         </li>
         <li>
           <strong>Experimental</strong>no release yet
@@ -132,7 +134,7 @@ function InUse() {
     <MonoSection
       id="use"
       title="One pipeline for every format."
-      standfirst="Hand it bytes in one of four formats and get bytes back in one of three. Orientation, crop, resize and color work the same whatever comes in; only the encoder settings belong to the format you write."
+      standfirst="Bytes in, bytes out, AVIF, WebP or JPEG XL. Orientation, crop, resize and color work the same whatever comes in; only the encoder settings belong to the format you write."
     >
       <p>
         A thumbnail from a JPEG takes one call. Here it becomes a 320 × 320 WebP that covers the
