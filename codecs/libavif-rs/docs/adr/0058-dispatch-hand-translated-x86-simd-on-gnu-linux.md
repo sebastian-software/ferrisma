@@ -179,8 +179,8 @@ and their recorded hashes.
 The x86 counterparts of the 2026-11-13 Neon families follow the route of
 that amendment: each original intrinsics file is translated to
 `src/simd/<same path>.rs`, dispatched with `tools/enable_aom_dispatch.py
---linux` (working decision O8, 2026-11-13, delegated, revisable by the
-owner), and committed only when `check_aom_simd_original.py --qemu` stays
+--linux` (the owned-code route the owner decided on 2026-11-15, O8 of engine
+ADR-0041; [ADR 0059](0059-freeze-the-libaom-translation-and-gate-owned-code-on-golden-outputs.md#amendment-how-owned-code-changes-2026-11-15)), and committed only when `check_aom_simd_original.py --qemu` stays
 identical at `avx2`, `sse4.1` (where the original selects the SSSE3 or SSE2
 variant) and `scalar`. The files are transliterated with a typing-aware
 C-subset printer as the high-bitdepth transforms were (`tools/x86_c2r/c2r.py`,
@@ -191,7 +191,9 @@ become const generics, run-time shift counts use the count-register
 intrinsics, scalar accesses through cast pointers are unaligned, and
 DECLARE_ALIGNED arrays keep their alignment. For every function the
 sequence of called intrinsics and helpers was compared with the C.
-Kernels that exist only as NASM stay on `_c` (working decision O4).
+Kernels that exist only as NASM stay on `_c` until they are rebuilt with
+intrinsics (owner decision of 2026-11-15 on O4, engine
+[ADR-0044](../../../../docs/adr/0044-no-assembly-acceleration-through-rust-intrinsics.md), D2).
 
 | Family | Original files | RTCD functions (variants) | Gate (`avx2`/`sse4.1`/`scalar`) |
 | --- | --- | --- | --- |
@@ -222,7 +224,8 @@ all 91 tests of `--test simd` pass for x86-64. `lowbd_intrapred.rs` and
 `dr_prediction.rs` add the SSE2, SSSE3 and AVX2 instantiations of
 LowbdIntraPredTest and the SSE4_1 and AVX2 ones of LowbdDrPredTest; the 24
 SSE2 entries whose kernels exist only as NASM (DC, DC_TOP, DC_LEFT, DC_128, V,
-H at 4x4, 8x8, 16x16, 32x32) are not transcribed and stay on `_c` (O4).
+H at 4x4, 8x8, 16x16, 32x32) are not transcribed and stay on `_c`
+([ADR-0044](../../../../docs/adr/0044-no-assembly-acceleration-through-rust-intrinsics.md), D2).
 With them, 98 of 98 tests pass under QEMU. `quantize.rs` adds the 8-bit x86
 tuples of `quantize_func_test.cc` (kQParamArraySSE2, kLPQParamArraySSE2, the
 SSSE3 `aom_quantize_b_64x64`, kLPQParamArrayAvx2, kQParamArrayAvx2); 119 of
@@ -233,7 +236,9 @@ found a printer defect, not a kernel one: `~0u` lost its unsigned type, so the
 zero-extension masks of the sum-of-squares kernels were wrong; both the kernel
 tests and the x86 gate (26 of 82) failed on it. Unsigned literals now keep
 their suffix (`!0_u32`). The variance files are translated only as far as
-the MSE functions reach (working decision O2 keeps the inter kernels out).
+the MSE functions reach (the owner decided O2 on 2026-11-15: libaom's video
+code is kept and its kernels stay on the C path; engine
+[ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md#decided-since-2026-11-13)).
 `encodetxb.rs` adds the SSE4_1 and AVX2 instantiations of
 EncodeTxbInitLevelTest (165 tests pass). `lowbd_fwd_txfm.rs` and `fwht4x4.rs`
 add the SSE4_1 and AVX2 instantiations of AV1FwdTxfm2dTest.match (all 19 sizes)

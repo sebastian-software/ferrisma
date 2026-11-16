@@ -54,11 +54,12 @@ for the x86 overlay and the Linux profiles (ADR 0058, amendment of 2026-11-14).
   and the 8-bit intra predictors (SSE2, SSSE3 smooth and Paeth, AVX2) with
   `av1_dr_prediction_z1/z2/z3` (SSE4.1, AVX2). The 24 8-bit DC, DC_TOP,
   DC_LEFT, DC_128, V and H predictors for 4x4, 8x8, 16x16 and 32x32 exist
-  upstream only in `intrapred_asm_sse2.asm` and stay on `_c` (O4); the 8-bit
+  upstream only in `intrapred_asm_sse2.asm` and stay on `_c` until rebuilt with
+  intrinsics ([ADR-0044](../../../../docs/adr/0044-no-assembly-acceleration-through-rust-intrinsics.md), D2); the 8-bit
   quantizers `av1_quantize_fp` (+ `_32x32`, `_64x64`), `av1_quantize_lp` and
   `aom_quantize_b` (+ `_32x32`, `_64x64`) with SSE2, SSSE3 and AVX2 kernels; the
   SSSE3 `aom_quantize_b` and `aom_quantize_b_32x32` exist only in
-  `quantize_ssse3_x86_64.asm` and stay withdrawn (O4); SSE and distortion:
+  `quantize_ssse3_x86_64.asm` and stay withdrawn ([ADR-0044](../../../../docs/adr/0044-no-assembly-acceleration-through-rust-intrinsics.md), D2); SSE and distortion:
   `aom_sse`, `aom_highbd_sse`, `aom_sum_squares_2d_i16`, `aom_sum_squares_i16`,
   `aom_var_2d_u8`, `aom_var_2d_u16`, `aom_sum_sse_2d_i16`, `aom_get_blk_sse_sum`
   and the 16-bit MSE kernels; `av1_txb_init_levels` (SSE4.1, AVX2); the 8-bit
