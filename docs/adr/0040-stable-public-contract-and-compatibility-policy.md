@@ -788,3 +788,9 @@ reports that a stable item cannot express its use case.
      `transfer_characteristics`, `matrix_coefficients` and
      `full_range: bool`, instead of `[u8; 4]`; the engine keeps its
      internal order and converts at the boundary.
+  7. **Encoder backend trait** (review 2.4, priority 13). `RowEncoder` is
+     `Send`, the rule "every new row axis (depth, channels, color, tiles) is
+     an opt-in with a conservative default" is written into the trait's
+     rustdoc and ADR-0024, and `EncodeRequest::new(output, width, height)`
+     lets a backend author unit-test `begin()`; ADR-0024, amendment of
+     2026-11-16, gives the reasons and what `Send` costs.

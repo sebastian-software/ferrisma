@@ -125,6 +125,11 @@ instead of a `usize` with 0 for "automatic". `Engine::new(Threads)` returns a
 256 silently. The command line keeps its spelling (`--transform-threads=0`
 is automatic).
 
+The experimental backend API: `RowEncoder` requires `Send` (since
+2026-11-16; an encoder that keeps an `Rc` or a raw pointer must wrap it),
+and `EncodeRequest::new(output, width, height)` builds a request for a
+backend's own tests ([ADR-0024](adr/0024-pluggable-encoders-and-libavif-rs-backend.md)).
+
 `ImageMetadata::rendered_cicp` is an `Option<Cicp>` (since 2026-11-16)
 with the named fields `color_primaries`, `transfer_characteristics`,
 `matrix_coefficients` and `full_range: bool`, instead of an `[u8; 4]`.

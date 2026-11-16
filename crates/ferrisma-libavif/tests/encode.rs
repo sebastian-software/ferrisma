@@ -321,7 +321,21 @@ fn avif_of_request(request: &EncodeRequest) -> AvifOptions {
     }
 }
 
+/// The request the engine builds for `options(width, height)` and an
+/// opaque 8-bit JPEG: built with the test constructor since 2026-11-16
+/// (before, captured from a transcode through a recording backend, because
+/// the non-exhaustive request could not be built outside the engine).
 fn backend_request(width: u32, height: u32) -> EncodeRequest {
+    EncodeRequest::new(
+        OutputSettings::Avif(avif_of(&options(width, height))),
+        width,
+        height,
+    )
+}
+
+/// The test constructor gives what the engine sends for the same transcode.
+#[test]
+fn the_test_constructor_matches_the_engines_request() {
     struct Capture<'a>(&'a Mutex<Option<EncodeRequest>>, &'a Rows);
     impl EncoderBackend for Capture<'_> {
         fn format(&self) -> OutputFormat {
@@ -340,11 +354,11 @@ fn backend_request(width: u32, height: u32) -> EncodeRequest {
     transcode_with(
         JPEG,
         ImageFormat::Jpeg,
-        &options(width, height),
+        &options(4, 3),
         &Capture(&seen, &reference),
     )
     .unwrap();
-    seen.into_inner().unwrap().unwrap()
+    assert_eq!(seen.into_inner().unwrap().unwrap(), backend_request(4, 3));
 }
 
 #[test]

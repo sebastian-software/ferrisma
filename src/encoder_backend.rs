@@ -53,6 +53,36 @@ pub struct EncodeRequest {
 }
 
 impl EncodeRequest {
+    /// A request for `width` by `height` opaque 8-bit rows in one thread,
+    /// with `output`'s settings: the constructor for a backend author's own
+    /// tests of [`EncoderBackend::begin`] and
+    /// [`EncoderBackend::required_frame_bytes`] (since 2026-11-16; the
+    /// struct is `#[non_exhaustive]`, so it cannot be built as a literal).
+    /// The other fields are public and can be changed after construction.
+    /// The engine builds its requests itself; this constructor does not
+    /// validate anything.
+    ///
+    /// ```
+    /// use ferrisma::pipeline::{AvifOptions, EncodeRequest, OutputFormat, OutputSettings};
+    ///
+    /// let mut request = EncodeRequest::new(OutputSettings::Avif(AvifOptions::default()), 64, 48);
+    /// request.has_alpha = true;
+    /// request.depth = 10;
+    /// assert_eq!(request.format(), OutputFormat::Avif);
+    /// assert_eq!(request.threads, 1);
+    /// ```
+    #[must_use]
+    pub fn new(output: OutputSettings, width: u32, height: u32) -> Self {
+        Self {
+            output,
+            width,
+            height,
+            has_alpha: false,
+            depth: 8,
+            threads: 1,
+        }
+    }
+
     /// The requested output format, the format of [`Self::output`].
     #[must_use]
     pub fn format(&self) -> OutputFormat {
@@ -142,7 +172,29 @@ impl std::error::Error for EncodeError {}
 /// The encoder of one image. It receives every output row exactly once,
 /// top to bottom, then `finish` once; after an error from either, nothing
 /// else is called.
-pub trait RowEncoder {
+///
+/// `Send` since 2026-11-16 (before the first release, because adding a
+/// supertrait later breaks every implementor): a later engine may hand the
+/// encoder to another thread than the one that called
+/// [`EncoderBackend::begin`], for example to encode while the next rows are
+/// decoded or to write to a caller's output stream. An encoder that owns its
+/// buffers (`Vec`s, a codec context behind an owned handle) is `Send`; one
+/// that keeps an `Rc`, a `RefCell` shared with the backend, or a raw codec
+/// pointer must wrap them (`Arc`, `Mutex`) or assert `Send` for a context the
+/// codec documents as movable between threads. The built-in AVIF encoder
+/// (`LibavifBackend`) holds only its RGBA frame and settings and creates the
+/// libavif objects inside `finish`, so it is `Send` without a change.
+///
+/// **Rule for every new row axis.** Rows today are top to bottom, RGBA,
+/// straight alpha, sRGB, at 8 bits or one deeper integer depth. Every axis a
+/// later release adds (another depth or sample type such as float, other
+/// channel layouts such as gray or no alpha, another color encoding, tiles or
+/// another order) is an opt-in: a new method with a default that refuses or
+/// never runs, and a capability on [`EncoderBackend`] whose default keeps the
+/// conservative behavior (as [`EncoderBackend::row_depths`] and
+/// [`RowEncoder::write_row_u16`] did for depth, ADR-0024 amendment of
+/// 2026-11-16). An existing backend then compiles and behaves as before.
+pub trait RowEncoder: Send {
     /// `rgba` is one output row of straight-alpha sRGB8 RGBA samples,
     /// `4 * width` bytes, with alpha 255 for opaque images.
     ///
