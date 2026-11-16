@@ -14,10 +14,11 @@ use crate::error::Error;
 use crate::geometry::Rect;
 use crate::graph::{Graph, NodeId, NodeKind, ResizeDomain};
 use crate::memory::{ExternalReservation, ManagedBuffer, MemoryBudget, try_filled_vec, try_vec};
+use crate::output_depth::{EIGHT, MAX_DEPTH, OutputBuffer, OutputRow, max_code};
 use crate::quality::{Filter, Tap, taps};
 use crate::surface::PixelFormat;
 use crate::working_color::{
-    decode_straight_to_premultiplied_linear_srgb, decode_to_linear_srgb, encode_linear_srgb8,
+    decode_straight_to_premultiplied_linear_srgb, decode_to_linear_srgb, encode_linear_srgb,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -252,30 +253,31 @@ fn sample_rgba(
     }
 }
 
-fn final_rgba(acc: [f64; 4], opaque: bool) -> Result<[u8; 4], Error> {
+/// The oracle's final quantization at any depth (`max = 2^depth - 1`; 255
+/// for sRGB8, where every value is the former 8-bit code bit for bit).
+fn final_rgba(acc: [f64; 4], opaque: bool, max: u16) -> Result<[u16; 4], Error> {
     if acc.iter().any(|sample| !sample.is_finite()) {
         return Err(Error::NonFinitePixelSample);
     }
     let alpha = if opaque { 1.0 } else { acc[3].clamp(0.0, 1.0) };
-    let mut rgba = [0_u8; 4];
+    let mut rgba = [0_u16; 4];
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     {
-        rgba[3] = (alpha * 255.0).round() as u8;
+        rgba[3] = (alpha * f64::from(max)).round() as u16;
     }
-    // ADR-0014: an output pixel whose alpha *byte* is zero is transparent
+    // ADR-0014: an output pixel whose alpha *code* is zero is transparent
     // black. Dividing by a tiny but nonzero alpha would emit arbitrary RGB
     // behind an invisible pixel and make fast paths disagree at random.
     if rgba[3] != 0 {
         for channel in 0..3 {
-            rgba[channel] = encode_linear_srgb8(acc[channel] / alpha)?;
+            rgba[channel] = encode_linear_srgb(acc[channel] / alpha, max)?;
         }
     }
     Ok(rgba)
 }
 
-/// A scanline sink is borrowed and non-retaining. Cancelling the sink
-/// propagates out immediately and releases all managed row reservations.
-#[allow(clippy::too_many_lines)] // Separate planning and sink lifetime are explicit here.
+/// [`execute_quality`] at 8 bits, the M1 sRGB8 contract.
+#[cfg(test)] // The 8-bit contract of the executor tests.
 pub(crate) fn execute_quality_srgb8(
     graph: &Graph,
     target: NodeId,
@@ -283,8 +285,41 @@ pub(crate) fn execute_quality_srgb8(
     source: &mut dyn DecodeSource,
     requested: Rect,
     budget: &MemoryBudget,
-    mut sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
+    sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
+    execute_quality(
+        graph,
+        target,
+        bound_source,
+        source,
+        requested,
+        budget,
+        EIGHT,
+        crate::output_depth::eight_bit_sink(sink),
+    )
+}
+
+/// A scanline sink is borrowed and non-retaining. Cancelling the sink
+/// propagates out immediately and releases all managed row reservations.
+/// The output has `depth` bits per sample (8 to 16): 8-bit rows are `u8`,
+/// deeper rows `u16` scaled to `0..=2^depth - 1` (ADR-0021, amendment of
+/// 2026-11-15).
+#[allow(clippy::too_many_lines)] // Separate planning and sink lifetime are explicit here.
+#[allow(clippy::too_many_arguments)] // The graph binding, budget, depth and sink.
+pub(crate) fn execute_quality(
+    graph: &Graph,
+    target: NodeId,
+    bound_source: NodeId,
+    source: &mut dyn DecodeSource,
+    requested: Rect,
+    budget: &MemoryBudget,
+    depth: u8,
+    mut sink: impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
+) -> Result<QualityReport, Error> {
+    if !(EIGHT..=MAX_DEPTH).contains(&depth) {
+        return Err(Error::InvalidEncodeOptions);
+    }
+    let max = max_code(depth);
     let info = source.info().clone();
     let _plan_reservation = reserve_resize_plan(graph, target, requested, budget)?;
     let plan = prepare(graph, target, bound_source, source, requested)?;
@@ -346,7 +381,7 @@ pub(crate) fn execute_quality_srgb8(
         future_min_source[index] = earliest.min(future_min_source[index + 1]);
     }
 
-    let mut output = budget.allocate_typed::<u8>(width_components)?;
+    let mut output = OutputBuffer::allocate(depth, width_components, budget)?;
     let mut cache: VecDeque<CachedRow> = VecDeque::new();
     cache
         .try_reserve_exact(needed.len())
@@ -409,12 +444,24 @@ pub(crate) fn execute_quality_srgb8(
                         *value += data.samples.as_slice()[col * 4 + channel] * tap.weight;
                     }
                 }
-                let pixel = final_rgba(acc, info.layout == ChannelLayout::Rgb)?;
-                output.as_mut_slice()[col * 4..col * 4 + 4].copy_from_slice(&pixel);
+                let pixel = final_rgba(acc, info.layout == ChannelLayout::Rgb, max)?;
+                match &mut output {
+                    OutputBuffer::U8(bytes) => {
+                        for (out, code) in bytes.as_mut_slice()[col * 4..col * 4 + 4]
+                            .iter_mut()
+                            .zip(pixel)
+                        {
+                            *out = u8::try_from(code).map_err(|_| Error::IncompleteOutput)?;
+                        }
+                    }
+                    OutputBuffer::U16(samples) => {
+                        samples.as_mut_slice()[col * 4..col * 4 + 4].copy_from_slice(&pixel);
+                    }
+                }
             }
             let out_y =
                 requested.y + u32::try_from(output_rows).map_err(|_| Error::GeometryOverflow)?;
-            sink(out_y, output.as_slice())?;
+            sink(out_y, output.row())?;
             output_rows += 1;
             let earliest_future = future_min_source[output_rows];
             while cache.front().is_some_and(|row| row.y < earliest_future) {

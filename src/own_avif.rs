@@ -10,7 +10,10 @@ use ferrisma_avif_write as writer;
 /// engine's built-in AVIF writer, also usable through `transcode_with`.
 ///
 /// Every setting comes from the request's [`AvifOptions`] on libavif's own
-/// scales (quality and alpha quality 0–100, speed 0–10, depth 8 or 10).
+/// scales (quality and alpha quality 0–100, speed 0–10); the depth is the
+/// request's resolved [`EncodeRequest::depth`], 8, 10 or 12, at which the
+/// rows arrive (since 2026-11-15; before, rows were always 8-bit and the
+/// depth was the AV1 container's only).
 /// Until 2026-11-15 the backend carried the depth itself
 /// (`LibavifBackend { depth }`), a second control for the same setting.
 ///
@@ -49,7 +52,11 @@ impl LibavifBackend {
                 ChromaSubsampling::Yuv444 => writer::Chroma::Yuv444,
                 ChromaSubsampling::Yuv420 => writer::Chroma::Yuv420,
             },
-            depth: avif.depth,
+            // The rows arrive at the image depth, quantized by the engine
+            // (ADR-0021 amendment of 2026-11-15): libavif converts RGB to
+            // YUV at that depth and never scales 8-bit rows up.
+            depth: request.depth,
+            sample_depth: request.depth,
         })
     }
 }
@@ -60,6 +67,9 @@ impl EncoderBackend for LibavifBackend {
     }
     fn name(&self) -> &'static str {
         "libavif-rs/aom"
+    }
+    fn row_depths(&self) -> &'static [u8] {
+        &[8, 10, 12]
     }
     fn required_frame_bytes(&self, request: &EncodeRequest) -> Result<usize, EncodeError> {
         writer::required_frame_bytes(&Self::config(request)?).map_err(map_error)
@@ -79,6 +89,9 @@ struct Frame {
 impl RowEncoder for Frame {
     fn write_row(&mut self, y: u32, rgba: &[u8]) -> Result<(), EncodeError> {
         self.frame.write_row(y, rgba).map_err(map_error)
+    }
+    fn write_row_u16(&mut self, y: u32, rgba: &[u16]) -> Result<(), EncodeError> {
+        self.frame.write_row_u16(y, rgba).map_err(map_error)
     }
     fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
         let bytes = self.frame.finish().map_err(map_error)?;
@@ -118,6 +131,7 @@ pub(crate) fn encode_for_test(
             ChromaSubsampling::Yuv420 => writer::Chroma::Yuv420,
         },
         depth: 10,
+        sample_depth: 8,
     })
     .unwrap();
     for y in 0..height {

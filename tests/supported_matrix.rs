@@ -967,7 +967,10 @@ fn output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl() {
     );
     assert_exact_output_limit(
         TransformOptions {
-            jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
+            jpeg_xl: JpegXlOptions::Lossless {
+                effort: 2,
+                depth: None,
+            },
             ..options(OutputFormat::JpegXl, ASSUME)
         },
         OUTPUT_BYTES,
@@ -996,18 +999,25 @@ fn managed_budget_exhaustion_is_reported() {
 }
 
 #[test]
-fn default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels() {
+fn default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels() {
     // The reservation is the measured peak of the chunked lossless encode
     // (issue #223, 2026-11-15, `docs/benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md`):
     // up to one 2048x2048 DC group, frame plus reservation are 70 B/px plus
-    // 12 MiB for opaque output, so the default 256 MiB budget holds at most
-    // 3,655,036 pixels (measured: 52.3 B/px RSS at 2048x2048). 1920 x 1920 =
-    // 3,686,400 pixels is just above. Until 2026-11-15 the limit was about
-    // 3.5 MP (the one-shot peak, 76 B/px) and this test used 2000 x 2000.
+    // 12 MiB for opaque output, and above it 17 B/px plus one DC group's
+    // 53 B/px plus 12 MiB, so the default 1 GiB budget (owner decision of
+    // 2026-11-15, ADR-0004 amendment) holds at most 49,344,752 pixels.
+    // 7100 x 7000 = 49,700,000 pixels is just above. Under the former
+    // 256 MiB default the limit was 3,655,036 pixels and this test was
+    // `default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`
+    // with 1920 x 1920; before the chunked encode it was about 3.5 MP and
+    // 2000 x 2000. The expectation changed by owner decision.
     let options = TransformOptions {
-        jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
-        output_width: 1920,
-        output_height: 1920,
+        jpeg_xl: JpegXlOptions::Lossless {
+            effort: 2,
+            depth: None,
+        },
+        output_width: 7100,
+        output_height: 7000,
         ..options(OutputFormat::JpegXl, ASSUME)
     };
     rejected(
@@ -1077,7 +1087,7 @@ fn libavif_is_the_default_avif_encoder_at_avifenc_defaults_with_nclx() {
         quality: 60,
         alpha_quality: 60,
         speed: 6,
-        depth: 8,
+        depth: None,
         chroma: ChromaSubsampling::Yuv444,
     };
     assert_eq!(AvifOptions::default(), avifenc);
@@ -1091,7 +1101,7 @@ fn libavif_writes_ten_bit_and_420_on_request() {
         ImageFormat::Jpeg,
         TransformOptions {
             avif: AvifOptions {
-                depth: 10,
+                depth: Some(10),
                 chroma: ChromaSubsampling::Yuv420,
                 ..AvifOptions::default()
             },
@@ -1137,28 +1147,34 @@ fn libavif_quality_alpha_quality_speed_and_depth_ranges() {
             },
         )
     };
-    run(10, 0, 0, 10).unwrap();
-    run(8, 100, 100, 0).unwrap();
+    run(Some(10), 0, 0, 10).unwrap();
+    run(Some(12), 0, 0, 10).unwrap();
+    run(Some(8), 100, 100, 0).unwrap();
     rejected(
-        run(8, 101, 60, 6),
+        run(Some(8), 101, 60, 6),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif quality must be between 0 and 100",
     );
     rejected(
-        run(8, 60, 101, 6),
+        run(Some(8), 60, 101, 6),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif alpha quality must be between 0 and 100",
     );
     rejected(
-        run(8, 60, 60, 11),
+        run(Some(8), 60, 60, 11),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif speed must be between 0 and 10",
     );
-    rejected(
-        run(12, 60, 60, 6),
-        ProcessingErrorKind::InvalidOptions,
-        "encoder backend: libavif-rs backend depth must be 8 or 10",
-    );
+    // 12 bits is admitted since 2026-11-15 (the depth decision); a depth
+    // AVIF does not have is refused by the engine before decoding (until
+    // then the writer refused 12 with "depth must be 8 or 10").
+    for depth in [0, 9, 11, 16] {
+        rejected(
+            run(Some(depth), 60, 60, 6),
+            ProcessingErrorKind::InvalidOptions,
+            "the requested output depth is not one this encoder writes",
+        );
+    }
 }
 
 /// The alpha quality is its own setting (owner decision of 2026-11-15):
@@ -1248,7 +1264,7 @@ fn avif_output_drops_source_metadata_and_writes_upright_pixels() {
 fn avif_settings_conflict_with_other_outputs() {
     for avif in [
         AvifOptions {
-            depth: 10,
+            depth: Some(10),
             ..AvifOptions::default()
         },
         AvifOptions {
@@ -1431,7 +1447,10 @@ fn jxl_output(source: &[u8], format: ImageFormat, jpeg_xl: JpegXlOptions) -> Out
 fn jpeg_xl_output_is_a_raw_codestream_that_reads_back() {
     for jpeg_xl in [
         JpegXlOptions::default(),
-        JpegXlOptions::Lossless { effort: 2 },
+        JpegXlOptions::Lossless {
+            effort: 2,
+            depth: None,
+        },
     ] {
         let output = jxl_output(SAMPLE_JPEG, ImageFormat::Jpeg, jpeg_xl);
         assert_eq!(&output.bytes[..2], &[0xff, 0x0a], "{jpeg_xl:?}");
@@ -1452,7 +1471,10 @@ fn jpeg_xl_output_is_a_raw_codestream_that_reads_back() {
 fn jpeg_xl_output_keeps_straight_alpha_in_both_profiles() {
     for jpeg_xl in [
         JpegXlOptions::default(),
-        JpegXlOptions::Lossless { effort: 2 },
+        JpegXlOptions::Lossless {
+            effort: 2,
+            depth: None,
+        },
     ] {
         let output = transcode(
             &jxl("effects_rgb_alpha8.jxl"),
@@ -1501,12 +1523,35 @@ fn jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding() {
             },
         )
     };
-    run(JpegXlOptions::Lossy { distance: 0.05 }, 60).unwrap();
-    run(JpegXlOptions::Lossy { distance: 2.99 }, 60).unwrap();
+    run(
+        JpegXlOptions::Lossy {
+            distance: 0.05,
+            depth: None,
+        },
+        60,
+    )
+    .unwrap();
+    run(
+        JpegXlOptions::Lossy {
+            distance: 2.99,
+            depth: None,
+        },
+        60,
+    )
+    .unwrap();
     for jpeg_xl in [
-        JpegXlOptions::Lossy { distance: 0.049 },
-        JpegXlOptions::Lossy { distance: 3.0 },
-        JpegXlOptions::Lossless { effort: 3 },
+        JpegXlOptions::Lossy {
+            distance: 0.049,
+            depth: None,
+        },
+        JpegXlOptions::Lossy {
+            distance: 3.0,
+            depth: None,
+        },
+        JpegXlOptions::Lossless {
+            effort: 3,
+            depth: None,
+        },
     ] {
         let error = run(jpeg_xl, 60).unwrap_err();
         assert_eq!(

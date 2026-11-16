@@ -70,6 +70,7 @@ impl GridSource {
         .unwrap();
         Self {
             info: DecoderInfo {
+                depth: 8,
                 size,
                 layout: ChannelLayout::Rgb,
                 sample: if float {
@@ -355,6 +356,7 @@ fn every_orientation_keeps_channels_alpha_and_color_for_every_crop() {
                 let expected = exif_reference(value, &stored);
                 let source = ChannelSource {
                     info: DecoderInfo {
+                        depth: 8,
                         size: Size::new(5, 3).unwrap(),
                         layout,
                         sample: if float {
@@ -430,6 +432,7 @@ fn camera_size_orientation_costs_are_reported_exactly() {
                 .unwrap();
             let make = || ConstantSource {
                 info: DecoderInfo {
+                    depth: 8,
                     size: Size::new(width, height).unwrap(),
                     layout: ChannelLayout::Rgb,
                     sample: SampleType::U8,

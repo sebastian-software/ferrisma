@@ -92,7 +92,9 @@ fn samples(layout: ChannelLayout) -> Samples {
 }
 
 /// What the read leaves out of the output (ADR-0042 D2).
-fn discards(properties: &PrimaryProperties, premultiplied: bool, bit_depth: u8) -> DiscardedSet {
+/// A precision reduction is the pipeline's to report: it depends on the
+/// output depth (ADR-0021, amendment of 2026-11-15).
+fn discards(properties: &PrimaryProperties, premultiplied: bool) -> DiscardedSet {
     let findings = properties.findings;
     let mut discarded = DiscardedSet::default();
     discarded.insert_if(findings.gain_map, Discarded::GainMap);
@@ -103,7 +105,6 @@ fn discards(properties: &PrimaryProperties, premultiplied: bool, bit_depth: u8) 
     discarded.insert_if(findings.unknown_properties, Discarded::UnknownContainerData);
     // libavif un-premultiplies: the wrapper requests straight RGB.
     discarded.insert_if(premultiplied, Discarded::Unpremultiplied);
-    discarded.insert_if(bit_depth > 8, Discarded::PrecisionReduced);
     discarded
 }
 
@@ -208,11 +209,7 @@ impl<'a> AvifSource<'a> {
         if decoded_info.icc != properties.icc {
             return Err(Error::ContradictoryColorSignals);
         }
-        let discarded = discards(
-            &properties,
-            has_alpha && decoded_info.alpha_premultiplied,
-            sequence.bit_depth,
-        );
+        let discarded = discards(&properties, has_alpha && decoded_info.alpha_premultiplied);
         let layout = match (sequence.monochrome, has_alpha) {
             (true, false) => ChannelLayout::Gray,
             (true, true) => ChannelLayout::GrayAlpha,
@@ -220,6 +217,8 @@ impl<'a> AvifSource<'a> {
             (false, true) => ChannelLayout::Rgba,
         };
         let info = DecoderInfo {
+            // AV1 `BitDepth`; libavif's alpha item has the color depth.
+            depth: sequence.bit_depth,
             size,
             layout,
             sample: if sequence.bit_depth > 8 {

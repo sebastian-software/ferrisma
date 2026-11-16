@@ -134,7 +134,7 @@ before crop; crop coordinates are upright display coordinates (ADR-0019).
 | | JPEG | still WebP | JPEG XL | still AVIF |
 | --- | --- | --- | --- | --- |
 | Feature | `jpeg-read` | `webp-read` | `jpeg-xl-read` (libjxl-rs) | `avif-read` |
-| Samples delivered | 8-bit RGB; grayscale JPEG as 8-bit gray (libjpeg's own component), expanded to RGB by the pipeline | 8-bit RGB or RGBA | F32 RGB, RGBA, gray or gray+alpha; gray expanded to RGB(A) by the pipeline (since 2026-11-15, owner decision; refused before) | 8-bit RGB(A); 10/12-bit as normalized float; 4:2:0, 4:2:2 and 4:4:4 at 8, 10 and 12 bits; monochrome (4:0:0) as gray through libavif's `GRAY`/`GRAYA` output, expanded to RGB(A) by the pipeline (since 2026-11-15; refused before) |
+| Samples delivered | 8-bit RGB; grayscale JPEG as 8-bit gray (libjpeg's own component), expanded to RGB by the pipeline | 8-bit RGB or RGBA | F32 RGB, RGBA, gray or gray+alpha at the file's integer depth (`bits_per_sample`, alpha's `alpha_bits`; 1 to 16, float samples refused); gray expanded to RGB(A) by the pipeline (since 2026-11-15, owner decision; refused before) | 8-bit RGB(A); 10/12-bit as normalized float (`v / 65535` from libavif's 16-bit RGB output), with the depth of the sequence header carried as the input depth; 4:2:0, 4:2:2 and 4:4:4 at 8, 10 and 12 bits; monochrome (4:0:0) as gray through libavif's `GRAY`/`GRAYA` output, expanded to RGB(A) by the pipeline (since 2026-11-15; refused before) |
 | Alpha | none | straight | straight; associated (premultiplied) alpha converted to straight by libjxl's own step and reported as `Discarded::Unpremultiplied` (since 2026-11-15, owner decision; refused with `AlphaAssociation` before) | straight; `prem` converted to straight by libavif and reported as `Discarded::Unpremultiplied` |
 | Color evidence | embedded ICC (RGB, or `GRAY` for grayscale JPEG) | embedded RGB ICC | an enum `DATA` encoding with an H.273 code point is reported as that CICP alone, a typed signal like AVIF `nclx` (owner decision 2026-11-15, #222); an embedded profile, or an enum encoding without a code point (custom primaries or white point, a gamma exponent), is reported as the `DATA` ICC of the emitted samples | container `nclx`/ICC cross-checked with the AV1 sequence header; `nclx` reported as rendered CICP, or, beside an ICC `colr`, the profile alone (MIAF: the profile governs primaries and transfer, `nclx` gives matrix and range; owner decision 2026-11-15) |
 | Orientation | EXIF 1–8 | EXIF 1–8 | codestream orientation, rendered upright by the decoder | `irot`/`imir` applied by the pipeline |
@@ -298,7 +298,7 @@ Every class has a test with a fixture that has it and one that does not
 | `Preview` | a preview frame | JPEG XL |
 | `HiddenColor` | an input pixel of the processed region with alpha exactly 0 and nonzero color (written as transparent black, ADR-0014) | any RGBA input |
 | `Unpremultiplied` | premultiplied alpha converted to straight by the decoder: libavif (`prem`), libjxl (`alpha_associated`, since 2026-11-15) | AVIF, JPEG XL |
-| `PrecisionReduced` | more than 8 bits per color or alpha sample reached the 8-bit rows | AVIF, JPEG XL |
+| `PrecisionReduced` | the output holds fewer bits per sample than the input's color or alpha (since 2026-11-15 reported by the pipeline after the depth rule, not by the readers): any deep input to WebP, 16-bit (13 to 16) to AVIF, or an explicit depth below the input's | AVIF, JPEG XL |
 
 Not reported, and documented here instead (open under ADR-0042 D6): values
 clipped to [0, 1] at quantization or inside moxcms' LUT path (not
@@ -315,8 +315,9 @@ alternative.
 | `UseRenderedIcc` / `--use-rendered-icc` | A typed sRGB, Display P3 or linear sRGB signal without a profile is converted as under `Strict` (`ColorSignal::Cicp`; working decision 2026-11-15, delegated, revisable by the owner: the policy permits a profile conversion, it does not require one, so AVIF `nclx` and JPEG XL enum files get the same outcome under every policy); otherwise convert the decoder's rendered RGB ICC to the working space through `moxcms` (`icc`) with the **relative colorimetric** intent, set explicitly (owner decision 2026-11-15, [ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md); matrix/TRC profiles are not affected by the intent, LUT profiles use their `A2B1` table); opaque RGB and RGB with straight alpha (the alpha sample bypasses the transform); since 2026-11-15 also gray and gray with straight alpha through a gray (`GRAY`) profile, whose tone curve moxcms applies into RGB (R = G = B); a profile of the other color space than the channels (RGB beside gray, gray beside RGB) is refused (`UnsupportedColor`, `IccColorSpaceMismatch`); premultiplied or unspecified alpha is rejected | `tests/icc_photo.rs::real_srgb_icc_photograph_matches_littlecms`, `photograph_as_display_p3_matches_littlecms_out_of_gamut`; `tests/resize_oracle.rs::icc_tagged_straight_alpha_input_converts_color_and_keeps_alpha`; `cms::tests::malformed_and_hostile_profiles_are_controlled_errors`; `cms::tests::lut_profiles_convert_with_the_relative_colorimetric_table`, `gray_profiles_convert_gray_into_rgb_like_moxcms`; `format_parity::a_gray_icc_profile_is_converted_by_its_tone_curve`, `an_icc_profile_of_the_other_color_space_is_refused` |
 | PQ, HLG, unverifiable or contradictory signals | Always `UnsupportedColor` (`HdrTransfer`, `CicpBesideIcc` for a `cicp` tag inside the profile that is HDR or contradicts it, `ContradictoryColorSignals`, `UnsupportedColorEncoding`); never reinterpreted as sRGB | `jxl_color_tests::hdr_and_unverifiable_encodings_are_rejected`; `codecs::avif_meta_tests::contradictory_container_and_bitstream_signals_fail_closed`; `color_contract_tests::two_present_signals_require_explicit_precedence_even_when_both_look_srgb` |
 
-Output is always SDR sRGB, 8-bit straight-alpha RGBA rows handed to the
-encoder (ADR-0024, ADR-0030). HDR, tone mapping and wide-gamut output are not
+Output is always SDR sRGB, straight-alpha RGBA rows handed to the encoder
+(ADR-0024, ADR-0030): 8-bit `u8`, or since 2026-11-15 `u16` at the output
+depth (10 to 16 bits, ADR-0021 amendment). HDR, tone mapping and wide-gamut output are not
 supported.
 
 ## Format parity (ADR-0043)
@@ -345,20 +346,21 @@ and is not claimed as supported.
 | `cicp` tag inside the profile that contradicts it | `CicpBesideIcc` under `UseRenderedIcc` | same code path, no fixture | same code path, no fixture | same code path, no fixture | — (one rendered-ICC stage for every format) | `a_contradicting_cicp_tag_inside_the_profile_is_refused` |
 | Orientation | EXIF, applied by the pipeline | EXIF, applied by the pipeline | codestream, rendered upright by libjxl | `irot`/`imir`, applied by the pipeline | the outcome is the same exact permutation; libjxl applies the codestream orientation itself, as its API does by default | `orientation_is_applied_before_crop_in_every_format` |
 | Animation | — | `Animation` | `Animation` | `Animation` | JPEG cannot animate | `animation_is_refused_alike` |
+| Bit depth (input; the output columns are in Outputs) | 8 | 8 | 1 to 16 (integer), kept to 16 in JPEG XL output, 12 in AVIF, 8 in WebP | 8, 10, 12, kept in AVIF and JPEG XL output, 8 in WebP | one rule for every output: the largest depth the output admits that is at most the input's (owner decision of 2026-11-15); `PrecisionReduced` exactly when it is below. WebP is 8-bit by its format (VP8/VP8L); AV1 ends at 12 bits | `depth_follows_the_input_in_every_output` |
 
 ## Outputs
 
 | | AVIF, libavif/AOM (the only AVIF writer; rav1e until 2026-11-15) | still WebP | JPEG XL |
 | --- | --- | --- | --- |
-| Feature / selection | `avif-write`; `.avif`; `AvifOptions` (`--avif-*`) | `webp-write`; `.webp`; `WebpOptions` (`--webp-*`) | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2 }` (`--jxl-lossless`) |
-| Bit depth | 8 (default) or 10 (`depth`, `--avif-depth=10`). `avifenc` writes its input's depth (8 from its JPEG reader, the PNG's own; ADR-0037 cites the lines); the engine's writer always receives 8-bit rows, and its fixed default 8 is a working decision submitted to the owner. A deeper input is reported as `Discarded::PrecisionReduced` at every output depth | 8 | 8 |
+| Feature / selection | `avif-write`; `.avif`; `AvifOptions` (`--avif-*`) | `webp-write`; `.webp`; `WebpOptions` (`--webp-*`) | `jpeg-xl-write`; `.jxl`; `JpegXlOptions::Lossy { distance, depth }` (default 1.0, `--jxl-distance=`) or `Lossless { effort: 2, depth }` (`--jxl-lossless`); `--jxl-depth=` |
+| Bit depth (since 2026-11-15, owner decision; ADR-0021 amendment) | the input's: 8, 10 or 12 (16-bit input becomes 12, as `avifenc` writes a 16-bit PNG); `depth: Some(8 \| 10 \| 12)` / `--avif-depth=` explicit. Samples quantized at that depth by the engine, `u16` rows, libavif's RGB to YUV at that depth. Until 2026-11-15: 8 or 10 with 8-bit content | 8 (the format's limit); a deeper input reports `PrecisionReduced` | the input's, 8 to 16 integer bits (`cjxl`'s rule), `depth` in either `JpegXlOptions` variant / `--jxl-depth=`; lossless color or any alpha above 12 bits is written as the ISOBMFF container with a `jxll` box (codestream level 10), as `cjxl` does; byte-identical with `cjxl` at 10, 12 and 16 bits (`jxl_output_tests::deep_output_equals_the_original_cjxl_bytes`) |
 | Chroma | 4:4:4 (default) or 4:2:0 (`chroma`, `--avif-chroma=`) | lossy YUV 4:2:0 / lossless ARGB | lossy: XYB VarDCT, no subsampling, patches off (equals `cjxl --patches=0 -e 7`); lossless: RGB Modular |
 | Quality | `quality` 0–100 (default 60), libavif's integer scale unchanged (`--avif-quality=`) | `WebpOptions::Lossy { quality 1–100 (default 75), method }` (`--webp-quality=`) or `Lossless { level 0–9 }` (`--webp-level=`) | lossy: Butteraugli distance 0.05 to below 3.0; `--avif-*`/`--webp-*` are rejected |
 | Speed | `speed` 0–10 (AOM `cpu-used`, default 6, `--avif-speed=`) | lossy: libwebp `method` 0 (fastest)–6, default 4 (`--webp-method=`); lossless uses the level | fixed: effort 7 lossy, effort 2 lossless |
-| Alpha | auxiliary item at `alpha_quality` (0–100, default 60, `--avif-alpha-quality=`; its own setting since 2026-11-15, it does not follow `quality`), omitted when opaque | straight alpha | unassociated (straight) alpha at 8 bits, coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
+| Alpha | auxiliary item at `alpha_quality` (0–100, default 60, `--avif-alpha-quality=`; its own setting since 2026-11-15, it does not follow `quality`), omitted when opaque | straight alpha | unassociated (straight) alpha at the color depth (8 bits until 2026-11-15), coded losslessly in both profiles (lossy since 2026-11-12); lossy replaces color under zero alpha (libjxl's `keep_invisible` default); fully opaque alpha is omitted by the engine in both |
 | Color signaling | AV1 header 1/13/6 full range **and** container `colr nclx` | embedded sRGB ICC | enum sRGB (lossy: XYB-encoded) |
 | Metadata | source EXIF/XMP/ICC not copied (no `Exif`/`mime` item, no `prof` `colr`); orientation applied, no `irot`/`imir`/`clap` written | source EXIF/XMP dropped, only the engine's sRGB `ICCP` chunk; orientation applied | orientation applied, written as 1 |
-| Materialization | full RGBA8 frame plus libavif YUV(A) planes, reserved before encoding; encoded output briefly twice | ARGB frame and lossy planes reserved | lossless: the measured one-shot peak, 76 bytes per pixel of opaque RGB including the input frame (scaled by 4/3 with alpha, derived, not measured), at least the codec planes known from the source path; lossy: input frame plus a source-derived codec estimate; reserved before encoding |
+| Materialization | full RGBA frame (4 B/px at 8 bits, 8 B/px deeper) plus libavif YUV(A) planes (1 or 2 B/sample), reserved before encoding; encoded output briefly twice | ARGB frame and lossy planes reserved | lossless: the measured one-shot peak, 76 bytes per pixel of opaque RGB including the input frame (scaled by 4/3 with alpha, derived, not measured), at least the codec planes known from the source path; lossy: input frame plus a source-derived codec estimate; reserved before encoding |
 | Determinism | bytes can depend on thread count and host | — | both profiles byte-identical with the C++ encoder on the port's recorded requests (macOS AArch64) |
 | Threads | `encoder_threads` 0–256 | serial: `encoder_threads` must be 1 | serial: `encoder_threads` must be 1 |
 | `max_output_bytes` | checked after the encoder returns: "encoded output exceeds max_output_bytes" | checked while writing: "managed buffer needs … bytes with … available" | lossy: checked while writing, as WebP; lossless: after the encoder returns, as AVIF |
@@ -479,30 +481,35 @@ output under the default options. Evidence:
 `associated_alpha_is_refused`).
 
 Lossless JPEG XL output is chunked like the original's default since
-2026-11-15 (#223, ADR-0039 amendment; owner decision 2026-11-15: the default
-budget stays at 256 MiB): above 8 groups the encoder works one 2048x2048 DC
+2026-11-15 (#223, ADR-0039 amendment; the default budget, 256 MiB then,
+is 1 GiB since a later owner decision of 2026-11-15, ADR-0004 amendment): above 8 groups the encoder works one 2048x2048 DC
 group at a time, and the file equals `cjxl -d 0 -e 2 -x
 color_space=RGB_D65_SRG_Rel_SRG` (`jxl_output_tests::lossless_output_equals_the_original_cjxl_bytes`).
 The sink reserves the measured peak of that path
 ([record](benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md)):
 24 MP opaque output now needs about 643 MB of budget instead of about
 1,824 MB, but images of a few megapixels still cost about one DC group's
-working set, so under the default budget the largest lossless output only
-moves from about 3.5 MP to 3.66 MP. Larger requests fail with
-`BudgetExceeded` (`ResourceExhausted`, "managed buffer needs …") before
-encoding (`supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`:
-a 1920×1920 request).
+working set, so under the former 256 MiB budget the largest lossless output
+only moved from about 3.5 MP to 3.66 MP; under the default 1 GiB it is about
+49.3 MP. Larger requests fail with `BudgetExceeded` (`ResourceExhausted`,
+"managed buffer needs …") before encoding
+(`supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`:
+a 7100×7000 request; at 256 MiB it was `…_above_about_3_7_megapixels`, 1920×1920).
 
-What the JPEG XL encoder's reservation admits under the default 256 MiB
-`--budget-mb` (encoder side: the engine's RGBA8 frame plus the codec
+What the JPEG XL encoder's reservation admits under the default 1 GiB
+`--budget-mb` (256 MiB until 2026-11-15, in parentheses) (encoder side: the engine's RGBA8 frame plus the codec
 reservation; the decoder and resampling buffers of the input come on top):
 
 | Output | Largest output | Source of the reservation |
 | --- | ---: | --- |
-| JPEG XL lossless, opaque | 3,655,036 px (≈ 1912×1912) | measured peak, 70 B/px + 12 MiB below one DC group |
-| JPEG XL lossless, with alpha | 2,842,806 px (≈ 1686×1686) | measured peak, 90 B/px + 12 MiB |
-| JPEG XL lossy, opaque (streaming) | about 35.7 MP | `estimated_codec_bytes`, derived, not measured (#223) |
-| JPEG XL lossy, with alpha (streaming) | about 31.4 MP | the same estimate |
+| JPEG XL lossless, opaque | 49,344,752 px (≈ 7024×7024; was 3,655,036) | measured peak, 70 B/px + 12 MiB below one DC group, 17 B/px + one DC group's 53 B/px + 12 MiB above |
+| JPEG XL lossless, with alpha | 38,377,881 px (≈ 6194×6194; was 2,842,806) | measured peak, 90 B/px + 12 MiB below one DC group, 20 B/px + 70 B/px of one DC group + 12 MiB above |
+| JPEG XL lossy, opaque (streaming) | about 144 MP (was 35.7 MP) | `estimated_codec_bytes`, derived, not measured (#223) |
+| JPEG XL lossy, with alpha (streaming) | about 126.8 MP (was 31.4 MP) | the same estimate |
+| JPEG XL lossless above 8 bits, opaque (`u16` frame, 8 B/px) | 28,272,715 px (≈ 5317×5317) | measured peak with 16-bit photographs, 25 B/px + 71 B/px of one DC group + 12 MiB ([record](benchmarks/v1.0-jxl-deep-memory-2026-11-15.md)) |
+| JPEG XL lossless above 8 bits, with alpha | 20,185,088 px (≈ 4492×4492) | measured, 32 B/px + 99 B/px of one DC group + 12 MiB |
+| JPEG XL lossy above 8 bits, opaque / with alpha | about 74 / 65 MP | the same derived estimate with the `u16` input copy |
+| AVIF above 8 bits | the RGBA frame at 8 B/px plus YUV(A) planes at 2 B/sample (the writer's `required_frame_bytes`); AOM's own memory is opaque | source-derived, not measured |
 
 The lossy estimate is still open (#223). JPEG output does not exist and is
 not planned.
@@ -513,10 +520,16 @@ not planned.
 | --- | --- | --- | --- |
 | `max_input_bytes` / `--max-input-mb` (MiB) | 64 MiB | before any codec starts (`InputLimitExceeded`, "compressed image exceeds max_input_bytes"); zero is `InvalidOptions`; CLI stream read is capped | `supported_matrix::input_byte_limit_accepts_the_exact_size_and_rejects_one_byte_less`, `zero_input_limits_are_invalid_options`; `pipeline_tests::compressed_bytes_and_decoded_pixel_caps_reject_before_processing`; `cli::tests::accepts_input_at_the_limit_and_rejects_one_byte_more` |
 | `max_input_pixels` / `--max-input-mpx` (10^6 px) | 100,000,000 | from headers before pixel allocation (`InputLimitExceeded`): WebP, AVIF and libjxl-rs in the adapter ("input has N pixels, exceeding …"; AVIF also checks the coded sequence size), JPEG by the facade after the header ("image has N pixels; configured limit is M") | `supported_matrix::jpeg_pixel_limit_is_checked_after_the_header`, `webp_canvas_above_the_pixel_limit_is_rejected_from_the_header`, `jpeg_xl_pixel_limit_is_checked_before_decoding`, `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry`; `ferrisma_jxl_decoder::checks_pixel_limit_before_output` |
-| `max_managed_bytes` / `--budget-mb` | 256 MiB | engine buffers, known encoder frames, the measured lossless JPEG XL peak of its one-shot or chunked path (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`; `jxl_output_tests::input_frame_and_measured_lossless_peaks_are_reserved`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
+| `max_managed_bytes` / `--budget-mb` | 1 GiB (256 MiB until 2026-11-15; owner decision, ADR-0004 amendment) | engine buffers, known encoder frames, the measured lossless JPEG XL peak of its one-shot or chunked path (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`; `jxl_output_tests::input_frame_and_measured_lossless_peaks_are_reserved`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
 | `max_output_bytes` / `--max-output-mb` | 256 MiB | `ResourceExhausted` in every case. WebP and lossy JPEG XL while writing ("managed buffer needs …"); AVIF and lossless JPEG XL after the encoder returns ("encoded output exceeds max_output_bytes"); zero is `InvalidOptions` | `supported_matrix::output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`, `output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders`; `webp_output_tests::exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless`; `jxl_output_tests::encoded_output_limit_applies_at_the_exact_byte`, `jxl_lossy_tests::the_output_limit_applies_at_the_exact_byte`; `ferrisma-libavif` `output_limit_is_enforced_after_backend_finish` |
 | threads | `transform_threads` 0 (all cores), `encoder_threads` 1; at most 256; WebP and JPEG XL output need `encoder_threads` 1; `Engine::transcode_batch` runs each image with 1 and 1 (reported) and refuses counts above 256 as `transcode` does (since 2026-11-15) | before decoding (`InvalidOptions`) | `supported_matrix::thread_counts_above_256_and_parallel_webp_encoding_are_invalid`; `silent_drops::batch_refuses_thread_counts_that_transcode_rejects`; `pipeline_tests::encoder_threads_trade_determinism_for_latency_explicitly` |
 | `output_width`/`output_height` with `transcode_resized` | 1 | a value other than the default is refused before decoding (`InvalidOptions`, "output_width and output_height are not used with ResizeOptions…"; ignored until 2026-11-15) | `thumbnail_facade::resize_entry_points_refuse_an_exact_output_size` |
+
+What the budget covers: the engine's own buffers and the frames the encoders
+reserve are counted against it. Memory that codecs allocate internally is only
+partly counted (issues #48 and #199), so the budget is a bound on what the
+engine manages, not on the process's resident memory; protection against
+decompression bombs is the input pixel limit.
 
 Codec-internal allocations (all four decoders, all encoders) are opaque: the
 report sets `opaque_decoder_memory`/`opaque_encoder_memory`, and there is no

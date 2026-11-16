@@ -94,6 +94,7 @@ impl<'a> JpegSource<'a> {
             orientation,
             discarded,
             info: DecoderInfo {
+                depth: 8,
                 size,
                 layout,
                 sample: SampleType::U8,

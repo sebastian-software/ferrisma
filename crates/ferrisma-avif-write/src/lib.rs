@@ -1,5 +1,6 @@
 //! Safe, narrow still-image encoder boundary over the workspace libavif port.
-//! Input rows are straight-alpha sRGB8 RGBA; output uses CICP 1/13/6 and full range.
+//! Input rows are straight-alpha sRGB RGBA, 8-bit or (since 2026-11-15) `u16`
+//! at the image depth; output uses CICP 1/13/6 and full range.
 #![deny(unsafe_op_in_unsafe_fn, clippy::undocumented_unsafe_blocks)]
 
 use avif::{avif as image_api, rawdata, reformat, write};
@@ -13,9 +14,15 @@ pub enum Chroma {
 }
 
 /// Configuration for one still image. `has_alpha` false ignores the row's
-/// alpha bytes; true treats them as straight alpha. `threads` is clamped to
-/// 1–256. Quality, alpha quality and speed use libavif's integer scales and
+/// alpha samples; true treats them as straight alpha. `threads` is clamped
+/// to 1–256. Quality, alpha quality and speed use libavif's integer scales and
 /// are passed unchanged (`avifEncoder::quality`, `qualityAlpha`, `speed`).
+/// `depth` is the AV1 depth, 8, 10 or 12 (12 since 2026-11-15).
+/// `sample_depth` is the depth of the RGB rows libavif converts
+/// (`avifRGBImage::depth`): 8 (`write_row`, `u8` samples, which libavif
+/// scales to `depth`) or `depth` itself (`write_row_u16`, samples
+/// `0..=2^depth - 1`), the engine's deep rows (ADR-0021, amendment of
+/// 2026-11-15).
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
     pub width: u32,
@@ -27,6 +34,7 @@ pub struct Config {
     pub threads: usize,
     pub chroma: Chroma,
     pub depth: u8,
+    pub sample_depth: u8,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -89,8 +97,13 @@ const MIN_BAND_ROWS: u32 = 64;
 /// Returns `InvalidOptions` for unsupported settings or size overflow.
 pub fn required_frame_bytes(request: &Config) -> Result<usize, EncodeError> {
     let invalid = |message: &str| EncodeError::new(ErrorKind::InvalidOptions, message);
-    if !(request.depth == 8 || request.depth == 10) {
-        return Err(invalid("libavif-rs backend depth must be 8 or 10"));
+    if !matches!(request.depth, 8 | 10 | 12) {
+        return Err(invalid("libavif-rs backend depth must be 8, 10 or 12"));
+    }
+    if request.sample_depth != 8 && request.sample_depth != request.depth {
+        return Err(invalid(
+            "libavif-rs backend rows must be 8-bit or at the image depth",
+        ));
     }
     if request.quality > MAX_QUALITY {
         return Err(invalid("libavif quality must be between 0 and 100"));
@@ -114,6 +127,8 @@ pub fn required_frame_bytes(request: &Config) -> Result<usize, EncodeError> {
 /// An owned frame accepting each output row exactly once from top to bottom.
 pub struct Frame {
     request: Config,
+    /// RGBA samples as bytes: one per sample at `sample_depth` 8, two
+    /// (native-endian `u16`, as `avifRGBImage` reads them) above.
     rgba: Vec<u8>,
     next: u32,
 }
@@ -126,7 +141,8 @@ impl Frame {
     /// Returns an error for invalid options or failed allocation.
     pub fn new(request: Config) -> Result<Self, EncodeError> {
         required_frame_bytes(&request)?;
-        let frame = request.width as usize * request.height as usize * 4;
+        let frame =
+            request.width as usize * request.height as usize * 4 * rgb_sample_bytes(&request);
         let mut rgba = Vec::new();
         rgba.try_reserve_exact(frame).map_err(|_| {
             EncodeError::new(
@@ -145,15 +161,45 @@ impl Frame {
     /// # Errors
     /// Returns an error for an out-of-order row or an incorrect row length.
     pub fn write_row(&mut self, y: u32, rgba: &[u8]) -> Result<(), EncodeError> {
-        let row_bytes = 4 * self.request.width as usize;
-        if y != self.next || y >= self.request.height || rgba.len() != row_bytes {
-            return Err(EncodeError::new(
-                ErrorKind::Failed,
-                "libavif-rs backend received rows out of order or of the wrong length",
-            ));
-        }
+        self.check_row(y, rgba.len(), 8)?;
         self.rgba.extend_from_slice(rgba);
         self.next += 1;
+        Ok(())
+    }
+
+    /// Append exactly one full RGBA row of `u16` samples at the image depth
+    /// (`sample_depth` = `depth` above 8), in increasing y order.
+    ///
+    /// # Errors
+    /// Returns an error for an out-of-order row, an incorrect row length,
+    /// an 8-bit frame, or a sample above `2^depth - 1`.
+    pub fn write_row_u16(&mut self, y: u32, rgba: &[u16]) -> Result<(), EncodeError> {
+        self.check_row(y, rgba.len(), self.request.depth.max(9))?;
+        let max = (1_u32 << self.request.depth) - 1;
+        if rgba.iter().any(|&sample| u32::from(sample) > max) {
+            return Err(EncodeError::new(
+                ErrorKind::Failed,
+                "libavif-rs backend received a sample above the image depth",
+            ));
+        }
+        for sample in rgba {
+            self.rgba.extend_from_slice(&sample.to_ne_bytes());
+        }
+        self.next += 1;
+        Ok(())
+    }
+
+    fn check_row(&self, y: u32, samples: usize, depth: u8) -> Result<(), EncodeError> {
+        if y != self.next
+            || y >= self.request.height
+            || samples != 4 * self.request.width as usize
+            || (self.request.sample_depth > 8) != (depth > 8)
+        {
+            return Err(EncodeError::new(
+                ErrorKind::Failed,
+                "libavif-rs backend received rows out of order, of the wrong length or depth",
+            ));
+        }
         Ok(())
     }
     /// Encode the complete frame. Codec scratch and compressed bytes are not
@@ -170,6 +216,11 @@ impl Frame {
         }
         encode(&self.request, self.rgba)
     }
+}
+
+/// Bytes per RGBA sample of the frame: 1 at 8 bits, 2 (`uint16_t`) above.
+fn rgb_sample_bytes(request: &Config) -> usize {
+    if request.sample_depth > 8 { 2 } else { 1 }
 }
 
 /// The RGBA frame plus libavif's YUV(A) planes, which are alive together.
@@ -190,7 +241,9 @@ fn frame_bytes(request: &Config) -> Option<usize> {
         .checked_add(chroma)?
         .checked_add(alpha)?
         .checked_mul(sample)?;
-    pixels.checked_mul(4)?.checked_add(planes)
+    pixels
+        .checked_mul(4 * rgb_sample_bytes(request))?
+        .checked_add(planes)
 }
 
 fn failure(result: u32, during: &str) -> EncodeError {
@@ -308,7 +361,7 @@ fn convert_band(
     // so the pointer casts keep its layout.
     unsafe { image_api::avifRGBImageSetDefaults((&raw mut rgb).cast(), target.cast()) };
     rgb.format = AVIF_RGB_FORMAT_RGBA;
-    rgb.depth = 8;
+    rgb.depth = u32::from(request.sample_depth);
     rgb.ignoreAlpha = i32::from(!request.has_alpha);
     rgb.alphaPremultiplied = 0;
     rgb.pixels = band.as_mut_ptr();
@@ -414,7 +467,7 @@ fn encode(request: &Config, mut rgba: Vec<u8>) -> Result<Vec<u8>, EncodeError> {
     };
     let row_bytes = request
         .width
-        .checked_mul(4)
+        .checked_mul(4 * u32::from(request.sample_depth > 8) + 4) // 4 or 8 bytes per pixel
         .ok_or_else(|| EncodeError::new(ErrorKind::InvalidOptions, "row size overflows"))?;
     if rgba.len() != row_bytes as usize * request.height as usize {
         return Err(EncodeError::new(
@@ -582,7 +635,7 @@ mod tests {
                 })
                 .collect();
             for chroma in [Chroma::Yuv444, Chroma::Yuv420] {
-                for depth in [8, 10] {
+                for (depth, sample_depth) in [(8, 8), (10, 8), (10, 10), (12, 12)] {
                     for has_alpha in [false, true] {
                         let request = Config {
                             width,
@@ -594,15 +647,32 @@ mod tests {
                             threads: 1,
                             chroma,
                             depth,
+                            sample_depth,
                         };
                         let format = match chroma {
                             Chroma::Yuv444 => AVIF_PIXEL_FORMAT_YUV444,
                             Chroma::Yuv420 => AVIF_PIXEL_FORMAT_YUV420,
                         };
+                        // Deep rows: the same pseudo-random bytes as native-endian
+                        // u16 samples, masked to the depth.
+                        let frame: Vec<u8> = if sample_depth > 8 {
+                            rgba.chunks(2)
+                                .cycle()
+                                .take(rgba.len())
+                                .flat_map(|pair| {
+                                    let value = u16::from_ne_bytes([pair[0], pair[1 % pair.len()]])
+                                        & ((1 << sample_depth) - 1);
+                                    value.to_ne_bytes()
+                                })
+                                .collect()
+                        } else {
+                            rgba.clone()
+                        };
+                        let row_bytes = width * 4 * if sample_depth > 8 { 2 } else { 1 };
                         let convert = |bands| {
                             let image = new_image(&request, format).unwrap();
-                            let mut frame = rgba.clone();
-                            rgb_to_yuv(&image, &request, &mut frame, width * 4, bands).unwrap();
+                            let mut frame = frame.clone();
+                            rgb_to_yuv(&image, &request, &mut frame, row_bytes, bands).unwrap();
                             planes(&image, &request)
                         };
                         let serial = convert(1);
@@ -617,6 +687,121 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    /// The budget charge: RGBA at 1 or 2 bytes per sample (the deep rows of
+    /// 2026-11-15 double the frame) plus the YUV(A) planes at the depth.
+    #[test]
+    fn frame_bytes_count_deep_rows_and_planes() {
+        let config = |depth, sample_depth, chroma, has_alpha| Config {
+            width: 10,
+            height: 6,
+            has_alpha,
+            quality: 60,
+            alpha_quality: 60,
+            speed: 6,
+            threads: 1,
+            chroma,
+            depth,
+            sample_depth,
+        };
+        let px = 60;
+        assert_eq!(
+            required_frame_bytes(&config(8, 8, Chroma::Yuv444, false)).unwrap(),
+            px * 4 + px * 3
+        );
+        assert_eq!(
+            required_frame_bytes(&config(10, 8, Chroma::Yuv444, true)).unwrap(),
+            px * 4 + px * 4 * 2
+        );
+        assert_eq!(
+            required_frame_bytes(&config(12, 12, Chroma::Yuv420, true)).unwrap(),
+            px * 8 + (px + 5 * 3 * 2 + px) * 2
+        );
+        assert!(required_frame_bytes(&config(12, 10, Chroma::Yuv444, false)).is_err());
+        assert!(required_frame_bytes(&config(16, 16, Chroma::Yuv444, false)).is_err());
+        let mut frame = Frame::new(config(10, 10, Chroma::Yuv444, false)).unwrap();
+        assert!(
+            frame.write_row(0, &[0; 40]).is_err(),
+            "8-bit row into a deep frame"
+        );
+        assert!(
+            frame.write_row_u16(0, &[1024; 40]).is_err(),
+            "above 10 bits"
+        );
+        assert!(frame.write_row_u16(0, &[1023; 40]).is_ok());
+    }
+
+    /// The test pattern of `tests/fixtures/avif-deep/rows16.py`.
+    fn deep_pattern(width: u32, height: u32, depth: u8, alpha: bool) -> Vec<Vec<u16>> {
+        let m = (1_u32 << depth) - 1;
+        (0..height)
+            .map(|y| {
+                (0..width)
+                    .flat_map(|x| {
+                        let hash = x.wrapping_mul(2_654_435_761) ^ y.wrapping_mul(40_503);
+                        let noise = (hash >> 13) & 0x3F;
+                        let r = (x * m / (width - 1)) ^ noise;
+                        let g = y * m / (height - 1);
+                        let b = ((x + y) * 37) & m;
+                        let a = if !alpha {
+                            m
+                        } else if x == 0 {
+                            0
+                        } else {
+                            (x * 13 * (m / 255) + y * 5) % (m + 1)
+                        };
+                        [r, g, b, a].map(|v| u16::try_from(v).unwrap())
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// Deep rows give the C original's bytes (ADR-0041): every fixture in
+    /// `tests/fixtures/avif-deep/` was written by `encode_deep.c` linked to
+    /// the pinned C libavif 1.4.2 and the portable libaom reference, from
+    /// the same samples and settings (README.md there). Never refreshed from
+    /// this crate's output.
+    #[test]
+    fn deep_output_equals_the_c_original() {
+        const DIR: &str = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/avif-deep/"
+        );
+        let (width, height) = (67, 45);
+        for (name, depth, chroma, alpha, quality) in [
+            ("d10-444-q60", 10, Chroma::Yuv444, false, 60),
+            ("d10-420-alpha-q60", 10, Chroma::Yuv420, true, 60),
+            ("d10-444-q100", 10, Chroma::Yuv444, false, 100),
+            ("d12-444-alpha-q60", 12, Chroma::Yuv444, true, 60),
+            ("d12-420-q60", 12, Chroma::Yuv420, false, 60),
+        ] {
+            let mut frame = Frame::new(Config {
+                width,
+                height,
+                has_alpha: alpha,
+                quality,
+                alpha_quality: quality,
+                speed: 6,
+                threads: 1,
+                chroma,
+                depth,
+                sample_depth: depth,
+            })
+            .unwrap();
+            for (y, row) in deep_pattern(width, height, depth, alpha).iter().enumerate() {
+                frame.write_row_u16(u32::try_from(y).unwrap(), row).unwrap();
+            }
+            let bytes = frame.finish().unwrap();
+            let expected = std::fs::read(format!("{DIR}{name}.avif")).unwrap();
+            assert!(
+                bytes == expected,
+                "{name}: {} bytes, the C original wrote {}",
+                bytes.len(),
+                expected.len()
+            );
         }
     }
 

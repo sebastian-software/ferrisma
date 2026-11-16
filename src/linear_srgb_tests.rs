@@ -34,6 +34,7 @@ impl RawSource {
         );
         Self {
             info: DecoderInfo {
+                depth: 8,
                 size: dimensions,
                 layout,
                 alpha,

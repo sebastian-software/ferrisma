@@ -66,7 +66,7 @@ pub(crate) enum Error {
         allow(dead_code)
     )]
     InvalidEncodeOptions,
-    #[cfg(any(feature = "webp-write", feature = "jpeg-xl-write"))]
+    /// A sink received fewer rows, or rows of another depth, than its plan.
     IncompleteOutput,
     /// A request outside the admitted JPEG XL encoder profile (ADR-0039).
     #[cfg(feature = "jpeg-xl-write")]
@@ -176,7 +176,6 @@ impl fmt::Display for Error {
             Self::InvalidEncodeOptions => {
                 write!(f, "encoder settings or output dimensions are invalid")
             }
-            #[cfg(any(feature = "webp-write", feature = "jpeg-xl-write"))]
             Self::IncompleteOutput => write!(f, "output sink has not received every scanline"),
             #[cfg(feature = "jpeg-xl-write")]
             Self::UnsupportedEncoderProfile(reason) => {

@@ -513,3 +513,12 @@ reports that a stable item cannot express its use case.
   compatibility:** new problem 16, a check the API review must make before
   1.0. This record stays Proposed; its tiers and the other recommendations
   are not decided by these entries.
+- 2026-11-15 — Output depth follows the input (owner decision, ADR-0021
+  amendment): `AvifOptions::depth` becomes `Option<u8>` and both
+  `JpegXlOptions` variants gain `depth: Option<u8>` (breaking before 1.0,
+  intended); `ProcessingReport::input_depth` and `output_depth` and the CLI
+  keys `input_depth=` and `depth=` are additive (inserted before
+  `discarded=`, which stays the last key, ADR-0042); the experimental
+  backend API gains `EncodeRequest::depth`, `EncoderBackend::row_depths`
+  and `RowEncoder::write_row_u16` with defaults, so existing backends need
+  no change.

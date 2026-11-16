@@ -2,7 +2,7 @@
 
 - **Status:** Experimental (rule 1 and the `f32` tables implemented; rule 2, the Q1.14 path, dropped by its own review trigger)
 - **Date:** 2026-11-05
-- **Last reviewed:** 2026-11-06
+- **Last reviewed:** 2026-11-15
 - **Supersedes:** None
 - **Related:** [0006](0006-cpu-first-gpu-capable-execution.md), [0007](0007-correctness-and-performance-evidence.md), [0014](0014-linear-srgb-straight-alpha.md), [0016](0016-working-color-space-and-transform-boundaries.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [M2 milestone](../milestones/M2-performance-architecture.md) work packages 1 and 3, [precision experiment](../research/precision-experiment/README.md)
 
@@ -170,9 +170,140 @@ on an Apple M1 Ultra (20 threads), macOS 27.0, rustc 1.100.0-nightly (5a2be9f5f 
 - libvips or Sharp change their default precision or add a linear-light default: the matched-quality comparison of M2 must be re-examined.
 - Stable Rust gains portable SIMD or `f16` arithmetic that changes the kernel trade-offs in ADR-0020.
 
+## Amendment: output depth follows the input (2026-11-15, owner decision)
+
+**Decision (owner, 2026-11-15, before 1.0).** The output's bit depth follows
+the input's bit depth, by one rule in every format that can represent it
+(ADR-0043, decided application "Bit depth"). Until this amendment every
+output row was sRGB8: a "10-bit" AVIF carried 8-bit content, JPEG XL output
+was always 8-bit, and a deeper input was reported as
+`Discarded::PrecisionReduced` whatever the output depth. What follows is
+how the engine implements the decision; the choices marked as working
+decisions are delegated and revisable by the owner.
+
+**1. The input's depth.** Each reader states the significant bits of the
+samples it delivers, color and alpha alike, as one number
+(`DecoderInfo::depth`): the larger of the color and the alpha depth, so
+that a deeper alpha is never lost silently. JPEG: 8 (12-bit and lossless
+JPEG are outside the port's scope and refused). WebP: 8. AVIF: the AV1
+sequence header's `BitDepth`, 8, 10 or 12; AVIF alpha has the color depth.
+Gray (monochrome AVIF, gray JPEG XL, gray JPEG) has the depth of its one
+channel; the expansion to RGB (ADR-0043) copies it. JPEG XL:
+`max(bits_per_sample, alpha_bits)` for integer samples, 1 to 16 (a reader
+depth below 8 is written at 8, which holds it). Float JPEG XL samples
+(`exponent_bits_per_sample != 0`) stay refused (`UnsupportedLayout`, as
+before); this amendment does not add float output. A resize, a crop, an
+orientation or a color conversion does not change the depth: the pipeline
+computes in `f32` (rule 1), so the depth is a property of the final
+quantization, not of the arithmetic. **Dithering:** there is none, at 8
+bits (today's path rounds to nearest, `encode_linear_srgb8`) or deeper;
+none is added: an output at its input's depth needs none, and a reduction
+is reported, not hidden.
+
+**2. The rows handed to encoders.** One representation per depth class for
+every sink, built-in or external: at 8 bits straight-alpha RGBA `u8`, byte
+for byte as before; above 8 bits the same layout as native-endian `u16`
+samples scaled to the target depth, `0..=2^depth - 1` (never a padded or
+shifted 8-bit value). This is the form libavif's `avifRGBImage` (`depth`
+10/12, `uint16_t` pixels) and libjxl's `JXL_TYPE_UINT16` with
+`JXL_BIT_DEPTH_FROM_CODESTREAM` take. Cost: an output row and every sink
+frame double, 8 B/px instead of 4 for RGBA. The managed budget (ADR-0004)
+charges what exists: the executors' output rows by their type size, the
+AVIF writer's RGBA frame at 4 or 8 B/px plus its YUV(A) planes at 1 or
+2 B/sample (it always charged 2 B/sample for 10-bit planes), and the JPEG
+XL sink's `u16` frame plus a codec reservation measured for 16-bit rows
+(unit D of this change; the 8-bit model of 2026-11-15 is not scaled).
+
+**3. The quantization.** One function for every depth:
+`round(oetf(clamp(x, 0, 1)) * (2^depth - 1))`, rounding half away from
+zero, alpha `round(clamp(a, 0, 1) * (2^depth - 1))`, and transparent black
+where the alpha code is 0 (ADR-0014). At depth 8 it is the sRGB8 encoder
+bit for bit (`encode_linear_srgb8` is now `encode_linear_srgb(x, 255)`).
+The `f64` reference applies it to its `f64` accumulator, the fast
+executors to the `f32` value: for 8 bits through the exact table of rule 3,
+above 8 bits through the reference function itself on `f64::from(x)`, so
+both fast encoders are the oracle's encoder of the same `f32` value; the
+only difference to the oracle is the `f32` accumulation. Bound (rule 4 at
+deeper depths, `fast_execute_tests::deep_output_meets_the_bound_against_the_f64_oracle`,
+the 17 inputs of rule 4 plus five deep inputs, every geometry and filter,
+scalar and NEON): rule A (at most one code, every sample) and rule E hold
+unchanged at 10, 12 and 16 bits; the exact shares are set per depth below
+the measured minima (10-bit: full range 99.99 %, dark/ties 99.95 %, mean
+0.001 codes; 12-bit: 99.95 %, 99.0 %, 0.01; 16-bit: 99.8 %, 99.8 %,
+0.002). They are new bounds, not loosened ones: one 16-bit code is 1/257
+of an 8-bit code. The lowest share, 99.27 % at 12 bits, is the 12-bit
+dark-noise input: its codes lie on the sRGB linear segment, where an Area
+average of integer codes lands on exact half codes and `f32` and `f64`
+round the tie differently. Identity at every depth is exact
+(`every_deep_code_survives_an_identity_transform_at_its_depth`: all 1024,
+4096 and 65536 codes, both executors, sequential and parallel).
+
+The deeper quantization is scalar, beside the 8-bit one in
+`src/fast_execute.rs`. **Finding:** `ferrisma-kernels` has no quantize
+kernel at any ISA level (only `horizontal_rgba` and `axpy`); the 8-bit
+encoder is the engine's scalar table code. A NEON/AVX2 deep quantizer
+would be a first SIMD quantizer and a performance change, which AGENTS.md
+allows only with a measurement; it is left as a follow-up.
+
+**4. The public surface.** `AvifOptions::depth` and a `depth` field on both
+variants of `JpegXlOptions` are `Option<u8>`: `None` (the default) follows
+the input, `Some(bits)` is explicit. Same name, same semantics; WebP has
+none (8 bits is the format's limit). The rule for `None`: the largest
+depth the output admits that is at most the input's depth (AVIF 8/10/12,
+JPEG XL 8 to 16, WebP 8), and never below 8. An explicit depth outside the
+output's set is `InvalidOptions`; an explicit depth below the input's is
+written and reported as `PrecisionReduced`; an explicit depth above the
+input's is written with correctly scaled content (the quantization above
+at that depth). `PrecisionReduced` is reported exactly when the output
+depth is below the input's depth, by the pipeline, not by a reader. CLI:
+`--avif-depth=8|10|12` and `--jxl-depth=8..16`; the report line names the
+depth read and written (`input_depth=`, `depth=`; also
+`ProcessingReport::input_depth` and `output_depth`). External backends (`EncoderBackend`, experimental
+tier): additive, no break for existing implementations:
+`EncodeRequest::depth` (the resolved depth of the rows),
+`EncoderBackend::row_depths` (default `[8]`: the depth rule takes the
+largest of them at most the input's and reports a reduction, so an existing
+backend keeps receiving 8-bit rows)
+and `RowEncoder::write_row_u16` (default: refused with `InvalidOptions`).
+The break is in the options: `AvifOptions::depth` changes from `u8` to
+`Option<u8>`, and `JpegXlOptions::{Lossy, Lossless}` gain a field.
+
+**5. What each port admits, checked in the port.** AOM through libavif:
+10 and 12 bits, 4:4:4 and 4:2:0, with alpha (libavif writes the alpha item
+at the color depth); 12 bits selects AV1's Professional profile in
+libavif. Checked by encoding through the engine and by the byte comparison
+with the C original in unit C. JPEG XL public encoder (`admitted_frame_profile`
+and `admitted_lossless_profile` in `codecs/libjxl-rs/src/jxl/enc_frame_vardct.rs`,
+`modular_16_bit_buffer_sufficient` in `encode.rs`): lossy VarDCT admits
+integer samples of any depth up to 16 from `uint16` input, and alpha of
+any integer depth; the lossless profile (effort 2) admits integer gray or
+RGB of at most 16 bits with integer alpha. Above 12 bits of lossless
+color, or alpha above 12 bits, libjxl requires codestream level 10
+(`VerifyLevelSettings`), and both the original and the port then write the
+ISOBMFF container with a `jxll` box (the container is ported, "encoder
+container"); the engine's raw codestream becomes a container exactly
+there, as `cjxl` writes it. No gap was found for the depths of this
+decision; the gaps of ADR-0039 (patches, dots at distance 3) are unchanged.
+
+**What the originals do** (pinned sources). `avifenc` (libavif 1.4.2,
+`codecs/libavif-rs/upstream/libavif`) writes its input's depth: PNG at 8
+bits stays 8, any deeper PNG becomes 12, its largest
+(`apps/shared/avifpng.c:376`-`382`, `avif->depth = requestedDepth;` then
+8 or 12), JPEG is 8 (`apps/shared/avifjpeg.c:1340`, `:1376`), Y4M keeps its
+own (`apps/avifenc.c:706`-`710`). `cjxl` (libjxl `a16d32d0`) copies the
+decoded input's basic info, `bits_per_sample` and `alpha_bits` included
+(`lib/extras/enc/jxl.cc:257` `JxlBasicInfo basic_info = ppf.info;`, alpha
+at `:82`); its PNM reader takes the depth from `maxval`
+(`lib/extras/dec/pnm.cc:276`, `:300`), gives alpha the color depth
+(`:537`) and passes the samples as they are (`:649`,
+`JXL_BIT_DEPTH_FROM_CODESTREAM`). The engine's rule is the same, with the
+nearest admitted depth below where the output cannot hold the input's
+(16-bit to AVIF gives 12, as `avifenc` does for a 16-bit PNG).
+
 ## Amendment log
 
 - 2026-11-05 — Initial proposal: `f32` as the working type, a Q1.14 fixed-point path for opaque 8-bit sRGB and Display P3 input with a per-plan integer interval bound, exact lookup tables, and a testable bound, backed by the precision experiment.
 - 2026-11-05 — The oracle's transparent-pixel rule is fixed: `final_rgba` now emits RGB 0 whenever the output alpha byte is 0, as ADR-0014 requires, and the experiment's hand copy and `f32` chain apply the same rule. A rerun of the experiment reproduced every measured value of the committed results; only timings differed, so the result files were kept. Rule E remains as a test of the fast paths.
 - 2026-11-05 — First implementation: `src/fast_execute.rs` (scalar `f32`, rule 1 and the `f32` tables of rule 3) passes rules A to E in `fast_execute_tests` against the `f64` oracle on 16 inputs, 11 geometries and both filters. Rule E is restated per executor: at an exact alpha tie the oracle may round to 0 and the `f32` path to 1, which rule A permits; each side must emit RGB 0 behind its own zero alpha, and RGB is compared only where both alphas are nonzero.
 - 2026-11-06 — **Q1.14 dropped (rule 2 withdrawn).** The first review trigger fired: work package 3 measured the Q1.14 chain below 1.25× the `f32` chain on every hardware class. Prototype kernels (`i16` samples and weights, `i32` sums, one rounding shift; plain loops vectorized by LLVM inside each level's `#[target_feature]` entry, bit-identical across levels) were timed by `crates/ferrisma-kernels/examples/bench.rs` on a 6000×4000 to 1600×1067 Lanczos3 resample, horizontal + vertical ms, f32 against Q1.14: Apple M1 NEON 61.7 + 13.6 against 61.9 + 11.3 (1.03×); x86-64 hosted runner ([run 42179398696](https://github.com/sebastian-software/ferrisma/actions/runs/42179398696)) AVX2 53.2 + 15.6 against 126.9 + 8.0 (0.51×) and AVX-512 37.7 + 13.2 against 83.8 + 5.9 (0.57×); `ubuntu-24.04-arm` (Neoverse with SVE2) NEON 78.3 + 20.1 against 124.7 + 14.5 (0.71×). The vertical integer pass was faster everywhere (1.2–2.2×), the horizontal integer pass slower everywhere: one tap per pixel costs one instruction in both formats on NEON, and the `f32` FMA kernels with two or four taps per vector beat LLVM's integer code on x86-64. A hand-written `vpmaddwd` horizontal kernel was not tried; it is the condition for reopening rule 2 (new review trigger: a hand-written integer horizontal kernel measured faster than the `f32` one on some hardware class). Rule 1 (`f32` everywhere), rule 3's `f32` tables and the bound of rule 4 for `f32` paths stand and are implemented; the Q1.14 tables, eligibility rules and report fields are not built. The precision experiment stays as evidence.
+- 2026-11-15 — Output depth follows the input (owner decision): one quantization for every depth, `u16` rows above 8 bits, per-depth shares of rules B to D with rule A unchanged, the public depth fields and the backend additions; see the amendment above. The 8-bit path is unchanged bit for bit.

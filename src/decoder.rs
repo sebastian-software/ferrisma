@@ -35,6 +35,11 @@ pub(crate) struct DecoderInfo {
     pub size: Size,
     pub layout: ChannelLayout,
     pub sample: SampleType,
+    /// Significant bits of the emitted samples (color and alpha: the larger
+    /// of the two), 1 to 16: what the output depth follows (ADR-0021,
+    /// amendment of 2026-11-15). Float rows carry it too: a 10-bit AVIF
+    /// arrives as `f32`, and its depth stays 10.
+    pub depth: u8,
     pub access: DecodeAccess,
     /// Alpha association of emitted samples, not of the encoded bitstream.
     pub alpha: AlphaMode,

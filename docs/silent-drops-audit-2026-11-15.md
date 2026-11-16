@@ -31,9 +31,9 @@ compositing JPEG XL layers into the displayed image).
 | Class | Items | Inputs (J, W, X, V) | Outputs (O) | Pipeline (P) | Options (Q) |
 | --- | --- | --- | --- | --- | --- |
 | A | 25 → 6 → 3 | 20 → 3 | 2 → 1 → 0 | 1 → 0 | 2 → 0 |
-| B | 29 → 13 → 12 → 9 | 12 → 3 | 8 → 4 → 3 → 2 | 6 → 3 | 3 → 1 |
-| C | 21 → 55 → 50 → 54 | 15 → 41 → 37 | 0 → 5 | 2 → 5 | 4 → 3 → 7 |
-| D | 11 | 8 | 3 | 0 | 0 |
+| B | 29 → 13 → 12 → 9 → 8 | 12 → 3 | 8 → 4 → 3 → 2 → 1 | 6 → 3 | 3 → 1 |
+| C | 21 → 55 → 50 → 54 → 50 | 15 → 41 → 37 → 35 | 0 → 5 | 2 → 5 → 3 | 4 → 3 → 7 |
+| D | 11 → 16 | 8 → 10 | 3 → 4 | 0 → 2 | 0 |
 | resolved by decision | 0 → 1 → 3 | 0 | 0 → 2 | 0 → 1 | 0 |
 | resolved by removal | 0 → 6 | 0 → 4 | 0 → 1 | 0 | 0 → 1 |
 
@@ -42,7 +42,11 @@ second the state after branch `v1/engine-discarded` (2026-11-15), a third
 the state after branch `v1/remove-alt-backends` (2026-11-15, see
 [removal of the alternative backends](#update-removal-of-the-alternative-backends-2026-11-15)), a
 fourth the state after branch `v1/engine-options` (2026-11-15, see
-[options and the command line](#update-options-and-the-command-line-2026-11-15)): the
+[options and the command line](#update-options-and-the-command-line-2026-11-15)), a
+fifth the state after branch `v1/engine-depth` (2026-11-15, owner decision:
+the output depth follows the input, ADR-0021 amendment), which moves X17,
+V14, O2, P1 and P6 to (D): the precision is preserved wherever the output
+can hold it, and `PrecisionReduced` is reported only where it cannot: the
 refusals of ADR-0042 D1 and D4 (V4, X6 to X9) and the report of D2,
 `ProcessingReport::discarded` with its CLI key `discarded=`, moved 48
 items to (C); each row says what reports or refuses it and which test of
@@ -124,7 +128,7 @@ classified refusal; it is counted as (C).
 | X14 | Gray, CMYK, float, premultiplied or unspecified alpha, PQ/HLG | refused with a reason. **Since 2026-11-15 gray and gray with alpha are accepted and expanded to RGB(A) (owner decision, ADR-0043; nothing is lost: R = G = B)** | adapters, `cms.rs` | matrix | `supported_matrix` JPEG XL cases | C |
 | X15 | Orientation | rendered upright by the decoder | decoders | matrix | `orientation_tests::jpeg_xl_orientations_are_rendered_upright_for_every_crop` | D |
 | X16 | Progressive passes, truncation | the full image is decoded; a truncated file is `MalformedInput` (no partial render) | `drive` | no | `silent_drops::truncated_inputs_are_malformed` | C |
-| X17 | Bit depth above 8 (16-bit, 31-bit integer samples) | decoded as float, then 8-bit output. **Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`** | — | matrix, Color policy ("8-bit … rows") | `modular-rgb31.jxl` with libjxl-rs (probe); `discarded_report::jpeg_xl_precision_above_eight_bits_is_reported` | C |
+| X17 | Bit depth above 8 (16-bit, 31-bit integer samples) | decoded as float, then 8-bit output. Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`. **Since `v1/engine-depth`: preserved up to the output's depth (JPEG XL 16, AVIF 12), quantized at it; `PrecisionReduced` only where the output holds fewer bits (WebP, AVIF from 13+ bits, 31-bit to JPEG XL, an explicit lower depth)** | `pipeline.rs` depth rule | matrix (Bit depth rows) | `format_parity::depth_follows_the_input_in_every_output`; `jxl_output_tests::a_sixteen_bit_lossless_round_trip_is_exact`; `discarded_report::jpeg_xl_precision_above_eight_bits_is_reported` (WebP output) | D |
 
 Finding, not a silent drop: jxl-oxide panics in a debug build on
 `modular-rgb31.jxl` (`jxl-image` 0.13.0 `parse_integer_sample`, `1 << 31`
@@ -150,7 +154,7 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | V11 | Grid, `pymd` pyramid | composed grid / primary item at full size | libavif | matrix | `supported_matrix::avif_alpha_and_grid_stills_are_accepted`; `pyramid_pymd.avif` (probe) | D |
 | V12 | Sequences, `clap`, `imir` before `irot`, monochrome, PQ/HLG | refused with a reason. **Since 2026-11-15 monochrome is accepted through libavif's gray output and expanded to RGB (owner decision, ADR-0043)** | `avif.rs` | matrix | `supported_matrix` AVIF cases | C |
 | V13 | `irot`/`imir` | applied before crop | `orientation.rs` | matrix | `supported_matrix::avif_irot_and_imir_are_applied_for_all_eight_orientations` | D |
-| V14 | 10/12-bit samples | normalized float, then 8-bit output. **Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`** | `avif.rs` `read_region` | matrix | `supported_matrix::avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted`; `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` (10-bit against 8-bit) | C |
+| V14 | 10/12-bit samples | normalized float, then 8-bit output. Since `v1/engine-discarded`: reported: `Discarded::PrecisionReduced`. **Since `v1/engine-depth`: preserved in AVIF and JPEG XL output; reported for WebP output and an explicit lower depth** | `avif.rs` `read_region`, `pipeline.rs` depth rule | matrix | `supported_matrix::avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted`; `discarded_report::avif_properties_the_engine_does_not_interpret_are_reported` (10-bit against 8-bit, WebP output), `discarded_report::avif::deeper_input_keeps_its_depth_and_an_explicit_lower_depth_is_reported`, `pipeline_tests::deep_rows::a_deep_avif_keeps_its_depth_through_avif_output` | D |
 | V15 | Limited range | expanded to full range by libavif (value-preserving) | libavif | `avif.rs` module doc | — | D |
 | V16 | Chroma upsampling | nearest neighbor, forced by the wrapper | `ferrisma-avif-read` `rgb` | `avif.rs` module doc only | — | B |
 | V17 | Truncation, corrupted payload | `MalformedInput` | `bridge_error` | matrix | `silent_drops::truncated_avif_is_malformed`; 16 inverted bytes in `paris_icc_exif_xmp.avif` (probe) | C |
@@ -160,7 +164,7 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 | # | Output | Item | Today | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
 | O1 | AVIF (both encoders until 2026-11-15; libavif only since) | source EXIF/XMP/ICC | not written; sRGB signaled (libavif `nclx` 1/13/6 full; the removed rav1e in the AV1 header only). **Since `v1/engine-discarded`: reported on the input side: `Exif`, `Xmp`, `IccProfile`** | matrix, Outputs | `supported_matrix::avif_output_drops_source_metadata_and_writes_upright_pixels` | C |
-| O2 | AVIF libavif 10-bit (default) | precision | the 10-bit file carries 8-bit rows | matrix ("8-bit straight-alpha RGBA rows") | `libavif_is_the_default_avif_encoder_at_ten_bit_444_with_nclx` | B |
+| O2 | AVIF libavif 10-bit (default) | precision | the 10-bit file carries 8-bit rows. **Since `v1/engine-depth`: a 10- or 12-bit AVIF carries content quantized at that depth (`u16` rows); the default depth follows the input** | matrix (Outputs, Bit depth) | `ferrisma_avif_write::deep_output_equals_the_c_original`; `pipeline_tests::deep_rows::a_deep_avif_keeps_its_depth_through_avif_output` | D |
 | O3 | AVIF libavif | `quality` fraction | rounded to an integer. **Since `v1/engine-options` (owner decision of 2026-11-15, ADR-0043 D4): resolved by decision; `AvifOptions::quality` and `alpha_quality` are libavif's integers 0–100, passed unchanged** | `crates/ferrisma-avif-write` | rustdoc of `AvifOptions` | `supported_matrix::libavif_quality_alpha_quality_speed_and_depth_ranges` | resolved |
 | O4 | AVIF rav1e | depth, alpha quality | always 10-bit; alpha at fixed quality 80 whatever `quality` says. **Since `v1/remove-alt-backends`: resolved by removal; rav1e is no longer an encoder of the engine** | rustdoc, matrix | the tests `rav1e_writes_ten_bit_without_a_container_colr` and `rav1e_writes_an_alpha_item_for_transparent_input` were removed with it | removed |
 | O5 | All | orientation | applied, written upright with no transform property | matrix | `jpeg_xl_output_is_written_upright` and the AVIF/WebP cases | D |
@@ -177,12 +181,12 @@ reports the float layout of `modular-rgb-alpha-float24e7.jxl` as
 
 | # | Item | Today | Code | Documented | Test | Class |
 | --- | --- | --- | --- | --- | --- | --- |
-| P1 | Bit depth | every input reaches the encoder as 8-bit RGBA rows. **Since `v1/engine-discarded`: reported when the input is deeper: `Discarded::PrecisionReduced`** | `fast_execute.rs` `quantize_row` | matrix, Color policy | —; `discarded_report::jpeg_xl_precision_above_eight_bits_is_reported` | C |
+| P1 | Bit depth | every input reaches the encoder as 8-bit RGBA rows. Since `v1/engine-discarded`: reported when the input is deeper. **Since `v1/engine-depth`: the executors quantize at the output depth (`quantize_row_deep`, `u16` rows), which follows the input; `PrecisionReduced` exactly when the output depth is below the input's** | `fast_execute.rs`, `quality_execute.rs`, `output_depth.rs` | matrix, ADR-0021 amendment | `fast_execute_tests::deep_output_meets_the_bound_against_the_f64_oracle`, `every_deep_code_survives_an_identity_transform_at_its_depth`; `format_parity::depth_follows_the_input_in_every_output` | D |
 | P2 | Out-of-gamut and over-range values (Display P3, float JPEG XL, Lanczos overshoot) | kept through resampling, clipped to [0, 1] at final quantization; nothing reports how much was clipped | `quantize_row` (`clamp(0.0, 1.0)`) | ADR-0013, ADR-0016 (rule 5 asks for a "visible decision … with output metadata", not delivered) | `tests/icc_photo.rs::photograph_as_display_p3_matches_littlecms_out_of_gamut` | B |
 | P3 | ICC profiles outside moxcms' extended matrix-shaper path (LUT profiles) | clamped to the destination gamut inside moxcms, before resampling | `cms.rs` `IccSrgbSource::new` | ADR-0016 (2026-11-06), ADR-0023 | `cms::tests` | B |
 | P4 | Rendering intent | moxcms' default `Perceptual` is used for every profile; the profile header's intent is not consulted. Verified 2026-11-15: the intent is set nowhere in the engine; `src/cms.rs` `IccSrgbSource::new` builds `TransformOptions { allow_extended_range_rgb_xyz, ..TransformOptions::default() }`, and moxcms 0.9.1 `TransformOptions::default()` sets `rendering_intent: RenderingIntent::default()` (`transform.rs:141`), which is `Perceptual` (`profile.rs:599`). ADR-0016 (amendment #17/#41) lists "LUT-based profiles, intents other than relative colorimetric" as open, which reads as if relative colorimetric were used. Where it matters: moxcms reads the intent only in its LUT paths (`conversions/lut_transforms.rs`, `md_luts_factory.rs`: `get_device_to_pcs` picks `A2B0` for perceptual and `A2B1` for relative colorimetric, `transform.rs:1202`, plus black-point detection); when source and destination are both matrix/TRC profiles (`transform.rs:673`, `800`), as for every profile in the repository's tests, the intent has no effect and the output is the same. A LUT-based source profile with distinct perceptual and colorimetric tables gives different output. **Resolved 2026-11-15 by owner decision:** the intent is relative colorimetric, set explicitly in `src/cms.rs` ([ADR-0016](adr/0016-working-color-space-and-transform-boundaries.md) amendment of that date); matrix/TRC output unchanged, LUT profiles use `A2B1`. A fixed, documented part of the contract, not per-input information, so not reported | `cms.rs` (`TransformOptions::default()`) | no (misleading) | `cms::tests::lut_profiles_convert_with_the_relative_colorimetric_table` (a profile built with moxcms' writer; no real LUT-based fixture in the repository, open under #17/#211) | resolved |
 | P5 | Color under alpha 0 | made transparent black. **Since `v1/engine-discarded`: reported: `Discarded::HiddenColor` (input pixels of the processed region with alpha exactly 0 and nonzero color)** | `quantize_row` | ADR-0014 | `tests/resize_oracle.rs` (transparent black), `linear_srgb_tests::all_transparent_pixels_yield_canonical_transparent_black`; `discarded_report::hidden_color_under_zero_alpha_is_reported` | C |
-| P6 | Alpha precision | 10/12/16-bit or float alpha quantized to 8 bits. **Since `v1/engine-discarded`: reported with `Discarded::PrecisionReduced` (JPEG XL alpha above 8 bits; AVIF alpha has the color depth)** | `quantize_row` | matrix | — | C |
+| P6 | Alpha precision | 10/12/16-bit or float alpha quantized to 8 bits. Since `v1/engine-discarded`: reported. **Since `v1/engine-depth`: alpha is quantized at the output depth too; the input depth is the larger of color and alpha, so a deeper alpha raises the output depth or is reported (float alpha stays refused)** | `quantize_row_deep` | matrix | `jxl_output_tests::deep_output_equals_the_original_cjxl_bytes` (12- and 16-bit alpha) | D |
 | P7 | Miscoded `cicp` tag inside an ICC profile | ignored as a description (its PQ/HLG still refuses) | `cms.rs` | ADR-0016 (#17, #41) | `cms::tests` | B |
 | P8 | Missing color signal under `AssumeSrgbIfMissing` | sRGB assumed, `color_signal = AssumedSrgb` | `pipeline.rs` `run` | matrix | `tests/color_signal_and_refusals.rs` | C |
 | P9 | Display P3 or linear-sRGB CICP | converted, `color_signal = Cicp` | `fast_execute.rs` | matrix | `pipeline_tests` | C |
