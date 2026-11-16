@@ -1,0 +1,191 @@
+# Rebuild dav1d's assembly kernels with intrinsics
+
+- **Status:** Accepted (infrastructure and the first itx slice on AArch64 NEON)
+- **Date:** 2026-11-16
+- **Source:** owner decision of 2026-11-16 (engine
+  [ADR-0031](../../../../docs/adr/0031-workspace-libavif-input-experiment.md),
+  amendment of that date) under engine
+  [ADR-0044](../../../../docs/adr/0044-no-assembly-acceleration-through-rust-intrinsics.md)
+  D2; sequencing delegated by the owner (coordinator, 2026-11-16)
+- **Related:** [0025](0025-port-the-complete-dav1d-portable-configuration.md),
+  [0029](0029-run-original-checkasm-bodies-across-c-and-rust.md),
+  [0056](0056-dispatch-hand-translated-aom-simd-through-translated-rtcd.md),
+  [0058](0058-dispatch-hand-translated-x86-simd-on-gnu-linux.md),
+  [0059](0059-freeze-the-libaom-translation-and-gate-owned-code-on-golden-outputs.md),
+  [0060](0060-build-the-translations-on-stable-rust.md); libjpeg-turbo-rs
+  [ADR 0008](../../../libjpeg-turbo-rs/docs/adr/0008-x86-64-kernels-from-nasm.md).
+  Number 0061 is used by the unmerged branch `v1/avif-drop-dav1d`, whose
+  removal of dav1d is paused.
+
+## Context
+
+The engine reads AVIF through the translated libaom. On the hosted runners of
+run 43789376239 that took 1.75 to 2.1 times as long as stock libavif with
+dav1d, one thread. dav1d's speed is in its assembly: NEON in `src/arm/64/`,
+SSSE3 to AVX-512 in `src/x86/`. This crate translates dav1d 1.5.4 with
+`-Denable_asm=false` (ADR 0025), so it has none of that assembly; its
+`*_dsp_init` functions assign C kernels and `dav1d_init_cpu` is empty. Engine
+ADR-0044 excludes assembly in the project and linking the original's; a
+kernel that exists only as assembly is rebuilt with `core::arch` intrinsics
+(D2) and gated against the original's SIMD build at the same level.
+
+A profile of the port's dav1d on still images (8/10-bit, 4:2:0/4:4:4, alpha,
+lossless; Apple M1 Pro) puts the time in the inverse transforms (`itx`,
+32–43 %), the entropy decoder `msac` (20–28 %, 70 % lossless), the loop
+filter (12–18 %), CDEF (4–10 %) and intra prediction (3–4 %). Stills never
+reach inter prediction (`mc`, warp, OBMC) except through intrabc or
+superres. The assembly volume for those families is about 10,000 lines of
+NEON and, at the AVX2 level, about 26,000 lines of x86 per bit depth pair.
+
+## Decision
+
+**Kernels.** Each assembly file of a family is rebuilt as one Rust module
+below `crates/dav1d/src/simd/`: `arm64/<file>.rs` for `src/arm/64/<file>.S`,
+`arm/<family>.rs` for the init header `src/arm/<family>.h` (the slot
+assignments under the CPU flags), and the x86 files likewise. One Rust
+function per assembly entry point and per internal function or macro, named
+as in the assembly; the vector registers are a local array indexed by
+register number (`simd/arm64/util.rs`), so that each Rust line reads against
+its assembly line, as libjpeg-turbo-rs ADR 0008 did for NASM. Instructions
+become the intrinsics that compile to them; a 64-bit arrangement clears the
+high half of its destination as the hardware does. Lane-wise instructions
+are computed whole, which gives every lane the value of the assembly whatever
+the issue order. Instruction scheduling, register allocation and the
+assembly's private calling conventions between helpers (`blr x4`) are left to
+the compiler; branches on the eob thresholds, coefficient clearing, the
+order of loads and stores and the DC-only paths are kept, because they decide
+the outputs and the coefficient buffer. No `asm!`; the kernels are not
+`#[no_mangle]`, so the crate's exported symbols do not change.
+
+**`unsafe` boundary, per family.** The translated caller passes the
+original's arguments (destination block, stride, coefficient buffer, eob).
+The family module states once which rows, columns and coefficient offsets its
+loads and stores touch; they stay within the block the caller hands over.
+Unaligned 32-bit lane accesses use `read_unaligned`/`write_unaligned`.
+
+**Dispatch.** `tools/enable_dav1d_dispatch.py` (with `--apply`, `--rehash`,
+`--check`; unit test `tests/ports/enable_dav1d_dispatch_test.py`; CI runs
+`--check` next to `enable_aom_dispatch.py --check`) makes the original's
+`HAVE_ASM` edits in the owned translated units of ADR 0059 and nothing else:
+`dav1d_init_cpu` stores `simd::cpu::dav1d_get_cpu_flags_native()` (all four
+profiles), and each entry of the committed list `crates/dav1d/dispatch.txt`
+(`<family>_<bpc>bpc_<arm|x86>`) makes that family's init call the owned
+mirror of the original's `<family>_dsp_init_<arch>` where the original calls
+it (macOS profiles for `arm`, Linux profiles for `x86`). Each inserted
+statement carries a marker comment; `--check` removes them, re-applies the
+list and compares, and checks the digests. `tools/transpile_dav1d.py`
+applies the same function after `tools/stable_rust.py`'s rewrites, so a
+regeneration reproduces the edits. The function-pointer tables
+(`Dav1dInvTxfmDSPContext`, …) keep their translated layout; the owned mirror
+declares the same `#[repr(C)]` layout. `dav1d_set_cpu_flags_mask(0)` keeps
+every C kernel selectable, which is the port's scalar path.
+
+**CPU detection without assembly.** `simd/cpu.rs` mirrors
+`src/x86/cpu.c` statement by statement with `__cpuid_count` and
+`_xgetbv(0)` in place of `cpuid.asm` (the route libaom's RTCD took on
+2026-11-16), including `SLOW_GATHER`. On AArch64 NEON is baseline; DotProd,
+I8MM, SVE and SVE2 are above the v1.0 scope and not reported.
+
+**Levels.** AArch64: NEON. x86-64: AVX2. On an AVX2 machine the original
+selects an AVX2 kernel for every still-image slot that has one (the x86
+init headers, preprocessed with assembly on), and SSE2 for msac's entry
+points; the 12 bpc DCT_DCT transforms of 16x32 and larger have no x86
+kernel and run C in the original as well. Those AVX2 and SSE2 kernels are
+the x86-64 scope. **Stated gap:** the SSSE3 and SSE4.1 kernels,
+which the original selects only on CPUs without AVX2, are out of scope for
+now; on such CPUs the port runs its C kernels where the original runs SSSE3
+or SSE4.1. On an AVX-512 (Ice Lake) machine the original selects
+`avx512icl` kernels; the gate restricts it with
+`dav1d_set_cpu_flags_mask(0x2f)` (SSE2 to AVX2, `SLOW_GATHER` passed
+through), as libaom's oracle is built without AVX-512.
+
+**Gate (engine ADR-0041, ADR-0044 D2).**
+
+1. *Oracle.* `tools/build_dav1d.py --asm` builds the original from the same
+   source with its assembly, `-ffp-contract=off`, `-Dtrim_dsp=false` (so the
+   mask can select every level down to C), a static library and the
+   original CLI (`build/dav1d-asm-<profile>`, `reference-profile.json` with
+   the configuration, assembly-source and archive digests). With
+   `--cross x86_64-linux-gnu` it is built in the `tools/qemu_x86_64`
+   container and run under `qemu-x86_64 -cpu max` (no Rosetta).
+2. *Per kernel.* `tools/check_dav1d_dsp.py --simd neon|avx2` runs all
+   original checkasm bodies (ADR 0029) with the original's assembly pointers
+   against the port's, both libraries detecting the CPU with their own
+   `dav1d_init_cpu` and restricted to the same level: every block size, every
+   transform type, eob sub-shapes, 8 and 10/12 bpc, padded destinations that
+   catch writes outside the block, and the cleared coefficient buffer. Slots
+   not yet rebuilt are compared through the port's C, which the original's
+   assembly equals on the inputs the original tests feed. The scalar mode
+   (no `--simd`) now pins the port to its C kernels explicitly.
+3. *Whole images.* `tools/check_dav1d_simd_original.py --level neon|avx2|scalar`
+   decodes the original test suite's MD5-verified streams (dav1d-test-data,
+   Argon samples included) and the AV1 items of every tracked libavif test
+   AVIF with the original (assembly at the level, or portable C for
+   `scalar`) and with the original CLI relinked against the port (same
+   `--cpumask`), and requires the same exit status and picture MD5, and the
+   expected MD5 where the suite knows it.
+
+The SIMD comparison needs no limit on the input domain: it compares with
+the assembly itself. (Upstream's `src/itx_1d.c` documents that SIMD inverse
+transforms may differ from C on non-conformant coefficient overflows; that
+is a difference between the original's C and its assembly, which the scalar
+and SIMD comparisons each keep on their own side.)
+
+## Consequences
+
+- The port's default decode path (detection on) runs the rebuilt kernels;
+  the engine still selects AOM (ADR-0031), so this changes no engine output.
+- Each family is first rebuilt on NEON and then on AVX2 before the next
+  family; 8 bpc before 16 bpc. Order of families by measured share: itx,
+  loop filter, msac, CDEF, intra prediction; then loop restoration,
+  palette, filter-intra and film grain.
+- The benchmark (`scripts/bench/ci-perf/codec_avif.sh`) gains two context
+  columns: `port-dav1d:t1` (the port's dav1d through
+  `examples/decode_codec.rs`) and `c-dav1d-v1:t1` (stock dav1d restricted to
+  the v1.0 SIMD scope).
+
+## Validation
+
+**2026-11-16, first slice** (macOS ARM64, Apple M1 Pro, loaded shared host;
+`main` at `f1bb81fa` plus this branch): the 8 bpc DCT_DCT and IDTX entry
+points of `itx.S` for 4x4, 4x8, 8x4, 8x8, 4x16, 16x4, 8x16, 16x8 and 16x16
+(18 entry points, `dispatch.txt`: `itx_8bpc_arm`).
+
+| Check | Result |
+| --- | --- |
+| `check_dav1d_dsp.py --simd neon` (original assembly against the port, both at NEON) | 17 checkasm groups, 3,155 selections each, pass |
+| `check_dav1d_dsp.py` (portable C against the port masked to C) | 3,155 selections each, pass |
+| `check_dav1d_simd_original.py --level neon` / `--level scalar` | 994 of 994 decodes identical each (803 MD5-verified suite streams, 184 AV1 items of the libavif test AVIFs, 7 of the profiling stills) |
+| Positive control: one constant of `idct_4` off by one | checkasm: 2 groups fail; whole decodes: 366 of 987 identical |
+| `run_dav1d_tests.py` (original suite, Rust release decoder) | 1,711 of 1,711 |
+| `check_dav1d_abi.py`, `check_dav1d_api.py`, `check_dav1d_linkage.py` | 12,157 layout checks, 0 differences; 83 API comparisons; pass |
+| x86-64 oracle (`build_dav1d.py --asm --cross x86_64-linux-gnu`, QEMU container) | builds (775 AVX2 entry points in the archive); 24 of 24 sampled suite streams give the expected MD5 with `--cpumask avx2` and `--cpumask 0` under `qemu-x86_64 -cpu max` |
+
+Instructions per call against the original's assembly
+(`measure_dav1d_kernels.py`, 10^6 calls on fixed inputs, NEON level, equal
+outputs): 0.76 to 1.63 over the 27 kernel/path pairs, median 1.08; the full
+DCT paths 1.03 (4x4) to 1.26 (8x16), 16x16 1.23; the DC-only paths of 4x8
+(1.41) and 4x16 (1.63) are the outliers (the assembly's four-row loop in
+`idct_dc_w4` is a per-row loop here).
+
+Instructions per decode of the port's dav1d (one thread, 12 MP q60
+stills): 8-bit 4:2:0 3.07 → 2.61 G (-15 %), 8-bit 4:4:4 4.25 → 3.71 G
+(-13 %), 8-bit 4:2:0 with alpha 3.46 → 3.00 G (-13 %); 10-bit and lossless
+unchanged (no 16 bpc kernel yet; lossless uses WHT). Stock dav1d with NEON
+needs 0.99 G for the 8-bit 4:2:0 still. The itx share of the sampled 8-bit
+4:2:0 profile fell from 40.5 % to 29.5 %; most of the rest is the 32-point
+DCT and the ADST transforms, not rebuilt yet. Decoded pictures unchanged.
+
+Not run: `transpile_dav1d.py --check` (needs C2Rust; CI's translate
+workflow); the x86-64 per-kernel and whole-image gates (no x86 kernel yet;
+they run in the QEMU container with the first AVX2 kernels); no hosted run.
+
+## Review when
+
+A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
+reopens the SSSE3/SSE4.1 gap or the AVX-512 scope; dav1d is updated; or the
+engine's decoder choice changes.
+
+## Amendment log
+
+- 2026-11-16 — Accepted with the infrastructure and the first slice.
