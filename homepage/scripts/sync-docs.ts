@@ -11,6 +11,8 @@ const root = resolve(homepage, "..");
 const pages = [
   ["docs/getting-started.md", "/guide/getting-started"],
   ["docs/status.md", "/guide/status"],
+  ["docs/quality-gate.md", "/guide/quality-gate"],
+  ["docs/supported-matrix.md", "/guide/supported-matrix"],
   ["docs/architecture.md", "/guide/architecture"],
   ["docs/design/color-management-contract.md", "/guide/color"],
   ["docs/codecs.md", "/guide/codec-development"],
@@ -26,6 +28,33 @@ const routes = new Map<string, string>(
   pages.map(([source, route]) => [resolve(root, source), route]),
 );
 
+/** GitHub's heading anchor: lowercase, punctuation dropped, spaces to hyphens. */
+export function githubSlug(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .replace(/\s/g, "-");
+}
+
+/** Ardo's heading anchor: lowercase, every run of other characters one hyphen. */
+export function ardoSlug(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/** A GitHub anchor into a guide page, rewritten to the anchor Ardo renders for that heading. */
+function translateAnchor(target: string, fragment: string): string {
+  if (!fragment.startsWith("#")) return fragment;
+  const wanted = decodeURIComponent(fragment.slice(1));
+  for (const match of readFileSync(target, "utf8").matchAll(/^#{1,6} (.+)$/gm)) {
+    const heading = match[1].replaceAll("`", "").trim();
+    if (githubSlug(heading) === wanted) return `#${ardoSlug(heading)}`;
+  }
+  return fragment;
+}
+
 export function rewriteTarget(source: string, target: string): string {
   if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#|\/)/i.test(target)) return target;
   const match = target.match(/^([^?#]*)(.*)$/);
@@ -36,7 +65,7 @@ export function rewriteTarget(source: string, target: string): string {
     throw Error(`Link escapes repository: ${target}`);
   const stats = statSync(path); // Missing targets fail the build, including mapped pages.
   const route = routes.get(path);
-  if (route) return route + match[2];
+  if (route) return route + translateAnchor(path, match[2]);
   const kind = stats.isDirectory() ? "tree" : "blob";
   return `https://github.com/sebastian-software/ferrisma/${kind}/main/${repoPath.split(sep).map(encodeURIComponent).join("/")}${match[2]}`;
 }

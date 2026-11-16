@@ -1,3 +1,10 @@
+/*
+ * The shell of every page, built like `MonoArdoSite` from ferramenta-family/ardo:
+ * the steel header in Ardo's header slot, Ardo's sidebar and menu on the
+ * documentation pages, Monografie's prose as the MDX wrapper, and the footer
+ * outside Ardo's main landmark. The header and footer are site-local until
+ * Ferrisma is in the family registry (./site/chrome.tsx).
+ */
 import { useState, type ReactNode } from "ardo/react";
 import { ArdoActiveLink, useArdoConfig, useArdoPageData, useArdoPath } from "ardo/runtime";
 import {
@@ -12,13 +19,15 @@ import {
   ArdoSidebarSection,
 } from "ardo/ui";
 import { MarkDefs, MonoPage, MonoReadingTable } from "ferramenta-family/monografie";
-import { WORKSHOP } from "ferramenta-family/registry";
 import "ferramenta-family/monografie.css";
 import "ferramenta-family/monografie-docs.css";
 import "ferramenta-family/monografie-ardo.css";
 import "./site.css";
+import "./drawings/drawings.css";
 import appleTouchIcon from "./assets/ferrisma-apple-touch-icon.png?url";
 import icon from "./assets/ferrisma-favicon.png?url";
+import { NAME } from "./ferrisma";
+import { SiteFooter, SiteHeader } from "./site/chrome";
 
 const sections = [
   {
@@ -27,6 +36,8 @@ const sections = [
     pages: [
       ["Getting started", "/guide/getting-started"],
       ["Status", "/guide/status"],
+      ["Quality gate", "/guide/quality-gate"],
+      ["Supported inputs and outputs", "/guide/supported-matrix"],
       ["Architecture", "/guide/architecture"],
       ["Color", "/guide/color"],
       ["Codec development", "/guide/codec-development"],
@@ -45,6 +56,22 @@ const sections = [
       ["AVIF", "/codecs/avif"],
     ],
   },
+];
+
+/** The header's links: pages, never anchors on the homepage. */
+const links = [
+  <ArdoActiveLink key="guide" to="/guide/getting-started">
+    Guide
+  </ArdoActiveLink>,
+  <ArdoActiveLink key="gate" to="/guide/quality-gate">
+    Quality gate
+  </ArdoActiveLink>,
+  <ArdoActiveLink key="codecs" to="/codecs/jpeg">
+    Codecs
+  </ArdoActiveLink>,
+  <ArdoActiveLink key="status" to="/guide/status">
+    Status
+  </ArdoActiveLink>,
 ];
 
 function Sidebar() {
@@ -68,6 +95,33 @@ function Sidebar() {
     </ArdoSidebar>
   );
 }
+
+/** Ardo's menu and search on documentation pages; the menu carries the header's links too. */
+function DocsActions() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <ArdoMobileNavigation
+        title={`${NAME} documentation`}
+        open={open}
+        onOpenChange={setOpen}
+        nav={
+          <nav className="mono-docs-links" aria-label={`${NAME} site`}>
+            <ul>
+              {links.map((link) => (
+                <li key={link.key}>{link}</li>
+              ))}
+            </ul>
+          </nav>
+        }
+      >
+        <Sidebar />
+      </ArdoMobileNavigation>
+      <ArdoHeaderSearch variant="icon" onActivate={() => setOpen(false)} />
+    </>
+  );
+}
+
 function Article({ children }: { children: ReactNode }) {
   const page = useArdoPageData();
   return (
@@ -75,7 +129,7 @@ function Article({ children }: { children: ReactNode }) {
       tocSource="dom"
       header={
         <header className="mono-prose">
-          <h1>{page?.title ?? "Documentation"}</h1>
+          <h1>{page?.title.replaceAll("`", "") ?? "Documentation"}</h1>
         </header>
       }
     >
@@ -83,6 +137,7 @@ function Article({ children }: { children: ReactNode }) {
     </ArdoDocContent>
   );
 }
+
 export function Layout({ children }: { children: ReactNode }) {
   return (
     <ArdoRootLayout
@@ -97,12 +152,12 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 }
 export const ErrorBoundary = ArdoErrorBoundary;
+
 export default function Root() {
   const path = useArdoPath();
   const config = useArdoConfig();
   const canonical = config.siteUrl ? new URL(path || "/", config.siteUrl).href : undefined;
   const home = path === "/" || path === "";
-  const [open, setOpen] = useState(false);
   return (
     <MonoPage className={home ? "fx-site" : "mono-docs fx-docs"}>
       {home && canonical && <link rel="canonical" href={canonical} />}
@@ -111,57 +166,17 @@ export default function Root() {
         className="mono-ardo-shell"
         scrollMode="document"
         header={
-          <header className="mono-header fx-header">
-            <div className="mono-header-in">
-              <ArdoActiveLink className="mono-brand" to="/">
-                <span className="ferra-mark fx-mark" aria-hidden="true" />
-                Ferrisma <span className="fx-status">Experimental</span>
-              </ArdoActiveLink>
-              <nav className="fx-nav" aria-label="Main">
-                <ArdoActiveLink to="/guide/getting-started">Guide</ArdoActiveLink>
-                <ArdoActiveLink to="/codecs/jpeg">Codecs</ArdoActiveLink>
-                <a href="https://ferramenta.dev">Ferramenta</a>
-              </nav>
-              <div className="mono-header-actions">
-                <ArdoMobileNavigation
-                  title="Ferrisma documentation"
-                  open={open}
-                  onOpenChange={setOpen}
-                >
-                  <Sidebar />
-                </ArdoMobileNavigation>
-                <ArdoHeaderSearch variant="icon" onActivate={() => setOpen(false)} />
-                <a
-                  className="mono-repository"
-                  href="https://github.com/sebastian-software/ferrisma"
-                  aria-label="Source code on GitHub"
-                >
-                  <svg className="icon" width="20" height="20" aria-hidden="true">
-                    <use href="#i-github" />
-                  </svg>
-                </a>
-              </div>
-            </div>
-          </header>
+          <SiteHeader
+            home="/"
+            links={links}
+            actions={home ? <ArdoHeaderSearch variant="icon" /> : <DocsActions />}
+          />
         }
         sidebar={home ? false : <Sidebar />}
         footer={false}
         components={{ table: MonoReadingTable, wrapper: Article }}
       />
-      <footer className="mono-footer">
-        <div className="mono-footer-in">
-          <p>
-            Ferrisma, an experimental image pipeline from{" "}
-            <a href="https://ferramenta.dev">Ferramenta</a>.
-          </p>
-          <a href="https://github.com/sebastian-software/ferrisma">GitHub</a>
-          <a href={WORKSHOP.imprint}>Imprint</a>
-          <a href={WORKSHOP.privacy}>Privacy</a>
-          <p className="mono-footer-copy">
-            © {new Date().getFullYear()} {WORKSHOP.company}
-          </p>
-        </div>
-      </footer>
+      <SiteFooter home="/" />
     </MonoPage>
   );
 }
