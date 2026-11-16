@@ -36,6 +36,7 @@ use super::quantizer::{DEFAULT_QUANT_BIAS, Quantizer};
 /// QuantizeBlockAC. The caller extracts `quant` from the raw quant field.
 /// `block_in` and `block_out` hold `xsize * ysize * 64` samples.
 #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+#[inline(always)]
 pub fn quantize_block_ac_d<D: SimdF32>(
     d: D,
     quantizer: &Quantizer,
@@ -66,12 +67,25 @@ pub fn quantize_block_ac_d<D: SimdF32>(
         }
     }
     let quantv = d.set(qac * qm_multiplier);
-    for y in 0..ysize * BLOCK_DIM {
+    // The rows of the block, each `xsize * kBlockDim` samples, sliced once
+    // so that the vector loads and stores below need no per-vector bounds
+    // checks; the same samples in the same order as the original's loops.
+    let row_len = xsize * BLOCK_DIM;
+    let area = row_len * ysize * BLOCK_DIM;
+    let rows = qm[..area]
+        .chunks_exact(row_len)
+        .zip(block_in[..area].chunks_exact(row_len))
+        .zip(block_out[..area].chunks_exact_mut(row_len));
+    for (y, ((qm_row, in_row), out_row)) in rows.enumerate() {
         let yfix = usize::from(y >= ysize * BLOCK_DIM / 2) * 2;
-        let off = y * BLOCK_DIM * xsize;
-        let mut x = 0;
-        // HWY_CAPPED(float, kBlockDim): four NEON, eight AVX2 lanes.
-        while x < xsize * BLOCK_DIM {
+        // HWY_CAPPED(float, kBlockDim): four NEON, eight AVX2 lanes; a row
+        // is a whole number of vectors.
+        let vectors = qm_row
+            .chunks_exact(D::LANES)
+            .zip(in_row.chunks_exact(D::LANES))
+            .zip(out_row.chunks_exact_mut(D::LANES));
+        for (i, ((qm_v, in_v), out_v)) in vectors.enumerate() {
+            let x = i * D::LANES;
             let threshold = if xsize == 1 {
                 const MASK: [u32; BLOCK_DIM] = [0, 0, 0, 0, !0, !0, !0, !0];
                 // MaskFromVec(BitCast(df, Load(du, kMask + x))): the lanes
@@ -86,13 +100,12 @@ pub fn quantize_block_ac_d<D: SimdF32>(
                 // Same for all lanes in the vector.
                 d.set(thresholds[yfix + usize::from(x >= xsize * BLOCK_DIM / 2)])
             };
-            let q = d.mul(d.load(&qm[off + x..]), quantv);
-            let input = d.load(&block_in[off + x..]);
+            let q = d.mul(d.load(qm_v), quantv);
+            let input = d.load(in_v);
             let val = d.mul(q, input);
             let nzero_mask = d.ge(d.abs(val), threshold);
             let v = d.convert_to_i32(d.if_then_else_zero(nzero_mask, d.round(val)));
-            d.store_i32(v, &mut block_out[off + x..]);
-            x += D::LANES;
+            d.store_i32(v, out_v);
         }
     }
 }
@@ -100,6 +113,7 @@ pub fn quantize_block_ac_d<D: SimdF32>(
 /// QuantizeRoundtripYBlockAC. `inout` and `quantized` hold the three
 /// channels, `size` samples apart.
 #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+#[inline(always)]
 pub fn quantize_roundtrip_y_block_ac_d<D: SimdF32>(
     d: D,
     enc_state: &PassesEncoderState<'_>,
@@ -187,6 +201,7 @@ pub fn quantize_roundtrip_y_block_ac_d<D: SimdF32>(
     clippy::needless_range_loop,
     reason = "Keep the source pass and channel index loops."
 )]
+#[inline(always)]
 pub fn compute_coefficients_d<D: SimdF32>(
     d: D,
     group_idx: usize,

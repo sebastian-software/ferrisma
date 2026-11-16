@@ -375,6 +375,16 @@ decode-path Symmetric5 the lossy encoder runs, are translated with parity
 against the original's NEON and AVX2 (Rosetta 2) builds, behind the
 encoder's dispatch point (off by default).
 <!-- end encoder cfl -->
+<!-- encoder aq -->
+Encoder SIMD, `enc_adaptive_quantization` (2026-11-14, branch
+`v1/jxl-enc-aq`, ADR 0004 "Encoder path: `enc_adaptive_quantization`"):
+the export's one Highway function, AdaptiveQuantizationMap, is translated
+(`enc_adaptive_quantization_simd.rs`) and dispatched at
+`initial_quant_field` through `hwy::encoder_target()` (off by default), with
+parity against the original's NEON build in
+`tests/simd_encoder_aq.rs`. Nothing of this export remains. The AVX2 NaN-payload finding is settled by the owner decision of 2026-11-15 (#246, #250; ADR 0004): `aq_map` is not compared on AVX2 for inputs with two or more NaN-producing terms in one block's reduction; everything else is. The
+`Symmetric5` it calls dispatches on its own (`convolve_symmetric5_simd`).
+<!-- end encoder aq -->
 
 <!-- encoder container -->
 Encoder step 3, container and box writing (2026-11-15, branch
@@ -4128,3 +4138,76 @@ default buffering, and with `--buffering=0` the one-shot files. Not verified
 here: native Linux and the ASan/UBSan graph; x86-64 ran under Rosetta 2
 (see the branch report).
 <!-- end encoder lossless streaming -->
+<!-- encoder selection -->
+## Encoder selection (2026-11-15, branch `v1/jxl-enc-select`)
+
+The encoder is ready to select its SIMD path by default
+(`hwy::ENCODER_SELECTS_SIMD`: `false` on `v1/jxl-enc-select`, on in
+`v1/jxl-enc-select-flip`; ADR 0004 "Encoder selection").
+`JxlEncoder` selects its target at creation and its work calls, and
+`LosslessThunderConfig::encode_pixels`, run inside
+`hwy::DispatchScope::Encoding`, where the encoder's kernels, the decoder code
+it runs and its plane padding follow that selection (condition (b)). The
+scalar gate forces the scalar encoder (`select_scalar_encoder_for_test`,
+`JXL_ENCODER_TARGET=scalar`; condition (d)). Found and fixed: the encoder's
+AdaptiveDCSmoothing (InitializePassesEncoder) did not dispatch.
+
+`tests/simd_encoder_public.rs` (condition (c)): every admitted family of the
+scalar `cjxl` gate, the engine's e7 d1.0/d2.0 sequence, the step-1
+checkpoints, the lossless e2 profile and photographs: zero differing
+encodes against the original's NEON build and, under Rosetta 2, its AVX2
+dispatch build (1,428 lossy histories, 128 of them admission prefixes, and 532 lossless encodes per target,
+plus 32 checkpoint histories and the photographs). `enc_adaptive_quantization`
+on AVX2 follows the owner decision of 2026-11-15 (#246, #250). Open:
+condition (e), a run on x86-64 hardware, and the x86-64 performance of the
+AVX2 path. Indicative NEON timing of a 24 MP photograph, e7 d1.0: 47.2 s
+scalar, 13.2 s NEON, 9.9 s original (see ADR 0004).
+<!-- end encoder selection -->
+<!-- encoder selection head -->
+## Encoder selection, status at the head of `v1/jxl-enc-select` (2026-11-15, evening)
+
+Rebased onto `df6c83cf` (encoder step 3 and 4 on `main`). Verified at the
+head: `tools/check.py --stage static --msrv` and pinned-nightly Clippy pass;
+the whole `--stage test` on NEON 1,153 passed, 0 failed, 2 ignored; the
+encoder's SIMD binaries on AVX2 under Rosetta 2 (`dispatch_scope`,
+`simd_encoder`, `_acs`, `_aq`, `_cfl`, `_entropy`, `_public`) 44 passed, 1
+ignored, with 21,850 kernel requests per target and every whole encode
+byte-identical with the original's build for that target (ADR 0004
+"Encoder selection", conditions (a) to (d) met; AVX2 `aq_map` under the
+owner decision of 2026-11-15). Added here: the 13 encoder-step-3 container
+tests select the scalar encoder path.
+
+The static stage now builds the x86-64 release `encode_lossy`,
+`encode_lossless` and `conformance_decode` and fails on an out-of-line
+`core::arch` x86 or `fmaf` call in a port function (0 in each; 3,296 and
+2,905 before). The skcms HSW engine still has 799 such calls in
+`encode_lossy`: inlining its helpers removes them but changed 657 of
+135,236 observations under Rosetta 2, so it was not committed (ADR 0004).
+
+Open: condition (e), the hosted x86-64 run of the encoder's binaries, and
+the encoder's AVX2 speed on hardware. In this branch (`v1/jxl-enc-select-flip`,
+the last commit `feat(jxl)!`) `ENCODER_SELECTS_SIMD` is on for AArch64 and
+x86-64, after `origin/main` was merged (encoder lossless streaming, whose 9
+parity tests now select the scalar encoder path). Verified with the switch on:
+static stage, 1.95 check and Clippy; the whole `--stage test` on NEON without
+the scalar environment guard (explicit selections alone) 1,162 passed, 0
+failed, 2 ignored; the encoder's SIMD binaries on AVX2 under Rosetta 2 44
+passed, 1 ignored. Do not merge before the hosted measurement is reviewed.
+<!-- end encoder selection head -->
+<!-- skcms hsw -->
+skcms HSW engine (2026-11-16, branch `v1/jxl-skcms-hsw`). O9 is implemented:
+the Rosetta 2 cross builds of the original (`tools/check.py`, scalar
+reference, its variant and the AVX2 oracle) use
+`-DCMAKE_APPLE_SILICON_PROCESSOR=x86_64` and contain skcms's HSW and SKX
+engines. The port's HSW helpers now run in the engine's attribute context
+(out-of-line intrinsic calls in `jxl::skcms` of `encode_lossy` 806 to 0;
+the static check holds them to zero). The earlier 657 differences of the
+inlined engine come from Rosetta 2 mis-executing correct AVX code: the same
+machine code is right under `qemu-user`, every variant of the port gives
+identical words for all 135,236 skcms observations under QEMU, and the
+original's HSW engine under QEMU matches the port on the affected
+observations (ADR 0004 "The skcms HSW engine in its attribute context").
+Open: the x86-64 test binaries under Rosetta 2 (Rosetta hung new x86-64
+processes on the machine during the change) and the hosted Linux x86-64
+run.
+<!-- end skcms hsw -->

@@ -52,6 +52,7 @@ fn afv_dc_mix(sum: f32, block10: f32, scale: f32) -> f32 {
     clippy::too_many_arguments,
     reason = "Spell out the source's template arguments."
 )]
+#[inline(always)]
 fn reinterpreting_idct<D: SimdF32>(
     d: D,
     dct_rows: usize,
@@ -102,6 +103,7 @@ fn reinterpreting_idct<D: SimdF32>(
 //  - (even, even) positions hold AFV coefficients
 //  - (odd, even) positions hold DCT4x4 coefficients
 //  - (any, odd) positions hold DCT4x8 coefficients
+#[inline(always)]
 fn afv_transform_from_pixels<D: SimdF32>(
     d: D,
     afv_kind: usize,
@@ -169,6 +171,7 @@ fn afv_transform_from_pixels<D: SimdF32>(
 
 /// Original TransformFromPixels for one descriptor; the contract of
 /// [`super::enc_transforms::transform_from_pixels`].
+#[inline(always)]
 pub fn transform_from_pixels_d<D: SimdF32>(
     d: D,
     strategy: AcStrategyType,
@@ -327,6 +330,7 @@ pub fn transform_from_pixels_d<D: SimdF32>(
 
 /// Original DCFromLowestFrequencies for one descriptor; the contract of
 /// [`super::enc_transforms::dc_from_lowest_frequencies`].
+#[inline(always)]
 pub fn dc_from_lowest_frequencies_d<D: SimdF32>(
     d: D,
     strategy: AcStrategyType,

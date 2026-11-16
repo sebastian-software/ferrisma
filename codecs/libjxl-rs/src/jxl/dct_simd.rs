@@ -16,8 +16,9 @@
 //! partial vector performs on it (a single-rounding fused multiply-add for
 //! `MulAdd`, as `vfma`/`vfmadd` do). Scratch memory keeps the original's
 //! `SZ`-strided layout, so the transforms write the same scratch words.
-//! The transposes move words only; their result does not depend on the
-//! original's 4x4 (NEON) or 8x8 (AVX2) vector blocking.
+//! The transposes move words only; they use the original's 4x4 (NEON) and
+//! 8x8 (AVX2) vector blocks where it does, so their result does not depend
+//! on the blocking either way.
 use super::dct_scales::{SQRT2, wc_multipliers};
 #[cfg(target_arch = "x86_64")]
 use super::hwy::Kernel;
@@ -475,9 +476,18 @@ fn dct1d<D: SimdF32, S: Size>(
 }
 
 /// Transpose<N, M>::Run(DCTFrom(from, from_stride), DCTTo(to, to_stride)):
-/// `to(m, n) = from(n, m)`.
+/// `to(m, n) = from(n, m)`, in the forms of transpose-inl.h's
+/// GenericTransposeBlock per target: 8x8 vector blocks on a 256-bit target
+/// (`HWY_CAP_GE256`, AVX2) when both dimensions are multiples of 8, 4x4
+/// vector blocks on a 128-bit target (NEON) when both are multiples of 4,
+/// and the element loop (`TransposeSimdTag<false>`) otherwise. Every form
+/// moves words only, so all three give the same result; the block forms
+/// exist for speed, as in the original. `rows` and `cols` are the shape's
+/// constants, so the choice folds at compile time, and the body inlines into
+/// the calling transform, which runs in the target's attribute context.
 #[inline(always)]
-fn transpose(
+fn transpose<D: SimdF32>(
+    d: D,
     rows: usize,
     cols: usize,
     from: &[f32],
@@ -485,9 +495,115 @@ fn transpose(
     to: &mut [f32],
     to_stride: usize,
 ) {
-    for n in 0..rows {
-        for m in 0..cols {
-            to[m * to_stride + n] = from[n * from_stride + m];
+    if D::LANES == 8 && rows.is_multiple_of(8) && cols.is_multiple_of(8) {
+        transpose_blocks8(d, rows, cols, from, from_stride, to, to_stride);
+    } else if D::LANES == 4 && rows.is_multiple_of(4) && cols.is_multiple_of(4) {
+        transpose_blocks4(d, rows, cols, from, from_stride, to, to_stride);
+    } else {
+        // GenericTransposeBlock(TransposeSimdTag<false>), transpose-inl.h
+        // lines 48-61.
+        for n in 0..rows {
+            for m in 0..cols {
+                to[m * to_stride + n] = from[n * from_stride + m];
+            }
+        }
+    }
+}
+
+/// GenericTransposeBlock(TransposeSimdTag<true>) of the `HWY_CAP_GE256`
+/// branch, transpose-inl.h lines 63-126: `BlockDesc<8>` is the full 8-lane
+/// vector; `InterleaveLower`/`InterleaveUpper` work per 128-bit block.
+#[inline(always)]
+fn transpose_blocks8<D: SimdF32>(
+    d: D,
+    rows: usize,
+    cols: usize,
+    from: &[f32],
+    from_stride: usize,
+    to: &mut [f32],
+    to_stride: usize,
+) {
+    let ld = |row: usize, i: usize| d.load(&from[row * from_stride + i..]);
+    for n in (0..rows).step_by(8) {
+        for m in (0..cols).step_by(8) {
+            let i0 = ld(n, m);
+            let i1 = ld(n + 1, m);
+            let i2 = ld(n + 2, m);
+            let i3 = ld(n + 3, m);
+            let i4 = ld(n + 4, m);
+            let i5 = ld(n + 5, m);
+            let i6 = ld(n + 6, m);
+            let i7 = ld(n + 7, m);
+            let q0 = d.interleave_lower(i0, i2);
+            let q1 = d.interleave_lower(i1, i3);
+            let q2 = d.interleave_upper(i0, i2);
+            let q3 = d.interleave_upper(i1, i3);
+            let q4 = d.interleave_lower(i4, i6);
+            let q5 = d.interleave_lower(i5, i7);
+            let q6 = d.interleave_upper(i4, i6);
+            let q7 = d.interleave_upper(i5, i7);
+
+            let r0 = d.interleave_lower(q0, q1);
+            let r1 = d.interleave_upper(q0, q1);
+            let r2 = d.interleave_lower(q2, q3);
+            let r3 = d.interleave_upper(q2, q3);
+            let r4 = d.interleave_lower(q4, q5);
+            let r5 = d.interleave_upper(q4, q5);
+            let r6 = d.interleave_lower(q6, q7);
+            let r7 = d.interleave_upper(q6, q7);
+
+            let out = [
+                d.concat_lower_lower(r4, r0),
+                d.concat_lower_lower(r5, r1),
+                d.concat_lower_lower(r6, r2),
+                d.concat_lower_lower(r7, r3),
+                d.concat_upper_upper(r4, r0),
+                d.concat_upper_upper(r5, r1),
+                d.concat_upper_upper(r6, r2),
+                d.concat_upper_upper(r7, r3),
+            ];
+            for (k, v) in out.into_iter().enumerate() {
+                d.store(v, &mut to[(m + k) * to_stride + n..]);
+            }
+        }
+    }
+}
+
+/// GenericTransposeBlock(TransposeSimdTag<true>) of the 128-bit branch
+/// (`HWY_TARGET != HWY_SCALAR`), transpose-inl.h lines 127-165:
+/// `BlockDesc<4>` is the full 4-lane vector.
+#[inline(always)]
+fn transpose_blocks4<D: SimdF32>(
+    d: D,
+    rows: usize,
+    cols: usize,
+    from: &[f32],
+    from_stride: usize,
+    to: &mut [f32],
+    to_stride: usize,
+) {
+    let ld = |row: usize, i: usize| d.load(&from[row * from_stride + i..]);
+    for n in (0..rows).step_by(4) {
+        for m in (0..cols).step_by(4) {
+            let p0 = ld(n, m);
+            let p1 = ld(n + 1, m);
+            let p2 = ld(n + 2, m);
+            let p3 = ld(n + 3, m);
+
+            let q0 = d.interleave_lower(p0, p2);
+            let q1 = d.interleave_lower(p1, p3);
+            let q2 = d.interleave_upper(p0, p2);
+            let q3 = d.interleave_upper(p1, p3);
+
+            let out = [
+                d.interleave_lower(q0, q1),
+                d.interleave_upper(q0, q1),
+                d.interleave_lower(q2, q3),
+                d.interleave_upper(q2, q3),
+            ];
+            for (k, v) in out.into_iter().enumerate() {
+                d.store(v, &mut to[(m + k) * to_stride + n..]);
+            }
         }
     }
 }
@@ -541,13 +657,13 @@ fn scaled_idct_body<D: SimdF32, R: Size, C: Size>(
     let (rows, cols) = (R::N, C::N);
     let (block, tmp) = scratch.split_at_mut(rows * cols);
     if rows < cols {
-        transpose(rows, cols, from, cols, block, rows);
+        transpose(d, rows, cols, from, cols, block, rows);
         idct1d::<D, C>(d, rows, block, rows, from, rows, tmp);
-        transpose(cols, rows, from, rows, block, cols);
+        transpose(d, cols, rows, from, rows, block, cols);
         idct1d::<D, R>(d, cols, block, cols, to, to_stride, tmp);
     } else {
         idct1d::<D, C>(d, rows, from, rows, block, rows, tmp);
-        transpose(cols, rows, block, rows, from, cols);
+        transpose(d, cols, rows, block, rows, from, cols);
         idct1d::<D, R>(d, cols, from, cols, to, to_stride, tmp);
     }
 }
@@ -601,12 +717,12 @@ fn scaled_dct_body<D: SimdF32, R: Size, C: Size>(
     let (block, tmp) = scratch.split_at_mut(rows * cols);
     if rows < cols {
         dct1d::<D, R>(d, cols, from, from_stride, block, cols, tmp);
-        transpose(rows, cols, block, cols, to, rows);
+        transpose(d, rows, cols, block, cols, to, rows);
         dct1d::<D, C>(d, rows, to, rows, block, rows, tmp);
-        transpose(cols, rows, block, rows, to, cols);
+        transpose(d, cols, rows, block, rows, to, cols);
     } else {
         dct1d::<D, R>(d, cols, from, from_stride, to, cols, tmp);
-        transpose(rows, cols, to, cols, block, rows);
+        transpose(d, rows, cols, to, cols, block, rows);
         dct1d::<D, C>(d, rows, block, rows, to, rows, tmp);
     }
 }

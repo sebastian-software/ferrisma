@@ -89,6 +89,7 @@ fn symmetric5_interior<D: SimdF32, WrapY: Wrap>(
 }
 
 /// Symmetric5Row: `row_out` starts at the output rect's first pixel.
+#[inline(always)]
 pub fn symmetric5_row_d<D: SimdF32, WrapY: Wrap>(
     d: D,
     input: &ImageF,

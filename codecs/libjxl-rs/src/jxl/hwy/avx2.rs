@@ -543,6 +543,17 @@ impl SimdF32 for Avx2 {
         run(self, kernel)
     }
     // end codegen
+    // transpose: hwy/ops/x86_256-inl.h ConcatLowerLower/ConcatUpperUpper of
+    // Vec256<float>.
+    #[inline(always)]
+    fn concat_lower_lower(self, hi: Self::V, lo: Self::V) -> Self::V {
+        avx!(_mm256_insertf128_ps::<1>(lo, _mm256_castps256_ps128(hi)))
+    }
+    #[inline(always)]
+    fn concat_upper_upper(self, hi: Self::V, lo: Self::V) -> Self::V {
+        avx!(_mm256_permute2f128_ps::<0x31>(lo, hi))
+    }
+    // end transpose
 }
 
 #[inline(always)]

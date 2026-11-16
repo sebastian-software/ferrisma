@@ -109,6 +109,7 @@ fn token_of<D: SimdF32>(du: D, ures: D::I) -> (D::I, D::I) {
     (token_fixed, eb_fixed)
 }
 
+#[inline(always)]
 pub fn estimate_cost_d<D: SimdF32>(d: D, img: &Image) -> StatusOr<f32> {
     let lanes = D::LANES;
     let mut histo_cost = 0usize;

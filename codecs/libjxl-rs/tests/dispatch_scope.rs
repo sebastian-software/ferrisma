@@ -11,9 +11,11 @@
 //! prove both halves of the requirement in one process:
 //!
 //! - every encoder entry point produces exactly the bytes it produces with
-//!   the scalar path forced process-wide (today's selection), before, after,
+//!   its own selection forced (`encoder_target_for(ENCODER_SELECTS_SIMD)`:
+//!   the scalar path while the encoder's default is off), before, after,
 //!   during (on another thread) and inside (from a decoder callback) a
-//!   decode;
+//!   decode, and the decoder's selection does not reach it (encoder
+//!   selection, ADR 0004 "Encoder path");
 //! - every decoder entry point (the public decoder, with and without a
 //!   thread runner, and the internal whole-decode helpers) runs the target
 //!   the decoder selects (`decoder_target_for(DECODER_SELECTS_SIMD)`: NEON on
@@ -31,6 +33,12 @@ use jxl::jxl::hwy::{
     DECODER_SELECTS_SIMD, Target, decoder_target, decoder_target_for, max_vector_size,
     scalar_forced_by_environment, set_decoder_simd_for_test, simd_selections_on_this_thread,
 };
+// encoder selection
+use jxl::jxl::hwy::{
+    ENCODER_SELECTS_SIMD, encoder_simd_selections_on_this_thread, encoder_target_for,
+    set_encoder_simd_for_test,
+};
+// end encoder selection
 use jxl::jxl::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
 use std::ffi::c_void;
 use std::ptr;
@@ -66,20 +74,43 @@ fn pixels() -> Vec<u8> {
 /// patches off, VarDCT with XYB at `distance`, 8-bit sRGB.
 fn encode(rgb: &[u8], distance: f32) -> Vec<u8> {
     let (bytes, selections) = encode_counted(rgb, distance);
+    // encoder selection: SIMD exactly when the encoder's own default selects it.
     assert_eq!(
-        selections, 0,
+        selections > 0,
+        expected_encoder_target().is_some(),
         "the encoder selected a SIMD target {selections} times"
     );
     bytes
 }
 
 /// The encoded bytes and how often the encode selected a SIMD target on
-/// this thread (the port's encoder has no runner of its own).
+/// this thread (the port's encoder has no runner of its own): in its own
+/// kernels and in the decoder code it runs.
 fn encode_counted(rgb: &[u8], distance: f32) -> (Vec<u8>, u64) {
-    let before = simd_selections_on_this_thread();
+    let before = simd_selections_on_this_thread() + encoder_simd_selections_on_this_thread();
     let bytes = encode_sized(rgb, WIDTH, HEIGHT, distance);
-    (bytes, simd_selections_on_this_thread() - before)
+    (
+        bytes,
+        simd_selections_on_this_thread() + encoder_simd_selections_on_this_thread() - before,
+    )
 }
+
+// encoder selection
+/// The selection an encoder entry point makes with the encoder's default
+/// (the encoder override is never left set by these tests).
+fn expected_encoder_target() -> Option<Target> {
+    encoder_target_for(ENCODER_SELECTS_SIMD)
+}
+
+/// Runs `body` with the encoder's selection forced (`Some`), then restores
+/// the default.
+fn forced_encoder<R>(simd: Option<bool>, body: impl FnOnce() -> R) -> R {
+    set_encoder_simd_for_test(simd);
+    let result = body();
+    set_encoder_simd_for_test(None);
+    result
+}
+// end encoder selection
 
 fn encode_sized(rgb: &[u8], width: u32, height: u32, distance: f32) -> Vec<u8> {
     // SAFETY: A null manager selects the default allocator; the encoder is
@@ -322,6 +353,8 @@ fn outside_decoding_the_selection_is_the_scalar_path() {
     set_decoder_simd_for_test(None);
     assert!(decoder_target().is_none());
     assert_eq!(max_vector_size(), 4);
+    // encoder selection: outside every encoder entry point as well.
+    assert!(jxl::jxl::hwy::encoder_target().is_none());
     // The selection a decoder makes: NEON (or AVX2) only when the default is
     // on for this target and the scalar gate does not force the scalar path.
     // The per-target default: NEON on AArch64, AVX2 on x86-64 when the CPU
@@ -350,9 +383,11 @@ fn encoder_bytes_and_decoder_target_do_not_depend_on_each_other() {
     let expected_name = expected.map(Target::name);
     let expected_vector = expected.map_or(4, |t| 4 * t.lanes());
 
-    // Today's encoder: the scalar path forced process-wide.
-    let reference = forced(Some(false), || encode(&rgb, 1.0));
-    let reference_far = forced(Some(false), || encode(&rgb, 2.5));
+    // The encoder with its own selection forced (encoder selection; the
+    // scalar path while the encoder's default is off).
+    let encoder_simd = Some(expected_encoder_target().is_some());
+    let reference = forced_encoder(encoder_simd, || encode_counted(&rgb, 1.0).0);
+    let reference_far = forced_encoder(encoder_simd, || encode_counted(&rgb, 2.5).0);
     // Decodes with each path forced, to tell which one ran.
     let scalar_decode = forced(Some(false), || decode(&reference, 0, None).0);
     let simd_decode =
@@ -372,21 +407,33 @@ fn encoder_bytes_and_decoder_target_do_not_depend_on_each_other() {
         );
     }
 
-    // The encoder runs decoder code in its own loop: a process-wide SIMD
-    // selection (what a global switch would do) reaches it. The counter
-    // therefore sees an encoder that is not scoped out of decoding, even
-    // where its bytes happen not to change.
+    // encoder selection: the encoder runs decoder code in its own loop. The
+    // decoder's process-wide override does not reach it (the encoder's own
+    // selection does), and the encoder's forced SIMD selection reaches that
+    // decoder code and its plane padding, as the original's one dispatch
+    // does (ADR 0004 "Encoder path", condition (b)).
     if Target::detect().is_some() {
         let (bytes, selections) = forced(Some(true), || encode_counted(&rgb, 1.0));
+        assert_eq!(
+            (bytes == reference, selections > 0),
+            (true, expected_encoder_target().is_some()),
+            "a process-wide decoder selection does not reach the encoder"
+        );
+        let (bytes, decoder_code) = forced_encoder(Some(true), || {
+            let before = simd_selections_on_this_thread();
+            let bytes = encode_counted(&rgb, 1.0).0;
+            (bytes, simd_selections_on_this_thread() - before)
+        });
         assert!(
-            selections > 0,
-            "a process-wide SIMD selection reaches the encoder's decoder code"
+            decoder_code > 0,
+            "the encoder's SIMD selection reaches the decoder code it runs"
         );
         println!(
-            "process-wide SIMD: the encoder selected SIMD {selections} times, bytes equal to the scalar encoder's: {}",
+            "encoder SIMD forced: the decoder code inside the encoder selected SIMD {decoder_code} times, bytes equal to the default encoder's: {}",
             bytes == reference
         );
     }
+    // end encoder selection
 
     // Encode first, then decode.
     assert_eq!(encode(&rgb, 1.0), reference, "encode before any decode");
@@ -450,9 +497,9 @@ fn encoder_bytes_and_decoder_target_do_not_depend_on_each_other() {
         observed
             .nested_encode
             .as_ref()
-            .map(|(bytes, selections)| (bytes.as_slice(), *selections)),
-        Some((reference.as_slice(), 0)),
-        "an encode called from a decoder callback: same bytes, no SIMD selection"
+            .map(|(bytes, selections)| (bytes.as_slice(), *selections > 0)),
+        Some((reference.as_slice(), expected_encoder_target().is_some())),
+        "an encode called from a decoder callback: same bytes, the encoder's own selection"
     );
     assert_eq!(bits(&decoded), bits(&expected_decode));
     for target in &observed.targets {
@@ -491,3 +538,105 @@ fn encoder_bytes_and_decoder_target_do_not_depend_on_each_other() {
     );
     assert_eq!(helper.pixels, helper_expected.pixels);
 }
+
+// encoder selection: the encoder's scope on a runner's threads (ADR 0004,
+// "Encoder selection", "Threads").
+/// The port's encoder has no runner (JxlEncoderSetParallelRunner is not
+/// translated, every encoder `RunOnPool` gets no pool and runs its tasks on
+/// the calling thread), so no whole encode runs on worker threads. What a
+/// runner would need is that `ThreadPool::run` carries an encoder entry
+/// point's scope to every init and task body, as it does the decoder's: with
+/// 0, 1, 2 and 8 workers, every body sees the encoder's selection in its own
+/// kernels (`encoder_target`), in the decoder code it runs (`decoder_target`)
+/// and in its plane padding (`max_vector_size`), and the scalar path again
+/// outside the entry point.
+#[test]
+fn the_encoder_scope_reaches_every_runner_thread() {
+    use jxl::jxl::base::data_parallel::{ThreadPool, run_on_pool};
+    use jxl::jxl::hwy::{DispatchScope, encoder_target};
+    use jxl::threads::thread_parallel_runner as tpr;
+    let _guard = OVERRIDE.lock().unwrap_or_else(|e| e.into_inner());
+    set_encoder_simd_for_test(None);
+    set_decoder_simd_for_test(None);
+    let main = std::thread::current().id();
+    for selection in [None, Target::detect()] {
+        // The scalar gate's JXL_ENCODER_TARGET=scalar keeps the scalar path.
+        let selected = selection.filter(|_| !jxl::jxl::hwy::encoder_scalar_forced_by_environment());
+        let expected = (
+            selected.map(Target::name),
+            selected.map(Target::name),
+            selected.map_or(4, |t| 4 * t.lanes()),
+        );
+        for workers in [0usize, 1, 2, 8] {
+            let runner = if workers > 0 {
+                // SAFETY: A null manager selects the default allocator.
+                let runner =
+                    unsafe { tpr::jxl_thread_parallel_runner_create(ptr::null(), workers) };
+                assert!(!runner.is_null());
+                runner
+            } else {
+                ptr::null_mut()
+            };
+            // SAFETY: The runner obeys parallel_runner.h and outlives the pool.
+            let pool = unsafe {
+                ThreadPool::new(
+                    (workers > 0).then_some(tpr::jxl_thread_parallel_runner as _),
+                    runner,
+                )
+            };
+            let seen = Mutex::new(Vec::new());
+            let observe = || {
+                (
+                    encoder_target().map(Target::name),
+                    decoder_target().map(Target::name),
+                    max_vector_size(),
+                    std::thread::current().id(),
+                )
+            };
+            let status = DispatchScope::Encoding(selection).enter(|| {
+                run_on_pool(
+                    Some(&pool),
+                    0,
+                    64,
+                    &|_| {
+                        seen.lock().unwrap().push(observe());
+                        Ok(())
+                    },
+                    &|_, _| {
+                        seen.lock().unwrap().push(observe());
+                        Ok(())
+                    },
+                )
+            });
+            assert_eq!(status, Ok(()));
+            let seen = seen.into_inner().unwrap();
+            assert_eq!(seen.len(), 65, "one init and 64 tasks");
+            for (enc, dec, vector, _) in &seen {
+                assert_eq!(
+                    (*enc, *dec, *vector),
+                    expected,
+                    "{workers} workers, selection {:?}",
+                    selection.map(Target::name)
+                );
+            }
+            let others = seen.iter().filter(|s| s.3 != main).count();
+            assert_eq!(
+                others > 0,
+                workers > 0,
+                "{workers} workers ran tasks off the calling thread"
+            );
+            assert!(encoder_target().is_none() && decoder_target().is_none());
+            assert_eq!(max_vector_size(), 4);
+            println!(
+                "encoder scope {:?}, {workers} workers: {} bodies, {others} on other threads",
+                selection.map(Target::name),
+                seen.len()
+            );
+            if !runner.is_null() {
+                // SAFETY: The pool that used the runner is not used again.
+                unsafe { tpr::jxl_thread_parallel_runner_destroy(runner) };
+            }
+        }
+    }
+}
+// end encoder selection
