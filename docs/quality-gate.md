@@ -15,15 +15,16 @@ each with its source; they are not results of this page.
 ## Where each port stands (2026-11-16)
 
 No port meets the whole gate on both targets yet. What `main` at `abd11e6a`
-records, per port (sources in the sections below):
+records, per port (sources in the sections below). The homepage shows the
+column "In short" of this table, generated at build time.
 
-| Port | AArch64: scalar and NEON | x86-64: scalar, SSE levels and AVX2 | What is open |
-| --- | --- | --- | --- |
-| libjpeg-turbo-rs | Both halves exist | Both halves exist (under Rosetta 2) | No recorded hosted x86-64 result (#252 records none) |
-| libwebp-rs | Passed (`neon`, scalar) | Passed on hosted Linux x86-64 (`avx2`, `sse41`, `sse2`; run [43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624)) | Tracking issues #89 and #83 |
-| libjxl-rs decoder | Passed (row level and public-decoder gate) | Passed on hosted Linux x86-64 at `7b48bc81`, where the decoder selects AVX2 by default (run [43656118559](https://github.com/sebastian-software/ferrisma/actions/runs/43656118559), every job successful) | `ToLinear` and `ToneMapping` only at row level |
-| libjxl-rs encoder | Passed: the encoder's SIMD path is selected by default since 2026-11-16 and matches the NEON original | Matches the AVX2 original under Rosetta 2 | No run on x86-64 hardware yet (port ADR 0004, condition (e)) |
-| libavif-rs with libaom | Passed (`neon` and `scalar`, 82 of 82) | `avx2`, `sse4.1` and `scalar` 82 of 82 each, under QEMU emulation; 358 RTCD functions dispatch on x86-64 | No run on x86-64 hardware: no workflow runs `check_aom_simd_original.py`; NASM-only kernels stay on `_c` (ADR-0044 D2) |
+| Port | In short | AArch64: scalar and NEON | x86-64: scalar, SSE levels and AVX2 | What is open |
+| --- | --- | --- | --- | --- |
+| libjpeg-turbo-rs | Both halves of the check, scalar and SIMD, exist on AArch64 and x86-64; the x86-64 SIMD is written with intrinsics and compared with the original's assembly. | Both halves exist | Both halves exist (under Rosetta 2) | No recorded hosted x86-64 result (#252 records none) |
+| libwebp-rs | Identical at every level in the recorded runs: NEON and scalar on AArch64; AVX2, SSE4.1 and SSE2 on hosted x86-64 Linux, also in the nightly. | Passed (`neon`, scalar) | Passed on hosted Linux x86-64 (`avx2`, `sse41`, `sse2`; run [43471093624](https://github.com/sebastian-software/ferrisma/actions/runs/43471093624)); the nightly's hosted oracle job passed on 2026-11-15 and 2026-11-16 (runs [43698564297](https://github.com/sebastian-software/ferrisma/actions/runs/43698564297), [43840953408](https://github.com/sebastian-software/ferrisma/actions/runs/43840953408)) | Tracking issues #89 and #83 are open |
+| libjxl-rs decoder | NEON and AVX2 match the original word for word, AVX2 also in a hosted run on x86-64 hardware. | Passed (row level and public-decoder gate) | Passed on hosted Linux x86-64 at `7b48bc81`, where the decoder selects AVX2 by default (run [43656118559](https://github.com/sebastian-software/ferrisma/actions/runs/43656118559), every job successful) | `ToLinear` and `ToneMapping` only at row level |
+| libjxl-rs encoder | SIMD by default since 2026-11-16; matches the original on NEON, and on AVX2 under Rosetta 2. A run on x86-64 hardware is open. | Passed: the encoder's SIMD path is selected by default since 2026-11-16 and matches the NEON original | Matches the AVX2 original under Rosetta 2 | No run on x86-64 hardware yet (port ADR 0004, condition (e)) |
+| libavif-rs with libaom | Scalar and NEON identical on AArch64; scalar, SSE4.1 and AVX2 identical under QEMU emulation. A run on x86-64 hardware is open. | Passed (`neon` and `scalar`, 82 of 82) | `avx2`, `sse4.1` and `scalar` 82 of 82 each, under QEMU emulation; 358 RTCD functions dispatch on x86-64 | No run on x86-64 hardware: no workflow runs `check_aom_simd_original.py`; NASM-only kernels stay on `_c` (ADR-0044 D2) |
 
 ## The gate in one paragraph
 
@@ -186,7 +187,14 @@ python3 tools/check.py --stage test --oracle --arch x86_64
   (`WEBP: Checks`, branch `v1/webp` at `690ad251`; its `codecs/libwebp-rs`
   tree is identical to `main`'s at `5004f34e`), job `WEBP: Oracle
   (ubuntu-latest)`: `avx2`, `sse41` and `sse2` 1,131 tests each, 0 failed;
-  every job of the run passed. The earlier `avx2` failure (#252) was the
+  every job of the run passed. Since then the scheduled nightly's hosted
+  `WEBP: Oracle (ubuntu-latest)` and `WEBP: Oracle (macos-latest)` jobs,
+  which run the `release-simd` comparison per mode as O7 requires, passed
+  on 2026-11-15 (run
+  [43698564297](https://github.com/sebastian-software/ferrisma/actions/runs/43698564297))
+  and 2026-11-16 (run
+  [43840953408](https://github.com/sebastian-software/ferrisma/actions/runs/43840953408));
+  their logs were not read for test counts. The earlier `avx2` failure (#252) was the
   `wp10/dsp` probe passing misaligned rows to libwebp's SSE2 predictors,
   not libwebp or the port. The SIMD status page on `main` still says that
   no hosted rerun had finished; it predates this run.
