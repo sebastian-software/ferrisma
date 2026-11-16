@@ -1,17 +1,17 @@
 /*
- * Ferrisma's homepage on Monografie, in the shape of the family kit's sample
- * engine page: the instrument as the opening plate, then one reading column
- * that widens for the drawings. Every fact comes from ../ferrisma.ts, which
- * names its source document; the arc and the open questions are in
- * DESIGN-NOTES.md.
+ * Ferrisma's homepage on Monografie: what a user gets, in the owner's order
+ * (one pipeline for every format; all Rust; memory safety where files come
+ * in; the originals' pictures; an account of every image; the cost in speed),
+ * then the status. The technical depth lives on /how-it-is-built and
+ * /how-a-port-is-made. Facts come from ../ferrisma.ts, which names its
+ * sources; the arc and the open questions are in DESIGN-NOTES.md.
  */
 import type { ArdoMetaFunction } from "ardo/runtime";
 import {
   MonoAction,
-  MonoCaption,
-  MonoClosing,
   MonoCode,
   MonoColophon,
+  MonoClosing,
   MonoEngraving,
   MonoPassage,
   MonoSection,
@@ -19,31 +19,53 @@ import {
   MonoWide,
 } from "ferramenta-family/monografie";
 
-import { AnatomyDrawing } from "../drawings/Anatomy";
-import { GateDrawing } from "../drawings/Gate";
+import { OneBuildDrawing } from "../drawings/OneBuild";
 import { PipelineDrawing } from "../drawings/Pipeline";
-import { RefuseOrReportDrawing } from "../drawings/RefuseOrReport";
-import {
-  FAMILY_SITE,
-  JXL_DECODE_RECORD,
-  PORTS,
-  REPOSITORY,
-  SPEED,
-  SPEED_RECORD,
-  blob,
-  path,
-} from "../ferrisma";
-import { GATE_AS_OF, GATE_STATE } from "../gate-state.generated";
+import { FAMILY_SITE, REPOSITORY, SPEED_RECORD, blob, path } from "../ferrisma";
 
 export const handle = { layout: "bare" };
 export const meta: ArdoMetaFunction = () => [
-  { title: "Ferrisma: an image pipeline in Rust, on codecs translated from the originals" },
+  { title: "Ferrisma: an image pipeline for Rust, written in Rust" },
   {
     name: "description",
     content:
-      "Ferrisma reads JPEG, WebP, JPEG XL and AVIF, crops and resizes in linear light, and writes AVIF, WebP or JPEG XL. Its codecs are Rust translations of libjpeg-turbo, libwebp, libjxl and libavif, checked against the originals bit for bit. Experimental.",
+      "Read JPEG, WebP, JPEG XL and AVIF, crop and resize, and write AVIF, WebP or JPEG XL with one Rust API and one CLI. Every codec is Rust, translated from the originals and held to their output bit for bit. Experimental.",
   },
 ];
+
+/*
+ * Verbatim from examples/thumbnail.rs on main (CI compiles every example with
+ * `cargo test -p ferrisma --all-targets --all-features`), without its
+ * argument parsing; `jpeg` holds the input file's bytes.
+ */
+const RUST_EXAMPLE = `use ferrisma::pipeline::{
+    ImageFormat, InputProfilePolicy, OutputFormat, OutputGeometry, OutputSettings, ResizeFit,
+    ResizeOptions, TransformOptions, transcode,
+};
+
+let image = transcode(
+    &jpeg,
+    ImageFormat::Jpeg,
+    &TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_output(OutputSettings::default_for(OutputFormat::WebP))
+    // Only use this assumption when it is appropriate for the input.
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+    .with_geometry(OutputGeometry::Resize(
+        ResizeOptions::default()
+            .with_width(320)
+            .with_height(320)
+            .with_fit(ResizeFit::Cover)
+            .with_without_enlargement(true),
+    )),
+)?;
+std::fs::write(output, &image.bytes)?;`;
+
+/* Verbatim from docs/getting-started.md. */
+const CLI_EXAMPLE =
+  "cargo run --release --features cli -- \\\n  photo.jpg scaled.avif 1600 900 --assume-srgb --avif-quality=80 --avif-speed=8";
 
 function Opening() {
   return (
@@ -57,25 +79,22 @@ function Opening() {
           alt="Ferrisma's instrument: a gently curved steel railway whose wagons carry a mountain picture under a guillotine, a smaller copy under a spindle press, and the same picture as square pixels under a loupe."
         />
       </figure>
-      <p className="mono-kicker">Ferrisma · An image pipeline in Rust</p>
+      <p className="mono-kicker">Ferrisma · An image pipeline for Rust</p>
       <h1 id="fx-title">
-        Read, crop, resize and write images in Rust
-        <span className="mono-second">
-          on codecs translated from the originals, and held to them bit for bit
-        </span>
+        Image processing for Rust, written in Rust
+        <span className="mono-second">down to the codecs, with the originals' pictures</span>
       </h1>
       <p className="mono-standfirst">
-        Ferrisma reads JPEG, WebP, JPEG XL and AVIF, turns the picture upright, crops and resizes
-        it in linear light, and writes AVIF, WebP or JPEG XL. Its four codecs are Rust
-        translations of libjpeg-turbo, libwebp, libjxl and libavif. For image services, build
-        tools and Rust applications that need to know what a conversion did to every picture.
+        Read JPEG, WebP, JPEG XL and AVIF, crop and resize, and write AVIF, WebP or JPEG XL, with
+        one API and one command line that treat every format alike. Like sharp for Node.js,
+        but for Rust, and with no C library underneath.
       </p>
       <div className="mono-actions">
         <MonoAction href={path("guide/getting-started")} primary detail="from the repository">
           Build from source
         </MonoAction>
-        <MonoAction href="#gate" detail="the quality gate">
-          How the ports are checked
+        <MonoAction href="#use" detail="Rust and the CLI">
+          See it in use
         </MonoAction>
       </div>
       <ul className="mono-facts fx-facts">
@@ -87,19 +106,20 @@ function Opening() {
         </li>
         <li>
           <strong>
-            <em>Bit for bit</em>
+            <em>Rust</em>
           </strong>
-          what each port must match
+          codecs included, built by Cargo
         </li>
         <li>
           <strong>Experimental</strong>no release yet
         </li>
       </ul>
       <nav className="fx-contents" aria-label="On this page">
-        <a href="#pipeline">The pipeline</a>
-        <a href="#ports">The ports</a>
-        <a href="#gate">The gate</a>
-        <a href="#report">Refuse or report</a>
+        <a href="#use">In use</a>
+        <a href="#rust">One build</a>
+        <a href="#safety">Memory safety</a>
+        <a href="#originals">The originals' pictures</a>
+        <a href="#report">Every image accounted for</a>
         <a href="#speed">Speed</a>
         <a href="#status">Status</a>
       </nav>
@@ -107,157 +127,130 @@ function Opening() {
   );
 }
 
-function Pipeline() {
+function InUse() {
   return (
     <MonoSection
-      id="pipeline"
-      title="One pass from file to file."
-      standfirst="Every picture takes the same route, whatever format it arrives in, and leaves with an account of what happened to it."
+      id="use"
+      title="One pipeline for every format."
+      standfirst="Hand it bytes in one of four formats and get bytes back in one of three. Orientation, crop, resize and color work the same whatever comes in; only the encoder settings belong to the format you write."
     >
+      <p>
+        A thumbnail from a JPEG takes one call. Here it becomes a 320 × 320 WebP that covers the
+        square and never enlarges the source:
+      </p>
+      <MonoWide>
+        <MonoCode caption="From examples/thumbnail.rs, compiled in CI" file="main.rs">
+          {RUST_EXAMPLE}
+        </MonoCode>
+      </MonoWide>
       <MonoPassage
         note={{
-          term: "Linear light",
+          side: "right",
+          term: "--assume-srgb",
           children:
-            "Values proportional to light, rather than the curved values a file stores for display. Averaging black and white in light and encoding the result gives 188, not 128.",
+            "An image without color data is not sRGB by default. This flag says that it is, for this run.",
         }}
       >
-        <p>
-          A file is decoded by the port of its format's original library. The pixels then move
-          into linear light, with the image's own color data read rather than guessed, so that a
-          resize mixes light instead of display values. Orientation comes first, so a crop refers
-          to the picture as you see it; then the crop, then the resize. At the end the samples are
-          quantized at the output's depth and encoded.
-        </p>
+        <p>The same pipeline from the command line, here writing AVIF:</p>
       </MonoPassage>
+      <MonoWide>
+        <MonoCode caption="From docs/getting-started.md, in a clone of the repository" file="Terminal">
+          {CLI_EXAMPLE}
+        </MonoCode>
+      </MonoWide>
+      <p>
+        Behind both, every picture takes the same route: decoded, moved into linear light,
+        turned upright, cropped, resized, quantized at the output's depth and encoded, with a
+        report beside the file.
+      </p>
       <MonoWide>
         <PipelineDrawing />
       </MonoWide>
-      <MonoTerms
-        columns={2}
-        prose
-        className="fx-terms"
-        items={[
-          {
-            term: "Depth follows the input",
-            description:
-              "AVIF keeps 8, 10 or 12 bits and JPEG XL up to 16. WebP holds 8, and a deeper input says so in the report.",
-          },
-          {
-            term: "A budget for memory",
-            description:
-              "Every frame, row and scratch buffer the engine allocates is charged to one budget, 2 GiB by default; the peak comes back in the report. A codec's own scratch is flagged as outside it.",
-          },
-          {
-            term: "Errors, not crashes",
-            description:
-              "A panic inside a conversion comes back from the call as an error, so one bad file does not take the service down with it.",
-          },
-          {
-            term: "Many images at once",
-            description:
-              "A parallel row pipeline and batch execution, with scalar, NEON or AVX2 resampling kernels chosen at run time.",
-          },
-        ]}
-      />
       <p className="fx-section-link">
-        <a href={path("guide/architecture")}>The architecture</a>
-        <a href={path("guide/color")}>The color contract</a>
+        <a href={path("guide/getting-started")}>Getting started</a>
         <a href={path("guide/supported-matrix")}>Every supported input and output</a>
       </p>
     </MonoSection>
   );
 }
 
-function Ports() {
+function OneBuild() {
   return (
     <MonoSection
-      id="ports"
-      title="Four codecs, translated from the originals."
-      standfirst="Not new codecs that aim to be compatible, but the original libraries, carried into Rust with their behavior intact."
+      id="rust"
+      title="All Rust, one build."
+      standfirst="The codecs are Rust too, so Cargo builds the whole thing. No C compiler, no CMake, no image libraries to install on the build machine."
     >
-      <MonoPassage
-        note={{
-          side: "right",
-          term: "Port",
-          children:
-            "A translation of a library into another language that keeps its behavior: the same algorithms, branches and results. Each port here is checked against the original it translates.",
-        }}
-      >
-        <p>
-          libjpeg-turbo, libwebp, libjxl, and libavif with the AV1 codec libaom are the libraries
-          their formats are measured against: reference implementations, or in JPEG's case the
-          SIMD-accelerated descendant of the reference libjpeg. They hold years of careful work,
-          much of the fastest of it in hand-tuned vector code, and they are written in C and C++.
-        </p>
-        <p>
-          Ferrisma translates each of them into Rust at a pinned version, keeping what the
-          original decided instead of deciding it again. The reason is what Rust adds: memory
-          safety the compiler checks, with <code>unsafe</code> confined to small, argued
-          boundaries; one toolchain for the whole build; and no C compiler on the machine that
-          builds your application.
-        </p>
-      </MonoPassage>
+      <p>
+        Image codecs are usually C and C++ libraries, and a Rust application that uses them
+        inherits their build: compilers for both languages, CMake, an assembler for the fastest
+        x86 code, and a bundled copy of each library or a system package of the right version.
+        Ferrisma's four codecs are Rust, so <code>cargo build</code> with the features you choose
+        is the whole build, AVIF included.
+      </p>
       <MonoWide>
-        <AnatomyDrawing />
+        <OneBuildDrawing />
       </MonoWide>
-      <MonoPassage>
-        <p>
-          No assembly is a rule, not a hope. Where an original's fastest kernels exist only as
-          assembly, the port runs the translated scalar code until they are rebuilt with Rust
-          intrinsics and proven against the original; the JPEG port has done this for its x86-64
-          kernels. Six inline assembly sites remain in the JPEG XL port's Brotli decoder, held
-          by a guard while their replacement is decided.
-        </p>
-      </MonoPassage>
-      <p className="fx-section-link">
-        <a href={path("how-a-port-is-made")}>How one port is made, step by step</a>
-        {PORTS.map((port) => (
-          <a key={port.format} href={path(port.docs)}>
-            The {port.format} port
-          </a>
-        ))}
+      <p>
+        Every feature is verified today on macOS ARM64 and GNU Linux x86-64, with Rust 1.99 or
+        later. Other targets are not verified yet.
       </p>
     </MonoSection>
   );
 }
 
-function Gate() {
+function Safety() {
   return (
     <MonoSection
-      id="gate"
-      title="The same bytes as the original, or it is not done."
-      standfirst="Version 1.0 has one definition: every port produces exactly what its original produces, on ARM and on x86."
+      id="safety"
+      title="Memory safety where the files come in."
+      standfirst="A decoder reads files someone else made. Ferrisma keeps the code that handles them in Rust, and says exactly where Rust's checks are switched off."
     >
       <MonoPassage
         note={{
-          term: "Bit-identical",
+          side: "right",
+          term: "unsafe",
           children:
-            "The same bytes, the same integers, the same floating-point words, down to the sign of a zero. The only exemption is the payload of a NaN.",
+            "A Rust block where the compiler's memory checks do not apply and the author has to argue why the code is correct.",
         }}
       >
         <p>
-          The comparison runs build against build. The port's scalar code is compared with the
-          original built without SIMD, and its SIMD code with the original's SIMD build at the
-          same level: NEON on AArch64, AVX2 and the SSE levels the original selects on x86-64. The
-          second half is the hard one, because hand-tuned vector code has to come out with the
-          same bits when it is rewritten with Rust intrinsics.
+          The engine forbids <code>unsafe</code> code outright, and so does the color
+          conversion it shares between WebP and AVIF. The JPEG and WebP ports allow it only in
+          their SIMD code, and WebP in a C interface the engine does not use. The JPEG XL and AVIF ports are translations that still carry much of
+          their originals' unsafe code; the engine reaches them only through small bridges in which
+          every unsafe block carries a written safety argument.
+        </p>
+        <p>
+          That is not a claim that the whole stack is memory-safe. It is a map of where the
+          risk sits, kept in the repository's{" "}
+          <a href={blob("docs/unsafe-review.md")}>unsafe review</a>, so it can shrink port by
+          port.
         </p>
       </MonoPassage>
-      <MonoWide>
-        <GateDrawing />
-      </MonoWide>
-      <h3 className="fx-subhead">Where each port stands</h3>
-      <MonoTerms
-        columns={2}
-        prose
-        className="fx-terms"
-        items={GATE_STATE.map((entry) => ({ term: entry.port, description: entry.state }))}
-      />
-      <MonoCaption>
-        As the <a href={path("guide/quality-gate")}>quality gate guide</a> records it on{" "}
-        {GATE_AS_OF}. No port meets the whole gate on both targets yet; that is the work between
-        here and 1.0.
-      </MonoCaption>
+    </MonoSection>
+  );
+}
+
+function Originals() {
+  return (
+    <MonoSection
+      id="originals"
+      title="The same pictures as the originals."
+      standfirst="Going to Rust does not mean trading quality or compatibility for it."
+    >
+      <p>
+        Each codec is a translation of the library its format is measured against: libjpeg-turbo,
+        libwebp, libjxl, and libavif with libaom. Version 1.0 is defined by one test: every port
+        produces exactly the original's output, bit for bit, in its plain and its fast code, on
+        ARM and on x86. Today the recorded comparisons pass for WebP and the JPEG XL decoder on
+        both targets, and for AVIF on ARM; the rest is the work before 1.0.
+      </p>
+      <p className="fx-section-link">
+        <a href={path("how-it-is-built")}>How Ferrisma is built</a>
+        <a href={path("how-a-port-is-made")}>How one port is made</a>
+        <a href={path("how-it-is-built#gate")}>Where each port stands</a>
+      </p>
     </MonoSection>
   );
 }
@@ -266,31 +259,38 @@ function Report() {
   return (
     <MonoSection
       id="report"
-      title="Nothing disappears quietly."
-      standfirst="A converter that drops what it cannot handle hands you a different picture without saying so. Ferrisma refuses, or it tells you."
+      title="You know what happened to every image."
+      standfirst="Nothing disappears quietly: the pipeline carries a part of the input, refuses the file with a reason, or says in the report what it left out."
     >
-      <p>
-        Every part of an input has one of three fates. Animation, HDR transfer functions and
-        unsupported alpha are refused, with an error that names the reason. EXIF, XMP, a gain map,
-        or an embedded profile once its colors are converted may be left out of a correct
-        picture, and the report lists each class that applied. Everything else is carried into
-        the output.
-      </p>
-      <MonoWide>
-        <RefuseOrReportDrawing />
-      </MonoWide>
-      <p>
-        The same holds across formats. Premultiplied alpha, a gray image or an orientation tag
-        leads to the same outcome whether it arrives as AVIF or as JPEG XL, unless a format cannot
-        represent it, and the error or report entry uses the same words for the same cause.
-      </p>
+      <MonoTerms
+        columns={2}
+        prose
+        className="fx-terms"
+        items={[
+          {
+            term: "Refused, with a reason",
+            description:
+              "Animation, HDR and unsupported alpha stop with an error that names the cause, instead of a picture that is quietly wrong.",
+          },
+          {
+            term: "Left out, and named",
+            description:
+              "EXIF, XMP, a gain map or an embedded profile after conversion: each class that applied is listed in the report.",
+          },
+          {
+            term: "A budget for memory",
+            description:
+              "Frames, rows and scratch buffers are charged to one budget, 2 GiB by default, and the peak comes back in the report.",
+          },
+          {
+            term: "Errors, not crashes",
+            description:
+              "A panic inside a conversion comes back from the call as an error, so one bad file does not take the service down.",
+          },
+        ]}
+      />
       <p className="fx-section-link">
-        <a href={blob("docs/adr/0042-no-silent-loss-refuse-or-report.md")}>
-          The decision: refuse or report
-        </a>
-        <a href={blob("docs/adr/0043-formats-behave-alike.md")}>
-          The decision: formats behave alike
-        </a>
+        <a href={path("how-it-is-built#report")}>Refuse or report, drawn out</a>
       </p>
     </MonoSection>
   );
@@ -300,67 +300,18 @@ function Speed() {
   return (
     <MonoSection
       id="speed"
-      title="Measured against the originals, gaps included."
-      standfirst="There is no speed gate for 1.0. Every codec is still timed against the original it translates, in the same job on the same machine."
+      title="The cost: close to the originals' speed."
+      standfirst="Every codec is timed against the original it translates, in the same job on the same machine."
     >
-      <div>
-        <div
-          className="fx-table-wrap"
-          role="region"
-          aria-labelledby="fx-speed-caption"
-          tabIndex={0}
-        >
-          <table className="mono-table fx-speed">
-            <caption id="fx-speed-caption">
-              Port time divided by the original's SIMD build, one thread. Above 1× the port is
-              slower.
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Operation</th>
-                <th scope="col" className="mono-num">
-                  x86-64
-                </th>
-                <th scope="col" className="mono-num">
-                  ARM64
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {SPEED.map((row) => (
-                <tr key={row.operation}>
-                  <th scope="row">
-                    {row.operation}
-                    {row.note !== undefined && <small>{row.note}</small>}
-                  </th>
-                  <td className="mono-num" data-gap={row.x86.startsWith("not") ? "" : undefined}>
-                    {row.x86}
-                  </td>
-                  <td className="mono-num">{row.arm}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <MonoCaption>
-          12-megapixel inputs on GitHub-hosted ubuntu-24.04 (x86-64) and macos-15 (ARM64), one job
-          per machine: <a href={SPEED_RECORD.href}>{SPEED_RECORD.title}</a>. JPEG XL decode, after
-          its SIMD path landed: eight inputs on one Apple M1 Pro,{" "}
-          <a href={JXL_DECODE_RECORD.href}>{JXL_DECODE_RECORD.title}</a>. Evidence for these
-          machines, not a universal claim.
-        </MonoCaption>
-      </div>
       <p>
-        Most operations take between one and one and a half times as long as the original's SIMD
-        build. Two are far behind, and the table keeps them: WebP's lossy encoder on x86-64, and
-        JPEG XL's lossy encoder, measured here before its SIMD paths became the default on
-        November 16; it will be timed again in the next record.
+        In the committed record, most operations take between one and one and a half times as
+        long as the originals' SIMD builds on one thread. Two are far behind and named in the
+        full table: WebP's lossy encoder on x86-64, and JPEG XL's lossy encoder, measured
+        before its SIMD paths became the default.
       </p>
-      <p>
-        Reading AVIF goes through the translated libaom decoder, which is clearly slower than
-        stock libavif with dav1d. dav1d is fast because of its assembly, so the next step is to
-        rebuild its kernels with Rust intrinsics and measure them before the engine settles on a
-        decoder.
+      <p className="fx-section-link">
+        <a href={path("how-it-is-built#speed")}>The full table</a>
+        <a href={SPEED_RECORD.href}>{SPEED_RECORD.title}</a>
       </p>
     </MonoSection>
   );
@@ -386,7 +337,7 @@ function Status() {
           <div>
             <h3>Not there yet</h3>
             <ul>
-              <li>Published packages: the crate and the npm package at 0.0.0 are placeholders.</li>
+              <li>Published packages: the crate and the npm package at 0.0.0 are placeholders, and there is no Node.js binding.</li>
               <li>A stable API: the compatibility policy is still a proposal.</li>
               <li>Animation, HDR and JPEG output.</li>
               <li>Windows and other targets.</li>
@@ -394,35 +345,14 @@ function Status() {
           </div>
         </div>
       </MonoWide>
-      <MonoPassage
-        note={{
-          side: "right",
-          term: "--assume-srgb",
-          children:
-            "An image without color data is not sRGB by default. This flag says that it is, for this run.",
-        }}
-      >
-        <p>
-          To try it on your own images, clone the repository. This resizes a JPEG to 1600 × 900
-          and writes AVIF:
-        </p>
-      </MonoPassage>
-      <MonoCode caption="From a clone of the repository" file="Terminal">
-        {
-          "cargo run --release --features cli -- \\\n  photo.jpg scaled.avif 1600 900 \\\n  --assume-srgb --avif-quality=80 --avif-speed=8"
-        }
-      </MonoCode>
-      <MonoPassage>
-        <p>
-          Next on the way to 1.0: the gate on both targets for every port, dav1d's kernels rebuilt
-          in Rust, and the independent evidence for image quality, hardening, resources and
-          dependencies. Until then, releases will be 0.x previews.
-        </p>
-      </MonoPassage>
+      <p>
+        Next on the way to 1.0: the bit-for-bit test on both targets for every port, dav1d's
+        fast kernels rebuilt in Rust, and the independent evidence for image quality,
+        hardening, resources and dependencies. Until then, releases will be 0.x previews.
+      </p>
       <p className="fx-section-link">
         <a href={path("guide/status")}>Current status</a>
         <a href={path("guide/release-gates")}>Open release gates</a>
-        <a href={path("guide/getting-started")}>Getting started</a>
       </p>
     </MonoSection>
   );
@@ -433,18 +363,20 @@ export default function Home() {
     <div className="fx-home">
       <Opening />
       <MonoEngraving seed={10} />
-      <Pipeline />
+      <InUse />
       <MonoEngraving seed={1} />
-      <Ports />
+      <OneBuild />
       <MonoEngraving seed={2} />
-      <Gate />
+      <Safety />
       <MonoEngraving seed={3} />
-      <Report />
+      <Originals />
       <MonoEngraving seed={4} />
-      <Speed />
+      <Report />
       <MonoEngraving seed={5} />
-      <Status />
+      <Speed />
       <MonoEngraving seed={6} />
+      <Status />
+      <MonoEngraving seed={7} />
       <div className="mono-axis">
         <MonoColophon>
           Ferrisma is one of the Ferramenta engines, made by Sebastian Software; each stands on
@@ -461,7 +393,7 @@ export default function Home() {
             <MonoAction href={path("guide/getting-started")} primary>
               Build from source
             </MonoAction>
-            <MonoAction href={path("guide/quality-gate")}>Read the quality gate</MonoAction>
+            <MonoAction href={path("how-it-is-built")}>How Ferrisma is built</MonoAction>
           </>
         }
         links={

@@ -191,3 +191,46 @@ remaining assembly stays as long as it is true.
   translating (people, tools, agents) is not documented in the repository,
   so the page does not say.
 - **Gate state from data**: see "What is provisional" above.
+
+## Round four (2026-11-16): the benefit first
+
+Owner feedback: the port is a good technical story but belongs on a sub-page;
+the homepage leads with what a user gets. The homepage now follows his order:
+
+1. **Opening.** "Image processing for Rust, written in Rust", second line
+   "down to the codecs, with the originals' pictures". The lead names the
+   job and compares with sharp only in what is true of both (one interface for
+   reading, resizing and writing the web's formats); it says there is no C
+   library underneath, and the status block says there is no Node.js binding.
+2. **One pipeline for every format** (`#use`): the thumbnail call from
+   `examples/thumbnail.rs` (verbatim minus argument parsing; CI compiles every
+   example with `--all-targets --all-features`), the CLI line from
+   `docs/getting-started.md`, then the pipeline drawing.
+3. **All Rust, one build** (`#rust`) with a new drawing (`OneBuild.tsx`):
+   binding the C and C++ originals (compilers, CMake, NASM) beside Ferrisma
+   (Cargo). Targets verified today: macOS ARM64 and GNU Linux x86-64.
+4. **Memory safety where the files come in** (`#safety`): exactly what
+   `docs/unsafe-review.md` backs, including that the JPEG XL and AVIF ports
+   still carry much unsafe code behind documented bridges. No claim that the
+   stack is memory-safe; no statistics.
+5. **The same pictures as the originals** (`#originals`): the port work as a
+   benefit, three sentences and links.
+6. **You know what happened to every image** (`#report`): four terms.
+7. **The cost: close to the originals' speed** (`#speed`): the range of the
+   committed record and the named outliers, with a link to the full table.
+   The owner's "10 to 20 percent" is an expectation, not a measurement, and is
+   not printed.
+8. Status, colophon, closing.
+
+The depth moved to `/how-it-is-built` (the anatomy with the originals, the
+gate drawing and per-port state, refuse or report, the full speed table) and
+`/how-a-port-is-made`. The header's "Quality gate" link became "How it is
+built"; the guide navigation lists both pages.
+
+Headline candidates considered:
+- "Image processing for Rust, written in Rust" / "down to the codecs, with the
+  originals' pictures" (built).
+- "One image pipeline for Rust, every codec included" / "JPEG, WebP, JPEG XL
+  and AVIF through one API, built by Cargo alone".
+- "Read, resize and write images in pure Rust" / "the originals' codecs,
+  translated and held to them bit for bit".
