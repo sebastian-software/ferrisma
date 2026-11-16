@@ -26,6 +26,24 @@ and NEON DotProd/I8MM are not run. There is no performance gate.
 Never refresh an expected output, golden, tolerance or oracle pin to make a
 check pass. A failure is a finding: report it.
 
+**The gate holds on the toolchains users build with, not only on the pinned
+nightly.** The workspace pins a nightly in `rust-toolchain.toml`, but users
+build with a stable compiler at or above the declared `rust-version`
+([supported matrix](supported-matrix.md#minimum-rust-versions)). The same
+source can give different results on the two: on 2026-11-15 libjxl-rs's
+`std::max(kSmallAlpha, alpha)` returned a NaN for a signaling-NaN alpha with
+Rust 1.88 to 1.98 on AArch64 (LLVM 20 to 22 lower the compare-and-select
+to `FMAXNM`), and the original's `kSmallAlpha` with the nightly and Rust
+1.100 (LLVM 23) (libjxl-rs [ADR 0002](../codecs/libjxl-rs/docs/adr/0002-differential-oracle.md),
+"Results that depend on the Rust compiler"). A result counts only if it
+holds on the pinned nightly and on stable. Where the source's semantics
+can be written so that no compiler choice decides them, the port writes
+them that way; where a stage can run with another toolchain (libjxl-rs
+`tools/check.py --toolchain NAME`), run it with the port's `rust-version`
+and with current stable before calling a change done. CI's codec job runs
+libjxl-rs's no-oracle checked-profile tests on the port's `rust-version`
+and on stable, on Linux x86-64 and ARM64.
+
 ## Targets on the development Mac
 
 | Target | How | Notes |

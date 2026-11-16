@@ -75,11 +75,28 @@ pub unsafe fn copy_curve(source: *const Curve, destination: *mut Curve) {
     }
 }
 
+// skcms.cc fmaxf_/fminf_: `x > y ? x : y` and `x < y ? x : y` return `y` when
+// `x` is a NaN. The explicit test keeps that for a signaling NaN `x` against a
+// non-NaN `y` on every compiler: LLVM 20 to 22 otherwise lower the plain
+// select to AArch64 FMAXNM/FMINNM, which return a quiet NaN instead (libjxl-rs
+// ADR 0002, "Results that depend on the Rust compiler", 2026-11-15).
 fn fmax(x: f32, y: f32) -> f32 {
-    if x > y { x } else { y }
+    if x.is_nan() {
+        y
+    } else if x > y {
+        x
+    } else {
+        y
+    }
 }
 fn fmin(x: f32, y: f32) -> f32 {
-    if x < y { x } else { y }
+    if x.is_nan() {
+        y
+    } else if x < y {
+        x
+    } else {
+        y
+    }
 }
 fn minus_1_ulp(x: f32) -> f32 {
     f32::from_bits(((x.to_bits() as i32) - 1) as u32)
@@ -250,6 +267,30 @@ pub unsafe fn canonicalize_identity(curve: *mut Curve) {
                     f: 0.0,
                 });
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // libjxl-rs ADR 0002, "Results that depend on the Rust compiler"
+    // (2026-11-15): fmaxf_/fminf_ return their second operand for a NaN first
+    // operand, signaling NaN included, against a constant the backend knows is
+    // not a NaN. The NaN word reaches the helper through black_box.
+    use super::{fmax, fmin};
+    use std::hint::black_box;
+
+    #[test]
+    fn fminf_fmaxf_return_the_second_operand_for_a_nan_first_operand() {
+        for word in [0x7fc1_2345u32, 0xffc9_8765, 0x7fa1_2345, 0xffa9_8765] {
+            let nan = black_box(f32::from_bits(word));
+            assert_eq!(fmin(nan, 1.0).to_bits(), 1.0f32.to_bits(), "{word:#x}");
+            assert_eq!(fmax(nan, 0.0).to_bits(), 0.0f32.to_bits(), "{word:#x}");
+            assert_eq!(
+                fmax(0.0, fmin(nan, 1.0)).to_bits(),
+                1.0f32.to_bits(),
+                "{word:#x}"
+            );
         }
     }
 }

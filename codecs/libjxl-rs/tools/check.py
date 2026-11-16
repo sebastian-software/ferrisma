@@ -112,6 +112,29 @@ def check_static(msrv):
         run("cargo", "test", "--locked", "--offline", "--release", "--all-features", "--test", name)
 
 
+# --toolchain: the Rust toolchain of the oracle and test stages (port ADR 0002,
+# "Results that depend on the Rust compiler", 2026-11-15). None keeps
+# rust-toolchain.toml's pinned nightly and Cargo's default target directory.
+# Another toolchain runs every Cargo command of those stages, including the
+# Rust library that the oracle's jxl_abi_rust links, with RUSTUP_TOOLCHAIN in
+# target/rust-<toolchain>, so its builds never replace the pinned nightly's.
+RUST_TOOLCHAIN = None
+
+
+def rust_target_dir():
+    return ROOT / "target" / f"rust-{RUST_TOOLCHAIN}" if RUST_TOOLCHAIN else ROOT / "target"
+
+
+def use_toolchain(name):
+    global RUST_TOOLCHAIN
+    RUST_TOOLCHAIN = name
+    os.environ["RUSTUP_TOOLCHAIN"] = name
+    os.environ["CARGO_TARGET_DIR"] = str(rust_target_dir())
+    version = subprocess.check_output(["rustc", "-vV"], text=True)
+    print(f"Rust toolchain {name}: " + "; ".join(line for line in version.splitlines()
+                                                 if line.startswith(("release:", "LLVM version:"))), flush=True)
+
+
 def cross_arguments(target, build):
     """CMake arguments for an oracle of another Apple architecture (run under Rosetta)."""
     if target is None:
@@ -137,7 +160,8 @@ def build_reference_variant(target):
     suffix = "" if target is None else "-" + target.split("-")[0]
     build = ROOT / "target" / f"oracle-o3{suffix}"
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release",
-        "-DORACLE_SANITIZERS=OFF", "-DORACLE_REFERENCE_PINS=OFF", *cross_arguments(target, build))
+        "-DORACLE_SANITIZERS=OFF", "-DORACLE_REFERENCE_PINS=OFF", *cross_arguments(target, build),
+        f"-DORACLE_RUST_TARGET_DIR={rust_target_dir()}")
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
     return build / "jxl_oracle"
 
@@ -147,7 +171,7 @@ def build_oracle(sanitizers, target=None):
     build = ROOT / "target" / (("oracle-asan" if sanitizers else "oracle") + suffix)
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release",
         f"-DORACLE_SANITIZERS={'ON' if sanitizers else 'OFF'}", "-DORACLE_REFERENCE_PINS=ON",
-        *cross_arguments(target, build))
+        *cross_arguments(target, build), f"-DORACLE_RUST_TARGET_DIR={rust_target_dir()}")
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
     variant = build_reference_variant(target)
     from skcms_fitting_reference import build_private as build_fitting_private
@@ -313,6 +337,10 @@ def main():
                         help="oracle and test stages only: build both scalar references for this Apple "
                              "architecture, with the Brotli observers, and run the tests for it "
                              "(under Rosetta 2 on an ARM64 host)")
+    parser.add_argument("--toolchain", metavar="NAME",
+                        help="oracle and test stages only: build and run the Rust side with this installed "
+                             "rustup toolchain (for example 1.100.0 or stable) instead of the pinned nightly, "
+                             "in target/rust-NAME; the C++ references do not depend on it")
     parser.add_argument("--no-fail-fast", action="store_true",
                         help="test stage: run every test binary even after a failure (diagnosis)")
     args = parser.parse_args()
@@ -320,7 +348,11 @@ def main():
         parser.error("--partition and --filter are mutually exclusive")
     if args.target is not None and args.stage in ("all", "static"):
         parser.error("--target applies to the oracle and test stages")
+    if args.toolchain is not None and args.stage in ("all", "static"):
+        parser.error("--toolchain applies to the oracle and test stages")
     check_source()
+    if args.toolchain is not None:
+        use_toolchain(args.toolchain)
     if args.stage in ("all", "static"):
         check_static(args.msrv)
     if args.stage in ("all", "oracle", "test"):

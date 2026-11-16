@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-15 (O1 confirmed by the owner)
+- Updated: 2026-11-16 (results on stable toolchains; O1 confirmed by the owner on 2026-11-15)
 
 > **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** NaN payload bits are no longer part of the comparison: every finite word, infinity and signed zero stays bit-identical, a NaN must meet a NaN, and two NaNs compare equal whatever their sign and payload, except where the original only copies data (for example lossless float samples), where NaNs stay bit-exact. The competing-NaN-operand rules below (out-of-line accumulator-first additions, `-O0` observation units chosen to pin NaN payloads) are no longer required for the gate; the oracle's comparison changes accordingly. The oracle also gains a second half: a SIMD build of libjxl at the v1.0 level (NEON; AVX2 and the lower x86 levels) compared with the port's SIMD paths (#96), on AArch64 and on x86-64. Inputs that contain NaN or infinity follow ADR-0041's open question O1 (working rule pending owner confirmation). The mechanics change in separate work; the history below is unchanged.
 
@@ -1072,3 +1072,95 @@ Three rules apply:
   the step-2 gate does, so that an observation stays a small multiple of the
   codestream.
 <!-- end encoder lossless streaming -->
+
+<!-- stable parity -->
+## Results that depend on the Rust compiler, 2026-11-16
+
+Every equivalence gate of this port ran on the pinned nightly
+(`rust-toolchain.toml`), while users build with a stable compiler (the
+port's `rust-version` and the product's, ADR-0040). On AArch64 the same
+source gave a different result class on stable: for a signaling-NaN alpha,
+`premultiply_alpha` returned a NaN where the original's `std::max(kSmallAlpha,
+a)` keeps `kSmallAlpha` (`tests/patches.rs`,
+`selected_original_alpha_max_retains_comparison_result`, failing with Rust
+1.88, 1.93, 1.95 and 1.98.1, passing on the nightly and on 1.100.0).
+
+**Cause.** `max_f32(a, b)` was `if a < b { b } else { a }`, the source's
+operand order. rustc emits the same IR on every toolchain
+(`fcmp ogt` plus `select`); the difference is in LLVM's AArch64 lowering.
+When one operand is known not to be a NaN (here the constant `kSmallAlpha`),
+LLVM 20 to 22 (Rust 1.88 to 1.98) turn the compare-and-select into `FMAXNM`,
+which returns a quiet NaN for a signaling-NaN operand instead of the
+constant; LLVM 23 (the nightly, Rust 1.100) keeps `FCMP`+`FCSEL`:
+
+```
+Rust 1.98.1 (LLVM 22.1.8)          nightly-2026-09-07 (LLVM 23.1.1)
+  mov    w8, #847249408              mov    w8, #847249408
+  fmov   s1, w8                      fmov   s1, w8
+  fmaxnm s0, s0, s1                  fcmp   s0, s1
+                                     fcsel  s0, s0, s1, gt
+```
+
+LLVM treats that rewrite as valid, because its `maxnum` may return a NaN or
+the other operand for a signaling NaN (LangRef; upstream disabled and
+re-enabled such folds in #170181 and #184125), so a later LLVM may bring it
+back. x86-64 is not affected: `MAXSS`/`MINSS` return their second source on
+an unordered comparison, which is the select's result.
+
+**Extent.** Comparing the checked-profile `libjxl-rs` library's AArch64
+assembly of Rust 1.98.1 and the nightly, 22 functions contained 29 more
+`FMAXNM`/`FMINNM` (28 against 11 and 34 against 22). Six sites can pass a
+loaded, possibly signaling NaN against a non-NaN constant:
+`alpha::premultiply_alpha` and `unpremultiply_alpha`, the two alpha
+multipliers of `dec_external_image`, `enc_heuristics_ar`'s
+`min(5, butteraugli_distance)` (all through `base::float::max_f32`/`min_f32`)
+and skcms `eval_curve`'s `fminf_(x, 1)` (`skcms/curve.rs`). Every other
+`FMAXNM`/`FMINNM` in the Rust 1.98.1 build after the fix (38 in all) either
+carries the explicit NaN test or takes a value produced by arithmetic, an
+integer conversion or an earlier clamp, which is never a signaling NaN, so
+it gives the select's result; that includes the inline `std::max`/`std::min`
+ternaries of `Quantizer::clamp_val` and the `best_error` minimum searches of
+`enc_heuristics_ar`. The other compiler-sensitive constructs were checked
+and do not depend on the toolchain: rustc never contracts `a * b + c` on its
+own (`mul_add_f32` is explicit), `f32::mul_add` is always fused, `as`
+float-to-integer casts saturate on every toolchain, the three Rust
+`f32::max`/`f64::min` calls (`enc_ma`, `enc_ac_strategy*`) take operands
+computed from integers, which are never NaN, and libm calls (`powf`, `exp`,
+`ln`, `cbrt`) go to the platform's library on every toolchain.
+
+**Rule.** A floating-point min/max whose original semantics keep one operand
+on an unordered comparison is written with an explicit NaN test of the other
+operand, so that the result does not rest on the backend's choice of
+instruction: `base::float::max_f32`/`min_f32`/`max_f64` (`std::max`/
+`std::min`) and skcms's `fmax`/`fmin` (`fmaxf_`/`fminf_`). The test costs
+one compare and one select; it changes no finite, infinite or quiet-NaN
+result on any toolchain. Unit tests in both files pass the NaN words through
+`black_box` against constants and fail with the previous spelling on Rust
+1.98.1 AArch64. `hwy_scalar`'s Min/Max already test both operands; the SIMD
+layer's `Min`/`Max` are the target instructions themselves.
+
+**Gate.** `tools/check.py --toolchain NAME` runs the oracle and test stages
+with that rustup toolchain in `target/rust-NAME`, including the Rust library
+that the oracle's `jxl_abi_rust` links (`ORACLE_RUST_TARGET_DIR`); the C++
+references do not change. A result counts only if it holds on the pinned
+nightly and on the stable toolchains users build with (root
+`docs/quality-gate.md`). The PR codec job runs the port's no-oracle
+checked-profile tests at its `rust-version` and on current stable, on Linux
+x86-64 and ARM64. The out-of-line boundaries that remain (skcms's matrix
+product checkpoints) and the oracle's per-TU pins concern operand order and
+the original's builds, not this lowering; the AArch64 stable run of the full
+test stage passed them unchanged.
+
+**Evidence** (AArch64, `tools/check.py --stage test`, live scalar and NEON
+oracles). Before the fix: nightly-2026-09-07 1,148 passed, 1 ignored; Rust
+1.98.1 1,147 passed, 1 failed (only
+`selected_original_alpha_max_retains_comparison_result`: the red word is
+`0xffe98765`, the quieted alpha NaN, where the test expects `+0`). After the
+fix: nightly, 1.98.1 and 1.100.0 each 1,152 passed, 1 ignored (the four new
+unit tests), with no other difference; `cargo +1.88 test --profile checked`
+without the oracle: 449 passed. x86-64 is not measured here (Rosetta 2 was
+unavailable); hosted `codecs (jxl, ubuntu-24.04)` covers it in the PR tier.
+
+Re-evaluate after an LLVM upgrade of the pinned nightly or of the minimum
+toolchain.
+<!-- end stable parity -->
