@@ -680,3 +680,18 @@ reports that a stable item cannot express its use case.
      `JpegXlOptions`, `--jxl-depth=`, `--version`, `--help`, the error lines
      and the `decoder_work:` line. The four streaming-blocking guarantees
      are reworded (problem 16).
+- 2026-11-16 — **`libjxl-rs` raises its minimum Rust version from 1.88 to
+  1.94** (owner decision of 2026-11-16: all remaining assembly is replaced,
+  and `libjxl-rs` may raise its minimum for it; [ADR-0044](0044-no-assembly-acceleration-through-rust-intrinsics.md)).
+  The port's three AArch64 half-precision conversions use the NEON
+  intrinsics the original uses, `vcvt_f16_f32` and `vcvt_f32_f16` with the
+  `float16x4_t` type, instead of inline `fcvtn`/`fcvtl`; they are stable
+  since Rust 1.94.0 and rejected with `E0658` (`stdarch_neon_f16`) by 1.93.
+  This is a deliberate raise in its own change, as rule 3 of the MSRV entry
+  above requires: Rust 1.94.0 was released on 2026-03-05, more than three
+  months before this change, and its changelog note is the body of the
+  commit `build(jxl): raise libjxl-rs rust-version to 1.94` (Release Please
+  is not active yet). No package that depends on `libjxl-rs` declares less:
+  the engine and the two JPEG XL bridges declare 1.99; `libsharpyuv-core`
+  does not depend on it and keeps 1.88. The codec PR job installs and checks
+  the version from `Cargo.toml`, so CI needs no edit.

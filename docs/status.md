@@ -114,9 +114,10 @@ separate workspace members; they are grouped here by their shared port.
 **Minimum Rust versions** (owner decision 2026-11-15, [ADR-0040](adr/0040-stable-public-contract-and-compatibility-policy.md)
 amendment): the engine needs Rust 1.99 or later for every feature, AVIF and
 `cli` included, and so do `ferrisma-kernels`, the bridges and the AVIF port.
-The ports published on their own declare their measured floors:
-`libjxl-rs` and `libsharpyuv-core` 1.88, `libjpeg-turbo-rs` 1.93,
-`libwebp-rs` 1.95. CI builds and tests each group at exactly its declared
+The ports published on their own declare their floors:
+`libjxl-rs` 1.94 (since 2026-11-16, for the NEON half-precision intrinsics
+that replace inline assembly; 1.88 before), `libsharpyuv-core` 1.88,
+`libjpeg-turbo-rs` 1.93, `libwebp-rs` 1.95. CI builds and tests each group at exactly its declared
 version ([minimum Rust versions](supported-matrix.md#minimum-rust-versions)).
 The pinned nightly is a development tool, not a requirement.
 
