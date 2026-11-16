@@ -3,8 +3,8 @@
 #[cfg(all(feature = "jpeg-read", feature = "webp-write"))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use ferrisma::pipeline::{
-        ImageFormat, InputProfilePolicy, OutputFormat, ResizeFit, ResizeOptions, TransformOptions,
-        transcode_resized,
+        ImageFormat, InputProfilePolicy, OutputFormat, OutputGeometry, OutputSettings, ResizeFit,
+        ResizeOptions, TransformOptions, transcode,
     };
 
     let mut args = std::env::args_os().skip(1);
@@ -16,21 +16,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("expected exactly two paths".into());
     }
     let jpeg = std::fs::read(input)?;
-    let image = transcode_resized(
+    let image = transcode(
         &jpeg,
         ImageFormat::Jpeg,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            // Only use this assumption when it is appropriate for the input.
-            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            ..TransformOptions::default()
-        },
-        ResizeOptions {
-            width: Some(320),
-            height: Some(320),
-            fit: ResizeFit::Cover,
-            without_enlargement: true,
-        },
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: 1,
+            height: 1,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        // Only use this assumption when it is appropriate for the input.
+        .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+        .with_geometry(OutputGeometry::Resize(
+            ResizeOptions::default()
+                .with_width(320)
+                .with_height(320)
+                .with_fit(ResizeFit::Cover)
+                .with_without_enlargement(true),
+        )),
     )?;
     std::fs::write(output, &image.bytes)?;
     println!("Wrote {}×{} WebP", image.width, image.height);

@@ -166,3 +166,39 @@ only; measured on the same day at 2.4 to 9 (AVIF) and 2.3 to 44 (WebP)
 times those frames (indicative, not changed; #48, #199).
 
 - 2026-11-16 — JPEG XL reservations follow measured peaks; see the amendment above.
+
+## Amendment: default budget of 2 GiB (2026-11-16, owner decision)
+
+**Decision (owner, 2026-11-16; not a working decision).** The default
+managed-memory budget, `TransformOptions::max_managed_bytes` and the CLI's
+`--budget-mb`, rises from 1 GiB to 2 GiB.
+
+**Context** (the decision as relayed records no reason of its own; these
+are the facts around it). The reasons of the 1 GiB amendment stand (the
+budget is the finer line for operators who plan memory per job;
+decompression bombs are bounded by the input pixel limit), and the measured
+JPEG XL reservations of 2026-11-16 (the amendment above) lowered what 1 GiB
+admits: lossy JPEG XL
+above about 40.5 MP opaque, and 11.2 MP with alpha above 8 bits, failed
+under the default where it had passed with the estimate. 2 GiB admits those
+sizes again with the measured model.
+
+**What the budget covers** is unchanged (the amendment above).
+
+**Consequences.** Under the default the largest JPEG XL output is, by the
+committed models (`LOSSLESS_PEAK`, `LOSSY_PEAK`, `PeakModel` in
+`src/jxl_sink.rs`): lossless 125,829,120 px opaque (was 49,133,275 at
+1 GiB), 97,779,712 with alpha (was 30,670,848), 69,031,253 and 45,520,534
+above 8 bits (were 24,292,010 and 13,939,892); lossy 159,849,585 opaque (was
+40,544,938), 123,160,017 with alpha (was 25,547,124), 89,391,104 and
+54,190,407 above 8 bits (were 22,282,240 and 11,240,734). Every one of these
+lies above the largest measured frame (24 MP) and extrapolates the model's
+per-frame slope; three of the 1 GiB limits (13.9, 22.3 and 11.2 MP) were
+inside the measured range. `supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_126_megapixels`
+(11300×11200) replaces the 49 MP test (7100×7000). A caller that relied on
+the 1 GiB default as a bound must set it explicitly; on a machine where
+2 GiB of engine buffers is too much for the jobs it runs in parallel
+(`Engine` runs `threads` images, each with its own budget), the operator
+lowers it.
+
+- 2026-11-16 — Default budget 2 GiB (owner decision); see the amendment above.

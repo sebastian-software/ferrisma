@@ -1,5 +1,6 @@
 use webp::api::encode::{PixelLayout, PixelRows, encode_lossless};
 
+use crate::pipeline::{AvifOptions, OutputGeometry, OutputSettings};
 use crate::pipeline::{
     ImageFormat, InputProfilePolicy, ProcessingErrorKind, TransformOptions, transcode,
 };
@@ -20,17 +21,13 @@ fn still_webp_reaches_avif_and_untagged_color_requires_policy() {
         stride: 24,
     })
     .unwrap();
-    let options = TransformOptions {
-        output_width: 4,
-        output_height: 4,
-        avif: crate::pipeline::AvifOptions {
-            speed: 9,
-            ..crate::pipeline::AvifOptions::default()
-        },
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 4,
+        height: 4,
+    })
+    .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(9)));
     assert_eq!(
-        transcode(&webp, ImageFormat::WebP, options)
+        transcode(&webp, ImageFormat::WebP, &options)
             .unwrap_err()
             .kind(),
         ProcessingErrorKind::UnsupportedColor,
@@ -38,10 +35,9 @@ fn still_webp_reaches_avif_and_untagged_color_requires_policy() {
     let output = transcode(
         &webp,
         ImageFormat::WebP,
-        TransformOptions {
-            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            ..options
-        },
+        &options
+            .clone()
+            .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing),
     )
     .unwrap();
     assert_eq!(&output.bytes[4..8], b"ftyp");
@@ -69,16 +65,12 @@ fn straight_alpha_webp_reaches_avif() {
     let output = transcode(
         &webp,
         ImageFormat::WebP,
-        TransformOptions {
-            output_width: 4,
-            output_height: 4,
-            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            avif: crate::pipeline::AvifOptions {
-                speed: 9,
-                ..crate::pipeline::AvifOptions::default()
-            },
-            ..TransformOptions::default()
-        },
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: 4,
+            height: 4,
+        })
+        .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(9)))
+        .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing),
     )
     .unwrap();
     assert_eq!(&output.bytes[4..8], b"ftyp");

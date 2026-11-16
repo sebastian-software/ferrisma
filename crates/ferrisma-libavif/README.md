@@ -11,12 +11,12 @@ with its AOM encoder, as an output encoder for Ferrisma
 use ferrisma::pipeline::{ImageFormat, TransformOptions, transcode_with};
 use ferrisma_libavif::LibavifBackend;
 
-let output = transcode_with(&jpeg, ImageFormat::Jpeg, options, &LibavifBackend)?;
+let output = transcode_with(&jpeg, ImageFormat::Jpeg, &options, &LibavifBackend::new())?;
 ```
 
-Ferrisma decodes, converts color, crops, resamples and quantizes as usual; this crate receives the finished sRGB8 rows, converts them with libavif's `avifImageRGBToYUV` and encodes with `avifEncoderWrite`. The output equals Ferrisma's built-in AVIF writer (the same workspace encoder; the rav1e sink it was once compared with was removed on 2026-11-15): CICP 1/13/6, full range, with every setting from the request's `AvifOptions` (`avifenc`'s defaults: 8 bits, quality and alpha quality 60, speed 6, 4:4:4; `depth: 10` for 10 bits). `quality` and `alpha_quality` (0–100) and `speed` (0–10) are libavif's own scales; compare backends at matched quality. Until 2026-11-15 the backend carried its own depth (`LibavifBackend { depth }`); it is a unit struct since.
+Ferrisma decodes, converts color, crops, resamples and quantizes as usual; this crate receives the finished sRGB8 rows, converts them with libavif's `avifImageRGBToYUV` and encodes with `avifEncoderWrite`. The output equals Ferrisma's built-in AVIF writer (the same workspace encoder; the rav1e sink it was once compared with was removed on 2026-11-15): CICP 1/13/6, full range, with every setting from the request's `AvifOptions` (`avifenc`'s defaults: the input's depth, quality and alpha quality 60, speed 6, 4:4:4; `with_depth(BitDepth::Exact(10))` for 10 bits). `quality` and `alpha_quality` (0–100) and `speed` (0–10) are libavif's own scales; compare backends at matched quality. Until 2026-11-15 the backend carried its own depth (`LibavifBackend { depth }`); it has no settings since, and since 2026-11-16 it is constructed with `LibavifBackend::new()`.
 
-The `ferrisma-libavif` command (feature `cli`) is Ferrisma's command line with this backend: same arguments, same `report:` line, with `encoder=libavif-rs/aom`.
+The `ferrisma-libavif` command (feature `cli`) is Ferrisma's command line with this backend: same arguments, same `report:` line, with `encoder=libavif/aom` (the name of the ported original; `libavif-rs/aom`, the package, until 2026-11-16).
 
 ```sh
 cargo run -p ferrisma-libavif --release --features cli -- input.jpg output.avif 1600 1067 --assume-srgb --avif-quality=56 --avif-speed=6 --encoder-threads=0

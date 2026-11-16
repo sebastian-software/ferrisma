@@ -11,6 +11,8 @@
 // shared helpers are compiled but unused.
 #![allow(dead_code, unused_imports)]
 
+use ferrisma::pipeline::Threads;
+use ferrisma::pipeline::{AvifOptions, OutputGeometry, OutputSettings};
 use ferrisma::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
     Output, OutputFormat, RowEncoder, TransformOptions, transcode, transcode_with,
@@ -45,31 +47,33 @@ fn read(bytes: &[u8], format: ImageFormat, options: TransformOptions) -> Output 
     transcode_with(
         bytes,
         format,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            output_width: 4,
-            output_height: 4,
-            transform_threads: 1,
-            ..options
-        },
+        &options
+            .with_output(OutputSettings::default_for(OutputFormat::WebP))
+            .with_geometry(OutputGeometry::Exact {
+                width: 4,
+                height: 4,
+            })
+            .with_transform_threads(Threads::ONE),
         &Discard,
     )
     .unwrap()
 }
 
 fn srgb() -> TransformOptions {
-    TransformOptions {
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
 }
 
 /// The JPEG XL reader describes its output with an ICC profile.
 fn rendered_icc() -> TransformOptions {
-    TransformOptions {
-        profile_policy: InputProfilePolicy::UseRenderedIcc,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
 }
 
 #[cfg(feature = "jpeg-read")]
@@ -77,7 +81,7 @@ fn rendered_icc() -> TransformOptions {
 fn jpeg_reader_is_reported() {
     let jpeg = include_bytes!("fixtures/decoder-work/paris-420.jpg");
     let report = read(jpeg, ImageFormat::Jpeg, srgb()).report;
-    assert_eq!(report.decoder_backend, "libjpeg-turbo-rs");
+    assert_eq!(report.decoder_backend, "libjpeg-turbo");
     assert_eq!(report.encoder_backend, "test-discard");
 }
 
@@ -86,7 +90,7 @@ fn jpeg_reader_is_reported() {
 fn webp_reader_is_reported() {
     let webp = include_bytes!("fixtures/decoder-work/paris-o5-lossless.webp");
     let report = read(webp, ImageFormat::WebP, srgb()).report;
-    assert_eq!(report.decoder_backend, "libwebp-rs");
+    assert_eq!(report.decoder_backend, "libwebp");
 }
 
 /// One JPEG XL reader since 2026-11-15 (ADR-0032), named in the report.
@@ -96,7 +100,7 @@ fn webp_reader_is_reported() {
 fn jpeg_xl_reader_is_reported() {
     let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
     let report = read(jxl, ImageFormat::JpegXl, rendered_icc()).report;
-    assert_eq!(report.decoder_backend, "libjxl-rs");
+    assert_eq!(report.decoder_backend, "libjxl");
 }
 
 #[cfg(feature = "avif-read")]
@@ -104,7 +108,7 @@ fn jpeg_xl_reader_is_reported() {
 fn avif_reader_is_reported() {
     let avif = include_bytes!("fixtures/orientation/avif-6.avif");
     let report = read(avif, ImageFormat::Avif, srgb()).report;
-    assert_eq!(report.decoder_backend, "libavif-rs/aom");
+    assert_eq!(report.decoder_backend, "libavif/aom");
 }
 
 /// One small JPEG through a built-in writer; `speed` applies to AVIF only.
@@ -114,17 +118,18 @@ fn write(output_format: OutputFormat, speed: u8) -> Output {
     transcode(
         jpeg,
         ImageFormat::Jpeg,
-        TransformOptions {
-            output_format,
-            avif: ferrisma::pipeline::AvifOptions {
-                speed,
-                ..ferrisma::pipeline::AvifOptions::default()
-            },
-            output_width: 16,
-            output_height: 12,
-            transform_threads: 1,
-            ..srgb()
-        },
+        &srgb()
+            .with_output(match output_format {
+                OutputFormat::Avif => {
+                    OutputSettings::Avif(AvifOptions::default().with_speed(speed))
+                }
+                other => OutputSettings::default_for(other),
+            })
+            .with_geometry(OutputGeometry::Exact {
+                width: 16,
+                height: 12,
+            })
+            .with_transform_threads(Threads::ONE),
     )
     .unwrap()
 }
@@ -133,20 +138,20 @@ fn write(output_format: OutputFormat, speed: u8) -> Output {
 #[test]
 fn webp_writer_is_reported() {
     let output = write(OutputFormat::WebP, 6);
-    assert_eq!(output.report.decoder_backend, "libjpeg-turbo-rs");
-    assert_eq!(output.report.encoder_backend, "libwebp-rs");
+    assert_eq!(output.report.decoder_backend, "libjpeg-turbo");
+    assert_eq!(output.report.encoder_backend, "libwebp");
 }
 
 #[cfg(all(feature = "jpeg-read", feature = "jpeg-xl-write"))]
 #[test]
 fn jpeg_xl_writer_is_reported() {
     let output = write(OutputFormat::JpegXl, 6);
-    assert_eq!(output.report.encoder_backend, "libjxl-rs");
+    assert_eq!(output.report.encoder_backend, "libjxl");
 }
 
 #[cfg(all(feature = "jpeg-read", feature = "avif-write"))]
 #[test]
 fn avif_writer_is_reported() {
     let output = write(OutputFormat::Avif, 10);
-    assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+    assert_eq!(output.report.encoder_backend, "libavif/aom");
 }

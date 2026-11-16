@@ -14,9 +14,9 @@ else, including every private module, is outside the contract.
 
 | Area | Stable | Experimental (may change in a minor release) |
 | --- | --- | --- |
-| Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run`, `cli::main` |
-| Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, threads, and the four resource limits; `WebpOptions` (libwebp quality and method, lossless level); `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifOptions` (`TransformOptions::avif`), `JpegXlOptions` |
-| Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
+| Entry points | `transcode`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run`, `cli::main` |
+| Options | `TransformOptions` (constructor, `with_*` methods and getters) for output, geometry (`OutputGeometry`), crop, filter, color policy, threads, and the four resource limits; `OutputSettings`; `WebpOptions` with `WebpLossy` and `WebpLossless` (libwebp quality and method, lossless level); `ResizeOptions`; `Crop`; `InspectionLimits`; `BatchItem` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifOptions` (`OutputSettings::Avif`), `JpegXlOptions` with `JpegXlLossy` and `JpegXlLossless`, `BitDepth` |
+| Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason` (Ferrisma's own enums since 2026-11-16), `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
 | Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-write` (experimental since the switch to the workspace port; it builds on stable Rust 1.99 since 2026-11-15, and the tier is not decided; stable as the rav1e capability until 2026-11-15) |
 | CLI | Positional arguments, color policy, `--webp-quality=`, `--webp-method=`, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=`, `--avif-chroma=`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=`, `--jxl-lossless` and `--jxl-depth=` |
 
@@ -73,6 +73,67 @@ API (experimental) changes additively: `EncodeRequest::depth`,
 receiving 8-bit rows and a deeper input is reported as `PrecisionReduced`)
 and `RowEncoder::write_row_u16` (default: refused).
 
+## Constructing options
+
+Since 2026-11-16 every option type is built one way (ADR-0040 amendment of
+that date): a constructor or `Default`, then one `with_*` method per
+setting, each returning the changed value; getters of the same names read
+them. The fields are private and the types `#[non_exhaustive]`, so a new
+setting is a new method and breaks no caller. Struct literals, including
+`..TransformOptions::default()`, no longer compile outside the crate.
+
+```rust
+use ferrisma::pipeline::{
+    InputProfilePolicy, OutputGeometry, OutputSettings, ResizeOptions, TransformOptions,
+    WebpLossy, WebpOptions,
+};
+
+let options = TransformOptions::new(OutputGeometry::Resize(
+    ResizeOptions::default().with_width(320).with_height(320),
+))
+.with_output(OutputSettings::WebP(WebpOptions::Lossy(
+    WebpLossy::default().with_quality(80.0),
+)))
+.with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+```
+
+What changed with it (pre-1.0 breaking change): `TransformOptions` has no
+`Default` (its constructor takes the geometry) and is no longer `Copy`;
+`output_format` and the three per-format fields `avif`, `webp` and
+`jpeg_xl` are one `OutputSettings` value, `Avif(AvifOptions)`,
+`WebP(WebpOptions)` or `JpegXl(JpegXlOptions)`, which selects the output,
+so the settings of another format can no longer be set (they were refused
+before); `output_width`/`output_height`, whose default of 1 stood for "not
+set", are `OutputGeometry::Exact { width, height }`, and
+`transcode_resized`/`transcode_resized_with` are `transcode`/`transcode_with`
+with `OutputGeometry::Resize(ResizeOptions)`. `WebpOptions` and
+`JpegXlOptions` keep their lossy and lossless variants, each now carrying a
+settings struct (`WebpLossy`, `WebpLossless`, `JpegXlLossy`,
+`JpegXlLossless`). The depth settings are a `BitDepth` (`FollowInput`, the
+default, or `Exact(n)`) instead of `Option<u8>`. `Crop` is built with
+`Crop::new(x, y, width, height)` and read with `x()`, `y()`, `width()`,
+`height()`; `BatchItem` with `BatchItem::new(encoded, format, options)`;
+`LibavifBackend` with `LibavifBackend::new()`. The external-backend request,
+`EncodeRequest`, carries `output: OutputSettings` instead of `format`,
+`avif`, `webp` and `jpeg_xl` (`EncodeRequest::format()` remains).
+
+Thread counts are a `Threads` value (since 2026-11-16): `Threads::Automatic`
+or `Threads::Count(NonZeroUsize)`, `Threads::ONE` for the sequential path,
+instead of a `usize` with 0 for "automatic". `Engine::new(Threads)` returns a
+`Result` and refuses a count above 256 as `InvalidOptions`, the validation
+`transcode` applies; before, `Engine::new(usize)` clamped such a count to
+256 silently. The command line keeps its spelling (`--transform-threads=0`
+is automatic).
+
+The experimental backend API: `RowEncoder` requires `Send` (since
+2026-11-16; an encoder that keeps an `Rc` or a raw pointer must wrap it),
+and `EncodeRequest::new(output, width, height)` builds a request for a
+backend's own tests ([ADR-0024](adr/0024-pluggable-encoders-and-libavif-rs-backend.md)).
+
+`ImageMetadata::rendered_cicp` is an `Option<Cicp>` (since 2026-11-16)
+with the named fields `color_primaries`, `transfer_characteristics`,
+`matrix_coefficients` and `full_range: bool`, instead of an `[u8; 4]`.
+
 ## Refusal reasons
 
 `ProcessingError::refusal_reason()` names the class of a refusal of
@@ -116,9 +177,10 @@ set as the `discarded=` key of its `report:` line (`none` when empty).
 
 An option that would have no effect is refused, not ignored, when it is
 set to a value other than its default (owner decision of 2026-11-15,
-ADR-0042): `output_width`/`output_height` with `transcode_resized`, a
-thread count above 256 in `Engine::transcode_batch`, a setting of another
-output format, and a setting an external backend's request does not carry.
+ADR-0042): a thread count above 256 in `Engine::transcode_batch` and a
+setting an external backend's request does not carry. (Until 2026-11-16 also
+`output_width`/`output_height` with `transcode_resized` and a setting of
+another output format; the options can no longer express either.)
 Each is `InvalidOptions` before decoding. Where the engine replaces a value
 and reports the one it used, the replacement is documented instead: the
 batch runs each image with one transform and one encoder thread, and the
@@ -129,7 +191,7 @@ batch runs each image with one transform and one encoder thread, and the
 A panic inside Ferrisma, one of its codecs or an encoder backend does not
 unwind out of the public functions (since 2026-11-16; ADR-0040 amendment of
 that date, working decision, delegated, revisable by the owner):
-`transcode`, `transcode_resized`, `inspect`, the `_with` variants and each
+`transcode`, `inspect`, the `_with` variants and each
 item of `Engine::transcode_batch` and `transcode_batch_with` catch it and
 return `ProcessingErrorKind::Internal`, whose message says that a panic was
 caught and includes the panic's message when it is text. In a batch, only
@@ -155,8 +217,13 @@ What this does not promise:
 - Add enum variants. Every public enum that can grow is
   `#[non_exhaustive]`, including `ProcessingErrorKind`, so match with a
   wildcard arm.
-- Add fields to `Output`, `ProcessingReport`, `StageTimings`, and
-  `ImageMetadata`; these structs cannot be constructed outside Ferrisma.
+- Add fields to `Output`, `ProcessingReport`, `StageTimings`,
+  `DecoderWork` and `ImageMetadata`; these structs cannot be constructed
+  outside Ferrisma. Since 2026-11-16 the report structs, the option types,
+  `EncodeRequest` and `Engine` are `Clone` but not `Copy`, so a later field
+  need not be `Copy`; read a report through a reference or clone it.
+- Add settings to the option types: each is a new `with_*` method and
+  getter (see [constructing options](#constructing-options)).
 - Change error message text. Match on `ProcessingError::kind()` and
   `ProcessingError::refusal_reason()`, never on messages.
 - Change the encoded bytes for the same options when an encoder improves.
@@ -190,15 +257,22 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
 ## CLI units and exit status
 
 - The default managed-memory budget (`max_managed_bytes`, `--budget-mb`) is
-  1 GiB since 2026-11-15 (owner decision, ADR-0004 amendment; 256 MiB
-  before): a transcode that failed with `ResourceExhausted` at the old default
-  may now succeed; an operator who wants the former bound sets it.
+  2 GiB since 2026-11-16 (owner decision, ADR-0004 amendment; 1 GiB from
+  2026-11-15, 256 MiB before): a transcode that failed with
+  `ResourceExhausted` at an old default may now succeed; an operator who
+  wants a former bound sets it (`--budget-mb=1024`). Under the default the
+  largest JPEG XL output is now about 125.8 MP lossless opaque, 97.8 MP with
+  alpha, 69.0 and 45.5 MP above 8 bits, and lossy 159.8, 123.2, 89.4 and
+  54.2 MP (the [supported matrix](supported-matrix.md) has the exact
+  numbers; every one extrapolates the memory model beyond its measured
+  24 MP).
 - Since 2026-11-16 JPEG XL output reserves its measured peak (ADR-0004 and
-  ADR-0039 amendments): lossy JPEG XL above about 40.5 MP opaque, 25.5 MP
-  with alpha, 22.3 and 11.2 MP above 8 bits, and lossless with alpha above
-  about 30.7 MP (13.9 MP above 8 bits; 24.3 MP opaque above 8 bits) fails
-  with `ResourceExhausted` under the default budget where it passed before;
-  a larger `--budget-mb` admits it.
+  ADR-0039 amendments): under the 1 GiB default of that morning, lossy JPEG
+  XL above about 40.5 MP opaque, 25.5 MP with alpha, 22.3 and 11.2 MP above
+  8 bits, and lossless with alpha above about 30.7 MP (13.9 MP above 8
+  bits; 24.3 MP opaque above 8 bits) failed with `ResourceExhausted` where
+  it passed before; the 2 GiB default of the same day admits the sizes of
+  the item above, and a larger `--budget-mb` admits more.
 - `--max-input-mb`, `--budget-mb`, and `--max-output-mb` count MiB
   (1,048,576 bytes); `--max-input-mpx` counts millions of pixels (10^6).
 - Exit status 0 means success, 2 a usage error, 1 a processing error
@@ -209,8 +283,10 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   extension, a value that does not parse, and a value the engine refuses as
   `InvalidOptions` (a setting outside its scale, a zero size or limit, a
   crop outside the image). Processing errors: unreadable input, unwritable
-  output, a refused, malformed or too large input, an exhausted resource, a
-  missing feature, an encoder failure, and `Internal`.
+  output, a refused, malformed or too large input, an output above
+  `--max-output-mb` (`OutputLimitExceeded` since 2026-11-16,
+  `ResourceExhausted` before), an exhausted resource, a missing feature, an
+  encoder failure, and `Internal`.
 - An error is one line `error: <message>` on standard error (the message
   text is not stable). When the engine returned it, a second line names
   its kind and refusal reason in the form of the `report:` line:
@@ -220,7 +296,8 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   and hyphenated forms of `ProcessingErrorKind` and `RefusalReason`
   (`invalid-options`, `input-limit-exceeded`, `feature-disabled`,
   `malformed-input`, `unsupported-input`, `unsupported-color`,
-  `resource-exhausted`, `cancelled`, `encode-failed`, `internal`), written
+  `resource-exhausted`, `output-limit-exceeded` (since 2026-11-16),
+  `cancelled`, `encode-failed`, `internal`), written
   by the command itself, so renaming a Rust variant does not change them.
   Until 2026-11-16 Rust printed `Error: ` and the error's `Debug` form.
 - `--help` or `-h` prints the usage on standard output and exits 0 (since
@@ -240,8 +317,9 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   `color_signal`, `discarded`); new keys may be added. Since 2026-11-16 every
   name taken from an enum is the command's own lower-case, hyphenated
   value, so renaming a Rust variant cannot change it: `precision=` `f32` or
-  `f64-reference`; `kernel_level=` `scalar`, `neon`, `sve2`, `avx2`,
-  `avx512` (the names of `--kernel-level=`); `color_signal=` `cicp`,
+  `f64-reference`; `kernel_level=` `scalar`, `neon`, `avx2`,
+  `avx512` (the names of `--kernel-level=`; `sve2`, which no run reported,
+  is no longer a value since 2026-11-16); `color_signal=` `cicp`,
   `assumed-srgb`, `rendered-icc`, `rendered-icc-with-agreeing-cicp`;
   `discarded=` a comma-separated list of `gain-map`, `exif`, `xmp`,
   `other-metadata`, `icc-profile`, `unknown-container-data`,
@@ -249,9 +327,12 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   `precision-reduced`, or `none`. Before, `precision=`, `color_signal=` and
   `discarded=` printed the Rust variant names (`F32`, `AssumedSrgb`,
   `IccProfile`) and `kernel_level=` the kernels crate's names. The
-  `encoder=` and `decoder=` values are the report's backend strings
-  (`libavif-rs/aom`, `libwebp-rs`, `libjxl-rs`, `libjpeg-turbo-rs`, or an
-  external backend's name), experimental values. The `decoder_work:` line
+  `encoder=` and `decoder=` values are the report's backend strings, the
+  names of the ported originals: `libjpeg-turbo`, `libwebp`, `libjxl`,
+  `libavif/aom`, or an external backend's own `name()` (since 2026-11-16,
+  owner decision; before, the package names `libjpeg-turbo-rs`,
+  `libwebp-rs`, `libjxl-rs` and `libavif-rs/aom`), so renaming a package
+  does not change them; experimental values. The `decoder_work:` line
   prints rectangles as `WxH+X+Y` and counts as a number or `>=` and a lower
   bound. The other output lines are for people and may change.
 
