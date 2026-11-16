@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-16
 - **Partially supersedes:** [0018](0018-optional-codec-and-cms-dependencies.md), the interim AVIF reader and its toolchain contract; [0024](0024-pluggable-encoders-and-libavif-rs-backend.md) and [0026](0026-codecs-in-one-repository-and-workspace.md), the AVIF reader/encoder link exclusion. [0025](0025-codec-selection-reference-conformance-and-image-scope.md)'s final selection gates remain in force.
 - **Related:** [0015](0015-typed-output-color-signals.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [issue 54](https://github.com/sebastian-software/ferrisma/issues/54)
 
@@ -182,3 +182,25 @@ an AVIF feature needs another platform.
   The hosted AVIF benchmark (`scripts/bench/ci-perf/codec_avif.sh`) already
   has C libavif with dav1d as a context column (`c-dav1d`); no statement
   from it is written yet.
+- 2026-11-16 — **The dav1d removal is paused (owner decision of
+  2026-11-16).** Part (2) of the 2026-11-15 entry, dav1d leaving the
+  runtime and the published chain, is not carried out for now. The reason
+  is speed: the port's AVIF decode through the translated libaom took 1.75
+  to 2.1 times as long as stock libavif with dav1d, one thread, on the
+  hosted runners of run 43789376239 (context column `c-dav1d`; pixels
+  identical), and dav1d's speed lies in its hand-written assembly, which
+  the workspace dav1d port does not contain (it is translated with
+  `-Denable_asm=false` and runs scalar). Instead, dav1d's kernels are
+  rebuilt with Rust intrinsics under [ADR-0044](0044-no-assembly-acceleration-through-rust-intrinsics.md)
+  D2, with no time pressure for 1.0, in parallel with the other work;
+  their gate is bit identity with dav1d's own build with its assembly at
+  the same level. **Decided:** that work starts; the branch that removes
+  dav1d (`v1/avif-drop-dav1d`) is not merged; `libavif-rs` keeps
+  `libavif-dav1d` as a normal dependency, and the reader keeps selecting
+  `AVIF_CODEC_CHOICE_AOM` explicitly. **Not decided:** which decoder the
+  engine uses in the end, and whether both decoders remain in the
+  published chain. That is decided once the rebuilt kernels can be
+  measured. Part (1) of the 2026-11-15 entry (bit identity with libaom as
+  the reader's evidence for 1.0) is unchanged, and so is the statement
+  that the Argon gate remains a precondition for selecting the dav1d port
+  as the reader.

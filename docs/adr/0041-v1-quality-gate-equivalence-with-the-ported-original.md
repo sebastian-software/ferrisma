@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (decisions D1–D10). The former open questions O1–O9 and the further items listed with them were decided by the owner on 2026-11-15 ([Owner decisions of 2026-11-15](#owner-decisions-of-2026-11-15)); what is not yet implemented is named there.
 - **Date:** 2026-11-13
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-16
 - **Source:** owner decision (structured interview, 2026-11-13)
 - **Supersedes:** In part: the performance criteria of [0007](0007-correctness-and-performance-evidence.md) as release evidence; the default ISA level of [0020](0020-kernel-crate-and-isa-dispatch.md) decision 4; the role of third-party comparisons in [0025](0025-codec-selection-reference-conformance-and-image-scope.md) point 3, [0032](0032-jpeg-xl-workspace-decoder-input.md) and [0037](0037-selectable-workspace-avif-encoder.md); the validation platforms of [0027](0027-tiered-validation-and-rust-test-orchestration.md); release naming in [0040](0040-stable-public-contract-and-compatibility-policy.md). In the ports: the NaN-payload rule of libjxl-rs ADR 0002/0003, the SIMD reference of libavif-rs ADR 0056/0058/0059, and the SIMD reference and NEON rescaler ruling of libwebp-rs ADR 0002/0008. Each amended record links back here.
 - **Related:** [0026](0026-codecs-in-one-repository-and-workspace.md), [quality gate guide](../quality-gate.md), [v1.0 CI performance record](../benchmarks/v1.0-ci-performance-2026-11-12.md), [JPEG XL performance analysis](../benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md), tracker #196
@@ -542,7 +542,11 @@ and what is not done yet.
   evidence, earmarked for animated AVIF. dav1d leaves the runtime and the
   published chain and may stay in tests as an independent cross-check; not
   done yet ([ADR-0031](0031-workspace-libavif-input-experiment.md),
-  amendment of 2026-11-15).
+  amendment of 2026-11-15). **Paused on 2026-11-16** by the owner: dav1d
+  stays, and its assembly kernels are rebuilt with intrinsics under
+  [ADR-0044](0044-no-assembly-acceleration-through-rust-intrinsics.md) D2,
+  gated against dav1d's own SIMD build at the same level; which decoder
+  the engine finally uses is open (ADR-0031, amendment of 2026-11-16).
 
 ## Review when
 
