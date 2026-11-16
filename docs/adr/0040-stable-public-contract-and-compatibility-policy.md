@@ -794,3 +794,10 @@ reports that a stable item cannot express its use case.
      rustdoc and ADR-0024, and `EncodeRequest::new(output, width, height)`
      lets a backend author unit-test `begin()`; ADR-0024, amendment of
      2026-11-16, gives the reasons and what `Send` costs.
+  8. **Codec names in the report** (owner decision of 2026-11-16; review
+     2.7). `decoder_backend`, `encoder_backend` and the CLI's `decoder=` and
+     `encoder=` values name the ported original: `libjpeg-turbo`,
+     `libwebp`, `libjxl`, `libavif/aom` (were `libjpeg-turbo-rs`,
+     `libwebp-rs`, `libjxl-rs`, `libavif-rs/aom`); an external backend
+     keeps its own `name()`. They no longer change when a package is
+     renamed. Recorded in ADR-0017, amendment of the same date.

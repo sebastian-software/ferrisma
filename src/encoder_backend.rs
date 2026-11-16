@@ -230,7 +230,7 @@ pub trait RowEncoder: Send {
 pub trait EncoderBackend: Sync {
     /// Format this backend emits. The pipeline checks it against the request.
     fn format(&self) -> OutputFormat;
-    /// Short name for reports and diagnostics, such as `"libavif-rs/aom"`.
+    /// Short name for reports and diagnostics, such as `"libavif/aom"`.
     fn name(&self) -> &'static str;
 
     /// The row depths this backend encodes, ascending, 8 included: the

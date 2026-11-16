@@ -190,7 +190,7 @@ fn signalled_srgb_avif_transcodes_under_the_strict_profile_policy() {
         again.report.color_signal,
         crate::pipeline::ColorSignal::Cicp
     );
-    assert_eq!(again.report.decoder_backend, "libavif-rs/aom");
+    assert_eq!(again.report.decoder_backend, "libavif/aom");
 }
 
 #[test]
@@ -433,7 +433,7 @@ fn a_backend_receives_the_request_and_every_output_row() {
     .unwrap()
     .report
     .encoder_backend;
-    assert_eq!(default_backend, "libavif-rs/aom");
+    assert_eq!(default_backend, "libavif/aom");
     // The rows do not depend on the transform thread count.
     for threads in [1, 4] {
         let again = transcode_with(

@@ -1150,14 +1150,19 @@ pub struct ProcessingReport {
     /// and the `f64` reference.
     pub transform_threads: usize,
     /// The decoder that read the input and produced the source pixels
-    /// (issue #217). Built-in readers: `"libjpeg-turbo-rs"` (JPEG),
-    /// `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL) and `"libavif-rs/aom"`
-    /// (AVIF), one per format. The strings are observations; new readers add
+    /// (issue #217). Built-in readers: `"libjpeg-turbo"` (JPEG),
+    /// `"libwebp"` (WebP), `"libjxl"` (JPEG XL) and `"libavif/aom"`
+    /// (AVIF), one per format. Each names the original codec the reader is
+    /// a port of, not the Rust package, so a renamed package does not change
+    /// it (owner decision of 2026-11-16; until then the package names
+    /// `"libjpeg-turbo-rs"`, `"libwebp-rs"`, `"libjxl-rs"` and
+    /// `"libavif-rs/aom"`). The strings are observations; new readers add
     /// new values.
     pub decoder_backend: &'static str,
-    /// The encoder that wrote the output: `"libavif-rs/aom"` (AVIF),
-    /// `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL), or the
-    /// [`EncoderBackend::name`] of an external backend (ADR-0024).
+    /// The encoder that wrote the output: `"libavif/aom"` (AVIF),
+    /// `"libwebp"` (WebP), `"libjxl"` (JPEG XL), the ported originals as
+    /// for [`Self::decoder_backend`] (the package names until 2026-11-16),
+    /// or the [`EncoderBackend::name`] of an external backend (ADR-0024).
     pub encoder_backend: &'static str,
     /// Bits per sample of the decoded input, color and alpha (the larger):
     /// 8 for JPEG and WebP, 8, 10 or 12 for AVIF, 1 to 16 for JPEG XL
@@ -1546,10 +1551,10 @@ fn open_source<'a>(
 /// was opened, so the name always belongs to a compiled backend.
 fn decoder_backend(format: ImageFormat) -> &'static str {
     match format {
-        ImageFormat::Jpeg => "libjpeg-turbo-rs",
-        ImageFormat::WebP => "libwebp-rs",
-        ImageFormat::JpegXl => "libjxl-rs",
-        ImageFormat::Avif => "libavif-rs/aom",
+        ImageFormat::Jpeg => "libjpeg-turbo",
+        ImageFormat::WebP => "libwebp",
+        ImageFormat::JpegXl => "libjxl",
+        ImageFormat::Avif => "libavif/aom",
     }
 }
 
@@ -2215,9 +2220,9 @@ fn run(
     };
     let encoder_backend = backend.map_or(
         match output_format {
-            OutputFormat::Avif => "libavif-rs/aom",
-            OutputFormat::WebP => "libwebp-rs",
-            OutputFormat::JpegXl => "libjxl-rs",
+            OutputFormat::Avif => "libavif/aom",
+            OutputFormat::WebP => "libwebp",
+            OutputFormat::JpegXl => "libjxl",
         },
         EncoderBackend::name,
     );

@@ -571,7 +571,7 @@ mod pipeline_round_trip {
             let options = srgb(lossy(width, height, 1.0));
             let output = transcode(&input, ImageFormat::WebP, &options).unwrap();
             assert_eq!(output.format, OutputFormat::JpegXl);
-            assert_eq!(output.report.encoder_backend, "libjxl-rs");
+            assert_eq!(output.report.encoder_backend, "libjxl");
             assert!(output.report.opaque_encoder_memory);
             let expected = transcode_with(&input, ImageFormat::WebP, &options, &Rows).unwrap();
             let (w, h, decoded) = decode_oxide(&output.bytes);

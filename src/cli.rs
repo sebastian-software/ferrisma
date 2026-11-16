@@ -987,7 +987,7 @@ mod tests {
         assert!(line.contains(" precision=f32 "), "{line}");
         assert!(
             line.ends_with(
-                " encoder=libwebp-rs decoder=libjpeg-turbo-rs color_signal=assumed-srgb \
+                " encoder=libwebp decoder=libjpeg-turbo color_signal=assumed-srgb \
                  input_depth=8 depth=8 discarded=none"
             ),
             "{line}"

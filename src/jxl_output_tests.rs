@@ -760,7 +760,7 @@ mod pipeline_round_trip {
             let input = webp(120, 90, alpha);
             let output = transcode(&input, ImageFormat::WebP, &srgb(width, height)).unwrap();
             assert_eq!(output.format, OutputFormat::JpegXl);
-            assert_eq!(output.report.encoder_backend, "libjxl-rs");
+            assert_eq!(output.report.encoder_backend, "libjxl");
             assert!(output.report.opaque_encoder_memory);
             let (w, h) = (width as usize, height as usize);
             assert!(output.report.encoder_output_frame_bytes >= w * h * 4);

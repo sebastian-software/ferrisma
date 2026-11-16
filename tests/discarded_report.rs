@@ -260,7 +260,7 @@ mod avif {
                 )),
             )
             .unwrap();
-            assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+            assert_eq!(output.report.encoder_backend, "libavif/aom");
             output.report.discarded.iter().collect::<Vec<_>>()
         };
         let ten = read(&format!("{ANDROID}fox.profile0.10bpc.yuv420.avif"));

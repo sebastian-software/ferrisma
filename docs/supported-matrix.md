@@ -406,7 +406,7 @@ The default `quality` was 75 at 10 bits until the native options of
 
 Evidence through the public API (`supported_matrix::…`): libavif —
 `libavif_is_the_default_avif_encoder_at_avifenc_defaults_with_nclx` (encoder name
-`libavif-rs/aom`, `av1C` 8-bit 4:4:4, `colr nclx` 1/13/6 full range, no alpha
+`libavif/aom`, `libavif-rs/aom` until 2026-11-16, `av1C` 8-bit 4:4:4, `colr nclx` 1/13/6 full range, no alpha
 item when opaque, read back under `Strict`),
 `libavif_writes_ten_bit_and_420_on_request`,
 `libavif_alpha_quality_is_its_own_setting`,
@@ -638,7 +638,7 @@ ferrisma --version          # or -V; takes precedence over every other argument
 #   build: unknown
 # JPEG → AVIF with the libavif/AOM encoder at avifenc's defaults (8-bit 4:4:4, quality 60)
 ferrisma photo.jpg out.avif 64 48 --assume-srgb
-#   report: … encoder=libavif-rs/aom
+#   report: … encoder=libavif/aom
 # libavif at 10 bits, 4:2:0, quality 70, alpha quality 90
 ferrisma photo.jpg out.avif 64 48 --assume-srgb --avif-depth=10 --avif-chroma=420 --avif-quality=70 --avif-alpha-quality=90
 # Lossy WebP at libwebp's quality and method

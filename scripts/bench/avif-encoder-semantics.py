@@ -2,7 +2,7 @@
 """Inspect the output semantics of Ferrisma's AVIF encoder (issue #53).
 
 Encodes the same Ferrisma rows with the engine's only AVIF encoder, the
-workspace libavif/AOM writer (report `encoder=libavif-rs/aom`), at 8 and 10
+workspace libavif/AOM writer (report `encoder=libavif/aom`; `libavif-rs/aom` before 2026-11-16), at 8 and 10
 bits (`--avif-depth=`), and inspects every file with independent readers:
 FFmpeg/libdav1d (`ffprobe`), libheif (`heif-info`, `heif-dec`), and the
 standalone SSIMULACRA2 scorer, which decodes with `avif-decode`/rav1d. It

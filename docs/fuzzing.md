@@ -160,7 +160,7 @@ The `transcode` target runs each AVIF-output input through the workspace
 AOM writer at both 10 and 8 bits (`avif_depths`, `run_case_at_depth`), as
 the former `transcode` (rav1e) and `transcode_own_avif` lanes did together;
 WebP-output inputs run once. Tests assert the reported encoder is
-`libavif-rs/aom` for every AVIF output. Encoder choice and
+`libavif/aom` (`libavif-rs/aom` until 2026-11-16) for every AVIF output. Encoder choice and
 bit depth are explicit lane settings and do not consume or rewrite image bytes.
 
 Artifacts include the source commit and tree, toolchain, host, lockfile hashes,

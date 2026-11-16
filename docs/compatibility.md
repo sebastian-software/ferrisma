@@ -320,9 +320,12 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   `precision-reduced`, or `none`. Before, `precision=`, `color_signal=` and
   `discarded=` printed the Rust variant names (`F32`, `AssumedSrgb`,
   `IccProfile`) and `kernel_level=` the kernels crate's names. The
-  `encoder=` and `decoder=` values are the report's backend strings
-  (`libavif-rs/aom`, `libwebp-rs`, `libjxl-rs`, `libjpeg-turbo-rs`, or an
-  external backend's name), experimental values. The `decoder_work:` line
+  `encoder=` and `decoder=` values are the report's backend strings, the
+  names of the ported originals: `libjpeg-turbo`, `libwebp`, `libjxl`,
+  `libavif/aom`, or an external backend's own `name()` (since 2026-11-16,
+  owner decision; before, the package names `libjpeg-turbo-rs`,
+  `libwebp-rs`, `libjxl-rs` and `libavif-rs/aom`), so renaming a package
+  does not change them; experimental values. The `decoder_work:` line
   prints rectangles as `WxH+X+Y` and counts as a number or `>=` and a lower
   bound. The other output lines are for people and may change.
 

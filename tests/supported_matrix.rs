@@ -1038,7 +1038,7 @@ fn libavif_is_the_default_avif_encoder_at_avifenc_defaults_with_nclx() {
         &options(OutputFormat::Avif, ASSUME),
     )
     .unwrap();
-    assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+    assert_eq!(output.report.encoder_backend, "libavif/aom");
     assert_eq!(av1_config(&output.bytes), (8, (false, false), false));
     assert_eq!(nclx(&output.bytes), Some((1, 13, 6, true)));
     assert!(
@@ -1345,7 +1345,7 @@ fn jpeg_xl_output_is_a_raw_codestream_that_reads_back() {
     ] {
         let output = jxl_output(SAMPLE_JPEG, ImageFormat::Jpeg, &jpeg_xl);
         assert_eq!(&output.bytes[..2], &[0xff, 0x0a], "{jpeg_xl:?}");
-        assert_eq!(output.report.encoder_backend, "libjxl-rs");
+        assert_eq!(output.report.encoder_backend, "libjxl");
         transcode(&output.bytes, ImageFormat::JpegXl, &jxl_options(RENDERED))
             .unwrap_or_else(|error| panic!("{jpeg_xl:?}: {error}"));
         // jxl-oxide, test-only since 2026-11-15, reads it independently.

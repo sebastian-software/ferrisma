@@ -191,8 +191,8 @@ fn encodes_what_ferrisma_produced_with_the_same_color_signals() {
             built_in.bytes, output.bytes,
             "built-in and compatibility adapter must agree"
         );
-        assert_eq!(built_in.report.encoder_backend, "libavif-rs/aom");
-        assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+        assert_eq!(built_in.report.encoder_backend, "libavif/aom");
+        assert_eq!(output.report.encoder_backend, "libavif/aom");
         assert!(output.report.opaque_encoder_memory);
         assert!(output.report.encoder_output_frame_bytes >= 96 * 64 * 4);
         assert!(
@@ -489,7 +489,7 @@ fn generated_avif_can_be_read_and_written_in_the_same_pipeline() {
     let decoded = decode(&second.bytes);
     assert_eq!((decoded.width, decoded.height), (16, 12));
     assert_eq!(decoded.cicp, (1, 13, 6, true));
-    assert_eq!(second.report.encoder_backend, "libavif-rs/aom");
+    assert_eq!(second.report.encoder_backend, "libavif/aom");
     let mut request = backend_request(8, 8);
     request.has_alpha = true;
     let mut frame = backend.begin(&request).unwrap();
@@ -528,7 +528,7 @@ fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
         .with_encoder_threads(Threads::ONE)
         .with_precision(WorkingPrecision::F64Reference);
     let single = transcode(JPEG, ImageFormat::Jpeg, &opts).unwrap();
-    assert_eq!(single.report.encoder_backend, "libavif-rs/aom");
+    assert_eq!(single.report.encoder_backend, "libavif/aom");
     let results = Engine::new(Threads::Count(std::num::NonZeroUsize::new(2).unwrap()))
         .unwrap()
         .transcode_batch(&[
@@ -557,7 +557,7 @@ fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
         )),
     )
     .unwrap();
-    assert_eq!(quality_zero.report.encoder_backend, "libavif-rs/aom");
+    assert_eq!(quality_zero.report.encoder_backend, "libavif/aom");
     // AVIF settings are AVIF output's: since 2026-11-16 the options cannot
     // carry them beside WebP output, which was refused as `InvalidOptions`
     // before (an AVIF encoder selection until 2026-11-15, then `avif_depth`).
@@ -580,7 +580,7 @@ fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
     // then a nondefault depth with an external backend was refused).
     let external = transcode_with(JPEG, ImageFormat::Jpeg, &opts, &LibavifBackend::new())
         .expect("every AVIF setting reaches the backend");
-    assert_eq!(external.report.encoder_backend, "libavif-rs/aom");
+    assert_eq!(external.report.encoder_backend, "libavif/aom");
     assert_eq!(external.bytes, single.bytes);
 }
 
@@ -615,7 +615,7 @@ fn compatibility_cli_keeps_default_backend_and_rejects_conflicting_selection() {
         "{}",
         String::from_utf8_lossy(&result.stderr)
     );
-    assert!(String::from_utf8_lossy(&result.stdout).contains("encoder=libavif-rs/aom"));
+    assert!(String::from_utf8_lossy(&result.stdout).contains("encoder=libavif/aom"));
     // `--avif-depth=` reaches this backend since 2026-11-15 (it was refused
     // with an external backend before).
     let result = run(&["--avif-depth=10"]);

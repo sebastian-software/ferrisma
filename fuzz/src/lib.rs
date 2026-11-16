@@ -345,7 +345,7 @@ mod tests {
                     .expect("input admitted by the driver")
                     .expect("fixture must reach the workspace AVIF writer");
                 assert_eq!(output.format, OutputFormat::Avif);
-                assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+                assert_eq!(output.report.encoder_backend, "libavif/aom");
                 assert!(!output.bytes.is_empty());
             }
         }
@@ -427,7 +427,7 @@ mod tests {
                         assert!(output.report.decoder_requests > 0);
                         assert!(!output.bytes.is_empty());
                         if output.format == OutputFormat::Avif {
-                            assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+                            assert_eq!(output.report.encoder_backend, "libavif/aom");
                         }
                         eprintln!(
                             "{lane}/{name} ({variant}): encoded {:?} via {}",

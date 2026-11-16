@@ -85,7 +85,7 @@ impl EncoderBackend for LibavifBackend {
         OutputFormat::Avif
     }
     fn name(&self) -> &'static str {
-        "libavif-rs/aom"
+        "libavif/aom"
     }
     fn row_depths(&self) -> &'static [u8] {
         &[8, 10, 12]
