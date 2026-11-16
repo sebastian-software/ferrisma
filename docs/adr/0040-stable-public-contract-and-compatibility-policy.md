@@ -27,7 +27,8 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
   signatures.
 - `ferrisma::pipeline::{KernelLevel, KernelLevelReason}` are re-exports of
   `ferrisma_kernels::{IsaLevel, LevelReason}`, so `ferrisma-kernels` is a
-  public dependency.
+  public dependency. _Changed 2026-11-16:_ both are `ferrisma`'s own enums
+  (amendment of that date, item 4).
 - `examples/consumer.rs` exercises the facade outside the test suite,
   including every documented failure category and resource limit; its
   `--self-check` passes (10 scenarios) and runs in CI.
@@ -48,38 +49,52 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 
 ### Rust API (`ferrisma::pipeline`)
 
+Updated 2026-11-16 to the surface after the API reshaping of that date
+(amendment log, "API shape before the freeze"). Every option type is built
+with a constructor or `Default` and `with_*` methods and read with getters;
+every report type is `#[non_exhaustive]` with public fields.
+
 | Item | Kind | Proposed 1.0 tier | Notes |
 | --- | --- | --- | --- |
-| `transcode`, `transcode_resized` | fn | Stable | Exact and aspect-aware geometry (ADR-0034) |
-| `inspect`, `InspectionLimits`, `ImageMetadata` | fn, struct, struct | Stable | JPEG and WebP only; `ImageMetadata` is non-exhaustive |
-| `TransformOptions` | struct, public fields, `Copy`, `Default` | Stable, see problems 1–3 | Field docs state each field's scale and limit; since 2026-11-16 the rustdoc of `max_output_bytes` describes when the limit is checked as this release's behavior, not a promise (problem 16) |
-| `Crop` | struct, public fields | Stable | Deliberately exhaustive plain rectangle |
-| `ResizeOptions`, `ResizeFit` | struct, enum | Stable | `ResizeFit` non-exhaustive |
+| `transcode`, `inspect` | fn | Stable | Borrow their options (`&TransformOptions`, `&InspectionLimits`) since 2026-11-16; `transcode_resized` is `transcode` with `OutputGeometry::Resize` since then (ADR-0034) |
+| `InspectionLimits`, `ImageMetadata` | struct, struct | Stable | JPEG and WebP only; `InspectionLimits` in the construction style, `ImageMetadata` non-exhaustive |
+| `Cicp` (`ImageMetadata::rendered_cicp`) | struct | Stable with `ImageMetadata` | Non-exhaustive output struct with named fields since 2026-11-16 (problem 8) |
+| `TransformOptions` | struct, private fields, `Clone`, `new(geometry)`, `with_*`/getters | Stable | Problems 1–3 and 10 closed 2026-11-16; field docs state each setting's scale and limit; `max_output_bytes` describes when the limit is checked as this release's behavior (problem 16) |
+| `OutputGeometry` (`Exact { width, height }`, `Resize(ResizeOptions)`) | enum | Stable | Non-exhaustive; replaces `output_width`/`output_height` and `transcode_resized` (problem 3) |
+| `OutputSettings` (`Avif`, `WebP`, `JpegXl`), `OutputSettings::format`, `default_for` | enum, methods | Stable; the `Avif` and `JpegXl` payloads keep their own tiers | Non-exhaustive; replaces `output_format` and the per-format fields in `TransformOptions` and `EncodeRequest` (problem 2) |
+| `Crop` | struct, `Copy`, `new`, getters | Stable | Non-exhaustive since 2026-11-16 (was a deliberately exhaustive plain rectangle) |
+| `ResizeOptions`, `ResizeFit` | struct, enum | Stable | Construction style; `ResizeFit` non-exhaustive |
 | `ResizeFilter` (`Area`, `Lanczos3`) | enum | Stable | Non-exhaustive |
 | `InputProfilePolicy` | enum | Stable | Non-exhaustive; `Strict` default |
 | `ImageFormat`, `OutputFormat` | enum | Stable | Non-exhaustive |
-| `WebpOptions` (`Lossy { quality, method }`, `Lossless { level }`) | enum | Stable | Non-exhaustive; libwebp's own scales; `speed` replaced by `method` on 2026-11-15 |
+| `Threads` (`Automatic`, `Count(NonZeroUsize)`, `ONE`, `MAX`) | enum, consts | Stable | Non-exhaustive (problem 9, 2026-11-16) |
+| `WebpOptions` (`Lossy(WebpLossy)`, `Lossless(WebpLossless)`), `WebpLossy`, `WebpLossless` | enum, structs | Stable | Non-exhaustive; per-profile settings structs since 2026-11-16; libwebp's own scales |
 | `WebpOptions::DEFAULT_METHOD`, `WebpOptions::MAX_METHOD` | consts | Tier not decided | libwebp's default and largest method (4, 6) |
-| `JpegXlOptions` (`Lossy { distance, depth }`, `Lossless { effort, depth }`) | enum | Experimental (ADR-0039); default lossy d1.0, patches off (owner decision 2026-11-15) | Non-exhaustive; `PartialEq` only; `depth: Option<u8>` in both variants since 2026-11-15 (`None` follows the input) |
-| `JpegXlOptions::MIN_LOSSY_DISTANCE`, `MAX_LOSSY_DISTANCE`, `depth()`, `with_depth()` | consts, methods | Tier not decided | The admitted distance range (0.05, exclusive 3.0) and the depth of either variant |
+| `JpegXlOptions` (`Lossy(JpegXlLossy)`, `Lossless(JpegXlLossless)`), `JpegXlLossy`, `JpegXlLossless` | enum, structs | Experimental (ADR-0039); default lossy d1.0, patches off (owner decision 2026-11-15) | Non-exhaustive; per-profile settings structs since 2026-11-16 |
+| `JpegXlOptions::MIN_LOSSY_DISTANCE`, `MAX_LOSSY_DISTANCE`, `depth()`, `with_depth()` | consts, methods | Tier not decided | The admitted distance range (0.05, exclusive 3.0) and the depth of either profile |
+| `BitDepth` (`FollowInput`, `Exact(u8)`) | enum | Tier not decided (with the depth settings) | Non-exhaustive; replaces `Option<u8>` (room for float and "at most N") |
 | `ChromaSubsampling` | enum | Stable | Non-exhaustive |
-| `AvifOptions` (`quality`, `alpha_quality`, `speed`, `depth`, `chroma`), `TransformOptions::avif` | struct, field | Experimental (owner decision 2026-11-15, ADR-0037; replaces `avif_depth`, `quality`, `speed`, `chroma_subsampling`) | libavif's scales; `avifenc` defaults 60, 60, 6, depth `None` (follows the input: 8, 10 or 12; a fixed 8 until the depth decision of 2026-11-15), 4:4:4; `depth: Option<u8>`; public fields, not non-exhaustive, like `TransformOptions` (problem 1) |
-| `LibavifBackend` | unit struct | Experimental (`avif-write`; stable Rust 1.99 since 2026-11-15, pinned nightly before) | ADR-0037; the built-in AVIF writer; reads every setting from the request since 2026-11-15 |
+| `AvifOptions` | struct, construction style | Experimental (owner decision 2026-11-15, ADR-0037) | libavif's scales; `avifenc` defaults 60, 60, 6, depth follows the input, 4:4:4 |
+| `LibavifBackend`, `LibavifBackend::new` | unit struct | Experimental (`avif-write`) | Non-exhaustive since 2026-11-16, built with `new()` or `Default`; ADR-0037 |
 | `WorkingPrecision` | enum | `F32` stable; `F64Reference` experimental (verification only) | Non-exhaustive |
 | `Output` | struct | Stable | Non-exhaustive; `format`, `bytes`, `width`, `height`, `report` |
-| `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive; new fields are additive. `decoder_backend` and `encoder_backend` strings are experimental values (2026-11-14, #217) |
-| `StageTimings` | struct | Experimental values | Wall-clock observations, never a contract; since 2026-11-16 "`total` is at least the sum of the stages" is described as this release's behavior, not promised (problem 16) |
-| `ProcessingReport::decoder_work`, `DecoderWork` (`crop`, `requested`, `codec_request`, `codec_output`, `overfetch_pixels`, `reconstructed_pixels`, `entropy_rows`, `delivered_rows`, `wrapper_copied_bytes`) | field, struct | Tier not decided | Non-exhaustive, `Copy`; ADR-0012; since 2026-11-16 "`requested` equals `crop`" is described as this release's behavior, not promised (problem 16) |
+| `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive, `Clone` not `Copy` since 2026-11-16; new fields are additive. `decoder_backend` and `encoder_backend` name the ported originals since 2026-11-16 (experimental values) |
+| `StageTimings` | struct | Experimental values | Wall-clock observations, never a contract; not `Copy` since 2026-11-16; "`total` is at least the sum of the stages" is this release's behavior (problem 16) |
+| `ProcessingReport::decoder_work`, `DecoderWork` | field, struct | Tier not decided | Non-exhaustive, not `Copy` since 2026-11-16; ADR-0012; "`requested` equals `crop`" is this release's behavior (problem 16) |
 | `WorkCount` (`Exact`, `AtLeast`), `WorkCount::at_least` | enum, method | Tier not decided | Non-exhaustive; only `Exact` bounds the work from above |
-| `ProcessingReport::input_depth`, `output_depth` | fields | Tier not decided | Bits per sample read and written (since 2026-11-15, ADR-0021 amendment) |
+| `ProcessingReport::input_depth`, `output_depth` | fields | Tier not decided | Bits per sample read and written |
 | `ColorSignal`, `ProcessingReport::color_signal` | enum, field | Experimental (working decision 2026-11-14, #212) | Non-exhaustive; reports the signal used, never a precedence |
-| `KernelLevel`, `KernelLevelReason`, `TransformOptions::kernel_level_ceiling` | re-exported enums, field | Experimental (diagnostics) | Couples to `ferrisma-kernels`; see problem 7 |
-| `ProcessingError`, `ProcessingErrorKind` | struct, enum | Stable | Kind is non-exhaustive; message text is not stable |
-| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decisions 2026-11-14 and 2026-11-15, #212) | Non-exhaustive closed vocabulary by refusal class (thirteen variants since 2026-11-15, `IccColorSpaceMismatch` added with gray input); `None` outside it |
+| `KernelLevel`, `KernelLevelReason`, `TransformOptions::kernel_level_ceiling` | enums, setting | Experimental (diagnostics) | Ferrisma's own enums since 2026-11-16 (problem 7); no `Sve2` |
+| `ProcessingError`, `ProcessingErrorKind` | struct, enum | Stable | Kind is non-exhaustive (`OutputLimitExceeded` since 2026-11-16, problem 5); message text is not stable |
+| `RefusalReason`, `ProcessingError::refusal_reason` | enum, method | Experimental (working decisions 2026-11-14 and 2026-11-15, #212) | Non-exhaustive closed vocabulary by refusal class (thirteen variants); `None` outside it |
 | `ProcessingReport::discarded`, `Discarded`, `DiscardedSet` | field, enum, set | Experimental (working decision 2026-11-15, ADR-0042 D2) | Non-exhaustive classes of information left out of a correct picture; CLI `discarded=` |
-| `Engine`, `BatchItem` | struct, struct | Stable | ADR-0022 |
-| `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with` | fn | Experimental | ADR-0024 backend extension point |
-| `EncoderBackend`, `RowEncoder`, `EncodeRequest`, `EncodedImage`, `EncodeError`, `EncodeErrorKind` | traits, structs, enum | Experimental | Implementors break if a required method is added; the structs and kind are already non-exhaustive |
+| `Engine`, `Engine::new(Threads) -> Result`, `BatchItem` | struct, struct | Stable | ADR-0022; `Engine` `Clone` not `Copy`; `BatchItem` in the construction style (`new`, getters) |
+| `transcode_with`, `Engine::transcode_batch_with` | fn | Experimental | ADR-0024 backend extension point (`transcode_resized_with` removed 2026-11-16) |
+| `EncoderBackend`, `RowEncoder: Send`, `EncodeRequest` (`output`, `width`, `height`, `has_alpha`, `depth`, `threads`; `new`, `format()`), `EncodedImage`, `EncodeError`, `EncodeErrorKind` | traits, structs, enum | Experimental | `RowEncoder: Send` and `EncodeRequest::new` since 2026-11-16; every new row axis is an opt-in with a conservative default (ADR-0024) |
+
+No type of another crate is part of this API since 2026-11-16 (the kernel
+enums were the last; `cargo public-api` of the reshaping change shows no
+foreign path).
 
 ### Rust API (`ferrisma::cli`)
 
@@ -108,7 +123,7 @@ command line, not these functions, is the stable CLI contract.
 | `--assume-srgb`, `--use-rendered-icc` | Stable |
 | `--webp-quality=`, `--webp-method=`, `--webp-lossless`, `--webp-level=` | Stable (`--quality=`, `--speed=`, `--chroma=` removed on 2026-11-15) |
 | `--crop=x,y,w,h` | Stable |
-| `--max-input-mb=`, `--max-input-mpx=`, `--budget-mb=`, `--max-output-mb=` | Stable |
+| `--max-input-mb=`, `--max-input-mpx=`, `--budget-mb=`, `--max-output-mb=` | Stable (`--budget-mb` default 2048 since 2026-11-16, 1024 before) |
 | `--transform-threads=`, `--encoder-threads=` | Stable |
 | `--area` | Stable, see problem 15 |
 | `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=8\|10\|12` (12 and "omitted follows the input" since 2026-11-15), `--avif-chroma=444\|420` | Experimental, as `AvifOptions` |
@@ -120,7 +135,7 @@ command line, not these functions, is the stable CLI contract.
 | `--help`, `-h`: usage on stdout, exit 0 (since 2026-11-16) | Tier not decided |
 | `--version`, `-V`: four lines on stdout (version, target, features, build), exit 0, precedence over every other argument | Tier not decided |
 | Each flag at most once; mutually exclusive pairs refused with both names (owner decision 2026-11-15) | Stable |
-| `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, `decoder` (appended 2026-11-14, #217), `color_signal` and `discarded`; the names taken from enums are the CLI's own lower-case hyphenated values since 2026-11-16 (tier of the values not decided) |
+| `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, `decoder` (appended 2026-11-14, #217), `color_signal` and `discarded`; the names taken from enums are the CLI's own lower-case hyphenated values since 2026-11-16 (tier of the values not decided); `encoder=`/`decoder=` name the ported originals (`libjpeg-turbo`, `libwebp`, `libjxl`, `libavif/aom`) since 2026-11-16 |
 | `decoder_work:` line on stdout (rectangles `WxH+X+Y`, counts with `>=` for a lower bound) | Tier not decided |
 | Human-readable `Encoded …`, `Timings: …` lines and the stderr memory note | Not stable |
 
@@ -158,11 +173,11 @@ Proposed, pending maintainer review:
    change, to a release then at least three months old; and a CI job builds
    and tests each package group at exactly its declared version.
 5. **Dependencies.** Codec and CMS crates stay out of public signatures
-   (ADR-0017), so their major versions are internal. `ferrisma-kernels` is a
-   public dependency while `KernelLevel` is re-exported; a breaking change to
-   those two types is a breaking change of `ferrisma` (problem 7). Since
-   2026-11-16 `ferrisma` requires the kernels and its four bridges with `=`
-   (amendment of that date).
+   (ADR-0017), so their major versions are internal. `ferrisma-kernels` was
+   a public dependency while `KernelLevel` was re-exported (problem 7);
+   since 2026-11-16 `ferrisma` defines its own kernel-level enums, so the
+   kernels are internal like the bridges, and `ferrisma` requires the
+   kernels and its four bridges with `=` (amendments of that date).
 6. **Deprecation and upgrade guidance.** Stable items are deprecated with
    `#[deprecated(since, note)]` for at least one minor release before removal
    in the next major release. Each release has a changelog entry with
@@ -194,20 +209,28 @@ owner requires of the API review before 1.0.
    (including the functional-update form) outside the crate; callers would
    use `let mut o = TransformOptions::default(); o.quality = 80.0;` or a
    builder. Recommendation: mark them `#[non_exhaustive]` before 1.0 and
-   update the examples and documentation in the same change.
+   update the examples and documentation in the same change. _Done on
+   2026-11-16 (owner decision; amendment of that date, item 1):_ every
+   option type is `#[non_exhaustive]` with private fields, a constructor or
+   `Default`, and `with_*` methods with getters.
 2. **`TransformOptions` mixes formats.** `quality`, `speed`,
    `chroma_subsampling`, and `avif_encoder` apply only to AVIF, while WebP uses
    `webp`; `quality`/`speed` change scale with the selected AVIF encoder.
    Recommendation: an `AvifOptions` value parallel to `WebpOptions`, or an
    output enum carrying per-format settings. _Done on 2026-11-15 (owner
    decision, ADR-0037, ADR-0043 D4):_ `AvifOptions`, and the mixed fields
-   are removed.
+   are removed. _Completed on 2026-11-16 (amendment of that date, item 1):_
+   one `OutputSettings` enum replaces the output format and the per-format
+   fields, in `TransformOptions` and `EncodeRequest`.
 3. **Two geometry entry points.** `output_width`/`output_height` are ignored
    by `transcode_resized`. Recommendation: one geometry enum (exact or
    `ResizeOptions`) inside the options, or keep both functions and document
    the ignored fields (done in rustdoc). _Since 2026-11-15 (owner decision,
    ADR-0042):_ not ignored but refused when they differ from the default;
-   the geometry enum stays a recommendation.
+   the geometry enum stays a recommendation. _Done on 2026-11-16 (amendment
+   of that date, item 1):_ `OutputGeometry::{Exact, Resize}` is the
+   constructor's argument; `transcode_resized` and its `_with` twin are
+   gone.
 4. **Backend variants double the API.** Each entry point has a `_with`
    twin. Recommendation: keep the twins experimental for 1.0, or fold the
    backend into an options value later.
@@ -215,7 +238,8 @@ owner requires of the API review before 1.0.
    returns `ResourceExhausted`, and the WebP writer's message says "managed
    buffer needs 12 bytes with 64 bytes available", which describes the
    pixel budget. Recommendation: an additive `OutputLimitExceeded` kind and
-   an accurate message.
+   an accurate message. _Done on 2026-11-16 (amendment of that date, item
+   3)._
 6. **No structured error details.** `ProcessingError` exposes `kind()`,
    the message, and `refusal_reason()` (#212): since 2026-11-14 for four
    refusals, since 2026-11-15 for every documented refusal class of the
@@ -233,16 +257,23 @@ owner requires of the API review before 1.0.
    SemVer of their own. Since 2026-11-16 `ferrisma` requires the kernels and
    the four bridges with `=` (amendment of that date, item 4); the
    kernel-level enums are still foreign types in `ferrisma`'s API, so the
-   recommendation to define them in `ferrisma` stays open.
+   recommendation to define them in `ferrisma` stays open. _Done on
+   2026-11-16 (amendment of that date, item 4):_ `ferrisma` defines both
+   enums; no foreign type remains in its API.
 8. **Raw CICP.** `ImageMetadata::rendered_cicp` is `Option<[u8; 4]>`.
    Recommendation: a named `Cicp` struct with primaries, transfer, matrix,
-   and full-range fields.
+   and full-range fields. _Done on 2026-11-16 (amendment of that date, item
+   6)._
 9. **Thread counts use `0` as "automatic".** `transform_threads`,
    `encoder_threads`, and `Engine::new` overload `usize`. Recommendation:
-   `Option<NonZeroUsize>` or a small `Threads` enum.
+   `Option<NonZeroUsize>` or a small `Threads` enum. _Done on 2026-11-16
+   (amendment of that date, item 5):_ `Threads`, and `Engine::new` refuses
+   instead of clamping.
 10. **`Copy` on `TransformOptions`.** Any future non-`Copy` option (for
     example a caller-supplied ICC profile) would break it. Recommendation:
-    drop `Copy` before 1.0 if such options are plausible.
+    drop `Copy` before 1.0 if such options are plausible. _Done on
+    2026-11-16 (amendment of that date, item 2):_ for the options, the
+    reports, `EncodeRequest`, `BatchItem` and `Engine`.
 11. **`AvifEncoder::Libavif { depth }` and `LibavifBackend { depth }`
     duplicate the same configuration.** Recommendation: one type. _Done on
     2026-11-15:_ the depth is `AvifOptions::depth` only; `LibavifBackend`
@@ -288,7 +319,18 @@ owner requires of the API review before 1.0.
     exhaustive `TransformOptions` and `InspectionLimits` (problem 1), `Send`
     on `RowEncoder`, the CLI's output-file atomicity (the file is written
     only after success today, not promised), and the reader and writer entry
-    points themselves, which can be added later.
+    points themselves, which can be added later. _Updated 2026-11-16
+    (amendment of that date):_ the output-limit kind (item 3), `Copy` (item
+    2), the exhaustive option structs (item 1) and `Send` on `RowEncoder`
+    (item 7) are done. What remains for streaming are additive entry points
+    only: a reader form (`transcode_reader`, `inspect_reader` over
+    `Read + Seek`, beside the `&[u8]` functions; batch items gain a second
+    constructor or type for a reader), a writer form (`transcode_into` over
+    `&mut dyn Write` returning the report, and a defaulted
+    `EncoderBackend::begin_into`), and tiled or region rows through a new
+    defaulted `RowEncoder` method with an `EncoderBackend` capability (the
+    opt-in rule of item 7). The CLI's output-file atomicity (written only
+    after success today) stays undecided and is not promised.
 
 ## Consequences
 
@@ -299,8 +341,9 @@ owner requires of the API review before 1.0.
 - Exhaustive matches on the affected enums now need a wildcard arm, and
   output structs can no longer be constructed outside the crate (no
   workspace code did either).
-- Until problems 1, 2, 7, and 10 are decided, a 1.0.0 release would freeze
-  shapes that the review identifies as hard to evolve.
+- Until problems 1, 2, 7, and 10 were decided (2026-11-16), a 1.0.0
+  release would have frozen shapes that the review identified as hard to
+  evolve.
 - Nightly-only features stay experimental, so the stable promise covers
   fewer formats than the full CLI.
 
@@ -806,3 +849,18 @@ reports that a stable item cannot express its use case.
      to 2 GiB (1 GiB since 2026-11-15). Under decision 2 a default change of
      a limit does not change output semantics, so it is not breaking; it is
      listed in the changelog's *Changed* section.
+  10. **Documentation and inventory.** The inventory above lists the
+      reshaped surface; problems 1, 2, 3, 5, 7, 8, 9 and 10 carry their
+      resolution, problem 16 states what remains for streaming (additive
+      entry points only), and decision 5 no longer calls the kernels a
+      public dependency. The construction style is shown in the rustdoc of
+      every changed item, the crate documentation, the
+      [compatibility guide](../compatibility.md#constructing-options),
+      `examples/` and the consumer self-check. Also changed with these items:
+      `transcode`, `transcode_with` and `inspect` borrow their options
+      (`&TransformOptions`, `&InspectionLimits`), since the options are no
+      longer `Copy` and a caller should not clone them for every call.
+      Not decided here, and left as they were: the tiers of the AVIF
+      features, `cli` and `--version`; `inspect` for JPEG XL and AVIF; new
+      CLI flags (problem 15); memory models for AVIF and WebP output; the
+      bridges' own APIs.
