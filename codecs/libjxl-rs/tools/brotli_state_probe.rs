@@ -216,6 +216,13 @@ unsafe extern "C" fn free(opaque: *mut c_void, address: *mut c_void) {
     snapshot(c);
     c.blocks[id].live = false;
 }
+/// The decoder state block's size and the offset of its packed flag word
+/// (c/dec/state.h), for the comparisons that leave out the word's padding
+/// bits (owner decision of 2026-11-16; port ADR 0003).
+pub fn state_flag_word() -> (usize, usize) {
+    (size_of::<S>(), offset_of!(S, flags))
+}
+
 pub fn observe(line: &str) -> String {
     let mut output = Vec::new();
     let mut words = line.split_whitespace();
@@ -272,6 +279,10 @@ pub fn observe(line: &str) -> String {
             drop(owner);
             assert!(c.blocks.iter().all(|block| !block.live));
             writeln!(output, "{}", c.trace).unwrap();
+        }
+        "bs-flag-word" => {
+            let (size, offset) = state_flag_word();
+            writeln!(output, "{size} {offset}").unwrap();
         }
         "bs-private-layout" => {
             let (allocate, free) = default_memory::callbacks();

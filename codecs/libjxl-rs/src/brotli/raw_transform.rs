@@ -3,8 +3,8 @@
 
 //! Borrowed storage representation for c/common/transform.c. The original
 //! writes prefix/word/suffix bytes in order, but its uppercase operation can
-//! XOR a still-unknown destination tail. No unknown byte becomes a Rust value.
-//! Native proof is required before this candidate enters decoder state.
+//! XOR a destination tail that is not written yet; that XOR is applied only
+//! inside the initialized prefix. No unknown byte becomes a Rust value.
 
 use super::raw_bytes::xor_byte;
 use super::transform::ByteDestination;
@@ -77,9 +77,18 @@ impl ByteDestination for RawByteDestination<'_> {
     }
 
     fn xor(&mut self, index: usize, mask: u8) {
-        // xor_byte operates only inside this exclusively borrowed live byte.
-        // A source tail XOR preserves its unknown domain; it is not a write
-        // of a known Rust scalar and must not extend initialized_prefix.
-        xor_byte(&mut self.storage[index], mask);
+        // The source XORs p[1]/p[2] even past the bytes written so far. A
+        // byte inside the initialized prefix gets the original XOR. A byte
+        // past it stays as it is: stable Rust cannot XOR a possibly
+        // uninitialized byte, and the transform's later writes or the
+        // decoder's next output overwrite it before anything reads it (owner
+        // decision of 2026-11-16; port ADR 0003, "Brotli flag word and
+        // transform tail bytes"). The XOR never extends initialized_prefix.
+        if index < self.initialized_prefix {
+            // SAFETY: Every byte before initialized_prefix is initialized.
+            unsafe { xor_byte(&mut self.storage[index], mask) };
+        } else {
+            assert!(index < self.storage.len());
+        }
     }
 }

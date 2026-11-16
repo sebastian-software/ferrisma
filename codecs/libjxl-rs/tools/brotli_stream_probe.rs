@@ -173,7 +173,8 @@ fn state(s: &mut instance::DecoderInstance<'_>, out: &mut String) {
         unsafe { (*p).dist_rb.as_ptr().cast::<i32>().add(3).read() }
     )
     .unwrap();
-    // This shared observer uses initialized selected flag bits only.
+    // This shared observer reads the decoder's flag word, which state creation
+    // zeroes before any field assignment.
     let bytes = unsafe {
         std::slice::from_raw_parts_mut(
             std::ptr::addr_of!((*p).flags)
@@ -182,9 +183,10 @@ fn state(s: &mut instance::DecoderInstance<'_>, out: &mut String) {
             4,
         )
     };
-    let w = bitfield::BitfieldWord::new(bytes.try_into().unwrap());
+    // SAFETY: The whole flag word is initialized (zeroed at state creation).
+    let w = unsafe { bitfield::BitfieldWord::new(bytes.try_into().unwrap()) };
     for (shift, width) in [(6, 6), (5, 1), (0, 1), (1, 1), (2, 1), (3, 1), (4, 1)] {
-        write!(out, ":{}", unsafe { w.read(shift, width) }).unwrap();
+        write!(out, ":{}", w.read(shift, width)).unwrap();
     }
 }
 struct Control {

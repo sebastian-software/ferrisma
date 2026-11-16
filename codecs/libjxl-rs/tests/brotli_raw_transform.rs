@@ -22,7 +22,8 @@ fn byte_xor_retains_every_initialized_value() {
     for value in 0..=255u8 {
         for mask in [0, 5, 32, 255] {
             let mut byte = MaybeUninit::new(value);
-            raw_bytes::xor_byte(&mut byte, mask);
+            // SAFETY: The byte was initialized just above.
+            unsafe { raw_bytes::xor_byte(&mut byte, mask) };
             // SAFETY: The initial byte was initialized and XOR preserves it.
             assert_eq!(unsafe { byte.assume_init() }, value ^ mask);
         }

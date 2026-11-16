@@ -30,6 +30,8 @@ impl DecoderInstance<'_> {
         let bytes = unsafe {
             std::slice::from_raw_parts_mut(slot.as_mut_ptr().cast::<MaybeUninit<u8>>(), 4)
         };
+        // SAFETY: StateInit zeroes the whole flag word, so all four bytes are
+        // initialized.
         unsafe { BitfieldWord::new(bytes.try_into().unwrap()).read(6, 6) }
     }
     /// Complete source WriteRingBuffer, including both next_out NULL cases.

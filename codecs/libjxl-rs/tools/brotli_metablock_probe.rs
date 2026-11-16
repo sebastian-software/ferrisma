@@ -44,7 +44,8 @@ pub fn observe(line: &str) -> String {
     // to preserve the source observer's seeded byte trace, not core state.
     let bytes =
         unsafe { std::slice::from_raw_parts_mut(word.as_mut_ptr().cast::<MaybeUninit<u8>>(), 4) };
-    bitfield::BitfieldWord::new(bytes.try_into().unwrap()).write(5, 1, large);
+    // SAFETY: The word was initialized with the seed bytes above.
+    unsafe { bitfield::BitfieldWord::new(bytes.try_into().unwrap()) }.write(5, 1, large);
     let mut var_state = MaybeUninit::new(initial_state);
     let mut meta_state = MaybeUninit::new(initial_state);
     let mut counter = MaybeUninit::new(i32::from_ne_bytes([seed; 4]));
