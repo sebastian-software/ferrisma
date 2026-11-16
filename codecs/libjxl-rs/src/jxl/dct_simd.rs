@@ -9,11 +9,13 @@
 //! once with a `HWY_CAPPED(float, SZ)` descriptor: `SZ = M` when the block
 //! has at most `Lanes` columns (`fit`), otherwise full vectors over column
 //! groups. [`Capped`] is that descriptor: [`Full`] is the target's full
-//! vector, [`Part`] a partial vector of 1, 2 or 4 lanes (NEON's 64-bit and
-//! 32-bit vectors, AVX2's 128-bit vector). Every operation in these kernels
-//! (`Add`, `Sub`, `Mul`, the fused `MulAdd`/`NegMulAdd`, loads and stores) is
-//! lane-wise, so [`Part`] computes each lane with the binary32 operation the
-//! partial vector performs on it (a single-rounding fused multiply-add for
+//! vector, [`Quad`] the 4-lane vector on a target with more lanes (AVX2's
+//! 128-bit vector, the target's own instructions), [`Part`] a partial vector
+//! of 1 or 2 lanes (NEON's 64-bit and 32-bit vectors, AVX2's partial 128-bit
+//! vectors). Every operation in these kernels (`Add`, `Sub`, `Mul`, the
+//! fused `MulAdd`/`NegMulAdd`, loads and stores) is lane-wise, so [`Part`]
+//! computes each lane with the binary32 operation the partial vector
+//! performs on it (a single-rounding fused multiply-add for
 //! `MulAdd`, as `vfma`/`vfmadd` do). Scratch memory keeps the original's
 //! `SZ`-strided layout, so the transforms write the same scratch words.
 //! The transposes move words only; they use the original's 4x4 (NEON) and
@@ -89,6 +91,53 @@ impl<D: SimdF32> Capped for Full<D> {
     #[inline(always)]
     fn neg_mul_add(self, mul: Self::V, x: Self::V, add: Self::V) -> Self::V {
         self.0.neg_mul_add(mul, x, add)
+    }
+}
+
+/// `HWY_CAPPED(float, 4)` on a target with more than four lanes: the
+/// target's 4-lane vector [`SimdF32::Q`] (AVX2's 128-bit vector, as the
+/// original's `Vec128<float>`), with the same lane-wise operations.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Quad<D>(pub D);
+impl<D: SimdF32> Capped for Quad<D> {
+    type V = D::Q;
+    type D = D;
+    const SZ: usize = 4;
+    #[inline(always)]
+    fn simd(self) -> D {
+        self.0
+    }
+    #[inline(always)]
+    fn load(self, src: &[f32]) -> Self::V {
+        self.0.q_load(src)
+    }
+    #[inline(always)]
+    fn store(self, v: Self::V, dst: &mut [f32]) {
+        self.0.q_store(v, dst)
+    }
+    #[inline(always)]
+    fn set(self, v: f32) -> Self::V {
+        self.0.q_set(v)
+    }
+    #[inline(always)]
+    fn add(self, a: Self::V, b: Self::V) -> Self::V {
+        self.0.q_add(a, b)
+    }
+    #[inline(always)]
+    fn sub(self, a: Self::V, b: Self::V) -> Self::V {
+        self.0.q_sub(a, b)
+    }
+    #[inline(always)]
+    fn mul(self, a: Self::V, b: Self::V) -> Self::V {
+        self.0.q_mul(a, b)
+    }
+    #[inline(always)]
+    fn mul_add(self, mul: Self::V, x: Self::V, add: Self::V) -> Self::V {
+        self.0.q_mul_add(mul, x, add)
+    }
+    #[inline(always)]
+    fn neg_mul_add(self, mul: Self::V, x: Self::V, add: Self::V) -> Self::V {
+        self.0.q_neg_mul_add(mul, x, add)
     }
 }
 
@@ -438,7 +487,7 @@ fn idct1d<D: SimdF32, S: Size>(
     match m {
         1 => idct1d_impl::<_, S>(Part::<_, 1>(d), from, from_stride, to, to_stride, tmp),
         2 => idct1d_impl::<_, S>(Part::<_, 2>(d), from, from_stride, to, to_stride, tmp),
-        4 => idct1d_impl::<_, S>(Part::<_, 4>(d), from, from_stride, to, to_stride, tmp),
+        4 => idct1d_impl::<_, S>(Quad(d), from, from_stride, to, to_stride, tmp),
         _ => unreachable!("block widths are powers of two"),
     }
 }
@@ -470,7 +519,7 @@ fn dct1d<D: SimdF32, S: Size>(
     match m {
         1 => dct1d_group::<_, S>(Part::<_, 1>(d), from, from_stride, to, to_stride, tmp),
         2 => dct1d_group::<_, S>(Part::<_, 2>(d), from, from_stride, to, to_stride, tmp),
-        4 => dct1d_group::<_, S>(Part::<_, 4>(d), from, from_stride, to, to_stride, tmp),
+        4 => dct1d_group::<_, S>(Quad(d), from, from_stride, to, to_stride, tmp),
         _ => unreachable!("block widths are powers of two"),
     }
 }

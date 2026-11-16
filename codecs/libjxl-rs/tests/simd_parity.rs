@@ -250,6 +250,19 @@ const OPS: &[(&str, usize, bool)] = &[
     ("mul_i32", 2, false),
     ("table_lookup_bytes", 2, false),
     // end stages2
+    // transpose: the halves moves of the 8x8 block transpose.
+    ("concat_lower_lower", 2, false),
+    ("concat_upper_upper", 2, false),
+    // end transpose
+    // capped4: HWY_CAPPED(float, 4) on the first four lanes of each operand.
+    ("q_load_store", 1, true),
+    ("q_set", 1, true),
+    ("q_add", 2, true),
+    ("q_sub", 2, true),
+    ("q_mul", 2, true),
+    ("q_mul_add", 3, true),
+    ("q_neg_mul_add", 3, true),
+    // end capped4
 ];
 
 struct Op<'a> {
@@ -407,6 +420,32 @@ impl Kernel for Op<'_> {
             "mul_i32" => puti(d.mul_i32(ai, bi), &mut out),
             "table_lookup_bytes" => puti(d.table_lookup_bytes(ai, bi), &mut out),
             // end stages2
+            // transpose
+            "concat_lower_lower" => put(d.concat_lower_lower(a, b), &mut out),
+            "concat_upper_upper" => put(d.concat_upper_upper(a, b), &mut out),
+            // end transpose
+            // capped4: operands are the first four lanes of a, b and c.
+            name if name.starts_with("q_") => {
+                let f: Vec<f32> = words.iter().map(|&w| f32::from_bits(w)).collect();
+                let [qa, qb, qc] = [0, 1, 2].map(|i| d.q_load(&f[i * n..]));
+                let r = match name {
+                    "q_load_store" => qa,
+                    "q_set" => d.q_set(f[0]),
+                    "q_add" => d.q_add(qa, qb),
+                    "q_sub" => d.q_sub(qa, qb),
+                    "q_mul" => d.q_mul(qa, qb),
+                    "q_mul_add" => d.q_mul_add(qa, qb, qc),
+                    "q_neg_mul_add" => d.q_neg_mul_add(qa, qb, qc),
+                    other => panic!("unknown operation {other}"),
+                };
+                let mut q = [0.0f32; 4];
+                d.q_store(r, &mut q);
+                for (o, v) in out.iter_mut().zip(q) {
+                    *o = v.to_bits();
+                }
+                4
+            }
+            // end capped4
             other => panic!("unknown operation {other}"),
         };
         out.truncate(count);
