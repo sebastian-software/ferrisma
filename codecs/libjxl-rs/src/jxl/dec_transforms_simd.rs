@@ -114,9 +114,13 @@ fn identity_add(coefficient: f32, dc: f32) -> f32 {
     coefficient + dc
 }
 
-fn idct2_top_block(s: usize, block: &mut [f32]) {
+/// IDCT2TopBlock<S> with the source's template parameter: each size's loops
+/// unroll with known bounds and inline into the transform's attribute
+/// context, as the original's template inside `HWY_NAMESPACE`.
+#[inline(always)]
+fn idct2_top_block<const S: usize>(block: &mut [f32; 64]) {
     let mut temp = [0.0; 64];
-    let half = s / 2;
+    let half = S / 2;
     for y in 0..half {
         for x in 0..half {
             let a = block[y * 8 + x];
@@ -129,8 +133,8 @@ fn idct2_top_block(s: usize, block: &mut [f32]) {
             temp[(y * 2 + 1) * 8 + x * 2 + 1] = a - b - c + d;
         }
     }
-    for y in 0..s {
-        for x in 0..s {
+    for y in 0..S {
+        for x in 0..S {
             block[y * 8 + x] = temp[y * 8 + x];
         }
     }
@@ -255,9 +259,9 @@ pub fn transform_to_pixels_d<D: SimdF32>(
         AcStrategyType::DCT2X2 => {
             let mut block = [0.0; 64];
             block.copy_from_slice(&coefficients[..64]);
-            idct2_top_block(2, &mut block);
-            idct2_top_block(4, &mut block);
-            idct2_top_block(8, &mut block);
+            idct2_top_block::<2>(&mut block);
+            idct2_top_block::<4>(&mut block);
+            idct2_top_block::<8>(&mut block);
             for y in 0..8 {
                 for x in 0..8 {
                     pixels[y * stride + x] = block[y * 8 + x];

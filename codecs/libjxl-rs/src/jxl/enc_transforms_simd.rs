@@ -52,6 +52,7 @@ fn afv_dc_mix(sum: f32, block10: f32, scale: f32) -> f32 {
     clippy::too_many_arguments,
     reason = "Spell out the source's template arguments."
 )]
+#[inline(always)]
 fn reinterpreting_idct<D: SimdF32>(
     d: D,
     dct_rows: usize,
@@ -102,6 +103,7 @@ fn reinterpreting_idct<D: SimdF32>(
 //  - (even, even) positions hold AFV coefficients
 //  - (odd, even) positions hold DCT4x4 coefficients
 //  - (any, odd) positions hold DCT4x8 coefficients
+#[inline(always)]
 fn afv_transform_from_pixels<D: SimdF32>(
     d: D,
     afv_kind: usize,
@@ -169,6 +171,7 @@ fn afv_transform_from_pixels<D: SimdF32>(
 
 /// Original TransformFromPixels for one descriptor; the contract of
 /// [`super::enc_transforms::transform_from_pixels`].
+#[inline(always)]
 pub fn transform_from_pixels_d<D: SimdF32>(
     d: D,
     strategy: AcStrategyType,
@@ -292,12 +295,12 @@ pub fn transform_from_pixels_d<D: SimdF32>(
             coefficients[9] = (block00 - block01 - block10 + block11) * 0.25;
         }
         Type::DCT2X2 => {
-            let temp = dct2_top_block(8, pixels, pixels_stride);
-            store_dct2_top_block(8, &temp, coefficients);
-            let temp = dct2_top_block(4, coefficients, BLOCK_DIM);
-            store_dct2_top_block(4, &temp, coefficients);
-            let temp = dct2_top_block(2, coefficients, BLOCK_DIM);
-            store_dct2_top_block(2, &temp, coefficients);
+            let temp = dct2_top_block::<8>(pixels, pixels_stride);
+            store_dct2_top_block::<8>(&temp, coefficients);
+            let temp = dct2_top_block::<4>(coefficients, BLOCK_DIM);
+            store_dct2_top_block::<4>(&temp, coefficients);
+            let temp = dct2_top_block::<2>(coefficients, BLOCK_DIM);
+            store_dct2_top_block::<2>(&temp, coefficients);
         }
         Type::DCT16X16 => scaled(16, 16, coefficients, scratch_space),
         Type::DCT16X8 => scaled(16, 8, coefficients, scratch_space),
@@ -327,6 +330,7 @@ pub fn transform_from_pixels_d<D: SimdF32>(
 
 /// Original DCFromLowestFrequencies for one descriptor; the contract of
 /// [`super::enc_transforms::dc_from_lowest_frequencies`].
+#[inline(always)]
 pub fn dc_from_lowest_frequencies_d<D: SimdF32>(
     d: D,
     strategy: AcStrategyType,

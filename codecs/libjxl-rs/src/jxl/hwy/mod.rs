@@ -219,6 +219,35 @@ pub trait SimdF32: Copy + core::fmt::Debug + Send + Sync + 'static {
         kernel.run(self)
     }
     // end codegen
+    // transpose: the halves moves of transpose-inl.h's 8x8 block form (port
+    // ADR 0004, "Blocked DCT transposes").
+    /// `ConcatLowerLower(d, hi, lo)`: the lower half of `lo`, then the lower
+    /// half of `hi`. Moves words only. AVX2 overrides it with Highway's
+    /// `vinsertf128`; the provided form serves targets that never reach the
+    /// 8x8 block transpose in production (NEON) and the test descriptors.
+    #[inline(always)]
+    fn concat_lower_lower(self, hi: Self::V, lo: Self::V) -> Self::V {
+        let n = Self::LANES;
+        let (mut a, mut b, mut out) = ([0f32; 16], [0f32; 16], [0f32; 16]);
+        self.store(lo, &mut a);
+        self.store(hi, &mut b);
+        out[..n / 2].copy_from_slice(&a[..n / 2]);
+        out[n / 2..n].copy_from_slice(&b[..n / 2]);
+        self.load(&out)
+    }
+    /// `ConcatUpperUpper(d, hi, lo)`: the upper half of `lo`, then the upper
+    /// half of `hi`. Moves words only; AVX2 overrides it (`vperm2f128`).
+    #[inline(always)]
+    fn concat_upper_upper(self, hi: Self::V, lo: Self::V) -> Self::V {
+        let n = Self::LANES;
+        let (mut a, mut b, mut out) = ([0f32; 16], [0f32; 16], [0f32; 16]);
+        self.store(lo, &mut a);
+        self.store(hi, &mut b);
+        out[..n / 2].copy_from_slice(&a[n / 2..n]);
+        out[n / 2..n].copy_from_slice(&b[n / 2..n]);
+        self.load(&out)
+    }
+    // end transpose
 }
 
 /// The SIMD target a kernel runs on, capped at NEON/AVX2 (decision D6).
@@ -303,17 +332,31 @@ static DECODER_TARGET_OVERRIDE: core::sync::atomic::AtomicU8 = core::sync::atomi
 /// the scalar gate's `JXL_DECODER_TARGET=scalar`
 /// ([`scalar_forced_by_environment`]); otherwise the target of the
 /// [`DispatchScope`] this thread runs in. Code outside every decoder entry
-/// point, the encoder with the decoder code it runs in its own loop included,
-/// is outside decoding and runs the scalar path.
+/// point is outside decoding and runs the scalar path. Inside an encoder
+/// entry point ([`DispatchScope::Encoding`]) the decoder code the encoder
+/// runs in its own loop follows the encoder's selection ([`encoder_target`]),
+/// as in the original, whose one `HWY_DYNAMIC_DISPATCH` serves both
+/// (port ADR 0004, "Encoder path", condition (b)).
+#[track_caller]
 pub fn decoder_target() -> Option<Target> {
     use core::sync::atomic::Ordering;
+    // encoder selection: the encoder's scope decides first.
+    if let DispatchScope::Encoding(scope) = DispatchScope::current() {
+        let target = encoder_selection(scope);
+        if target.is_some() {
+            SIMD_SELECTIONS.with(|count| count.set(count.get().wrapping_add(1)));
+            record_encoder_trace(core::panic::Location::caller());
+        }
+        return target;
+    }
+    // end encoder selection
     let target = match DECODER_TARGET_OVERRIDE.load(Ordering::Relaxed) {
         1 => None,
         2 => Target::detect(),
         _ if scalar_forced_by_environment() => None,
         _ => match DispatchScope::current() {
             DispatchScope::Decoding(target) => target,
-            DispatchScope::Outside => None,
+            DispatchScope::Outside | DispatchScope::Encoding(_) => None,
         },
     };
     if target.is_some() {
@@ -342,8 +385,10 @@ pub fn set_decoder_simd_for_test(simd: Option<bool>) {
 /// `Lanes(HWY_FULL(float)) * sizeof(float)`): the vector bytes of the
 /// selected target, 4 for the scalar path as in the scalar reference build.
 /// It follows [`decoder_target`], so planes allocated inside a decoder entry
-/// point get the decoder's row padding and planes allocated outside decoding
-/// (the encoder's) keep the scalar build's.
+/// point get the decoder's row padding, planes allocated inside an encoder
+/// entry point the encoder's, and planes allocated outside both the scalar
+/// build's.
+#[track_caller]
 pub fn max_vector_size() -> usize {
     decoder_target().map_or(4, |t| 4 * t.lanes())
 }
@@ -420,14 +465,23 @@ pub fn scalar_forced_by_environment() -> bool {
 /// inside [`DispatchScope::Decoding`]; `ThreadPool::run` carries the scope of
 /// the calling thread to every init and task body, on whichever runner
 /// thread it runs. Encoder entry points run inside
-/// [`DispatchScope::Outside`], also when a decoder callback calls them.
+/// [`DispatchScope::Encoding`] with the encoder's own selection, also when a
+/// decoder callback calls them.
 #[derive(Clone, Copy, Debug)]
 pub enum DispatchScope {
-    /// Not inside a decoder entry point: the scalar path.
+    /// Not inside a decoder or encoder entry point: the scalar path.
     Outside,
     /// Inside a decoder entry point that selected this target (`None`: the
     /// scalar path).
     Decoding(Option<Target>),
+    /// encoder selection: inside an encoder entry point (the public
+    /// encoder's work calls, `LosslessThunderConfig::encode_pixels`) whose
+    /// encoder selected this target (`None`: the scalar path). The encoder's
+    /// kernels ([`encoder_target`]), the decoder code it runs and its plane
+    /// padding ([`decoder_target`], [`max_vector_size`]) all follow it, as
+    /// the original's one process-wide dispatch does (port ADR 0004,
+    /// "Encoder path", condition (b)).
+    Encoding(Option<Target>),
 }
 
 std::thread_local! {
@@ -504,8 +558,9 @@ pub fn select_scalar_decoder_for_test() {
     set_decoder_simd_for_test(Some(false));
 }
 
-/// Runs `body` outside decoding: the scalar path unless a test override
-/// forces a target. Encoder entry points use it.
+/// Runs `body` outside decoding and encoding: the scalar path unless a test
+/// override forces a target. (Encoder entry points run inside
+/// [`DispatchScope::Encoding`] instead.)
 pub fn outside_decoding<R>(body: impl FnOnce() -> R) -> R {
     DispatchScope::Outside.enter(body)
 }
@@ -513,42 +568,169 @@ pub fn outside_decoding<R>(body: impl FnOnce() -> R) -> R {
 
 // encoder simd: the encoder's own dispatch point (port ADR 0004, "Encoder
 // path").
-/// Whether the encoder selects its SIMD kernels by default: off on every
-/// target. The encoder is gated byte for byte against the original's scalar
-/// build (`cjxl` in the scalar configuration), and only part of its Highway
-/// exports is translated. It may be turned on for a target only when, on
-/// that target, every Highway export that an encoder setting in scope
-/// reaches is translated with parity against the original built for the
-/// same single Highway target, and a whole-encode comparison against `cjxl`
-/// built for that target is byte-identical (ADR 0004, "Encoder path").
-pub const ENCODER_SELECTS_SIMD: bool = false;
+/// Whether the encoder selects its SIMD kernels by default: on for AArch64
+/// (NEON) and x86-64 (AVX2, when the CPU has Highway's AVX2 group; the
+/// selection is [`Target::detect`], as for the decoder). It was off while
+/// the encoder was gated byte for byte against the original's scalar build
+/// (`cjxl` in the scalar configuration); that gate still runs on the scalar
+/// path, which the scalar test stage forces
+/// ([`select_scalar_encoder_for_test`], `JXL_ENCODER_TARGET=scalar`). The
+/// switch is on for a target when, on that target, conditions (a) to (e) of
+/// ADR 0004 "Encoder path" hold: every Highway export that an encoder
+/// setting in scope reaches is translated with parity against the original
+/// built for the same single Highway target, the selection reaches the
+/// decoder code inside the encoder and its plane padding
+/// ([`DispatchScope::Encoding`]), a whole-encode comparison against the
+/// original built for that target is byte-identical
+/// (`tests/simd_encoder_public.rs`), the scalar gates force the scalar path,
+/// and for AVX2 the same evidence exists from real x86-64 hardware. The
+/// selection is made when an encoder is created
+/// ([`encoder_default_target`]).
+pub const ENCODER_SELECTS_SIMD: bool = cfg!(any(target_arch = "aarch64", target_arch = "x86_64"));
 
 /// [`encoder_target`] override: 0 follows [`ENCODER_SELECTS_SIMD`], 1 is the
 /// scalar path, 2 is the detected SIMD target.
 static ENCODER_TARGET_OVERRIDE: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(0);
 
 /// The target the encoder's translated kernels dispatch to, like
-/// `HWY_DYNAMIC_DISPATCH` in the original's encoder: `None` (the scalar
-/// translation) unless [`ENCODER_SELECTS_SIMD`] is on or a test forced the
-/// SIMD target with [`set_encoder_simd_for_test`]. It is independent of the
-/// decoder's selection ([`decoder_target`]) and of its scope: the decoder
-/// code the encoder runs (AR round trip, quant tables, row padding) keeps
-/// following [`decoder_target`], which is the scalar path outside decoding.
+/// `HWY_DYNAMIC_DISPATCH` in the original's encoder. In order: the test
+/// override ([`set_encoder_simd_for_test`]), the scalar gate's
+/// `JXL_ENCODER_TARGET=scalar` ([`encoder_scalar_forced_by_environment`]),
+/// then the selection of the encoder entry point this thread runs in
+/// ([`DispatchScope::Encoding`], made from [`ENCODER_SELECTS_SIMD`] when the
+/// encoder was created). Outside every encoder entry point (a test calling a
+/// kernel directly, the decoder) it is the scalar path. The decoder's
+/// selection and its override do not reach it; inside an encoder entry
+/// point the decoder code the encoder runs follows it ([`decoder_target`]).
+#[track_caller]
 pub fn encoder_target() -> Option<Target> {
+    let target = encoder_selection(match DispatchScope::current() {
+        DispatchScope::Encoding(target) => target,
+        DispatchScope::Outside | DispatchScope::Decoding(_) => None,
+    });
+    if target.is_some() {
+        ENCODER_SIMD_SELECTIONS.with(|count| count.set(count.get().wrapping_add(1)));
+        record_encoder_trace(core::panic::Location::caller());
+    }
+    target
+}
+
+// encoder selection: the encoder's selection, scoped to its entry points
+// (port ADR 0004, "Encoder path", "Encoder selection").
+/// [`encoder_target`] without its test observations, for an encoder
+/// entry point's selection `scope` (`None` outside every one).
+fn encoder_selection(scope: Option<Target>) -> Option<Target> {
     use core::sync::atomic::Ordering;
     match ENCODER_TARGET_OVERRIDE.load(Ordering::Relaxed) {
         1 => None,
         2 => Target::detect(),
-        _ if ENCODER_SELECTS_SIMD => Target::detect(),
-        _ => None,
+        _ if encoder_scalar_forced_by_environment() => None,
+        _ => scope,
     }
 }
+
+/// The target an encoder selects when it is created: [`Target::detect`]
+/// when [`ENCODER_SELECTS_SIMD`] is on for this target, otherwise the scalar
+/// path. [`encoder_target`] applies the test override and the scalar gate's
+/// forcing on top of it.
+pub fn encoder_default_target() -> Option<Target> {
+    if ENCODER_SELECTS_SIMD {
+        Target::detect()
+    } else {
+        None
+    }
+}
+
+/// The selection inside an encoder entry point for a given default
+/// `selects_simd` (the value of [`ENCODER_SELECTS_SIMD`]), so that a test can
+/// show what the selection would be if that switch were on: the override
+/// wins, then the scalar gate's `JXL_ENCODER_TARGET=scalar`.
+#[doc(hidden)]
+pub fn encoder_target_for(selects_simd: bool) -> Option<Target> {
+    encoder_selection(if selects_simd { Target::detect() } else { None })
+}
+
+/// Runs `body` as an encoder entry point with the default selection, for
+/// the encoder entry points that have no `JxlEncoder` to carry it
+/// (`LosslessThunderConfig::encode_pixels`).
+pub fn encoding<R>(body: impl FnOnce() -> R) -> R {
+    DispatchScope::Encoding(encoder_default_target()).enter(body)
+}
+
+/// Whether the environment forces the scalar encoder path: only in the
+/// oracle test builds (feature `cpp-oracle`), read once per process from
+/// `JXL_ENCODER_TARGET=scalar`, which the scalar test stage of
+/// `tools/check.py` sets. Ordinary builds never read the environment.
+#[doc(hidden)]
+pub fn encoder_scalar_forced_by_environment() -> bool {
+    #[cfg(feature = "cpp-oracle")]
+    {
+        static FORCED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *FORCED.get_or_init(|| {
+            std::env::var_os("JXL_ENCODER_TARGET").is_some_and(|value| value == "scalar")
+        })
+    }
+    #[cfg(not(feature = "cpp-oracle"))]
+    {
+        false
+    }
+}
+
+/// The first statement of every scalar-reference encoder test (port ADR
+/// 0004, "Which path a test runs"): a test that compares encoder output with
+/// the original's scalar build selects the scalar encoder path explicitly,
+/// for the whole test process, whatever [`ENCODER_SELECTS_SIMD`] is. It is
+/// [`set_encoder_simd_for_test`]`(Some(false))`.
+#[doc(hidden)]
+pub fn select_scalar_encoder_for_test() {
+    set_encoder_simd_for_test(Some(false));
+}
+
+std::thread_local! {
+    static ENCODER_SIMD_SELECTIONS: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
+    static ENCODER_TRACE: core::cell::RefCell<Option<std::collections::BTreeMap<String, u64>>> =
+        const { core::cell::RefCell::new(None) };
+}
+
+/// Test observation: how often [`encoder_target`] selected a SIMD target on
+/// the calling thread so far. It changes no selection.
+#[doc(hidden)]
+pub fn encoder_simd_selections_on_this_thread() -> u64 {
+    ENCODER_SIMD_SELECTIONS.with(core::cell::Cell::get)
+}
+
+/// Test observation: starts recording, on the calling thread, the call
+/// sites (`file:line`) at which [`encoder_target`], and [`decoder_target`]
+/// or [`max_vector_size`] inside an encoder entry point, selected a SIMD
+/// target. It changes no selection.
+#[doc(hidden)]
+pub fn encoder_trace_start() {
+    ENCODER_TRACE.with(|trace| *trace.borrow_mut() = Some(Default::default()));
+}
+
+/// Stops the recording of [`encoder_trace_start`] and returns each call
+/// site with its number of SIMD selections.
+#[doc(hidden)]
+pub fn encoder_trace_stop() -> std::collections::BTreeMap<String, u64> {
+    ENCODER_TRACE.with(|trace| trace.borrow_mut().take().unwrap_or_default())
+}
+
+fn record_encoder_trace(location: &core::panic::Location<'_>) {
+    ENCODER_TRACE.with(|trace| {
+        if let Some(sites) = trace.borrow_mut().as_mut() {
+            let site = format!("{}:{}", location.file(), location.line());
+            *sites.entry(site).or_default() += 1;
+        }
+    });
+}
+// end encoder selection
 
 /// Force the encoder's dispatch for tests, like Highway's
 /// `SetSupportedTargetsForTest`: `Some(true)` selects the detected SIMD
 /// target, `Some(false)` the scalar path, `None` restores the default. It is
-/// process-wide; only the SIMD encoder test binary calls it, so the encoder
-/// parity tests against the scalar original run the scalar path untouched.
+/// process-wide and wins inside and outside encoder entry points: the SIMD
+/// encoder test binaries force the SIMD target, the scalar-reference encoder
+/// tests the scalar path ([`select_scalar_encoder_for_test`]).
 #[doc(hidden)]
 pub fn set_encoder_simd_for_test(simd: Option<bool>) {
     use core::sync::atomic::Ordering;

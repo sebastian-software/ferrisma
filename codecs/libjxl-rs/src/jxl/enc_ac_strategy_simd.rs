@@ -128,16 +128,26 @@ pub fn estimate_entropy_d<D: SimdF32>(
 
         let mut entropy_v = d.zero();
         let mut nzeros_v = d.zero();
-        let mut i = 0;
-        while i < num_blocks * DCT_BLOCK_SIZE {
-            let input = d.load(&block[c * size + i..]);
-            let in_y = d.mul(d.load(&block[size + i..]), cmap_factor);
-            let im = d.load(&inv_matrix[i..]);
+        // The channel's coefficients, the Y channel's, both matrices and
+        // `mem`, sliced once to `num_blocks * kDCTBlockSize` (a whole number
+        // of vectors), so that the loop's loads and stores need no
+        // per-vector bounds checks; the same lanes in the original's order.
+        let n = num_blocks * DCT_BLOCK_SIZE;
+        let lanes = block[c * size..][..n]
+            .chunks_exact(D::LANES)
+            .zip(block[size..][..n].chunks_exact(D::LANES))
+            .zip(inv_matrix[..n].chunks_exact(D::LANES))
+            .zip(matrix[..n].chunks_exact(D::LANES))
+            .zip(mem[..n].chunks_exact_mut(D::LANES));
+        for ((((in_c, in_yc), im_v), m_v), mem_v) in lanes {
+            let input = d.load(in_c);
+            let in_y = d.mul(d.load(in_yc), cmap_factor);
+            let im = d.load(im_v);
             let val = d.mul(d.sub(input, in_y), d.mul(im, quant));
             let rval = d.round(val);
             let diff = d.sub(val, rval);
-            let m = d.load(&matrix[i..]);
-            d.store(d.mul(m, diff), &mut mem[i..]);
+            let m = d.load(m_v);
+            d.store(d.mul(m, diff), mem_v);
             let q = d.abs(rval);
             let q_is_zero = d.eq(q, d.zero());
             // We used to have q * C here, but that cost model seems to
@@ -145,7 +155,6 @@ pub fn estimate_entropy_d<D: SimdF32>(
             // to avoid large values less aggressively.
             entropy_v = d.add(d.sqrt(q), entropy_v);
             nzeros_v = d.add(nzeros_v, d.if_then_zero_else(q_is_zero, d.set(1.0)));
-            i += D::LANES;
         }
 
         {

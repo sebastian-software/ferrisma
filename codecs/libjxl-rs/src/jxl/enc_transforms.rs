@@ -76,15 +76,24 @@ fn reinterpreting_idct(
 }
 
 /// DCT2TopBlock<S>: reads all S x S inputs before writing `out`, so the
-/// source's aliasing calls with `block == out` are the same operation.
-pub(crate) fn dct2_top_block(s: usize, block: &[f32], stride: usize) -> [f32; DCT_BLOCK_SIZE] {
-    assert!(
-        BLOCK_DIM.is_multiple_of(s),
-        "S should be a divisor of kBlockDim"
-    );
-    assert!(s.is_multiple_of(2), "S should be even");
+/// source's aliasing calls with `block == out` are the same operation. `S`
+/// is the source's template parameter, so each size's loops are unrolled
+/// with their bounds known, and the body inlines into the caller (inside
+/// `HWY_NAMESPACE` for the SIMD transforms, as the original's template).
+#[inline(always)]
+pub(crate) fn dct2_top_block<const S: usize>(
+    block: &[f32],
+    stride: usize,
+) -> [f32; DCT_BLOCK_SIZE] {
+    const {
+        assert!(
+            BLOCK_DIM.is_multiple_of(S),
+            "S should be a divisor of kBlockDim"
+        );
+        assert!(S.is_multiple_of(2), "S should be even");
+    }
     let mut temp = [0.0f32; DCT_BLOCK_SIZE];
-    let num_2x2 = s / 2;
+    let num_2x2 = S / 2;
     for y in 0..num_2x2 {
         for x in 0..num_2x2 {
             let c00 = block[y * 2 * stride + x * 2];
@@ -107,9 +116,11 @@ pub(crate) fn dct2_top_block(s: usize, block: &[f32], stride: usize) -> [f32; DC
     }
     temp
 }
-pub(crate) fn store_dct2_top_block(s: usize, temp: &[f32; DCT_BLOCK_SIZE], out: &mut [f32]) {
-    for y in 0..s {
-        for x in 0..s {
+#[inline(always)]
+pub(crate) fn store_dct2_top_block<const S: usize>(temp: &[f32; DCT_BLOCK_SIZE], out: &mut [f32]) {
+    let out = &mut out[..(S - 1) * BLOCK_DIM + S];
+    for y in 0..S {
+        for x in 0..S {
             out[y * BLOCK_DIM + x] = temp[y * BLOCK_DIM + x];
         }
     }
@@ -651,12 +662,12 @@ pub fn transform_from_pixels(
             coefficients[9] = (block00 - block01 - block10 + block11) * 0.25;
         }
         Type::DCT2X2 => {
-            let temp = dct2_top_block(8, pixels, pixels_stride);
-            store_dct2_top_block(8, &temp, coefficients);
-            let temp = dct2_top_block(4, coefficients, BLOCK_DIM);
-            store_dct2_top_block(4, &temp, coefficients);
-            let temp = dct2_top_block(2, coefficients, BLOCK_DIM);
-            store_dct2_top_block(2, &temp, coefficients);
+            let temp = dct2_top_block::<8>(pixels, pixels_stride);
+            store_dct2_top_block::<8>(&temp, coefficients);
+            let temp = dct2_top_block::<4>(coefficients, BLOCK_DIM);
+            store_dct2_top_block::<4>(&temp, coefficients);
+            let temp = dct2_top_block::<2>(coefficients, BLOCK_DIM);
+            store_dct2_top_block::<2>(&temp, coefficients);
         }
         Type::DCT16X16 => scaled(16, 16, coefficients, scratch_space),
         Type::DCT16X8 => scaled(16, 8, coefficients, scratch_space),

@@ -433,3 +433,12 @@ set_source_files_properties(encoder_step1_checkpoints.cc PROPERTIES COMPILE_OPTI
 # encode_test pixels (encoder step 3). The TU only calls original functions.
 target_sources(jxl_oracle PRIVATE encoder_container.cc)
 # end encoder container
+# encoder aq: requests of the encoder's SIMD AdaptiveQuantizationMap (port
+# ADR 0004, "Encoder path"). The TU only calls the original's InitialQuantField.
+target_sources(jxl_oracle PRIVATE encoder_aq_simd.cc)
+# end encoder aq
+# encoder selection: the engine's lossy encode of a photograph through the
+# original's public API (port ADR 0004, "Encoder selection"). The TU only
+# calls the pinned public API.
+target_sources(jxl_oracle PRIVATE encoder_selection.cc)
+# end encoder selection

@@ -316,6 +316,7 @@ impl AlignedMemory {
         }
     }
 
+    #[inline(always)]
     pub(crate) fn bytes(&self) -> &[u8] {
         // SAFETY: create establishes an initialized, in-bounds range of `size`
         // bytes. Its owner lives for the borrow. The shared borrow prevents a
@@ -325,6 +326,7 @@ impl AlignedMemory {
         }
     }
 
+    #[inline(always)]
     pub(crate) fn bytes_mut(&mut self) -> &mut [u8] {
         // SAFETY: This is the same initialized range as bytes(), with exclusive
         // access through &mut self. No pointer or mutable slice escapes its

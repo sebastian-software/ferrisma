@@ -577,6 +577,12 @@ bool EncoderStep1CheckpointsCommand(const std::string&,std::istringstream&,JxlMe
 // encoder container
 bool EncoderContainerCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
 // end encoder container
+// encoder aq
+bool EncoderAqSimdCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+// end encoder aq
+// encoder selection
+bool EncoderSelectionCommand(const std::string&,std::istringstream&,JxlMemoryManager*);
+// end encoder selection
 
 int main() {
   try {
@@ -725,6 +731,12 @@ int main() {
       // encoder container
       else if (EncoderContainerCommand(command, in, &mm)) {}
       // end encoder container
+      // encoder aq
+      else if (EncoderAqSimdCommand(command, in, &mm)) {}
+      // end encoder aq
+      // encoder selection
+      else if (EncoderSelectionCommand(command, in, &mm)) {}
+      // end encoder selection
       else if (command == "bits" || command == "u32" || command == "u64" || command == "f32")
         Primitive(command, in, &mm);
       else throw std::runtime_error("unknown command");
