@@ -4,12 +4,18 @@ Two 16 x 16 AVIF stills that carry both a `colr` of type `prof` (an sRGB
 ICC profile) and a `colr` of type `nclx`. They test the engine's policy for
 CICP evidence beside a rendered ICC profile (ADR-0015 rule 4, ADR-0016,
 review of 2026-11-12). MIAF gives the ICC profile precedence for color
-interpretation; the engine does not apply that precedence silently.
+primaries and transfer; since the owner decision of 2026-11-15 (ADR-0015,
+last section) the engine follows it: the profile governs, matrix
+coefficients and range come from `nclx`, and both files convert under
+`UseRenderedIcc` and report `RenderedIcc`
+(`color_signal_and_refusals::nclx_beside_an_avif_icc_profile_is_governed_by_the_profile`,
+`tests/avif_icc_nclx.rs`). Until then the second file was refused with
+`CicpBesideIcc`.
 
 | File | `nclx` (primaries/transfer/matrix, full range) | Expected under `UseRenderedIcc` | SHA-256 |
 | --- | --- | --- | --- |
-| `icc-nclx-1-13-6.avif` | 1/13/6, full | converts: both signals say sRGB and agree | `21c2e3c3048f2239fe8e755aef9c0cfa1d503c736f350e02c4a0d09ab2685434` |
-| `icc-nclx-1-1-6.avif` | 1/1/6, full (BT.709 transfer) | `UnsupportedColor`, `CicpBesideIcc` naming the reason (pending owner confirmation) | `ec7a00ca5d2bd9c40b486df43a69a625d58c6c0d3509a3e4ad84911291ca8dff` |
+| `icc-nclx-1-13-6.avif` | 1/13/6, full | converts through the profile (`RenderedIcc`) | `21c2e3c3048f2239fe8e755aef9c0cfa1d503c736f350e02c4a0d09ab2685434` |
+| `icc-nclx-1-1-6.avif` | 1/1/6, full (BT.709 transfer) | converts through the profile (`RenderedIcc`), the same rows as the first file; refused with `CicpBesideIcc` until 2026-11-15 | `ec7a00ca5d2bd9c40b486df43a69a625d58c6c0d3509a3e4ad84911291ca8dff` |
 
 Both files embed `../icc/paris-srgb.icc` unchanged (596 bytes, SHA-256
 `33c34ecfeb998459e0075ba26a0f1ea5042e20e2419c5962e495eba3208576f2`), as
