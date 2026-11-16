@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 
 from brotli_check_support import prepare as prepare_brotli_observers
@@ -110,6 +111,86 @@ def check_static(msrv):
     run("cargo", "build", "--locked", "--offline", "--release", "--all-targets", "--all-features")
     for name in release_only_tests():
         run("cargo", "test", "--locked", "--offline", "--release", "--all-features", "--test", name)
+    # codegen check
+    check_attribute_context()
+    # end codegen check
+
+
+# codegen check: one attribute context per kernel on x86-64 (ADR 0004).
+# Port functions that call a core::arch x86 intrinsic out of line (or libm's
+# fmaf) run their vector operations outside the AVX2 attribute context. The
+# port's skcms engines (jxl::skcms) are held to zero too since the HSW
+# helpers were brought into the engine's context (ADR 0004, "The skcms HSW
+# engine in its attribute context").
+CODEGEN_EXAMPLES = ["encode_lossy", "encode_lossless", "conformance_decode"]
+
+
+def check_attribute_context():
+    import platform
+    machine = platform.machine()
+    if machine in ("x86_64", "AMD64"):
+        target = None
+    elif platform.system() == "Darwin":
+        target = "x86_64-apple-darwin"
+    else:
+        print("Attribute-context check skipped: no x86-64 build on this host", flush=True)
+        return
+    build = ["cargo", "build", "--locked", "--offline", "--release", "-p", "libjxl-rs"]
+    for name in CODEGEN_EXAMPLES:
+        build += ["--example", name]
+    if target is not None:
+        build += ["--target", target]
+    run(*build)
+    metadata = json.loads(subprocess.check_output(
+        ["cargo", "metadata", "--format-version", "1", "--no-deps", "--offline"], cwd=ROOT, text=True))
+    out = Path(metadata["target_directory"]) / (target or "") / "release" / "examples"
+    failures = []
+    for name in CODEGEN_EXAMPLES:
+        disassembly = subprocess.check_output(
+            ["objdump", "-d", "--no-show-raw-insn", "-C", str(out / name)], text=True)
+        counts = {}
+        function = ""
+        for line in disassembly.splitlines():
+            header = re.match(r"^[0-9a-f]+ <(.*)>:$", line)
+            if header:
+                function = header[1]
+                continue
+            if not re.search(r"\bcall", line):
+                continue
+            if "core_arch::x86::" in line or re.search(r"\bfmaf\b", line):
+                module = "::".join(function.lstrip("<").split("::")[:3])
+                counts[module] = counts.get(module, 0) + 1
+        port = {m: n for m, n in counts.items() if m.startswith(("jxl::jxl::", "jxl::skcms::"))}
+        print(f"{name}: out-of-line x86 intrinsic and fmaf calls per module: {counts or 'none'}", flush=True)
+        if port:
+            failures.append(f"{name}: {port}")
+    if failures:
+        raise SystemExit("Kernel code outside the AVX2 attribute context (port ADR 0004, "
+                         "\"One attribute context per kernel on x86-64\"): " + "; ".join(failures))
+# end codegen check
+
+
+def cross_processor(arch, build):
+    """CMake arguments that make an Apple cross build see the target processor.
+
+    O9 (owner decision 2026-11-15, port ADR 0004): upstream's
+    third_party/skcms.cmake compiles skcms's HSW (and SKX) engine only when
+    CMAKE_SYSTEM_PROCESSOR is x86_64. On an ARM64 Mac CMake sets it to the
+    host's arm64 and ignores a -DCMAKE_SYSTEM_PROCESSOR given without a
+    CMAKE_SYSTEM_NAME (it is a cross-compilation setting), so the cross
+    build left both engines out. CMAKE_APPLE_SILICON_PROCESSOR is CMake's
+    own switch for this case: it makes the host processor, and therefore
+    CMAKE_SYSTEM_PROCESSOR, x86_64 without entering cross-compiling mode,
+    as on a native x86-64 Mac. The original's source is untouched. CMake
+    records the processor once per build directory, so a directory
+    configured before is configured afresh.
+    """
+    for recorded in build.glob("CMakeFiles/*/CMakeSystem.cmake"):
+        if f'set(CMAKE_SYSTEM_PROCESSOR "{arch}")' not in recorded.read_text():
+            shutil.rmtree(build / "CMakeFiles")
+            (build / "CMakeCache.txt").unlink(missing_ok=True)
+            break
+    return [f"-DCMAKE_APPLE_SILICON_PROCESSOR={arch}"]
 
 
 # --toolchain: the Rust toolchain of the oracle and test stages (port ADR 0002,
@@ -151,7 +232,7 @@ def cross_arguments(target, build):
                            f'exec "{compiler}" -arch {arch} "$@"\n')
         wrapper.chmod(0o755)
         wrappers.append(wrapper)
-    return [f"-DCMAKE_OSX_ARCHITECTURES={arch}", f"-DORACLE_RUST_TARGET={target}",
+    return [f"-DCMAKE_OSX_ARCHITECTURES={arch}", *cross_processor(arch, build), f"-DORACLE_RUST_TARGET={target}",
             f"-DCMAKE_C_COMPILER={wrappers[0]}", f"-DCMAKE_CXX_COMPILER={wrappers[1]}"]
 
 
@@ -204,8 +285,9 @@ def build_simd_oracle(rust_target=None):
     target = {"arm64": "NEON", "aarch64": "NEON", "x86_64": "AVX2", "AMD64": "AVX2"}.get(machine)
     if target is None:
         raise SystemExit(f"No SIMD oracle target for {machine}")
-    cross = ["-DCMAKE_OSX_ARCHITECTURES=x86_64"] if machine == "x86_64" and platform.machine() != "x86_64" else []
     build = ROOT / "target" / f"oracle-{target.lower()}"
+    cross = (["-DCMAKE_OSX_ARCHITECTURES=x86_64", *cross_processor("x86_64", build)]
+             if machine == "x86_64" and platform.machine() != "x86_64" else [])
     run("cmake", "-S", "tools/oracle", "-B", build, "-DCMAKE_BUILD_TYPE=Release", f"-DORACLE_HWY_TARGET={target}", *cross)
     run("cmake", "--build", build, "--target", "jxl_oracle", "--parallel", "4")
     return {"JXL_CPP_ORACLE_SIMD": str(build / "jxl_oracle")}
@@ -241,6 +323,12 @@ SIMD_TESTS += ["simd_encoder_cfl"]
 # encoder entropy: the encoder's smaller SIMD exports (ADR 0004, "Encoder path").
 SIMD_TESTS += ["simd_encoder_entropy"]
 # end encoder entropy
+# encoder aq: the SIMD AdaptiveQuantizationMap (ADR 0004, "Encoder path").
+SIMD_TESTS += ["simd_encoder_aq"]
+# end encoder aq
+# encoder selection: whole encodes with the encoder's SIMD target forced (ADR 0004, "Encoder selection").
+SIMD_TESTS += ["simd_encoder_public"]
+# end encoder selection
 SIMD_TEST_ARGS = [argument for name in SIMD_TESTS for argument in ("--test", name)]
 
 
@@ -252,6 +340,12 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
     # binaries, selects a SIMD target.
     env = dict(env, JXL_DECODER_TARGET="scalar")
     # end public gate
+    # encoder selection: ADR 0004 "Encoder path" condition (d). The scalar
+    # gate forces the scalar encoder path, whatever hwy::ENCODER_SELECTS_SIMD
+    # says (hwy::encoder_scalar_forced_by_environment); the SIMD binaries
+    # select their target with set_encoder_simd_for_test, which wins.
+    env = dict(env, JXL_ENCODER_TARGET="scalar")
+    # end encoder selection
     test = ["cargo", "test", "--locked", "--offline", "--profile", "checked", "--all-features"]
     if target is not None:
         test += ["--target", target]
@@ -271,10 +365,13 @@ def check_tests(env, partition, filter, target=None, keep_going=False):
     # stage still fails when any test fails. A test of the same name in
     # another binary would move with the SIMD group.
     # Under Rosetta 2 the SIMD parity tests also need AVX2 reported to their
-    # own process, and every other test must run without it: the cross-built
-    # scalar references contain only the baseline skcms engine (upstream's
-    # third_party/skcms.cmake keys HSW on CMAKE_SYSTEM_PROCESSOR, the ARM64
-    # host), so a port that detects AVX2 would run HSW against baseline.
+    # own process; every other test runs without it, so port and original
+    # both select skcms's baseline engine there. The cross-built references
+    # contain the HSW engine since O9 (cross_processor), so setting
+    # ROSETTA_ADVERTISE_AVX=1 for the whole stage compares HSW with HSW as a
+    # native x86-64 run does; it is not the default because Rosetta 2
+    # mis-executes some AVX code (port ADR 0004, "The skcms HSW engine in its
+    # attribute context").
     simd = listed(*SIMD_TEST_ARGS)
     simd_env = dict(env, ROSETTA_ADVERTISE_AVX="1")
     simd_test = test if keep_going else [*test, "--no-fail-fast"]

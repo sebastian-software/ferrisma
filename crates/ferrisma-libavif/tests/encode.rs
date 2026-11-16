@@ -5,11 +5,13 @@
 
 use std::sync::Mutex;
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     AvifOptions, BatchItem, ChromaSubsampling, EncodeError, EncodeErrorKind, EncodeRequest,
     EncodedImage, EncoderBackend, Engine, ImageFormat, InputProfilePolicy, OutputFormat,
     ProcessingErrorKind, RowEncoder, TransformOptions, WorkingPrecision, transcode, transcode_with,
 };
+use ferrisma::pipeline::{BitDepth, OutputGeometry, OutputSettings};
 use ferrisma_libavif::LibavifBackend;
 
 const JPEG: &[u8] = include_bytes!("../../../tests/fixtures/sample.jpg");
@@ -136,21 +138,25 @@ fn difference(a: &[u8], b: &[u8]) -> (f64, u8) {
     (mean, max)
 }
 
+/// The AVIF settings of `options`.
+fn avif_of(options: &TransformOptions) -> AvifOptions {
+    match options.output() {
+        OutputSettings::Avif(avif) => avif.clone(),
+        other => panic!("AVIF output expected, got {other:?}"),
+    }
+}
+
 fn options(width: u32, height: u32) -> TransformOptions {
-    TransformOptions {
-        output_width: width,
-        output_height: height,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+    TransformOptions::new(OutputGeometry::Exact { width, height })
         // Alpha at the color quality, as libavif did before the alpha
         // quality became its own setting on 2026-11-15.
-        avif: AvifOptions {
-            quality: 95,
-            alpha_quality: 95,
-            speed: 9,
-            ..AvifOptions::default()
-        },
-        ..TransformOptions::default()
-    }
+        .with_output(OutputSettings::Avif(
+            AvifOptions::default()
+                .with_quality(95)
+                .with_alpha_quality(95)
+                .with_speed(9),
+        ))
+        .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
 }
 
 #[test]
@@ -164,27 +170,29 @@ fn encodes_what_ferrisma_produced_with_the_same_color_signals() {
         (8, ChromaSubsampling::Yuv420, 2),
     ] {
         let base = options(96, 64);
-        let options = TransformOptions {
-            avif: AvifOptions {
-                chroma,
-                depth: Some(depth),
-                ..base.avif
-            },
-            encoder_threads: threads,
-            ..base
-        };
-        transcode_with(JPEG, ImageFormat::Jpeg, options, &reference).unwrap();
+        let options = base
+            .clone()
+            .with_output(OutputSettings::Avif(
+                avif_of(&base)
+                    .with_chroma(chroma)
+                    .with_depth(BitDepth::Exact(depth)),
+            ))
+            .with_encoder_threads(
+                std::num::NonZeroUsize::new(threads).map_or(Threads::Automatic, Threads::Count),
+            );
+        transcode_with(JPEG, ImageFormat::Jpeg, &options, &reference).unwrap();
         let rows = reference.0.lock().unwrap().clone();
         // The depth reaches the backend in the request (since 2026-11-15).
-        let output = transcode_with(JPEG, ImageFormat::Jpeg, options, &LibavifBackend).unwrap();
+        let output =
+            transcode_with(JPEG, ImageFormat::Jpeg, &options, &LibavifBackend::new()).unwrap();
         assert_eq!(&output.bytes[4..8], b"ftyp");
-        let built_in = transcode(JPEG, ImageFormat::Jpeg, options).unwrap();
+        let built_in = transcode(JPEG, ImageFormat::Jpeg, &options).unwrap();
         assert_eq!(
             built_in.bytes, output.bytes,
             "built-in and compatibility adapter must agree"
         );
-        assert_eq!(built_in.report.encoder_backend, "libavif-rs/aom");
-        assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+        assert_eq!(built_in.report.encoder_backend, "libavif/aom");
+        assert_eq!(output.report.encoder_backend, "libavif/aom");
         assert!(output.report.opaque_encoder_memory);
         assert!(output.report.encoder_output_frame_bytes >= 96 * 64 * 4);
         assert!(
@@ -250,12 +258,15 @@ fn straight_alpha_survives_the_encode() {
         (8, ChromaSubsampling::Yuv420, 2),
         (10, ChromaSubsampling::Yuv420, 1),
     ] {
-        let backend = LibavifBackend;
+        let backend = LibavifBackend::new();
         // The rows arrive at the request's depth (since 2026-11-15): 10-bit
         // rows are the 8-bit pattern scaled to 10 bits.
         request.depth = depth;
-        request.avif.depth = Some(depth);
-        request.avif.chroma = chroma;
+        request.output = OutputSettings::Avif(
+            avif_of_request(&request)
+                .with_depth(BitDepth::Exact(depth))
+                .with_chroma(chroma),
+        );
         request.threads = threads;
         let expected_bytes = backend.required_frame_bytes(&request).unwrap();
         let mut encoder = backend.begin(&request).unwrap();
@@ -302,7 +313,29 @@ fn straight_alpha_survives_the_encode() {
 }
 
 /// A request as `transcode_with` would build it for an opaque image.
+/// The AVIF settings of `request`.
+fn avif_of_request(request: &EncodeRequest) -> AvifOptions {
+    match &request.output {
+        OutputSettings::Avif(avif) => avif.clone(),
+        other => panic!("AVIF output expected, got {other:?}"),
+    }
+}
+
+/// The request the engine builds for `options(width, height)` and an
+/// opaque 8-bit JPEG: built with the test constructor since 2026-11-16
+/// (before, captured from a transcode through a recording backend, because
+/// the non-exhaustive request could not be built outside the engine).
 fn backend_request(width: u32, height: u32) -> EncodeRequest {
+    EncodeRequest::new(
+        OutputSettings::Avif(avif_of(&options(width, height))),
+        width,
+        height,
+    )
+}
+
+/// The test constructor gives what the engine sends for the same transcode.
+#[test]
+fn the_test_constructor_matches_the_engines_request() {
     struct Capture<'a>(&'a Mutex<Option<EncodeRequest>>, &'a Rows);
     impl EncoderBackend for Capture<'_> {
         fn format(&self) -> OutputFormat {
@@ -312,7 +345,7 @@ fn backend_request(width: u32, height: u32) -> EncodeRequest {
             "capture"
         }
         fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
-            *self.0.lock().unwrap() = Some(*request);
+            *self.0.lock().unwrap() = Some(request.clone());
             self.1.begin(request)
         }
     }
@@ -321,16 +354,16 @@ fn backend_request(width: u32, height: u32) -> EncodeRequest {
     transcode_with(
         JPEG,
         ImageFormat::Jpeg,
-        options(width, height),
+        &options(4, 3),
         &Capture(&seen, &reference),
     )
     .unwrap();
-    seen.into_inner().unwrap().unwrap()
+    assert_eq!(seen.into_inner().unwrap().unwrap(), backend_request(4, 3));
 }
 
 #[test]
 fn rows_out_of_order_or_missing_fail() {
-    let backend = LibavifBackend;
+    let backend = LibavifBackend::new();
     let request = backend_request(4, 3);
     let mut encoder = backend.begin(&request).unwrap();
     assert!(encoder.write_row(1, &[0; 16]).is_err());
@@ -343,32 +376,20 @@ fn rows_out_of_order_or_missing_fail() {
 
 #[test]
 fn invalid_settings_are_rejected_before_decoding() {
-    let base = options(8, 8).avif;
+    let base = avif_of(&options(8, 8));
     let cases = [
-        AvifOptions { speed: 11, ..base },
+        base.clone().with_speed(11),
         // 12 bits is admitted since 2026-11-15; 9 is not an AV1 depth.
-        AvifOptions {
-            depth: Some(9),
-            ..base
-        },
-        AvifOptions {
-            quality: 101,
-            ..base
-        },
-        AvifOptions {
-            alpha_quality: 101,
-            ..base
-        },
+        base.clone().with_depth(BitDepth::Exact(9)),
+        base.clone().with_quality(101),
+        base.clone().with_alpha_quality(101),
     ];
     for avif in cases {
         let error = transcode_with(
             JPEG,
             ImageFormat::Jpeg,
-            TransformOptions {
-                avif,
-                ..options(8, 8)
-            },
-            &LibavifBackend,
+            &options(8, 8).with_output(OutputSettings::Avif(avif)),
+            &LibavifBackend::new(),
         )
         .unwrap_err();
         assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions, "{error}");
@@ -377,16 +398,13 @@ fn invalid_settings_are_rejected_before_decoding() {
     let output = transcode_with(
         JPEG,
         ImageFormat::Jpeg,
-        TransformOptions {
-            avif: AvifOptions {
-                quality: 0,
-                alpha_quality: 0,
-                speed: 10,
-                ..base
-            },
-            ..options(8, 8)
-        },
-        &LibavifBackend,
+        &options(8, 8).with_output(OutputSettings::Avif(
+            base.clone()
+                .with_quality(0)
+                .with_alpha_quality(0)
+                .with_speed(10),
+        )),
+        &LibavifBackend::new(),
     )
     .unwrap();
     assert_eq!(decode(&output.bytes).width, 8);
@@ -409,12 +427,17 @@ fn frame_preflight_counts_odd_chroma_and_alpha_planes() {
         ),
         (12, ChromaSubsampling::Yuv444, false, 120 + 2 * 15 * 3),
     ] {
-        request.avif.chroma = chroma;
+        request.output = OutputSettings::Avif(
+            avif_of_request(&request)
+                .with_chroma(chroma)
+                .with_depth(BitDepth::Exact(depth)),
+        );
         request.depth = depth;
-        request.avif.depth = Some(depth);
         request.has_alpha = alpha;
         assert_eq!(
-            LibavifBackend.required_frame_bytes(&request).unwrap(),
+            LibavifBackend::new()
+                .required_frame_bytes(&request)
+                .unwrap(),
             expected
         );
     }
@@ -422,7 +445,7 @@ fn frame_preflight_counts_odd_chroma_and_alpha_planes() {
 
 #[test]
 fn invalid_geometry_is_rejected_before_allocation() {
-    let backend = LibavifBackend;
+    let backend = LibavifBackend::new();
     let mut request = backend_request(4, 3);
     for (width, height) in [(0, 3), (4, 0), (u32::MAX, 1), (u32::MAX / 4, u32::MAX)] {
         request.width = width;
@@ -438,7 +461,7 @@ fn invalid_geometry_is_rejected_before_allocation() {
     }
     request.width = 4;
     request.height = 3;
-    request.format = OutputFormat::WebP;
+    request.output = OutputSettings::default_for(OutputFormat::WebP);
     let Err(error) = backend.begin(&request) else {
         panic!("accepted WebP output")
     };
@@ -447,26 +470,26 @@ fn invalid_geometry_is_rejected_before_allocation() {
 
 #[test]
 fn output_limit_is_enforced_after_backend_finish() {
-    let backend = LibavifBackend;
+    let backend = LibavifBackend::new();
     let opts = options(16, 12);
-    let output = transcode_with(JPEG, ImageFormat::Jpeg, opts, &backend).unwrap();
-    let mut limited = opts;
-    limited.max_output_bytes = output.bytes.len() - 1;
-    let error = transcode_with(JPEG, ImageFormat::Jpeg, limited, &backend).unwrap_err();
-    assert_eq!(error.kind(), ProcessingErrorKind::ResourceExhausted);
+    let output = transcode_with(JPEG, ImageFormat::Jpeg, &opts, &backend).unwrap();
+    let limited = opts.with_max_output_bytes(output.bytes.len() - 1);
+    let error = transcode_with(JPEG, ImageFormat::Jpeg, &limited, &backend).unwrap_err();
+    // Since 2026-11-16; `ResourceExhausted` before.
+    assert_eq!(error.kind(), ProcessingErrorKind::OutputLimitExceeded);
 }
 
 #[cfg(feature = "cli")]
 #[test]
 fn generated_avif_can_be_read_and_written_in_the_same_pipeline() {
-    let backend = LibavifBackend;
-    let first = transcode_with(JPEG, ImageFormat::Jpeg, options(32, 24), &backend).unwrap();
+    let backend = LibavifBackend::new();
+    let first = transcode_with(JPEG, ImageFormat::Jpeg, &options(32, 24), &backend).unwrap();
     let second =
-        transcode_with(&first.bytes, ImageFormat::Avif, options(16, 12), &backend).unwrap();
+        transcode_with(&first.bytes, ImageFormat::Avif, &options(16, 12), &backend).unwrap();
     let decoded = decode(&second.bytes);
     assert_eq!((decoded.width, decoded.height), (16, 12));
     assert_eq!(decoded.cicp, (1, 13, 6, true));
-    assert_eq!(second.report.encoder_backend, "libavif-rs/aom");
+    assert_eq!(second.report.encoder_backend, "libavif/aom");
     let mut request = backend_request(8, 8);
     request.has_alpha = true;
     let mut frame = backend.begin(&request).unwrap();
@@ -478,13 +501,9 @@ fn generated_avif_can_be_read_and_written_in_the_same_pipeline() {
     let output = transcode(
         &transparent.bytes,
         ImageFormat::Avif,
-        TransformOptions {
-            avif: AvifOptions {
-                depth: Some(8),
-                ..options(8, 8).avif
-            },
-            ..options(8, 8)
-        },
+        &options(8, 8).with_output(OutputSettings::Avif(
+            avif_of(&options(8, 8)).with_depth(BitDepth::Exact(8)),
+        )),
     )
     .unwrap();
     let decoded = decode(&output.bytes);
@@ -496,113 +515,72 @@ fn generated_avif_can_be_read_and_written_in_the_same_pipeline() {
 #[test]
 fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
     let base = options(16, 12);
-    let opts = TransformOptions {
-        avif: AvifOptions {
-            depth: Some(10),
-            ..base.avif
-        },
-        output_width: 16,
-        output_height: 12,
-        transform_threads: 1,
-        encoder_threads: 1,
-        precision: WorkingPrecision::F64Reference,
-        ..base
-    };
-    let single = transcode(JPEG, ImageFormat::Jpeg, opts).unwrap();
-    assert_eq!(single.report.encoder_backend, "libavif-rs/aom");
-    let results = Engine::new(2).transcode_batch(&[
-        BatchItem {
-            encoded: JPEG,
-            format: ImageFormat::Jpeg,
-            options: opts,
-        },
-        BatchItem {
-            encoded: JPEG,
-            format: ImageFormat::Jpeg,
-            options: opts,
-        },
-    ]);
+    let opts = base
+        .clone()
+        .with_output(OutputSettings::Avif(
+            avif_of(&base).with_depth(BitDepth::Exact(10)),
+        ))
+        .with_geometry(OutputGeometry::Exact {
+            width: 16,
+            height: 12,
+        })
+        .with_transform_threads(Threads::ONE)
+        .with_encoder_threads(Threads::ONE)
+        .with_precision(WorkingPrecision::F64Reference);
+    let single = transcode(JPEG, ImageFormat::Jpeg, &opts).unwrap();
+    assert_eq!(single.report.encoder_backend, "libavif/aom");
+    let results = Engine::new(Threads::Count(std::num::NonZeroUsize::new(2).unwrap()))
+        .unwrap()
+        .transcode_batch(&[
+            BatchItem::new(JPEG, ImageFormat::Jpeg, opts.clone()),
+            BatchItem::new(JPEG, ImageFormat::Jpeg, opts.clone()),
+        ]);
     for output in results {
         assert_eq!(output.unwrap().bytes, single.bytes);
     }
     for avif in [
-        AvifOptions {
-            depth: Some(9),
-            ..opts.avif
-        },
-        AvifOptions {
-            quality: 101,
-            ..opts.avif
-        },
-        AvifOptions {
-            speed: 11,
-            ..opts.avif
-        },
+        avif_of(&opts).with_depth(BitDepth::Exact(9)),
+        avif_of(&opts).with_quality(101),
+        avif_of(&opts).with_speed(11),
     ] {
-        let bad = TransformOptions { avif, ..opts };
+        let bad = opts.clone().with_output(OutputSettings::Avif(avif));
         assert_eq!(
-            transcode(JPEG, ImageFormat::Jpeg, bad).unwrap_err().kind(),
+            transcode(JPEG, ImageFormat::Jpeg, &bad).unwrap_err().kind(),
             ProcessingErrorKind::InvalidOptions
         );
     }
     let quality_zero = transcode(
         JPEG,
         ImageFormat::Jpeg,
-        TransformOptions {
-            avif: AvifOptions {
-                quality: 0,
-                speed: 0,
-                ..opts.avif
-            },
-            ..opts
-        },
+        &opts.clone().with_output(OutputSettings::Avif(
+            avif_of(&opts).with_quality(0).with_speed(0),
+        )),
     )
     .unwrap();
-    assert_eq!(quality_zero.report.encoder_backend, "libavif-rs/aom");
-    // AVIF settings other than the defaults conflict with non-AVIF output
-    // (an AVIF encoder selection did until 2026-11-15, then `avif_depth`).
-    let webp_conflict = transcode(
-        JPEG,
-        ImageFormat::Jpeg,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            avif: AvifOptions {
-                depth: Some(10),
-                ..AvifOptions::default()
-            },
-            ..TransformOptions::default()
-        },
-    );
+    assert_eq!(quality_zero.report.encoder_backend, "libavif/aom");
+    // AVIF settings are AVIF output's: since 2026-11-16 the options cannot
+    // carry them beside WebP output, which was refused as `InvalidOptions`
+    // before (an AVIF encoder selection until 2026-11-15, then `avif_depth`).
+    let limited = opts.clone().with_max_managed_bytes(100);
     assert_eq!(
-        webp_conflict.unwrap_err().kind(),
-        ProcessingErrorKind::InvalidOptions
-    );
-    let limited = TransformOptions {
-        max_managed_bytes: 100,
-        ..opts
-    };
-    assert_eq!(
-        transcode(JPEG, ImageFormat::Jpeg, limited)
+        transcode(JPEG, ImageFormat::Jpeg, &limited)
             .unwrap_err()
             .kind(),
         ProcessingErrorKind::ResourceExhausted
     );
-    let limited = TransformOptions {
-        max_output_bytes: single.bytes.len() - 1,
-        ..opts
-    };
+    let limited = opts.clone().with_max_output_bytes(single.bytes.len() - 1);
     assert_eq!(
-        transcode(JPEG, ImageFormat::Jpeg, limited)
+        transcode(JPEG, ImageFormat::Jpeg, &limited)
             .unwrap_err()
             .kind(),
-        ProcessingErrorKind::ResourceExhausted
+        ProcessingErrorKind::OutputLimitExceeded
     );
     // The depth is part of the request since 2026-11-15, so the built-in
     // writer and the same backend through `transcode_with` agree (until
     // then a nondefault depth with an external backend was refused).
-    let external = transcode_with(JPEG, ImageFormat::Jpeg, opts, &LibavifBackend)
+    let external = transcode_with(JPEG, ImageFormat::Jpeg, &opts, &LibavifBackend::new())
         .expect("every AVIF setting reaches the backend");
-    assert_eq!(external.report.encoder_backend, "libavif-rs/aom");
+    assert_eq!(external.report.encoder_backend, "libavif/aom");
     assert_eq!(external.bytes, single.bytes);
 }
 
@@ -637,7 +615,7 @@ fn compatibility_cli_keeps_default_backend_and_rejects_conflicting_selection() {
         "{}",
         String::from_utf8_lossy(&result.stderr)
     );
-    assert!(String::from_utf8_lossy(&result.stdout).contains("encoder=libavif-rs/aom"));
+    assert!(String::from_utf8_lossy(&result.stdout).contains("encoder=libavif/aom"));
     // `--avif-depth=` reaches this backend since 2026-11-15 (it was refused
     // with an external backend before).
     let result = run(&["--avif-depth=10"]);
@@ -671,17 +649,15 @@ fn independent_oriented_avif_reference_reaches_own_encoder() {
     let output = transcode(
         input,
         ImageFormat::Avif,
-        TransformOptions {
-            avif: AvifOptions {
-                quality: 100,
-                alpha_quality: 100,
-                speed: 10,
-                depth: Some(10),
-                ..AvifOptions::default()
-            },
-            encoder_threads: 1,
-            ..options(16, 24)
-        },
+        &options(16, 24)
+            .with_output(OutputSettings::Avif(
+                AvifOptions::default()
+                    .with_quality(100)
+                    .with_alpha_quality(100)
+                    .with_speed(10)
+                    .with_depth(BitDepth::Exact(10)),
+            ))
+            .with_encoder_threads(Threads::ONE),
     )
     .unwrap();
     let image = decode(&output.bytes);

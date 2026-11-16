@@ -49,7 +49,7 @@ fn cli_writes_avif_through_libavif_at_either_depth() {
             "--avif-chroma=420",
         ],
     ] {
-        assert_eq!(encoder(flags), "libavif-rs/aom", "{flags:?}");
+        assert_eq!(encoder(flags), "libavif/aom", "{flags:?}");
     }
     // The former selector is an unknown option, never silently ignored.
     for flags in [&["--avif-encoder=libavif"][..], &["--avif-encoder=rav1e"]] {
@@ -68,7 +68,7 @@ fn cli_writes_avif_through_libavif_at_either_depth() {
         assert!(!invalid.status.success(), "{depth}");
     }
     // libavif's scale is 0-100; quality 0 is accepted, not remapped.
-    assert_eq!(encoder(&["--avif-quality=0"]), "libavif-rs/aom");
+    assert_eq!(encoder(&["--avif-quality=0"]), "libavif/aom");
     // The format-independent flags were removed on 2026-11-15.
     for flags in [&["--quality=55"][..], &["--speed=6"], &["--chroma=420"]] {
         let removed = run(flags);

@@ -33,6 +33,13 @@ pub(crate) enum Error {
         requested: usize,
         available: usize,
     },
+    /// The encoded output is, or would become, larger than
+    /// `max_output_bytes`: `needed` is its size when the encoder finished,
+    /// or a lower bound when the writer stopped while writing.
+    OutputLimitExceeded {
+        needed: usize,
+        limit: usize,
+    },
     #[cfg_attr(
         not(test),
         allow(dead_code, reason = "used by test-only architecture experiments")
@@ -169,6 +176,11 @@ impl fmt::Display for Error {
             } => write!(
                 f,
                 "managed buffer needs {requested} bytes with {available} bytes available"
+            ),
+            Self::OutputLimitExceeded { needed, limit } => write!(
+                f,
+                "encoded output exceeds max_output_bytes: it needs at least {needed} bytes, \
+                 and the limit is {limit}"
             ),
             Self::Cancelled => write!(f, "processing was cancelled by the output sink"),
             Self::DecodeFailed => write!(f, "decoder rejected input or could not render it"),

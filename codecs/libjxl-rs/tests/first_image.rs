@@ -6,6 +6,7 @@ use jxl::jxl::enc_frame::{LosslessSampleDepth, LosslessThunderConfig};
 #[test]
 fn pixel_buffers_round_trip_complete_files_with_parsed_metadata_and_integer_output() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     for (w, h) in [(1, 1), (17, 9), (513, 3), (2049, 2)] {
         for gray in [false, true] {
             for depth in [8, 16] {
@@ -54,6 +55,7 @@ fn pixel_buffers_round_trip_complete_files_with_parsed_metadata_and_integer_outp
 #[test]
 fn complete_uint16_image_recovers_every_integer_sample() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let input: Vec<_> = (0..=u16::MAX).flat_map(u16::to_ne_bytes).collect();
     let mut config =
         LosslessThunderConfig::new(256, 256, true, LosslessSampleDepth::Uint16).unwrap();
@@ -68,6 +70,7 @@ fn complete_uint16_image_recovers_every_integer_sample() {
 #[test]
 fn lossless_alpha_files_preserve_all_channels_including_hidden_colors() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     for (w, h) in [
         (1, 1),
         (17, 9),
@@ -123,6 +126,7 @@ fn lossless_alpha_files_preserve_all_channels_including_hidden_colors() {
 #[test]
 fn complete_uint16_alpha_image_recovers_every_alpha_sample_and_hidden_rgb() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let input: Vec<u8> = (0..=u16::MAX)
         .flat_map(|alpha| {
             [
@@ -147,6 +151,7 @@ fn complete_uint16_alpha_image_recovers_every_alpha_sample_and_hidden_rgb() {
 #[test]
 fn alpha_profile_rejects_untranslated_metadata_before_frame_decoding() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     use jxl::jxl::base::status::StatusCode;
     use jxl::jxl::enc_bit_writer::BitWriter;
     use jxl::jxl::enc_fields::write_codestream_headers;

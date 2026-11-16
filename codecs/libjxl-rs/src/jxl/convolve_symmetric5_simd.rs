@@ -23,72 +23,61 @@ use super::hwy::{Kernel, SimdF32, Target, dispatch};
 use super::image::ImageF;
 use super::image_ops::{Wrap, WrapMirror, WrapUnchanged};
 
-#[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
+/// WeightedSum of one kernel row: `row` is the input row, `ix` the center.
+/// The five loads read one bounds-checked window of the row.
 #[inline(always)]
-fn weighted_sum<D: SimdF32, WrapY: Wrap>(
-    d: D,
-    input: &ImageF,
-    ix: usize,
-    iy: i64,
-    ysize: usize,
-    wx0: D::V,
-    wx1: D::V,
-    wx2: D::V,
-) -> D::V {
-    let row = input.row(WrapY::wrap(iy, ysize as i64) as usize);
-    // `center` is row + ix.
-    let in_m2 = d.load(&row[ix - 2..]);
-    let in_p2 = d.load(&row[ix + 2..]);
-    let in_m1 = d.load(&row[ix - 1..]);
-    let in_p1 = d.load(&row[ix + 1..]);
-    let in_00 = d.load(&row[ix..]);
+fn weighted_sum<D: SimdF32>(d: D, row: &[f32], ix: usize, wx0: D::V, wx1: D::V, wx2: D::V) -> D::V {
+    // `center` is row + ix; the window covers center - 2 .. center + Lanes + 2.
+    let window = &row[ix - 2..ix + D::LANES + 2];
+    let in_m2 = d.load(window);
+    let in_p2 = d.load(&window[4..]);
+    let in_m1 = d.load(&window[1..]);
+    let in_p1 = d.load(&window[3..]);
+    let in_00 = d.load(&window[2..]);
     let sum_2 = d.mul(wx2, d.add(in_m2, in_p2));
     let sum_1 = d.mul(wx1, d.add(in_m1, in_p1));
     let sum_0 = d.mul(wx0, in_00);
     d.add(sum_2, d.add(sum_1, sum_0))
 }
 
-/// Symmetric5Interior: one vector's worth of pixels.
+/// The LoadDup128 weight vectors of Symmetric5Interior.
+#[derive(Clone, Copy)]
+struct Weights<V> {
+    w0: V,
+    w1: V,
+    w2: V,
+    w4: V,
+    w5: V,
+    w8: V,
+}
+
+/// Symmetric5Interior: one vector's worth of pixels. `rows` are the input
+/// rows `iy - 2 ..= iy + 2` after WrapY, which the original looks up per
+/// vector (`in.ConstRow(WrapY()(iy + k, ysize))`) from loop-invariant values;
+/// they are looked up once per output row here. Same loads and operations in
+/// the same order.
 #[inline(always)]
-fn symmetric5_interior<D: SimdF32, WrapY: Wrap>(
+fn symmetric5_interior<D: SimdF32>(
     d: D,
-    input: &ImageF,
+    rows: &[&[f32]; 5],
     ix: usize,
-    rix: usize,
-    iy: i64,
-    weights: &WeightsSymmetric5,
-    row_out: &mut [f32],
+    w: Weights<D::V>,
+    out: &mut [f32],
 ) {
-    let w0 = d.load_dup128(&weights.c);
-    let w1 = d.load_dup128(&weights.r);
-    let w2 = d.load_dup128(&weights.R);
-    let w4 = d.load_dup128(&weights.d);
-    let w5 = d.load_dup128(&weights.L);
-    let w8 = d.load_dup128(&weights.D);
-
-    let ysize = input.ysize();
     // Unrolled loop over all 5 rows of the kernel.
-    let mut sum0 = weighted_sum::<D, WrapY>(d, input, ix, iy, ysize, w0, w1, w2);
+    let mut sum0 = weighted_sum(d, rows[2], ix, w.w0, w.w1, w.w2);
 
-    sum0 = d.add(
-        sum0,
-        weighted_sum::<D, WrapY>(d, input, ix, iy - 2, ysize, w2, w5, w8),
-    );
-    let mut sum1 = weighted_sum::<D, WrapY>(d, input, ix, iy + 2, ysize, w2, w5, w8);
+    sum0 = d.add(sum0, weighted_sum(d, rows[0], ix, w.w2, w.w5, w.w8));
+    let mut sum1 = weighted_sum(d, rows[4], ix, w.w2, w.w5, w.w8);
 
-    sum0 = d.add(
-        sum0,
-        weighted_sum::<D, WrapY>(d, input, ix, iy - 1, ysize, w1, w4, w5),
-    );
-    sum1 = d.add(
-        sum1,
-        weighted_sum::<D, WrapY>(d, input, ix, iy + 1, ysize, w1, w4, w5),
-    );
+    sum0 = d.add(sum0, weighted_sum(d, rows[1], ix, w.w1, w.w4, w.w5));
+    sum1 = d.add(sum1, weighted_sum(d, rows[3], ix, w.w1, w.w4, w.w5));
 
-    d.store(d.add(sum0, sum1), &mut row_out[rix..]);
+    d.store(d.add(sum0, sum1), out);
 }
 
 /// Symmetric5Row: `row_out` starts at the output rect's first pixel.
+#[inline(always)]
 pub fn symmetric5_row_d<D: SimdF32, WrapY: Wrap>(
     d: D,
     input: &ImageF,
@@ -109,10 +98,23 @@ pub fn symmetric5_row_d<D: SimdF32, WrapY: Wrap>(
         ix += 1;
         rix += 1;
     }
-    while ix + n + RADIUS <= xend {
-        symmetric5_interior::<D, WrapY>(d, input, ix, rix, iy, weights, row_out);
-        ix += n;
-        rix += n;
+    if ix + n + RADIUS <= xend {
+        let w = Weights {
+            w0: d.load_dup128(&weights.c),
+            w1: d.load_dup128(&weights.r),
+            w2: d.load_dup128(&weights.R),
+            w4: d.load_dup128(&weights.d),
+            w5: d.load_dup128(&weights.L),
+            w8: d.load_dup128(&weights.D),
+        };
+        let ysize = input.ysize() as i64;
+        let row = |k: i64| input.row(WrapY::wrap(iy + k, ysize) as usize);
+        let rows = [row(-2), row(-1), row(0), row(1), row(2)];
+        while ix + n + RADIUS <= xend {
+            symmetric5_interior(d, &rows, ix, w, &mut row_out[rix..rix + n]);
+            ix += n;
+            rix += n;
+        }
     }
     while ix < xend {
         row_out[rix] = symmetric5_border::<WrapY>(input, ix as i64, iy, weights);

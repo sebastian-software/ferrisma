@@ -214,6 +214,7 @@ impl Kernel for XybAndLinearRow<'_> {
 /// The row loop of LinearRGBRowToXYB (`srgb` false) or SRGBToXYB (`srgb`
 /// true) for one descriptor, in place; `premul_absorb` holds `12 * D::LANES`
 /// words ([`premul_absorb_for_lanes`]). For the 8-lane structure test.
+#[inline(always)]
 pub fn xyb_row_d<D: SimdF32>(
     d: D,
     rows: [&mut [f32]; 3],

@@ -29,12 +29,14 @@
     feature = "icc"
 ))]
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     AvifOptions, BatchItem, ChromaSubsampling, EncodeError, EncodeRequest, EncodedImage,
     EncoderBackend, Engine, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions,
     Output, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason, RowEncoder,
     TransformOptions, WebpOptions, inspect, transcode, transcode_with,
 };
+use ferrisma::pipeline::{BitDepth, OutputGeometry, OutputSettings, WebpLossy};
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
 const JXL_DATA: &str = "codecs/libjxl-rs/tests/data/";
@@ -48,14 +50,13 @@ fn read(path: &str) -> Vec<u8> {
 }
 
 fn options(policy: InputProfilePolicy) -> TransformOptions {
-    TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: 6,
-        output_height: 4,
-        profile_policy: policy,
-        transform_threads: 1,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 6,
+        height: 4,
+    })
+    .with_output(OutputSettings::default_for(OutputFormat::WebP))
+    .with_profile_policy(policy)
+    .with_transform_threads(Threads::ONE)
 }
 
 #[track_caller]
@@ -74,7 +75,7 @@ fn webp_has_alpha(output: &Output) -> bool {
     inspect(
         &output.bytes,
         ImageFormat::WebP,
-        InspectionLimits::default(),
+        &InspectionLimits::default(),
     )
     .unwrap()
     .has_alpha
@@ -97,7 +98,7 @@ fn refusal(
     bytes: &[u8],
     policy: InputProfilePolicy,
 ) -> (ProcessingErrorKind, Option<RefusalReason>) {
-    let error = transcode(bytes, ImageFormat::JpegXl, options(policy)).expect_err("refused");
+    let error = transcode(bytes, ImageFormat::JpegXl, &options(policy)).expect_err("refused");
     (error.kind(), error.refusal_reason())
 }
 
@@ -123,7 +124,7 @@ fn jpeg_xl_reader_refuses_extra_channels_other_than_alpha() {
     }
     // The single alpha channel the pipeline uses is accepted.
     let alpha = read(&format!("{JXL_DATA}extra-channel-type-0.jxl"));
-    let output = accepted(transcode(&alpha, ImageFormat::JpegXl, options(RENDERED)));
+    let output = accepted(transcode(&alpha, ImageFormat::JpegXl, &options(RENDERED)));
     assert!(webp_has_alpha(&output));
 }
 
@@ -172,7 +173,7 @@ fn jpeg_xl_container_boxes_are_dropped_today() {
     for kind in [b"Exif", b"xml ", b"jbrd"] {
         assert!(find(&bytes, kind).is_some());
     }
-    accepted(transcode(&bytes, ImageFormat::JpegXl, options(RENDERED)));
+    accepted(transcode(&bytes, ImageFormat::JpegXl, &options(RENDERED)));
 }
 
 /// JPEG XL output is a raw codestream (ADR-0039), which cannot carry EXIF,
@@ -187,11 +188,7 @@ fn source_exif_and_xmp_are_dropped_from_jpeg_xl_output_today() {
     let output = accepted(transcode(
         &jpeg,
         ImageFormat::Jpeg,
-        TransformOptions {
-            output_format: OutputFormat::JpegXl,
-            jpeg_xl: JpegXlOptions::default(),
-            ..options(RENDERED)
-        },
+        &options(RENDERED).with_output(OutputSettings::JpegXl(JpegXlOptions::default())),
     ));
     assert_eq!(&output.bytes[..2], &[0xff, 0x0a], "raw codestream");
     assert!(find(&output.bytes, b"Exif").is_none());
@@ -211,7 +208,7 @@ fn jpeg_gain_maps_are_ignored_and_the_base_image_is_read_today() {
     for name in ["apple_gainmap_new.jpg", "seine_sdr_gainmap_srgb.jpg"] {
         let bytes = read(&format!("{AVIF_DATA}{name}"));
         assert!(find(&bytes, b"MPF\0").is_some(), "{name} has an MPF index");
-        accepted(transcode(&bytes, ImageFormat::Jpeg, options(RENDERED)));
+        accepted(transcode(&bytes, ImageFormat::Jpeg, &options(RENDERED)));
     }
 }
 
@@ -240,7 +237,7 @@ fn jpeg_iptc_and_comments_are_dropped_today() {
     ] {
         let bytes = read(&format!("{AVIF_DATA}{name}"));
         assert!(find(&bytes, marker).is_some(), "{name}");
-        let output = accepted(transcode(&bytes, ImageFormat::Jpeg, options(RENDERED)));
+        let output = accepted(transcode(&bytes, ImageFormat::Jpeg, &options(RENDERED)));
         for chunk in webp_chunks(&output.bytes) {
             assert!(
                 matches!(&chunk, b"VP8X" | b"ICCP" | b"VP8 " | b"VP8L" | b"ALPH"),
@@ -268,7 +265,7 @@ fn corrupted_jpeg_scan_data_decodes_without_an_error_today() {
     for byte in &mut bytes[middle..middle + 16] {
         *byte ^= 0x5a;
     }
-    accepted(transcode(&bytes, ImageFormat::Jpeg, options(ASSUME)));
+    accepted(transcode(&bytes, ImageFormat::Jpeg, &options(ASSUME)));
 }
 
 /// `sample.jpg` with its JFIF density patched from 1:1 to 2:1 (byte 15, the
@@ -281,12 +278,12 @@ fn jpeg_pixel_aspect_ratio_is_ignored_today() {
     assert_eq!(&bytes[6..11], b"JFIF\0");
     assert_eq!(&bytes[13..18], &[0, 0, 1, 0, 1], "units 0, density 1:1");
     bytes[15] = 2;
-    let metadata = inspect(&bytes, ImageFormat::Jpeg, InspectionLimits::default()).unwrap();
+    let metadata = inspect(&bytes, ImageFormat::Jpeg, &InspectionLimits::default()).unwrap();
     assert_eq!(
         (metadata.width, metadata.height),
         (metadata.stored_width, metadata.stored_height)
     );
-    accepted(transcode(&bytes, ImageFormat::Jpeg, options(ASSUME)));
+    accepted(transcode(&bytes, ImageFormat::Jpeg, &options(ASSUME)));
 }
 
 // ---------------------------------------------------------------------------
@@ -308,7 +305,7 @@ fn corrupted_webp_payload_decodes_without_an_error_today() {
         for byte in &mut bytes[middle..middle + 16] {
             *byte ^= 0x5a;
         }
-        accepted(transcode(&bytes, ImageFormat::WebP, options(ASSUME)));
+        accepted(transcode(&bytes, ImageFormat::WebP, &options(ASSUME)));
     }
 }
 
@@ -320,7 +317,7 @@ fn truncated_inputs_are_malformed() {
     let jxl = read("tests/fixtures/jxl-lossless/rgb-300x260.jxl");
     for cut in [jxl.len() - 1, jxl.len() / 2] {
         refused(
-            transcode(&jxl[..cut], ImageFormat::JpegXl, options(RENDERED)),
+            transcode(&jxl[..cut], ImageFormat::JpegXl, &options(RENDERED)),
             ProcessingErrorKind::MalformedInput,
         );
     }
@@ -330,7 +327,7 @@ fn truncated_inputs_are_malformed() {
     ] {
         let webp = read(name);
         refused(
-            transcode(&webp[..webp.len() - 1], ImageFormat::WebP, options(ASSUME)),
+            transcode(&webp[..webp.len() - 1], ImageFormat::WebP, &options(ASSUME)),
             ProcessingErrorKind::MalformedInput,
         );
     }
@@ -353,15 +350,14 @@ fn webp_lossy_methods_are_libwebps_own_and_distinct() {
         accepted(transcode(
             &jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                webp: WebpOptions::Lossy {
-                    quality: 75.0,
-                    method,
-                },
-                output_width: 200,
-                output_height: 133,
-                ..options(ASSUME)
-            },
+            &options(ASSUME)
+                .with_output(OutputSettings::WebP(WebpOptions::Lossy(
+                    WebpLossy::default().with_quality(75.0).with_method(method),
+                )))
+                .with_geometry(OutputGeometry::Exact {
+                    width: 200,
+                    height: 133,
+                }),
         ))
         .bytes
     };
@@ -382,23 +378,29 @@ fn webp_lossy_methods_are_libwebps_own_and_distinct() {
 /// message and no reason; a valid count is still replaced and reported.
 #[test]
 fn batch_refuses_thread_counts_that_transcode_rejects() {
-    const THREADS: &str = "transform and encoder threads must be between 0 and 256";
+    // "transform and encoder threads must be between 0 and 256" until
+    // 2026-11-16, when 0 stopped being a count (`Threads`).
+    const THREADS: &str = "a thread count must be at most 256";
     let jpeg = read("tests/fixtures/sample.jpg");
     for (transform_threads, encoder_threads) in [(1000, 1), (1, 1000), (257, 257)] {
-        let item = BatchItem {
-            encoded: &jpeg,
-            format: ImageFormat::Jpeg,
-            options: TransformOptions {
-                transform_threads,
-                encoder_threads,
-                ..options(ASSUME)
-            },
-        };
+        let item = BatchItem::new(
+            &jpeg,
+            ImageFormat::Jpeg,
+            options(ASSUME)
+                .with_transform_threads(
+                    std::num::NonZeroUsize::new(transform_threads)
+                        .map_or(Threads::Automatic, Threads::Count),
+                )
+                .with_encoder_threads(
+                    std::num::NonZeroUsize::new(encoder_threads)
+                        .map_or(Threads::Automatic, Threads::Count),
+                ),
+        );
         let single = refused(
-            transcode(&jpeg, ImageFormat::Jpeg, item.options),
+            transcode(&jpeg, ImageFormat::Jpeg, &item.options().clone()),
             ProcessingErrorKind::InvalidOptions,
         );
-        let results = Engine::new(1).transcode_batch(&[item]);
+        let results = Engine::new(Threads::ONE).unwrap().transcode_batch(&[item]);
         let Err(batched) = &results[0] else {
             panic!("{transform_threads}/{encoder_threads}: accepted in a batch")
         };
@@ -407,17 +409,23 @@ fn batch_refuses_thread_counts_that_transcode_rejects() {
             assert!(error.to_string().starts_with(THREADS), "{error}");
             assert_eq!(error.refusal_reason(), None);
         }
+        // `Engine::new` validates its worker count the same way (since
+        // 2026-11-16; before, it clamped a count above 256 silently).
+        let engine = Engine::new(Threads::Count(
+            std::num::NonZeroUsize::new(transform_threads.max(encoder_threads)).unwrap(),
+        ))
+        .unwrap_err();
+        assert_eq!(engine.kind(), ProcessingErrorKind::InvalidOptions);
+        assert!(engine.to_string().starts_with(THREADS), "{engine}");
     }
     // A count `transcode` accepts is replaced by 1, as documented.
-    let item = BatchItem {
-        encoded: &jpeg,
-        format: ImageFormat::Jpeg,
-        options: TransformOptions {
-            transform_threads: 256,
-            ..options(ASSUME)
-        },
-    };
-    let results = Engine::new(1).transcode_batch(&[item]);
+    let item = BatchItem::new(
+        &jpeg,
+        ImageFormat::Jpeg,
+        options(ASSUME)
+            .with_transform_threads(Threads::Count(std::num::NonZeroUsize::new(256).unwrap())),
+    );
+    let results = Engine::new(Threads::ONE).unwrap().transcode_batch(&[item]);
     let output = results[0].as_ref().expect("a valid count is accepted");
     assert_eq!(
         (
@@ -444,7 +452,7 @@ impl EncoderBackend for AvifRecorder {
         &[8, 10]
     }
     fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
-        self.0.lock().unwrap().push(*request);
+        self.0.lock().unwrap().push(request.clone());
         Ok(Box::new(Rows(Vec::new())))
     }
 }
@@ -469,7 +477,8 @@ impl RowEncoder for Rows {
 /// AVIF depth was not part of the request and was refused when nondefault
 /// (audit row Q2; this test was
 /// `external_backends_refuse_settings_the_request_does_not_carry`); since
-/// the owner decision of that day it is `EncodeRequest::avif.depth`, beside
+/// the owner decision of that day it is the AVIF settings' depth (in
+/// `EncodeRequest::output` since 2026-11-16), beside
 /// the quality, alpha quality, speed and chroma layout. Since the depth
 /// decision of the same day (ADR-0021 amendment) the resolved depth is
 /// `EncodeRequest::depth` and the rows arrive at it: an explicit 10 from an
@@ -477,27 +486,25 @@ impl RowEncoder for Rows {
 #[test]
 fn external_backends_receive_every_encoder_setting() {
     let jpeg = read("tests/fixtures/sample.jpg");
-    let avif = AvifOptions {
-        quality: 42,
-        alpha_quality: 17,
-        speed: 3,
-        depth: Some(10),
-        chroma: ChromaSubsampling::Yuv420,
-    };
+    let avif = AvifOptions::default()
+        .with_quality(42)
+        .with_alpha_quality(17)
+        .with_speed(3)
+        .with_depth(BitDepth::Exact(10))
+        .with_chroma(ChromaSubsampling::Yuv420);
     let backend = AvifRecorder(std::sync::Mutex::default());
     let output = accepted(transcode_with(
         &jpeg,
         ImageFormat::Jpeg,
-        TransformOptions {
-            output_format: OutputFormat::Avif,
-            avif,
-            ..options(ASSUME)
-        },
+        &options(ASSUME).with_output(OutputSettings::Avif(avif.clone())),
         &backend,
     ));
     assert_eq!(output.report.encoder_backend, "avif-recorder");
-    let request = backend.0.lock().unwrap()[0];
-    assert_eq!(request.avif, avif);
+    let request = backend.0.lock().unwrap()[0].clone();
+    // Only the selected output's settings (since 2026-11-16; before, the
+    // request also carried the WebP and JPEG XL settings at their
+    // defaults).
+    assert_eq!(request.output, OutputSettings::Avif(avif));
     assert_eq!(request.depth, 10);
     assert_eq!(output.bytes.len(), 2 * 4 * 6 * 4);
     assert!(
@@ -507,8 +514,6 @@ fn external_backends_receive_every_encoder_setting() {
             .all(|pixel| u16::from_le_bytes([pixel[6], pixel[7]]) == 1023),
         "opaque at 10 bits"
     );
-    assert_eq!(request.webp, WebpOptions::default());
-    assert_eq!(request.jpeg_xl, JpegXlOptions::default());
     assert_eq!(request.threads, 1);
 }
 
@@ -555,7 +560,7 @@ fn mark_unknown_essential(mut bytes: Vec<u8>, index: usize) -> Vec<u8> {
 #[track_caller]
 fn assert_refused_as_essential(bytes: &[u8]) {
     let error = refused(
-        transcode(bytes, ImageFormat::Avif, options(ASSUME)),
+        transcode(bytes, ImageFormat::Avif, &options(ASSUME)),
         ProcessingErrorKind::UnsupportedInput,
     );
     assert_eq!(
@@ -572,7 +577,7 @@ fn assert_refused_as_essential(bytes: &[u8]) {
 #[test]
 fn avif_alpha_item_with_an_unknown_essential_property_is_refused() {
     let original = read(&format!("{AVIF_DATA}abc_color_irot_alpha_irot.avif"));
-    let output = accepted(transcode(&original, ImageFormat::Avif, options(ASSUME)));
+    let output = accepted(transcode(&original, ImageFormat::Avif, &options(ASSUME)));
     assert!(webp_has_alpha(&output), "the unpatched file keeps alpha");
     assert_refused_as_essential(&mark_unknown_essential(original, 6));
 }
@@ -584,7 +589,7 @@ fn avif_alpha_item_with_an_unknown_essential_property_is_refused() {
 #[test]
 fn avif_grid_cell_with_an_unknown_essential_property_is_refused() {
     let original = read(&format!("{AVIF_DATA}sofa_grid1x5_420.avif"));
-    accepted(transcode(&original, ImageFormat::Avif, options(ASSUME)));
+    accepted(transcode(&original, ImageFormat::Avif, &options(ASSUME)));
     assert_refused_as_essential(&mark_unknown_essential(original, 4));
 }
 
@@ -603,7 +608,7 @@ fn avif_unknown_essential_property_on_an_unused_item_is_not_a_refusal() {
     let output = accepted(transcode(
         &mark_unknown_essential(bytes, 6),
         ImageFormat::Avif,
-        options(ASSUME),
+        &options(ASSUME),
     ));
     assert!(!webp_has_alpha(&output));
 }
@@ -619,7 +624,7 @@ fn avif_non_essential_unknown_properties_are_ignored_today() {
     let output = accepted(transcode(
         &read(&format!("{AVIF_DATA}circle_custom_properties.avif")),
         ImageFormat::Avif,
-        options(ASSUME),
+        &options(ASSUME),
     ));
     assert!(webp_has_alpha(&output));
 }
@@ -635,7 +640,7 @@ fn avif_non_essential_unknown_properties_are_ignored_today() {
 fn avif_sample_transform_alternative_is_ignored_today() {
     let bytes = read(&format!("{AVIF_DATA}weld_sato_12B_8B_q0.avif"));
     assert!(find(&bytes, b"satoSampleTransform").is_some());
-    accepted(transcode(&bytes, ImageFormat::Avif, options(ASSUME)));
+    accepted(transcode(&bytes, ImageFormat::Avif, &options(ASSUME)));
 }
 
 /// Truncated AVIF is `MalformedInput`, not a partial image.
@@ -645,7 +650,7 @@ fn truncated_avif_is_malformed() {
     let bytes = read(&format!("{AVIF_DATA}paris_icc_exif_xmp.avif"));
     for cut in [bytes.len() - 1, bytes.len() / 2] {
         refused(
-            transcode(&bytes[..cut], ImageFormat::Avif, options(RENDERED)),
+            transcode(&bytes[..cut], ImageFormat::Avif, &options(RENDERED)),
             ProcessingErrorKind::MalformedInput,
         );
     }

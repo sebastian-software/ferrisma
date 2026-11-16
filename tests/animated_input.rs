@@ -8,6 +8,7 @@ use ferrisma::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
     OutputFormat, ProcessingErrorKind, RefusalReason, RowEncoder, TransformOptions, transcode_with,
 };
+use ferrisma::pipeline::{OutputGeometry, OutputSettings};
 
 struct Discard;
 struct DiscardRows;
@@ -37,13 +38,13 @@ impl RowEncoder for DiscardRows {
 /// rather than an unrelated unsupported layout: the kind alone
 /// (`UnsupportedInput`) is shared with those (issue #212).
 fn kind(bytes: &[u8], format: ImageFormat, options: TransformOptions) -> ProcessingErrorKind {
-    let options = TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: 4,
-        output_height: 4,
-        ..options
-    };
-    let error = transcode_with(bytes, format, options, &Discard)
+    let options = options
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_geometry(OutputGeometry::Exact {
+            width: 4,
+            height: 4,
+        });
+    let error = transcode_with(bytes, format, &options, &Discard)
         .expect_err("animated input must be rejected");
     assert_eq!(
         error.refusal_reason(),
@@ -54,10 +55,11 @@ fn kind(bytes: &[u8], format: ImageFormat, options: TransformOptions) -> Process
 }
 
 fn srgb() -> TransformOptions {
-    TransformOptions {
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
 }
 
 /// A two-frame lossless animation written by `img2webp` 1.6.0

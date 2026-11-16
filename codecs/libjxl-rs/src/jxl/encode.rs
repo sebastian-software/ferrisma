@@ -319,6 +319,12 @@ pub struct JxlEncoder {
     intensity_target_set: bool,
     allow_expert_options: bool,
     brotli_effort: i32,
+    /// encoder selection: the dispatch target this encoder selected when it
+    /// was created (`hwy::encoder_default_target`); its work calls run inside
+    /// `DispatchScope::Encoding` with it (port ADR 0004, "Encoder path",
+    /// "Encoder selection"). Port-only: the source's `HWY_DYNAMIC_DISPATCH`
+    /// is process-wide.
+    simd_target: Option<super::hwy::Target>,
 }
 
 /// The original JxlEncoderFrameSettings: its encoder and option values.
@@ -406,6 +412,7 @@ impl JxlEncoder {
             intensity_target_set: false,
             allow_expert_options: false,
             brotli_effort: -1,
+            simd_target: super::hwy::encoder_default_target(),
         }
     }
 
@@ -1688,12 +1695,11 @@ fn add_image_frame_internal(
     streaming: bool,
     frame_data: JxlEncoderChunkedFrameAdapter<'_>,
 ) -> JxlEncoderStatus {
-    // enable: encoder work runs outside the decoder's dispatch scope, also
-    // when a decoder callback calls it (port ADR 0004, "Scope of the
-    // selection"): the port's encoder is the scalar translation.
-    super::hwy::outside_decoding(|| {
-        add_image_frame_outside_decoding(frame_settings, enc, streaming, frame_data)
-    })
+    // encoder selection: encoder work runs inside the encoder's own dispatch
+    // scope, also when a decoder callback calls it (port ADR 0004, "Encoder
+    // path", "Encoder selection").
+    super::hwy::DispatchScope::Encoding(enc.simd_target)
+        .enter(|| add_image_frame_outside_decoding(frame_settings, enc, streaming, frame_data))
 }
 fn add_image_frame_outside_decoding(
     frame_settings: &JxlEncoderFrameSettings,
@@ -2951,10 +2957,11 @@ pub unsafe fn jxl_encoder_process_output(
     // pointers only inside the calls below, and no reference is held across
     // them.
     while unsafe { *avail_out } != 0 && !enc.input_queue.is_empty() {
-        // enable: encoder work runs outside the decoder's dispatch scope, also
-        // when a decoder callback calls it (port ADR 0004, "Scope of the
-        // selection"): the port's encoder is the scalar translation.
-        match super::hwy::outside_decoding(|| process_one_enqueued_input(enc)) {
+        // encoder selection: encoder work runs inside the encoder's own
+        // dispatch scope, also when a decoder callback calls it (port ADR
+        // 0004, "Encoder path", "Encoder selection").
+        let scope = super::hwy::DispatchScope::Encoding(enc.simd_target);
+        match scope.enter(|| process_one_enqueued_input(enc)) {
             Ok(()) => {}
             Err(EnqueuedInputFailure::Failed) => return JxlEncoderStatus::ERROR,
             Err(EnqueuedInputFailure::Admission(checkpoint)) => {
@@ -3080,10 +3087,11 @@ pub fn jxl_encoder_flush_input(enc: &mut JxlEncoder) -> JxlEncoderStatus {
         return api_error(enc, JxlEncoderError::API_USAGE);
     }
     while !enc.input_queue.is_empty() {
-        // enable: encoder work runs outside the decoder's dispatch scope, also
-        // when a decoder callback calls it (port ADR 0004, "Scope of the
-        // selection"): the port's encoder is the scalar translation.
-        match super::hwy::outside_decoding(|| process_one_enqueued_input(enc)) {
+        // encoder selection: encoder work runs inside the encoder's own
+        // dispatch scope, also when a decoder callback calls it (port ADR
+        // 0004, "Encoder path", "Encoder selection").
+        let scope = super::hwy::DispatchScope::Encoding(enc.simd_target);
+        match scope.enter(|| process_one_enqueued_input(enc)) {
             Ok(()) => {}
             Err(EnqueuedInputFailure::Failed) => return JxlEncoderStatus::ERROR,
             Err(EnqueuedInputFailure::Admission(checkpoint)) => {
