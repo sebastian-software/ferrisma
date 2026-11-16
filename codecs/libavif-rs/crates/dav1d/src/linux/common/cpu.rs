@@ -55,7 +55,9 @@ pub static mut dav1d_cpu_flags: core::ffi::c_uint = 0 as core::ffi::c_uint;
 pub static mut dav1d_cpu_flags_mask: core::ffi::c_uint = !(0 as core::ffi::c_uint);
 #[no_mangle]
 #[cold]
-pub unsafe extern "C" fn dav1d_init_cpu() {}
+pub unsafe extern "C" fn dav1d_init_cpu() {
+    dav1d_cpu_flags = crate::simd::cpu::dav1d_get_cpu_flags_native(); // dav1d-dispatch
+}
 #[no_mangle]
 #[cold]
 pub unsafe extern "C" fn dav1d_set_cpu_flags_mask(mask: core::ffi::c_uint) {

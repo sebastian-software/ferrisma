@@ -18,6 +18,8 @@ compile_error!("The recorded dav1d profiles target macOS ARM64 and GNU Linux x86
 extern crate c2rust_bitfields;
 
 mod platform;
+/// Kernels rebuilt from the original's assembly with intrinsics (ADR 0062).
+pub mod simd;
 #[cfg(all(target_os = "macos", debug_assertions))]
 include!("modules.rs");
 #[cfg(all(target_os = "macos", not(debug_assertions)))]
