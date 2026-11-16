@@ -133,7 +133,27 @@ jobs:
           codecs/libjxl-rs/target/brotli-support/${{ matrix.oracle }}
           !codecs/libjxl-rs/target/brotli-support/${{ matrix.oracle }}/captures
     - name: Run the checked-profile tests
-      run: python3 tools/check.py --stage test --partition "$PARTITION" $ORACLE_FLAGS
+      # On Linux the step also reports the job's peak memory use (MemTotal
+      # minus MemAvailable, sampled every 5 s) and the largest single
+      # process (GNU time), since the gate tests run their references
+      # concurrently.
+      run: |
+        if [ "$RUNNER_OS" = Linux ]; then
+          ( peak=0; while sleep 5; do
+              used=$(awk '/^MemTotal/ {t=$2} /^MemAvailable/ {a=$2} END {print int((t-a)/1024)}' /proc/meminfo)
+              [ "$used" -gt "$peak" ] && peak=$used && echo "$peak" > "$RUNNER_TEMP/peak-mib"
+            done ) &
+          sampler=$!
+          status=0
+          timer=()
+          [ -x /usr/bin/time ] && timer=(/usr/bin/time -v -o "$RUNNER_TEMP/time.txt")
+          "${timer[@]}" python3 tools/check.py --stage test --partition "$PARTITION" $ORACLE_FLAGS || status=$?
+          kill "$sampler" || true
+          echo "Peak memory in use: $(cat "$RUNNER_TEMP/peak-mib" 2>/dev/null) MiB of $(awk '/^MemTotal/ {print int($2/1024)}' /proc/meminfo) MiB"
+          grep 'Maximum resident set size' "$RUNNER_TEMP/time.txt" 2>/dev/null || true
+          exit "$status"
+        fi
+        python3 tools/check.py --stage test --partition "$PARTITION" $ORACLE_FLAGS
     defaults:
       run:
         working-directory: codecs/libjxl-rs
