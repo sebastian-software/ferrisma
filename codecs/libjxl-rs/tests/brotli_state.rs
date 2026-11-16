@@ -152,6 +152,221 @@ fn initialized_state_bytes_and_callbacks_match_actual_pinned_source() {
         .iter()
         .map(|line| observer::observe(line))
         .collect();
-    assert_eq!(output.stdout, expected.as_bytes());
+    let original = String::from_utf8(output.stdout).unwrap();
+    // Owner decision of 2026-11-16 (port ADR 0003, "Brotli flag word and
+    // transform tail bytes"): the port zeroes the packed flag word when it
+    // creates the state; the original leaves the bits it has not written as
+    // the allocator returned them. Left out of this comparison are exactly
+    // those bits: the 12 padding bits always, and the fields StateInit does
+    // not assign (size_nibbles) while no request has read a metablock header.
+    // Every bit StateInit assigns, every other byte of every block and every
+    // callback stay compared exactly.
+    let unwritten = unwritten_flag_bits(&requests);
+    let original = mask_flag_word(&original, unwritten.mask, 0);
+    let port = mask_flag_word(&expected, unwritten.mask, unwritten.port_zero);
+    assert_eq!(original, port);
     eprintln!("Brotli source state checkpoints: {}", requests.len());
+}
+
+/// The packed flag word of c/dec/state.h (`BrotliDecoderStateStruct`): the
+/// consecutive `unsigned int name : width;` members from `is_last_metablock`
+/// to `size_nibbles`, as `(name, shift, width)`. Clang and GCC allocate them
+/// from the least significant bit of one `unsigned int` on AArch64 and
+/// x86-64, as the port's `BitfieldWord` shifts do.
+#[cfg(feature = "cpp-oracle")]
+fn original_flag_fields() -> Vec<(String, u32, u32)> {
+    let header = include_str!("../upstream/libjxl/third_party/brotli/c/dec/state.h");
+    let start = header
+        .find("unsigned int is_last_metablock : 1;")
+        .expect("the original's flag bitfield");
+    let mut fields = Vec::new();
+    let mut shift = 0;
+    for line in header[start..].lines() {
+        let Some(member) = line.trim().strip_prefix("unsigned int ") else {
+            break;
+        };
+        let (name, width) = member
+            .strip_suffix(';')
+            .and_then(|m| m.split_once(" : "))
+            .expect("a bitfield member");
+        let width: u32 = width.parse().unwrap();
+        fields.push((name.to_owned(), shift, width));
+        shift += width;
+    }
+    assert!(shift > 0 && shift < 32);
+    fields
+}
+
+/// The flag fields `BrotliDecoderStateInit` (c/dec/state.c) assigns:
+/// every `s->name = ` statement in its body for a field of the word.
+#[cfg(feature = "cpp-oracle")]
+fn fields_assigned_by_state_init(fields: &[(String, u32, u32)]) -> Vec<String> {
+    let source = include_str!("../upstream/libjxl/third_party/brotli/c/dec/state.c");
+    let start = source
+        .find("BROTLI_BOOL BrotliDecoderStateInit(")
+        .expect("the original's StateInit");
+    let end = start + source[start..].find("\n}").expect("the end of StateInit");
+    let body = &source[start..end];
+    fields
+        .iter()
+        .filter(|(name, _, _)| body.contains(&format!("s->{name} = ")))
+        .map(|(name, _, _)| name.clone())
+        .collect()
+}
+
+#[cfg(feature = "cpp-oracle")]
+struct UnwrittenFlagBits {
+    /// Bits left out of the comparison, on both sides.
+    mask: u32,
+    /// Of those, the bits the port must hold as zero (its zeroed word).
+    port_zero: u32,
+}
+
+/// The bits of the flag word the original has not written at this test's
+/// checkpoints: the padding (bits the declaration does not use), and the
+/// fields StateInit does not assign, as long as no request reaches the code
+/// that writes them. In this test (and in tools/brotli_state_reference.py)
+/// every request is StateInit followed by at most one of BrotliDecoderState
+/// MetablockBegin, HuffmanTreeGroupInit or StateCleanupAfterMetablock (bs-state
+/// actions 0..3), a default-allocator call (bs-default) or a layout dump
+/// (bs-layout). None reads a metablock header, the only place the original
+/// writes size_nibbles (DecodeMetaBlockLength, c/dec/decode.c); the request
+/// check below fails for any other request.
+#[cfg(feature = "cpp-oracle")]
+fn unwritten_flag_bits(requests: &[&str]) -> UnwrittenFlagBits {
+    for request in requests {
+        let words: Vec<_> = request.split_whitespace().collect();
+        match words[0] {
+            "bs-state" => assert!(
+                matches!(words[3], "0" | "1" | "2" | "3"),
+                "a request may write a flag field StateInit leaves unwritten: {request}"
+            ),
+            "bs-default" | "bs-layout" => {}
+            _ => panic!("unclassified request for the flag-word exclusion: {request}"),
+        }
+    }
+    let fields = original_flag_fields();
+    let assigned = fields_assigned_by_state_init(&fields);
+    let unassigned: Vec<_> = fields
+        .iter()
+        .filter(|(name, _, _)| !assigned.contains(name))
+        .collect();
+    // Pinned upstream: StateInit assigns every field but size_nibbles
+    // (state.c lines 49 and 82-88). A change of the pin fails here first.
+    assert_eq!(
+        unassigned.iter().map(|f| f.0.as_str()).collect::<Vec<_>>(),
+        ["size_nibbles"]
+    );
+    let used: u32 = fields.iter().map(|f| f.2).sum();
+    let padding = u32::MAX << used;
+    let unwritten_fields = unassigned.iter().fold(0, |mask, (_, shift, width)| {
+        mask | ((u32::MAX >> (32 - width)) << shift)
+    });
+    UnwrittenFlagBits {
+        mask: padding | unwritten_fields,
+        port_zero: padding | unwritten_fields,
+    }
+}
+
+/// Sets the excluded bits of the flag word to zero in every state-block dump
+/// (` B<n>:<hex>` of exactly the state's size) of an observation text, after
+/// checking that the bits in `zero` are zero there.
+#[cfg(feature = "cpp-oracle")]
+fn mask_flag_word(text: &str, mask: u32, zero: u32) -> String {
+    let (size, offset) = observer::state_flag_word();
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(" B") {
+        let (head, tail) = rest.split_at(at + 2);
+        out.push_str(head);
+        let colon = tail.find(':').unwrap_or(0);
+        let hex_start = colon + 1;
+        let hex_len = tail[hex_start..]
+            .find(|c: char| !c.is_ascii_hexdigit())
+            .unwrap_or(tail.len() - hex_start);
+        if colon > 0 && tail[..colon].bytes().all(|b| b.is_ascii_digit()) && hex_len == 2 * size {
+            let hex = &tail[hex_start..hex_start + hex_len];
+            let word = &hex[2 * offset..2 * offset + 8];
+            let bytes: [u8; 4] =
+                std::array::from_fn(|i| u8::from_str_radix(&word[2 * i..2 * i + 2], 16).unwrap());
+            let value = u32::from_ne_bytes(bytes);
+            assert_eq!(
+                value & zero,
+                0,
+                "the port's unwritten flag bits must be zero: {word}"
+            );
+            out.push_str(&tail[..hex_start]);
+            out.push_str(&hex[..2 * offset]);
+            for byte in (value & !mask).to_ne_bytes() {
+                out.push_str(&format!("{byte:02x}"));
+            }
+            out.push_str(&hex[2 * offset + 8..]);
+            rest = &tail[hex_start + hex_len..];
+        } else {
+            rest = tail;
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+#[cfg(feature = "cpp-oracle")]
+#[test]
+fn flag_word_exclusion_covers_only_unwritten_bits() {
+    let (size, offset) = observer::state_flag_word();
+    let unwritten = unwritten_flag_bits(&["bs-state 0 165 0 0 256 256 1"]);
+    assert_eq!(unwritten.mask, 0xffff_f000, "padding and size_nibbles");
+    let dump = |word: [u8; 4], other: &str| {
+        let mut block = "a5".repeat(size);
+        let word: String = word.iter().map(|b| format!("{b:02x}")).collect();
+        block.replace_range(2 * offset..2 * offset + 8, &word);
+        block.replace_range(2 * offset + 8..2 * offset + 10, other);
+        format!(" A1:{size} B1:{block} B2:a5a5")
+    };
+    let same =
+        |a: &str, b: &str, mask: u32| mask_flag_word(a, mask, 0) == mask_flag_word(b, mask, 0);
+    let original = dump(0xa5a5_a010_u32.to_ne_bytes(), "a5");
+    let port = dump(0x0000_0010_u32.to_ne_bytes(), "a5");
+    // The real case: padding and the unwritten size_nibbles differ.
+    assert!(same(&original, &port, unwritten.mask));
+    assert_eq!(
+        mask_flag_word(&port, unwritten.mask, unwritten.port_zero),
+        mask_flag_word(&port, unwritten.mask, 0)
+    );
+    // A defined bit of the word (window_bits) or another byte still differs.
+    assert!(!same(
+        &dump(0x0000_0050_u32.to_ne_bytes(), "a5"),
+        &port,
+        unwritten.mask
+    ));
+    assert!(!same(
+        &dump(0x0000_0010_u32.to_ne_bytes(), "00"),
+        &port,
+        unwritten.mask
+    ));
+    // Once size_nibbles is written, only the padding is left out, and a
+    // difference in size_nibbles fails.
+    let padding_only = unwritten.mask & 0xfff0_0000;
+    assert!(!same(
+        &dump(0x0000_5010_u32.to_ne_bytes(), "a5"),
+        &dump(0x0000_6010_u32.to_ne_bytes(), "a5"),
+        padding_only
+    ));
+    assert!(same(
+        &dump(0xa5a0_5010_u32.to_ne_bytes(), "a5"),
+        &dump(0x0000_5010_u32.to_ne_bytes(), "a5"),
+        padding_only
+    ));
+    // A port word with a set unwritten bit is rejected.
+    assert!(
+        std::panic::catch_unwind(|| mask_flag_word(&original, unwritten.mask, unwritten.port_zero))
+            .is_err()
+    );
+}
+
+#[cfg(feature = "cpp-oracle")]
+#[test]
+#[should_panic(expected = "may write a flag field")]
+fn a_request_that_reads_a_header_ends_the_exclusion() {
+    unwritten_flag_bits(&["bs-state 0 165 4 0 256 256 1"]);
 }

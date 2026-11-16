@@ -20,22 +20,24 @@ fn word(storage: &mut MaybeUninit<u32>) -> bitfield::BitfieldWord<'_> {
 #[test]
 fn window_reader_does_not_require_unknown_neighbor_fields() {
     for byte in [0, 17] {
-        let mut flags = MaybeUninit::uninit();
+        // The decoder's flag word starts at zero (owner decision of 2026-11-16;
+        // ADR 0003): its other fields are no longer unknown bits.
+        let mut flags = MaybeUninit::new(0u32);
         word(&mut flags).write(5, 1, 1);
         let mut br = BitReader::new();
         br.val = byte;
         br.bit_pos = 8;
-        // SAFETY: The source window entry needs only initialized large_window
-        // and eight accumulator bits. Other packed fields remain unknown.
+        // SAFETY: The source window entry needs initialized large_window, a
+        // zeroed rest of the flag word and eight accumulator bits.
         assert_eq!(
             unsafe { metablock::decode_window_bits(&mut flags, &mut br) },
             1
         );
-        // SAFETY: DecodeWindowBits always initializes this selected field.
+        // DecodeWindowBits always writes this field.
         assert_eq!(word(&mut flags).read(5, 1), u32::from(byte == 17));
         if byte == 0 {
-            // SAFETY: This branch wrote window_bits=16. The large-window
-            // marker branch intentionally leaves it unknown until later.
+            // This branch wrote window_bits=16; the large-window marker branch
+            // writes it later.
             assert_eq!(word(&mut flags).read(6, 6), 16);
         }
     }
@@ -76,7 +78,9 @@ fn variable_reader_initializes_output_only_at_reached_checkpoints() {
 #[test]
 fn empty_last_metablock_never_reads_unknown_counter_or_size() {
     let mut state = MaybeUninit::new(0);
-    let mut flags = MaybeUninit::uninit();
+    // The decoder's flag word starts at zero (owner decision of 2026-11-16;
+    // ADR 0003): its other fields are no longer unknown bits.
+    let mut flags = MaybeUninit::new(0u32);
     let mut length = MaybeUninit::uninit();
     let mut counter = MaybeUninit::uninit();
     let mut br = BitReader::new();
@@ -126,7 +130,9 @@ fn empty_last_metablock_never_reads_unknown_counter_or_size() {
 #[test]
 fn length_reader_retains_partial_nibbles_and_saved_loop_index() {
     let mut state = MaybeUninit::new(0);
-    let mut flags = MaybeUninit::uninit();
+    // The decoder's flag word starts at zero (owner decision of 2026-11-16;
+    // ADR 0003): its other fields are no longer unknown bits.
+    let mut flags = MaybeUninit::new(0u32);
     let mut length = MaybeUninit::uninit();
     let mut counter = MaybeUninit::uninit();
     let mut br = BitReader::new();

@@ -1871,28 +1871,38 @@ Since then:
   buffer is not zeroed.
 
 **What changes:** only the content of bits and bytes the original leaves
-uninitialized: the 12 padding bits of the flag word (zero instead of what the
-allocator returned) and a not-yet-written destination byte past the
-transform's initialized prefix (not XORed). Only a caller's custom allocator
-could observe them.
+uninitialized, which only a caller's custom allocator could observe: in the
+flag word the 12 padding bits and, until the first metablock header is read,
+the 8 bits of `size_nibbles` (StateInit does not assign that field; the
+original leaves both as the allocator returned them, the port has zeros);
+and a not-yet-written destination byte past the transform's initialized
+prefix (not XORed).
 
 **What stays identical with the original and is still compared:** every
 decoded byte, every status and error code, consumed and produced byte counts,
 and every allocation call with its size and order. The decoder never reads
-the changed bits or bytes, so none of these can change. Every field
-assignment keeps its source order and truncation. The bitfield proof
-(`tools/brotli_bitfield_probe.rs`, 33,664 requests against both original
-graphs) and the raw-transform proof (1,633,984 tuples) still compare every
-field value and every byte the original defines, and both pass unchanged:
-their seeded lanes initialize every byte before the operation, and their
-other lanes compare only field values and the returned prefix. One further
-comparison observes the padding bits:
-`tests/brotli_state.rs::initialized_state_bytes_and_callbacks_match_actual_pinned_source`
-(also run by `tools/brotli_state_representation.py`) compares the whole
-state block after StateInit with an allocator that seeds it (0xa5); the
-original keeps the seed in the flag word's padding, the port has zeros
-(`10a0a5a5` against `10000000` at the flag word). Its retirement is pending
-the owner's decision, since the decision named two other comparisons. No Brotli representation is tied to an
+the changed bits or bytes before writing them, so none of these can change.
+Every field assignment keeps its source order and truncation.
+
+**Comparisons.** The two proofs named with the decision pass unchanged: the
+bitfield proof (`tools/brotli_bitfield_probe.rs`, 33,664 requests against both
+original graphs, every field value and, in its seeded lane, every byte of the
+block) and the raw-transform proof (1,633,984 tuples per mode, every defined
+byte; `tests/brotli_raw_transform.rs`, including `allocator_seeded_tail…`,
+unchanged). Their lanes that wrote into a word with unknown neighbours now
+start from a zeroed word, as the decoder does; they compare field values
+only. The same holds for three `tests/brotli_metablock.rs` tests. A third
+comparison, the state block after StateInit with an allocator that seeds every
+byte (`tests/brotli_state.rs::initialized_state_bytes_and_callbacks_match_actual_pinned_source`
+and `tools/brotli_state_reference.py`, 530 requests), leaves out exactly the
+bits the original has not written: the padding (from the field layout in
+`c/dec/state.h`) always, and the fields `BrotliDecoderStateInit` does not
+assign (from `c/dec/state.c`: only `size_nibbles`) while no request reads a
+metablock header. Both check the request kinds and fail on a request that
+could write such a field, check that the port holds the excluded bits as
+zero, and fail if the pinned sources change the set of unassigned fields.
+Every bit StateInit assigns, every other byte of every block and every
+callback stay exact (owner decision of 2026-11-16). No Brotli representation is tied to an
 architecture any longer: the module checks for `riscv64gc-unknown-linux-gnu`.
 
 The complete Brotli streaming state machine retains the actual decoder block

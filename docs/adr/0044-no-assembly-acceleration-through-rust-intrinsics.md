@@ -209,8 +209,13 @@ transform's byte XOR only inside the destination's initialized prefix
 ([libjxl-rs ADR 0003](../../codecs/libjxl-rs/docs/adr/0003-rust-representation.md),
 "Brotli flag word and transform tail bytes"). What changes is only the content
 of bits and bytes the original leaves uninitialized, which a caller's custom
-allocator could observe: the flag word's padding bits, and a not-yet-written
-destination byte past the transform's initialized prefix. Every decoded byte,
+allocator could observe: in the flag word the 12 padding bits and, until the
+first metablock header is read, the 8 bits of `size_nibbles`, because the
+original leaves them as the allocator returned them; and a not-yet-written
+destination byte past the transform's initialized prefix. The two proofs
+named with the decision (the bitfield and raw-transform proofs) pass
+unchanged; the Brotli state comparison leaves out exactly those flag-word
+bits. Every decoded byte,
 every status, consumed and produced counts and every allocation call with its
 size and order stay identical with the original and stay compared. The
 Brotli code is no longer tied to AArch64 and x86-64.
