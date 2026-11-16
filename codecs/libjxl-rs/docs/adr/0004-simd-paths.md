@@ -2505,3 +2505,48 @@ coefficient.
 
 Same loads, operations and order; no `unsafe`.
 <!-- end x86 profile 2 -->
+<!-- x86 profile 3 -->
+## 4-lane vectors on AVX2, kernel helpers in context (2026-11-16, branch `v1/jxl-x86-profile`)
+
+**Finding** (native profile of `2bba8fed`, run 43846929719, x86-64). The
+4-column transforms (4x4, 4x8, 8x4, forward and inverse) took 15% of the
+lossy encode's time on x86-64. On AVX2 the original runs them with
+`HWY_CAPPED(float, 4)`, Highway's 128-bit `Vec128<float>`; the port ran
+them with `Part<_, 4>`, a four-element array computed lane by lane, and
+transposed them with an element loop that checked every access. The
+AC-strategy kernels called `AcsConfig::masking_ptr1x1` (once per vector of
+the masking loop), `DequantMatrices::matrix`/`inv_matrix`, `pixel`,
+`ceil_log2_nonzero` and the `AcStrategyImage` row helpers out of line from
+AVX2 code. `AdjustQuantBlockAC`, which the original compiles inside
+`HWY_NAMESPACE`, ran outside the attribute context, so its `rintf` and its
+double `fma` were libm calls per coefficient. `ComputeBlockL2Distance`
+checked seven indices per pixel.
+
+**Change.** `SimdF32` gains the `HWY_CAPPED(float, 4)` descriptor
+(`type Q` with `q_load`, `q_store`, `q_set`, `q_add`, `q_sub`, `q_mul`,
+`q_mul_add`, `q_neg_mul_add`): `__m128` with `_mm_*` and
+`_mm_fmadd_ps`/`_mm_fnmadd_ps` on AVX2 as hwy/ops/x86_128-inl.h, the full
+vector on NEON. `dct_simd`'s `Quad` uses it for the 4-column transforms on
+targets with more than four lanes; `Part` keeps the 1- and 2-lane cases.
+The `tests/simd_parity.rs` operation list compares each new operation,
+and `ConcatLowerLower`/`ConcatUpperUpper` of the blocked transpose, with
+the original's `CappedTag<float, 4>` and full-vector operations
+(`tools/oracle/hwy_ops.cc`). The 8-lane test descriptors implement the
+4-lane operations with one NEON vector. The element-loop transpose slices
+both buffers to its extent. The accessors above and `AdjustQuantBlockAC`
+are `#[inline(always)]`, so they run in the calling kernel's attribute
+context as in the original; `ComputeBlockL2Distance` slices its rows to
+the rect's width. Same operations and order; no new `unsafe` beyond the
+Highway layer's existing intrinsic blocks.
+
+**Accepted difference: zeroed allocations.** `AlignedMemory::create`
+allocates with `alloc_zeroed` where the original's `AlignedMemory::Create`
+leaves memory uninitialized. In the x86-64 profile of the lossy encode
+this is libc's `memset` behind `calloc` (233 M instructions on the
+1536x1024 crop, about 3% of the port's instructions; about 1% of the
+12 MP encode's time). The parity tests compare the port's allocation
+history with the original's, so reusing allocations would change
+allocator-observable behavior, and uninitialized memory behind a safe
+accessor is not a change of form; the difference is kept (working
+decision 2026-11-16, delegated, revisable by the owner).
+<!-- end x86 profile 3 -->
