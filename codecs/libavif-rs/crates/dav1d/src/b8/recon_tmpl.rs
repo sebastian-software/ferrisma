@@ -2621,7 +2621,7 @@ unsafe extern "C" fn dav1d_msac_decode_bools(
         if !(fresh2 != 0) {
             break;
         }
-        v = v << 1 as core::ffi::c_int | dav1d_msac_decode_bool_equi_c(s);
+        v = v << 1 as core::ffi::c_int | crate::simd::arm::msac::dav1d_msac_decode_bool_equi(s);
     }
     return v;
 }
@@ -2697,7 +2697,7 @@ unsafe extern "C" fn sm_uv_flag(
 unsafe extern "C" fn read_golomb(msac: *mut MsacContext) -> core::ffi::c_uint {
     let mut len: core::ffi::c_int = 0 as core::ffi::c_int;
     let mut val: core::ffi::c_uint = 1 as core::ffi::c_uint;
-    while dav1d_msac_decode_bool_equi_c(msac) == 0 && len < 32 as core::ffi::c_int {
+    while crate::simd::arm::msac::dav1d_msac_decode_bool_equi(msac) == 0 && len < 32 as core::ffi::c_int {
         len += 1;
     }
     loop {
@@ -2707,7 +2707,7 @@ unsafe extern "C" fn read_golomb(msac: *mut MsacContext) -> core::ffi::c_uint {
             break;
         }
         val = (val << 1 as core::ffi::c_int)
-            .wrapping_add(dav1d_msac_decode_bool_equi_c(msac));
+            .wrapping_add(crate::simd::arm::msac::dav1d_msac_decode_bool_equi(msac));
     }
     return val.wrapping_sub(1 as core::ffi::c_uint);
 }
@@ -3507,7 +3507,7 @@ unsafe extern "C" fn decode_coefs(
     }
     let sctx: core::ffi::c_int = get_skip_ctx(t_dim, bs, a, l, chroma, (*f).cur.p.layout)
         as core::ffi::c_int;
-    let all_skip: core::ffi::c_int = dav1d_msac_decode_bool_adapt_c(
+    let all_skip: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
         &raw mut (*ts).msac,
         ((*ts).cdf.coef.skip[(*t_dim).ctx as usize][sctx as usize]).as_mut_ptr(),
     ) as core::ffi::c_int;
@@ -3569,7 +3569,7 @@ unsafe extern "C" fn decode_coefs(
             if (*(*f).frame_hdr).reduced_txtp_set as core::ffi::c_int != 0
                 || (*t_dim).min as core::ffi::c_int == TX_16X16 as core::ffi::c_int
             {
-                idx = dav1d_msac_decode_symbol_adapt_c(
+                idx = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                     &raw mut (*ts).msac,
                     ((*ts)
                         .cdf
@@ -3581,7 +3581,7 @@ unsafe extern "C" fn decode_coefs(
                 *txtp = dav1d_tx_types_per_set[idx.wrapping_add(0 as core::ffi::c_uint)
                     as usize] as TxfmType;
             } else {
-                idx = dav1d_msac_decode_symbol_adapt_c(
+                idx = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                     &raw mut (*ts).msac,
                     ((*ts)
                         .cdf
@@ -3609,14 +3609,14 @@ unsafe extern "C" fn decode_coefs(
             if (*(*f).frame_hdr).reduced_txtp_set as core::ffi::c_int != 0
                 || (*t_dim).max as core::ffi::c_int == TX_32X32 as core::ffi::c_int
             {
-                idx = dav1d_msac_decode_bool_adapt_c(
+                idx = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.txtp_inter3[(*t_dim).min as usize]).as_mut_ptr(),
                 );
                 *txtp = (idx.wrapping_sub(1 as core::ffi::c_uint)
                     & IDTX as core::ffi::c_int as core::ffi::c_uint) as TxfmType;
             } else if (*t_dim).min as core::ffi::c_int == TX_16X16 as core::ffi::c_int {
-                idx = dav1d_msac_decode_symbol_adapt_c(
+                idx = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.txtp_inter2).as_mut_ptr(),
                     11 as size_t,
@@ -3624,7 +3624,7 @@ unsafe extern "C" fn decode_coefs(
                 *txtp = dav1d_tx_types_per_set[idx.wrapping_add(12 as core::ffi::c_uint)
                     as usize] as TxfmType;
             } else {
-                idx = dav1d_msac_decode_symbol_adapt_c(
+                idx = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.txtp_inter1[(*t_dim).min as usize]).as_mut_ptr(),
                     15 as size_t,
@@ -3665,7 +3665,7 @@ unsafe extern "C" fn decode_coefs(
                 .coef
                 .eob_bin_16[chroma as usize][is_1d as usize])
                 .as_mut_ptr();
-            eob = dav1d_msac_decode_symbol_adapt_c(
+            eob = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                 &raw mut (*ts).msac,
                 eob_bin_cdf,
                 (4 as core::ffi::c_int + 0 as core::ffi::c_int) as size_t,
@@ -3677,7 +3677,7 @@ unsafe extern "C" fn decode_coefs(
                 .coef
                 .eob_bin_32[chroma as usize][is_1d as usize])
                 .as_mut_ptr();
-            eob = dav1d_msac_decode_symbol_adapt_c(
+            eob = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                 &raw mut (*ts).msac,
                 eob_bin_cdf_0,
                 (4 as core::ffi::c_int + 1 as core::ffi::c_int) as size_t,
@@ -3689,7 +3689,7 @@ unsafe extern "C" fn decode_coefs(
                 .coef
                 .eob_bin_64[chroma as usize][is_1d as usize])
                 .as_mut_ptr();
-            eob = dav1d_msac_decode_symbol_adapt_c(
+            eob = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                 &raw mut (*ts).msac,
                 eob_bin_cdf_1,
                 (4 as core::ffi::c_int + 2 as core::ffi::c_int) as size_t,
@@ -3701,7 +3701,7 @@ unsafe extern "C" fn decode_coefs(
                 .coef
                 .eob_bin_128[chroma as usize][is_1d as usize])
                 .as_mut_ptr();
-            eob = dav1d_msac_decode_symbol_adapt_c(
+            eob = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                 &raw mut (*ts).msac,
                 eob_bin_cdf_2,
                 (4 as core::ffi::c_int + 3 as core::ffi::c_int) as size_t,
@@ -3713,7 +3713,7 @@ unsafe extern "C" fn decode_coefs(
                 .coef
                 .eob_bin_256[chroma as usize][is_1d as usize])
                 .as_mut_ptr();
-            eob = dav1d_msac_decode_symbol_adapt_c(
+            eob = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                 &raw mut (*ts).msac,
                 eob_bin_cdf_3,
                 (4 as core::ffi::c_int + 4 as core::ffi::c_int) as size_t,
@@ -3725,7 +3725,7 @@ unsafe extern "C" fn decode_coefs(
                 .coef
                 .eob_bin_512[chroma as usize])
                 .as_mut_ptr();
-            eob = dav1d_msac_decode_symbol_adapt_c(
+            eob = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                 &raw mut (*ts).msac,
                 eob_bin_cdf_4,
                 (4 as core::ffi::c_int + 5 as core::ffi::c_int) as size_t,
@@ -3737,7 +3737,7 @@ unsafe extern "C" fn decode_coefs(
                 .coef
                 .eob_bin_1024[chroma as usize])
                 .as_mut_ptr();
-            eob = dav1d_msac_decode_symbol_adapt_c(
+            eob = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                 &raw mut (*ts).msac,
                 eob_bin_cdf_5,
                 (4 as core::ffi::c_int + 6 as core::ffi::c_int) as size_t,
@@ -3763,7 +3763,7 @@ unsafe extern "C" fn decode_coefs(
             .coef
             .eob_hi_bit[(*t_dim).ctx as usize][chroma as usize][eob_bin as usize])
             .as_mut_ptr();
-        let eob_hi_bit: core::ffi::c_int = dav1d_msac_decode_bool_adapt_c(
+        let eob_hi_bit: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
             &raw mut (*ts).msac,
             eob_hi_bit_cdf,
         ) as core::ffi::c_int;
@@ -3826,7 +3826,7 @@ unsafe extern "C" fn decode_coefs(
             + (eob > (2 as core::ffi::c_int) << tx2dszctx) as core::ffi::c_int
             + (eob > (4 as core::ffi::c_int) << tx2dszctx) as core::ffi::c_int)
             as core::ffi::c_uint;
-        let mut eob_tok: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+        let mut eob_tok: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
             &raw mut (*ts).msac,
             (*eob_cdf.offset(ctx as isize)).as_mut_ptr(),
             2 as size_t,
@@ -3901,7 +3901,7 @@ unsafe extern "C" fn decode_coefs(
                     } else {
                         7 as core::ffi::c_int
                     }) as core::ffi::c_uint;
-                    tok = dav1d_msac_decode_hi_tok_c(
+                    tok = crate::simd::arm::msac::dav1d_msac_decode_hi_tok(
                         &raw mut (*ts).msac,
                         (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
                     ) as core::ffi::c_int;
@@ -3987,7 +3987,7 @@ unsafe extern "C" fn decode_coefs(
                     {
                         y |= x;
                     }
-                    tok = dav1d_msac_decode_symbol_adapt_c(
+                    tok = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                         &raw mut (*ts).msac,
                         (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
                         3 as size_t,
@@ -4024,7 +4024,7 @@ unsafe extern "C" fn decode_coefs(
                                         >> 1 as core::ffi::c_int
                                 }),
                             );
-                        tok = dav1d_msac_decode_hi_tok_c(
+                        tok = crate::simd::arm::msac::dav1d_msac_decode_hi_tok(
                             &raw mut (*ts).msac,
                             (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
                         ) as core::ffi::c_int;
@@ -4078,7 +4078,7 @@ unsafe extern "C" fn decode_coefs(
                         stride,
                     )
                 };
-                dc_tok = dav1d_msac_decode_symbol_adapt_c(
+                dc_tok = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                     &raw mut (*ts).msac,
                     (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
                     3 as size_t,
@@ -4113,7 +4113,7 @@ unsafe extern "C" fn decode_coefs(
                     } else {
                         mag.wrapping_add(1 as core::ffi::c_uint) >> 1 as core::ffi::c_int
                     };
-                    dc_tok = dav1d_msac_decode_hi_tok_c(
+                    dc_tok = crate::simd::arm::msac::dav1d_msac_decode_hi_tok(
                         &raw mut (*ts).msac,
                         (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
                     );
@@ -4191,7 +4191,7 @@ unsafe extern "C" fn decode_coefs(
                     } else {
                         7 as core::ffi::c_int
                     }) as core::ffi::c_uint;
-                    tok = dav1d_msac_decode_hi_tok_c(
+                    tok = crate::simd::arm::msac::dav1d_msac_decode_hi_tok(
                         &raw mut (*ts).msac,
                         (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
                     ) as core::ffi::c_int;
@@ -4277,7 +4277,7 @@ unsafe extern "C" fn decode_coefs(
                     {
                         y_0 |= x_0;
                     }
-                    tok = dav1d_msac_decode_symbol_adapt_c(
+                    tok = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                         &raw mut (*ts).msac,
                         (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
                         3 as size_t,
@@ -4314,7 +4314,7 @@ unsafe extern "C" fn decode_coefs(
                                         >> 1 as core::ffi::c_int
                                 }),
                             );
-                        tok = dav1d_msac_decode_hi_tok_c(
+                        tok = crate::simd::arm::msac::dav1d_msac_decode_hi_tok(
                             &raw mut (*ts).msac,
                             (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
                         ) as core::ffi::c_int;
@@ -4368,7 +4368,7 @@ unsafe extern "C" fn decode_coefs(
                         stride_0,
                     )
                 };
-                dc_tok = dav1d_msac_decode_symbol_adapt_c(
+                dc_tok = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                     &raw mut (*ts).msac,
                     (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
                     3 as size_t,
@@ -4406,7 +4406,7 @@ unsafe extern "C" fn decode_coefs(
                     } else {
                         mag.wrapping_add(1 as core::ffi::c_uint) >> 1 as core::ffi::c_int
                     };
-                    dc_tok = dav1d_msac_decode_hi_tok_c(
+                    dc_tok = crate::simd::arm::msac::dav1d_msac_decode_hi_tok(
                         &raw mut (*ts).msac,
                         (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
                     );
@@ -4485,7 +4485,7 @@ unsafe extern "C" fn decode_coefs(
                     } else {
                         7 as core::ffi::c_int
                     }) as core::ffi::c_uint;
-                    tok = dav1d_msac_decode_hi_tok_c(
+                    tok = crate::simd::arm::msac::dav1d_msac_decode_hi_tok(
                         &raw mut (*ts).msac,
                         (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
                     ) as core::ffi::c_int;
@@ -4571,7 +4571,7 @@ unsafe extern "C" fn decode_coefs(
                     {
                         y_1 |= x_1;
                     }
-                    tok = dav1d_msac_decode_symbol_adapt_c(
+                    tok = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                         &raw mut (*ts).msac,
                         (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
                         3 as size_t,
@@ -4608,7 +4608,7 @@ unsafe extern "C" fn decode_coefs(
                                         >> 1 as core::ffi::c_int
                                 }),
                             );
-                        tok = dav1d_msac_decode_hi_tok_c(
+                        tok = crate::simd::arm::msac::dav1d_msac_decode_hi_tok(
                             &raw mut (*ts).msac,
                             (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
                         ) as core::ffi::c_int;
@@ -4662,7 +4662,7 @@ unsafe extern "C" fn decode_coefs(
                         stride_1,
                     )
                 };
-                dc_tok = dav1d_msac_decode_symbol_adapt_c(
+                dc_tok = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                     &raw mut (*ts).msac,
                     (*lo_cdf.offset(ctx as isize)).as_mut_ptr(),
                     3 as size_t,
@@ -4700,7 +4700,7 @@ unsafe extern "C" fn decode_coefs(
                     } else {
                         mag.wrapping_add(1 as core::ffi::c_uint) >> 1 as core::ffi::c_int
                     };
-                    dc_tok = dav1d_msac_decode_hi_tok_c(
+                    dc_tok = crate::simd::arm::msac::dav1d_msac_decode_hi_tok(
                         &raw mut (*ts).msac,
                         (*hi_cdf.offset(ctx as isize)).as_mut_ptr(),
                     );
@@ -4737,7 +4737,7 @@ unsafe extern "C" fn decode_coefs(
             }
         }
     } else {
-        let mut tok_br: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+        let mut tok_br: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
             &raw mut (*ts).msac,
             (*eob_cdf.offset(0 as core::ffi::c_int as isize)).as_mut_ptr(),
             2 as size_t,
@@ -4755,7 +4755,7 @@ unsafe extern "C" fn decode_coefs(
             );
         }
         if tok_br == 2 as core::ffi::c_int {
-            dc_tok = dav1d_msac_decode_hi_tok_c(
+            dc_tok = crate::simd::arm::msac::dav1d_msac_decode_hi_tok(
                 &raw mut (*ts).msac,
                 (*hi_cdf.offset(0 as core::ffi::c_int as isize)).as_mut_ptr(),
             );
@@ -4807,7 +4807,7 @@ unsafe extern "C" fn decode_coefs(
         dc_sign_ctx = get_dc_sign_ctx(tx as core::ffi::c_int, a, l) as core::ffi::c_int;
         dc_sign_cdf = ((*ts).cdf.coef.dc_sign[chroma as usize][dc_sign_ctx as usize])
             .as_mut_ptr();
-        dc_sign = dav1d_msac_decode_bool_adapt_c(&raw mut (*ts).msac, dc_sign_cdf)
+        dc_sign = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(&raw mut (*ts).msac, dc_sign_cdf)
             as core::ffi::c_int;
         if dbg != 0 {
             printf(
@@ -4929,7 +4929,7 @@ unsafe extern "C" fn decode_coefs(
             let ac_dq: core::ffi::c_uint = *dq_tbl.offset(1 as core::ffi::c_int as isize)
                 as core::ffi::c_uint;
             loop {
-                let sign: core::ffi::c_int = dav1d_msac_decode_bool_equi_c(
+                let sign: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_bool_equi(
                     &raw mut (*ts).msac,
                 ) as core::ffi::c_int;
                 if dbg != 0 {
@@ -5000,7 +5000,7 @@ unsafe extern "C" fn decode_coefs(
             let ac_dq_0: core::ffi::c_uint = *dq_tbl
                 .offset(1 as core::ffi::c_int as isize) as core::ffi::c_uint;
             loop {
-                let sign_0: core::ffi::c_int = dav1d_msac_decode_bool_equi_c(
+                let sign_0: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_bool_equi(
                     &raw mut (*ts).msac,
                 ) as core::ffi::c_int;
                 if dbg != 0 {
@@ -9579,7 +9579,7 @@ pub unsafe extern "C" fn dav1d_read_pal_plane_8bpc(
 ) {
     let ts: *mut Dav1dTileState = (*t).ts;
     let f: *const Dav1dFrameContext = (*t).f;
-    (*b).c2rust_unnamed.c2rust_unnamed.pal_sz[pl as usize] = (dav1d_msac_decode_symbol_adapt_c(
+    (*b).c2rust_unnamed.c2rust_unnamed.pal_sz[pl as usize] = (crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
         &raw mut (*ts).msac,
         ((*ts).cdf.m.pal_sz[pl as usize][sz_ctx as usize]).as_mut_ptr(),
         6 as size_t,
@@ -9678,7 +9678,7 @@ pub unsafe extern "C" fn dav1d_read_pal_plane_8bpc(
     let mut i: core::ffi::c_int = 0 as core::ffi::c_int;
     let mut n: core::ffi::c_int = 0 as core::ffi::c_int;
     while n < n_cache && i < pal_sz {
-        if dav1d_msac_decode_bool_equi_c(&raw mut (*ts).msac) != 0 {
+        if crate::simd::arm::msac::dav1d_msac_decode_bool_equi(&raw mut (*ts).msac) != 0 {
             let fresh15 = i;
             i = i + 1;
             used_cache[fresh15 as usize] = cache[n as usize];
@@ -9872,7 +9872,7 @@ pub unsafe extern "C" fn dav1d_read_pal_uv_8bpc(
     } else {
         (*f).cur.p.bpc
     };
-    if dav1d_msac_decode_bool_equi_c(&raw mut (*ts).msac) != 0 {
+    if crate::simd::arm::msac::dav1d_msac_decode_bool_equi(&raw mut (*ts).msac) != 0 {
         let bits: core::ffi::c_int = ((bpc - 4 as core::ffi::c_int) as core::ffi::c_uint)
             .wrapping_add(
                 dav1d_msac_decode_bools(&raw mut (*ts).msac, 2 as core::ffi::c_uint),
@@ -9892,7 +9892,7 @@ pub unsafe extern "C" fn dav1d_read_pal_uv_8bpc(
                 &raw mut (*ts).msac,
                 bits as core::ffi::c_uint,
             ) as core::ffi::c_int;
-            if delta != 0 && dav1d_msac_decode_bool_equi_c(&raw mut (*ts).msac) != 0 {
+            if delta != 0 && crate::simd::arm::msac::dav1d_msac_decode_bool_equi(&raw mut (*ts).msac) != 0 {
                 delta = -delta;
             }
             let fresh23 = &raw mut *pal.offset(i as isize);

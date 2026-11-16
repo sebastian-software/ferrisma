@@ -6,7 +6,8 @@ Usage: python3 -I tools/enable_dav1d_dispatch.py ENTRY...   enable ENTRY and app
        python3 -I tools/enable_dav1d_dispatch.py --rehash   re-record the unit digests
        python3 -I tools/enable_dav1d_dispatch.py --check    compare the tree with the output
 
-An ENTRY is `<family>_<bpc>bpc_<arch>`, for example `itx_8bpc_arm`: the
+An ENTRY is `<family>_<bpc>bpc_<arch>`, for example `itx_8bpc_arm`, or
+`<family>_<arch>` for a family without a bit depth (`msac_arm`): the
 family's 8 bpc init is to call `crate::simd::<arch>::<family>::
 <family>_dsp_init_<arch>_8bpc`, the owned mirror of the original's
 `<family>_dsp_init_<arch>` (src/<arch>/<family>.h). The committed list is
@@ -26,7 +27,19 @@ profile of the matching target, and nothing else:
    profiles (`src/`, `src/release/`, aarch64), `x86` entries into the Linux
    profiles (`src/linux/`, `src/linux/release/`, x86-64).
 
-Each inserted statement ends with the marker comment `// dav1d-dispatch`.
+3. For the entry `msac_<arch>` (the entropy decoder; no bit depth): the
+   original selects msac's assembly at compile time, by renaming the seven
+   calls of `src/msac.h` in every unit that includes it (`src/arm/msac.h`).
+   The translation calls the C functions by name. Each call site in the
+   translated `decode`, `recon_tmpl` (both bit depths) and `msac` units is
+   renamed to the owned function `crate::simd::<arch>::msac::<macro name>`
+   that the original's macro names at that call site; the three symbol
+   sizes, which the translation calls as one C function, follow
+   `SYMBOL_ADAPT` (the macros of the original's call sites, in order).
+   Definitions and declarations keep their C names.
+
+Each inserted statement ends with the marker comment `// dav1d-dispatch`;
+a renamed call is recognizable by its `crate::simd::<arch>::msac::` path.
 `--check` writes nothing: it removes every marked statement from each unit,
 re-applies the committed list and requires the result to equal the unit,
 and it requires the recorded digests (`tools/check_translation.py`'s
@@ -63,15 +76,50 @@ INIT_CPU_EMPTY = 'pub unsafe extern "C" fn dav1d_init_cpu() {}'
 INIT_CPU = ('pub unsafe extern "C" fn dav1d_init_cpu() {\n'
             f'    dav1d_cpu_flags = crate::simd::cpu::dav1d_get_cpu_flags_native(); {MARKER}\n'
             '}')
-ENTRY = re.compile(r'(?P<family>[a-z]+)_(?P<bpc>8|16)bpc_(?P<arch>arm|x86)')
+ENTRY = re.compile(r'(?P<family>[a-z]+)(?:_(?P<bpc>8|16)bpc)?_(?P<arch>arm|x86)')
+# Families without a bit depth, and the units whose calls they rename.
+RENAMED = {'msac': ('common/decode.rs', 'b8/recon_tmpl.rs', 'b16/recon_tmpl.rs', 'common/msac.rs')}
+MSAC_CALLS = ('symbol_adapt', 'bool_adapt', 'bool_equi', 'bool', 'hi_tok')
+# The macro of each `dav1d_msac_decode_symbol_adapt{4,8,16}` call site of the
+# original, in source order, per unit (decode.c; recon_tmpl.c with its
+# `case_sz` and three `DECODE_COEFS_CLASS` expansions; msac.c's
+# `dav1d_msac_decode_hi_tok_c`). The translation keeps that order; the unit
+# test `tests/ports/enable_dav1d_dispatch_test.py` derives these lists
+# from the original sources.
+SYMBOL_ADAPT = {
+    'common/decode.rs': [16, 4, 4, 4, 8, 8, 8, 4, 4, 16, 8, 16, 8, 16, 16, 8, 8, 4, 8, 16, 4, 16, 4, 4, 4, 16, 4],
+    'b8/recon_tmpl.rs': [8, 8, 16, 16, 8, 8, 8, 8, 16, 16, 16, 4, 4, 4, 4, 4, 4, 4, 4, 8],
+    'b16/recon_tmpl.rs': [8, 8, 16, 16, 8, 8, 8, 8, 16, 16, 16, 4, 4, 4, 4, 4, 4, 4, 4, 8],
+    'common/msac.rs': [4, 4, 4, 4],
+}
+CALL = re.compile(r'(?<![\w"])(?<!fn )dav1d_msac_decode_(' + '|'.join(MSAC_CALLS) + r')_c\(')
+RENAMED_CALL = re.compile(r'crate::simd::(?:arm|x86)::msac::dav1d_msac_decode_('
+                          + '|'.join(MSAC_CALLS) + r')(?:4|8|16)?\(')
 
 
 def parse_entry(entry):
     match = ENTRY.fullmatch(entry)
-    if not match or match['family'] not in FAMILIES:
+    family = match and match['family']
+    if not match or (family not in FAMILIES and family not in RENAMED) \
+            or (family in FAMILIES) != (match['bpc'] is not None):
         raise SystemExit(f'unknown entry {entry!r}; expected <family>_<8|16>bpc_<arm|x86> '
-                         f'with family in {sorted(FAMILIES)}')
-    return match['family'], match['bpc'], match['arch']
+                         f'with family in {sorted(FAMILIES)} or <family>_<arm|x86> with family in '
+                         f'{sorted(RENAMED)}')
+    return family, match['bpc'], match['arch']
+
+
+def rename_calls(rel, text, unit, arch):
+    """msac: each C call to the owned function the original's macro names."""
+    sizes = iter(SYMBOL_ADAPT[unit])
+    count = len(SYMBOL_ADAPT[unit])
+    found = len([m for m in CALL.finditer(text) if m[1] == 'symbol_adapt'])
+    if found != count:
+        raise SystemExit(f'{rel}: {found} symbol_adapt calls, SYMBOL_ADAPT lists {count}')
+
+    def replace(match):
+        size = str(next(sizes)) if match[1] == 'symbol_adapt' else ''
+        return f'crate::simd::{arch}::msac::dav1d_msac_decode_{match[1]}{size}('
+    return CALL.sub(replace, text)
 
 
 def read_list():
@@ -92,6 +140,7 @@ def list_text(entries):
 def strip(text):
     """The unit without the tool's edits."""
     text = text.replace(INIT_CPU, INIT_CPU_EMPTY)
+    text = RENAMED_CALL.sub(lambda m: f'dav1d_msac_decode_{m[1]}_c(', text)
     return ''.join(line for line in text.splitlines(keepends=True) if not line.rstrip().endswith(MARKER))
 
 
@@ -130,6 +179,10 @@ def dispatch_text(rel, text, entries=None):
     arch = PROFILES[profile][1]
     for entry in sorted(entries):
         family, bpc, entry_arch = parse_entry(entry)
+        if family in RENAMED:
+            if entry_arch == arch and f'{group}/{unit}' in RENAMED[family]:
+                text = rename_calls(rel, text, f'{group}/{unit}', arch)
+            continue
         if entry_arch != arch or group != f'b{bpc}' or unit != FAMILIES[family][0]:
             continue
         _, init, anchor = FAMILIES[family]
@@ -151,7 +204,9 @@ def units():
         for unit in json.loads(path.read_text())['units']:
             rel = unit['rust']
             name = rel.rsplit('/', 1)[1]
-            if name == 'cpu.rs' and '/common/' in rel or name in {f[0] for f in FAMILIES.values()}:
+            renamed = {u for units_ in RENAMED.values() for u in units_}
+            if name == 'cpu.rs' and '/common/' in rel or name in {f[0] for f in FAMILIES.values()} \
+                    or '/'.join(rel.rsplit('/', 2)[1:]) in renamed:
                 if rel.startswith(f'crates/dav1d/src/{profile}') and rel[len(f'crates/dav1d/src/{profile}'):].count('/') == 1:
                     out.append((rel, path))
     return out

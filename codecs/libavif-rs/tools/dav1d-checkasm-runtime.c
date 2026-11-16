@@ -11,6 +11,7 @@ static unsigned phase;
 static void *handles[2];
 static void *bases[2];
 static unsigned checked[2];
+static unsigned levels[2];
 static unsigned null_selections[2];
 
 /* The CPU level of each implementation. Without DAV1D_PORT_SIMD_MASK (the
@@ -40,7 +41,14 @@ static void select_cpu_level(void *handle) {
     } else if (phase) {
         set_mask(0);
     }
-    fprintf(stderr, "[port] phase=%u cpu_flags=0x%x\n", phase, accessor ? accessor() : *flags & *mask);
+    levels[phase] = accessor ? accessor() : *flags & *mask;
+    fprintf(stderr, "[port] phase=%u cpu_flags=0x%x\n", phase, levels[phase]);
+}
+
+/* dav1d_get_cpu_flags() of the current phase's library, for test bodies
+ * that select kernels by symbol rather than through a DSP init (msac). */
+unsigned port_cpu_level(void) {
+    return levels[phase];
 }
 
 void port_set_phase(CheckasmCpu value) {
@@ -61,7 +69,9 @@ void port_set_phase(CheckasmCpu value) {
 
 void *port_lookup(const char *name) {
     void *pointer = dlsym(handles[phase], name);
-    if (!pointer && !phase) {
+    /* Hidden symbols (the original's constant tables and assembly kernels,
+     * the port's rebuilt msac kernels) through test-only accessors. */
+    if (!pointer) {
         char accessor[160];
         snprintf(accessor, sizeof(accessor), "port_table_%s", name);
         void *(*get_table)(void) = (void *(*)(void)) dlsym(handles[phase], accessor);

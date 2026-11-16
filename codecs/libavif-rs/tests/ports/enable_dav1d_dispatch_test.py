@@ -1,5 +1,6 @@
 """tools/enable_dav1d_dispatch.py: the edits and their check mode (ADR 0062)."""
 from pathlib import Path
+import re
 import sys
 import unittest
 
@@ -27,6 +28,24 @@ pub unsafe extern "C" fn dav1d_itx_dsp_init_8bpc(
     }
 }
 '''
+MSAC = '''extern "C" {
+    fn dav1d_msac_decode_symbol_adapt_c(s: *mut MsacContext, cdf: *mut uint16_t, n: size_t) -> c_uint;
+}
+#[no_mangle]
+pub unsafe extern "C" fn dav1d_msac_decode_bool_adapt_c(s: *mut MsacContext, cdf: *mut uint16_t) -> c_uint {
+    let bit = dav1d_msac_decode_bool_c(s, *cdf as c_uint);
+    bit
+}
+pub unsafe extern "C" fn dav1d_msac_decode_hi_tok_c(s: *mut MsacContext, cdf: *mut uint16_t) -> c_uint {
+    let a = dav1d_msac_decode_symbol_adapt_c(s, cdf, 3 as size_t);
+    let b = dav1d_msac_decode_symbol_adapt_c(s, cdf, 3 as size_t);
+    let c = dav1d_msac_decode_symbol_adapt_c(s, cdf, 3 as size_t);
+    let d = dav1d_msac_decode_symbol_adapt_c(s, cdf, 3 as size_t);
+    assert(b"dav1d_msac_decode_symbol_adapt_c\\0");
+    a + b + c + d + dav1d_msac_decode_bool_equi_c(s)
+}
+'''
+MAC_MSAC = 'crates/dav1d/src/release/common/msac.rs'
 MAC_ITX = 'crates/dav1d/src/release/b8/itx_tmpl.rs'
 LINUX_ITX = 'crates/dav1d/src/linux/release/b8/itx_tmpl.rs'
 MAC_CPU = 'crates/dav1d/src/common/cpu.rs'
@@ -71,6 +90,58 @@ class DispatchText(unittest.TestCase):
             dispatch.parse_entry('itx_10bpc_arm')
         with self.assertRaises(SystemExit):
             dispatch.dispatch_text(MAC_ITX, ITX.replace('let mut all_simd', 'let all_simd'), ['itx_8bpc_arm'])
+
+    def test_msac_renames_calls_only_and_reverses(self):
+        out = dispatch.dispatch_text(MAC_MSAC, MSAC, ['msac_arm'])
+        self.assertEqual(out.count('crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(s, cdf, 3'), 4)
+        self.assertIn('crate::simd::arm::msac::dav1d_msac_decode_bool(s, *cdf', out)
+        self.assertIn('crate::simd::arm::msac::dav1d_msac_decode_bool_equi(s)', out)
+        # Definitions, declarations and strings keep their C names.
+        self.assertIn('fn dav1d_msac_decode_symbol_adapt_c(s: *mut', out)
+        self.assertIn('fn dav1d_msac_decode_hi_tok_c(', out)
+        self.assertIn('b"dav1d_msac_decode_symbol_adapt_c', out)
+        self.assertEqual(dispatch.dispatch_text(MAC_MSAC, out, []), MSAC)
+        self.assertEqual(dispatch.dispatch_text(MAC_MSAC, out, ['msac_arm']), out)
+        # Not into the x86-64 profiles.
+        self.assertEqual(dispatch.dispatch_text('crates/dav1d/src/linux/release/common/msac.rs', MSAC,
+                                                ['msac_arm']), MSAC)
+        # A count that differs from SYMBOL_ADAPT fails.
+        with self.assertRaises(SystemExit):
+            dispatch.dispatch_text(MAC_MSAC, MSAC.replace('let d = dav1d_msac_decode_symbol_adapt_c', 'let d = ('),
+                                   ['msac_arm'])
+        with self.assertRaises(SystemExit):
+            dispatch.parse_entry('msac_8bpc_arm')
+        with self.assertRaises(SystemExit):
+            dispatch.parse_entry('itx_arm')
+
+    def test_symbol_adapt_sizes_are_the_original_macros(self):
+        source = dispatch.ROOT / 'upstream/dav1d/src'
+        if not (source / 'decode.c').exists():
+            raise unittest.SkipTest('upstream/dav1d is not checked out')
+        call = re.compile(r'dav1d_msac_decode_symbol_adapt(4|8|16|##ns)\(')
+        decode = [int(m[1]) for m in call.finditer((source / 'decode.c').read_text())]
+        self.assertEqual(decode, dispatch.SYMBOL_ADAPT['common/decode.rs'])
+        recon = (source / 'recon_tmpl.c').read_text()
+        # case_sz(sz, bin, ns, is_1d) expands once per invocation, and the
+        # body of DECODE_COEFS_CLASS once per tx class.
+        cases = [int(ns) for ns in re.findall(r'^\s*case_sz\(\s*\d+,\s*\d+,\s*(\d+),', recon, re.M)]
+        define = recon.index('#define DECODE_COEFS_CLASS')
+        body_end = recon.index('const uint16_t *scan;', define)
+        body = [int(m[1]) for m in call.finditer(recon[define:body_end])]
+        classes = len(re.findall(r'^\s*DECODE_COEFS_CLASS\(TX_CLASS_\w+\);', recon, re.M))
+        expanded = []
+        for match in call.finditer(recon):
+            if match[1] == '##ns':
+                expanded += cases
+            elif define <= match.start() < body_end:
+                if match.start() == define + recon[define:body_end].index(match[0]):
+                    expanded += body * classes  # at the first call of the body
+            else:
+                expanded.append(int(match[1]))
+        for unit in ['b8/recon_tmpl.rs', 'b16/recon_tmpl.rs']:
+            self.assertEqual(expanded, dispatch.SYMBOL_ADAPT[unit], unit)
+        hi_tok = (source / 'msac.c').read_text().split('dav1d_msac_decode_hi_tok_c(', 1)[1].split('\n}', 1)[0]
+        self.assertEqual([int(m[1]) for m in call.finditer(hi_tok)], dispatch.SYMBOL_ADAPT['common/msac.rs'])
 
     def test_committed_tree_matches(self):
         # The same comparison as --check, without the digest part.

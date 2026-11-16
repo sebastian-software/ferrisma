@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Instructions per call of rebuilt dav1d kernels against the original's assembly.
 
-Usage: python3 tools/measure_dav1d_kernels.py [--iterations N]   (macOS ARM64)
+Usage: python3 tools/measure_dav1d_kernels.py [--family itx|msac] [--calls N]   (macOS ARM64)
 
 For each 8 bpc inverse-transform entry point rebuilt so far (ADR 0062), the
 driver `tools/dav1d-kernel-bench.c` calls the kernel N times on fixed inputs
@@ -13,7 +13,18 @@ retired by each process; (call - baseline) / N is the instructions per call,
 which do not depend on the load of the machine. Both libraries must leave the
 same destination checksum. Results: `build/dav1d-kernel-instructions.json`.
 Instruction counts are not timings; the benchmark record keeps the timings.
+
+`--family msac`: the seven entry points of `msac.S` (several symbol counts
+for the three symbol sizes), from the same oracle and from the port built
+with its test-only accessors (`build/dav1d-bridges-target`, made by
+`check_dav1d_dsp.py --simd neon`); `--calls` / 8 calls each.
+Results: `build/dav1d-kernel-instructions-msac.json`.
 """
+MSAC = [('dav1d_msac_decode_symbol_adapt4_neon', ns) for ns in (1, 2, 3)]
+MSAC += [('dav1d_msac_decode_symbol_adapt8_neon', ns) for ns in (4, 7)]
+MSAC += [('dav1d_msac_decode_symbol_adapt16_neon', ns) for ns in (10, 12, 15)]
+MSAC += [('dav1d_msac_decode_hi_tok_neon', 3), ('dav1d_msac_decode_bool_adapt_neon', 1),
+         ('dav1d_msac_decode_bool_equi_neon', 0), ('dav1d_msac_decode_bool_neon', 0)]
 import argparse
 import json
 from pathlib import Path
@@ -50,6 +61,7 @@ def main():
     parser.add_argument('--calls', type=int, default=32000000,
                         help='pixels processed per kernel and side (calls = this / block area)')
     parser.add_argument('--only', help='substring filter on kernel names')
+    parser.add_argument('--family', choices=['itx', 'msac'], default='itx')
     args = parser.parse_args()
     work = ROOT / 'build/dav1d-kernel-bench'
     work.mkdir(parents=True, exist_ok=True)
@@ -58,6 +70,34 @@ def main():
     original = ROOT / 'build/dav1d-dsp-release-neon/libdav1d-dsp-asm.dylib'
     port = ROOT.parents[1] / 'target/release/libdav1d.dylib'
     rows = []
+    if args.family == 'msac':
+        port = ROOT / 'build/dav1d-bridges-target/release/libdav1d.dylib'
+        calls = args.calls // 8
+        for name, ns in MSAC:
+            if args.only and args.only not in name:
+                continue
+            per_call, checksums = {}, {}
+            for side, library in (('original', original), ('port', port)):
+                command = [driver, library, '0x1', 'msac', name, str(ns), str(calls)]
+                base, _ = instructions(command + ['baseline'])
+                total, checksum = instructions(command + ['call'])
+                per_call[side] = (total - base) / calls
+                checksums[side] = checksum
+            row = {'kernel': name, 'path': f'n_symbols {ns}' if 'symbol' in name else 'adapt' if 'adapt' in name
+                   or 'hi_tok' in name else '-', 'calls': calls,
+                   'original_instructions': round(per_call['original'], 1),
+                   'port_instructions': round(per_call['port'], 1),
+                   'ratio': round(per_call['port'] / per_call['original'], 3),
+                   'identical_output': checksums['original'] == checksums['port']}
+            rows.append(row)
+            print(f"{row['kernel']:52s} {row['path']:16s} {row['original_instructions']:9.1f} "
+                  f"{row['port_instructions']:9.1f} {row['ratio']:6.3f} {row['identical_output']}", flush=True)
+        (ROOT / 'build/dav1d-kernel-instructions-msac.json').write_text(json.dumps(
+            {'calls': calls, 'level': 'neon', 'original': str(original), 'port': str(port), 'kernels': rows},
+            indent=2) + '\n')
+        if not all(row['identical_output'] for row in rows):
+            raise SystemExit('outputs differ')
+        return
     for name, size, tx, txtype in rebuilt_kernels():
         if args.only and args.only not in name:
             continue

@@ -4,6 +4,7 @@
 extern const CheckasmCpuInfo port_implementations[];
 void port_set_phase(CheckasmCpu phase);
 void *port_lookup(const char *name);
+unsigned port_cpu_level(void);
 CheckasmKey port_verify(CheckasmKey key, const char *expression, const char *file, int line);
 
 #undef checkasm_check_func

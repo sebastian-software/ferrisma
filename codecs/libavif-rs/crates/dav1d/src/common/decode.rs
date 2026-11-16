@@ -3725,7 +3725,7 @@ unsafe extern "C" fn dav1d_msac_decode_bools(
         if !(fresh0 != 0) {
             break;
         }
-        v = v << 1 as core::ffi::c_int | dav1d_msac_decode_bool_equi_c(s);
+        v = v << 1 as core::ffi::c_int | crate::simd::arm::msac::dav1d_msac_decode_bool_equi(s);
     }
     return v;
 }
@@ -3770,7 +3770,7 @@ unsafe extern "C" fn dav1d_msac_decode_uniform(
     } else {
         (v << 1 as core::ffi::c_int)
             .wrapping_sub(m)
-            .wrapping_add(dav1d_msac_decode_bool_equi_c(s))
+            .wrapping_add(crate::simd::arm::msac::dav1d_msac_decode_bool_equi(s))
     }) as core::ffi::c_int;
 }
 pub const FRAME_ERROR: core::ffi::c_uint = UINT_MAX.wrapping_sub(1 as core::ffi::c_uint);
@@ -3852,11 +3852,11 @@ unsafe extern "C" fn read_mv_component_diff(
     mv_comp: *mut CdfMvComponent,
     mv_prec: core::ffi::c_int,
 ) -> core::ffi::c_int {
-    let sign: core::ffi::c_int = dav1d_msac_decode_bool_adapt_c(
+    let sign: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
         msac,
         ((*mv_comp).sign).as_mut_ptr(),
     ) as core::ffi::c_int;
-    let cl: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+    let cl: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
         msac,
         ((*mv_comp).classes).as_mut_ptr(),
         10 as size_t,
@@ -3865,16 +3865,16 @@ unsafe extern "C" fn read_mv_component_diff(
     let mut fp: core::ffi::c_int = 3 as core::ffi::c_int;
     let mut hp: core::ffi::c_int = 1 as core::ffi::c_int;
     if cl == 0 {
-        up = dav1d_msac_decode_bool_adapt_c(msac, ((*mv_comp).class0).as_mut_ptr())
+        up = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(msac, ((*mv_comp).class0).as_mut_ptr())
             as core::ffi::c_int;
         if mv_prec >= 0 as core::ffi::c_int {
-            fp = dav1d_msac_decode_symbol_adapt_c(
+            fp = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                 msac,
                 ((*mv_comp).class0_fp[up as usize]).as_mut_ptr(),
                 3 as size_t,
             ) as core::ffi::c_int;
             if mv_prec > 0 as core::ffi::c_int {
-                hp = dav1d_msac_decode_bool_adapt_c(
+                hp = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     msac,
                     ((*mv_comp).class0_hp).as_mut_ptr(),
                 ) as core::ffi::c_int;
@@ -3885,20 +3885,20 @@ unsafe extern "C" fn read_mv_component_diff(
         let mut n: core::ffi::c_int = 0 as core::ffi::c_int;
         while n < cl {
             up = (up as core::ffi::c_uint
-                | dav1d_msac_decode_bool_adapt_c(
+                | crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     msac,
                     ((*mv_comp).classN[n as usize]).as_mut_ptr(),
                 ) << n) as core::ffi::c_int;
             n += 1;
         }
         if mv_prec >= 0 as core::ffi::c_int {
-            fp = dav1d_msac_decode_symbol_adapt_c(
+            fp = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                 msac,
                 ((*mv_comp).classN_fp).as_mut_ptr(),
                 3 as size_t,
             ) as core::ffi::c_int;
             if mv_prec > 0 as core::ffi::c_int {
-                hp = dav1d_msac_decode_bool_adapt_c(
+                hp = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     msac,
                     ((*mv_comp).classN_hp).as_mut_ptr(),
                 ) as core::ffi::c_int;
@@ -3915,7 +3915,7 @@ unsafe extern "C" fn read_mv_residual(
     mv_prec: core::ffi::c_int,
 ) {
     let msac: *mut MsacContext = &raw mut (*ts).msac;
-    let mv_joint: MVJoint = dav1d_msac_decode_symbol_adapt_c(
+    let mv_joint: MVJoint = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
         msac,
         ((*ts).cdf.mv.joint).as_mut_ptr(),
         (N_MV_JOINTS as core::ffi::c_int - 1 as core::ffi::c_int) as size_t,
@@ -3971,7 +3971,7 @@ unsafe extern "C" fn read_tx_tree(
             < txw) as core::ffi::c_int;
         let l: core::ffi::c_int = (((*t).l.tx[by4 as usize] as core::ffi::c_int) < txh)
             as core::ffi::c_int;
-        is_split = dav1d_msac_decode_bool_adapt_c(
+        is_split = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
             &raw mut (*(*t).ts).msac,
             ((*(*t).ts).cdf.m.txpart[cat as usize][(a + l) as usize]).as_mut_ptr(),
         ) as core::ffi::c_int;
@@ -5029,7 +5029,7 @@ unsafe extern "C" fn read_pal_indices(
         let mut j: core::ffi::c_int = first;
         let mut m: core::ffi::c_int = 0 as core::ffi::c_int;
         while j >= last {
-            let color_idx: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+            let color_idx: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                 &raw mut (*ts).msac,
                 (*color_map_cdf.offset(*ctx.offset(m as isize) as isize)).as_mut_ptr(),
                 (pal_sz - 1 as core::ffi::c_int) as size_t,
@@ -6499,7 +6499,7 @@ unsafe extern "C" fn decode_b(
         } else if (*(*f).frame_hdr).segmentation.seg_data.preskip != 0 {
             if (*(*f).frame_hdr).segmentation.temporal as core::ffi::c_int != 0
                 && {
-                    seg_pred = dav1d_msac_decode_bool_adapt_c(
+                    seg_pred = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                         &raw mut (*ts).msac,
                         ((*ts)
                             .cdf
@@ -6541,7 +6541,7 @@ unsafe extern "C" fn decode_b(
                     (*f).cur_segmap,
                     (*f).b4_stride,
                 ) as core::ffi::c_uint;
-                let diff: core::ffi::c_uint = dav1d_msac_decode_symbol_adapt_c(
+                let diff: core::ffi::c_uint = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.seg_id[seg_ctx as usize]).as_mut_ptr(),
                     (DAV1D_MAX_SEGMENTS - 1 as core::ffi::c_int) as size_t,
@@ -6592,7 +6592,7 @@ unsafe extern "C" fn decode_b(
     {
         let smctx: core::ffi::c_int = (*(*t).a).skip_mode[bx4 as usize]
             as core::ffi::c_int + (*t).l.skip_mode[by4 as usize] as core::ffi::c_int;
-        (*b).skip_mode = dav1d_msac_decode_bool_adapt_c(
+        (*b).skip_mode = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
             &raw mut (*ts).msac,
             ((*ts).cdf.m.skip_mode[smctx as usize]).as_mut_ptr(),
         ) as uint8_t;
@@ -6618,7 +6618,7 @@ unsafe extern "C" fn decode_b(
     } else {
         let sctx: core::ffi::c_int = (*(*t).a).skip[bx4 as usize] as core::ffi::c_int
             + (*t).l.skip[by4 as usize] as core::ffi::c_int;
-        (*b).skip = dav1d_msac_decode_bool_adapt_c(
+        (*b).skip = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
             &raw mut (*ts).msac,
             ((*ts).cdf.m.skip[sctx as usize]).as_mut_ptr(),
         ) as uint8_t;
@@ -6642,7 +6642,7 @@ unsafe extern "C" fn decode_b(
         if (*b).skip == 0
             && (*(*f).frame_hdr).segmentation.temporal as core::ffi::c_int != 0
             && {
-                seg_pred = dav1d_msac_decode_bool_adapt_c(
+                seg_pred = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts)
                         .cdf
@@ -6685,7 +6685,7 @@ unsafe extern "C" fn decode_b(
             if (*b).skip != 0 {
                 (*b).seg_id = pred_seg_id_0 as uint8_t;
             } else {
-                let diff_0: core::ffi::c_uint = dav1d_msac_decode_symbol_adapt_c(
+                let diff_0: core::ffi::c_uint = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.seg_id[seg_ctx_0 as usize]).as_mut_ptr(),
                     (DAV1D_MAX_SEGMENTS - 1 as core::ffi::c_int) as size_t,
@@ -6781,7 +6781,7 @@ unsafe extern "C" fn decode_b(
                 }) as core::ffi::c_uint || (*b).skip == 0)) as core::ffi::c_int;
         let mut prev_delta_lf: uint32_t = (*ts).last_delta_lf.u32_0;
         if have_delta_q != 0 {
-            let mut delta_q: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+            let mut delta_q: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                 &raw mut (*ts).msac,
                 ((*ts).cdf.m.delta_q).as_mut_ptr(),
                 3 as size_t,
@@ -6801,7 +6801,7 @@ unsafe extern "C" fn decode_b(
                     ) as core::ffi::c_int;
             }
             if delta_q != 0 {
-                if dav1d_msac_decode_bool_equi_c(&raw mut (*ts).msac) != 0 {
+                if crate::simd::arm::msac::dav1d_msac_decode_bool_equi(&raw mut (*ts).msac) != 0 {
                     delta_q = -delta_q;
                 }
                 delta_q
@@ -6844,7 +6844,7 @@ unsafe extern "C" fn decode_b(
                 };
                 let mut i_1: core::ffi::c_int = 0 as core::ffi::c_int;
                 while i_1 < n_lfs {
-                    let mut delta_lf: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+                    let mut delta_lf: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                         &raw mut (*ts).msac,
                         ((*ts)
                             .cdf
@@ -6873,7 +6873,7 @@ unsafe extern "C" fn decode_b(
                             ) as core::ffi::c_int;
                     }
                     if delta_lf != 0 {
-                        if dav1d_msac_decode_bool_equi_c(&raw mut (*ts).msac) != 0 {
+                        if crate::simd::arm::msac::dav1d_msac_decode_bool_equi(&raw mut (*ts).msac) != 0 {
                             delta_lf = -delta_lf;
                         }
                         delta_lf
@@ -6946,7 +6946,7 @@ unsafe extern "C" fn decode_b(
                 have_top,
                 have_left,
             ) as core::ffi::c_int;
-            (*b).intra = (dav1d_msac_decode_bool_adapt_c(
+            (*b).intra = (crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                 &raw mut (*ts).msac,
                 ((*ts).cdf.m.intra[ictx as usize]).as_mut_ptr(),
             ) == 0) as core::ffi::c_int as uint8_t;
@@ -6964,7 +6964,7 @@ unsafe extern "C" fn decode_b(
             }
         }
     } else if (*(*f).frame_hdr).allow_intrabc != 0 {
-        (*b).intra = (dav1d_msac_decode_bool_adapt_c(
+        (*b).intra = (crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
             &raw mut (*ts).msac,
             ((*ts).cdf.m.intrabc).as_mut_ptr(),
         ) == 0) as core::ffi::c_int as uint8_t;
@@ -6998,7 +6998,7 @@ unsafe extern "C" fn decode_b(
                 as usize])
                 .as_mut_ptr()
         };
-        (*b).c2rust_unnamed.c2rust_unnamed.y_mode = dav1d_msac_decode_symbol_adapt_c(
+        (*b).c2rust_unnamed.c2rust_unnamed.y_mode = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
             &raw mut (*ts).msac,
             ymode_cdf,
             (N_INTRA_PRED_MODES as core::ffi::c_int - 1 as core::ffi::c_int) as size_t,
@@ -7029,7 +7029,7 @@ unsafe extern "C" fn decode_b(
                 .angle_delta[((*b).c2rust_unnamed.c2rust_unnamed.y_mode
                 as core::ffi::c_int - VERT_PRED as core::ffi::c_int) as usize])
                 .as_mut_ptr();
-            let angle: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+            let angle: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                 &raw mut (*ts).msac,
                 acdf,
                 6 as size_t,
@@ -7057,7 +7057,7 @@ unsafe extern "C" fn decode_b(
                 .uv_mode[cfl_allowed
                 as usize][(*b).c2rust_unnamed.c2rust_unnamed.y_mode as usize])
                 .as_mut_ptr();
-            (*b).c2rust_unnamed.c2rust_unnamed.uv_mode = dav1d_msac_decode_symbol_adapt_c(
+            (*b).c2rust_unnamed.c2rust_unnamed.uv_mode = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                 &raw mut (*ts).msac,
                 uvmode_cdf,
                 (N_UV_INTRA_PRED_MODES as core::ffi::c_int - 1 as core::ffi::c_int
@@ -7080,7 +7080,7 @@ unsafe extern "C" fn decode_b(
             if (*b).c2rust_unnamed.c2rust_unnamed.uv_mode as core::ffi::c_int
                 == CFL_PRED as core::ffi::c_int
             {
-                let sign: core::ffi::c_int = (dav1d_msac_decode_symbol_adapt_c(
+                let sign: core::ffi::c_int = (crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.cfl_sign).as_mut_ptr(),
                     7 as size_t,
@@ -7109,7 +7109,7 @@ unsafe extern "C" fn decode_b(
                     (*b)
                         .c2rust_unnamed
                         .c2rust_unnamed
-                        .cfl_alpha[0 as core::ffi::c_int as usize] = (dav1d_msac_decode_symbol_adapt_c(
+                        .cfl_alpha[0 as core::ffi::c_int as usize] = (crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                         &raw mut (*ts).msac,
                         ((*ts).cdf.m.cfl_alpha[ctx as usize]).as_mut_ptr(),
                         15 as size_t,
@@ -7137,7 +7137,7 @@ unsafe extern "C" fn decode_b(
                     (*b)
                         .c2rust_unnamed
                         .c2rust_unnamed
-                        .cfl_alpha[1 as core::ffi::c_int as usize] = (dav1d_msac_decode_symbol_adapt_c(
+                        .cfl_alpha[1 as core::ffi::c_int as usize] = (crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                         &raw mut (*ts).msac,
                         ((*ts).cdf.m.cfl_alpha[ctx_0 as usize]).as_mut_ptr(),
                         15 as size_t,
@@ -7196,7 +7196,7 @@ unsafe extern "C" fn decode_b(
                     .angle_delta[((*b).c2rust_unnamed.c2rust_unnamed.uv_mode
                     as core::ffi::c_int - VERT_PRED as core::ffi::c_int) as usize])
                     .as_mut_ptr();
-                let angle_0: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+                let angle_0: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                     &raw mut (*ts).msac,
                     acdf_0,
                     6 as size_t,
@@ -7226,7 +7226,7 @@ unsafe extern "C" fn decode_b(
                     as core::ffi::c_int > 0 as core::ffi::c_int) as core::ffi::c_int
                     + ((*t).l.pal_sz[by4 as usize] as core::ffi::c_int
                         > 0 as core::ffi::c_int) as core::ffi::c_int;
-                let use_y_pal: core::ffi::c_int = dav1d_msac_decode_bool_adapt_c(
+                let use_y_pal: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.pal_y[sz_ctx as usize][pal_ctx as usize]).as_mut_ptr(),
                 ) as core::ffi::c_int;
@@ -7260,7 +7260,7 @@ unsafe extern "C" fn decode_b(
                     .c2rust_unnamed
                     .pal_sz[0 as core::ffi::c_int as usize] as core::ffi::c_int
                     > 0 as core::ffi::c_int) as core::ffi::c_int;
-                let use_uv_pal: core::ffi::c_int = dav1d_msac_decode_bool_adapt_c(
+                let use_uv_pal: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.pal_uv[pal_ctx_0 as usize]).as_mut_ptr(),
                 ) as core::ffi::c_int;
@@ -7294,14 +7294,14 @@ unsafe extern "C" fn decode_b(
             ) <= 3 as core::ffi::c_int
             && (*(*f).seq_hdr).filter_intra as core::ffi::c_int != 0
         {
-            let is_filter: core::ffi::c_int = dav1d_msac_decode_bool_adapt_c(
+            let is_filter: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                 &raw mut (*ts).msac,
                 ((*ts).cdf.m.use_filter_intra[bs as usize]).as_mut_ptr(),
             ) as core::ffi::c_int;
             if is_filter != 0 {
                 (*b).c2rust_unnamed.c2rust_unnamed.y_mode = FILTER_PRED
                     as core::ffi::c_int as uint8_t;
-                (*b).c2rust_unnamed.c2rust_unnamed.y_angle = dav1d_msac_decode_symbol_adapt_c(
+                (*b).c2rust_unnamed.c2rust_unnamed.y_angle = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.filter_intra).as_mut_ptr(),
                     4 as size_t,
@@ -7462,7 +7462,7 @@ unsafe extern "C" fn decode_b(
                     .txsz[((*t_dim).max as core::ffi::c_int - 1 as core::ffi::c_int)
                     as usize][tctx as usize])
                     .as_mut_ptr();
-                let mut depth: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+                let mut depth: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                     &raw mut (*ts).msac,
                     tx_cdf,
                     imin((*t_dim).max as core::ffi::c_int, 2 as core::ffi::c_int)
@@ -8784,7 +8784,7 @@ unsafe extern "C" fn decode_b(
                 have_top,
                 have_left,
             ) as core::ffi::c_int;
-            is_comp = dav1d_msac_decode_bool_adapt_c(
+            is_comp = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                 &raw mut (*ts).msac,
                 ((*ts).cdf.m.comp[ctx_2 as usize]).as_mut_ptr(),
             ) as core::ffi::c_int;
@@ -8952,7 +8952,7 @@ unsafe extern "C" fn decode_b(
                 have_top,
                 have_left,
             ) as core::ffi::c_int;
-            if dav1d_msac_decode_bool_adapt_c(
+            if crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                 &raw mut (*ts).msac,
                 ((*ts).cdf.m.comp_dir[dir_ctx as usize]).as_mut_ptr(),
             ) != 0
@@ -8965,7 +8965,7 @@ unsafe extern "C" fn decode_b(
                     have_top,
                     have_left,
                 ) as core::ffi::c_int;
-                if dav1d_msac_decode_bool_adapt_c(
+                if crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts)
                         .cdf
@@ -8987,7 +8987,7 @@ unsafe extern "C" fn decode_b(
                         .c2rust_unnamed_0
                         .ref_0[0 as core::ffi::c_int as usize] = (2 as core::ffi::c_uint)
                         .wrapping_add(
-                            dav1d_msac_decode_bool_adapt_c(
+                            crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                 &raw mut (*ts).msac,
                                 ((*ts)
                                     .cdf
@@ -9009,7 +9009,7 @@ unsafe extern "C" fn decode_b(
                     (*b)
                         .c2rust_unnamed
                         .c2rust_unnamed_0
-                        .ref_0[0 as core::ffi::c_int as usize] = dav1d_msac_decode_bool_adapt_c(
+                        .ref_0[0 as core::ffi::c_int as usize] = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                         &raw mut (*ts).msac,
                         ((*ts)
                             .cdf
@@ -9027,7 +9027,7 @@ unsafe extern "C" fn decode_b(
                     have_top,
                     have_left,
                 ) as core::ffi::c_int;
-                if dav1d_msac_decode_bool_adapt_c(
+                if crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts)
                         .cdf
@@ -9054,7 +9054,7 @@ unsafe extern "C" fn decode_b(
                         .c2rust_unnamed_0
                         .ref_0[1 as core::ffi::c_int as usize] = (4 as core::ffi::c_uint)
                         .wrapping_add(
-                            dav1d_msac_decode_bool_adapt_c(
+                            crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                 &raw mut (*ts).msac,
                                 ((*ts)
                                     .cdf
@@ -9074,7 +9074,7 @@ unsafe extern "C" fn decode_b(
                     have_top,
                     have_left,
                 ) as core::ffi::c_int;
-                if dav1d_msac_decode_bool_adapt_c(
+                if crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts)
                         .cdf
@@ -9109,7 +9109,7 @@ unsafe extern "C" fn decode_b(
                         .c2rust_unnamed_0
                         .ref_0[1 as core::ffi::c_int as usize] = (1 as core::ffi::c_uint)
                         .wrapping_add(
-                            dav1d_msac_decode_bool_adapt_c(
+                            crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                 &raw mut (*ts).msac,
                                 ((*ts)
                                     .cdf
@@ -9141,7 +9141,7 @@ unsafe extern "C" fn decode_b(
                             .c2rust_unnamed_0
                             .ref_0[1 as core::ffi::c_int as usize] as core::ffi::c_uint)
                             .wrapping_add(
-                                dav1d_msac_decode_bool_adapt_c(
+                                crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                     &raw mut (*ts).msac,
                                     ((*ts)
                                         .cdf
@@ -9208,7 +9208,7 @@ unsafe extern "C" fn decode_b(
                 (*t).by,
                 (*t).bx,
             );
-            (*b).c2rust_unnamed.c2rust_unnamed_0.inter_mode = dav1d_msac_decode_symbol_adapt_c(
+            (*b).c2rust_unnamed.c2rust_unnamed_0.inter_mode = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt8(
                 &raw mut (*ts).msac,
                 ((*ts).cdf.m.comp_inter_mode[ctx_4 as usize]).as_mut_ptr(),
                 (N_COMP_INTER_PRED_MODES as core::ffi::c_int - 1 as core::ffi::c_int)
@@ -9249,7 +9249,7 @@ unsafe extern "C" fn decode_b(
                         .c2rust_unnamed_0
                         .drl_idx as core::ffi::c_uint)
                         .wrapping_add(
-                            dav1d_msac_decode_bool_adapt_c(
+                            crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                 &raw mut (*ts).msac,
                                 ((*ts).cdf.m.drl_bit[drl_ctx_v1 as usize]).as_mut_ptr(),
                             ),
@@ -9267,7 +9267,7 @@ unsafe extern "C" fn decode_b(
                             .c2rust_unnamed_0
                             .drl_idx as core::ffi::c_uint)
                             .wrapping_add(
-                                dav1d_msac_decode_bool_adapt_c(
+                                crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                     &raw mut (*ts).msac,
                                     ((*ts).cdf.m.drl_bit[drl_ctx_v2 as usize]).as_mut_ptr(),
                                 ),
@@ -9307,7 +9307,7 @@ unsafe extern "C" fn decode_b(
                         .c2rust_unnamed_0
                         .drl_idx as core::ffi::c_uint)
                         .wrapping_add(
-                            dav1d_msac_decode_bool_adapt_c(
+                            crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                 &raw mut (*ts).msac,
                                 ((*ts).cdf.m.drl_bit[drl_ctx_v2_0 as usize]).as_mut_ptr(),
                             ),
@@ -9325,7 +9325,7 @@ unsafe extern "C" fn decode_b(
                             .c2rust_unnamed_0
                             .drl_idx as core::ffi::c_uint)
                             .wrapping_add(
-                                dav1d_msac_decode_bool_adapt_c(
+                                crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                     &raw mut (*ts).msac,
                                     ((*ts).cdf.m.drl_bit[drl_ctx_v3 as usize]).as_mut_ptr(),
                                 ),
@@ -9592,7 +9592,7 @@ unsafe extern "C" fn decode_b(
                     by4,
                     bx4,
                 ) as core::ffi::c_int;
-                is_segwedge = dav1d_msac_decode_bool_adapt_c(
+                is_segwedge = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.mask_comp[mask_ctx as usize]).as_mut_ptr(),
                 ) as core::ffi::c_int;
@@ -9641,7 +9641,7 @@ unsafe extern "C" fn decode_b(
                     (*b).c2rust_unnamed.c2rust_unnamed_0.comp_type = (COMP_INTER_WEIGHTED_AVG
                         as core::ffi::c_int as core::ffi::c_uint)
                         .wrapping_add(
-                            dav1d_msac_decode_bool_adapt_c(
+                            crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                 &raw mut (*ts).msac,
                                 ((*ts).cdf.m.jnt_comp[jnt_ctx as usize]).as_mut_ptr(),
                             ),
@@ -9683,7 +9683,7 @@ unsafe extern "C" fn decode_b(
                     (*b).c2rust_unnamed.c2rust_unnamed_0.comp_type = (COMP_INTER_WEDGE
                         as core::ffi::c_int as core::ffi::c_uint)
                         .wrapping_sub(
-                            dav1d_msac_decode_bool_adapt_c(
+                            crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                 &raw mut (*ts).msac,
                                 ((*ts).cdf.m.wedge_comp[ctx_5 as usize]).as_mut_ptr(),
                             ),
@@ -9696,7 +9696,7 @@ unsafe extern "C" fn decode_b(
                             .c2rust_unnamed_0
                             .c2rust_unnamed
                             .c2rust_unnamed
-                            .wedge_idx = dav1d_msac_decode_symbol_adapt_c(
+                            .wedge_idx = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                             &raw mut (*ts).msac,
                             ((*ts).cdf.m.wedge_idx[ctx_5 as usize]).as_mut_ptr(),
                             15 as size_t,
@@ -9711,7 +9711,7 @@ unsafe extern "C" fn decode_b(
                     .c2rust_unnamed_0
                     .c2rust_unnamed
                     .c2rust_unnamed
-                    .mask_sign = dav1d_msac_decode_bool_equi_c(&raw mut (*ts).msac)
+                    .mask_sign = crate::simd::arm::msac::dav1d_msac_decode_bool_equi(&raw mut (*ts).msac)
                     as uint8_t;
                 if 0 as core::ffi::c_int != 0
                     && (*(*f).frame_hdr).frame_offset as core::ffi::c_int
@@ -9769,7 +9769,7 @@ unsafe extern "C" fn decode_b(
                     have_top,
                     have_left,
                 ) as core::ffi::c_int;
-                if dav1d_msac_decode_bool_adapt_c(
+                if crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.ref_0[0 as core::ffi::c_int as usize][ctx1_0 as usize])
                         .as_mut_ptr(),
@@ -9783,7 +9783,7 @@ unsafe extern "C" fn decode_b(
                         have_top,
                         have_left,
                     ) as core::ffi::c_int;
-                    if dav1d_msac_decode_bool_adapt_c(
+                    if crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                         &raw mut (*ts).msac,
                         ((*ts)
                             .cdf
@@ -9811,7 +9811,7 @@ unsafe extern "C" fn decode_b(
                             .ref_0[0 as core::ffi::c_int as usize] = (4
                             as core::ffi::c_uint)
                             .wrapping_add(
-                                dav1d_msac_decode_bool_adapt_c(
+                                crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                     &raw mut (*ts).msac,
                                     ((*ts)
                                         .cdf
@@ -9830,7 +9830,7 @@ unsafe extern "C" fn decode_b(
                         have_top,
                         have_left,
                     ) as core::ffi::c_int;
-                    if dav1d_msac_decode_bool_adapt_c(
+                    if crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                         &raw mut (*ts).msac,
                         ((*ts)
                             .cdf
@@ -9853,7 +9853,7 @@ unsafe extern "C" fn decode_b(
                             .ref_0[0 as core::ffi::c_int as usize] = (2
                             as core::ffi::c_uint)
                             .wrapping_add(
-                                dav1d_msac_decode_bool_adapt_c(
+                                crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                     &raw mut (*ts).msac,
                                     ((*ts)
                                         .cdf
@@ -9874,7 +9874,7 @@ unsafe extern "C" fn decode_b(
                         (*b)
                             .c2rust_unnamed
                             .c2rust_unnamed_0
-                            .ref_0[0 as core::ffi::c_int as usize] = dav1d_msac_decode_bool_adapt_c(
+                            .ref_0[0 as core::ffi::c_int as usize] = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                             &raw mut (*ts).msac,
                             ((*ts)
                                 .cdf
@@ -9937,7 +9937,7 @@ unsafe extern "C" fn decode_b(
             if !seg.is_null()
                 && ((*seg).skip as core::ffi::c_int != 0
                     || (*seg).globalmv as core::ffi::c_int != 0)
-                || dav1d_msac_decode_bool_adapt_c(
+                || crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.newmv_mode[(ctx_6 & 7 as core::ffi::c_int) as usize])
                         .as_mut_ptr(),
@@ -9946,7 +9946,7 @@ unsafe extern "C" fn decode_b(
                 if !seg.is_null()
                     && ((*seg).skip as core::ffi::c_int != 0
                         || (*seg).globalmv as core::ffi::c_int != 0)
-                    || dav1d_msac_decode_bool_adapt_c(
+                    || crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                         &raw mut (*ts).msac,
                         ((*ts)
                             .cdf
@@ -9988,7 +9988,7 @@ unsafe extern "C" fn decode_b(
                                 as core::ffi::c_uint) as core::ffi::c_int;
                 } else {
                     has_subpel_filter = 1 as core::ffi::c_int;
-                    if dav1d_msac_decode_bool_adapt_c(
+                    if crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                         &raw mut (*ts).msac,
                         ((*ts)
                             .cdf
@@ -10012,7 +10012,7 @@ unsafe extern "C" fn decode_b(
                                 .c2rust_unnamed_0
                                 .drl_idx as core::ffi::c_uint)
                                 .wrapping_add(
-                                    dav1d_msac_decode_bool_adapt_c(
+                                    crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                         &raw mut (*ts).msac,
                                         ((*ts).cdf.m.drl_bit[drl_ctx_v2_1 as usize]).as_mut_ptr(),
                                     ),
@@ -10030,7 +10030,7 @@ unsafe extern "C" fn decode_b(
                                     .c2rust_unnamed_0
                                     .drl_idx as core::ffi::c_uint)
                                     .wrapping_add(
-                                        dav1d_msac_decode_bool_adapt_c(
+                                        crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                             &raw mut (*ts).msac,
                                             ((*ts).cdf.m.drl_bit[drl_ctx_v3_0 as usize]).as_mut_ptr(),
                                         ),
@@ -10137,7 +10137,7 @@ unsafe extern "C" fn decode_b(
                         .c2rust_unnamed_0
                         .drl_idx as core::ffi::c_uint)
                         .wrapping_add(
-                            dav1d_msac_decode_bool_adapt_c(
+                            crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                 &raw mut (*ts).msac,
                                 ((*ts).cdf.m.drl_bit[drl_ctx_v1_0 as usize]).as_mut_ptr(),
                             ),
@@ -10155,7 +10155,7 @@ unsafe extern "C" fn decode_b(
                             .c2rust_unnamed_0
                             .drl_idx as core::ffi::c_uint)
                             .wrapping_add(
-                                dav1d_msac_decode_bool_adapt_c(
+                                crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                                     &raw mut (*ts).msac,
                                     ((*ts).cdf.m.drl_bit[drl_ctx_v2_2 as usize]).as_mut_ptr(),
                                 ),
@@ -10295,7 +10295,7 @@ unsafe extern "C" fn decode_b(
                 && interintra_allowed_mask
                     & ((1 as core::ffi::c_int) << bs as core::ffi::c_uint)
                         as core::ffi::c_uint != 0
-                && dav1d_msac_decode_bool_adapt_c(
+                && crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.interintra[ii_sz_grp as usize]).as_mut_ptr(),
                 ) != 0
@@ -10305,7 +10305,7 @@ unsafe extern "C" fn decode_b(
                     .c2rust_unnamed_0
                     .c2rust_unnamed
                     .c2rust_unnamed
-                    .interintra_mode = dav1d_msac_decode_symbol_adapt_c(
+                    .interintra_mode = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.interintra_mode[ii_sz_grp as usize]).as_mut_ptr(),
                     (N_INTER_INTRA_PRED_MODES as core::ffi::c_int
@@ -10316,7 +10316,7 @@ unsafe extern "C" fn decode_b(
                 (*b).c2rust_unnamed.c2rust_unnamed_0.interintra_type = (INTER_INTRA_BLEND
                     as core::ffi::c_int as core::ffi::c_uint)
                     .wrapping_add(
-                        dav1d_msac_decode_bool_adapt_c(
+                        crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                             &raw mut (*ts).msac,
                             ((*ts).cdf.m.interintra_wedge[wedge_ctx as usize])
                                 .as_mut_ptr(),
@@ -10330,7 +10330,7 @@ unsafe extern "C" fn decode_b(
                         .c2rust_unnamed_0
                         .c2rust_unnamed
                         .c2rust_unnamed
-                        .wedge_idx = dav1d_msac_decode_symbol_adapt_c(
+                        .wedge_idx = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                         &raw mut (*ts).msac,
                         ((*ts).cdf.m.wedge_idx[wedge_ctx as usize]).as_mut_ptr(),
                         15 as size_t,
@@ -10430,13 +10430,13 @@ unsafe extern "C" fn decode_b(
                     && mask[0 as core::ffi::c_int as usize]
                         | mask[1 as core::ffi::c_int as usize] != 0) as core::ffi::c_int;
                 (*b).c2rust_unnamed.c2rust_unnamed_0.motion_mode = (if allow_warp != 0 {
-                    dav1d_msac_decode_symbol_adapt_c(
+                    crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                         &raw mut (*ts).msac,
                         ((*ts).cdf.m.motion_mode[bs as usize]).as_mut_ptr(),
                         2 as size_t,
                     )
                 } else {
-                    dav1d_msac_decode_bool_adapt_c(
+                    crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
                         &raw mut (*ts).msac,
                         ((*ts).cdf.m.obmc[bs as usize]).as_mut_ptr(),
                     )
@@ -10660,7 +10660,7 @@ unsafe extern "C" fn decode_b(
                     by4,
                     bx4,
                 ) as core::ffi::c_int;
-                filter_0[0 as core::ffi::c_int as usize] = dav1d_msac_decode_symbol_adapt_c(
+                filter_0[0 as core::ffi::c_int as usize] = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                     &raw mut (*ts).msac,
                     ((*ts).cdf.m.filter[0 as core::ffi::c_int as usize][ctx1_1 as usize])
                         .as_mut_ptr(),
@@ -10696,7 +10696,7 @@ unsafe extern "C" fn decode_b(
                             (*ts).msac.rng,
                         );
                     }
-                    filter_0[1 as core::ffi::c_int as usize] = dav1d_msac_decode_symbol_adapt_c(
+                    filter_0[1 as core::ffi::c_int as usize] = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
                         &raw mut (*ts).msac,
                         ((*ts)
                             .cdf
@@ -12127,7 +12127,7 @@ unsafe extern "C" fn decode_sb(
                 PARTITION_SPLIT as core::ffi::c_int
             }) as BlockPartition;
         } else {
-            bp = dav1d_msac_decode_symbol_adapt_c(
+            bp = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt16(
                 &raw mut (*ts).msac,
                 pc,
                 dav1d_partition_type_count[bl as usize] as size_t,
@@ -12620,7 +12620,7 @@ unsafe extern "C" fn decode_sb(
             is_split = ((*b_1).bl as core::ffi::c_uint != bl as core::ffi::c_uint)
                 as core::ffi::c_int as core::ffi::c_uint;
         } else {
-            is_split = dav1d_msac_decode_bool_c(
+            is_split = crate::simd::arm::msac::dav1d_msac_decode_bool(
                 &raw mut (*ts).msac,
                 gather_top_partition_prob(pc, bl),
             );
@@ -12729,7 +12729,7 @@ unsafe extern "C" fn decode_sb(
             is_split_0 = ((*b_2).bl as core::ffi::c_uint != bl as core::ffi::c_uint)
                 as core::ffi::c_int as core::ffi::c_uint;
         } else {
-            is_split_0 = dav1d_msac_decode_bool_c(
+            is_split_0 = crate::simd::arm::msac::dav1d_msac_decode_bool(
                 &raw mut (*ts).msac,
                 gather_left_partition_prob(pc, bl),
             );
@@ -13220,14 +13220,14 @@ unsafe extern "C" fn read_restoration_info(
     if frame_type as core::ffi::c_uint
         == DAV1D_RESTORATION_SWITCHABLE as core::ffi::c_int as core::ffi::c_uint
     {
-        let filter: core::ffi::c_int = dav1d_msac_decode_symbol_adapt_c(
+        let filter: core::ffi::c_int = crate::simd::arm::msac::dav1d_msac_decode_symbol_adapt4(
             &raw mut (*ts).msac,
             ((*ts).cdf.m.restore_switchable).as_mut_ptr(),
             2 as size_t,
         ) as core::ffi::c_int;
         (*lr).type_0 = (filter + (filter != 0) as core::ffi::c_int) as uint8_t;
     } else {
-        let type_0: core::ffi::c_uint = dav1d_msac_decode_bool_adapt_c(
+        let type_0: core::ffi::c_uint = crate::simd::arm::msac::dav1d_msac_decode_bool_adapt(
             &raw mut (*ts).msac,
             if frame_type as core::ffi::c_uint
                 == DAV1D_RESTORATION_WIENER as core::ffi::c_int as core::ffi::c_uint

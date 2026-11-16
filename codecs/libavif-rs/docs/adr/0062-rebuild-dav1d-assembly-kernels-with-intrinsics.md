@@ -80,6 +80,33 @@ regeneration reproduces the edits. The function-pointer tables
 declares the same `#[repr(C)]` layout. `dav1d_set_cpu_flags_mask(0)` keeps
 every C kernel selectable, which is the port's scalar path.
 
+**msac, selected at compile time.** The original selects the entropy
+decoder's assembly by renaming the seven calls of `src/msac.h` in every
+unit that includes it (`src/arm/msac.h`); the translation calls the C
+functions by name, the three symbol sizes as one C function. The entry
+`msac_arm` (no bit depth) renames each call site in the translated
+`decode`, `recon_tmpl` (both bit depths) and `msac` units to the owned
+function `crate::simd::arm::msac::<macro name>` that the original's macro
+names there; the symbol sizes follow `SYMBOL_ADAPT` in the tool (the
+original's macros in source order, derived from `decode.c`, `recon_tmpl.c`
+with its macro expansions and `msac.c` by the tool's unit test).
+Definitions and declarations keep their C names; `--check` reverses the
+renames by their path. Each owned function calls the rebuilt kernel when
+`dav1d_get_cpu_flags()` reports NEON and the C function otherwise: the
+original has no run-time choice here, the check keeps
+`dav1d_set_cpu_flags_mask(0)` a complete scalar path. `MsacContext` keeps the
+portable layout (on AArch64 the original adds no field). The per-kernel gate
+reaches the seven kernels without a DSP table: `check_dav1d_dsp.py --simd
+neon` enables the test body's `HAVE_ASM` branch (two textual edits, listed
+in the tool) and resolves the `_neon` names through test-only accessors, on
+the original's side compiled into its oracle library, on the port's side
+exported only with the crate feature `port-test-bridges` (a separate build
+in `build/dav1d-bridges-target`; the product library's exported symbols do
+not change). One deviation for memory safety: near the end of a tile
+buffer the assembly loads the 8 bytes that end at `buf_end` and shifts out
+those before `buf_pos`, which can reach before the buffer; the rebuild
+loads only `buf_pos..buf_end`, which gives the same value.
+
 **CPU detection without assembly.** `simd/cpu.rs` mirrors
 `src/x86/cpu.c` statement by statement with `__cpuid_count` and
 `_xgetbv(0)` in place of `cpuid.asm` (the route libaom's RTCD took on
@@ -198,6 +225,32 @@ NEON 0.99 G), 8-bit 4:4:4 2.50 G (AOM 2.56 G), 8-bit 4:2:0 with alpha
 8-bit 4:2:0 profile is now 8 %; msac (48 %) and the loop filter (19 %)
 lead.
 
+**2026-11-16, msac on NEON** (the seven entry points of `msac.S`,
+`dispatch.txt`: `msac_arm`; all call sites of the `decode`, `recon_tmpl`
+and `msac` units). Gates as above: `check_dav1d_dsp.py --simd neon` 17
+groups, 3,155 selections each, now with msac's three test groups comparing
+the original's `_neon` assembly with the rebuilt kernels; scalar 3,155
+each; `check_dav1d_simd_original.py` 994 of 994 at `neon` and at `scalar`
+(the 803 suite streams, 184 libavif test items, 7 profiling stills);
+`run_dav1d_tests.py` 1,711 of 1,711; ABI 12,157 layout checks, 0
+differences; API 83; linkage pass; dispatch `--check` and its unit test
+pass. Positive control: `bool_equi`'s `v` off by 2 makes the
+`msac.decode_bool` group fail. Instructions per call against the assembly
+(`measure_dav1d_kernels.py --family msac`, 4 million calls each, identical
+outputs): adapt4 1.10, adapt8 1.06, adapt16 1.16, hi_tok 1.06, bool_adapt
+1.11, bool_equi 1.11, bool 1.10 (the rest is the register moves LLVM adds
+around the packed `rng`/`v` lanes and, for adapt16, its stack buffer; a
+first version that called `memcpy` near the end of the buffer needed a
+stack frame in every kernel, 1.25 to 1.59). The dispatch functions' NEON
+test (two loads and a branch per call) is not in these figures.
+Instructions per decode of the port's dav1d (stock dav1d NEON in
+brackets): 8-bit 4:2:0 1.68 G (from 1.93; 0.99), 8-bit 4:4:4 2.25 G
+(2.50; 1.11), 8-bit 4:2:0 with alpha 1.99 G (2.24), 10-bit 4:2:0 3.12 G
+(3.36; 1.16), 10-bit 4:4:4 4.30 G (4.54; 1.34), lossless 8-bit 4:4:4
+11.70 G (16.22; 9.19); decoded pictures unchanged. Sampled 8-bit 4:2:0
+profile: coefficient decoding and reconstruction in C 43 % (the kernels
+are partly inlined there), loop filter 24 %, msac 23 %, itx 4 %.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -206,5 +259,6 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-16 — msac on NEON (decision paragraph and validation above).
 - 2026-11-16 — 8 bpc inverse transforms complete on NEON (validation above).
 - 2026-11-16 — Accepted with the infrastructure and the first slice.

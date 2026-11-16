@@ -9,6 +9,15 @@ with `dav1d_set_cpu_flags_mask`; every DSP pointer either side selects is
 compared, kernels the port has not rebuilt yet through its C. The test bodies
 are compiled with the portable configuration in both modes.
 
+msac has no DSP table: the original selects its assembly at compile time
+(`src/arm/msac.h`) and its checkasm test takes the assembly functions by
+name under `HAVE_ASM`. With `--simd neon` that branch of the unchanged test
+body is enabled (the two textual edits are in `MSAC_SIMD_EDITS`), and the
+seven `_neon` names resolve to the original's hidden assembly functions and
+to the port's rebuilt kernels through test-only accessors; the port is then
+built with its `port-test-bridges` feature (accessors only) into
+`build/dav1d-bridges-target`.
+
 The original checkasm framework also needs NASM on GNU Linux x86-64. That
 assembler builds test infrastructure only; codec assembly stays disabled.
 ADR 0029 records the test-only binding bridge and native helpers.
@@ -29,6 +38,22 @@ ROOT = Path(__file__).resolve().parents[1]
 # src/x86/cpu.h): NEON alone (no DotProd/I8MM/SVE); SSE2, SSSE3, SSE4.1 and
 # AVX2 without AVX-512, with SLOW_GATHER passed through as detected.
 SIMD_MASKS = {'neon': 0x1, 'avx2': 0x2f}
+# The seven msac entry points of src/arm/msac.h, with their C types.
+MSAC_NEON = {
+    'dav1d_msac_decode_symbol_adapt4_neon': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
+    'dav1d_msac_decode_symbol_adapt8_neon': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
+    'dav1d_msac_decode_symbol_adapt16_neon': 'unsigned (*)(MsacContext *, uint16_t *, size_t)',
+    'dav1d_msac_decode_hi_tok_neon': 'unsigned (*)(MsacContext *, uint16_t *)',
+    'dav1d_msac_decode_bool_adapt_neon': 'unsigned (*)(MsacContext *, uint16_t *)',
+    'dav1d_msac_decode_bool_equi_neon': 'unsigned (*)(MsacContext *)',
+    'dav1d_msac_decode_bool_neon': 'unsigned (*)(MsacContext *, unsigned)',
+}
+# The test body's assembly branch, enabled at the NEON level: HAVE_ASM is 0
+# in the portable configuration the bodies are compiled with, and the CPU
+# flags are those of the library under test.
+MSAC_SIMD_EDITS = [('#if (ARCH_AARCH64 || ARCH_ARM) && HAVE_ASM', '#if (ARCH_AARCH64 || ARCH_ARM)'),
+                   ('if (dav1d_get_cpu_flags() & DAV1D_ARM_CPU_FLAG_NEON) {',
+                    'if (port_cpu_level() & DAV1D_ARM_CPU_FLAG_NEON) {')]
 
 
 def main():
@@ -55,6 +80,12 @@ def main():
     darwin = sys.platform == 'darwin'
     library = reference / ('src/libdav1d.7.dylib' if darwin else 'src/libdav1d.so.7.0.0')
     candidate = ROOT.parents[1] / 'target' / ('debug' if args.debug else 'release') / ('libdav1d.dylib' if darwin else 'libdav1d.so')
+    msac_simd = args.simd == 'neon'
+    if msac_simd:
+        bridges = ROOT / 'build/dav1d-bridges-target'
+        subprocess.run(['cargo', 'build', '-p', 'libavif-dav1d', '--locked', '--features', 'port-test-bridges',
+                        '--target-dir', bridges, *([] if args.debug else ['--release'])], check=True, cwd=ROOT)
+        candidate = bridges / ('debug' if args.debug else 'release') / ('libdav1d.dylib' if darwin else 'libdav1d.so')
     symbol_command = ['nm', '-gU', library] if darwin else ['nm', '-D', '--defined-only', library]
     symbols = {line.split()[-1].removeprefix('_') for line in subprocess.check_output(symbol_command, text=True).splitlines() if line.strip()}
     if oracle:
@@ -81,7 +112,9 @@ def main():
     accessor = work / 'table-accessors.c'
     accessor.write_text('#include "config.h"\n#include "src/tables.h"\n#include "src/scan.h"\n#include "src/cpu.h"\n' +
         '\n'.join(f'void *port_table_{name}(void) {{ return (void *)&{name}; }}' for name in tables) + '\n' +
-        'unsigned port_cpu_flags(void) { return dav1d_get_cpu_flags(); }\n')
+        'unsigned port_cpu_flags(void) { return dav1d_get_cpu_flags(); }\n' +
+        (''.join(f'extern void {name}(void);\nvoid *port_table_{name}(void) {{ return (void *)&{name}; }}\n'
+                 for name in MSAC_NEON) if msac_simd and oracle else ''))
     accessor_object = work / 'table-accessors.o'
     subprocess.run(flags + ['-c', accessor, '-o', accessor_object], check=True)
     units = [entry for entry in json.loads((reference / 'compile_commands.json').read_text())
@@ -107,6 +140,15 @@ def main():
     for name, depth in inputs:
         original = source / f'tests/checkasm/{name}.c'
         text = original.read_text()
+        extra = []
+        if name == 'msac' and msac_simd:
+            for old, new in MSAC_SIMD_EDITS:
+                if text.count(old) != 1:
+                    raise SystemExit(f'Original msac test differs: {old}')
+                text = text.replace(old, new)
+            original = work / 'msac-neon.c'
+            original.write_text(text)
+            extra = [f'#define {symbol} (*({kind})port_lookup("{symbol}"))' for symbol, kind in MSAC_NEON.items()]
         declarations = [line for line in re.findall(r'^#include[^\n]+', text, re.M) if not line.endswith('.c"')]
         macros = []
         for symbol in sorted(set(re.findall(r'\bdav1d_\w+', text))):
@@ -115,7 +157,7 @@ def main():
             if symbol in symbols:
                 macros.append(f'#define {symbol} (*(__typeof__(&{symbol}))port_lookup("{symbol}"))')
         header = work / f'{name}-{depth}.h'
-        header.write_text('\n'.join(declarations + ['#include "dav1d-checkasm-runtime.h"'] + macros) + '\n')
+        header.write_text('\n'.join(declarations + ['#include "dav1d-checkasm-runtime.h"'] + macros + extra) + '\n')
         output = work / f'{name}-{depth}.o'
         command = flags + ([f'-DBITDEPTH={depth}'] if depth is not None else [])
         subprocess.run(command + ['-include', header, '-c', original, '-o', output], check=True)

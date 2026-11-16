@@ -15,6 +15,12 @@ publish = false
 name = "dav1d"
 crate-type = ["rlib", "staticlib", "cdylib"]
 
+[features]
+# Test-only accessors of rebuilt kernels that the original reaches without a
+# DSP table (msac), for tools/check_dav1d_dsp.py --simd and
+# tools/measure_dav1d_kernels.py (ADR 0062). Off in every product build.
+port-test-bridges = []
+
 [dependencies]
 libc = "0.2.191"
 c2rust-bitfields = "0.3.0"
