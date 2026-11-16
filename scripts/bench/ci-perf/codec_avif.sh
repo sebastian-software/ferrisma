@@ -17,6 +17,13 @@
 #   port:t1      the port, one thread
 #   c-dav1d:t1/tN  decode context only: C libavif with dav1d (not on the
 #                  engine's path; dav1d keeps its own asm, AVX-512 included)
+#   c-dav1d-v1:t1  decode context: the same, one thread, dav1d restricted with
+#                  dav1d_set_cpu_flags_mask to the v1.0 SIMD scope (x86-64
+#                  up to AVX2: 0x2f; AArch64 NEON: 0x1) -- the level the port's
+#                  rebuilt dav1d kernels are gated against (libavif-rs ADR 0062)
+#   port-dav1d:t1  decode context: the port's dav1d (libavif-rs
+#                  examples/decode_codec.rs, codec chosen by name, one thread)
+#                  with the kernels rebuilt so far; not the engine's path
 #
 # Operations (all candidates in ONE interleaved plan per operation and size):
 #   encode  still encode at the engine's libavif defaults (src/pipeline.rs,
@@ -179,6 +186,7 @@ cat >"$WORK/c-bin/decode_still.c" <<'EOF'
 #include <time.h>
 
 #include "avif/avif.h"
+#include "dav1d/dav1d.h"
 
 static void fail(const char * message)
 {
@@ -198,6 +206,12 @@ int main(int argc, char ** argv)
         fail("codec must be aom or dav1d");
     }
     int threads = atoi(argv[2]);
+    // DAV1D_CPU_MASK restricts dav1d's assembly to a CPU level (the
+    // c-dav1d-v1 column); dav1d documents it to be set before any decoder.
+    const char * mask = getenv("DAV1D_CPU_MASK");
+    if (mask) {
+        dav1d_set_cpu_flags_mask((unsigned)strtoul(mask, NULL, 0));
+    }
     FILE * file = fopen(argv[3], "rb");
     if (!file) {
         fail("read input");
@@ -279,10 +293,13 @@ C_DEC_SCALAR=$WORK/c-bin/decode_still-scalar
 # 2. The port: the repository release profile, no RUSTFLAGS.
 (cd "$ROOT" && cargo build --release --locked -p libavif-rs --example encode_still)
 (cd "$ROOT" && cargo build --release --locked -p ferrisma-avif-read --example decode_still)
+(cd "$ROOT" && cargo build --release --locked -p libavif-rs --example decode_codec)
 EXAMPLES=${CARGO_TARGET_DIR:-$ROOT/target}/release/examples
 [[ "$EXAMPLES" = /* ]] || EXAMPLES=$ROOT/$EXAMPLES
 P_ENC=$EXAMPLES/encode_still
 P_DEC=$EXAMPLES/decode_still
+P_DEC_LIBAVIF=$EXAMPLES/decode_codec
+[[ "$MACHINE" == x86_64 ]] && DAV1D_V1_MASK=0x2f || DAV1D_V1_MASK=0x1
 
 # RTCD selection of both encoders, on a tiny image (cheap).
 python3 -I - "$WORK/tiny.bmp" <<'EOF'
@@ -339,7 +356,9 @@ record = {
               "simd_level": level, "cpu_above_v1_scope": cpu["above_v1_scope"]},
         "c": {"id": "c:tN", "threads": "all CPUs (maxThreads; autotiling for encode)"},
         "context": {"c-dav1d:t1": "C libavif with dav1d 1.5.4, one thread (not on the engine path)",
-                    "c-dav1d:tN": "C libavif with dav1d 1.5.4, all CPUs"},
+                    "c-dav1d:tN": "C libavif with dav1d 1.5.4, all CPUs",
+                    "c-dav1d-v1:t1": "C libavif with dav1d 1.5.4, one thread, dav1d_set_cpu_flags_mask to the v1.0 SIMD scope (AVX2 / NEON)",
+                    "port-dav1d:t1": "libavif-rs with its dav1d port (rebuilt kernels so far, libavif-rs ADR 0062), one thread"},
     },
     "original": {
         "libavif": {"version": upstream_json["version"], "revision": upstream_json["revision"],
@@ -411,11 +430,12 @@ plan = {"reps": int(reps), "warmups": int(warmups), "group": group,
 open(out, "w").write(json.dumps(plan, indent=2) + "\n")
 EOF
 }
-candidate() { # candidate ID OUTPUT META_JSON CMD...
-  local id=$1 output=$2 meta=$3
+candidate() { # candidate ID OUTPUT META_JSON CMD...   (CANDIDATE_ENV='{"K": "V"}' adds environment)
+  local id=$1 output=$2 meta=$3 env=${CANDIDATE_ENV:-}
   shift 3
-  python3 -I -c 'import json, sys; print(json.dumps({"id": sys.argv[1], "cmd": sys.argv[4:], "env": {}, "output": sys.argv[2], "meta": json.loads(sys.argv[3])}))' \
-    "$id" "$output" "$meta" "$@"
+  [[ -n "$env" ]] || env='{}'
+  python3 -I -c 'import json, sys; print(json.dumps({"id": sys.argv[1], "cmd": sys.argv[5:], "env": json.loads(sys.argv[4]), "output": sys.argv[2], "meta": json.loads(sys.argv[3])}))' \
+    "$id" "$output" "$meta" "$env" "$@"
 }
 
 ENC_NOTE="encode_us = avifEncoderWrite only (RGB->YUV and BMP read outside); one encode per process; 10-bit 4:4:4 q75 s6, autoTiling when threads != 1"
@@ -457,7 +477,11 @@ for size in "${SIZE_LIST[@]}"; do
     "$(candidate "c-dav1d:t1" "$WORK/dec-c-dav1d-t1-$size.ppm" "$(meta c-dav1d context 1 "$name" "$DEC_NOTE; context: C libavif + dav1d")" \
       "$C_DEC" dav1d 1 "$input" "$WORK/dec-c-dav1d-t1-$size.ppm")" \
     "$(candidate "c-dav1d:tN" "$WORK/dec-c-dav1d-tN-$size.ppm" "$(meta c-dav1d context "$NCPU" "$name" "$DEC_NOTE; context: C libavif + dav1d, all CPUs")" \
-      "$C_DEC" dav1d "$NCPU" "$input" "$WORK/dec-c-dav1d-tN-$size.ppm")"
+      "$C_DEC" dav1d "$NCPU" "$input" "$WORK/dec-c-dav1d-tN-$size.ppm")" \
+    "$(CANDIDATE_ENV="{\"DAV1D_CPU_MASK\": \"$DAV1D_V1_MASK\"}" candidate "c-dav1d-v1:t1" "$WORK/dec-c-dav1d-v1-t1-$size.ppm" "$(meta c-dav1d context 1 "$name" "$DEC_NOTE; context: C libavif + dav1d, dav1d_set_cpu_flags_mask($DAV1D_V1_MASK), the v1.0 SIMD scope")" \
+      "$C_DEC" dav1d 1 "$input" "$WORK/dec-c-dav1d-v1-t1-$size.ppm")" \
+    "$(candidate "port-dav1d:t1" "$WORK/dec-port-dav1d-t1-$size.ppm" "$(meta port-dav1d context 1 "$name" "$DEC_NOTE; context: libavif-rs decode_codec with the port's dav1d (kernels rebuilt so far, libavif-rs ADR 0062)")" \
+      "$P_DEC_LIBAVIF" dav1d 1 "$input" "$WORK/dec-port-dav1d-t1-$size.ppm")"
   python3 -I "$ROOT/scripts/bench/ci-perf/run_interleaved.py" "$WORK/plan-decode-$size.json" \
     "$OUT/avif-decode-$size.json"
 done
@@ -482,7 +506,8 @@ for size in encode_sizes:
         "c_scalar_equals_c_simd": hashes["c-t1"] is not None and hashes["c-t1"] == hashes["c-scalar-t1"]}
 for size in sizes:
     hashes = {k: digest(f"dec-{k}-{size}.ppm")
-              for k in ("c-scalar-t1", "c-t1", "c-tN", "port-t1", "c-dav1d-t1", "c-dav1d-tN")}
+              for k in ("c-scalar-t1", "c-t1", "c-tN", "port-t1", "c-dav1d-t1", "c-dav1d-tN",
+                        "c-dav1d-v1-t1", "port-dav1d-t1")}
     present = [h for h in hashes.values() if h]
     checks["decode_rgb_identity"][f"photo{size}"] = {
         "sha256": hashes, "all_identical": len(present) == len(hashes) and len(set(present)) == 1}
