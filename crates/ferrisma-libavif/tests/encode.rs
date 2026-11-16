@@ -14,11 +14,13 @@ use ferrisma_libavif::LibavifBackend;
 
 const JPEG: &[u8] = include_bytes!("../../../tests/fixtures/sample.jpg");
 
-/// Records the RGBA rows Ferrisma produces, as the reference for a decode.
+/// Records the RGBA rows Ferrisma produces, as the reference for a decode:
+/// 8-bit rows as they are, deeper rows (since 2026-11-15) rounded to 8 bits
+/// for the comparison with the 8-bit decode.
 #[derive(Default)]
 struct Rows(Mutex<Vec<u8>>);
 
-struct RowSink<'a>(&'a Rows);
+struct RowSink<'a>(&'a Rows, u32);
 
 impl EncoderBackend for Rows {
     fn format(&self) -> OutputFormat {
@@ -27,15 +29,26 @@ impl EncoderBackend for Rows {
     fn name(&self) -> &'static str {
         "rows"
     }
-    fn begin(&self, _: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+    fn row_depths(&self) -> &'static [u8] {
+        &[8, 10, 12]
+    }
+    fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
         self.0.lock().unwrap().clear();
-        Ok(Box::new(RowSink(self)))
+        Ok(Box::new(RowSink(self, (1 << request.depth) - 1)))
     }
 }
 
 impl RowEncoder for RowSink<'_> {
     fn write_row(&mut self, _: u32, rgba: &[u8]) -> Result<(), EncodeError> {
         self.0.0.lock().unwrap().extend_from_slice(rgba);
+        Ok(())
+    }
+    fn write_row_u16(&mut self, _: u32, rgba: &[u16]) -> Result<(), EncodeError> {
+        let max = self.1;
+        self.0.0.lock().unwrap().extend(
+            rgba.iter()
+                .map(|&v| u8::try_from((u32::from(v) * 255 + max / 2) / max).unwrap()),
+        );
         Ok(())
     }
     fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
@@ -154,7 +167,7 @@ fn encodes_what_ferrisma_produced_with_the_same_color_signals() {
         let options = TransformOptions {
             avif: AvifOptions {
                 chroma,
-                depth,
+                depth: Some(depth),
                 ..base.avif
             },
             encoder_threads: threads,
@@ -238,7 +251,10 @@ fn straight_alpha_survives_the_encode() {
         (10, ChromaSubsampling::Yuv420, 1),
     ] {
         let backend = LibavifBackend;
-        request.avif.depth = depth;
+        // The rows arrive at the request's depth (since 2026-11-15): 10-bit
+        // rows are the 8-bit pattern scaled to 10 bits.
+        request.depth = depth;
+        request.avif.depth = Some(depth);
         request.avif.chroma = chroma;
         request.threads = threads;
         let expected_bytes = backend.required_frame_bytes(&request).unwrap();
@@ -246,7 +262,15 @@ fn straight_alpha_survives_the_encode() {
         let mut expected = Vec::new();
         for y in 0..height {
             let rgba = row(y);
-            encoder.write_row(y, &rgba).unwrap();
+            if depth > 8 {
+                let deep: Vec<u16> = rgba
+                    .iter()
+                    .map(|&v| u16::try_from((u32::from(v) * 1023 + 127) / 255).unwrap())
+                    .collect();
+                encoder.write_row_u16(y, &deep).unwrap();
+            } else {
+                encoder.write_row(y, &rgba).unwrap();
+            }
             expected.extend_from_slice(&rgba);
         }
         let image = encoder.finish().unwrap();
@@ -322,7 +346,11 @@ fn invalid_settings_are_rejected_before_decoding() {
     let base = options(8, 8).avif;
     let cases = [
         AvifOptions { speed: 11, ..base },
-        AvifOptions { depth: 12, ..base },
+        // 12 bits is admitted since 2026-11-15; 9 is not an AV1 depth.
+        AvifOptions {
+            depth: Some(9),
+            ..base
+        },
         AvifOptions {
             quality: 101,
             ..base
@@ -367,19 +395,23 @@ fn invalid_settings_are_rejected_before_decoding() {
 #[test]
 fn frame_preflight_counts_odd_chroma_and_alpha_planes() {
     let mut request = backend_request(5, 3);
+    // The RGBA frame is 4 B/px at 8 bits and 8 B/px above (the rows arrive
+    // at the depth since 2026-11-15), plus the planes at 1 or 2 B/sample.
     for (depth, chroma, alpha, expected) in [
         (8, ChromaSubsampling::Yuv444, false, 60 + 15 * 3),
-        (10, ChromaSubsampling::Yuv444, true, 60 + 2 * 15 * 4),
+        (10, ChromaSubsampling::Yuv444, true, 120 + 2 * 15 * 4),
         (8, ChromaSubsampling::Yuv420, true, 60 + 15 + 2 * 3 * 2 + 15),
         (
             10,
             ChromaSubsampling::Yuv420,
             false,
-            60 + 2 * (15 + 2 * 3 * 2),
+            120 + 2 * (15 + 2 * 3 * 2),
         ),
+        (12, ChromaSubsampling::Yuv444, false, 120 + 2 * 15 * 3),
     ] {
         request.avif.chroma = chroma;
-        request.avif.depth = depth;
+        request.depth = depth;
+        request.avif.depth = Some(depth);
         request.has_alpha = alpha;
         assert_eq!(
             LibavifBackend.required_frame_bytes(&request).unwrap(),
@@ -448,7 +480,7 @@ fn generated_avif_can_be_read_and_written_in_the_same_pipeline() {
         ImageFormat::Avif,
         TransformOptions {
             avif: AvifOptions {
-                depth: 8,
+                depth: Some(8),
                 ..options(8, 8).avif
             },
             ..options(8, 8)
@@ -466,7 +498,7 @@ fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
     let base = options(16, 12);
     let opts = TransformOptions {
         avif: AvifOptions {
-            depth: 10,
+            depth: Some(10),
             ..base.avif
         },
         output_width: 16,
@@ -495,7 +527,7 @@ fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
     }
     for avif in [
         AvifOptions {
-            depth: 12,
+            depth: Some(9),
             ..opts.avif
         },
         AvifOptions {

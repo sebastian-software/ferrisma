@@ -826,6 +826,7 @@ fn depth_outcome(
 
 #[test]
 fn depth_follows_the_input_in_every_output() {
+    #[cfg_attr(not(feature = "avif-read"), allow(unused_mut))]
     let mut inputs = vec![
         (read("tests/fixtures/sample.jpg"), ImageFormat::Jpeg, 8),
         (
