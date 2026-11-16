@@ -36,18 +36,7 @@ extern "C-unwind" {
     );
     fn aom_memalign(align: size_t, size: size_t) -> *mut core::ffi::c_void;
     fn aom_free(memblk: *mut core::ffi::c_void);
-    fn av1_selfguided_restoration_c(
-        dgd8: *const uint8_t,
-        width: core::ffi::c_int,
-        height: core::ffi::c_int,
-        dgd_stride: core::ffi::c_int,
-        flt0: *mut int32_t,
-        flt1: *mut int32_t,
-        flt_stride: core::ffi::c_int,
-        sgr_params_idx: core::ffi::c_int,
-        bit_depth: core::ffi::c_int,
-        highbd: core::ffi::c_int,
-    ) -> core::ffi::c_int;
+    static mut av1_selfguided_restoration: Option<unsafe extern "C-unwind" fn(*const uint8_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, *mut int32_t, *mut int32_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> core::ffi::c_int>;
     static av1_sgr_params: [sgr_params_type; 16];
     fn av1_extend_frame(
         data: *mut uint8_t,
@@ -7177,7 +7166,7 @@ unsafe extern "C-unwind" fn apply_sgr(
             } else {
                 width - j
             };
-            if av1_selfguided_restoration_c(
+            if av1_selfguided_restoration.expect("non-null function pointer")(
                 dat8_row.offset(j as isize),
                 w,
                 h,

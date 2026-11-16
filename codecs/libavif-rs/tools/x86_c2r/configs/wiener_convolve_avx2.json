@@ -1,0 +1,108 @@
+{
+ "aligned_externs": [
+  "filt1_global_avx2",
+  "filt2_global_avx2",
+  "filt3_global_avx2",
+  "filt4_global_avx2",
+  "filt_center_global_avx2"
+ ],
+ "comment_start": 12,
+ "consts": {
+  "ADST_ADST": "i32",
+  "ADST_DCT": "i32",
+  "ADST_FLIPADST": "i32",
+  "AOM_QM_BITS": "i32",
+  "DCT_ADST": "i32",
+  "DCT_DCT": "i32",
+  "DCT_FLIPADST": "i32",
+  "FLIPADST_ADST": "i32",
+  "FLIPADST_DCT": "i32",
+  "FLIPADST_FLIPADST": "i32",
+  "H_ADST": "i32",
+  "H_DCT": "i32",
+  "H_FLIPADST": "i32",
+  "IADST_1D": "i32",
+  "IDCT_1D": "i32",
+  "IDTX": "i32",
+  "IFLIPADST_1D": "i32",
+  "IIDENTITY_1D": "i32",
+  "INT16_MAX": "i32",
+  "INV_COS_BIT": "i32",
+  "ITX_TYPES_1D": "i32",
+  "NewInvSqrt2": "i32",
+  "NewSqrt2": "i32",
+  "NewSqrt2Bits": "i32",
+  "TX_16X16": "i32",
+  "TX_16X32": "i32",
+  "TX_16X4": "i32",
+  "TX_16X64": "i32",
+  "TX_16X8": "i32",
+  "TX_32X16": "i32",
+  "TX_32X32": "i32",
+  "TX_32X64": "i32",
+  "TX_32X8": "i32",
+  "TX_4X16": "i32",
+  "TX_4X4": "i32",
+  "TX_4X8": "i32",
+  "TX_64X16": "i32",
+  "TX_64X32": "i32",
+  "TX_64X64": "i32",
+  "TX_8X16": "i32",
+  "TX_8X32": "i32",
+  "TX_8X4": "i32",
+  "TX_8X8": "i32",
+  "TX_SIZES": "i32",
+  "TX_SIZES_ALL": "i32",
+  "TX_TYPES": "i32",
+  "V_ADST": "i32",
+  "V_DCT": "i32",
+  "V_FLIPADST": "i32"
+ },
+ "cpp": {
+  "defines": [
+   "AOM_HAS_BUILTIN(x)=0"
+  ],
+  "headers": [
+   "upstream/aom/av1/common/enums.h",
+   "upstream/aom/aom_dsp/aom_filter.h",
+   "upstream/aom/aom_dsp/aom_dsp_common.h",
+   "upstream/aom/av1/common/restoration.h",
+   "upstream/aom/av1/common/convolve.h",
+   "upstream/aom/aom_ports/mem.h"
+  ],
+  "macros": "(MAX_SB_SIZE(_LOG2)?|FILTER_BITS|SUBPEL_TAPS|SGRPROJ_\\w+|RESTORATION_\\w+|WIENER_\\w+|ALIGN_POWER_OF_TWO|AOMMIN|AOMMAX)$"
+ },
+ "extern_c": [],
+ "feature": "avx2",
+ "macros": {},
+ "output": "wiener_convolve_avx2.rs",
+ "prelude": "preludes/prelude_lr.h",
+ "public": [],
+ "public_all": false,
+ "rtcd": [
+  "av1_wiener_convolve_add_src_avx2"
+ ],
+ "skip": [],
+ "source": "upstream/aom/av1/common/x86/wiener_convolve_avx2.c",
+ "structs": {
+  "ConvolveParams": {},
+  "InterpFilterParams": {},
+  "TxfmParam": {
+   "bd": "i32",
+   "eob": "i32",
+   "is_hbd": "i32",
+   "lossless": "i32",
+   "tx_set_type": "u8",
+   "tx_size": "u8",
+   "tx_type": "u8"
+  },
+  "WienerConvolveParams": {
+   "round_0": "i32",
+   "round_1": "i32"
+  },
+  "sgr_params_type": {
+   "r": "[i32; 2]",
+   "s": "[i32; 2]"
+  }
+ }
+}
