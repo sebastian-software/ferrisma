@@ -218,11 +218,14 @@ sized like the originals' own) and are fixed on `main`.
   was queued).
 
 **Performance records against the original** (reported, not gated): the
-[three-column record of 2026-11-13](benchmarks/v1.0-three-column-2026-11-13.md)
-covers every codec on five CI platforms at `e4038a4a`, before the JPEG XL
-SIMD work; the [JPEG XL decode record of 2026-11-14](benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md)
+[three-column record of 2026-11-17](benchmarks/v1.0-three-column-2026-11-17.md)
+covers every codec on five CI platforms at `f4be1596`, with the JPEG XL
+decoder's and encoder's SIMD defaults (column (b), the original's SIMD build
+on one thread: 0.91 to 1.63, 91 of 104 cells at or below 1.35); the
+[record of 2026-11-13](benchmarks/v1.0-three-column-2026-11-13.md) measured
+`e4038a4a`, before the JPEG XL SIMD work; the [JPEG XL decode record of 2026-11-14](benchmarks/v1.0-jxl-decode-three-column-2026-11-14.md)
 covers the current decoder on one AArch64 machine, with addenda after the
-concurrent AC group decode and the render-pipeline changes. Neither is a
+concurrent AC group decode and the render-pipeline changes. None is a
 universal speed claim.
 
 - Complete the independent image-quality, hardening, resource, and dependency

@@ -1,0 +1,17 @@
+{
+  "machine": "arm64",
+  "features": {
+    "neon": true,
+    "asimddp": true,
+    "i8mm": false,
+    "bf16": false,
+    "sve": false,
+    "avx2": false,
+    "avx512f": false
+  },
+  "v1_scope_level": "NEON",
+  "above_v1_scope": [
+    "asimddp"
+  ],
+  "notes": "v1_scope_level: the highest D6 level the CPU offers; above_v1_scope: extensions D6 excludes that column (b) must not use."
+}

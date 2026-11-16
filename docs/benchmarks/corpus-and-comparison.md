@@ -9,8 +9,9 @@ intent, and matched visual quality. Results are limited to the measured files,
 implementations, presets, and host. There are no new timing results here.
 Per-codec timings of each workspace port against the original it translates
 (scalar, SIMD and all threads, decision D2) are in the
-[three-column record of 2026-11-13](v1.0-three-column-2026-11-13.md); it
-uses two of these photographs.
+[three-column record of 2026-11-17](v1.0-three-column-2026-11-17.md) (and
+the earlier one of [2026-11-13](v1.0-three-column-2026-11-13.md)); they use
+two of these photographs.
 
 ## Inventory
 

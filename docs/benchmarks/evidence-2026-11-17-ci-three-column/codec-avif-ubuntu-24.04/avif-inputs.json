@@ -1,0 +1,21 @@
+{
+  "made_with": "C libavif+libaom release, encode_still.c --quality=60 --speed=6 --depth=8 --threads=1 (4:2:0, one tile, BT.709/sRGB/BT.601 full range)",
+  "files": {
+    "photo12.bmp": {
+      "bytes": 36578358,
+      "sha256": "bda890c2971212e9bc9b3a076a72a84b038a444bfc41151dfa25d15fe9a46054"
+    },
+    "photo12-q60.avif": {
+      "bytes": 814946,
+      "sha256": "1366b34a487a85564f5c163119d28781905cc5deac1a8a83d36bc0c766be843d"
+    },
+    "photo24.bmp": {
+      "bytes": 72000054,
+      "sha256": "032cd094b1c3102bc9bfb638d44ba686cf94c9ee62b072577684468602af898d"
+    },
+    "photo24-q60.avif": {
+      "bytes": 1712226,
+      "sha256": "a196be9dedadd710fe6224b34b5673da77fe37680ffb6cf6a6bc0c693673883b"
+    }
+  }
+}

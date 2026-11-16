@@ -1,0 +1,717 @@
+{
+  "plan": {
+    "reps": 7,
+    "warmups": 1,
+    "group": "jxl/encode-lossless/photo24",
+    "candidates": [
+      {
+        "id": "c-scalar:t1",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" 2> >(awk '/^[0-9]+ x [0-9]+, / { h = $3; sub(/,$/, \"\", h); for (i = 4; i < NF; i++) if ($(i + 1) ~ /^MP\\/s/) { printf \"elapsed_ms=%.3f\\n\", $1 * h / 1e6 / $i * 1000; break } } { print > \"/dev/stderr\" }')",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/build-scalar/tools/cjxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/inputs/photo24.ppm",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/encll-scalar-24.jxl",
+          "-d",
+          "0",
+          "-e",
+          "2",
+          "--codestream_level=10",
+          "--buffering=0",
+          "--num_threads=0"
+        ],
+        "env": {},
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/encll-scalar-24.jxl",
+        "meta": {
+          "codec": "jxl",
+          "op": "encode-lossless",
+          "input": "photo24.ppm",
+          "impl": "c",
+          "column": "a",
+          "threads": 1,
+          "notes": "cjxl -d 0 -e 2 --codestream_level=10 --buffering=0; elapsed_ms from cjxl's MP/s line (EncodeImageJXL; PPM parse and file write excluded); scalar build (HWY_COMPILE_ONLY_SCALAR); --num_threads=0"
+        }
+      },
+      {
+        "id": "c:t1",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" 2> >(awk '/^[0-9]+ x [0-9]+, / { h = $3; sub(/,$/, \"\", h); for (i = 4; i < NF; i++) if ($(i + 1) ~ /^MP\\/s/) { printf \"elapsed_ms=%.3f\\n\", $1 * h / 1e6 / $i * 1000; break } } { print > \"/dev/stderr\" }')",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/build-simd/tools/cjxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/inputs/photo24.ppm",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/encll-c-t1-24.jxl",
+          "-d",
+          "0",
+          "-e",
+          "2",
+          "--codestream_level=10",
+          "--buffering=0",
+          "--num_threads=0"
+        ],
+        "env": {},
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/encll-c-t1-24.jxl",
+        "meta": {
+          "codec": "jxl",
+          "op": "encode-lossless",
+          "input": "photo24.ppm",
+          "impl": "c",
+          "column": "b",
+          "threads": 1,
+          "notes": "cjxl -d 0 -e 2 --codestream_level=10 --buffering=0; elapsed_ms from cjxl's MP/s line (EncodeImageJXL; PPM parse and file write excluded); --num_threads=0"
+        }
+      },
+      {
+        "id": "c:tN",
+        "cmd": [
+          "bash",
+          "-c",
+          "exec \"$0\" \"$@\" 2> >(awk '/^[0-9]+ x [0-9]+, / { h = $3; sub(/,$/, \"\", h); for (i = 4; i < NF; i++) if ($(i + 1) ~ /^MP\\/s/) { printf \"elapsed_ms=%.3f\\n\", $1 * h / 1e6 / $i * 1000; break } } { print > \"/dev/stderr\" }')",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/build-simd/tools/cjxl",
+          "/home/runner/work/ferrisma/ferrisma/bench/inputs/photo24.ppm",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/encll-c-tN-24.jxl",
+          "-d",
+          "0",
+          "-e",
+          "2",
+          "--codestream_level=10",
+          "--buffering=0"
+        ],
+        "env": {},
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/encll-c-tN-24.jxl",
+        "meta": {
+          "codec": "jxl",
+          "op": "encode-lossless",
+          "input": "photo24.ppm",
+          "impl": "c",
+          "column": "c",
+          "threads": 4,
+          "notes": "cjxl -d 0 -e 2 --codestream_level=10 --buffering=0; elapsed_ms from cjxl's MP/s line (EncodeImageJXL; PPM parse and file write excluded); default runner"
+        }
+      },
+      {
+        "id": "port:t1",
+        "cmd": [
+          "/home/runner/work/ferrisma/ferrisma/target/release/examples/encode_lossless",
+          "/home/runner/work/ferrisma/ferrisma/bench/inputs/photo24.ppm",
+          "/home/runner/work/ferrisma/ferrisma/bench/work/encll-port-24.jxl"
+        ],
+        "env": {},
+        "output": "/home/runner/work/ferrisma/ferrisma/bench/work/encll-port-24.jxl",
+        "meta": {
+          "codec": "jxl",
+          "op": "encode-lossless",
+          "input": "photo24.ppm",
+          "impl": "port",
+          "column": "port",
+          "threads": 1,
+          "notes": "encode_lossless: LosslessThunderConfig (SetLossless, Thunder/effort 2, level 10, buffering 0, sRGB), the engine's lossless profile; timer around configuration + encode_pixels; serial"
+        }
+      }
+    ]
+  },
+  "platform": "Linux-7.0.0-1014-aws-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "cpus": 4,
+  "uptime_before": "23:32:51 up 20 min,  0 user,  load average: 1.31, 1.61, 1.16",
+  "uptime_after": "23:33:54 up 21 min,  0 user,  load average: 1.27, 1.54, 1.16",
+  "order": "alternating forward/reverse per repetition, fresh process per sample",
+  "complete": true,
+  "summary": {
+    "c-scalar:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 2.1562327130000085,
+      "wall_min_s": 2.146490404000133,
+      "wall_max_s": 2.164627777000078,
+      "load_min": 1.201171875,
+      "load_max": 1.41064453125,
+      "rss_median_bytes": 1424691200,
+      "rss_max_bytes": 1424908288,
+      "internal_median_ms": 2069.322,
+      "internal_min_ms": 2064.161,
+      "internal_max_ms": 2077.203,
+      "output_sha256": [
+        "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b"
+      ],
+      "output_bytes": [
+        25574544
+      ]
+    },
+    "c:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 2.1259249089998775,
+      "wall_min_s": 2.1043831709998813,
+      "wall_max_s": 2.1431432570000197,
+      "load_min": 1.201171875,
+      "load_max": 1.41064453125,
+      "rss_median_bytes": 1460338688,
+      "rss_max_bytes": 1460690944,
+      "internal_median_ms": 2031.488,
+      "internal_min_ms": 2018.843,
+      "internal_max_ms": 2061.324,
+      "output_sha256": [
+        "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b"
+      ],
+      "output_bytes": [
+        25574544
+      ]
+    },
+    "c:tN": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 1.1388253370000712,
+      "wall_min_s": 1.1220605309999883,
+      "wall_max_s": 1.141396838999981,
+      "load_min": 1.18505859375,
+      "load_max": 1.41064453125,
+      "rss_median_bytes": 1462398976,
+      "rss_max_bytes": 1464406016,
+      "internal_median_ms": 1051.893,
+      "internal_min_ms": 1038.601,
+      "internal_max_ms": 1057.641,
+      "output_sha256": [
+        "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b"
+      ],
+      "output_bytes": [
+        25574544
+      ]
+    },
+    "port:t1": {
+      "n": 7,
+      "failed": 0,
+      "wall_median_s": 2.350444027000094,
+      "wall_min_s": 2.341889245999937,
+      "wall_max_s": 2.368103476999977,
+      "load_min": 1.18505859375,
+      "load_max": 1.34716796875,
+      "rss_median_bytes": 1690775552,
+      "rss_max_bytes": 1690808320,
+      "internal_median_ms": 2298.54,
+      "internal_min_ms": 2287.904,
+      "internal_max_ms": 2311.957,
+      "output_sha256": [
+        "69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a"
+      ],
+      "output_bytes": [
+        25574493
+      ]
+    }
+  },
+  "samples": [
+    {
+      "id": "port:t1",
+      "wall_s": 2.35450656099988,
+      "load_before": 1.306640625,
+      "load_after": 1.306640625,
+      "returncode": 0,
+      "max_rss_bytes": 1690681344,
+      "internal_ms": 2303.377,
+      "stdout": [
+        "dimensions=6000x4000 effort=2 distance=0 bytes=25574493 elapsed_ms=2303.377"
+      ],
+      "output_bytes": 25574493,
+      "output_sha256": "69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.1344661749999432,
+      "load_before": 1.306640625,
+      "load_after": 1.306640625,
+      "returncode": 0,
+      "max_rss_bytes": 1463169024,
+      "internal_ms": 1047.806,
+      "stdout": [
+        "elapsed_ms=1047.806"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 2.0981836690000364,
+      "load_before": 1.306640625,
+      "load_after": 1.28173828125,
+      "returncode": 0,
+      "max_rss_bytes": 1460379648,
+      "internal_ms": 2012.916,
+      "stdout": [
+        "elapsed_ms=2012.916"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 2.195679208999991,
+      "load_before": 1.28173828125,
+      "load_after": 1.28173828125,
+      "returncode": 0,
+      "max_rss_bytes": 1424355328,
+      "internal_ms": 2112.118,
+      "stdout": [
+        "elapsed_ms=2112.118"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": -1,
+      "warmup": true
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 2.1575017150000804,
+      "load_before": 1.28173828125,
+      "load_after": 1.2587890625,
+      "returncode": 0,
+      "max_rss_bytes": 1424908288,
+      "internal_ms": 2068.787,
+      "stdout": [
+        "elapsed_ms=2068.787"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 2.1176524800000607,
+      "load_before": 1.2587890625,
+      "load_after": 1.2587890625,
+      "returncode": 0,
+      "max_rss_bytes": 1460584448,
+      "internal_ms": 2022.586,
+      "stdout": [
+        "elapsed_ms=2022.586"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.1405734170000414,
+      "load_before": 1.2587890625,
+      "load_after": 1.2587890625,
+      "returncode": 0,
+      "max_rss_bytes": 1462398976,
+      "internal_ms": 1051.248,
+      "stdout": [
+        "elapsed_ms=1051.248"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 2.368103476999977,
+      "load_before": 1.2587890625,
+      "load_after": 1.23779296875,
+      "returncode": 0,
+      "max_rss_bytes": 1690574848,
+      "internal_ms": 2311.957,
+      "stdout": [
+        "dimensions=6000x4000 effort=2 distance=0 bytes=25574493 elapsed_ms=2311.957"
+      ],
+      "output_bytes": 25574493,
+      "output_sha256": "69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a",
+      "rep": 0,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 2.3545368640000106,
+      "load_before": 1.23779296875,
+      "load_after": 1.23779296875,
+      "returncode": 0,
+      "max_rss_bytes": 1690800128,
+      "internal_ms": 2298.54,
+      "stdout": [
+        "dimensions=6000x4000 effort=2 distance=0 bytes=25574493 elapsed_ms=2298.540"
+      ],
+      "output_bytes": 25574493,
+      "output_sha256": "69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.1388253370000712,
+      "load_before": 1.23779296875,
+      "load_after": 1.23779296875,
+      "returncode": 0,
+      "max_rss_bytes": 1463214080,
+      "internal_ms": 1054.806,
+      "stdout": [
+        "elapsed_ms=1054.806"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 2.1259249089998775,
+      "load_before": 1.21875,
+      "load_after": 1.21875,
+      "returncode": 0,
+      "max_rss_bytes": 1460690944,
+      "internal_ms": 2031.488,
+      "stdout": [
+        "elapsed_ms=2031.488"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 2.164627777000078,
+      "load_before": 1.21875,
+      "load_after": 1.21875,
+      "returncode": 0,
+      "max_rss_bytes": 1424756736,
+      "internal_ms": 2077.203,
+      "stdout": [
+        "elapsed_ms=2077.203"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 1,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 2.146490404000133,
+      "load_before": 1.21875,
+      "load_after": 1.201171875,
+      "returncode": 0,
+      "max_rss_bytes": 1424670720,
+      "internal_ms": 2064.161,
+      "stdout": [
+        "elapsed_ms=2064.161"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 2.1043831709998813,
+      "load_before": 1.201171875,
+      "load_after": 1.201171875,
+      "returncode": 0,
+      "max_rss_bytes": 1460338688,
+      "internal_ms": 2018.843,
+      "stdout": [
+        "elapsed_ms=2018.843"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.1220605309999883,
+      "load_before": 1.201171875,
+      "load_after": 1.201171875,
+      "returncode": 0,
+      "max_rss_bytes": 1462304768,
+      "internal_ms": 1038.601,
+      "stdout": [
+        "elapsed_ms=1038.601"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 2.343581972000038,
+      "load_before": 1.201171875,
+      "load_after": 1.18505859375,
+      "returncode": 0,
+      "max_rss_bytes": 1690755072,
+      "internal_ms": 2287.904,
+      "stdout": [
+        "dimensions=6000x4000 effort=2 distance=0 bytes=25574493 elapsed_ms=2287.904"
+      ],
+      "output_bytes": 25574493,
+      "output_sha256": "69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a",
+      "rep": 2,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 2.341889245999937,
+      "load_before": 1.18505859375,
+      "load_after": 1.18505859375,
+      "returncode": 0,
+      "max_rss_bytes": 1690775552,
+      "internal_ms": 2290.075,
+      "stdout": [
+        "dimensions=6000x4000 effort=2 distance=0 bytes=25574493 elapsed_ms=2290.075"
+      ],
+      "output_bytes": 25574493,
+      "output_sha256": "69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.1407336449999548,
+      "load_before": 1.18505859375,
+      "load_after": 1.41064453125,
+      "returncode": 0,
+      "max_rss_bytes": 1461792768,
+      "internal_ms": 1055.641,
+      "stdout": [
+        "elapsed_ms=1055.641"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 2.1321978030000537,
+      "load_before": 1.41064453125,
+      "load_after": 1.41064453125,
+      "returncode": 0,
+      "max_rss_bytes": 1460289536,
+      "internal_ms": 2042.901,
+      "stdout": [
+        "elapsed_ms=2042.901"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 2.1514354379999077,
+      "load_before": 1.41064453125,
+      "load_after": 1.41064453125,
+      "returncode": 0,
+      "max_rss_bytes": 1424691200,
+      "internal_ms": 2066.294,
+      "stdout": [
+        "elapsed_ms=2066.294"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 3,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 2.1529256379999424,
+      "load_before": 1.41064453125,
+      "load_after": 1.37744140625,
+      "returncode": 0,
+      "max_rss_bytes": 1424650240,
+      "internal_ms": 2070.393,
+      "stdout": [
+        "elapsed_ms=2070.393"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 2.1145676999999523,
+      "load_before": 1.37744140625,
+      "load_after": 1.37744140625,
+      "returncode": 0,
+      "max_rss_bytes": 1460629504,
+      "internal_ms": 2026.685,
+      "stdout": [
+        "elapsed_ms=2026.685"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.1319263829998363,
+      "load_before": 1.37744140625,
+      "load_after": 1.34716796875,
+      "returncode": 0,
+      "max_rss_bytes": 1464406016,
+      "internal_ms": 1047.715,
+      "stdout": [
+        "elapsed_ms=1047.715"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 2.342230567000115,
+      "load_before": 1.34716796875,
+      "load_after": 1.34716796875,
+      "returncode": 0,
+      "max_rss_bytes": 1690808320,
+      "internal_ms": 2289.017,
+      "stdout": [
+        "dimensions=6000x4000 effort=2 distance=0 bytes=25574493 elapsed_ms=2289.017"
+      ],
+      "output_bytes": 25574493,
+      "output_sha256": "69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a",
+      "rep": 4,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 2.350444027000094,
+      "load_before": 1.34716796875,
+      "load_after": 1.3193359375,
+      "returncode": 0,
+      "max_rss_bytes": 1690787840,
+      "internal_ms": 2298.732,
+      "stdout": [
+        "dimensions=6000x4000 effort=2 distance=0 bytes=25574493 elapsed_ms=2298.732"
+      ],
+      "output_bytes": 25574493,
+      "output_sha256": "69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.141396838999981,
+      "load_before": 1.3193359375,
+      "load_after": 1.3193359375,
+      "returncode": 0,
+      "max_rss_bytes": 1463033856,
+      "internal_ms": 1057.641,
+      "stdout": [
+        "elapsed_ms=1057.641"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 2.1431432570000197,
+      "load_before": 1.3193359375,
+      "load_after": 1.3193359375,
+      "returncode": 0,
+      "max_rss_bytes": 1460281344,
+      "internal_ms": 2061.324,
+      "stdout": [
+        "elapsed_ms=2061.324"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 2.1595268000000942,
+      "load_before": 1.3193359375,
+      "load_after": 1.29345703125,
+      "returncode": 0,
+      "max_rss_bytes": 1424543744,
+      "internal_ms": 2069.322,
+      "stdout": [
+        "elapsed_ms=2069.322"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 5,
+      "warmup": false
+    },
+    {
+      "id": "c-scalar:t1",
+      "wall_s": 2.1562327130000085,
+      "load_before": 1.29345703125,
+      "load_after": 1.29345703125,
+      "returncode": 0,
+      "max_rss_bytes": 1424703488,
+      "internal_ms": 2071.644,
+      "stdout": [
+        "elapsed_ms=2071.644"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "c:t1",
+      "wall_s": 2.1297711330000766,
+      "load_before": 1.29345703125,
+      "load_after": 1.29345703125,
+      "returncode": 0,
+      "max_rss_bytes": 1460338688,
+      "internal_ms": 2044.119,
+      "stdout": [
+        "elapsed_ms=2044.119"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "c:tN",
+      "wall_s": 1.1383604929999365,
+      "load_before": 1.29345703125,
+      "load_after": 1.26953125,
+      "returncode": 0,
+      "max_rss_bytes": 1459777536,
+      "internal_ms": 1051.893,
+      "stdout": [
+        "elapsed_ms=1051.893"
+      ],
+      "output_bytes": 25574544,
+      "output_sha256": "a117be6cb1a15e65b7aa6aedb1a007c2043bb7bea281ab05e1e1dc5e766b775b",
+      "rep": 6,
+      "warmup": false
+    },
+    {
+      "id": "port:t1",
+      "wall_s": 2.3544543509999585,
+      "load_before": 1.26953125,
+      "load_after": 1.26953125,
+      "returncode": 0,
+      "max_rss_bytes": 1690710016,
+      "internal_ms": 2301.13,
+      "stdout": [
+        "dimensions=6000x4000 effort=2 distance=0 bytes=25574493 elapsed_ms=2301.130"
+      ],
+      "output_bytes": 25574493,
+      "output_sha256": "69e7a926bf5b2c292a82f6209f1950626a72c7fc89fcf312d75bac54af5bdc8a",
+      "rep": 6,
+      "warmup": false
+    }
+  ]
+}
