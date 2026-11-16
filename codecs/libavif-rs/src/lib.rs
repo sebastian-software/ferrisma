@@ -19,8 +19,8 @@
 compile_error!("This generated configuration is validated only for aarch64-apple-darwin and x86_64-unknown-linux-gnu");
 
 // Retain source-corresponding workspace dependency symbols in all artifacts.
+// The root is libavif with AVIF_CODEC_DAV1D=OFF (ADR 0061): no dav1d crate.
 extern crate sharpyuv as _;
-extern crate dav1d as _;
 extern crate aom as _;
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]

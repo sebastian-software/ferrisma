@@ -74,11 +74,6 @@
         {
           "type": "toml",
           "path": "fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libavif-dav1d' && !@.source)].version"
-        },
-        {
-          "type": "toml",
-          "path": "fuzz/Cargo.lock",
           "jsonpath": "$.package[?(@.name.value=='libavif-sharpyuv' && !@.source)].version"
         },
         {

@@ -33,15 +33,11 @@ bench = false
 overflow-checks = false
 [profile.dev.package.libavif-aom]
 overflow-checks = false
-[profile.dev.package.libavif-dav1d]
-overflow-checks = false
 [profile.dev.package.libavif-sharpyuv]
 overflow-checks = false
 [profile.release.package.libavif-rs]
 overflow-checks = false
 [profile.release.package.libavif-aom]
-overflow-checks = false
-[profile.release.package.libavif-dav1d]
 overflow-checks = false
 [profile.release.package.libavif-sharpyuv]
 overflow-checks = false

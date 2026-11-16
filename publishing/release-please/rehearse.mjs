@@ -37,7 +37,7 @@ const postStep = option !== "--without-post-step";
 // `--key-by-package` rehearses the proposed manifest fix in memory: every
 // renamed first-party dependency (`webp = { package = "libwebp-rs", … }`) is
 // keyed by its package name instead. The library target names (`webp`, `jxl`,
-// `sharpyuv`, `dav1d`, `aom`) are unchanged, so Rust sources would not change;
+// `sharpyuv`, `aom`) are unchanged, so Rust sources would not change;
 // only `dep:` feature references would.
 const keyByPackage = option === "--key-by-package";
 const require = createRequire(join(resolve(nodeModules), "rehearsal.js"));

@@ -32,7 +32,6 @@
       "components": [
         "libavif-rs",
         "libavif-aom",
-        "libavif-dav1d",
         "libavif-sharpyuv"
       ],
       "merge": false
@@ -166,16 +165,6 @@
           "type": "toml",
           "path": "/fuzz/Cargo.lock",
           "jsonpath": "$.package[?(@.name.value=='libavif-aom' && !@.source)].version"
-        }
-      ]
-    },
-    "codecs/libavif-rs/crates/dav1d": {
-      "component": "libavif-dav1d",
-      "extra-files": [
-        {
-          "type": "toml",
-          "path": "/fuzz/Cargo.lock",
-          "jsonpath": "$.package[?(@.name.value=='libavif-dav1d' && !@.source)].version"
         }
       ]
     },

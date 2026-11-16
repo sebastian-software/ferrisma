@@ -11,7 +11,6 @@
   "codecs/libjxl-rs": "0.0.0",
   "codecs/libavif-rs": "0.0.0",
   "codecs/libavif-rs/crates/aom": "0.0.0",
-  "codecs/libavif-rs/crates/dav1d": "0.0.0",
   "codecs/libavif-rs/crates/sharpyuv": "0.0.0",
   "crates/ferrisma-libavif": "0.0.0"
 }

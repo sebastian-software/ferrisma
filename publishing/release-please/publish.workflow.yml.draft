@@ -159,7 +159,7 @@ jobs:
         run: |
           cargo package --locked \
             -p libsharpyuv-core -p ferrisma-kernels -p libjpeg-turbo-rs \
-            -p libjxl-rs -p libavif-aom -p libavif-dav1d -p libwebp-rs \
+            -p libjxl-rs -p libavif-aom -p libwebp-rs \
             -p libavif-sharpyuv -p libavif-rs -p ferrisma-avif-read \
             -p ferrisma-avif-write -p ferrisma-jxl-decoder \
             -p ferrisma-jxl-encoder -p ferrisma
@@ -176,7 +176,6 @@ jobs:
             libjpeg-turbo-rs
             libjxl-rs
             libavif-aom
-            libavif-dav1d
             libwebp-rs
             libavif-sharpyuv
             libavif-rs
