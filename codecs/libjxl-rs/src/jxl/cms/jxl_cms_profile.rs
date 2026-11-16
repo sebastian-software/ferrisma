@@ -28,28 +28,10 @@ use std::ptr;
 
 pub(super) fn cie_xy_from_xyz(xyz: [f32; 3]) -> CieXy {
     let factor = 1.0 / f64::from(xyz[0] + xyz[1] + xyz[2]);
-    #[cfg(target_arch = "aarch64")]
-    {
-        let x: f64;
-        let y: f64;
-        // SAFETY: original scalar double FMULs select factor as their first
-        // operand. Preserve that order for competing NaN payloads; the block
-        // accesses no memory and reads initialized float register operands.
-        unsafe {
-            std::arch::asm!(
-                "fmul {out_x:d}, {factor:d}, {x:d}",
-                "fmul {out_y:d}, {factor:d}, {y:d}",
-                factor = in(vreg) factor,
-                x = in(vreg) f64::from(xyz[0]),
-                y = in(vreg) f64::from(xyz[1]),
-                out_x = out(vreg) x,
-                out_y = out(vreg) y,
-                options(pure, nomem, nostack),
-            );
-        }
-        CieXy { x, y }
-    }
-    #[cfg(not(target_arch = "aarch64"))]
+    // Which NaN payload survives a product of two NaNs depends on the operand
+    // order the compiler picks (on AArch64 the original's build puts `factor`
+    // first). NaN payloads are outside the comparison (ADR-0041 section 3);
+    // every other result is the same in either order.
     CieXy {
         x: f64::from(xyz[0]) * factor,
         y: f64::from(xyz[1]) * factor,

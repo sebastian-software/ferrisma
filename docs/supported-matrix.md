@@ -96,8 +96,8 @@ with a changelog entry, and the new minimum is then at least three months old
 | `libavif-sharpyuv` | 1.95 | unchanged with the AVIF port | not checked separately at 1.95 |
 | `libwebp-rs` | 1.95 | x86 SIMD calls `__cpuid_count` without an `unsafe` block, rejected with `E0133` by 1.93, accepted by 1.95 | `check.py --msrv` (codec PR job, `webp-check.yml`) |
 | `libjpeg-turbo-rs` | 1.93 | x86 SIMD calls `_mm_sfence` without an `unsafe` block, rejected with `E0133` by 1.88, accepted by 1.93 | `check.py --msrv` (codec PR job), `jpeg-check.yml` `msrv` |
-| `libjxl-rs` | 1.88 | lowest installed toolchain tested; edition 2024 allows nothing below 1.85 | `check.py --msrv` (codec PR job, `jxl-check.yml`) |
-| `libsharpyuv-core` | 1.88 | as `libjxl-rs` | CI `workspace` (check and Clippy) |
+| `libjxl-rs` | 1.94 | the AArch64 half-precision conversions use `vcvt_f16_f32` and `vcvt_f32_f16` with the `float16x4_t` type instead of inline assembly (ADR-0044), stable since 1.94.0, `E0658` on 1.93; raised from the measured floor 1.88 on 2026-11-16 (owner decision; 1.94.0 was released on 2026-03-05) | `check.py --msrv` (codec PR job, `jxl-check.yml`); the codec PR job also runs the port's no-oracle tests at this version |
+| `libsharpyuv-core` | 1.88 | lowest installed toolchain tested; edition 2024 allows nothing below 1.85 | CI `workspace` (check and Clippy) |
 
 Evidence (2026-11-15, macOS ARM64, with the installed toolchains 1.88, 1.93,
 1.95; none in between): `cargo +<version> check --locked -p <package>
@@ -124,6 +124,16 @@ x86-64 (AVX-512 target features and `stdarch_x86_avx512`, `E0658` on 1.88).
 Versions 1.85 to 1.87, 1.89 to 1.92 and 1.94 were not tested. The `rust`
 job checks each feature alone (`cargo check --no-default-features
 --features <feature>`) on the pinned nightly.
+
+`libjxl-rs` at 1.94 (2026-11-16, macOS ARM64, after replacing its
+half-precision inline assembly): `cargo +1.94.0 check --locked --all-targets
+--all-features` passes, and with 1.94 (1.94.1) also for
+`x86_64-unknown-linux-gnu` and `x86_64-apple-darwin`; `cargo +1.93 check
+--lib` fails with `E0658` (`stdarch_neon_f16`) at the ten uses of
+`float16x4_t`, `vcvt_f16_f32` and `vcvt_f32_f16`; `cargo +1.94 test --locked
+-p libjxl-rs --profile checked` without the oracle passes 449 tests natively.
+x86-64 was checked, not run (Rosetta 2 unavailable that day); the port's
+x86-64 code did not change with the raise.
 
 The `libjxl-rs` difference is fixed since 2026-11-16: LLVM 20 to 22 (Rust
 1.88 to 1.98) lower the port's `std::max` compare-and-select to AArch64
@@ -593,7 +603,7 @@ used. Every place in the workspace that selects code at run time:
 | skcms in `libjxl-rs` (ICC transforms) | `src/skcms/transform.rs` `cpu_type` and `engine` | SKX engine, `src/skcms/transform_x86.rs` `run_program_skx` (AVX-512F/DQ/CD/BW/VL) | HSW (AVX2/F16C) on AVX-512 CPUs; baseline NEON on AArch64 | Cargo feature `libjxl-rs/skcms-skx` | skcms built with `-DSKCMS_DISABLE_SKX` |
 | `libjxl-rs` decoder outside skcms | `src/jxl/hwy/mod.rs` `decoder_default_target` (`Target::detect()` when `DECODER_SELECTS_SIMD`), applied only inside decoder entry points (port ADR 0004, "Scope of the selection") | none: only `HWY_NEON` and `HWY_AVX2` are translated, and `Target::detect` never selects AVX-512 or SVE | NEON on AArch64 since 2026-11-14; AVX2 on x86-64 since `7b48bc81` (AVX2 output can differ between CPU vendors exactly as the original's AVX2 build does); the encoder runs scalar on every target | none for callers; tests use `set_decoder_simd_for_test` and, in oracle builds, `JXL_DECODER_TARGET=scalar` | Highway dispatch with every target above `HWY_NEON`/`HWY_AVX2` in `HWY_DISABLED_TARGETS` |
 | AOM (`libavif-rs/crates/aom`) | translated RTCD: `x86_simd_caps()` (generated `src/linux/*/…_rtcd.rs`, reports `HAS_AVX512`), `aom_arm_cpu_caps()` (`src/simd/aom_ports/aarch64_cpudetect.rs`, reports DotProd and I8MM) | none: no AVX-512, DotProd, I8MM or SVE kernel is translated, and the RTCD generator runs with `--disable-avx512` and `--disable-neon_dotprod/neon_i8mm/sve/sve2`, so no table entry dispatches on those flags (`tests/dispatch_scope.rs`) | SSE2/SSE4.1/AVX2; Neon | none (nothing to opt into; `AOM_SIMD_CAPS`/`AOM_SIMD_CAPS_MASK` only lower the selection) | CMake `-DENABLE_AVX512=0` (x86-64); `-DENABLE_NEON_DOTPROD=0 -DENABLE_NEON_I8MM=0 -DENABLE_SVE=0 -DENABLE_SVE2=0` (arm64); at run time `AOM_SIMD_CAPS_MASK=0x1ff` (x86-64) or `0x3` (arm64) |
-| dav1d (`libavif-rs/crates/dav1d`) | none: no assembly, `dav1d_init_cpu` is empty | none | scalar | — | `-Denable_asm=false` |
+| dav1d (`libavif-rs/crates/dav1d`) | owned `dav1d_init_cpu` (`src/simd/cpu.rs`: NEON on AArch64; CPUID/XCR0 through `core::arch` on x86-64, as `src/x86/cpu.c`) and the dispatch of `tools/enable_dav1d_dispatch.py` (libavif-rs ADR 0062); no assembly | none: DotProd/I8MM/SVE are not reported, no AVX-512 kernel is rebuilt | NEON for the kernels rebuilt so far (since 2026-11-16: 8 bpc DCT_DCT/IDTX transforms up to 16x16), C for the rest; x86-64 scalar until its AVX2 kernels are rebuilt; SSSE3/SSE4.1 (CPUs without AVX2) are a stated gap | `dav1d_set_cpu_flags_mask(0)` selects C | the original with its assembly, restricted with `dav1d_set_cpu_flags_mask` (NEON `0x1`, AVX2 `0x2f`) |
 | SharpYUV (`libavif-rs/crates/sharpyuv`, `crates/libsharpyuv-core`) | CPU query translated, SIMD conversion disabled | none | scalar | — | — |
 | `libwebp-rs` | `src/dsp/cpu.rs` `vp8_get_cpu_info` | none (libwebp has nothing above `kAVX2`/`kNEON`) | up to AVX2 / NEON | — | — |
 | `libjpeg-turbo-rs` | `src/jsimdcpu.rs` `jpeg_simd_cpu_support` | none (libjpeg-turbo has nothing above AVX2/NEON) | up to AVX2 / NEON | — | — |

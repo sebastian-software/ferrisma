@@ -11,6 +11,7 @@ import sys
 
 from import_translation import translate
 from dav1d_layout import retain_alignment
+from enable_dav1d_dispatch import dispatch_text
 from stable_rust import remove_register_barrier, stable_text
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -178,6 +179,8 @@ def main():
             target = CRATE / 'src' / source_prefix / group / source.with_suffix('.rs').name
             # The committed units are rewritten for stable Rust (ADR 0060).
             text = stable_text(str(target.relative_to(ROOT)), text)
+            # The dispatch to the rebuilt kernels (ADR 0062) follows.
+            text = dispatch_text(str(target.relative_to(ROOT)), text)
             target.parent.mkdir(parents=True, exist_ok=True)
             if args.check:
                 if target.read_text() != text:

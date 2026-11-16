@@ -375,21 +375,16 @@ impl SimdF32 for Neon {
         neon!(vdupq_laneq_f32::<LANE>(v))
     }
     // HWY_NEON_HAVE_F16C: DemoteTo(df16, v) = vcvt_f16_f32, the FCVTN
-    // instruction (the f16 intrinsic types are not stable in Rust).
+    // instruction (the intrinsic and its f16 vector type are stable since
+    // Rust 1.94.0).
     #[inline(always)]
     fn store_demote_to_f16(self, v: Self::V, dst: &mut [u16]) {
         let dst = &mut dst[..4];
-        let half: uint16x4_t;
-        // SAFETY: FCVTN is part of the AArch64 baseline floating point and
-        // reads/writes only the named vector registers; `dst` holds four
-        // writable, exclusively borrowed u16 values.
+        // SAFETY: vcvt_f16_f32 needs only the AArch64 baseline NEON; the
+        // transmute reinterprets four initialized 16-bit lanes; `dst` holds
+        // four writable, exclusively borrowed u16 values.
         unsafe {
-            core::arch::asm!(
-                "fcvtn {0:v}.4h, {1:v}.4s",
-                out(vreg) half,
-                in(vreg) v,
-                options(pure, nomem, nostack, preserves_flags)
-            );
+            let half = core::mem::transmute::<float16x4_t, uint16x4_t>(vcvt_f16_f32(v));
             vst1_u16(dst.as_mut_ptr(), half);
         }
     }

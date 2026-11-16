@@ -28,7 +28,7 @@
         "raw-c-mutable-address": 2
       },
       "raw_sha256": "fe289b6998ddbed1fd98a33af4a13fa064abd9d3c4155ca0e6f868b003dd7e5e",
-      "rust_sha256": "a20da7dfc0c3fe29d6683546a0bb1b7677c2cd3f5918f898bf8a55890cb33942"
+      "rust_sha256": "57ecbdf1fcd66368f3fbe9df76ce6af1b19863fb978c2314a58a505e5d695757"
     },
     {
       "source": "upstream/dav1d/src/ctx.c",

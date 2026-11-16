@@ -13,6 +13,36 @@ static void *bases[2];
 static unsigned checked[2];
 static unsigned null_selections[2];
 
+/* The CPU level of each implementation. Without DAV1D_PORT_SIMD_MASK (the
+ * scalar comparison of ADR 0029) neither library runs dav1d_init_cpu, so
+ * both report no CPU flags and select their C kernels; the candidate's mask
+ * is also set to 0. With DAV1D_PORT_SIMD_MASK (the SIMD comparison of ADR
+ * 0062) both libraries detect the CPU with their own dav1d_init_cpu and are
+ * restricted to the same level with dav1d_set_cpu_flags_mask, the original
+ * then selecting its assembly kernels and the port its intrinsics kernels. */
+static void select_cpu_level(void *handle) {
+    void (*init_cpu)(void) = (void (*)(void)) dlsym(handle, "dav1d_init_cpu");
+    void (*set_mask)(unsigned) = (void (*)(unsigned)) dlsym(handle, "dav1d_set_cpu_flags_mask");
+    /* The original keeps dav1d_cpu_flags hidden; its test-only accessor
+     * port_cpu_flags returns dav1d_get_cpu_flags(). The port exports both
+     * globals. */
+    unsigned (*accessor)(void) = (unsigned (*)(void)) dlsym(handle, "port_cpu_flags");
+    unsigned *flags = (unsigned *) dlsym(handle, "dav1d_cpu_flags");
+    unsigned *mask = (unsigned *) dlsym(handle, "dav1d_cpu_flags_mask");
+    const char *level = getenv("DAV1D_PORT_SIMD_MASK");
+    if (!init_cpu || !set_mask || (!accessor && (!flags || !mask))) {
+        fprintf(stderr, "Missing CPU selection symbols: phase=%u\n", phase);
+        exit(1);
+    }
+    if (level) {
+        init_cpu();
+        set_mask((unsigned) strtoul(level, NULL, 0));
+    } else if (phase) {
+        set_mask(0);
+    }
+    fprintf(stderr, "[port] phase=%u cpu_flags=0x%x\n", phase, accessor ? accessor() : *flags & *mask);
+}
+
 void port_set_phase(CheckasmCpu value) {
     phase = value != 0;
     if (!handles[phase]) {
@@ -25,6 +55,7 @@ void port_set_phase(CheckasmCpu value) {
         if (!dladdr(dlsym(handles[phase], "dav1d_version"), &info)) abort();
         bases[phase] = info.dli_fbase;
         fprintf(stderr, "[port] phase=%u library=%s\n", phase, info.dli_fname);
+        select_cpu_level(handles[phase]);
     }
 }
 

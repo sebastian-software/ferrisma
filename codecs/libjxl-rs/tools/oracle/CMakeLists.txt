@@ -210,7 +210,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_
   target_sources(jxl_oracle PRIVATE skcms_concat.cc)
   set_source_files_properties(skcms_concat.cc PROPERTIES COMPILE_OPTIONS -O0)
 endif()
-# Decision D8 with working rule O1 (pending owner confirmation): NaN payloads
+# Decision D8 with rule O1 (confirmed by the owner on 2026-11-15, ADR-0041): NaN payloads
 # are not part of the gate, and for requests whose inputs contain NaN or
 # infinity a word is compared only where two scalar reference builds of the
 # original agree. ORACLE_REFERENCE_PINS=OFF builds the second one: the same
