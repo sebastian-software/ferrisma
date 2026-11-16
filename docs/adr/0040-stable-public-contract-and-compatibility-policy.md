@@ -783,3 +783,8 @@ reports that a stable item cannot express its use case.
      returns a `Result` and no longer clamps such a count to 256 silently
      (ADR-0042). `Automatic` resolves to the available cores, at most 256,
      as 0 did. The CLI keeps 0 as its spelling of automatic.
+  6. **CICP** (problem 8). `ImageMetadata::rendered_cicp` is
+     `Option<Cicp>`, a `#[non_exhaustive]` struct with `color_primaries`,
+     `transfer_characteristics`, `matrix_coefficients` and
+     `full_range: bool`, instead of `[u8; 4]`; the engine keeps its
+     internal order and converts at the boundary.

@@ -1610,8 +1610,50 @@ pub struct ImageMetadata {
     pub has_alpha: bool,
     /// ICC profile describing the decoder's emitted samples, if any.
     pub rendered_icc: Option<Vec<u8>>,
-    /// CICP (primaries, transfer, matrix, full range) of the emitted samples, if any.
-    pub rendered_cicp: Option<[u8; 4]>,
+    /// CICP of the emitted samples, if any (a [`Cicp`] since 2026-11-16;
+    /// `[u8; 4]` before).
+    pub rendered_cicp: Option<Cicp>,
+}
+
+/// Coding-independent code points (ITU-T H.273) that describe decoded
+/// samples, as a decoder reports them in [`ImageMetadata::rendered_cicp`]:
+/// evidence, not a conversion. Named fields since 2026-11-16 (problem 8 of
+/// ADR-0040; a `[u8; 4]` of primaries, transfer, matrix and full range
+/// before); `#[non_exhaustive]`, so it cannot be constructed outside
+/// Ferrisma and may gain fields.
+///
+/// ```no_run
+/// # fn show(metadata: &ferrisma::pipeline::ImageMetadata) {
+/// if let Some(cicp) = metadata.rendered_cicp {
+///     let srgb = cicp.color_primaries == 1 && cicp.transfer_characteristics == 13;
+///     println!("sRGB: {srgb}, full range: {}", cicp.full_range);
+/// }
+/// # }
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub struct Cicp {
+    /// `ColourPrimaries` (H.273 table 2): 1 is BT.709/sRGB, 12 Display P3.
+    pub color_primaries: u8,
+    /// `TransferCharacteristics` (H.273 table 3): 13 is sRGB, 8 linear,
+    /// 16 PQ, 18 HLG.
+    pub transfer_characteristics: u8,
+    /// `MatrixCoefficients` (H.273 table 4): 0 is identity (RGB).
+    pub matrix_coefficients: u8,
+    /// `VideoFullRangeFlag`: full-range samples.
+    pub full_range: bool,
+}
+
+impl Cicp {
+    /// The engine's internal order: primaries, transfer, matrix, full range.
+    fn from_codes([primaries, transfer, matrix, full_range]: [u8; 4]) -> Self {
+        Self {
+            color_primaries: primaries,
+            transfer_characteristics: transfer,
+            matrix_coefficients: matrix,
+            full_range: full_range != 0,
+        }
+    }
 }
 
 /// Inspect JPEG or WebP headers without requesting pixel decoding. Limits do
@@ -1670,7 +1712,7 @@ fn inspect_headers(
         height: display.height,
         has_alpha: info.layout == crate::decoder::ChannelLayout::Rgba,
         rendered_icc: info.rendered_icc.clone(),
-        rendered_cicp: info.rendered_cicp,
+        rendered_cicp: info.rendered_cicp.map(Cicp::from_codes),
     })
 }
 
@@ -2575,5 +2617,25 @@ mod kernel_level_tests {
         }
         let best = ferrisma_kernels::Kernels::best();
         assert!(KernelLevel::from_kernels(best.level()).is_some());
+    }
+}
+
+#[cfg(test)]
+mod cicp_tests {
+    use super::Cicp;
+
+    #[test]
+    fn cicp_names_the_four_code_points_in_order() {
+        let srgb = Cicp::from_codes([1, 13, 0, 1]);
+        assert_eq!(
+            (
+                srgb.color_primaries,
+                srgb.transfer_characteristics,
+                srgb.matrix_coefficients,
+                srgb.full_range
+            ),
+            (1, 13, 0, true)
+        );
+        assert!(!Cicp::from_codes([12, 16, 9, 0]).full_range);
     }
 }

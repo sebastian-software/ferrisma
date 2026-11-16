@@ -125,6 +125,10 @@ instead of a `usize` with 0 for "automatic". `Engine::new(Threads)` returns a
 256 silently. The command line keeps its spelling (`--transform-threads=0`
 is automatic).
 
+`ImageMetadata::rendered_cicp` is an `Option<Cicp>` (since 2026-11-16)
+with the named fields `color_primaries`, `transfer_characteristics`,
+`matrix_coefficients` and `full_range: bool`, instead of an `[u8; 4]`.
+
 ## Refusal reasons
 
 `ProcessingError::refusal_reason()` names the class of a refusal of
