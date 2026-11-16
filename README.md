@@ -19,6 +19,10 @@ The published npm package and crate at version `0.0.0` are placeholders without
 image processing functionality. Build the engine from this repository; see
 [ADR-0038](docs/adr/0038-ferrisma-project-name.md) for the naming transition.
 
+**Requires Rust 1.99 or later** (stable), for every feature including AVIF.
+The pinned nightly in `rust-toolchain.toml` is for development only
+(formatting, sanitizers, fuzzing).
+
 ## What's here
 
 | Component | Current role |
@@ -44,10 +48,14 @@ through the workspace libavif/AOM encoder (the only AVIF writer since
 defaults changed on 2026-11-12; the owner confirmed them on 2026-11-13
 ([ADR-0041](docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md) D1).
 AVIF settings are libavif's own, at `avifenc`'s defaults (owner decision of 2026-11-15, [#216](https://github.com/sebastian-software/ferrisma/issues/216)); the fixed default depth of 8 awaits the owner's confirmation.
-The AVIF read/write features need the pinned nightly and a supported native
-target (macOS ARM64, GNU Linux x86-64): a stable-toolchain build can neither
-read nor write AVIF until the workspace AVIF port builds on stable Rust;
-features without `avif-read`, `avif-write`, or `cli` retain stable Rust 1.98 support.
+**Ferrisma needs Rust 1.99 or later** (`rust-version`), for every feature:
+AVIF is the preferred output format, and the AVIF port's C-variadic functions
+are stable Rust since 1.99. AVIF input and output (`avif-read`, `avif-write`,
+and `cli`) also need a supported native target (macOS ARM64, GNU Linux
+x86-64). The pinned nightly in `rust-toolchain.toml` is a development tool
+for formatting, sanitizers and fuzzing, not a requirement for users. The
+codec ports, published as standalone crates, declare their own lower minimum
+([supported matrix](docs/supported-matrix.md#minimum-rust-versions)).
 On one 2268×1512 photo the AOM input path took 8–14% longer and used about
 2× peak RSS versus the former interim reader; see the
 [scoped measurement](docs/benchmarks/M2-avif-input.md).

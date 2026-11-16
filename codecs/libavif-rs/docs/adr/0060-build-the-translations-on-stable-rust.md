@@ -83,7 +83,11 @@ left to the profile consolidation.
 **C-variadic functions stay as translated.** The port sets
 `rust-version = "1.99"` in its packages and the two engine bridges, the first
 release where they compile without a feature. (Working decision 2026-11-15,
-delegated, revisable by the owner.)
+delegated, revisable by the owner.) The owner then made 1.99 the minimum of
+the whole engine, every feature included, and rejected rewriting the
+variadic definitions to go lower (owner decision 2026-11-15, recorded in
+[engine ADR-0040](../../../../docs/adr/0040-stable-public-contract-and-compatibility-policy.md),
+amendment of that date).
 
 ### Rejected: typed error and control entry points
 

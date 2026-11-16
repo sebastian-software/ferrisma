@@ -10,6 +10,9 @@ A mechanical Rust port of the JPEG XL reference implementation, starting from
 the pinned [libjxl](https://github.com/libjxl/libjxl) source. Phase one preserves
 source algorithms and behavior before any redesign or additional optimization.
 
+The crate builds on stable Rust 1.88 or later (`rust-version`), on its own and
+independent of the Ferrisma engine's 1.99 ([minimum Rust versions](../../docs/supported-matrix.md#minimum-rust-versions)).
+
 **The first complete lossless image path is implemented in Rust.** The fixed
 Thunder configuration encodes 8-/16-bit grayscale or RGB buffers into complete
 raw JPEG XL codestreams. Rust parses their global metadata and frames and
@@ -82,7 +85,7 @@ the items vary in size and do not represent equal amounts of work.
 - [x] Generate ICC profiles and serialize the documented color-encoding fields.
 - [x] Compare translated boundaries with ordinary and ASan/UBSan original C++
   references using optimized Rust with overflow checks and debug assertions,
-  with native Linux/macOS CI and a Rust 1.95 compile check.
+  with native Linux/macOS CI and a compile check at the declared `rust-version`.
   Ordinary Rust builds have no external crate dependencies and do not compile
   or link C/C++.
 

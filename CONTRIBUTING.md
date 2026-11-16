@@ -46,8 +46,10 @@ cargo clippy -p ferrisma -p ferrisma-kernels --all-targets --all-features --no-d
 Do not run `--all-features` over the entire workspace. Test adapters and
 ports through their [scoped component checks](docs/codecs.md#checks).
 The current AVIF reader and encoder share the same port and can link together;
-AVIF input still requires the pinned nightly and a supported native target.
-The stable Rust 1.98 check covers engine features without `avif-read`, `avif-write`, or `cli`.
+AVIF input and output require a supported native target. The engine's minimum
+is Rust 1.99 for every feature; CI's `minimum-rust` job builds and tests the
+`cli` feature set at exactly `1.99.0`, and each codec port is checked at its
+own `rust-version` ([minimum Rust versions](docs/supported-matrix.md#minimum-rust-versions)).
 Scoped PR checks provide the ordinary feedback loop; the
 [validation guide](docs/validation.md) explains when live oracle and manual
 acceptance evidence is required.

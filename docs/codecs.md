@@ -33,26 +33,31 @@ git submodule update --init codecs/libjpeg-turbo-rs/upstream/libjpeg-turbo \
 git -C codecs/libjxl-rs/upstream/libjxl submodule update --init \
   third_party/highway third_party/brotli third_party/skcms
 rustup show active-toolchain
-rustup toolchain install stable --profile minimal --component clippy
-rustup toolchain install 1.95 --profile minimal
+rustup toolchain install "$(cat tools/lint-toolchain)" --profile minimal --component clippy
+# each port's rust-version, for its --msrv step (1.88, 1.93, 1.95 today)
+rustup toolchain install 1.88 1.93 1.95 --profile minimal
 cargo fetch --locked
 ```
 
 Fuzz targets and the independent image-quality comparator retain their existing
 isolated test workspaces; all engine, adapter and codec packages share the root.
 
-The root pins the nightly required by generated AVIF code. JPEG, WebP and JXL
+The root pins a nightly as the development default (rustfmt options,
+sanitizers, fuzzing); no feature requires it. JPEG, WebP and JXL
 retain stable Clippy, whose lint expectations differ from that older nightly;
-their check scripts select it explicitly. That stable floats, so a new release
-can change lint results without a source change; a lint that differs between
-supported stable versions takes a function-scoped `#[allow(..., reason)]`
-instead of an `#[expect]` (ADR-0027). MSRV jobs also select their toolchain
+their check scripts select it explicitly, at the one version named in
+`tools/lint-toolchain`, the same in CI and locally. That version changes only
+in a deliberate change of its own, together with the lint fixes it needs; a
+nightly canary reports what the latest stable would say (ADR-0027). Only a
+version-raising change, which must pass under the old and the new version
+until the file is edited, uses a function-scoped `#[allow(..., reason)]`
+instead of an `#[expect]` for a lint the two versions disagree on. MSRV jobs also select their toolchain
 explicitly. This is a verifier exception, not another workspace or dependency graph.
-The codec-free engine and features without `avif-read`, `avif-write`, or `cli` still build on stable Rust 1.98;
-enabling either own AVIF feature reaches generated libavif/AOM code and requires the pinned
-nightly on macOS ARM64 or GNU Linux x86-64. The handwritten ports retain their
-own Rust 1.95 checks. An engine `--all-features` build is therefore not a
-stable-toolchain check.
+The engine builds on Rust 1.99 or later with every feature; enabling an AVIF
+feature reaches generated libavif/AOM code and requires native macOS ARM64 or
+GNU Linux x86-64. The handwritten ports declare and check their own lower
+floors: `libjxl-rs` 1.88, `libjpeg-turbo-rs` 1.93, `libwebp-rs` 1.95
+([minimum Rust versions](supported-matrix.md#minimum-rust-versions)).
 
 Engine Clippy selects `ferrisma` and `ferrisma-kernels` with `--no-deps` when
 codec features are enabled. Once the ports are local dependencies, this prevents

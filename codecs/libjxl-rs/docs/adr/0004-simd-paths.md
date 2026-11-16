@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-13
-- Updated: 2026-11-14
+- Updated: 2026-11-15
 
 ## Context
 
@@ -269,8 +269,8 @@ test, these rows are representative. No file reaches zero.)
   estimate remains on the decode path in `AdjustQuantBias`
   (`quantizer-inl.h`, dequantization), the rational polynomials and
   `!JXL_HIGH_PRECISION` code. How the
-  gate treats these is the owner's open question O4; this ADR does not
-  resolve it. The hosted Linux x86-64 run per release candidate (D7) is the
+  gate treats these was the owner's open question O4; decided on
+  2026-11-15 (see "Owner decisions of 2026-11-15" below). The hosted Linux x86-64 run per release candidate (D7) is the
   first evidence on real AVX2 hardware.
 - Until 2026-11-14 the AVX2 oracle was a static AVX2 build, not upstream's
   dispatch build: code outside `HWY_NAMESPACE` was also compiled with FMA,
@@ -317,10 +317,32 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
 
 ## Review triggers
 
-- The owner decides O4 or O1, or the Highway pin changes.
+- The owner revises O1, O4 or O9 (decided 2026-11-15), or the Highway pin
+  changes.
 - A target beyond NEON/AVX2 enters scope, or an adapter that the AVX2
   variant does not serve is needed by a SIMD test (see "AVX2 reference:
   upstream's dispatch build").
+
+## Owner decisions of 2026-11-15 (O4 `rcpps`, O9)
+
+- **`rcpps` and the other vendor-dependent estimates (O4).** The port's AVX2
+  path keeps executing the original's `_mm256_rcp_ps` (and `rsqrtps`) as
+  the original's AVX2 build does, also in shipped defaults. On the same
+  machine the port equals the original; between CPU vendors the results can
+  differ, as the original's do. The working decision of 2026-11-13
+  (evening) under "VarDCT decode kernels", "Dispatch", becomes this owner
+  decision. The rule is part of the engine's
+  [ADR-0044](../../../../docs/adr/0044-no-assembly-acceleration-through-rust-intrinsics.md)
+  (D3), and the [supported matrix](../../../../docs/supported-matrix.md#simd-instruction-set-levels-v10)
+  states the vendor dependence.
+- **skcms HSW engine in the cross-built originals (O9).** The Rosetta 2
+  cross builds of the libjxl original are to be configured with
+  `-DCMAKE_SYSTEM_PROCESSOR=x86_64`, so that upstream's `skcms.cmake` keeps
+  the HSW engine as in a native x86-64 build; the original's source stays
+  untouched. **Not implemented yet:** `tools/check.py` and the oracle
+  tooling still build the cross-built references without the flag, so they
+  contain only skcms's baseline engine, and the port's HSW engine is still
+  compared with the original's only on hosted Linux x86-64.
 
 <!-- vardct kernels -->
 ## VarDCT decode kernels (2026-11-13, Plan item 2)

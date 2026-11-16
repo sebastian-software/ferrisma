@@ -76,6 +76,13 @@ def output(*args):
                           stdout=subprocess.PIPE, universal_newlines=True).stdout
 
 
+def lint_toolchain():
+    # The one Rust version Clippy runs at, in CI and locally: tools/lint-toolchain
+    # at the repository root (ADR-0027, amendment 2026-11-15). Raise it only as a
+    # deliberate change together with the lint fixes it needs.
+    return (ROOT.parent.parent / "tools" / "lint-toolchain").read_text().strip()
+
+
 def rust_version():
     return re.search(r'^rust-version = "([^"]+)"$', (ROOT / "Cargo.toml").read_text(), re.M)[1]
 
@@ -139,9 +146,9 @@ def check_static(msrv, arch):
     check_docs()
     target = cargo_target(arch)
     run("cargo", "fmt", "-p", "libjpeg-turbo-rs", "--", "--check")
-    run("cargo", "+stable", "clippy", *CARGO, *target, "--all-targets", "--all-features", "--", "-D",
+    run("cargo", f"+{lint_toolchain()}", "clippy", *CARGO, *target, "--all-targets", "--all-features", "--", "-D",
         "warnings")
-    run("cargo", "+stable", "clippy", *CARGO, *target, "--all-targets", "--no-default-features",
+    run("cargo", f"+{lint_toolchain()}", "clippy", *CARGO, *target, "--all-targets", "--no-default-features",
         "--features", "oracle", "--", "-D", "warnings")
     if msrv:
         run("cargo", f"+{rust_version()}", "check", *CARGO, *target, "--all-targets",

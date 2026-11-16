@@ -104,7 +104,7 @@ selects another profile. See [ADR 0002](docs/adr/0002-differential-oracle.md).
 
 ## Prerequisites
 
-- The shared root toolchain and stable Clippy; the library supports Rust 1.95 or later.
+- The shared root toolchain and stable Clippy; the library supports Rust 1.88 or later (`rust-version`).
 - Python 3, Git, CMake 3.18 or later, and a C++17 compiler for the oracle.
 - Linux or macOS for the current oracle build configuration.
 
@@ -150,7 +150,7 @@ python3 tools/check.py --sanitizers --msrv
 ```
 
 `--msrv` compiles all targets with the toolchain named by `rust-version` in
-`Cargo.toml`, currently `1.95`, which must be installed already. It does not
+`Cargo.toml`, currently `1.88`, which must be installed already. It does not
 run the tests on that toolchain. Sanitizers cover the oracle adapters, original
 codec library, and its built dependencies; they do not instrument Rust or prove
 Rust memory safety. The current platform evidence is listed in
@@ -220,10 +220,14 @@ for cadence and high-risk change requirements. Historical results in
 [PORT_STATUS.md](docs/PORT_STATUS.md) apply to their stated revisions; a local
 result does not establish hosted or release acceptance.
 
-The minimum supported Rust version trails stable by about four releases, or
-about six months. Raise it deliberately at regular intervals in its own change:
-update `rust-version`, the `msrv` toolchains in the Brotli audit tools, and the
-documentation. No CI rule fails when it falls behind. Clippy reads
+The minimum supported Rust version is the port's measured floor, 1.88 since
+2026-11-15 (owner decision, [Ferrisma ADR-0040](../../docs/adr/0040-stable-public-contract-and-compatibility-policy.md)
+amendment). Raise it only deliberately, in its own change with a changelog
+note, to a release that is then at least three months old: update
+`rust-version`, the `msrv` toolchains in the Brotli audit tools (still `1.95`,
+the earlier floor; they are manual audit tools and were not rerun at 1.88),
+and the documentation. The static stage's `--msrv` step checks the port at
+exactly the declared version in CI, so the declaration cannot go stale. Clippy reads
 `rust-version`, so a raise can enable lints that suggest newer idioms. In
 translated code, keep the source's form and add a function-scoped
 `#[expect(clippy::..., reason = "...")]`; for example, `is_multiple_of` differs

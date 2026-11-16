@@ -64,7 +64,10 @@ tools and is not meant for Rust callers. What the library promises Ferrisma is
 - Ordinary builds compile and link no C. The only library dependency is the
   workspace's small, safe `libsharpyuv-core` conversion crate, shared with
   AVIF through a separate adapter ([ADR-0033](../../docs/adr/0033-shared-sharpyuv-conversion-core.md)). The crate
-  builds on stable Rust 1.95 or later. The `simd` feature (default) compiles
+  builds on stable Rust 1.95 or later (`rust-version`), on its own and
+  independent of the Ferrisma engine's 1.99: the x86 CPU query calls
+  `__cpuid_count`, which Rust 1.93 still requires inside an `unsafe` block
+  ([minimum Rust versions](../../docs/supported-matrix.md#minimum-rust-versions)). The `simd` feature (default) compiles
   the SIMD modules and selects them at run time; `--no-default-features` is
   the scalar translation.
 - The work was delivered in packages by parallel sessions, and the records

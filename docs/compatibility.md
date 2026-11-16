@@ -118,16 +118,25 @@ batch runs each image with one transform and one encoder thread, and the
   The documented meaning of the output (format, dimensions, orientation,
   color, alpha) does not change in a minor release.
 - Change reported memory and timing observations.
-- Raise the minimum Rust version for stable features, with a changelog note.
+- Raise the minimum Rust version, deliberately and in its own change with a
+  changelog note, to a release that is then at least three months old.
   Patch releases never raise it.
-- Change the pinned nightly required by the experimental AVIF features.
+- Change the pinned development nightly (no feature requires it since
+  2026-11-15).
 
 ## Toolchains
 
 | Feature set | Toolchain | Targets |
 | --- | --- | --- |
-| No features, or any of `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `jpeg-xl-write`, `icc` | Stable Rust 1.98 or newer (`rust-version`) | Any target these crates build for; CI covers macOS ARM64 and GNU Linux x86-64 |
-| `avif-read`, `avif-write`, `cli` | The pinned nightly in `rust-toolchain.toml` (`nightly-2026-09-07` today) | Native macOS ARM64 and GNU Linux x86-64 only |
+| No features, or any of `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `jpeg-xl-write`, `icc` | Stable Rust 1.99 or newer (`rust-version`) | Any target these crates build for; CI covers macOS ARM64 and GNU Linux x86-64 |
+| `avif-read`, `avif-write`, `cli` | Stable Rust 1.99 or newer (`rust-version`; the pinned nightly before 2026-11-15) | Native macOS ARM64 and GNU Linux x86-64 only |
+
+The minimum is one number for the whole engine (owner decision 2026-11-15,
+[ADR-0040](adr/0040-stable-public-contract-and-compatibility-policy.md)).
+The codec ports used on their own declare lower floors
+([minimum Rust versions](supported-matrix.md#minimum-rust-versions)). The
+pinned nightly in `rust-toolchain.toml` is a development tool, not a
+requirement.
 
 Builds that enable the AVIF port features as a dependency also need the
 consumer profile settings listed in [publishing](publishing.md#blockers-before-the-first-functional-publication);

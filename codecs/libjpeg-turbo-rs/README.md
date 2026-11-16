@@ -61,6 +61,11 @@ Ferrisma treats JPEG as an input format. The port therefore covers decompression
 
 ## Building
 
+The crate builds on stable Rust 1.93 or later (`rust-version`), on its own
+and independent of the Ferrisma engine's 1.99: its x86 SIMD calls
+`_mm_sfence`, which Rust 1.88 still requires inside an `unsafe` block
+([minimum Rust versions](../../docs/supported-matrix.md#minimum-rust-versions)).
+
 Run from `codecs/libjpeg-turbo-rs`:
 
 ```sh

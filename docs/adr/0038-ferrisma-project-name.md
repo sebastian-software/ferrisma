@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-15
 - **Supersedes:** None
 - **Related:** [0028](0028-ardo-documentation-site.md)
 
@@ -124,3 +124,8 @@ fuzz campaign or codec conformance result.
   vision, native-corpus comparisons, fuzz lanes, and distribution-license
   evidence. Applied the new name to those additions and repeated the relevant
   checks before committing the complete rename on main.
+- 2026-11-15 — The domain question of #251 (ferrisma.dev answered by a
+  GitHub Pages site outside the organization) is taken over centrally by
+  the owner in sebastian-software/ferramenta#161. What ferrisma.dev serves
+  after the domain is verified (the homepage deployed, or the records
+  removed until then) is not decided.

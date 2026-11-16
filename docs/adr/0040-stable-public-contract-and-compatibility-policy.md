@@ -34,7 +34,9 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 - The `avif-read`, `avif-own-write`, and `cli` features require the pinned
   nightly and native macOS ARM64 or GNU Linux x86-64; everything else
   builds on stable Rust 1.98 (CI MSRV job). Since 2026-11-15 the AVIF features (`avif-read`,
-  `avif-write`, `cli`) build on stable Rust 1.99 instead (libavif-rs ADR 0060).
+  `avif-write`, `cli`) build on stable Rust 1.99 instead (libavif-rs ADR 0060),
+  and since the owner's MSRV decision of the same day the engine declares
+  1.99 for every feature (amendment log, 2026-11-15).
 - On this branch, every public facade item is documented
   (`#![warn(missing_docs)]`), and the growable enums and output-only structs
   are `#[non_exhaustive]` (see the inventory below).
@@ -54,7 +56,7 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `InputProfilePolicy` | enum | Stable | Non-exhaustive; `Strict` default |
 | `ImageFormat`, `OutputFormat` | enum | Stable | Non-exhaustive |
 | `WebpOptions` (`Lossy { quality, method }`, `Lossless { level }`) | enum | Stable | Non-exhaustive; libwebp's own scales; `speed` replaced by `method` on 2026-11-15 |
-| `JpegXlOptions` (`Lossy { distance }`, `Lossless { effort }`) | enum | Experimental (ADR-0039); default lossy d1.0 pending owner confirmation | Non-exhaustive; `PartialEq` only |
+| `JpegXlOptions` (`Lossy { distance }`, `Lossless { effort }`) | enum | Experimental (ADR-0039); default lossy d1.0, patches off (owner decision 2026-11-15) | Non-exhaustive; `PartialEq` only |
 | `ChromaSubsampling` | enum | Stable | Non-exhaustive |
 | `AvifOptions` (`quality`, `alpha_quality`, `speed`, `depth`, `chroma`), `TransformOptions::avif` | struct, field | Experimental (owner decision 2026-11-15, ADR-0037; replaces `avif_depth`, `quality`, `speed`, `chroma_subsampling`) | libavif's scales; `avifenc` defaults 60, 60, 6, 8, 4:4:4; public fields, not non-exhaustive, like `TransformOptions` (problem 1) |
 | `LibavifBackend` | unit struct | Experimental (`avif-write`; stable Rust 1.99 since 2026-11-15, pinned nightly before) | ADR-0037; the built-in AVIF writer; reads every setting from the request since 2026-11-15 |
@@ -81,9 +83,9 @@ binary's command line, not this function, is the stable CLI contract.
 
 | Feature | Proposed 1.0 tier | Toolchain |
 | --- | --- | --- |
-| `jpeg-read`, `webp-read`, `webp-write`, `icc` | Stable | Stable 1.98 |
-| `jpeg-xl-read` | Stable as "JPEG XL input"; since 2026-11-15 the workspace libjxl-rs reader, the only one (ADR-0032) | Stable 1.98 |
-| `jpeg-xl-write` (in `cli` since 2026-11-12, ADR-0039) | Experimental | Stable 1.98 |
+| `jpeg-read`, `webp-read`, `webp-write`, `icc` | Stable | Stable 1.99 (1.98 before 2026-11-15) |
+| `jpeg-xl-read` | Stable as "JPEG XL input"; since 2026-11-15 the workspace libjxl-rs reader, the only one (ADR-0032) | Stable 1.99 (1.98 before 2026-11-15) |
+| `jpeg-xl-write` (in `cli` since 2026-11-12, ADR-0039) | Experimental | Stable 1.99 (1.98 before 2026-11-15) |
 | `avif-read`, `avif-write` | Experimental until they build on stable (`avif-write` was the stable rav1e capability until 2026-11-15); they build on stable 1.99 since 2026-11-15, the tier change is the owner's | Stable 1.99 (pinned nightly before 2026-11-15), native targets only |
 | `cli` | Stable command line; inherits the 1.99 floor through `avif-read`/`avif-write` (the nightly requirement until 2026-11-15) | Stable 1.99 |
 
@@ -134,6 +136,11 @@ Proposed, pending maintainer review:
    in a minor release, never in a patch release, and is announced in the
    changelog. Nightly-only experimental features name the exact pinned
    nightly in the release notes; changing that pin is a minor-release change.
+   Amended 2026-11-15 (owner decision, amendment log): the product has one
+   minimum, Rust 1.99, for every feature; the codec ports published on their
+   own declare their measured floors; a raise is deliberate, in its own
+   change, to a release then at least three months old; and a CI job builds
+   and tests each package group at exactly its declared version.
 5. **Dependencies.** Codec and CMS crates stay out of public signatures
    (ADR-0017), so their major versions are internal. `ferrisma-kernels` is a
    public dependency while `KernelLevel` is re-exported; a breaking change to
@@ -157,7 +164,8 @@ Proposed, pending maintainer review:
 
 These change signatures or behavior and therefore need a maintainer
 decision. Items 1, 2, 7, and 10 should be settled before 1.0.0 because they
-cannot be fixed later without a major release.
+cannot be fixed later without a major release. Item 16 is a check the
+owner requires of the API review before 1.0.
 
 1. **Input option structs cannot grow.** `TransformOptions`,
    `ResizeOptions`, `InspectionLimits`, `BatchItem`, and `LibavifBackend` have
@@ -196,7 +204,10 @@ cannot be fixed later without a major release.
    values) and `source()` can follow after 1.0.
 7. **`KernelLevel` couples SemVer to `ferrisma-kernels`.** Recommendation:
    define the two diagnostic enums in `ferrisma` and map them, or keep them
-   experimental and version both crates together.
+   experimental and version both crates together. _Since 2026-11-15 (owner
+   decision O3, ADR-0041):_ all packages share one version, which
+   [release automation](../release-automation.md) notes makes this problem
+   moot; the recommendation to define the enums in `ferrisma` stays open.
 8. **Raw CICP.** `ImageMetadata::rendered_cicp` is `Option<[u8; 4]>`.
    Recommendation: a named `Cicp` struct with primaries, transfer, matrix,
    and full-range fields.
@@ -227,6 +238,15 @@ cannot be fixed later without a major release.
     as the AVX-512 opt-in, ADR-0020 decision D6).
     Recommendation: `--filter=area|lanczos3` and `--fit=inside|cover|fill`
     before 1.0, keeping `--area` as a deprecated alias.
+16. **Compatibility with later streaming** (owner constraint of
+    2026-11-15). Row-wise or streaming reading and writing at both ends
+    (#197, #198) and ROI decode (#60) stay after 1.0; the scope is not
+    widened for them now. But the 1.0 contract must not fix anything that
+    those improvements would have to break. The API review before 1.0
+    checks every stable item for such an assumption, for example a
+    signature that requires the whole input or output in memory, a report
+    field or error kind that only a whole-frame decoder can fill, or a
+    guarantee about when work happens. Not yet done.
 
 ## Consequences
 
@@ -411,3 +431,85 @@ reports that a stable item cannot express its use case.
   owner):_ `AvifOptions` is a plain struct with public fields and no
   `#[non_exhaustive]`, as `TransformOptions` is until problem 1 is decided;
   the CLI names; the WebP lossy default method 4.
+- 2026-11-15 — **Minimum supported Rust versions** (owner decision
+  2026-11-15; amends decision 4 and the toolchain column above).
+  1. **The product's minimum Rust version is 1.99**, and it is the headline
+     everywhere a reader looks first (README, getting started, the supported
+     matrix). It applies to every feature: `ferrisma`, `ferrisma-kernels`,
+     the bridges `ferrisma-jxl-decoder`, `ferrisma-jxl-encoder`,
+     `ferrisma-avif-read`, `ferrisma-avif-write`, and `ferrisma-xtask`
+     declare `rust-version = "1.99"` (1.98 for the engine, the kernels and
+     the tool, 1.95 for the JPEG XL bridges before); `libavif-rs`,
+     `libavif-aom` and `libavif-dav1d` keep 1.99. Reason: AVIF is the
+     preferred output format, and the AVIF port defines C-variadic
+     functions, stable since Rust 1.99 (libavif-rs ADR 0060), so a number
+     that excludes AVIF would mislead. The JPEG XL bridges and the kernels
+     carry the product's number because they are used only through the
+     engine (both bridge READMEs say so); on their own they would need 1.88
+     (bridges) and 1.93 (kernels on x86-64: AVX-512 target features and
+     `stdarch_x86_avx512`, `E0658` on 1.88, stabilized in 1.89). The engine
+     without AVIF would need 1.89 on its own: `moxcms` 0.9.1 declares
+     `rust-version = "1.89"`; the earlier 1.88 measurement passed
+     `--ignore-rust-version`, which hides that.
+  2. **The codec ports published as standalone crates declare their true
+     floor**, because someone may use one without the engine:
+     `libjxl-rs` 1.88, `libsharpyuv-core` 1.88, `libjpeg-turbo-rs` 1.93,
+     `libwebp-rs` 1.95 (all four 1.95 before). `libavif-sharpyuv` keeps
+     1.95 with the AVIF port. What forces each: edition 2024 sets 1.85 as
+     the lower bound for all; JPEG's x86 SIMD calls `_mm_sfence` outside an
+     `unsafe` block, rejected with `E0133` by 1.88 and accepted by 1.93;
+     WebP's x86 CPU query also calls `__cpuid_count` outside an `unsafe`
+     block, rejected with `E0133` by 1.93 and accepted by 1.95; nothing in
+     `libjxl-rs` or `libsharpyuv-core` needs more than the lowest installed
+     toolchain, 1.88. Measured on 2026-11-15 on macOS ARM64 with the
+     installed toolchains 1.88, 1.93 and 1.95 (1.85 to 1.87, 1.89 to 1.92
+     and 1.94 were not installed or tested, so each declared floor is a
+     version that passed fully): `cargo +<v> check --locked -p <package>
+     --all-targets --all-features` passes at the declared version for
+     `aarch64-apple-darwin`, `x86_64-apple-darwin`,
+     `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu`;
+     `cargo +<v> test --locked -p <package> --profile checked` without
+     the C/C++ oracle passes natively and for x86-64 macOS under Rosetta 2
+     for JPEG (with and without default features), WebP (both) and
+     `libjxl-rs` x86-64; `libjxl-rs` on AArch64 passes 444 tests and fails
+     one (`patches::selected_original_alpha_max_retains_comparison_result`,
+     a signaling-NaN alpha) identically on 1.88, 1.93, 1.95 and stable
+     1.98.1, while the pinned nightly passes it: a stable-versus-nightly
+     code generation difference, not a floor (finding; details in the
+     supported matrix). The x86-64 Linux and ARM64 Linux results are checks
+     only, not runs.
+  3. **Rule for the future:** a minimum is raised only deliberately, in its
+     own change with a changelog entry (decision 6's *Toolchain* section;
+     until Release Please is active, the body of that change's commit),
+     never in a patch release, and the new minimum is then at least three
+     months old. 1.99 is younger than that today; the owner set it with this
+     decision, and the rule governs later raises. A CI job builds and tests
+     each package group at exactly its declared version, so the declaration
+     cannot go stale: `minimum-rust` (`ci.yml`, GNU Linux x86-64) checks and
+     tests `ferrisma` and `ferrisma-kernels` with `cli` and checks the
+     non-AVIF set, the four bridges and `ferrisma-xtask` at `1.99.0`; each
+     port's static stage (`check.py --msrv`, run by the codec PR job and the
+     port workflows) checks at the version its `Cargo.toml` names, and the
+     codec PR job installs that version; the `workspace` job checks and lints
+     `libsharpyuv-core` at its declared version. The 1.98 steps are gone.
+  - **Rejected:** lowering AVIF below 1.99 by rewriting the C-variadic
+    definitions (libavif-rs ADR 0060, "Rejected: typed error and control
+    entry points"): several days of work with risk at the C ABI, for a gain
+    that shrinks every month.
+  - Not decided here: whether the static stage's stable Clippy is pinned or
+    floats (#235). The pinned nightly in `rust-toolchain.toml` stays the
+    development default for formatting, sanitizers and fuzzing; no user
+    needs it.
+- 2026-11-15 — Owner decisions of 2026-11-15 that touch this record:
+  (1) **Clippy (#235): pin.** The static stages' Clippy runs at one
+  explicitly named stable version, raised deliberately in its own change;
+  recorded in [ADR-0027](0027-tiered-validation-and-rust-test-orchestration.md),
+  amendment of 2026-11-15 (on branch `v1/clippy-pin` when this entry was
+  written). This answers the "Not decided here" sentence of the MSRV entry
+  above; the minimum versions are unchanged. (2) **One shared version for
+  all packages** (O3, ADR-0041); problem 7 is annotated. (3) **The JPEG XL
+  default** lossy d1.0 with patches off is decided (ADR-0039); the
+  inventory row no longer says "pending owner confirmation". (4) **Streaming
+  compatibility:** new problem 16, a check the API review must make before
+  1.0. This record stays Proposed; its tiers and the other recommendations
+  are not decided by these entries.

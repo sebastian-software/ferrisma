@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-10
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-15
 - **Supersedes:** None
 - **Related:** [0026](0026-codecs-in-one-repository-and-workspace.md), [0027](0027-tiered-validation-and-rust-test-orchestration.md)
 
@@ -111,3 +111,9 @@ Ferrisma's rendered result; build and browser evidence are recorded separately.
   unchanged; only the illustration and its alt text change. A site-local
   Blender mark (stepped pixel mountain, copper sun) built with the pinned family
   mark helpers replaces the placeholder favicon and now leads the header.
+- 2026-11-15 — Owner decision on #253: Ferrisma appears in the Ferramenta
+  family registry (ferramenta.dev, the tool switcher, the README family
+  block) with its first 0.x publication, not before. Preparation is allowed
+  now (a draft of the registry text, the member icon); nothing is enabled
+  before that publication. Until then the homepage keeps its site-local
+  header, footer and mark.

@@ -34,14 +34,14 @@ jobs:
     - name: Fetch the shared lockfile dependencies before offline checks
       run: cargo fetch --locked
     - name: Install the shared lint toolchain
-      run: rustup toolchain install stable --profile minimal --component clippy
+      run: rustup toolchain install "$(cat ../../tools/lint-toolchain)" --profile minimal --component clippy
     - name: Check the pin, skeleton, links, formatting, Clippy and tests
       run: python3 tools/check.py
     defaults:
       run:
         working-directory: codecs/libjpeg-turbo-rs
   msrv:
-    name: 'JPEG: MSRV (Rust 1.95, ${{ matrix.os }})'
+    name: 'JPEG: MSRV (rust-version, ${{ matrix.os }})'
     strategy:
       fail-fast: false
       max-parallel: 2
@@ -58,8 +58,9 @@ jobs:
       run: cargo fetch --locked
     - name: Build and test with the rust-version toolchain
       run: |
-        rustup toolchain install 1.95 --profile minimal
-        cargo +1.95 test --locked
+        msrv="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
+        rustup toolchain install "$msrv" --profile minimal
+        cargo +"$msrv" test --locked
     defaults:
       run:
         working-directory: codecs/libjpeg-turbo-rs

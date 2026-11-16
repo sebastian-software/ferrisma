@@ -5,9 +5,12 @@ and audit gates remain open; see [current status](status.md).
 
 ## Build the CLI
 
-Clone the repository and run from its root. The root toolchain file selects the
-nightly needed by the workspace's generated AVIF code. NASM is no longer
-needed (it was rav1e's, removed on 2026-11-15).
+Ferrisma needs **Rust 1.99 or later** for every feature, AVIF included.
+Clone the repository and run from its root. The root toolchain file selects a
+pinned nightly as the development default (formatting options, sanitizers,
+fuzzing); it is not a requirement, and `cargo +stable` with Rust 1.99 or later
+builds the same features. NASM is no longer needed (it was rav1e's, removed
+on 2026-11-15).
 
 ```sh
 git clone https://github.com/sebastian-software/ferrisma.git
@@ -43,10 +46,9 @@ on the recorded photographs, rav1e 70/80/90 matched roughly libavif
 50/55/78 ([evidence](benchmarks/M2-avif-encoder-default-evidence-2026-11-12.md)).
 The current `avif-read` uses the same
 workspace port's AOM decoder through an isolated safe wrapper, so the former
-`rav1d`/dav1d symbol collision is gone. Own AVIF reading and writing require the pinned
-nightly and a supported native target (macOS ARM64 or GNU Linux x86-64).
-The codec-free core and features without `avif-read`, `avif-write`, or `cli` retain stable Rust 1.98
-support; such a build has no AVIF input or output. See the [measured AVIF input trade-off](benchmarks/M2-avif-input.md).
+`rav1d`/dav1d symbol collision is gone. AVIF reading and writing need a
+supported native target (macOS ARM64 or GNU Linux x86-64); like every other
+feature they build on Rust 1.99 or later. See the [measured AVIF input trade-off](benchmarks/M2-avif-input.md).
 
 WebP lossy uses libwebp's own quality (`--webp-quality=`, 1–100, default
 75) and method (`--webp-method=`, 0–6, default 4). Lossless uses only

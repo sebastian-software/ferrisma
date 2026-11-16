@@ -111,6 +111,15 @@ separate workspace members; they are grouped here by their shared port.
 | [`libavif-rs`](../codecs/libavif-rs/README.md), `libavif-aom`, `libavif-dav1d`, `libavif-sharpyuv` | AVIF container and codec ports, using generated and owned Rust with C-ABI boundaries | No stable safe Rust API claim; validated native hosts are macOS ARM64 and GNU Linux x86-64; package-specific deep gates remain |
 | [`ferrisma-xtask`](../tools/xtask) | Standard-library Rust control plane, invoked as `cargo xtask`, for affected components and validation stages | Existing Python oracle harnesses migrate incrementally without losing evidence |
 
+**Minimum Rust versions** (owner decision 2026-11-15, [ADR-0040](adr/0040-stable-public-contract-and-compatibility-policy.md)
+amendment): the engine needs Rust 1.99 or later for every feature, AVIF and
+`cli` included, and so do `ferrisma-kernels`, the bridges and the AVIF port.
+The ports published on their own declare their measured floors:
+`libjxl-rs` and `libsharpyuv-core` 1.88, `libjpeg-turbo-rs` 1.93,
+`libwebp-rs` 1.95. CI builds and tests each group at exactly its declared
+version ([minimum Rust versions](supported-matrix.md#minimum-rust-versions)).
+The pinned nightly is a development tool, not a requirement.
+
 The engine forbids unsafe code. The kernel, adapter, and codec boundaries have
 their own policies; that engine rule does not describe the entire dependency
 graph. Package versions, licenses, and eventual publication remain independent.
@@ -223,11 +232,12 @@ universal speed claim.
   amendment), but its x86 kernels build only for GNU Linux x86-64, and the
   `avx2` level against the original has never run (#242, #125, #124, #122);
   the hosted Linux x86-64 cross-check for libjxl-rs and AOM (#241, #252);
-  the owner's open questions O1–O9
-  ([#250](https://github.com/sebastian-software/ferrisma/issues/250)). The
+  the work that follows from the owner's decisions of 2026-11-15 on O1–O9
+  (ADR-0041, "Owner decisions of 2026-11-15";
+  [#250](https://github.com/sebastian-software/ferrisma/issues/250)). The
   workspace JPEG XL reader and AVIF writer are the confirmed defaults
   (ADR-0041 D1); x86-64 JPEG XL conformance stays open, and lossy d1.0 JPEG
-  XL output (ADR-0039) is still pending owner confirmation (ADR-0041 O5);
+  XL output with patches off is the owner's decision of 2026-11-15 (ADR-0039);
   the AVIF defaults follow `avifenc` since 2026-11-15 (#216, ADR-0037), with
   the fixed default depth 8 awaiting confirmation. The
   [supported matrix](supported-matrix.md) lists the current defaults, their

@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-11
-- **Last reviewed:** 2026-11-12
+- **Last reviewed:** 2026-11-15
 - **Partially supersedes:** [0018](0018-optional-codec-and-cms-dependencies.md), the interim AVIF reader and its toolchain contract; [0024](0024-pluggable-encoders-and-libavif-rs-backend.md) and [0026](0026-codecs-in-one-repository-and-workspace.md), the AVIF reader/encoder link exclusion. [0025](0025-codec-selection-reference-conformance-and-image-scope.md)'s final selection gates remain in force.
 - **Related:** [0015](0015-typed-output-color-signals.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0019](0019-source-side-orientation.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [issue 54](https://github.com/sebastian-software/ferrisma/issues/54)
 
@@ -161,3 +161,24 @@ an AVIF feature needs another platform.
   frame buffer; C libavif with libaom 3.15.3 shows the same RSS (445 MB).
   Re-evaluate when libaom's row-MT can be disabled separately or when dav1d
   is selected.
+- 2026-11-15 — **Owner decision on issue #54, both parts.** (1) **Reader
+  evidence:** bit identity with libaom, the AV1 reference implementation,
+  is the AVIF reader's evidence for 1.0 (the reference-origin route of
+  ADR-0025 point 1, which the 2026-11-12 entry above asked the owner to
+  confirm explicitly). The Argon conformance suite is not a 1.0 gate; it is
+  later extra evidence, earmarked for animated AVIF, because it exercises
+  the video code that no test reaches today. The statement above that the
+  Argon gate "remains a precondition for selecting the dav1d port, or any
+  other non-reference decoder" stands. (2) **dav1d's place:** dav1d leaves
+  the runtime and the published chain, as rav1e and the jxl-oxide reader
+  did; it may stay in tests as an independent cross-check. **Not done
+  yet:** `libavif-rs` still depends on `libavif-dav1d` as a normal
+  dependency (it is in the published chain in [publishing](../publishing.md)),
+  and the effort of the removal is being checked first (it touches the
+  libavif port's codec table and the root references of libavif-rs ADR 0050
+  and ADR 0053). Also owed: a comparison of the engine's AVIF decode with
+  libavif using dav1d in its stock configuration, so that the performance
+  statement is honest; the recorded ratios are against libavif with libaom.
+  The hosted AVIF benchmark (`scripts/bench/ci-perf/codec_avif.sh`) already
+  has C libavif with dav1d as a context column (`c-dav1d`); no statement
+  from it is written yet.

@@ -1,5 +1,7 @@
 # Freeze the libaom translation and gate owned code on golden outputs
 
+> **2026-11-15: owner decision on O8 of engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** The translated code is owned code, changed only through committed, re-runnable tools that have a check mode run in CI, never by hand; the frozen manifests stay as provenance. See [Amendment: how owned code changes](#amendment-how-owned-code-changes-2026-11-15).
+
 > **2026-11-15: amended by [ADR 0060](0060-build-the-translations-on-stable-rust.md).** The frozen translations of libaom, dav1d and libavif were rewritten for stable Rust by the committed, re-runnable `tools/stable_rust.py`, through this ADR's owned-code route (digests re-recorded with `tools/enable_aom_dispatch.py --rehash`). Tiers and golden outputs are unchanged.
 
 > **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** The golden outputs from the `_c`-only C reference become the scalar half of the v1.0 gate and a regression guard. The gate also requires the owned code's SIMD paths to equal libaom's own SIMD build at the v1.0 level (NEON on AArch64; AVX2 and lower levels on x86-64) on each target, so a second set of references from that build is needed. The freeze, the tiers and the rule against re-recording goldens to turn a failure green are unchanged. Mechanics change in separate work.
@@ -259,6 +261,38 @@ hosted run under `hosted_confirmation`; no expected output changed. The
 earlier nightly dispatch 42810092564 (job 129899769568) also passed on
 `macos-26`.
 
+## Amendment: how owned code changes (2026-11-15)
+
+Owner decision of 2026-11-15 on O8 of engine ADR-0041 (#250). The question
+was whether editing the frozen RTCD units through
+`tools/enable_aom_dispatch.py` and refreshing their manifest digests, under
+this ADR's owned-code path, was acceptable instead of a C2Rust
+regeneration, given the root `AGENTS.md` rule to keep generated AVIF source
+hashes intact. Decided:
+
+- **The translated libaom, dav1d and libavif sources are owned code**, as
+  "Freeze" says. They change only through committed, re-runnable tools that
+  have a check mode, and CI runs that check mode. They are never edited by
+  hand.
+- **The frozen manifests (`TRANSLATION-*.json`) stay as provenance.** A tool
+  that changes a unit records its new digest there;
+  `tools/check_translation.py` (CI, `ci.yml`) fails when a committed unit
+  differs from its recorded digest.
+- The root `AGENTS.md` rule "Keep generated AVIF source hashes intact" is
+  rewritten to this decision.
+
+State on `main` at `679f382c`: `tools/stable_rust.py` has a `--check` mode,
+and the root CI job runs `python3 -I tools/stable_rust.py --check`.
+`tools/enable_aom_dispatch.py` has no check mode yet (it takes kernel names,
+`--linux` or `--rehash`), so the dispatch edits it made cannot be
+re-derived and compared in CI; that is open work under this decision, not
+done with this amendment. Two statements of #250 are outdated:
+`av1_get_nz_map_contexts` and `av1_round_shift_array` are dispatched to
+Neon since 2026-11-13 ([ADR 0056](0056-dispatch-hand-translated-aom-simd-through-translated-rtcd.md),
+amendment of that date), and dispatching `aom_sse`/`aom_highbd_sse` at
+every call site, video call sites included, matches the original, which
+calls them through RTCD everywhere.
+
 ## Open questions
 
 - Whether hosted runners measure stably enough for the 2 % threshold, or the
@@ -273,3 +307,10 @@ earlier nightly dispatch 42810092564 (job 129899769568) also passed on
 - Whether the macOS and Linux C references produce identical golden outputs
   under the non-contracting floating-point profile. Resolved for the first
   corpus: both C references and the Rust port produce the same 62 outputs.
+
+## Amendment log
+
+- 2026-11-15 — Owner decision on O8: owned code changes only through
+  committed tools with a check mode run in CI; manifests stay as
+  provenance (section "Amendment: how owned code changes"). Earlier
+  amendments are the dated sections and header notes above.
