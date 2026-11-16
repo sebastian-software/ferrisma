@@ -237,23 +237,28 @@ mod avif {
         assert_eq!(avif(&ten, ASSUME), [UnknownContainerData, PrecisionReduced]);
     }
 
-    /// `avifenc` writes the depth of its input; the engine's AVIF writer has
-    /// a fixed default depth of 8 (working decision 2026-11-15, ADR-0037).
-    /// A 10-bit input encoded at that default loses precision, and the
-    /// report says so; an 8-bit input does not. (Every input reaches the
-    /// encoder as 8-bit rows, so a 10-bit output reports it too: the class
-    /// names what the pipeline drops, not the output depth.)
+    /// The output depth follows the input's (owner decision of 2026-11-15,
+    /// ADR-0021 amendment), as `avifenc` writes its input's depth: a 10-bit
+    /// AVIF becomes a 10-bit AVIF with 10-bit content, and nothing is
+    /// reported; an explicit depth below the input's is written and
+    /// reported. (Until that decision the default depth was a fixed 8 and
+    /// this test, `deeper_input_at_the_default_avif_depth_reports_precision_reduced`,
+    /// pinned the reduction; the expectation changed by owner decision.)
     #[cfg(feature = "avif-write")]
     #[test]
-    fn deeper_input_at_the_default_avif_depth_reports_precision_reduced() {
+    fn deeper_input_keeps_its_depth_and_an_explicit_lower_depth_is_reported() {
         use ferrisma::pipeline::AvifOptions;
-        assert_eq!(AvifOptions::default().depth, 8);
-        let to_avif = |bytes: &[u8]| {
+        assert_eq!(AvifOptions::default().depth, None);
+        let to_avif = |bytes: &[u8], depth: Option<u8>| {
             let output = transcode(
                 bytes,
                 ImageFormat::Avif,
                 TransformOptions {
                     output_format: OutputFormat::Avif,
+                    avif: AvifOptions {
+                        depth,
+                        ..AvifOptions::default()
+                    },
                     ..options(ASSUME)
                 },
             )
@@ -262,9 +267,12 @@ mod avif {
             output.report.discarded.iter().collect::<Vec<_>>()
         };
         let ten = read(&format!("{ANDROID}fox.profile0.10bpc.yuv420.avif"));
-        assert!(to_avif(&ten).contains(&PrecisionReduced));
+        assert!(!to_avif(&ten, None).contains(&PrecisionReduced));
+        assert!(!to_avif(&ten, Some(12)).contains(&PrecisionReduced));
+        assert!(to_avif(&ten, Some(8)).contains(&PrecisionReduced));
         let eight = read(&format!("{ANDROID}fox.profile0.8bpc.yuv420.avif"));
-        assert!(!to_avif(&eight).contains(&PrecisionReduced));
+        assert!(!to_avif(&eight, None).contains(&PrecisionReduced));
+        assert!(!to_avif(&eight, Some(10)).contains(&PrecisionReduced));
     }
 
     /// Insert a `prem` reference (color item 1 to alpha item 2) into the

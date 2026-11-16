@@ -59,6 +59,7 @@ impl<'a> WebpSource<'a> {
             orientation,
             discarded,
             info: DecoderInfo {
+                depth: 8,
                 size,
                 layout: if features.has_alpha {
                     ChannelLayout::Rgba

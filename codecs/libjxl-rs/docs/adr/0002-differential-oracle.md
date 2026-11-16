@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-10-31
-- Updated: 2026-11-15
+- Updated: 2026-11-15 (O1 confirmed by the owner)
 
 > **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** NaN payload bits are no longer part of the comparison: every finite word, infinity and signed zero stays bit-identical, a NaN must meet a NaN, and two NaNs compare equal whatever their sign and payload, except where the original only copies data (for example lossless float samples), where NaNs stay bit-exact. The competing-NaN-operand rules below (out-of-line accumulator-first additions, `-O0` observation units chosen to pin NaN payloads) are no longer required for the gate; the oracle's comparison changes accordingly. The oracle also gains a second half: a SIMD build of libjxl at the v1.0 level (NEON; AVX2 and the lower x86 levels) compared with the port's SIMD paths (#96), on AArch64 and on x86-64. Inputs that contain NaN or infinity follow ADR-0041's open question O1 (working rule pending owner confirmation). The mechanics change in separate work; the history below is unchanged.
 
@@ -985,8 +985,11 @@ they have the same tokens and every token is identical, except that (1) two
 tokens that are both 32-bit words encoding a binary32 NaN are equal, and
 (2) for a request that carries a NaN or infinity word, a token position is
 not compared where the second scalar reference disagrees with the pinned one
-after (1). Rule (2) is the owner's working rule O1, **pending owner
-confirmation**: for NaN or infinity inputs the original's own builds disagree
+after (1). Rule (2) is the owner's rule O1, recorded on 2026-11-13 as a
+working rule and **confirmed by the owner on 2026-11-15 as the general rule**
+([ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md),
+"Owner decisions of 2026-11-15"; at the positions it excludes the port must
+only not crash and not commit a memory error): for NaN or infinity inputs the original's own builds disagree
 even on NaN versus number (EPF: 23,880 words on arm64 between the pinned and
 the O3 build). The second reference is `tools/oracle` configured with
 `-DORACLE_REFERENCE_PINS=OFF`: the same sources and Highway scalar
@@ -1032,8 +1035,14 @@ CfL addition); the AArch64-only DCT/IDCT instantiation and the runtime-size
 recursion of other targets. Contraction splits (`mul_add_f32`, the recorded
 contraction maps) and every floating-point operation are unchanged.
 
-Re-evaluate when the owner decides O1, after a compiler or target change, or
+Re-evaluate when the owner revises O1, after a compiler or target change, or
 if a stage gains a new sign test on a computed value.
+
+Amendment 2026-11-15: the owner confirmed rule (2) as the general rule for
+inputs that contain NaN or infinity (O1, #246); the label "pending owner
+confirmation" above is replaced by that decision. Not changed with this
+amendment: the same label in the comments of `tests/parity.rs` and
+`tools/oracle/CMakeLists.txt`, which are code.
 
 <!-- encoder lossless streaming -->
 ## Encoder lossless streaming, 2026-11-15 (issue #223)

@@ -31,7 +31,7 @@ const stages = [
     label: "Decode",
     title: "Start with what the decoder actually emits.",
     body: "JPEG, WebP, JPEG XL and AVIF input adapters describe the rendered pixels, their color metadata and their access capabilities. A format supporting regions does not mean every decoder can avoid a full frame.",
-    detail: "JPEG, WebP and AVIF use workspace ports; JPEG XL uses jxl-oxide by default, with a local decoder available by explicit choice.",
+    detail: "JPEG, WebP, JPEG XL and AVIF all use workspace ports; JPEG XL input goes through the libjxl-rs port and its safe bridge.",
   },
   {
     label: "Orient & crop",
@@ -48,8 +48,8 @@ const stages = [
   {
     label: "Encode",
     title: "Make the output boundary explicit.",
-    body: "Choose AVIF through rav1e or the workspace libavif/AOM encoder, or write still WebP through its workspace port. The Rust facade and CLI expose the choice, and the report includes the encoder's known frame materialization.",
-    detail: "WebP supports lossy and lossless output. JPEG and JPEG XL output remain outside the current engine.",
+    body: "Write AVIF through the workspace libavif/AOM port, still WebP through its workspace port, or JPEG XL through the libjxl-rs port. The Rust facade and CLI expose the choice, and the report includes the encoder's known frame materialization.",
+    detail: "WebP and JPEG XL support lossy and lossless output; JPEG XL is lossy by default. JPEG output remains outside the current engine.",
   },
   {
     label: "Report",
@@ -193,7 +193,7 @@ function Opening() {
           <strong>JPEG · WebP · JXL · AVIF</strong>current engine inputs
         </li>
         <li>
-          <strong>AVIF · WebP</strong>current engine outputs
+          <strong>AVIF · WebP · JXL</strong>current engine outputs
         </li>
         <li>
           <strong>4 codec ports</strong>developed with the engine
@@ -232,7 +232,7 @@ export default function Home() {
             visible at every stage.
           </p>
           <p>
-            The foundation is working today: four input formats, AVIF and WebP output, linear-light
+            The foundation is working today: four input formats, AVIF, WebP and JPEG XL output, linear-light
             resizing and a processing report. We're building toward shared work across multiple
             outputs and a complete stack of codec APIs. Those next steps remain design and
             validation work; the current API is experimental.
@@ -289,7 +289,7 @@ export default function Home() {
           </p>
           <p>
             Ferrisma makes these decisions explicit. The current CPU path accepts supported SDR
-            input, applies orientation and crop, resizes in linear light, and encodes AVIF or WebP.
+            input, applies orientation and crop, resizes in linear light, and encodes AVIF, WebP or JPEG XL.
             Unsupported color and geometry return errors instead of silent reinterpretation.
           </p>
         </MonoPassage>
@@ -311,10 +311,11 @@ export default function Home() {
       >
         <p>
           The repository includes a working command-line path. The example below resizes a JPEG to
-          1600 × 900 and writes AVIF using the default rav1e encoder. Run it from a clone of the
+          1600 × 900 and writes AVIF through the workspace libavif/AOM encoder. Run it from a clone of the
           repository; the published <code>0.0.0</code> packages are placeholders. Choose a <code>.webp</code> output
           for still WebP; add <code>--webp-lossless</code> instead of quality and speed for lossless
-          compression of the pipeline's finished sRGB8 samples.
+          compression of the pipeline's finished sRGB8 samples. A <code>.jxl</code> output writes
+          JPEG XL, lossy by default; add <code>--jxl-lossless</code> for lossless.
         </p>
         <MonoWide>
           <MonoCode caption="From the repository root" file="Terminal">
@@ -385,8 +386,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           <p>
             JPEG and WebP use the workspace ports for input; WebP also uses its
             port for output. AVIF input uses the workspace libavif/AOM port
-            through an isolated safe wrapper. JPEG XL defaults to jxl-oxide,
-            with the local reference decoder available by explicit opt-in.
+            through an isolated safe wrapper. JPEG XL input and output use the libjxl-rs
+            port, which is the only JPEG XL reader.
           </p>
         </MonoPassage>
         <MonoWide>
@@ -440,8 +441,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     <small>libjxl-rs</small>
                   </th>
                   <td>
-                    Input through <code>jxl-oxide</code> by default, with codec-level region
-                    requests; the local decoder is an explicit full-frame fallback.
+                    Input and lossy or lossless output through the workspace port and its safe
+                    bridge. The reader has no region request, so every crop decodes a full frame.
                   </td>
                   <td>Incremental decoder and C-ABI surface with reference comparison suites.</td>
                   <td>Provisional APIs, incomplete encoder and full selection/conformance gates.</td>
@@ -452,12 +453,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     <small>libavif-rs and companions</small>
                   </th>
                   <td>
-                    Workspace libavif/AOM input through a safe wrapper; AVIF output through
-                    <code> rav1e</code> or the explicitly selected workspace AOM encoder.
+                    Workspace libavif/AOM input and output, each through its own safe wrapper;
+                    the workspace AOM encoder is the only AVIF writer.
                   </td>
                   <td>Container, AOM, dav1d and SharpYUV ports with generated and owned Rust.</td>
                   <td>
-                    Pinned nightly and supported native hosts for own AVIF input/output; full Argon and
+                    Stable Rust 1.99 or later and supported native hosts (macOS ARM64, GNU Linux x86-64) for AVIF input/output; full Argon and
                     release gates remain open.
                   </td>
                 </tr>
@@ -466,8 +467,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           </div>
           <MonoCaption>
             Current integration is maintained in the{" "}
-            <a href={path("guide/status")}>status overview</a>. AVIF input and the optional
-            libavif encoder can share a binary; the former dav1d symbol collision is removed.
+            <a href={path("guide/status")}>status overview</a>. AVIF input and output
+            can share a binary; the former dav1d symbol collision is removed.
           </MonoCaption>
         </MonoWide>
         <p className="fx-section-link">
@@ -606,14 +607,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           sequential execution; batch work can also run across images.
         </p>
         <p>
-          Compare performance at matched image quality. The retained measurements include
-          individual samples, output scores, process RSS and exact build settings. GPU execution
+          Performance is reported against the original each codec port translates, on named
+          machines and builds. These records are evidence, not a universal speed claim. GPU execution
           and a general multi-output graph remain design work.
         </p>
         <p className="fx-section-link">
           <a href={path("guide/architecture")}>Follow the execution design and its evidence</a>
-          <a href={`${source}/blob/main/docs/benchmarks/M2-encoder-smoke-2026-11-11.md`}>
-            Read the encoder measurements
+          <a href={`${source}/blob/main/docs/benchmarks/v1.0-three-column-2026-11-13.md`}>
+            Read the codec performance record
           </a>
         </p>
       </MonoSection>

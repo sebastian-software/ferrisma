@@ -457,7 +457,7 @@ fn a_backend_receives_the_request_and_every_output_row() {
             quality: 42,
             alpha_quality: 17,
             speed: 0,
-            depth: 10,
+            depth: Some(8),
             chroma: ChromaSubsampling::Yuv420,
         },
         encoder_threads: 3,
@@ -605,4 +605,259 @@ fn engine_batches_run_one_backend_encoder_per_image() {
     assert_eq!(requests.len(), items.len());
     // The engine runs every image with one encoder thread.
     assert!(requests.iter().all(|request| request.threads == 1));
+}
+
+/// The depth rule for external backends (ADR-0021 amendment of
+/// 2026-11-15): a backend that admits deeper rows receives the input's
+/// depth as `u16` rows and nothing is reported; a backend with the default
+/// `row_depths` keeps receiving 8-bit rows and the reduction is reported.
+#[cfg(feature = "avif-read")]
+mod deep_rows {
+    use std::sync::Mutex;
+
+    use crate::encoder_backend::{
+        EncodeError, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
+    };
+    use crate::pipeline::{
+        Discarded, ImageFormat, InputProfilePolicy, OutputFormat, TransformOptions, transcode_with,
+    };
+
+    const ANDROID: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/"
+    );
+
+    #[derive(Default)]
+    struct Deep {
+        depths: &'static [u8],
+        requests: Mutex<Vec<EncodeRequest>>,
+        rows: Mutex<Vec<u16>>,
+    }
+    struct Rows<'a>(&'a Deep);
+
+    impl EncoderBackend for Deep {
+        fn format(&self) -> OutputFormat {
+            OutputFormat::Avif
+        }
+        fn name(&self) -> &'static str {
+            "deep"
+        }
+        fn row_depths(&self) -> &'static [u8] {
+            self.depths
+        }
+        fn begin(&self, request: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+            self.requests.lock().unwrap().push(*request);
+            Ok(Box::new(Rows(self)))
+        }
+    }
+    impl RowEncoder for Rows<'_> {
+        fn write_row(&mut self, _: u32, rgba: &[u8]) -> Result<(), EncodeError> {
+            self.0
+                .rows
+                .lock()
+                .unwrap()
+                .extend(rgba.iter().map(|&v| u16::from(v)));
+            Ok(())
+        }
+        fn write_row_u16(&mut self, _: u32, rgba: &[u16]) -> Result<(), EncodeError> {
+            self.0.rows.lock().unwrap().extend_from_slice(rgba);
+            Ok(())
+        }
+        fn finish(self: Box<Self>) -> Result<EncodedImage, EncodeError> {
+            Ok(EncodedImage::new(OutputFormat::Avif, vec![0], 0, true))
+        }
+    }
+
+    fn run(file: &str, depths: &'static [u8]) -> (EncodeRequest, Vec<u16>, bool) {
+        let bytes = std::fs::read(format!("{ANDROID}{file}")).unwrap();
+        let backend = Deep {
+            depths,
+            ..Deep::default()
+        };
+        let options = TransformOptions {
+            output_width: 64,
+            output_height: 64,
+            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
+            ..TransformOptions::default()
+        };
+        let output = transcode_with(&bytes, ImageFormat::Avif, options, &backend).unwrap();
+        let request = backend.requests.lock().unwrap()[0];
+        let rows = backend.rows.lock().unwrap().clone();
+        let reduced = output
+            .report
+            .discarded
+            .iter()
+            .any(|class| class == Discarded::PrecisionReduced);
+        (request, rows, reduced)
+    }
+
+    /// A smooth gray ramp at `depth` with every code along x, as
+    /// libavif-ready `u16` rows (gray, so that 4:2:0 loses no chroma and the
+    /// round trip measures depth, not subsampling).
+    fn ramp(width: u32, height: u32, depth: u8) -> Vec<Vec<u16>> {
+        let max = (1_u32 << depth) - 1;
+        (0..height)
+            .map(|_| {
+                (0..width)
+                    .flat_map(|x| {
+                        let v = x * max / (width - 1);
+                        [v, v, v, max].map(|v| u16::try_from(v).unwrap())
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn encode(
+        rows: &[Vec<u16>],
+        width: u32,
+        depth: u8,
+        chroma: ferrisma_avif_write::Chroma,
+    ) -> Vec<u8> {
+        let mut frame = ferrisma_avif_write::Frame::new(ferrisma_avif_write::Config {
+            width,
+            height: u32::try_from(rows.len()).unwrap(),
+            has_alpha: false,
+            quality: 100,
+            alpha_quality: 100,
+            speed: 6,
+            threads: 1,
+            chroma,
+            depth,
+            sample_depth: depth,
+        })
+        .unwrap();
+        for (y, row) in rows.iter().enumerate() {
+            frame.write_row_u16(u32::try_from(y).unwrap(), row).unwrap();
+        }
+        frame.finish().unwrap()
+    }
+
+    /// The decoded samples of an AVIF at its own depth, through the engine's
+    /// reader, at identity geometry.
+    fn decode(bytes: &[u8], width: u32, height: u32) -> (EncodeRequest, Vec<u16>, bool) {
+        let backend = Deep {
+            depths: &[8, 10, 12, 16],
+            ..Deep::default()
+        };
+        let options = TransformOptions {
+            output_width: width,
+            output_height: height,
+            profile_policy: InputProfilePolicy::Strict,
+            ..TransformOptions::default()
+        };
+        let output = transcode_with(bytes, ImageFormat::Avif, options, &backend).unwrap();
+        let request = backend.requests.lock().unwrap()[0];
+        let rows = backend.rows.lock().unwrap().clone();
+        let reduced = output
+            .report
+            .discarded
+            .iter()
+            .any(|class| class == Discarded::PrecisionReduced);
+        (request, rows, reduced)
+    }
+
+    /// A 10-bit AVIF in, a 10-bit AVIF out (no resize, same color signal):
+    /// nothing is reported, and the decoded output differs from the source
+    /// ramp only by the codec (libavif's YUV round trip at quality 100), not
+    /// by an 8-bit bottleneck, which would keep at most 256 levels per
+    /// channel and an error of up to two 10-bit codes everywhere. The same
+    /// at 12 bits, in 4:4:4 and 4:2:0.
+    #[test]
+    fn a_deep_avif_keeps_its_depth_through_avif_output() {
+        use crate::pipeline::{AvifOptions, transcode};
+        let (width, height) = (1024_u32, 16_u32);
+        for depth in [10_u8, 12] {
+            for chroma in [
+                ferrisma_avif_write::Chroma::Yuv444,
+                ferrisma_avif_write::Chroma::Yuv420,
+            ] {
+                let source = ramp(width, height, depth);
+                let input = encode(&source, width, depth, chroma);
+                let transcoded = transcode(
+                    &input,
+                    ImageFormat::Avif,
+                    TransformOptions {
+                        output_width: width,
+                        output_height: height,
+                        profile_policy: InputProfilePolicy::Strict,
+                        avif: AvifOptions {
+                            quality: 100,
+                            ..AvifOptions::default()
+                        },
+                        ..TransformOptions::default()
+                    },
+                )
+                .unwrap();
+                assert!(
+                    !transcoded
+                        .report
+                        .discarded
+                        .iter()
+                        .any(|class| class == Discarded::PrecisionReduced),
+                    "{depth}-bit {chroma:?}"
+                );
+                let (request, decoded, reduced) = decode(&transcoded.bytes, width, height);
+                assert_eq!(request.depth, depth, "the output is {depth}-bit");
+                assert!(!reduced);
+                let expected: Vec<u16> = source.concat();
+                let mut error_sum = 0_u64;
+                let mut worst = 0;
+                for (&a, &b) in decoded.iter().zip(&expected) {
+                    let error = a.abs_diff(b);
+                    worst = worst.max(error);
+                    error_sum += u64::from(error);
+                }
+                #[allow(clippy::cast_precision_loss)]
+                let mean = error_sum as f64 / expected.len() as f64;
+                let mut red: Vec<u16> = decoded.chunks(4).map(|p| p[0]).collect();
+                red.sort_unstable();
+                red.dedup();
+                eprintln!(
+                    "{depth}-bit {chroma:?}: {} red levels, max error {worst}, mean {mean:.4}",
+                    red.len()
+                );
+                // An 8-bit bottleneck keeps at most 256 levels.
+                assert!(
+                    red.len() > 900,
+                    "{depth}-bit {chroma:?}: {} levels",
+                    red.len()
+                );
+                assert!(mean < 1.0, "{depth}-bit {chroma:?}: mean error {mean}");
+            }
+        }
+    }
+
+    #[test]
+    fn deep_rows_reach_a_backend_that_admits_them_and_are_reported_otherwise() {
+        const ALL: &[u8] = &[8, 10, 12, 16];
+        for (file, depth) in [
+            ("fox.profile0.10bpc.yuv420.avif", 10_u8),
+            ("fox.profile2.12bpc.yuv444.avif", 12),
+            ("fox.profile0.8bpc.yuv420.avif", 8),
+        ] {
+            let (request, rows, reduced) = run(file, ALL);
+            assert_eq!(request.depth, depth, "{file}");
+            assert!(!reduced, "{file}");
+            let max = (1_u32 << depth) - 1;
+            assert!(rows.iter().all(|&v| u32::from(v) <= max), "{file}");
+            assert!(rows.chunks(4).all(|p| u32::from(p[3]) == max), "{file}");
+            let mut levels: Vec<u16> = rows.clone();
+            levels.sort_unstable();
+            levels.dedup();
+            if depth > 8 {
+                // Deeper than any 8-bit bottleneck: more than 256 levels.
+                assert!(levels.len() > 256, "{file}: {} levels", levels.len());
+            }
+            // The default backend: 8-bit rows, and the reduction is named.
+            let (request, rows, reduced) = run(file, &[8]);
+            assert_eq!(request.depth, 8);
+            assert!(rows.iter().all(|&v| v <= 255));
+            assert_eq!(reduced, depth > 8, "{file}");
+            // 16 is admitted but the input is 12 at most: the rule caps at
+            // the input, never above it.
+            let (request, _, _) = run(file, &[8, 16]);
+            assert_eq!(request.depth, 8, "{file}");
+        }
+    }
 }

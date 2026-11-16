@@ -1,8 +1,8 @@
 # ADR-0041: v1.0 quality gate: equivalence with the ported original
 
-- **Status:** Accepted (decisions D1–D10). The [open questions](#open-questions-pending-owner-decision) O1–O9 and the further items listed with them are not decided.
+- **Status:** Accepted (decisions D1–D10). The former open questions O1–O9 and the further items listed with them were decided by the owner on 2026-11-15 ([Owner decisions of 2026-11-15](#owner-decisions-of-2026-11-15)); what is not yet implemented is named there.
 - **Date:** 2026-11-13
-- **Last reviewed:** 2026-11-14
+- **Last reviewed:** 2026-11-15
 - **Source:** owner decision (structured interview, 2026-11-13)
 - **Supersedes:** In part: the performance criteria of [0007](0007-correctness-and-performance-evidence.md) as release evidence; the default ISA level of [0020](0020-kernel-crate-and-isa-dispatch.md) decision 4; the role of third-party comparisons in [0025](0025-codec-selection-reference-conformance-and-image-scope.md) point 3, [0032](0032-jpeg-xl-workspace-decoder-input.md) and [0037](0037-selectable-workspace-avif-encoder.md); the validation platforms of [0027](0027-tiered-validation-and-rust-test-orchestration.md); release naming in [0040](0040-stable-public-contract-and-compatibility-policy.md). In the ports: the NaN-payload rule of libjxl-rs ADR 0002/0003, the SIMD reference of libavif-rs ADR 0056/0058/0059, and the SIMD reference and NEON rescaler ruling of libwebp-rs ADR 0002/0008. Each amended record links back here.
 - **Related:** [0026](0026-codecs-in-one-repository-and-workspace.md), [quality gate guide](../quality-gate.md), [v1.0 CI performance record](../benchmarks/v1.0-ci-performance-2026-11-12.md), [JPEG XL performance analysis](../benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md), tracker #196
@@ -99,6 +99,15 @@ Consequences of the wording, stated so that they can be tested:
   [v1.0 CI performance record](../benchmarks/v1.0-ci-performance-2026-11-12.md),
   and the settings the engine can reach. A port may declare more; it may not
   declare less without an amendment here.
+- **A test's input domain is never narrowed to make a comparison pass.**
+  The single exception (owner decision of 2026-11-15 on O7): a comparison
+  with the original's SIMD build may leave out exactly the inputs on which
+  the original itself is undefined, that is, inputs that its own C asserts
+  reject or on which it has undefined behavior. The reason is written in
+  the test code next to the narrowed domain, and the comparison of the
+  port's scalar path with the scalar reference build keeps the full domain.
+  A difference, a run time or a defect of the port never justifies a
+  narrower domain.
 - The code stays a largely mechanical 1:1 port of the original. An
   optimization that cannot meet the gate is not a v1.0 change.
 
@@ -117,8 +126,9 @@ For every compared floating-point word:
 
 The port must not classify or rewrite NaN bits to pass a comparison, and a
 NaN difference that changes an integer or byte output is a failure under
-section 2. Inputs that themselves contain NaN or infinity are governed by
-open question O1.
+section 2. Inputs that themselves contain NaN or infinity follow the rule
+the owner confirmed on 2026-11-15 (formerly open question O1; see
+[Owner decisions of 2026-11-15](#owner-decisions-of-2026-11-15)).
 
 Evidence for the rule (as reported in the fact-finding of 2026-11-13; the
 raw comparison artifacts are not committed):
@@ -159,7 +169,9 @@ raw comparison artifacts are not committed):
   through an explicit opt-in. A run that opts in is outside the gate and must
   say so.
 - Kernels that the original implements only in assembly, and x86 kernels
-  whose results are vendor-specific, are open question O4.
+  whose results are vendor-specific, follow
+  [ADR-0044](0044-no-assembly-acceleration-through-rust-intrinsics.md)
+  (owner decision of 2026-11-15 on O4).
 
 ### 5. Validation regime (D7)
 
@@ -215,8 +227,9 @@ Pre-releases from `main` are 0.x. The version "1.0" is reserved for the state
 that meets this gate completely: all four ports, both targets, scalar and the
 SIMD levels of section 4. Releases use Release Please as the organization's
 other packages do (`sebastian-software/ferromark` ADR-0020 "standards release
-blueprint", and `sebastian-software/ferrugo`). Whether all crates share one
-version is open question O3.
+blueprint", and `sebastian-software/ferrugo`). All packages share one
+version (owner decision of 2026-11-15 on O3; configuration A of
+[release automation](../release-automation.md)).
 
 ## Per-port state on 2026-11-13
 
@@ -385,84 +398,14 @@ regression no longer blocks a release; it is visible in the three columns.
 
 ## Open questions (pending owner decision)
 
-These are **not** decided. Do not implement them beyond what is stated.
-
-- **O1. Inputs that contain NaN or infinity.** For such inputs even "NaN or
-  not" differs between builds of the original (EPF: 23,880 words on arm64
-  between `-O0` and `-O3`, as reported in the 2026-11-13 fact-finding).
-  **Working rule, pending owner confirmation:** a word is compared only where
-  the original's two scalar reference builds (the pinned oracle build and the
-  same sources at upstream's normal optimization level) agree after treating
-  all NaNs as equal. Every application of this rule must be labeled "pending
-  owner confirmation".
-- **O2. libaom's video-only code.** Whether it is removed from the port (the
-  owner leans towards removal, with proof that stills never need it). Until
-  decided: no AOM code is deleted, and SIMD is ported only for kernels on the
-  still-image path.
-- **O3.** Whether all crates share one version under Release Please.
-- **O4.** How to treat kernels that exist only as assembly in the original
-  (libaom NASM predictors, dav1d), and x86 kernels whose result is
-  vendor-specific (`rcpps` in libjxl's AVX2 paths). **Working rule for
-  `rcpps` since 2026-11-13 (evening), delegated, revisable by the owner**
-  (libjxl-rs ADR 0004, "VarDCT decode kernels", Dispatch): the port's AVX2
-  path executes the original's `_mm256_rcp_ps` estimate as the original's
-  AVX2 build does, and identity is claimed per host against the original
-  (section 2), never across hosts or CPU vendors. It replaces the earlier
-  rule that kept AVX2's DequantBlock scalar. Whether vendor-dependent
-  results are acceptable for shipped defaults, and the assembly-only
-  kernels, stay open.
-- **O5.** Confirmations pending from 2026-11-12: lossy as the JPEG XL output
-  default and patches always off; the rendered-ICC channel table; refusing
-  AVIF with ICC plus a non-sRGB nclx (decided by the owner 2026-11-15: no
-  refusal, the file follows MIAF and the profile governs; ADR-0015); the default AVIF quality per encoder
-  (#216; decided by the owner 2026-11-15: `avifenc`'s defaults, ADR-0037;
-  the fixed default depth 8 is a working decision awaiting confirmation); the stable toolchain policy (#235); the licensing policy for
-  additions inside a port (#136); the new package name for the JPEG port
-  (#207).
-
-Added on 2026-11-13 from the work of that night; the source of each is
-[#250](https://github.com/sebastian-software/ferrisma/issues/250), which tracks
-all open questions:
-
-- **O6. JPEG.** Whether `macro_rules!` macros are acceptable as the Rust form
-  of upstream's `static INLINE` Neon helpers (port ADR 0007 amendment);
-  whether the kernels get an `unsafe` row-pointer boundary or roughly 1.1× of
-  C on Neon is accepted; whether the ITU T.83 conformance data may be
-  downloaded (#72).
-- **O7. WebP.** The `release` oracle now gates only the scalar build, and the
-  former run of the SIMD build against the scalar oracle is gone; a few test
-  domains are narrowed for the `release-simd` comparison only (wp11 sizes,
-  gradient unfilter with `prev == out`, the x86 rescaler with 2 or 3
-  channels); the `oracle` feature reads `LIBWEBP_SIMD_LEVEL` in the CPU
-  query; the full x86-64 gate (3 levels × 3 profiles) takes about two and a
-  half hours under Rosetta. Whether all of that is accepted.
-- **O8. AOM.** The frozen RTCD units were edited through
-  `tools/enable_aom_dispatch.py` with refreshed manifest hashes under port
-  ADR 0059's owned-code path instead of a C2Rust regeneration, which needs an
-  explicit yes because `AGENTS.md` asks to keep generated AVIF source hashes
-  intact. Also: `av1_get_nz_map_contexts` and `av1_round_shift_array` stay on
-  `_c` although the original dispatches Neon, and `aom_sse`/`aom_highbd_sse`
-  are dispatched globally, including video call sites. (Since the
-  libavif-rs ADR 0056 amendment of 2026-11-13 both kernels are dispatched to
-  Neon through the same route; #250 still lists them as on `_c`.)
-- **O9. JPEG XL on x86-64, local gate.** The originals cross-built for
-  Rosetta contain only skcms's baseline engine, because upstream's
-  `skcms.cmake` keys the HSW engine on `CMAKE_SYSTEM_PROCESSOR` (the arm64
-  host); the port's skcms HSW engine is therefore proven against the
-  original's only on hosted Linux x86-64. One option is passing
-  `-DCMAKE_SYSTEM_PROCESSOR=x86_64` to the cross builds.
-
-Also waiting for a decision (#250):
-
-- Whether the libavif/libaom reference keeps the compiler's default
-  floating-point contraction (root cause in #203).
-- rav1e's AVX-512 paths: rav1e is context only (D1), but it still runs them
-  when selected.
-- Argon conformance vectors for the AVIF reader (#54).
-
-Apart from the O4 working rule and the O8 note above, everything in this
-section stays open as
-[#250](https://github.com/sebastian-software/ferrisma/issues/250) lists it.
+None of the questions listed here on 2026-11-13 is open any more: the owner
+decided O1–O9 and the further items on 2026-11-15. Each question is kept in
+short with its decision under
+[Owner decisions of 2026-11-15](#owner-decisions-of-2026-11-15); its full
+wording of 2026-11-13 is in Git history and in
+[#250](https://github.com/sebastian-software/ferrisma/issues/250). Not
+decided, and outside this record: the inline assembly already in the tree
+(an open question of [ADR-0044](0044-no-assembly-acceleration-through-rust-intrinsics.md)).
 
 ## Decided since 2026-11-13
 
@@ -476,9 +419,116 @@ section stays open as
   `d68e9a6d`). On 2026-11-14 that branch is not merged into `main`, and
   #250 does not record the decision.
 
+### Owner decisions of 2026-11-15
+
+Source: the owner's answers of 2026-11-15 to the questions of #250. Each
+item names the question, the decision, the reason where the owner gave one,
+and what is not done yet.
+
+- **O1. Inputs that contain NaN or infinity** (#246). The working rule of
+  2026-11-13 is confirmed as the general rule: a word is compared only
+  where the original's two scalar reference builds (the pinned oracle build
+  and the same sources at upstream's normal optimization level) agree after
+  treating all NaNs as equal; at the other positions the port must only not
+  crash and not commit a memory error. Its applications no longer carry the
+  label "pending owner confirmation" (libjxl-rs
+  [ADR 0002](../../codecs/libjxl-rs/docs/adr/0002-differential-oracle.md),
+  [quality gate guide](../quality-gate.md)). Two code comments still carry
+  it (`codecs/libjxl-rs/tests/parity.rs`,
+  `codecs/libjxl-rs/tools/oracle/CMakeLists.txt`); they change with the
+  next change to those files.
+- **O2. libaom's video-only code.** Kept; nothing is removed. The owner's
+  reason: animated AVIF may be wanted later, and it needs exactly this code.
+  Animated AVIF itself is not decided and not in scope. SIMD stays ported
+  only for kernels on the still-image path; the video kernels run on the
+  translated C path. This replaces the leaning towards removal recorded on
+  2026-11-13.
+- **O3. Versions.** One shared version for all packages, configuration A of
+  [release automation](../release-automation.md). The owner's reason: the
+  organization's other packages do the same. Configuration B stays possible
+  later. Release Please is not activated.
+- **O4. Assembly-only kernels and vendor-dependent instructions.** Decided
+  as a principle: [ADR-0044](0044-no-assembly-acceleration-through-rust-intrinsics.md)
+  (no assembly in the project; acceleration only through Rust intrinsics;
+  assembly-only kernels run scalar until rebuilt with intrinsics, the libaom
+  ones measured first; `rcpps` stays as in the original). It replaces the
+  working rules of 2026-11-13.
+- **O5. Confirmations pending from 2026-11-12:**
+  - Lossy distance 1.0 as the JPEG XL output default, patches off: decided
+    (ADR-0039, amendment of 2026-11-15; #236).
+  - The rendered-ICC channel table: confirmed. moxcms stays the CMS; the
+    table is built from and checked against it
+    ([ADR-0016](0016-working-color-space-and-transform-boundaries.md),
+    [ADR-0023](0023-decode-side-work-and-scaling-policy.md)). A 10- and
+    12-bit table is a post-1.0 idea, to be measured first.
+  - AVIF with ICC beside `nclx`: decided, MIAF (ADR-0015).
+  - The default AVIF quality: decided, `avifenc`'s defaults (ADR-0037). The
+    default output depth was decided the same day (the output depth follows
+    the input depth); it is recorded and built by separate work, not on
+    `main` when this entry was written.
+  - The stable toolchain policy (#235): the minimum Rust versions are in
+    ADR-0040 (amendment of 2026-11-15); the static stages' Clippy is pinned
+    (ADR-0027, amendment of 2026-11-15, on branch `v1/clippy-pin` when this
+    entry was written).
+  - The licensing policy for additions inside a port (#136): confirmed
+    ([license audit](../license-audit.md)).
+  - The JPEG port's package name (#207): all four ports get the `ferrisma-`
+    prefix with the originals' names ([publishing](../publishing.md),
+    section 1). Not renamed yet.
+- **O6. JPEG.** `macro_rules!` macros for the two always-inline Neon helpers
+  are accepted; the kernels keep safe row access, without an `unsafe`
+  row-pointer boundary; ITU T.83 clause 7 is not required for 1.0, the
+  measured values stay documented, and #72 stays open as optional work
+  (libjpeg-turbo-rs [ADR 0007](../../codecs/libjpeg-turbo-rs/docs/adr/0007-neon-kernels-and-unsafe.md),
+  amendment of 2026-11-15).
+- **O7. WebP.** All four points are accepted, with two conditions: (a) a
+  test domain may be narrowed only under the single exception of
+  section 2 (the original itself is undefined on the excluded inputs, the
+  reason is in the code, the scalar comparison keeps the full domain);
+  (b) the full gate of three x86-64 levels by three profiles runs hosted on
+  real x86-64 in the nightly, and locally under Rosetta 2 only what a
+  change affects. Checked on 2026-11-15 by reading the workflows: the
+  scheduled `nightly.yml` runs `webp-check.yml` through
+  `nightly-family.yml`, whose `oracle` job on `ubuntu-latest` runs
+  `tools/check.py --stage test --oracle-variant release-simd`, which runs
+  `avx2`, `sse41` and `sse2` (`SIMD_MODES`) each in the dev, release and
+  checked profiles (`PROFILES`); on `macos-latest` the same step runs
+  `neon`. No run result was checked for this entry. libwebp-rs
+  [ADR 0008](../../codecs/libwebp-rs/docs/adr/0008-simd-modules.md),
+  amendment of 2026-11-15.
+- **O8. AOM.** The translated AOM code is owned code: it is changed only
+  through committed, re-runnable tools that have a check mode run in CI,
+  never by hand, and the frozen manifests stay as provenance (libavif-rs
+  [ADR 0059](../../codecs/libavif-rs/docs/adr/0059-freeze-the-libaom-translation-and-gate-owned-code-on-golden-outputs.md),
+  amendment of 2026-11-15; `AGENTS.md`). The statement in #250 that
+  `av1_get_nz_map_contexts` and `av1_round_shift_array` stay on `_c` is
+  outdated (both are dispatched since 2026-11-13); dispatching
+  `aom_sse`/`aom_highbd_sse` globally, video call sites included, matches
+  the original, which calls them through RTCD everywhere.
+- **O9. JPEG XL on x86-64, local gate.** Decided: the Rosetta cross builds
+  of the libjxl original get `-DCMAKE_SYSTEM_PROCESSOR=x86_64`, so they
+  contain the skcms HSW engine like a native x86-64 build; the original's
+  source stays untouched. Not implemented yet (libjxl-rs
+  [ADR 0004](../../codecs/libjxl-rs/docs/adr/0004-simd-paths.md)).
+- **Floating-point contraction of the libavif/libaom reference** (#203).
+  The reference stays the original built with `-ffp-contract=off`, one
+  reference for AArch64 and x86-64. The owner asked whether the
+  contracting build would be faster; no measurable gain is expected, which
+  was not measured (libavif-rs
+  [ADR 0056](../../codecs/libavif-rs/docs/adr/0056-dispatch-hand-translated-aom-simd-through-translated-rtcd.md),
+  [supported matrix](../supported-matrix.md)).
+- **rav1e's AVX-512 paths.** Moot: rav1e left every build on 2026-11-15
+  (ADR-0037).
+- **Argon conformance vectors and dav1d's place** (#54). Bit identity with
+  libaom is the AVIF reader's evidence for 1.0; Argon is later extra
+  evidence, earmarked for animated AVIF. dav1d leaves the runtime and the
+  published chain and may stay in tests as an independent cross-check; not
+  done yet ([ADR-0031](0031-workspace-libavif-input-experiment.md),
+  amendment of 2026-11-15).
+
 ## Review when
 
-The owner decides any open question; an original is updated; a port cannot
+The owner revises a decision of 2026-11-15; an original is updated; a port cannot
 build its original as an x86-64 oracle under Rosetta; Rosetta or macOS changes
 the AVX2 advertisement; a hosted release-candidate run disagrees with the local
 result on x86-64; or post-v1.0 SIMD levels (AVX-512, SVE2, DotProd/I8MM) are
@@ -517,3 +567,12 @@ planned.
   `81d2adab`; where this record says "on branch `v1/jxl-avx2-merge`", read
   "on `main`". Hosted run 43599382021 of that tree passed the four
   ordinary-oracle test shards on AVX2.
+- 2026-11-15 — The owner decided O1–O9 and the further items of #250; new
+  section "Owner decisions of 2026-11-15". O1's working rule becomes the
+  general rule; O2 keeps libaom's video code; O3 one shared version; O4
+  becomes [ADR-0044](0044-no-assembly-acceleration-through-rust-intrinsics.md);
+  O5's confirmations are given; O6, O7 (with the single exception to "never
+  narrow a test domain", now in section 2) and O8 are accepted; O9, #203 and
+  #54 are decided; rav1e's question is moot. Sections 3, 4 and 8 point to
+  the decisions instead of the open questions, and the open-questions
+  section keeps only a pointer. Decisions D1–D10 unchanged.

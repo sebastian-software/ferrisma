@@ -21,6 +21,7 @@ impl Probe {
     fn new() -> Self {
         Self {
             info: DecoderInfo {
+                depth: 8,
                 size: Size::new(10, 8).unwrap(),
                 layout: ChannelLayout::Rgb,
                 sample: SampleType::U8,

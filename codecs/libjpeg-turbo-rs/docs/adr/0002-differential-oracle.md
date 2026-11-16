@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-06
-- Updated: 2026-11-12
+- Updated: 2026-11-15
 
 ## Context
 
@@ -167,3 +167,12 @@ Revisit when the pin, the reference configuration, the compiler or a CI host
 changes, when a unit cannot be observed through a probe, or when the
 tolerance of ISO/IEC 10918-2 clause 7 becomes available
 ([ferrisma#72](https://github.com/sebastian-software/ferrisma/issues/72), formerly libjpeg-turbo-rs#19).
+
+## Amendment log
+
+- 2026-11-15 — Owner decision on O6 (engine ADR-0041): T.83 clause 7 is not
+  required for 1.0. The measured values stay recorded as described under
+  the conformance run; obtaining the ITU text and data
+  ([ferrisma#72](https://github.com/sebastian-software/ferrisma/issues/72))
+  stays open as optional work ([ADR 0007](0007-neon-kernels-and-unsafe.md),
+  amendment 2026-11-15).

@@ -7,8 +7,10 @@ organization's other packages do"). Nothing here runs: the configurations and
 the workflow live in [`publishing/release-please/`](../publishing/release-please/),
 which GitHub and Release Please do not read, the workflow file has a
 non-`.yml` extension, every package keeps `publish = false`, and no version
-changed. Whether all crates share one version is open (O3); this document
-lays out both options so the owner can decide.
+changed. **O3 is decided (owner, 2026-11-15): one shared version for all
+packages, configuration A below.** The owner's reason: the organization's
+other packages do the same. Configuration B stays documented as the option
+to switch to later. Nothing was activated with the decision.
 
 Related: [publishing](publishing.md) (the crates.io chain, order, and manual
 procedure, #137), [ADR-0040](adr/0040-stable-public-contract-and-compatibility-policy.md)
@@ -87,7 +89,7 @@ GitHub releases are marked as pre-releases, matching D10's wording), and a
 drafts were written (2026-11-12, 23:15 +0100); replace it with the activation
 commit.
 
-## Configuration A: one shared version
+## Configuration A: one shared version (decided 2026-11-15)
 
 Every first-party package (published or not) carries the same version, one
 `CHANGELOG.md` at the root, one tag `ferrisma-v<version>`, one GitHub release.
@@ -514,29 +516,34 @@ State on 2026-11-14; the evidence is in [publishing](publishing.md#blockers-befo
 
 | # | Blocker | State | Waits for | Issue |
 | --- | --- | --- | --- | --- |
-| 1 | The JPEG port's package name `libjpeg-turbo-rs` belongs to an unrelated crates.io crate; both drafts, the workflow list and the lockfile jsonpaths use today's name and must follow a rename. | Proven (still taken on 2026-11-14); candidates checked; rename scope listed | Owner: the name; recommendation `ferrisma-libjpeg-turbo` | #207 |
-| 2 | `libavif-aom` is 16.6 MiB compressed, above crates.io's 10 MiB limit. | Proven; no safe `include` trimming; split and limit options quantified | Owner: ask crates.io for a per-crate limit (recommended) or a codec ADR for a split | #208 |
-| 3 | AVIF packages and the dependent's build profile. | Reproduced on 2026-11-14: no overflow failure in a dependent's default `dev` profile; `panic = "abort"` fails at compile time; the profile block works when copied | Owner: option (a) (document; recommended), codec owners: an AOM test run with overflow checks | #209 |
+| 1 | The JPEG port's package name `libjpeg-turbo-rs` belongs to an unrelated crates.io crate; both drafts, the workflow list and the lockfile jsonpaths use today's names and must follow a rename. | Decided (owner, 2026-11-15): the four ports become `ferrisma-libjpeg-turbo`, `ferrisma-libwebp`, `ferrisma-libjxl`, `ferrisma-libavif`; not yet renamed | The rename, then both drafts, the workflow list and the jsonpaths | #207 |
+| 2 | `libavif-aom` is 16.6 MiB compressed, above crates.io's 10 MiB limit. | Decided (owner, 2026-11-15): consolidation step (b), then measure; above about 9 MiB the owner chooses between step (c) and a limit request; no split crates | Codec: step (b) | #208 |
+| 3 | AVIF packages and the dependent's build profile. | Decided (owner, 2026-11-15): option (a), `unwind` required, overflow overrides recommended | The README block with the rename; codec owners: an AOM test run with overflow checks | #209 |
 | 4 | Exact `libc = "=0.2.191"` and `c2rust-bitfields = "=0.3.0"` pins. | Fixed on branch `v1/release-plumbing`: caret requirements, same minimum, lockfile unchanged | Codec owners: ABI checks against a newer `libc` | #209 |
 | 5 | Renamed first-party dependency keys broke Release Please's version updates. | Fixed on `main` (`86f9e0df`); rehearsal clean for A and B on 2026-11-14 | Nobody | #248 |
-| 6 | Every package is `publish = false`; first-publication versions (the AVIF bridges are 0.0.0) and the published set. | Open | Owner: O3, then versions | #137 |
-| 7 | License review gates for redistributing source crates (IJG terms, `simd_helpers` notice, independent review). Per-crate license files and `include` lists are complete (the JPEG port's since 2026-11-14). | Open | Owner/legal | #66, #136 |
-| 8 | Configuration B only: move the engine package out of the workspace root. | Open | Owner: O3 | none |
+| 6 | Every package is `publish = false`; first-publication versions (the AVIF bridges are 0.0.0) and the published set. | O3 decided: one shared version (configuration A) | Owner: the first version | #137 |
+| 7 | License review gates for redistributing source crates (IJG terms, `simd_helpers` notice, independent review). Per-crate license files and `include` lists are complete (the JPEG port's since 2026-11-14). | Decided (owner, 2026-11-15): policy confirmed, documented self-review accepted for 1.0, patent-grant scope named as not assessed; `simd_helpers` left the lockfile with rav1e | After the rename: regenerate inventory and bundles, re-bind the JPEG evidence | #66, #136 |
+| 8 | Configuration B only: move the engine package out of the workspace root. | Not needed: O3 chose configuration A | Nobody, unless B is chosen later | none |
 | 9 | Repository and registry setup outside Git: `RELEASE_PLEASE_TOKEN`, the crates.io team as co-owner, a one-time token for the first publish, Trusted Publishing per crate, branch protection that lets the release pull request run CI. | Open | Owner | #137 |
 | 10 | Release artifacts beyond crates. The CLI has `--version` since 2026-11-13; it prints the build identity only when `FERRISMA_BUILD_ID` is set at compile time, and no release workflow sets it yet (not needed for a crates-only 0.1.0). | Open, not blocking a crates-only 0.1.0 | Owner | #237, #196 |
 
 ## Decisions the owner still has to make
 
+Items 1 and 2 were decided on 2026-11-15. Items 3 to 8 are open; they are
+to be presented to the owner later in one batch, with defaults.
+
 1. **O3: one shared version (A) or engine group plus per-port versions (B).**
-   Recommendation (best estimate): A for the 0.x series. It matches the
+   Decided by the owner on 2026-11-15: A. The recommendation had been
+   (best estimate): A for the 0.x series. It matches the
    existing root-package layout, rehearses clean once the dependency keys are
    fixed, gives one tag and one changelog, and makes ADR-0040 problem 7 moot;
    its cost is re-publishing unchanged ports. Revisit B when a port gets
    outside consumers who need independent versions; switching later keeps
    `ferrisma-v<version>` tags valid because both drafts use component tags.
-2. The JPEG port's new name (#207; recommendation `ferrisma-libjpeg-turbo`)
-   and the `libavif-aom` size path (#208; recommendation: request a per-crate
-   limit, keep the per-platform split as the fallback).
+2. The JPEG port's new name and the `libavif-aom` size path. Decided by
+   the owner on 2026-11-15 ([publishing](publishing.md), sections 1
+   and 2): the `ferrisma-` prefix for all four ports (#207), and
+   consolidation step (b) before anything else for the size (#208).
 3. Whether to drop `"."` from `[workspace].members` (the dependency keys are
    settled by #248).
 4. `bump-patch-for-minor-pre-major` (features as 0.x minors or patches), and
@@ -559,7 +566,7 @@ State on 2026-11-14; the evidence is in [publishing](publishing.md#blockers-befo
 
 ## Review when
 
-O3 is decided; a package is added to or removed from the published set; a
+The owner switches to configuration B; a package is added to or removed from the published set; a
 package is renamed (#207) or split (#208); the action pin or the release-please
 version changes; the organization's blueprint (project-infra) changes its
 release guidance.

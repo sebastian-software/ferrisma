@@ -125,6 +125,17 @@ it and assert the same outcome class, kind, reason and report entry.
   embedded profile needs `UseRenderedIcc` in every format. An enum encoding
   without a code point (custom primaries or white point, gamma) has no
   AVIF counterpart: `nclx` cannot express it (format reason).
+- **Bit depth** (owner decision, 2026-11-15, before 1.0): the output's
+  depth follows the input's by one rule in every format that can represent
+  it, the nearest admitted depth below where it cannot (AVIF 8, 10 or 12;
+  JPEG XL 8 to 16; WebP 8 only, the format's limit), an explicit `depth`
+  in `AvifOptions` and `JpegXlOptions` overriding it. D2: one quantization
+  at one stage, the final encode of the executors, for every format and
+  depth (ADR-0021, amendment of 2026-11-15). D3: `Discarded::PrecisionReduced`
+  exactly when the output holds fewer bits than the input, reported by the
+  pipeline, not by a reader. WebP's 8 bits and AVIF's 12 are format
+  reasons, written in the supported matrix. D5:
+  `format_parity::depth_follows_the_input_in_every_output`.
 - **AVIF ICC beside `nclx` follows MIAF** (owner decision, 2026-11-15;
   ADR-0015 section of that date): the profile governs primaries and
   transfer, so the file gets the outcome of any embedded profile in any
@@ -173,7 +184,11 @@ ICC beside `nclx`) are implemented on branch `v1/engine-parity`, with the
 parity tests (`tests/format_parity.rs`) and the format-parity table of the
 supported matrix, where each row whose cells differ names its format
 reason. Not covered by a fixture, and therefore not claimed: AVIF gray
-with alpha and AVIF with a gray profile.
+with alpha and AVIF with a gray profile. The bit-depth application of the
+same day is implemented on branch `v1/engine-depth`
+(`format_parity::depth_follows_the_input_in_every_output`: JPEG, WebP, AVIF
+at 8/10/12 and JPEG XL at 8/10/12/16 bits into every output, default and
+explicit depths).
 
 ## Open questions (pending owner decision)
 
@@ -202,6 +217,8 @@ None. The grayscale question is decided (above).
 - 2026-11-15 — AVIF ICC beside `nclx` (MIAF) added as an application;
   every decision of the day is implemented and the state paragraph under
   Validation is updated.
+- 2026-11-15 — Bit depth added as a decided application (owner
+  decision): the output depth follows the input's in every format.
 - 2026-11-15 — D4 implemented: per-format options types with native
   scales (`AvifOptions`, libwebp's own `method` instead of a mapped
   `speed`), the general `quality`/`speed` removed (ADR-0037, ADR-0040).

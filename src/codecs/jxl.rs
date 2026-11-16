@@ -73,6 +73,10 @@ impl<'a> JxlSource<'a> {
             image.data_encoding.and_then(h273)
         };
         let info = DecoderInfo {
+            // Integer samples only (float is refused at inspection): the
+            // deeper of color and alpha, so a deeper alpha is not lost.
+            depth: u8::try_from(image.bits_per_sample.max(image.alpha_bits))
+                .map_err(|_| Error::UnsupportedLayout)?,
             size,
             layout,
             sample: SampleType::F32,
@@ -86,10 +90,6 @@ impl<'a> JxlSource<'a> {
         discarded.insert_if(image.original_icc, Discarded::IccProfile);
         discarded.insert_if(image.have_preview, Discarded::Preview);
         discarded.insert_if(image.alpha_premultiplied, Discarded::Unpremultiplied);
-        discarded.insert_if(
-            image.bits_per_sample > 8 || image.alpha_bits > 8,
-            Discarded::PrecisionReduced,
-        );
         Ok(Self {
             bytes,
             image,

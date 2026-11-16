@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Created: 2026-11-09
-- Updated: 2026-11-13
+- Updated: 2026-11-15
 
 > **2026-11-13: superseded in part by engine [ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md).** Parity rule 1 (Rust SIMD against the `_C` translation) no longer admits a variant by itself: the gate is equality with libwebp's own SIMD build on the same target, so the `release-simd` comparison of rule 4 becomes required and runs on AArch64 and x86-64. The ruling under "Upstream's own divergences" changes for valid inputs: where upstream's SIMD differs from its C, the port follows upstream's SIMD and matches its SIMD build. In particular the NEON rescaler export rows (`vqrdmulhq_s32` by `scale >> 1`, #79, #80) are translated and selected as upstream selects them on AArch64, instead of keeping the C translation. Mechanics change in separate work.
 
@@ -206,6 +206,37 @@ a non-gating job of the `Checks` workflow on the Linux runner. A variant
 slower than the C translation is recorded, not removed or tuned: this is the
 mechanical port; optimization is Ferrisma's later phase.
 
+**Owner decision of 2026-11-15 (O7 of engine
+[ADR-0041](../../../../docs/adr/0041-v1-quality-gate-equivalence-with-the-ported-original.md)).**
+The gate arrangement above is accepted: the `release` oracle gates the
+scalar build only, the narrowed domains of the `release-simd` comparison,
+the `oracle` feature reading `LIBWEBP_SIMD_LEVEL` in the CPU query, and the
+full x86-64 gate of three levels by three profiles. Two conditions come
+with it:
+
+1. **The single exception to "never narrow a test domain."** A test domain
+   may be narrowed only for the comparison with `release-simd`, only where
+   upstream itself is undefined for the excluded inputs (its own C
+   `assert`s, as in `AddVector_SSE2`, `AddVector_AVX2` and
+   `ExtraCost_SSE41`, or undefined behavior), and only with that reason
+   written in the test code next to the narrowed domain. The comparison of
+   the scalar build with the `release` oracle keeps the full domain. This is
+   the one exception ADR-0041 section 2 allows; it is not a general
+   permission, and a difference, a run time or a defect of the port never
+   justifies a narrower domain. The narrowed domains in the tree today
+   (wp11 sizes, gradient unfilter with `prev == out`, the x86 rescaler with
+   two or three channels) are accepted under this condition; whether each
+   one carries its reason in the code was not re-checked with this
+   amendment.
+2. **Where the full gate runs.** The three x86-64 levels by three profiles
+   run hosted on real x86-64 in the nightly: `nightly.yml` calls
+   `webp-check.yml`, whose `oracle` job runs `tools/check.py --stage test
+   --oracle-variant release-simd` on `ubuntu-latest` (`avx2`, `sse41`,
+   `sse2` from `SIMD_MODES`, each in the dev, release and checked profiles
+   from `PROFILES`) and on `macos-latest` (`neon`); read from the workflows
+   on 2026-11-15, no run result checked. Locally under Rosetta 2 a change
+   runs only what it affects.
+
 ## Consequences
 
 The SIMD build on AArch64 and the scalar build no longer agree byte for byte
@@ -228,3 +259,11 @@ Revisit when a SIMD function cannot be expressed with the two operations
 above, when Rust stabilizes a portable SIMD type that could replace the
 per-architecture modules, when the minimum Rust version is raised, or when
 Ferrisma's measurements ask for tuning beyond the mechanical port.
+
+## Amendment log
+
+- 2026-11-15 — Owner decision on O7: the gate arrangement is accepted with
+  the two conditions under "Upstream's own divergences" (the single
+  exception for narrowed domains; the full x86-64 gate hosted in the
+  nightly). Earlier changes are recorded in the header notes and the
+  revised sections, dated in place.

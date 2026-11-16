@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-11
+- **Last reviewed:** 2026-11-15
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0006](0006-cpu-first-gpu-capable-execution.md)
 
@@ -105,3 +105,33 @@ shapes change, or the conservative bound rejects representative valid jobs.
 - 2026-11-11 — Added conservative resize-plan admission before footprint
   construction; this narrows the planner-vector exclusion recorded in the
   2026-10-31 experiment without replacing its historical evidence.
+
+## Amendment: default budget of 1 GiB (2026-11-15, owner decision)
+
+**Decision (owner, 2026-11-15; not a working decision).** The default
+managed-memory budget, `TransformOptions::max_managed_bytes` and the CLI's
+`--budget-mb`, rises from 256 MiB to 1 GiB.
+
+**Why.** The budget is the engine's second, finer line, for operators who
+plan memory per job. Protection against decompression bombs is already the
+input pixel limit (`max_input_pixels`, default 100 MP), which is what
+comparable libraries rely on (Pillow and sharp/libvips limit pixels). At
+256 MiB the default made legitimate work fail: lossless JPEG XL above about
+3.7 MP (3,655,036 pixels opaque, from the measured chunked-encode model of
+2026-11-15), and the deeper output rows of the same day (ADR-0021
+amendment: 8 B/px instead of 4 for every sink frame) would have tightened it
+further. An operator who wants a strict bound lowers it.
+
+**What the budget covers** is unchanged: engine buffers, the encoders'
+reserved frames and the measured lossless JPEG XL peak are counted; memory
+that codecs allocate internally is only partly counted (issues #48 and
+#199). It is a bound on what the engine manages, not on the resident memory
+of the process.
+
+**Consequences.** Under the default, the largest lossless JPEG XL output
+grows from 3,655,036 to 49,344,752 pixels (opaque) and from 2,842,806 to
+38,377,881 (with alpha); `supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`
+replaces the 3.7 MP test. A caller that relied on the old default as a
+bound must set it explicitly.
+
+- 2026-11-15 — Default budget 1 GiB (owner decision); see the amendment above.

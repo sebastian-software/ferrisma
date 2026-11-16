@@ -232,11 +232,12 @@ universal speed claim.
   amendment), but its x86 kernels build only for GNU Linux x86-64, and the
   `avx2` level against the original has never run (#242, #125, #124, #122);
   the hosted Linux x86-64 cross-check for libjxl-rs and AOM (#241, #252);
-  the owner's open questions O1–O9
-  ([#250](https://github.com/sebastian-software/ferrisma/issues/250)). The
+  the work that follows from the owner's decisions of 2026-11-15 on O1–O9
+  (ADR-0041, "Owner decisions of 2026-11-15";
+  [#250](https://github.com/sebastian-software/ferrisma/issues/250)). The
   workspace JPEG XL reader and AVIF writer are the confirmed defaults
   (ADR-0041 D1); x86-64 JPEG XL conformance stays open, and lossy d1.0 JPEG
-  XL output (ADR-0039) is still pending owner confirmation (ADR-0041 O5);
+  XL output with patches off is the owner's decision of 2026-11-15 (ADR-0039);
   the AVIF defaults follow `avifenc` since 2026-11-15 (#216, ADR-0037), with
   the fixed default depth 8 awaiting confirmation. The
   [supported matrix](supported-matrix.md) lists the current defaults, their

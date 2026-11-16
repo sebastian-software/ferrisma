@@ -98,8 +98,9 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
             options.avif.speed = option["--avif-speed=".len()..].parse()?;
         }
         option if option.starts_with("--avif-depth=") => {
-            // The writer validates the depth (8 or 10) before decoding.
-            options.avif.depth = option["--avif-depth=".len()..].parse()?;
+            // Without the flag the depth follows the input; the engine
+            // refuses a depth other than 8, 10 or 12 before decoding.
+            options.avif.depth = Some(option["--avif-depth=".len()..].parse()?);
         }
         "--avif-chroma=444" => options.avif.chroma = ChromaSubsampling::Yuv444,
         "--avif-chroma=420" => options.avif.chroma = ChromaSubsampling::Yuv420,
@@ -138,9 +139,23 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
             }
         }
         "--jxl-lossless" if options.output_format == OutputFormat::JpegXl => {
-            options.jpeg_xl = JpegXlOptions::Lossless { effort: 2 };
+            // A `--jxl-depth=` given before stays.
+            options.jpeg_xl = JpegXlOptions::Lossless {
+                effort: 2,
+                depth: options.jpeg_xl.depth(),
+            };
         }
         "--jxl-lossless" => return Err("--jxl-lossless requires .jxl output".into()),
+        option if option.starts_with("--jxl-depth=") => {
+            if options.output_format != OutputFormat::JpegXl {
+                return Err("--jxl-depth requires .jxl output".into());
+            }
+            // Without the flag the depth follows the input; the engine
+            // refuses a depth outside 8 to 16 before decoding.
+            options.jpeg_xl = options
+                .jpeg_xl
+                .with_depth(Some(option["--jxl-depth=".len()..].parse()?));
+        }
         option if option.starts_with("--jxl-distance=") => {
             if options.output_format != OutputFormat::JpegXl {
                 return Err("--jxl-distance requires .jxl output".into());
@@ -148,6 +163,7 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
             // The range is checked by the transcode, before decoding.
             options.jpeg_xl = JpegXlOptions::Lossy {
                 distance: option[15..].parse()?,
+                depth: options.jpeg_xl.depth(),
             };
         }
         option if option.starts_with("--max-output-mb=") => {
@@ -299,7 +315,7 @@ pub fn run(
             .and_then(|name| name.to_str())
             .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--avif-quality=60 --avif-alpha-quality=60 (libavif 0-100) --avif-speed=6 (AOM cpu-used 0-10) --avif-depth=8|10 (default 8) --avif-chroma=444|420] [--webp-quality=75 (libwebp 1-100) --webp-method=4 (libwebp 0-6)|--webp-lossless --webp-level=4 (libwebp 0-9)] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--encoder-threads=1] [--transform-threads=0] [--max-output-mb=256] [--budget-mb=256] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --webp-quality or --webp-method. Defaults are the original tools' (avifenc, cwebp, cjxl)."
+            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--avif-quality=60 --avif-alpha-quality=60 (libavif 0-100) --avif-speed=6 (AOM cpu-used 0-10) --avif-depth=8|10|12 (default: the input's) --avif-chroma=444|420] [--webp-quality=75 (libwebp 1-100) --webp-method=4 (libwebp 0-6)|--webp-lossless --webp-level=4 (libwebp 0-9)] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--jxl-depth=8..16 (default: the input's)] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--encoder-threads=1] [--transform-threads=0] [--max-output-mb=256] [--budget-mb=1024] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --webp-quality or --webp-method. Defaults are the original tools' (avifenc, cwebp, cjxl)."
         );
         return Ok(ExitCode::from(2));
     }
@@ -388,7 +404,9 @@ pub fn run(
 /// One stable `key=value` line for benchmark scripts. Values are integers,
 /// except the precision, kernel level, the two backend names, the color
 /// signal and `discarded` (the classes of ADR-0042 D2, comma-separated in
-/// report order, or `none`); new keys are appended (ADR-0040).
+/// report order, or `none`); new keys are added before `discarded`, which
+/// stays last (ADR-0040, ADR-0042). `input_depth` and `depth` (since
+/// 2026-11-15) are the bits per sample read and written.
 fn report_line(output: &Output) -> String {
     let report = &output.report;
     let timings = report.timings;
@@ -396,7 +414,7 @@ fn report_line(output: &Output) -> String {
         "report: open_us={} decode_us={} transform_us={} encode_us={} total_us={} \
          output_bytes={} peak_managed_bytes={} encoder_frame_bytes={} orientation_buffer_bytes={} \
          decoder_requests={} decoder_full_frames={} precision={:?} encoder_threads={} kernel_level={} transform_threads={} \
-         encoder={} decoder={} color_signal={:?} discarded={}",
+         encoder={} decoder={} color_signal={:?} input_depth={} depth={} discarded={}",
         timings.open.as_micros(),
         timings.decode.as_micros(),
         timings.transform.as_micros(),
@@ -415,6 +433,8 @@ fn report_line(output: &Output) -> String {
         report.encoder_backend,
         report.decoder_backend,
         report.color_signal,
+        report.input_depth,
+        report.output_depth,
         discarded_value(report.discarded),
     )
 }
@@ -524,6 +544,34 @@ mod tests {
         }
     }
 
+    /// `--jxl-depth=` sets the depth of either profile, in any order with
+    /// the profile flags (since 2026-11-15); it needs `.jxl` output.
+    #[test]
+    fn jxl_depth_is_kept_across_the_profile_flags() {
+        use crate::pipeline::{JpegXlOptions, OutputFormat};
+        let jxl = TransformOptions {
+            output_format: OutputFormat::JpegXl,
+            ..TransformOptions::default()
+        };
+        let mut options = jxl;
+        apply_option(&mut options, "--jxl-depth=12").unwrap();
+        apply_option(&mut options, "--jxl-lossless").unwrap();
+        assert_eq!(
+            options.jpeg_xl,
+            JpegXlOptions::Lossless {
+                effort: 2,
+                depth: Some(12)
+            }
+        );
+        let mut options = jxl;
+        apply_option(&mut options, "--jxl-distance=0.5").unwrap();
+        apply_option(&mut options, "--jxl-depth=16").unwrap();
+        assert_eq!(options.jpeg_xl.depth(), Some(16));
+        assert!(apply_option(&mut options, "--jxl-depth=x").is_err());
+        let mut avif = TransformOptions::default();
+        assert!(apply_option(&mut avif, "--jxl-depth=10").is_err());
+    }
+
     #[test]
     fn selects_jpeg_xl_output_settings_and_rejects_foreign_ones() {
         use crate::pipeline::{JpegXlOptions, OutputFormat};
@@ -532,13 +580,31 @@ mod tests {
             ..TransformOptions::default()
         };
         let mut options = jxl;
-        assert_eq!(options.jpeg_xl, JpegXlOptions::Lossy { distance: 1.0 });
+        assert_eq!(
+            options.jpeg_xl,
+            JpegXlOptions::Lossy {
+                distance: 1.0,
+                depth: None
+            }
+        );
         apply_option(&mut options, "--jxl-distance=0.5").unwrap();
-        assert_eq!(options.jpeg_xl, JpegXlOptions::Lossy { distance: 0.5 });
+        assert_eq!(
+            options.jpeg_xl,
+            JpegXlOptions::Lossy {
+                distance: 0.5,
+                depth: None
+            }
+        );
         assert!(apply_option(&mut options, "--jxl-distance=abc").is_err());
         let mut options = jxl;
         apply_option(&mut options, "--jxl-lossless").unwrap();
-        assert_eq!(options.jpeg_xl, JpegXlOptions::Lossless { effort: 2 });
+        assert_eq!(
+            options.jpeg_xl,
+            JpegXlOptions::Lossless {
+                effort: 2,
+                depth: None
+            }
+        );
         // Another output's flags name the output they need.
         for (flag, needs) in [
             ("--avif-quality=80", "--avif-quality requires .avif output"),
@@ -686,7 +752,7 @@ mod tests {
         assert!(
             line.ends_with(
                 " encoder=libwebp-rs decoder=libjpeg-turbo-rs color_signal=AssumedSrgb \
-                 discarded=none"
+                 input_depth=8 depth=8 discarded=none"
             ),
             "{line}"
         );
@@ -715,7 +781,7 @@ mod tests {
                 quality: 70,
                 alpha_quality: 90,
                 speed: 8,
-                depth: 10,
+                depth: Some(10),
                 chroma: ChromaSubsampling::Yuv420,
             }
         );

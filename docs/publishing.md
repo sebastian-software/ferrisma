@@ -97,18 +97,19 @@ decision, and then after `ferrisma`.
 
 ## Blockers before the first functional publication
 
-State on 2026-11-14 (on `main` since `aba85c54`). "Proven" means measured
-today with the commands in [the evidence below](#evidence-2026-11-14);
-"decision" names who has to decide.
+State on 2026-11-14 (on `main` since `aba85c54`), with the owner's decisions
+of 2026-11-15 entered. "Proven" means measured on 2026-11-14 with the
+commands in [the evidence below](#evidence-2026-11-14); "decision" names who
+has to decide.
 
 | # | Blocker | State | Waits for |
 | --- | --- | --- | --- |
-| 1 | JPEG port's package name is taken on crates.io (#207) | Proven: still taken; candidate names checked; rename scope listed | Owner: the name (recommendation `ferrisma-libjpeg-turbo`) |
-| 2 | `libavif-aom` exceeds the 10 MiB upload limit (#208) | Proven: 16.6 MiB; the four profile translations are nearly all of it; no safe `include` trimming exists | Owner/codec: limit increase or split (recommendation below) |
-| 3 | AVIF packages need profile settings dependents do not inherit (#209) | Reproduced with outside consumers: no overflow failure found in the default `dev` profile; `panic = "abort"` is a compile-time error; the documented block works for dependents | Owner: accept option (a), requirement for `unwind`, recommendation for the overflow overrides; codec owners: one AOM test run with overflow checks on |
+| 1 | JPEG port's package name is taken on crates.io (#207) | **Decided, not yet renamed** (owner, 2026-11-15): all four ports take the `ferrisma-` prefix with the originals' exact names (section 1) | The rename; names for the AVIF sub-crates and `libsharpyuv-core`; the collision with the internal `crates/ferrisma-libavif` |
+| 2 | `libavif-aom` exceeds the 10 MiB upload limit (#208) | Proven: 16.6 MiB. **Decided** (owner, 2026-11-15): consolidation step (b), then measure again; no split crates, no release-only shipping (section 2) | Codec: step (b) and the new measurement; owner: above about 9 MiB, step (c) before publication or a limit request |
+| 3 | AVIF packages need profile settings dependents do not inherit (#209) | Reproduced with outside consumers: no overflow failure found in the default `dev` profile; `panic = "abort"` is a compile-time error; the documented block works for dependents. **Decided** (owner, 2026-11-15): option (a) (section 3) | The README block, with the rename (the package names in it change); codec owners: the AOM kernel tier and the debug translation with overflow checks on |
 | 4 | Exact `libc` and `c2rust-bitfields` pins | Fixed on `main` since `aba85c54`: caret requirements, same minimum, `Cargo.lock` unchanged | Codec owners: ABI checks against a newer `libc` (not run) |
-| 5 | Versions (the AVIF bridges are 0.0.0) | Open | Owner: O3 (one shared version or per port), first versions |
-| 6 | License review gates | Open | Owner/legal (#66, #136) |
+| 5 | Versions (the AVIF bridges are 0.0.0) | **Decided** (owner, 2026-11-15, O3): one shared version for all packages (section 5) | Owner: the first version number |
+| 6 | License review gates | **Decided** (owner, 2026-11-15): the #136 policy is confirmed; the documented self-review is accepted for 1.0, without an independent legal review before 1.0; the scope of the patent grants for the translated ports stays named as not assessed (section 6) | After the rename: regenerate the inventory and bundles, re-bind the JPEG evidence |
 | 7 | crates.io account setup: team owner, first-publish token, Trusted Publishing per crate | Open, outside Git | Owner |
 | 8 | Release Please key mismatch (#248) | Fixed on `main` (`86f9e0df`); rehearsal clean on 2026-11-14 ([release automation](release-automation.md)) | Nobody |
 
@@ -128,13 +129,35 @@ Free on 2026-11-14 (crates.io API `GET /api/v1/crates/<name>`, 404):
 `libavif-sharpyuv`, `libsharpyuv-core`, `ferrisma-kernels`, the four
 bridges, `ferrisma-libavif`); `ferrisma` is the project's 0.0.0 placeholder.
 
-**Recommendation: `ferrisma-libjpeg-turbo`.** It says whose port it is,
-cannot be mistaken for the existing `libjpeg-turbo-rs` (names one suffix
-apart, such as `libjpeg-turbo-port`, invite exactly that confusion), does
-not claim the upstream project's own name (`libjpeg-turbo`), and is the name
-the 2026-11-12 dry run already used. The other ports keep `lib*-rs`; if the
-owner wants one scheme, the alternative is `ferrisma-` for every port, which
-is a larger rename and not needed for publication.
+**Decision (owner, 2026-11-15; B1): all four ports take the `ferrisma-`
+prefix with the originals' exact names.** The owner's reason: Ferrisma as a
+brand. The names are:
+
+| Port today | Package name decided |
+| --- | --- |
+| `libjpeg-turbo-rs` | `ferrisma-libjpeg-turbo` |
+| `libwebp-rs` | `ferrisma-libwebp` |
+| `libjxl-rs` | `ferrisma-libjxl` |
+| `libavif-rs` | `ferrisma-libavif` |
+
+All four were free on crates.io on 2026-11-15. **Not renamed yet:** every
+manifest, lockfile and document still uses today's names. Still to do with
+the rename:
+
+- **Names for the sub-crates** (`libavif-aom`, `libavif-dav1d`,
+  `libavif-sharpyuv`, `libsharpyuv-core`): to be proposed in the same
+  scheme; not decided.
+- **The collision with `crates/ferrisma-libavif`.** That internal package
+  (the ADR-0024 compatibility adapter, `publish = false`, see "Stay
+  internal" above) already has the name `ferrisma-libavif`. It must be
+  renamed or removed before the libavif port takes the name; whether it is
+  still needed is to be checked.
+- The rename scope below, which was listed for the JPEG port alone, applies
+  to all four ports and the sub-crates.
+
+The recommendation of 2026-11-14 (rename only the JPEG port to
+`ferrisma-libjpeg-turbo`, the other ports keep `lib*-rs`) is replaced by the
+decision; its JPEG name is the one decided.
 
 What a rename touches (the library target name `jpeg` stays, so no Rust
 `use` changes; the directory `codecs/libjpeg-turbo-rs` can stay):
@@ -208,11 +231,20 @@ Options:
   (about 8.7 MiB). Changes which translation a debug build runs, against
   ADR 0048's focused debug acceptance; a codec decision, not packaging.
 
-Recommendation: ask crates.io for a per-crate limit (for example 24 MiB) for
-`libavif-aom` for the first 0.x releases, since it costs nothing in the
-frozen translation and keeps all evidence valid, and record the per-platform
-split as the fallback if the request is refused. `libavif-rs` (4.6 MiB) and
-`libavif-dav1d` (2.6 MiB) are below the limit.
+**Decision (owner, 2026-11-15):** solve the size by consolidation.
+Consolidation step (b), merging the debug and release translations of each
+platform (the consolidation plan named in libavif-rs
+[ADR 0060](../codecs/libavif-rs/docs/adr/0060-build-the-translations-on-stable-rust.md);
+step (a), stable Rust, is done), comes first; its expected size is about
+8.8 MiB, an estimate, not a measurement. Then the package is measured again.
+If it is above about 9 MiB, the owner chooses between step (c) before the
+first publication and a limit request to crates.io. No per-platform split
+crates and no shipping of one profile only (the options above). crates.io
+has not been asked. **Not done yet:** step (b) and the new measurement.
+
+The recommendation of 2026-11-14 (ask crates.io for a per-crate limit first,
+keep the per-platform split as the fallback) is replaced by this decision.
+`libavif-rs` (4.6 MiB) and `libavif-dav1d` (2.6 MiB) are below the limit.
 
 ### 3. Consumer profile requirements of the AVIF packages (#209)
 
@@ -288,13 +320,14 @@ Options and their cost:
   AVIF packages build on stable Rust (2026-11-15), this option would bring a
   nightly requirement back and is no longer open without that cost.
 
-**Recommendation:** (a). Keep `panic = "unwind"` as a stated requirement
-(it is enforced), state the four overflow overrides as recommended rather
-than required, since no failure was reproduced, and have the codec owners
-run the AOM kernel tier and the debug translation once with overflow checks
-on (the golden tier already passed that way, release translation only). Do not start (b). Use (c) only if such a run
-finds an overflow. Put the block into the `ferrisma` README before
-publication:
+**Decision (owner, 2026-11-15): option (a).** `panic = "unwind"` is
+required (it is enforced at compile time), and the four overflow overrides
+are recommended, not required. Removing the unwind requirement is a
+candidate for after 1.0, together with consolidation step (c). (b) is not
+started. **Not done yet:** the block goes into the `ferrisma` README and
+the supported matrix with the rename (#207), because the package names in it
+change; the codec owners' run of the AOM kernel tier and the debug
+translation with overflow checks on is open. The block, with today's names:
 
 ```toml
 # Required by the AVIF features (avif-read, avif-write, cli): the
@@ -330,17 +363,23 @@ only for opaque storage types passed back to `libc` functions
 
 ### 5. Versions
 
-`ferrisma-avif-read` and `ferrisma-avif-write` are 0.0.0. Choose
-first-publication versions for every package (ADR-0040 proposes the SemVer
-policy, [release automation](release-automation.md) the Release Please
-shapes; O3 decides one shared version or per-port versions) and update each
-dependent's `version` requirement.
+`ferrisma-avif-read` and `ferrisma-avif-write` are 0.0.0. **Decided (owner,
+2026-11-15, O3):** every package shares one version, configuration A of
+[release automation](release-automation.md); configuration B stays possible
+later. Still to do: choose the first version (ADR-0040 proposes the SemVer
+policy) and update each dependent's `version` requirement.
 
 ### 6. License review gates
 
-`docs/license-audit.md` still lists open review items (IJG terms, the
-`simd_helpers` notice, independent legal review). Publishing a source crate
-redistributes its files; resolve or explicitly accept these items first.
+**Decided (owner, 2026-11-15):** the licensing policy for project-owned
+code and additions inside a port (#136) is confirmed; the documented
+self-review is accepted for 1.0, and there is no independent legal review
+before 1.0; the scope of the patent grants for the translated ports stays
+named as not assessed ([license audit](license-audit.md)). The
+`simd_helpers` item is moot: the package left the root `Cargo.lock` with
+rav1e. **Not done yet**, after the rename: regenerate the inventory and the
+license bundles, and re-bind the JPEG source-bound evidence to the reviewed
+files.
 
 ## Evidence (2026-11-14)
 
@@ -469,7 +508,8 @@ Run from a clean checkout of the release commit, with the pinned toolchain.
 
 ## Review when
 
-A package is added to or removed from `ferrisma`'s dependency graph, a
+The rename of #207 is done (this page then needs the new names throughout);
+consolidation step (b) changes the `libavif-aom` size; a package is added to or removed from `ferrisma`'s dependency graph, a
 package name or version changes, the AVIF packages stop needing nightly or
 the profile exceptions, crates.io limits change, or a binary distribution
 (CLI archives, npm) is added to the release.

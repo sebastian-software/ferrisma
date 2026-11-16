@@ -56,7 +56,7 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | `InputProfilePolicy` | enum | Stable | Non-exhaustive; `Strict` default |
 | `ImageFormat`, `OutputFormat` | enum | Stable | Non-exhaustive |
 | `WebpOptions` (`Lossy { quality, method }`, `Lossless { level }`) | enum | Stable | Non-exhaustive; libwebp's own scales; `speed` replaced by `method` on 2026-11-15 |
-| `JpegXlOptions` (`Lossy { distance }`, `Lossless { effort }`) | enum | Experimental (ADR-0039); default lossy d1.0 pending owner confirmation | Non-exhaustive; `PartialEq` only |
+| `JpegXlOptions` (`Lossy { distance }`, `Lossless { effort }`) | enum | Experimental (ADR-0039); default lossy d1.0, patches off (owner decision 2026-11-15) | Non-exhaustive; `PartialEq` only |
 | `ChromaSubsampling` | enum | Stable | Non-exhaustive |
 | `AvifOptions` (`quality`, `alpha_quality`, `speed`, `depth`, `chroma`), `TransformOptions::avif` | struct, field | Experimental (owner decision 2026-11-15, ADR-0037; replaces `avif_depth`, `quality`, `speed`, `chroma_subsampling`) | libavif's scales; `avifenc` defaults 60, 60, 6, 8, 4:4:4; public fields, not non-exhaustive, like `TransformOptions` (problem 1) |
 | `LibavifBackend` | unit struct | Experimental (`avif-write`; stable Rust 1.99 since 2026-11-15, pinned nightly before) | ADR-0037; the built-in AVIF writer; reads every setting from the request since 2026-11-15 |
@@ -164,7 +164,8 @@ Proposed, pending maintainer review:
 
 These change signatures or behavior and therefore need a maintainer
 decision. Items 1, 2, 7, and 10 should be settled before 1.0.0 because they
-cannot be fixed later without a major release.
+cannot be fixed later without a major release. Item 16 is a check the
+owner requires of the API review before 1.0.
 
 1. **Input option structs cannot grow.** `TransformOptions`,
    `ResizeOptions`, `InspectionLimits`, `BatchItem`, and `LibavifBackend` have
@@ -203,7 +204,10 @@ cannot be fixed later without a major release.
    values) and `source()` can follow after 1.0.
 7. **`KernelLevel` couples SemVer to `ferrisma-kernels`.** Recommendation:
    define the two diagnostic enums in `ferrisma` and map them, or keep them
-   experimental and version both crates together.
+   experimental and version both crates together. _Since 2026-11-15 (owner
+   decision O3, ADR-0041):_ all packages share one version, which
+   [release automation](../release-automation.md) notes makes this problem
+   moot; the recommendation to define the enums in `ferrisma` stays open.
 8. **Raw CICP.** `ImageMetadata::rendered_cicp` is `Option<[u8; 4]>`.
    Recommendation: a named `Cicp` struct with primaries, transfer, matrix,
    and full-range fields.
@@ -234,6 +238,15 @@ cannot be fixed later without a major release.
     as the AVX-512 opt-in, ADR-0020 decision D6).
     Recommendation: `--filter=area|lanczos3` and `--fit=inside|cover|fill`
     before 1.0, keeping `--area` as a deprecated alias.
+16. **Compatibility with later streaming** (owner constraint of
+    2026-11-15). Row-wise or streaming reading and writing at both ends
+    (#197, #198) and ROI decode (#60) stay after 1.0; the scope is not
+    widened for them now. But the 1.0 contract must not fix anything that
+    those improvements would have to break. The API review before 1.0
+    checks every stable item for such an assumption, for example a
+    signature that requires the whole input or output in memory, a report
+    field or error kind that only a whole-frame decoder can fill, or a
+    guarantee about when work happens. Not yet done.
 
 ## Consequences
 
@@ -487,3 +500,25 @@ reports that a stable item cannot express its use case.
     floats (#235). The pinned nightly in `rust-toolchain.toml` stays the
     development default for formatting, sanitizers and fuzzing; no user
     needs it.
+- 2026-11-15 — Owner decisions of 2026-11-15 that touch this record:
+  (1) **Clippy (#235): pin.** The static stages' Clippy runs at one
+  explicitly named stable version, raised deliberately in its own change;
+  recorded in [ADR-0027](0027-tiered-validation-and-rust-test-orchestration.md),
+  amendment of 2026-11-15 (on branch `v1/clippy-pin` when this entry was
+  written). This answers the "Not decided here" sentence of the MSRV entry
+  above; the minimum versions are unchanged. (2) **One shared version for
+  all packages** (O3, ADR-0041); problem 7 is annotated. (3) **The JPEG XL
+  default** lossy d1.0 with patches off is decided (ADR-0039); the
+  inventory row no longer says "pending owner confirmation". (4) **Streaming
+  compatibility:** new problem 16, a check the API review must make before
+  1.0. This record stays Proposed; its tiers and the other recommendations
+  are not decided by these entries.
+- 2026-11-15 — Output depth follows the input (owner decision, ADR-0021
+  amendment): `AvifOptions::depth` becomes `Option<u8>` and both
+  `JpegXlOptions` variants gain `depth: Option<u8>` (breaking before 1.0,
+  intended); `ProcessingReport::input_depth` and `output_depth` and the CLI
+  keys `input_depth=` and `depth=` are additive (inserted before
+  `discarded=`, which stays the last key, ADR-0042); the experimental
+  backend API gains `EncodeRequest::depth`, `EncoderBackend::row_depths`
+  and `RowEncoder::write_row_u16` with defaults, so existing backends need
+  no change.

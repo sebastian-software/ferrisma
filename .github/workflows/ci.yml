@@ -231,7 +231,9 @@ jobs:
             *) exit 1 ;;
           esac
       - run: cargo fetch --locked
-      - run: rustup toolchain install stable --profile minimal --component clippy
+      # Clippy runs at the one version in tools/lint-toolchain, here and locally
+      # (ADR-0027); `stable` stays installed for the lanes that name it.
+      - run: rustup toolchain install stable "$(cat tools/lint-toolchain)" --profile minimal --component clippy
       # The static stage's MSRV step (`check.py --msrv`) runs at the port's
       # own declared rust-version, read from its Cargo.toml.
       - name: Install the port's rust-version toolchain
