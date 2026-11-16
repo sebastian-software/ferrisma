@@ -2413,3 +2413,44 @@ x86-64 evidence decides whether the change stays: the `JXL: Tests` job's
 parity shards compare the port's skcms engine with the original's on
 native hardware, where both select HSW on a host without AVX-512.
 <!-- end skcms hsw -->
+<!-- x86 profile -->
+## Blocked DCT transposes (2026-11-16, branch `v1/jxl-x86-profile`)
+
+**Finding.** The native profile of the lossy encoder (workflow
+`jxl-profile.yml`, runs 43796474412 on x86-64 and 43796477703 on ARM64,
+at `c3f441a8`) puts the port at 2.02x the instructions of libjxl's AVX2
+build on x86-64 (callgrind on a 1536x1024 crop: 9.67 G against 4.78 G;
+`perf stat` on the 12 MP photo: 69.8 G against 35.5 G) but at 1.55x the
+instructions of its NEON build on ARM64. The DCT and IDCT are the largest
+x86-specific part: 3.92 G against 2.09 G instructions on x86-64 (1.87x),
+4.68 G against 4.06 G on ARM64 (1.15x). The port's `transpose` in
+`dct_simd.rs` moved one word per step with a bounds check on every word
+(about five instructions per element), for every shape. The original's
+`GenericTransposeBlock` (lib/jxl/transpose-inl.h) transposes 8x8 vector
+blocks on a 256-bit target when both dimensions are multiples of 8 and
+4x4 vector blocks on a 128-bit target when both are multiples of 4; its
+`Transpose<16, 16>` is 193 instructions for 256 words in an x86-64 object
+of the pinned source. The cost is the same per word on both targets, but
+the vector work beside it is half as long on AVX2, which is why the gap
+showed on x86-64.
+
+**Decision.** `transpose` takes the target descriptor and uses the
+original's three forms: the 8x8 block form of the `HWY_CAP_GE256` branch
+(transpose-inl.h lines 63-126) when the target has 8 lanes and both
+dimensions are multiples of 8, the 4x4 block form of the 128-bit branch
+(lines 127-165) when it has 4 lanes and both are multiples of 4, and the
+element loop of `TransposeSimdTag<false>` (lines 48-61) otherwise. The
+shape is a constant of each `scaled_dct`/`scaled_idct` instantiation, so
+the choice folds, and the body inlines into the transform that already
+runs in the target's attribute context. The 8x8 form needs Highway's
+`ConcatLowerLower`/`ConcatUpperUpper`: two operations appended to
+`SimdF32`, `vinsertf128`/`vperm2f128` on AVX2 as in
+hwy/ops/x86_256-inl.h, with a provided form for the other descriptors.
+Transposes move words only, so every output is unchanged; the forward
+and inverse transforms of the encoder and of the VarDCT decoder all use
+them. The 8-lane test descriptors (`Neon8` in `simd_vardct_lanes8.rs`
+and the encoder tests) implement `InterleaveLower`/`InterleaveUpper` per
+128-bit half, as AVX2 does per 128-bit block, so the 8x8 form also runs
+natively there against the 4-lane results.
+
+<!-- end x86 profile -->

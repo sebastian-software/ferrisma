@@ -219,6 +219,35 @@ pub trait SimdF32: Copy + core::fmt::Debug + Send + Sync + 'static {
         kernel.run(self)
     }
     // end codegen
+    // transpose: the halves moves of transpose-inl.h's 8x8 block form (port
+    // ADR 0004, "Blocked DCT transposes").
+    /// `ConcatLowerLower(d, hi, lo)`: the lower half of `lo`, then the lower
+    /// half of `hi`. Moves words only. AVX2 overrides it with Highway's
+    /// `vinsertf128`; the provided form serves targets that never reach the
+    /// 8x8 block transpose in production (NEON) and the test descriptors.
+    #[inline(always)]
+    fn concat_lower_lower(self, hi: Self::V, lo: Self::V) -> Self::V {
+        let n = Self::LANES;
+        let (mut a, mut b, mut out) = ([0f32; 16], [0f32; 16], [0f32; 16]);
+        self.store(lo, &mut a);
+        self.store(hi, &mut b);
+        out[..n / 2].copy_from_slice(&a[..n / 2]);
+        out[n / 2..n].copy_from_slice(&b[..n / 2]);
+        self.load(&out)
+    }
+    /// `ConcatUpperUpper(d, hi, lo)`: the upper half of `lo`, then the upper
+    /// half of `hi`. Moves words only; AVX2 overrides it (`vperm2f128`).
+    #[inline(always)]
+    fn concat_upper_upper(self, hi: Self::V, lo: Self::V) -> Self::V {
+        let n = Self::LANES;
+        let (mut a, mut b, mut out) = ([0f32; 16], [0f32; 16], [0f32; 16]);
+        self.store(lo, &mut a);
+        self.store(hi, &mut b);
+        out[..n / 2].copy_from_slice(&a[n / 2..n]);
+        out[n / 2..n].copy_from_slice(&b[n / 2..n]);
+        self.load(&out)
+    }
+    // end transpose
 }
 
 /// The SIMD target a kernel runs on, capped at NEON/AVX2 (decision D6).

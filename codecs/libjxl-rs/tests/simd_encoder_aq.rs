@@ -679,11 +679,13 @@ mod lanes8 {
         fn min_of_lanes(self, _: Self::V) -> Self::V {
             unimplemented!("lane-crossing")
         }
-        fn interleave_lower(self, _: Self::V, _: Self::V) -> Self::V {
-            unimplemented!("lane-crossing")
+        // Per 128-bit half, as AVX2's InterleaveLower/Upper per 128-bit block
+        // (the 8x8 block transpose of the DCT uses them).
+        fn interleave_lower(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, interleave_lower, a, b)
         }
-        fn interleave_upper(self, _: Self::V, _: Self::V) -> Self::V {
-            unimplemented!("lane-crossing")
+        fn interleave_upper(self, a: Self::V, b: Self::V) -> Self::V {
+            halves!(self, interleave_upper, a, b)
         }
         fn store_interleaved2(self, _: Self::V, _: Self::V, _: &mut [f32]) {
             unimplemented!("lane-crossing")
