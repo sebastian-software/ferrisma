@@ -341,6 +341,7 @@ fn compare_checkpoints(family: &str, cases: &[Case]) {
 #[test]
 fn lossy_frame_heuristics_checkpoints_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut sizes = vec![(1, 1), (7, 7), (8, 8), (9, 17)];
     sizes.extend((41..=48).map(|x| (x, 15)));
     sizes.extend([(63, 129), (256, 256), (257, 255)]);

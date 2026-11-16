@@ -378,6 +378,7 @@ fn roundtrip_encode_half(request: &str) -> (String, Option<JxlEncoderAdmission>)
 #[test]
 fn upstream_roundtrip_test_frame_roundtrips_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let mut requests = Vec::new();
     for data_type in [0u32, 3, 2] {
         for channels in [1u32, 3] {
@@ -672,6 +673,7 @@ fn compare_ejxl(family: &str, cases: &[EjxlCase], not_admitted: &[NotAdmitted]) 
 #[test]
 fn upstream_jxl_test_roundtrips_match_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let bliznaca = Source::Png("bliznaca", 500);
     let mut cases = vec![
         EjxlCase::new(Source::Zero, 1, 1, 1.0),
@@ -709,6 +711,7 @@ fn upstream_jxl_test_roundtrips_match_original() {
 #[test]
 fn upstream_speed_tier_test_squirrel_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
     let bliznaca = Source::Png("bliznaca", 500);
     let squirrel = |xsize, ysize, distance| {
         let mut case = EjxlCase::new(bliznaca, xsize, ysize, distance);

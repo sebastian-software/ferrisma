@@ -81,29 +81,34 @@ struct Acc<D: SimdF32> {
     w: D::V,
 }
 
-/// `Load`/`LoadU(df, rows[c][r] + x + dx)`: `w` is the row's window of
-/// `Lanes + 2 * B` samples from `x - B`, so every load of an iteration is
-/// inside it.
+/// `Load`/`LoadU(df, rows[c][r] + x + dx)`: `row` holds the row's samples
+/// from `x_start - B` and `o` is the vector's offset from `x_start`, so the
+/// load reads `row[o + B + dx..]`, the same memory as the source's pointer.
 #[inline(always)]
-fn ld<D: SimdF32, const B: usize>(df: D, w: &[f32], dx: isize) -> D::V {
-    df.load(&w[(B as isize + dx) as usize..])
+fn ld<D: SimdF32, const B: usize>(df: D, row: &[f32], o: usize, dx: isize) -> D::V {
+    df.load(&row[(o as isize + B as isize + dx) as usize..])
 }
 
 /// EPF0Stage/EPF1Stage::AddPixel (stage_epf.cc:62-80 and 213-231): `r` is
 /// the source's `border + row`.
 #[inline(always)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "The source's AddPixel arguments and the vector's row offset."
+)]
 fn add_pixel<D: SimdF32, const B: usize>(
     df: D,
     w: &[[&[f32]; 7]; 3],
+    o: usize,
     r: usize,
     dx: isize,
     sad: D::V,
     inv_sigma: D::V,
     acc: &mut Acc<D>,
 ) {
-    let cx = ld::<D, B>(df, w[0][r], dx);
-    let cy = ld::<D, B>(df, w[1][r], dx);
-    let cb = ld::<D, B>(df, w[2][r], dx);
+    let cx = ld::<D, B>(df, w[0][r], o, dx);
+    let cy = ld::<D, B>(df, w[1][r], o, dx);
+    let cb = ld::<D, B>(df, w[2][r], o, dx);
     let weight = weight(df, sad, inv_sigma);
     acc.w = df.add(acc.w, weight);
     acc.x = df.mul_add(weight, cx, acc.x);
@@ -121,6 +126,7 @@ fn add_pixel<D: SimdF32, const B: usize>(
 fn add_pixel2<D: SimdF32, const B: usize>(
     df: D,
     w: &[[&[f32]; 7]; 3],
+    o: usize,
     r: usize,
     dx: isize,
     cc: [D::V; 3],
@@ -128,9 +134,9 @@ fn add_pixel2<D: SimdF32, const B: usize>(
     inv_sigma: D::V,
     acc: &mut Acc<D>,
 ) {
-    let cx = ld::<D, B>(df, w[0][r], dx);
-    let cy = ld::<D, B>(df, w[1][r], dx);
-    let cb = ld::<D, B>(df, w[2][r], dx);
+    let cx = ld::<D, B>(df, w[0][r], o, dx);
+    let cy = ld::<D, B>(df, w[1][r], o, dx);
+    let cb = ld::<D, B>(df, w[2][r], o, dx);
     let mut sad = df.mul(df.abs_diff(cx, cc[0]), df.set(scales[0]));
     sad = df.mul_add(df.abs_diff(cy, cc[1]), df.set(scales[1]), sad);
     sad = df.mul_add(df.abs_diff(cb, cc[2]), df.set(scales[2]), sad);
@@ -209,27 +215,22 @@ impl EpfRow<'_> {
             let bx = (x + self.xpos as isize + (SIGMA_PADDING * BLOCK_DIM) as isize) as usize
                 / BLOCK_DIM;
             let ix = (x + self.xpos as isize) as usize % BLOCK_DIM;
-            // rows[c][i] + x - B to + x + Lanes + B: each row's samples from
-            // `o` on, the same memory as the source's row pointers.
-            let mut w: [[&[f32]; 7]; 3] = [[&[]; 7]; 3];
-            for (w_c, rows_c) in w.iter_mut().zip(&rows) {
-                for (w_r, row) in w_c.iter_mut().zip(rows_c).take(2 * B + 1) {
-                    *w_r = &row[o..o + lanes + 2 * B];
-                }
-            }
+            // The loads read rows[c][r] + x + dx, the source's row pointers,
+            // as `rows[c][r][o + B + dx..]` (see `ld`).
+            let w = &rows;
             if self.row_sigma[bx] < MIN_SIGMA {
-                df.store(ld::<D, B>(df, w[0][b], 0), &mut out0[o..]);
-                df.store(ld::<D, B>(df, w[1][b], 0), &mut out1[o..]);
-                df.store(ld::<D, B>(df, w[2][b], 0), &mut out2[o..]);
+                df.store(ld::<D, B>(df, w[0][b], o, 0), &mut out0[o..]);
+                df.store(ld::<D, B>(df, w[1][b], o, 0), &mut out1[o..]);
+                df.store(ld::<D, B>(df, w[2][b], o, 0), &mut out2[o..]);
                 continue;
             }
             // Load(df, sad_mul + ix): lanes past the 8-entry source array are
             // never used by an output lane of this block; see the ADR note.
             let vsm = df.load(&sad_mul[ix..]);
             let inv_sigma = df.mul(df.set(self.row_sigma[bx]), vsm);
-            let x_cc = ld::<D, B>(df, w[0][b], 0);
-            let y_cc = ld::<D, B>(df, w[1][b], 0);
-            let b_cc = ld::<D, B>(df, w[2][b], 0);
+            let x_cc = ld::<D, B>(df, w[0][b], o, 0);
+            let y_cc = ld::<D, B>(df, w[1][b], o, 0);
+            let b_cc = ld::<D, B>(df, w[2][b], o, 0);
             let mut acc = Acc::<D> {
                 x: x_cc,
                 y: y_cc,
@@ -244,10 +245,11 @@ impl EpfRow<'_> {
                         for (i, sad_off) in SADS_OFF.iter().enumerate() {
                             let mut sad = df.zero();
                             for off in PLUS_OFF {
-                                let r11 = ld::<D, B>(df, rows_c[(3 + off[0]) as usize], off[1]);
+                                let r11 = ld::<D, B>(df, rows_c[(3 + off[0]) as usize], o, off[1]);
                                 let c11 = ld::<D, B>(
                                     df,
                                     rows_c[(3 + sad_off[0] + off[0]) as usize],
+                                    o,
                                     sad_off[1] + off[1],
                                 );
                                 sad = df.add(sad, df.abs_diff(r11, c11));
@@ -258,7 +260,8 @@ impl EpfRow<'_> {
                     for (i, sad_off) in SADS_OFF.iter().enumerate() {
                         add_pixel::<D, B>(
                             df,
-                            &w,
+                            w,
+                            o,
                             (3 + sad_off[0]) as usize,
                             sad_off[1],
                             sads[i],
@@ -272,42 +275,42 @@ impl EpfRow<'_> {
                         (df.zero(), df.zero(), df.zero(), df.zero());
                     for (c, rows_c) in w.iter().enumerate() {
                         let [r0, r1, r2, r3, r4, ..] = *rows_c;
-                        let p20 = ld::<D, B>(df, r0, 0);
-                        let p21 = ld::<D, B>(df, r1, 0);
+                        let p20 = ld::<D, B>(df, r0, o, 0);
+                        let p21 = ld::<D, B>(df, r1, o, 0);
                         let mut sad0c = df.abs_diff(p20, p21);
-                        let p11 = ld::<D, B>(df, r1, -1);
+                        let p11 = ld::<D, B>(df, r1, o, -1);
                         let mut sad1c = df.abs_diff(p11, p21);
-                        let p31 = ld::<D, B>(df, r1, 1);
+                        let p31 = ld::<D, B>(df, r1, o, 1);
                         let mut sad2c = df.abs_diff(p31, p21);
-                        let p02 = ld::<D, B>(df, r2, -2);
-                        let p12 = ld::<D, B>(df, r2, -1);
+                        let p02 = ld::<D, B>(df, r2, o, -2);
+                        let p12 = ld::<D, B>(df, r2, o, -1);
                         sad1c = df.add(sad1c, df.abs_diff(p02, p12));
                         sad0c = df.add(sad0c, df.abs_diff(p11, p12));
-                        let p22 = ld::<D, B>(df, r2, 0);
+                        let p22 = ld::<D, B>(df, r2, o, 0);
                         let mut t = df.abs_diff(p12, p22);
                         sad1c = df.add(sad1c, t);
                         sad2c = df.add(sad2c, t);
                         t = df.abs_diff(p22, p21);
                         let mut sad3c = t;
                         sad0c = df.add(sad0c, t);
-                        let p32 = ld::<D, B>(df, r2, 1);
+                        let p32 = ld::<D, B>(df, r2, o, 1);
                         sad0c = df.add(sad0c, df.abs_diff(p31, p32));
                         t = df.abs_diff(p22, p32);
                         sad1c = df.add(sad1c, t);
                         sad2c = df.add(sad2c, t);
-                        let p42 = ld::<D, B>(df, r2, 2);
+                        let p42 = ld::<D, B>(df, r2, o, 2);
                         sad2c = df.add(sad2c, df.abs_diff(p42, p32));
-                        let p13 = ld::<D, B>(df, r3, -1);
+                        let p13 = ld::<D, B>(df, r3, o, -1);
                         sad3c = df.add(sad3c, df.abs_diff(p13, p12));
-                        let p23 = ld::<D, B>(df, r3, 0);
+                        let p23 = ld::<D, B>(df, r3, o, 0);
                         t = df.abs_diff(p22, p23);
                         sad0c = df.add(sad0c, t);
                         sad3c = df.add(sad3c, t);
                         sad1c = df.add(sad1c, df.abs_diff(p13, p23));
-                        let p33 = ld::<D, B>(df, r3, 1);
+                        let p33 = ld::<D, B>(df, r3, o, 1);
                         sad2c = df.add(sad2c, df.abs_diff(p33, p23));
                         sad3c = df.add(sad3c, df.abs_diff(p33, p32));
-                        let p24 = ld::<D, B>(df, r4, 0);
+                        let p24 = ld::<D, B>(df, r4, o, 0);
                         sad3c = df.add(sad3c, df.abs_diff(p24, p23));
                         let scale = df.set(lf.epf_channel_scale[c]);
                         sad0 = df.mul_add(sad0c, scale, sad0);
@@ -315,18 +318,18 @@ impl EpfRow<'_> {
                         sad2 = df.mul_add(sad2c, scale, sad2);
                         sad3 = df.mul_add(sad3c, scale, sad3);
                     }
-                    add_pixel::<D, B>(df, &w, 1, 0, sad0, inv_sigma, &mut acc);
-                    add_pixel::<D, B>(df, &w, 2, -1, sad1, inv_sigma, &mut acc);
-                    add_pixel::<D, B>(df, &w, 2, 1, sad2, inv_sigma, &mut acc);
-                    add_pixel::<D, B>(df, &w, 3, 0, sad3, inv_sigma, &mut acc);
+                    add_pixel::<D, B>(df, w, o, 1, 0, sad0, inv_sigma, &mut acc);
+                    add_pixel::<D, B>(df, w, o, 2, -1, sad1, inv_sigma, &mut acc);
+                    add_pixel::<D, B>(df, w, o, 2, 1, sad2, inv_sigma, &mut acc);
+                    add_pixel::<D, B>(df, w, o, 3, 0, sad3, inv_sigma, &mut acc);
                 }
                 EpfPass::Two => {
                     let cc = [x_cc, y_cc, b_cc];
                     let scales = lf.epf_channel_scale;
-                    add_pixel2::<D, B>(df, &w, 0, 0, cc, scales, inv_sigma, &mut acc);
-                    add_pixel2::<D, B>(df, &w, 1, -1, cc, scales, inv_sigma, &mut acc);
-                    add_pixel2::<D, B>(df, &w, 1, 1, cc, scales, inv_sigma, &mut acc);
-                    add_pixel2::<D, B>(df, &w, 2, 0, cc, scales, inv_sigma, &mut acc);
+                    add_pixel2::<D, B>(df, w, o, 0, 0, cc, scales, inv_sigma, &mut acc);
+                    add_pixel2::<D, B>(df, w, o, 1, -1, cc, scales, inv_sigma, &mut acc);
+                    add_pixel2::<D, B>(df, w, o, 1, 1, cc, scales, inv_sigma, &mut acc);
+                    add_pixel2::<D, B>(df, w, o, 2, 0, cc, scales, inv_sigma, &mut acc);
                 }
             }
             let inv_w = df.div(df.set(1.0), acc.w);

@@ -492,9 +492,15 @@ fn enc_simd_to_xyb_through_the_encoder_dispatch_matches_the_original_target() {
 #[test]
 fn enc_simd_the_encoder_selects_the_scalar_path_by_default() {
     let _lock = dispatch_lock();
-    const { assert!(!hwy::ENCODER_SELECTS_SIMD) };
+    // encoder selection: outside every encoder entry point the selection is
+    // the scalar path, whatever ENCODER_SELECTS_SIMD is; an encoder entry
+    // point selects the default (ADR 0004, "Encoder selection").
     hwy::set_encoder_simd_for_test(None);
     assert!(hwy::encoder_target().is_none());
+    assert_eq!(
+        hwy::encoder_default_target().is_some(),
+        hwy::ENCODER_SELECTS_SIMD && Target::detect().is_some()
+    );
     hwy::set_encoder_simd_for_test(Some(true));
     assert_eq!(
         hwy::encoder_target().map(Target::name),

@@ -1301,7 +1301,12 @@ impl<'c, 'p> AcStrategyHeuristics<'c, 'p> {
     }
 
     pub fn prepare_for_threads(&mut self, num_threads: usize) -> Status {
-        let dct_scratch_size = 3 * (MAX_VECTOR_SIZE / size_of::<f32>()) * MAX_BLOCK_DIM;
+        // encoder selection: MaxVectorSize() is the dispatched target's, so
+        // on the encoder's SIMD path the DCT scratch is the target's (port
+        // ADR 0004, "Encoder path", condition (b)).
+        let max_vector_size =
+            super::hwy::encoder_target().map_or(MAX_VECTOR_SIZE, |t| 4 * t.lanes());
+        let dct_scratch_size = 3 * (max_vector_size / size_of::<f32>()) * MAX_BLOCK_DIM;
         self.mem_per_thread = 6 * MAX_COEFF_AREA + dct_scratch_size;
         let mem_bytes = num_threads * self.mem_per_thread * size_of::<f32>();
         self.mem = Some(AlignedMemory::create(self.memory_manager, mem_bytes, 0)?);

@@ -339,10 +339,11 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   cross builds of the libjxl original are to be configured with
   `-DCMAKE_SYSTEM_PROCESSOR=x86_64`, so that upstream's `skcms.cmake` keeps
   the HSW engine as in a native x86-64 build; the original's source stays
-  untouched. **Not implemented yet:** `tools/check.py` and the oracle
-  tooling still build the cross-built references without the flag, so they
-  contain only skcms's baseline engine, and the port's HSW engine is still
-  compared with the original's only on hosted Linux x86-64.
+  untouched. Implemented 2026-11-16 (branch `v1/jxl-skcms-hsw`) with
+  CMake's `-DCMAKE_APPLE_SILICON_PROCESSOR=x86_64`, because CMake ignores
+  `CMAKE_SYSTEM_PROCESSOR` without `CMAKE_SYSTEM_NAME`; the cross-built
+  references and the AVX2 oracle now contain the HSW and SKX engines
+  ("The skcms HSW engine in its attribute context" below).
 
 <!-- vardct kernels -->
 ## VarDCT decode kernels (2026-11-13, Plan item 2)
@@ -1942,3 +1943,565 @@ shape for the same reason (794 calls: `exec_stages::<8>`, `clut::<8>`,
 the transfer-function helpers): its `#[target_feature]` entry
 `run_program_hsw` calls helpers that are not `#[inline(always)]`.
 <!-- end codegen -->
+<!-- encoder aq -->
+### Encoder path: `enc_adaptive_quantization` (2026-11-14, branch `v1/jxl-enc-aq`)
+
+**What the export is.** `enc_adaptive_quantization.cc` exports one Highway
+function, `AdaptiveQuantizationMap`, dispatched from `InitialQuantField`;
+everything else in the file is outside `HWY_NAMESPACE` or unreached.
+Reading the code paths: the lossy profile (effort 7, Squirrel) calls
+`InitialQuantField` (enc_heuristics.cc, speed tier Hare or slower), and
+`FindBestQuantizer` returns without work, because its butteraugli loops
+(`FindBestQuantization`, `FindBestQuantizationMaxError`, `RoundtripImage`,
+`TileDistMap`) run only at Kitten and slower or in max-error mode. Those
+are scalar code outside `HWY_NAMESPACE` that would call butteraugli's own
+exports; they stay out of scope (and unported), as the profile list above
+says. `InitialQuantDC` and `AdjustQuantField` are scalar code outside
+`HWY_NAMESPACE` and keep the scalar translation on every target.
+
+**Translated** (`enc_adaptive_quantization_simd.rs`): AdaptiveQuantizationMap
+with AdaptiveQuantizationImpl::PrepareBuffers/ComputeTile (the
+`HWY_FULL` vector loop of the pre-erosion pass with its scalar first and
+last pixels), ComputeMask, RatioOfDerivativesOfCubicRootToSimpleGamma
+(vector and one-lane forms), GammaModulation, BlueModulation,
+HfModulation (kMaskRight), PerBlockModulations, MaskingSqrt (both forms)
+and FuzzyErosion; FastLog2f and FastPow2f are `simd_transfer`'s.
+`HWY_CAPPED(float, kBlockDim)` is the full vector on both targets (four
+NEON, eight AVX2 lanes); the `HWY_CAPPED(float, 1)` forms are lane 0 of
+the full vector operation on a broadcast (every operation they use is
+lane-wise; their MulAdd is fused). The whole export lies inside
+`HWY_NAMESPACE`, so the five contraction sites of
+`tools/encoder_heuristics_contraction.json` (PerBlockModulations' final
+scale, FuzzyErosion's weights and its four-product sum) are fused on both
+targets, including x86-64, where the scalar build keeps them separate.
+Products of two constants are folded before contraction and stay unfused
+(`kSGVOffset * kInvLog2e + kEpsilon`, `64 * kLimit - scalar_sum`; the
+latter is exact anyway). Blur1x1Masking is the scalar translation's (its
+one contractible product, `2 * kFilterMask1x1[3]`, is exact). The SIMD
+path dispatches at `initial_quant_field` through `hwy::encoder_target()`.
+
+**What remains of this export: nothing.** Blur1x1Masking calls
+`Symmetric5`, the separate `convolve_symmetric5` export, through its own
+dispatch (`convolve_symmetric5_simd`, translated on another branch), so
+with the encoder's selection forced the blur runs the SIMD Symmetric5 as
+in the original. The parity test compares `mask1x1` after the blur.
+
+**Tests.** `tests/simd_encoder_aq.rs`, request `eaq-map`
+(tools/oracle/encoder_aq_simd.cc): the original's public
+`InitialQuantField` on an `Image3F` whose row padding (up to
+`PixelsPerRow`; the strides themselves differ, since the encoder's planes
+keep the scalar padding, see above) holds one of four words (+0.0, a quiet NaN,
++inf, -1e30), because HfModulation's last vector reads one sample past
+each block, masked out; status, `aq_map`, `mask` and `mask1x1` printed in
+full. The domain: 14 whole images from 8x8 to 200x136 (one to four tiles
+per direction, every SIMD loop remainder of both lane counts), nine value
+kinds (photo-like, high-frequency noise, flat, ramps, blue-dominated
+blocks for BlueModulation's branches, negative samples, large magnitudes,
+special words sprinkled into photo content, special words only), ten
+distances across the FuzzyErosion branch and the dampening ramp (0.05 to
+20), three rescales, images larger than the rect by a partial block, and
+six rects inside a 152x144 image (the +-2 and +-4 pixel extensions). It
+runs through `initial_quant_field` with the encoder's selection forced and
+shows the scalar path differs. An 8-lane structure test in the same file
+(`Neon8`, two NEON halves, AArch64 only, no oracle) runs 108 requests:
+every 8-lane load and store stays inside the planes, and `mask1x1`, which
+only scalar pixels compute, equals the 4-lane result.
+
+**Evidence (2026-11-15, M1 Ultra).** NEON: `eaq-map`, 286 requests,
+1,203,950 words, zero differences (the scalar path differs in 277); the
+8-lane test passes. AVX2 under Rosetta 2 (`ROSETTA_ADVERTISE_AVX=1`,
+dispatch-build oracle): 240 of 286 requests match; **46 differ, all from
+the two special-word value kinds, only in `aq_map`** (`mask` and `mask1x1`
+match). Diagnosis of one of them (16x8, a signaling NaN in X and a quiet
+NaN in Y within one block): removing either NaN makes it match. The two
+NaNs reach different lanes of GammaModulation's `overall_ratio` and meet
+in SumOfLanes, where `Add` of two NaNs returns one of them (x86: the first
+source operand). FastLog2f then reads the NaN's bits as an integer, so the
+payload becomes a finite exponent and the block's quant field differs by
+orders of magnitude. The original's choice is not fixed by its source: in
+the AVX2 object, Clang commuted the reduction step
+`f(v03_12_12_03, Reverse2(...))` (`vshufps $0x1b` then `vaddps` with the
+shuffled vector first), as LLVM may for any `fadd`, and the port's Rust
+build makes its own choice. No source-faithful translation can promise the
+original's words for inputs that put two NaNs into one block's reduction.
+
+**Owner decision 2026-11-15** (#246, #250; the principle of the NaN-input
+rule of #246): on AVX2 the `aq_map` words of a request are not compared
+when the request's input puts two or more NaNs into the reduction of one
+block, because the original's own result there is not defined by its
+source. `mask` and `mask1x1` of those requests, every word of every other
+request and every word on NEON stay compared exactly; no operand order is
+pinned in the port. `tests/simd_encoder_aq.rs` computes the class from the
+input (`map_nan_blocks`): for each block of the rect, GammaModulation's two
+terms `r = (Y + 0.16) - X` and `g = (Y + 0.16) + X` over the block's 8x8
+window (row-padding words past the image width), counting a term that is a
+NaN or +infinity (whose ratio is inf / inf). It counts NaN terms with the
+sign bit set as well, which ZeroIfNegative zeroes: the sign of a NaN the
+arithmetic produces is itself the target's operand or default-NaN choice,
+and inside one lane the accumulating `Add` of two NaNs is the same
+compiler choice as across lanes in SumOfLanes, so the boundary is the
+source's "two or more NaN-producing terms in one block's reduction". The
+test asserts that the class is not empty. Result: the class selects 61 of
+286 requests (2,455 blocks); on AVX2 all 46 differing requests are inside
+it, the other 15 happen to give the original's words (equal payloads, or a
+NaN zeroed by its sign); 4,295 `aq_map` words are not compared on AVX2,
+1,199,655 words match; NEON compares all 1,203,950 words and matches. No
+differing request lies outside the class.
+<!-- end encoder aq -->
+<!-- encoder selection -->
+## Encoder selection (2026-11-15, branch `v1/jxl-enc-select`)
+
+Addendum to "Encoder path", "Scope of the selection" and "Which path a test
+runs". The encoder is prepared to select its SIMD path by default; the
+switch stays off (`hwy::ENCODER_SELECTS_SIMD = false`).
+
+**Selection and scope (condition (b)).** `DispatchScope` has a third state,
+`Encoding(target)`. `JxlEncoder` stores the target it selects when it is
+created (`hwy::encoder_default_target()`: `Target::detect()` when
+`ENCODER_SELECTS_SIMD` is on), and the work calls (`add_image_frame_internal`
+for AddImageFrame and AddChunkedFrame, the `ProcessOutput` and `FlushInput`
+work loops) run inside `Encoding` with it, also from a decoder callback;
+`LosslessThunderConfig::encode_pixels` (the engine's lossless writer) is an
+entry point with the default selection (`hwy::encoding`). Inside it, as in
+the original's one process-wide dispatch, `encoder_target()` (the encoder's
+kernels), `decoder_target()` (the decoder code the encoder runs: quant
+tables, the AR round trip and its pipeline, AdaptiveDCSmoothing) and
+`max_vector_size()` (plane padding) all return the encoder's selection; the
+decoder's override does not reach the encoder. `encoder_target()` is, in
+order: the test override (`set_encoder_simd_for_test`), the scalar gate's
+`JXL_ENCODER_TARGET=scalar` (read only by `cpp-oracle` builds, set by
+`tools/check.py`), then the scope; outside every encoder entry point it is
+the scalar path. AcStrategyHeuristics' DCT scratch follows the encoder's
+lane count, like CfL's. `ThreadPool::run` carries the scope: the encoder
+has no runner (SetParallelRunner is not translated; every encoder
+`RunOnPool` gets no pool and runs on the calling thread), so no whole
+encode runs on worker threads, and `dispatch_scope.rs`
+`the_encoder_scope_reaches_every_runner_thread` shows with 0, 1, 2 and 8
+workers that every init and task body sees the scope's selection in all
+three queries. Flipping `ENCODER_SELECTS_SIMD` per target is the whole
+change.
+
+**Export missing from the profile list.** The whole-encode gate found one
+decode-path export the lossy encoder runs that "Encoder exports the
+engine's profiles reach" did not list: `compressed_dc`'s
+`AdaptiveDCSmoothing`, which InitializePassesEncoder calls on the encoder's
+DC (`enc_cache.rs`), unless the frame skips adaptive DC smoothing (it does
+not at d2.9: a 128x128 gradient at d2.9 differed from the NEON original by
+1 ULP in 93 DC words, the step-1 checkpoints located it). `enc_cache.rs`
+called the scalar translation directly; it now dispatches as the decoder
+does (`compressed_dc_simd`, on `decoder_target()`, the encoder's selection
+in its scope). `simd_util`'s `MaxValue` (enc_ans.cc) is reached too; it is
+an exact masked maximum of integers, so the port's scalar maximum gives the
+same value on every target.
+
+**Whole-encode gate (condition (c)).** `tests/simd_encoder_public.rs` runs
+the scalar `cjxl` gate's public-encoder histories (every admitted family of
+`tests/parity/encoder_public.rs`: small, large, settings, admissions with
+the AR heuristics, streaming, alpha, patches off and text-like, extra
+channel types, output processor, chunked input, the streaming suite, the
+step-2 gate sizes up to 4000x3000), the engine's sequence (effort 7, patches
+off, d1.0 and d2.0, gray and RGB, with and without alpha), the step-1
+checkpoint histories (`es1-ckpt`: the state after LossyFrameHeuristics,
+InitializePassesEncoder and ComputeARHeuristics, word for word), the
+lossless effort-2 profile (`encode_pixels` against `ss-image`/`ss-image-alpha`
+over the scalar whole-image corpus and larger images), and, when
+`JXL_ENCODER_GATE_PHOTOS` names PPM files, photographs (the whole image and
+three crops, d1.0 and d2.0, alpha on the crops, through the new `esel-ppm`
+request of tools/oracle/encoder_selection.cc, and lossless). Each encode
+runs with the SIMD target forced against the SIMD oracle and with the
+scalar path forced, and records the call sites that selected SIMD
+(`hwy::encoder_trace_start`): a family fails when a dispatch point its
+profile reaches never selected the SIMD target. Results (M1 Ultra; AVX2
+under Rosetta 2 with `ROSETTA_ADVERTISE_AVX=1`, against the AVX2 dispatch
+build):
+
+| Family | Encodes | NEON | AVX2 | Scalar path differs (NEON / AVX2) |
+| --- | --- | --- | --- | --- |
+| lossy (small, large, settings, admissions, smoke) | 524 | 524 | 524 | 41 / 39 |
+| lossy streaming | 16 | 16 | 16 | 7 / 7 |
+| lossy with alpha | 279 | 279 | 279 | 48 / 47 |
+| patches off, text-like, extra channels | 177 | 177 | 177 | 18 / 18 |
+| output processor, chunked, streaming suite | 328 (128 admission prefixes) | 200 + 128 | 200 + 128 | 102 / 102 |
+| engine e7 d1.0/d2.0 | 64 | 64 | 64 | 29 / 27 |
+| step-2 gate 768x768 to 2049x2049 | 32 | 32 | 32 | 29 / 29 |
+| step-2 gate 4000x3000 | 8 | 8 | 8 | 8 / 8 |
+| step-1 checkpoints (9,593,524 words) | 32 | 32 | 32 | 32 / 32 |
+| lossless effort 2 | 532 | 532 | 532 | 1 / 4 |
+| photograph 2268x1512, lossy / lossless | 14 / 8 | 14 / 8 | 14 / 8 | 10, 1 / 10, 0 |
+| photograph 6000x4000, lossy / lossless | 14 / 6 | 14 / 6 | not run | 11, 0 / - |
+
+Zero differing encodes on both targets (the 128 admission prefixes are the
+streaming suite's histories outside the admitted profile, compared up to the
+admission call as in the scalar gate). The scalar path's bytes differ from
+the SIMD path's in many encodes, so the gate tells the paths apart; for
+the lossless profile the clustering costs rarely change a chosen code.
+Rosetta does not fault on misaligned aligned moves and is not x86-64
+hardware: condition (e) is still open.
+
+**Which path a test runs (condition (d)).** Every test of the files whose
+tests reach an encoder entry point and compare with the scalar original
+calls `hwy::select_scalar_encoder_for_test()` after
+`select_scalar_decoder_for_test()` (`tests/parity/encoder_public.rs`,
+`encoder_step1.rs`, `encoder_step1_checkpoints.rs`, `shared_primitives.rs`,
+`whole_image.rs`, `tests/first_image.rs`, `frame_owners.rs`,
+`vardct_image.rs`); `tools/check.py` sets `JXL_ENCODER_TARGET=scalar` as a
+second guard. Fallout measured with the switch on for AArch64 and x86-64
+(before these calls): the PR stage (`cargo test -p libjxl-rs --profile
+checked`) 446 passed, none failed; `tools/check.py --stage test` without
+`JXL_ENCODER_TARGET` 25 scalar-reference tests failed (21 of
+`encoder_public`, `encoder_step1::upstream_speed_tier_test_squirrel`,
+`encoder_step1_checkpoints`, `shared_primitives::complete_raw_codestreams…`,
+`whole_image::alpha_complete_codestreams…`), every other test passed; with
+the environment guard alone none fails. `dispatch_scope.rs` and
+`simd_encoder.rs` were made independent of the switch.
+
+**Conditions (a) to (e), 2026-11-15.**
+
+- (a) Met on NEON and AVX2 (Rosetta 2): every export of the lossy and
+  lossless profiles is translated with request-level parity, including
+  `enc_adaptive_quantization` (on AVX2 under the owner decision of
+  2026-11-15 for two NaNs in one block's reduction) and, found here,
+  `AdaptiveDCSmoothing`.
+- (b) Met: the `Encoding` scope above; the gate's trace shows the decoder
+  code (`quant_weights`, `dec_group_render`, `enc_cache`, the AR pipeline's
+  stages) and the plane padding (`memory_manager_internal`) selecting the
+  target inside encodes.
+- (c) Met on NEON and on AVX2 under Rosetta 2: the table above, a corpus at
+  least as wide as the scalar `cjxl` gate plus photographs.
+- (d) Met: the explicit selections and the environment guard.
+- (e) Open: no run on x86-64 hardware. The hosted Linux x86-64 run of this
+  branch is owed.
+
+**Attribute context of the encoder's kernels.** The encoder's kernels enter
+the target as the decoder's do: each dispatch point calls `hwy::dispatch`
+(per call, per row or per block, where the original's export is called),
+which on AVX2 runs the kernel inside `avx2::run_with_features`. Their
+generic helpers had the defect of "One attribute context per kernel on
+x86-64": in the x86-64 release `encode_lossy` 3,296 out-of-line intrinsic
+calls in the port's encoder kernels (`enc_ans_simd` 2,570,
+`enc_modular_simd_simd` 145, `enc_cluster_simd` 142,
+`convolve_symmetric5_simd` 142, `enc_chroma_from_luma_simd` 116,
+`enc_group_simd` 58, `enc_ma_simd` 48, `enc_entropy_coder_simd` 44,
+`enc_adaptive_quantization_simd` 22, `enc_transforms_simd` 9) and 2,905 in
+`encode_lossless`. Every generic helper an encoder kernel reaches is now
+`#[inline(always)]`, and AdaptiveQuantizationMap's scalar-pixel closure is a
+nested inline function: zero such calls and zero `fmaf` calls in the port's
+functions of `encode_lossy`, `encode_lossless` and `conformance_decode`
+(std_detect's `xgetbv` remains). `tools/check.py --stage static` now builds
+those three x86-64 release examples and fails on any out-of-line `core::arch`
+x86 or `fmaf` call in a `jxl::jxl::` function (about two minutes
+incremental). The skcms HSW engine (`skcms/transform_x86.rs`, 799 calls in
+`encode_lossy`, reached by the encoder's color conversion) is reported, not
+held to zero: marking its helpers `#[inline(always)]` is not enough, because
+`exec_stages` selects the transfer functions through a table of function
+pointers (`apply_gamma`, `apply_tf`, `apply_pq`, `apply_hlg`,
+`apply_hlginv`), builds values with `std::array::from_fn` closures (std's
+`try_from_fn` stays out of line) and uses local closures in `exec_stages`
+and `store_pixels`; it needs those turned into a `match`, loops and nested
+inline functions, and its HSW engine cannot be compared with the original's
+on this machine (O9), so it is left for a change with a hosted Linux run.
+No x86-64 speed is claimed from Rosetta.
+
+**Indication only (not a measurement).** One thread, the 6000x4000
+photograph, release builds of `examples/encode_lossy` (e7 d1.0) and
+`examples/encode_lossless` (e2) with the switch off (scalar) and on (NEON),
+next to the original's public encoder from the NEON oracle build's archives
+(no runner, e7 d1.0, and e2 lossless with buffering 0), five interleaved
+repetitions under the gate lock on the shared machine (load average 85 to
+24 during the run). Medians: lossy 47.2 s scalar, 13.2 s NEON, 9.9 s
+original (port NEON about 1.3x the original); lossless 2.04 s scalar,
+1.92 s NEON, 1.77 s original. No conclusion about x86-64 speed may be drawn
+from Rosetta.
+
+**The skcms HSW engine: an attempt that changed results (2026-11-15, not
+committed).** With every helper of `transform_x86.rs` marked
+`#[inline(always)]` and the function-pointer table of `exec_stages`
+replaced by a selector `match`, 189 of the 799 out-of-line calls remained
+in `encode_lossy` (the matrix rows built with `std::array::from_fn`, whose
+`try_from_fn` stays out of line, and the `write` closure of
+`store_pixels`); with those turned into loops and nested inline functions
+too, the x86-64 release `encode_lossy` has no out-of-line intrinsic call
+left in `jxl::skcms` (799 to 0). The results
+changed, however: a scratch example ran the 135,236 requests of the
+`skcms_transform` case lists (`tests/common/skcms_transform.rs`: formats,
+color, alias, guard, program, half domain, rounding, partial context and
+selection requests) on the HSW engine under Rosetta 2
+(`ROSETTA_ADVERTISE_AVX=1`) before and after, and 657 observations differ
+(the baseline engine's 135,236 are identical). For example Alpha_8 to
+RGBA_8888_sRGB with one pixel writes R=G=B=-13 instead of 0: the inlined
+transfer function took the branch for `x >= d` at `x = 0` and returned the
+exponent offset `e`. Bisecting by `#[inline(never)]`: every change but the
+selector keeps all 135,236 observations identical (inline-only, `write`);
+the selector with `apply_tf`, `approx_pow` or the whole `apply` kept out of
+line is identical again; `strip_sign`/`apply_sign` or `approx_exp2`/
+`approx_log2` alone out of line is not. So `approx_pow`'s own body
+(`equal`, the `[bool; N]` `from_fn`, `select`) behaves differently when
+compiled inside the `avx,avx2,f16c` context than in the baseline context;
+whether the cause is the compiler or Rosetta 2's AVX2 emulation is not
+established. The change was therefore not committed. The HSW engine cannot
+be compared with the original on this machine (O9: the cross-built
+originals contain only the baseline engine). What it needs: an x86-64
+original built with its HSW engine (a native hosted run, or an original
+built with the HSW file), a native run of the scratch example before and
+after, and then the change above, which is otherwise mechanical (about 60
+lines of `transform_x86.rs`).
+
+**Conditions (a) to (e) at the head of `v1/jxl-enc-select` (2026-11-15,
+evening, rebased onto `df6c83cf`).** Verified at the head (`tools/check.py
+--stage static --msrv`, pinned-nightly Clippy with `-D warnings`, then on
+NEON the whole `--stage test` and on AVX2 under Rosetta 2 the encoder's
+SIMD binaries):
+
+- (a) Met on NEON and AVX2. The encoder kernels' parity binaries
+  (`simd_encoder`, `_acs`, `_aq`, `_cfl`, `_entropy`) compare 21,850
+  requests per target with the original built for that target: NEON
+  206,861,173 words, AVX2 207,730,526 words, zero differing words except
+  the AVX2 `aq_map` words that the owner decision of 2026-11-15 excludes
+  (46 of 286 `eaq-map` requests, 4,295 words not compared, all inside the
+  class computed from the input; `mask`, `mask1x1` and every other request
+  exact).
+- (b) Met: `dispatch_scope` (3 tests, one thread and 0/1/2/8 runner
+  threads) passes on both targets; the whole-encode gate's trace shows the
+  decoder code and the plane padding selecting the target inside encodes.
+- (c) Met on NEON and AVX2: `simd_encoder_public` passes (NEON 11 tests,
+  AVX2 11 tests, 1 ignored). Per target: lossy 524, lossy alpha 279,
+  patches off and extra channels 177, output processor, chunked and
+  streaming suite 328 histories (all admitted since the container port,
+  none a prefix), engine e7 d1.0/d2.0 64, streaming gate 32 plus 8 of
+  4000x3000, lossy streaming 16, step-1 checkpoints 32 histories
+  (9,593,524 words), lossless effort 2 532 encodes; AVX2 additionally the
+  2268x1512 photograph (14 lossy, 8 lossless encodes): zero differing
+  encodes, and the scalar path differs from the SIMD path in many of them
+  (for example 39 of 524 lossy histories on AVX2), so the gate tells the
+  paths apart. The NEON photographs were not repeated at this head.
+- (d) Met: every scalar-reference test of the encoder parity files selects
+  the scalar path explicitly (`select_scalar_encoder_for_test`; the 13
+  tests of `tests/parity/encoder_container.rs`, merged after the first
+  sweep, were added), and `tools/check.py` sets `JXL_ENCODER_TARGET=scalar`
+  as a second guard. The whole `--stage test` on NEON: 1,153 passed, 0
+  failed, 2 ignored.
+- (e) Open. There is no run on x86-64 hardware: Rosetta 2 does not fault on
+  misaligned aligned moves, and its timings are no measurement. Static
+  evidence from this branch: the x86-64 release `encode_lossy`,
+  `encode_lossless` and `conformance_decode` have no out-of-line intrinsic
+  call in the port's own functions (0, 0, 0), `encode_lossy` has 799 in the
+  skcms HSW engine (above), and every binary has std_detect's one `xgetbv`
+  call. What remains for (e): the hosted Linux x86-64 run of the encoder's
+  SIMD binaries and a measurement of the encoder's AVX2 speed on hardware.
+
+**The switch (branch `v1/jxl-enc-select-flip`, 2026-11-16).** The last
+commit sets `ENCODER_SELECTS_SIMD` to on for AArch64 and x86-64 (AVX2 by
+run-time detection, [`Target::detect`], as the decoder); the scalar path is
+forced by `select_scalar_encoder_for_test` and, in the oracle test builds,
+`JXL_ENCODER_TARGET=scalar`. With the switch on and without the environment
+guard, the whole `--stage test` on NEON passes (1,162 passed, 0 failed, 2
+ignored) after the 9 tests of `tests/parity/encoder_lossless.rs` (merged to
+`main` after the other sweeps) select the scalar encoder path, so the
+explicit selections alone keep the scalar-reference tests on the scalar path.
+The encoder's SIMD binaries pass on AVX2 under Rosetta 2 (44 passed, 1
+ignored), and the x86-64 static check holds (0 out-of-line calls in the
+port's functions; 806 in skcms HSW). Condition (e) stays open until the
+hosted measurement and a hosted x86-64 run are reviewed.
+<!-- end encoder selection -->
+<!-- skcms hsw -->
+## The skcms HSW engine in its attribute context (2026-11-16, branch `v1/jxl-skcms-hsw`)
+
+Follows "The skcms HSW engine: an attempt that changed results" under
+"Encoder selection", and implements O9.
+
+**O9.** `tools/check.py` configures the cross-built scalar reference, its
+reference-pins-off variant and the AVX2 oracle with
+`-DCMAKE_APPLE_SILICON_PROCESSOR=x86_64`. The decision named
+`-DCMAKE_SYSTEM_PROCESSOR=x86_64`, but CMake ignores that variable unless
+`CMAKE_SYSTEM_NAME` is set too (it is a cross-compiling setting): a build
+with it still reported `CMAKE_SYSTEM_PROCESSOR is arm64` and contained only
+`skcms_private::baseline::run_program`. `CMAKE_APPLE_SILICON_PROCESSOR` is
+CMake's switch for an Apple Silicon host building for x86_64: the host
+processor, and with it `CMAKE_SYSTEM_PROCESSOR`, becomes x86_64 without
+cross-compiling mode, as on a native x86-64 Mac. Upstream's
+`third_party/skcms.cmake` then compiles `skcms_TransformHsw.cc` (`-O3
+-march=x86-64 -mavx2 -mf16c`, no `-mfma`) and `skcms_TransformSkx.cc`.
+Evidence: libjxl's configure reports x86_64 for all three builds; the
+`jxl_oracle` of each and `skcms_transform_private` define
+`skcms_private::hsw::run_program` and `skx::run_program` next to the
+baseline engine. Rosetta 2 does not emulate AVX-512, so `cpu_type()`
+selects HSW there. A build directory configured before is configured
+afresh, because CMake records the processor once per directory. The
+scalar stage still runs its tests without `ROSETTA_ADVERTISE_AVX`, so
+both sides select the baseline engine there. Setting it for the whole
+stage compares HSW with HSW, as a native run does. It stays opt-in
+because of the Rosetta defect below.
+
+**Cause of the 657 differences: Rosetta 2, not the compiler.**
+
+- *Reproduced only with the crate's flags.* The previous attempt's fully
+  inlined `transform_x86.rs` reproduces the difference only with the
+  crate's `.cargo/config.toml` flags (`-C no-vectorize-slp -C
+  no-vectorize-loops`). Without them, all 135,236 observations of the
+  `skcms_transform` case lists match the current engine under Rosetta 2.
+  With them, 643 differ at this base (657 in the earlier attempt's
+  count).
+- *Minimal reproducer.* `apply_tf` and the four other transfer
+  functions, inlined behind the selector `match` into one
+  `#[target_feature(enable = "avx,avx2,f16c")]` function and run on 8
+  lanes with skcms's inverse sRGB function, shows it. Under Rosetta 2,
+  lanes with `x < d` (0, 1e-9, 0.001) take the `pow` branch: for
+  example, -0.055 instead of 0 at `x = 0`. The same function without
+  inlining is right.
+- *The machine code is correct.* At the failing lane it computes the
+  select as `vcmpnltss` against `d`, then `vblendvps` of the linear and
+  the `pow` value, which is the correct instruction-level form of
+  `if_then_else(x < d, …)`. It contains no `vrcpps`/`vrsqrtps` and no FMA
+  instruction.
+- *QEMU runs the same bytes correctly.* The Mach-O image's `__TEXT` and
+  `__DATA` were mapped at their link addresses in a Linux process, with
+  `memset_pattern16` bound to a plain implementation, and the function
+  ran under `qemu-user -cpu max`. It returned the correct linear values
+  for every lane. Rosetta 2 returned the wrong ones for the same bytes.
+- *Not FMA.* Neither engine variant of the port contains an FMA
+  instruction in its HSW code: the HSW context has no `fma`, and Rust
+  does not contract. The original's HSW object has none either (1,210
+  separate `vmulps`/`vaddps`/`vsubps`). So contraction does not explain
+  the difference at any site, and the port's HSW `madd` (a separate
+  multiply and add) is what the original does.
+- *Not isolated to one instruction.* Every predicate of
+  `vcmpss`/`vcmpps` with the reproducer's values is right under Rosetta
+  2 in isolation. The faulty translation depends on the surrounding code;
+  a debugger trace was not possible (macOS Developer Mode is off).
+
+**Reference behavior (QEMU, local).**
+
+- *Port variants under QEMU.* x86-64 Linux builds of the observation
+  dump, with the crate's flags, ran under `qemu-user -cpu Haswell`. The
+  current engine, the fully inlined variant and the committed variant
+  give identical words for all 135,236 observations.
+- *Original under QEMU.* The original's AVX2 oracle for Linux (upstream's
+  dispatch build, HSW engine present) ran under the same QEMU on the 643
+  observations that Rosetta 2 changes. It equals the port (current
+  engine) on all 643, and on 300 sampled observations where the baseline
+  and HSW engines differ it gives the HSW words (300 of 300), so QEMU ran
+  the HSW engine.
+- *Six NaN payloads.* Six private-program observations (special-float
+  inputs) differ between the port's engine under Rosetta 2 and under QEMU
+  in NaN payloads only. Those requests go to the private helper, which
+  was not built for Linux. They are independent of this change: they are
+  the same before and after it under each emulator.
+
+What only a native run shows: the original's HSW engine and the port on
+x86-64 hardware (both emulators can deviate from hardware; QEMU computes
+`rcpps` exactly, which skcms does not use). Under Rosetta 2, the
+original's HSW engine against the port with `ROSETTA_ADVERTISE_AVX=1`
+could not be run in this change: Rosetta 2 hung every new x86-64 process
+on the machine during the work. That comparison is still owed.
+
+**Change.** Every helper of `transform_x86.rs` is `#[inline(always)]`.
+The matrix rows are built with loops, and `store_pixels`' `write` and the
+Lab helpers are nested functions instead of closures. The transfer
+functions keep a table of function pointers, but each entry is an
+out-of-line function of the engine's own attribute context
+(`avx,avx2,f16c` for HSW, `avx,avx2,f16c,fma` for SKX), selected per lane
+count through `Engine<N>`. This keeps each transfer function's code shape
+that of a function of its own, as before and as in the original's
+`kStageFns` table, instead of one function holding all five (the shape
+that Rosetta 2 mis-executes). The arithmetic is unchanged.
+
+Out-of-line intrinsic calls in `jxl::skcms` of the x86-64 release builds:
+`encode_lossy` 806 to 0, `encode_lossless` and `conformance_decode` 0.
+The static stage's codegen check now holds `jxl::skcms` to zero as well;
+std_detect's one `xgetbv` call remains in each binary. Hosted Linux
+x86-64 evidence decides whether the change stays: the `JXL: Tests` job's
+parity shards compare the port's skcms engine with the original's on
+native hardware, where both select HSW on a host without AVX-512.
+<!-- end skcms hsw -->
+<!-- x86 profile -->
+## Blocked DCT transposes (2026-11-16, branch `v1/jxl-x86-profile`)
+
+**Finding.** The native profile of the lossy encoder (workflow
+`jxl-profile.yml`, runs 43796474412 on x86-64 and 43796477703 on ARM64,
+at `c3f441a8`) puts the port at 2.02x the instructions of libjxl's AVX2
+build on x86-64 (callgrind on a 1536x1024 crop: 9.67 G against 4.78 G;
+`perf stat` on the 12 MP photo: 69.8 G against 35.5 G) but at 1.55x the
+instructions of its NEON build on ARM64. The DCT and IDCT are the largest
+x86-specific part: 3.92 G against 2.09 G instructions on x86-64 (1.87x),
+4.68 G against 4.06 G on ARM64 (1.15x). The port's `transpose` in
+`dct_simd.rs` moved one word per step with a bounds check on every word
+(about five instructions per element), for every shape. The original's
+`GenericTransposeBlock` (lib/jxl/transpose-inl.h) transposes 8x8 vector
+blocks on a 256-bit target when both dimensions are multiples of 8 and
+4x4 vector blocks on a 128-bit target when both are multiples of 4; its
+`Transpose<16, 16>` is 193 instructions for 256 words in an x86-64 object
+of the pinned source. The cost is the same per word on both targets, but
+the vector work beside it is half as long on AVX2, which is why the gap
+showed on x86-64.
+
+**Decision.** `transpose` takes the target descriptor and uses the
+original's three forms: the 8x8 block form of the `HWY_CAP_GE256` branch
+(transpose-inl.h lines 63-126) when the target has 8 lanes and both
+dimensions are multiples of 8, the 4x4 block form of the 128-bit branch
+(lines 127-165) when it has 4 lanes and both are multiples of 4, and the
+element loop of `TransposeSimdTag<false>` (lines 48-61) otherwise. The
+shape is a constant of each `scaled_dct`/`scaled_idct` instantiation, so
+the choice folds, and the body inlines into the transform that already
+runs in the target's attribute context. The 8x8 form needs Highway's
+`ConcatLowerLower`/`ConcatUpperUpper`: two operations appended to
+`SimdF32`, `vinsertf128`/`vperm2f128` on AVX2 as in
+hwy/ops/x86_256-inl.h, with a provided form for the other descriptors.
+Transposes move words only, so every output is unchanged; the forward
+and inverse transforms of the encoder and of the VarDCT decoder all use
+them. The 8-lane test descriptors (`Neon8` in `simd_vardct_lanes8.rs`
+and the encoder tests) implement `InterleaveLower`/`InterleaveUpper` per
+128-bit half, as AVX2 does per 128-bit block, so the 8x8 form also runs
+natively there against the 4-lane results.
+
+## Checked-once vector loops (2026-11-16, branch `v1/jxl-x86-profile`)
+
+**Finding.** In the x86-64 release build the inner loops of
+`EstimateEntropy` (`enc_ac_strategy_simd.rs`) and `QuantizeBlockAC`
+(`enc_group_simd.rs`) checked the bounds of every load and store and
+kept a remaining-length counter per slice: the `EstimateEntropy` loop was
+21 instructions of work and about 18 of checks, counters and stack
+reloads per vector, against 21 in total in the original's AVX2 object.
+The AC-strategy group is 2.04 G against 0.81 G instructions on x86-64 in
+the profile above.
+
+**Decision.** Both loops slice their inputs and outputs once to the
+loop's exact length (a whole number of vectors, as the original's loop
+bound) and walk them with `chunks_exact`, so the loads and stores need no
+per-vector checks. Same lanes in the same order; no `unsafe`. The
+adaptive-quantization helpers loop over one or two vectors per block row,
+so their checks are per row, not per vector; they are unchanged.
+<!-- end x86 profile -->
+<!-- x86 profile 2 -->
+## Row access, windows and template sizes (2026-11-16, branch `v1/jxl-x86-profile`)
+
+**Finding** (same native profile as "Blocked DCT transposes"). On x86-64
+the port's Symmetric5, EPF and Gaborish rows took 0.57 G instructions
+against 0.16 G in libjxl's AVX2 build (3.6x), against 1.12x on ARM64.
+`Plane::row_at` was not inlined: 564 call sites in the x86-64 release
+build, ten of them in the Symmetric5 vector loop, which looked up its five
+input rows once per vector through an out-of-line call (each call ends the
+AVX2 code with `vzeroupper` and spills every live `__m256`). The EPF row
+built a 21-entry array of row windows (fat pointers) per vector, which
+x86-64's 16 general registers spill; the Gaborish row checked each of its
+nine loads. `DCT2TopBlock`/`IDCT2TopBlock` took their size at run time,
+outside the attribute context, with a check per element (0.50 G). The
+encoder's `GetBlockFromEncoder::load_block` checked two indices per
+coefficient.
+
+**Change.** Output-neutral changes of form only:
+- `Plane::row`/`row_mut` and their helpers, and `AlignedMemory::bytes`/
+  `bytes_mut`, are `#[inline(always)]` (no `row_at` call remains in the
+  x86-64 release build).
+- Symmetric5 looks up its five rows (after WrapY) and loads its six weight
+  vectors once per output row, as the original's loop-invariant
+  `ConstRow`/`LoadDup128`, and reads each row through one window per
+  vector; EPF indexes the pre-sliced rows directly; Gaborish reads one
+  window per row and vector and writes through `chunks_exact_mut`.
+- `dct2_top_block`/`store_dct2_top_block` and the SIMD `idct2_top_block`
+  take the source's template size `S` as a const parameter and are
+  `#[inline(always)]`, so they unroll inside the transform's attribute
+  context.
+- `load_block` slices the block and each pass's coefficients once.
+
+Same loads, operations and order; no `unsafe`.
+<!-- end x86 profile 2 -->

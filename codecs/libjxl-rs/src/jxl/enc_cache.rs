@@ -179,13 +179,26 @@ pub fn initialize_passes_encoder(
     // TODO(veluca): this is only useful in tests and if inspection is enabled.
     if frame_header.flags & FLAG_SKIP_ADAPTIVE_DC_SMOOTHING == 0 {
         let mul_dc = *enc_state.shared.quantizer.mul_dc();
-        adaptive_dc_smoothing_in(
-            memory_manager,
-            &mul_dc,
-            &mut enc_state.shared.dc_storage,
-            &frame_header.chroma_subsampling,
-            None,
-        )?;
+        // encoder selection: HWY_DYNAMIC_DISPATCH(AdaptiveDCSmoothing), on the
+        // encoder's selection inside its entry points (port ADR 0004,
+        // "Encoder path", "Encoder selection").
+        match super::hwy::decoder_target() {
+            Some(t) => super::compressed_dc_simd::adaptive_dc_smoothing_simd(
+                t,
+                memory_manager,
+                &mul_dc,
+                &mut enc_state.shared.dc_storage,
+                &frame_header.chroma_subsampling,
+                None,
+            )?,
+            None => adaptive_dc_smoothing_in(
+                memory_manager,
+                &mul_dc,
+                &mut enc_state.shared.dc_storage,
+                &frame_header.chroma_subsampling,
+                None,
+            )?,
+        }
     }
     Ok(())
 }
