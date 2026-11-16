@@ -295,12 +295,12 @@ pub fn transform_from_pixels_d<D: SimdF32>(
             coefficients[9] = (block00 - block01 - block10 + block11) * 0.25;
         }
         Type::DCT2X2 => {
-            let temp = dct2_top_block(8, pixels, pixels_stride);
-            store_dct2_top_block(8, &temp, coefficients);
-            let temp = dct2_top_block(4, coefficients, BLOCK_DIM);
-            store_dct2_top_block(4, &temp, coefficients);
-            let temp = dct2_top_block(2, coefficients, BLOCK_DIM);
-            store_dct2_top_block(2, &temp, coefficients);
+            let temp = dct2_top_block::<8>(pixels, pixels_stride);
+            store_dct2_top_block::<8>(&temp, coefficients);
+            let temp = dct2_top_block::<4>(coefficients, BLOCK_DIM);
+            store_dct2_top_block::<4>(&temp, coefficients);
+            let temp = dct2_top_block::<2>(coefficients, BLOCK_DIM);
+            store_dct2_top_block::<2>(&temp, coefficients);
         }
         Type::DCT16X16 => scaled(16, 16, coefficients, scratch_space),
         Type::DCT16X8 => scaled(16, 8, coefficients, scratch_space),

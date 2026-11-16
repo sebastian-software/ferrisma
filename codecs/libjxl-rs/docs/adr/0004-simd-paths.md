@@ -2471,3 +2471,37 @@ per-vector checks. Same lanes in the same order; no `unsafe`. The
 adaptive-quantization helpers loop over one or two vectors per block row,
 so their checks are per row, not per vector; they are unchanged.
 <!-- end x86 profile -->
+<!-- x86 profile 2 -->
+## Row access, windows and template sizes (2026-11-16, branch `v1/jxl-x86-profile`)
+
+**Finding** (same native profile as "Blocked DCT transposes"). On x86-64
+the port's Symmetric5, EPF and Gaborish rows took 0.57 G instructions
+against 0.16 G in libjxl's AVX2 build (3.6x), against 1.12x on ARM64.
+`Plane::row_at` was not inlined: 564 call sites in the x86-64 release
+build, ten of them in the Symmetric5 vector loop, which looked up its five
+input rows once per vector through an out-of-line call (each call ends the
+AVX2 code with `vzeroupper` and spills every live `__m256`). The EPF row
+built a 21-entry array of row windows (fat pointers) per vector, which
+x86-64's 16 general registers spill; the Gaborish row checked each of its
+nine loads. `DCT2TopBlock`/`IDCT2TopBlock` took their size at run time,
+outside the attribute context, with a check per element (0.50 G). The
+encoder's `GetBlockFromEncoder::load_block` checked two indices per
+coefficient.
+
+**Change.** Output-neutral changes of form only:
+- `Plane::row`/`row_mut` and their helpers, and `AlignedMemory::bytes`/
+  `bytes_mut`, are `#[inline(always)]` (no `row_at` call remains in the
+  x86-64 release build).
+- Symmetric5 looks up its five rows (after WrapY) and loads its six weight
+  vectors once per output row, as the original's loop-invariant
+  `ConstRow`/`LoadDup128`, and reads each row through one window per
+  vector; EPF indexes the pre-sliced rows directly; Gaborish reads one
+  window per row and vector and writes through `chunks_exact_mut`.
+- `dct2_top_block`/`store_dct2_top_block` and the SIMD `idct2_top_block`
+  take the source's template size `S` as a const parameter and are
+  `#[inline(always)]`, so they unroll inside the transform's attribute
+  context.
+- `load_block` slices the block and each pass's coefficients once.
+
+Same loads, operations and order; no `unsafe`.
+<!-- end x86 profile 2 -->
