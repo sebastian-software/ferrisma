@@ -119,7 +119,9 @@ def check_static(msrv):
 # codegen check: one attribute context per kernel on x86-64 (ADR 0004).
 # Port functions that call a core::arch x86 intrinsic out of line (or libm's
 # fmaf) run their vector operations outside the AVX2 attribute context. The
-# port's skcms HSW engine (jxl::skcms) is reported but not yet held to zero.
+# port's skcms engines (jxl::skcms) are held to zero too since the HSW
+# helpers were brought into the engine's context (ADR 0004, "The skcms HSW
+# engine in its attribute context").
 CODEGEN_EXAMPLES = ["encode_lossy", "encode_lossless", "conformance_decode"]
 
 
@@ -158,7 +160,7 @@ def check_attribute_context():
             if "core_arch::x86::" in line or re.search(r"\bfmaf\b", line):
                 module = "::".join(function.lstrip("<").split("::")[:3])
                 counts[module] = counts.get(module, 0) + 1
-        port = {m: n for m, n in counts.items() if m.startswith("jxl::jxl::")}
+        port = {m: n for m, n in counts.items() if m.startswith(("jxl::jxl::", "jxl::skcms::"))}
         print(f"{name}: out-of-line x86 intrinsic and fmaf calls per module: {counts or 'none'}", flush=True)
         if port:
             failures.append(f"{name}: {port}")
