@@ -32,6 +32,7 @@ impl<'a> BitReader<'a> {
         reader
     }
 
+    #[inline(always)]
     pub fn refill(&mut self) {
         let bytes = self.bytes.unwrap_or_default();
         if bytes.len() - self.next_byte < 8 {
@@ -44,18 +45,21 @@ impl<'a> BitReader<'a> {
         }
     }
 
+    #[inline(always)]
     pub fn peek_fixed_bits<const N: usize>(&self) -> u64 {
         assert!(N <= Self::MAX_BITS_PER_CALL);
         debug_assert!(!self.close_called);
         self.buf & ((1u64 << N) - 1)
     }
 
+    #[inline(always)]
     pub fn peek_bits(&self, nbits: usize) -> u64 {
         assert!(nbits <= Self::MAX_BITS_PER_CALL);
         debug_assert!(!self.close_called);
         self.buf & ((1u64 << nbits) - 1)
     }
 
+    #[inline(always)]
     pub fn consume(&mut self, num_bits: usize) {
         debug_assert!(!self.close_called);
         assert!(num_bits <= self.bits_in_buf);
@@ -63,6 +67,7 @@ impl<'a> BitReader<'a> {
         self.buf >>= num_bits;
     }
 
+    #[inline(always)]
     pub fn read_bits(&mut self, nbits: usize) -> u64 {
         debug_assert!(!self.close_called);
         self.refill();
@@ -71,6 +76,7 @@ impl<'a> BitReader<'a> {
         bits
     }
 
+    #[inline(always)]
     pub fn read_fixed_bits<const N: usize>(&mut self) -> u64 {
         debug_assert!(!self.close_called);
         self.refill();
@@ -155,6 +161,8 @@ impl<'a> BitReader<'a> {
         Ok(())
     }
 
+    // JXL_NOINLINE in the source: cold code kept out of its callers.
+    #[inline(never)]
     fn bounds_checked_refill(&mut self) {
         let bytes = self.bytes.unwrap_or_default();
         while self.bits_in_buf < 56 {

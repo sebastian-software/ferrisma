@@ -954,6 +954,7 @@ impl<'a> ANSSymbolReader<'a> {
         Ok(result)
     }
 
+    #[inline(always)]
     pub fn read_symbol_ans_without_refill(
         &mut self,
         histo_idx: usize,
@@ -980,6 +981,7 @@ impl<'a> ANSSymbolReader<'a> {
         symbol.value
     }
 
+    #[inline(always)]
     pub fn read_symbol_huff_without_refill(
         &self,
         histo_idx: usize,
@@ -988,6 +990,7 @@ impl<'a> ANSSymbolReader<'a> {
         self.code.huffman_data[histo_idx].read_symbol(br) as usize
     }
 
+    #[inline(always)]
     pub fn read_symbol_without_refill(
         &mut self,
         histo_idx: usize,
@@ -1000,6 +1003,7 @@ impl<'a> ANSSymbolReader<'a> {
         }
     }
 
+    #[inline(always)]
     pub fn read_symbol(&mut self, histo_idx: usize, br: &mut BitReader<'_>) -> usize {
         br.refill();
         self.read_symbol_without_refill(histo_idx, br)
@@ -1011,6 +1015,7 @@ impl<'a> ANSSymbolReader<'a> {
 
     /// The caller must refill first. The source masks the extra-bit count
     /// instead of rejecting invalid shifts at this hot-path boundary.
+    #[inline(always)]
     pub fn read_hybrid_uint_config(
         config: HybridUintConfig,
         mut token: usize,
@@ -1046,6 +1051,7 @@ impl<'a> ANSSymbolReader<'a> {
         ret as u32
     }
 
+    #[inline(always)]
     pub fn read_hybrid_uint_clustered_huff_rle_only(
         &mut self,
         ctx: usize,
@@ -1091,6 +1097,7 @@ impl<'a> ANSSymbolReader<'a> {
         clippy::collapsible_if,
         reason = "Mirror the source nested conditions."
     )]
+    #[inline(always)]
     pub fn read_hybrid_uint_clustered_inlined<const USES_LZ77: bool>(
         &mut self,
         ctx: usize,
@@ -1168,6 +1175,7 @@ impl<'a> ANSSymbolReader<'a> {
         self.read_hybrid_uint_clustered_inlined::<USES_LZ77>(ctx, br)
     }
 
+    #[inline(always)]
     pub fn read_hybrid_uint_clustered_maybe_inlined<const USES_LZ77: bool>(
         &mut self,
         ctx: usize,
@@ -1176,6 +1184,7 @@ impl<'a> ANSSymbolReader<'a> {
         self.read_hybrid_uint_clustered_inlined::<USES_LZ77>(ctx, br)
     }
 
+    #[inline(always)]
     pub fn read_hybrid_uint_inlined<const USES_LZ77: bool>(
         &mut self,
         ctx: usize,
