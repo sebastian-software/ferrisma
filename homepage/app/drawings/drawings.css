@@ -124,6 +124,22 @@
   stroke-linecap: round;
 }
 
+.fx-d-lane-on {
+  fill: var(--mono-steel);
+  stroke: var(--mono-steel-3);
+  stroke-width: 1;
+}
+.fx-d-lane-on-port {
+  fill: var(--mono-steel-3);
+  stroke: var(--mono-ink);
+  stroke-width: 1;
+}
+.fx-d-hair-box {
+  fill: none;
+  stroke: var(--mono-hair);
+  stroke-width: 1;
+}
+
 /* Lettering */
 .fx-d-title {
   font: 600 17px/1 var(--mono-serif);

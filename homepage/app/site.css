@@ -168,3 +168,15 @@
     gap: 2rem;
   }
 }
+
+/* ---------- How one port is made ---------- */
+.mono section.fx-explainer-opening {
+  padding-bottom: 1rem;
+}
+.fx-explainer-opening h1 {
+  max-width: 18ch;
+  margin-inline: auto;
+}
+.fx-explainer section + section {
+  margin-top: 2.5rem;
+}

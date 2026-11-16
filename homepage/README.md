@@ -26,9 +26,11 @@ to reproducible evidence.
 The homepage (`app/routes/home.tsx`) is built on the family's Monografie page
 system. Its facts (the ports, their originals and pinned versions, the gate
 state, the speed figures) live in `app/ferrisma.ts`, each with the repository
-document it comes from; update the document first, then that file. The four
+document it comes from; update the document first, then that file. The
 drawings are inline SVG components in `app/drawings/`, in a wide and a narrow
-layout. `DESIGN-NOTES.md` records the page's arc, the copy decisions, what is
+layout. The per-port gate state is generated from the table "Where each port
+stands" in `docs/quality-gate.md` (`scripts/gate-state.ts`, run with the docs
+sync); `/how-a-port-is-made` explains the making of one port. `DESIGN-NOTES.md` records the page's arc, the copy decisions, what is
 provisional and what changes once Ferrisma is in the family registry. Current
 component status remains owned by `docs/status.md`. Guides are derived from
 canonical Markdown, including the quality gate guide, the supported matrix,

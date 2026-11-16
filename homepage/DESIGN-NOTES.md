@@ -139,9 +139,10 @@ the rename before this site can switch over.
   November 13 and 14, 2026; the JPEG XL rows predate the encoder's SIMD work;
   there is no x86-64 JPEG XL decode figure in a record yet, and the JPEG XL
   lossy encode row predates the encoder's SIMD default of November 16.
-- **The gate state** in `app/ferrisma.ts` is dated November 16, 2026
-  (`main` at `abd11e6a`) and follows the table "Where each port stands" in
-  `docs/quality-gate.md`; update both together.
+- **The gate state** is generated at build time from the table "Where each
+  port stands (date)" in `docs/quality-gate.md` (its column "In short"),
+  by `scripts/gate-state.ts`; the build fails if the table is missing or
+  changes shape. Update the guide, and the homepage follows.
 - **Crate names** of the ports will change (`plannedCrate` in
   `app/ferrisma.ts`).
 - The ferrisma.dev domain does not serve this site yet (#251).
@@ -178,3 +179,15 @@ exists; the speed table shows every operation, gaps included, and no dav1d
 comparison until its kernels are complete on both targets; the dated
 per-port gate state stays, with the link to the guide; the sentence about the
 remaining assembly stays as long as it is true.
+
+## Round three (2026-11-16)
+
+- **How one port is made** (`/how-a-port-is-made`, `app/routes/how-a-port-is-made.tsx`):
+  one page and one drawing (`PortMaking.tsx`, two lanes, the original above
+  and the port below, six steps), with the JPEG XL decoder as the worked
+  example. Every statement comes from libjxl-rs's `upstream.json`,
+  `PROVENANCE.md`, ADR 0001 and ADR 0004, and the quality gate guide. It is
+  linked from the ports section and the guide navigation. Who does the
+  translating (people, tools, agents) is not documented in the repository,
+  so the page does not say.
+- **Gate state from data**: see "What is provisional" above.

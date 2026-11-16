@@ -35,6 +35,7 @@ const sections = [
     label: "Guide",
     pages: [
       ["Getting started", "/guide/getting-started"],
+      ["How a port is made", "/how-a-port-is-made"],
       ["Status", "/guide/status"],
       ["Quality gate", "/guide/quality-gate"],
       ["Supported inputs and outputs", "/guide/supported-matrix"],
@@ -157,7 +158,8 @@ export default function Root() {
   const path = useArdoPath();
   const config = useArdoConfig();
   const canonical = config.siteUrl ? new URL(path || "/", config.siteUrl).href : undefined;
-  const home = path === "/" || path === "";
+  // Pages on the homepage's layout: no documentation sidebar, no MDX wrapper.
+  const home = ["", "/", "/how-a-port-is-made", "/how-a-port-is-made/"].includes(path);
   return (
     <MonoPage className={home ? "fx-site" : "mono-docs fx-docs"}>
       {home && canonical && <link rel="canonical" href={canonical} />}
