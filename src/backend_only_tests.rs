@@ -2,7 +2,7 @@ use crate::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
     OutputFormat, RowEncoder, TransformOptions, transcode_with,
 };
-use crate::pipeline::{OutputGeometry, OutputSettings};
+use crate::pipeline::{OutputGeometry, OutputSettings, Threads};
 
 struct RawBackend;
 struct MislabelBackend;
@@ -129,7 +129,7 @@ fn backend_frame_reservation_precedes_allocation_and_counts_toward_peak() {
         width: 4,
         height: 4,
     })
-    .with_transform_threads(1)
+    .with_transform_threads(Threads::ONE)
     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
     .with_max_managed_bytes(4095);
     let error = transcode_with(
@@ -165,12 +165,12 @@ fn oversized_per_image_threads_fail_before_opening_input() {
             width: 1,
             height: 1,
         })
-        .with_transform_threads(257),
+        .with_transform_threads(Threads::Count(std::num::NonZeroUsize::new(257).unwrap())),
         TransformOptions::new(OutputGeometry::Exact {
             width: 1,
             height: 1,
         })
-        .with_encoder_threads(usize::MAX),
+        .with_encoder_threads(Threads::Count(std::num::NonZeroUsize::MAX)),
     ] {
         assert_eq!(
             transcode(&[], ImageFormat::Jpeg, &options)
@@ -246,13 +246,16 @@ fn batch_spawn_failure_does_not_start_images_and_reports_each_item() {
     let backend = CountingBackend(AtomicUsize::new(0));
     for successful in [0, 1, 2] {
         let _failure = crate::thread_spawn::fail_after(successful);
-        let results = Engine::new(3).transcode_batch_with(&items, &backend);
+        let results = Engine::new(Threads::Count(std::num::NonZeroUsize::new(3).unwrap()))
+            .unwrap()
+            .transcode_batch_with(&items, &backend);
         assert_eq!(results.len(), items.len());
         assert!(results.into_iter().all(|result| matches!(result, Err(error) if error.kind() == ProcessingErrorKind::ResourceExhausted)));
         assert_eq!(backend.0.load(Ordering::Relaxed), 0);
     }
     assert!(
-        Engine::new(3)
+        Engine::new(Threads::Count(std::num::NonZeroUsize::new(3).unwrap()))
+            .unwrap()
             .transcode_batch_with(&items, &backend)
             .into_iter()
             .all(|result| result.is_ok())
@@ -289,7 +292,9 @@ fn batch_returns_a_backend_panic_as_internal() {
         })
         .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing),
     );
-    let results = Engine::new(2).transcode_batch_with(&[item], &Panics);
+    let results = Engine::new(Threads::Count(std::num::NonZeroUsize::new(2).unwrap()))
+        .unwrap()
+        .transcode_batch_with(&[item], &Panics);
     assert_eq!(results.len(), 1);
     let error = results.into_iter().next().unwrap().unwrap_err();
     assert_eq!(error.kind(), ProcessingErrorKind::Internal);

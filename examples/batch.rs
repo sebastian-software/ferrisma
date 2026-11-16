@@ -8,6 +8,7 @@
 use std::error::Error;
 use std::time::Instant;
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     AvifOptions, BatchItem, Engine, ImageFormat, InputProfilePolicy, TransformOptions, transcode,
 };
@@ -56,7 +57,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .map(|encoded| BatchItem::new(encoded, ImageFormat::Jpeg, options.clone()))
         .collect();
 
-    let engine = Engine::new(threads);
+    let engine = Engine::new(
+        std::num::NonZeroUsize::new(threads).map_or(Threads::Automatic, Threads::Count),
+    )
+    .unwrap();
     let started = Instant::now();
     let results = engine.transcode_batch(&items);
     let batch = started.elapsed().as_secs_f64();
@@ -67,8 +71,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         let single = item
             .options()
             .clone()
-            .with_transform_threads(1)
-            .with_encoder_threads(1);
+            .with_transform_threads(Threads::ONE)
+            .with_encoder_threads(Threads::ONE);
         transcode(item.encoded(), item.format(), &single)?;
     }
     let sequential = started.elapsed().as_secs_f64();

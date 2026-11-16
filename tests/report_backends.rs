@@ -11,6 +11,7 @@
 // shared helpers are compiled but unused.
 #![allow(dead_code, unused_imports)]
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{AvifOptions, OutputGeometry, OutputSettings};
 use ferrisma::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
@@ -52,7 +53,7 @@ fn read(bytes: &[u8], format: ImageFormat, options: TransformOptions) -> Output 
                 width: 4,
                 height: 4,
             })
-            .with_transform_threads(1),
+            .with_transform_threads(Threads::ONE),
         &Discard,
     )
     .unwrap()
@@ -128,7 +129,7 @@ fn write(output_format: OutputFormat, speed: u8) -> Output {
                 width: 16,
                 height: 12,
             })
-            .with_transform_threads(1),
+            .with_transform_threads(Threads::ONE),
     )
     .unwrap()
 }

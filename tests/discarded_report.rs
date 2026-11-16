@@ -34,7 +34,7 @@ fn options(policy: InputProfilePolicy) -> TransformOptions {
     })
     .with_output(OutputSettings::default_for(OutputFormat::WebP))
     .with_profile_policy(policy)
-    .with_transform_threads(1)
+    .with_transform_threads(Threads::ONE)
 }
 
 /// The discarded classes of one successful transcode.
@@ -66,6 +66,7 @@ use Discarded::{
     Exif, GainMap, HiddenColor, IccProfile, JpegReconstructionData, OtherMetadata,
     PrecisionReduced, Preview, UnknownContainerData, Xmp,
 };
+use ferrisma::pipeline::Threads;
 
 // ---------------------------------------------------------------------------
 // JPEG: application segments.

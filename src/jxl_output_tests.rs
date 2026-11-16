@@ -12,6 +12,7 @@ use crate::jxl_sink::{
     lossy_codec_reservation_bytes,
 };
 use crate::memory::MemoryBudget;
+use crate::pipeline::Threads;
 use crate::pipeline::{AvifOptions, JpegXlLossless, JpegXlLossy, OutputGeometry, OutputSettings};
 use crate::pipeline::{ChromaSubsampling, JpegXlOptions, ProcessingErrorKind, TransformOptions};
 
@@ -72,7 +73,11 @@ fn rejects_requests_outside_the_admitted_profile_before_allocating() {
             ))),
             "effort",
         ),
-        (options(8, 8).with_encoder_threads(2), "serial"),
+        (
+            options(8, 8)
+                .with_encoder_threads(Threads::Count(std::num::NonZeroUsize::new(2).unwrap())),
+            "serial",
+        ),
     ] {
         let error = JxlSink::new(size, &changed, &budget).err().unwrap();
         assert!(matches!(error, Error::UnsupportedEncoderProfile(_)));
@@ -574,7 +579,7 @@ fn facade_rejects_unadmitted_settings_before_decoding() {
         options(8, 8).with_output(OutputSettings::JpegXl(JpegXlOptions::Lossless(
             JpegXlLossless::default().with_effort(3),
         ))),
-        options(8, 8).with_encoder_threads(0),
+        options(8, 8).with_encoder_threads(Threads::Automatic),
     ] {
         let error =
             crate::pipeline::transcode(garbage, crate::pipeline::ImageFormat::JpegXl, &options)

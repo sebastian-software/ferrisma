@@ -378,7 +378,7 @@ fn public_transcode_rejects_unknown_jxl_colour_space() {
 fn upstream_libavif_corpus_returns_controlled_public_results() {
     use crate::pipeline::{
         ImageFormat, InputProfilePolicy, OutputFormat, OutputGeometry, OutputSettings,
-        ProcessingErrorKind as Kind, TransformOptions, transcode,
+        ProcessingErrorKind as Kind, Threads, TransformOptions, transcode,
     };
 
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -423,7 +423,7 @@ fn upstream_libavif_corpus_returns_controlled_public_results() {
                 height: 5,
             })
             .with_output(OutputSettings::default_for(OutputFormat::WebP))
-            .with_transform_threads(1)
+            .with_transform_threads(Threads::ONE)
             .with_profile_policy(profile_policy)
             .with_max_input_pixels(4_000_000);
             let result = catch_unwind(AssertUnwindSafe(|| {

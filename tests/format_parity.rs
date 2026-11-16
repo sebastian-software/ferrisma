@@ -23,6 +23,7 @@
 
 use std::sync::Mutex;
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{AvifOptions, BitDepth, JpegXlLossless, OutputGeometry, OutputSettings};
 use ferrisma::pipeline::{
     ColorSignal, Crop, Discarded, EncodeError, EncodeRequest, EncodedImage, EncoderBackend,
@@ -105,7 +106,7 @@ fn rows(
     })
     .with_output(OutputSettings::default_for(OutputFormat::WebP))
     .with_profile_policy(policy)
-    .with_transform_threads(1);
+    .with_transform_threads(Threads::ONE);
     let output = transcode_with(bytes, format, &options, &capture)
         .map_err(|error| (error.kind(), error.refusal_reason()))?;
     Ok((capture.0.into_inner().unwrap().0, output.report))
@@ -798,7 +799,7 @@ fn depth_outcome(
     })
     .with_output(settings)
     .with_profile_policy(ASSUME)
-    .with_transform_threads(1);
+    .with_transform_threads(Threads::ONE);
     let result = transcode(bytes, input, &options)
         .unwrap_or_else(|error| panic!("{input:?} to {output:?} at {depth:?}: {error}"));
     let reduced = result

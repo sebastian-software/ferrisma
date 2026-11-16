@@ -13,6 +13,7 @@
 
 use std::sync::Mutex;
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     ColorSignal, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason,
@@ -69,7 +70,7 @@ fn run(
     })
     .with_output(OutputSettings::default_for(OutputFormat::WebP))
     .with_profile_policy(profile_policy)
-    .with_transform_threads(1);
+    .with_transform_threads(Threads::ONE);
     let capture = Discard(Mutex::new(Vec::new()));
     let output = transcode_with(bytes, ImageFormat::Avif, &options, &capture)?;
     Ok((output.report.color_signal, capture.0.into_inner().unwrap()))

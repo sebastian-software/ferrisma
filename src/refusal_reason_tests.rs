@@ -6,6 +6,7 @@
 //! `GeometricTransform` and `UnsupportedEssentialProperty` are AVIF-only
 //! refusals).
 
+use crate::pipeline::Threads;
 use crate::pipeline::{
     ImageFormat, InputProfilePolicy, OutputFormat, RefusalReason, TransformOptions, transcode,
 };
@@ -186,7 +187,7 @@ fn every_refusal_reason_is_produced_by_a_fixture() {
             height: 4,
         })
         .with_output(OutputSettings::default_for(OutputFormat::WebP))
-        .with_transform_threads(1)
+        .with_transform_threads(Threads::ONE)
         .with_profile_policy(profile_policy);
         if RETIRED.contains(&reason) {
             let output = transcode(&bytes, format, &options)

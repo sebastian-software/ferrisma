@@ -1,5 +1,6 @@
 #![cfg(all(feature = "jpeg-read", feature = "webp-read", feature = "webp-write"))]
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     Crop, ImageFormat, InputProfilePolicy, InspectionLimits, OutputFormat, ProcessingErrorKind,
     ResizeFit, ResizeOptions, TransformOptions, WebpOptions, inspect, transcode, transcode_with,
@@ -50,7 +51,7 @@ fn options() -> TransformOptions {
         WebpLossless::new(4),
     )))
     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
-    .with_transform_threads(1)
+    .with_transform_threads(Threads::ONE)
 }
 
 #[test]

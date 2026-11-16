@@ -12,6 +12,7 @@
 //! FFmpeg/dav1d. Usage: `avif_reference_crosscheck <input.avif> <prefix>`.
 
 use ferrisma::pipeline::OutputGeometry;
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
     OutputFormat, ResizeFit, ResizeOptions, RowEncoder, TransformOptions, transcode_with,
@@ -106,7 +107,7 @@ fn engine(bytes: &[u8], prefix: &str) -> String {
         width: 1,
         height: 1,
     })
-    .with_transform_threads(1)
+    .with_transform_threads(Threads::ONE)
     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     let upright = ResizeOptions::default()
         .with_width(u32::MAX)

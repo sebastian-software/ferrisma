@@ -6,6 +6,7 @@
 //! external encoder takes part in.
 #![cfg(feature = "jpeg-read")]
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     BatchItem, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, Engine, ImageFormat,
     InputProfilePolicy, OutputFormat, ProcessingErrorKind, RowEncoder, TransformOptions,
@@ -90,7 +91,9 @@ fn options(transform_threads: usize) -> TransformOptions {
     })
     .with_output(OutputSettings::default_for(OutputFormat::WebP))
     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
-    .with_transform_threads(transform_threads)
+    .with_transform_threads(
+        std::num::NonZeroUsize::new(transform_threads).map_or(Threads::Automatic, Threads::Count),
+    )
     // Room for one reservation of the test backend, not for two.
     .with_max_managed_bytes(1 << 20)
 }
@@ -144,7 +147,7 @@ fn a_panic_in_any_backend_stage_is_returned_as_internal() {
 fn a_panicking_batch_item_fails_alone() {
     let item = BatchItem::new(JPEG, ImageFormat::Jpeg, options(1));
     let items: [BatchItem<'_>; 6] = std::array::from_fn(|_| item.clone());
-    let engine = Engine::new(3);
+    let engine = Engine::new(Threads::Count(std::num::NonZeroUsize::new(3).unwrap())).unwrap();
     for stage in [Stage::Begin, Stage::WriteRow, Stage::Finish] {
         // The backend is shared by the items; it panics for one of them.
         struct OneOf {

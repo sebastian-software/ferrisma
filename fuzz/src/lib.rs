@@ -4,7 +4,7 @@
 use ferrisma::pipeline::{
     AvifOptions, BitDepth, ImageFormat, InputProfilePolicy, JpegXlLossless, JpegXlLossy,
     JpegXlOptions, Output, OutputFormat, OutputGeometry, OutputSettings, ProcessingError,
-    ResizeFit, ResizeOptions, TransformOptions, WorkingPrecision, transcode,
+    ResizeFit, ResizeOptions, Threads, TransformOptions, WorkingPrecision, transcode,
 };
 
 const MAX_INPUT_BYTES: usize = 512 * 1024;
@@ -83,7 +83,7 @@ pub enum JxlOutGeometry {
 ///   the smallest admitted lossy distance (0.05) and the largest below 3.0;
 ///   lossless ignores the distance. Every other lossy class uses d1.0.
 ///
-/// The encoder is serial (it requires `encoder_threads == 1`), so no bit
+/// The encoder is serial (it requires `Threads::ONE` encoder threads), so no bit
 /// selects a thread count. JPEG XL input uses the build's default reader,
 /// the workspace libjxl-rs decoder under `cli`.
 pub fn run_jxl_out_case(bytes: &[u8]) -> Option<(JxlOutRequest, Result<Output, ProcessingError>)> {
@@ -137,8 +137,8 @@ pub fn run_jxl_out_case(bytes: &[u8]) -> Option<(JxlOutRequest, Result<Output, P
             JpegXlOptions::Lossy(JpegXlLossy::default().with_distance(distance))
         }))
         .with_profile_policy(profile_policy)
-        .with_transform_threads(1)
-        .with_encoder_threads(1)
+        .with_transform_threads(Threads::ONE)
+        .with_encoder_threads(Threads::ONE)
         .with_max_input_bytes(MAX_INPUT_BYTES)
         .with_max_input_pixels(MAX_INPUT_PIXELS)
         .with_max_output_bytes(MAX_OUTPUT_BYTES)
@@ -241,8 +241,8 @@ fn run_case_with_depth(bytes: &[u8], depth: u8) -> Option<Result<Output, Process
     .with_output(output)
     .with_profile_policy(profile_policy)
     .with_precision(precision)
-    .with_transform_threads(1)
-    .with_encoder_threads(1)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
     .with_max_input_bytes(MAX_INPUT_BYTES)
     .with_max_input_pixels(MAX_INPUT_PIXELS)
     .with_max_output_bytes(MAX_OUTPUT_BYTES)

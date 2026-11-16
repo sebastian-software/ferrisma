@@ -24,6 +24,7 @@ use crate::pipeline::{
 };
 
 use crate::jxl_color_tests::oracle;
+use crate::pipeline::Threads;
 use crate::pipeline::{JpegXlLossy, OutputGeometry, OutputSettings};
 
 /// The JPEG XL reader's adapter, as the pipeline opens it.
@@ -96,7 +97,9 @@ fn read_back(
         })
         .with_output(OutputSettings::default_for(OutputFormat::WebP))
         .with_profile_policy(policy)
-        .with_transform_threads(threads),
+        .with_transform_threads(
+            std::num::NonZeroUsize::new(threads).map_or(Threads::Automatic, Threads::Count),
+        ),
         &capture,
     )
     .map_err(|error| error.kind())?;

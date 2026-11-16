@@ -771,3 +771,15 @@ reports that a stable item cannot express its use case.
      printed, is gone. `ferrisma-kernels` is now an internal dependency like
      the bridges (pinned with `=`), and decision 5's sentence about it as a
      public dependency no longer applies.
+  5. **Threads** (problem 9, review 2.6; a behavior change of
+     `Engine::new`). `Threads::{Automatic, Count(NonZeroUsize)}`,
+     `#[non_exhaustive]`, with `Threads::ONE` and `Threads::MAX` (256),
+     replaces the `usize` with 0 for "automatic" in
+     `TransformOptions::transform_threads`, `encoder_threads` and
+     `Engine::new`. One private validation, `Threads::resolve`, serves every
+     path: a count above 256 is `InvalidOptions` ("a thread count must be at
+     most 256"; "transform and encoder threads must be between 0 and 256"
+     before), in `transcode`, in each batch item and in `Engine::new`, which
+     returns a `Result` and no longer clamps such a count to 256 silently
+     (ADR-0042). `Automatic` resolves to the available cores, at most 256,
+     as 0 did. The CLI keeps 0 as its spelling of automatic.

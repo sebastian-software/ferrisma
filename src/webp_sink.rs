@@ -11,7 +11,7 @@ use crate::encoder_backend::EncodedImage;
 use crate::error::Error;
 use crate::geometry::Size;
 use crate::memory::{ExternalReservation, ManagedBuffer, MemoryBudget};
-use crate::pipeline::{OutputFormat, OutputSettings, TransformOptions, WebpOptions};
+use crate::pipeline::{OutputFormat, OutputSettings, Threads, TransformOptions, WebpOptions};
 
 // The unchanged ICC sRGB2014 profile (assets/icc/README.md) describes the
 // emitted sRGB8 samples. It is a package-local copy so the published crate
@@ -42,7 +42,7 @@ impl WebpSink {
         };
         if size.width > 16_383
             || size.height > 16_383
-            || options.encoder_threads() != 1
+            || options.encoder_threads() != Threads::ONE
             || options.max_output_bytes() == 0
         {
             return Err(Error::InvalidEncodeOptions);

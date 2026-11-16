@@ -26,6 +26,7 @@
 )]
 mod resize_oracle;
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     Crop, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, OutputFormat, ResizeFilter, RowEncoder, TransformOptions, transcode_with,
@@ -75,7 +76,7 @@ fn run(bytes: &[u8], format: ImageFormat, crop: Option<Crop>) -> Vec<u8> {
         .with_crop(crop)
         .with_filter(ResizeFilter::Area)
         .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
-        .with_transform_threads(1),
+        .with_transform_threads(Threads::ONE),
         &capture,
     )
     .unwrap();

@@ -4,6 +4,7 @@
 //! `AVIF_BENCH_DUMP=<path>` writes one RGBA result for pixel comparison.
 
 use ferrisma::pipeline::OutputGeometry;
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     Crop, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, OutputFormat, ResizeFilter, RowEncoder, TransformOptions, transcode_with,
@@ -62,7 +63,7 @@ fn main() {
         height: args[3].parse().unwrap(),
     })
     .with_filter(ResizeFilter::Lanczos3)
-    .with_transform_threads(1)
+    .with_transform_threads(Threads::ONE)
     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     if args.len() == 8 {
         opts = opts.with_crop(Some(Crop::new(

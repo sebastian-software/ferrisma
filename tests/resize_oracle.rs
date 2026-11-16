@@ -28,6 +28,7 @@
 #[path = "support/resize_oracle.rs"]
 mod resize_oracle;
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     Crop, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, OutputFormat, ResizeFilter, RowEncoder, TransformOptions, WorkingPrecision,
@@ -159,7 +160,7 @@ fn engine(
     })
     .with_precision(precision)
     .with_profile_policy(policy)
-    .with_transform_threads(1);
+    .with_transform_threads(Threads::ONE);
     let output = transcode_with(encoded, ImageFormat::WebP, &options, &capture).unwrap();
     assert_eq!((output.width, output.height), request.output);
     capture.0.into_inner().unwrap()

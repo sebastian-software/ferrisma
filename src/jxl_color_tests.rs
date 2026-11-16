@@ -12,6 +12,7 @@ use std::sync::Mutex;
 
 use crate::decoder::DecodeSource;
 use crate::error::Error;
+use crate::pipeline::Threads;
 use crate::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
     OutputFormat, ProcessingErrorKind, ResizeFilter, RowEncoder, TransformOptions, transcode_with,
@@ -138,7 +139,7 @@ fn run(
         .with_output(OutputSettings::default_for(OutputFormat::WebP))
         .with_filter(ResizeFilter::Area)
         .with_profile_policy(policy)
-        .with_transform_threads(1),
+        .with_transform_threads(Threads::ONE),
         &capture,
     )
     .map_err(|error| error.kind())?;

@@ -9,6 +9,7 @@
 // Each test needs its own feature combination.
 #![allow(dead_code, unused_imports)]
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     ColorSignal, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, Output, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason,
@@ -50,7 +51,7 @@ fn run(
         height: 4,
     })
     .with_output(OutputSettings::default_for(OutputFormat::WebP))
-    .with_transform_threads(1)
+    .with_transform_threads(Threads::ONE)
     .with_profile_policy(profile_policy);
     transcode_with(bytes, format, &options, &Discard)
 }

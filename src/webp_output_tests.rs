@@ -3,6 +3,7 @@ use webp::api::encode::{PixelLayout, PixelRows, encode_lossless};
 
 use crate::geometry::Size;
 use crate::memory::MemoryBudget;
+use crate::pipeline::Threads;
 use crate::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
     OutputFormat, ProcessingErrorKind, RowEncoder, TransformOptions, WebpOptions, transcode,
@@ -133,7 +134,9 @@ fn webp_output_frame_and_file_limits_fail_before_retaining_result() {
 #[test]
 fn webp_encoder_threads_other_than_one_name_the_serial_encoder() {
     for threads in [0, 2] {
-        let threaded = options(false).with_encoder_threads(threads);
+        let threaded = options(false).with_encoder_threads(
+            std::num::NonZeroUsize::new(threads).map_or(Threads::Automatic, Threads::Count),
+        );
         let error = transcode(&input(), ImageFormat::WebP, &threaded).unwrap_err();
         assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions);
         assert_eq!(
@@ -141,7 +144,9 @@ fn webp_encoder_threads_other_than_one_name_the_serial_encoder() {
             "the WebP encoder is serial; set encoder_threads to 1"
         );
         // An external backend validates its own thread count (ADR-0024).
-        let threaded = options(true).with_encoder_threads(threads);
+        let threaded = options(true).with_encoder_threads(
+            std::num::NonZeroUsize::new(threads).map_or(Threads::Automatic, Threads::Count),
+        );
         assert!(transcode_with(&input(), ImageFormat::WebP, &threaded, &RgbaBackend).is_ok());
     }
     let output = transcode(&input(), ImageFormat::WebP, &options(false)).unwrap();

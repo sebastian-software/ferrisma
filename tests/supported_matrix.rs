@@ -23,6 +23,7 @@
 ))]
 
 use ferrisma::pipeline::AvifOptions;
+use ferrisma::pipeline::Threads;
 #[cfg(all(feature = "avif-read", feature = "avif-write"))]
 use ferrisma::pipeline::{BitDepth, ChromaSubsampling};
 use ferrisma::pipeline::{
@@ -101,7 +102,7 @@ fn options(output_format: OutputFormat, policy: InputProfilePolicy) -> Transform
     })
     .with_output(OutputSettings::default_for(output_format))
     .with_profile_policy(policy)
-    .with_transform_threads(1)
+    .with_transform_threads(Threads::ONE)
 }
 
 const ASSUME: InputProfilePolicy = InputProfilePolicy::AssumeSrgbIfMissing;
@@ -991,15 +992,22 @@ fn default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels() {
 fn thread_counts_above_256_and_parallel_webp_encoding_are_invalid() {
     for (transform, encoder) in [(257, 1), (1, 257)] {
         let options = options(OutputFormat::Avif, ASSUME)
-            .with_transform_threads(transform)
-            .with_encoder_threads(encoder);
+            .with_transform_threads(
+                std::num::NonZeroUsize::new(transform).map_or(Threads::Automatic, Threads::Count),
+            )
+            .with_encoder_threads(
+                std::num::NonZeroUsize::new(encoder).map_or(Threads::Automatic, Threads::Count),
+            );
         rejected(
             transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &options),
             ProcessingErrorKind::InvalidOptions,
-            "transform and encoder threads must be between 0 and 256",
+            // "transform and encoder threads must be between 0 and 256"
+            // until 2026-11-16, when 0 stopped being a count (`Threads`).
+            "a thread count must be at most 256",
         );
     }
-    let options = options(OutputFormat::WebP, ASSUME).with_encoder_threads(2);
+    let options = options(OutputFormat::WebP, ASSUME)
+        .with_encoder_threads(Threads::Count(std::num::NonZeroUsize::new(2).unwrap()));
     rejected(
         transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &options),
         ProcessingErrorKind::InvalidOptions,

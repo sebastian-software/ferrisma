@@ -44,7 +44,7 @@ use crate::output_depth::OutputRow;
 fn sample_bytes(depth: u8) -> usize {
     if depth > 8 { 2 } else { 1 }
 }
-use crate::pipeline::{JpegXlOptions, OutputFormat, OutputSettings, TransformOptions};
+use crate::pipeline::{JpegXlOptions, OutputFormat, OutputSettings, Threads, TransformOptions};
 
 /// Level 5 dimension and area limits (ISO/IEC 18181-2, Annex A). The raw
 /// codestream carries no `jxll` level box, so admitted images must also fit
@@ -350,7 +350,7 @@ impl JxlSink {
     pub(crate) fn validate(options: &TransformOptions) -> Result<(), Error> {
         Self::mode(options)?;
         // The port has no parallel runner (encoder step 13); it is serial.
-        if options.encoder_threads() != 1 {
+        if options.encoder_threads() != Threads::ONE {
             return Err(Error::UnsupportedEncoderProfile(
                 "the workspace encoder is serial; set encoder_threads to 1",
             ));

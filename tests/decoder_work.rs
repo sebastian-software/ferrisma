@@ -13,6 +13,7 @@
 // helpers are compiled but unused.
 #![allow(dead_code, unused_imports)]
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     Crop, DecoderWork, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, Output, OutputFormat, ResizeFilter, RowEncoder, SourceAccess,
@@ -71,7 +72,7 @@ fn run(bytes: &[u8], format: ImageFormat, crop: Crop, options: TransformOptions)
             })
             .with_crop(Some(crop))
             .with_filter(ResizeFilter::Lanczos3)
-            .with_transform_threads(1),
+            .with_transform_threads(Threads::ONE),
         &RowCapture,
     )
     .unwrap();

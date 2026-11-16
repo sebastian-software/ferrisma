@@ -3,6 +3,7 @@
 //! unsupported color fails closed.
 
 use std::fmt;
+use std::num::NonZeroUsize;
 use std::time::{Duration, Instant};
 
 use crate::color::ColorEncoding;
@@ -656,6 +657,59 @@ impl KernelLevelReason {
     }
 }
 
+/// How many threads a stage uses: chosen by the engine, or an explicit
+/// count (problem 9 of ADR-0040, since 2026-11-16; before, a `usize` with
+/// `0` for "automatic"). A count above [`Threads::MAX`] is refused with
+/// [`ProcessingErrorKind::InvalidOptions`] wherever it is given, by
+/// [`transcode`] and by [`Engine::new`] alike, never clamped.
+/// Non-exhaustive, so that a later release can add, for example, "at most
+/// N" without breaking a caller.
+///
+/// ```
+/// use std::num::NonZeroUsize;
+///
+/// use ferrisma::pipeline::{OutputGeometry, Threads, TransformOptions};
+///
+/// let four = Threads::Count(NonZeroUsize::new(4).unwrap());
+/// let options = TransformOptions::new(OutputGeometry::Exact { width: 64, height: 64 })
+///     .with_transform_threads(four)
+///     .with_encoder_threads(Threads::Automatic);
+/// assert_eq!(options.transform_threads(), four);
+/// assert_eq!(Threads::ONE, Threads::Count(NonZeroUsize::MIN));
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum Threads {
+    /// The available cores (`std::thread::available_parallelism`), at most
+    /// [`Threads::MAX`]; one when the count cannot be determined.
+    Automatic,
+    /// Exactly this many threads, at most [`Threads::MAX`].
+    Count(NonZeroUsize),
+}
+
+impl Threads {
+    /// One thread: the sequential path.
+    pub const ONE: Self = Self::Count(NonZeroUsize::MIN);
+    /// The largest count the engine starts for one stage or batch.
+    pub const MAX: usize = crate::thread_spawn::MAX_WORKERS;
+
+    /// The count this setting stands for on this machine; refuses an
+    /// explicit count above [`Threads::MAX`] (the one validation of every
+    /// path).
+    fn resolve(self) -> Result<usize, ProcessingError> {
+        match self {
+            Self::Automatic => Ok(std::thread::available_parallelism()
+                .map_or(1, NonZeroUsize::get)
+                .min(Self::MAX)),
+            Self::Count(count) if count.get() <= Self::MAX => Ok(count.get()),
+            Self::Count(_) => Err(ProcessingError::new(
+                ProcessingErrorKind::InvalidOptions,
+                "a thread count must be at most 256",
+            )),
+        }
+    }
+}
+
 /// A rectangle in upright display coordinates, after orientation: the crop
 /// of [`TransformOptions::crop`], and the rectangles of [`DecoderWork`].
 /// Constructed with [`Crop::new`] and read through its getters (since
@@ -782,9 +836,9 @@ pub struct TransformOptions {
     filter: ResizeFilter,
     precision: WorkingPrecision,
     kernel_level_ceiling: Option<KernelLevel>,
-    transform_threads: usize,
+    transform_threads: Threads,
     profile_policy: InputProfilePolicy,
-    encoder_threads: usize,
+    encoder_threads: Threads,
     max_managed_bytes: usize,
     max_input_bytes: usize,
     max_input_pixels: u64,
@@ -812,9 +866,9 @@ impl TransformOptions {
             filter: ResizeFilter::Lanczos3,
             precision: WorkingPrecision::F32,
             kernel_level_ceiling: None,
-            transform_threads: 0,
+            transform_threads: Threads::Automatic,
             profile_policy: InputProfilePolicy::Strict,
-            encoder_threads: 1,
+            encoder_threads: Threads::ONE,
             // 1 GiB since 2026-11-15 (owner decision, ADR-0004 amendment);
             // 256 MiB before.
             max_managed_bytes: 1024 * 1024 * 1024,
@@ -875,11 +929,12 @@ impl TransformOptions {
         kernel_level_ceiling, with_kernel_level_ceiling: Option<KernelLevel>
     );
     setting!(
-        /// Threads for the decode-transform row pipeline (ADR-0022): 0 (the
-        /// default) means all available cores (capped at 256), 1 the
-        /// sequential path; explicit values must be at most 256. The output
-        /// is byte-identical for every value.
-        transform_threads, with_transform_threads: usize
+        /// Threads for the decode-transform row pipeline (ADR-0022):
+        /// [`Threads::Automatic`] (the default) means all available cores
+        /// (at most 256), [`Threads::ONE`] the sequential path; an explicit
+        /// count above 256 is refused. The output is byte-identical for
+        /// every value. (A `usize` with 0 for "automatic" until 2026-11-16.)
+        transform_threads, with_transform_threads: Threads
     );
     setting!(
         /// How missing or rendered ICC color is handled; default
@@ -887,12 +942,13 @@ impl TransformOptions {
         profile_policy, with_profile_policy: InputProfilePolicy
     );
     setting!(
-        /// AV1 encoder threads: 0 means available cores (capped at 256), and
-        /// explicit values must be at most 256; default 1. libavif uses
-        /// automatic tiling and its encoded bytes can depend on the selected
-        /// thread count. The built-in WebP and JPEG XL encoders are serial
-        /// and require 1.
-        encoder_threads, with_encoder_threads: usize
+        /// AV1 encoder threads: [`Threads::Automatic`] means the available
+        /// cores (at most 256), an explicit count must be at most 256;
+        /// default [`Threads::ONE`]. libavif uses automatic tiling and its
+        /// encoded bytes can depend on the selected thread count. The
+        /// built-in WebP and JPEG XL encoders are serial and require
+        /// [`Threads::ONE`].
+        encoder_threads, with_encoder_threads: Threads
     );
     setting!(
         /// Engine-managed memory budget in bytes. Opaque codec scratch
@@ -1741,17 +1797,13 @@ fn guarded_run(
 }
 
 /// Thread counts above 256 are invalid everywhere, in a batch too (owner
-/// decision of 2026-11-15: an option is refused rather than ignored).
-fn validate_thread_counts(options: &TransformOptions) -> Result<(), ProcessingError> {
-    if options.transform_threads > crate::thread_spawn::MAX_WORKERS
-        || options.encoder_threads > crate::thread_spawn::MAX_WORKERS
-    {
-        return Err(ProcessingError::new(
-            ProcessingErrorKind::InvalidOptions,
-            "transform and encoder threads must be between 0 and 256",
-        ));
-    }
-    Ok(())
+/// decision of 2026-11-15: an option is refused rather than ignored); the
+/// resolved transform and encoder threads.
+fn validate_thread_counts(options: &TransformOptions) -> Result<(usize, usize), ProcessingError> {
+    Ok((
+        options.transform_threads.resolve()?,
+        options.encoder_threads.resolve()?,
+    ))
 }
 
 /// The output side of one transcode: the built-in sink or a backend's.
@@ -1847,10 +1899,13 @@ fn run(
     // Only the selected output's settings exist (since 2026-11-16), so no
     // other output's setting can be ignored (ADR-0043 D4, ADR-0042).
     let output_format = options.output.format();
-    validate_thread_counts(options)?;
-    // The built-in WebP encoder is serial, as is the JPEG XL one; 0 would
-    // mean "available cores" and be reported as such.
-    if backend.is_none() && output_format == OutputFormat::WebP && options.encoder_threads != 1 {
+    let (transform_threads, encoder_threads) = validate_thread_counts(options)?;
+    // The built-in WebP encoder is serial, as is the JPEG XL one;
+    // `Automatic` would mean "available cores" and be reported as such.
+    if backend.is_none()
+        && output_format == OutputFormat::WebP
+        && options.encoder_threads != Threads::ONE
+    {
         return Err(ProcessingError::new(
             ProcessingErrorKind::InvalidOptions,
             "the WebP encoder is serial; set encoder_threads to 1",
@@ -1870,12 +1925,6 @@ fn run(
             "output format does not match encoder backend",
         ));
     }
-    let encoder_threads = match options.encoder_threads {
-        0 => std::thread::available_parallelism()
-            .map_or(1, std::num::NonZero::get)
-            .min(crate::thread_spawn::MAX_WORKERS),
-        threads => threads,
-    };
     #[cfg(feature = "jpeg-xl-write")]
     if backend.is_none() && output_format == OutputFormat::JpegXl {
         JxlSink::validate(options)?;
@@ -1898,12 +1947,9 @@ fn run(
             "compressed image exceeds max_input_bytes",
         ));
     }
-    let transform_threads = match (options.precision, options.transform_threads) {
-        (WorkingPrecision::F64Reference, _) => 1,
-        (WorkingPrecision::F32, 0) => std::thread::available_parallelism()
-            .map_or(1, std::num::NonZero::get)
-            .min(crate::thread_spawn::MAX_WORKERS),
-        (WorkingPrecision::F32, threads) => threads,
+    let transform_threads = match options.precision {
+        WorkingPrecision::F64Reference => 1,
+        WorkingPrecision::F32 => transform_threads,
     };
     let mut source = open_source(encoded, format, options.max_input_pixels)?;
     // Alpha is processed straight (ADR-0014); an association the reader
@@ -2326,15 +2372,26 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// An engine with up to 256 workers; 0 means available cores (also capped).
-    #[must_use]
-    pub fn new(threads: usize) -> Self {
-        let threads = match threads {
-            0 => std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
-            threads => threads,
-        }
-        .min(crate::thread_spawn::MAX_WORKERS);
-        Self { threads }
+    /// An engine with `threads` workers: [`Threads::Automatic`] for the
+    /// available cores (at most 256), or an explicit count.
+    ///
+    /// ```
+    /// use ferrisma::pipeline::{Engine, Threads};
+    ///
+    /// let engine = Engine::new(Threads::Automatic)?;
+    /// assert!((1..=Threads::MAX).contains(&engine.threads()));
+    /// # Ok::<(), ferrisma::pipeline::ProcessingError>(())
+    /// ```
+    ///
+    /// # Errors
+    /// [`ProcessingErrorKind::InvalidOptions`] for a count above
+    /// [`Threads::MAX`], the same validation as [`transcode`]'s thread
+    /// counts (since 2026-11-16; before, `Engine::new(usize)` took 0 for
+    /// "automatic" and clamped a larger count to 256 silently).
+    pub fn new(threads: Threads) -> Result<Self, ProcessingError> {
+        Ok(Self {
+            threads: threads.resolve()?,
+        })
     }
 
     /// Number of workers.
@@ -2403,8 +2460,8 @@ fn batch(
                         let options = item
                             .options
                             .clone()
-                            .with_transform_threads(1)
-                            .with_encoder_threads(1);
+                            .with_transform_threads(Threads::ONE)
+                            .with_encoder_threads(Threads::ONE);
                         run(item.encoded, item.format, &options, backend)
                     });
                     if let Ok(mut slot) = results[index].lock() {
@@ -2454,13 +2511,28 @@ mod worker_limit_tests {
     use super::{Engine, ProcessingError, ProcessingErrorKind};
     use crate::error::Error;
 
+    /// `Engine::new` refuses a count above 256 as `transcode` does, with
+    /// the same validation, instead of clamping it (since 2026-11-16; before,
+    /// `Engine::new(usize::MAX).threads()` was 256).
     #[test]
-    fn batch_worker_count_is_bounded_for_explicit_and_automatic_requests() {
-        assert_eq!(Engine::new(1).threads(), 1);
-        assert_eq!(Engine::new(256).threads(), 256);
-        assert_eq!(Engine::new(usize::MAX).threads(), 256);
-        assert!((1..=256).contains(&Engine::new(0).threads()));
-        assert!(Engine::new(256).transcode_batch(&[]).is_empty());
+    fn batch_worker_count_is_validated_for_explicit_and_automatic_requests() {
+        use super::Threads;
+        use std::num::NonZeroUsize;
+        assert_eq!(Engine::new(Threads::ONE).unwrap().threads(), 1);
+        let count = |n| Threads::Count(NonZeroUsize::new(n).unwrap());
+        assert_eq!(Engine::new(count(256)).unwrap().threads(), 256);
+        for refused in [count(257), Threads::Count(NonZeroUsize::MAX)] {
+            let error = Engine::new(refused).unwrap_err();
+            assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions);
+            assert_eq!(error.to_string(), "a thread count must be at most 256");
+        }
+        assert!((1..=256).contains(&Engine::new(Threads::Automatic).unwrap().threads()));
+        assert!(
+            Engine::new(count(256))
+                .unwrap()
+                .transcode_batch(&[])
+                .is_empty()
+        );
         assert_eq!(
             ProcessingError::from(Error::ThreadSpawnFailed).kind(),
             ProcessingErrorKind::ResourceExhausted

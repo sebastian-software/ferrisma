@@ -117,6 +117,14 @@ default, or `Exact(n)`) instead of `Option<u8>`. `Crop` is built with
 `EncodeRequest`, carries `output: OutputSettings` instead of `format`,
 `avif`, `webp` and `jpeg_xl` (`EncodeRequest::format()` remains).
 
+Thread counts are a `Threads` value (since 2026-11-16): `Threads::Automatic`
+or `Threads::Count(NonZeroUsize)`, `Threads::ONE` for the sequential path,
+instead of a `usize` with 0 for "automatic". `Engine::new(Threads)` returns a
+`Result` and refuses a count above 256 as `InvalidOptions`, the validation
+`transcode` applies; before, `Engine::new(usize)` clamped such a count to
+256 silently. The command line keeps its spelling (`--transform-threads=0`
+is automatic).
+
 ## Refusal reasons
 
 `ProcessingError::refusal_reason()` names the class of a refusal of

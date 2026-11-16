@@ -5,6 +5,7 @@
 
 use std::sync::Mutex;
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     AvifOptions, BatchItem, ChromaSubsampling, EncodeError, EncodeErrorKind, EncodeRequest,
     EncodedImage, EncoderBackend, Engine, ImageFormat, InputProfilePolicy, OutputFormat,
@@ -176,7 +177,9 @@ fn encodes_what_ferrisma_produced_with_the_same_color_signals() {
                     .with_chroma(chroma)
                     .with_depth(BitDepth::Exact(depth)),
             ))
-            .with_encoder_threads(threads);
+            .with_encoder_threads(
+                std::num::NonZeroUsize::new(threads).map_or(Threads::Automatic, Threads::Count),
+            );
         transcode_with(JPEG, ImageFormat::Jpeg, &options, &reference).unwrap();
         let rows = reference.0.lock().unwrap().clone();
         // The depth reaches the backend in the request (since 2026-11-15).
@@ -507,15 +510,17 @@ fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
             width: 16,
             height: 12,
         })
-        .with_transform_threads(1)
-        .with_encoder_threads(1)
+        .with_transform_threads(Threads::ONE)
+        .with_encoder_threads(Threads::ONE)
         .with_precision(WorkingPrecision::F64Reference);
     let single = transcode(JPEG, ImageFormat::Jpeg, &opts).unwrap();
     assert_eq!(single.report.encoder_backend, "libavif-rs/aom");
-    let results = Engine::new(2).transcode_batch(&[
-        BatchItem::new(JPEG, ImageFormat::Jpeg, opts.clone()),
-        BatchItem::new(JPEG, ImageFormat::Jpeg, opts.clone()),
-    ]);
+    let results = Engine::new(Threads::Count(std::num::NonZeroUsize::new(2).unwrap()))
+        .unwrap()
+        .transcode_batch(&[
+            BatchItem::new(JPEG, ImageFormat::Jpeg, opts.clone()),
+            BatchItem::new(JPEG, ImageFormat::Jpeg, opts.clone()),
+        ]);
     for output in results {
         assert_eq!(output.unwrap().bytes, single.bytes);
     }
@@ -638,7 +643,7 @@ fn independent_oriented_avif_reference_reaches_own_encoder() {
                     .with_speed(10)
                     .with_depth(BitDepth::Exact(10)),
             ))
-            .with_encoder_threads(1),
+            .with_encoder_threads(Threads::ONE),
     )
     .unwrap();
     let image = decode(&output.bytes);

@@ -13,8 +13,8 @@ use crate::pipeline::{
     AvifOptions, BitDepth, ChromaSubsampling, Crop, EncoderBackend, ImageFormat,
     InputProfilePolicy, JpegXlLossless, JpegXlLossy, JpegXlOptions, KernelLevel, Output,
     OutputFormat, OutputGeometry, OutputSettings, ProcessingError, ProcessingErrorKind,
-    RefusalReason, ResizeFilter, TransformOptions, WebpLossless, WebpOptions, WorkingPrecision,
-    transcode, transcode_with,
+    RefusalReason, ResizeFilter, Threads, TransformOptions, WebpLossless, WebpOptions,
+    WorkingPrecision, transcode, transcode_with,
 };
 
 /// A wrong command line: an unknown, repeated or contradictory flag, a
@@ -128,6 +128,13 @@ fn jpeg_xl_setting(
     };
     let jpeg_xl = change(jpeg_xl.clone())?;
     Ok(options.with_output(OutputSettings::JpegXl(jpeg_xl)))
+}
+
+/// A thread flag: 0 for automatic (the command line's spelling, unchanged
+/// since before 2026-11-16), or a count.
+fn threads(option: &str, prefix: &str) -> Result<Threads, Box<dyn Error>> {
+    let count: usize = parse_value(option, prefix)?;
+    Ok(std::num::NonZeroUsize::new(count).map_or(Threads::Automatic, Threads::Count))
 }
 
 /// Megabytes (MiB) of a size flag in bytes.
@@ -248,10 +255,10 @@ fn apply_option(
             mebibytes(option, "--max-output-mb=", "encoded output limit overflow")?,
         ),
         option if option.starts_with("--transform-threads=") => {
-            options.with_transform_threads(parse_value(option, "--transform-threads=")?)
+            options.with_transform_threads(threads(option, "--transform-threads=")?)
         }
         option if option.starts_with("--encoder-threads=") => {
-            options.with_encoder_threads(parse_value(option, "--encoder-threads=")?)
+            options.with_encoder_threads(threads(option, "--encoder-threads=")?)
         }
         option if option.starts_with("--budget-mb=") => options.with_max_managed_bytes(mebibytes(
             option,

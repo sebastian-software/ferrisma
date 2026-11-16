@@ -1,4 +1,5 @@
 #![cfg(all(feature = "jpeg-read", feature = "avif-write"))]
+use crate::pipeline::Threads;
 use crate::pipeline::{AvifOptions, OutputGeometry, OutputSettings};
 use crate::pipeline::{
     ImageFormat, InputProfilePolicy, ProcessingErrorKind, ResizeFilter, TransformOptions, transcode,
@@ -238,7 +239,7 @@ fn encoder_threads_trade_determinism_for_latency_explicitly() {
     let all = transcode(
         encoded,
         ImageFormat::Jpeg,
-        &options.clone().with_encoder_threads(0),
+        &options.clone().with_encoder_threads(Threads::Automatic),
     )
     .unwrap();
     assert!(all.report.encoder_threads >= 1);
@@ -247,7 +248,9 @@ fn encoder_threads_trade_determinism_for_latency_explicitly() {
         transcode(
             encoded,
             ImageFormat::Jpeg,
-            &options.clone().with_encoder_threads(100_000)
+            &options.clone().with_encoder_threads(Threads::Count(
+                std::num::NonZeroUsize::new(100_000).unwrap()
+            ))
         )
         .unwrap_err()
         .kind(),
@@ -265,8 +268,8 @@ fn engine_batches_match_single_image_results_in_order() {
     })
     .with_output(OutputSettings::Avif(AvifOptions::default().with_speed(10)))
     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
-    .with_transform_threads(1)
-    .with_encoder_threads(1);
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE);
     let sizes = [(3, 3), (8, 6), (5, 9), (1, 1), (12, 4), (7, 7)];
     let items: Vec<BatchItem<'_>> = sizes
         .iter()
@@ -285,7 +288,7 @@ fn engine_batches_match_single_image_results_in_order() {
             options.clone(),
         )))
         .collect();
-    let engine = Engine::new(3);
+    let engine = Engine::new(Threads::Count(std::num::NonZeroUsize::new(3).unwrap())).unwrap();
     assert_eq!(engine.threads(), 3);
     let results = engine.transcode_batch(&items);
     assert_eq!(results.len(), items.len());
@@ -301,7 +304,7 @@ fn engine_batches_match_single_image_results_in_order() {
         results.last().unwrap().as_ref().unwrap_err().kind(),
         ProcessingErrorKind::MalformedInput
     );
-    assert!(Engine::new(0).threads() >= 1);
+    assert!(Engine::new(Threads::Automatic).unwrap().threads() >= 1);
     assert!(engine.transcode_batch(&[]).is_empty());
 }
 
@@ -402,7 +405,7 @@ fn a_backend_receives_the_request_and_every_output_row() {
             .with_chroma(ChromaSubsampling::Yuv420),
     ))
     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
-    .with_encoder_threads(3);
+    .with_encoder_threads(Threads::Count(std::num::NonZeroUsize::new(3).unwrap()));
     let recorder = backend::Recorder::default();
     let output = transcode_with(jpeg, ImageFormat::Jpeg, &options, &recorder).unwrap();
     let requests = recorder.requests.lock().unwrap().clone();
@@ -436,7 +439,9 @@ fn a_backend_receives_the_request_and_every_output_row() {
         let again = transcode_with(
             jpeg,
             ImageFormat::Jpeg,
-            &options.clone().with_transform_threads(threads),
+            &options.clone().with_transform_threads(
+                std::num::NonZeroUsize::new(threads).map_or(Threads::Automatic, Threads::Count),
+            ),
             &recorder,
         )
         .unwrap();
@@ -514,12 +519,14 @@ fn engine_batches_run_one_backend_encoder_per_image() {
                 ImageFormat::Jpeg,
                 TransformOptions::new(OutputGeometry::Exact { width, height })
                     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
-                    .with_encoder_threads(0),
+                    .with_encoder_threads(Threads::Automatic),
             )
         })
         .collect();
     let recorder = backend::Recorder::default();
-    let results = Engine::new(3).transcode_batch_with(&items, &recorder);
+    let results = Engine::new(Threads::Count(std::num::NonZeroUsize::new(3).unwrap()))
+        .unwrap()
+        .transcode_batch_with(&items, &recorder);
     for (item, result) in items.iter().zip(&results) {
         let output = result.as_ref().unwrap();
         let OutputGeometry::Exact { width, height } = *item.options().geometry() else {

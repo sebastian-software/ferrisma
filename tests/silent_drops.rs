@@ -29,6 +29,7 @@
     feature = "icc"
 ))]
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     AvifOptions, BatchItem, ChromaSubsampling, EncodeError, EncodeRequest, EncodedImage,
     EncoderBackend, Engine, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions,
@@ -55,7 +56,7 @@ fn options(policy: InputProfilePolicy) -> TransformOptions {
     })
     .with_output(OutputSettings::default_for(OutputFormat::WebP))
     .with_profile_policy(policy)
-    .with_transform_threads(1)
+    .with_transform_threads(Threads::ONE)
 }
 
 #[track_caller]
@@ -377,21 +378,29 @@ fn webp_lossy_methods_are_libwebps_own_and_distinct() {
 /// message and no reason; a valid count is still replaced and reported.
 #[test]
 fn batch_refuses_thread_counts_that_transcode_rejects() {
-    const THREADS: &str = "transform and encoder threads must be between 0 and 256";
+    // "transform and encoder threads must be between 0 and 256" until
+    // 2026-11-16, when 0 stopped being a count (`Threads`).
+    const THREADS: &str = "a thread count must be at most 256";
     let jpeg = read("tests/fixtures/sample.jpg");
     for (transform_threads, encoder_threads) in [(1000, 1), (1, 1000), (257, 257)] {
         let item = BatchItem::new(
             &jpeg,
             ImageFormat::Jpeg,
             options(ASSUME)
-                .with_transform_threads(transform_threads)
-                .with_encoder_threads(encoder_threads),
+                .with_transform_threads(
+                    std::num::NonZeroUsize::new(transform_threads)
+                        .map_or(Threads::Automatic, Threads::Count),
+                )
+                .with_encoder_threads(
+                    std::num::NonZeroUsize::new(encoder_threads)
+                        .map_or(Threads::Automatic, Threads::Count),
+                ),
         );
         let single = refused(
             transcode(&jpeg, ImageFormat::Jpeg, &item.options().clone()),
             ProcessingErrorKind::InvalidOptions,
         );
-        let results = Engine::new(1).transcode_batch(&[item]);
+        let results = Engine::new(Threads::ONE).unwrap().transcode_batch(&[item]);
         let Err(batched) = &results[0] else {
             panic!("{transform_threads}/{encoder_threads}: accepted in a batch")
         };
@@ -400,14 +409,23 @@ fn batch_refuses_thread_counts_that_transcode_rejects() {
             assert!(error.to_string().starts_with(THREADS), "{error}");
             assert_eq!(error.refusal_reason(), None);
         }
+        // `Engine::new` validates its worker count the same way (since
+        // 2026-11-16; before, it clamped a count above 256 silently).
+        let engine = Engine::new(Threads::Count(
+            std::num::NonZeroUsize::new(transform_threads.max(encoder_threads)).unwrap(),
+        ))
+        .unwrap_err();
+        assert_eq!(engine.kind(), ProcessingErrorKind::InvalidOptions);
+        assert!(engine.to_string().starts_with(THREADS), "{engine}");
     }
     // A count `transcode` accepts is replaced by 1, as documented.
     let item = BatchItem::new(
         &jpeg,
         ImageFormat::Jpeg,
-        options(ASSUME).with_transform_threads(256),
+        options(ASSUME)
+            .with_transform_threads(Threads::Count(std::num::NonZeroUsize::new(256).unwrap())),
     );
-    let results = Engine::new(1).transcode_batch(&[item]);
+    let results = Engine::new(Threads::ONE).unwrap().transcode_batch(&[item]);
     let output = results[0].as_ref().expect("a valid count is accepted");
     assert_eq!(
         (
