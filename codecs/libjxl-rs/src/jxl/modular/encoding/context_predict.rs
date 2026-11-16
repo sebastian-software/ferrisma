@@ -467,11 +467,9 @@ impl<'a> PixelPosition<'a> {
     }
     #[inline(always)]
     fn read(self, relative: isize) -> PixelWide {
-        let index = self
-            .position
-            .checked_add_signed(relative)
-            .expect("relative sample before storage");
-        i64::from(self.samples[index])
+        // One check per read: an offset before the storage wraps to an index
+        // past its end, which the slice index rejects as before.
+        i64::from(self.samples[self.position.wrapping_add_signed(relative)])
     }
     #[inline(always)]
     pub(super) fn read_pixel(self, relative: isize) -> Pixel {
