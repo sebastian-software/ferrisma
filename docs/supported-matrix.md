@@ -126,6 +126,13 @@ Versions 1.85 to 1.87, 1.89 to 1.92 and 1.94 were not tested. The `rust`
 job checks each feature alone (`cargo check --no-default-features
 --features <feature>`) on the pinned nightly.
 
+The `libjxl-rs` difference is fixed since 2026-11-16: LLVM 20 to 22 (Rust
+1.88 to 1.98) lower the port's `std::max` compare-and-select to AArch64
+`FMAXNM` when the other operand is known not to be a NaN (a constant), and
+the port now spells out the unordered case (libjxl-rs ADR 0002, "Results
+that depend on the Rust compiler"). The codec PR job runs the port's
+no-oracle tests at its `rust-version` and on stable.
+
 ## Inputs
 
 All inputs are still images. Every decoder's emitted samples, not the file's

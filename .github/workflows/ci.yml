@@ -208,7 +208,8 @@ jobs:
       max-parallel: 4
       matrix: ${{ fromJSON(needs.affected.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
+    # JXL also tests at its rust-version and on stable (last step).
+    timeout-minutes: ${{ matrix.codec == 'jxl' && 45 || 20 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -262,6 +263,22 @@ jobs:
           else
             cargo xtask codecs --codec "$CODEC" --stage pr
           fi
+      # libjxl-rs's results must hold on the compilers users build with, not
+      # only on the pinned nightly (libjxl-rs ADR 0002, "Results that depend
+      # on the Rust compiler", 2026-11-15): the port's checked-profile tests,
+      # without the C++ oracle, at its declared rust-version (installed above)
+      # and on current stable, whose LLVM versions differ from the nightly's.
+      # Each toolchain builds in its own target directory, which the build
+      # cache above keeps.
+      - name: Test the JXL port at its rust-version and on stable
+        if: matrix.codec == 'jxl'
+        working-directory: codecs/libjxl-rs
+        run: |
+          msrv="$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)"
+          for toolchain in "$msrv" stable; do
+            CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target/rust-$toolchain" \
+              cargo +"$toolchain" test --locked --offline -p libjxl-rs --profile checked
+          done
   checks-passed:
     name: Checks passed
     if: always()
