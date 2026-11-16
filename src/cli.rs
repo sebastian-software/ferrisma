@@ -641,17 +641,16 @@ fn precision_name(precision: WorkingPrecision) -> &'static str {
     }
 }
 
-/// The `kernel_level=` value; the same names as `--kernel-level=`.
+/// The `kernel_level=` value; the same names as `--kernel-level=`. Since
+/// 2026-11-16 `KernelLevel` is Ferrisma's own type without `Sve2`, which
+/// no run ever reported (the kernels never select it), so `sve2` is no
+/// longer a value.
 fn kernel_level_name(level: KernelLevel) -> &'static str {
     match level {
         KernelLevel::Scalar => "scalar",
         KernelLevel::Neon => "neon",
-        KernelLevel::Sve2 => "sve2",
         KernelLevel::Avx2 => "avx2",
         KernelLevel::Avx512 => "avx512",
-        // A level a newer `ferrisma-kernels` adds without a name here.
-        #[allow(unreachable_patterns)]
-        _ => "unknown",
     }
 }
 
@@ -1088,7 +1087,6 @@ mod tests {
         for (level, name) in [
             (KernelLevel::Scalar, "scalar"),
             (KernelLevel::Neon, "neon"),
-            (KernelLevel::Sve2, "sve2"),
             (KernelLevel::Avx2, "avx2"),
             (KernelLevel::Avx512, "avx512"),
         ] {

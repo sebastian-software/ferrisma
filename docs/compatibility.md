@@ -16,7 +16,7 @@ else, including every private module, is outside the contract.
 | --- | --- | --- |
 | Entry points | `transcode`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run`, `cli::main` |
 | Options | `TransformOptions` (constructor, `with_*` methods and getters) for output, geometry (`OutputGeometry`), crop, filter, color policy, threads, and the four resource limits; `OutputSettings`; `WebpOptions` with `WebpLossy` and `WebpLossless` (libwebp quality and method, lossless level); `ResizeOptions`; `Crop`; `InspectionLimits`; `BatchItem` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifOptions` (`OutputSettings::Avif`), `JpegXlOptions` with `JpegXlLossy` and `JpegXlLossless`, `BitDepth` |
-| Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
+| Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason` (Ferrisma's own enums since 2026-11-16), `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
 | Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-write` (experimental since the switch to the workspace port; it builds on stable Rust 1.99 since 2026-11-15, and the tier is not decided; stable as the rav1e capability until 2026-11-15) |
 | CLI | Positional arguments, color policy, `--webp-quality=`, `--webp-method=`, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=`, `--avif-chroma=`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=`, `--jxl-lossless` and `--jxl-depth=` |
 
@@ -293,8 +293,9 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   `color_signal`, `discarded`); new keys may be added. Since 2026-11-16 every
   name taken from an enum is the command's own lower-case, hyphenated
   value, so renaming a Rust variant cannot change it: `precision=` `f32` or
-  `f64-reference`; `kernel_level=` `scalar`, `neon`, `sve2`, `avx2`,
-  `avx512` (the names of `--kernel-level=`); `color_signal=` `cicp`,
+  `f64-reference`; `kernel_level=` `scalar`, `neon`, `avx2`,
+  `avx512` (the names of `--kernel-level=`; `sve2`, which no run reported,
+  is no longer a value since 2026-11-16); `color_signal=` `cicp`,
   `assumed-srgb`, `rendered-icc`, `rendered-icc-with-agreeing-cicp`;
   `discarded=` a comma-separated list of `gain-map`, `exif`, `xmp`,
   `other-metadata`, `icc-profile`, `unknown-container-data`,

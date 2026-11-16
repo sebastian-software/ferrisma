@@ -753,3 +753,21 @@ reports that a stable item cannot express its use case.
      processing error. When the limit is checked (while writing or after
      the encoder returns) stays a description of today's behavior, so a
      streaming writer can stop earlier with the same kind (problem 16).
+  4. **Own kernel-level enums** (problem 7, review 2.2). `KernelLevel`
+     (`Scalar`, `Neon`, `Avx2`, `Avx512`, ordered, `#[non_exhaustive]`) and
+     `KernelLevelReason` (`Detected`, `Fallback`, `Ceiling`,
+     `DefaultCeiling`) are defined in `ferrisma` with a private mapping to
+     `ferrisma_kernels::{IsaLevel, LevelReason}`; the re-exports, and with
+     them `IsaLevel::name`, `is_implemented` and `Display` as part of
+     `ferrisma`'s API, are gone. No type of another crate remains in the
+     public API (checked with `cargo public-api`; see the report of this
+     change). `Sve2`, which the kernels detect but have no kernels for, is
+     not a value: as a ceiling it selected NEON, the same as a NEON ceiling,
+     and no run reported it (ADR-0042: an accepted value without effect is
+     not offered); an SVE2 machine reports `Neon` with `Fallback`, as before.
+     A level or reason the kernels might return that the mapping does not
+     name is `Internal`, never a guess. The CLI's `kernel_level=` and
+     `--kernel-level=` names are unchanged except that `sve2`, never
+     printed, is gone. `ferrisma-kernels` is now an internal dependency like
+     the bridges (pinned with `=`), and decision 5's sentence about it as a
+     public dependency no longer applies.

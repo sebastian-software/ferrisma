@@ -29,7 +29,6 @@ pub use crate::encoder_backend::{
 pub use crate::own_avif::LibavifBackend;
 pub use crate::quality::Filter as ResizeFilter;
 pub use crate::resize_geometry::{ResizeFit, ResizeOptions};
-pub use ferrisma_kernels::{IsaLevel as KernelLevel, LevelReason as KernelLevelReason};
 
 /// One setting of an option type in the construction style of the facade
 /// (ADR-0040 amendment of 2026-11-16): a private field, a `with_*` method
@@ -567,6 +566,94 @@ pub enum WorkingPrecision {
     F32,
     /// The M1 `f64` reference executor, the oracle of the differential tests.
     F64Reference,
+}
+
+/// SIMD level of the resample kernels (ADR-0020): the ceiling of
+/// [`TransformOptions::kernel_level_ceiling`] and the level reported in
+/// [`ProcessingReport::kernel_level`]. Ferrisma's own type since
+/// 2026-11-16 (a re-export of `ferrisma_kernels::IsaLevel` before), so a
+/// release of the kernels crate cannot change it. Levels are ordered from
+/// `Scalar` up; a ceiling the machine does not reach selects the best level
+/// below it. Only levels with kernels are offered: SVE2, which the kernels
+/// crate detects but has no kernels for, is not a value (ADR-0042: an option
+/// value without effect is not offered).
+///
+/// ```
+/// use ferrisma::pipeline::{KernelLevel, OutputGeometry, TransformOptions};
+///
+/// let scalar = TransformOptions::new(OutputGeometry::Exact { width: 64, height: 64 })
+///     .with_kernel_level_ceiling(Some(KernelLevel::Scalar));
+/// assert!(KernelLevel::Scalar < KernelLevel::Avx512);
+/// # let _ = scalar;
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
+pub enum KernelLevel {
+    /// Portable Rust, the reference body.
+    Scalar,
+    /// 128-bit Advanced SIMD (the `AArch64` baseline).
+    Neon,
+    /// 256-bit AVX2 with FMA (x86-64-v3).
+    Avx2,
+    /// 512-bit AVX-512 F/BW/CD/DQ/VL with FMA (x86-64-v4); never selected
+    /// without an explicit ceiling (decision D6 of ADR-0020).
+    Avx512,
+}
+
+/// Why [`ProcessingReport::kernel_level`] was selected. Ferrisma's own type
+/// since 2026-11-16 (a re-export of `ferrisma_kernels::LevelReason`
+/// before).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum KernelLevelReason {
+    /// The highest level of the machine, and it has kernels.
+    Detected,
+    /// The machine supports more, but that level has no kernels (SVE2).
+    Fallback,
+    /// Limited by [`TransformOptions::kernel_level_ceiling`]; also the
+    /// reason of the `f64` reference executor, which is always `Scalar`.
+    Ceiling,
+    /// Limited by the default ceiling (AVX2 on x86-64, NEON on AArch64):
+    /// the machine supports an implemented level above it, which runs only
+    /// on explicit request.
+    DefaultCeiling,
+}
+
+impl KernelLevel {
+    /// The kernels crate's level for a ceiling.
+    fn to_kernels(self) -> ferrisma_kernels::IsaLevel {
+        match self {
+            Self::Scalar => ferrisma_kernels::IsaLevel::Scalar,
+            Self::Neon => ferrisma_kernels::IsaLevel::Neon,
+            Self::Avx2 => ferrisma_kernels::IsaLevel::Avx2,
+            Self::Avx512 => ferrisma_kernels::IsaLevel::Avx512,
+        }
+    }
+
+    /// The level the kernels selected; `None` for a level without kernels,
+    /// which the kernels crate never selects.
+    fn from_kernels(level: ferrisma_kernels::IsaLevel) -> Option<Self> {
+        match level {
+            ferrisma_kernels::IsaLevel::Scalar => Some(Self::Scalar),
+            ferrisma_kernels::IsaLevel::Neon => Some(Self::Neon),
+            ferrisma_kernels::IsaLevel::Avx2 => Some(Self::Avx2),
+            ferrisma_kernels::IsaLevel::Avx512 => Some(Self::Avx512),
+            _ => None,
+        }
+    }
+}
+
+impl KernelLevelReason {
+    /// The kernels crate's reason.
+    fn from_kernels(reason: ferrisma_kernels::LevelReason) -> Option<Self> {
+        match reason {
+            ferrisma_kernels::LevelReason::Detected => Some(Self::Detected),
+            ferrisma_kernels::LevelReason::Fallback => Some(Self::Fallback),
+            ferrisma_kernels::LevelReason::Ceiling => Some(Self::Ceiling),
+            ferrisma_kernels::LevelReason::DefaultCeiling => Some(Self::DefaultCeiling),
+            _ => None,
+        }
+    }
 }
 
 /// A rectangle in upright display coordinates, after orientation: the crop
@@ -2049,12 +2136,26 @@ fn run(
     let open = started.elapsed();
     let request = Rect::new(0, 0, target_size.width, target_size.height)?;
     let kernels = match options.kernel_level_ceiling {
-        Some(ceiling) => ferrisma_kernels::Kernels::with_ceiling(ceiling),
+        Some(ceiling) => ferrisma_kernels::Kernels::with_ceiling(ceiling.to_kernels()),
         None => ferrisma_kernels::Kernels::best(),
     };
     let (kernel_level, kernel_level_reason) = match options.precision {
-        WorkingPrecision::F32 => (kernels.level(), kernels.reason()),
-        WorkingPrecision::F64Reference => (KernelLevel::Scalar, KernelLevelReason::Ceiling),
+        WorkingPrecision::F32 => (
+            KernelLevel::from_kernels(kernels.level()),
+            KernelLevelReason::from_kernels(kernels.reason()),
+        ),
+        WorkingPrecision::F64Reference => {
+            (Some(KernelLevel::Scalar), Some(KernelLevelReason::Ceiling))
+        }
+    };
+    // The kernels select only levels they implement, with one of the four
+    // reasons; anything else is a defect of this mapping, not of the input.
+    let (Some(kernel_level), Some(kernel_level_reason)) = (kernel_level, kernel_level_reason)
+    else {
+        return Err(ProcessingError::new(
+            ProcessingErrorKind::Internal,
+            "the kernels selected a level or reason this release does not name",
+        ));
     };
     let processed = match options.precision {
         WorkingPrecision::F32 => execute_fast(
@@ -2364,5 +2465,43 @@ mod worker_limit_tests {
             ProcessingError::from(Error::ThreadSpawnFailed).kind(),
             ProcessingErrorKind::ResourceExhausted
         );
+    }
+}
+
+#[cfg(test)]
+mod kernel_level_tests {
+    use super::{KernelLevel, KernelLevelReason};
+    use ferrisma_kernels::{IsaLevel, LevelReason};
+
+    /// Ferrisma's own kernel enums map onto the kernels crate's: every
+    /// offered ceiling round-trips, every level with kernels and every
+    /// reason has a name, and SVE2, which has no kernels, is not offered.
+    #[test]
+    fn the_own_kernel_enums_map_onto_the_kernels_crate() {
+        for level in [
+            KernelLevel::Scalar,
+            KernelLevel::Neon,
+            KernelLevel::Avx2,
+            KernelLevel::Avx512,
+        ] {
+            assert!(level.to_kernels().is_implemented(), "{level:?}");
+            assert_eq!(KernelLevel::from_kernels(level.to_kernels()), Some(level));
+        }
+        assert_eq!(KernelLevel::from_kernels(IsaLevel::Sve2), None);
+        assert!(!IsaLevel::Sve2.is_implemented());
+        assert!(KernelLevel::Scalar < KernelLevel::Neon && KernelLevel::Avx2 < KernelLevel::Avx512);
+        for (reason, own) in [
+            (LevelReason::Detected, KernelLevelReason::Detected),
+            (LevelReason::Fallback, KernelLevelReason::Fallback),
+            (LevelReason::Ceiling, KernelLevelReason::Ceiling),
+            (
+                LevelReason::DefaultCeiling,
+                KernelLevelReason::DefaultCeiling,
+            ),
+        ] {
+            assert_eq!(KernelLevelReason::from_kernels(reason), Some(own));
+        }
+        let best = ferrisma_kernels::Kernels::best();
+        assert!(KernelLevel::from_kernels(best.level()).is_some());
     }
 }
