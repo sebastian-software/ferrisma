@@ -5,4 +5,3 @@
 # sites, and every entry must still match. Format: path count description.
 codecs/libjxl-rs/src/brotli/bitfield.rs 4 read-modify-write of a C bitfield word whose other bits may be uninitialized (AArch64 and x86-64); open owner question, ADR-0044
 codecs/libjxl-rs/src/brotli/raw_bytes.rs 2 XOR of one byte that may be uninitialized (AArch64 and x86-64); open owner question, ADR-0044
-codecs/libjxl-rs/src/jxl/cms/jxl_cms_profile.rs 1 two AArch64 FMULs with the original's operand order, for competing NaN payloads; open owner question, ADR-0044

@@ -982,8 +982,11 @@ equal; libjxl's encoder API forbids NaN and infinity input samples.
 
 **Comparison rule** (`parity_eq` in `tests/parity.rs`). Two lines match when
 they have the same tokens and every token is identical, except that (1) two
-tokens that are both 32-bit words encoding a binary32 NaN are equal, and
-(2) for a request that carries a NaN or infinity word, a token position is
+tokens that are both 32-bit words encoding a binary32 NaN, or both 64-bit
+words encoding a binary64 NaN, are equal (the binary64 case since 2026-11-16,
+as ADR-0041 section 3 prescribes for every compared floating-point word;
+before, binary64 NaN words such as `default-cms-numeric 0`'s chromaticity
+results were compared exactly), and (2) for a request that carries a NaN or infinity word, a token position is
 not compared where the second scalar reference disagrees with the pinned one
 after (1). Rule (2) is the owner's rule O1, recorded on 2026-11-13 as a
 working rule and **confirmed by the owner on 2026-11-15 as the general rule**
