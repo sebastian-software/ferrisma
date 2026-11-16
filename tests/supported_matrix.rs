@@ -961,25 +961,28 @@ fn managed_budget_exhaustion_is_reported() {
 }
 
 #[test]
-fn default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels() {
+fn default_budget_rejects_lossless_jpeg_xl_above_about_126_megapixels() {
     // The reservation is the measured peak of the lossless encode (issue
     // #223; since 2026-11-16 `docs/benchmarks/v1.0-jxl-encoder-memory-2026-11-16.md`):
     // for opaque 8-bit output above two DC groups 14 B/px plus 51 B/px of
     // the first 2048x2048 DC group, 38 B/px of the second and 12 MiB, so
-    // the default 1 GiB budget (owner decision of 2026-11-15, ADR-0004
-    // amendment) holds at most 49,133,275 pixels (49,344,752 with the
-    // 2026-11-15 model). 7100 x 7000 = 49,700,000 pixels is just above.
-    // Under the former 256 MiB default the limit was 3,655,036 pixels and
-    // this test was `default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`
-    // with 1920 x 1920; before the chunked encode it was about 3.5 MP and
-    // 2000 x 2000. The expectation changed by owner decision.
+    // the default 2 GiB budget (owner decision of 2026-11-16, ADR-0004
+    // amendment) holds at most 125,829,120 pixels, an extrapolation of the
+    // model fitted up to 24 MP. 11300 x 11200 = 126,560,000 pixels is just
+    // above. Under the 1 GiB default of 2026-11-15 the limit was 49,133,275
+    // pixels and this test was
+    // `default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`
+    // with 7100 x 7000; under the 256 MiB default before it, 3,655,036
+    // pixels (`…_above_about_3_7_megapixels`, 1920 x 1920); before the
+    // chunked encode about 3.5 MP and 2000 x 2000. The expectation changed
+    // by owner decision.
     let options = options(OutputFormat::JpegXl, ASSUME)
         .with_output(OutputSettings::JpegXl(JpegXlOptions::Lossless(
             JpegXlLossless::default(),
         )))
         .with_geometry(OutputGeometry::Exact {
-            width: 7100,
-            height: 7000,
+            width: 11_300,
+            height: 11_200,
         });
     rejected(
         transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &options),

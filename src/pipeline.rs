@@ -854,7 +854,7 @@ impl TransformOptions {
     /// The options for `geometry` with every other setting at its default:
     /// AVIF at `avifenc`'s defaults, no crop, Lanczos3, the `f32` executor,
     /// the default kernel ceiling, automatic transform threads, one encoder
-    /// thread, the strict color policy, and the default limits (a 1 GiB
+    /// thread, the strict color policy, and the default limits (a 2 GiB
     /// managed budget, 64 MiB of input, 100 million input pixels, 256 MiB of
     /// output).
     #[must_use]
@@ -869,9 +869,9 @@ impl TransformOptions {
             transform_threads: Threads::Automatic,
             profile_policy: InputProfilePolicy::Strict,
             encoder_threads: Threads::ONE,
-            // 1 GiB since 2026-11-15 (owner decision, ADR-0004 amendment);
-            // 256 MiB before.
-            max_managed_bytes: 1024 * 1024 * 1024,
+            // 2 GiB since 2026-11-16 (owner decision, ADR-0004 amendment);
+            // 1 GiB from 2026-11-15, 256 MiB before.
+            max_managed_bytes: 2 * 1024 * 1024 * 1024,
             max_input_bytes: Self::DEFAULT_MAX_INPUT_BYTES,
             max_input_pixels: Self::DEFAULT_MAX_INPUT_PIXELS,
             max_output_bytes: 256 * 1024 * 1024,
@@ -951,8 +951,9 @@ impl TransformOptions {
         encoder_threads, with_encoder_threads: Threads
     );
     setting!(
-        /// Engine-managed memory budget in bytes. Opaque codec scratch
-        /// memory is not bounded by it; see [`ProcessingReport`].
+        /// Engine-managed memory budget in bytes; default 2 GiB (since
+        /// 2026-11-16; 1 GiB from 2026-11-15, 256 MiB before). Opaque codec
+        /// scratch memory is not bounded by it; see [`ProcessingReport`].
         max_managed_bytes, with_max_managed_bytes: usize
     );
     setting!(

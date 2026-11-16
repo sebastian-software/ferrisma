@@ -801,3 +801,8 @@ reports that a stable item cannot express its use case.
      `libwebp-rs`, `libjxl-rs`, `libavif-rs/aom`); an external backend
      keeps its own `name()`. They no longer change when a package is
      renamed. Recorded in ADR-0017, amendment of the same date.
+  9. **Default budget 2 GiB** (owner decision of 2026-11-16; ADR-0004
+     amendment of that date). `max_managed_bytes` and `--budget-mb` default
+     to 2 GiB (1 GiB since 2026-11-15). Under decision 2 a default change of
+     a limit does not change output semantics, so it is not breaking; it is
+     listed in the changelog's *Changed* section.
