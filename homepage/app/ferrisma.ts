@@ -100,33 +100,10 @@ export const PORTS: Port[] = [
 ];
 
 /*
- * Where each port stands against the gate, as the quality gate guide records
- * it (docs/quality-gate.md, "Where each port stands (2026-11-16)", main at
- * abd11e6a). Short on purpose; the guide has the runs.
+ * Where each port stands against the gate is not kept here: it is generated
+ * at build time from the table "Where each port stands" in
+ * docs/quality-gate.md (scripts/gate-state.ts → app/gate-state.generated.ts).
  */
-export const GATE_AS_OF = "November 16, 2026";
-export const GATE_STATE: { port: string; state: string }[] = [
-  {
-    port: "JPEG",
-    state:
-      "Both halves of the check, scalar and SIMD, exist on AArch64 and x86-64. The port's x86-64 SIMD is written with intrinsics and compared with the original's assembly.",
-  },
-  {
-    port: "WebP",
-    state:
-      "Identical at every level in the recorded runs: NEON and scalar on AArch64; AVX2, SSE4.1 and SSE2 on hosted x86-64 Linux.",
-  },
-  {
-    port: "JPEG XL",
-    state:
-      "The decoder's NEON and AVX2 paths match the original word for word, AVX2 also in a hosted run on x86-64 hardware. Since November 16 the encoder runs its SIMD paths by default too; they match the original on NEON, and on AVX2 under Rosetta 2. A run on x86-64 hardware is still open for the encoder.",
-  },
-  {
-    port: "AVIF",
-    state:
-      "Scalar and NEON identical on AArch64. On x86-64, scalar, SSE4.1 and AVX2 are identical under QEMU emulation; a run on x86-64 hardware is still open.",
-  },
-];
 
 /*
  * Speed against the originals: port time ÷ the original's SIMD build, one

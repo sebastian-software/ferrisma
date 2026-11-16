@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
+import { writeGateState } from "./gate-state.ts";
 
 const homepage = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(homepage, "..");
@@ -121,5 +122,6 @@ export function sync(): void {
       `---\ntitle: ${JSON.stringify(title)}\n---\n\n${render(source, markdown)}`,
     );
   }
+  writeGateState();
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) sync();

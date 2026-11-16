@@ -25,8 +25,6 @@ import { PipelineDrawing } from "../drawings/Pipeline";
 import { RefuseOrReportDrawing } from "../drawings/RefuseOrReport";
 import {
   FAMILY_SITE,
-  GATE_AS_OF,
-  GATE_STATE,
   JXL_DECODE_RECORD,
   PORTS,
   REPOSITORY,
@@ -35,6 +33,7 @@ import {
   blob,
   path,
 } from "../ferrisma";
+import { GATE_AS_OF, GATE_STATE } from "../gate-state.generated";
 
 export const handle = { layout: "bare" };
 export const meta: ArdoMetaFunction = () => [
@@ -211,6 +210,7 @@ function Ports() {
         </p>
       </MonoPassage>
       <p className="fx-section-link">
+        <a href={path("how-a-port-is-made")}>How one port is made, step by step</a>
         {PORTS.map((port) => (
           <a key={port.format} href={path(port.docs)}>
             The {port.format} port
