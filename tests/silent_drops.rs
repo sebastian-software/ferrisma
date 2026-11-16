@@ -660,7 +660,8 @@ fn truncated_avif_is_malformed() {
 /// `--transform-threads=` values succeeded with the last one (audit row
 /// Q7). Owner decision of 2026-11-15 (ADR-0042): a repeated flag and a
 /// pair of contradictory flags are errors that name the flags, before any
-/// input is read; the binary exits with status 1.
+/// input is read; the binary exits with status 2 (a usage error, since
+/// 2026-11-16; status 1 before).
 #[cfg(feature = "cli")]
 #[test]
 fn cli_refuses_repeated_and_contradictory_flags() {
@@ -692,13 +693,11 @@ fn cli_refuses_repeated_and_contradictory_flags() {
         ),
     ] {
         let result = run(input, flags);
-        assert_eq!(result.status.code(), Some(1), "{flags:?}");
+        assert_eq!(result.status.code(), Some(2), "{flags:?}");
         let stderr = String::from_utf8_lossy(&result.stderr);
-        // `main` returns the error: Rust prints `Error: ` and its `Debug`.
-        assert!(
-            stderr.starts_with(&format!("Error: {message:?}")),
-            "{flags:?}: {stderr}"
-        );
+        // One `error: <message>` line (since 2026-11-16; Rust's `Error: `
+        // and the message's `Debug` before).
+        assert_eq!(stderr, format!("error: {message}\n"), "{flags:?}");
         assert!(
             result.stdout.is_empty(),
             "{flags:?}: nothing was transcoded"

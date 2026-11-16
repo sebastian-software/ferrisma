@@ -29,6 +29,17 @@ cargo run --release --features cli -- \
 package version, the target, the compiled engine features, and the build
 identity, which is `unknown` unless `FERRISMA_BUILD_ID` was set at compile
 time (`src/cli.rs`, #237).
+`--help` (or `-h`) prints the usage on standard output and exits 0.
+
+The exit status is 0 on success, 2 for a wrong command line (an unknown,
+repeated or contradictory flag, a value that does not parse or is out of
+range) and 1 for a processing error (an unreadable, refused or malformed
+input, an exhausted limit, an internal error). An error is one line
+`error: <message>` on standard error; when the engine refused or failed,
+a second line such as
+`failure: kind=unsupported-color reason=color-signal-missing` names the
+kind and refusal reason for scripts. See the
+[compatibility guide](compatibility.md#cli-units-and-exit-status).
 
 The `cli` feature enables JPEG, still WebP, JPEG XL and AVIF input, AVIF and
 still WebP output, and ICC support. The AVIF encoder is the workspace

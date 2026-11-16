@@ -10,10 +10,9 @@
 //!   --features jpeg-read,webp-read,webp-write,jpeg-xl-read,jpeg-xl-write,icc
 //! ```
 
-use std::error::Error;
 use std::process::ExitCode;
 
-fn main() -> Result<ExitCode, Box<dyn Error>> {
+fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
-    ferrisma::cli::run(&args, None)
+    ferrisma::cli::main(&args, None)
 }

@@ -632,7 +632,9 @@ ferrisma photo.jpg out.webp 64 48 --assume-srgb --webp-lossless --webp-level=6
 ferrisma photo.jpg out.jxl 64 48 --assume-srgb
 ```
 
-Rejected, with the error the CLI prints (exit status 1):
+Rejected, with the error the CLI prints (exit status 1 for a refused or
+malformed input, 2 for a wrong command line, including an `InvalidOptions`
+value; since 2026-11-16):
 
 | Command | Error | What to do |
 | --- | --- | --- |
@@ -653,8 +655,11 @@ Rejected, with the error the CLI prints (exit status 1):
 | `ferrisma photo.jpg out.png …` | "output must have a .avif, .webp or .jxl extension" | choose a supported output |
 | `ferrisma photo.jpg out.avif … --max-input-mpx=0` | `InvalidOptions` "input byte/pixel limits must be nonzero" | use a positive limit |
 
-The CLI prints the message, not the reason in parentheses, which is what
-`refusal_reason()` returns through the Rust facade. The facade returns the
+The CLI prints the message on an `error:` line and, for an error the
+engine returned, the kind and the reason in parentheses on a second line,
+for example `failure: kind=unsupported-color reason=color-signal-missing`
+(since 2026-11-16; before, only Rust's `Debug` form of the error). The
+reason is what `refusal_reason()` returns through the Rust facade. The facade returns the
 same `ProcessingErrorKind` values;
 [`examples/consumer.rs`](../examples/consumer.rs) maps each kind to a
 reject/retry/alert decision and its `--self-check` asserts them.

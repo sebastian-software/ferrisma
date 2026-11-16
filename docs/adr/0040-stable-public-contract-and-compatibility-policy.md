@@ -76,8 +76,11 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 ### Rust API (`ferrisma::cli`)
 
 `cli::run(args, backend)` is public so adapter crates can ship the same
-command. Proposed tier: experimental and `#[doc(hidden)]` candidate; the
-binary's command line, not this function, is the stable CLI contract.
+command, and since 2026-11-16 `cli::main(args, backend) -> ExitCode` runs it
+and prints the error and chooses the exit status as the binary does (the
+binary and `ferrisma-libavif` call it). Proposed tier for both:
+experimental and `#[doc(hidden)]` candidates (problem 12); the binary's
+command line, not these functions, is the stable CLI contract.
 
 ### Cargo features
 
@@ -103,7 +106,10 @@ binary's command line, not this function, is the stable CLI contract.
 | `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=8\|10`, `--avif-chroma=444\|420` | Experimental, as `AvifOptions` |
 | `--reference`, `--kernel-level=scalar\|neon\|avx2\|avx512` | Experimental (verification and diagnostics) |
 | `.jxl` output, `--jxl-distance=`, `--jxl-lossless` (ADR-0039) | Experimental |
-| Exit status 0 success, 2 usage (fewer than four positional arguments), 1 any other error (Rust's default `Error: …` on stderr) | Stable |
+| Exit status 0 success, 2 usage error (missing positionals, unknown, repeated or contradictory flag, unsupported extension, a value that does not parse, `InvalidOptions`), 1 processing error (since 2026-11-16; before: 2 only for fewer than four positionals, 1 for everything else) | Stable |
+| Standard error: one line `error: <message>` (message text not stable); for an error the engine returned, a second line `failure: kind=<kind> reason=<reason or none>` with lower-case hyphenated names owned by the CLI (since 2026-11-16; before, Rust's `Error: ` and the derived `Debug`) | Tier not decided |
+| `--help`, `-h`: usage on stdout, exit 0 (since 2026-11-16) | Tier not decided |
+| `--version`, `-V`: four lines on stdout (version, target, features, build), exit 0, precedence over every other argument | Tier not decided |
 | Each flag at most once; mutually exclusive pairs refused with both names (owner decision 2026-11-15) | Stable |
 | `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, and `decoder` (appended 2026-11-14, #217) |
 | Human-readable `Encoded …`, `Timings: …` lines and the stderr memory note | Not stable |
@@ -224,8 +230,10 @@ owner requires of the API review before 1.0.
 12. **`cli::run` is a public library function** returning
     `Box<dyn Error>`. Recommendation: `#[doc(hidden)]` or move it to the
     binary's crate if adapters no longer need it.
-13. **CLI help.** There is no `--help`; usage is printed only for too few
-    arguments, and an unknown flag exits 1. `--version` (and `-V`) exists
+13. **CLI help.** _Since 2026-11-16 (amendment of that date):_ `--help`
+    and `-h` print the usage on standard output and exit 0, and an unknown
+    flag exits 2. Before, there was no `--help`; usage was printed only for
+    too few arguments, and an unknown flag exited 1. `--version` (and `-V`) exists
     since 2026-11-13 (#237, [compatibility guide](../compatibility.md)) but
     is not yet assigned to a tier. Recommendation: add `--help` and assign
     both flags a tier before 1.0.
@@ -545,3 +553,30 @@ reports that a stable item cannot express its use case.
      provokes a panic through the public backend API in
      `required_frame_bytes`, `begin`, `write_row` and `finish`, with one and
      four transform threads and in a batch.
+  2. **CLI error output and exit status** (review sections 2.8 and 2.10).
+     The binary prints an error with `Display`, not the derived `Debug`
+     (`main` returned `Box<dyn Error>`, so Rust printed
+     `Error: ProcessingError { kind: …, reason: …, message: "…" }` or
+     `Error: "…"`): one line `error: <message>` on standard error, and for an
+     error the engine returned a second line
+     `failure: kind=<kind> reason=<reason or none>` shaped like the
+     `report:` line, with lower-case hyphenated names written by the CLI
+     (`kind_name`, `reason_name` in `src/cli.rs`). Exit status 0 success;
+     `--help`/`-h` print the usage on standard output and exit 0 (before:
+     unknown option, exit 1; too few arguments printed the usage to
+     standard error and exit 2, which stays, now after an `error:` line);
+     `--version` unchanged; 2 for every usage error (missing positionals,
+     unknown, repeated or contradictory flag, unsupported extension, a value
+     that does not parse, and a value the engine refuses as
+     `InvalidOptions`, so a range check moved into the engine stays a usage
+     error); 1 for every processing error (unreadable input, unwritable
+     output, refused, malformed, input limit, resource exhausted, feature
+     disabled, encoder failure, internal). The usage text now lists
+     `--help` and `--kernel-level=`. Added, experimental like `cli::run`:
+     `cli::main(args, backend) -> ExitCode`, which the binary and
+     `ferrisma-libavif` call, so an adapter's command behaves the same.
+     Command-line inventory rows updated; problem 13 is answered for
+     `--help`, the tiers of `--help`, `--version` and the error lines are
+     not decided. Evidence: `tests/cli_exit_status.rs` through the built
+     binary, `cli::tests::exit_status_separates_usage_from_processing_errors`
+     (including `Internal` from a caught panic).

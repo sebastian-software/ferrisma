@@ -3,15 +3,47 @@
 //! this crate (ADR-0024) can ship the same command with their backend.
 
 use std::error::Error;
+use std::fmt;
 use std::io::{self, Read};
 use std::path::Path;
 use std::process::ExitCode;
+use std::str::FromStr;
 
 use crate::pipeline::{
     ChromaSubsampling, Crop, EncoderBackend, ImageFormat, InputProfilePolicy, JpegXlOptions,
-    KernelLevel, Output, OutputFormat, ResizeFilter, TransformOptions, WebpOptions,
-    WorkingPrecision, transcode, transcode_with,
+    KernelLevel, Output, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason,
+    ResizeFilter, TransformOptions, WebpOptions, WorkingPrecision, transcode, transcode_with,
 };
+
+/// A wrong command line: an unknown, repeated or contradictory flag, a
+/// missing or unsupported positional argument, or a value that does not
+/// parse. The command exits with status 2 for it (since 2026-11-16).
+#[derive(Debug)]
+struct Usage(String);
+
+impl fmt::Display for Usage {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl Error for Usage {}
+
+/// Mark `error` as a usage error, keeping its message.
+fn usage(error: impl fmt::Display) -> Box<dyn Error> {
+    Box::new(Usage(error.to_string()))
+}
+
+/// Parse the value of `option` after `prefix`, naming the flag when it does
+/// not parse.
+fn parse_value<T: FromStr>(option: &str, prefix: &str) -> Result<T, Box<dyn Error>>
+where
+    T::Err: fmt::Display,
+{
+    option[prefix.len()..]
+        .parse()
+        .map_err(|error| format!("invalid value in {option}: {error}").into())
+}
 
 // Bound the stream itself: file metadata can be absent or change after opening.
 fn read_input(mut reader: impl Read, limit: usize) -> io::Result<Vec<u8>> {
@@ -39,20 +71,26 @@ fn parse_format(path: &Path) -> Result<ImageFormat, Box<dyn Error>> {
         "webp" => Ok(ImageFormat::WebP),
         "jxl" => Ok(ImageFormat::JpegXl),
         "avif" => Ok(ImageFormat::Avif),
-        _ => Err("unsupported file extension; expected JPEG, WebP, JXL or AVIF".into()),
+        _ => Err(usage(
+            "unsupported input file extension; expected .jpg, .jpeg, .webp, .jxl or .avif",
+        )),
     }
 }
 
 fn parse_crop(value: &str) -> Result<Crop, Box<dyn Error>> {
-    let parts: Vec<&str> = value.split(',').collect();
-    if parts.len() != 4 {
+    let parts: Vec<u32> = value
+        .split(',')
+        .map(str::parse)
+        .collect::<Result<_, _>>()
+        .map_err(|error| format!("invalid value in --crop={value}: {error}"))?;
+    let [x, y, width, height] = parts[..] else {
         return Err("crop must be x,y,width,height".into());
-    }
+    };
     Ok(Crop {
-        x: parts[0].parse()?,
-        y: parts[1].parse()?,
-        width: parts[2].parse()?,
-        height: parts[3].parse()?,
+        x,
+        y,
+        width,
+        height,
     })
 }
 
@@ -89,18 +127,18 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
             return Err(format!("{} requires .avif output", flag_name(option)).into());
         }
         option if option.starts_with("--avif-quality=") => {
-            options.avif.quality = option["--avif-quality=".len()..].parse()?;
+            options.avif.quality = parse_value(option, "--avif-quality=")?;
         }
         option if option.starts_with("--avif-alpha-quality=") => {
-            options.avif.alpha_quality = option["--avif-alpha-quality=".len()..].parse()?;
+            options.avif.alpha_quality = parse_value(option, "--avif-alpha-quality=")?;
         }
         option if option.starts_with("--avif-speed=") => {
-            options.avif.speed = option["--avif-speed=".len()..].parse()?;
+            options.avif.speed = parse_value(option, "--avif-speed=")?;
         }
         option if option.starts_with("--avif-depth=") => {
             // Without the flag the depth follows the input; the engine
             // refuses a depth other than 8, 10 or 12 before decoding.
-            options.avif.depth = Some(option["--avif-depth=".len()..].parse()?);
+            options.avif.depth = Some(parse_value(option, "--avif-depth=")?);
         }
         "--avif-chroma=444" => options.avif.chroma = ChromaSubsampling::Yuv444,
         "--avif-chroma=420" => options.avif.chroma = ChromaSubsampling::Yuv420,
@@ -117,7 +155,7 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
         }
         option if option.starts_with("--webp-level=") => {
             options.webp = WebpOptions::Lossless {
-                level: option["--webp-level=".len()..].parse()?,
+                level: parse_value(option, "--webp-level=")?,
             };
         }
         // Lossy-only settings; `refuse_exclusive_flags` has already refused
@@ -125,7 +163,7 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
         option if option.starts_with("--webp-quality=") => {
             if let WebpOptions::Lossy { method, .. } = options.webp {
                 options.webp = WebpOptions::Lossy {
-                    quality: option["--webp-quality=".len()..].parse()?,
+                    quality: parse_value(option, "--webp-quality=")?,
                     method,
                 };
             }
@@ -134,7 +172,7 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
             if let WebpOptions::Lossy { quality, .. } = options.webp {
                 options.webp = WebpOptions::Lossy {
                     quality,
-                    method: option["--webp-method=".len()..].parse()?,
+                    method: parse_value(option, "--webp-method=")?,
                 };
             }
         }
@@ -154,7 +192,7 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
             // refuses a depth outside 8 to 16 before decoding.
             options.jpeg_xl = options
                 .jpeg_xl
-                .with_depth(Some(option["--jxl-depth=".len()..].parse()?));
+                .with_depth(Some(parse_value(option, "--jxl-depth=")?));
         }
         option if option.starts_with("--jxl-distance=") => {
             if options.output_format != OutputFormat::JpegXl {
@@ -162,36 +200,36 @@ fn apply_option(options: &mut TransformOptions, option: &str) -> Result<(), Box<
             }
             // The range is checked by the transcode, before decoding.
             options.jpeg_xl = JpegXlOptions::Lossy {
-                distance: option[15..].parse()?,
+                distance: parse_value(option, "--jxl-distance=")?,
                 depth: options.jpeg_xl.depth(),
             };
         }
         option if option.starts_with("--max-output-mb=") => {
-            let megabytes: usize = option[16..].parse()?;
+            let megabytes: usize = parse_value(option, "--max-output-mb=")?;
             options.max_output_bytes = megabytes
                 .checked_mul(1024 * 1024)
                 .ok_or("encoded output limit overflow")?;
         }
         option if option.starts_with("--transform-threads=") => {
-            options.transform_threads = option[20..].parse()?;
+            options.transform_threads = parse_value(option, "--transform-threads=")?;
         }
         option if option.starts_with("--encoder-threads=") => {
-            options.encoder_threads = option[18..].parse()?;
+            options.encoder_threads = parse_value(option, "--encoder-threads=")?;
         }
         option if option.starts_with("--budget-mb=") => {
-            let megabytes: usize = option[12..].parse()?;
+            let megabytes: usize = parse_value(option, "--budget-mb=")?;
             options.max_managed_bytes = megabytes
                 .checked_mul(1024 * 1024)
                 .ok_or("memory budget overflow")?;
         }
         option if option.starts_with("--max-input-mb=") => {
-            let megabytes: usize = option[15..].parse()?;
+            let megabytes: usize = parse_value(option, "--max-input-mb=")?;
             options.max_input_bytes = megabytes
                 .checked_mul(1024 * 1024)
                 .ok_or("compressed input limit overflow")?;
         }
         option if option.starts_with("--max-input-mpx=") => {
-            let megapixels: u64 = option[16..].parse()?;
+            let megapixels: u64 = parse_value(option, "--max-input-mpx=")?;
             options.max_input_pixels = megapixels
                 .checked_mul(1_000_000)
                 .ok_or("decoded pixel limit overflow")?;
@@ -260,6 +298,116 @@ fn is_version_request(args: &[String]) -> bool {
         .any(|arg| arg == "--version" || arg == "-V")
 }
 
+/// True when `--help` or `-h` appears after the program name (since
+/// 2026-11-16). It takes precedence over every argument except the version
+/// flags, and no input is read.
+fn is_help_request(args: &[String]) -> bool {
+    args.iter()
+        .skip(1)
+        .any(|arg| arg == "--help" || arg == "-h")
+}
+
+/// The usage text for `--help` (standard output) and for missing
+/// positional arguments (standard error).
+fn usage_text(args: &[String]) -> String {
+    let program = args
+        .first()
+        .and_then(|path| Path::new(path).file_name())
+        .and_then(|name| name.to_str())
+        .unwrap_or("ferrisma");
+    format!(
+        "usage: {program} --version|-V\n       {program} --help|-h\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--avif-quality=60 --avif-alpha-quality=60 (libavif 0-100) --avif-speed=6 (AOM cpu-used 0-10) --avif-depth=8|10|12 (default: the input's) --avif-chroma=444|420] [--webp-quality=75 (libwebp 1-100) --webp-method=4 (libwebp 0-6)|--webp-lossless --webp-level=4 (libwebp 0-9)] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--jxl-depth=8..16 (default: the input's)] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--kernel-level=scalar|neon|avx2|avx512] [--encoder-threads=1] [--transform-threads=0] [--max-output-mb=256] [--budget-mb=1024] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --webp-quality or --webp-method. Defaults are the original tools' (avifenc, cwebp, cjxl).\n       Exit status: 0 success, 1 processing error, 2 usage error."
+    )
+}
+
+/// The exit status for an error of [`run`]: 2 when the command line is
+/// wrong, including a value the engine refuses as
+/// [`ProcessingErrorKind::InvalidOptions`] (a setting outside its scale, a
+/// zero size or limit, a crop outside the image); 1 for every processing
+/// error: unreadable input or unwritable output, a refused, malformed or too
+/// large input, an exhausted resource, a missing feature, an encoder
+/// failure and an internal error (since 2026-11-16).
+fn exit_status(error: &(dyn Error + 'static)) -> u8 {
+    if error.is::<Usage>() {
+        return 2;
+    }
+    match error
+        .downcast_ref::<ProcessingError>()
+        .map(ProcessingError::kind)
+    {
+        Some(ProcessingErrorKind::InvalidOptions) => 2,
+        _ => 1,
+    }
+}
+
+/// The name of an error kind on the `failure:` line. Lower-case and
+/// hyphenated, owned by this function, so renaming a Rust variant cannot
+/// change the command's output.
+fn kind_name(kind: ProcessingErrorKind) -> &'static str {
+    match kind {
+        ProcessingErrorKind::InvalidOptions => "invalid-options",
+        ProcessingErrorKind::InputLimitExceeded => "input-limit-exceeded",
+        ProcessingErrorKind::FeatureDisabled => "feature-disabled",
+        ProcessingErrorKind::MalformedInput => "malformed-input",
+        ProcessingErrorKind::UnsupportedInput => "unsupported-input",
+        ProcessingErrorKind::UnsupportedColor => "unsupported-color",
+        ProcessingErrorKind::ResourceExhausted => "resource-exhausted",
+        ProcessingErrorKind::Cancelled => "cancelled",
+        ProcessingErrorKind::EncodeFailed => "encode-failed",
+        ProcessingErrorKind::Internal => "internal",
+    }
+}
+
+/// The name of a refusal reason on the `failure:` line, as [`kind_name`].
+fn reason_name(reason: RefusalReason) -> &'static str {
+    match reason {
+        RefusalReason::Animation => "animation",
+        RefusalReason::ColorSignalMissing => "color-signal-missing",
+        RefusalReason::RenderedIccRequiresOptIn => "rendered-icc-requires-opt-in",
+        RefusalReason::CicpBesideIcc => "cicp-beside-icc",
+        RefusalReason::HdrTransfer => "hdr-transfer",
+        RefusalReason::UnsupportedColorEncoding => "unsupported-color-encoding",
+        RefusalReason::RenderedIccMissing => "rendered-icc-missing",
+        RefusalReason::ContradictoryColorSignals => "contradictory-color-signals",
+        RefusalReason::UnsupportedLayout => "unsupported-layout",
+        RefusalReason::AlphaAssociation => "alpha-association",
+        RefusalReason::GeometricTransform => "geometric-transform",
+        RefusalReason::UnsupportedEssentialProperty => "unsupported-essential-property",
+        RefusalReason::IccColorSpaceMismatch => "icc-color-space-mismatch",
+    }
+}
+
+/// The second error line for an error the engine returned, shaped like the
+/// `report:` line: `failure: kind=<kind> reason=<reason or none>`.
+fn failure_line(error: &ProcessingError) -> String {
+    format!(
+        "failure: kind={} reason={}",
+        kind_name(error.kind()),
+        error.refusal_reason().map_or("none", reason_name)
+    )
+}
+
+/// Run the command as the `ferrisma` binary does and turn its result into
+/// the process exit status (since 2026-11-16; experimental, like [`run`]).
+/// An error is printed on standard error as one line `error: <message>`;
+/// when the engine returned it, a second line `failure: kind=<kind>
+/// reason=<reason or none>` names its kind and refusal reason in the
+/// lower-case, hyphenated form of the `report:` line. Exit status 2 means
+/// the command line is wrong, 1 any processing error; see [`run`].
+#[must_use]
+pub fn main(args: &[String], backend: Option<&dyn EncoderBackend>) -> ExitCode {
+    match run(args, backend) {
+        Ok(code) => code,
+        Err(error) => {
+            eprintln!("error: {error}");
+            if let Some(error) = error.downcast_ref::<ProcessingError>() {
+                eprintln!("{}", failure_line(error));
+            }
+            ExitCode::from(exit_status(&*error))
+        }
+    }
+}
+
 /// The `--version` report, one item per line: the package version, the
 /// target, the compiled-in engine features and the build identity (the
 /// `FERRISMA_BUILD_ID` set at compile time, or `unknown`).
@@ -294,11 +442,14 @@ fn version_text(build_id: Option<&str>) -> String {
 /// Run the command with `args` (the program name first), encoding with
 /// `backend`, or with the built-in sink when it is `None`. Every encoder
 /// flag reaches an external backend in its request (`--avif-depth=` too,
-/// since 2026-11-15).
+/// since 2026-11-15). `--version` and `--help` print to standard output and
+/// return success; missing positional arguments print the usage to standard
+/// error and return exit status 2. [`main`] prints a returned error and
+/// chooses its exit status.
 ///
 /// # Errors
 /// Invalid arguments, unreadable input, unwritable output and every
-/// transcode error.
+/// transcode error (a [`ProcessingError`]).
 #[allow(clippy::too_many_lines)] // Argument handling and two report lines.
 pub fn run(
     args: &[String],
@@ -308,14 +459,14 @@ pub fn run(
         println!("{}", version_text(option_env!("FERRISMA_BUILD_ID")));
         return Ok(ExitCode::SUCCESS);
     }
+    if is_help_request(args) {
+        println!("{}", usage_text(args));
+        return Ok(ExitCode::SUCCESS);
+    }
     if args.len() < 5 {
-        let program = args
-            .first()
-            .and_then(|path| Path::new(path).file_name())
-            .and_then(|name| name.to_str())
-            .unwrap_or("ferrisma");
         eprintln!(
-            "usage: {program} --version|-V\n       {program} input.jpg|input.webp|input.jxl|input.avif output.avif|output.webp|output.jxl WIDTH HEIGHT [--avif-quality=60 --avif-alpha-quality=60 (libavif 0-100) --avif-speed=6 (AOM cpu-used 0-10) --avif-depth=8|10|12 (default: the input's) --avif-chroma=444|420] [--webp-quality=75 (libwebp 1-100) --webp-method=4 (libwebp 0-6)|--webp-lossless --webp-level=4 (libwebp 0-9)] [--jxl-distance=1.0 (0.05 to below 3.0)|--jxl-lossless] [--jxl-depth=8..16 (default: the input's)] [--assume-srgb|--use-rendered-icc] [--area] [--reference] [--encoder-threads=1] [--transform-threads=0] [--max-output-mb=256] [--budget-mb=1024] [--max-input-mb=64] [--max-input-mpx=100] [--crop=x,y,w,h]\n       Each flag may be given once. Mutually exclusive: --assume-srgb and --use-rendered-icc; --jxl-lossless and --jxl-distance; --webp-lossless or --webp-level and --webp-quality or --webp-method. Defaults are the original tools' (avifenc, cwebp, cjxl)."
+            "error: missing arguments; INPUT OUTPUT WIDTH HEIGHT are required\n{}",
+            usage_text(args)
         );
         return Ok(ExitCode::from(2));
     }
@@ -328,33 +479,41 @@ pub fn run(
         // Lossy d1.0 by default, or --jxl-distance / --jxl-lossless;
         // requires the jpeg-xl-write feature (ADR-0039).
         Some("jxl") => OutputFormat::JpegXl,
-        _ => return Err("output must have a .avif, .webp or .jxl extension".into()),
+        _ => return Err(usage("output must have a .avif, .webp or .jxl extension")),
+    };
+    let dimension = |name: &str, value: &str| {
+        value
+            .parse::<u32>()
+            .map_err(|error| usage(format!("invalid {name} {value:?}: {error}")))
     };
     let mut options = TransformOptions {
         output_format,
-        output_width: args[3].parse()?,
-        output_height: args[4].parse()?,
+        output_width: dimension("WIDTH", &args[3])?,
+        output_height: dimension("HEIGHT", &args[4])?,
         ..TransformOptions::default()
     };
-    refuse_exclusive_flags(&args[5..])?;
+    refuse_exclusive_flags(&args[5..]).map_err(usage)?;
     let mut given: Vec<&str> = Vec::new();
     for option in args.iter().skip(5) {
-        apply_option(&mut options, option)?;
+        apply_option(&mut options, option).map_err(usage)?;
         // Owner decision of 2026-11-15 (ADR-0042): a repeated flag is an
         // error, never "the last one wins".
         let name = flag_name(option);
         if given.contains(&name) {
-            return Err(format!("{name} may only be given once").into());
+            return Err(usage(format!("{name} may only be given once")));
         }
         given.push(name);
     }
     let format = parse_format(input_path)?;
-    let data = read_input(std::fs::File::open(input_path)?, options.max_input_bytes)?;
+    let data = std::fs::File::open(input_path)
+        .and_then(|file| read_input(file, options.max_input_bytes))
+        .map_err(|error| format!("cannot read {}: {error}", input_path.display()))?;
     let output = match backend {
         None => transcode(&data, format, options)?,
         Some(backend) => transcode_with(&data, format, options, backend)?,
     };
-    std::fs::write(output_path, &output.bytes)?;
+    std::fs::write(output_path, &output.bytes)
+        .map_err(|error| format!("cannot write {}: {error}", output_path.display()))?;
     println!(
         "Encoded {} bytes. Decoder requests: {}, known decoded full frames: {}, \
          peak engine-managed memory: {} bytes, encoder materialization: {} bytes.",
@@ -756,6 +915,76 @@ mod tests {
             ),
             "{line}"
         );
+    }
+
+    /// Exit status 2 for a wrong command line, including the engine's
+    /// `InvalidOptions`, and 1 for every other error, `Internal` from a
+    /// caught panic included (since 2026-11-16).
+    #[cfg(feature = "jpeg-read")]
+    #[test]
+    fn exit_status_separates_usage_from_processing_errors() {
+        use super::{exit_status, failure_line, usage};
+        use crate::pipeline::{
+            EncodeError, EncodeRequest, EncoderBackend, ImageFormat, OutputFormat, RowEncoder,
+            transcode, transcode_with,
+        };
+        struct Panics;
+        impl EncoderBackend for Panics {
+            fn format(&self) -> OutputFormat {
+                OutputFormat::WebP
+            }
+            fn name(&self) -> &'static str {
+                "test-panic"
+            }
+            fn begin(&self, _: &EncodeRequest) -> Result<Box<dyn RowEncoder + '_>, EncodeError> {
+                panic!("test backend panics in begin")
+            }
+        }
+        let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
+        let webp = TransformOptions {
+            output_format: OutputFormat::WebP,
+            output_width: 8,
+            output_height: 8,
+            ..TransformOptions::default()
+        };
+        assert_eq!(exit_status(&*usage("unknown option: --fast")), 2);
+        let invalid = transcode(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                output_width: 0,
+                ..webp
+            },
+        )
+        .unwrap_err();
+        assert_eq!(exit_status(&invalid), 2);
+        assert_eq!(
+            failure_line(&invalid),
+            "failure: kind=invalid-options reason=none"
+        );
+        let refused = transcode(jpeg, ImageFormat::Jpeg, webp).unwrap_err();
+        assert_eq!(exit_status(&refused), 1);
+        assert_eq!(
+            failure_line(&refused),
+            "failure: kind=unsupported-color reason=color-signal-missing"
+        );
+        let internal = transcode_with(
+            jpeg,
+            ImageFormat::Jpeg,
+            TransformOptions {
+                profile_policy: crate::pipeline::InputProfilePolicy::AssumeSrgbIfMissing,
+                ..webp
+            },
+            &Panics,
+        )
+        .unwrap_err();
+        assert_eq!(exit_status(&internal), 1);
+        assert_eq!(
+            failure_line(&internal),
+            "failure: kind=internal reason=none"
+        );
+        let io: Box<dyn std::error::Error> = "cannot read missing.jpg".into();
+        assert_eq!(exit_status(&*io), 1);
     }
 
     /// Owner decision of 2026-11-15 (ADR-0043 D4): each output has its
