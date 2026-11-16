@@ -980,9 +980,19 @@ static REFERENCE_VARIANT: std::sync::LazyLock<
 > = std::sync::LazyLock::new(Default::default);
 
 fn original_observations(requests: &[String]) -> Vec<String> {
-    let pinned = program_observations(&oracle_path(), requests);
-    if let Some(variant) = reference_variant_path() {
-        let other = program_observations(&variant, requests);
+    let variant = reference_variant_path();
+    // The two references are separate processes: they run concurrently.
+    let (pinned, other) = std::thread::scope(|scope| {
+        let other = variant
+            .as_ref()
+            .map(|variant| scope.spawn(|| program_observations(variant, requests)));
+        let pinned = program_observations(&oracle_path(), requests);
+        (
+            pinned,
+            other.map(|thread| thread.join().expect("the second scalar reference")),
+        )
+    });
+    if let Some(other) = other {
         // Per family: reference words, words O1 excludes (requests with NaN or
         // infinity inputs), exceptional requests whose references differ in
         // token count, and words in which the references disagree on a request

@@ -46,19 +46,53 @@ fn compare(family: &str, requests: Vec<String>) {
 
 /// [`compare`], returning the number of exactly matched histories.
 fn compare_counted(family: &str, requests: Vec<String>) -> usize {
+    compare_counted_with(family, requests, None)
+}
+
+/// [`compare_counted`] with the original's observations of `requests` when
+/// the caller already has them (a family that first checks that the original
+/// encodes every history): each history then runs once in each reference
+/// instead of twice. The original's observations, its `epub-probe`
+/// observations and the Rust runs are independent processes and run
+/// concurrently; every comparison below is the same, in the same order.
+fn compare_counted_with(
+    family: &str,
+    requests: Vec<String>,
+    originals: Option<Vec<String>>,
+) -> usize {
     capture(family, &requests);
-    let originals = super::original_observations(&requests);
-    let probes = super::original_observations(
-        &requests
+    let probe_requests: Vec<String> = requests
+        .iter()
+        .map(|request| request.replacen("epub-run", "epub-probe", 1))
+        .collect();
+    let (originals, probes, runs) = std::thread::scope(|scope| {
+        let originals = match originals {
+            Some(originals) => Ok(originals),
+            None => Err(scope.spawn(|| super::original_observations(&requests))),
+        };
+        let probes = scope.spawn(|| super::original_observations(&probe_requests));
+        let runs: Vec<_> = requests
             .iter()
-            .map(|request| request.replacen("epub-run", "epub-probe", 1))
-            .collect::<Vec<_>>(),
+            .map(|request| {
+                let mut args = request.split_whitespace();
+                assert_eq!(args.next(), Some("epub-run"));
+                driver::observe(&mut args)
+            })
+            .collect();
+        let originals = originals.unwrap_or_else(|thread| thread.join().expect("the original"));
+        (
+            originals,
+            probes.join().expect("the original's probes"),
+            runs,
+        )
+    });
+    assert_eq!(
+        originals.len(),
+        requests.len(),
+        "one original observation per history"
     );
     let (mut exact, mut fast_lossless, mut enqueued) = (0, 0, 0);
-    for ((request, cpp), probe) in requests.iter().zip(&originals).zip(&probes) {
-        let mut args = request.split_whitespace();
-        assert_eq!(args.next(), Some("epub-run"));
-        let rust = driver::observe(&mut args);
+    for (((request, cpp), probe), rust) in requests.iter().zip(&originals).zip(&probes).zip(runs) {
         let ops: Vec<&str> = request.split_whitespace().skip(3).collect();
         let probe: Vec<&str> = probe.split(' ').collect();
         // Every compared AddImageFrame of the original queued a regular frame
@@ -897,14 +931,15 @@ fn lossy_history(
 /// codestream.
 fn compare_admitted(family: &str, requests: Vec<String>) {
     let count = requests.len();
-    for (request, cpp) in requests.iter().zip(super::original_observations(&requests)) {
+    let originals = super::original_observations(&requests);
+    for (request, cpp) in requests.iter().zip(&originals) {
         let last = cpp.rsplit(" p:").next().unwrap_or("");
         assert!(
-            cpp.contains(" p:") && last.starts_with("0,") && !output_bytes(&cpp).is_empty(),
+            cpp.contains(" p:") && last.starts_with("0,") && !output_bytes(cpp).is_empty(),
             "the original encodes the history: {request}"
         );
     }
-    let exact = compare_counted(family, requests);
+    let exact = compare_counted_with(family, requests, Some(originals));
     assert_eq!(exact, count, "{family}: every admitted history is exact");
 }
 
@@ -2089,13 +2124,14 @@ fn processor_history(
 /// processor received bytes.
 fn compare_admitted_processor(family: &str, requests: Vec<String>) {
     let count = requests.len();
-    for (request, cpp) in requests.iter().zip(super::original_observations(&requests)) {
+    let originals = super::original_observations(&requests);
+    for (request, cpp) in requests.iter().zip(&originals) {
         assert!(
             cpp.contains(" i:0/0 r:0;") && !cpp.contains(";0,0,0;"),
             "the original encodes the history: {request}"
         );
     }
-    let exact = compare_counted(family, requests);
+    let exact = compare_counted_with(family, requests, Some(originals));
     assert_eq!(exact, count, "{family}: every admitted history is exact");
 }
 
@@ -2321,19 +2357,20 @@ fn chunked_history(
 /// admission, and the original must encode it.
 fn compare_admitted_chunked(family: &str, requests: Vec<String>) {
     let count = requests.len();
-    for (request, cpp) in requests.iter().zip(super::original_observations(&requests)) {
+    let originals = super::original_observations(&requests);
+    for (request, cpp) in requests.iter().zip(&originals) {
         let encoded = if cpp.contains(" r:0;") {
             !cpp.contains(";0,0,0;")
         } else {
             cpp.rsplit(" p:").next().unwrap_or("").starts_with("0,")
-                && !output_bytes(&cpp).is_empty()
+                && !output_bytes(cpp).is_empty()
         };
         assert!(
             cpp.contains(" c:0;") && encoded,
             "the original encodes the history: {request}"
         );
     }
-    let exact = compare_counted(family, requests);
+    let exact = compare_counted_with(family, requests, Some(originals));
     assert_eq!(exact, count, "{family}: every admitted history is exact");
 }
 
@@ -2624,7 +2661,8 @@ fn gate_histories(xsize: usize, ysize: usize, seed: usize) -> Vec<String> {
 /// encode it, in buffer or processor mode.
 fn compare_gate(family: &str, requests: Vec<String>) {
     let count = requests.len();
-    for (request, cpp) in requests.iter().zip(super::original_observations(&requests)) {
+    let originals = super::original_observations(&requests);
+    for (request, cpp) in requests.iter().zip(&originals) {
         let encoded = if request.contains(" i r") {
             cpp.contains(" i:0/0 r:0;") && !cpp.contains(";0,0,0;")
         } else {
@@ -2632,39 +2670,75 @@ fn compare_gate(family: &str, requests: Vec<String>) {
         };
         assert!(encoded, "the original encodes the history: {request}");
     }
-    let exact = compare_counted(family, requests);
+    let exact = compare_counted_with(family, requests, Some(originals));
     assert_eq!(exact, count, "{family}: every gate history is exact");
 }
 
-/// Encoder step 2's gate at 768x768, 1024x1024 and 2048x1536.
+// Encoder step 2's gate, one test per size, and the two largest sizes one
+// test per distance (the first four histories of `gate_histories` are
+// distance 1.0, the last four 2.0): the same histories as one test over all
+// sizes, in tests that the check's partitions can spread over shards.
+
+/// Encoder step 2's gate at 768x768.
 #[test]
-fn public_encoder_streaming_gate_sizes_match_original() {
+fn public_encoder_streaming_gate_768_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
     jxl::jxl::hwy::select_scalar_encoder_for_test();
-    let mut requests = Vec::new();
-    for (index, (xsize, ysize)) in [(768, 768), (1024, 1024), (2048, 1536)]
-        .into_iter()
-        .enumerate()
-    {
-        requests.extend(gate_histories(xsize, ysize, 3 * index));
-    }
-    compare_gate("streaming-gate", requests);
+    compare_gate("streaming-gate-768", gate_histories(768, 768, 0));
 }
 
-/// Encoder step 2's gate at 2049x2049.
+/// Encoder step 2's gate at 1024x1024.
 #[test]
-fn public_encoder_streaming_gate_2049_matches_original() {
+fn public_encoder_streaming_gate_1024_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
     jxl::jxl::hwy::select_scalar_encoder_for_test();
-    compare_gate("streaming-gate-2049", gate_histories(2049, 2049, 1));
+    compare_gate("streaming-gate-1024", gate_histories(1024, 1024, 3));
 }
 
-/// Encoder step 2's gate at 4000x3000.
+/// Encoder step 2's gate at 2048x1536.
 #[test]
-fn public_encoder_streaming_gate_4000x3000_matches_original() {
+fn public_encoder_streaming_gate_2048x1536_matches_original() {
     jxl::jxl::hwy::select_scalar_decoder_for_test();
     jxl::jxl::hwy::select_scalar_encoder_for_test();
-    compare_gate("streaming-gate-4000x3000", gate_histories(4000, 3000, 2));
+    compare_gate("streaming-gate-2048x1536", gate_histories(2048, 1536, 6));
+}
+
+/// Encoder step 2's gate at 2049x2049, distance 1.0.
+#[test]
+fn public_encoder_streaming_gate_2049_d1_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
+    let mut requests = gate_histories(2049, 2049, 1);
+    requests.truncate(4);
+    compare_gate("streaming-gate-2049-d1", requests);
+}
+
+/// Encoder step 2's gate at 2049x2049, distance 2.0.
+#[test]
+fn public_encoder_streaming_gate_2049_d2_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
+    let requests = gate_histories(2049, 2049, 1).split_off(4);
+    compare_gate("streaming-gate-2049-d2", requests);
+}
+
+/// Encoder step 2's gate at 4000x3000, distance 1.0.
+#[test]
+fn public_encoder_streaming_gate_4000x3000_d1_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
+    let mut requests = gate_histories(4000, 3000, 2);
+    requests.truncate(4);
+    compare_gate("streaming-gate-4000x3000-d1", requests);
+}
+
+/// Encoder step 2's gate at 4000x3000, distance 2.0.
+#[test]
+fn public_encoder_streaming_gate_4000x3000_d2_matches_original() {
+    jxl::jxl::hwy::select_scalar_decoder_for_test();
+    jxl::jxl::hwy::select_scalar_encoder_for_test();
+    let requests = gate_histories(4000, 3000, 2).split_off(4);
+    compare_gate("streaming-gate-4000x3000-d2", requests);
 }
 // end encoder streaming
 

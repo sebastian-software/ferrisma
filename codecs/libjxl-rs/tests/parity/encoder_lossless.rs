@@ -357,17 +357,15 @@ fn public_encoder_lossless_chunked_frame_matches_original() {
             }
         }
     }
-    for (request, cpp) in requests
-        .iter()
-        .zip(super::super::original_observations(&requests))
-    {
+    let originals = super::super::original_observations(&requests);
+    for (request, cpp) in requests.iter().zip(&originals) {
         assert!(
             cpp.contains(" c:0;"),
             "the original accepts the chunked frame: {request}"
         );
     }
     let count = requests.len();
-    let exact = super::compare_counted("lossless-chunked", requests);
+    let exact = super::compare_counted_with("lossless-chunked", requests, Some(originals));
     assert_eq!(exact, count, "lossless-chunked: every history is exact");
 }
 
