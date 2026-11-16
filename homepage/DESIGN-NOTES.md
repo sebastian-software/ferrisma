@@ -1,0 +1,169 @@
+# Homepage design notes
+
+The first complete version of an overview page for Ferrisma, on the
+Ferramenta family's page system. It is a version for the owner to react to,
+not a final one. This note covers the arc, what each drawing is for, the copy
+decisions, what is provisional, and the open questions.
+
+## The design system: Monografie, not the 2.x landing kit
+
+The brief for this page named the family's 2.x landing kit (`ProjectHero`,
+`Plate`, steel, oak and rust, `tokens.css` … `chrome.css`). That kit is gone:
+ferramenta-family 3.0 removed it, ADR-0012 in the Ferramenta repository makes
+Monografie the one page system for every engine homepage and its
+documentation, and the package this site already pins
+(`70d696962356af5a100c970f0f4b0187fdafcccf`) carries only Monografie. The page
+is therefore built on Monografie, as the kit's sample engine page shows it:
+the instrument as the opening plate, one reading column, margin notes, wide
+specimens on light sheets, oxide as the one accent, rust only on the primary
+action. The lockfile and the pin are unchanged.
+
+## The arc
+
+1. **Opening.** The instrument, then what Ferrisma is and does in plain
+   words: it reads four formats, turns, crops and resizes in linear light, and
+   writes three; its codecs are translations of the originals. Who it is for.
+   The facts row names inputs, outputs, the standard (bit for bit) and the
+   status (experimental, no release).
+2. **The pipeline** — *One pass from file to file.* How one image travels,
+   with the report beside the file. Four short terms: depth follows the input,
+   the memory budget, panics as errors, parallel and batch work.
+3. **The ports** — *Four codecs, translated from the originals.* The lineage
+   in ADR-0004's register: honor the originals, state that each port is a
+   translation at a pinned version, give the why (memory safety, one
+   toolchain, no C compiler). Then the anatomy drawing, and the plain truth on
+   assembly (the rule, the scalar fallback, the six remaining sites).
+4. **The gate** — *The same bytes as the original, or it is not done.* What
+   bit-identical means and how it is proven, the gate drawing, and where each
+   port stands, dated, with the honest sentence that no port meets the whole
+   gate on both targets yet.
+5. **Refuse or report** — *Nothing disappears quietly.* The three outcomes,
+   the decision drawing, and the rule that formats behave alike.
+6. **Speed** — *Measured against the originals, gaps included.* A table of
+   port time against the original's SIMD build, one thread, with the two far
+   gaps kept in and the AVIF/dav1d gap said in words.
+7. **Status** — *Experimental, and plain about it.* What works today, what is
+   not there yet, the first command, what comes next.
+8. Colophon (the family, licenses, the instrument) and the closing: *Build it.
+   Check it. Tell us what breaks.*
+
+The order moves from what it does (pipeline), to what it is made of (ports),
+to why you can trust it (gate, refuse or report), to what it costs (speed),
+to what you can do today (status). The gate is the story; it sits in the
+middle, where the first two sections have earned the reader's attention.
+
+## The drawings
+
+All four are inline SVG components in `app/drawings/`, drawn from data, in
+two layouts each: a wide one (from 1000px) and a narrow one, so labels stay
+13–17px instead of shrinking with the viewBox. Every color is a `--mono-`
+token (`drawings.css`); oxide marks the one element each drawing is about.
+Nothing moves. No drawing shows a figure that is not in a committed record,
+and none draws the family's members.
+
+- **The pipeline in cross-section** (`Pipeline.tsx`). Four files enter one
+  channel; five stations (decode, linear light, geometry, quantize, encode)
+  under one memory-budget bracket; the image and the report (oxide) leave
+  side by side. It shows what text cannot: that the route is the same for
+  every format and that the report is a product of the run, not a log.
+- **The anatomy** (`Anatomy.tsx`). Your code, the engine (no unsafe code)
+  with its kernels, the safe bridges, the four ports with what each
+  translates, the shared SharpYUV core, the originals standing outside as
+  references only, and a dashed box of what is absent by design (a C compiler
+  in the build, assembly kernels, the originals' code in a package).
+- **The quality gate** (`Gate.tsx`). One input into both sides, per target,
+  build kind against build kind (scalar/scalar, NEON/NEON, AVX2/AVX2), each
+  pair meeting in an oxide ring. Under it, the comparison rules and "no speed
+  gate".
+- **Refuse or report** (`RefuseOrReport.tsx`). Two questions, three outcomes,
+  the report outcome in oxide, and "There is no fourth outcome."
+
+The speed comparison is a table, not a drawing: the figures carry the
+argument, and a table keeps them exact and accessible.
+
+## Copy decisions
+
+- Say what it is first: the h1 names the job ("Read, crop, resize and write
+  images in Rust"); the italic second line names the difference ("on codecs
+  translated from the originals, and held to them bit for bit").
+- The originals are named in prose (libjpeg-turbo, libwebp, libjxl, libavif
+  with libaom); today's crate names appear nowhere in the copy. All port facts,
+  including the planned package names, live in `app/ferrisma.ts`.
+- "Held to them bit for bit" describes the standard, not a finished result;
+  the gate section says plainly that no port meets the whole gate yet.
+- Figures appear only in the speed table and come from two committed records,
+  named and linked with their dates. The AVIF decode gap against libavif with
+  dav1d is said in words only: its factor is in `docs/status.md` and the ADRs,
+  but not in a record under `docs/benchmarks/`.
+- The brief's "roughly 1.0 to 1.3 times in most cells" is not what the record
+  says; the page says "between one and one and a half times" for most
+  operations, which the table supports, and names the two far gaps.
+- No social proof, no superlatives, no "fast". The family register: honor the
+  original, state the succession, give the why.
+
+## Chrome without a registry entry
+
+`MonoHeader`, `MonoFooter`, `MonoOpening` and `MonoArdoSite` take a
+registered identity (`product`), and the pinned package has no `ferrisma`
+identity. `app/site/chrome.tsx` renders the same markup and classes as the
+package's header and footer, with the menu behavior copied from
+`MonoChrome.tsx`, and the site-local mark (`.fx-mark`). The family link uses
+the registered `ferramenta` mark. The opening uses Monografie's markup with
+`public/ferrisma-instrument.webp`. `root.tsx` follows `MonoArdoSite`'s
+structure: the header in Ardo's header slot, Ardo's menu and search on
+documentation pages (with the header's links in the menu), Monografie's prose
+as the MDX wrapper, the footer outside Ardo's main.
+
+What switches over when the registry has a `ferrisma` entry with its mark and
+instrument (and the pin is bumped to a commit that has it):
+
+- `root.tsx` becomes `MonoArdoLayout` + `MonoArdoSite product="ferrisma"`
+  with the same links and sections; `app/site/chrome.tsx` and the `.fx-mark`
+  rule are deleted.
+- The opening becomes `MonoOpening product="ferrisma"`; the local
+  `public/ferrisma-instrument.webp` and the favicons in `app/assets/` give way
+  to the package's `ferra-assets/ferrisma/*`.
+- `NAME`, `REPOSITORY` and the status line can be read from the registry.
+
+Note for the owner: the Ferramenta repository's `main` already registers this
+project under its former name, `ferrixel` (status `early`, version `0.1.0`,
+with a mark and an instrument), in a commit after the pinned one. It will need
+the rename before this site can switch over.
+
+## What is provisional
+
+- **No member icon, no registered mark.** The header mark and the instrument
+  are the site-local renders in `artwork/`.
+- **No registry entry** (see above).
+- **Figures that will move.** The speed table is a snapshot of the records of
+  November 13 and 14, 2026; the JPEG XL rows predate the encoder's SIMD work;
+  there is no x86-64 JPEG XL decode figure in a record yet.
+- **The gate state** in `app/ferrisma.ts` is dated November 14, 2026 and
+  will go stale; it should follow `docs/quality-gate.md`.
+- **Crate names** of the ports will change (`plannedCrate` in
+  `app/ferrisma.ts`).
+- The ferrisma.dev domain does not serve this site yet (#251).
+
+## Two guide pages added
+
+`docs/quality-gate.md` and `docs/supported-matrix.md` are now synchronized
+into the guide (`/guide/quality-gate`, `/guide/supported-matrix`), so the
+homepage can link its central claims to pages on the site. `sync-docs.ts`
+now rewrites a GitHub-style anchor into a guide page to the anchor Ardo
+renders (`#…-v10` becomes `#…-v1-0`); a test covers it.
+
+## Open questions for the owner
+
+1. **The headline.** "Read, crop, resize and write images in Rust" is plain
+   and says the job; the gate lives in the second line. Should the gate lead
+   instead ("Image codecs that are the originals, in Rust")?
+2. **How loud the experimental status is.** Today: the header tag, the last
+   fact in the opening, and a whole status section. Enough, or a short notice
+   above the fold?
+3. **Which figures to show.** All ten rows, or only the decoders and the
+   lossless paths, with the encoder gaps in words? Should the AVIF/dav1d
+   factor get a record under `docs/benchmarks/` so the page can print it?
+4. **The gate state per port.** Keep a dated table on the homepage, or link
+   to the quality gate guide only, so the homepage cannot go stale?
+5. **The six inline assembly sites.** The page names them. Keep that candor on
+   the homepage, or leave it to ADR-0044?
