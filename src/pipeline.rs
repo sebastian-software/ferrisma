@@ -8,14 +8,15 @@ use std::time::{Duration, Instant};
 use crate::color::ColorEncoding;
 use crate::decoder::{DecodeAccess, DecodeReport, DecodeSource, DecodedRow, DecoderInfo};
 use crate::error::Error;
-use crate::fast_execute::execute_fast_srgb8;
+use crate::fast_execute::execute_fast;
 use crate::geometry::{Rect, Size};
 use crate::graph::Graph;
 #[cfg(feature = "jpeg-xl-write")]
 use crate::jxl_sink::JxlSink;
 use crate::memory::{ExternalReservation, MemoryBudget};
 use crate::orientation::OrientedSource;
-use crate::quality_execute::execute_quality_srgb8;
+use crate::output_depth::OutputRow;
+use crate::quality_execute::execute_quality;
 #[cfg(feature = "webp-write")]
 use crate::webp_sink::WebpSink;
 
@@ -68,16 +69,25 @@ pub enum JpegXlOptions {
     Lossless {
         /// libjxl effort level; only `2` is admitted today.
         effort: u8,
+        /// Bits per sample, as [`AvifOptions::depth`]: `None` (the default)
+        /// follows the input (8 to 16, `cjxl`'s rule), `Some(8..=16)` is
+        /// explicit. Lossless color above 12 bits makes libjxl require
+        /// codestream level 10, and the output is then the ISOBMFF container
+        /// with a `jxll` box, as `cjxl` writes it. Added 2026-11-15; before,
+        /// every output was 8-bit.
+        depth: Option<u8>,
     },
     /// Lossy `VarDCT` encoding in XYB at libjxl effort 7 ("squirrel"),
     /// with libjxl's patch search always off (the workspace encoder cannot
     /// write the patch reference frame yet), so text-like content encodes
     /// too.
     ///
-    /// Images with alpha below 255 are admitted: the alpha channel is
-    /// written as one straight (unassociated) 8-bit extra channel, coded
-    /// losslessly, and color under fully transparent pixels is not kept
-    /// (libjxl's `keep_invisible` default). Fully opaque alpha is omitted.
+    /// Images with alpha below the largest code are admitted: the alpha
+    /// channel is written as one straight (unassociated) extra channel at
+    /// the color depth, coded losslessly, and color under fully transparent
+    /// pixels is not kept (libjxl's `keep_invisible` default). Fully opaque
+    /// alpha is omitted. Alpha above 12 bits makes the output a container
+    /// (codestream level 10).
     Lossy {
         /// Butteraugli distance, libjxl's quality target: the maximum
         /// perceptual difference the encoder aims for, in units of a just
@@ -86,6 +96,9 @@ pub enum JpegXlOptions {
         /// `0.05 <= distance < 3.0` (dot detection starts at 3.0 and is not
         /// translated yet).
         distance: f32,
+        /// Bits per sample, as for [`Self::Lossless`]: `None` follows the
+        /// input (8 to 16), `Some(8..=16)` is explicit.
+        depth: Option<u8>,
     },
 }
 
@@ -94,13 +107,33 @@ impl JpegXlOptions {
     pub const MIN_LOSSY_DISTANCE: f32 = 0.05;
     /// Exclusive upper bound of the admitted lossy distance.
     pub const MAX_LOSSY_DISTANCE: f32 = 3.0;
+
+    /// The depth setting of either profile.
+    #[must_use]
+    pub fn depth(&self) -> Option<u8> {
+        match *self {
+            Self::Lossless { depth, .. } | Self::Lossy { depth, .. } => depth,
+        }
+    }
+
+    /// The same profile with another depth setting.
+    #[must_use]
+    pub fn with_depth(self, depth: Option<u8>) -> Self {
+        match self {
+            Self::Lossless { effort, .. } => Self::Lossless { effort, depth },
+            Self::Lossy { distance, .. } => Self::Lossy { distance, depth },
+        }
+    }
 }
 
 impl Default for JpegXlOptions {
     /// Lossy at distance 1.0, libjxl's own default (ADR-0039; pending owner
     /// confirmation).
     fn default() -> Self {
-        Self::Lossy { distance: 1.0 }
+        Self::Lossy {
+            distance: 1.0,
+            depth: None,
+        }
     }
 }
 
@@ -151,9 +184,8 @@ impl Default for WebpOptions {
 
 /// Settings for the built-in AVIF writer, libavif with its AOM encoder
 /// (ADR-0037), on libavif's own scales (ADR-0043 D4). The defaults are those
-/// of the original tool, `avifenc` of the pinned libavif 1.4.2, for the
-/// 8-bit RGB rows the writer receives (ADR-0037, 2026-11-15). Must stay at
-/// the default for other outputs. External AVIF backends receive it in
+/// of the original tool, `avifenc` of the pinned libavif 1.4.2 (ADR-0037,
+/// 2026-11-15). Must stay at the default for other outputs. External AVIF backends receive it in
 /// [`EncodeRequest::avif`] and validate it on their own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AvifOptions {
@@ -169,13 +201,17 @@ pub struct AvifOptions {
     /// AOM speed (`cpu-used`), 0 (slowest) through 10 (fastest); default 6
     /// (`avifenc`).
     pub speed: u8,
-    /// AV1 bit depth, 8 or 10; default 8. `avifenc` writes the depth of its
-    /// input (8 from its JPEG reader); this writer always receives 8-bit
-    /// rows, and the fixed default 8 is a working decision of 2026-11-15
-    /// awaiting the owner's confirmation (until then the default was 10,
-    /// as `TransformOptions::avif_depth`). A deeper input is reported as
-    /// [`Discarded::PrecisionReduced`] at either depth.
-    pub depth: u8,
+    /// AV1 bit depth: `None` (the default) follows the input, as `avifenc`
+    /// does: the largest of 8, 10 and 12 that is at most the input's depth
+    /// (a 16-bit input becomes 12, AVIF's largest, as `avifenc` writes a
+    /// 16-bit PNG). `Some(8 | 10 | 12)` is explicit; another value is
+    /// refused. The samples are quantized at that depth by the engine (owner
+    /// decision of 2026-11-15, ADR-0021 amendment): a deeper input keeps
+    /// its precision, and a higher explicit depth carries correctly scaled
+    /// content. [`Discarded::PrecisionReduced`] is reported exactly when the
+    /// output depth is below the input's. Until 2026-11-15 this was a `u8`,
+    /// 8 or 10 (default 8), and every AVIF carried 8-bit content.
+    pub depth: Option<u8>,
     /// Chroma layout; default 4:4:4 (`avifenc` for RGB input).
     pub chroma: ChromaSubsampling,
 }
@@ -186,7 +222,7 @@ impl Default for AvifOptions {
             quality: 60,
             alpha_quality: 60,
             speed: 6,
-            depth: 8,
+            depth: None,
             chroma: ChromaSubsampling::Yuv444,
         }
     }
@@ -331,7 +367,9 @@ impl Default for TransformOptions {
             transform_threads: 0,
             profile_policy: InputProfilePolicy::Strict,
             encoder_threads: 1,
-            max_managed_bytes: 256 * 1024 * 1024,
+            // 1 GiB since 2026-11-15 (owner decision, ADR-0004 amendment);
+            // 256 MiB before.
+            max_managed_bytes: 1024 * 1024 * 1024,
             max_input_bytes: 64 * 1024 * 1024,
             max_input_pixels: 100_000_000,
             max_output_bytes: 256 * 1024 * 1024,
@@ -499,6 +537,15 @@ pub struct ProcessingReport {
     /// `"libwebp-rs"` (WebP), `"libjxl-rs"` (JPEG XL), or the
     /// [`EncoderBackend::name`] of an external backend (ADR-0024).
     pub encoder_backend: &'static str,
+    /// Bits per sample of the decoded input, color and alpha (the larger):
+    /// 8 for JPEG and WebP, 8, 10 or 12 for AVIF, 1 to 16 for JPEG XL
+    /// (since 2026-11-15, ADR-0021 amendment).
+    pub input_depth: u8,
+    /// Bits per sample written: the input's by default, capped at what the
+    /// output admits (AVIF 12, JPEG XL 16, WebP 8), or the explicit depth
+    /// setting. When it is below `input_depth`, `discarded` names
+    /// [`Discarded::PrecisionReduced`] (since 2026-11-15).
+    pub output_depth: u8,
     /// The classes of input information this transcode left out of a
     /// correct picture (ADR-0042 D2); empty when nothing was left out.
     /// Experimental; see [`Discarded`].
@@ -734,7 +781,6 @@ impl From<Error> for ProcessingError {
             }
             Error::Cancelled => Kind::Cancelled,
             Error::EncodeFailed => Kind::EncodeFailed,
-            #[cfg(any(feature = "webp-write", feature = "jpeg-xl-write"))]
             Error::IncompleteOutput => Kind::Internal,
             #[cfg(feature = "jpeg-xl-write")]
             Error::UnsupportedEncoderProfile(_) => Kind::InvalidOptions,
@@ -1069,18 +1115,28 @@ enum Sink<'b> {
 }
 
 impl Sink<'_> {
-    fn write_row(&mut self, y: u32, row: &[u8]) -> Result<(), Error> {
-        match self {
+    fn write_row(&mut self, y: u32, row: OutputRow<'_>) -> Result<(), Error> {
+        match (self, row) {
             #[cfg(feature = "webp-write")]
-            Self::WebP(sink) => sink.write_row(y, row),
+            (Self::WebP(sink), OutputRow::U8(row)) => sink.write_row(y, row),
             #[cfg(feature = "jpeg-xl-write")]
-            Self::JpegXl(sink) => sink.write_row(y, row),
-            Self::Backend {
-                encoder, failure, ..
-            } => encoder.write_row(y, row).map_err(|error| {
+            (Self::JpegXl(sink), row) => sink.write_output_row(y, row),
+            (
+                Self::Backend {
+                    encoder, failure, ..
+                },
+                row,
+            ) => match row {
+                OutputRow::U8(row) => encoder.write_row(y, row),
+                OutputRow::U16(row) => encoder.write_row_u16(y, row),
+            }
+            .map_err(|error| {
                 *failure = Some(error);
                 Error::EncodeFailed
             }),
+            // A built-in sink receives rows only at a depth it admits.
+            #[allow(unreachable_patterns)]
+            _ => Err(Error::IncompleteOutput),
         }
     }
 
@@ -1364,6 +1420,30 @@ fn run(
 
     let budget = MemoryBudget::new(options.max_managed_bytes);
     let transparent = actual.info().layout == crate::decoder::ChannelLayout::Rgba;
+    // The depth rule (ADR-0021 amendment, ADR-0043 decided application of
+    // 2026-11-15), one for every output: the input's depth, capped at what
+    // the output admits; a reduction is the pipeline's to report.
+    let input_depth = actual.info().depth;
+    let admitted: &[u8] = match (backend, options.output_format) {
+        (Some(backend), _) => backend.row_depths(),
+        // cjxl's integer depths (ADR-0021 amendment of 2026-11-15).
+        (None, OutputFormat::JpegXl) => &[8, 9, 10, 11, 12, 13, 14, 15, 16],
+        // WebP is 8-bit by its format.
+        (None, _) => &[crate::output_depth::EIGHT],
+    };
+    let requested = match options.output_format {
+        OutputFormat::Avif => options.avif.depth,
+        OutputFormat::JpegXl => options.jpeg_xl.depth(),
+        OutputFormat::WebP => None,
+    };
+    let output_depth =
+        crate::output_depth::resolve(requested, input_depth, admitted).map_err(|_| {
+            ProcessingError::new(
+                ProcessingErrorKind::InvalidOptions,
+                "the requested output depth is not one this encoder writes",
+            )
+        })?;
+    discarded.insert_if(output_depth < input_depth, Discarded::PrecisionReduced);
     let mut output_sink = match backend {
         None => match options.output_format {
             // With `avif-write` the AOM writer is the backend above.
@@ -1389,7 +1469,12 @@ fn run(
             OutputFormat::JpegXl => {
                 #[cfg(feature = "jpeg-xl-write")]
                 {
-                    Sink::JpegXl(Box::new(JxlSink::new(target_size, options, &budget)?))
+                    Sink::JpegXl(Box::new(JxlSink::with_depth(
+                        target_size,
+                        options,
+                        &budget,
+                        output_depth,
+                    )?))
                 }
                 #[cfg(not(feature = "jpeg-xl-write"))]
                 {
@@ -1409,6 +1494,7 @@ fn run(
                 width: target_size.width,
                 height: target_size.height,
                 has_alpha: transparent,
+                depth: output_depth,
                 threads: encoder_threads,
             };
             let frame_reservation =
@@ -1439,7 +1525,7 @@ fn run(
         WorkingPrecision::F64Reference => (KernelLevel::Scalar, KernelLevelReason::Ceiling),
     };
     let processed = match options.precision {
-        WorkingPrecision::F32 => execute_fast_srgb8(
+        WorkingPrecision::F32 => execute_fast(
             &graph,
             finished,
             input,
@@ -1448,15 +1534,17 @@ fn run(
             &budget,
             &kernels,
             transform_threads,
+            output_depth,
             |y, row| output_sink.write_row(y, row),
         ),
-        WorkingPrecision::F64Reference => execute_quality_srgb8(
+        WorkingPrecision::F64Reference => execute_quality(
             &graph,
             finished,
             input,
             &mut *actual,
             request,
             &budget,
+            output_depth,
             |y, row| output_sink.write_row(y, row),
         ),
     };
@@ -1513,6 +1601,8 @@ fn run(
         transform_threads,
         decoder_backend,
         encoder_backend,
+        input_depth,
+        output_depth,
         discarded,
         timings: StageTimings {
             open,

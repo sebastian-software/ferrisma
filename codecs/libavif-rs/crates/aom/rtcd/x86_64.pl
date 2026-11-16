@@ -358,6 +358,8 @@ my %ported_x86 = map { $_ => 1 } qw/
   aom_var_2d_u16_sse2
   aom_var_2d_u8_avx2
   aom_var_2d_u8_sse2
+  av1_apply_selfguided_restoration_avx2
+  av1_apply_selfguided_restoration_sse4_1
   av1_block_error_avx2
   av1_block_error_lp_avx2
   av1_dr_prediction_z1_avx2
@@ -394,6 +396,9 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_fwd_txfm2d_8x8_avx2
   av1_fwd_txfm2d_8x8_sse4_1
   av1_fwht4x4_sse4_1
+  av1_get_horver_correlation_full_avx2
+  av1_get_horver_correlation_full_sse4_1
+  av1_get_nz_map_contexts_sse2
   av1_highbd_block_error_avx2
   av1_highbd_dr_prediction_z1_avx2
   av1_highbd_dr_prediction_z2_avx2
@@ -403,6 +408,9 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_highbd_inv_txfm_add_sse4_1
   av1_highbd_quantize_fp_avx2
   av1_highbd_upsample_intra_edge_sse4_1
+  av1_highbd_wiener_convolve_add_src_avx2
+  av1_highbd_wiener_convolve_add_src_ssse3
+  av1_interp_cubic_rate_dist_sse2
   av1_inv_txfm_add_avx2
   av1_inv_txfm_add_ssse3
   av1_lowbd_fwd_txfm_avx2
@@ -413,9 +421,14 @@ my %ported_x86 = map { $_ => 1 } qw/
   av1_quantize_fp_sse2
   av1_quantize_lp_avx2
   av1_quantize_lp_sse2
+  av1_round_shift_array_sse4_1
+  av1_selfguided_restoration_avx2
+  av1_selfguided_restoration_sse4_1
   av1_txb_init_levels_avx2
   av1_txb_init_levels_sse4_1
   av1_upsample_intra_edge_sse4_1
+  av1_wiener_convolve_add_src_avx2
+  av1_wiener_convolve_add_src_sse2
   cdef_copy_rect8_16bit_to_16bit_avx2
   cdef_copy_rect8_8bit_to_16bit_avx2
   cdef_filter_16_0_avx2
@@ -428,6 +441,24 @@ my %ported_x86 = map { $_ => 1 } qw/
   cdef_filter_8_3_avx2
   cdef_find_dir_avx2
   cdef_find_dir_dual_avx2
+  cfl_get_luma_subsampling_420_hbd_avx2
+  cfl_get_luma_subsampling_420_hbd_ssse3
+  cfl_get_luma_subsampling_420_lbd_avx2
+  cfl_get_luma_subsampling_420_lbd_ssse3
+  cfl_get_luma_subsampling_422_hbd_avx2
+  cfl_get_luma_subsampling_422_hbd_ssse3
+  cfl_get_luma_subsampling_422_lbd_avx2
+  cfl_get_luma_subsampling_422_lbd_ssse3
+  cfl_get_luma_subsampling_444_hbd_avx2
+  cfl_get_luma_subsampling_444_hbd_ssse3
+  cfl_get_luma_subsampling_444_lbd_avx2
+  cfl_get_luma_subsampling_444_lbd_ssse3
+  cfl_get_predict_hbd_fn_avx2
+  cfl_get_predict_hbd_fn_ssse3
+  cfl_get_predict_lbd_fn_avx2
+  cfl_get_predict_lbd_fn_ssse3
+  cfl_get_subtract_average_fn_avx2
+  cfl_get_subtract_average_fn_sse2
 /;
 foreach my $fn (keys %ALL_FUNCS) {
   foreach my $ext (qw/sse2 ssse3 sse4_1 avx2/) {

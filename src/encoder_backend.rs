@@ -6,7 +6,8 @@
 //! `crates/ferrisma-libavif`, without adding its
 //! dependencies, toolchain or `unsafe` code to this crate. The engine hands
 //! the backend finished output rows; everything up to and including the
-//! final sRGB8 quantization stays Ferrisma's.
+//! final quantization, at 8 bits or at a depth the backend admits
+//! ([`EncoderBackend::row_depths`]), stays Ferrisma's.
 
 use std::fmt;
 
@@ -38,9 +39,16 @@ pub struct EncodeRequest {
     pub width: u32,
     /// Output height in pixels.
     pub height: u32,
-    /// The rows carry straight alpha that may be below 255; when false
-    /// every alpha byte is 255.
+    /// The rows carry straight alpha that may be below the largest code;
+    /// when false every alpha sample is the largest code (255 at 8 bits).
     pub has_alpha: bool,
+    /// Bits per sample of the rows: 8 (`write_row`, `u8`) or one of the
+    /// backend's other [`EncoderBackend::row_depths`] (`write_row_u16`,
+    /// samples scaled to `0..=2^depth - 1`). The engine picks it by the
+    /// depth rule (ADR-0021, amendment of 2026-11-15): the input's depth,
+    /// capped at what the backend admits, or the format's explicit depth
+    /// setting. Added 2026-11-15; before, every row was 8-bit.
+    pub depth: u8,
     /// Encoder threads, resolved (at least 1); 1 means the caller asked
     /// for single-threaded encoding.
     pub threads: usize,
@@ -136,6 +144,23 @@ pub trait RowEncoder {
     /// Returning an error stops the pipeline; the transcode fails with it.
     fn write_row(&mut self, y: u32, rgba: &[u8]) -> Result<(), EncodeError>;
 
+    /// One output row of straight-alpha sRGB RGBA samples deeper than 8
+    /// bits, `4 * width` native-endian `u16` values scaled to
+    /// `0..=2^depth - 1` ([`EncodeRequest::depth`]), with the largest code as
+    /// alpha for opaque images. Called instead of `write_row` only when the
+    /// request's depth is above 8, which the engine chooses only for a
+    /// depth in [`EncoderBackend::row_depths`]. The default refuses
+    /// (added 2026-11-15; a backend without deeper rows needs no change).
+    ///
+    /// # Errors
+    /// Returning an error stops the pipeline; the transcode fails with it.
+    fn write_row_u16(&mut self, _y: u32, _rgba: &[u16]) -> Result<(), EncodeError> {
+        Err(EncodeError::new(
+            EncodeErrorKind::InvalidOptions,
+            "this encoder backend accepts only 8-bit rows",
+        ))
+    }
+
     /// Encode after the last row.
     ///
     /// # Errors
@@ -149,6 +174,16 @@ pub trait EncoderBackend: Sync {
     fn format(&self) -> OutputFormat;
     /// Short name for reports and diagnostics, such as `"libavif-rs/aom"`.
     fn name(&self) -> &'static str;
+
+    /// The row depths this backend encodes, ascending, 8 included: the
+    /// engine's depth rule picks the largest one that does not exceed the
+    /// input's depth (and reports the reduction when it is below), and an
+    /// explicit depth outside this set is refused before decoding. The
+    /// default, `[8]`, keeps every existing backend on 8-bit rows (added
+    /// 2026-11-15, ADR-0021 amendment of that date).
+    fn row_depths(&self) -> &'static [u8] {
+        &[8]
+    }
 
     /// Known pixel-frame bytes simultaneously materialized by this backend.
     ///

@@ -1,0 +1,12 @@
+typedef int int8_t; typedef int int16_t; typedef int int32_t; typedef int int64_t;
+typedef int uint8_t; typedef int uint16_t; typedef int uint32_t; typedef int uint64_t;
+typedef int size_t; typedef int intptr_t; typedef int ptrdiff_t;
+typedef int __m128i; typedef int __m256i; typedef int __m128; typedef int __m256; typedef int __m128d; typedef int __m256d; typedef int __m64;
+typedef int TX_SIZE; typedef int TX_CLASS;
+__m128i load_8bit_4x4_to_1_reg_sse2(const void *const src, const int byte_stride);
+__m128i load_8bit_8x2_to_1_reg_sse2(const void *const src, const int byte_stride);
+int get_txb_bhl(TX_SIZE tx_size);
+int get_txb_wide(TX_SIZE tx_size);
+int get_txb_high(TX_SIZE tx_size);
+extern const int tx_size_wide[19];
+extern const int tx_size_high[19];

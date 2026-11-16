@@ -22,7 +22,10 @@ use crate::pipeline::{
 fn lossy(width: u32, height: u32, distance: f32) -> TransformOptions {
     TransformOptions {
         output_format: OutputFormat::JpegXl,
-        jpeg_xl: JpegXlOptions::Lossy { distance },
+        jpeg_xl: JpegXlOptions::Lossy {
+            distance,
+            depth: None,
+        },
         output_width: width,
         output_height: height,
         ..TransformOptions::default()
@@ -144,7 +147,10 @@ fn rgb_error(decoded: &[u8], expected: &[u8]) -> (u8, f64) {
 fn lossy_distance_one_is_the_default() {
     assert_eq!(
         JpegXlOptions::default(),
-        JpegXlOptions::Lossy { distance: 1.0 }
+        JpegXlOptions::Lossy {
+            distance: 1.0,
+            depth: None
+        }
     );
 }
 
@@ -217,14 +223,14 @@ fn text_like_content_encodes_with_patches_off() {
 fn input_frame_and_codec_estimate_are_reserved() {
     let (width, height) = (24, 16);
     let frame = width * height * 4;
-    let codec = estimated_lossy_codec_bytes(width, height, false).unwrap();
+    let codec = estimated_lossy_codec_bytes(width, height, false, 8).unwrap();
     // Regression pin of the bridge's estimate (input copy, seven f32 planes
     // padded to 8x8, one group of i32 coefficients); it is an estimate from
     // the port's source, not a measurement.
     assert_eq!(codec, width * height * 3 + 24 * 16 * 28 + 3 * 256 * 256 * 4);
     // With alpha: the alpha byte of the input copy, and an f32 plane plus
     // two i32 Modular copies of the frame.
-    let alpha = estimated_lossy_codec_bytes(width, height, true).unwrap();
+    let alpha = estimated_lossy_codec_bytes(width, height, true, 8).unwrap();
     assert_eq!(alpha, codec + width * height + width * height * 12);
     // Transparent rows reserve the alpha estimate, at its exact boundary.
     let data = translucent(width, height);
@@ -298,7 +304,10 @@ fn default_options_of_other_formats_still_match() {
         assert_ne!(kind, ProcessingErrorKind::InvalidOptions, "{format:?}");
         // A JPEG XL setting with another format is still a mismatch.
         let mismatched = TransformOptions {
-            jpeg_xl: JpegXlOptions::Lossless { effort: 2 },
+            jpeg_xl: JpegXlOptions::Lossless {
+                effort: 2,
+                depth: None,
+            },
             ..options
         };
         assert_eq!(
@@ -618,7 +627,13 @@ mod pipeline_round_trip {
                 output_height: height,
                 ..TransformOptions::default()
             });
-            assert_eq!(options.jpeg_xl, JpegXlOptions::Lossy { distance: 1.0 });
+            assert_eq!(
+                options.jpeg_xl,
+                JpegXlOptions::Lossy {
+                    distance: 1.0,
+                    depth: None
+                }
+            );
             let output = transcode(&input, ImageFormat::WebP, options).unwrap();
             let expected = transcode_with(&input, ImageFormat::WebP, options, &Rows).unwrap();
             assert!(

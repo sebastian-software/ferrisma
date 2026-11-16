@@ -72,6 +72,7 @@ fn encodes_gray_and_linear_srgb() {
         channels: ColorChannels::Gray,
         color: Color::LinearSrgb,
         alpha: Alpha::None,
+        bits_per_sample: 8,
     };
     encode(
         image,
@@ -579,6 +580,7 @@ fn lossless_effort_2_round_trips_exactly_one_shot_and_streaming() {
                 channels,
                 color: Color::Srgb,
                 alpha,
+                bits_per_sample: 8,
             };
             let color_channels = if channels == ColorChannels::Gray {
                 1

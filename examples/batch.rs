@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // input, 8, since).
         avif: AvifOptions {
             quality: 80,
-            depth: 10,
+            depth: Some(10),
             ..AvifOptions::default()
         },
         ..TransformOptions::default()

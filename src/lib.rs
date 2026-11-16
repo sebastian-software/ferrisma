@@ -60,6 +60,7 @@ mod jxl_sink;
 mod linear_srgb;
 mod memory;
 mod orientation;
+mod output_depth;
 #[cfg(feature = "avif-write")]
 mod own_avif;
 mod parallel_execute;

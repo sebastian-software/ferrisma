@@ -201,6 +201,12 @@ Kernels that exist only as NASM stay on `_c` (working decision O4).
 | SSE and distortion | `aom_dsp/x86/sse_sse4.c`, `sse_avx2.c`, `sum_squares_sse2.c`, `sum_squares_avx2.c`, `blk_sse_sum_sse2.c`, `blk_sse_sum_avx2.c`, the 16-bit MSE functions of `variance_sse2.c`, `variance_avx2.c`, `highbd_variance_sse2.c`, `highbd_variance_avx2.c` | 11 (21 specializations) | 82/82, 82/82, 82/82 |
 | txb | `av1/encoder/x86/encodetxb_sse4.c`, `encodetxb_avx2.c` | 1 (`av1_txb_init_levels`, SSE4.1 and AVX2) | 82/82, 82/82, 82/82 |
 | 8-bit forward transform | `av1/encoder/x86/av1_fwd_txfm_sse2.c` (+ `.h`), the low-bitdepth part of `av1_fwd_txfm2d_sse4.c`, `av1_fwd_txfm2d_avx2.c` (+ `av1_fwd_txfm_avx2.h`), `av1_fwht4x4_sse4_1` of `highbd_fwd_txfm_sse4.c` | 2 (`av1_lowbd_fwd_txfm` SSE4.1 and AVX2, `av1_fwht4x4` SSE4.1) | 82/82, 82/82, 82/82 |
+| CfL | `av1/common/x86/cfl_sse2.c`, `cfl_ssse3.c`, `cfl_avx2.c` (with the CFL_* macros of `av1/common/cfl.h` expanded by the C preprocessor) | 9 getters (18 specializations) | 82/82, 82/82, 82/82 |
+| Loop restoration | `av1/common/x86/wiener_convolve_sse2.c`, `wiener_convolve_avx2.c`, `highbd_wiener_convolve_ssse3.c`, `highbd_wiener_convolve_avx2.c`, `selfguided_sse4.c`, `selfguided_avx2.c`, the Wiener part of `aom_dsp/x86/convolve_avx2.h` (with the restoration and filter macros of `restoration.h`, `aom_filter.h`, `convolve.h` expanded by the C preprocessor) | 4 (8 specializations) | 82/82, 82/82, 82/82 |
+| Horizontal and vertical correlation | `av1/encoder/x86/rdopt_sse4.c`, `rdopt_avx2.c`, `loadu_int64` of `aom_dsp/x86/mem_sse2.h` | 1 (`av1_get_horver_correlation_full`, SSE4.1 and AVX2) | 82/82, 82/82, 82/82 |
+| Coefficient contexts | `av1/encoder/x86/encodetxb_sse2.c`, the 8-bit loads of `aom_dsp/x86/mem_sse2.h` | 1 (`av1_get_nz_map_contexts`, SSE2) | 82/82, 82/82, 82/82 |
+| Round shift | `av1/common/x86/av1_txfm_sse4.c` (translated by hand earlier with `av1_txfm_sse4.h`, `simd/av1/common/x86/av1_txfm_sse4.rs`) | 1 (`av1_round_shift_array`, SSE4.1) | 82/82, 82/82, 82/82 |
+| Cubic rate-distortion interpolation | `av1/encoder/x86/model_rd_sse2.c` | 1 (`av1_interp_cubic_rate_dist`, SSE2) | 82/82, 82/82, 82/82 |
 
 Kernel tests: `tests/simd/lowbd_inv_txfm.rs` now also transcribes the SSSE3
 and AVX2 instantiations of AV1LbdInvTxfm2d (`match`, `gt_int16`) and checks
@@ -232,13 +238,54 @@ EncodeTxbInitLevelTest (165 tests pass). `lowbd_fwd_txfm.rs` and `fwht4x4.rs`
 add the SSE4_1 and AVX2 instantiations of AV1FwdTxfm2dTest.match (all 19 sizes)
 and the SSE4_1 Trans4x4WHT (205 tests pass). `av1_lowbd_fwd_txfm_sse2` is
 translated because the SSE4.1 and AVX2 entries call its 2D functions; it is
-the RTCD specialization only on 32-bit x86.
+the RTCD specialization only on 32-bit x86. `cfl.rs` adds the SSE2, SSSE3 and
+AVX2 instantiations of `cfl_test.cc` (215 tests pass). The CfL getters return
+C function pointers, so the size wrappers keep the C ABI; the RTCD units gain
+the five CfL function-pointer aliases, which `enable_aom_dispatch.py --linux`
+copies verbatim from the unit that defines them (`--check` requires them).
+`restoration.rs` adds the SSE2, SSSE3, SSE4_1 and AVX2 instantiations of
+`hiprec_convolve_test.cc` and `selfguided_filter_test.cc` and the supplementary
+`av1_selfguided_restoration` comparison for SSE4.1 and AVX2 (225 tests pass, in
+the release and the `checked` profile). The translated C calls
+`av1_selfguided_restoration_c` by name inside
+`av1_apply_selfguided_restoration_c`, so that call stays direct, as upstream
+has it. The RTCD units gain `WienerConvolveParams`, which the dispatch tool
+now copies like the aliases (a record with its attribute lines); the printer
+learned to expand `AOMMIN`/`AOMMAX` through the C preprocessor and to decay a
+table passed to a gather intrinsic (`_mm256_i32gather_epi32`).
+`horver_correlation.rs` adds the SSE4_1 and AVX2 instantiations of
+`horver_correlation_test.cc`, with the bit-exact check against `_c` the Neon
+test already has (229 tests pass). For its final block the printer gained a
+floating-point model: `float`/`double` values, C's usual arithmetic
+conversions (`int64_t` operands converted with `as f32`), floating literals,
+comparisons and ternaries; `sqrtf` is the C library's, as in the original.
+`encodetxb.rs` adds the SSE2 instantiation of EncodeTxbTest.GetNzMapContexts
+(230 tests pass). Rust has no MMX intrinsics any more, so the printer writes
+`_mm_loadh_pi` of `loadh_epi64` as `_mm_loadh_pd` between casts (MOVHPS and
+MOVHPD move the same 64 bits) from an unaligned read; that is the one
+intrinsic sequence that differs from the C. `get_txb_bhl`, `get_txb_wide` and
+`get_txb_high` with `av1_get_adjusted_tx_size` and `tx_size_high_log2` are a
+short hand part (`parts/txb_common_sse2.hand.rs`), as in the Neon port. The
+RTCD units gain `int8_t` and `TX_CLASS`; the dispatch tool now orders the
+glibc aliases by width with the signed one first, as C2Rust does.
+`av1_round_shift_array_sse4_1` assumes a 16-byte aligned array; its callers in
+the translated transforms pass the DECLARE_ALIGNED(32) buffers C2Rust kept
+aligned (`platform::Aligned32`). `round_shift_array.rs` adds the SSE4_1
+instantiation of AV1CompRoundShiftTest, and the transcriptions' scalar
+reference now selects `av1_round_shift_array_c` on x86-64 too (231 tests
+pass). `model_rd.rs` transcribes InterpCubicTest.CheckOutput of
+`model_rd_test.cc` for the SSE2 instantiation (232 tests pass); the original
+keeps the operation order of `_c` on purpose, and the test requires equal
+doubles. The printer types the `double` parameters of intrinsics as floats, so
+`_mm_set1_pd(0.5)` keeps its literal.
 
 Since 2026-11-15 every family is verified before its push with all four
 translation profiles compiled (`cargo check -p libavif-aom --lib --tests` for
 GNU Linux x86-64 and macOS ARM64, dev and release), `--test simd` under QEMU
 in the release and the `checked` profile, both gates, the PR stage,
-`check_translation.py` and `tools/x86_c2r/assemble.py --check`. The dispatch
+`check_translation.py` and `tools/x86_c2r/assemble.py --check`; since the
+stable-Rust transformation (port ADR 0060) also `tools/stable_rust.py --check`
+and the four profiles once more with `RUSTFLAGS=-Zallow-features=`. The dispatch
 rewrite of `enable_aom_dispatch.py` leaves string, byte-string and char
 literals and comments alone (the Linux debug profile keeps the C text of
 `assert` as byte strings).

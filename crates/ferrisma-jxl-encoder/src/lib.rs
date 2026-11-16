@@ -13,8 +13,10 @@
 //! steps 1 and 4, and `PORT_STATUS.md`, "Lossy VarDCT with extra channels and
 //! patches off"): effort 7, VarDCT with XYB, distance in
 //! [`MIN_DISTANCE`]`..`[`MAX_ADMITTED_DISTANCE`], gray or RGB, optionally with
-//! one straight 8-bit alpha channel coded losslessly, enum sRGB or linear
-//! sRGB, one frame, raw codestream, serial, default memory manager. Patches
+//! one straight alpha channel coded losslessly, enum sRGB or linear sRGB,
+//! one frame, serial, default memory manager. Samples are 8-bit, or (since
+//! 2026-11-15) 9 to 16 bits as `uint16` with `JXL_BIT_DEPTH_FROM_CODESTREAM`,
+//! alpha at the color depth, as `cjxl` passes a PNM of that `maxval`. Patches
 //! are off by default ([`FrameOptions::patches`]); with them off the port
 //! encodes every image. This bridge exposes nothing outside the profile
 //! except the distance and the patches switch, so that the port's admission
@@ -23,11 +25,16 @@
 //! The admitted lossless profile ([`encode_lossless`], issue #223) is the
 //! port's lossless Modular profile at effort 2 (`ENCODER_EXPANSION.md` and
 //! `PORT_STATUS.md`, "Encoder lossless streaming"): libjxl's own lossless
-//! setting (`JxlEncoderSetFrameLossless`, `uses_original_profile`), 8-bit
-//! gray or RGB with optional straight 8-bit alpha, enum sRGB or linear sRGB,
-//! one frame, raw codestream, serial, default memory manager and the default
+//! setting (`JxlEncoderSetFrameLossless`, `uses_original_profile`), gray or
+//! RGB of 8 to 16 bits with optional straight alpha at the same depth, enum
+//! sRGB or linear sRGB, one frame, serial, default memory manager and the default
 //! buffering, so that more than eight 256x256 groups take the original's
 //! chunked (streaming) encode, as `cjxl -d 0 -e 2` does by default.
+//!
+//! Output is a raw codestream, except where libjxl requires codestream level
+//! 10 (`VerifyLevelSettings`: lossless color above 12 bits, or alpha above 12
+//! bits): the original and the port then write the ISOBMFF container with a
+//! `jxll` box, and so does this bridge (the level stays automatic).
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 use std::fmt;
@@ -39,7 +46,7 @@ use jxl::jxl::encode::{
     self as api, JxlEncoder, JxlEncoderError, JxlEncoderFrameSettingId as Id,
     JxlEncoderFrameSettings, JxlEncoderStatus as Status,
 };
-use jxl::jxl::types::{JxlDataType, JxlEndianness, JxlPixelFormat};
+use jxl::jxl::types::{JxlBitDepth, JxlBitDepthType, JxlDataType, JxlEndianness, JxlPixelFormat};
 
 /// libjxl's `kMinButteraugliDistance`; smaller positive distances are
 /// clamped to it by `JxlEncoderSetFrameDistance`.
@@ -65,9 +72,9 @@ const MAX_ONE_SHOT_GROUPS: usize = 8;
 /// and from its own request, which it keeps inside the admitted profile:
 ///
 /// - the port stops at `EnqueuedInput` ([`Admission::AlphaOrIcc`]) only for
-///   an ICC profile or alpha deeper than 12 bits (container output, encoder
-///   steps 3 and 6). The bridge offers neither (its alpha is 8-bit), so it
-///   never infers this variant; it is kept for those steps;
+///   an ICC profile (encoder step 6; alpha deeper than 12 bits is encoded
+///   since the port's container block). The bridge offers no ICC, so it
+///   never infers this variant; it is kept for that step;
 /// - an in-profile request with patches on ([`FrameOptions::patches`]) on
 ///   the one-shot path (at most 8 groups) can only stop at
 ///   `PatchDictionary`: FindTextLikePatches found text-like patches, whose
@@ -83,8 +90,7 @@ pub enum Admission {
     /// The content needs the encoder's patch path (text-like repeated
     /// shapes), which the port does not encode yet.
     PatchDictionary,
-    /// An ICC profile or alpha deeper than 12 bits (container output).
-    /// Not produced by this bridge, which offers neither.
+    /// An ICC profile. Not produced by this bridge, which offers none.
     AlphaOrIcc,
     /// Any other request outside the admitted profile.
     FrameProfile,
@@ -128,10 +134,9 @@ impl fmt::Display for Error {
                 f,
                 "the content needs the JPEG XL encoder's patch path, which is not available yet"
             ),
-            Self::NotAdmitted(Admission::AlphaOrIcc) => write!(
-                f,
-                "ICC profiles and alpha deeper than 12 bits are not admitted by the encoder yet"
-            ),
+            Self::NotAdmitted(Admission::AlphaOrIcc) => {
+                write!(f, "ICC profiles are not admitted by the encoder yet")
+            }
             Self::NotAdmitted(Admission::FrameProfile) => {
                 write!(f, "the request is outside the encoder's admitted profile")
             }
@@ -158,16 +163,18 @@ pub enum ColorChannels {
 
 /// Alpha channel of the interleaved input. Only what the port admits and the
 /// bridge has verified is representable, so an unadmitted alpha request
-/// (deeper than 12 bits, float, premultiplied, a separate buffer) cannot be
-/// expressed.
+/// (float, premultiplied, a separate buffer, another depth than the color's)
+/// cannot be expressed.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Alpha {
     /// No alpha: 1 (gray) or 3 (RGB) interleaved channels.
     #[default]
     None,
-    /// One straight (unassociated) 8-bit alpha channel interleaved after the
-    /// color channels: gray+alpha (2 channels) or RGBA (4 channels). The port
+    /// One straight (unassociated) alpha channel at the image's
+    /// [`ImageInfo::bits_per_sample`] interleaved after the color channels:
+    /// gray+alpha (2 channels) or RGBA (4 channels); 8-bit until 2026-11-15,
+    /// when the name was kept. The port
     /// codes it losslessly (extra-channel distance 0). At the port's default
     /// `STRIP_ALPHA` setting a fully opaque alpha channel is removed from
     /// the codestream; callers that need an explicit decision make it before
@@ -183,7 +190,9 @@ pub enum Color {
     LinearSrgb,
 }
 
-/// The image the encoder receives: 8-bit interleaved samples.
+/// The image the encoder receives: interleaved integer samples of
+/// `bits_per_sample` bits, `u8` at 8 bits, native-endian `u16` scaled to
+/// `0..=2^bits - 1` above (`JXL_BIT_DEPTH_FROM_CODESTREAM`).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ImageInfo {
     pub width: u32,
@@ -191,6 +200,8 @@ pub struct ImageInfo {
     pub channels: ColorChannels,
     pub color: Color,
     pub alpha: Alpha,
+    /// 8 to 16 (since 2026-11-15; before, always 8). Alpha has the same.
+    pub bits_per_sample: u8,
 }
 
 impl ImageInfo {
@@ -203,7 +214,22 @@ impl ImageInfo {
             channels: ColorChannels::Rgb,
             color: Color::Srgb,
             alpha: Alpha::None,
+            bits_per_sample: 8,
         }
+    }
+
+    /// The same image at `bits` bits per sample (8 to 16).
+    #[must_use]
+    pub fn with_bits(self, bits: u8) -> Self {
+        Self {
+            bits_per_sample: bits,
+            ..self
+        }
+    }
+
+    /// Bytes of one sample in the interleaved buffer: 1 at 8 bits, 2 above.
+    fn sample_bytes(&self) -> usize {
+        if self.bits_per_sample > 8 { 2 } else { 1 }
     }
 
     /// 8-bit RGB with straight 8-bit alpha (RGBA) and enum sRGB color.
@@ -247,7 +273,8 @@ impl ImageInfo {
         let (width, height) = self.dims()?;
         width
             .checked_mul(height)?
-            .checked_mul(self.channel_count() as usize)
+            .checked_mul(self.channel_count() as usize)?
+            .checked_mul(self.sample_bytes())
     }
 
     fn num_groups(&self) -> Option<usize> {
@@ -469,18 +496,22 @@ impl Encoder {
         if image.width == 0 || image.height == 0 {
             return Err(Error::Misuse("the image must not be empty"));
         }
+        if !(8..=16).contains(&image.bits_per_sample) {
+            return Err(Error::Misuse("samples must have 8 to 16 bits"));
+        }
         let mut basic = JxlBasicInfo::zeroed();
         api::jxl_encoder_init_basic_info(&mut basic);
         basic.xsize = image.width;
         basic.ysize = image.height;
-        basic.bits_per_sample = 8;
+        basic.bits_per_sample = u32::from(image.bits_per_sample);
         basic.exponent_bits_per_sample = 0;
         basic.uses_original_profile = i32::from(original_profile);
         basic.num_color_channels = image.color_channel_count();
         // SetBasicInfo derives the alpha extra channel's info (type alpha,
-        // 8 bits, unassociated) from these fields, as libjxl does.
+        // the color's bits, unassociated) from these fields, as libjxl does;
+        // `cjxl` gives a PAM's alpha the color depth too.
         basic.num_extra_channels = image.extra_channel_count();
-        basic.alpha_bits = 8 * image.extra_channel_count();
+        basic.alpha_bits = u32::from(image.bits_per_sample) * image.extra_channel_count();
         basic.alpha_exponent_bits = 0;
         basic.alpha_premultiplied = 0;
         basic.orientation = JxlOrientation::IDENTITY;
@@ -580,12 +611,34 @@ impl Encoder {
                 "the pixel buffer is not one interleaved frame",
             ));
         }
+        let deep = image.bits_per_sample > 8;
         let format = JxlPixelFormat {
             num_channels: image.channel_count(),
-            data_type: JxlDataType::UINT8,
+            data_type: if deep {
+                JxlDataType::UINT16
+            } else {
+                JxlDataType::UINT8
+            },
             endianness: JxlEndianness::NATIVE,
             align: 0,
         };
+        if deep {
+            // The samples are codes of the codestream depth, as `cjxl` passes
+            // a PNM (`JXL_BIT_DEPTH_FROM_CODESTREAM`); 8-bit input keeps the
+            // default, the same values.
+            let bit_depth = JxlBitDepth {
+                depth_type: JxlBitDepthType::FROM_CODESTREAM,
+                bits_per_sample: 0,
+                exponent_bits_per_sample: 0,
+            };
+            // SAFETY: The settings object and its encoder are live and not
+            // otherwise referenced.
+            let status =
+                unsafe { api::jxl_encoder_set_frame_bit_depth(self.settings.as_ptr(), &bit_depth) };
+            if status != Status::SUCCESS {
+                return Err(self.fail(Stage::AddFrame));
+            }
+        }
         // SAFETY: The settings object and its encoder are live and not
         // otherwise referenced. AddImageFrame copies the buffer
         // (CopyBuffers) before it returns, so `pixels` is not retained.

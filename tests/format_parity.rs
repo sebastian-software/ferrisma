@@ -352,7 +352,10 @@ fn the_engine_reads_its_own_jpeg_xl_output_with_default_settings() {
     let source = read("tests/fixtures/orientation/jxl-1.jxl");
     for jpeg_xl in [
         JpegXlOptions::default(),
-        JpegXlOptions::Lossless { effort: 2 },
+        JpegXlOptions::Lossless {
+            effort: 2,
+            depth: None,
+        },
     ] {
         let written = transcode(
             &source,
@@ -773,5 +776,132 @@ fn animation_is_refused_alike() {
                 RefusalReason::Animation,
             ),
         );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Bit depth (ADR-0043 decided application, owner decision of 2026-11-15;
+// ADR-0021 amendment): the output depth follows the input's by one rule in
+// every format that can represent it, the nearest admitted depth below where
+// it cannot, and `PrecisionReduced` exactly when the output holds fewer bits
+// than the input. WebP is 8-bit by its format (VP8 and VP8L); AVIF ends at
+// 12 bits (AV1's largest); JPEG XL holds 8 to 16 integer bits. These are the
+// format reasons of the matrix row "Bit depth".
+
+/// (output depth, `PrecisionReduced`) of one transcode.
+fn depth_outcome(
+    bytes: &[u8],
+    input: ImageFormat,
+    output: OutputFormat,
+    depth: Option<u8>,
+) -> (u8, u8, bool) {
+    let mut options = TransformOptions {
+        output_format: output,
+        output_width: 16,
+        output_height: 9,
+        profile_policy: ASSUME,
+        transform_threads: 1,
+        ..TransformOptions::default()
+    };
+    match output {
+        OutputFormat::JpegXl => {
+            options.jpeg_xl = JpegXlOptions::Lossless { effort: 2, depth };
+        }
+        OutputFormat::Avif => options.avif.depth = depth,
+        _ => assert!(depth.is_none(), "WebP has no depth setting"),
+    }
+    let result = transcode(bytes, input, options)
+        .unwrap_or_else(|error| panic!("{input:?} to {output:?} at {depth:?}: {error}"));
+    let reduced = result
+        .report
+        .discarded
+        .iter()
+        .any(|class| class == Discarded::PrecisionReduced);
+    (
+        result.report.input_depth,
+        result.report.output_depth,
+        reduced,
+    )
+}
+
+#[test]
+fn depth_follows_the_input_in_every_output() {
+    #[cfg_attr(not(feature = "avif-read"), allow(unused_mut))]
+    let mut inputs = vec![
+        (read("tests/fixtures/sample.jpg"), ImageFormat::Jpeg, 8),
+        (
+            read("tests/fixtures/webp/reference-lossy.webp"),
+            ImageFormat::WebP,
+            8,
+        ),
+        (
+            read("tests/fixtures/jxl-lossless/rgb-37x19.jxl"),
+            ImageFormat::JpegXl,
+            8,
+        ),
+        (
+            read("tests/fixtures/jxl-deep/d10-37x19-a0-lossless.jxl"),
+            ImageFormat::JpegXl,
+            10,
+        ),
+        (
+            read("tests/fixtures/jxl-deep/d12-37x19-a1-lossless.jxl"),
+            ImageFormat::JpegXl,
+            12,
+        ),
+        (
+            read("tests/fixtures/jxl-deep/d16-37x19-a0-lossless.jxl"),
+            ImageFormat::JpegXl,
+            16,
+        ),
+    ];
+    #[cfg(feature = "avif-read")]
+    {
+        const ANDROID: &str = "codecs/libavif-rs/upstream/libavif/android_jni/avifandroidjni/src/androidTest/assets/avif/";
+        for (file, depth) in [
+            ("fox.profile0.8bpc.yuv420.avif", 8),
+            ("fox.profile0.10bpc.yuv420.avif", 10),
+            ("fox.profile2.12bpc.yuv444.avif", 12),
+        ] {
+            inputs.push((read(&format!("{ANDROID}{file}")), ImageFormat::Avif, depth));
+        }
+    }
+    let mut outputs = vec![
+        (OutputFormat::WebP, &[8_u8][..]),
+        (
+            OutputFormat::JpegXl,
+            &[8, 9, 10, 11, 12, 13, 14, 15, 16][..],
+        ),
+    ];
+    if cfg!(feature = "avif-write") {
+        outputs.push((OutputFormat::Avif, &[8, 10, 12][..]));
+    }
+    for (bytes, input, depth) in &inputs {
+        for &(output, admitted) in &outputs {
+            // The one rule: the largest admitted depth at most the input's.
+            let expected = admitted
+                .iter()
+                .copied()
+                .filter(|d| d <= depth)
+                .max()
+                .unwrap();
+            assert_eq!(
+                depth_outcome(bytes, *input, output, None),
+                (*depth, expected, expected < *depth),
+                "{input:?} {depth}-bit to {output:?}"
+            );
+            // An explicit depth overrides the rule, in each format that
+            // has the setting; below the input it is reported, above it
+            // is not (the content is quantized at that depth).
+            if output != OutputFormat::WebP {
+                for &explicit in admitted {
+                    assert_eq!(
+                        depth_outcome(bytes, *input, output, Some(explicit)),
+                        (*depth, explicit, explicit < *depth),
+                        "{input:?} {depth}-bit to {output:?} at {explicit}"
+                    );
+                }
+            }
+        }
     }
 }

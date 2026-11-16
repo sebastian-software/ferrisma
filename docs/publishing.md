@@ -274,6 +274,28 @@ the workspace (macOS ARM64, pinned nightly):
   python3 tools/check_aom_golden.py` in `codecs/libavif-rs`, release
   optimization, Neon RTCD): 62 of 62 golden AVIF outputs identical (8, 10
   and 12 bit, lossless, alpha, one and four threads), 62 of 62 C-confirmed.
+- **Kernel tier with overflow checks: no failure found.** Measured on
+  2026-11-16 (Apple M1 Pro, macOS 27.2.1, the pinned nightly; branch
+  `v1/aom-x86-7`, `a45cbcf0`) with `CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true`
+  for every package, in `codecs/libavif-rs`. The `libavif-aom` archive then
+  references `panic_const_add_overflow` and `panic_const_mul_overflow` (in
+  16 objects each; none without the variable):
+  - release translation, release optimization: `cargo test --release
+    --locked -p libavif-aom --test simd` 152 of 152 pass; `python3
+    tools/check_aom_simd_original.py` (the SIMD-against-original gate) 82 of
+    82 cases identical to the original at `neon` and at `scalar`;
+  - debug translation (`macos/debug`, selected by adding
+    `CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true`): the same two commands,
+    152 of 152 and 82 of 82 at `neon` and `scalar`;
+  - x86-64, release translation, under QEMU (`qemu-x86_64 -cpu max` in the
+    `tools/qemu_x86_64` container, the port cross-built with the same
+    variable): `check_aom_simd_original.py --qemu --level avx2` 82 of 82
+    cases identical to the original. The x86-64 kernel tests and the debug
+    translation on x86-64 were not run with overflow checks.
+
+  No overflow panic in any run. Note that the `checked` profile keeps
+  `overflow-checks = false` for the AVIF packages (root `Cargo.toml`), so its
+  kernel runs are not overflow evidence.
 - **`panic = "abort"` is a build error, not a run-time abort.**
   `libavif-aom` has `#[cfg(panic = "abort")] compile_error!`; a dependent
   whose profile aborts gets "libaom's mapped nonlocal error handling

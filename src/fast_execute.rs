@@ -33,11 +33,12 @@ use crate::error::Error;
 use crate::geometry::Rect;
 use crate::graph::{Graph, NodeId};
 use crate::memory::{MemoryBudget, try_filled_vec, try_vec};
+use crate::output_depth::{EIGHT, OutputBuffer, OutputRow, max_code};
 use crate::quality::taps;
 use crate::quality_execute::{QualityReport, prepare, reserve_resize_plan, tap_entry_bound};
 use crate::working_color::{
     decode_srgb, decode_straight_to_premultiplied_linear_srgb, decode_to_linear_srgb,
-    encode_linear_srgb8, p3_to_srgb_matrix,
+    encode_linear_srgb, encode_linear_srgb8, p3_to_srgb_matrix,
 };
 
 /// Bucket count of the encoder table; every bucket spans at most one code
@@ -218,11 +219,10 @@ pub(crate) fn kernel_error(error: KernelError) -> Error {
 }
 
 /// Fast `f32` counterpart of `quality_execute::execute_quality_srgb8`, with
-/// the same graph contract, sink contract and report. The resample runs on
-/// `kernels` (ADR-0020); every pixel is stored as four `f32` channels.
-/// With `threads > 1` the rows run on a pipeline of workers (ADR-0022) that
-/// produces byte-identical output.
+/// the same graph contract, sink contract and report: [`execute_fast`] at
+/// 8 bits.
 #[allow(clippy::too_many_arguments)] // The reference signature plus the kernel table.
+#[cfg(test)] // The 8-bit contract of the executor tests.
 pub(crate) fn execute_fast_srgb8(
     graph: &Graph,
     target: NodeId,
@@ -234,6 +234,42 @@ pub(crate) fn execute_fast_srgb8(
     threads: usize,
     sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
+    execute_fast(
+        graph,
+        target,
+        bound_source,
+        source,
+        requested,
+        budget,
+        kernels,
+        threads,
+        EIGHT,
+        crate::output_depth::eight_bit_sink(sink),
+    )
+}
+
+/// Fast `f32` counterpart of `quality_execute::execute_quality`: the same
+/// graph contract, sink contract, report and output `depth` (8 to 16 bits;
+/// 8-bit rows are `u8`, deeper rows `u16`, ADR-0021 amendment of
+/// 2026-11-15). The resample runs on `kernels` (ADR-0020); every pixel is
+/// stored as four `f32` channels. With `threads > 1` the rows run on a
+/// pipeline of workers (ADR-0022) that produces byte-identical output.
+#[allow(clippy::too_many_arguments)] // The reference signature plus the kernel table.
+pub(crate) fn execute_fast(
+    graph: &Graph,
+    target: NodeId,
+    bound_source: NodeId,
+    source: &mut dyn DecodeSource,
+    requested: Rect,
+    budget: &MemoryBudget,
+    kernels: &Kernels,
+    threads: usize,
+    depth: u8,
+    sink: impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
+) -> Result<QualityReport, Error> {
+    if !(EIGHT..=crate::output_depth::MAX_DEPTH).contains(&depth) {
+        return Err(Error::InvalidEncodeOptions);
+    }
     let info = source.info().clone();
     let _plan_reservation = reserve_resize_plan(graph, target, requested, budget)?;
     match (info.layout, info.alpha) {
@@ -246,6 +282,7 @@ pub(crate) fn execute_fast_srgb8(
             budget,
             kernels,
             threads,
+            depth,
             sink,
         ),
         (ChannelLayout::Rgba, AlphaMode::Straight) => run::<4>(
@@ -257,6 +294,7 @@ pub(crate) fn execute_fast_srgb8(
             budget,
             kernels,
             threads,
+            depth,
             sink,
         ),
         (ChannelLayout::Rgb | ChannelLayout::Rgba, _) => {
@@ -464,10 +502,72 @@ pub(crate) fn quantize_row<const C: usize>(
     Ok(())
 }
 
+/// Encode one row of filtered linear samples to straight sRGB RGBA at
+/// `depth` bits (above 8), scaled to `0..=2^depth - 1`. The same steps as
+/// [`quantize_row`] in the same order (clamp, alpha rounded in `f32`,
+/// division by alpha in `f32`, transparent black at alpha code 0); only the
+/// encoder differs: the 8-bit table is exact against
+/// `encode_linear_srgb8(f64::from(x))`, and here that reference function
+/// itself, `encode_linear_srgb(f64::from(x), max)`, is applied, so both are
+/// the oracle's encoder applied to the same `f32` value.
+pub(crate) fn quantize_row_deep<const C: usize>(
+    acc: &[f32],
+    output: &mut [u16],
+    depth: u8,
+) -> Result<(), Error> {
+    let max = max_code(depth);
+    let scale = f32::from(max);
+    for (pixel, rgba) in acc
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(output.as_chunks_mut::<4>().0)
+    {
+        if pixel.iter().any(|sample| !sample.is_finite()) {
+            return Err(Error::NonFinitePixelSample);
+        }
+        if C == 3 {
+            for channel in 0..3 {
+                rgba[channel] = encode_linear_srgb(f64::from(pixel[channel].clamp(0.0, 1.0)), max)?;
+            }
+            rgba[3] = max;
+        } else {
+            let alpha = pixel[3].clamp(0.0, 1.0);
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let alpha_code = (alpha * scale).round() as u16;
+            rgba[3] = alpha_code;
+            // ADR-0014: alpha code 0 is transparent black.
+            for channel in 0..3 {
+                rgba[channel] = if alpha_code == 0 {
+                    0
+                } else {
+                    encode_linear_srgb(f64::from((pixel[channel] / alpha).clamp(0.0, 1.0)), max)?
+                };
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Quantize one row into `output` at its depth.
+pub(crate) fn quantize_into<const C: usize>(
+    acc: &[f32],
+    output: &mut OutputBuffer,
+    depth: u8,
+    tables: &Tables,
+) -> Result<(), Error> {
+    match output {
+        OutputBuffer::U8(bytes) => quantize_row::<C>(acc, bytes.as_mut_slice(), tables),
+        OutputBuffer::U16(samples) => quantize_row_deep::<C>(acc, samples.as_mut_slice(), depth),
+    }
+}
+
 /// Everything both executors need, derived once from the graph and source.
 pub(crate) struct RowPlan {
     /// Sample type of the rows the source emits (before `conversion`).
     pub sample: SampleType,
+    /// Output sample depth in bits (8: `u8` rows; 10 to 16: `u16` rows).
+    pub depth: u8,
     /// A source conversion deferred to the executor (ADR-0023): applied to
     /// every needed row, on the worker that linearizes it.
     pub conversion: Option<Arc<dyn RowConversion>>,
@@ -592,6 +692,7 @@ impl RowPlan {
         }
         Ok(Self {
             sample: info.sample,
+            depth: EIGHT,
             conversion: None,
             source_region: plan.source,
             source_y: plan.source.y,
@@ -640,7 +741,7 @@ impl RowPlan {
 /// Below this many needed source rows, threads cost more than they save.
 const PARALLEL_MIN_ROWS: usize = 64;
 
-#[allow(clippy::too_many_arguments)] // Graph binding, budget, kernels, threads and sink.
+#[allow(clippy::too_many_arguments)] // Graph binding, budget, kernels, threads, depth and sink.
 fn run<const C: usize>(
     graph: &Graph,
     target: NodeId,
@@ -650,9 +751,11 @@ fn run<const C: usize>(
     budget: &MemoryBudget,
     kernels: &Kernels,
     threads: usize,
-    sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
+    depth: u8,
+    sink: impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
 ) -> Result<QualityReport, Error> {
     let mut plan = RowPlan::new::<C>(graph, target, bound_source, source, requested)?;
+    plan.depth = depth;
     // Take over the source's per-row conversion (the ICC transform) so that
     // it runs where the rows are linearized, on the workers when parallel.
     if let Some(conversion) = source.defer_conversion() {
@@ -683,7 +786,7 @@ fn run_sequential<const C: usize>(
     source: &mut dyn DecodeSource,
     budget: &MemoryBudget,
     kernels: &Kernels,
-    mut sink: impl FnMut(u32, &[u8]) -> Result<(), Error>,
+    mut sink: impl FnMut(u32, OutputRow<'_>) -> Result<(), Error>,
 ) -> Result<(DecodeReport, Duration, Duration), Error> {
     let tables = tables();
     let capacity = plan.capacity;
@@ -697,7 +800,7 @@ fn run_sequential<const C: usize>(
     )?;
     let mut ring_rank = try_filled_vec(capacity, usize::MAX)?;
     let mut accumulator = budget.allocate_typed::<f32>(row_samples)?;
-    let mut output = budget.allocate_typed::<u8>(row_samples)?;
+    let mut output = OutputBuffer::allocate(plan.depth, row_samples, budget)?;
 
     let mut emitted = 0_usize;
     let mut decoded_rows = 0_u32;
@@ -738,8 +841,8 @@ fn run_sequential<const C: usize>(
                 let cached = &ring.as_slice()[slot * row_samples..(slot + 1) * row_samples];
                 kernels.axpy(acc, cached, weight).map_err(kernel_error)?;
             }
-            quantize_row::<C>(acc, output.as_mut_slice(), tables)?;
-            sink(plan.output_y(emitted)?, output.as_slice())?;
+            quantize_into::<C>(acc, &mut output, plan.depth, tables)?;
+            sink(plan.output_y(emitted)?, output.row())?;
             emitted += 1;
         }
         transform_time += row_started.elapsed();

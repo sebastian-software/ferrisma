@@ -1,0 +1,20 @@
+{
+ "aligned_externs": [],
+ "comment_start": 12,
+ "consts": {},
+ "extern_c": [
+  "sqrtf"
+ ],
+ "feature": "avx2",
+ "macros": {},
+ "output": "rdopt_avx2.rs",
+ "prelude": "preludes/prelude_rdopt.h",
+ "public": [],
+ "public_all": false,
+ "rtcd": [
+  "av1_get_horver_correlation_full_avx2"
+ ],
+ "skip": [],
+ "source": "upstream/aom/av1/encoder/x86/rdopt_avx2.c",
+ "structs": {}
+}

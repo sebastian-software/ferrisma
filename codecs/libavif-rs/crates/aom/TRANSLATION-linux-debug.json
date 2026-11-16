@@ -23,11 +23,11 @@
       "--disable-avx512"
     ],
     "overlay": "crates/aom/rtcd/x86_64.pl",
-    "overlay_sha256": "62c1956262859508f3e25f21deebf3bc3b1c35cb5786b8ffbe489168a2ba0ecb",
+    "overlay_sha256": "94a81d23f7de6cb11ca83f0079104f25651f747858e62618511dd8c1c2e488af",
     "headers": {
       "config/aom_dsp_rtcd.h": "1f48551d90f6e4047fd1bc83e5b368c1711c3b6c2498e9fe351a730f1aa17ae2",
       "config/aom_scale_rtcd.h": "691037710b3c581297ce3d121638764eea39f2f3745ac58f4797e4b1a935cc91",
-      "config/av1_rtcd.h": "95d7cece055e028b152194ca5e2bec517b328d17fb9c9dba7436f3d6516f2be9"
+      "config/av1_rtcd.h": "40c3e82237dbba12c34249b2f469e4edddb5a175c053043d70464d274dc61b71"
     }
   },
   "optional_inline_test_bridges": [
@@ -125,8 +125,8 @@
       "source": "upstream/aom/av1/common/av1_rtcd.c",
       "rust": "crates/aom/src/linux/debug/av1/common/av1_rtcd.rs",
       "raw_sha256": "e0df845da0a02e4d946707c75b0af34ba483f83778b2926d35cf836dde4426a7",
-      "rust_sha256": "f905c78dbcdace2c832207e0a349633b17efe2fc15617887694e955af0b57633",
-      "production_rust_sha256": "f905c78dbcdace2c832207e0a349633b17efe2fc15617887694e955af0b57633",
+      "rust_sha256": "677d2bab2547de25349989c07c96a737e9f69f49ea39016528accfb0bb0428b3",
+      "production_rust_sha256": "677d2bab2547de25349989c07c96a737e9f69f49ea39016528accfb0bb0428b3",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,
@@ -776,8 +776,8 @@
       "source": "upstream/aom/av1/common/av1_inv_txfm2d.c",
       "rust": "crates/aom/src/linux/debug/av1/common/av1_inv_txfm2d.rs",
       "raw_sha256": "90d2dfb670cd0dedcc8025e1f1911914bebdaeff76970305fc61e577a17f8737",
-      "rust_sha256": "8e34046a95567f6df97b8715042d084a5725ef9a50d60fdddde0693bad341c99",
-      "production_rust_sha256": "8e34046a95567f6df97b8715042d084a5725ef9a50d60fdddde0693bad341c99",
+      "rust_sha256": "bd2c6b126f11ece65932637cffbe9918e61c11a7204ce61779c7b882e1788471",
+      "production_rust_sha256": "bd2c6b126f11ece65932637cffbe9918e61c11a7204ce61779c7b882e1788471",
       "corrections": {
         "static-raw-address": 21,
         "raw-c-mutable-address": 6,
@@ -856,8 +856,8 @@
       "source": "upstream/aom/av1/common/cfl.c",
       "rust": "crates/aom/src/linux/debug/av1/common/cfl.rs",
       "raw_sha256": "96d171e43900db91db226a25111b7cc0f44988b1a11b8323cb8753fe25295b19",
-      "rust_sha256": "a4c08b549b7d5cf0c0d44cccc38d696edae010723cdaa2c9f4032c3e7667e8ab",
-      "production_rust_sha256": "3968ed5ebdd28196b3219617454a0354ec58d122237800b934d161893a8c63cc",
+      "rust_sha256": "5a63222c473f0ad7d96bd5210bc83b5db95e6df07a00a89d3bf2d952c09411d6",
+      "production_rust_sha256": "c980e0c580454e644e60cdbb3bf9ff0ff360f80a6fe78f42ff4f1bceacafbecf",
       "corrections": {
         "raw-c-mutable-address": 13,
         "original-c-record-field-alignment": 2,
@@ -1069,8 +1069,8 @@
       "source": "upstream/aom/av1/common/restoration.c",
       "rust": "crates/aom/src/linux/debug/av1/common/restoration.rs",
       "raw_sha256": "7bbe5caa4fd880fce7952b09ef349df94c4a18ec9d04ad60adf8b037a2fbeb7e",
-      "rust_sha256": "783ead8cbea19927882e33e2292485deb5e4fa1c5facb91ed427820b4f901e81",
-      "production_rust_sha256": "783ead8cbea19927882e33e2292485deb5e4fa1c5facb91ed427820b4f901e81",
+      "rust_sha256": "9f420bff65b7f66a24939904de21692928df5fe032cb34a767bfea0fdb41db15",
+      "production_rust_sha256": "9f420bff65b7f66a24939904de21692928df5fe032cb34a767bfea0fdb41db15",
       "corrections": {
         "raw-c-mutable-address": 21,
         "original-c-record-field-alignment": 5,
@@ -1414,8 +1414,8 @@
       "source": "upstream/aom/av1/encoder/av1_fwd_txfm2d.c",
       "rust": "crates/aom/src/linux/debug/av1/encoder/av1_fwd_txfm2d.rs",
       "raw_sha256": "d158b2ff7ddb0f9c936873c0acafa5b2b7b7a096c3983c273ba1881f009e2de2",
-      "rust_sha256": "dc780265492c286bc6dec237e675c00630ac7df260d4dd07e3a7cbc81dbc7868",
-      "production_rust_sha256": "dc780265492c286bc6dec237e675c00630ac7df260d4dd07e3a7cbc81dbc7868",
+      "rust_sha256": "403f8516c7b6159de8760b88dbc3f2bf018e800c2933812a42d3d399ba4d5905",
+      "production_rust_sha256": "403f8516c7b6159de8760b88dbc3f2bf018e800c2933812a42d3d399ba4d5905",
       "corrections": {
         "static-raw-address": 31,
         "raw-c-mutable-address": 42,
@@ -1627,8 +1627,8 @@
       "source": "upstream/aom/av1/encoder/encodetxb.c",
       "rust": "crates/aom/src/linux/debug/av1/encoder/encodetxb.rs",
       "raw_sha256": "2cf7eb0942f8c55a3952381c0a5b26fb9a2590116555e842d3cd7c765ebb3958",
-      "rust_sha256": "13612a666de14b52496df0069fda4bb843f01fae6a5339e430008bb51aea5e01",
-      "production_rust_sha256": "13612a666de14b52496df0069fda4bb843f01fae6a5339e430008bb51aea5e01",
+      "rust_sha256": "5dc8f681d4d2db44dfbdbd3d15c94f548e7b4c46f1dfe67f2823cbb758c5c92c",
+      "production_rust_sha256": "5dc8f681d4d2db44dfbdbd3d15c94f548e7b4c46f1dfe67f2823cbb758c5c92c",
       "corrections": {
         "target-libc-file-handle": 1,
         "raw-c-mutable-address": 25,
@@ -1987,8 +1987,8 @@
       "source": "upstream/aom/av1/encoder/pickrst.c",
       "rust": "crates/aom/src/linux/debug/av1/encoder/pickrst.rs",
       "raw_sha256": "306d465fd95df22f7da0ee051ede55988b71facc8a9b6142397e2eb3c40fd415",
-      "rust_sha256": "acf7ba60b26b7ff5c3d916aed29bc961352e4ff22a19a2d0368b83c9ee26b8d2",
-      "production_rust_sha256": "acf7ba60b26b7ff5c3d916aed29bc961352e4ff22a19a2d0368b83c9ee26b8d2",
+      "rust_sha256": "077f7d4283df6454de410805bbcfb3ad10ca6cf169296ce12ce283171a13b0dc",
+      "production_rust_sha256": "077f7d4283df6454de410805bbcfb3ad10ca6cf169296ce12ce283171a13b0dc",
       "corrections": {
         "canonical-cfg-labels": 2,
         "target-libc-file-handle": 1,
@@ -2019,8 +2019,8 @@
       "source": "upstream/aom/av1/encoder/rd.c",
       "rust": "crates/aom/src/linux/debug/av1/encoder/rd.rs",
       "raw_sha256": "9236d80b079c1422920e4c98c56b3800f290bb909a3bd824c9175618f0340703",
-      "rust_sha256": "1c748b67e624c590d38a31ff9a9f6750acd842651328e68829679221ad4c0280",
-      "production_rust_sha256": "1c748b67e624c590d38a31ff9a9f6750acd842651328e68829679221ad4c0280",
+      "rust_sha256": "f0b34bb1740ebba91a059919cf9a70ccad5a7008dd6f22486bbc0b03f3a470dc",
+      "production_rust_sha256": "f0b34bb1740ebba91a059919cf9a70ccad5a7008dd6f22486bbc0b03f3a470dc",
       "corrections": {
         "static-raw-address": 5,
         "target-libc-thread-storage": 1,
@@ -2217,8 +2217,8 @@
       "source": "upstream/aom/av1/encoder/tx_search.c",
       "rust": "crates/aom/src/linux/debug/av1/encoder/tx_search.rs",
       "raw_sha256": "f45bb3a033f17de0da430ff7b8373edb1693597cc33a069e129914855a57e8c9",
-      "rust_sha256": "b3f6ff92baa95edacf8221cf00525a94d409f6438ef6ff06886e4f69441d0bdf",
-      "production_rust_sha256": "b3f6ff92baa95edacf8221cf00525a94d409f6438ef6ff06886e4f69441d0bdf",
+      "rust_sha256": "828f055861856a42366f1e450c81ecb0faf1adfce9125bc317f96ee2a4ce565c",
+      "production_rust_sha256": "828f055861856a42366f1e450c81ecb0faf1adfce9125bc317f96ee2a4ce565c",
       "corrections": {
         "static-raw-address": 127,
         "remove-inferred-identity-pointer-cast": 9,
@@ -2237,8 +2237,8 @@
       "source": "upstream/aom/av1/encoder/txb_rdopt.c",
       "rust": "crates/aom/src/linux/debug/av1/encoder/txb_rdopt.rs",
       "raw_sha256": "4e0ce8c363a2339fece177790f58bbf61cb2a7ae72f742fff832b98649b37fb9",
-      "rust_sha256": "b69bf02e7fef99416b5845220181b9a7ed55580a40f46ab8c1b9ef777876e660",
-      "production_rust_sha256": "b69bf02e7fef99416b5845220181b9a7ed55580a40f46ab8c1b9ef777876e660",
+      "rust_sha256": "9e54e3624bfd2e787910bc717e5bc5593da183d58883705df11a9cb787a078c0",
+      "production_rust_sha256": "9e54e3624bfd2e787910bc717e5bc5593da183d58883705df11a9cb787a078c0",
       "corrections": {
         "static-raw-address": 2,
         "target-libc-file-handle": 1,

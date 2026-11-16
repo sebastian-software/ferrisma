@@ -34,6 +34,7 @@ impl PatternSource {
     fn new(size: Size, sample: SampleType, layout: ChannelLayout) -> Self {
         Self {
             info: DecoderInfo {
+                depth: 8,
                 size,
                 sample,
                 layout,
