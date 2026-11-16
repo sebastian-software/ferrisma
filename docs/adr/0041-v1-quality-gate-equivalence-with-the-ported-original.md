@@ -451,10 +451,10 @@ and what is not done yet.
   crash and not commit a memory error. Its applications no longer carry the
   label "pending owner confirmation" (libjxl-rs
   [ADR 0002](../../codecs/libjxl-rs/docs/adr/0002-differential-oracle.md),
-  [quality gate guide](../quality-gate.md)). Two code comments still carry
-  it (`codecs/libjxl-rs/tests/parity.rs`,
-  `codecs/libjxl-rs/tools/oracle/CMakeLists.txt`); they change with the
-  next change to those files.
+  [quality gate guide](../quality-gate.md)), and since 2026-11-16 neither
+  do the two code comments that still carried it
+  (`codecs/libjxl-rs/tests/parity.rs`,
+  `codecs/libjxl-rs/tools/oracle/CMakeLists.txt`).
 - **O2. libaom's video-only code.** Kept; nothing is removed. The owner's
   reason: animated AVIF may be wanted later, and it needs exactly this code.
   Animated AVIF itself is not decided and not in scope. SIMD stays ported
