@@ -236,13 +236,16 @@ pub fn compute_block_l2_distance(
         a.ysize(),
     );
     let mut err2 = [0.0f32; 3];
+    // Each row is sliced to the rect's width once, so the pixel loop needs
+    // no per-sample bounds checks; same samples in the same order.
+    let xs = rect.xsize();
     for y in 0..rect.ysize() {
         let row_a: [&[f32]; 3] =
-            std::array::from_fn(|c| &a.plane(c).row(rect.y0() + y)[rect.x0()..]);
+            std::array::from_fn(|c| &a.plane(c).row(rect.y0() + y)[rect.x0()..][..xs]);
         let row_b: [&[f32]; 3] =
-            std::array::from_fn(|c| &b.plane(c).row(rect.y0() + y)[rect.x0()..]);
-        let row_mask = &mask1x1.row(rect.y0() + y)[rect.x0()..];
-        for x in 0..rect.xsize() {
+            std::array::from_fn(|c| &b.plane(c).row(rect.y0() + y)[rect.x0()..][..xs]);
+        let row_mask = &mask1x1.row(rect.y0() + y)[rect.x0()..][..xs];
+        for x in 0..xs {
             let mask = row_mask[x];
             let mask2 = mask * mask;
             for i in 0..3 {

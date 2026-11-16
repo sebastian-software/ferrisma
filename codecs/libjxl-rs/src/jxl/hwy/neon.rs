@@ -466,4 +466,39 @@ impl SimdF32 for Neon {
         )))
     }
     // end stages2
+    // capped4: HWY_CAPPED(float, 4) is the full NEON vector.
+    type Q = float32x4_t;
+    #[inline(always)]
+    fn q_load(self, src: &[f32]) -> Self::Q {
+        self.load(src)
+    }
+    #[inline(always)]
+    fn q_store(self, v: Self::Q, dst: &mut [f32]) {
+        self.store(v, dst)
+    }
+    #[inline(always)]
+    fn q_set(self, v: f32) -> Self::Q {
+        self.set(v)
+    }
+    #[inline(always)]
+    fn q_add(self, a: Self::Q, b: Self::Q) -> Self::Q {
+        self.add(a, b)
+    }
+    #[inline(always)]
+    fn q_sub(self, a: Self::Q, b: Self::Q) -> Self::Q {
+        self.sub(a, b)
+    }
+    #[inline(always)]
+    fn q_mul(self, a: Self::Q, b: Self::Q) -> Self::Q {
+        self.mul(a, b)
+    }
+    #[inline(always)]
+    fn q_mul_add(self, mul: Self::Q, x: Self::Q, add: Self::Q) -> Self::Q {
+        self.mul_add(mul, x, add)
+    }
+    #[inline(always)]
+    fn q_neg_mul_add(self, mul: Self::Q, x: Self::Q, add: Self::Q) -> Self::Q {
+        self.neg_mul_add(mul, x, add)
+    }
+    // end capped4
 }

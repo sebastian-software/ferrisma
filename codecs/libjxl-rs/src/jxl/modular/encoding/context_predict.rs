@@ -116,12 +116,14 @@ pub mod weighted {
                 ],
             }
         }
+        #[inline(always)]
         pub fn error_weight(&self, x: u64, maxweight: u32) -> u32 {
             let shift = (floor_log2_nonzero(x.wrapping_add(1)) as i32 - 5).max(0) as u32;
             4u32.wrapping_add(
                 maxweight.wrapping_mul(self.divlookup[(x >> shift) as usize]) >> shift,
             )
         }
+        #[inline(always)]
         pub fn weighted_average(&self, p: &[PixelWide; 4], mut w: [u32; 4]) -> PixelWide {
             let mut weight_sum = 0u32;
             for weight in w {
@@ -144,6 +146,7 @@ pub mod weighted {
             clippy::too_many_arguments,
             reason = "Preserve the source weighted predictor's coordinates, neighbors, and property output."
         )]
+        #[inline(always)]
         pub fn predict<const COMPUTE_PROPERTIES: bool>(
             &mut self,
             x: usize,
@@ -219,6 +222,7 @@ pub mod weighted {
             self.pred = mn.max(mx.min(self.pred));
             (self.pred + PREDICTION_ROUND) >> PRED_EXTRA_BITS
         }
+        #[inline(always)]
         pub fn update_errors(&mut self, val: PixelWide, x: usize, y: usize, xsize: usize) {
             let cur_row = if y & 1 != 0 { 0 } else { xsize + 2 };
             let prev_row = if y & 1 != 0 { xsize + 2 } else { 0 };
@@ -334,6 +338,7 @@ impl<'a> MATreeLookup<'a> {
     pub fn new(tree: &'a [FlatDecisionNode]) -> Self {
         Self { nodes: tree }
     }
+    #[inline(always)]
     pub fn lookup(&self, properties: &[PropertyVal]) -> LookupResult {
         let mut pos = 0u32;
         macro_rules! traverse_the_tree {
@@ -366,6 +371,7 @@ pub const NUM_NONREF_PROPERTIES: usize =
     NUM_STATIC_PROPERTIES as usize + 13 + weighted::NUM_PROPERTIES;
 pub const WP_PROP: usize = NUM_NONREF_PROPERTIES - weighted::NUM_PROPERTIES;
 pub const GRADIENT_PROP: usize = 9;
+#[inline(always)]
 pub fn clamped_gradient(n: i32, w: i32, l: i32) -> i32 {
     let m = n.min(w);
     let big = n.max(w);
@@ -373,6 +379,7 @@ pub fn clamped_gradient(n: i32, w: i32, l: i32) -> i32 {
     let grad_clamp_big = if l < m { big } else { grad };
     if l > big { m } else { grad_clamp_big }
 }
+#[inline(always)]
 pub fn select(a: PixelWide, b: PixelWide, c: PixelWide) -> PixelWide {
     let p = a + b - c;
     let pa = (p - a).abs();
@@ -449,6 +456,7 @@ pub struct PixelPosition<'a> {
     onerow: isize,
 }
 impl<'a> PixelPosition<'a> {
+    #[inline(always)]
     pub fn new(samples: &'a [Pixel], position: usize, onerow: isize) -> Self {
         assert!(position <= samples.len());
         Self {
@@ -457,13 +465,13 @@ impl<'a> PixelPosition<'a> {
             onerow,
         }
     }
+    #[inline(always)]
     fn read(self, relative: isize) -> PixelWide {
-        let index = self
-            .position
-            .checked_add_signed(relative)
-            .expect("relative sample before storage");
-        i64::from(self.samples[index])
+        // One check per read: an offset before the storage wraps to an index
+        // past its end, which the slice index rejects as before.
+        i64::from(self.samples[self.position.wrapping_add_signed(relative)])
     }
+    #[inline(always)]
     pub(super) fn read_pixel(self, relative: isize) -> Pixel {
         self.read(relative) as Pixel
     }
@@ -479,6 +487,7 @@ pub mod detail {
         clippy::too_many_arguments,
         reason = "Preserve the source predictor's eight neighbor inputs."
     )]
+    #[inline(always)]
     pub fn predict_one(
         p: Predictor,
         left: PixelWide,
@@ -516,6 +525,7 @@ pub mod detail {
         clippy::too_many_arguments,
         reason = "Keep the source template's optional property/tree/state/output boundaries."
     )]
+    #[inline(always)]
     pub fn predict<const MODE: u32>(
         mut p: Option<&mut Properties>,
         w: usize,
@@ -728,6 +738,7 @@ pub fn predict_tree_no_wp(
         None,
     )
 }
+#[inline(always)]
 pub fn predict_tree_no_wp_nec(
     p: &mut Properties,
     w: usize,
@@ -781,6 +792,7 @@ pub fn predict_tree_wp(
     clippy::too_many_arguments,
     reason = "Preserve the tree, reference, and weighted-state inputs of the source wrapper."
 )]
+#[inline(always)]
 pub fn predict_tree_wp_nec(
     p: &mut Properties,
     w: usize,

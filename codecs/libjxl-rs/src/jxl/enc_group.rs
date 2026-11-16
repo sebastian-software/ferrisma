@@ -136,13 +136,18 @@ pub fn adjust_quant_block_ac(
 /// `a * b + c` of one contracted C++ expression: fused when `FUSED` (the
 /// AArch64 scalar build and both SIMD targets, whose code in `HWY_NAMESPACE`
 /// carries FMA), separate otherwise (the x86-64 scalar build).
+#[inline(always)]
 fn contracted_f64<const FUSED: bool>(a: f64, b: f64, c: f64) -> f64 {
     if FUSED { a.mul_add(b, c) } else { a * b + c }
 }
 
 /// AdjustQuantBlockAC with its two contraction sites fused (`FUSED`) or
 /// separate: all of its arithmetic is scalar, so the SIMD targets run this
-/// body with `FUSED` (port ADR 0004, "Encoder path").
+/// body with `FUSED` (port ADR 0004, "Encoder path"). It inlines into its
+/// callers, so on the SIMD path it runs in the kernel's attribute context
+/// as the original's function inside `HWY_NAMESPACE` does (`rintf` and the
+/// double `fma` become instructions there instead of libm calls).
+#[inline(always)]
 #[allow(clippy::too_many_arguments)] // Preserve the original function boundary.
 #[expect(
     clippy::excessive_precision,
