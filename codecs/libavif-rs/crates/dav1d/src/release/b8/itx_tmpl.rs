@@ -4563,6 +4563,7 @@ pub unsafe extern "C" fn dav1d_itx_dsp_init_8bpc(
             ) -> (),
     ) as itxfm_fn;
     let mut all_simd: core::ffi::c_int = 0 as core::ffi::c_int;
+    crate::simd::arm::itx::itx_dsp_init_arm_8bpc(c.cast(), bpc, &raw mut all_simd); // dav1d-dispatch
     if all_simd == 0 {
         dav1d_init_last_nonzero_col_from_eob_tables();
     }

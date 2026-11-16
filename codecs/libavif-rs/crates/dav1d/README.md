@@ -48,7 +48,19 @@ missing stack-buffer alignment.
   fuzz regressions and bounded original tests do not establish continuous
   fuzzing.
 
-Open work for this crate (SIMD, safe wrappers, sanitizer coverage, the Argon
+## Kernels rebuilt from the assembly
+
+dav1d's speed is in its assembly, which this crate does not contain. Under
+engine ADR-0044 D2 the kernels are rebuilt with `core::arch` intrinsics in
+`src/simd/` and dispatched by `tools/enable_dav1d_dispatch.py` (list in
+`dispatch.txt`): libavif-rs ADR 0062. Gates: `tools/check_dav1d_dsp.py --simd
+neon|avx2` (original checkasm bodies, original assembly against the port at
+the same level) and `tools/check_dav1d_simd_original.py` (whole decodes
+against `tools/build_dav1d.py --asm`). `dav1d_set_cpu_flags_mask(0)` selects
+the C kernels. Done so far: the 8 bpc DCT_DCT and IDTX inverse transforms up
+to 16x16 on AArch64 NEON.
+
+Open work for this crate (the remaining SIMD kernels, safe wrappers, sanitizer coverage, the Argon
 corpus, the fault-fuzzer ASan mode on Linux) is tracked in the GitHub issues.
 Registry publication is disabled. The BSD-2-Clause license and original authors
 are preserved in `LICENSES/` and indexed by `NOTICE.md`.

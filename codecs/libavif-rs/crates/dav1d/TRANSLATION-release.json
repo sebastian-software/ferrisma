@@ -384,7 +384,7 @@
         "raw-c-mutable-address": 2
       },
       "raw_sha256": "0c1da3e7d4e0e6ed0c3c991281da1f2e14a2254c7a15b0bfb7e1917008f53a72",
-      "rust_sha256": "049a22827e6d60baac12a51c1183dcdd1a496fbb52e43d8a3e5c8a7af0b20268"
+      "rust_sha256": "81207b64c37cdf2a39aedeb5be11195a959522c480ba30166d9afe6d0aa81462"
     },
     {
       "source": "upstream/dav1d/src/lf_apply_tmpl.c",
