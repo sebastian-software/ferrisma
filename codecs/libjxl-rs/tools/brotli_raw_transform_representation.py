@@ -53,30 +53,13 @@ def main():
         tests = output / f"tests-{name}"
         execute(f"tests-{name}-build", [*compiler, "--test", ROOT / "tests/brotli_raw_transform.rs", "-o", tests])
         execute(f"tests-{name}-run", [tests])
-        # Capture and validate every inline-asm occurrence, including inlined
-        # Release sites. Scratch must not overlap live address/mask inputs.
+        # Since 2026-11-16 the raw XOR is plain Rust on initialized bytes
+        # (owner decision; ADR-0044, port ADR 0003): the probe must contain no
+        # inline assembly. Rust's standard runtime may emit an empty
+        # compiler-fence block, which has no instructions.
         blocks = re.findall(r"(?:; InlineAsm Start|#APP)(.*?)(?:; InlineAsm End|#NO_APP)", assembly.read_text(), re.S)
-        # Rust's standard runtime may emit an empty compiler-fence block.
-        # It has no instructions or memory loads and is not the raw helper.
         blocks = [block for block in blocks if block.strip()]
-        assert blocks, (name, "no raw XOR assembly")
-        for block in blocks:
-            if platform.machine().lower() in ["arm64", "aarch64"]:
-                instructions = [line.strip() for line in block.splitlines() if line.strip()]
-                assert len(instructions) == 3, (name, instructions)
-                load = re.fullmatch(r"ldrb\s+w(\d+), \[x(\d+)\]", instructions[0])
-                op = re.fullmatch(r"eor\s+w(\d+), w(\d+), w(\d+)", instructions[1])
-                store = re.fullmatch(r"strb\s+w(\d+), \[x(\d+)\]", instructions[2])
-                assert load and op and store, instructions
-                scratch, address = load.groups()
-                assert (op[1], op[2], store[1], store[2]) == (scratch, scratch, scratch, address)
-                assert scratch != address and scratch != op[3], instructions
-            else:
-                # The single RMW has no output register or hidden load into a
-                # Rust scalar. Detailed native operand acceptance remains part
-                # of the independent artifact review before core admission.
-                instructions = [line.strip() for line in block.splitlines() if line.strip()]
-                assert len(instructions) == 1 and re.search(r"\bxor[b]?\b", instructions[0]), instructions
+        assert not blocks, (name, "inline assembly in the raw XOR probe", blocks)
         asm_checks[name] = len(blocks)
         rust += ["--rust", f"{name}={binary}"]
     execute("raw-transform-audit", [sys.executable, ROOT / "tools/brotli_raw_transform_reference.py",

@@ -7,8 +7,11 @@
 //! [`instance::DecoderInstance`] owns its state; raw streaming cursors and
 //! borrowed dictionaries retain their documented source lifetime and aliasing
 //! requirements. The source-distinct stack-owned one-shot entry is separate.
-//! Native state and partial-bit representations are currently admitted only
-//! on AArch64 and x86-64. Ordinary Rust builds do not compile or link C code.
+//! The state's packed flag word is zeroed when the state is created and then
+//! read and written with plain integer operations, so no representation is
+//! tied to an architecture (owner decision of 2026-11-16; port ADR 0003,
+//! "Brotli flag word and transform tail bytes"). Ordinary Rust builds do not
+//! compile or link C code.
 
 pub mod bit_reader;
 pub mod bitfield;

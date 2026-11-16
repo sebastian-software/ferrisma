@@ -43,7 +43,7 @@ impl DecoderInstance<'_> {
     unsafe fn block_flag(&mut self, shift: u32, width: u32) -> u32 {
         let slot = &mut self.state.storage_mut().flags;
         // SAFETY: The actual native aligned4-byte word is exclusively lent as
-        // MaybeUninit storage. Only initialized selected bits become a scalar.
+        // MaybeUninit storage; StateInit zeroed all of it.
         let bytes = unsafe {
             std::slice::from_raw_parts_mut(slot.as_mut_ptr().cast::<MaybeUninit<u8>>(), 4)
         };

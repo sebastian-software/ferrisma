@@ -81,13 +81,12 @@ impl StateOwner<'_> {
     unsafe fn ring_flag(&mut self, shift: u32, width: u32) -> u32 {
         let flags = &mut self.storage_mut().flags;
         // SAFETY: The live native flag slot has checked state extent and
-        // alignment. This exclusive loan forms no initialized whole-word
-        // value; only the caller-proven initialized source field is read.
+        // alignment; StateInit zeroed the whole word.
         let bytes = unsafe {
             std::slice::from_raw_parts_mut(flags.as_mut_ptr().cast::<MaybeUninit<u8>>(), 4)
         };
         debug_assert_eq!(offset_of!(DecoderStateStorage, flags) % 4, 0);
-        // SAFETY: The caller establishes initialization of these bits only.
+        // SAFETY: All four bytes are initialized (zeroed by StateInit).
         unsafe { BitfieldWord::new(bytes.try_into().expect("native flag word")).read(shift, width) }
     }
 

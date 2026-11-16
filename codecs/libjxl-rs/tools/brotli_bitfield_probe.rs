@@ -41,11 +41,10 @@ fn main() {
                 [offset..offset + 4])
                 .try_into()
                 .unwrap();
-            let mut word = bitfield::BitfieldWord::new(storage);
+            // SAFETY: The seeded lane filled every byte of the block.
+            let mut word = unsafe { bitfield::BitfieldWord::new(storage) };
             word.write(shift, width, value);
-            // SAFETY: The immediately preceding write initialized every bit
-            // selected for this read, even in the uninitialized-block lane.
-            let read = unsafe { word.read(shift, width) };
+            let read = word.read(shift, width);
             print!(" {read}:");
             // SAFETY: fill initialized every byte and the helper retains that
             // initialization without reading unknown bits into Rust scalars.

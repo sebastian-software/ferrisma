@@ -156,8 +156,8 @@ storage!(DecoderStateStorage {
     substate_decode_uint8: u32,
     substate_read_block_length: u32,
     new_ringbuffer_size: i32,
-    // This word is not read as u32 before every bit is initialized. Individual
-    // fields use the separately verified raw bitfield representation.
+    // StateInit zeroes the whole word, padding included; the fields are then
+    // plain integer read-modify-writes of it (bitfield.rs, ADR 0003).
     flags: u32,
     num_literal_htrees: Reg,
     context_map: usize,

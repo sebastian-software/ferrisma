@@ -11,28 +11,33 @@ use super::running::*;
 use super::status::*;
 use std::mem::MaybeUninit;
 
-fn flags(storage: &mut MaybeUninit<u32>) -> BitfieldWord<'_> {
-    // SAFETY: MaybeUninit<u32> is an aligned live four-byte extent. This
-    // exclusive byte view reads no u32, including its unknown padding bits.
+/// # Safety
+/// The whole word must be initialized: the decoder's flag word is zeroed when
+/// the state is created (ADR 0003, "Brotli flag word and transform tail
+/// bytes").
+unsafe fn flags(storage: &mut MaybeUninit<u32>) -> BitfieldWord<'_> {
+    // SAFETY: MaybeUninit<u32> is an aligned live four-byte extent.
     let bytes = unsafe {
         std::slice::from_raw_parts_mut(storage.as_mut_ptr().cast::<MaybeUninit<u8>>(), 4)
     };
-    BitfieldWord::new(bytes.try_into().unwrap())
+    // SAFETY: The caller guarantees an initialized word.
+    unsafe { BitfieldWord::new(bytes.try_into().unwrap()) }
 }
 
 /// DecodeWindowBits. The original precondition requires at least eight bits
 /// in the reader accumulator, and the large_window bit was initialized by
-/// StateInit or SetParameter. Other packed bits may remain uninitialized.
+/// StateInit or SetParameter. The whole packed word is initialized: the
+/// decoder zeroes it when it creates the state (ADR 0003).
 ///
 /// # Safety
-/// Those source initialization and accumulator preconditions must hold.
+/// Those initialization and accumulator preconditions must hold.
 pub unsafe fn decode_window_bits(
     word: &mut MaybeUninit<u32>,
     br: &mut BitReader<'_>,
 ) -> BrotliDecoderErrorCode {
-    let mut word = flags(word);
-    // SAFETY: The caller proves initialization of exactly large_window.
-    let large_window = unsafe { word.read(5, 1) };
+    // SAFETY: The decoder's flag word is zeroed when the state is created.
+    let mut word = unsafe { flags(word) };
+    let large_window = word.read(5, 1);
     word.write(5, 1, 0);
     let mut n = br.take_bits(1);
     if n == 0 {
@@ -132,13 +137,16 @@ pub struct MetaBlockFields<'a> {
 /// The initialized substate and the fields it reaches retain the original
 /// StateInit/header resume history. NONE requires no initialized size_nibbles
 /// or remaining_len. SIZE/METADATA retain the preceding initialized length,
-/// loop counter and nibble field. All field loans and input are disjoint.
+/// loop counter and nibble field. The whole flag word is initialized (the
+/// decoder zeroes it when it creates the state). All field loans and input
+/// are disjoint.
 #[inline(never)]
 pub unsafe fn decode_meta_block_length(
     fields: MetaBlockFields<'_>,
     br: &mut BitReader<'_>,
 ) -> BrotliDecoderErrorCode {
-    let mut word = flags(fields.flags);
+    // SAFETY: The decoder's flag word is zeroed when the state is created.
+    let mut word = unsafe { flags(fields.flags) };
     let mut bits = 0;
     loop {
         // SAFETY: Entry or the preceding source transition initializes this
@@ -152,8 +160,7 @@ pub unsafe fn decode_meta_block_length(
             fields.remaining_len.write(0);
             word.write(1, 1, 0);
             word.write(2, 1, 0);
-            // SAFETY: The source just initialized is_last_metablock.
-            if unsafe { word.read(0, 1) } == 0 {
+            if word.read(0, 1) == 0 {
                 fields.substate.write(BROTLI_STATE_METABLOCK_HEADER_NIBBLES);
                 continue;
             }
@@ -190,17 +197,12 @@ pub unsafe fn decode_meta_block_length(
         if state == BROTLI_STATE_METABLOCK_HEADER_SIZE {
             // SAFETY: SIZE follows NIBBLES or its own saved-input checkpoint.
             let mut i = unsafe { fields.loop_counter.assume_init_read() };
-            // SAFETY: NIBBLES initialized size_nibbles before selecting SIZE.
-            while i < unsafe { word.read(12, 8) } as i32 {
+            while i < word.read(12, 8) as i32 {
                 if !br.safe_read_bits(4, &mut bits) {
                     fields.loop_counter.write(i);
                     return BROTLI_DECODER_NEEDS_MORE_INPUT;
                 }
-                // SAFETY: Same initialized nibble field in source order.
-                if i + 1 == unsafe { word.read(12, 8) } as i32
-                    && unsafe { word.read(12, 8) } > 4
-                    && bits == 0
-                {
+                if i + 1 == word.read(12, 8) as i32 && word.read(12, 8) > 4 && bits == 0 {
                     return BROTLI_DECODER_ERROR_FORMAT_EXUBERANT_NIBBLE;
                 }
                 // SAFETY: NONE zeroed length and every SIZE resume retains it.
@@ -216,8 +218,7 @@ pub unsafe fn decode_meta_block_length(
             state = BROTLI_STATE_METABLOCK_HEADER_UNCOMPRESSED;
         }
         if state == BROTLI_STATE_METABLOCK_HEADER_UNCOMPRESSED {
-            // SAFETY: NONE initialized the selected last-block field.
-            if unsafe { word.read(0, 1) } == 0 {
+            if word.read(0, 1) == 0 {
                 if !br.safe_read_bits(1, &mut bits) {
                     return BROTLI_DECODER_NEEDS_MORE_INPUT;
                 }
@@ -256,16 +257,12 @@ pub unsafe fn decode_meta_block_length(
         if state == BROTLI_STATE_METABLOCK_HEADER_METADATA {
             // SAFETY: NIBBLES initialized the loop and BYTES initialized size.
             let mut i = unsafe { fields.loop_counter.assume_init_read() };
-            while i < unsafe { word.read(12, 8) } as i32 {
+            while i < word.read(12, 8) as i32 {
                 if !br.safe_read_bits(8, &mut bits) {
                     fields.loop_counter.write(i);
                     return BROTLI_DECODER_NEEDS_MORE_INPUT;
                 }
-                // SAFETY: Same initialized size field, read at source tests.
-                if i + 1 == unsafe { word.read(12, 8) } as i32
-                    && unsafe { word.read(12, 8) } > 1
-                    && bits == 0
-                {
+                if i + 1 == word.read(12, 8) as i32 && word.read(12, 8) > 1 && bits == 0 {
                     return BROTLI_DECODER_ERROR_FORMAT_EXUBERANT_META_NIBBLE;
                 }
                 // SAFETY: NONE zeroed length before this metadata path.

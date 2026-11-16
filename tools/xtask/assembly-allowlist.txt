@@ -1,7 +1,6 @@
-# Assembly sites ADR-0044 tolerates until the owner decides its open question.
+# Assembly sites ADR-0044 tolerates. Empty since 2026-11-16: the owner decided
+# that all remaining assembly is replaced, and it is.
 # Checked by `cargo xtask assembly` (tools/xtask/src/assembly.rs): every tracked
 # Rust file outside codecs/*/upstream/ with an inline or global assembly macro
 # or a naked-function attribute must be listed here with its exact number of
 # sites, and every entry must still match. Format: path count description.
-codecs/libjxl-rs/src/brotli/bitfield.rs 4 read-modify-write of a C bitfield word whose other bits may be uninitialized (AArch64 and x86-64); open owner question, ADR-0044
-codecs/libjxl-rs/src/brotli/raw_bytes.rs 2 XOR of one byte that may be uninitialized (AArch64 and x86-64); open owner question, ADR-0044

@@ -200,10 +200,10 @@ pub fn observe(line: &str) -> String {
             let bytes = unsafe {
                 std::slice::from_raw_parts_mut(flags.as_mut_ptr().cast::<MaybeUninit<u8>>(), 4)
             };
-            let word = bitfield::BitfieldWord::new(bytes.try_into().unwrap());
-            // SAFETY: StateInit and settings initialize these selected bits;
-            // other allocator-seeded/unknown bits remain inside the helper.
-            let (canny, large) = unsafe { (word.read(4, 1), word.read(5, 1)) };
+            // SAFETY: StateInit zeroes the whole flag word before any field
+            // assignment, so all four bytes are initialized.
+            let word = unsafe { bitfield::BitfieldWord::new(bytes.try_into().unwrap()) };
+            let (canny, large) = (word.read(4, 1), word.read(5, 1));
             write!(c.trace, " P{}:{canny}:{large}", u8::from(accepted)).unwrap();
         }
         // SAFETY: StateInit initializes opaque and all metadata fields.

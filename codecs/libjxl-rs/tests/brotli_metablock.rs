@@ -10,11 +10,11 @@ use std::mem::MaybeUninit;
 
 fn word(storage: &mut MaybeUninit<u32>) -> bitfield::BitfieldWord<'_> {
     // SAFETY: The exclusive live aligned word contains exactly four bytes.
-    // No unknown byte is converted to an initialized Rust scalar.
     let bytes = unsafe {
         std::slice::from_raw_parts_mut(storage.as_mut_ptr().cast::<MaybeUninit<u8>>(), 4)
     };
-    bitfield::BitfieldWord::new(bytes.try_into().unwrap())
+    // SAFETY: Each test passes a word whose four bytes are initialized.
+    unsafe { bitfield::BitfieldWord::new(bytes.try_into().unwrap()) }
 }
 
 #[test]
@@ -32,14 +32,11 @@ fn window_reader_does_not_require_unknown_neighbor_fields() {
             1
         );
         // SAFETY: DecodeWindowBits always initializes this selected field.
-        assert_eq!(
-            unsafe { word(&mut flags).read(5, 1) },
-            u32::from(byte == 17)
-        );
+        assert_eq!(word(&mut flags).read(5, 1), u32::from(byte == 17));
         if byte == 0 {
             // SAFETY: This branch wrote window_bits=16. The large-window
             // marker branch intentionally leaves it unknown until later.
-            assert_eq!(unsafe { word(&mut flags).read(6, 6) }, 16);
+            assert_eq!(word(&mut flags).read(6, 6), 16);
         }
     }
 }
@@ -104,7 +101,7 @@ fn empty_last_metablock_never_reads_unknown_counter_or_size() {
     // SAFETY: This source checkpoint initialized these selected fields only.
     assert_eq!(unsafe { state.assume_init() }, 1);
     assert_eq!(unsafe { length.assume_init() }, 0);
-    assert_eq!(unsafe { word(&mut flags).read(0, 1) }, 1);
+    assert_eq!(word(&mut flags).read(0, 1), 1);
     br.set_input(&[1]);
     // SAFETY: EMPTY needs only its retained last flag and length. Size and
     // counter remain genuinely unknown and are not read on this branch.
