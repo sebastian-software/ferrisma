@@ -203,6 +203,15 @@ class Driver {
   }
 
   void Destroy() {
+    // std::map destruction order is unspecified: libc++ 21 destroys tree
+    // nodes post-order, libc++ 22 in key order (as decoder_input.cc notes).
+    // ~JxlEncoder would free the output wrapper's remaining internal buffers
+    // (encode_internal.h, internal_buffers_) in that library-dependent order.
+    // Erase them in key order first so the observed frees do not depend on
+    // the standard library; the members ~JxlEncoder destroys before the
+    // wrapper hold no memory-manager allocation, so no other free moves.
+    auto& buffers = enc_->output_processor.internal_buffers_;
+    while (!buffers.empty()) buffers.erase(buffers.begin());
     JxlEncoderDestroy(enc_);
     enc_ = nullptr;
     out_ << " E";
