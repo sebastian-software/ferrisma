@@ -289,6 +289,14 @@ fn codecs(args: &[String]) -> Result<()> {
                 &["python3", "tools/verify_upstream.py", "--tracked"][..],
                 &["python3", "tools/check_translation.py"],
                 &["python3", "-I", "tools/stable_rust.py", "--check"],
+                &["python3", "-I", "tools/enable_aom_dispatch.py", "--check"],
+                &[
+                    "python3",
+                    "-I",
+                    "tools/enable_aom_dispatch.py",
+                    "--linux",
+                    "--check",
+                ],
                 &["python3", "tools/generate_licenses.py", "--check"],
                 &[
                     "python3",
