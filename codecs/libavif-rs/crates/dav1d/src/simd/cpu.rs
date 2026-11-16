@@ -37,12 +37,21 @@ pub fn dav1d_get_cpu_flags() -> c_uint {
 }
 
 /// `dav1d_get_cpu_flags_arm()` for AArch64: the baseline NEON flag.
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", not(dav1d_portable)))]
 pub fn dav1d_get_cpu_flags_native() -> c_uint {
     DAV1D_ARM_CPU_FLAG_NEON
 }
 
-#[cfg(target_arch = "x86_64")]
+/// The build configuration `--cfg dav1d_portable` is the original's
+/// portable build (`-Denable_asm=false`, `HAVE_ASM` 0): `dav1d_init_cpu`
+/// reports nothing there, so every DSP slot keeps its C kernel, and msac
+/// calls its C functions (`simd/arm/msac.rs`).
+#[cfg(dav1d_portable)]
+pub fn dav1d_get_cpu_flags_native() -> c_uint {
+    0
+}
+
+#[cfg(all(target_arch = "x86_64", not(dav1d_portable)))]
 #[target_feature(enable = "xsave")]
 unsafe fn xgetbv0() -> u64 {
     core::arch::x86_64::_xgetbv(0)
@@ -50,7 +59,7 @@ unsafe fn xgetbv0() -> u64 {
 
 /// `dav1d_get_cpu_flags_x86()` (src/x86/cpu.c, ARCH_X86_64), statement by
 /// statement; `dav1d_get_default_cpu_flags()` contributes SSE2.
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", not(dav1d_portable)))]
 pub fn dav1d_get_cpu_flags_native() -> c_uint {
     use core::arch::x86_64::__cpuid_count;
     let x = |reg: u32, mask: u32| reg & mask == mask;

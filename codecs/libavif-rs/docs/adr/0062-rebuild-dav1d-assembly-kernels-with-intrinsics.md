@@ -91,10 +91,15 @@ names there; the symbol sizes follow `SYMBOL_ADAPT` in the tool (the
 original's macros in source order, derived from `decode.c`, `recon_tmpl.c`
 with its macro expansions and `msac.c` by the tool's unit test).
 Definitions and declarations keep their C names; `--check` reverses the
-renames by their path. Each owned function calls the rebuilt kernel when
-`dav1d_get_cpu_flags()` reports NEON and the C function otherwise: the
-original has no run-time choice here, the check keeps
-`dav1d_set_cpu_flags_mask(0)` a complete scalar path. `MsacContext` keeps the
+renames by their path. Each owned function calls the rebuilt kernel, chosen
+at compile time as in the original (amended 2026-11-16: a run-time check of
+the CPU flags there cost two loads and a branch per symbol and kept both
+paths in the callers; see the validation). The counterpart of the
+original's portable build is the build configuration `--cfg
+dav1d_portable` (`tools/build_dav1d_consumers.py --portable`, its own
+target directory): there the owned functions call the C functions and
+`dav1d_get_cpu_flags_native()` reports nothing, so every DSP slot keeps its
+C kernel, as with `-Denable_asm=false`. `MsacContext` keeps the
 portable layout (on AArch64 the original adds no field). The per-kernel gate
 reaches the seven kernels without a DSP table: `check_dav1d_dsp.py --simd
 neon` enables the test body's `HAVE_ASM` branch (two textual edits, listed
@@ -155,7 +160,10 @@ through), as libaom's oracle is built without AVX-512.
    AVIF with the original (assembly at the level, or portable C for
    `scalar`) and with the original CLI relinked against the port (same
    `--cpumask`), and requires the same exit status and picture MD5, and the
-   expected MD5 where the suite knows it.
+   expected MD5 where the suite knows it. At `scalar` the port side is
+   the portable build (`--cfg dav1d_portable`, also with `--cpumask 0`):
+   the run-time mask cannot reach msac, which both sides select at compile
+   time.
 
 The SIMD comparison needs no limit on the input domain: it compares with
 the assembly itself. (Upstream's `src/itx_1d.c` documents that SIMD inverse
@@ -291,6 +299,35 @@ Instructions per call against the assembly (10-bit pixels): row edges
 NEON 1.16), 10-bit 4:4:4 3.75 G (4.30; 1.34); 8-bit and lossless
 unchanged; pictures unchanged.
 
+**2026-11-16, msac selected at compile time; the 8-bit gap accounted.**
+The 8-bit 4:2:0 still needed 1.44 G instructions per decode against stock
+dav1d's 0.99 G, with every rebuilt kernel near its assembly. Accounting
+(macOS `sample` self time per function group of both decoders on the same
+still, and instruction counts per decode): (1) the harness that measures
+the port hashes the luma plane after each decode (6 instructions per byte,
+0.073 G at 8 bit, 0.146 G at 10 bit); stock dav1d's figure has no such
+step. (2) The msac dispatch functions tested `dav1d_get_cpu_flags()` at
+every symbol (`adrp`, two loads, `and`, `tbz` before each call) and, being
+inlined, kept the C call next to each kernel call in `decode_coefs`, whose
+self time was twice the original's (75 against 37 samples per decode).
+Selecting at compile time, as the original does, removed 0.084 G (8-bit
+4:2:0 1.436 → 1.352 G) and brought `decode_coefs` to the original's self
+time (39 against 37). The translated coefficient decoding itself is not
+slower than the original's C. (3) What remains (1.352 − 0.073 = 1.28 G
+against 0.99 G) is in the families not rebuilt yet: CDEF (C in the port,
+NEON in stock; 7.7 % of the port's sampled decode time) and intra
+prediction (8.1 %), then the kernel ratios above 1 (itx median 1.17, msac
+1.06–1.16). The scalar whole-image gate now decodes with the portable
+build; its consumer binary calls the C symbol decoder at 134 sites and the
+NEON kernel at none (the default build: 31 and 0). Gates: per-kernel 17
+groups, 3,155 selections each at `neon` and scalar; whole images 994 of 994
+at `neon` and at `scalar`; `run_dav1d_tests.py` 1,711 of 1,711; ABI 12,157
+checks, 0 differences; API, linkage, dispatch `--check` pass. Instructions
+per decode: 8-bit 4:2:0 1.35 G (from 1.44), 8-bit 4:4:4 1.78 G (1.87),
+8-bit 4:2:0 with alpha 1.47 G (1.55), 10-bit 4:2:0 2.72 G (2.79), 10-bit
+4:4:4 3.69 G (3.75), lossless 8-bit 4:4:4 10.81 G (11.70); pictures
+unchanged.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -299,6 +336,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-16 — msac selected at compile time; portable build configuration for the scalar gate (decision and validation above).
 - 2026-11-16 — loop filter 16 bpc on NEON (validation above).
 - 2026-11-16 — loop filter 8 bpc on NEON (validation above).
 - 2026-11-16 — msac on NEON (decision paragraph and validation above).

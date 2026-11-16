@@ -10,7 +10,11 @@ The gate of ADR 0062 at one level, on this host:
   the original CLI relinked against the port (`tools/build_dav1d_consumers.py`,
   `build/dav1d-rust-release/tools/dav1d`), both with the same `--cpumask`.
 - `scalar`: the original portable build (`build/dav1d-reference-release`)
-  against the port with `--cpumask 0`, which keeps every C kernel.
+  against the port's portable build (`--cfg dav1d_portable`,
+  `tools/build_dav1d_consumers.py --portable`,
+  `build/dav1d-rust-release-portable/tools/dav1d`), also with `--cpumask 0`.
+  The original selects msac's assembly at compile time, the port as well,
+  so only a build configuration gives the scalar path.
 
 The corpus is every decode command of the original Meson test suite that
 verifies an MD5 (the dav1d-test-data streams, Argon samples included),
@@ -139,7 +143,7 @@ def main():
         original, original_mask = build / f'dav1d-asm-release{args.suffix}/tools/dav1d', CPUMASK[args.level]
         if not json.loads((original.parents[1] / 'reference-profile.json').read_text()).get('assembly'):
             raise SystemExit('the SIMD level needs the assembly oracle (tools/build_dav1d.py --asm)')
-    port = build / f'dav1d-rust-release{args.suffix}/tools/dav1d'
+    port = build / (f'dav1d-rust-release{args.suffix}' + ('-portable' if args.level == 'scalar' else '')) / 'tools/dav1d'
     work = build / f'dav1d-simd-original-{args.level}'
     cases = corpus(work, args.image)
     workdir = ROOT / 'build/dav1d-reference-release'

@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
-"""Relink unchanged original dav1d consumers against the standalone Rust archive."""
+"""Relink unchanged original dav1d consumers against the standalone Rust archive.
+
+With `--portable` the port is built with `--cfg dav1d_portable`, the
+counterpart of the original's portable build (`-Denable_asm=false`): no CPU
+flags and msac's C functions (ADR 0062). It goes to its own target directory
+(`build/dav1d-portable-target`) and the consumers to
+`build/dav1d-rust-<profile>-portable`; the whole-image scalar gate
+(`tools/check_dav1d_simd_original.py --level scalar`) decodes with them.
+"""
 import argparse
 import json
+import os
 import re
 from pathlib import Path
 import shlex
@@ -13,16 +22,23 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--portable', action='store_true')
     args = parser.parse_args()
     profile = 'debug' if args.debug else 'release'
     build = ROOT / f'build/dav1d-reference-{profile}'
-    output = ROOT / f'build/dav1d-rust-{profile}'
+    output = ROOT / (f'build/dav1d-rust-{profile}' + ('-portable' if args.portable else ''))
     tests = json.loads((build / 'meson-info/intro-tests.json').read_text())
     cargo = ['cargo', 'build', '-p', 'libavif-dav1d', '--locked']
     if not args.debug:
         cargo.append('--release')
-    subprocess.run(cargo, check=True)
-    archive = ROOT.parents[1] / 'target' / ('debug' if args.debug else 'release') / 'libdav1d.a'
+    environment = os.environ.copy()
+    target = ROOT.parents[1] / 'target'
+    if args.portable:
+        target = ROOT / 'build/dav1d-portable-target'
+        cargo += ['--target-dir', str(target)]
+        environment['RUSTFLAGS'] = (environment.get('RUSTFLAGS', '') + ' --cfg dav1d_portable').strip()
+    subprocess.run(cargo, check=True, env=environment)
+    archive = target / ('debug' if args.debug else 'release') / 'libdav1d.a'
     linkage = []
     for executable in sorted({test['cmd'][0] for test in tests}):
         relative = Path(executable).relative_to(build)

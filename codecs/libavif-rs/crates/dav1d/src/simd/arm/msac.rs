@@ -11,13 +11,20 @@
 //! `tools/enable_dav1d_dispatch.py` (entry `msac_arm`) renames each call
 //! site to the function below that the original's macro names there.
 //!
-//! Each function calls the rebuilt NEON kernel (`simd/arm64/msac.rs`) when
-//! `dav1d_get_cpu_flags()` reports NEON and the translated C function
-//! otherwise. The original has no run-time choice here; the check keeps
-//! `dav1d_set_cpu_flags_mask(0)` a complete scalar path for the
-//! comparison with the portable original (ADR 0062). The C fallback is the
-//! same function the call site called before.
+//! Each function calls the rebuilt NEON kernel (`simd/arm64/msac.rs`); the
+//! choice is made at compile time, as the original makes it (NEON is
+//! baseline on AArch64), so a call site costs a direct call and nothing
+//! else. A run-time check of `dav1d_get_cpu_flags()` here (the form until
+//! 2026-11-16) cost two loads and a branch at every symbol and kept both
+//! paths in the callers: 81 million instructions of the 1.44 G of the 8-bit
+//! 4:2:0 still, and it doubled the self time of the inlined callers
+//! (`decode_coefs`) on the profile (ADR 0062).
 //!
+//! The original's portable build (`-Denable_asm=false`) calls the C
+//! functions. The port's counterpart is the build configuration
+//! `--cfg dav1d_portable` (`tools/build_dav1d_consumers.py --portable`),
+//! which the whole-image scalar gate decodes with; there each function
+//! calls the translated C function the call site called before.
 //! The functions take the call site's own translated `MsacContext` type
 //! (each translated unit declares one; all have the original's layout, see
 //! the test below) and hand it on as the kernel's context.
@@ -26,12 +33,13 @@
 use core::ffi::c_uint;
 
 use super::super::arm64::msac::*;
-use super::super::cpu::{dav1d_get_cpu_flags, DAV1D_ARM_CPU_FLAG_NEON};
 use crate::common::msac as c;
 
+/// The original's `HAVE_ASM` for `src/arm/msac.h`: a constant, so that the
+/// other branch is not compiled into the call sites.
 #[inline(always)]
-fn neon() -> bool {
-    dav1d_get_cpu_flags() & DAV1D_ARM_CPU_FLAG_NEON != 0
+const fn neon() -> bool {
+    !cfg!(dav1d_portable)
 }
 
 // Safety of the seven functions below: as for the C functions they replace
