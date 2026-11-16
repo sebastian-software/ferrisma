@@ -266,9 +266,13 @@ fn batch_spawn_failure_does_not_start_images_and_reports_each_item() {
     assert_eq!(backend.0.load(Ordering::Relaxed), items.len());
 }
 
+/// Until 2026-11-16 a backend panic in one batch item re-panicked the
+/// scope after the join and every result was lost (this test asserted the
+/// propagation). Since then each item has its own panic boundary
+/// (ADR-0040 amendment of 2026-11-16): the item fails with `Internal`.
 #[test]
-fn batch_still_propagates_a_backend_panic() {
-    use crate::pipeline::{BatchItem, Engine};
+fn batch_returns_a_backend_panic_as_internal() {
+    use crate::pipeline::{BatchItem, Engine, ProcessingErrorKind};
 
     struct Panics;
     impl EncoderBackend for Panics {
@@ -290,6 +294,12 @@ fn batch_still_propagates_a_backend_panic() {
             ..TransformOptions::default()
         },
     };
-    let result = std::panic::catch_unwind(|| Engine::new(2).transcode_batch_with(&[item], &Panics));
-    assert!(result.is_err(), "scoped worker panics must propagate");
+    let results = Engine::new(2).transcode_batch_with(&[item], &Panics);
+    assert_eq!(results.len(), 1);
+    let error = results.into_iter().next().unwrap().unwrap_err();
+    assert_eq!(error.kind(), ProcessingErrorKind::Internal);
+    assert!(
+        error.to_string().contains("intentional backend panic"),
+        "{error}"
+    );
 }
