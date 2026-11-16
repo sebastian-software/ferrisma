@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import platform
 import subprocess
+from rust_version import MSRV
 from skcms_reference import configuration, retained_matrix_requests
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -88,7 +89,7 @@ def main():
                 d["index"] < len(retained) for d in differences)
             report["differences"]["paired_nan_ordinary_vs_instrumented"] = sum(
                 d["index"] >= len(retained) for d in differences)
-    for name, chain, release in [("debug", [], False), ("release", [], True), ("msrv", ["+1.95"], False)]:
+    for name, chain, release in [("debug", [], False), ("release", [], True), ("msrv", [f"+{MSRV}"], False)]:
         command = ["cargo", *chain, "build", "--locked", "--offline", "--lib"] + (["--release"] if release else [])
         with (output / (name + "-library-build.log")).open("w") as log:
             subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, check=True)
