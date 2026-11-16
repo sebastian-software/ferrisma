@@ -11,7 +11,6 @@
 
 // Mechanically translated from upstream/aom/aom_scale/aom_scale_rtcd.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
-use core::arch::asm;
 extern "C-unwind" {
 }
 pub type uint64_t = __uint64_t;
@@ -23,13 +22,18 @@ pub const NULL: *mut core::ffi::c_void = 0 as *mut core::ffi::c_void;
 #[inline]
 unsafe extern "C-unwind" fn xgetbv() -> uint64_t {
     let ecx: uint32_t = 0 as uint32_t;
-    let mut eax: uint32_t = 0;
-    let mut edx: uint32_t = 0;
-    asm!(
-        ".byte 0x0f, 0x01, 0xd0\n", "\n", lateout("ax") eax, lateout("dx") edx,
-        inlateout("cx") ecx => _, options(preserves_flags, att_syntax)
-    );
-    return (edx as uint64_t) << 32 as core::ffi::c_int | eax as uint64_t;
+    // XGETBV (0F 01 D0) through its intrinsic instead of the original's raw
+    // opcode bytes (engine ADR-0044): the same instruction with ECX = 0,
+    // returning EDX:EAX as one value as the original does.
+    #[target_feature(enable = "xsave")]
+    unsafe fn read_xcr(xcr: uint32_t) -> uint64_t {
+        core::arch::x86_64::_xgetbv(xcr)
+    }
+    // SAFETY: XGETBV needs CR4.OSXSAVE, which CPUID.1:ECX bit 27 (OSXSAVE)
+    // reports and the OS can set only on a CPU with XSAVE, the feature
+    // `read_xcr` enables. The original calls xgetbv() only inside its branch
+    // that requires CPUID.1:ECX bits 27 and 28; the callers keep that branch.
+    return read_xcr(ecx);
 }
 pub const HAS_MMX: core::ffi::c_int = 0x1 as core::ffi::c_int;
 pub const HAS_SSE: core::ffi::c_int = 0x2 as core::ffi::c_int;

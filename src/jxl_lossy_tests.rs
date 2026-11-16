@@ -13,23 +13,19 @@
 
 use crate::error::Error;
 use crate::geometry::Size;
-use crate::jxl_sink::{JxlSink, estimated_lossy_codec_bytes};
+use crate::jxl_sink::{JxlSink, LOSSY_PEAK, lossy_codec_reservation_bytes};
 use crate::memory::MemoryBudget;
 use crate::pipeline::{
     ImageFormat, JpegXlOptions, OutputFormat, ProcessingErrorKind, TransformOptions, transcode,
 };
+use crate::pipeline::{JpegXlLossy, OutputGeometry, OutputSettings};
 
 fn lossy(width: u32, height: u32, distance: f32) -> TransformOptions {
-    TransformOptions {
-        output_format: OutputFormat::JpegXl,
-        jpeg_xl: JpegXlOptions::Lossy {
-            distance,
-            depth: None,
-        },
-        output_width: width,
-        output_height: height,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact { width, height }).with_output(
+        OutputSettings::JpegXl(JpegXlOptions::Lossy(
+            JpegXlLossy::default().with_distance(distance),
+        )),
+    )
 }
 
 /// Smooth photo-like RGBA content: gradients and a low-amplitude texture.
@@ -102,7 +98,7 @@ fn encode(
     width: usize,
     height: usize,
     data: &[u8],
-    options: TransformOptions,
+    options: &TransformOptions,
     budget: &MemoryBudget,
 ) -> Result<crate::pipeline::EncodedImage, Error> {
     let size = Size::new(width as u32, height as u32).unwrap();
@@ -147,10 +143,7 @@ fn rgb_error(decoded: &[u8], expected: &[u8]) -> (u8, f64) {
 fn lossy_distance_one_is_the_default() {
     assert_eq!(
         JpegXlOptions::default(),
-        JpegXlOptions::Lossy {
-            distance: 1.0,
-            depth: None
-        }
+        JpegXlOptions::Lossy(JpegXlLossy::default().with_distance(1.0))
     );
 }
 
@@ -159,7 +152,7 @@ fn distances_outside_the_admitted_range_are_rejected_before_allocating() {
     let budget = MemoryBudget::new(1 << 20);
     let size = Size::new(8, 8).unwrap();
     for distance in [0.0, 0.049, 3.0, 3.5, 25.0, -1.0, f32::NAN, f32::INFINITY] {
-        let error = JxlSink::new(size, lossy(8, 8, distance), &budget)
+        let error = JxlSink::new(size, &lossy(8, 8, distance), &budget)
             .err()
             .unwrap();
         assert!(
@@ -168,14 +161,14 @@ fn distances_outside_the_admitted_range_are_rejected_before_allocating() {
         );
         assert!(error.to_string().contains("distance"), "{error}");
         // The facade rejects it before opening the (garbage) input.
-        let kind = transcode(b"garbage", ImageFormat::JpegXl, lossy(8, 8, distance))
+        let kind = transcode(b"garbage", ImageFormat::JpegXl, &lossy(8, 8, distance))
             .unwrap_err()
             .kind();
         assert_eq!(kind, ProcessingErrorKind::InvalidOptions, "{distance}");
     }
     assert_eq!(budget.snapshot().peak, 0);
     for distance in [0.05, 1.0, 2.999] {
-        JxlSink::new(size, lossy(8, 8, distance), &budget).unwrap();
+        JxlSink::new(size, &lossy(8, 8, distance), &budget).unwrap();
     }
 }
 
@@ -186,12 +179,12 @@ fn real_alpha_encodes_and_opaque_alpha_is_omitted_by_the_sink() {
     let mut data = smooth(width, height);
     // Fully opaque RGBA rows: the sink compacts them to RGB before the
     // encoder sees them (it does not rely on the encoder's own stripping).
-    let opaque = encode(width, height, &data, lossy(16, 4, 1.0), &budget).unwrap();
+    let opaque = encode(width, height, &data, &lossy(16, 4, 1.0), &budget).unwrap();
     assert_eq!(&opaque.bytes[..2], &[0xff, 0x0a]);
     // One pixel below 255 in row 2: the frame keeps its alpha channel and
     // encodes (before 2026-11-12 it failed with a "use lossless" error).
     data[(2 * width + 5) * 4 + 3] = 254;
-    let transparent = encode(width, height, &data, lossy(16, 4, 1.0), &budget).unwrap();
+    let transparent = encode(width, height, &data, &lossy(16, 4, 1.0), &budget).unwrap();
     assert_eq!(&transparent.bytes[..2], &[0xff, 0x0a]);
     assert_ne!(transparent.bytes, opaque.bytes);
     assert_eq!(budget.snapshot().live, 0);
@@ -210,7 +203,7 @@ fn text_like_content_encodes_with_patches_off() {
             width,
             height,
             &data,
-            lossy(width as u32, height as u32, 1.0),
+            &lossy(width as u32, height as u32, 1.0),
             &budget,
         )
         .unwrap();
@@ -219,30 +212,44 @@ fn text_like_content_encodes_with_patches_off() {
     }
 }
 
+/// The lossy sink reserves the measured peak (ADR-0004, ADR-0042 D3).
+///
+/// **Contract change, not a refreshed pin.** Until 2026-11-16 the sink
+/// reserved the bridge's source-derived estimate (`estimated_codec_bytes`:
+/// the input copy, seven f32 planes padded to 8x8 and one group of i32
+/// coefficients, 798,336 bytes here opaque and 803,328 with alpha),
+/// which covered less than a tenth of the measured peak of a 4 MP frame. Since
+/// then it reserves the measured model `LOSSY_PEAK` minus the frame
+/// (`docs/benchmarks/v1.0-jxl-encoder-memory-2026-11-16.md`).
 #[test]
-fn input_frame_and_codec_estimate_are_reserved() {
+fn input_frame_and_measured_lossy_peaks_are_reserved() {
     let (width, height) = (24, 16);
-    let frame = width * height * 4;
-    let codec = estimated_lossy_codec_bytes(width, height, false, 8).unwrap();
-    // Regression pin of the bridge's estimate (input copy, seven f32 planes
-    // padded to 8x8, one group of i32 coefficients); it is an estimate from
-    // the port's source, not a measurement.
-    assert_eq!(codec, width * height * 3 + 24 * 16 * 28 + 3 * 256 * 256 * 4);
-    // With alpha: the alpha byte of the input copy, and an f32 plane plus
-    // two i32 Modular copies of the frame.
-    let alpha = estimated_lossy_codec_bytes(width, height, true, 8).unwrap();
-    assert_eq!(alpha, codec + width * height + width * height * 12);
+    let pixels = width * height;
+    let frame = pixels * 4;
+    let [[opaque_model, alpha_model], _] = LOSSY_PEAK;
+    let codec = lossy_codec_reservation_bytes(width, height, false, 8).unwrap();
+    // One-shot (at most 8 groups): the per-pixel term and the constant,
+    // minus the engine's frame, which the measured process held.
+    assert_eq!(
+        codec,
+        pixels * opaque_model.one_shot + opaque_model.constant - frame
+    );
+    let alpha = lossy_codec_reservation_bytes(width, height, true, 8).unwrap();
+    assert_eq!(
+        alpha,
+        pixels * alpha_model.one_shot + alpha_model.constant - frame
+    );
     // Transparent rows reserve the alpha estimate, at its exact boundary.
     let data = translucent(width, height);
     let short = MemoryBudget::new(frame + alpha - 1);
     assert!(matches!(
-        encode(width, height, &data, lossy(24, 16, 1.0), &short),
+        encode(width, height, &data, &lossy(24, 16, 1.0), &short),
         Err(Error::BudgetExceeded { .. })
     ));
     assert_eq!(short.snapshot().live, 0);
     assert_eq!(short.snapshot().peak, frame);
     let exact = MemoryBudget::new(frame + alpha);
-    let encoded = encode(width, height, &data, lossy(24, 16, 1.0), &exact).unwrap();
+    let encoded = encode(width, height, &data, &lossy(24, 16, 1.0), &exact).unwrap();
     assert_eq!(exact.snapshot().peak, frame + alpha);
     assert_eq!(exact.snapshot().live, 0);
     assert_eq!(encoded.frame_materialization_bytes, frame + alpha);
@@ -250,13 +257,13 @@ fn input_frame_and_codec_estimate_are_reserved() {
     let data = smooth(width, height);
     let short = MemoryBudget::new(frame + codec - 1);
     assert!(matches!(
-        encode(width, height, &data, lossy(24, 16, 1.0), &short),
+        encode(width, height, &data, &lossy(24, 16, 1.0), &short),
         Err(Error::BudgetExceeded { .. })
     ));
     assert_eq!(short.snapshot().live, 0);
     assert_eq!(short.snapshot().peak, frame);
     let exact = MemoryBudget::new(frame + codec);
-    let encoded = encode(width, height, &data, lossy(24, 16, 1.0), &exact).unwrap();
+    let encoded = encode(width, height, &data, &lossy(24, 16, 1.0), &exact).unwrap();
     assert_eq!(exact.snapshot().peak, frame + codec);
     assert_eq!(exact.snapshot().live, 0);
     assert_eq!(encoded.frame_materialization_bytes, frame + codec);
@@ -267,22 +274,16 @@ fn input_frame_and_codec_estimate_are_reserved() {
 fn the_output_limit_applies_at_the_exact_byte() {
     let budget = MemoryBudget::new(64 << 20);
     let data = smooth(40, 30);
-    let full = encode(40, 30, &data, lossy(40, 30, 1.0), &budget).unwrap();
-    let exact = TransformOptions {
-        max_output_bytes: full.bytes.len(),
-        ..lossy(40, 30, 1.0)
-    };
+    let full = encode(40, 30, &data, &lossy(40, 30, 1.0), &budget).unwrap();
+    let exact = lossy(40, 30, 1.0).with_max_output_bytes(full.bytes.len());
     assert_eq!(
-        encode(40, 30, &data, exact, &budget).unwrap().bytes,
+        encode(40, 30, &data, &exact, &budget).unwrap().bytes,
         full.bytes
     );
-    let short = TransformOptions {
-        max_output_bytes: full.bytes.len() - 1,
-        ..lossy(40, 30, 1.0)
-    };
+    let short = lossy(40, 30, 1.0).with_max_output_bytes(full.bytes.len() - 1);
     assert!(matches!(
-        encode(40, 30, &data, short, &budget),
-        Err(Error::BudgetExceeded { .. })
+        encode(40, 30, &data, &short, &budget),
+        Err(Error::OutputLimitExceeded { .. })
     ));
     assert_eq!(budget.snapshot().live, 0);
 }
@@ -292,30 +293,19 @@ fn default_options_of_other_formats_still_match() {
     // The JPEG XL default changed to lossy; it must not make the default
     // options of the other formats look mismatched.
     for format in [OutputFormat::Avif, OutputFormat::WebP] {
-        let options = TransformOptions {
-            output_format: format,
-            output_width: 8,
-            output_height: 8,
-            ..TransformOptions::default()
-        };
-        let kind = transcode(b"garbage", ImageFormat::JpegXl, options)
+        let options = TransformOptions::new(OutputGeometry::Exact {
+            width: 8,
+            height: 8,
+        })
+        .with_output(OutputSettings::default_for(format));
+        let kind = transcode(b"garbage", ImageFormat::JpegXl, &options)
             .unwrap_err()
             .kind();
         assert_ne!(kind, ProcessingErrorKind::InvalidOptions, "{format:?}");
-        // A JPEG XL setting with another format is still a mismatch.
-        let mismatched = TransformOptions {
-            jpeg_xl: JpegXlOptions::Lossless {
-                effort: 2,
-                depth: None,
-            },
-            ..options
-        };
-        assert_eq!(
-            transcode(b"garbage", ImageFormat::JpegXl, mismatched)
-                .unwrap_err()
-                .kind(),
-            ProcessingErrorKind::InvalidOptions
-        );
+        // Until 2026-11-16 a JPEG XL setting beside another format was
+        // refused here as a mismatch (`InvalidOptions`); since then the
+        // settings are one `OutputSettings` value that selects the output,
+        // so that state cannot be expressed.
     }
 }
 
@@ -397,7 +387,7 @@ mod independent_decode {
                 width,
                 height,
                 &data,
-                lossy(width as u32, height as u32, 1.0),
+                &lossy(width as u32, height as u32, 1.0),
                 &MemoryBudget::new(256 << 20),
             )
             .unwrap();
@@ -421,7 +411,7 @@ mod independent_decode {
             width,
             height,
             &data,
-            lossy(300, 260, 1.0),
+            &lossy(300, 260, 1.0),
             &MemoryBudget::new(64 << 20),
         )
         .unwrap();
@@ -460,7 +450,7 @@ mod independent_decode {
                 width,
                 height,
                 &data,
-                lossy(width as u32, height as u32, 1.0),
+                &lossy(width as u32, height as u32, 1.0),
                 &MemoryBudget::new(256 << 20),
             )
             .unwrap();
@@ -483,7 +473,7 @@ mod independent_decode {
             width,
             height,
             &data,
-            lossy(300, 260, 1.0),
+            &lossy(300, 260, 1.0),
             &MemoryBudget::new(64 << 20),
         )
         .unwrap();
@@ -531,7 +521,8 @@ mod pipeline_round_trip {
     use super::{glyphs, lossy, rgb_error, smooth, translucent};
     use crate::pipeline::{
         EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
-        JpegXlOptions, OutputFormat, RowEncoder, TransformOptions, transcode, transcode_with,
+        JpegXlLossy, JpegXlOptions, OutputFormat, OutputGeometry, OutputSettings, RowEncoder,
+        TransformOptions, transcode, transcode_with,
     };
 
     /// Captures the finished rows the built-in sink would receive.
@@ -570,10 +561,7 @@ mod pipeline_round_trip {
     }
 
     fn srgb(options: TransformOptions) -> TransformOptions {
-        TransformOptions {
-            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            ..options
-        }
+        options.with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
     }
 
     #[test]
@@ -581,11 +569,11 @@ mod pipeline_round_trip {
         let input = webp(120, 90, &smooth(120, 90));
         for (width, height) in [(120, 90), (64, 48)] {
             let options = srgb(lossy(width, height, 1.0));
-            let output = transcode(&input, ImageFormat::WebP, options).unwrap();
+            let output = transcode(&input, ImageFormat::WebP, &options).unwrap();
             assert_eq!(output.format, OutputFormat::JpegXl);
-            assert_eq!(output.report.encoder_backend, "libjxl-rs");
+            assert_eq!(output.report.encoder_backend, "libjxl");
             assert!(output.report.opaque_encoder_memory);
-            let expected = transcode_with(&input, ImageFormat::WebP, options, &Rows).unwrap();
+            let expected = transcode_with(&input, ImageFormat::WebP, &options, &Rows).unwrap();
             let (w, h, decoded) = decode_oxide(&output.bytes);
             assert_eq!((w, h), (width, height));
             // Measured 2026-11-12: 120x90 22 / 2.60, 64x48 23 / 1.67.
@@ -621,21 +609,18 @@ mod pipeline_round_trip {
                 (26, 3.2),
             ),
         ] {
-            let options = srgb(TransformOptions {
-                output_format: OutputFormat::JpegXl,
-                output_width: width,
-                output_height: height,
-                ..TransformOptions::default()
-            });
-            assert_eq!(
-                options.jpeg_xl,
-                JpegXlOptions::Lossy {
-                    distance: 1.0,
-                    depth: None
-                }
+            let options = srgb(
+                TransformOptions::new(OutputGeometry::Exact { width, height })
+                    .with_output(OutputSettings::default_for(OutputFormat::JpegXl)),
             );
-            let output = transcode(&input, ImageFormat::WebP, options).unwrap();
-            let expected = transcode_with(&input, ImageFormat::WebP, options, &Rows).unwrap();
+            assert_eq!(
+                options.output(),
+                &OutputSettings::JpegXl(JpegXlOptions::Lossy(
+                    JpegXlLossy::default().with_distance(1.0)
+                ))
+            );
+            let output = transcode(&input, ImageFormat::WebP, &options).unwrap();
+            let expected = transcode_with(&input, ImageFormat::WebP, &options, &Rows).unwrap();
             assert!(
                 expected
                     .bytes
@@ -668,8 +653,8 @@ mod pipeline_round_trip {
         {
             let input = webp(width, height, &glyphs(width, height, 5, copies));
             let options = srgb(lossy(width as u32, height as u32, 1.0));
-            let output = transcode(&input, ImageFormat::WebP, options).unwrap();
-            let expected = transcode_with(&input, ImageFormat::WebP, options, &Rows).unwrap();
+            let output = transcode(&input, ImageFormat::WebP, &options).unwrap();
+            let expected = transcode_with(&input, ImageFormat::WebP, &options, &Rows).unwrap();
             let (w, h, decoded) = decode_oxide(&output.bytes);
             assert_eq!((w as usize, h as usize), (width, height));
             let (max, mean) = rgb_error(&decoded, &expected.bytes);
@@ -686,10 +671,10 @@ mod pipeline_round_trip {
         // EXIF orientation 6 rotates the stored 24x16 pattern by 90 degrees.
         let input = include_bytes!("../tests/fixtures/orientation/jpeg-6.jpg");
         let options = srgb(lossy(16, 24, 1.0));
-        let output = transcode(input, ImageFormat::Jpeg, options).unwrap();
+        let output = transcode(input, ImageFormat::Jpeg, &options).unwrap();
         let (w, h, decoded) = decode_oxide(&output.bytes);
         assert_eq!((w, h), (16, 24));
-        let expected = transcode_with(input, ImageFormat::Jpeg, options, &Rows).unwrap();
+        let expected = transcode_with(input, ImageFormat::Jpeg, &options, &Rows).unwrap();
         // The 90-degree rotation is visible: a transposed decode would be far
         // off. Measured 2026-11-12 on this high-contrast 16x24 pattern:
         // max 61, mean 4.79.
@@ -704,8 +689,8 @@ mod pipeline_round_trip {
         let input =
             include_bytes!("../codecs/libjxl-rs/tests/data/decode-test/flower.png.im_q85_420.jpg");
         let options = srgb(lossy(600, 400, 1.0));
-        let output = transcode(input, ImageFormat::Jpeg, options).unwrap();
-        let expected = transcode_with(input, ImageFormat::Jpeg, options, &Rows).unwrap();
+        let output = transcode(input, ImageFormat::Jpeg, &options).unwrap();
+        let expected = transcode_with(input, ImageFormat::Jpeg, &options, &Rows).unwrap();
         let (w, h, decoded) = decode_oxide(&output.bytes);
         assert_eq!((w, h), (600, 400));
         // Measured 2026-11-12: 73,020 bytes, max 79, mean 2.76.

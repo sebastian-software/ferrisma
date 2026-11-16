@@ -3,7 +3,7 @@
 use crate::encoder_backend::{
     EncodeError, EncodeErrorKind, EncodeRequest, EncodedImage, EncoderBackend, RowEncoder,
 };
-use crate::pipeline::{ChromaSubsampling, OutputFormat};
+use crate::pipeline::{ChromaSubsampling, OutputFormat, OutputSettings};
 use ferrisma_avif_write as writer;
 
 /// Workspace libavif with its AOM encoder, available with `avif-write`; the
@@ -17,9 +17,29 @@ use ferrisma_avif_write as writer;
 /// Until 2026-11-15 the backend carried the depth itself
 /// (`LibavifBackend { depth }`), a second control for the same setting.
 ///
+/// Constructed with [`LibavifBackend::new`] or [`Default`]; since
+/// 2026-11-16 it is no longer a unit struct a dependent names as a value,
+/// so a later release can give it state.
+///
+/// ```
+/// use ferrisma::pipeline::{EncoderBackend, LibavifBackend, OutputFormat};
+///
+/// let backend = LibavifBackend::new();
+/// assert_eq!(backend.format(), OutputFormat::Avif);
+/// ```
+///
 /// [`AvifOptions`]: crate::pipeline::AvifOptions
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct LibavifBackend;
+
+impl LibavifBackend {
+    /// The workspace libavif/AOM writer.
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 fn map_error(error: writer::EncodeError) -> EncodeError {
     let (error_kind, message) = error.into_parts();
@@ -33,22 +53,21 @@ fn map_error(error: writer::EncodeError) -> EncodeError {
 
 impl LibavifBackend {
     fn config(request: &EncodeRequest) -> Result<writer::Config, EncodeError> {
-        if request.format != OutputFormat::Avif {
+        let OutputSettings::Avif(avif) = &request.output else {
             return Err(EncodeError::new(
                 EncodeErrorKind::InvalidOptions,
                 "libavif-rs backend requires AVIF output",
             ));
-        }
-        let avif = request.avif;
+        };
         Ok(writer::Config {
             width: request.width,
             height: request.height,
             has_alpha: request.has_alpha,
-            quality: avif.quality,
-            alpha_quality: avif.alpha_quality,
-            speed: avif.speed,
+            quality: avif.quality(),
+            alpha_quality: avif.alpha_quality(),
+            speed: avif.speed(),
             threads: request.threads,
-            chroma: match avif.chroma {
+            chroma: match avif.chroma() {
                 ChromaSubsampling::Yuv444 => writer::Chroma::Yuv444,
                 ChromaSubsampling::Yuv420 => writer::Chroma::Yuv420,
             },
@@ -66,7 +85,7 @@ impl EncoderBackend for LibavifBackend {
         OutputFormat::Avif
     }
     fn name(&self) -> &'static str {
-        "libavif-rs/aom"
+        "libavif/aom"
     }
     fn row_depths(&self) -> &'static [u8] {
         &[8, 10, 12]

@@ -156,6 +156,23 @@ codec library, and its built dependencies; they do not instrument Rust or prove
 Rust memory safety. The current platform evidence is listed in
 [PORT_STATUS.md](docs/PORT_STATUS.md).
 
+Users build the port with a stable compiler, and the same source can give
+different results on different toolchains ([ADR 0002](docs/adr/0002-differential-oracle.md),
+"Results that depend on the Rust compiler"). The oracle and test stages
+therefore also run with another installed rustup toolchain:
+
+```sh
+python3 tools/check.py --stage test --toolchain 1.88
+python3 tools/check.py --stage test --toolchain stable --target x86_64-apple-darwin
+```
+
+`--toolchain NAME` runs every Cargo command of those stages, including the
+Rust library that the oracle's `jxl_abi_rust` driver links, with
+`RUSTUP_TOOLCHAIN=NAME` in `target/rust-NAME`, so it never replaces the pinned
+nightly's builds; the C++ references are the same. Run it with the
+`rust-version` toolchain and with current stable before calling a numeric
+change done.
+
 `--stage` runs one part of the check: `static` needs no C++ toolchain, `oracle`
 only builds the selected reference graph, and `test` builds it and runs the
 tests. `--partition K/N` runs the K-th of N disjoint subsets of the test names,
@@ -224,9 +241,9 @@ The minimum supported Rust version is the port's measured floor, 1.88 since
 2026-11-15 (owner decision, [Ferrisma ADR-0040](../../docs/adr/0040-stable-public-contract-and-compatibility-policy.md)
 amendment). Raise it only deliberately, in its own change with a changelog
 note, to a release that is then at least three months old: update
-`rust-version`, the `msrv` toolchains in the Brotli audit tools (still `1.95`,
-the earlier floor; they are manual audit tools and were not rerun at 1.88),
-and the documentation. The static stage's `--msrv` step checks the port at
+`rust-version` and the documentation. The audit tools read the `msrv`
+toolchain from `rust-version` (`tools/rust_version.py`), so they need no edit.
+The static stage's `--msrv` step checks the port at
 exactly the declared version in CI, so the declaration cannot go stale. Clippy reads
 `rust-version`, so a raise can enable lints that suggest newer idioms. In
 translated code, keep the source's form and add a function-scoped

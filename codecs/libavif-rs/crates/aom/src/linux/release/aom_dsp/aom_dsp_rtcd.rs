@@ -11,7 +11,6 @@
 
 // Mechanically translated from upstream/aom/aom_dsp/aom_dsp_rtcd.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
-use core::arch::asm;
 extern "C-unwind" {
     fn aom_mse_wxh_16bit_highbd_c(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
     fn aom_mse_wxh_16bit_highbd_sse2(dst: *mut uint16_t, dstride: core::ffi::c_int, src: *mut uint16_t, sstride: core::ffi::c_int, w: core::ffi::c_int, h: core::ffi::c_int) -> uint64_t;
@@ -2540,13 +2539,18 @@ pub static mut aom_subtract_block: Option<
 #[inline]
 unsafe extern "C-unwind" fn xgetbv() -> uint64_t {
     let ecx: uint32_t = 0 as uint32_t;
-    let mut eax: uint32_t = 0;
-    let mut edx: uint32_t = 0;
-    asm!(
-        ".byte 0x0f, 0x01, 0xd0\n", "\n", lateout("ax") eax, lateout("dx") edx,
-        inlateout("cx") ecx => _, options(preserves_flags, att_syntax)
-    );
-    return (edx as uint64_t) << 32 as core::ffi::c_int | eax as uint64_t;
+    // XGETBV (0F 01 D0) through its intrinsic instead of the original's raw
+    // opcode bytes (engine ADR-0044): the same instruction with ECX = 0,
+    // returning EDX:EAX as one value as the original does.
+    #[target_feature(enable = "xsave")]
+    unsafe fn read_xcr(xcr: uint32_t) -> uint64_t {
+        core::arch::x86_64::_xgetbv(xcr)
+    }
+    // SAFETY: XGETBV needs CR4.OSXSAVE, which CPUID.1:ECX bit 27 (OSXSAVE)
+    // reports and the OS can set only on a CPU with XSAVE, the feature
+    // `read_xcr` enables. The original calls xgetbv() only inside its branch
+    // that requires CPUID.1:ECX bits 27 and 28; the callers keep that branch.
+    return read_xcr(ecx);
 }
 #[no_mangle]
 pub static mut aom_sum_squares_2d_i16: Option<unsafe extern "C-unwind" fn(*const int16_t, core::ffi::c_int, core::ffi::c_int, core::ffi::c_int) -> uint64_t> = None;

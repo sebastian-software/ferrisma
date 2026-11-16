@@ -304,13 +304,17 @@ if(ORACLE_RUST_TARGET)
   set(rust_target_arguments --target "${ORACLE_RUST_TARGET}")
   set(rust_target_directory "${ORACLE_RUST_TARGET}/")
 endif()
+# tools/check.py --toolchain builds the library with another Rust toolchain in
+# its own Cargo target directory (port ADR 0002, 2026-11-15).
+set(ORACLE_RUST_TARGET_DIR "${PORT_ROOT}/target" CACHE PATH
+  "Cargo target directory of the Rust library that jxl_abi_rust links")
 set(RUST_DECODER_ABI_LIBRARY
-  "${PORT_ROOT}/target/${rust_target_directory}${rust_profile_directory}/${CMAKE_STATIC_LIBRARY_PREFIX}jxl${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  "${ORACLE_RUST_TARGET_DIR}/${rust_target_directory}${rust_profile_directory}/${CMAKE_STATIC_LIBRARY_PREFIX}jxl${CMAKE_STATIC_LIBRARY_SUFFIX}")
 add_custom_target(rust_decoder_abi
   COMMAND "${CARGO_EXECUTABLE}" build --locked --offline --lib
           --profile "${ORACLE_RUST_PROFILE}" --features cpp-oracle
           ${rust_target_arguments}
-          --target-dir "${PORT_ROOT}/target"
+          --target-dir "${ORACLE_RUST_TARGET_DIR}"
   WORKING_DIRECTORY "${PORT_ROOT}"
   BYPRODUCTS "${RUST_DECODER_ABI_LIBRARY}"
   COMMENT "Building the Rust decoder C ABI library"

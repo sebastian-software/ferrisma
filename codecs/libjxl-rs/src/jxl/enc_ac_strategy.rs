@@ -822,9 +822,10 @@ pub fn find_best_first_level_division_for_square(
     Ok(())
 }
 
-// std::min(a, b): b < a ? b : a.
+// std::min(a, b): b < a ? b : a, through the shared compiler-independent
+// spelling (port ADR 0002, 2026-11-15).
 pub(crate) fn min_cpp(a: f32, b: f32) -> f32 {
-    if b < a { b } else { a }
+    super::base::float::min_f32(a, b)
 }
 
 struct MergeTry {

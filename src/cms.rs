@@ -61,11 +61,12 @@ pub(crate) struct IccConversion {
 /// Largest absolute difference, in linear light, that the per-channel table
 /// may have from moxcms on any probed 8-bit triplet. Measured worst case over
 /// all 2^24 triplets: 1.2e-7 (ADR-0016 and ADR-0023 amendments, 2026-11-12;
-/// pending owner confirmation).
+/// confirmed by the owner on 2026-11-15, ADR-0016).
 const CHANNEL_TABLE_BOUND: f32 = 2.5e-7;
 
 /// 8-bit matrix-shaper conversion as a sum of per-channel contributions
-/// (issue #219, pending owner confirmation in ADR-0016 and ADR-0023).
+/// (issue #219, ADR-0016 and ADR-0023; confirmed by the owner on 2026-11-15,
+/// ADR-0016).
 ///
 /// A matrix-shaper profile into linear sRGB computes `M · [trc_r(r),
 /// trc_g(g), trc_b(b)]`: each output is a weighted sum of three independent

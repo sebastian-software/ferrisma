@@ -1,6 +1,6 @@
 //! Evidence for `docs/supported-matrix.md` (issue #67): every case below is
 //! one claim of the matrix, checked through the public processing API
-//! (`transcode`, `transcode_resized`, `inspect`) with a real file from the
+//! (`transcode` with exact and resize geometry, `inspect`) with a real file from the
 //! repository. A supported case decodes and encodes completely; a rejected
 //! case asserts the public kind, the message's reason *and* the typed
 //! `refusal_reason()` (issue #212; `None` for malformed data, limits and
@@ -23,12 +23,16 @@
 ))]
 
 use ferrisma::pipeline::AvifOptions;
+use ferrisma::pipeline::Threads;
 #[cfg(all(feature = "avif-read", feature = "avif-write"))]
-use ferrisma::pipeline::ChromaSubsampling;
+use ferrisma::pipeline::{BitDepth, ChromaSubsampling};
 use ferrisma::pipeline::{
     Crop, ImageFormat, InputProfilePolicy, InspectionLimits, JpegXlOptions, Output, OutputFormat,
     ProcessingError, ProcessingErrorKind, RefusalReason, SourceAccess, TransformOptions,
     WebpOptions, inspect, transcode,
+};
+use ferrisma::pipeline::{
+    JpegXlLossless, JpegXlLossy, OutputGeometry, OutputSettings, WebpLossless, WebpLossy,
 };
 
 // ---------------------------------------------------------------------------
@@ -86,21 +90,19 @@ const LINEAR_SRGB: &str = "linear-sRGB resize requires unambiguous full-range RG
 const INPUT_BYTES: &str = "compressed image exceeds max_input_bytes";
 const ZERO_LIMIT: &str = "input byte/pixel limits must be nonzero";
 const OUTPUT_BYTES: &str = "encoded output exceeds max_output_bytes";
-const MISMATCHED: &str = "encoder options do not match the selected output format";
 const ENCODER_OPTIONS: &str = "encoder settings or output dimensions are invalid";
 
 // ---------------------------------------------------------------------------
 // Helpers.
 
 fn options(output_format: OutputFormat, policy: InputProfilePolicy) -> TransformOptions {
-    TransformOptions {
-        output_format,
-        output_width: 6,
-        output_height: 4,
-        profile_policy: policy,
-        transform_threads: 1,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 6,
+        height: 4,
+    })
+    .with_output(OutputSettings::default_for(output_format))
+    .with_profile_policy(policy)
+    .with_transform_threads(Threads::ONE)
 }
 
 const ASSUME: InputProfilePolicy = InputProfilePolicy::AssumeSrgbIfMissing;
@@ -108,7 +110,7 @@ const RENDERED: InputProfilePolicy = InputProfilePolicy::UseRenderedIcc;
 const STRICT: InputProfilePolicy = InputProfilePolicy::Strict;
 
 fn to_webp(bytes: &[u8], format: ImageFormat, policy: InputProfilePolicy) -> Output {
-    transcode(bytes, format, options(OutputFormat::WebP, policy))
+    transcode(bytes, format, &options(OutputFormat::WebP, policy))
         .unwrap_or_else(|error| panic!("{format:?} under {policy:?}: {error}"))
 }
 
@@ -152,19 +154,13 @@ fn assert_display_size(
     policy: InputProfilePolicy,
     size: (u32, u32),
 ) {
-    let crop = |width, height| TransformOptions {
-        crop: Some(Crop {
-            x: 0,
-            y: 0,
-            width,
-            height,
-        }),
-        ..options(OutputFormat::WebP, policy)
+    let crop = |width, height| {
+        options(OutputFormat::WebP, policy).with_crop(Some(Crop::new(0, 0, width, height)))
     };
-    transcode(bytes, format, crop(size.0, size.1)).unwrap();
+    transcode(bytes, format, &crop(size.0, size.1)).unwrap();
     for (width, height) in [(size.0 + 1, size.1), (size.0, size.1 + 1)] {
         rejected(
-            transcode(bytes, format, crop(width, height)),
+            transcode(bytes, format, &crop(width, height)),
             ProcessingErrorKind::InvalidOptions,
             "requested region is outside image bounds",
         );
@@ -177,7 +173,7 @@ fn webp_has_alpha(output: &Output) -> bool {
     inspect(
         &output.bytes,
         ImageFormat::WebP,
-        InspectionLimits::default(),
+        &InspectionLimits::default(),
     )
     .unwrap()
     .has_alpha
@@ -244,7 +240,7 @@ fn read_back_avif_strict(output: &Output) -> Output {
     transcode(
         &output.bytes,
         ImageFormat::Avif,
-        options(OutputFormat::WebP, STRICT),
+        &options(OutputFormat::WebP, STRICT),
     )
     .expect("the AVIF output reads back as signalled sRGB")
 }
@@ -265,7 +261,7 @@ fn jpeg_untagged_is_rejected_under_the_strict_policy() {
         transcode(
             SAMPLE_JPEG,
             ImageFormat::Jpeg,
-            options(OutputFormat::WebP, STRICT),
+            &options(OutputFormat::WebP, STRICT),
         ),
         ProcessingErrorKind::UnsupportedColor,
         COLOR,
@@ -279,7 +275,7 @@ fn jpeg_cmyk_is_rejected_as_a_layout() {
         transcode(
             CMYK_JPEG,
             ImageFormat::Jpeg,
-            options(OutputFormat::WebP, ASSUME),
+            &options(OutputFormat::WebP, ASSUME),
         ),
         ProcessingErrorKind::UnsupportedInput,
         LAYOUT,
@@ -297,7 +293,7 @@ fn jpeg_grayscale_is_expanded_to_rgb() {
         transcode(
             &gray,
             ImageFormat::Jpeg,
-            options(OutputFormat::WebP, STRICT),
+            &options(OutputFormat::WebP, STRICT),
         ),
         ProcessingErrorKind::UnsupportedColor,
         COLOR,
@@ -311,7 +307,7 @@ fn jpeg_truncated_is_malformed() {
         transcode(
             &SAMPLE_JPEG[..SAMPLE_JPEG.len() / 2],
             ImageFormat::Jpeg,
-            options(OutputFormat::WebP, ASSUME),
+            &options(OutputFormat::WebP, ASSUME),
         ),
         ProcessingErrorKind::MalformedInput,
         MALFORMED,
@@ -325,7 +321,7 @@ fn jpeg_embedded_icc_needs_the_rendered_icc_policy() {
             transcode(
                 ICC_JPEG,
                 ImageFormat::Jpeg,
-                options(OutputFormat::WebP, policy),
+                &options(OutputFormat::WebP, policy),
             ),
             ProcessingErrorKind::UnsupportedColor,
             COLOR,
@@ -375,7 +371,7 @@ fn webp_animation_is_rejected_without_a_first_frame_fallback() {
         transcode(
             ANIMATED_WEBP,
             ImageFormat::WebP,
-            options(OutputFormat::WebP, ASSUME),
+            &options(OutputFormat::WebP, ASSUME),
         ),
         ProcessingErrorKind::UnsupportedInput,
         ANIMATION,
@@ -394,12 +390,9 @@ fn webp_straight_alpha_input_keeps_alpha() {
 
 #[test]
 fn webp_canvas_above_the_pixel_limit_is_rejected_from_the_header() {
-    let options = TransformOptions {
-        max_input_pixels: 96 * 72 - 1,
-        ..options(OutputFormat::WebP, ASSUME)
-    };
+    let options = options(OutputFormat::WebP, ASSUME).with_max_input_pixels(96 * 72 - 1);
     rejected(
-        transcode(ORIENTED_LOSSY_WEBP, ImageFormat::WebP, options),
+        transcode(ORIENTED_LOSSY_WEBP, ImageFormat::WebP, &options),
         ProcessingErrorKind::InputLimitExceeded,
         "input has 6912 pixels, exceeding the configured 6911 pixel limit",
     );
@@ -421,17 +414,17 @@ fn jxl_options(policy: InputProfilePolicy) -> TransformOptions {
 #[test]
 fn jpeg_xl_enum_rgb_is_typed_and_embedded_icc_needs_the_rendered_icc_policy() {
     for policy in [STRICT, ASSUME, RENDERED] {
-        let output = transcode(SAMPLE_JXL, ImageFormat::JpegXl, jxl_options(policy)).unwrap();
+        let output = transcode(SAMPLE_JXL, ImageFormat::JpegXl, &jxl_options(policy)).unwrap();
         assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
     }
     let icc = read(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/fixtures/parity/rgb-p3-icc.jxl"
     ));
-    transcode(&icc, ImageFormat::JpegXl, jxl_options(RENDERED)).unwrap();
+    transcode(&icc, ImageFormat::JpegXl, &jxl_options(RENDERED)).unwrap();
     for policy in [STRICT, ASSUME] {
         refused(
-            transcode(&icc, ImageFormat::JpegXl, jxl_options(policy)),
+            transcode(&icc, ImageFormat::JpegXl, &jxl_options(policy)),
             ProcessingErrorKind::UnsupportedColor,
             COLOR,
             Some(RefusalReason::RenderedIccRequiresOptIn),
@@ -444,7 +437,7 @@ fn jpeg_xl_straight_alpha_is_kept_through_rendered_icc() {
     let output = transcode(
         &jxl("effects_rgb_alpha8.jxl"),
         ImageFormat::JpegXl,
-        jxl_options(RENDERED),
+        &jxl_options(RENDERED),
     )
     .unwrap();
     assert!(webp_has_alpha(&output));
@@ -478,7 +471,7 @@ fn jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected() {
         "extra-channel-multiple-alpha-spots-float.jxl",
     ] {
         refused(
-            transcode(&jxl(name), ImageFormat::JpegXl, jxl_options(RENDERED)),
+            transcode(&jxl(name), ImageFormat::JpegXl, &jxl_options(RENDERED)),
             ProcessingErrorKind::UnsupportedInput,
             LAYOUT,
             Some(RefusalReason::UnsupportedLayout),
@@ -490,7 +483,7 @@ fn jpeg_xl_float_alpha_spot_and_extra_channels_are_rejected() {
 fn jpeg_xl_animation_is_rejected() {
     let animated = jxl("decoder-geometry/sequence-reference-overwrite-animation-1.jxl");
     refused(
-        transcode(&animated, ImageFormat::JpegXl, jxl_options(RENDERED)),
+        transcode(&animated, ImageFormat::JpegXl, &jxl_options(RENDERED)),
         ProcessingErrorKind::UnsupportedInput,
         ANIMATION,
         Some(RefusalReason::Animation),
@@ -505,7 +498,7 @@ fn jpeg_xl_pq_and_hlg_are_rejected() {
             let error = transcode(
                 &read(&format!("{color}{name}")),
                 ImageFormat::JpegXl,
-                jxl_options(policy),
+                &jxl_options(policy),
             )
             .expect_err("HDR input must be rejected");
             assert_eq!(
@@ -527,14 +520,11 @@ fn jpeg_xl_pq_and_hlg_are_rejected() {
 
 #[test]
 fn jpeg_xl_pixel_limit_is_checked_before_decoding() {
-    let options = TransformOptions {
-        max_input_pixels: 1,
-        ..jxl_options(RENDERED)
-    };
+    let options = jxl_options(RENDERED).with_max_input_pixels(1);
     // libjxl-rs checks in the adapter, before it decodes a pixel.
     let reason = "input has ";
     rejected(
-        transcode(SAMPLE_JXL, ImageFormat::JpegXl, options),
+        transcode(SAMPLE_JXL, ImageFormat::JpegXl, &options),
         ProcessingErrorKind::InputLimitExceeded,
         reason,
     );
@@ -564,7 +554,7 @@ fn avif_clean_aperture_is_rejected() {
             transcode(
                 &bytes,
                 ImageFormat::Avif,
-                options(OutputFormat::WebP, ASSUME),
+                &options(OutputFormat::WebP, ASSUME),
             ),
             ProcessingErrorKind::UnsupportedInput,
             TRANSFORM,
@@ -576,7 +566,7 @@ fn avif_clean_aperture_is_rejected() {
     transcode(
         &avif("clop_irot_imor.avif"),
         ImageFormat::Avif,
-        options(OutputFormat::WebP, ASSUME),
+        &options(OutputFormat::WebP, ASSUME),
     )
     .unwrap();
 }
@@ -632,7 +622,7 @@ fn avif_imir_before_irot_is_rejected() {
         transcode(
             &reordered,
             ImageFormat::Avif,
-            options(OutputFormat::WebP, ASSUME),
+            &options(OutputFormat::WebP, ASSUME),
         ),
         ProcessingErrorKind::UnsupportedInput,
         TRANSFORM,
@@ -686,7 +676,7 @@ fn avif_unknown_essential_property_is_refused_as_unsupported() {
         transcode(
             &patched,
             ImageFormat::Avif,
-            options(OutputFormat::WebP, ASSUME),
+            &options(OutputFormat::WebP, ASSUME),
         ),
         ProcessingErrorKind::UnsupportedInput,
         ESSENTIAL,
@@ -711,7 +701,7 @@ fn avif_property_association_outside_ipco_is_malformed() {
         transcode(
             &bytes,
             ImageFormat::Avif,
-            options(OutputFormat::WebP, ASSUME),
+            &options(OutputFormat::WebP, ASSUME),
         ),
         ProcessingErrorKind::MalformedInput,
         MALFORMED,
@@ -733,7 +723,7 @@ fn avif_image_sequences_are_rejected_without_a_first_frame_fallback() {
             transcode(
                 &bytes,
                 ImageFormat::Avif,
-                options(OutputFormat::WebP, ASSUME),
+                &options(OutputFormat::WebP, ASSUME),
             ),
             ProcessingErrorKind::UnsupportedInput,
             ANIMATION,
@@ -777,7 +767,7 @@ fn avif_eight_ten_and_twelve_bit_in_every_chroma_layout_are_accepted() {
         transcode(
             &bytes,
             ImageFormat::Avif,
-            options(OutputFormat::WebP, ASSUME),
+            &options(OutputFormat::WebP, ASSUME),
         )
         .unwrap_or_else(|error| panic!("{name}: {error}"));
     }
@@ -818,7 +808,7 @@ fn avif_pq_is_rejected_under_every_policy() {
             let error = transcode(
                 &avif(name),
                 ImageFormat::Avif,
-                options(OutputFormat::WebP, policy),
+                &options(OutputFormat::WebP, policy),
             )
             .expect_err("PQ must be rejected");
             assert_eq!(
@@ -853,7 +843,7 @@ fn avif_container_icc_needs_the_rendered_icc_policy() {
             transcode(
                 &bytes,
                 ImageFormat::Avif,
-                options(OutputFormat::WebP, policy),
+                &options(OutputFormat::WebP, policy),
             ),
             ProcessingErrorKind::UnsupportedColor,
             COLOR,
@@ -873,12 +863,9 @@ fn avif_signalled_srgb_passes_the_strict_policy() {
 #[test]
 fn avif_pixel_limit_checks_the_rendered_and_the_coded_size() {
     let bytes = avif("sofa_grid1x5_420.avif");
-    let options = TransformOptions {
-        max_input_pixels: 1,
-        ..options(OutputFormat::WebP, ASSUME)
-    };
+    let options = options(OutputFormat::WebP, ASSUME).with_max_input_pixels(1);
     rejected(
-        transcode(&bytes, ImageFormat::Avif, options),
+        transcode(&bytes, ImageFormat::Avif, &options),
         ProcessingErrorKind::InputLimitExceeded,
         "input has ",
     );
@@ -889,17 +876,11 @@ fn avif_pixel_limit_checks_the_rendered_and_the_coded_size() {
 
 #[test]
 fn input_byte_limit_accepts_the_exact_size_and_rejects_one_byte_less() {
-    let exact = TransformOptions {
-        max_input_bytes: SAMPLE_JPEG.len(),
-        ..options(OutputFormat::WebP, ASSUME)
-    };
-    transcode(SAMPLE_JPEG, ImageFormat::Jpeg, exact).unwrap();
-    let below = TransformOptions {
-        max_input_bytes: SAMPLE_JPEG.len() - 1,
-        ..exact
-    };
+    let exact = options(OutputFormat::WebP, ASSUME).with_max_input_bytes(SAMPLE_JPEG.len());
+    transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &exact).unwrap();
+    let below = exact.clone().with_max_input_bytes(SAMPLE_JPEG.len() - 1);
     rejected(
-        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, below),
+        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &below),
         ProcessingErrorKind::InputLimitExceeded,
         INPUT_BYTES,
     );
@@ -908,13 +889,11 @@ fn input_byte_limit_accepts_the_exact_size_and_rejects_one_byte_less() {
 #[test]
 fn zero_input_limits_are_invalid_options() {
     for (bytes, pixels) in [(0, 1), (1, 0)] {
-        let options = TransformOptions {
-            max_input_bytes: bytes,
-            max_input_pixels: pixels,
-            ..options(OutputFormat::WebP, ASSUME)
-        };
+        let options = options(OutputFormat::WebP, ASSUME)
+            .with_max_input_bytes(bytes)
+            .with_max_input_pixels(pixels);
         rejected(
-            transcode(SAMPLE_JPEG, ImageFormat::Jpeg, options),
+            transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &options),
             ProcessingErrorKind::InvalidOptions,
             ZERO_LIMIT,
         );
@@ -923,56 +902,42 @@ fn zero_input_limits_are_invalid_options() {
 
 #[test]
 fn jpeg_pixel_limit_is_checked_after_the_header() {
-    let options = TransformOptions {
-        max_input_pixels: 7 * 5 - 1,
-        ..options(OutputFormat::WebP, ASSUME)
-    };
+    let options = options(OutputFormat::WebP, ASSUME).with_max_input_pixels(7 * 5 - 1);
     rejected(
-        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, options),
+        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &options),
         ProcessingErrorKind::InputLimitExceeded,
         "image has 35 pixels; configured limit is 34",
     );
 }
 
 /// The exact output size passes, one byte less fails with
-/// `ResourceExhausted` and `reason`.
+/// `OutputLimitExceeded` and `reason` (since 2026-11-16; `ResourceExhausted`
+/// before, with the memory budget's message for WebP and lossy JPEG XL).
 #[track_caller]
 fn assert_exact_output_limit(base: TransformOptions, reason: &str) {
-    let output = transcode(SAMPLE_JPEG, ImageFormat::Jpeg, base).unwrap();
-    let exact = TransformOptions {
-        max_output_bytes: output.bytes.len(),
-        ..base
-    };
-    transcode(SAMPLE_JPEG, ImageFormat::Jpeg, exact).unwrap();
-    let below = TransformOptions {
-        max_output_bytes: output.bytes.len() - 1,
-        ..base
-    };
+    let output = transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &base).unwrap();
+    let exact = base.clone().with_max_output_bytes(output.bytes.len());
+    transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &exact).unwrap();
+    let below = base.with_max_output_bytes(output.bytes.len() - 1);
     rejected(
-        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, below),
-        ProcessingErrorKind::ResourceExhausted,
+        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &below),
+        ProcessingErrorKind::OutputLimitExceeded,
         reason,
     );
 }
 
-/// WebP and lossy JPEG XL stop while writing (the encoder's writer reports a
-/// budget overrun); lossless JPEG XL is checked by the facade after the
-/// encoder returns.
+/// WebP and lossy JPEG XL stop while writing; lossless JPEG XL is checked by
+/// the facade after the encoder returns. Every path has the same kind and
+/// message prefix since 2026-11-16 (before, WebP and lossy JPEG XL said
+/// "managed buffer needs …", the memory budget's message).
 #[test]
 fn output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl() {
-    assert_exact_output_limit(options(OutputFormat::WebP, ASSUME), "managed buffer needs ");
+    assert_exact_output_limit(options(OutputFormat::WebP, ASSUME), OUTPUT_BYTES);
+    assert_exact_output_limit(options(OutputFormat::JpegXl, ASSUME), OUTPUT_BYTES);
     assert_exact_output_limit(
-        options(OutputFormat::JpegXl, ASSUME),
-        "managed buffer needs ",
-    );
-    assert_exact_output_limit(
-        TransformOptions {
-            jpeg_xl: JpegXlOptions::Lossless {
-                effort: 2,
-                depth: None,
-            },
-            ..options(OutputFormat::JpegXl, ASSUME)
-        },
+        options(OutputFormat::JpegXl, ASSUME).with_output(OutputSettings::JpegXl(
+            JpegXlOptions::Lossless(JpegXlLossless::default()),
+        )),
         OUTPUT_BYTES,
     );
 }
@@ -987,41 +952,40 @@ fn output_byte_limit_applies_at_the_exact_byte_for_avif() {
 
 #[test]
 fn managed_budget_exhaustion_is_reported() {
-    let options = TransformOptions {
-        max_managed_bytes: 64,
-        ..options(OutputFormat::WebP, ASSUME)
-    };
+    let options = options(OutputFormat::WebP, ASSUME).with_max_managed_bytes(64);
     rejected(
-        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, options),
+        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &options),
         ProcessingErrorKind::ResourceExhausted,
         "managed buffer needs ",
     );
 }
 
 #[test]
-fn default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels() {
-    // The reservation is the measured peak of the chunked lossless encode
-    // (issue #223, 2026-11-15, `docs/benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md`):
-    // up to one 2048x2048 DC group, frame plus reservation are 70 B/px plus
-    // 12 MiB for opaque output, and above it 17 B/px plus one DC group's
-    // 53 B/px plus 12 MiB, so the default 1 GiB budget (owner decision of
-    // 2026-11-15, ADR-0004 amendment) holds at most 49,344,752 pixels.
-    // 7100 x 7000 = 49,700,000 pixels is just above. Under the former
-    // 256 MiB default the limit was 3,655,036 pixels and this test was
-    // `default_budget_rejects_lossless_jpeg_xl_above_about_3_7_megapixels`
-    // with 1920 x 1920; before the chunked encode it was about 3.5 MP and
-    // 2000 x 2000. The expectation changed by owner decision.
-    let options = TransformOptions {
-        jpeg_xl: JpegXlOptions::Lossless {
-            effort: 2,
-            depth: None,
-        },
-        output_width: 7100,
-        output_height: 7000,
-        ..options(OutputFormat::JpegXl, ASSUME)
-    };
+fn default_budget_rejects_lossless_jpeg_xl_above_about_126_megapixels() {
+    // The reservation is the measured peak of the lossless encode (issue
+    // #223; since 2026-11-16 `docs/benchmarks/v1.0-jxl-encoder-memory-2026-11-16.md`):
+    // for opaque 8-bit output above two DC groups 14 B/px plus 51 B/px of
+    // the first 2048x2048 DC group, 38 B/px of the second and 12 MiB, so
+    // the default 2 GiB budget (owner decision of 2026-11-16, ADR-0004
+    // amendment) holds at most 125,829,120 pixels, an extrapolation of the
+    // model fitted up to 24 MP. 11300 x 11200 = 126,560,000 pixels is just
+    // above. Under the 1 GiB default of 2026-11-15 the limit was 49,133,275
+    // pixels and this test was
+    // `default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`
+    // with 7100 x 7000; under the 256 MiB default before it, 3,655,036
+    // pixels (`…_above_about_3_7_megapixels`, 1920 x 1920); before the
+    // chunked encode about 3.5 MP and 2000 x 2000. The expectation changed
+    // by owner decision.
+    let options = options(OutputFormat::JpegXl, ASSUME)
+        .with_output(OutputSettings::JpegXl(JpegXlOptions::Lossless(
+            JpegXlLossless::default(),
+        )))
+        .with_geometry(OutputGeometry::Exact {
+            width: 11_300,
+            height: 11_200,
+        });
     rejected(
-        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, options),
+        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &options),
         ProcessingErrorKind::ResourceExhausted,
         "managed buffer needs ",
     );
@@ -1030,23 +994,25 @@ fn default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels() {
 #[test]
 fn thread_counts_above_256_and_parallel_webp_encoding_are_invalid() {
     for (transform, encoder) in [(257, 1), (1, 257)] {
-        let options = TransformOptions {
-            transform_threads: transform,
-            encoder_threads: encoder,
-            ..options(OutputFormat::Avif, ASSUME)
-        };
+        let options = options(OutputFormat::Avif, ASSUME)
+            .with_transform_threads(
+                std::num::NonZeroUsize::new(transform).map_or(Threads::Automatic, Threads::Count),
+            )
+            .with_encoder_threads(
+                std::num::NonZeroUsize::new(encoder).map_or(Threads::Automatic, Threads::Count),
+            );
         rejected(
-            transcode(SAMPLE_JPEG, ImageFormat::Jpeg, options),
+            transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &options),
             ProcessingErrorKind::InvalidOptions,
-            "transform and encoder threads must be between 0 and 256",
+            // "transform and encoder threads must be between 0 and 256"
+            // until 2026-11-16, when 0 stopped being a count (`Threads`).
+            "a thread count must be at most 256",
         );
     }
-    let options = TransformOptions {
-        encoder_threads: 2,
-        ..options(OutputFormat::WebP, ASSUME)
-    };
+    let options = options(OutputFormat::WebP, ASSUME)
+        .with_encoder_threads(Threads::Count(std::num::NonZeroUsize::new(2).unwrap()));
     rejected(
-        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, options),
+        transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &options),
         ProcessingErrorKind::InvalidOptions,
         "the WebP encoder is serial; set encoder_threads to 1",
     );
@@ -1072,10 +1038,10 @@ fn libavif_is_the_default_avif_encoder_at_avifenc_defaults_with_nclx() {
     let output = transcode(
         SAMPLE_JPEG,
         ImageFormat::Jpeg,
-        options(OutputFormat::Avif, ASSUME),
+        &options(OutputFormat::Avif, ASSUME),
     )
     .unwrap();
-    assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+    assert_eq!(output.report.encoder_backend, "libavif/aom");
     assert_eq!(av1_config(&output.bytes), (8, (false, false), false));
     assert_eq!(nclx(&output.bytes), Some((1, 13, 6, true)));
     assert!(
@@ -1083,13 +1049,11 @@ fn libavif_is_the_default_avif_encoder_at_avifenc_defaults_with_nclx() {
         "opaque: no alpha item"
     );
     read_back_avif_strict(&output);
-    let avifenc = AvifOptions {
-        quality: 60,
-        alpha_quality: 60,
-        speed: 6,
-        depth: None,
-        chroma: ChromaSubsampling::Yuv444,
-    };
+    let avifenc = AvifOptions::default()
+        .with_quality(60)
+        .with_alpha_quality(60)
+        .with_speed(6)
+        .with_chroma(ChromaSubsampling::Yuv444);
     assert_eq!(AvifOptions::default(), avifenc);
 }
 
@@ -1099,14 +1063,11 @@ fn libavif_writes_ten_bit_and_420_on_request() {
     let output = transcode(
         SAMPLE_JPEG,
         ImageFormat::Jpeg,
-        TransformOptions {
-            avif: AvifOptions {
-                depth: Some(10),
-                chroma: ChromaSubsampling::Yuv420,
-                ..AvifOptions::default()
-            },
-            ..options(OutputFormat::Avif, ASSUME)
-        },
+        &options(OutputFormat::Avif, ASSUME).with_output(OutputSettings::Avif(
+            AvifOptions::default()
+                .with_depth(BitDepth::Exact(10))
+                .with_chroma(ChromaSubsampling::Yuv420),
+        )),
     )
     .unwrap();
     assert_eq!(av1_config(&output.bytes), (10, (true, true), false));
@@ -1120,7 +1081,7 @@ fn libavif_writes_an_alpha_item_only_for_transparent_input() {
     let output = transcode(
         &transparent_avif_source(),
         ImageFormat::Avif,
-        options(OutputFormat::Avif, ASSUME),
+        &options(OutputFormat::Avif, ASSUME),
     )
     .unwrap();
     assert!(find(&output.bytes, AVIF_ALPHA_URN).is_some());
@@ -1135,33 +1096,30 @@ fn libavif_quality_alpha_quality_speed_and_depth_ranges() {
         transcode(
             SAMPLE_JPEG,
             ImageFormat::Jpeg,
-            TransformOptions {
-                avif: AvifOptions {
-                    quality,
-                    alpha_quality,
-                    speed,
-                    depth,
-                    ..AvifOptions::default()
-                },
-                ..options(OutputFormat::Avif, ASSUME)
-            },
+            &options(OutputFormat::Avif, ASSUME).with_output(OutputSettings::Avif(
+                AvifOptions::default()
+                    .with_quality(quality)
+                    .with_alpha_quality(alpha_quality)
+                    .with_speed(speed)
+                    .with_depth(BitDepth::Exact(depth)),
+            )),
         )
     };
-    run(Some(10), 0, 0, 10).unwrap();
-    run(Some(12), 0, 0, 10).unwrap();
-    run(Some(8), 100, 100, 0).unwrap();
+    run(10, 0, 0, 10).unwrap();
+    run(12, 0, 0, 10).unwrap();
+    run(8, 100, 100, 0).unwrap();
     rejected(
-        run(Some(8), 101, 60, 6),
+        run(8, 101, 60, 6),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif quality must be between 0 and 100",
     );
     rejected(
-        run(Some(8), 60, 101, 6),
+        run(8, 60, 101, 6),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif alpha quality must be between 0 and 100",
     );
     rejected(
-        run(Some(8), 60, 60, 11),
+        run(8, 60, 60, 11),
         ProcessingErrorKind::InvalidOptions,
         "encoder backend: libavif speed must be between 0 and 10",
     );
@@ -1170,7 +1128,7 @@ fn libavif_quality_alpha_quality_speed_and_depth_ranges() {
     // then the writer refused 12 with "depth must be 8 or 10").
     for depth in [0, 9, 11, 16] {
         rejected(
-            run(Some(depth), 60, 60, 6),
+            run(depth, 60, 60, 6),
             ProcessingErrorKind::InvalidOptions,
             "the requested output depth is not one this encoder writes",
         );
@@ -1187,14 +1145,11 @@ fn libavif_alpha_quality_is_its_own_setting() {
         transcode(
             source,
             format,
-            TransformOptions {
-                avif: AvifOptions {
-                    quality,
-                    alpha_quality,
-                    ..AvifOptions::default()
-                },
-                ..options(OutputFormat::Avif, ASSUME)
-            },
+            &options(OutputFormat::Avif, ASSUME).with_output(OutputSettings::Avif(
+                AvifOptions::default()
+                    .with_quality(quality)
+                    .with_alpha_quality(alpha_quality),
+            )),
         )
         .unwrap()
         .bytes
@@ -1222,15 +1177,7 @@ fn avif_output_drops_source_metadata_and_writes_upright_pixels() {
         let output = transcode(
             &oriented,
             ImageFormat::Jpeg,
-            TransformOptions {
-                crop: Some(Crop {
-                    x: 0,
-                    y: 0,
-                    width: 16,
-                    height: 24,
-                }),
-                ..options(OutputFormat::Avif, ASSUME)
-            },
+            &options(OutputFormat::Avif, ASSUME).with_crop(Some(Crop::new(0, 0, 16, 24))),
         )
         .unwrap();
         for absent in [&b"Exif"[..], b"mime", b"irot", b"imir", b"clap"] {
@@ -1243,7 +1190,7 @@ fn avif_output_drops_source_metadata_and_writes_upright_pixels() {
         let source_metadata = transcode(
             ICC_JPEG,
             ImageFormat::Jpeg,
-            options(OutputFormat::Avif, RENDERED),
+            &options(OutputFormat::Avif, RENDERED),
         )
         .unwrap();
         for absent in [&b"Exif"[..], b"mime", b"prof"] {
@@ -1256,36 +1203,32 @@ fn avif_output_drops_source_metadata_and_writes_upright_pixels() {
     }
 }
 
-/// Every AVIF setting is refused with another output (ADR-0043 D4). (Until
-/// 2026-11-15 the AVIF encoder selection, which held the depth, and then
-/// `avif_depth`, with its own message; this test was
-/// `avif_depth_conflicts_with_other_outputs`.)
+/// Every AVIF setting belongs to AVIF output (ADR-0043 D4). Until
+/// 2026-11-16 the options carried every format's settings, and an AVIF
+/// setting beside WebP or JPEG XL output was refused ("encoder options do
+/// not match the selected output format"; this test was
+/// `avif_settings_conflict_with_other_outputs`, before that
+/// `avif_depth_conflicts_with_other_outputs`). Since then the settings are
+/// one `OutputSettings` value, which selects the output: there is no other
+/// format's setting to refuse.
 #[test]
-fn avif_settings_conflict_with_other_outputs() {
+fn avif_settings_select_avif_output() {
     for avif in [
-        AvifOptions {
-            depth: Some(10),
-            ..AvifOptions::default()
-        },
-        AvifOptions {
-            alpha_quality: 80,
-            ..AvifOptions::default()
-        },
+        AvifOptions::default().with_quality(70),
+        AvifOptions::default().with_alpha_quality(80),
     ] {
-        for output_format in [OutputFormat::WebP, OutputFormat::JpegXl] {
-            rejected(
-                transcode(
-                    SAMPLE_JPEG,
-                    ImageFormat::Jpeg,
-                    TransformOptions {
-                        avif,
-                        ..options(output_format, ASSUME)
-                    },
-                ),
-                ProcessingErrorKind::InvalidOptions,
-                MISMATCHED,
-            );
-        }
+        let output = transcode(
+            SAMPLE_JPEG,
+            ImageFormat::Jpeg,
+            &options(OutputFormat::WebP, ASSUME).with_output(OutputSettings::Avif(avif)),
+        );
+        #[cfg(feature = "avif-write")]
+        assert_eq!(output.unwrap().format, OutputFormat::Avif);
+        #[cfg(not(feature = "avif-write"))]
+        assert_eq!(
+            output.unwrap_err().kind(),
+            ProcessingErrorKind::FeatureDisabled
+        );
     }
 }
 
@@ -1296,15 +1239,12 @@ fn avif_settings_conflict_with_other_outputs() {
 fn webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp() {
     for (webp, image_chunk) in [
         (WebpOptions::default(), *b"VP8 "),
-        (WebpOptions::Lossless { level: 6 }, *b"VP8L"),
+        (WebpOptions::Lossless(WebpLossless::new(6)), *b"VP8L"),
     ] {
         let output = transcode(
             ICC_JPEG,
             ImageFormat::Jpeg,
-            TransformOptions {
-                webp,
-                ..options(OutputFormat::WebP, RENDERED)
-            },
+            &options(OutputFormat::WebP, RENDERED).with_output(OutputSettings::WebP(webp)),
         )
         .unwrap();
         let chunks = webp_chunks(&output.bytes);
@@ -1317,7 +1257,7 @@ fn webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp() {
         let metadata = inspect(
             &output.bytes,
             ImageFormat::WebP,
-            InspectionLimits::default(),
+            &InspectionLimits::default(),
         )
         .unwrap();
         assert_eq!(&metadata.rendered_icc.unwrap()[36..40], b"acsp");
@@ -1329,14 +1269,14 @@ fn webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp() {
 #[test]
 fn webp_straight_alpha_output_in_both_profiles() {
     let source = jxl("effects_rgb_alpha8.jxl");
-    for webp in [WebpOptions::default(), WebpOptions::Lossless { level: 6 }] {
+    for webp in [
+        WebpOptions::default(),
+        WebpOptions::Lossless(WebpLossless::new(6)),
+    ] {
         let output = transcode(
             &source,
             ImageFormat::JpegXl,
-            TransformOptions {
-                webp,
-                ..options(OutputFormat::WebP, RENDERED)
-            },
+            &options(OutputFormat::WebP, RENDERED).with_output(OutputSettings::WebP(webp.clone())),
         )
         .unwrap();
         assert!(webp_has_alpha(&output), "{webp:?}");
@@ -1354,44 +1294,26 @@ fn webp_straight_alpha_output_in_both_profiles() {
 /// `webp_quality_speed_and_level_ranges`.)
 #[test]
 fn webp_quality_method_and_level_ranges() {
-    let run = |webp| {
+    let run = |webp: WebpOptions| {
         transcode(
             SAMPLE_JPEG,
             ImageFormat::Jpeg,
-            TransformOptions {
-                webp,
-                ..options(OutputFormat::WebP, ASSUME)
-            },
+            &options(OutputFormat::WebP, ASSUME).with_output(OutputSettings::WebP(webp.clone())),
         )
     };
     for webp in [
-        WebpOptions::Lossy {
-            quality: 1.0,
-            method: 0,
-        },
-        WebpOptions::Lossy {
-            quality: 100.0,
-            method: 6,
-        },
-        WebpOptions::Lossless { level: 0 },
-        WebpOptions::Lossless { level: 9 },
+        WebpOptions::Lossy(WebpLossy::default().with_quality(1.0).with_method(0)),
+        WebpOptions::Lossy(WebpLossy::default().with_quality(100.0).with_method(6)),
+        WebpOptions::Lossless(WebpLossless::new(0)),
+        WebpOptions::Lossless(WebpLossless::new(9)),
     ] {
-        run(webp).unwrap_or_else(|error| panic!("{webp:?}: {error}"));
+        run(webp.clone()).unwrap_or_else(|error| panic!("{webp:?}: {error}"));
     }
     for webp in [
-        WebpOptions::Lossy {
-            quality: 0.0,
-            method: 4,
-        },
-        WebpOptions::Lossy {
-            quality: 100.5,
-            method: 4,
-        },
-        WebpOptions::Lossy {
-            quality: 75.0,
-            method: 7,
-        },
-        WebpOptions::Lossless { level: 10 },
+        WebpOptions::Lossy(WebpLossy::default().with_quality(0.0).with_method(4)),
+        WebpOptions::Lossy(WebpLossy::default().with_quality(100.5).with_method(4)),
+        WebpOptions::Lossy(WebpLossy::default().with_quality(75.0).with_method(7)),
+        WebpOptions::Lossless(WebpLossless::new(10)),
     ] {
         rejected(
             run(webp),
@@ -1401,44 +1323,19 @@ fn webp_quality_method_and_level_ranges() {
     }
     assert_eq!(
         WebpOptions::default(),
-        WebpOptions::Lossy {
-            quality: 75.0,
-            method: 4
-        },
+        WebpOptions::Lossy(WebpLossy::default().with_quality(75.0).with_method(4)),
         "libwebp's defaults"
-    );
-}
-
-#[test]
-fn avif_settings_with_webp_output_are_mismatched_options() {
-    rejected(
-        transcode(
-            SAMPLE_JPEG,
-            ImageFormat::Jpeg,
-            TransformOptions {
-                avif: AvifOptions {
-                    quality: 80,
-                    ..AvifOptions::default()
-                },
-                ..options(OutputFormat::WebP, ASSUME)
-            },
-        ),
-        ProcessingErrorKind::InvalidOptions,
-        MISMATCHED,
     );
 }
 
 // ===========================================================================
 // Outputs: JPEG XL.
 
-fn jxl_output(source: &[u8], format: ImageFormat, jpeg_xl: JpegXlOptions) -> Output {
+fn jxl_output(source: &[u8], format: ImageFormat, jpeg_xl: &JpegXlOptions) -> Output {
     transcode(
         source,
         format,
-        TransformOptions {
-            jpeg_xl,
-            ..options(OutputFormat::JpegXl, ASSUME)
-        },
+        &options(OutputFormat::JpegXl, ASSUME).with_output(OutputSettings::JpegXl(jpeg_xl.clone())),
     )
     .unwrap_or_else(|error| panic!("{jpeg_xl:?}: {error}"))
 }
@@ -1447,15 +1344,12 @@ fn jxl_output(source: &[u8], format: ImageFormat, jpeg_xl: JpegXlOptions) -> Out
 fn jpeg_xl_output_is_a_raw_codestream_that_reads_back() {
     for jpeg_xl in [
         JpegXlOptions::default(),
-        JpegXlOptions::Lossless {
-            effort: 2,
-            depth: None,
-        },
+        JpegXlOptions::Lossless(JpegXlLossless::default()),
     ] {
-        let output = jxl_output(SAMPLE_JPEG, ImageFormat::Jpeg, jpeg_xl);
+        let output = jxl_output(SAMPLE_JPEG, ImageFormat::Jpeg, &jpeg_xl);
         assert_eq!(&output.bytes[..2], &[0xff, 0x0a], "{jpeg_xl:?}");
-        assert_eq!(output.report.encoder_backend, "libjxl-rs");
-        transcode(&output.bytes, ImageFormat::JpegXl, jxl_options(RENDERED))
+        assert_eq!(output.report.encoder_backend, "libjxl");
+        transcode(&output.bytes, ImageFormat::JpegXl, &jxl_options(RENDERED))
             .unwrap_or_else(|error| panic!("{jpeg_xl:?}: {error}"));
         // jxl-oxide, test-only since 2026-11-15, reads it independently.
         let image = jxl_oxide::JxlImage::builder()
@@ -1471,21 +1365,16 @@ fn jpeg_xl_output_is_a_raw_codestream_that_reads_back() {
 fn jpeg_xl_output_keeps_straight_alpha_in_both_profiles() {
     for jpeg_xl in [
         JpegXlOptions::default(),
-        JpegXlOptions::Lossless {
-            effort: 2,
-            depth: None,
-        },
+        JpegXlOptions::Lossless(JpegXlLossless::default()),
     ] {
         let output = transcode(
             &jxl("effects_rgb_alpha8.jxl"),
             ImageFormat::JpegXl,
-            TransformOptions {
-                jpeg_xl,
-                ..options(OutputFormat::JpegXl, RENDERED)
-            },
+            &options(OutputFormat::JpegXl, RENDERED)
+                .with_output(OutputSettings::JpegXl(jpeg_xl.clone())),
         )
         .unwrap();
-        let back = transcode(&output.bytes, ImageFormat::JpegXl, jxl_options(RENDERED)).unwrap();
+        let back = transcode(&output.bytes, ImageFormat::JpegXl, &jxl_options(RENDERED)).unwrap();
         assert!(webp_has_alpha(&back), "{jpeg_xl:?}");
     }
 }
@@ -1496,64 +1385,43 @@ fn jpeg_xl_output_is_written_upright() {
     let output = transcode(
         &oriented,
         ImageFormat::Jpeg,
-        TransformOptions {
-            output_width: 16,
-            output_height: 24,
-            ..options(OutputFormat::JpegXl, ASSUME)
-        },
+        &options(OutputFormat::JpegXl, ASSUME).with_geometry(OutputGeometry::Exact {
+            width: 16,
+            height: 24,
+        }),
     )
     .unwrap();
     // Read back without any orientation left to apply: 16 x 24 upright.
     assert_display_size(&output.bytes, ImageFormat::JpegXl, RENDERED, (16, 24));
 }
 
+/// The distance and effort are checked before decoding. (Until 2026-11-16
+/// this test was `jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding`
+/// and also refused AVIF settings beside JPEG XL output, which the options
+/// can no longer express.)
 #[test]
-fn jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding() {
-    let run = |jpeg_xl, quality| {
+fn jpeg_xl_distance_and_effort_are_checked_before_decoding() {
+    let run = |jpeg_xl| {
         transcode(
             SAMPLE_JPEG,
             ImageFormat::Jpeg,
-            TransformOptions {
-                jpeg_xl,
-                avif: AvifOptions {
-                    quality,
-                    ..AvifOptions::default()
-                },
-                ..options(OutputFormat::JpegXl, ASSUME)
-            },
+            &options(OutputFormat::JpegXl, ASSUME).with_output(OutputSettings::JpegXl(jpeg_xl)),
         )
     };
-    run(
-        JpegXlOptions::Lossy {
-            distance: 0.05,
-            depth: None,
-        },
-        60,
-    )
+    run(JpegXlOptions::Lossy(
+        JpegXlLossy::default().with_distance(0.05),
+    ))
     .unwrap();
-    run(
-        JpegXlOptions::Lossy {
-            distance: 2.99,
-            depth: None,
-        },
-        60,
-    )
+    run(JpegXlOptions::Lossy(
+        JpegXlLossy::default().with_distance(2.99),
+    ))
     .unwrap();
     for jpeg_xl in [
-        JpegXlOptions::Lossy {
-            distance: 0.049,
-            depth: None,
-        },
-        JpegXlOptions::Lossy {
-            distance: 3.0,
-            depth: None,
-        },
-        JpegXlOptions::Lossless {
-            effort: 3,
-            depth: None,
-        },
+        JpegXlOptions::Lossy(JpegXlLossy::default().with_distance(0.049)),
+        JpegXlOptions::Lossy(JpegXlLossy::default().with_distance(3.0)),
+        JpegXlOptions::Lossless(JpegXlLossless::default().with_effort(3)),
     ] {
-        let error = run(jpeg_xl, 60).unwrap_err();
+        let error = run(jpeg_xl.clone()).unwrap_err();
         assert_eq!(
             error.kind(),
             ProcessingErrorKind::InvalidOptions,
@@ -1564,24 +1432,4 @@ fn jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding() {
             "{jpeg_xl:?}: {error}"
         );
     }
-    rejected(
-        run(JpegXlOptions::default(), 80),
-        ProcessingErrorKind::InvalidOptions,
-        MISMATCHED,
-    );
-    rejected(
-        transcode(
-            SAMPLE_JPEG,
-            ImageFormat::Jpeg,
-            TransformOptions {
-                avif: AvifOptions {
-                    speed: 3,
-                    ..AvifOptions::default()
-                },
-                ..options(OutputFormat::JpegXl, ASSUME)
-            },
-        ),
-        ProcessingErrorKind::InvalidOptions,
-        MISMATCHED,
-    );
 }

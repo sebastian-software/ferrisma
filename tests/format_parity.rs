@@ -23,6 +23,8 @@
 
 use std::sync::Mutex;
 
+use ferrisma::pipeline::Threads;
+use ferrisma::pipeline::{AvifOptions, BitDepth, JpegXlLossless, OutputGeometry, OutputSettings};
 use ferrisma::pipeline::{
     ColorSignal, Crop, Discarded, EncodeError, EncodeRequest, EncodedImage, EncoderBackend,
     ImageFormat, InputProfilePolicy, JpegXlOptions, OutputFormat, ProcessingErrorKind,
@@ -98,15 +100,14 @@ fn rows(
     (ProcessingErrorKind, Option<RefusalReason>),
 > {
     let capture = Capture(Mutex::new((Vec::new(), false)));
-    let options = TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: size.0,
-        output_height: size.1,
-        profile_policy: policy,
-        transform_threads: 1,
-        ..TransformOptions::default()
-    };
-    let output = transcode_with(bytes, format, options, &capture)
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: size.0,
+        height: size.1,
+    })
+    .with_output(OutputSettings::default_for(OutputFormat::WebP))
+    .with_profile_policy(policy)
+    .with_transform_threads(Threads::ONE);
+    let output = transcode_with(bytes, format, &options, &capture)
         .map_err(|error| (error.kind(), error.refusal_reason()))?;
     Ok((capture.0.into_inner().unwrap().0, output.report))
 }
@@ -231,13 +232,12 @@ fn embedded_icc_needs_the_rendered_icc_policy_in_every_format() {
     let webp = transcode(
         &jxl,
         ImageFormat::JpegXl,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            output_width: 8,
-            output_height: 4,
-            profile_policy: RENDERED,
-            ..TransformOptions::default()
-        },
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: 8,
+            height: 4,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_profile_policy(RENDERED),
     )
     .unwrap()
     .bytes;
@@ -352,34 +352,26 @@ fn the_engine_reads_its_own_jpeg_xl_output_with_default_settings() {
     let source = read("tests/fixtures/orientation/jxl-1.jxl");
     for jpeg_xl in [
         JpegXlOptions::default(),
-        JpegXlOptions::Lossless {
-            effort: 2,
-            depth: None,
-        },
+        JpegXlOptions::Lossless(JpegXlLossless::default()),
     ] {
         let written = transcode(
             &source,
             ImageFormat::JpegXl,
-            TransformOptions {
-                output_format: OutputFormat::JpegXl,
-                jpeg_xl,
-                output_width: 24,
-                output_height: 16,
-                ..TransformOptions::default()
-            },
+            &TransformOptions::new(OutputGeometry::Exact {
+                width: 24,
+                height: 16,
+            })
+            .with_output(OutputSettings::JpegXl(jpeg_xl.clone())),
         )
         .unwrap_or_else(|error| panic!("{jpeg_xl:?}: {error}"));
         let again = transcode(
             &written.bytes,
             ImageFormat::JpegXl,
-            // The default policy (`Strict`) and options; WebP output so
-            // that builds without `avif-write` (x86-64 macOS) run it too.
-            TransformOptions {
-                output_format: OutputFormat::WebP,
-                output_width: 24,
-                output_height: 16,
-                ..TransformOptions::default()
-            },
+            &TransformOptions::new(OutputGeometry::Exact {
+                width: 24,
+                height: 16,
+            })
+            .with_output(OutputSettings::default_for(OutputFormat::WebP)),
         )
         .unwrap_or_else(|error| panic!("{jpeg_xl:?} read back: {error}"));
         assert_eq!(again.report.color_signal, ColorSignal::Cicp);
@@ -540,7 +532,7 @@ fn a_gray_icc_profile_is_converted_by_its_tone_curve() {
     let header = ferrisma::pipeline::inspect(
         &untagged,
         ImageFormat::Jpeg,
-        ferrisma::pipeline::InspectionLimits::default(),
+        &ferrisma::pipeline::InspectionLimits::default(),
     )
     .unwrap();
     let jpeg_size = (header.width, header.height);
@@ -619,12 +611,11 @@ fn straight_alpha_is_kept_in_every_format() {
     let webp = transcode(
         &jxl,
         ImageFormat::JpegXl,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            output_width: 6,
-            output_height: 4,
-            ..TransformOptions::default()
-        },
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: 6,
+            height: 4,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP)),
     )
     .unwrap()
     .bytes;
@@ -709,18 +700,14 @@ fn premultiplied_alpha_is_converted_and_reported_alike() {
 /// AVIF): orientation 6 makes the 24 x 16 stored image 16 x 24 upright.
 #[test]
 fn orientation_is_applied_before_crop_in_every_format() {
-    let full = |width, height| TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: 4,
-        output_height: 4,
-        crop: Some(Crop {
-            x: 0,
-            y: 0,
-            width,
-            height,
-        }),
-        profile_policy: ASSUME,
-        ..TransformOptions::default()
+    let full = |width, height| {
+        TransformOptions::new(OutputGeometry::Exact {
+            width: 4,
+            height: 4,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_crop(Some(Crop::new(0, 0, width, height)))
+        .with_profile_policy(ASSUME)
     };
     let o = "tests/fixtures/orientation/";
     #[allow(unused_mut)]
@@ -738,8 +725,8 @@ fn orientation_is_applied_before_crop_in_every_format() {
     cases.push((format!("{o}avif-6.avif"), ImageFormat::Avif, (16, 24)));
     for (path, format, (width, height)) in cases {
         let bytes = read(&path);
-        transcode(&bytes, format, full(width, height)).unwrap_or_else(|e| panic!("{path}: {e}"));
-        let error = transcode(&bytes, format, full(width + 1, height)).unwrap_err();
+        transcode(&bytes, format, &full(width, height)).unwrap_or_else(|e| panic!("{path}: {e}"));
+        let error = transcode(&bytes, format, &full(width + 1, height)).unwrap_err();
         assert_eq!(error.kind(), ProcessingErrorKind::InvalidOptions, "{path}");
     }
 }
@@ -795,22 +782,25 @@ fn depth_outcome(
     output: OutputFormat,
     depth: Option<u8>,
 ) -> (u8, u8, bool) {
-    let mut options = TransformOptions {
-        output_format: output,
-        output_width: 16,
-        output_height: 9,
-        profile_policy: ASSUME,
-        transform_threads: 1,
-        ..TransformOptions::default()
-    };
-    match output {
-        OutputFormat::JpegXl => {
-            options.jpeg_xl = JpegXlOptions::Lossless { effort: 2, depth };
+    let bits = depth.map_or(BitDepth::FollowInput, BitDepth::Exact);
+    let settings = match output {
+        OutputFormat::JpegXl => OutputSettings::JpegXl(JpegXlOptions::Lossless(
+            JpegXlLossless::default().with_depth(bits),
+        )),
+        OutputFormat::Avif => OutputSettings::Avif(AvifOptions::default().with_depth(bits)),
+        _ => {
+            assert!(depth.is_none(), "WebP has no depth setting");
+            OutputSettings::default_for(output)
         }
-        OutputFormat::Avif => options.avif.depth = depth,
-        _ => assert!(depth.is_none(), "WebP has no depth setting"),
-    }
-    let result = transcode(bytes, input, options)
+    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 16,
+        height: 9,
+    })
+    .with_output(settings)
+    .with_profile_policy(ASSUME)
+    .with_transform_threads(Threads::ONE);
+    let result = transcode(bytes, input, &options)
         .unwrap_or_else(|error| panic!("{input:?} to {output:?} at {depth:?}: {error}"));
     let reduced = result
         .report

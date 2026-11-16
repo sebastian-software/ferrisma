@@ -13,11 +13,13 @@
 // helpers are compiled but unused.
 #![allow(dead_code, unused_imports)]
 
+use ferrisma::pipeline::Threads;
 use ferrisma::pipeline::{
     Crop, DecoderWork, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, Output, OutputFormat, ResizeFilter, RowEncoder, SourceAccess,
     TransformOptions, WorkCount, transcode_with,
 };
+use ferrisma::pipeline::{OutputGeometry, OutputSettings};
 
 /// Captures rows instead of encoding, so the facade runs without a writer.
 struct RowCapture;
@@ -46,19 +48,15 @@ impl RowEncoder for CapturedRows {
 }
 
 fn rect(x: u32, y: u32, width: u32, height: u32) -> Crop {
-    Crop {
-        x,
-        y,
-        width,
-        height,
-    }
+    Crop::new(x, y, width, height)
 }
 
 fn srgb() -> TransformOptions {
-    TransformOptions {
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
 }
 
 /// Crop, then a Lanczos3 downscale to half size, on one transform thread.
@@ -66,26 +64,26 @@ fn run(bytes: &[u8], format: ImageFormat, crop: Crop, options: TransformOptions)
     let output = transcode_with(
         bytes,
         format,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            crop: Some(crop),
-            output_width: crop.width.div_ceil(2),
-            output_height: crop.height.div_ceil(2),
-            filter: ResizeFilter::Lanczos3,
-            transform_threads: 1,
-            ..options
-        },
+        &options
+            .with_output(OutputSettings::default_for(OutputFormat::WebP))
+            .with_geometry(OutputGeometry::Exact {
+                width: crop.width().div_ceil(2),
+                height: crop.height().div_ceil(2),
+            })
+            .with_crop(Some(crop))
+            .with_filter(ResizeFilter::Lanczos3)
+            .with_transform_threads(Threads::ONE),
         &RowCapture,
     )
     .unwrap();
-    let work = output.report.decoder_work;
+    let work = output.report.decoder_work.clone();
     // The resize clamps at the crop's edges: no filter halo is requested,
     // and each requested row is delivered exactly once in one request.
     assert_eq!(work.crop, crop);
     assert_eq!(work.requested, crop);
-    assert_eq!(work.delivered_rows, u64::from(crop.height));
+    assert_eq!(work.delivered_rows, u64::from(crop.height()));
     assert_eq!(output.report.decoder_requests, 1);
-    let area = |r: Crop| u64::from(r.width) * u64::from(r.height);
+    let area = |r: Crop| u64::from(r.width()) * u64::from(r.height());
     assert_eq!(area(work.codec_request), area(crop));
     assert_eq!(
         work.overfetch_pixels,
@@ -96,7 +94,7 @@ fn run(bytes: &[u8], format: ImageFormat, crop: Crop, options: TransformOptions)
 }
 
 fn assert_work(
-    actual: DecoderWork,
+    actual: &DecoderWork,
     codec_request: Crop,
     codec_output: Crop,
     reconstructed: WorkCount,
@@ -123,7 +121,7 @@ fn jpeg_crop_reports_imcu_column_overfetch_and_whole_entropy_pass() {
     assert_eq!(output.report.decoder_full_frame_buffers, 0);
     // x = floor((101 - 1) / 16) * 16 = 96; width = 141 + 1 - 96 = 46.
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         crop,
         rect(96, 50, 46, 20),
         WorkCount::AtLeast(46 * 21),
@@ -145,7 +143,7 @@ fn oriented_jpeg_crop_maps_to_stored_request_and_reports_copies() {
     let stored = rect(5, 2, 15, 12);
     assert_eq!(output.report.orientation_buffer_bytes, 15 * 12 * 3);
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         stored,
         // iMCU 8: x = floor(4 / 8) * 8 = 0; width = 20 + 1 - 0 = 21.
         rect(0, 2, 21, 12),
@@ -169,7 +167,7 @@ fn lossy_webp_crop_decodes_full_width_rows_from_the_top() {
     // 0..min(11 + 30 + 8, 72) = 49 at the full width 96.
     let stored = rect(21, 11, 40, 30);
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         stored,
         rect(0, 0, 96, 49),
         WorkCount::AtLeast(96 * 49),
@@ -190,7 +188,7 @@ fn lossless_webp_crop_is_small_but_reconstruction_is_not() {
     let output = run(webp, ImageFormat::WebP, crop, srgb());
     assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         rect(21, 11, 40, 30),
         rect(20, 10, 41, 31),
         WorkCount::AtLeast(96 * 41),
@@ -214,16 +212,17 @@ fn libjxl_rs_crop_reports_the_full_frame_fallback() {
         jxl,
         ImageFormat::JpegXl,
         crop,
-        TransformOptions {
-            // This reader reports its emitted color as the DATA ICC.
-            profile_policy: InputProfilePolicy::UseRenderedIcc,
-            ..TransformOptions::default()
-        },
+        TransformOptions::new(OutputGeometry::Exact {
+            width: 1,
+            height: 1,
+        })
+        // This reader reports its emitted color as the DATA ICC.
+        .with_profile_policy(InputProfilePolicy::UseRenderedIcc),
     );
     assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
     assert_eq!(output.report.decoder_full_frame_buffers, 0);
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         crop,
         rect(0, 0, 24, 16),
         WorkCount::AtLeast(24 * 16),
@@ -241,9 +240,12 @@ fn libjxl_rs_crop_reports_the_full_frame_fallback() {
 #[test]
 fn libjxl_rs_full_request_retains_one_full_frame() {
     let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
-    let options = || TransformOptions {
-        profile_policy: InputProfilePolicy::UseRenderedIcc,
-        ..TransformOptions::default()
+    let options = || {
+        TransformOptions::new(OutputGeometry::Exact {
+            width: 1,
+            height: 1,
+        })
+        .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
     };
     let full = run(jxl, ImageFormat::JpegXl, rect(0, 0, 24, 16), options());
     assert_eq!(full.report.input_access, SourceAccess::FullFrameFallback);
@@ -272,7 +274,7 @@ fn avif_crop_reports_the_full_frame_fallback_and_orientation_copies() {
     assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
     assert_eq!(output.report.decoder_full_frame_buffers, 1);
     assert_work(
-        output.report.decoder_work,
+        &output.report.decoder_work,
         rect(5, 2, 15, 12),
         rect(0, 0, 24, 16),
         WorkCount::AtLeast(24 * 16),

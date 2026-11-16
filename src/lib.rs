@@ -1,8 +1,29 @@
 //! Ferrisma — an experimental, pipeline-first image processing engine.
 //!
-//! Ferrisma exposes an experimental pipeline and optional codec adapters for
-//! validating color, region planning, and bounded engine-managed memory.
-//! There is intentionally no stable public processing API.
+//! Ferrisma's processing API is [`pipeline`]: `transcode`, `inspect` and
+//! `Engine::transcode_batch`, with the codec adapters behind Cargo features.
+//! Options are built with a constructor or `Default` and one `with_*`
+//! method per setting:
+//!
+//! ```no_run
+//! use ferrisma::pipeline::{
+//!     ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings, ResizeOptions,
+//!     TransformOptions, WebpOptions, transcode,
+//! };
+//!
+//! let jpeg = std::fs::read("photo.jpg")?;
+//! let options = TransformOptions::new(OutputGeometry::Resize(ResizeOptions::default().with_width(320)))
+//!     .with_output(OutputSettings::WebP(WebpOptions::default()))
+//!     .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+//! let thumbnail = transcode(&jpeg, ImageFormat::Jpeg, &options)?;
+//! # let _ = thumbnail;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! No release is stable yet: before
+//! 1.0 every 0.x minor release may break it, and the tiers proposed for 1.0
+//! (stable or experimental per item) are in ADR-0040 and
+//! `docs/compatibility.md`, pending the maintainer's acceptance.
 //!
 //! See `docs/architecture.md` and `docs/adr/` in the repository.
 

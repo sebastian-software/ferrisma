@@ -11,30 +11,28 @@
 
 use std::fmt;
 
-use crate::pipeline::{AvifOptions, JpegXlOptions, OutputFormat, WebpOptions};
+use crate::pipeline::{OutputFormat, OutputSettings};
 
-/// What one image's encoder is asked to produce: every encoder setting of
-/// the transcode, as the caller set it, in the settings of the requested
-/// format (the other formats' settings are at their defaults; the engine
-/// refuses anything else before decoding). A backend validates the settings
-/// of its format on its own scale and refuses, with
-/// [`EncodeErrorKind::InvalidOptions`], a setting it cannot honor instead of
-/// ignoring it (ADR-0042). Compare backends at matched quality, not equal
-/// numeric settings.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// What one image's encoder is asked to produce: the output settings of
+/// the transcode, as the caller set them, and the frame the rows describe.
+/// A backend validates the settings of its format on its own scale and
+/// refuses, with [`EncodeErrorKind::InvalidOptions`], a setting it cannot
+/// honor instead of ignoring it (ADR-0042). Compare backends at matched
+/// quality, not equal numeric settings.
+///
+/// Since 2026-11-16 the settings are one [`OutputSettings`] value, so the
+/// request carries only the requested format's settings (before: a format
+/// and the settings of all three formats, the others at their defaults).
+/// Not `Copy`, so that a later field need not be.
+#[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct EncodeRequest {
-    /// Requested output format.
-    pub format: OutputFormat,
-    /// Format-specific settings when `format` is AVIF: quality, alpha
-    /// quality, speed, depth and chroma layout (since 2026-11-15; they were
-    /// the fields `quality`, `speed` and `chroma` before, and the depth was
-    /// not passed).
-    pub avif: AvifOptions,
-    /// Format-specific settings when `format` is WebP.
-    pub webp: WebpOptions,
-    /// Format-specific settings when `format` is JPEG XL.
-    pub jpeg_xl: JpegXlOptions,
+    /// The requested output format and its encoder settings: quality,
+    /// speed, depth and chroma layout for AVIF ([`AvifOptions`]), the
+    /// profile for WebP and JPEG XL.
+    ///
+    /// [`AvifOptions`]: crate::pipeline::AvifOptions
+    pub output: OutputSettings,
     /// Output width in pixels.
     pub width: u32,
     /// Output height in pixels.
@@ -52,6 +50,44 @@ pub struct EncodeRequest {
     /// Encoder threads, resolved (at least 1); 1 means the caller asked
     /// for single-threaded encoding.
     pub threads: usize,
+}
+
+impl EncodeRequest {
+    /// A request for `width` by `height` opaque 8-bit rows in one thread,
+    /// with `output`'s settings: the constructor for a backend author's own
+    /// tests of [`EncoderBackend::begin`] and
+    /// [`EncoderBackend::required_frame_bytes`] (since 2026-11-16; the
+    /// struct is `#[non_exhaustive]`, so it cannot be built as a literal).
+    /// The other fields are public and can be changed after construction.
+    /// The engine builds its requests itself; this constructor does not
+    /// validate anything.
+    ///
+    /// ```
+    /// use ferrisma::pipeline::{AvifOptions, EncodeRequest, OutputFormat, OutputSettings};
+    ///
+    /// let mut request = EncodeRequest::new(OutputSettings::Avif(AvifOptions::default()), 64, 48);
+    /// request.has_alpha = true;
+    /// request.depth = 10;
+    /// assert_eq!(request.format(), OutputFormat::Avif);
+    /// assert_eq!(request.threads, 1);
+    /// ```
+    #[must_use]
+    pub fn new(output: OutputSettings, width: u32, height: u32) -> Self {
+        Self {
+            output,
+            width,
+            height,
+            has_alpha: false,
+            depth: 8,
+            threads: 1,
+        }
+    }
+
+    /// The requested output format, the format of [`Self::output`].
+    #[must_use]
+    pub fn format(&self) -> OutputFormat {
+        self.output.format()
+    }
 }
 
 /// The encoded image and what the backend knows about its memory.
@@ -136,7 +172,29 @@ impl std::error::Error for EncodeError {}
 /// The encoder of one image. It receives every output row exactly once,
 /// top to bottom, then `finish` once; after an error from either, nothing
 /// else is called.
-pub trait RowEncoder {
+///
+/// `Send` since 2026-11-16 (before the first release, because adding a
+/// supertrait later breaks every implementor): a later engine may hand the
+/// encoder to another thread than the one that called
+/// [`EncoderBackend::begin`], for example to encode while the next rows are
+/// decoded or to write to a caller's output stream. An encoder that owns its
+/// buffers (`Vec`s, a codec context behind an owned handle) is `Send`; one
+/// that keeps an `Rc`, a `RefCell` shared with the backend, or a raw codec
+/// pointer must wrap them (`Arc`, `Mutex`) or assert `Send` for a context the
+/// codec documents as movable between threads. The built-in AVIF encoder
+/// (`LibavifBackend`) holds only its RGBA frame and settings and creates the
+/// libavif objects inside `finish`, so it is `Send` without a change.
+///
+/// **Rule for every new row axis.** Rows today are top to bottom, RGBA,
+/// straight alpha, sRGB, at 8 bits or one deeper integer depth. Every axis a
+/// later release adds (another depth or sample type such as float, other
+/// channel layouts such as gray or no alpha, another color encoding, tiles or
+/// another order) is an opt-in: a new method with a default that refuses or
+/// never runs, and a capability on [`EncoderBackend`] whose default keeps the
+/// conservative behavior (as [`EncoderBackend::row_depths`] and
+/// [`RowEncoder::write_row_u16`] did for depth, ADR-0024 amendment of
+/// 2026-11-16). An existing backend then compiles and behaves as before.
+pub trait RowEncoder: Send {
     /// `rgba` is one output row of straight-alpha sRGB8 RGBA samples,
     /// `4 * width` bytes, with alpha 255 for opaque images.
     ///
@@ -172,7 +230,7 @@ pub trait RowEncoder {
 pub trait EncoderBackend: Sync {
     /// Format this backend emits. The pipeline checks it against the request.
     fn format(&self) -> OutputFormat;
-    /// Short name for reports and diagnostics, such as `"libavif-rs/aom"`.
+    /// Short name for reports and diagnostics, such as `"libavif/aom"`.
     fn name(&self) -> &'static str;
 
     /// The row depths this backend encodes, ascending, 8 included: the

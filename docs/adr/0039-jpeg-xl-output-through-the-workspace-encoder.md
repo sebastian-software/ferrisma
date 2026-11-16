@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-16
 - **Supersedes:** None; settles the separate JPEG XL output gate left open by [0018](0018-optional-codec-and-cms-dependencies.md) and the [M1 plan](../milestones/M1-complete-image-pipeline.md)
 - **Related:** [0005](0005-codec-capabilities-and-pixel-contracts.md), [0010](0010-dual-licensing.md), [0015](0015-typed-output-color-signals.md), [0017](0017-minimal-public-facade-and-cli.md), [0019](0019-source-side-orientation.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0025](0025-codec-selection-reference-conformance-and-image-scope.md), [0030](0030-still-webp-output-and-format-neutral-encoder-result.md), [0032](0032-jpeg-xl-workspace-decoder-input.md), [0037](0037-selectable-workspace-avif-encoder.md), libjxl-rs [encoder plan](../../codecs/libjxl-rs/docs/ENCODER_EXPANSION.md) and [first image path](../../codecs/libjxl-rs/docs/FIRST_IMAGE.md), issues [#27](https://github.com/sebastian-software/ferrisma/issues/27), [#249](https://github.com/sebastian-software/ferrisma/issues/249), [#238](https://github.com/sebastian-software/ferrisma/issues/238), [#92](https://github.com/sebastian-software/ferrisma/issues/92), [#102](https://github.com/sebastian-software/ferrisma/issues/102), [#66](https://github.com/sebastian-software/ferrisma/issues/66)
 
@@ -117,7 +117,12 @@ The sink allocates one RGBA8 frame (4 bytes per pixel) from the managed
 budget when it is created. Before encoding it compacts an opaque frame to
 RGB8 in place.
 
-Lossy: it reserves `ferrisma_jxl_encoder::estimated_codec_bytes`, an
+**Since 2026-11-16 (amendment of that date), both profiles reserve a
+measured peak model** (`PeakModel` in `src/jxl_sink.rs`,
+[record](../benchmarks/v1.0-jxl-encoder-memory-2026-11-16.md)); the
+paragraphs below are the history it replaces.
+
+Lossy (until 2026-11-16): it reserved `ferrisma_jxl_encoder::estimated_codec_bytes`, an
 **estimate** derived from the port's source, not a measurement: the queued
 input copy (3 bytes per pixel), and on the one-shot path (at most eight
 256x256 groups) seven `f32` samples per block-padded pixel (the XYB color
@@ -614,3 +619,28 @@ amendment), or the port's encoder starts selecting SIMD by default.
   files in `tests/fixtures/jxl-deep/`); a 16-bit lossless round trip is
   exact. The lossless reservation for deep rows is measured
   (`docs/benchmarks/v1.0-jxl-deep-memory-2026-11-15.md`), not derived.
+- 2026-11-16 — **Measured memory model for both profiles (ADR-0004,
+  ADR-0042 D3).** Measured as the sink holds it (its frame plus the bridge
+  call, one process at a time, macOS AArch64), the 2026-11-15 lossless model
+  was up to about 10 % below 12.2 MP RGBA peaks (3 % for photographs, 10 %
+  for noise) and below opaque noise at 6 and 12 MP and one-shot noise
+  frames; the reported 50.1 B/px of 2026-11-15 was partly its tool, which
+  held the input twice. The cause is resident memory the allocator keeps
+  from the first DC group while a second group of another shape allocates
+  its own (the live heap is far lower), and content that compresses worse
+  than the photographs measured. The lossy estimate covered 7.6 to 68 B/px
+  of 26 to 166 B/px measured: every lossy request was under-reserved, by
+  56 to 92 %. The sink now reserves, for both profiles, `constant +
+  one_shot * px` (at most 8 groups) or `constant + frame * px + dc_group *
+  min(px, D) + retained * min(max(px - D, 0), D)` (D one DC group), per
+  mode, alpha and depth, fitted 10 % above every peak on record
+  (photographs, a 16-bit photograph, noise; distances 0.05, 1.0, 2.9), minus
+  the frame. `jxl_output_tests::model_covers_every_measured_peak_with_margin`
+  pins it against 103 recorded cases. Under the default 1 GiB the largest
+  output is 49,133,275 px lossless opaque (was 49,344,752), 30,670,848 with
+  alpha (38,377,881), 24,292,010 and 13,939,892 above 8 bits (28,272,715,
+  20,185,088); lossy 40,544,938 opaque and 25,547,124 with alpha (about
+  144 and 127 MP from the estimate), 22,282,240 and 11,240,734 above 8 bits
+  (about 74 and 65 MP). The report still sets `opaque_encoder_memory`: the
+  model is an envelope of one host's measurements, not a bound for other
+  hosts or allocators.

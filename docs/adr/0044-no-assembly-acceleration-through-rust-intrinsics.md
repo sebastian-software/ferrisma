@@ -1,8 +1,8 @@
 # ADR-0044: No assembly; acceleration only through Rust intrinsics
 
-- **Status:** Accepted (the principle and decisions D1–D4). The treatment of the inline assembly that the repository already contains is an [open question](#open-questions-pending-owner-decision).
+- **Status:** Accepted (the principle and decisions D1–D4). The treatment of the ten inline assembly sites that remain in libjxl-rs is an [open question](#open-questions-pending-owner-decision).
 - **Date:** 2026-11-15
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-16
 - **Source:** owner decision of 2026-11-15 on open question O4 of [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (#250)
 - **Supersedes:** In part: the O4 working rules of 2026-11-13 in [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (assembly-only kernels stay on the C path; `rcpps` translated as the same instruction), which this record turns into decisions.
 - **Related:** [0020](0020-kernel-crate-and-isa-dispatch.md), [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md), [supported matrix](../supported-matrix.md#simd-instruction-set-levels-v10), [unsafe review](../unsafe-review.md), libjpeg-turbo-rs [ADR 0008](../../codecs/libjpeg-turbo-rs/docs/adr/0008-x86-64-kernels-from-nasm.md), libavif-rs [ADR 0058](../../codecs/libavif-rs/docs/adr/0058-dispatch-hand-translated-x86-simd-on-gnu-linux.md), libjxl-rs [ADR 0004](../../codecs/libjxl-rs/docs/adr/0004-simd-paths.md), #242, #124
@@ -87,10 +87,15 @@ even as an optional feature.
   build runs assembly. The output gate is unaffected on its corpus:
   libavif-rs ADR 0058 records `avx2`, `sse4.1` and `scalar` identical with
   the original (82 of 82 each) with these kernels on `_c`.
-- dav1d is leaving the runtime and the published chain (owner decision of
-  2026-11-15 on #54, recorded in [ADR-0031](0031-workspace-libavif-input-experiment.md));
-  its kernels then matter only for its role as a test cross-check, where the
-  scalar translation suffices.
+- dav1d's kernels are rebuilt with intrinsics under D2 (owner decision of
+  2026-11-16, recorded in [ADR-0031](0031-workspace-libavif-input-experiment.md)).
+  Its removal from the runtime and the published chain, decided on
+  2026-11-15, is paused. Each rebuilt kernel's gate is bit identity with
+  dav1d built with its assembly at the same level (NEON on AArch64; the
+  x86-64 levels the supported matrix names), per kernel and on whole-image
+  decodes. Until a kernel is rebuilt, the port runs its scalar C
+  translation. Which AV1 decoder the engine finally reads AVIF with is not
+  decided by this record.
 - libjxl-rs AVX2 output can differ between an Intel and an AMD machine, as
   the original's does. A caller who needs the same bytes on every x86-64
   machine uses the scalar path; nothing in the engine promises identity
@@ -117,11 +122,20 @@ even as an optional feature.
 
 ## Validation
 
-- `git grep -n -E '(global_|naked_)?asm!' -- '*.rs'` lists every assembly
-  site in the Rust sources; under D1 it must list none outside the
-  exceptions the owner accepts (open question below). Assembly source files
-  outside the upstream snapshots: `git ls-files '*.asm' '*.S' '*.s' '*.nasm'`
-  must list only paths under `codecs/*/upstream/`.
+- **Mechanical guard (since 2026-11-16).** `cargo xtask assembly`
+  (`tools/xtask/src/assembly.rs`; CI's `affected` job, which runs on every
+  event) scans every tracked `.rs` file outside `codecs/*/upstream/` for
+  invocations of `asm!`, `global_asm!` and `naked_asm!` and for `#[naked]`
+  and `#[unsafe(naked)]`, and compares each file's count with
+  `tools/xtask/assembly-allowlist.txt`. It fails on a site that is not
+  listed, on a count that differs and on a stale entry; it also fails if
+  `git ls-files '*.S' '*.s' '*.asm' '*.nasm'` lists anything outside
+  `codecs/*/upstream/`, or if a tracked `build.rs` outside the snapshots
+  mentions `cc::`, NASM or an `.S` source. Its tests include positive
+  controls: in-memory samples of every form must be found, and a Git
+  fixture with an unlisted site, a changed count, a stale entry, an
+  assembly source and a `cc::` build script must fail. The allowlist holds
+  only the sites of the open question below; under D1 it must not grow.
 - A rebuilt kernel passes the ADR-0041 gate against the original's SIMD
   build at its level, on the target the kernel is for, and its port's
   kernel tests.
@@ -150,14 +164,36 @@ manifest of a package refers to NASM (one research experiment,
 `docs/research/encoder-experiment`, which is not a workspace package,
 mentions it in its `Cargo.toml`).
 
+**State on 2026-11-16: 21 sites became 10.** Branch `v1/avif-no-asm`
+removed the eleven libavif-rs sites through the port's committed tools,
+whose `--check` mode CI runs (ADR 0059 of that port):
+
+| Sites | Commit | Change |
+| ---: | --- | --- |
+| 7 (`xgetbv`: AOM Linux RTCD units 6, SharpYUV 1) | `fix(avif): read XCR0 through core::arch::x86_64::_xgetbv` | `core::arch::x86_64::_xgetbv(0)` in a `#[target_feature(enable = "xsave")]` wrapper, under the original's unchanged OSXSAVE check: the same instruction and ECX (`rewrite_xgetbv` in `tools/stable_rust.py`; libavif-rs ADR 0023, amendment) |
+| 4 (dav1d barrier) | `fix(avif): delete dav1d's empty x86-64 register barrier` | deleted: it emits no instruction and its read-write operands keep their values (`remove_register_barrier` in `tools/stable_rust.py`, called by `transpile_dav1d.py`; libavif-rs ADR 0031, amendment) |
+
+The "form C2Rust gives" of the first three rows of the table above was
+confirmed against the upstream C on that day: `aom_ports/x86.h` and
+libwebp's `src/dsp/cpu.c` read XCR0 with `.byte 0x0f, 0x01, 0xd0`, and
+dav1d's `src/recon_tmpl.c` has `__asm__("" : "+r"(mask), "+r"(mul))` for
+x86-64 GNU compilers. The remaining ten are the libjxl-rs rows, unchanged and
+listed in `tools/xtask/assembly-allowlist.txt`:
+`src/brotli/bitfield.rs` (4), `src/brotli/raw_bytes.rs` (2),
+`src/jxl/cms/jxl_cms_profile.rs` (1), `src/jxl/hwy/neon.rs` (1),
+`src/skcms/transform_simd.rs` (2). The table's brotli row names only the
+AArch64 instructions; three of its six sites are the x86-64 counterparts.
+
 ## Open questions (pending owner decision)
 
-- **The inline assembly already in the tree** (table above). Whether D1
-  applies to it as it stands, and with what route: an intrinsic where one
-  exists (`_xgetbv` on x86-64; the AArch64 conversions), removal where the
-  reason is gone (the NaN-order `fmul`, if ADR-0041 section 3 makes it
-  unnecessary), or a narrow, named exception. Until the owner decides,
-  these sites stay as they are, and no new site is added.
+- **The ten inline assembly sites that remain in libjxl-rs** (the brotli,
+  NaN-order `fmul` and half-precision rows of the table above, listed in
+  `tools/xtask/assembly-allowlist.txt`). Whether D1 applies to them as they
+  stand, and with what route: an intrinsic where one exists (the AArch64
+  half-precision conversions), removal where the reason is gone (the
+  NaN-order `fmul`, if ADR-0041 section 3 makes it unnecessary), or a
+  narrow, named exception. Until the owner decides, these sites stay as
+  they are, and no new site is added (the guard enforces both).
 
 ## Review when
 
@@ -169,6 +205,15 @@ mentions it in its `Cargo.toml`).
 
 ## Amendment log
 
+- 2026-11-16 — dav1d's kernels: the remark that they matter only for a
+  test cross-check is replaced. The owner paused dav1d's removal and
+  decided to rebuild its assembly kernels with intrinsics under D2
+  ([ADR-0031](0031-workspace-libavif-input-experiment.md), amendment of
+  2026-11-16). D1–D4 are unchanged.
+- 2026-11-16 — The eleven libavif-rs sites are removed through the port's
+  tools (state paragraph of that date); the mechanical guard
+  `cargo xtask assembly` with its allowlist enforces D1 for the rest; the
+  open question concerns only the ten libjxl-rs sites.
 - 2026-11-15 — Accepted as the owner's decision on O4 and the principle he
   stated with it; the inline assembly found by the re-check is recorded as
   an open question.

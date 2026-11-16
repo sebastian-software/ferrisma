@@ -97,8 +97,8 @@
       "source": "upstream/aom/aom_dsp/aom_dsp_rtcd.c",
       "rust": "crates/aom/src/linux/debug/aom_dsp/aom_dsp_rtcd.rs",
       "raw_sha256": "66c6a1e8aff24675aa7fa54f2044c665320a7019568aa5bc745ef16b63fca494",
-      "rust_sha256": "d7dabaf426003ecd527abd9375058152c01af9aa3ada2e8291c7b8a74433d689",
-      "production_rust_sha256": "d7dabaf426003ecd527abd9375058152c01af9aa3ada2e8291c7b8a74433d689",
+      "rust_sha256": "f7027c2969230a4c61ac868d8496a8dfaac6e6f2415798df004de78b5bd54d7d",
+      "production_rust_sha256": "f7027c2969230a4c61ac868d8496a8dfaac6e6f2415798df004de78b5bd54d7d",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,
@@ -111,8 +111,8 @@
       "source": "upstream/aom/aom_scale/aom_scale_rtcd.c",
       "rust": "crates/aom/src/linux/debug/aom_scale/aom_scale_rtcd.rs",
       "raw_sha256": "e2f23aca03171705a77c08dfd448ecf6cb346e1c38a26a8123b4f0c37f50c3b2",
-      "rust_sha256": "ce5ba7a7a5eee5b904c514e74f13fe9fbdd91452dcafaed2f8afde143db4c758",
-      "production_rust_sha256": "ce5ba7a7a5eee5b904c514e74f13fe9fbdd91452dcafaed2f8afde143db4c758",
+      "rust_sha256": "6ac7777e035abf6e09bd90158452c7632eaf2562f0b1debd0bc9e06def92ef3f",
+      "production_rust_sha256": "6ac7777e035abf6e09bd90158452c7632eaf2562f0b1debd0bc9e06def92ef3f",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,
@@ -125,8 +125,8 @@
       "source": "upstream/aom/av1/common/av1_rtcd.c",
       "rust": "crates/aom/src/linux/debug/av1/common/av1_rtcd.rs",
       "raw_sha256": "e0df845da0a02e4d946707c75b0af34ba483f83778b2926d35cf836dde4426a7",
-      "rust_sha256": "677d2bab2547de25349989c07c96a737e9f69f49ea39016528accfb0bb0428b3",
-      "production_rust_sha256": "677d2bab2547de25349989c07c96a737e9f69f49ea39016528accfb0bb0428b3",
+      "rust_sha256": "09b47fc26da03e00d22e77f4d64a7c65222f136c540ba0b7353f7193c82912d0",
+      "production_rust_sha256": "09b47fc26da03e00d22e77f4d64a7c65222f136c540ba0b7353f7193c82912d0",
       "corrections": {
         "target-libc-thread-storage": 1,
         "raw-c-mutable-address": 1,

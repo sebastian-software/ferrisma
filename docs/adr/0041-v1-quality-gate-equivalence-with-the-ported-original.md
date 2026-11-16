@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (decisions D1–D10). The former open questions O1–O9 and the further items listed with them were decided by the owner on 2026-11-15 ([Owner decisions of 2026-11-15](#owner-decisions-of-2026-11-15)); what is not yet implemented is named there.
 - **Date:** 2026-11-13
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-16
 - **Source:** owner decision (structured interview, 2026-11-13)
 - **Supersedes:** In part: the performance criteria of [0007](0007-correctness-and-performance-evidence.md) as release evidence; the default ISA level of [0020](0020-kernel-crate-and-isa-dispatch.md) decision 4; the role of third-party comparisons in [0025](0025-codec-selection-reference-conformance-and-image-scope.md) point 3, [0032](0032-jpeg-xl-workspace-decoder-input.md) and [0037](0037-selectable-workspace-avif-encoder.md); the validation platforms of [0027](0027-tiered-validation-and-rust-test-orchestration.md); release naming in [0040](0040-stable-public-contract-and-compatibility-policy.md). In the ports: the NaN-payload rule of libjxl-rs ADR 0002/0003, the SIMD reference of libavif-rs ADR 0056/0058/0059, and the SIMD reference and NEON rescaler ruling of libwebp-rs ADR 0002/0008. Each amended record links back here.
 - **Related:** [0026](0026-codecs-in-one-repository-and-workspace.md), [quality gate guide](../quality-gate.md), [v1.0 CI performance record](../benchmarks/v1.0-ci-performance-2026-11-12.md), [JPEG XL performance analysis](../benchmarks/v1.0-jxl-performance-analysis-2026-11-12.md), tracker #196
@@ -108,6 +108,24 @@ Consequences of the wording, stated so that they can be tested:
   port's scalar path with the scalar reference build keeps the full domain.
   A difference, a run time or a defect of the port never justifies a
   narrower domain.
+- **Expected values come from the original as its source defines them.**
+  One named exception (owner decision of 2026-11-16): where a compared
+  observation of the original depends on something the C++ standard library
+  leaves unspecified and its versions resolve differently, the oracle
+  adapter makes that observation the same on every platform, and the port
+  is not changed to mirror one library version. The case that led to it is
+  the order in which a `std::map` frees its elements when it is destroyed:
+  libc++ 22 frees in key order, libc++ 19 and 21 in post-order, so the
+  original's memory-manager trail at `JxlEncoderDestroy` and at the
+  decoder's teardown differs between the macOS and the hosted Linux builds
+  of the same source (libjxl-rs
+  [ADR 0003](../../codecs/libjxl-rs/docs/adr/0003-rust-representation.md),
+  "Public encoder object"). The adapter erases the map's entries in key
+  order before it destroys the object. Each such normalization is written
+  in the adapter next to the code, names the library behavior and the
+  original's source lines, and is listed in the port's ADR. It applies only
+  to an order or layout the library leaves open, never to a value the
+  original's own source computes, and never to the port.
 - The code stays a largely mechanical 1:1 port of the original. An
   optimization that cannot meet the gate is not a v1.0 change.
 
@@ -524,7 +542,11 @@ and what is not done yet.
   evidence, earmarked for animated AVIF. dav1d leaves the runtime and the
   published chain and may stay in tests as an independent cross-check; not
   done yet ([ADR-0031](0031-workspace-libavif-input-experiment.md),
-  amendment of 2026-11-15).
+  amendment of 2026-11-15). **Paused on 2026-11-16** by the owner: dav1d
+  stays, and its assembly kernels are rebuilt with intrinsics under
+  [ADR-0044](0044-no-assembly-acceleration-through-rust-intrinsics.md) D2,
+  gated against dav1d's own SIMD build at the same level; which decoder
+  the engine finally uses is open (ADR-0031, amendment of 2026-11-16).
 
 ## Review when
 
@@ -576,3 +598,9 @@ planned.
   #54 are decided; rav1e's question is moot. Sections 3, 4 and 8 point to
   the decisions instead of the open questions, and the open-questions
   section keeps only a pointer. Decisions D1–D10 unchanged.
+- 2026-11-16 — Section 2 gains one named exception to "expected values come
+  from the original" (owner decision of 2026-11-16): an observation that
+  depends on an order the C++ standard library leaves unspecified is made
+  uniform in the oracle adapter, never in the port. Found through the
+  hosted Linux run 43779456524, where `std::map`'s destruction order under
+  libc++ 21 differed from libc++ 22 on macOS. Decisions D1–D10 unchanged.

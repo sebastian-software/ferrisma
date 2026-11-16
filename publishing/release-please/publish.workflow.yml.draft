@@ -63,6 +63,28 @@ jobs:
           # RELEASE_PLEASE_TOKEN is the organization secret; the fallback keeps
           # forks and a revoked token from failing the workflow.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+      # Release Please writes the engine's exact (`=`) requirements on its
+      # kernels and bridges without the `=` (ADR-0040 problem 7, amendment of
+      # 2026-11-16). Restore them on the release branch, as ferromark's
+      # `scripts/preserve-exact-transform-pin.mjs` does; the rehearsal checks
+      # the same post-step. Pushed with the same token, so CI runs on it.
+      - if: ${{ steps.release.outputs.pr }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+      - if: ${{ steps.release.outputs.pr }}
+        env:
+          RELEASE_BRANCH: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
+        run: |
+          node publishing/release-please/preserve-exact-pins.mjs
+          if ! git diff --quiet -- Cargo.toml; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Cargo.toml
+            git commit -m "chore: preserve exact internal dependency pins"
+            git push origin "HEAD:refs/heads/$RELEASE_BRANCH"
+          fi
 
   validate-release:
     name: validate release source

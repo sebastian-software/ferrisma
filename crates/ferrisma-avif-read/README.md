@@ -10,9 +10,10 @@ its own.
   functions only.
 - Caller-owned RGB output buffers are bounded. Codec-owned scratch memory
   stays opaque and is not bounded by Ferrisma's memory budget.
-- It needs the nightly toolchain pinned in the repository's
-  `rust-toolchain.toml` and builds only for macOS ARM64 and GNU Linux
-  x86-64, the targets the generated libavif code supports
+- It builds on stable Rust 1.99 or later (see `rust-version`; the pinned
+  nightly was required until 2026-11-15, libavif-rs ADR 0060), and only for
+  macOS ARM64 and GNU Linux x86-64, the targets the generated libavif code
+  supports
   ([ADR-0026](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0026-codecs-in-one-repository-and-workspace.md)).
 - A dependent's build profile must keep `panic = "unwind"` (Cargo's default;
   `panic = "abort"` is a compile error). Turning overflow checks off for the
@@ -20,7 +21,12 @@ its own.
   [publishing](https://github.com/sebastian-software/ferrisma/blob/main/docs/publishing.md),
   blocker 3.
 
-Experimental and unstable: its API may change in any 0.x release.
+Internal to `ferrisma`: this crate follows no SemVer of its own. `ferrisma`
+requires exactly the version released with it (an `=` requirement), and any
+release may change this crate's API. Do not depend on it directly; enable
+the `ferrisma` feature named above instead
+([ADR-0040](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0040-stable-public-contract-and-compatibility-policy.md),
+problem 7).
 
 License: MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`). The ported
 codecs carry their own licenses.

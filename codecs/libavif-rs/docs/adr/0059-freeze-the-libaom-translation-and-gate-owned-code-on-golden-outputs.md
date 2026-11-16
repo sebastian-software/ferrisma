@@ -286,7 +286,28 @@ and the root CI job runs `python3 -I tools/stable_rust.py --check`.
 `tools/enable_aom_dispatch.py` has no check mode yet (it takes kernel names,
 `--linux` or `--rehash`), so the dispatch edits it made cannot be
 re-derived and compared in CI; that is open work under this decision, not
-done with this amendment. Two statements of #250 are outdated:
+done with this amendment.
+
+**Closed on 2026-11-16.** `tools/enable_aom_dispatch.py --check` (macOS) and
+`--linux --check` re-derive, without writing, what the tool writes for the
+committed overlays (`crates/aom/rtcd/arm64.pl`, `x86_64.pl`) and fail on any
+difference from the tree: the overlay's canonical form; the dispatch headers
+of both profiles, regenerated with `cmake/rtcd.pl`, and the manifests'
+`rtcd_dispatch` blocks; in each RTCD unit the pointer global, type and
+declarations of every dispatched function and the whole
+`setup_rtcd_internal`, statement by statement from the regenerated header
+(whitespace and trailing commas aside, so the setup C2Rust emitted at the
+freeze compares like the tool's own); that no other unit still calls or takes
+the address of a dispatched `_c` function where the tool would rewrite it;
+every recorded digest; and on Linux the integer and copied type aliases. It
+does not replay the history of dispatch runs: the place of a declaration
+inside its `extern` block is not compared. Both modes run where
+`stable_rust.py --check` runs (CI's `workspace` job and
+`cargo xtask codecs --codec avif --stage static`/`pr`);
+`tests/ports/enable_aom_dispatch_test.py` checks that they find a missing or
+extra variant, an extra or mistyped pointer global, a missing declaration and
+a remaining direct call. On the committed tree they report 513 dispatched
+functions on macOS and 358 on Linux, in both profiles. Two statements of #250 are outdated:
 `av1_get_nz_map_contexts` and `av1_round_shift_array` are dispatched to
 Neon since 2026-11-13 ([ADR 0056](0056-dispatch-hand-translated-aom-simd-through-translated-rtcd.md),
 amendment of that date), and dispatching `aom_sse`/`aom_highbd_sse` at
@@ -310,6 +331,8 @@ calls them through RTCD everywhere.
 
 ## Amendment log
 
+- 2026-11-16 — `tools/enable_aom_dispatch.py` has a check mode, run in CI;
+  the open work of the 2026-11-15 amendment is closed there.
 - 2026-11-15 — Owner decision on O8: owned code changes only through
   committed tools with a check mode run in CI; manifests stay as
   provenance (section "Amendment: how owned code changes"). Earlier

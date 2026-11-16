@@ -2,8 +2,9 @@
 //! every remaining byte is passed unchanged to the selected image decoder.
 
 use ferrisma::pipeline::{
-    AvifOptions, ImageFormat, InputProfilePolicy, JpegXlOptions, Output, OutputFormat, ProcessingError,
-    ResizeFit, ResizeOptions, TransformOptions, WorkingPrecision, transcode, transcode_resized,
+    AvifOptions, BitDepth, ImageFormat, InputProfilePolicy, JpegXlLossless, JpegXlLossy,
+    JpegXlOptions, Output, OutputFormat, OutputGeometry, OutputSettings, ProcessingError,
+    ResizeFit, ResizeOptions, Threads, TransformOptions, WorkingPrecision, transcode,
 };
 
 const MAX_INPUT_BYTES: usize = 512 * 1024;
@@ -64,7 +65,8 @@ pub struct JxlOutRequest {
 pub enum JxlOutGeometry {
     /// Exactly this width and height (`transcode`).
     Exact(u32, u32),
-    /// Fit inside a square of this edge, never enlarged (`transcode_resized`):
+    /// Fit inside a square of this edge, never enlarged
+    /// (`OutputGeometry::Resize`):
     /// small inputs keep their own size, so their alpha edges stay intact.
     Inside(u32),
 }
@@ -81,7 +83,7 @@ pub enum JxlOutGeometry {
 ///   the smallest admitted lossy distance (0.05) and the largest below 3.0;
 ///   lossless ignores the distance. Every other lossy class uses d1.0.
 ///
-/// The encoder is serial (it requires `encoder_threads == 1`), so no bit
+/// The encoder is serial (it requires `Threads::ONE` encoder threads), so no bit
 /// selects a thread count. JPEG XL input uses the build's default reader,
 /// the workspace libjxl-rs decoder under `cli`.
 pub fn run_jxl_out_case(bytes: &[u8]) -> Option<(JxlOutRequest, Result<Output, ProcessingError>)> {
@@ -118,42 +120,30 @@ pub fn run_jxl_out_case(bytes: &[u8]) -> Option<(JxlOutRequest, Result<Output, P
         7 => 2.999,
         _ => 1.0,
     };
-    let (output_width, output_height) = match geometry {
-        JxlOutGeometry::Exact(width, height) => (width, height),
-        JxlOutGeometry::Inside(_) => (1, 1),
-    };
-    let options = TransformOptions {
-        output_format: OutputFormat::JpegXl,
-        jpeg_xl: if lossless {
-            JpegXlOptions::Lossless { effort: 2, depth: None }
-        } else {
-            JpegXlOptions::Lossy { distance, depth: None }
-        },
-        output_width,
-        output_height,
-        profile_policy,
-        transform_threads: 1,
-        encoder_threads: 1,
-        max_input_bytes: MAX_INPUT_BYTES,
-        max_input_pixels: MAX_INPUT_PIXELS,
-        max_output_bytes: MAX_OUTPUT_BYTES,
-        max_managed_bytes: JXL_OUT_MAX_MANAGED_BYTES,
-        ..TransformOptions::default()
-    };
-    let result = match geometry {
-        JxlOutGeometry::Exact(..) => transcode(encoded, kind, options),
-        JxlOutGeometry::Inside(edge) => transcode_resized(
-            encoded,
-            kind,
-            options,
-            ResizeOptions {
-                width: Some(edge),
-                height: Some(edge),
-                fit: ResizeFit::Inside,
-                without_enlargement: true,
-            },
+    let output_geometry = match geometry {
+        JxlOutGeometry::Exact(width, height) => OutputGeometry::Exact { width, height },
+        JxlOutGeometry::Inside(edge) => OutputGeometry::Resize(
+            ResizeOptions::default()
+                .with_width(edge)
+                .with_height(edge)
+                .with_fit(ResizeFit::Inside)
+                .with_without_enlargement(true),
         ),
     };
+    let options = TransformOptions::new(output_geometry)
+        .with_output(OutputSettings::JpegXl(if lossless {
+            JpegXlOptions::Lossless(JpegXlLossless::default())
+        } else {
+            JpegXlOptions::Lossy(JpegXlLossy::default().with_distance(distance))
+        }))
+        .with_profile_policy(profile_policy)
+        .with_transform_threads(Threads::ONE)
+        .with_encoder_threads(Threads::ONE)
+        .with_max_input_bytes(MAX_INPUT_BYTES)
+        .with_max_input_pixels(MAX_INPUT_PIXELS)
+        .with_max_output_bytes(MAX_OUTPUT_BYTES)
+        .with_max_managed_bytes(JXL_OUT_MAX_MANAGED_BYTES);
+    let result = transcode(encoded, kind, &options);
     Some((JxlOutRequest { lossless, geometry }, result))
 }
 
@@ -232,36 +222,32 @@ fn run_case_with_depth(bytes: &[u8], depth: u8) -> Option<Result<Output, Process
         2 => (1, 8192),
         _ => (64, 64),
     };
-    let options = TransformOptions {
-        output_format,
-        // AVIF settings other than the defaults conflict with WebP output;
-        // WebP keeps the defaults. The AVIF lane pins quality, speed and
-        // depth explicitly (the engine defaults follow `avifenc` since
-        // 2026-11-15).
-        avif: if output_format == OutputFormat::Avif {
-            AvifOptions {
-                quality: 60,
-                alpha_quality: 60,
-                speed: 10,
-                depth: Some(depth),
-                ..AvifOptions::default()
-            }
-        } else {
+    // The AVIF lane pins quality, speed and depth explicitly (the engine
+    // defaults follow `avifenc` since 2026-11-15); WebP keeps its defaults.
+    let output = match output_format {
+        OutputFormat::Avif => OutputSettings::Avif(
             AvifOptions::default()
-        },
-        output_width,
-        output_height,
-        profile_policy,
-        precision,
-        transform_threads: 1,
-        encoder_threads: 1,
-        max_input_bytes: MAX_INPUT_BYTES,
-        max_input_pixels: MAX_INPUT_PIXELS,
-        max_output_bytes: MAX_OUTPUT_BYTES,
-        max_managed_bytes: MAX_MANAGED_BYTES,
-        ..TransformOptions::default()
+                .with_quality(60)
+                .with_alpha_quality(60)
+                .with_speed(10)
+                .with_depth(BitDepth::Exact(depth)),
+        ),
+        other => OutputSettings::default_for(other),
     };
-    Some(transcode(encoded, kind, options))
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: output_width,
+        height: output_height,
+    })
+    .with_output(output)
+    .with_profile_policy(profile_policy)
+    .with_precision(precision)
+    .with_transform_threads(Threads::ONE)
+    .with_encoder_threads(Threads::ONE)
+    .with_max_input_bytes(MAX_INPUT_BYTES)
+    .with_max_input_pixels(MAX_INPUT_PIXELS)
+    .with_max_output_bytes(MAX_OUTPUT_BYTES)
+    .with_max_managed_bytes(MAX_MANAGED_BYTES);
+    Some(transcode(encoded, kind, &options))
 }
 
 #[cfg(test)]
@@ -359,7 +345,7 @@ mod tests {
                     .expect("input admitted by the driver")
                     .expect("fixture must reach the workspace AVIF writer");
                 assert_eq!(output.format, OutputFormat::Avif);
-                assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+                assert_eq!(output.report.encoder_backend, "libavif/aom");
                 assert!(!output.bytes.is_empty());
             }
         }
@@ -441,7 +427,7 @@ mod tests {
                         assert!(output.report.decoder_requests > 0);
                         assert!(!output.bytes.is_empty());
                         if output.format == OutputFormat::Avif {
-                            assert_eq!(output.report.encoder_backend, "libavif-rs/aom");
+                            assert_eq!(output.report.encoder_backend, "libavif/aom");
                         }
                         eprintln!(
                             "{lane}/{name} ({variant}): encoded {:?} via {}",

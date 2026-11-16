@@ -1,12 +1,11 @@
 //! Ferrisma's command line with libavif-rs as the encoder (ADR-0024): the
-//! same arguments and report line as `ferrisma`, with `--avif-quality=`,
+//! same arguments, report line, error output and exit status as `ferrisma`, with `--avif-quality=`,
 //! `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=` and
 //! `--avif-chroma=` on libavif's scales.
 
-use std::error::Error;
 use std::process::ExitCode;
 
-fn main() -> Result<ExitCode, Box<dyn Error>> {
+fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
-    ferrisma::cli::run(&args, Some(&ferrisma_libavif::LibavifBackend))
+    ferrisma::cli::main(&args, Some(&ferrisma_libavif::LibavifBackend::new()))
 }
