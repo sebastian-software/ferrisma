@@ -106,9 +106,9 @@ validation configurations still need scoped checks. The former
 `avif-decode`/libavif `dav1d_*` collision is removed; current AVIF input and
 the libavif encoder adapter can link together. Engine all-feature checks select
 `-p ferrisma -p ferrisma-kernels` on the pinned nightly; stable checks omit
-`avif-read` and `avif-write`. JXL's local Cargo configuration disables auto-vectorization for its
-reference-sensitive checks. Run those checks through its script or from its
-directory. Rust artifacts live in the root `target/`; C/C++ reference outputs
+`avif-read` and `avif-write`. No codec has a Cargo configuration of its own: its
+gate builds with the code generation the engine ships. Run JXL's
+reference-sensitive checks through its script or from its directory. Rust artifacts live in the root `target/`; C/C++ reference outputs
 stay local to each codec. Generated AVIF source is excluded from rustfmt because
 its translation manifests verify source hashes. The shared SharpYUV core supplies
 one safe production conversion loop to WebP and AVIF through their distinct

@@ -24,7 +24,22 @@ def git(*args):
     return subprocess.check_output(["git", *map(str, args)], cwd=ROOT, text=True).strip()
 
 
+def check_codegen():
+    # The gate builds what ships (ADR 0002, 2026-11-16): the engine and every
+    # dependent build this crate from the workspace root, where a Cargo
+    # configuration in this directory does not apply. Rustflags here would
+    # make the gate compile code that nobody ships.
+    for name in ("config.toml", "config"):
+        if (ROOT / ".cargo" / name).exists():
+            raise SystemExit(f".cargo/{name}: the port takes no Cargo configuration of its own; "
+                             "the gate must build with the code generation that ships")
+    for name in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "CARGO_BUILD_RUSTFLAGS"):
+        if os.environ.get(name):
+            print(f"Note: {name} is set; this run does not build what ships", flush=True)
+
+
 def check_source():
+    check_codegen()
     pin = json.loads((ROOT / "upstream.json").read_text())
     source = ROOT / pin["path"]
     revision = git("-C", source, "rev-parse", "HEAD")

@@ -210,16 +210,16 @@ Rust sources. This is the only oracle program that links Rust code; the crate
 itself still has no C or C++ build or link dependency.
 
 The scalar Clang build retains upstream `lib/CMakeLists.txt`'s
-`-fno-slp-vectorize -fno-vectorize` settings. Repository Rust builds mirror them
-with `-C no-vectorize-slp -C no-vectorize-loops` in
-[Cargo configuration](../../.cargo/config.toml). They affect floating-point
+`-fno-slp-vectorize -fno-vectorize` settings. They affect floating-point
 reductions: allowing auto-vectorization changed LZ77 cost rounding, and ASan
 then selected a different reduction loop. Both ordinary and instrumented
 oracles must use the upstream settings. Rust SLP also combined three DC
 reciprocals and an unchanged copy into a four-lane division, computing the copy
 as `value / 1`. That quieted a signaling NaN in release while C++ retained its
-original stored bits. Preserve the original compile configuration in both
-languages so raw copies remain bit-exact.
+original stored bits. Rust builds once mirrored the C++ settings with a
+port-local `-C no-vectorize-slp -C no-vectorize-loops`; since 2026-11-16 they
+build with the code generation that ships, and the copy is written so that no
+vectorizer can turn it into arithmetic (see "The gate builds what ships").
 Keep exact float-bit comparisons;
 do not compensate with relaxed tolerances or changed reference algorithms.
 
@@ -1164,3 +1164,53 @@ unavailable); hosted `codecs (jxl, ubuntu-24.04)` covers it in the PR tier.
 Re-evaluate after an LLVM upgrade of the pinned nightly or of the minimum
 toolchain.
 <!-- end stable parity -->
+
+## The gate builds what ships, 2026-11-16
+
+**Gap.** Since 2026-11-01 (`d48a9f9e`) the port carried a `.cargo/config.toml`
+with `-C no-vectorize-slp -C no-vectorize-loops`, mirroring the original's
+`-fno-slp-vectorize -fno-vectorize`. Cargo applies it only when it runs from
+this directory, which `tools/check.py` and `jxl-check.yml` do; the engine, the
+benchmark and every dependent build the crate from the workspace root, with
+LLVM's default auto-vectorization. Every comparison with the original was
+therefore made on code that nobody ships.
+
+**What the flags protected.** One case: `DequantMatrices::set_dc_quant`
+stored `1.0 / dc[c]` and the copy `dc[c]` in one loop, and the SLP vectorizer
+merged the copy into the division as a fourth lane `dc[0] / 1.0`, which
+quiets a signaling NaN that the original's plain copy keeps (a copy-only word,
+ADR-0041 section 3, item 4). With the old spelling and no rustflags, x86-64
+(Rust nightly-2026-09-07, `checked`, run under qemu-user) compiles it to one
+`divps` over `[1, 1, 1, dc0] / [dc0, dc1, dc2, 1]`, and
+`tests/quant_dc.rs` `dc_setter_preserves_signaling_nan_bits_in_its_unmodified_inverse_copy`
+fails (`0x7fe23456` for `0x7fa23456`); with the flags, or on AArch64 with
+either set, it passes. `cba1748f` already wrote the copy as a separate
+whole-array copy (integer moves), which no vectorizer turns into arithmetic,
+so the test now guards that spelling under the code generation that ships.
+The LZ77 cost rounding named above concerned the C++ oracle's build; Rust
+does not reassociate or contract floating-point operations without explicit
+`mul_add`, so the vectorizers cannot change a non-NaN result.
+
+**Decision.** The port has no Cargo configuration of its own; its gate builds
+with exactly the code generation the workspace ships (profiles from the root
+`Cargo.toml`, the toolchains of root `docs/quality-gate.md`, no rustflags).
+`tools/check.py` refuses a `.cargo/config.toml` in this directory and notes a
+run with `RUSTFLAGS`/`CARGO_ENCODED_RUSTFLAGS` set. The C++ references keep
+upstream's `-fno-slp-vectorize -fno-vectorize`: they are the original's own
+build settings. Where a Rust result could depend on the vectorizer, the port
+writes the operation so that it cannot, as `set_dc_quant` does, instead of
+switching the vectorizer off in the gate.
+
+**Evidence** (`tools/check.py --stage test --no-fail-fast`, scalar and NEON
+oracles, AArch64; the shipped-flag runs with `CARGO_ENCODED_RUSTFLAGS=` in a
+separate target directory, checked with `cargo build -v`: no
+`no-vectorize` in the rustc command line). At `c025520b`: nightly and Rust
+1.100.0 each 1,152 passed, 1 ignored with and without the flags, the same
+tests, and the same per-request diagnostic counts; `simd_public` and
+`simd_threads` with `JXL_CONFORMANCE_CORPUS` (the pinned corpus) passed with
+both sets on both toolchains; the release-only `from_linear` passed (4) with
+the shipped flags. At `c832dbe4` (encoder SIMD selection on), with the
+conformance corpus: nightly 1,166 passed, 2 ignored with and without the
+flags, the same tests and diagnostics. x86-64 (AVX2) is covered by the hosted
+gate, which now builds with the shipped flags; the local qemu-user evidence
+is recorded in the commit that removed the configuration.
