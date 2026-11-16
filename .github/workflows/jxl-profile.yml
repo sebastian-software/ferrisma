@@ -1,0 +1,62 @@
+# Diagnostic, by hand only: where the port's JPEG XL lossy encode and VarDCT
+# decode spend their time on a hosted runner beside the original's SIMD
+# release build (same builds as bench-v1-perf.yml's codec job, one thread).
+# perf (cpu-clock samples, annotated hot symbols) and callgrind (instructions
+# per function on a crop); see scripts/bench/ci-perf/jxl_profile.sh. Not a
+# benchmark and not a gate (ADR-0041: performance is reported, not gated).
+name: 'JXL: native profile (diagnostic)'
+'on':
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner label (ubuntu-24.04 for x86-64, ubuntu-24.04-arm for ARM64)
+        default: ubuntu-24.04
+        type: string
+      crop:
+        description: Centered crop of photo12 for callgrind (WxH)
+        default: 1536x1024
+        type: string
+permissions:
+  contents: read
+jobs:
+  profile:
+    name: 'JXL: profile (${{ inputs.runner }})'
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      INPUTS: ${{ github.workspace }}/bench/inputs
+      WORK: ${{ github.workspace }}/bench/work
+      OUT: ${{ github.workspace }}/bench/out
+      CARGO_TERM_COLOR: never
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Initialize the pinned original and the 12 MP photograph
+      run: |
+        git submodule update --init --depth 1 codecs/libjxl-rs/upstream/libjxl codecs/libavif-rs/upstream/libavif
+        git -C codecs/libjxl-rs/upstream/libjxl submodule update --init --depth 1 \
+          third_party/highway third_party/brotli third_party/skcms
+    - name: Install tools
+      run: |
+        bash scripts/bench/ci-perf/setup.sh jxl
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq valgrind linux-tools-common \
+          "linux-tools-$(uname -r)" || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq valgrind \
+          linux-tools-common linux-tools-generic || true
+    - name: Make the master
+      run: SIZES=12 bash scripts/bench/ci-perf/make_masters.sh
+    - name: Build, time and profile both sides
+      env:
+        CROP: ${{ inputs.crop }}
+      run: JOBS=$(getconf _NPROCESSORS_ONLN) bash scripts/bench/ci-perf/jxl_profile.sh
+    - name: Keep the profiles, the host record and the binaries
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: jxl-profile-${{ inputs.runner }}
+        path: bench/out/
+        if-no-files-found: error
+        retention-days: 14
