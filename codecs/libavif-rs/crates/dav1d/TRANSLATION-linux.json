@@ -468,7 +468,7 @@
         "empty-readwrite-register-barrier": 1
       },
       "raw_sha256": "bba376c285e2ce2d5148b72442829e1edb30212056d600e1d4f316e32722bf34",
-      "rust_sha256": "d1a844bc0a12f951b27445012ec3e08108f69a695524a4b00e96b24ce15a8844"
+      "rust_sha256": "b8379789c2861ca9bce8a74ce5c5d2728be50610888643ed6ef25e3502326044"
     },
     {
       "source": "upstream/dav1d/src/cdef_apply_tmpl.c",
@@ -626,7 +626,7 @@
         "empty-readwrite-register-barrier": 1
       },
       "raw_sha256": "f645e20a1ac57d991607f6dd632f40e09cf71272f34f7acfca50cfdbe52d3043",
-      "rust_sha256": "aeb25ed34ddc0c0a9dd508fd61d4e2d87ec32dc7ba43d7da2c777c7cacb64423"
+      "rust_sha256": "5cc2d51d84c9a954ea297483c099535d4281f2c6d63f481226cf1540f5f23f13"
     }
   ]
 }

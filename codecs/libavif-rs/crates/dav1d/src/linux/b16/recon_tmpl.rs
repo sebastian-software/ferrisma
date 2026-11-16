@@ -27,7 +27,6 @@
 
 // Mechanically translated from upstream/dav1d/src/recon_tmpl.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
-use core::arch::asm;
 extern "C" {
     fn memcpy(
         __dest: *mut core::ffi::c_void,
@@ -3152,10 +3151,8 @@ unsafe extern "C" fn get_dc_sign_ctx(
     let mut mask: uint64_t = 0xc0c0c0c0c0c0c0c0 as uint64_t;
     let mut mul: uint64_t = 0x101010101010101 as uint64_t;
     let mut s: core::ffi::c_int = 0;
-    asm!(
-        "/* {0} {1} */", inlateout(reg) mask, inlateout(reg) mul, options(preserves_flags, pure,
-        readonly, att_syntax)
-    );
+    // dav1d's empty x86-64 register barrier on `mask` and `mul` emits no
+    // instruction and is not translated (engine ADR-0044).
     let mut current_block_63: u64;
     match tx {
         0 => {

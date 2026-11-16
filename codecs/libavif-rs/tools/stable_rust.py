@@ -40,6 +40,15 @@ project), which every regeneration must reproduce as well:
   one value as the original function does, in a `#[target_feature(enable =
   "xsave")]` wrapper. The callers are unchanged: the original calls the
   function only inside its branch that tested CPUID.1:ECX bit 27 (OSXSAVE).
+* empty barrier: dav1d's `get_dc_sign_ctx` (`src/recon_tmpl.c`) has, for
+  x86-64 GNU compilers only, `__asm__("" : "+r"(mask), "+r"(mul))`, a hint
+  that keeps the compiler from folding two 64-bit constants. It emits no
+  instruction, and its read-write operands leave both values as they were,
+  so deleting the statement changes no value. C2Rust's form, and the form
+  with an assembler comment as its template that the port carried before
+  2026-11-16, are deleted (`empty_register_barrier` of
+  `tools/transpile_dav1d.py`, which `tools/import_dav1d_linux.py` also
+  calls, is this rewrite).
 
 Rewrites that cannot be expressed as one of these patterns are listed in
 `tools/stable_rust_edits.json` and applied after them, so a rerun reproduces
@@ -153,6 +162,13 @@ XGETBV_BODY = """    // XGETBV (0F 01 D0) through its intrinsic instead of the o
 }
 """
 ASM_IMPORT = 'use core::arch::asm;\n'
+# dav1d's empty x86-64 register barrier: C2Rust's template ("\n") and the
+# assembler comment the port used as its template before 2026-11-16.
+REGISTER_BARRIER = re.compile(
+    r'(?m)^([ \t]*)asm!\(\s*"(?:\\n|/\* \{0\} \{1\} \*/)",\s*inlateout\(reg\) mask,\s*'
+    r'inlateout\(reg\) mul,\s*options\([^)]*\)\s*\);\n')
+REGISTER_BARRIER_NOTE = (r"\1// dav1d's empty x86-64 register barrier on `mask` and `mul` emits no" '\n'
+                         r'\1// instruction and is not translated (engine ADR-0044).' '\n')
 
 
 def rewrite_xgetbv(text, counts):
@@ -160,6 +176,14 @@ def rewrite_xgetbv(text, counts):
     if n:
         counts['xgetbv-intrinsic'] = counts.get('xgetbv-intrinsic', 0) + n
     return text
+
+
+def remove_register_barrier(text, counts=None):
+    """Delete dav1d's empty register barrier; return (text, count)."""
+    text, n = REGISTER_BARRIER.subn(REGISTER_BARRIER_NOTE, text)
+    if n and counts is not None:
+        counts['register-barrier'] = counts.get('register-barrier', 0) + n
+    return text, n
 
 
 def drop_unused_asm_import(text, counts):
@@ -186,6 +210,7 @@ def rewrite(rel, text, edits, counts):
     text = rewrite_atomics(text, counts)
     text = rewrite_extern_types(text, counts)
     text = rewrite_xgetbv(text, counts)
+    text, _ = remove_register_barrier(text, counts)
     text = drop_unused_asm_import(text, counts)
     return apply_edits(rel, text, edits, counts)
 
