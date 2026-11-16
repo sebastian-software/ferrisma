@@ -44,7 +44,9 @@ SIMD_SUFFIX = {'macos': r'neon', 'linux': r'(?:sse2|ssse3|sse4_1|avx2)'}
 # restores only its low half. That clobbers the upper half of LLVM's reserved
 # RBX on x86-64 (ADR 0023). Replace exactly that lowering with the intrinsic
 # for the same leaf and subleaf; every other statement of x86_simd_caps()
-# keeps its translated form (ADR 0058).
+# keeps its translated form (ADR 0058). The XGETBV opcode bytes of xgetbv()
+# become core::arch::x86_64::_xgetbv(0) in tools/stable_rust.py (engine
+# ADR-0044), which stable_text() below applies to every unit.
 CPUID_ASM = re.compile(
     r'asm!\(\s*"mov %ebx, %edi   \\n",\s*"\\tcpuid              \\n",\s*'
     r'"\\txchg %edi, %ebx  \\n",\s*"\\t\\n",\s*'

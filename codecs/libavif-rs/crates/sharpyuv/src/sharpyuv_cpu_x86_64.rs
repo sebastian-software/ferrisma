@@ -24,7 +24,6 @@
 
 // Mechanically translated from upstream/libwebp/sharpyuv/sharpyuv_cpu.c.
 // C ABI, ownership, pointer validity, and bounds follow the original headers.
-use core::arch::asm;
 pub type size_t = usize;
 pub type uint8_t = u8;
 pub type uint32_t = u32;
@@ -55,13 +54,18 @@ unsafe extern "C" fn GetCPUInfo(
 #[inline]
 unsafe extern "C" fn xgetbv() -> uint64_t {
     let ecx: uint32_t = 0 as uint32_t;
-    let mut eax: uint32_t = 0;
-    let mut edx: uint32_t = 0;
-    asm!(
-        ".byte 0x0f, 0x01, 0xd0\n", "\n", lateout("ax") eax, lateout("dx") edx,
-        inlateout("cx") ecx => _, options(preserves_flags, att_syntax)
-    );
-    return (edx as uint64_t) << 32 as core::ffi::c_int | eax as uint64_t;
+    // XGETBV (0F 01 D0) through its intrinsic instead of the original's raw
+    // opcode bytes (engine ADR-0044): the same instruction with ECX = 0,
+    // returning EDX:EAX as one value as the original does.
+    #[target_feature(enable = "xsave")]
+    unsafe fn read_xcr(xcr: uint32_t) -> uint64_t {
+        core::arch::x86_64::_xgetbv(xcr)
+    }
+    // SAFETY: XGETBV needs CR4.OSXSAVE, which CPUID.1:ECX bit 27 (OSXSAVE)
+    // reports and the OS can set only on a CPU with XSAVE, the feature
+    // `read_xcr` enables. The original calls xgetbv() only inside its branch
+    // that requires CPUID.1:ECX bits 27 and 28; the callers keep that branch.
+    return read_xcr(ecx);
 }
 unsafe extern "C" fn CheckSlowModel(mut info: core::ffi::c_int) -> core::ffi::c_int {
     static mut kSlowModels: [uint8_t; 6] = [

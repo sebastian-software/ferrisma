@@ -2,7 +2,7 @@
 
 - **Status:** Experimental
 - **Date:** 2026-10-31
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-16
 - **Supersedes:** None
 - **Related:** [0003](0003-demand-driven-regions.md), [0006](0006-cpu-first-gpu-capable-execution.md)
 
@@ -135,3 +135,34 @@ replaces the 3.7 MP test. A caller that relied on the old default as a
 bound must set it explicitly.
 
 - 2026-11-15 — Default budget 1 GiB (owner decision); see the amendment above.
+
+## Amendment: JPEG XL reservations follow measured peaks (2026-11-16)
+
+**Finding.** A reservation is the engine's promise that an admitted encode
+fits the caller's budget. Measured as the JPEG XL sink holds it
+([record](../benchmarks/v1.0-jxl-encoder-memory-2026-11-16.md)), the
+lossless model of 2026-11-15 was up to about 10 % below real peaks
+(8-bit RGBA at 12.2 MP; noise at 6 and 12 MP; one-shot noise frames), and
+the lossy sink reserved a source-derived estimate at less than a tenth of
+its peak. A caller who set a budget could be exceeded without an error,
+against this ADR and ADR-0042 D3.
+
+**Change.** The JPEG XL sink reserves a measured model for both profiles
+(ADR-0039 amendment of 2026-11-16): a constant, a per-frame term, the first
+DC group's working set and a term for the second DC group, whose resident
+peak includes memory the allocator kept from the first; fitted 10 % above
+every recorded peak, photographs and noise, and pinned by
+`jxl_output_tests::model_covers_every_measured_peak_with_margin`.
+
+**Consequences.** Under the default 1 GiB the largest JPEG XL output is
+49,133,275 px lossless opaque (was 49,344,752), 30,670,848 with alpha (was
+38,377,881), 24,292,010 and 13,939,892 above 8 bits (were 28,272,715 and
+20,185,088), and lossy 40,544,938 opaque, 25,547,124 with alpha,
+22,282,240 and 11,240,734 above 8 bits (about 144, 127, 74 and 65 MP from
+the estimate before). Lossy requests between those sizes that passed before
+now fail with `ResourceExhausted` before encoding. What the budget covers is
+otherwise unchanged: the AVIF and WebP writers still reserve their frames
+only; measured on the same day at 2.4 to 9 (AVIF) and 2.3 to 44 (WebP)
+times those frames (indicative, not changed; #48, #199).
+
+- 2026-11-16 — JPEG XL reservations follow measured peaks; see the amendment above.

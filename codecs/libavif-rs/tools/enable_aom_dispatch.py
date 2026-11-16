@@ -3,7 +3,8 @@
 
 Usage: python3 tools/enable_aom_dispatch.py NAME...            (Neon, macOS ARM64)
        python3 tools/enable_aom_dispatch.py --linux NAME_EXT...  (x86, GNU Linux x86-64)
-       python3 tools/enable_aom_dispatch.py --linux --check      (integer aliases of the Linux RTCD units)
+       python3 tools/enable_aom_dispatch.py [--linux] --rehash   (record the digests of the units)
+       python3 tools/enable_aom_dispatch.py [--linux] --check    (compare the tree with the tool's output)
 
 With --linux each argument is one specialization, `<function>_<sse2|ssse3|sse4_1|avx2>`,
 as crates/aom/rtcd/x86_64.pl lists them; the tool dispatches every listed
@@ -21,6 +22,18 @@ describes this tool.
    function: an RTCD pointer global plus setup in the RTCD unit, and pointer
    calls and declarations in each caller whose C source uses the macro name.
 4. Records the new digests of every changed unit in the manifest.
+
+`--check` writes nothing. For the committed overlay it re-derives what the
+tool writes and fails on any difference from the tree (ADR 0059, amendment
+of 2026-11-15): the overlay's canonical form; the dispatch headers of both
+profiles and the manifest's `rtcd_dispatch` block; in each RTCD unit the
+pointer global of every dispatched function, its `_c` and variant
+declarations, and the whole body of `setup_rtcd_internal`, statement by
+statement from the regenerated header (whitespace and trailing commas aside,
+so the setup C2Rust emitted at the freeze compares like the tool's); that no
+other unit still calls or takes the address of a dispatched `_c` function
+where the tool would rewrite it; the recorded digests of every unit; and on
+Linux the integer and copied type aliases. CI runs both platforms.
 """
 import hashlib
 import json
@@ -46,14 +59,24 @@ RTCD_UNITS = {'config/aom_dsp_rtcd.h': 'aom_dsp/aom_dsp_rtcd.rs',
 EXPECT = '.expect("non-null function pointer")'
 
 
+def overlay_table(text, linux):
+    """The match of the overlay's table of ported names."""
+    table = 'ported_x86' if linux else 'ported_neon'
+    return re.search(r'(my %' + table + r' = map \{ \$_ => 1 \} qw/\n)(.*?)(/;\n)', text, re.S)
+
+
+def overlay_text(text, names, linux):
+    """The overlay with `names` added to its table, sorted one per line."""
+    m = overlay_table(text, linux)
+    names = set(m.group(2).split()) | set(names)
+    body = ''.join(f'  {n}\n' for n in sorted(names))
+    return text[:m.start(2)] + body + text[m.end(2):]
+
+
 def update_overlay():
     """Add NAMES to the overlay; return its previous text."""
     text = OVERLAY.read_text()
-    table = 'ported_x86' if LINUX else 'ported_neon'
-    m = re.search(r'(my %' + table + r' = map \{ \$_ => 1 \} qw/\n)(.*?)(/;\n)', text, re.S)
-    names = set(m.group(2).split()) | set(NAMES)
-    body = ''.join(f'  {n}\n' for n in sorted(names))
-    OVERLAY.write_text(text[:m.start(2)] + body + text[m.end(2):])
+    OVERLAY.write_text(overlay_text(text, NAMES, LINUX))
     return text
 
 
@@ -319,6 +342,158 @@ def edit_caller(text, csource, name, params, ret, report, rel):
     return text
 
 
+def normalized(text):
+    """Code without whitespace and without trailing commas, so that the
+    rustfmt-wrapped setup C2Rust emitted and the tool's one-line form
+    compare equal."""
+    text = re.sub(r'\s+', '', text)
+    return re.sub(r',([)>\]}])', r'\1', text)
+
+
+HEADER_SETUP = re.compile(r'static void setup_rtcd_internal\(void\)\n\{\n(.*?)\n\}\n', re.S)
+HEADER_ASSIGN = re.compile(r'^\s*(?:if \(flags & (HAS_\w+)\) )?(\w+) = (\w+);$')
+RUST_SETUP = 'unsafe extern "C-unwind" fn setup_rtcd_internal() {'
+
+
+def header_setup(header_text):
+    """[(flag or None, function, implementation)] of the generated setup, in order."""
+    body = HEADER_SETUP.search(header_text).group(1)
+    statements = []
+    for line in body.split('\n'):
+        line = line.strip()
+        if not line or line in ('(void)flags;',) or re.fullmatch(r'int flags = \w+\(\);', line):
+            continue
+        m = HEADER_ASSIGN.match(line)
+        if not m or not m.group(3).startswith(m.group(2) + '_'):
+            raise SystemExit(f'unexpected statement in a generated setup_rtcd_internal: {line}')
+        statements.append(m.groups())
+    return statements
+
+
+def expected_setup(header_text, signature):
+    """The Rust body of setup_rtcd_internal the tool writes for this header;
+    `signature(name)` gives the function type of `name`."""
+    caps = re.search(r'int flags = (\w+)\(\);', header_text).group(1)
+    out = [f'    let mut flags: core::ffi::c_int = {caps}();\n']
+    for flag, name, implementation in header_setup(header_text):
+        ftype = signature(name)
+        assign = f'{name} = Some({implementation} as {ftype}) as Option<{ftype}>;'
+        if flag is None:
+            if implementation != name + '_c':
+                raise SystemExit(f'{name}: the generated setup starts with {implementation}')
+            out.append(f'    {assign}\n')
+        else:
+            out.append(f'    if flags & {flag} != 0 {{\n        {assign}\n    }}\n')
+    return ''.join(out)
+
+
+def rtcd_unit_problems(rel, text, header_text, signature):
+    """How one RTCD unit differs from what the tool writes for its header."""
+    problems = []
+    setup = header_setup(header_text)
+    dispatched = list(dict.fromkeys(name for _, name, _ in setup))
+    start = text.find(RUST_SETUP)
+    if start < 0:
+        return [f'{rel}: no setup_rtcd_internal']
+    start += len(RUST_SETUP) + 1
+    end = text.index('\n}\n', start) + 1
+    if normalized(text[start:end]) != normalized(expected_setup(header_text, signature)):
+        problems.append(f'{rel}: setup_rtcd_internal differs from the regenerated header')
+    statics = dict(re.findall(r'^#\[no_mangle\]\npub static mut (\w+): (Option<.*?>) = None;$', text, re.M | re.S))
+    every = set(re.findall(r'^pub static mut (\w+): Option<', text, re.M))
+    for name in sorted(every - set(dispatched)):
+        problems.append(f'{rel}: pointer global {name} is not dispatched by the regenerated header')
+    for name in dispatched:
+        ftype = signature(name)
+        if name not in statics:
+            problems.append(f'{rel}: no #[no_mangle] pointer global for {name}')
+        elif normalized(statics[name]) != normalized(f'Option<{ftype}>'):
+            problems.append(f'{rel}: pointer global {name} has another type')
+        for implementation in dict.fromkeys(i for _, n, i in setup if n == name):
+            if len(re.findall(r'^\s*fn ' + implementation + r'\(', text, re.M)) != 1:
+                problems.append(f'{rel}: no single declaration of {implementation}')
+    return problems
+
+
+def check(linux):
+    """--check: compare the tree with what the tool writes for the committed
+    configuration, without writing; exit non-zero on any difference."""
+    platform = 'linux' if linux else 'macos'
+    overlay = CRATE / ('rtcd/x86_64.pl' if linux else 'rtcd/arm64.pl')
+    problems = []
+    text = overlay.read_text()
+    if overlay_text(text, [], linux) != text:
+        problems.append(f'{overlay.relative_to(ROOT)}: table not in the canonical sorted form')
+    if linux:
+        names = overlay_table(text, linux).group(2).split()
+        wanted = {}
+        for spec in names:
+            m = re.fullmatch(r'(\w+?)_(sse2|ssse3|sse4_1|avx2)', spec)
+            if not m:
+                problems.append(f'{overlay.relative_to(ROOT)}: {spec} is not <function>_<extension>')
+                continue
+            wanted.setdefault(m.group(1), set()).add(m.group(2))
+    functions = 0
+    for profile in ['release', 'debug']:
+        ref = CRATE / f'reference/{platform}/{profile}'
+        manifest_path = CRATE / f'TRANSLATION-{platform}-{profile}.json'
+        manifest = json.loads(manifest_path.read_text())
+        with tempfile.TemporaryDirectory() as tmp:
+            dispatch = transpile_aom.dispatch_headers(platform, ref, Path(tmp))
+            headers = {n: (Path(tmp) / n).read_text() for n in dispatch['headers']}
+            for n in dispatch['headers']:
+                if (ref / 'dispatch' / n).read_bytes() != (Path(tmp) / n).read_bytes():
+                    problems.append(f'{(ref / "dispatch" / n).relative_to(ROOT)}: differs from the regenerated header')
+        if manifest.get('rtcd_dispatch') != dispatch:
+            problems.append(f'{manifest_path.relative_to(ROOT)}: rtcd_dispatch block differs')
+        if manifest_path.read_text() != json.dumps(manifest, indent=2) + '\n':
+            problems.append(f'{manifest_path.relative_to(ROOT)}: not in the form the tool writes')
+        units = {u['rust']: u for u in manifest['units']}
+        texts = {r: (ROOT / r).read_text() for r in units}
+        for rel, unit in units.items():
+            full = hashlib.sha256(texts[rel].encode()).hexdigest()
+            production = hashlib.sha256(texts[rel].split('\n#[cfg(feature = "port-test-bridges")]', 1)[0].encode()).hexdigest()
+            if unit['rust_sha256'] != full or unit.get('production_rust_sha256', production) != production:
+                problems.append(f'{rel}: recorded digest differs ({manifest_path.name})')
+        mentions = {r: set(re.findall(r'\b(\w+)_c\b', t)) for r, t in texts.items()}
+        signatures = {}
+
+        def signature(name):
+            if name not in signatures:
+                candidates = {r: texts[r] for r in units if name in mentions[r]}
+                signatures[name] = fn_type(*find_signature(candidates, name))
+            return signatures[name]
+        rtcd_rels = set()
+        for header, unit_rel in RTCD_UNITS.items():
+            rel = f'crates/aom/src/{platform}/{profile}/{unit_rel}'
+            rtcd_rels.add(rel)
+            problems += rtcd_unit_problems(rel, texts[rel], headers[header], signature)
+            if linux:
+                for flag, name, implementation in header_setup(headers[header]):
+                    if flag is not None and implementation[len(name) + 1:] not in wanted.get(name, ()):
+                        problems.append(f'{rel}: {implementation} is not listed in the overlay')
+        dispatched = sorted({name for h in headers.values() for _, name, _ in header_setup(h)})
+        functions = len(dispatched)
+        report = []
+        for name in dispatched:
+            params, ret = find_signature({r: texts[r] for r in units if name in mentions[r]}, name)
+            for rel, unit in units.items():
+                if rel in rtcd_rels or name not in mentions[rel]:
+                    continue
+                csource = (ROOT / unit['source']).read_text()
+                if edit_caller(texts[rel], csource, name, params, ret, report, rel) != texts[rel]:
+                    problems.append(f'{profile}:{rel}: still calls or takes the address of {name}_c')
+    if linux:
+        try:
+            check_int_aliases()
+        except SystemExit as error:
+            problems.append(str(error))
+    if problems:
+        print('\n'.join(problems))
+        raise SystemExit(f'{len(problems)} differences from the output of tools/enable_aom_dispatch.py')
+    print(f'{platform}: RTCD dispatch of {functions} functions in both profiles matches the tool output')
+
+
 def rehash():
     """Record the digests of hand-edited owned units (both macOS profiles)."""
     for profile in ['release', 'debug']:
@@ -337,8 +512,8 @@ def rehash():
 
 
 def main():
-    if LINUX and NAMES == ['--check']:
-        check_int_aliases()
+    if NAMES == ['--check']:
+        check(LINUX)
         return
     if NAMES == ['--rehash']:
         rehash()

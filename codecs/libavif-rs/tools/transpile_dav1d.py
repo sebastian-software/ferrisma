@@ -11,7 +11,7 @@ import sys
 
 from import_translation import translate
 from dav1d_layout import retain_alignment
-from stable_rust import stable_text
+from stable_rust import remove_register_barrier, stable_text
 
 ROOT = Path(__file__).resolve().parents[1]
 CRATE = ROOT / 'crates/dav1d'
@@ -25,10 +25,11 @@ def current_variadic(text):
 
 
 def empty_register_barrier(text):
-    # The original x86 GNU asm has two read/write registers and no instructions.
-    # Rust requires template references; an assembler comment emits no code.
-    return re.subn(r'(asm!\(\n\s*)"\\n", inlateout\(reg\) mask, inlateout\(reg\) mul,',
-                   r'\1"/* {0} {1} */", inlateout(reg) mask, inlateout(reg) mul,', text)
+    # The original's x86-64 GNU `__asm__("" : "+r"(mask), "+r"(mul))` emits no
+    # instruction and leaves both operands as they were; it only keeps the
+    # compiler from folding the constants. Engine ADR-0044 allows no inline
+    # assembly, so the statement is deleted (tools/stable_rust.py).
+    return remove_register_barrier(text)
 
 
 def corrected(source, raw, entry, allow_pruned_alignment=False):

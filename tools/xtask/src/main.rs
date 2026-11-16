@@ -6,6 +6,8 @@ use std::{
     time::Instant,
 };
 
+mod assembly;
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Default, Debug, PartialEq, Eq)]
@@ -289,6 +291,14 @@ fn codecs(args: &[String]) -> Result<()> {
                 &["python3", "tools/verify_upstream.py", "--tracked"][..],
                 &["python3", "tools/check_translation.py"],
                 &["python3", "-I", "tools/stable_rust.py", "--check"],
+                &["python3", "-I", "tools/enable_aom_dispatch.py", "--check"],
+                &[
+                    "python3",
+                    "-I",
+                    "tools/enable_aom_dispatch.py",
+                    "--linux",
+                    "--check",
+                ],
                 &["python3", "tools/generate_licenses.py", "--check"],
                 &[
                     "python3",
@@ -452,7 +462,14 @@ fn codecs(args: &[String]) -> Result<()> {
 }
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
-    let result = match args.first().map(String::as_str) { Some("affected") => affected(&args[1..]), Some("codecs") => codecs(&args[1..]), _ => Err("usage: cargo xtask affected --base SHA --head SHA [--output PATH] | affected --all | codecs --codec NAME --stage pr|static|test|oracle [--tests-only]".into()) };
+    let result = match args.first().map(String::as_str) {
+        Some("affected") => affected(&args[1..]),
+        Some("codecs") => codecs(&args[1..]),
+        Some("assembly") => {
+            validate_args(&args[1..], &[], &[]).and_then(|()| assembly::check(&root()))
+        }
+        _ => Err("usage: cargo xtask affected --base SHA --head SHA [--output PATH] | affected --all | codecs --codec NAME --stage pr|static|test|oracle [--tests-only] | assembly".into()),
+    };
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
