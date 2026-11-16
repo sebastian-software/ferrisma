@@ -9,6 +9,7 @@ import argparse
 from pathlib import Path
 import subprocess
 import sys
+from rust_version import MSRV
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -40,7 +41,7 @@ def main():
             binaries[component, graph] = directory / target
     rust = []
     assembly = []
-    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", "1.95", "0")]:
+    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", MSRV, "0")]:
         binary = output / f"rust-{name}"
         asm = output / f"rust-{name}.s"
         execute(f"rust-{name}-build", ["rustup", "run", toolchain, "rustc", "--edition", "2024",
