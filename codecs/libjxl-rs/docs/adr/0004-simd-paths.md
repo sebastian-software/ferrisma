@@ -2550,3 +2550,34 @@ allocator-observable behavior, and uninitialized memory behind a safe
 accessor is not a change of form; the difference is kept (working
 decision 2026-11-16, delegated, revisable by the owner).
 <!-- end x86 profile 3 -->
+
+<!-- x86 profile 4 -->
+### Lossless decode: inlining as in the original
+
+**Finding.** In both profiles of the lossless decode (`cjxl -d 0 -e 7`
+input) the original spends almost all of its time in one function,
+`DecodeModularChannelMAANS`, because `context_predict.h`, `dec_ans.h` and
+`dec_bit_reader.h` mark the MA-tree lookup, the weighted predictor
+(`ErrorWeight`, `WeightedAverage`, `Predict`, `UpdateErrors`), `PredictOne`,
+`Predict`, `PredictTreeNoWPNEC`/`PredictTreeWPNEC`, `ClampedGradient`, the
+symbol readers and the bit reader's `Refill`/`Peek`/`Consume`/`ReadBits`
+`JXL_INLINE`. The port left them to the compiler, which kept most out of
+line on both targets, so every pixel paid calls and spills.
+
+**Change.** Those functions are `#[inline(always)]`; `BoundsCheckedRefill`
+is `#[inline(never)]` as the original's `JXL_NOINLINE`, and
+`ReadHybridUintClustered` stays an ordinary function as in the original.
+A modular neighbor read (`PixelPosition`) makes one bounds check instead
+of an overflow check plus a bounds check. The ACS entropy estimate's
+channel multipliers are computed once, as the original's
+`static const double kChannelMul[3]`. Same operations and order; no new
+`unsafe`.
+
+**Left as is (would need unchecked access).** The per-pixel neighbor reads
+in the MA-tree paths (up to eight per pixel through `PixelPosition`) and
+the weighted predictor's `pred_errors`/`error` rows (about sixteen indices
+per pixel) still carry one bounds check each. The original reads them
+through raw row pointers; removing the checks would need unchecked access
+or restructuring the predictor around per-row slices whose lengths the
+compiler can relate to the loop bound.
+<!-- end x86 profile 4 -->
