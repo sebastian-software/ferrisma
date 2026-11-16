@@ -12,6 +12,7 @@ import platform
 import re
 import subprocess
 import sys
+from rust_version import MSRV
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -45,7 +46,7 @@ def main():
             subprocess.run(list(map(str, command)), stdout=assembly, check=True)
     rust = []
     asm_checks = {}
-    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", "1.95", "0")]:
+    for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"), ("msrv", MSRV, "0")]:
         compiler = ["rustup", "run", toolchain, "rustc", "--edition", "2024", "-D", "warnings", "-C", f"opt-level={level}"]
         binary, assembly = output / f"rust-{name}", output / f"rust-{name}.s"
         execute(f"rust-{name}-build", [*compiler, f"--emit=link={binary},asm={assembly}", ROOT / "tools/brotli_raw_transform_probe.rs"])

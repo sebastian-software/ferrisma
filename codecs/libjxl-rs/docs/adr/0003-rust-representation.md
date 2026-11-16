@@ -2040,7 +2040,15 @@ sizes, so observers compare the order and identity of manager calls, not
 their sizes. The manager lives in a stable heap cell beside the object
 because these owners retain its address. Destroy and Reset release the queued
 inputs and then the frame settings, each vector from its last element, as the
-source's reverse member order and libc++'s vector destruction do.
+source's reverse member order and libc++'s vector destruction do. The output
+wrapper's internal buffers are a BTreeMap and drop in ascending key order.
+The source keeps them in a std::map, whose destruction order depends on the
+standard library: libc++ 21 (the hosted Linux oracle) destroys tree nodes
+post-order, libc++ 22 (the macOS SDK) in key order. As for the decoder input's
+payloads, the encoder history adapter therefore erases the remaining buffers
+in key order before JxlEncoderDestroy, so the compared free order is
+independent of the standard library; no member that ~JxlEncoder destroys
+before the wrapper holds a memory-manager allocation.
 
 Frame-settings functions take the settings pointer that FrameSettingsCreate
 returned and reach the encoder through its retained `enc` pointer, a copy of
