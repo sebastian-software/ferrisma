@@ -8,6 +8,11 @@ import re
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+# CTest cuts a JUnit system-out after its byte threshold and appends this note
+# (the last kept line ends in "..."). Where the cut falls depends on the
+# preceding bytes, including GoogleTest's elapsed times, so the skipped names
+# after it are not comparable; the complete LastTest.log is (case_outcomes).
+TRUNCATED = re.compile(r"\.\.\.\n\[This part of the test output was removed since it exceeds the threshold of \d+ bytes\.\]\n?$")
 
 
 def results(path):
@@ -28,8 +33,11 @@ def results(path):
             "status": case.attrib.get("status"),
             "skipped": case.find("skipped") is not None,
             "gtest_cases": [int(count) for count in counts],
-            # Compare skipped case names, not their nondeterministic elapsed time.
-            "gtest_skipped": re.findall(r"^\[  SKIPPED \] (.+?)(?: \([\d.]+ ms\))?$", output, re.M),
+            # Compare skipped case names, not their nondeterministic elapsed
+            # time. A truncated output names them only partly: None, and the
+            # comparison then requires the complete logs.
+            "gtest_skipped": (None if TRUNCATED.search(output) else
+                              re.findall(r"^\[  SKIPPED \] (.+?)(?: \([\d.]+ ms\))?$", output, re.M)),
         }
     return records
 
@@ -96,8 +104,20 @@ def main():
     if bool(args.baseline_log) != bool(args.port_log):
         parser.error("Provide both complete CTest logs to compare original case identities")
     baseline, port = results(args.baseline), results(args.port)
-    if baseline != port:
-        changed = [name for name in baseline.keys() | port.keys() if baseline.get(name) != port.get(name)]
+    truncated = sorted(name for name in baseline.keys() & port.keys()
+                       if baseline[name]["gtest_skipped"] is None or port[name]["gtest_skipped"] is None)
+    if truncated and not args.baseline_log:
+        raise SystemExit("Truncated JUnit output; compare the complete CTest logs: " + ", ".join(truncated))
+
+    def comparable(records):
+        # Skips of a truncated registration are compared from the complete
+        # logs below (case_outcomes), case by case and in order.
+        return {name: dict(record, gtest_skipped=None) if name in truncated else record
+                for name, record in records.items()}
+
+    if comparable(baseline) != comparable(port):
+        changed = [name for name in baseline.keys() | port.keys()
+                   if comparable(baseline).get(name) != comparable(port).get(name)]
         raise SystemExit("Test inventory, case counts, or skips differ: " + ", ".join(sorted(changed)))
     if any(case["skipped"] for case in port.values()):
         raise SystemExit("A CTest registration was skipped")

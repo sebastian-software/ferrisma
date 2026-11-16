@@ -97,6 +97,49 @@ class CompleteCaseOutcomes(unittest.TestCase):
             self.assertIn('dynamic skips differ', result.stderr)
             self.assertFalse((work / 'rejected.json').exists())
 
+    def cli(self, cut_c, cut_rust, rust_body=None, logs=True):
+        """Truncated JUnit outputs whose cuts differ by elapsed-time digits (run 43808140446)."""
+        marker = '...\n[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]\n'
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            for implementation, cut, body in [('c', cut_c, self.body), ('rust', cut_rust, rust_body or self.body)]:
+                (work / f'{implementation}.xml').write_text(
+                    '<testsuite><testcase name="original" status="run"><system-out>'
+                    '[==========] Running 2 tests from 1 test suite.\n[  SKIPPED ] ' + cut + marker
+                    + '</system-out></testcase></testsuite>')
+                (work / implementation).write_bytes(b'1/1 Testing: original\n'
+                    b'[==========] Running 2 tests from 1 test suite.\n' + body)
+            command = [sys.executable, ROOT / 'tools/compare_results.py', '--baseline', work / 'c.xml',
+                       '--port', work / 'rust.xml', '--report', work / 'report.json']
+            if logs:
+                command += ['--baseline-log', work / 'c', '--port-log', work / 'rust']
+            return subprocess.run(command, text=True, capture_output=True)
+
+    def test_differently_cut_skip_names_are_compared_from_the_complete_logs(self):
+        result = self.cli('Original.Sec', 'Original.Seco')
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_differently_cut_output_still_rejects_a_changed_skip(self):
+        changed = self.body.replace(b'[  SKIPPED ] Original.Second (0 ms)', b'[       OK ] Original.Second (8 ms)')
+        result = self.cli('Original.Sec', 'Original.Seco', rust_body=changed)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('dynamic skips differ', result.stderr)
+
+    def test_truncated_output_requires_the_complete_logs(self):
+        result = self.cli('Original.Sec', 'Original.Sec', logs=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Truncated JUnit output', result.stderr)
+
+    def test_untruncated_skip_names_are_still_compared(self):
+        records = []
+        for name in ['Original.Second', 'Original.Third']:
+            with tempfile.TemporaryDirectory() as directory:
+                xml = Path(directory) / 'r.xml'
+                xml.write_text('<testsuite><testcase name="original" status="run"><system-out>'
+                               f'[  SKIPPED ] {name}\n</system-out></testcase></testsuite>')
+                records.append(results(xml))
+        self.assertNotEqual(*records)
+
 
 if __name__ == '__main__':
     unittest.main()
