@@ -29,8 +29,32 @@ pub unsafe fn f(p: *mut core::ffi::c_int) -> core::ffi::c_int {
 }
 '''
 
+# The translated xgetbv() of aom_ports/x86.h and libwebp's cpu.c (ADR-0044).
+XGETBV_GENERATED = """use core::arch::asm;
+#[inline]
+unsafe extern "C-unwind" fn xgetbv() -> uint64_t {
+    let ecx: uint32_t = 0 as uint32_t;
+    let mut eax: uint32_t = 0;
+    let mut edx: uint32_t = 0;
+    asm!(
+        ".byte 0x0f, 0x01, 0xd0\\n", "\\n", lateout("ax") eax, lateout("dx") edx,
+        inlateout("cx") ecx => _, options(preserves_flags, att_syntax)
+    );
+    return (edx as uint64_t) << 32 as core::ffi::c_int | eax as uint64_t;
+}
+"""
+
 
 class StableTextTest(unittest.TestCase):
+    def test_xgetbv_becomes_the_intrinsic(self):
+        rel = 'crates/aom/src/linux/release/aom_scale/aom_scale_rtcd.rs'
+        committed = stable_text(rel, XGETBV_GENERATED)
+        self.assertNotIn('asm', committed.replace('_xgetbv', ''))
+        self.assertIn('#[target_feature(enable = "xsave")]', committed)
+        self.assertIn('core::arch::x86_64::_xgetbv(xcr)', committed)
+        self.assertIn('    return read_xcr(ecx);\n}\n', committed)
+        self.assertEqual(stable_text(rel, committed), committed)
+
     def test_generator_output_becomes_the_committed_form(self):
         self.assertEqual(stable_text('crates/dav1d/src/common/example.rs', GENERATED), COMMITTED)
 

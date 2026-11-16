@@ -85,7 +85,9 @@ for the x86 overlay and the Linux profiles (ADR 0058, amendment of 2026-11-14).
 - `x86_simd_caps()` is translated with the RTCD units. Only its CPUID lowering is
   replaced by `core::arch::x86_64::__cpuid_count` (correction
   `cpuid-register-mapping`, three sites per profile, `map_cpuid` in
-  `tools/transpile_aom.py`); XGETBV keeps its translated inline assembly.
+  `tools/transpile_aom.py`). XGETBV runs through `core::arch::x86_64::_xgetbv(0)`
+  since 2026-11-16 (`rewrite_xgetbv` in `tools/stable_rust.py`; engine
+  ADR-0044, port ADR 0023).
 
 Every dispatched `<name>_<extension>` must be bit-exact with `<name>_c` for the
 same arguments. `cargo test --release -p libavif-aom --test simd` runs

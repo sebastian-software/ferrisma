@@ -10,6 +10,7 @@ import shlex
 import subprocess
 
 from import_translation import translate
+from stable_rust import stable_text
 
 ROOT = Path(__file__).resolve().parents[1]
 CRATE = ROOT / "crates/sharpyuv"
@@ -129,6 +130,9 @@ def main():
         raw = (raw_root / "src" / source.with_suffix(".rs").name).read_text()
         text, changes = corrected(source, raw)
         target = CRATE / "src" / source.with_suffix(".rs").name
+        # The committed units carry the rewrites of tools/stable_rust.py
+        # (port ADR 0060; engine ADR-0044 for the XGETBV intrinsic).
+        text = stable_text(str(target.relative_to(ROOT)), text)
         if args.check:
             if target.read_text() != text:
                 raise SystemExit(f"Translation differs: {target}")
@@ -162,6 +166,8 @@ def main():
     raw = (cpu_raw_root / 'src/sharpyuv_cpu.rs').read_text()
     text, changes = corrected(source, raw, cpu_x86=True)
     target = CRATE / 'src/sharpyuv_cpu_x86_64.rs'
+    # XGETBV through core::arch::x86_64::_xgetbv (tools/stable_rust.py, ADR-0044).
+    text = stable_text(str(target.relative_to(ROOT)), text)
     if args.check:
         if target.read_text() != text:
             raise SystemExit('x86 CPU-query translation differs')

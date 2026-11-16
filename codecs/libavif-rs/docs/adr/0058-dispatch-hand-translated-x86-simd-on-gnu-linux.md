@@ -58,7 +58,8 @@ than written by hand as `aom_arm_cpu_caps()` is. C2Rust's CPUID lowering has the
 BX-register defect described in [ADR 0023](0023-preserve-the-x86-cpu-query-branch-with-simd-disabled.md);
 the same narrow correction replaces only that lowering with
 `core::arch::x86_64::__cpuid_count` for the same leaf and subleaf. The XGETBV
-instruction, the AVX and AVX-512 guards, and the `AOM_SIMD_CAPS` and
+instruction (read through `core::arch::x86_64::_xgetbv(0)` since 2026-11-16,
+engine ADR-0044; ADR 0023, amendment of that date), the AVX and AVX-512 guards, and the `AOM_SIMD_CAPS` and
 `AOM_SIMD_CAPS_MASK` overrides keep their translated form.
 
 ## Kernels

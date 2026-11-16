@@ -29,6 +29,18 @@ by the same rewrite each time:
 `c_variadic`, the third feature, is stable since Rust 1.99 and needs no
 rewrite (port ADR 0060).
 
+The same run also applies the rewrites of engine ADR-0044 (no assembly in the
+project), which every regeneration must reproduce as well:
+
+* `xgetbv`: libaom's `aom_ports/x86.h` and libwebp's `src/dsp/cpu.c` read XCR0
+  with the raw opcode bytes of XGETBV, which C2Rust lowers to an inline
+  assembly statement. The rewrite reads it through
+  `core::arch::x86_64::_xgetbv(0)` (the originals' own MSVC branch calls
+  `_xgetbv(0)`): the same instruction with the same ECX, returning EDX:EAX as
+  one value as the original function does, in a `#[target_feature(enable =
+  "xsave")]` wrapper. The callers are unchanged: the original calls the
+  function only inside its branch that tested CPUID.1:ECX bit 27 (OSXSAVE).
+
 Rewrites that cannot be expressed as one of these patterns are listed in
 `tools/stable_rust_edits.json` and applied after them, so a rerun reproduces
 them as well. The tool is idempotent: on its own output it changes nothing.
@@ -113,6 +125,50 @@ def rewrite_extern_types(text, counts):
     return '\n'.join(out)
 
 
+# The translated `xgetbv()` of libaom (`extern "C-unwind"`) and SharpYUV
+# (`extern "C"`), exactly as C2Rust emits it.
+XGETBV = re.compile(
+    r'(unsafe extern "C(?:-unwind)?" fn xgetbv\(\) -> uint64_t \{\n'
+    r'    let ecx: uint32_t = 0 as uint32_t;\n)'
+    r'    let mut eax: uint32_t = 0;\n'
+    r'    let mut edx: uint32_t = 0;\n'
+    r'    asm!\(\n'
+    r'        "\.byte 0x0f, 0x01, 0xd0\\n", "\\n", lateout\("ax"\) eax, lateout\("dx"\) edx,\n'
+    r'        inlateout\("cx"\) ecx => _, options\(preserves_flags, att_syntax\)\n'
+    r'    \);\n'
+    r'    return \(edx as uint64_t\) << 32 as core::ffi::c_int \| eax as uint64_t;\n'
+    r'\}\n')
+XGETBV_BODY = """    // XGETBV (0F 01 D0) through its intrinsic instead of the original's raw
+    // opcode bytes (engine ADR-0044): the same instruction with ECX = 0,
+    // returning EDX:EAX as one value as the original does.
+    #[target_feature(enable = "xsave")]
+    unsafe fn read_xcr(xcr: uint32_t) -> uint64_t {
+        core::arch::x86_64::_xgetbv(xcr)
+    }
+    // SAFETY: XGETBV needs CR4.OSXSAVE, which CPUID.1:ECX bit 27 (OSXSAVE)
+    // reports and the OS can set only on a CPU with XSAVE, the feature
+    // `read_xcr` enables. The original calls xgetbv() only inside its branch
+    // that requires CPUID.1:ECX bits 27 and 28; the callers keep that branch.
+    return read_xcr(ecx);
+}
+"""
+ASM_IMPORT = 'use core::arch::asm;\n'
+
+
+def rewrite_xgetbv(text, counts):
+    text, n = XGETBV.subn(lambda m: m.group(1) + XGETBV_BODY, text)
+    if n:
+        counts['xgetbv-intrinsic'] = counts.get('xgetbv-intrinsic', 0) + n
+    return text
+
+
+def drop_unused_asm_import(text, counts):
+    if text.count(ASM_IMPORT) == 1 and not re.search(r'\basm!', text):
+        text = text.replace(ASM_IMPORT, '')
+        counts['asm-import'] = counts.get('asm-import', 0) + 1
+    return text
+
+
 def apply_edits(rel, text, edits, counts):
     for edit in edits.get(rel, []):
         old, new = edit['old'], edit['new']
@@ -129,6 +185,8 @@ def apply_edits(rel, text, edits, counts):
 def rewrite(rel, text, edits, counts):
     text = rewrite_atomics(text, counts)
     text = rewrite_extern_types(text, counts)
+    text = rewrite_xgetbv(text, counts)
+    text = drop_unused_asm_import(text, counts)
     return apply_edits(rel, text, edits, counts)
 
 
@@ -162,6 +220,8 @@ def profile_of(rel):
             return 'root/macos/variants/' + parts[2]
         return 'root/macos'
     crate, rest = parts[1], parts[3:]
+    if crate == 'sharpyuv':
+        return 'sharpyuv'
     if crate == 'aom':
         if len(rest) == 1:  # crates/aom/src/macros-<platform>-<profile>.rs
             return 'aom/' + '/'.join(rest[0][:-3].split('-')[-2:])
