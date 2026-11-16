@@ -733,6 +733,78 @@ mod tests {
         assert!(frame.write_row_u16(0, &[1023; 40]).is_ok());
     }
 
+    /// The test pattern of `tests/fixtures/avif-deep/rows16.py`.
+    fn deep_pattern(width: u32, height: u32, depth: u8, alpha: bool) -> Vec<Vec<u16>> {
+        let m = (1_u32 << depth) - 1;
+        (0..height)
+            .map(|y| {
+                (0..width)
+                    .flat_map(|x| {
+                        let hash = x.wrapping_mul(2_654_435_761) ^ y.wrapping_mul(40_503);
+                        let noise = (hash >> 13) & 0x3F;
+                        let r = (x * m / (width - 1)) ^ noise;
+                        let g = y * m / (height - 1);
+                        let b = ((x + y) * 37) & m;
+                        let a = if !alpha {
+                            m
+                        } else if x == 0 {
+                            0
+                        } else {
+                            (x * 13 * (m / 255) + y * 5) % (m + 1)
+                        };
+                        [r, g, b, a].map(|v| u16::try_from(v).unwrap())
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// Deep rows give the C original's bytes (ADR-0041): every fixture in
+    /// `tests/fixtures/avif-deep/` was written by `encode_deep.c` linked to
+    /// the pinned C libavif 1.4.2 and the portable libaom reference, from
+    /// the same samples and settings (README.md there). Never refreshed from
+    /// this crate's output.
+    #[test]
+    fn deep_output_equals_the_c_original() {
+        const DIR: &str = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/avif-deep/"
+        );
+        let (width, height) = (67, 45);
+        for (name, depth, chroma, alpha, quality) in [
+            ("d10-444-q60", 10, Chroma::Yuv444, false, 60),
+            ("d10-420-alpha-q60", 10, Chroma::Yuv420, true, 60),
+            ("d10-444-q100", 10, Chroma::Yuv444, false, 100),
+            ("d12-444-alpha-q60", 12, Chroma::Yuv444, true, 60),
+            ("d12-420-q60", 12, Chroma::Yuv420, false, 60),
+        ] {
+            let mut frame = Frame::new(Config {
+                width,
+                height,
+                has_alpha: alpha,
+                quality,
+                alpha_quality: quality,
+                speed: 6,
+                threads: 1,
+                chroma,
+                depth,
+                sample_depth: depth,
+            })
+            .unwrap();
+            for (y, row) in deep_pattern(width, height, depth, alpha).iter().enumerate() {
+                frame.write_row_u16(u32::try_from(y).unwrap(), row).unwrap();
+            }
+            let bytes = frame.finish().unwrap();
+            let expected = std::fs::read(format!("{DIR}{name}.avif")).unwrap();
+            assert!(
+                bytes == expected,
+                "{name}: {} bytes, the C original wrote {}",
+                bytes.len(),
+                expected.len()
+            );
+        }
+    }
+
     #[test]
     fn bands_cover_the_rows_once_and_start_on_even_rows() {
         for height in [1, 2, 3, 63, 64, 127, 128, 129, 1067, 4000] {
