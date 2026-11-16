@@ -477,7 +477,8 @@ impl RowEncoder for Rows {
 /// AVIF depth was not part of the request and was refused when nondefault
 /// (audit row Q2; this test was
 /// `external_backends_refuse_settings_the_request_does_not_carry`); since
-/// the owner decision of that day it is `EncodeRequest::avif.depth`, beside
+/// the owner decision of that day it is the AVIF settings' depth (in
+/// `EncodeRequest::output` since 2026-11-16), beside
 /// the quality, alpha quality, speed and chroma layout. Since the depth
 /// decision of the same day (ADR-0021 amendment) the resolved depth is
 /// `EncodeRequest::depth` and the rows arrive at it: an explicit 10 from an

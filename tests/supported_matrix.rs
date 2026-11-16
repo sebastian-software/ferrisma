@@ -1,6 +1,6 @@
 //! Evidence for `docs/supported-matrix.md` (issue #67): every case below is
 //! one claim of the matrix, checked through the public processing API
-//! (`transcode`, `transcode_resized`, `inspect`) with a real file from the
+//! (`transcode` with exact and resize geometry, `inspect`) with a real file from the
 //! repository. A supported case decodes and encodes completely; a rejected
 //! case asserts the public kind, the message's reason *and* the typed
 //! `refusal_reason()` (issue #212; `None` for malformed data, limits and
