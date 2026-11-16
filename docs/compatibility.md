@@ -17,7 +17,7 @@ else, including every private module, is outside the contract.
 | Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run`, `cli::main` |
 | Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, threads, and the four resource limits; `WebpOptions` (libwebp quality and method, lossless level); `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifOptions` (`TransformOptions::avif`), `JpegXlOptions` |
 | Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
-| Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-write` (experimental until it builds on stable Rust; stable as the rav1e capability until 2026-11-15) |
+| Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-write` (experimental since the switch to the workspace port; it builds on stable Rust 1.99 since 2026-11-15, and the tier is not decided; stable as the rav1e capability until 2026-11-15) |
 | CLI | Positional arguments, color policy, `--webp-quality=`, `--webp-method=`, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=`, `--avif-chroma=`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=`, `--jxl-lossless` and `--jxl-depth=` |
 
 `jpeg-xl-read` promises the *capability* (JPEG XL input), not a particular
@@ -36,12 +36,13 @@ select rav1e, and the workspace writer was `avif-own-write`, which is gone;
 `AvifEncoder`, `TransformOptions::avif_encoder` and `--avif-encoder=` are
 removed, and the depth was `TransformOptions::avif_depth` (`--avif-depth=`)
 until the native options below.
-The known cost: AVIF output now needs the pinned nightly on macOS ARM64 or
-GNU Linux x86-64, as AVIF input already did; a stable-toolchain build can
-neither read nor write AVIF until the workspace AVIF port builds on stable
-Rust. _Working decision 2026-11-15 (delegated, revisable by the owner):_
-`avif-write` therefore moves to the experimental tier until then. See the
-[supported matrix](supported-matrix.md).
+AVIF input and output build only on native macOS ARM64 and GNU Linux
+x86-64. When the switch was made, they also needed the pinned nightly; since
+the same day they build on stable Rust 1.99 (libavif-rs ADR 0060, the
+toolchain table below). _Working decision 2026-11-15 (delegated, revisable
+by the owner):_ `avif-write` moved to the experimental tier with the switch;
+its tier, and that of `avif-read`, are not decided now that the nightly
+reason is gone. See the [supported matrix](supported-matrix.md).
 
 Also since 2026-11-15 encoder settings are native per format (owner
 decision; [ADR-0043](adr/0043-formats-behave-alike.md) D4, pre-1.0 breaking

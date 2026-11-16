@@ -54,8 +54,13 @@ pub enum Discarded {
     /// 2026-11-15). Color at low alpha loses precision, and the two steps
     /// round differently (`docs/supported-matrix.md`, format parity).
     Unpremultiplied,
-    /// The input has more bits per sample than reach the encoder (8-bit
-    /// rows): 10- or 12-bit AVIF, JPEG XL above 8 bits, color or alpha.
+    /// The output has fewer bits per sample than the input
+    /// ([`ProcessingReport::output_depth`] below `input_depth`): an explicit
+    /// lower depth, an output that admits less (WebP 8, AVIF 12), or an
+    /// external backend whose row depths stop below the input's. Until
+    /// 2026-11-15 every output was 8-bit, so every deeper input reported it.
+    ///
+    /// [`ProcessingReport::output_depth`]: crate::pipeline::ProcessingReport::output_depth
     PrecisionReduced,
 }
 

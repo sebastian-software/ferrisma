@@ -1,6 +1,6 @@
-//! First practical M1 facade. Codec implementations are opt-in and remain
-//! private. Output is SDR AVIF, WebP or lossless JPEG XL; unsupported color
-//! fails closed.
+//! The processing facade. Codec implementations are opt-in and remain
+//! private. Output is SDR AVIF, WebP or JPEG XL (lossy or lossless);
+//! unsupported color fails closed.
 
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -127,8 +127,8 @@ impl JpegXlOptions {
 }
 
 impl Default for JpegXlOptions {
-    /// Lossy at distance 1.0, libjxl's own default (ADR-0039; pending owner
-    /// confirmation).
+    /// Lossy at distance 1.0, libjxl's own default, with patches off
+    /// (ADR-0039; owner decision 2026-11-15).
     fn default() -> Self {
         Self::Lossy {
             distance: 1.0,
@@ -346,8 +346,11 @@ pub struct TransformOptions {
     pub max_input_bytes: usize,
     /// Maximum decoded input pixels; AVIF preflights coded frame dimensions.
     pub max_input_pixels: u64,
-    /// Maximum retained encoded output bytes. WebP checks while writing;
-    /// AVIF and external backends are checked after their encoder returns.
+    /// Maximum retained encoded output bytes. Today the WebP and lossy
+    /// JPEG XL writers stop while writing, and AVIF, lossless JPEG XL and
+    /// external backends are checked after their encoder returns. When the
+    /// limit is checked describes this release, not a promise: a later
+    /// release may stop an encoder earlier.
     pub max_output_bytes: usize,
 }
 
@@ -404,7 +407,10 @@ pub struct StageTimings {
     pub transform: Duration,
     /// Encoding the materialized output frame.
     pub encode: Duration,
-    /// From entry to return; at least the sum of the other stages.
+    /// From entry to return. Today the stages run one after another inside
+    /// it, so it is at least the sum of the other stages; that is an
+    /// observation of this release, not a promise (a later release may
+    /// overlap decoding and encoding).
     pub total: Duration,
 }
 
@@ -418,9 +424,11 @@ pub struct DecoderWork {
     /// The upright source crop that feeds the resize, in display
     /// coordinates; the whole image when no crop was requested.
     pub crop: Crop,
-    /// The upright rectangle the executor requested from the source. Filters
-    /// clamp at the crop's edges, so it equals `crop`: there is no filter
-    /// halo beyond the crop and a difference would be a planning defect.
+    /// The upright rectangle the executor requested from the source. Today
+    /// the filters clamp at the crop's
+    /// edges and the executor sends one request, so it equals `crop`: there
+    /// is no filter halo beyond the crop. That describes this release, not
+    /// a promise; a later executor may request the crop in parts.
     pub requested: Crop,
     /// The rectangle whose samples the codec adapter delivers, in the codec's
     /// own frame: stored order when the engine reorients (JPEG, WebP, AVIF;
@@ -1023,10 +1031,13 @@ fn inspect_headers(
     })
 }
 
-/// Convert one real input to SDR AVIF. Quality and profile constraints are
-/// enforced before executing a pixel transform, and only *one* decoder region
-/// is requested for the output. The encoder's known input frames are
-/// reserved in the managed budget and reported.
+/// Convert one input to the output format of `options` (AVIF, WebP or
+/// JPEG XL) at the exact size `output_width` by `output_height`. Quality and
+/// profile constraints are enforced before executing a pixel transform. The
+/// encoder's known input frames are reserved in the managed budget and
+/// reported. Today the executor requests one decoder region for the output
+/// ([`ProcessingReport::decoder_requests`] reports how many it sent); that
+/// describes this release, not a promise.
 ///
 /// # Errors
 /// Returns an error for unsupported codec features, ambiguous profiles,

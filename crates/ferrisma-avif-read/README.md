@@ -10,9 +10,10 @@ its own.
   functions only.
 - Caller-owned RGB output buffers are bounded. Codec-owned scratch memory
   stays opaque and is not bounded by Ferrisma's memory budget.
-- It needs the nightly toolchain pinned in the repository's
-  `rust-toolchain.toml` and builds only for macOS ARM64 and GNU Linux
-  x86-64, the targets the generated libavif code supports
+- It builds on stable Rust 1.99 or later (see `rust-version`; the pinned
+  nightly was required until 2026-11-15, libavif-rs ADR 0060), and only for
+  macOS ARM64 and GNU Linux x86-64, the targets the generated libavif code
+  supports
   ([ADR-0026](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0026-codecs-in-one-repository-and-workspace.md)).
 - A dependent's build profile must keep `panic = "unwind"` (Cargo's default;
   `panic = "abort"` is a compile error). Turning overflow checks off for the

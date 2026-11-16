@@ -1,8 +1,11 @@
 //! Ferrisma — an experimental, pipeline-first image processing engine.
 //!
-//! Ferrisma exposes an experimental pipeline and optional codec adapters for
-//! validating color, region planning, and bounded engine-managed memory.
-//! There is intentionally no stable public processing API.
+//! Ferrisma's processing API is [`pipeline`]: `transcode`,
+//! `transcode_resized`, `inspect` and `Engine::transcode_batch`, with the
+//! codec adapters behind Cargo features. No release is stable yet: before
+//! 1.0 every 0.x minor release may break it, and the tiers proposed for 1.0
+//! (stable or experimental per item) are in ADR-0040 and
+//! `docs/compatibility.md`, pending the maintainer's acceptance.
 //!
 //! See `docs/architecture.md` and `docs/adr/` in the repository.
 
