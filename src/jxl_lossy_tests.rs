@@ -13,7 +13,7 @@
 
 use crate::error::Error;
 use crate::geometry::Size;
-use crate::jxl_sink::{JxlSink, estimated_lossy_codec_bytes};
+use crate::jxl_sink::{JxlSink, LOSSY_PEAK, lossy_codec_reservation_bytes};
 use crate::memory::MemoryBudget;
 use crate::pipeline::{
     ImageFormat, JpegXlOptions, OutputFormat, ProcessingErrorKind, TransformOptions, transcode,
@@ -219,19 +219,33 @@ fn text_like_content_encodes_with_patches_off() {
     }
 }
 
+/// The lossy sink reserves the measured peak (ADR-0004, ADR-0042 D3).
+///
+/// **Contract change, not a refreshed pin.** Until 2026-11-16 the sink
+/// reserved the bridge's source-derived estimate (`estimated_codec_bytes`:
+/// the input copy, seven f32 planes padded to 8x8 and one group of i32
+/// coefficients, 798,336 bytes here opaque and 803,328 with alpha),
+/// which covered less than a tenth of the measured peak of a 4 MP frame. Since
+/// then it reserves the measured model `LOSSY_PEAK` minus the frame
+/// (`docs/benchmarks/v1.0-jxl-encoder-memory-2026-11-16.md`).
 #[test]
-fn input_frame_and_codec_estimate_are_reserved() {
+fn input_frame_and_measured_lossy_peaks_are_reserved() {
     let (width, height) = (24, 16);
-    let frame = width * height * 4;
-    let codec = estimated_lossy_codec_bytes(width, height, false, 8).unwrap();
-    // Regression pin of the bridge's estimate (input copy, seven f32 planes
-    // padded to 8x8, one group of i32 coefficients); it is an estimate from
-    // the port's source, not a measurement.
-    assert_eq!(codec, width * height * 3 + 24 * 16 * 28 + 3 * 256 * 256 * 4);
-    // With alpha: the alpha byte of the input copy, and an f32 plane plus
-    // two i32 Modular copies of the frame.
-    let alpha = estimated_lossy_codec_bytes(width, height, true, 8).unwrap();
-    assert_eq!(alpha, codec + width * height + width * height * 12);
+    let pixels = width * height;
+    let frame = pixels * 4;
+    let [[opaque_model, alpha_model], _] = LOSSY_PEAK;
+    let codec = lossy_codec_reservation_bytes(width, height, false, 8).unwrap();
+    // One-shot (at most 8 groups): the per-pixel term and the constant,
+    // minus the engine's frame, which the measured process held.
+    assert_eq!(
+        codec,
+        pixels * opaque_model.one_shot + opaque_model.constant - frame
+    );
+    let alpha = lossy_codec_reservation_bytes(width, height, true, 8).unwrap();
+    assert_eq!(
+        alpha,
+        pixels * alpha_model.one_shot + alpha_model.constant - frame
+    );
     // Transparent rows reserve the alpha estimate, at its exact boundary.
     let data = translucent(width, height);
     let short = MemoryBudget::new(frame + alpha - 1);

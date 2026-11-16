@@ -487,34 +487,39 @@ Lossless JPEG XL output is chunked like the original's default since
 is 1 GiB since a later owner decision of 2026-11-15, ADR-0004 amendment): above 8 groups the encoder works one 2048x2048 DC
 group at a time, and the file equals `cjxl -d 0 -e 2 -x
 color_space=RGB_D65_SRG_Rel_SRG` (`jxl_output_tests::lossless_output_equals_the_original_cjxl_bytes`).
-The sink reserves the measured peak of that path
-([record](benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md)):
-24 MP opaque output now needs about 643 MB of budget instead of about
-1,824 MB, but images of a few megapixels still cost about one DC group's
-working set, so under the former 256 MiB budget the largest lossless output
-only moved from about 3.5 MP to 3.66 MP; under the default 1 GiB it is about
-49.3 MP. Larger requests fail with `BudgetExceeded` (`ResourceExhausted`,
-"managed buffer needs …") before encoding
+The sink reserves the measured peak of that path, and the lossy sink the
+measured peak of its encode, since 2026-11-16 as one model per mode, alpha
+and depth fitted 10 % above every peak on record, photographs and noise
+([record](benchmarks/v1.0-jxl-encoder-memory-2026-11-16.md); before, the
+lossless model of [2026-11-15](benchmarks/v1.0-jxl-lossless-chunked-memory-2026-11-15.md)
+was up to about 10 % below measured 12.2 MP peaks, and lossy reserved a
+source-derived estimate at a tenth of its peak). Under the default 1 GiB
+the largest opaque 8-bit lossless output is about 49.1 MP. Larger requests
+fail with `BudgetExceeded` (`ResourceExhausted`, "managed buffer needs …")
+before encoding
 (`supported_matrix::default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`:
 a 7100×7000 request; at 256 MiB it was `…_above_about_3_7_megapixels`, 1920×1920).
 
 What the JPEG XL encoder's reservation admits under the default 1 GiB
-`--budget-mb` (256 MiB until 2026-11-15, in parentheses) (encoder side: the engine's RGBA8 frame plus the codec
-reservation; the decoder and resampling buffers of the input come on top):
+`--budget-mb` (encoder side: the engine's frame plus the codec reservation;
+the decoder and resampling buffers of the input come on top; "was" gives
+the limit before the measured model of 2026-11-16, under the same 1 GiB):
 
 | Output | Largest output | Source of the reservation |
 | --- | ---: | --- |
-| JPEG XL lossless, opaque | 49,344,752 px (≈ 7024×7024; was 3,655,036) | measured peak, 70 B/px + 12 MiB below one DC group, 17 B/px + one DC group's 53 B/px + 12 MiB above |
-| JPEG XL lossless, with alpha | 38,377,881 px (≈ 6194×6194; was 2,842,806) | measured peak, 90 B/px + 12 MiB below one DC group, 20 B/px + 70 B/px of one DC group + 12 MiB above |
-| JPEG XL lossy, opaque (streaming) | about 144 MP (was 35.7 MP) | `estimated_codec_bytes`, derived, not measured (#223) |
-| JPEG XL lossy, with alpha (streaming) | about 126.8 MP (was 31.4 MP) | the same estimate |
-| JPEG XL lossless above 8 bits, opaque (`u16` frame, 8 B/px) | 28,272,715 px (≈ 5317×5317) | measured peak with 16-bit photographs, 25 B/px + 71 B/px of one DC group + 12 MiB ([record](benchmarks/v1.0-jxl-deep-memory-2026-11-15.md)) |
-| JPEG XL lossless above 8 bits, with alpha | 20,185,088 px (≈ 4492×4492) | measured, 32 B/px + 99 B/px of one DC group + 12 MiB |
-| JPEG XL lossy above 8 bits, opaque / with alpha | about 74 / 65 MP | the same derived estimate with the `u16` input copy |
-| AVIF above 8 bits | the RGBA frame at 8 B/px plus YUV(A) planes at 2 B/sample (the writer's `required_frame_bytes`); AOM's own memory is opaque | source-derived, not measured |
+| JPEG XL lossless, opaque | 49,133,275 px (≈ 7009×7009; was 49,344,752) | measured peak + 10 %: 87 B/px + 12 MiB one-shot; 14 B/px + 51 B/px of the first DC group + 38 B/px of the second + 12 MiB streaming |
+| JPEG XL lossless, with alpha | 30,670,848 px (≈ 5538×5538; was 38,377,881) | measured peak + 10 %: 119 B/px + 12 MiB one-shot; 16 B/px + 69 B/px of the first DC group + 67 B/px of the second + 12 MiB streaming |
+| JPEG XL lossless, opaque above 8 bits (`u16` frame) | 24,292,010 px (≈ 4928×4928; was 28,272,715) | measured peak + 10 %: 111 B/px + 12 MiB one-shot; 24 B/px + 58 B/px of the first DC group + 56 B/px of the second + 12 MiB streaming |
+| JPEG XL lossless, with alpha above 8 bits (`u16` frame) | 13,939,892 px (≈ 3733×3733; was 20,185,088) | measured peak + 10 %: 135 B/px + 12 MiB one-shot; 34 B/px + 71 B/px of the first DC group + 69 B/px of the second + 12 MiB streaming |
+| JPEG XL lossy, opaque | 40,544,938 px (≈ 6367×6367; was about 144 MP (estimate)) | measured peak + 10 %: 100 B/px + 20 MiB one-shot; 9 B/px + 102 B/px of the first DC group + 62 B/px of the second + 20 MiB streaming |
+| JPEG XL lossy, with alpha | 25,547,124 px (≈ 5054×5054; was about 126.8 MP (estimate)) | measured peak + 10 %: 143 B/px + 20 MiB one-shot; 11 B/px + 114 B/px of the first DC group + 70 B/px of the second + 20 MiB streaming |
+| JPEG XL lossy, opaque above 8 bits (`u16` frame) | 22,282,240 px (≈ 4720×4720; was about 74 MP (estimate)) | measured peak + 10 %: 103 B/px + 20 MiB one-shot; 16 B/px + 103 B/px of the first DC group + 63 B/px of the second + 20 MiB streaming |
+| JPEG XL lossy, with alpha above 8 bits (`u16` frame) | 11,240,734 px (≈ 3352×3352; was about 65 MP (estimate)) | measured peak + 10 %: 143 B/px + 20 MiB one-shot; 25 B/px + 114 B/px of the first DC group + 70 B/px of the second + 20 MiB streaming |
+| AVIF above 8 bits | the RGBA frame at 8 B/px plus YUV(A) planes at 2 B/sample (the writer's `required_frame_bytes`); AOM's own memory is opaque | source-derived; measured on 2026-11-16 at 2.4 to 9 times the reservation ([record](benchmarks/v1.0-jxl-encoder-memory-2026-11-16.md#avif-and-webp-writers-indicative)), not changed |
 
-The lossy estimate is still open (#223). JPEG output does not exist and is
-not planned.
+The JPEG XL limits are measured on one host (macOS AArch64) and extrapolate
+the per-frame slope above 24 MP. JPEG output does not exist and is not
+planned.
 
 ## Limits and memory
 
@@ -522,7 +527,7 @@ not planned.
 | --- | --- | --- | --- |
 | `max_input_bytes` / `--max-input-mb` (MiB) | 64 MiB | before any codec starts (`InputLimitExceeded`, "compressed image exceeds max_input_bytes"); zero is `InvalidOptions`; CLI stream read is capped | `supported_matrix::input_byte_limit_accepts_the_exact_size_and_rejects_one_byte_less`, `zero_input_limits_are_invalid_options`; `pipeline_tests::compressed_bytes_and_decoded_pixel_caps_reject_before_processing`; `cli::tests::accepts_input_at_the_limit_and_rejects_one_byte_more` |
 | `max_input_pixels` / `--max-input-mpx` (10^6 px) | 100,000,000 | from headers before pixel allocation (`InputLimitExceeded`): WebP, AVIF and libjxl-rs in the adapter ("input has N pixels, exceeding …"; AVIF also checks the coded sequence size), JPEG by the facade after the header ("image has N pixels; configured limit is M") | `supported_matrix::jpeg_pixel_limit_is_checked_after_the_header`, `webp_canvas_above_the_pixel_limit_is_rejected_from_the_header`, `jpeg_xl_pixel_limit_is_checked_before_decoding`, `avif_pixel_limit_checks_the_rendered_and_the_coded_size`; `ferrisma_avif_read::coded_pixel_limit_reports_exact_sequence_geometry`; `ferrisma_jxl_decoder::checks_pixel_limit_before_output` |
-| `max_managed_bytes` / `--budget-mb` | 1 GiB (256 MiB until 2026-11-15; owner decision, ADR-0004 amendment) | engine buffers, known encoder frames, the measured lossless JPEG XL peak of its one-shot or chunked path (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`; `jxl_output_tests::input_frame_and_measured_lossless_peaks_are_reserved`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
+| `max_managed_bytes` / `--budget-mb` | 1 GiB (256 MiB until 2026-11-15; owner decision, ADR-0004 amendment) | engine buffers, known encoder frames, the measured JPEG XL peak of its one-shot or streaming path, lossless and lossy (since 2026-11-16; lossless only before) (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`; `jxl_output_tests::input_frame_and_measured_lossless_peaks_are_reserved`, `model_covers_every_measured_peak_with_margin`; `jxl_lossy_tests::input_frame_and_measured_lossy_peaks_are_reserved`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
 | `max_output_bytes` / `--max-output-mb` | 256 MiB | `ResourceExhausted` in every case. WebP and lossy JPEG XL while writing ("managed buffer needs …"); AVIF and lossless JPEG XL after the encoder returns ("encoded output exceeds max_output_bytes"); zero is `InvalidOptions` | `supported_matrix::output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`, `output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders`; `webp_output_tests::exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless`; `jxl_output_tests::encoded_output_limit_applies_at_the_exact_byte`, `jxl_lossy_tests::the_output_limit_applies_at_the_exact_byte`; `ferrisma-libavif` `output_limit_is_enforced_after_backend_finish` |
 | threads | `transform_threads` 0 (all cores), `encoder_threads` 1; at most 256; WebP and JPEG XL output need `encoder_threads` 1; `Engine::transcode_batch` runs each image with 1 and 1 (reported) and refuses counts above 256 as `transcode` does (since 2026-11-15) | before decoding (`InvalidOptions`) | `supported_matrix::thread_counts_above_256_and_parallel_webp_encoding_are_invalid`; `silent_drops::batch_refuses_thread_counts_that_transcode_rejects`; `pipeline_tests::encoder_threads_trade_determinism_for_latency_explicitly` |
 | `output_width`/`output_height` with `transcode_resized` | 1 | a value other than the default is refused before decoding (`InvalidOptions`, "output_width and output_height are not used with ResizeOptions…"; ignored until 2026-11-15) | `thumbnail_facade::resize_entry_points_refuse_an_exact_output_size` |

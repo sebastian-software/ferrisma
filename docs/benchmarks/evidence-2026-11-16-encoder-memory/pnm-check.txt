@@ -1,0 +1,5 @@
+# encode_pnm (2026-11-15 deep-memory tool, holds the file and a converted copy) against jxl_memory_probe (holds the sink's one frame), w8-4032x3024a, lossless, alternating fresh processes; max RSS bytes; both files 830a3221733586d4
+encode_pnm 1 594984960
+jxl_memory_probe 1 546291712
+encode_pnm 2 597409792
+jxl_memory_probe 2 518438912
