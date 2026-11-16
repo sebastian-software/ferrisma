@@ -111,7 +111,8 @@ command line, not these functions, is the stable CLI contract.
 | `--help`, `-h`: usage on stdout, exit 0 (since 2026-11-16) | Tier not decided |
 | `--version`, `-V`: four lines on stdout (version, target, features, build), exit 0, precedence over every other argument | Tier not decided |
 | Each flag at most once; mutually exclusive pairs refused with both names (owner decision 2026-11-15) | Stable |
-| `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, and `decoder` (appended 2026-11-14, #217) |
+| `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, `decoder` (appended 2026-11-14, #217), `color_signal` and `discarded`; the names taken from enums are the CLI's own lower-case hyphenated values since 2026-11-16 (tier of the values not decided) |
+| `decoder_work:` line on stdout (rectangles `WxH+X+Y`, counts with `>=` for a lower bound) | Tier not decided |
 | Human-readable `Encoded …`, `Timings: …` lines and the stderr memory note | Not stable |
 
 ## Decision
@@ -580,3 +581,29 @@ reports that a stable item cannot express its use case.
      not decided. Evidence: `tests/cli_exit_status.rs` through the built
      binary, `cli::tests::exit_status_separates_usage_from_processing_errors`
      (including `Internal` from a caught panic).
+  3. **Report value names** (review section 2.8). Every value of the
+     `report:` and `decoder_work:` lines that comes from an enum is written
+     by a name function of `src/cli.rs`, lower-case and hyphenated, instead
+     of `Debug` (`precision`, `color_signal`, `discarded`) or the kernels
+     crate's `Display` (`kernel_level`), so renaming a Rust variant or a
+     kernels release cannot change the command's output. Changed values:
+     `precision=F32` → `f32`, `F64Reference` → `f64-reference`;
+     `color_signal=Cicp` → `cicp`, `AssumedSrgb` → `assumed-srgb`,
+     `RenderedIcc` → `rendered-icc`, `RenderedIccWithAgreeingCicp` →
+     `rendered-icc-with-agreeing-cicp`; `discarded=` classes `GainMap` →
+     `gain-map`, `Exif` → `exif`, `Xmp` → `xmp`, `OtherMetadata` →
+     `other-metadata`, `IccProfile` → `icc-profile`,
+     `UnknownContainerData` → `unknown-container-data`,
+     `JpegReconstructionData` → `jpeg-reconstruction-data`, `Preview` →
+     `preview`, `HiddenColor` → `hidden-color`, `Unpremultiplied` →
+     `unpremultiplied`, `PrecisionReduced` → `precision-reduced` (`none`
+     unchanged). Unchanged: the keys and their order, `kernel_level=`
+     (`scalar`, `neon`, `sve2`, `avx2`, `avx512`, now owned by the CLI), the
+     `decoder_work:` counts (`7`, `>=7`), and the `encoder=`/`decoder=`
+     backend strings, which stay the report's strings
+     (`libavif-rs/aom`, `libwebp-rs`, `libjxl-rs`, `libjpeg-turbo-rs`, or an
+     external backend's `name()`): whether they name the original codec or
+     the package is the owner's decision before the rename (review 2.7).
+     Evidence: `cli::tests::report_value_names_are_owned_by_the_cli`,
+     `cli::tests::report_line_names_the_decoder_and_encoder_backends`,
+     `discarded_report::the_cli_report_line_names_the_discarded_classes`.

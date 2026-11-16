@@ -547,8 +547,8 @@ pub fn run(
         rect(work.codec_request),
         rect(work.codec_output),
         work.overfetch_pixels,
-        work.reconstructed_pixels,
-        work.entropy_rows,
+        work_count_value(work.reconstructed_pixels),
+        work_count_value(work.entropy_rows),
         work.delivered_rows,
         work.wrapper_copied_bytes,
     );
@@ -565,15 +565,19 @@ pub fn run(
 /// signal and `discarded` (the classes of ADR-0042 D2, comma-separated in
 /// report order, or `none`); new keys are added before `discarded`, which
 /// stays last (ADR-0040, ADR-0042). `input_depth` and `depth` (since
-/// 2026-11-15) are the bits per sample read and written.
+/// 2026-11-15) are the bits per sample read and written. Every value taken
+/// from an enum comes from a name function of this module (since
+/// 2026-11-16; `Debug` and the kernels crate's `Display` before), so
+/// renaming a Rust variant cannot change the line. The backend names are
+/// the report's strings, unchanged.
 fn report_line(output: &Output) -> String {
     let report = &output.report;
     let timings = report.timings;
     format!(
         "report: open_us={} decode_us={} transform_us={} encode_us={} total_us={} \
          output_bytes={} peak_managed_bytes={} encoder_frame_bytes={} orientation_buffer_bytes={} \
-         decoder_requests={} decoder_full_frames={} precision={:?} encoder_threads={} kernel_level={} transform_threads={} \
-         encoder={} decoder={} color_signal={:?} input_depth={} depth={} discarded={}",
+         decoder_requests={} decoder_full_frames={} precision={} encoder_threads={} kernel_level={} transform_threads={} \
+         encoder={} decoder={} color_signal={} input_depth={} depth={} discarded={}",
         timings.open.as_micros(),
         timings.decode.as_micros(),
         timings.transform.as_micros(),
@@ -585,13 +589,13 @@ fn report_line(output: &Output) -> String {
         report.orientation_buffer_bytes,
         report.decoder_requests,
         report.decoder_full_frame_buffers,
-        report.working_precision,
+        precision_name(report.working_precision),
         report.encoder_threads,
-        report.kernel_level,
+        kernel_level_name(report.kernel_level),
         report.transform_threads,
         report.encoder_backend,
         report.decoder_backend,
-        report.color_signal,
+        color_signal_name(report.color_signal),
         report.input_depth,
         report.output_depth,
         discarded_value(report.discarded),
@@ -605,9 +609,69 @@ fn discarded_value(discarded: crate::pipeline::DiscardedSet) -> String {
     }
     discarded
         .iter()
-        .map(|class| format!("{class:?}"))
+        .map(discarded_name)
         .collect::<Vec<_>>()
         .join(",")
+}
+
+/// The `precision=` value.
+fn precision_name(precision: WorkingPrecision) -> &'static str {
+    match precision {
+        WorkingPrecision::F32 => "f32",
+        WorkingPrecision::F64Reference => "f64-reference",
+    }
+}
+
+/// The `kernel_level=` value; the same names as `--kernel-level=`.
+fn kernel_level_name(level: KernelLevel) -> &'static str {
+    match level {
+        KernelLevel::Scalar => "scalar",
+        KernelLevel::Neon => "neon",
+        KernelLevel::Sve2 => "sve2",
+        KernelLevel::Avx2 => "avx2",
+        KernelLevel::Avx512 => "avx512",
+        // A level a newer `ferrisma-kernels` adds without a name here.
+        #[allow(unreachable_patterns)]
+        _ => "unknown",
+    }
+}
+
+/// The `color_signal=` value.
+fn color_signal_name(signal: crate::pipeline::ColorSignal) -> &'static str {
+    use crate::pipeline::ColorSignal;
+    match signal {
+        ColorSignal::Cicp => "cicp",
+        ColorSignal::AssumedSrgb => "assumed-srgb",
+        ColorSignal::RenderedIcc => "rendered-icc",
+        ColorSignal::RenderedIccWithAgreeingCicp => "rendered-icc-with-agreeing-cicp",
+    }
+}
+
+/// One class of the `discarded=` value.
+fn discarded_name(class: crate::pipeline::Discarded) -> &'static str {
+    use crate::pipeline::Discarded;
+    match class {
+        Discarded::GainMap => "gain-map",
+        Discarded::Exif => "exif",
+        Discarded::Xmp => "xmp",
+        Discarded::OtherMetadata => "other-metadata",
+        Discarded::IccProfile => "icc-profile",
+        Discarded::UnknownContainerData => "unknown-container-data",
+        Discarded::JpegReconstructionData => "jpeg-reconstruction-data",
+        Discarded::Preview => "preview",
+        Discarded::HiddenColor => "hidden-color",
+        Discarded::Unpremultiplied => "unpremultiplied",
+        Discarded::PrecisionReduced => "precision-reduced",
+    }
+}
+
+/// A `decoder_work:` count: the number, or `>=` and the lower bound.
+fn work_count_value(count: crate::pipeline::WorkCount) -> String {
+    use crate::pipeline::WorkCount;
+    match count {
+        WorkCount::Exact(count) => count.to_string(),
+        WorkCount::AtLeast(count) => format!(">={count}"),
+    }
 }
 
 #[cfg(test)]
@@ -908,9 +972,10 @@ mod tests {
         .unwrap();
         let line = super::report_line(&output);
         assert!(line.starts_with("report: open_us="), "{line}");
+        assert!(line.contains(" precision=f32 "), "{line}");
         assert!(
             line.ends_with(
-                " encoder=libwebp-rs decoder=libjpeg-turbo-rs color_signal=AssumedSrgb \
+                " encoder=libwebp-rs decoder=libjpeg-turbo-rs color_signal=assumed-srgb \
                  input_depth=8 depth=8 discarded=none"
             ),
             "{line}"
@@ -985,6 +1050,62 @@ mod tests {
         );
         let io: Box<dyn std::error::Error> = "cannot read missing.jpg".into();
         assert_eq!(exit_status(&*io), 1);
+    }
+
+    /// The enum values of the `report:` and `decoder_work:` lines are the
+    /// CLI's own names (since 2026-11-16): lower-case and hyphenated, not
+    /// `Debug` and not the kernels crate's `Display`.
+    #[test]
+    fn report_value_names_are_owned_by_the_cli() {
+        use super::{
+            color_signal_name, discarded_name, kernel_level_name, precision_name, work_count_value,
+        };
+        use crate::pipeline::{ColorSignal, Discarded, KernelLevel, WorkCount, WorkingPrecision};
+        assert_eq!(precision_name(WorkingPrecision::F32), "f32");
+        assert_eq!(
+            precision_name(WorkingPrecision::F64Reference),
+            "f64-reference"
+        );
+        for (level, name) in [
+            (KernelLevel::Scalar, "scalar"),
+            (KernelLevel::Neon, "neon"),
+            (KernelLevel::Sve2, "sve2"),
+            (KernelLevel::Avx2, "avx2"),
+            (KernelLevel::Avx512, "avx512"),
+        ] {
+            assert_eq!(kernel_level_name(level), name);
+        }
+        for (signal, name) in [
+            (ColorSignal::Cicp, "cicp"),
+            (ColorSignal::AssumedSrgb, "assumed-srgb"),
+            (ColorSignal::RenderedIcc, "rendered-icc"),
+            (
+                ColorSignal::RenderedIccWithAgreeingCicp,
+                "rendered-icc-with-agreeing-cicp",
+            ),
+        ] {
+            assert_eq!(color_signal_name(signal), name);
+        }
+        for (class, name) in [
+            (Discarded::GainMap, "gain-map"),
+            (Discarded::Exif, "exif"),
+            (Discarded::Xmp, "xmp"),
+            (Discarded::OtherMetadata, "other-metadata"),
+            (Discarded::IccProfile, "icc-profile"),
+            (Discarded::UnknownContainerData, "unknown-container-data"),
+            (
+                Discarded::JpegReconstructionData,
+                "jpeg-reconstruction-data",
+            ),
+            (Discarded::Preview, "preview"),
+            (Discarded::HiddenColor, "hidden-color"),
+            (Discarded::Unpremultiplied, "unpremultiplied"),
+            (Discarded::PrecisionReduced, "precision-reduced"),
+        ] {
+            assert_eq!(discarded_name(class), name);
+        }
+        assert_eq!(work_count_value(WorkCount::Exact(7)), "7");
+        assert_eq!(work_count_value(WorkCount::AtLeast(7)), ">=7");
     }
 
     /// Owner decision of 2026-11-15 (ADR-0043 D4): each output has its

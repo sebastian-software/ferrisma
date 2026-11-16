@@ -230,8 +230,23 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   yet assign the flag or its output to a stability tier.
 - The `report:` line on standard output has stable keys with integer
   values, except the names (precision, kernel level, backends,
-  `color_signal`, `discarded`); new keys may be added. The other output lines are for people and
-  may change.
+  `color_signal`, `discarded`); new keys may be added. Since 2026-11-16 every
+  name taken from an enum is the command's own lower-case, hyphenated
+  value, so renaming a Rust variant cannot change it: `precision=` `f32` or
+  `f64-reference`; `kernel_level=` `scalar`, `neon`, `sve2`, `avx2`,
+  `avx512` (the names of `--kernel-level=`); `color_signal=` `cicp`,
+  `assumed-srgb`, `rendered-icc`, `rendered-icc-with-agreeing-cicp`;
+  `discarded=` a comma-separated list of `gain-map`, `exif`, `xmp`,
+  `other-metadata`, `icc-profile`, `unknown-container-data`,
+  `jpeg-reconstruction-data`, `preview`, `hidden-color`, `unpremultiplied`,
+  `precision-reduced`, or `none`. Before, `precision=`, `color_signal=` and
+  `discarded=` printed the Rust variant names (`F32`, `AssumedSrgb`,
+  `IccProfile`) and `kernel_level=` the kernels crate's names. The
+  `encoder=` and `decoder=` values are the report's backend strings
+  (`libavif-rs/aom`, `libwebp-rs`, `libjxl-rs`, `libjpeg-turbo-rs`, or an
+  external backend's name), experimental values. The `decoder_work:` line
+  prints rectangles as `WxH+X+Y` and counts as a number or `>=` and a lower
+  bound. The other output lines are for people and may change.
 
 ## Deprecation and upgrades
 
