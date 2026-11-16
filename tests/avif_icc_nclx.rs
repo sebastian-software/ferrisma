@@ -18,6 +18,7 @@ use ferrisma::pipeline::{
     InputProfilePolicy, OutputFormat, ProcessingError, ProcessingErrorKind, RefusalReason,
     RowEncoder, TransformOptions, transcode_with,
 };
+use ferrisma::pipeline::{OutputGeometry, OutputSettings};
 
 /// sRGB ICC profile plus nclx 1/13/6: both signals say sRGB.
 const AGREEING: &[u8] = include_bytes!("fixtures/avif-color/icc-nclx-1-13-6.avif");
@@ -62,16 +63,15 @@ fn run(
     bytes: &[u8],
     profile_policy: InputProfilePolicy,
 ) -> Result<(ColorSignal, Vec<u8>), ProcessingError> {
-    let options = TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: 8,
-        output_height: 8,
-        profile_policy,
-        transform_threads: 1,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 8,
+        height: 8,
+    })
+    .with_output(OutputSettings::default_for(OutputFormat::WebP))
+    .with_profile_policy(profile_policy)
+    .with_transform_threads(1);
     let capture = Discard(Mutex::new(Vec::new()));
-    let output = transcode_with(bytes, ImageFormat::Avif, options, &capture)?;
+    let output = transcode_with(bytes, ImageFormat::Avif, &options, &capture)?;
     Ok((output.report.color_signal, capture.0.into_inner().unwrap()))
 }
 

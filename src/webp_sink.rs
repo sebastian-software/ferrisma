@@ -11,7 +11,7 @@ use crate::encoder_backend::EncodedImage;
 use crate::error::Error;
 use crate::geometry::Size;
 use crate::memory::{ExternalReservation, ManagedBuffer, MemoryBudget};
-use crate::pipeline::{AvifOptions, OutputFormat, TransformOptions, WebpOptions};
+use crate::pipeline::{OutputFormat, OutputSettings, TransformOptions, WebpOptions};
 
 // The unchanged ICC sRGB2014 profile (assets/icc/README.md) describes the
 // emitted sRGB8 samples. It is a package-local copy so the published crate
@@ -34,29 +34,34 @@ pub(crate) struct WebpSink {
 impl WebpSink {
     pub(crate) fn new(
         size: Size,
-        options: TransformOptions,
+        options: &TransformOptions,
         budget: &MemoryBudget,
     ) -> Result<Self, Error> {
+        let OutputSettings::WebP(webp) = options.output() else {
+            return Err(Error::InvalidEncodeOptions);
+        };
         if size.width > 16_383
             || size.height > 16_383
-            || options.encoder_threads != 1
-            || options.avif != AvifOptions::default()
-            || options.max_output_bytes == 0
+            || options.encoder_threads() != 1
+            || options.max_output_bytes() == 0
         {
             return Err(Error::InvalidEncodeOptions);
         }
         let width = usize::try_from(size.width).map_err(|_| Error::GeometryOverflow)?;
         let height = usize::try_from(size.height).map_err(|_| Error::GeometryOverflow)?;
         let pixels = width.checked_mul(height).ok_or(Error::GeometryOverflow)?;
-        let config = match options.webp {
-            WebpOptions::Lossless { level } if level <= 9 => Config::new().lossless_level(level),
+        let config = match webp {
+            WebpOptions::Lossless(lossless) if lossless.level() <= 9 => {
+                Config::new().lossless_level(lossless.level())
+            }
             // libwebp's own method, passed unchanged (ADR-0043 D4).
-            WebpOptions::Lossy { quality, method }
-                if quality.is_finite()
-                    && (1.0..=100.0).contains(&quality)
-                    && method <= WebpOptions::MAX_METHOD =>
+            WebpOptions::Lossy(lossy)
+                if lossy.quality().is_finite()
+                    && (1.0..=100.0).contains(&lossy.quality())
+                    && lossy.method() <= WebpOptions::MAX_METHOD =>
             {
-                Config::preset(Preset::Default, quality).map(|config| config.method(method))
+                Config::preset(Preset::Default, lossy.quality())
+                    .map(|config| config.method(lossy.method()))
             }
             _ => return Err(Error::InvalidEncodeOptions),
         }
@@ -69,9 +74,9 @@ impl WebpSink {
             frame: budget.allocate_typed::<u32>(pixels)?,
             budget: budget.clone(),
             config,
-            lossy: matches!(options.webp, WebpOptions::Lossy { .. }),
+            lossy: matches!(webp, WebpOptions::Lossy(_)),
             has_alpha: false,
-            max_output_bytes: options.max_output_bytes,
+            max_output_bytes: options.max_output_bytes(),
         })
     }
 

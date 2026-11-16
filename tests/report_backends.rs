@@ -11,6 +11,7 @@
 // shared helpers are compiled but unused.
 #![allow(dead_code, unused_imports)]
 
+use ferrisma::pipeline::{AvifOptions, OutputGeometry, OutputSettings};
 use ferrisma::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
     Output, OutputFormat, RowEncoder, TransformOptions, transcode, transcode_with,
@@ -45,31 +46,33 @@ fn read(bytes: &[u8], format: ImageFormat, options: TransformOptions) -> Output 
     transcode_with(
         bytes,
         format,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            output_width: 4,
-            output_height: 4,
-            transform_threads: 1,
-            ..options
-        },
+        &options
+            .with_output(OutputSettings::default_for(OutputFormat::WebP))
+            .with_geometry(OutputGeometry::Exact {
+                width: 4,
+                height: 4,
+            })
+            .with_transform_threads(1),
         &Discard,
     )
     .unwrap()
 }
 
 fn srgb() -> TransformOptions {
-    TransformOptions {
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
 }
 
 /// The JPEG XL reader describes its output with an ICC profile.
 fn rendered_icc() -> TransformOptions {
-    TransformOptions {
-        profile_policy: InputProfilePolicy::UseRenderedIcc,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
 }
 
 #[cfg(feature = "jpeg-read")]
@@ -114,17 +117,18 @@ fn write(output_format: OutputFormat, speed: u8) -> Output {
     transcode(
         jpeg,
         ImageFormat::Jpeg,
-        TransformOptions {
-            output_format,
-            avif: ferrisma::pipeline::AvifOptions {
-                speed,
-                ..ferrisma::pipeline::AvifOptions::default()
-            },
-            output_width: 16,
-            output_height: 12,
-            transform_threads: 1,
-            ..srgb()
-        },
+        &srgb()
+            .with_output(match output_format {
+                OutputFormat::Avif => {
+                    OutputSettings::Avif(AvifOptions::default().with_speed(speed))
+                }
+                other => OutputSettings::default_for(other),
+            })
+            .with_geometry(OutputGeometry::Exact {
+                width: 16,
+                height: 12,
+            })
+            .with_transform_threads(1),
     )
     .unwrap()
 }

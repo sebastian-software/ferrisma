@@ -11,9 +11,10 @@
 //! `scripts/avif_reference_crosscheck.py` compares both with libheif and
 //! FFmpeg/dav1d. Usage: `avif_reference_crosscheck <input.avif> <prefix>`.
 
+use ferrisma::pipeline::OutputGeometry;
 use ferrisma::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
-    OutputFormat, ResizeFit, ResizeOptions, RowEncoder, TransformOptions, transcode_resized_with,
+    OutputFormat, ResizeFit, ResizeOptions, RowEncoder, TransformOptions, transcode_with,
 };
 use ferrisma_avif_read::Decoder;
 use std::{env, fs};
@@ -101,18 +102,23 @@ fn wrapper(bytes: &[u8], prefix: &str) -> String {
 }
 
 fn engine(bytes: &[u8], prefix: &str) -> String {
-    let options = TransformOptions {
-        transform_threads: 1,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    };
-    let upright = ResizeOptions {
-        width: Some(u32::MAX),
-        height: Some(u32::MAX),
-        fit: ResizeFit::Inside,
-        without_enlargement: true,
-    };
-    match transcode_resized_with(bytes, ImageFormat::Avif, options, upright, &Capture) {
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_transform_threads(1)
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+    let upright = ResizeOptions::default()
+        .with_width(u32::MAX)
+        .with_height(u32::MAX)
+        .with_fit(ResizeFit::Inside)
+        .with_without_enlargement(true);
+    match transcode_with(
+        bytes,
+        ImageFormat::Avif,
+        &options.with_geometry(OutputGeometry::Resize(upright)),
+        &Capture,
+    ) {
         Ok(out) => {
             fs::write(format!("{prefix}.engine.rgba"), &out.bytes).unwrap();
             format!(

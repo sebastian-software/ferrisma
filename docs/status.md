@@ -60,7 +60,7 @@ Current behavior and boundaries:
   counts are capped at 256. OS worker-start failure returns a resource error
   after joining partially started workers ([ADR-0022](adr/0022-parallel-row-pipeline-and-engine.md)).
   GPU execution and a general multi-output DAG remain design work.
-- **Thumbnail facade:** `transcode_resized` resolves one or two dimensions,
+- **Thumbnail facade:** `OutputGeometry::Resize` resolves one or two dimensions,
   inside/centered-cover/fill geometry, and explicit no-enlargement behavior
   after orientation and an optional upright crop. Existing exact-size calls
   retain their pixel behavior. Results report actual dimensions; the public

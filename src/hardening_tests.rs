@@ -78,44 +78,45 @@ fn avif_decoder_rejects_truncated_container_without_panicking() {
 #[cfg(all(feature = "jpeg-read", feature = "avif-write"))]
 #[test]
 fn api_rejects_invalid_quality_and_mismatched_input_format() {
-    use crate::pipeline::{ImageFormat, InputProfilePolicy, TransformOptions, transcode};
-    let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
-    let options = TransformOptions {
-        output_width: 2,
-        output_height: 2,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
+    use crate::pipeline::{
+        AvifOptions, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        TransformOptions, transcode,
     };
-    assert!(transcode(jpeg, ImageFormat::Avif, options).is_err());
-    assert!(transcode(&[0; 32], ImageFormat::Jpeg, options).is_err());
+    let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 2,
+        height: 2,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+    assert!(transcode(jpeg, ImageFormat::Avif, &options).is_err());
+    assert!(transcode(&[0; 32], ImageFormat::Jpeg, &options).is_err());
     // libavif validates quality on its scale, 0-100; quality 0 is valid
     // and not remapped. (Rav1e's 1-100 was checked here until 2026-11-15;
     // a fractional or non-finite quality cannot be expressed since the
     // scale became libavif's integer one on 2026-11-15.)
     {
-        let libavif = options;
-        let with = |quality, alpha_quality| TransformOptions {
-            avif: crate::pipeline::AvifOptions {
-                quality,
-                alpha_quality,
-                ..libavif.avif
-            },
-            ..libavif
+        let libavif = options.clone();
+        let with = |quality, alpha_quality| {
+            libavif.clone().with_output(OutputSettings::Avif(
+                AvifOptions::default()
+                    .with_quality(quality)
+                    .with_alpha_quality(alpha_quality),
+            ))
         };
         for (quality, alpha_quality) in [(101, 60), (60, 101), (u8::MAX, u8::MAX)] {
-            let result = transcode(jpeg, ImageFormat::Jpeg, with(quality, alpha_quality));
+            let result = transcode(jpeg, ImageFormat::Jpeg, &with(quality, alpha_quality));
             assert!(result.is_err(), "libavif quality {quality}/{alpha_quality}");
         }
-        assert!(transcode(jpeg, ImageFormat::Jpeg, with(0, 0)).is_ok());
+        assert!(transcode(jpeg, ImageFormat::Jpeg, &with(0, 0)).is_ok());
     }
     assert!(
         transcode(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                output_width: 0,
-                ..options
-            },
+            &options.clone().with_geometry(OutputGeometry::Exact {
+                width: 0,
+                height: 2
+            })
         )
         .is_err()
     );
@@ -123,10 +124,7 @@ fn api_rejects_invalid_quality_and_mismatched_input_format() {
         transcode(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                max_managed_bytes: 1,
-                ..options
-            },
+            &options.clone().with_max_managed_bytes(1)
         )
         .is_err()
     );
@@ -136,29 +134,24 @@ fn api_rejects_invalid_quality_and_mismatched_input_format() {
 #[test]
 fn api_errors_carry_a_matchable_kind() {
     use crate::pipeline::{
-        Crop, ImageFormat, InputProfilePolicy, ProcessingErrorKind as Kind, TransformOptions,
-        transcode,
+        AvifOptions, Crop, ImageFormat, InputProfilePolicy, OutputGeometry, OutputSettings,
+        ProcessingErrorKind as Kind, TransformOptions, transcode,
     };
     let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
-    let options = TransformOptions {
-        output_width: 2,
-        output_height: 2,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 2,
+        height: 2,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     let kind =
-        |bytes: &[u8], format, options| transcode(bytes, format, options).unwrap_err().kind();
+        |bytes: &[u8], format, options| transcode(bytes, format, &options).unwrap_err().kind();
     assert_eq!(
         kind(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                avif: crate::pipeline::AvifOptions {
-                    quality: 101,
-                    ..options.avif
-                },
-                ..options
-            }
+            options.clone().with_output(OutputSettings::Avif(
+                AvifOptions::default().with_quality(101)
+            ))
         ),
         Kind::InvalidOptions
     );
@@ -166,27 +159,19 @@ fn api_errors_carry_a_matchable_kind() {
         kind(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                output_width: 0,
-                ..options
-            }
+            options.clone().with_geometry(OutputGeometry::Exact {
+                width: 0,
+                height: 2
+            }),
         ),
         Kind::InvalidOptions
     );
-    let outside = Crop {
-        x: 0,
-        y: 0,
-        width: u32::MAX,
-        height: 1,
-    };
+    let outside = Crop::new(0, 0, u32::MAX, 1);
     assert_eq!(
         kind(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                crop: Some(outside),
-                ..options
-            }
+            options.clone().with_crop(Some(outside))
         ),
         Kind::InvalidOptions
     );
@@ -194,10 +179,7 @@ fn api_errors_carry_a_matchable_kind() {
         kind(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                max_input_bytes: 1,
-                ..options
-            }
+            options.clone().with_max_input_bytes(1)
         ),
         Kind::InputLimitExceeded
     );
@@ -205,25 +187,19 @@ fn api_errors_carry_a_matchable_kind() {
         kind(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                max_input_pixels: 1,
-                ..options
-            }
+            options.clone().with_max_input_pixels(1)
         ),
         Kind::InputLimitExceeded
     );
     assert_eq!(
-        kind(&[0; 32], ImageFormat::Jpeg, options),
+        kind(&[0; 32], ImageFormat::Jpeg, options.clone()),
         Kind::MalformedInput
     );
     assert_eq!(
         kind(
             jpeg,
             ImageFormat::Jpeg,
-            TransformOptions {
-                max_managed_bytes: 1,
-                ..options
-            }
+            options.clone().with_max_managed_bytes(1)
         ),
         Kind::ResourceExhausted
     );
@@ -238,16 +214,16 @@ fn api_errors_carry_a_matchable_kind() {
 #[test]
 fn missing_jpeg_xl_reader_reports_feature_disabled() {
     use crate::pipeline::{
-        ImageFormat, InputProfilePolicy, ProcessingErrorKind as Kind, TransformOptions, transcode,
+        ImageFormat, InputProfilePolicy, OutputGeometry, ProcessingErrorKind as Kind,
+        TransformOptions, transcode,
     };
     let jpeg = include_bytes!("../tests/fixtures/sample.jpg");
-    let options = TransformOptions {
-        output_width: 2,
-        output_height: 2,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    };
-    let error = transcode(jpeg, ImageFormat::JpegXl, options).unwrap_err();
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 2,
+        height: 2,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+    let error = transcode(jpeg, ImageFormat::JpegXl, &options).unwrap_err();
     assert_eq!(error.kind(), Kind::FeatureDisabled);
 }
 
@@ -307,21 +283,25 @@ fn workspace_jxl_oversized_toc_section_is_a_controlled_error() {
 #[test]
 fn public_transcode_ends_an_oversized_jxl_toc_section_in_a_controlled_error() {
     use crate::pipeline::{
-        ImageFormat, InputProfilePolicy, OutputFormat, ProcessingErrorKind as Kind,
-        TransformOptions, transcode,
+        ImageFormat, InputProfilePolicy, OutputFormat, OutputGeometry, OutputSettings,
+        ProcessingErrorKind as Kind, TransformOptions, transcode,
     };
 
     let hostile = include_bytes!("../tests/fixtures/hostile/jxl-oversized-toc-section.jxl");
-    let options = |max_input_bytes, profile_policy| TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: 2,
-        output_height: 2,
-        profile_policy,
-        max_input_bytes,
-        ..TransformOptions::default()
+    let options = |max_input_bytes, profile_policy| {
+        TransformOptions::new(OutputGeometry::Exact {
+            width: 2,
+            height: 2,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_profile_policy(profile_policy)
+        .with_max_input_bytes(max_input_bytes)
     };
     // The fuzz driver's cap and the default cap.
-    for max_input_bytes in [512 * 1024, TransformOptions::default().max_input_bytes] {
+    for max_input_bytes in [
+        512 * 1024,
+        crate::pipeline::InspectionLimits::default().max_input_bytes(),
+    ] {
         // The header's enum sRGB is a typed signal under every policy
         // (owner decision 2026-11-15, #222; before, the strict and
         // assume-if-missing policies refused its rendered ICC with
@@ -340,7 +320,7 @@ fn public_transcode_ends_an_oversized_jxl_toc_section_in_a_controlled_error() {
                 transcode(
                     hostile,
                     ImageFormat::JpegXl,
-                    options(max_input_bytes, profile_policy),
+                    &options(max_input_bytes, profile_policy),
                 )
             }))
             .expect("public JPEG XL processing must not panic");
@@ -360,8 +340,8 @@ fn public_transcode_ends_an_oversized_jxl_toc_section_in_a_controlled_error() {
 #[test]
 fn public_transcode_rejects_unknown_jxl_colour_space() {
     use crate::pipeline::{
-        ImageFormat, InputProfilePolicy, OutputFormat, ProcessingErrorKind as Kind,
-        TransformOptions, transcode,
+        ImageFormat, InputProfilePolicy, OutputFormat, OutputGeometry, OutputSettings,
+        ProcessingErrorKind as Kind, TransformOptions, transcode,
     };
 
     let hostile = include_bytes!("../tests/fixtures/hostile/jxl-unknown-colour-space.jxl");
@@ -370,15 +350,14 @@ fn public_transcode_rejects_unknown_jxl_colour_space() {
         InputProfilePolicy::Strict,
         InputProfilePolicy::AssumeSrgbIfMissing,
     ] {
-        let options = TransformOptions {
-            output_format: OutputFormat::WebP,
-            output_width: 2,
-            output_height: 2,
-            profile_policy,
-            ..TransformOptions::default()
-        };
+        let options = TransformOptions::new(OutputGeometry::Exact {
+            width: 2,
+            height: 2,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_profile_policy(profile_policy);
         let result = catch_unwind(AssertUnwindSafe(|| {
-            transcode(hostile, ImageFormat::JpegXl, options)
+            transcode(hostile, ImageFormat::JpegXl, &options)
         }))
         .expect("public JPEG XL processing must not panic");
         let error = result.unwrap_err();
@@ -398,8 +377,8 @@ fn public_transcode_rejects_unknown_jxl_colour_space() {
 #[test]
 fn upstream_libavif_corpus_returns_controlled_public_results() {
     use crate::pipeline::{
-        ImageFormat, InputProfilePolicy, OutputFormat, ProcessingErrorKind as Kind,
-        TransformOptions, transcode,
+        ImageFormat, InputProfilePolicy, OutputFormat, OutputGeometry, OutputSettings,
+        ProcessingErrorKind as Kind, TransformOptions, transcode,
     };
 
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -439,17 +418,16 @@ fn upstream_libavif_corpus_returns_controlled_public_results() {
             InputProfilePolicy::AssumeSrgbIfMissing,
             InputProfilePolicy::UseRenderedIcc,
         ] {
-            let options = TransformOptions {
-                output_format: OutputFormat::WebP,
-                output_width: 7,
-                output_height: 5,
-                transform_threads: 1,
-                profile_policy,
-                max_input_pixels: 4_000_000,
-                ..TransformOptions::default()
-            };
+            let options = TransformOptions::new(OutputGeometry::Exact {
+                width: 7,
+                height: 5,
+            })
+            .with_output(OutputSettings::default_for(OutputFormat::WebP))
+            .with_transform_threads(1)
+            .with_profile_policy(profile_policy)
+            .with_max_input_pixels(4_000_000);
             let result = catch_unwind(AssertUnwindSafe(|| {
-                transcode(&bytes, ImageFormat::Avif, options)
+                transcode(&bytes, ImageFormat::Avif, &options)
             }))
             .unwrap_or_else(|_| panic!("{name} panicked under {profile_policy:?}"));
             let actual = result

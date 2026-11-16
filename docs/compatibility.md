@@ -14,8 +14,8 @@ else, including every private module, is outside the contract.
 
 | Area | Stable | Experimental (may change in a minor release) |
 | --- | --- | --- |
-| Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run`, `cli::main` |
-| Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, threads, and the four resource limits; `WebpOptions` (libwebp quality and method, lossless level); `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifOptions` (`TransformOptions::avif`), `JpegXlOptions` |
+| Entry points | `transcode`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run`, `cli::main` |
+| Options | `TransformOptions` (constructor, `with_*` methods and getters) for output, geometry (`OutputGeometry`), crop, filter, color policy, threads, and the four resource limits; `OutputSettings`; `WebpOptions` with `WebpLossy` and `WebpLossless` (libwebp quality and method, lossless level); `ResizeOptions`; `Crop`; `InspectionLimits`; `BatchItem` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifOptions` (`OutputSettings::Avif`), `JpegXlOptions` with `JpegXlLossy` and `JpegXlLossless`, `BitDepth` |
 | Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
 | Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-write` (experimental since the switch to the workspace port; it builds on stable Rust 1.99 since 2026-11-15, and the tier is not decided; stable as the rav1e capability until 2026-11-15) |
 | CLI | Positional arguments, color policy, `--webp-quality=`, `--webp-method=`, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=`, `--avif-chroma=`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=`, `--jxl-lossless` and `--jxl-depth=` |
@@ -73,6 +73,50 @@ API (experimental) changes additively: `EncodeRequest::depth`,
 receiving 8-bit rows and a deeper input is reported as `PrecisionReduced`)
 and `RowEncoder::write_row_u16` (default: refused).
 
+## Constructing options
+
+Since 2026-11-16 every option type is built one way (ADR-0040 amendment of
+that date): a constructor or `Default`, then one `with_*` method per
+setting, each returning the changed value; getters of the same names read
+them. The fields are private and the types `#[non_exhaustive]`, so a new
+setting is a new method and breaks no caller. Struct literals, including
+`..TransformOptions::default()`, no longer compile outside the crate.
+
+```rust
+use ferrisma::pipeline::{
+    InputProfilePolicy, OutputGeometry, OutputSettings, ResizeOptions, TransformOptions,
+    WebpLossy, WebpOptions,
+};
+
+let options = TransformOptions::new(OutputGeometry::Resize(
+    ResizeOptions::default().with_width(320).with_height(320),
+))
+.with_output(OutputSettings::WebP(WebpOptions::Lossy(
+    WebpLossy::default().with_quality(80.0),
+)))
+.with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+```
+
+What changed with it (pre-1.0 breaking change): `TransformOptions` has no
+`Default` (its constructor takes the geometry) and is no longer `Copy`;
+`output_format` and the three per-format fields `avif`, `webp` and
+`jpeg_xl` are one `OutputSettings` value, `Avif(AvifOptions)`,
+`WebP(WebpOptions)` or `JpegXl(JpegXlOptions)`, which selects the output,
+so the settings of another format can no longer be set (they were refused
+before); `output_width`/`output_height`, whose default of 1 stood for "not
+set", are `OutputGeometry::Exact { width, height }`, and
+`transcode_resized`/`transcode_resized_with` are `transcode`/`transcode_with`
+with `OutputGeometry::Resize(ResizeOptions)`. `WebpOptions` and
+`JpegXlOptions` keep their lossy and lossless variants, each now carrying a
+settings struct (`WebpLossy`, `WebpLossless`, `JpegXlLossy`,
+`JpegXlLossless`). The depth settings are a `BitDepth` (`FollowInput`, the
+default, or `Exact(n)`) instead of `Option<u8>`. `Crop` is built with
+`Crop::new(x, y, width, height)` and read with `x()`, `y()`, `width()`,
+`height()`; `BatchItem` with `BatchItem::new(encoded, format, options)`;
+`LibavifBackend` with `LibavifBackend::new()`. The external-backend request,
+`EncodeRequest`, carries `output: OutputSettings` instead of `format`,
+`avif`, `webp` and `jpeg_xl` (`EncodeRequest::format()` remains).
+
 ## Refusal reasons
 
 `ProcessingError::refusal_reason()` names the class of a refusal of
@@ -116,9 +160,10 @@ set as the `discarded=` key of its `report:` line (`none` when empty).
 
 An option that would have no effect is refused, not ignored, when it is
 set to a value other than its default (owner decision of 2026-11-15,
-ADR-0042): `output_width`/`output_height` with `transcode_resized`, a
-thread count above 256 in `Engine::transcode_batch`, a setting of another
-output format, and a setting an external backend's request does not carry.
+ADR-0042): a thread count above 256 in `Engine::transcode_batch` and a
+setting an external backend's request does not carry. (Until 2026-11-16 also
+`output_width`/`output_height` with `transcode_resized` and a setting of
+another output format; the options can no longer express either.)
 Each is `InvalidOptions` before decoding. Where the engine replaces a value
 and reports the one it used, the replacement is documented instead: the
 batch runs each image with one transform and one encoder thread, and the
@@ -129,7 +174,7 @@ batch runs each image with one transform and one encoder thread, and the
 A panic inside Ferrisma, one of its codecs or an encoder backend does not
 unwind out of the public functions (since 2026-11-16; ADR-0040 amendment of
 that date, working decision, delegated, revisable by the owner):
-`transcode`, `transcode_resized`, `inspect`, the `_with` variants and each
+`transcode`, `inspect`, the `_with` variants and each
 item of `Engine::transcode_batch` and `transcode_batch_with` catch it and
 return `ProcessingErrorKind::Internal`, whose message says that a panic was
 caught and includes the panic's message when it is text. In a batch, only

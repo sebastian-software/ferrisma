@@ -415,20 +415,26 @@ item when opaque, read back under `Strict`),
 depth 8/10, each rejection with libavif's reason),
 `avif_output_drops_source_metadata_and_writes_upright_pixels`,
 `output_byte_limit_applies_at_the_exact_byte_for_avif`,
-`avif_settings_conflict_with_other_outputs` (the rav1e cases and the encoder
-selection were removed with rav1e on 2026-11-15); WebP —
+`avif_settings_select_avif_output` (until 2026-11-16
+`avif_settings_conflict_with_other_outputs`: AVIF settings beside another
+output were refused, "encoder options do not match the selected output
+format"; since then the settings are one `OutputSettings` value that selects
+the output; the rav1e cases and the encoder selection were removed with
+rav1e on 2026-11-15); WebP —
 `webp_lossy_and_lossless_carry_srgb_icc_and_no_exif_or_xmp` (`VP8 `/`VP8L`
 plus `ICCP`, no `EXIF`/`XMP `, read back through the ICC),
 `webp_straight_alpha_output_in_both_profiles` (`ALPH` for lossy),
 `webp_quality_method_and_level_ranges`,
-`silent_drops::webp_lossy_methods_are_libwebps_own_and_distinct`,
-`avif_settings_with_webp_output_are_mismatched_options`; JPEG XL —
+`silent_drops::webp_lossy_methods_are_libwebps_own_and_distinct`
+(`avif_settings_with_webp_output_are_mismatched_options` was removed on
+2026-11-16 with the state it refused); JPEG XL —
 `jpeg_xl_output_is_a_raw_codestream_that_reads_back` (the reader, and jxl-oxide as a test-only independent decoder),
 `jpeg_xl_output_keeps_straight_alpha_in_both_profiles`,
 `jpeg_xl_output_is_written_upright`,
-`jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding`
-(distance 0.05 and 2.99 accepted, 0.049 and 3.0 rejected, effort 3 rejected,
-AVIF settings with JPEG XL output rejected),
+`jpeg_xl_distance_and_effort_are_checked_before_decoding`
+(distance 0.05 and 2.99 accepted, 0.049 and 3.0 rejected, effort 3 rejected;
+until 2026-11-16 `jpeg_xl_distance_effort_and_foreign_settings_are_checked_before_decoding`,
+which also rejected AVIF settings with JPEG XL output),
 `output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`.
 The AVIF alpha quality and the materialization rows are
 read from the code (`src/own_avif.rs`, `src/webp_sink.rs`, `src/jxl_sink.rs`)
@@ -454,7 +460,8 @@ libheif and rav1d in the evidence record above. WebP —
 `sink_round_trips_exactly_through_jxl_oxide`,
 `oriented_input_is_written_upright_with_orientation_one`,
 `rejects_requests_outside_the_admitted_profile_before_allocating`,
-`facade_rejects_mismatched_and_disabled_settings_before_decoding`,
+`facade_rejects_unadmitted_settings_before_decoding` (until 2026-11-16
+`facade_rejects_mismatched_and_disabled_settings_before_decoding`),
 `input_frame_and_measured_lossless_peaks_are_reserved`,
 `lossless_output_equals_the_original_cjxl_bytes`; lossy —
 `jxl_lossy_tests::lossy_output_decodes_within_the_pinned_error` (one-shot and
@@ -537,7 +544,7 @@ planned.
 | `max_managed_bytes` / `--budget-mb` | 1 GiB (256 MiB until 2026-11-15; owner decision, ADR-0004 amendment) | engine buffers, known encoder frames, the measured JPEG XL peak of its one-shot or streaming path, lossless and lossy (since 2026-11-16; lossless only before) (`ResourceExhausted`, "managed buffer needs …") | `supported_matrix::managed_budget_exhaustion_is_reported`, `default_budget_rejects_lossless_jpeg_xl_above_about_49_megapixels`; `jxl_output_tests::input_frame_and_measured_lossless_peaks_are_reserved`, `model_covers_every_measured_peak_with_margin`; `jxl_lossy_tests::input_frame_and_measured_lossy_peaks_are_reserved`; `tests.rs::insufficient_budget_releases_all_owned_buffers`; `avif_sink_tests::the_encoder_frame_is_charged_to_the_budget` |
 | `max_output_bytes` / `--max-output-mb` | 256 MiB | `ResourceExhausted` in every case. WebP and lossy JPEG XL while writing ("managed buffer needs …"); AVIF and lossless JPEG XL after the encoder returns ("encoded output exceeds max_output_bytes"); zero is `InvalidOptions` | `supported_matrix::output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl`, `output_byte_limit_applies_at_the_exact_byte_for_both_avif_encoders`; `webp_output_tests::exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless`; `jxl_output_tests::encoded_output_limit_applies_at_the_exact_byte`, `jxl_lossy_tests::the_output_limit_applies_at_the_exact_byte`; `ferrisma-libavif` `output_limit_is_enforced_after_backend_finish` |
 | threads | `transform_threads` 0 (all cores), `encoder_threads` 1; at most 256; WebP and JPEG XL output need `encoder_threads` 1; `Engine::transcode_batch` runs each image with 1 and 1 (reported) and refuses counts above 256 as `transcode` does (since 2026-11-15) | before decoding (`InvalidOptions`) | `supported_matrix::thread_counts_above_256_and_parallel_webp_encoding_are_invalid`; `silent_drops::batch_refuses_thread_counts_that_transcode_rejects`; `pipeline_tests::encoder_threads_trade_determinism_for_latency_explicitly` |
-| `output_width`/`output_height` with `transcode_resized` | 1 | a value other than the default is refused before decoding (`InvalidOptions`, "output_width and output_height are not used with ResizeOptions…"; ignored until 2026-11-15) | `thumbnail_facade::resize_entry_points_refuse_an_exact_output_size` |
+| `OutputGeometry` (`TransformOptions::new`) | none; the constructor takes it | one setting, exact or resize, since 2026-11-16; a zero exact size is `InvalidOptions`. Until then `output_width`/`output_height` (default 1) beside `transcode_resized` were refused (`InvalidOptions`, ignored until 2026-11-15) | `thumbnail_facade::the_geometry_is_one_setting` (until 2026-11-16 `resize_entry_points_refuse_an_exact_output_size`) |
 
 What the budget covers: the engine's own buffers and the frames the encoders
 reserve are counted against it. Memory that codecs allocate internally is only

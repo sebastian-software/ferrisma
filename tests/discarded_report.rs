@@ -12,7 +12,8 @@
 ))]
 
 use ferrisma::pipeline::{
-    Discarded, ImageFormat, InputProfilePolicy, OutputFormat, TransformOptions, transcode,
+    Discarded, ImageFormat, InputProfilePolicy, OutputFormat, OutputGeometry, OutputSettings,
+    TransformOptions, transcode,
 };
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
@@ -27,20 +28,19 @@ fn read(path: &str) -> Vec<u8> {
 }
 
 fn options(policy: InputProfilePolicy) -> TransformOptions {
-    TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: 6,
-        output_height: 4,
-        profile_policy: policy,
-        transform_threads: 1,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 6,
+        height: 4,
+    })
+    .with_output(OutputSettings::default_for(OutputFormat::WebP))
+    .with_profile_policy(policy)
+    .with_transform_threads(1)
 }
 
 /// The discarded classes of one successful transcode.
 #[track_caller]
 fn discarded(bytes: &[u8], format: ImageFormat, policy: InputProfilePolicy) -> Vec<Discarded> {
-    transcode(bytes, format, options(policy))
+    transcode(bytes, format, &options(policy))
         .unwrap_or_else(|error| panic!("{format:?} under {policy:?}: {error}"))
         .report
         .discarded
@@ -132,7 +132,7 @@ fn webp_chunks_are_reported() {
     unknown[1888..1892].copy_from_slice(b"XYZW");
     assert_eq!(webp(&unknown, ASSUME), [UnknownContainerData]);
     // The engine's own WebP output carries an sRGB `ICCP` chunk.
-    let output = transcode(&plain, ImageFormat::WebP, options(ASSUME))
+    let output = transcode(&plain, ImageFormat::WebP, &options(ASSUME))
         .unwrap()
         .bytes;
     assert_eq!(webp(&output, RENDERED), [IccProfile]);
@@ -247,20 +247,16 @@ mod avif {
     #[cfg(feature = "avif-write")]
     #[test]
     fn deeper_input_keeps_its_depth_and_an_explicit_lower_depth_is_reported() {
-        use ferrisma::pipeline::AvifOptions;
-        assert_eq!(AvifOptions::default().depth, None);
+        use ferrisma::pipeline::{AvifOptions, BitDepth, OutputSettings};
+        assert_eq!(AvifOptions::default().depth(), BitDepth::FollowInput);
         let to_avif = |bytes: &[u8], depth: Option<u8>| {
             let output = transcode(
                 bytes,
                 ImageFormat::Avif,
-                TransformOptions {
-                    output_format: OutputFormat::Avif,
-                    avif: AvifOptions {
-                        depth,
-                        ..AvifOptions::default()
-                    },
-                    ..options(ASSUME)
-                },
+                &options(ASSUME).with_output(OutputSettings::Avif(
+                    AvifOptions::default()
+                        .with_depth(depth.map_or(BitDepth::FollowInput, BitDepth::Exact)),
+                )),
             )
             .unwrap();
             assert_eq!(output.report.encoder_backend, "libavif-rs/aom");

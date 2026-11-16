@@ -3,6 +3,7 @@
 //! The digest-only output backend keeps encoder work out of the comparison.
 //! `AVIF_BENCH_DUMP=<path>` writes one RGBA result for pixel comparison.
 
+use ferrisma::pipeline::OutputGeometry;
 use ferrisma::pipeline::{
     Crop, EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat,
     InputProfilePolicy, OutputFormat, ResizeFilter, RowEncoder, TransformOptions, transcode_with,
@@ -56,21 +57,20 @@ impl RowEncoder for NullEncoder {
 fn main() {
     let args: Vec<String> = env::args().collect();
     let bytes = fs::read(&args[1]).unwrap();
-    let mut opts = TransformOptions {
-        output_width: args[2].parse().unwrap(),
-        output_height: args[3].parse().unwrap(),
-        filter: ResizeFilter::Lanczos3,
-        transform_threads: 1,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    };
+    let mut opts = TransformOptions::new(OutputGeometry::Exact {
+        width: args[2].parse().unwrap(),
+        height: args[3].parse().unwrap(),
+    })
+    .with_filter(ResizeFilter::Lanczos3)
+    .with_transform_threads(1)
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     if args.len() == 8 {
-        opts.crop = Some(Crop {
-            x: args[4].parse().unwrap(),
-            y: args[5].parse().unwrap(),
-            width: args[6].parse().unwrap(),
-            height: args[7].parse().unwrap(),
-        });
+        opts = opts.with_crop(Some(Crop::new(
+            args[4].parse().unwrap(),
+            args[5].parse().unwrap(),
+            args[6].parse().unwrap(),
+            args[7].parse().unwrap(),
+        )));
     }
     for i in 0..if env::var_os("AVIF_BENCH_DUMP").is_some() {
         1
@@ -78,7 +78,7 @@ fn main() {
         5
     } {
         let start = Instant::now();
-        let out = transcode_with(&bytes, ImageFormat::Avif, opts, &NullBackend).unwrap();
+        let out = transcode_with(&bytes, ImageFormat::Avif, &opts, &NullBackend).unwrap();
         let digest = if let Some(path) = env::var_os("AVIF_BENCH_DUMP") {
             fs::write(path, &out.bytes).unwrap();
             0

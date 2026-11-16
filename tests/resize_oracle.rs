@@ -33,6 +33,7 @@ use ferrisma::pipeline::{
     InputProfilePolicy, OutputFormat, ResizeFilter, RowEncoder, TransformOptions, WorkingPrecision,
     transcode_with,
 };
+use ferrisma::pipeline::{OutputGeometry, OutputSettings};
 use resize_oracle::{Kernel, Linear, Primaries, Request};
 use std::sync::Mutex;
 use webp::api::encode::{PixelLayout, PixelRows, encode_lossless};
@@ -146,26 +147,20 @@ fn engine(
 ) -> Vec<u8> {
     let capture = Capture(Mutex::new(Vec::new()));
     let (x, y, width, height) = request.crop;
-    let options = TransformOptions {
-        output_format: OutputFormat::WebP,
-        output_width: request.output.0,
-        output_height: request.output.1,
-        crop: Some(Crop {
-            x,
-            y,
-            width,
-            height,
-        }),
-        filter: match request.kernel {
-            Kernel::Area => ResizeFilter::Area,
-            Kernel::Lanczos3 => ResizeFilter::Lanczos3,
-        },
-        precision,
-        profile_policy: policy,
-        transform_threads: 1,
-        ..TransformOptions::default()
-    };
-    let output = transcode_with(encoded, ImageFormat::WebP, options, &capture).unwrap();
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: request.output.0,
+        height: request.output.1,
+    })
+    .with_output(OutputSettings::default_for(OutputFormat::WebP))
+    .with_crop(Some(Crop::new(x, y, width, height)))
+    .with_filter(match request.kernel {
+        Kernel::Area => ResizeFilter::Area,
+        Kernel::Lanczos3 => ResizeFilter::Lanczos3,
+    })
+    .with_precision(precision)
+    .with_profile_policy(policy)
+    .with_transform_threads(1);
+    let output = transcode_with(encoded, ImageFormat::WebP, &options, &capture).unwrap();
     assert_eq!((output.width, output.height), request.output);
     capture.0.into_inner().unwrap()
 }

@@ -24,6 +24,7 @@ use crate::pipeline::{
 };
 
 use crate::jxl_color_tests::oracle;
+use crate::pipeline::{JpegXlLossy, OutputGeometry, OutputSettings};
 
 /// The JPEG XL reader's adapter, as the pipeline opens it.
 fn open(bytes: &[u8]) -> Result<Box<dyn DecodeSource + '_>, Error> {
@@ -36,19 +37,16 @@ fn info(bytes: &[u8]) -> Result<DecoderInfo, Error> {
 
 /// The engine's lossy JPEG XL output (default distance 1.0) for RGBA rows.
 fn encode_lossy(width: usize, height: usize, rgba: &[u8]) -> Vec<u8> {
-    let options = TransformOptions {
-        output_format: OutputFormat::JpegXl,
-        jpeg_xl: JpegXlOptions::Lossy {
-            distance: 1.0,
-            depth: None,
-        },
-        output_width: width as u32,
-        output_height: height as u32,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: width as u32,
+        height: height as u32,
+    })
+    .with_output(OutputSettings::JpegXl(JpegXlOptions::Lossy(
+        JpegXlLossy::default().with_distance(1.0),
+    )));
     let budget = MemoryBudget::new(256 << 20);
     let size = Size::new(width as u32, height as u32).unwrap();
-    let mut sink = JxlSink::new(size, options, &budget).unwrap();
+    let mut sink = JxlSink::new(size, &options, &budget).unwrap();
     for (y, row) in rgba.chunks_exact(width * 4).enumerate() {
         sink.write_row(y as u32, row).unwrap();
     }
@@ -92,14 +90,13 @@ fn read_back(
     transcode_with(
         bytes,
         ImageFormat::JpegXl,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            output_width: size.0,
-            output_height: size.1,
-            profile_policy: policy,
-            transform_threads: threads,
-            ..TransformOptions::default()
-        },
+        &TransformOptions::new(OutputGeometry::Exact {
+            width: size.0,
+            height: size.1,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_profile_policy(policy)
+        .with_transform_threads(threads),
         &capture,
     )
     .map_err(|error| error.kind())?;

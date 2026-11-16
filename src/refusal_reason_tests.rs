@@ -9,6 +9,7 @@
 use crate::pipeline::{
     ImageFormat, InputProfilePolicy, OutputFormat, RefusalReason, TransformOptions, transcode,
 };
+use crate::pipeline::{OutputGeometry, OutputSettings};
 
 const ALL: [RefusalReason; 13] = [
     RefusalReason::Animation,
@@ -180,16 +181,15 @@ fn every_refusal_reason_is_produced_by_a_fixture() {
         assert_eq!(ALL[index], reason, "ALL and case disagree");
         assert!(!seen[index], "{reason:?} listed twice");
         seen[index] = true;
-        let options = TransformOptions {
-            output_format: OutputFormat::WebP,
-            output_width: 4,
-            output_height: 4,
-            transform_threads: 1,
-            profile_policy,
-            ..TransformOptions::default()
-        };
+        let options = TransformOptions::new(OutputGeometry::Exact {
+            width: 4,
+            height: 4,
+        })
+        .with_output(OutputSettings::default_for(OutputFormat::WebP))
+        .with_transform_threads(1)
+        .with_profile_policy(profile_policy);
         if RETIRED.contains(&reason) {
-            let output = transcode(&bytes, format, options)
+            let output = transcode(&bytes, format, &options)
                 .unwrap_or_else(|error| panic!("{reason:?} is retired: {error}"));
             assert!(
                 output
@@ -200,7 +200,7 @@ fn every_refusal_reason_is_produced_by_a_fixture() {
             );
             continue;
         }
-        let error = transcode(&bytes, format, options).expect_err("the fixture must be refused");
+        let error = transcode(&bytes, format, &options).expect_err("the fixture must be refused");
         assert_eq!(error.refusal_reason(), Some(reason), "{error}");
     }
     assert!(seen.iter().all(|seen| *seen));

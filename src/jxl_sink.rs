@@ -44,7 +44,7 @@ use crate::output_depth::OutputRow;
 fn sample_bytes(depth: u8) -> usize {
     if depth > 8 { 2 } else { 1 }
 }
-use crate::pipeline::{AvifOptions, JpegXlOptions, OutputFormat, TransformOptions};
+use crate::pipeline::{JpegXlOptions, OutputFormat, OutputSettings, TransformOptions};
 
 /// Level 5 dimension and area limits (ISO/IEC 18181-2, Annex A). The raw
 /// codestream carries no `jxll` level box, so admitted images must also fit
@@ -350,33 +350,38 @@ impl JxlSink {
     pub(crate) fn validate(options: &TransformOptions) -> Result<(), Error> {
         Self::mode(options)?;
         // The port has no parallel runner (encoder step 13); it is serial.
-        if options.encoder_threads != 1 {
+        if options.encoder_threads() != 1 {
             return Err(Error::UnsupportedEncoderProfile(
                 "the workspace encoder is serial; set encoder_threads to 1",
             ));
         }
-        // AVIF settings, the chroma layout among them (the facade refuses
-        // them first).
-        if options.avif != AvifOptions::default() || options.max_output_bytes == 0 {
+        if options.max_output_bytes() == 0 {
             return Err(Error::InvalidEncodeOptions);
         }
         Ok(())
     }
 
     fn mode(options: &TransformOptions) -> Result<Mode, Error> {
-        match options.jpeg_xl {
-            JpegXlOptions::Lossless { effort: 2, .. } => Ok(Mode::Lossless),
-            JpegXlOptions::Lossless { .. } => Err(Error::UnsupportedEncoderProfile(
+        // Another output's settings never reach this sink: the facade
+        // selects it by the settings' format.
+        let OutputSettings::JpegXl(jpeg_xl) = options.output() else {
+            return Err(Error::InvalidEncodeOptions);
+        };
+        match jpeg_xl {
+            JpegXlOptions::Lossless(lossless) if lossless.effort() == 2 => Ok(Mode::Lossless),
+            JpegXlOptions::Lossless(_) => Err(Error::UnsupportedEncoderProfile(
                 "only lossless effort 2 is admitted by the workspace encoder",
             )),
             // `contains` is false for NaN.
-            JpegXlOptions::Lossy { distance, .. }
+            JpegXlOptions::Lossy(lossy)
                 if (JpegXlOptions::MIN_LOSSY_DISTANCE..JpegXlOptions::MAX_LOSSY_DISTANCE)
-                    .contains(&distance) =>
+                    .contains(&lossy.distance()) =>
             {
-                Ok(Mode::Lossy { distance })
+                Ok(Mode::Lossy {
+                    distance: lossy.distance(),
+                })
             }
-            JpegXlOptions::Lossy { .. } => Err(Error::UnsupportedEncoderProfile(
+            JpegXlOptions::Lossy(_) => Err(Error::UnsupportedEncoderProfile(
                 "the lossy distance must be at least 0.05 and below 3.0",
             )),
         }
@@ -388,7 +393,7 @@ impl JxlSink {
     #[cfg(test)]
     pub(crate) fn new(
         size: Size,
-        options: TransformOptions,
+        options: &TransformOptions,
         budget: &MemoryBudget,
     ) -> Result<Self, Error> {
         Self::with_depth(size, options, budget, crate::output_depth::EIGHT)
@@ -397,15 +402,15 @@ impl JxlSink {
     /// A sink at `depth` bits per sample (8 to 16).
     pub(crate) fn with_depth(
         size: Size,
-        options: TransformOptions,
+        options: &TransformOptions,
         budget: &MemoryBudget,
         depth: u8,
     ) -> Result<Self, Error> {
         if !(8..=16).contains(&depth) {
             return Err(Error::InvalidEncodeOptions);
         }
-        Self::validate(&options)?;
-        let mode = Self::mode(&options)?;
+        Self::validate(options)?;
+        let mode = Self::mode(options)?;
         let width = usize::try_from(size.width).map_err(|_| Error::GeometryOverflow)?;
         let height = usize::try_from(size.height).map_err(|_| Error::GeometryOverflow)?;
         let pixels = width.checked_mul(height).ok_or(Error::GeometryOverflow)?;
@@ -435,7 +440,7 @@ impl JxlSink {
             budget: budget.clone(),
             has_alpha: false,
             mode,
-            max_output_bytes: options.max_output_bytes,
+            max_output_bytes: options.max_output_bytes(),
         })
     }
 

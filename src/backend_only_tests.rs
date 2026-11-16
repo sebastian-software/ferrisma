@@ -2,6 +2,7 @@ use crate::pipeline::{
     EncodeError, EncodeRequest, EncodedImage, EncoderBackend, ImageFormat, InputProfilePolicy,
     OutputFormat, RowEncoder, TransformOptions, transcode_with,
 };
+use crate::pipeline::{OutputGeometry, OutputSettings};
 
 struct RawBackend;
 struct MislabelBackend;
@@ -45,16 +46,15 @@ impl RowEncoder for Rows {
 
 #[test]
 fn backend_runs_without_avif_write() {
-    let options = TransformOptions {
-        output_width: 4,
-        output_height: 4,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 4,
+        height: 4,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     let result = transcode_with(
         include_bytes!("../tests/fixtures/sample.jpg"),
         ImageFormat::Jpeg,
-        options,
+        &options,
         &RawBackend,
     )
     .unwrap();
@@ -63,10 +63,9 @@ fn backend_runs_without_avif_write() {
     let mismatch = transcode_with(
         include_bytes!("../tests/fixtures/sample.jpg"),
         ImageFormat::Jpeg,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            ..options
-        },
+        &options
+            .clone()
+            .with_output(OutputSettings::default_for(OutputFormat::WebP)),
         &RawBackend,
     );
     assert_eq!(
@@ -76,10 +75,9 @@ fn backend_runs_without_avif_write() {
     let mislabel = transcode_with(
         include_bytes!("../tests/fixtures/sample.jpg"),
         ImageFormat::Jpeg,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            ..options
-        },
+        &options
+            .clone()
+            .with_output(OutputSettings::default_for(OutputFormat::WebP)),
         &MislabelBackend,
     );
     assert_eq!(
@@ -89,10 +87,7 @@ fn backend_runs_without_avif_write() {
     let capped = transcode_with(
         include_bytes!("../tests/fixtures/sample.jpg"),
         ImageFormat::Jpeg,
-        TransformOptions {
-            max_output_bytes: 63,
-            ..options
-        },
+        &options.clone().with_max_output_bytes(63),
         &RawBackend,
     );
     assert_eq!(
@@ -129,18 +124,17 @@ fn backend_frame_reservation_precedes_allocation_and_counts_toward_peak() {
     let backend = BudgetedBackend {
         began: std::sync::atomic::AtomicBool::new(false),
     };
-    let options = TransformOptions {
-        output_width: 4,
-        output_height: 4,
-        transform_threads: 1,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        max_managed_bytes: 4095,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 4,
+        height: 4,
+    })
+    .with_transform_threads(1)
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
+    .with_max_managed_bytes(4095);
     let error = transcode_with(
         include_bytes!("../tests/fixtures/sample.jpg"),
         ImageFormat::Jpeg,
-        options,
+        &options,
         &backend,
     )
     .unwrap_err();
@@ -153,10 +147,7 @@ fn backend_frame_reservation_precedes_allocation_and_counts_toward_peak() {
     let output = transcode_with(
         include_bytes!("../tests/fixtures/sample.jpg"),
         ImageFormat::Jpeg,
-        TransformOptions {
-            max_managed_bytes: 64 * 1024,
-            ..options
-        },
+        &options.clone().with_max_managed_bytes(64 * 1024),
         &backend,
     )
     .unwrap();
@@ -167,31 +158,34 @@ fn backend_frame_reservation_precedes_allocation_and_counts_toward_peak() {
 
 #[test]
 fn oversized_per_image_threads_fail_before_opening_input() {
-    use crate::pipeline::{ProcessingErrorKind, ResizeOptions, transcode, transcode_resized};
+    use crate::pipeline::{ProcessingErrorKind, ResizeOptions, transcode};
     for options in [
-        TransformOptions {
-            transform_threads: 257,
-            ..TransformOptions::default()
-        },
-        TransformOptions {
-            encoder_threads: usize::MAX,
-            ..TransformOptions::default()
-        },
+        TransformOptions::new(OutputGeometry::Exact {
+            width: 1,
+            height: 1,
+        })
+        .with_transform_threads(257),
+        TransformOptions::new(OutputGeometry::Exact {
+            width: 1,
+            height: 1,
+        })
+        .with_encoder_threads(usize::MAX),
     ] {
         assert_eq!(
-            transcode(&[], ImageFormat::Jpeg, options)
+            transcode(&[], ImageFormat::Jpeg, &options)
                 .unwrap_err()
                 .kind(),
             ProcessingErrorKind::InvalidOptions
         );
-        let resize = ResizeOptions {
-            width: Some(4),
-            ..ResizeOptions::default()
-        };
+        let resize = ResizeOptions::default().with_width(4);
         assert_eq!(
-            transcode_resized(&[], ImageFormat::Jpeg, options, resize)
-                .unwrap_err()
-                .kind(),
+            transcode(
+                &[],
+                ImageFormat::Jpeg,
+                &options.with_geometry(OutputGeometry::Resize(resize))
+            )
+            .unwrap_err()
+            .kind(),
             ProcessingErrorKind::InvalidOptions
         );
     }
@@ -202,17 +196,16 @@ fn oversized_per_image_threads_fail_before_opening_input() {
 #[test]
 fn built_in_avif_output_requires_the_feature() {
     use crate::pipeline::{InputProfilePolicy, ProcessingErrorKind, transcode};
-    let options = TransformOptions {
-        output_width: 2,
-        output_height: 2,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    };
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 2,
+        height: 2,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
     assert_eq!(
         transcode(
             include_bytes!("../tests/fixtures/sample.jpg"),
             ImageFormat::Jpeg,
-            options
+            &options
         )
         .unwrap_err()
         .kind(),
@@ -238,17 +231,17 @@ fn batch_spawn_failure_does_not_start_images_and_reports_each_item() {
             Ok(Box::new(Rows { bytes: Vec::new() }))
         }
     }
-    let options = TransformOptions {
-        output_width: 4,
-        output_height: 4,
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    };
-    let items = [BatchItem {
-        encoded: include_bytes!("../tests/fixtures/sample.jpg"),
-        format: ImageFormat::Jpeg,
+    let options = TransformOptions::new(OutputGeometry::Exact {
+        width: 4,
+        height: 4,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing);
+    let item = BatchItem::new(
+        include_bytes!("../tests/fixtures/sample.jpg"),
+        ImageFormat::Jpeg,
         options,
-    }; 3];
+    );
+    let items = [item.clone(), item.clone(), item];
     let backend = CountingBackend(AtomicUsize::new(0));
     for successful in [0, 1, 2] {
         let _failure = crate::thread_spawn::fail_after(successful);
@@ -286,14 +279,15 @@ fn batch_returns_a_backend_panic_as_internal() {
             panic!("intentional backend panic")
         }
     }
-    let item = BatchItem {
-        encoded: include_bytes!("../tests/fixtures/sample.jpg"),
-        format: ImageFormat::Jpeg,
-        options: TransformOptions {
-            profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-            ..TransformOptions::default()
-        },
-    };
+    let item = BatchItem::new(
+        include_bytes!("../tests/fixtures/sample.jpg"),
+        ImageFormat::Jpeg,
+        TransformOptions::new(OutputGeometry::Exact {
+            width: 1,
+            height: 1,
+        })
+        .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing),
+    );
     let results = Engine::new(2).transcode_batch_with(&[item], &Panics);
     assert_eq!(results.len(), 1);
     let error = results.into_iter().next().unwrap().unwrap_err();

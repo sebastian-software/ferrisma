@@ -11,30 +11,28 @@
 
 use std::fmt;
 
-use crate::pipeline::{AvifOptions, JpegXlOptions, OutputFormat, WebpOptions};
+use crate::pipeline::{OutputFormat, OutputSettings};
 
-/// What one image's encoder is asked to produce: every encoder setting of
-/// the transcode, as the caller set it, in the settings of the requested
-/// format (the other formats' settings are at their defaults; the engine
-/// refuses anything else before decoding). A backend validates the settings
-/// of its format on its own scale and refuses, with
-/// [`EncodeErrorKind::InvalidOptions`], a setting it cannot honor instead of
-/// ignoring it (ADR-0042). Compare backends at matched quality, not equal
-/// numeric settings.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// What one image's encoder is asked to produce: the output settings of
+/// the transcode, as the caller set them, and the frame the rows describe.
+/// A backend validates the settings of its format on its own scale and
+/// refuses, with [`EncodeErrorKind::InvalidOptions`], a setting it cannot
+/// honor instead of ignoring it (ADR-0042). Compare backends at matched
+/// quality, not equal numeric settings.
+///
+/// Since 2026-11-16 the settings are one [`OutputSettings`] value, so the
+/// request carries only the requested format's settings (before: a format
+/// and the settings of all three formats, the others at their defaults).
+/// Not `Copy`, so that a later field need not be.
+#[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct EncodeRequest {
-    /// Requested output format.
-    pub format: OutputFormat,
-    /// Format-specific settings when `format` is AVIF: quality, alpha
-    /// quality, speed, depth and chroma layout (since 2026-11-15; they were
-    /// the fields `quality`, `speed` and `chroma` before, and the depth was
-    /// not passed).
-    pub avif: AvifOptions,
-    /// Format-specific settings when `format` is WebP.
-    pub webp: WebpOptions,
-    /// Format-specific settings when `format` is JPEG XL.
-    pub jpeg_xl: JpegXlOptions,
+    /// The requested output format and its encoder settings: quality,
+    /// speed, depth and chroma layout for AVIF ([`AvifOptions`]), the
+    /// profile for WebP and JPEG XL.
+    ///
+    /// [`AvifOptions`]: crate::pipeline::AvifOptions
+    pub output: OutputSettings,
     /// Output width in pixels.
     pub width: u32,
     /// Output height in pixels.
@@ -52,6 +50,14 @@ pub struct EncodeRequest {
     /// Encoder threads, resolved (at least 1); 1 means the caller asked
     /// for single-threaded encoding.
     pub threads: usize,
+}
+
+impl EncodeRequest {
+    /// The requested output format, the format of [`Self::output`].
+    #[must_use]
+    pub fn format(&self) -> OutputFormat {
+        self.output.format()
+    }
 }
 
 /// The encoded image and what the backend knows about its memory.

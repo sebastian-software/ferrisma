@@ -18,6 +18,7 @@ use ferrisma::pipeline::{
     InputProfilePolicy, Output, OutputFormat, ResizeFilter, RowEncoder, SourceAccess,
     TransformOptions, WorkCount, transcode_with,
 };
+use ferrisma::pipeline::{OutputGeometry, OutputSettings};
 
 /// Captures rows instead of encoding, so the facade runs without a writer.
 struct RowCapture;
@@ -46,19 +47,15 @@ impl RowEncoder for CapturedRows {
 }
 
 fn rect(x: u32, y: u32, width: u32, height: u32) -> Crop {
-    Crop {
-        x,
-        y,
-        width,
-        height,
-    }
+    Crop::new(x, y, width, height)
 }
 
 fn srgb() -> TransformOptions {
-    TransformOptions {
-        profile_policy: InputProfilePolicy::AssumeSrgbIfMissing,
-        ..TransformOptions::default()
-    }
+    TransformOptions::new(OutputGeometry::Exact {
+        width: 1,
+        height: 1,
+    })
+    .with_profile_policy(InputProfilePolicy::AssumeSrgbIfMissing)
 }
 
 /// Crop, then a Lanczos3 downscale to half size, on one transform thread.
@@ -66,15 +63,15 @@ fn run(bytes: &[u8], format: ImageFormat, crop: Crop, options: TransformOptions)
     let output = transcode_with(
         bytes,
         format,
-        TransformOptions {
-            output_format: OutputFormat::WebP,
-            crop: Some(crop),
-            output_width: crop.width.div_ceil(2),
-            output_height: crop.height.div_ceil(2),
-            filter: ResizeFilter::Lanczos3,
-            transform_threads: 1,
-            ..options
-        },
+        &options
+            .with_output(OutputSettings::default_for(OutputFormat::WebP))
+            .with_geometry(OutputGeometry::Exact {
+                width: crop.width().div_ceil(2),
+                height: crop.height().div_ceil(2),
+            })
+            .with_crop(Some(crop))
+            .with_filter(ResizeFilter::Lanczos3)
+            .with_transform_threads(1),
         &RowCapture,
     )
     .unwrap();
@@ -83,9 +80,9 @@ fn run(bytes: &[u8], format: ImageFormat, crop: Crop, options: TransformOptions)
     // and each requested row is delivered exactly once in one request.
     assert_eq!(work.crop, crop);
     assert_eq!(work.requested, crop);
-    assert_eq!(work.delivered_rows, u64::from(crop.height));
+    assert_eq!(work.delivered_rows, u64::from(crop.height()));
     assert_eq!(output.report.decoder_requests, 1);
-    let area = |r: Crop| u64::from(r.width) * u64::from(r.height);
+    let area = |r: Crop| u64::from(r.width()) * u64::from(r.height());
     assert_eq!(area(work.codec_request), area(crop));
     assert_eq!(
         work.overfetch_pixels,
@@ -214,11 +211,12 @@ fn libjxl_rs_crop_reports_the_full_frame_fallback() {
         jxl,
         ImageFormat::JpegXl,
         crop,
-        TransformOptions {
-            // This reader reports its emitted color as the DATA ICC.
-            profile_policy: InputProfilePolicy::UseRenderedIcc,
-            ..TransformOptions::default()
-        },
+        TransformOptions::new(OutputGeometry::Exact {
+            width: 1,
+            height: 1,
+        })
+        // This reader reports its emitted color as the DATA ICC.
+        .with_profile_policy(InputProfilePolicy::UseRenderedIcc),
     );
     assert_eq!(output.report.input_access, SourceAccess::FullFrameFallback);
     assert_eq!(output.report.decoder_full_frame_buffers, 0);
@@ -241,9 +239,12 @@ fn libjxl_rs_crop_reports_the_full_frame_fallback() {
 #[test]
 fn libjxl_rs_full_request_retains_one_full_frame() {
     let jxl = include_bytes!("fixtures/orientation/jxl-1.jxl");
-    let options = || TransformOptions {
-        profile_policy: InputProfilePolicy::UseRenderedIcc,
-        ..TransformOptions::default()
+    let options = || {
+        TransformOptions::new(OutputGeometry::Exact {
+            width: 1,
+            height: 1,
+        })
+        .with_profile_policy(InputProfilePolicy::UseRenderedIcc)
     };
     let full = run(jxl, ImageFormat::JpegXl, rect(0, 0, 24, 16), options());
     assert_eq!(full.report.input_access, SourceAccess::FullFrameFallback);
