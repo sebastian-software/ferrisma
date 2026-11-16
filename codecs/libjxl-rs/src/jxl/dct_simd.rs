@@ -550,7 +550,11 @@ fn transpose<D: SimdF32>(
         transpose_blocks4(d, rows, cols, from, from_stride, to, to_stride);
     } else {
         // GenericTransposeBlock(TransposeSimdTag<false>), transpose-inl.h
-        // lines 48-61.
+        // lines 48-61. Both buffers are sliced to the extent the loop
+        // touches, so with the shape's constant strides the element
+        // accesses need no checks of their own.
+        let from = &from[..(rows - 1) * from_stride + cols];
+        let to = &mut to[..(cols - 1) * to_stride + rows];
         for n in 0..rows {
             for m in 0..cols {
                 to[m * to_stride + n] = from[n * from_stride + m];
