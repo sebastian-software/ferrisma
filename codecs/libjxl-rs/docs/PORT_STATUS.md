@@ -4194,4 +4194,20 @@ the scalar environment guard (explicit selections alone) 1,162 passed, 0
 failed, 2 ignored; the encoder's SIMD binaries on AVX2 under Rosetta 2 44
 passed, 1 ignored. Do not merge before the hosted measurement is reviewed.
 <!-- end encoder selection head -->
-||||||| df6c83cf
+<!-- skcms hsw -->
+skcms HSW engine (2026-11-16, branch `v1/jxl-skcms-hsw`). O9 is implemented:
+the Rosetta 2 cross builds of the original (`tools/check.py`, scalar
+reference, its variant and the AVX2 oracle) use
+`-DCMAKE_APPLE_SILICON_PROCESSOR=x86_64` and contain skcms's HSW and SKX
+engines. The port's HSW helpers now run in the engine's attribute context
+(out-of-line intrinsic calls in `jxl::skcms` of `encode_lossy` 806 to 0;
+the static check holds them to zero). The earlier 657 differences of the
+inlined engine come from Rosetta 2 mis-executing correct AVX code: the same
+machine code is right under `qemu-user`, every variant of the port gives
+identical words for all 135,236 skcms observations under QEMU, and the
+original's HSW engine under QEMU matches the port on the affected
+observations (ADR 0004 "The skcms HSW engine in its attribute context").
+Open: the x86-64 test binaries under Rosetta 2 (Rosetta hung new x86-64
+processes on the machine during the change) and the hosted Linux x86-64
+run.
+<!-- end skcms hsw -->

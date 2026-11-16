@@ -339,10 +339,11 @@ the included `-inl.h`, from `tools/hwy_inventory.py`):
   cross builds of the libjxl original are to be configured with
   `-DCMAKE_SYSTEM_PROCESSOR=x86_64`, so that upstream's `skcms.cmake` keeps
   the HSW engine as in a native x86-64 build; the original's source stays
-  untouched. **Not implemented yet:** `tools/check.py` and the oracle
-  tooling still build the cross-built references without the flag, so they
-  contain only skcms's baseline engine, and the port's HSW engine is still
-  compared with the original's only on hosted Linux x86-64.
+  untouched. Implemented 2026-11-16 (branch `v1/jxl-skcms-hsw`) with
+  CMake's `-DCMAKE_APPLE_SILICON_PROCESSOR=x86_64`, because CMake ignores
+  `CMAKE_SYSTEM_PROCESSOR` without `CMAKE_SYSTEM_NAME`; the cross-built
+  references and the AVX2 oracle now contain the HSW and SKX engines
+  ("The skcms HSW engine in its attribute context" below).
 
 <!-- vardct kernels -->
 ## VarDCT decode kernels (2026-11-13, Plan item 2)
@@ -2302,3 +2303,113 @@ ignored), and the x86-64 static check holds (0 out-of-line calls in the
 port's functions; 806 in skcms HSW). Condition (e) stays open until the
 hosted measurement and a hosted x86-64 run are reviewed.
 <!-- end encoder selection -->
+<!-- skcms hsw -->
+## The skcms HSW engine in its attribute context (2026-11-16, branch `v1/jxl-skcms-hsw`)
+
+Follows "The skcms HSW engine: an attempt that changed results" under
+"Encoder selection", and implements O9.
+
+**O9.** `tools/check.py` configures the cross-built scalar reference, its
+reference-pins-off variant and the AVX2 oracle with
+`-DCMAKE_APPLE_SILICON_PROCESSOR=x86_64`. The decision named
+`-DCMAKE_SYSTEM_PROCESSOR=x86_64`, but CMake ignores that variable unless
+`CMAKE_SYSTEM_NAME` is set too (it is a cross-compiling setting): a build
+with it still reported `CMAKE_SYSTEM_PROCESSOR is arm64` and contained only
+`skcms_private::baseline::run_program`. `CMAKE_APPLE_SILICON_PROCESSOR` is
+CMake's switch for an Apple Silicon host building for x86_64: the host
+processor, and with it `CMAKE_SYSTEM_PROCESSOR`, becomes x86_64 without
+cross-compiling mode, as on a native x86-64 Mac. Upstream's
+`third_party/skcms.cmake` then compiles `skcms_TransformHsw.cc` (`-O3
+-march=x86-64 -mavx2 -mf16c`, no `-mfma`) and `skcms_TransformSkx.cc`.
+Evidence: libjxl's configure reports x86_64 for all three builds; the
+`jxl_oracle` of each and `skcms_transform_private` define
+`skcms_private::hsw::run_program` and `skx::run_program` next to the
+baseline engine. Rosetta 2 does not emulate AVX-512, so `cpu_type()`
+selects HSW there. A build directory configured before is configured
+afresh, because CMake records the processor once per directory. The
+scalar stage still runs its tests without `ROSETTA_ADVERTISE_AVX`, so
+both sides select the baseline engine there. Setting it for the whole
+stage compares HSW with HSW, as a native run does. It stays opt-in
+because of the Rosetta defect below.
+
+**Cause of the 657 differences: Rosetta 2, not the compiler.**
+
+- *Reproduced only with the crate's flags.* The previous attempt's fully
+  inlined `transform_x86.rs` reproduces the difference only with the
+  crate's `.cargo/config.toml` flags (`-C no-vectorize-slp -C
+  no-vectorize-loops`). Without them, all 135,236 observations of the
+  `skcms_transform` case lists match the current engine under Rosetta 2.
+  With them, 643 differ at this base (657 in the earlier attempt's
+  count).
+- *Minimal reproducer.* `apply_tf` and the four other transfer
+  functions, inlined behind the selector `match` into one
+  `#[target_feature(enable = "avx,avx2,f16c")]` function and run on 8
+  lanes with skcms's inverse sRGB function, shows it. Under Rosetta 2,
+  lanes with `x < d` (0, 1e-9, 0.001) take the `pow` branch: for
+  example, -0.055 instead of 0 at `x = 0`. The same function without
+  inlining is right.
+- *The machine code is correct.* At the failing lane it computes the
+  select as `vcmpnltss` against `d`, then `vblendvps` of the linear and
+  the `pow` value, which is the correct instruction-level form of
+  `if_then_else(x < d, …)`. It contains no `vrcpps`/`vrsqrtps` and no FMA
+  instruction.
+- *QEMU runs the same bytes correctly.* The Mach-O image's `__TEXT` and
+  `__DATA` were mapped at their link addresses in a Linux process, with
+  `memset_pattern16` bound to a plain implementation, and the function
+  ran under `qemu-user -cpu max`. It returned the correct linear values
+  for every lane. Rosetta 2 returned the wrong ones for the same bytes.
+- *Not FMA.* Neither engine variant of the port contains an FMA
+  instruction in its HSW code: the HSW context has no `fma`, and Rust
+  does not contract. The original's HSW object has none either (1,210
+  separate `vmulps`/`vaddps`/`vsubps`). So contraction does not explain
+  the difference at any site, and the port's HSW `madd` (a separate
+  multiply and add) is what the original does.
+- *Not isolated to one instruction.* Every predicate of
+  `vcmpss`/`vcmpps` with the reproducer's values is right under Rosetta
+  2 in isolation. The faulty translation depends on the surrounding code;
+  a debugger trace was not possible (macOS Developer Mode is off).
+
+**Reference behavior (QEMU, local).**
+
+- *Port variants under QEMU.* x86-64 Linux builds of the observation
+  dump, with the crate's flags, ran under `qemu-user -cpu Haswell`. The
+  current engine, the fully inlined variant and the committed variant
+  give identical words for all 135,236 observations.
+- *Original under QEMU.* The original's AVX2 oracle for Linux (upstream's
+  dispatch build, HSW engine present) ran under the same QEMU on the 643
+  observations that Rosetta 2 changes. It equals the port (current
+  engine) on all 643, and on 300 sampled observations where the baseline
+  and HSW engines differ it gives the HSW words (300 of 300), so QEMU ran
+  the HSW engine.
+- *Six NaN payloads.* Six private-program observations (special-float
+  inputs) differ between the port's engine under Rosetta 2 and under QEMU
+  in NaN payloads only. Those requests go to the private helper, which
+  was not built for Linux. They are independent of this change: they are
+  the same before and after it under each emulator.
+
+What only a native run shows: the original's HSW engine and the port on
+x86-64 hardware (both emulators can deviate from hardware; QEMU computes
+`rcpps` exactly, which skcms does not use). Under Rosetta 2, the
+original's HSW engine against the port with `ROSETTA_ADVERTISE_AVX=1`
+could not be run in this change: Rosetta 2 hung every new x86-64 process
+on the machine during the work. That comparison is still owed.
+
+**Change.** Every helper of `transform_x86.rs` is `#[inline(always)]`.
+The matrix rows are built with loops, and `store_pixels`' `write` and the
+Lab helpers are nested functions instead of closures. The transfer
+functions keep a table of function pointers, but each entry is an
+out-of-line function of the engine's own attribute context
+(`avx,avx2,f16c` for HSW, `avx,avx2,f16c,fma` for SKX), selected per lane
+count through `Engine<N>`. This keeps each transfer function's code shape
+that of a function of its own, as before and as in the original's
+`kStageFns` table, instead of one function holding all five (the shape
+that Rosetta 2 mis-executes). The arithmetic is unchanged.
+
+Out-of-line intrinsic calls in `jxl::skcms` of the x86-64 release builds:
+`encode_lossy` 806 to 0, `encode_lossless` and `conformance_decode` 0.
+The static stage's codegen check now holds `jxl::skcms` to zero as well;
+std_detect's one `xgetbv` call remains in each binary. Hosted Linux
+x86-64 evidence decides whether the change stays: the `JXL: Tests` job's
+parity shards compare the port's skcms engine with the original's on
+native hardware, where both select HSW on a host without AVX-512.
+<!-- end skcms hsw -->
