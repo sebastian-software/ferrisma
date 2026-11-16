@@ -1847,23 +1847,53 @@ ordinary and complete ASan/UBSan original builds. Native repr(C) field layouts
 must agree with that observation before the decoder state uses these blocks;
 the initial storage support alone does not implement the streaming decoder.
 
-The source Brotli state flags share a C bitfield word with fields and padding
-that StateInit leaves uninitialized. Reading that entire word as a Rust integer
-would be invalid; clearing it would overwrite caller-initialized sentinel bits.
-The AArch64/x86-64 representation candidate therefore performs native raw
-load/mask/store entirely within a small inline-assembly helper over an exclusive,
-aligned four-byte MaybeUninit borrow. Selected-field reads mask and shift before
-returning a Rust scalar and require those field bits to be source-initialized.
-Scratch registers are early outputs, not late outputs; memory effects and x86
-flag clobbers are explicit. Source assignment order is retained individually.
-Other architectures have no guessed bitfield implementation. Before core state
-use, native original C-declaration and real constructor observations must prove
-every field's byte masks, truncation, neighboring sentinel preservation and
-partially initialized selected-field reads on both supported architectures and
-ordinary/instrumented graphs. The 33,664-request proof and actual constructor/assembly observations pass
-against both original graphs and all three Rust profiles on native AArch64 and
-x86-64. The separate raw byte-XOR primitive also passes its complete native
-1,633,984-tuple source/tail proof on both architectures.
+**Brotli flag word and transform tail bytes.** Owner decision of 2026-11-16
+(ADR-0044: no assembly). The source Brotli
+state flags share a C bitfield word with padding that StateInit leaves as the
+allocator returned it, and the dictionary transform's uppercase step XORs up
+to two destination bytes that are not written yet. Stable Rust cannot merge
+bits into a word whose other bits are uninitialized, nor XOR an uninitialized
+byte, without assembly. Until 2026-11-16 six small `asm!` blocks (AArch64 and
+x86-64) did both, so that a caller's custom allocator found the same padding
+bits and tail bytes as with the original; that limited the Brotli
+representation to those two architectures.
+
+Since then:
+
+- `StateOwner::initialize` zeroes the whole four-byte flag word, padding
+  included, before StateInit's first field assignment. `BitfieldWord` requires
+  four initialized bytes and reads and writes fields with a plain native-order
+  `u32` load, mask and store.
+- `RawByteDestination::xor` applies the original XOR to a byte inside its
+  initialized prefix and leaves a byte past that prefix as it is. Such a byte
+  lies past everything the transform has written; the transform's suffix or
+  the decoder's next output overwrites it before anything reads it. The ring
+  buffer is not zeroed.
+
+**What changes:** only the content of bits and bytes the original leaves
+uninitialized: the 12 padding bits of the flag word (zero instead of what the
+allocator returned) and a not-yet-written destination byte past the
+transform's initialized prefix (not XORed). Only a caller's custom allocator
+could observe them.
+
+**What stays identical with the original and is still compared:** every
+decoded byte, every status and error code, consumed and produced byte counts,
+and every allocation call with its size and order. The decoder never reads
+the changed bits or bytes, so none of these can change. Every field
+assignment keeps its source order and truncation. The bitfield proof
+(`tools/brotli_bitfield_probe.rs`, 33,664 requests against both original
+graphs) and the raw-transform proof (1,633,984 tuples) still compare every
+field value and every byte the original defines, and both pass unchanged:
+their seeded lanes initialize every byte before the operation, and their
+other lanes compare only field values and the returned prefix. One further
+comparison observes the padding bits:
+`tests/brotli_state.rs::initialized_state_bytes_and_callbacks_match_actual_pinned_source`
+(also run by `tools/brotli_state_representation.py`) compares the whole
+state block after StateInit with an allocator that seeds it (0xa5); the
+original keeps the seed in the flag word's padding, the port has zeros
+(`10a0a5a5` against `10000000` at the flag word). Its retirement is pending
+the owner's decision, since the decision named two other comparisons. No Brotli representation is tied to an
+architecture any longer: the module checks for `riscv64gc-unknown-linux-gnu`.
 
 The complete Brotli streaming state machine retains the actual decoder block
 in `DecoderInstance`, with fixed borrowed-dictionary binding metadata beside

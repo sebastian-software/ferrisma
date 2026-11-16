@@ -1,6 +1,6 @@
 # ADR-0044: No assembly; acceleration only through Rust intrinsics
 
-- **Status:** Accepted (the principle and decisions D1–D4). The treatment of the six inline assembly sites that remain in libjxl-rs's Brotli decoder is an [open question](#open-questions-pending-owner-decision).
+- **Status:** Accepted (the principle and decisions D1–D4). Its open question on the inline assembly that remained in libjxl-rs is closed (owner decisions of 2026-11-16): no assembly site is left.
 - **Date:** 2026-11-15
 - **Last reviewed:** 2026-11-16
 - **Source:** owner decision of 2026-11-15 on open question O4 of [ADR-0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (#250)
@@ -198,29 +198,45 @@ The remaining six are the Brotli sites, listed in
 `tools/xtask/assembly-allowlist.txt`: `src/brotli/bitfield.rs` (4) and
 `src/brotli/raw_bytes.rs` (2).
 
+**State on 2026-11-16, last: 6 sites became 0.** The owner decided on
+2026-11-16 that the six Brotli blocks are replaced by zero-initialized state
+and plain integer operations, and that the comparisons of the formerly
+uninitialized bits and bytes are given up. Branch `v1/jxl-brotli-no-asm`,
+commit `fix(jxl): replace the Brotli assembly with plain integer operations`:
+the decoder zeroes the state's packed flag word when it creates the state,
+reads and writes its fields as a plain `u32`, and applies the dictionary
+transform's byte XOR only inside the destination's initialized prefix
+([libjxl-rs ADR 0003](../../codecs/libjxl-rs/docs/adr/0003-rust-representation.md),
+"Brotli flag word and transform tail bytes"). What changes is only the content
+of bits and bytes the original leaves uninitialized, which a caller's custom
+allocator could observe: the flag word's padding bits, and a not-yet-written
+destination byte past the transform's initialized prefix. Every decoded byte,
+every status, consumed and produced counts and every allocation call with its
+size and order stay identical with the original and stay compared. The
+Brotli code is no longer tied to AArch64 and x86-64.
+`tools/xtask/assembly-allowlist.txt` is empty; `cargo xtask assembly` now
+fails on any assembly site in the workspace outside the upstream snapshots.
+
 ## Open questions (pending owner decision)
 
-- **The six inline assembly sites that remain in libjxl-rs's Brotli
-  decoder** (the brotli row of the table above, listed in
-  `tools/xtask/assembly-allowlist.txt`). The owner wants them replaced
-  (2026-11-16). Stable Rust cannot merge bits into a word whose other bits
-  are uninitialized without assembly, so replacing them changes what a
-  caller's custom allocator finds in padding bits and tail bytes, which
-  libjxl-rs ADR 0003 records and two native proofs compare with the
-  original. Until the owner confirms that change, these sites stay as they
-  are, and no new site is added (the guard enforces both). The half-precision
-  and NaN-order `fmul` sites were decided on 2026-11-16 (state paragraph
-  above).
+None. The question on the inline assembly that remained in libjxl-rs was
+closed on 2026-11-16: the half-precision and NaN-order `fmul` sites were
+replaced first, the six Brotli sites last (state paragraphs above).
 
 ## Review when
 
 - The hosted performance run measures the libaom kernels of D2.
 - A kernel is rebuilt with intrinsics, or an original adds an assembly-only
   kernel on a path in scope.
-- Rust stabilizes an intrinsic that replaces one of the sites in the table.
-- The owner decides the open question.
+- Rust stabilizes a way to merge bits into partly uninitialized memory
+  (a `freeze` operation), which would let the Brotli flag word keep the
+  allocator's padding bits again without assembly.
 
 ## Amendment log
+
+- 2026-11-16 — The six Brotli sites are replaced (owner decision of
+  2026-11-16; state paragraph "6 sites became 0"). The open question is
+  closed and the allowlist is empty.
 
 - 2026-11-16 — The four non-Brotli libjxl-rs sites are removed (state
   paragraph "10 sites became 6"): the half-precision conversions through
