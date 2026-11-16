@@ -241,9 +241,9 @@ The minimum supported Rust version is the port's measured floor, 1.88 since
 2026-11-15 (owner decision, [Ferrisma ADR-0040](../../docs/adr/0040-stable-public-contract-and-compatibility-policy.md)
 amendment). Raise it only deliberately, in its own change with a changelog
 note, to a release that is then at least three months old: update
-`rust-version`, the `msrv` toolchains in the Brotli audit tools (still `1.95`,
-the earlier floor; they are manual audit tools and were not rerun at 1.88),
-and the documentation. The static stage's `--msrv` step checks the port at
+`rust-version` and the documentation. The audit tools read the `msrv`
+toolchain from `rust-version` (`tools/rust_version.py`), so they need no edit.
+The static stage's `--msrv` step checks the port at
 exactly the declared version in CI, so the declaration cannot go stale. Clippy reads
 `rust-version`, so a raise can enable lints that suggest newer idioms. In
 translated code, keep the source's form and add a function-scoped

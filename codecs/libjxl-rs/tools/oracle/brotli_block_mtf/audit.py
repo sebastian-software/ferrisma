@@ -7,8 +7,11 @@ import os
 import pathlib
 import re
 import subprocess
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "tools"))
+from rust_version import MSRV
 SOURCE = ROOT / "upstream/libjxl/third_party/brotli"
 PINS = {
     "upstream/libjxl": "a16d32d0ac113f5e54125e49bb571281c5d0b704",
@@ -141,7 +144,7 @@ def main():
     for kind, tests in [("block_length", 5), ("mtf", 5)]:
         for config, prefix, optimize in [("debug", ["rustc"], "0"),
                                          ("release", ["rustc"], "3"),
-                                         ("msrv", ["rustup", "run", "1.95", "rustc"], "0")]:
+                                         ("msrv", ["rustup", "run", MSRV, "rustc"], "0")]:
             binary = args.output / ("rust-" + kind + "-" + config)
             run(prefix + ["--edition=2024", "--test", "tests/brotli_" + kind + ".rs",
                           "--cfg", 'feature="cpp-oracle"', "-D", "warnings",
@@ -168,7 +171,7 @@ def main():
         gates = [gate for key, gate in report["gates"].items() if key.startswith(kind + "-")]
         for key in gates[0]:
             assert len({gate[key] for gate in gates}) == 1
-    (args.output / "clippy.toml").write_text('msrv = "1.95"\n')
+    (args.output / "clippy.toml").write_text(f'msrv = "{MSRV}"\n')
     for kind in ["block_length", "mtf"]:
         run(["clippy-driver", "--edition=2024", "--test", "tests/brotli_" + kind + ".rs",
              "--cfg", 'feature="cpp-oracle"', "-D", "warnings", "-o",

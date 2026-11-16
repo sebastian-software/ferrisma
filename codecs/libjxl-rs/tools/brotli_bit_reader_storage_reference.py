@@ -14,6 +14,7 @@ import sys
 
 from brotli_decoder_binding import verify
 from brotli_state_reference import ROOT, sha
+from rust_version import MSRV
 
 
 def main():
@@ -60,7 +61,7 @@ def main():
         report["source"][graph]["output_sha256"] = sha(out / f"{graph}.txt")
     rust = []
     for name, toolchain, level in [("debug", "stable", "0"), ("release", "stable", "3"),
-                                    ("msrv", "1.95", "0")]:
+                                    ("msrv", MSRV, "0")]:
         compiler = ["rustup", "run", toolchain, "rustc", "--edition", "2024", "-D", "warnings",
                     "-C", f"opt-level={level}"]
         binary = out / name
@@ -78,7 +79,7 @@ def main():
     execute("retained-reader-audit", [sys.executable, ROOT / "tools/brotli_bit_reader_extended_reference.py",
         "--ordinary", args.ordinary.resolve(), "--sanitized", args.sanitized.resolve(),
         *rust, "--output", out / "retained-reader-audit"])
-    (out / "clippy.toml").write_text('msrv = "1.95"\n')
+    (out / "clippy.toml").write_text(f'msrv = "{MSRV}"\n')
     execute("clippy", ["clippy-driver", "--edition=2024", "--test", "--cfg", 'feature="cpp-oracle"',
         ROOT / "tests/brotli_bit_reader_storage.rs", "-D", "warnings", "-o", out / "clippy"],
         dict(os.environ, CLIPPY_CONF_DIR=str(out)))
