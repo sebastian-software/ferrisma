@@ -20,7 +20,12 @@ its own.
   [publishing](https://github.com/sebastian-software/ferrisma/blob/main/docs/publishing.md),
   blocker 3.
 
-Experimental and unstable: its API may change in any 0.x release.
+Internal to `ferrisma`: this crate follows no SemVer of its own. `ferrisma`
+requires exactly the version released with it (an `=` requirement), and any
+release may change this crate's API. Do not depend on it directly; enable
+the `ferrisma` feature named above instead
+([ADR-0040](https://github.com/sebastian-software/ferrisma/blob/main/docs/adr/0040-stable-public-contract-and-compatibility-policy.md),
+problem 7).
 
 License: MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`). The ported
 codecs carry their own licenses.

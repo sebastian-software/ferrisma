@@ -69,8 +69,9 @@ Existing version state (2026-11-13): every member is `0.1.0` except
 `ferrisma-avif-read`, `ferrisma-avif-write`, and `ferrisma-libavif` (`0.0.0`).
 Every package is `publish = false`. First-party requirements are **caret**
 requirements (`version = "0.1.0"`, and `"0.0.0"` for the two AVIF bridges,
-which under Cargo's 0.0.x rule is effectively exact). There is **no** `=` pin
-between first-party crates. The external exact pins `libc = "=0.2.191"`
+which under Cargo's 0.0.x rule is effectively exact). There was **no** `=` pin
+between first-party crates until 2026-11-16; since then `ferrisma` requires
+its kernels and its four bridges exactly (see "Pins" under configuration A). The external exact pins `libc = "=0.2.191"`
 (four AVIF packages) and `c2rust-bitfields = "=0.3.0"` (`libavif-aom`,
 `libavif-dav1d`) became caret requirements with the same minimum on
 2026-11-14 (branch `v1/release-plumbing`, #209). Three secondary lockfiles
@@ -150,13 +151,23 @@ tagged):
 
 What A implies:
 
-- **Pins.** All requirements move in lockstep, so caret requirements are
-  enough; under 0.x a caret requirement `0.2.0` already excludes `0.3.0`.
-  If the owner wants `=` pins between first-party crates (for example a bridge
-  on the port's raw-pointer API), note that the Rust updater writes a plain
-  version and drops `=`; ferromark restores its one exact pin with a post-step
-  (`scripts/preserve-exact-transform-pin.mjs`) pushed to the release branch.
-  Nothing in Ferrisma needs that today.
+- **Pins.** All requirements move in lockstep, but a caret requirement
+  still admits a later patch release: a published `ferrisma` 0.2.0 with
+  `ferrisma-jxl-decoder = "0.2.0"` would resolve to a bridge 0.2.1 whose API
+  changed, because the bridges are internal and follow no SemVer of their
+  own (API review of 2026-11-16, section 2.2). Since 2026-11-16 `ferrisma`
+  therefore requires `ferrisma-kernels`, `ferrisma-avif-read`,
+  `ferrisma-avif-write`, `ferrisma-jxl-decoder` and `ferrisma-jxl-encoder`
+  with `=` (working decision, delegated, revisable by the owner; ADR-0040
+  problem 7). The Rust updater writes a plain version and drops the `=`
+  (rehearsed: all five pins lose it on every proposed release), so the
+  publish draft runs
+  [`publishing/release-please/preserve-exact-pins.mjs`](../publishing/release-please/preserve-exact-pins.mjs)
+  on the release branch after Release Please and pushes the correction, as
+  ferromark does with `scripts/preserve-exact-transform-pin.mjs`. The
+  script refuses a pin whose version disagrees with its package instead of
+  repairing it. The other first-party requirements (the ports, which have
+  their own SemVer as standalone crates) stay caret.
 - **Publish order.** Every release publishes all fourteen crates in the order
   of [publishing](publishing.md); the shared action skips nothing new, so a
   one-line fix in one port still uploads fourteen versions. Unchanged codec
@@ -383,7 +394,7 @@ proposed release.
 | `version.workspace = true` cannot be updated. | ferromark ADR-0020; its rehearsal negative case. | Not used in Ferrisma; keep it that way. |
 | A root package that is also a workspace root makes the `rust` strategy rewrite every member. | release-please `src/strategies/rust.ts`; B on today's layout. | Fine for A (that is A's mechanism). B needs a virtual root. |
 | `"."` in `[workspace].members` | Rehearsal warning "member . declared but did not find Cargo.toml"; no effect on the result. | Harmless in the rehearsal; not verified against the GitHub API. Removing `"."` from `members` (Cargo includes the root package anyway) would make it moot. |
-| `=` requirements are rewritten without `=`. | ferromark `docs/releasing.md`, `scripts/preserve-exact-transform-pin.mjs`. | No first-party `=` pins exist; adding one needs the same post-step. |
+| `=` requirements are rewritten without `=`. | ferromark `docs/releasing.md`, `scripts/preserve-exact-transform-pin.mjs`; rehearsal of 2026-11-16 (`--without-post-step`: 20 findings per configuration, the five engine pins in each of the four proposals). | The engine's five exact pins (since 2026-11-16) are restored by `preserve-exact-pins.mjs`, run by the publish draft on the release branch and by the rehearsal on every proposal; the rehearsal fails on a pin without `=`. |
 | Secondary lockfiles are not part of the strategy. | Three lockfiles carry first-party versions (see above). | Covered by `toml` extra files in both drafts; the rehearsal checks them. |
 | Linked groups and dependency-only bumps (B). | See configuration B. | Accept, or move to A. |
 
@@ -479,8 +490,11 @@ Nothing below needs GitHub or crates.io credentials.
    node publishing/release-please/rehearse.mjs "$TMPDIR/rp-17.6.0/node_modules" per-port --key-by-package
    ```
 
-   `per-port` always applies the virtual-root move in memory. Exit status 0
-   means no finding. Results on 2026-11-13: without the key fix, A 24 and B 6
+   `per-port` always applies the virtual-root move in memory. Both apply the
+   exact-pin post-step (`preserve-exact-pins.mjs`) to every proposal, as the
+   publish draft does on the release branch, and report a finding for an
+   engine pin without `=`; `--without-post-step` is the negative control and
+   must exit 1. Exit status 0 means no finding. Results on 2026-11-13: without the key fix, A 24 and B 6
    findings (exit 1); with it, both clean (exit 0). Results on 2026-11-14,
    after #248 landed: A and B clean (exit 0) on the committed manifests, with
    and without `--key-by-package` (which no longer changes anything). A
@@ -490,7 +504,11 @@ Nothing below needs GitHub or crates.io credentials.
    per-component versions described under configuration B. Remaining library
    warnings are the expected ones of an offline run (no release pull
    request, no previous release) and "member . declared but did not find
-   Cargo.toml" (see the table above).
+   Cargo.toml" (see the table above). Results on 2026-11-16, with the
+   engine's five `=` pins: A and B clean (exit 0), with and without
+   `--key-by-package`; Release Please dropped the `=` of all five pins on
+   the first release and the post-step restored them; with
+   `--without-post-step` A and B each report 20 findings (exit 1).
 
 3. Validate the drafts against the Release Please schema (`schemas/config.json`
    and `schemas/manifest.json` at v17.6.0 and at `main`), for example with Ajv

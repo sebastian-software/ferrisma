@@ -151,7 +151,9 @@ Proposed, pending maintainer review:
 5. **Dependencies.** Codec and CMS crates stay out of public signatures
    (ADR-0017), so their major versions are internal. `ferrisma-kernels` is a
    public dependency while `KernelLevel` is re-exported; a breaking change to
-   those two types is a breaking change of `ferrisma` (problem 7).
+   those two types is a breaking change of `ferrisma` (problem 7). Since
+   2026-11-16 `ferrisma` requires the kernels and its four bridges with `=`
+   (amendment of that date).
 6. **Deprecation and upgrade guidance.** Stable items are deprecated with
    `#[deprecated(since, note)]` for at least one minor release before removal
    in the next major release. Each release has a changelog entry with
@@ -213,8 +215,15 @@ owner requires of the API review before 1.0.
    define the two diagnostic enums in `ferrisma` and map them, or keep them
    experimental and version both crates together. _Since 2026-11-15 (owner
    decision O3, ADR-0041):_ all packages share one version, which
-   [release automation](../release-automation.md) notes makes this problem
+   [release automation](../release-automation.md) noted makes this problem
    moot; the recommendation to define the enums in `ferrisma` stays open.
+   _Not moot (API review of 2026-11-16):_ one shared version does not stop
+   a caret requirement from resolving a published `ferrisma` to a later
+   kernels or bridge release whose API changed, and the bridges follow no
+   SemVer of their own. Since 2026-11-16 `ferrisma` requires the kernels and
+   the four bridges with `=` (amendment of that date, item 4); the
+   kernel-level enums are still foreign types in `ferrisma`'s API, so the
+   recommendation to define them in `ferrisma` stays open.
 8. **Raw CICP.** `ImageMetadata::rendered_cicp` is `Option<[u8; 4]>`.
    Recommendation: a named `Cicp` struct with primaries, transfer, matrix,
    and full-range fields.
@@ -607,3 +616,20 @@ reports that a stable item cannot express its use case.
      Evidence: `cli::tests::report_value_names_are_owned_by_the_cli`,
      `cli::tests::report_line_names_the_decoder_and_encoder_backends`,
      `discarded_report::the_cli_report_line_names_the_discarded_classes`.
+  4. **Exact pins on the internal crates** (review section 2.2, problem 7).
+     `ferrisma` requires `ferrisma-kernels`, `ferrisma-avif-read`,
+     `ferrisma-avif-write`, `ferrisma-jxl-decoder` and
+     `ferrisma-jxl-encoder` with `=` instead of a caret requirement, and the
+     four bridges' READMEs and crate docs say that they are internal to
+     `ferrisma`, follow no SemVer of their own and are not for direct use.
+     Reason: with caret requirements a published `ferrisma` would resolve to
+     a later bridge release whose API changed, although every package shares
+     one version. The ports keep caret requirements (they are published as
+     standalone crates with their own SemVer). Release Please drops `=`, so
+     the inert publish draft runs `publishing/release-please/preserve-exact-pins.mjs`
+     on the release branch (ferromark's precedent), and the rehearsal
+     applies the same step and fails on a pin without `=`; rehearsed with
+     release-please 17.6.0: A and B clean, the negative control 20 findings
+     each ([release automation](../release-automation.md)). Not decided:
+     whether `ferrisma-kernels` should say the same of itself while its
+     enums are re-exported.
