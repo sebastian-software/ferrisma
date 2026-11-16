@@ -840,14 +840,17 @@ impl GetBlock for GetBlockFromEncoder<'_> {
             let AcPtrMut::I32(block) = &mut block[c] else {
                 return Err(StatusCode::GenericError);
             };
+            let block = &mut block[..size];
             for (i, rows) in self.rows.iter().enumerate() {
-                for k in 0..size {
+                // The block's `size` coefficients of this pass, sliced once so
+                // the loop needs no per-element bounds checks.
+                let src = &rows[c][self.offset..self.offset + size];
+                let mul = 1i32 << self.shift_for_pass[i];
+                for (dst, &q) in block.iter_mut().zip(src) {
                     // The source's int32 product and sum; Clang's two's
                     // complement lowering on the defined (non-overflowing)
                     // domain the encoder's quantized values stay in.
-                    block[k] = block[k].wrapping_add(
-                        rows[c][self.offset + k].wrapping_mul(1i32 << self.shift_for_pass[i]),
-                    );
+                    *dst = dst.wrapping_add(q.wrapping_mul(mul));
                 }
             }
         }
