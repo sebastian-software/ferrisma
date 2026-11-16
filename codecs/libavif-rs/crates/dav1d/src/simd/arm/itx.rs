@@ -266,6 +266,7 @@ mod tests {
         use crate::b8::itx_tmpl::{dav1d_itx_dsp_init_8bpc, Dav1dInvTxfmDSPContext as Translated};
         use crate::common::cpu::{dav1d_init_cpu, dav1d_set_cpu_flags_mask};
         let rebuilt = dav1d_inv_txfm_add_dct_dct_8x8_8bpc_neon as ItxFn as usize;
+        let _guard = crate::simd::cpu::CPU_MASK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let slot = |mask: u32| unsafe {
             dav1d_init_cpu();
             dav1d_set_cpu_flags_mask(mask);

@@ -95,3 +95,7 @@ pub fn dav1d_get_cpu_flags_native() -> c_uint {
     }
     flags
 }
+
+/// Serializes the unit tests that change the process-wide CPU mask.
+#[cfg(test)]
+pub static CPU_MASK_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

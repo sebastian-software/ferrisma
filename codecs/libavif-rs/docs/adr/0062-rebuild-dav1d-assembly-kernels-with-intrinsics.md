@@ -277,6 +277,20 @@ unchanged (3.12, 4.30, 11.70 G); pictures unchanged. Sampled 8-bit 4:2:0
 profile: coefficient decoding in C 46 %, msac 36 %, itx 6 %, loop filter
 5 %, CDEF 5 %.
 
+**2026-11-16, loop filter 16 bpc on NEON** (`loopfilter16.S`: the four
+`dav1d_lpf_*_16bpc_neon`, used at 10 and 12 bit as in the original;
+`dispatch.txt`: `loopfilter_16bpc_arm`). Gates as for 8 bpc: per-kernel 17
+groups, 3,155 selections each at `neon` and scalar (the 16 bpc groups run
+at 10 and 12 bit); whole images 994 of 994 at each level; 1,711 of 1,711;
+ABI, API, linkage pass. Positive control: the `f + 4` constant off by one
+fails `loopfilter_16bpc.lpf_{h,v}_sb_y`. The unit tests that change the
+process-wide CPU mask now hold a common lock (they ran in parallel).
+Instructions per call against the assembly (10-bit pixels): row edges
+0.88 (y) and 0.85 (uv), column edges 1.00 (y) and 0.96 (uv); none above
+1.3. Instructions per decode: 10-bit 4:2:0 2.79 G (from 3.12; stock dav1d
+NEON 1.16), 10-bit 4:4:4 3.75 G (4.30; 1.34); 8-bit and lossless
+unchanged; pictures unchanged.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -285,6 +299,7 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-16 — loop filter 16 bpc on NEON (validation above).
 - 2026-11-16 — loop filter 8 bpc on NEON (validation above).
 - 2026-11-16 — msac on NEON (decision paragraph and validation above).
 - 2026-11-16 — 8 bpc inverse transforms complete on NEON (validation above).

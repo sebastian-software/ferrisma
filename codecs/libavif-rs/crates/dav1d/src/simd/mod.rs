@@ -22,6 +22,7 @@ pub mod cpu;
 pub mod arm64 {
     pub mod itx;
     pub mod loopfilter;
+    pub mod loopfilter16;
     pub mod msac;
     pub mod util;
 }
