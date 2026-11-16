@@ -187,9 +187,11 @@ cat >"$WORK/c-bin/decode_still.c" <<'EOF'
 
 #include "avif/avif.h"
 // The scalar reference prefix has no dav1d (it is context, not column (a)),
-// so only the build against the release prefix defines BENCH_DAV1D.
+// so only the build against the release prefix defines BENCH_DAV1D. dav1d
+// exports this function (src/cpu.c) but declares it only in its internal
+// src/cpu.h, as its own tools use it; the prototype is repeated here.
 #ifdef BENCH_DAV1D
-#include "dav1d/dav1d.h"
+void dav1d_set_cpu_flags_mask(unsigned mask);
 #endif
 
 static void fail(const char * message)
