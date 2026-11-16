@@ -26,6 +26,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - run: cargo fetch --locked
+      # ADR-0044: no assembly outside tools/xtask/assembly-allowlist.txt. This
+      # job runs on every event, so the guard does too.
+      - run: cargo xtask assembly
       - id: scope
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
