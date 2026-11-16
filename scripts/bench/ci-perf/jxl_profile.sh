@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Diagnostic profile (not a benchmark): where the port's JPEG XL lossy encode
-# and VarDCT decode spend their time on this host, beside the original's SIMD
-# release build, both on one thread. Run by .github/workflows/jxl-profile.yml.
+# Diagnostic profile (not a benchmark): where the port's JPEG XL lossy and
+# lossless encodes and VarDCT and lossless (modular) decodes spend their time
+# on this host, beside the original's SIMD release build, both on one thread. Run by .github/workflows/jxl-profile.yml.
 #
 #   INPUTS=dir [WORK=dir] [OUT=dir] [JOBS=n] [CROP=WxH] bash scripts/bench/ci-perf/jxl_profile.sh
 #
@@ -23,9 +23,12 @@
 #   host.txt, build.txt          lscpu, /proc/cpuinfo flags, kernel, compilers,
 #                                CMake cache flags, cjxl/djxl --version
 #                                (the selected Highway target), cargo commands
-#   timing.txt                   three wall-clock runs per side and operation
-#                                with the tools' own throughput lines, output
-#                                hashes (port == original's SIMD build?)
+#   timing.txt                   three wall-clock runs per side and case (enc,
+#                                dec, llenc, lldec) with the tools' own
+#                                throughput lines, the two encoders' output
+#                                hashes (port == original's SIMD build? The
+#                                lossless encoders differ by design: the port
+#                                runs the engine's fixed lossless profile)
 #   perf-<case>-<side>.*         perf stat, perf record (cpu-clock, 4 kHz),
 #                                perf report --stdio by symbol and by DSO,
 #                                perf annotate of the hottest symbols
@@ -73,13 +76,14 @@ CJXL=$WORK/build-simd/tools/cjxl
 DJXL=$WORK/build-simd/tools/djxl
 
 # 2. The port, as codec_jxl.sh builds it.
-(cd "$ROOT" && cargo build --release --locked -p libjxl-rs --example encode_lossy) || exit 1
+(cd "$ROOT" && cargo build --release --locked -p libjxl-rs --example encode_lossy --example encode_lossless) || exit 1
 (cd "$ROOT" && cargo build --release --locked -p ferrisma-jxl-decoder --example jxl_decode_compare) || exit 1
 TARGET=${CARGO_TARGET_DIR:-$ROOT/target}
 [[ "$TARGET" = /* ]] || TARGET=$ROOT/$TARGET
 PORT_ENC=$TARGET/release/examples/encode_lossy
+PORT_ENC_LOSSLESS=$TARGET/release/examples/encode_lossless
 PORT_DEC=$TARGET/release/examples/jxl_decode_compare
-cp "$CJXL" "$DJXL" "$PORT_ENC" "$PORT_DEC" "$OUT/bin/"
+cp "$CJXL" "$DJXL" "$PORT_ENC" "$PORT_ENC_LOSSLESS" "$PORT_DEC" "$OUT/bin/"
 
 # 3. Host and build record.
 {
@@ -104,7 +108,7 @@ cp "$CJXL" "$DJXL" "$PORT_ENC" "$PORT_DEC" "$OUT/bin/"
   python3 -I -c 'import json,sys; [print(e["command"]) for e in json.load(open(sys.argv[1])) if e["file"].endswith("lib/jxl/enc_ac_strategy.cc")]' \
     "$WORK/build-simd/compile_commands.json"
   echo "## port"; git -C "$ROOT" rev-parse HEAD; rustc -vV; cargo -V
-  echo "cargo build --release --locked -p libjxl-rs --example encode_lossy"
+  echo "cargo build --release --locked -p libjxl-rs --example encode_lossy --example encode_lossless"
   echo "cargo build --release --locked -p ferrisma-jxl-decoder --example jxl_decode_compare"
   echo "RUSTFLAGS=${RUSTFLAGS:-<unset>} CARGO_ENCODED_RUSTFLAGS=${CARGO_ENCODED_RUSTFLAGS:-<unset>}"
   sed -n '/^\[profile.release\]/,/^\[/p' "$ROOT/Cargo.toml"
@@ -114,6 +118,9 @@ cp "$CJXL" "$DJXL" "$PORT_ENC" "$PORT_DEC" "$OUT/bin/"
 MASTER=$INPUTS/photo12.ppm
 VARDCT=$WORK/photo12-e7d1.jxl
 "$CJXL" "$MASTER" "$VARDCT" -e 7 -d 1 --quiet || exit 1
+# The lossless decode input, as codec_jxl.sh makes it (cjxl -d 0 -e 7).
+LOSSLESS=$WORK/photo12-d0e7.jxl
+"$CJXL" "$MASTER" "$LOSSLESS" -d 0 -e 7 --quiet || exit 1
 CROPPED=$WORK/crop.ppm
 python3 -I - "$MASTER" "$CROPPED" "$CROP" <<'EOF' || exit 1
 import sys
@@ -136,22 +143,36 @@ rows = [data[pos + ((y0 + y) * W + x0) * 3: pos + ((y0 + y) * W + x0 + w) * 3] f
 open(dst, "wb").write(b"P6\n%d %d\n255\n" % (w, h) + b"".join(rows))
 EOF
 
-# The four profiled commands: <case> <side> <command...>, with %IN% and
-# %OUTF% substituted. One thread on both sides (codec_jxl.sh's column b).
+# The profiled commands per case and side, with codec_jxl.sh's settings and
+# one thread on both sides (its column b): enc lossy encode (-e 7 -d 1), dec
+# VarDCT decode, llenc lossless encode (-d 0 -e 2, codestream level 10,
+# buffering 0), lldec lossless (modular) decode of the -d 0 -e 7 file.
+CASES="enc dec llenc lldec"
+LLFLAGS="-d 0 -e 2 --codestream_level=10 --buffering=0"
 cmd_for() { # case side in out
   case "$1/$2" in
     enc/orig) echo "$CJXL $3 $4 -e 7 -d 1 --num_threads=0" ;;
     enc/port) echo "$PORT_ENC $3 $4 7 1" ;;
-    dec/orig) echo "$DJXL $3 --disable_output --num_threads=0" ;;
-    dec/port) echo "$PORT_DEC $3 own full 1" ;;
+    dec/orig | lldec/orig) echo "$DJXL $3 --disable_output --num_threads=0" ;;
+    dec/port | lldec/port) echo "$PORT_DEC $3 own full 1" ;;
+    llenc/orig) echo "$CJXL $3 $4 $LLFLAGS --num_threads=0" ;;
+    llenc/port) echo "$PORT_ENC_LOSSLESS $3 $4" ;;
+  esac
+}
+# The full-size input of a case.
+input_for() { # case
+  case "$1" in
+    dec) echo "$VARDCT" ;;
+    lldec) echo "$LOSSLESS" ;;
+    *) echo "$MASTER" ;;
   esac
 }
 
 # 5. Timing and output identity (three runs each; diagnostic only).
 {
-  for case in enc dec; do
+  for case in $CASES; do
     for side in orig port; do
-      in=$MASTER; [[ $case == dec ]] && in=$VARDCT
+      in=$(input_for $case)
       for rep in 1 2 3; do
         echo "## $case $side run $rep"
         # shellcheck disable=SC2046
@@ -159,9 +180,11 @@ cmd_for() { # case side in out
       done
     done
   done
-  echo "## encode output sha256 (port and original's SIMD build)"
-  sha256sum "$WORK/enc-orig.jxl" "$WORK/enc-port.jxl"
-  cmp -s "$WORK/enc-orig.jxl" "$WORK/enc-port.jxl" && echo "IDENTICAL" || echo "DIFFERENT"
+  for case in enc llenc; do
+    echo "## $case output sha256 (port and original's SIMD build)"
+    sha256sum "$WORK/$case-orig.jxl" "$WORK/$case-port.jxl"
+    cmp -s "$WORK/$case-orig.jxl" "$WORK/$case-port.jxl" && echo "IDENTICAL" || echo "DIFFERENT"
+  done
 } >"$OUT/timing.txt" 2>&1
 
 # 6. perf (cpu-clock sampling works without hardware counters in a VM).
@@ -175,9 +198,9 @@ done
 echo "perf: ${PERF:-unavailable}" >>"$OUT/host.txt"
 if [[ -n "$PERF" ]]; then
   "$PERF" version >>"$OUT/host.txt" 2>&1
-  for case in enc dec; do
+  for case in $CASES; do
     for side in orig port; do
-      in=$MASTER; [[ $case == dec ]] && in=$VARDCT
+      in=$(input_for $case)
       base=$OUT/perf-$case-$side
       # shellcheck disable=SC2046
       "$PERF" stat -e task-clock,cycles,instructions,branches,branch-misses,L1-dcache-loads,L1-dcache-load-misses \
@@ -209,12 +232,15 @@ fi
 
 # 7. callgrind on the crop: instructions executed per function.
 if command -v valgrind >/dev/null; then
-  for case in enc dec; do
+  for case in $CASES; do
     for side in orig port; do
       in=$CROPPED
       if [[ $case == dec ]]; then
         in=$WORK/crop-e7d1.jxl
         [[ -f "$in" ]] || "$CJXL" "$CROPPED" "$in" -e 7 -d 1 --quiet || continue
+      elif [[ $case == lldec ]]; then
+        in=$WORK/crop-d0e7.jxl
+        [[ -f "$in" ]] || "$CJXL" "$CROPPED" "$in" -d 0 -e 7 --quiet || continue
       fi
       base=$OUT/callgrind-$case-$side
       # shellcheck disable=SC2046
