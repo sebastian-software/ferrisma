@@ -567,7 +567,7 @@ fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
         TransformOptions {
             output_format: OutputFormat::WebP,
             avif: AvifOptions {
-                depth: 10,
+                depth: Some(10),
                 ..AvifOptions::default()
             },
             ..TransformOptions::default()
@@ -676,7 +676,7 @@ fn independent_oriented_avif_reference_reaches_own_encoder() {
                 quality: 100,
                 alpha_quality: 100,
                 speed: 10,
-                depth: 10,
+                depth: Some(10),
                 ..AvifOptions::default()
             },
             encoder_threads: 1,
