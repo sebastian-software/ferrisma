@@ -341,16 +341,15 @@ fn minus_ulp(v: F) -> F {
 
 fn half_to_f(half: [u16; 4]) -> F {
     #[cfg(target_arch = "aarch64")]
-    // SAFETY: FCVTL implements the selected original NEON half conversion. The
-    // register is an initialized 64-bit vector, with no memory operands.
+    // SAFETY: vcvt_f32_f16 (FCVTL) is the selected original NEON half
+    // conversion and needs only the AArch64 baseline NEON; both transmutes
+    // reinterpret initialized lanes of the same size.
     unsafe {
-        let input: std::arch::aarch64::float32x2_t = std::mem::transmute(half);
-        let output: std::arch::aarch64::float32x4_t;
-        std::arch::asm!("fcvtl {output:v}.4s, {input:v}.4h",input=in(vreg) input,output=out(vreg) output,options(pure,nomem,nostack));
-        F(std::mem::transmute::<
-            std::arch::aarch64::float32x4_t,
-            [f32; 4],
-        >(output))
+        use std::arch::aarch64::{float16x4_t, float32x4_t, vcvt_f32_f16};
+        let input = std::mem::transmute::<[u16; 4], float16x4_t>(half);
+        F(std::mem::transmute::<float32x4_t, [f32; 4]>(vcvt_f32_f16(
+            input,
+        )))
     }
     #[cfg(not(target_arch = "aarch64"))]
     F::from_bits(half.map(|v| {
@@ -365,13 +364,13 @@ fn half_to_f(half: [u16; 4]) -> F {
 }
 fn f_to_half(f: F) -> [u16; 4] {
     #[cfg(target_arch = "aarch64")]
-    // SAFETY: FCVTN is the original NEON narrowing conversion; every binary32
-    // input is valid, and no memory is accessed by the instruction.
+    // SAFETY: vcvt_f16_f32 (FCVTN) is the original NEON narrowing conversion
+    // and needs only the AArch64 baseline NEON; every binary32 input is valid,
+    // and both transmutes reinterpret initialized lanes of the same size.
     unsafe {
-        let input: std::arch::aarch64::float32x4_t = std::mem::transmute(f.0);
-        let output: std::arch::aarch64::float32x2_t;
-        std::arch::asm!("fcvtn {output:v}.4h, {input:v}.4s",input=in(vreg) input,output=out(vreg) output,options(pure,nomem,nostack));
-        std::mem::transmute(output)
+        use std::arch::aarch64::{float16x4_t, float32x4_t, vcvt_f16_f32};
+        let input = std::mem::transmute::<[f32; 4], float32x4_t>(f.0);
+        std::mem::transmute::<float16x4_t, [u16; 4]>(vcvt_f16_f32(input))
     }
     #[cfg(not(target_arch = "aarch64"))]
     f.bits().map(|v| {

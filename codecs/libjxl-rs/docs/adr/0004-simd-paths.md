@@ -191,8 +191,9 @@ The decoder's first lossy stages follow the same pattern as the stages
 above: a `Kernel` body generic over `SimdF32` in its own file, dispatched by
 the stage factory on `hwy::decoder_target()`, the scalar path unchanged.
 The layer gains `LoadDup128`, `Broadcast<lane>` and the binary16 `DemoteTo`
-(`fcvtn` through inline assembly on AArch64, because Rust's f16 intrinsic
-types are not stable; `vcvtps2ph` on AVX2), each with its `hwy-op` test
+(`fcvtn` on AArch64, through inline assembly until 2026-11-16 and since
+then through `vcvt_f16_f32`, stable since Rust 1.94.0, ADR-0044;
+`vcvtps2ph` on AVX2), each with its `hwy-op` test
 (67 operations). Row parity uses the `rs-*` requests of
 `tools/oracle/render_stages_simd.cc`, which only call the original's public
 factories on 128-byte aligned rows, and `tests/simd_render.rs`.
