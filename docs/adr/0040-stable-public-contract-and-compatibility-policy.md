@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-12
-- **Last reviewed:** 2026-11-15
+- **Last reviewed:** 2026-11-16
 - **Supersedes:** None. Once accepted, it replaces decision 6 ("no stability promise") of [ADR-0017](0017-minimal-public-facade-and-cli.md) for the items it marks stable.
 - **Superseded in part by:** [0041](0041-v1-quality-gate-equivalence-with-the-ported-original.md) (when the version 1.0 may be used, and the release tooling)
 - **Related:** [0010](0010-dual-licensing.md), [0017](0017-minimal-public-facade-and-cli.md), [0018](0018-optional-codec-and-cms-dependencies.md), [0020](0020-kernel-crate-and-isa-dispatch.md), [0024](0024-pluggable-encoders-and-libavif-rs-backend.md), [0026](0026-codecs-in-one-repository-and-workspace.md), [0034](0034-thumbnail-geometry.md), [0037](0037-selectable-workspace-avif-encoder.md), [publishing](../publishing.md), [release automation](../release-automation.md), [compatibility guide](../compatibility.md), tracker #196
@@ -36,7 +36,10 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
   builds on stable Rust 1.98 (CI MSRV job). Since 2026-11-15 the AVIF features (`avif-read`,
   `avif-write`, `cli`) build on stable Rust 1.99 instead (libavif-rs ADR 0060),
   and since the owner's MSRV decision of the same day the engine declares
-  1.99 for every feature (amendment log, 2026-11-15).
+  1.99 for every feature (amendment log, 2026-11-15). _Correction
+  2026-11-16:_ `avif-own-write` no longer exists (its writer is `avif-write`
+  since 2026-11-15), and no feature needs the nightly; only the native
+  targets remain.
 - On this branch, every public facade item is documented
   (`#![warn(missing_docs)]`), and the growable enums and output-only structs
   are `#[non_exhaustive]` (see the inventory below).
@@ -49,21 +52,26 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 | --- | --- | --- | --- |
 | `transcode`, `transcode_resized` | fn | Stable | Exact and aspect-aware geometry (ADR-0034) |
 | `inspect`, `InspectionLimits`, `ImageMetadata` | fn, struct, struct | Stable | JPEG and WebP only; `ImageMetadata` is non-exhaustive |
-| `TransformOptions` | struct, public fields, `Copy`, `Default` | Stable, see problems 1–3 | Field docs state each field's scale and limit |
+| `TransformOptions` | struct, public fields, `Copy`, `Default` | Stable, see problems 1–3 | Field docs state each field's scale and limit; since 2026-11-16 the rustdoc of `max_output_bytes` describes when the limit is checked as this release's behavior, not a promise (problem 16) |
 | `Crop` | struct, public fields | Stable | Deliberately exhaustive plain rectangle |
 | `ResizeOptions`, `ResizeFit` | struct, enum | Stable | `ResizeFit` non-exhaustive |
 | `ResizeFilter` (`Area`, `Lanczos3`) | enum | Stable | Non-exhaustive |
 | `InputProfilePolicy` | enum | Stable | Non-exhaustive; `Strict` default |
 | `ImageFormat`, `OutputFormat` | enum | Stable | Non-exhaustive |
 | `WebpOptions` (`Lossy { quality, method }`, `Lossless { level }`) | enum | Stable | Non-exhaustive; libwebp's own scales; `speed` replaced by `method` on 2026-11-15 |
-| `JpegXlOptions` (`Lossy { distance }`, `Lossless { effort }`) | enum | Experimental (ADR-0039); default lossy d1.0, patches off (owner decision 2026-11-15) | Non-exhaustive; `PartialEq` only |
+| `WebpOptions::DEFAULT_METHOD`, `WebpOptions::MAX_METHOD` | consts | Tier not decided | libwebp's default and largest method (4, 6) |
+| `JpegXlOptions` (`Lossy { distance, depth }`, `Lossless { effort, depth }`) | enum | Experimental (ADR-0039); default lossy d1.0, patches off (owner decision 2026-11-15) | Non-exhaustive; `PartialEq` only; `depth: Option<u8>` in both variants since 2026-11-15 (`None` follows the input) |
+| `JpegXlOptions::MIN_LOSSY_DISTANCE`, `MAX_LOSSY_DISTANCE`, `depth()`, `with_depth()` | consts, methods | Tier not decided | The admitted distance range (0.05, exclusive 3.0) and the depth of either variant |
 | `ChromaSubsampling` | enum | Stable | Non-exhaustive |
-| `AvifOptions` (`quality`, `alpha_quality`, `speed`, `depth`, `chroma`), `TransformOptions::avif` | struct, field | Experimental (owner decision 2026-11-15, ADR-0037; replaces `avif_depth`, `quality`, `speed`, `chroma_subsampling`) | libavif's scales; `avifenc` defaults 60, 60, 6, 8, 4:4:4; public fields, not non-exhaustive, like `TransformOptions` (problem 1) |
+| `AvifOptions` (`quality`, `alpha_quality`, `speed`, `depth`, `chroma`), `TransformOptions::avif` | struct, field | Experimental (owner decision 2026-11-15, ADR-0037; replaces `avif_depth`, `quality`, `speed`, `chroma_subsampling`) | libavif's scales; `avifenc` defaults 60, 60, 6, depth `None` (follows the input: 8, 10 or 12; a fixed 8 until the depth decision of 2026-11-15), 4:4:4; `depth: Option<u8>`; public fields, not non-exhaustive, like `TransformOptions` (problem 1) |
 | `LibavifBackend` | unit struct | Experimental (`avif-write`; stable Rust 1.99 since 2026-11-15, pinned nightly before) | ADR-0037; the built-in AVIF writer; reads every setting from the request since 2026-11-15 |
 | `WorkingPrecision` | enum | `F32` stable; `F64Reference` experimental (verification only) | Non-exhaustive |
 | `Output` | struct | Stable | Non-exhaustive; `format`, `bytes`, `width`, `height`, `report` |
 | `ProcessingReport`, `SourceAccess` | struct, enum | Stable field names; values are observations | Non-exhaustive; new fields are additive. `decoder_backend` and `encoder_backend` strings are experimental values (2026-11-14, #217) |
-| `StageTimings` | struct | Experimental values | Wall-clock observations, never a contract |
+| `StageTimings` | struct | Experimental values | Wall-clock observations, never a contract; since 2026-11-16 "`total` is at least the sum of the stages" is described as this release's behavior, not promised (problem 16) |
+| `ProcessingReport::decoder_work`, `DecoderWork` (`crop`, `requested`, `codec_request`, `codec_output`, `overfetch_pixels`, `reconstructed_pixels`, `entropy_rows`, `delivered_rows`, `wrapper_copied_bytes`) | field, struct | Tier not decided | Non-exhaustive, `Copy`; ADR-0012; since 2026-11-16 "`requested` equals `crop`" is described as this release's behavior, not promised (problem 16) |
+| `WorkCount` (`Exact`, `AtLeast`), `WorkCount::at_least` | enum, method | Tier not decided | Non-exhaustive; only `Exact` bounds the work from above |
+| `ProcessingReport::input_depth`, `output_depth` | fields | Tier not decided | Bits per sample read and written (since 2026-11-15, ADR-0021 amendment) |
 | `ColorSignal`, `ProcessingReport::color_signal` | enum, field | Experimental (working decision 2026-11-14, #212) | Non-exhaustive; reports the signal used, never a precedence |
 | `KernelLevel`, `KernelLevelReason`, `TransformOptions::kernel_level_ceiling` | re-exported enums, field | Experimental (diagnostics) | Couples to `ferrisma-kernels`; see problem 7 |
 | `ProcessingError`, `ProcessingErrorKind` | struct, enum | Stable | Kind is non-exhaustive; message text is not stable |
@@ -76,8 +84,11 @@ Verified facts on 2026-11-12 (branch on top of `90b638dd`):
 ### Rust API (`ferrisma::cli`)
 
 `cli::run(args, backend)` is public so adapter crates can ship the same
-command. Proposed tier: experimental and `#[doc(hidden)]` candidate; the
-binary's command line, not this function, is the stable CLI contract.
+command, and since 2026-11-16 `cli::main(args, backend) -> ExitCode` runs it
+and prints the error and chooses the exit status as the binary does (the
+binary and `ferrisma-libavif` call it). Proposed tier for both:
+experimental and `#[doc(hidden)]` candidates (problem 12); the binary's
+command line, not these functions, is the stable CLI contract.
 
 ### Cargo features
 
@@ -86,7 +97,7 @@ binary's command line, not this function, is the stable CLI contract.
 | `jpeg-read`, `webp-read`, `webp-write`, `icc` | Stable | Stable 1.99 (1.98 before 2026-11-15) |
 | `jpeg-xl-read` | Stable as "JPEG XL input"; since 2026-11-15 the workspace libjxl-rs reader, the only one (ADR-0032) | Stable 1.99 (1.98 before 2026-11-15) |
 | `jpeg-xl-write` (in `cli` since 2026-11-12, ADR-0039) | Experimental | Stable 1.99 (1.98 before 2026-11-15) |
-| `avif-read`, `avif-write` | Experimental until they build on stable (`avif-write` was the stable rav1e capability until 2026-11-15); they build on stable 1.99 since 2026-11-15, the tier change is the owner's | Stable 1.99 (pinned nightly before 2026-11-15), native targets only |
+| `avif-read`, `avif-write` | Experimental; tier not decided (`avif-write` was the stable rav1e capability until 2026-11-15; the "until they build on stable" condition is met since 2026-11-15, so only the owner's choice remains) | Stable 1.99 (pinned nightly before 2026-11-15), native targets only |
 | `cli` | Stable command line; inherits the 1.99 floor through `avif-read`/`avif-write` (the nightly requirement until 2026-11-15) | Stable 1.99 |
 
 ### Command line (`ferrisma` binary, `cli` feature)
@@ -100,12 +111,17 @@ binary's command line, not this function, is the stable CLI contract.
 | `--max-input-mb=`, `--max-input-mpx=`, `--budget-mb=`, `--max-output-mb=` | Stable |
 | `--transform-threads=`, `--encoder-threads=` | Stable |
 | `--area` | Stable, see problem 15 |
-| `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=8\|10`, `--avif-chroma=444\|420` | Experimental, as `AvifOptions` |
+| `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=8\|10\|12` (12 and "omitted follows the input" since 2026-11-15), `--avif-chroma=444\|420` | Experimental, as `AvifOptions` |
 | `--reference`, `--kernel-level=scalar\|neon\|avx2\|avx512` | Experimental (verification and diagnostics) |
 | `.jxl` output, `--jxl-distance=`, `--jxl-lossless` (ADR-0039) | Experimental |
-| Exit status 0 success, 2 usage (fewer than four positional arguments), 1 any other error (Rust's default `Error: …` on stderr) | Stable |
+| `--jxl-depth=8..16` (since 2026-11-15; omitted follows the input) | Tier not decided |
+| Exit status 0 success, 2 usage error (missing positionals, unknown, repeated or contradictory flag, unsupported extension, a value that does not parse, `InvalidOptions`), 1 processing error (since 2026-11-16; before: 2 only for fewer than four positionals, 1 for everything else) | Stable |
+| Standard error: one line `error: <message>` (message text not stable); for an error the engine returned, a second line `failure: kind=<kind> reason=<reason or none>` with lower-case hyphenated names owned by the CLI (since 2026-11-16; before, Rust's `Error: ` and the derived `Debug`) | Tier not decided |
+| `--help`, `-h`: usage on stdout, exit 0 (since 2026-11-16) | Tier not decided |
+| `--version`, `-V`: four lines on stdout (version, target, features, build), exit 0, precedence over every other argument | Tier not decided |
 | Each flag at most once; mutually exclusive pairs refused with both names (owner decision 2026-11-15) | Stable |
-| `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, and `decoder` (appended 2026-11-14, #217) |
+| `report:` key=value line on stdout | Stable keys; new keys are additive; integer values except `precision`, `kernel_level`, `encoder`, `decoder` (appended 2026-11-14, #217), `color_signal` and `discarded`; the names taken from enums are the CLI's own lower-case hyphenated values since 2026-11-16 (tier of the values not decided) |
+| `decoder_work:` line on stdout (rectangles `WxH+X+Y`, counts with `>=` for a lower bound) | Tier not decided |
 | Human-readable `Encoded …`, `Timings: …` lines and the stderr memory note | Not stable |
 
 ## Decision
@@ -144,7 +160,9 @@ Proposed, pending maintainer review:
 5. **Dependencies.** Codec and CMS crates stay out of public signatures
    (ADR-0017), so their major versions are internal. `ferrisma-kernels` is a
    public dependency while `KernelLevel` is re-exported; a breaking change to
-   those two types is a breaking change of `ferrisma` (problem 7).
+   those two types is a breaking change of `ferrisma` (problem 7). Since
+   2026-11-16 `ferrisma` requires the kernels and its four bridges with `=`
+   (amendment of that date).
 6. **Deprecation and upgrade guidance.** Stable items are deprecated with
    `#[deprecated(since, note)]` for at least one minor release before removal
    in the next major release. Each release has a changelog entry with
@@ -152,7 +170,8 @@ Proposed, pending maintainer review:
    each major release adds an upgrade guide to the compatibility document.
 7. **Applied now (uncontroversial):** documentation for every public item and
    `#[non_exhaustive]` on the growable enums (`ImageFormat`, `OutputFormat`,
-   `WebpOptions`, `AvifEncoder`, `JpegXlDecoder`, `InputProfilePolicy`,
+   `WebpOptions`, `AvifEncoder` and `JpegXlDecoder` (both removed on
+   2026-11-15, see the amendment log), `InputProfilePolicy`,
    `WorkingPrecision`, `ChromaSubsampling`, `SourceAccess`, `ResizeFit`,
    `ResizeFilter`, `KernelLevel`, `KernelLevelReason`) and the output-only
    structs (`Output`, `ProcessingReport`, `StageTimings`, `ImageMetadata`).
@@ -206,8 +225,15 @@ owner requires of the API review before 1.0.
    define the two diagnostic enums in `ferrisma` and map them, or keep them
    experimental and version both crates together. _Since 2026-11-15 (owner
    decision O3, ADR-0041):_ all packages share one version, which
-   [release automation](../release-automation.md) notes makes this problem
+   [release automation](../release-automation.md) noted makes this problem
    moot; the recommendation to define the enums in `ferrisma` stays open.
+   _Not moot (API review of 2026-11-16):_ one shared version does not stop
+   a caret requirement from resolving a published `ferrisma` to a later
+   kernels or bridge release whose API changed, and the bridges follow no
+   SemVer of their own. Since 2026-11-16 `ferrisma` requires the kernels and
+   the four bridges with `=` (amendment of that date, item 4); the
+   kernel-level enums are still foreign types in `ferrisma`'s API, so the
+   recommendation to define them in `ferrisma` stays open.
 8. **Raw CICP.** `ImageMetadata::rendered_cicp` is `Option<[u8; 4]>`.
    Recommendation: a named `Cicp` struct with primaries, transfer, matrix,
    and full-range fields.
@@ -224,8 +250,10 @@ owner requires of the API review before 1.0.
 12. **`cli::run` is a public library function** returning
     `Box<dyn Error>`. Recommendation: `#[doc(hidden)]` or move it to the
     binary's crate if adapters no longer need it.
-13. **CLI help.** There is no `--help`; usage is printed only for too few
-    arguments, and an unknown flag exits 1. `--version` (and `-V`) exists
+13. **CLI help.** _Since 2026-11-16 (amendment of that date):_ `--help`
+    and `-h` print the usage on standard output and exit 0, and an unknown
+    flag exits 2. Before, there was no `--help`; usage was printed only for
+    too few arguments, and an unknown flag exited 1. `--version` (and `-V`) exists
     since 2026-11-13 (#237, [compatibility guide](../compatibility.md)) but
     is not yet assigned to a tier. Recommendation: add `--help` and assign
     both flags a tier before 1.0.
@@ -246,7 +274,21 @@ owner requires of the API review before 1.0.
     checks every stable item for such an assumption, for example a
     signature that requires the whole input or output in memory, a report
     field or error kind that only a whole-frame decoder can fill, or a
-    guarantee about when work happens. Not yet done.
+    guarantee about when work happens. _Partly done on 2026-11-16_ (API
+    review of that date, amendment item 5): the review found the reading
+    and the writing side compatible after pre-1.0 changes. Four rustdoc
+    guarantees that streaming would have to break were reworded into
+    descriptions of today's behavior, without a behavior change: the
+    `transcode` rustdoc ("only one decoder region is requested"),
+    `DecoderWork::requested` ("equals `crop`"), `StageTimings::total` ("at
+    least the sum of the other stages"), and `TransformOptions::max_output_bytes`
+    ("checked after their encoder returns"). What remains, all owner
+    decisions: the output-limit kind (`ResourceExhausted` today, problem 5),
+    `Copy` on the report types and `TransformOptions` (problem 10),
+    exhaustive `TransformOptions` and `InspectionLimits` (problem 1), `Send`
+    on `RowEncoder`, the CLI's output-file atomicity (the file is written
+    only after success today, not promised), and the reader and writer entry
+    points themselves, which can be added later.
 
 ## Consequences
 
@@ -288,7 +330,8 @@ owner requires of the API review before 1.0.
 ## Review when
 
 The maintainer accepts or rejects the recommendations above; the AVIF
-features build on stable Rust; a new output format, color policy, or backend
+features build on stable Rust (met since 2026-11-15; their tier is still
+open); a new output format, color policy, or backend
 is added; the first functional crates.io release is prepared; or a consumer
 reports that a stable item cannot express its use case.
 
@@ -522,3 +565,118 @@ reports that a stable item cannot express its use case.
   backend API gains `EncodeRequest::depth`, `EncoderBackend::row_depths`
   and `RowEncoder::write_row_u16` with defaults, so existing backends need
   no change.
+- 2026-11-16 — **API hardening from the API review of 2026-11-16**
+  (working decisions, delegated, revisable by the owner; the record stays
+  Proposed). Changes that need no API-shape decision:
+  1. **Panic policy.** The public entry points (`transcode`,
+     `transcode_resized`, `inspect`, the `_with` variants, and each item of
+     `Engine::transcode_batch` and `transcode_batch_with`) catch a panic
+     with `std::panic::catch_unwind` and return
+     `ProcessingErrorKind::Internal` with a message that says a panic was
+     caught (and the panic's text, when it is a `&str` or `String`). Before,
+     a panic in a codec port or a backend unwound into the caller, and one
+     panicking batch item re-panicked `std::thread::scope` after the join,
+     so every result of the batch was lost; now only that item fails.
+     Promised: no unwinding out of those functions, kind `Internal`, and a
+     later call is unaffected (the memory budget is per call and released
+     while unwinding; the argument is at `contain_panic` in
+     `src/pipeline.rs`). Not promised: a panic stays a defect, not an input
+     class; with `panic = "abort"` the process aborts (the AVIF features do
+     not compile with it); a panic that has to cross a C-ABI frame inside a
+     codec port aborts; the state of a caller's `EncoderBackend` after its
+     own panic is the backend's. Evidence: `tests/panic_containment.rs`
+     provokes a panic through the public backend API in
+     `required_frame_bytes`, `begin`, `write_row` and `finish`, with one and
+     four transform threads and in a batch.
+  2. **CLI error output and exit status** (review sections 2.8 and 2.10).
+     The binary prints an error with `Display`, not the derived `Debug`
+     (`main` returned `Box<dyn Error>`, so Rust printed
+     `Error: ProcessingError { kind: …, reason: …, message: "…" }` or
+     `Error: "…"`): one line `error: <message>` on standard error, and for an
+     error the engine returned a second line
+     `failure: kind=<kind> reason=<reason or none>` shaped like the
+     `report:` line, with lower-case hyphenated names written by the CLI
+     (`kind_name`, `reason_name` in `src/cli.rs`). Exit status 0 success;
+     `--help`/`-h` print the usage on standard output and exit 0 (before:
+     unknown option, exit 1; too few arguments printed the usage to
+     standard error and exit 2, which stays, now after an `error:` line);
+     `--version` unchanged; 2 for every usage error (missing positionals,
+     unknown, repeated or contradictory flag, unsupported extension, a value
+     that does not parse, and a value the engine refuses as
+     `InvalidOptions`, so a range check moved into the engine stays a usage
+     error); 1 for every processing error (unreadable input, unwritable
+     output, refused, malformed, input limit, resource exhausted, feature
+     disabled, encoder failure, internal). The usage text now lists
+     `--help` and `--kernel-level=`. Added, experimental like `cli::run`:
+     `cli::main(args, backend) -> ExitCode`, which the binary and
+     `ferrisma-libavif` call, so an adapter's command behaves the same.
+     Command-line inventory rows updated; problem 13 is answered for
+     `--help`, the tiers of `--help`, `--version` and the error lines are
+     not decided. Evidence: `tests/cli_exit_status.rs` through the built
+     binary, `cli::tests::exit_status_separates_usage_from_processing_errors`
+     (including `Internal` from a caught panic).
+  3. **Report value names** (review section 2.8). Every value of the
+     `report:` and `decoder_work:` lines that comes from an enum is written
+     by a name function of `src/cli.rs`, lower-case and hyphenated, instead
+     of `Debug` (`precision`, `color_signal`, `discarded`) or the kernels
+     crate's `Display` (`kernel_level`), so renaming a Rust variant or a
+     kernels release cannot change the command's output. Changed values:
+     `precision=F32` → `f32`, `F64Reference` → `f64-reference`;
+     `color_signal=Cicp` → `cicp`, `AssumedSrgb` → `assumed-srgb`,
+     `RenderedIcc` → `rendered-icc`, `RenderedIccWithAgreeingCicp` →
+     `rendered-icc-with-agreeing-cicp`; `discarded=` classes `GainMap` →
+     `gain-map`, `Exif` → `exif`, `Xmp` → `xmp`, `OtherMetadata` →
+     `other-metadata`, `IccProfile` → `icc-profile`,
+     `UnknownContainerData` → `unknown-container-data`,
+     `JpegReconstructionData` → `jpeg-reconstruction-data`, `Preview` →
+     `preview`, `HiddenColor` → `hidden-color`, `Unpremultiplied` →
+     `unpremultiplied`, `PrecisionReduced` → `precision-reduced` (`none`
+     unchanged). Unchanged: the keys and their order, `kernel_level=`
+     (`scalar`, `neon`, `sve2`, `avx2`, `avx512`, now owned by the CLI), the
+     `decoder_work:` counts (`7`, `>=7`), and the `encoder=`/`decoder=`
+     backend strings, which stay the report's strings
+     (`libavif-rs/aom`, `libwebp-rs`, `libjxl-rs`, `libjpeg-turbo-rs`, or an
+     external backend's `name()`): whether they name the original codec or
+     the package is the owner's decision before the rename (review 2.7).
+     Evidence: `cli::tests::report_value_names_are_owned_by_the_cli`,
+     `cli::tests::report_line_names_the_decoder_and_encoder_backends`,
+     `discarded_report::the_cli_report_line_names_the_discarded_classes`.
+  4. **Exact pins on the internal crates** (review section 2.2, problem 7).
+     `ferrisma` requires `ferrisma-kernels`, `ferrisma-avif-read`,
+     `ferrisma-avif-write`, `ferrisma-jxl-decoder` and
+     `ferrisma-jxl-encoder` with `=` instead of a caret requirement, and the
+     four bridges' READMEs and crate docs say that they are internal to
+     `ferrisma`, follow no SemVer of their own and are not for direct use.
+     Reason: with caret requirements a published `ferrisma` would resolve to
+     a later bridge release whose API changed, although every package shares
+     one version. The ports keep caret requirements (they are published as
+     standalone crates with their own SemVer). Release Please drops `=`, so
+     the inert publish draft runs `publishing/release-please/preserve-exact-pins.mjs`
+     on the release branch (ferromark's precedent), and the rehearsal
+     applies the same step and fails on a pin without `=`; rehearsed with
+     release-please 17.6.0: A and B clean, the negative control 20 findings
+     each ([release automation](../release-automation.md)). Not decided:
+     whether `ferrisma-kernels` should say the same of itself while its
+     enums are re-exported.
+  5. **Stale statements** (review section 5). Corrected without a behavior
+     change: the crate documentation (`src/lib.rs` said there is
+     "intentionally no stable public processing API"; it now names the
+     `pipeline` facade and points to the proposed tiers), the `transcode`
+     rustdoc ("to SDR AVIF"; it writes AVIF, WebP or JPEG XL), the
+     `pipeline` module documentation ("lossless JPEG XL"), the
+     `JpegXlOptions::default` rustdoc ("pending owner confirmation"; decided
+     2026-11-15), `Discarded::PrecisionReduced` ("8-bit rows"; since
+     2026-11-15 it means an output depth below the input's), the
+     compatibility guide's paragraph that AVIF output needs the nightly, and
+     the two AVIF bridge READMEs ("needs the nightly"). In this record: the
+     context's `avif-own-write` and nightly statement (annotated), decision
+     7's removed `AvifEncoder` and `JpegXlDecoder` (annotated), the
+     `AvifOptions` depth default (`None`, follows the input), the
+     `JpegXlOptions` depth, the AVIF feature rows ("experimental until they
+     build on stable", a condition met on 2026-11-15; tier not decided),
+     `--avif-depth=12`, and new rows, each "tier not decided": `DecoderWork`
+     with `ProcessingReport::decoder_work`, `WorkCount`, `input_depth` and
+     `output_depth`, the constants and methods of `WebpOptions` and
+     `JpegXlOptions`, `--jxl-depth=`, `--version`, `--help`, the error lines
+     and the `decoder_work:` line. The four streaming-blocking guarantees
+     are reworded (problem 16).

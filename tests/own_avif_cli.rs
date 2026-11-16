@@ -72,9 +72,9 @@ fn cli_writes_avif_through_libavif_at_either_depth() {
     // The format-independent flags were removed on 2026-11-15.
     for flags in [&["--quality=55"][..], &["--speed=6"], &["--chroma=420"]] {
         let removed = run(flags);
-        assert_eq!(removed.status.code(), Some(1), "{flags:?}");
+        assert_eq!(removed.status.code(), Some(2), "{flags:?}");
         assert!(
-            String::from_utf8_lossy(&removed.stderr).starts_with("Error: \"unknown option: --"),
+            String::from_utf8_lossy(&removed.stderr).starts_with("error: unknown option: --"),
             "{}",
             String::from_utf8_lossy(&removed.stderr)
         );

@@ -116,19 +116,23 @@ cli = ["jpeg-read", "webp-read", "jpeg-xl-read", "avif-read", "avif-write", "web
 
 
 [dependencies]
+# The kernels and the four bridges are internal to `ferrisma` and follow no
+# SemVer of their own, so `ferrisma` requires exactly the version released
+# with it (ADR-0040 problem 7, amendment of 2026-11-16). Release Please drops
+# the `=`; `publishing/release-please/preserve-exact-pins.mjs` restores it.
 # First-party, unconditional: the engine's kernels with runtime ISA dispatch.
-ferrisma-kernels = { path = "crates/ferrisma-kernels", version = "0.1.0" }
-ferrisma-avif-read = { path = "crates/ferrisma-avif-read", version = "0.0.0", optional = true }
-ferrisma-avif-write = { path = "crates/ferrisma-avif-write", version = "0.0.0", optional = true }
+ferrisma-kernels = { path = "crates/ferrisma-kernels", version = "=0.1.0" }
+ferrisma-avif-read = { path = "crates/ferrisma-avif-read", version = "=0.0.0", optional = true }
+ferrisma-avif-write = { path = "crates/ferrisma-avif-write", version = "=0.0.0", optional = true }
 moxcms = { version = "0.9.1", optional = true, features = ["extended_range"] }
 # The workspace decoder exposes safe RGB scanlines; SIMD stays inside its codec boundary.
 libjpeg-turbo-rs = { path = "codecs/libjpeg-turbo-rs", version = "0.1.0", optional = true }
 libwebp-rs = { path = "codecs/libwebp-rs", version = "0.1.0", optional = true }
-ferrisma-jxl-decoder = { path = "crates/ferrisma-jxl-decoder", version = "0.1.0", optional = true }
+ferrisma-jxl-decoder = { path = "crates/ferrisma-jxl-decoder", version = "=0.1.0", optional = true }
 # Safe fixed-profile encoder entry point of the workspace port (ADR-0039).
 libjxl-rs = { path = "codecs/libjxl-rs", version = "0.1.0", optional = true }
 # Safe bridge to the port's public (raw-pointer) encoder API for lossy output.
-ferrisma-jxl-encoder = { path = "crates/ferrisma-jxl-encoder", version = "0.1.0", optional = true }
+ferrisma-jxl-encoder = { path = "crates/ferrisma-jxl-encoder", version = "=0.1.0", optional = true }
 
 [dev-dependencies]
 # Test-only since 2026-11-15 (ADR-0032): an independent JPEG XL decoder that

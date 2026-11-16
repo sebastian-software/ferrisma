@@ -35,6 +35,12 @@
 //! 10 (`VerifyLevelSettings`: lossless color above 12 bits, or alpha above 12
 //! bits): the original and the port then write the ISOBMFF container with a
 //! `jxll` box, and so does this bridge (the level stays automatic).
+//!
+//! Internal to `ferrisma`: this crate follows no SemVer of its own,
+//! `ferrisma` requires exactly the version released with it (an `=`
+//! requirement), and any release may change this API. It is not for
+//! direct use; enable the matching `ferrisma` feature instead (ADR-0040,
+//! problem 7).
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 use std::fmt;

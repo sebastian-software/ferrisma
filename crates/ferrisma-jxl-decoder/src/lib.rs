@@ -2,6 +2,12 @@
 //! The public decoder has no crop request; all reads reconstruct a full frame.
 //! [`decode_region_into`] retains only a requested upright region of that
 //! frame through the decoder's image-out callback.
+//!
+//! Internal to `ferrisma`: this crate follows no SemVer of its own,
+//! `ferrisma` requires exactly the version released with it (an `=`
+//! requirement), and any release may change this API. It is not for
+//! direct use; enable the matching `ferrisma` feature instead (ADR-0040,
+//! problem 7).
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 use jxl::jxl::codestream_header::JxlBasicInfo;

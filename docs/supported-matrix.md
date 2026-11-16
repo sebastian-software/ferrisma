@@ -282,7 +282,9 @@ test assets) and the libheif orientation set (`tests/fixtures/orientation/`).
 D2, working decision 2026-11-15, delegated, revisable by the owner) names
 each class of input information a successful transcode left out of a
 correct picture, only when it applied to this input; the CLI's `report:`
-line ends with `discarded=` and the names, comma-separated, or `none`.
+line ends with `discarded=` and the names, comma-separated, or `none`
+(the CLI's lower-case hyphenated names since 2026-11-16, for example
+`discarded=exif,xmp,icc-profile`; the variant names before).
 Every class has a test with a fixture that has it and one that does not
 (`tests/discarded_report.rs`).
 
@@ -632,7 +634,9 @@ ferrisma photo.jpg out.webp 64 48 --assume-srgb --webp-lossless --webp-level=6
 ferrisma photo.jpg out.jxl 64 48 --assume-srgb
 ```
 
-Rejected, with the error the CLI prints (exit status 1):
+Rejected, with the error the CLI prints (exit status 1 for a refused or
+malformed input, 2 for a wrong command line, including an `InvalidOptions`
+value; since 2026-11-16):
 
 | Command | Error | What to do |
 | --- | --- | --- |
@@ -653,8 +657,11 @@ Rejected, with the error the CLI prints (exit status 1):
 | `ferrisma photo.jpg out.png …` | "output must have a .avif, .webp or .jxl extension" | choose a supported output |
 | `ferrisma photo.jpg out.avif … --max-input-mpx=0` | `InvalidOptions` "input byte/pixel limits must be nonzero" | use a positive limit |
 
-The CLI prints the message, not the reason in parentheses, which is what
-`refusal_reason()` returns through the Rust facade. The facade returns the
+The CLI prints the message on an `error:` line and, for an error the
+engine returned, the kind and the reason in parentheses on a second line,
+for example `failure: kind=unsupported-color reason=color-signal-missing`
+(since 2026-11-16; before, only Rust's `Debug` form of the error). The
+reason is what `refusal_reason()` returns through the Rust facade. The facade returns the
 same `ProcessingErrorKind` values;
 [`examples/consumer.rs`](../examples/consumer.rs) maps each kind to a
 reject/retry/alert decision and its `--self-check` asserts them.

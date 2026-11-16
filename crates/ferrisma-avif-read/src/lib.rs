@@ -1,5 +1,11 @@
 //! A narrow safe reader for the workspace libavif port. Codec-owned scratch
 //! memory remains opaque. Only caller-owned RGB output buffers are bounded.
+//!
+//! Internal to `ferrisma`: this crate follows no SemVer of its own,
+//! `ferrisma` requires exactly the version released with it (an `=`
+//! requirement), and any release may change this API. It is not for
+//! direct use; enable the matching `ferrisma` feature instead (ADR-0040,
+//! problem 7).
 
 #![deny(clippy::undocumented_unsafe_blocks)]
 

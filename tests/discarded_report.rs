@@ -352,7 +352,7 @@ fn the_cli_report_line_names_the_discarded_classes() {
     };
     let report = run(&format!("{AVIF_DATA}paris_exif_xmp_icc.jpg"));
     assert!(
-        report.contains(" discarded=Exif,Xmp,OtherMetadata,IccProfile\n"),
+        report.contains(" discarded=exif,xmp,other-metadata,icc-profile\n"),
         "{report}"
     );
     let report = run("tests/fixtures/sample.jxl");
@@ -373,7 +373,7 @@ fn the_cli_report_line_names_the_discarded_classes() {
     assert_eq!(discarded(&report), "none");
     assert_eq!(
         discarded(&run(&format!("{AVIF_DATA}paris_exif_xmp_icc.jpg"))),
-        "Exif,Xmp,OtherMetadata,IccProfile"
+        "exif,xmp,other-metadata,icc-profile"
     );
     let _ = std::fs::remove_file(out);
 }

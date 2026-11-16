@@ -14,10 +14,10 @@ else, including every private module, is outside the contract.
 
 | Area | Stable | Experimental (may change in a minor release) |
 | --- | --- | --- |
-| Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run` |
+| Entry points | `transcode`, `transcode_resized`, `inspect`, `Engine::transcode_batch` | `transcode_with`, `transcode_resized_with`, `Engine::transcode_batch_with`, the `EncoderBackend`/`RowEncoder` extension traits, `cli::run`, `cli::main` |
 | Options | `TransformOptions` fields for format, geometry, crop, filter, color policy, threads, and the four resource limits; `WebpOptions` (libwebp quality and method, lossless level); `ResizeOptions`; `InspectionLimits` | `kernel_level_ceiling`, `WorkingPrecision::F64Reference`, `AvifOptions` (`TransformOptions::avif`), `JpegXlOptions` |
 | Results | `Output`, `ProcessingReport` field names, `ImageMetadata`, `ProcessingError::kind()` | `StageTimings` values, `decoder_backend` and `encoder_backend` strings, `KernelLevel`/`KernelLevelReason`, `ColorSignal`, `RefusalReason` and `ProcessingError::refusal_reason()`, `ProcessingReport::discarded` with `Discarded` and `DiscardedSet` (ADR-0042 D2) |
-| Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-write` (experimental until it builds on stable Rust; stable as the rav1e capability until 2026-11-15) |
+| Cargo features | `jpeg-read`, `webp-read`, `webp-write`, `jpeg-xl-read`, `icc`, `cli` | `jpeg-xl-write`, `avif-read`, `avif-write` (experimental since the switch to the workspace port; it builds on stable Rust 1.99 since 2026-11-15, and the tier is not decided; stable as the rav1e capability until 2026-11-15) |
 | CLI | Positional arguments, color policy, `--webp-quality=`, `--webp-method=`, WebP lossless/level, crop, thread, and limit flags; exit status; `report:` keys | `--avif-quality=`, `--avif-alpha-quality=`, `--avif-speed=`, `--avif-depth=`, `--avif-chroma=`, `--reference`, `--kernel-level`; `.jxl` output with `--jxl-distance=`, `--jxl-lossless` and `--jxl-depth=` |
 
 `jpeg-xl-read` promises the *capability* (JPEG XL input), not a particular
@@ -36,12 +36,13 @@ select rav1e, and the workspace writer was `avif-own-write`, which is gone;
 `AvifEncoder`, `TransformOptions::avif_encoder` and `--avif-encoder=` are
 removed, and the depth was `TransformOptions::avif_depth` (`--avif-depth=`)
 until the native options below.
-The known cost: AVIF output now needs the pinned nightly on macOS ARM64 or
-GNU Linux x86-64, as AVIF input already did; a stable-toolchain build can
-neither read nor write AVIF until the workspace AVIF port builds on stable
-Rust. _Working decision 2026-11-15 (delegated, revisable by the owner):_
-`avif-write` therefore moves to the experimental tier until then. See the
-[supported matrix](supported-matrix.md).
+AVIF input and output build only on native macOS ARM64 and GNU Linux
+x86-64. When the switch was made, they also needed the pinned nightly; since
+the same day they build on stable Rust 1.99 (libavif-rs ADR 0060, the
+toolchain table below). _Working decision 2026-11-15 (delegated, revisable
+by the owner):_ `avif-write` moved to the experimental tier with the switch;
+its tier, and that of `avif-read`, are not decided now that the nightly
+reason is gone. See the [supported matrix](supported-matrix.md).
 
 Also since 2026-11-15 encoder settings are native per format (owner
 decision; [ADR-0043](adr/0043-formats-behave-alike.md) D4, pre-1.0 breaking
@@ -123,6 +124,32 @@ and reports the one it used, the replacement is documented instead: the
 batch runs each image with one transform and one encoder thread, and the
 `F64Reference` executor runs scalar and single-threaded.
 
+## Panics
+
+A panic inside Ferrisma, one of its codecs or an encoder backend does not
+unwind out of the public functions (since 2026-11-16; ADR-0040 amendment of
+that date, working decision, delegated, revisable by the owner):
+`transcode`, `transcode_resized`, `inspect`, the `_with` variants and each
+item of `Engine::transcode_batch` and `transcode_batch_with` catch it and
+return `ProcessingErrorKind::Internal`, whose message says that a panic was
+caught and includes the panic's message when it is text. In a batch, only
+the panicking item fails; the other items keep their results. A later call
+starts from a fresh memory budget, so nothing of the failed call stays
+reserved.
+
+What this does not promise:
+
+- A panic is still a defect. Please report it; the `Internal` kind is not a
+  class of input to handle like a refusal, and Rust's panic hook still
+  prints its message to standard error.
+- With `panic = "abort"` nothing unwinds, so the process aborts. The AVIF
+  features (`avif-read`, `avif-write`, and `cli`, which enables them) do not
+  compile with `panic = "abort"` at all ([publishing](publishing.md)).
+- A panic that would have to cross a C-ABI frame inside a codec port aborts
+  the process instead of reaching the boundary.
+- The state of a caller-supplied `EncoderBackend` after its own panic is the
+  backend's concern; in a batch the same backend serves the other items.
+
 ## What a minor release may change
 
 - Add enum variants. Every public enum that can grow is
@@ -168,8 +195,31 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   may now succeed; an operator who wants the former bound sets it.
 - `--max-input-mb`, `--budget-mb`, and `--max-output-mb` count MiB
   (1,048,576 bytes); `--max-input-mpx` counts millions of pixels (10^6).
-- Exit status 0 means success; 2 means too few arguments (usage is printed);
-  1 means any other error, with `Error: …` on standard error.
+- Exit status 0 means success, 2 a usage error, 1 a processing error
+  (since 2026-11-16, ADR-0040 amendment of that date; before, 2 meant only
+  too few arguments and every other error was 1). Usage errors: missing
+  positional arguments (the usage follows the error line), an unknown,
+  repeated or contradictory flag, an unsupported input or output file
+  extension, a value that does not parse, and a value the engine refuses as
+  `InvalidOptions` (a setting outside its scale, a zero size or limit, a
+  crop outside the image). Processing errors: unreadable input, unwritable
+  output, a refused, malformed or too large input, an exhausted resource, a
+  missing feature, an encoder failure, and `Internal`.
+- An error is one line `error: <message>` on standard error (the message
+  text is not stable). When the engine returned it, a second line names
+  its kind and refusal reason in the form of the `report:` line:
+  `failure: kind=<kind> reason=<reason>`, for example
+  `failure: kind=unsupported-color reason=color-signal-missing`; the
+  reason is `none` outside the refusal classes. The values are lower-case
+  and hyphenated forms of `ProcessingErrorKind` and `RefusalReason`
+  (`invalid-options`, `input-limit-exceeded`, `feature-disabled`,
+  `malformed-input`, `unsupported-input`, `unsupported-color`,
+  `resource-exhausted`, `cancelled`, `encode-failed`, `internal`), written
+  by the command itself, so renaming a Rust variant does not change them.
+  Until 2026-11-16 Rust printed `Error: ` and the error's `Debug` form.
+- `--help` or `-h` prints the usage on standard output and exits 0 (since
+  2026-11-16; before, usage went to standard error with exit status 2 and
+  `--help` was an unknown option). `--version` takes precedence over it.
 - Every flag may be given once, and contradictory flags are refused with
   both names (`--assume-srgb` with `--use-rendered-icc`, `--jxl-lossless`
   with `--jxl-distance=`, `--webp-lossless` or `--webp-level=` with
@@ -181,8 +231,23 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   yet assign the flag or its output to a stability tier.
 - The `report:` line on standard output has stable keys with integer
   values, except the names (precision, kernel level, backends,
-  `color_signal`, `discarded`); new keys may be added. The other output lines are for people and
-  may change.
+  `color_signal`, `discarded`); new keys may be added. Since 2026-11-16 every
+  name taken from an enum is the command's own lower-case, hyphenated
+  value, so renaming a Rust variant cannot change it: `precision=` `f32` or
+  `f64-reference`; `kernel_level=` `scalar`, `neon`, `sve2`, `avx2`,
+  `avx512` (the names of `--kernel-level=`); `color_signal=` `cicp`,
+  `assumed-srgb`, `rendered-icc`, `rendered-icc-with-agreeing-cicp`;
+  `discarded=` a comma-separated list of `gain-map`, `exif`, `xmp`,
+  `other-metadata`, `icc-profile`, `unknown-container-data`,
+  `jpeg-reconstruction-data`, `preview`, `hidden-color`, `unpremultiplied`,
+  `precision-reduced`, or `none`. Before, `precision=`, `color_signal=` and
+  `discarded=` printed the Rust variant names (`F32`, `AssumedSrgb`,
+  `IccProfile`) and `kernel_level=` the kernels crate's names. The
+  `encoder=` and `decoder=` values are the report's backend strings
+  (`libavif-rs/aom`, `libwebp-rs`, `libjxl-rs`, `libjpeg-turbo-rs`, or an
+  external backend's name), experimental values. The `decoder_work:` line
+  prints rectangles as `WxH+X+Y` and counts as a number or `>=` and a lower
+  bound. The other output lines are for people and may change.
 
 ## Deprecation and upgrades
 

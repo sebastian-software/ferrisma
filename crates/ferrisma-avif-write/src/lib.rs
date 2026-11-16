@@ -1,6 +1,12 @@
 //! Safe, narrow still-image encoder boundary over the workspace libavif port.
 //! Input rows are straight-alpha sRGB RGBA, 8-bit or (since 2026-11-15) `u16`
 //! at the image depth; output uses CICP 1/13/6 and full range.
+//!
+//! Internal to `ferrisma`: this crate follows no SemVer of its own,
+//! `ferrisma` requires exactly the version released with it (an `=`
+//! requirement), and any release may change this API. It is not for
+//! direct use; enable the matching `ferrisma` feature instead (ADR-0040,
+//! problem 7).
 #![deny(unsafe_op_in_unsafe_fn, clippy::undocumented_unsafe_blocks)]
 
 use avif::{avif as image_api, rawdata, reformat, write};

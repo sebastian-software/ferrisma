@@ -1,6 +1,6 @@
-//! First practical M1 facade. Codec implementations are opt-in and remain
-//! private. Output is SDR AVIF, WebP or lossless JPEG XL; unsupported color
-//! fails closed.
+//! The processing facade. Codec implementations are opt-in and remain
+//! private. Output is SDR AVIF, WebP or JPEG XL (lossy or lossless);
+//! unsupported color fails closed.
 
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -127,8 +127,8 @@ impl JpegXlOptions {
 }
 
 impl Default for JpegXlOptions {
-    /// Lossy at distance 1.0, libjxl's own default (ADR-0039; pending owner
-    /// confirmation).
+    /// Lossy at distance 1.0, libjxl's own default, with patches off
+    /// (ADR-0039; owner decision 2026-11-15).
     fn default() -> Self {
         Self::Lossy {
             distance: 1.0,
@@ -346,8 +346,11 @@ pub struct TransformOptions {
     pub max_input_bytes: usize,
     /// Maximum decoded input pixels; AVIF preflights coded frame dimensions.
     pub max_input_pixels: u64,
-    /// Maximum retained encoded output bytes. WebP checks while writing;
-    /// AVIF and external backends are checked after their encoder returns.
+    /// Maximum retained encoded output bytes. Today the WebP and lossy
+    /// JPEG XL writers stop while writing, and AVIF, lossless JPEG XL and
+    /// external backends are checked after their encoder returns. When the
+    /// limit is checked describes this release, not a promise: a later
+    /// release may stop an encoder earlier.
     pub max_output_bytes: usize,
 }
 
@@ -404,7 +407,10 @@ pub struct StageTimings {
     pub transform: Duration,
     /// Encoding the materialized output frame.
     pub encode: Duration,
-    /// From entry to return; at least the sum of the other stages.
+    /// From entry to return. Today the stages run one after another inside
+    /// it, so it is at least the sum of the other stages; that is an
+    /// observation of this release, not a promise (a later release may
+    /// overlap decoding and encoding).
     pub total: Duration,
 }
 
@@ -418,9 +424,11 @@ pub struct DecoderWork {
     /// The upright source crop that feeds the resize, in display
     /// coordinates; the whole image when no crop was requested.
     pub crop: Crop,
-    /// The upright rectangle the executor requested from the source. Filters
-    /// clamp at the crop's edges, so it equals `crop`: there is no filter
-    /// halo beyond the crop and a difference would be a planning defect.
+    /// The upright rectangle the executor requested from the source. Today
+    /// the filters clamp at the crop's
+    /// edges and the executor sends one request, so it equals `crop`: there
+    /// is no filter halo beyond the crop. That describes this release, not
+    /// a promise; a later executor may request the crop in parts.
     pub requested: Crop,
     /// The rectangle whose samples the codec adapter delivers, in the codec's
     /// own frame: stored order when the engine reorients (JPEG, WebP, AVIF;
@@ -969,8 +977,17 @@ pub struct ImageMetadata {
 ///
 /// # Errors
 /// Returns an error for invalid limits, unsupported formats, missing codec
-/// features, malformed headers, or an exceeded input limit.
+/// features, malformed headers, or an exceeded input limit; a caught panic
+/// as [`ProcessingErrorKind::Internal`], as for [`transcode`].
 pub fn inspect(
+    encoded: &[u8],
+    format: ImageFormat,
+    limits: InspectionLimits,
+) -> Result<ImageMetadata, ProcessingError> {
+    contain_panic(|| inspect_headers(encoded, format, limits))
+}
+
+fn inspect_headers(
     encoded: &[u8],
     format: ImageFormat,
     limits: InspectionLimits,
@@ -1014,20 +1031,27 @@ pub fn inspect(
     })
 }
 
-/// Convert one real input to SDR AVIF. Quality and profile constraints are
-/// enforced before executing a pixel transform, and only *one* decoder region
-/// is requested for the output. The encoder's known input frames are
-/// reserved in the managed budget and reported.
+/// Convert one input to the output format of `options` (AVIF, WebP or
+/// JPEG XL) at the exact size `output_width` by `output_height`. Quality and
+/// profile constraints are enforced before executing a pixel transform. The
+/// encoder's known input frames are reserved in the managed budget and
+/// reported. Today the executor requests one decoder region for the output
+/// ([`ProcessingReport::decoder_requests`] reports how many it sent); that
+/// describes this release, not a promise.
 ///
 /// # Errors
 /// Returns an error for unsupported codec features, ambiguous profiles,
-/// invalid geometry/options, memory exhaustion or encoder failures.
+/// invalid geometry/options, memory exhaustion or encoder failures. A panic
+/// inside the engine, a codec or an encoder backend does not unwind out of
+/// this function or any other entry point: it is returned as
+/// [`ProcessingErrorKind::Internal`] (since 2026-11-16; with
+/// `panic = "abort"` the process aborts instead).
 pub fn transcode(
     encoded: &[u8],
     format: ImageFormat,
     options: TransformOptions,
 ) -> Result<Output, ProcessingError> {
-    run(encoded, format, options, None, None)
+    guarded_run(encoded, format, options, None, None)
 }
 
 /// [`transcode`] with another encoder (ADR-0024): the same decode, color,
@@ -1047,7 +1071,7 @@ pub fn transcode_with(
     options: TransformOptions,
     backend: &dyn EncoderBackend,
 ) -> Result<Output, ProcessingError> {
-    run(encoded, format, options, Some(backend), None)
+    guarded_run(encoded, format, options, Some(backend), None)
 }
 
 /// Transcode using aspect-aware thumbnail geometry. The size comes from
@@ -1066,7 +1090,7 @@ pub fn transcode_resized(
     options: TransformOptions,
     resize: ResizeOptions,
 ) -> Result<Output, ProcessingError> {
-    run(encoded, format, options, None, Some(resize))
+    guarded_run(encoded, format, options, None, Some(resize))
 }
 
 /// [`transcode_resized`] with a caller-provided encoder backend.
@@ -1080,7 +1104,72 @@ pub fn transcode_resized_with(
     resize: ResizeOptions,
     backend: &dyn EncoderBackend,
 ) -> Result<Output, ProcessingError> {
-    run(encoded, format, options, Some(backend), Some(resize))
+    guarded_run(encoded, format, options, Some(backend), Some(resize))
+}
+
+/// The panic boundary of the public entry points (ADR-0040 amendment of
+/// 2026-11-16, working decision, delegated, revisable by the owner): a panic
+/// inside `body` is returned as [`ProcessingErrorKind::Internal`] instead of
+/// unwinding into the caller. A panic is still a defect; this only keeps it
+/// from taking the caller's thread (or a whole batch) with it. Under
+/// `panic = "abort"` nothing unwinds and the process aborts, as before.
+///
+/// Why `AssertUnwindSafe` is sound here, that is, why nothing observed after
+/// the catch can be inconsistent:
+/// - Everything `run` and `inspect` mutate is created inside the call and
+///   dropped while unwinding: the `MemoryBudget` (one per call, never shared
+///   between calls or batch items), its reservations (released by `Drop`),
+///   the graph, the sink, the decoder and encoder contexts, and the scoped
+///   transform workers (`std::thread::scope` joins them and re-raises a
+///   worker's panic on this thread, where it is caught). No budget accounting
+///   outlives the call, so a later call starts from a fresh budget.
+/// - What the caller passes in is read-only to the engine: the input bytes,
+///   the `Copy` options and `&dyn EncoderBackend`. The engine holds no lock
+///   or counter of its own across the boundary that a panic could leave
+///   poisoned or half-updated (the batch's result slots are written only
+///   after the catch, with the item's result).
+/// - Process-wide state is one-time initialization only: `OnceLock` tables
+///   (the resample tables, the kernels' detected ISA level), which a panic
+///   during initialization leaves uninitialized for the next caller to
+///   retry, and the codec ports' once-initialized dispatch tables. A panic
+///   that would have to cross the AVIF port's C-ABI `pthread_once` does not
+///   unwind through it; the process aborts there instead of being caught.
+/// - Not covered: the state of a caller-supplied [`EncoderBackend`] after
+///   its own panic is the backend's concern; in a batch the same backend
+///   serves the other items.
+fn contain_panic<T>(
+    body: impl FnOnce() -> Result<T, ProcessingError>,
+) -> Result<T, ProcessingError> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(body)).unwrap_or_else(|payload| {
+        let detail = payload
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| payload.downcast_ref::<String>().map(String::as_str));
+        Err(ProcessingError::new(
+            ProcessingErrorKind::Internal,
+            match detail {
+                Some(detail) => {
+                    format!(
+                        "a panic was caught inside ferrisma (a defect, please report it): {detail}"
+                    )
+                }
+                None => {
+                    "a panic was caught inside ferrisma (a defect, please report it)".to_owned()
+                }
+            },
+        ))
+    })
+}
+
+/// [`run`] behind the panic boundary of the public entry points.
+fn guarded_run(
+    encoded: &[u8],
+    format: ImageFormat,
+    options: TransformOptions,
+    backend: Option<&dyn EncoderBackend>,
+    resize: Option<ResizeOptions>,
+) -> Result<Output, ProcessingError> {
+    contain_panic(|| run(encoded, format, options, backend, resize))
 }
 
 /// Thread counts above 256 are invalid everywhere, in a batch too (owner
@@ -1667,7 +1756,8 @@ impl Engine {
     }
 
     /// Transcode every item; results come back in input order. A failing
-    /// image does not stop the others.
+    /// image does not stop the others, and neither does a panicking one: it
+    /// gets [`ProcessingErrorKind::Internal`] (since 2026-11-16).
     #[must_use]
     pub fn transcode_batch(&self, items: &[BatchItem<'_>]) -> Vec<Result<Output, ProcessingError>> {
         batch(self.threads, items, None)
@@ -1717,7 +1807,11 @@ fn batch(
                     let Some(item) = items.get(index) else { break };
                     // Counts that `transcode` refuses are refused here
                     // before they are replaced by 1.
-                    let result = validate_thread_counts(&item.options).and_then(|()| {
+                    // Each item has its own panic boundary: a panicking
+                    // image gets `Internal` and the others keep their
+                    // results (until 2026-11-16 the scope re-panicked).
+                    let result = contain_panic(|| {
+                        validate_thread_counts(&item.options)?;
                         let options = TransformOptions {
                             transform_threads: 1,
                             encoder_threads: 1,

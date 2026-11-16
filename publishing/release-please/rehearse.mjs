@@ -12,18 +12,28 @@
 //   node publishing/release-please/rehearse.mjs <node_modules> shared
 //   node publishing/release-please/rehearse.mjs <node_modules> per-port
 //
-// Exit status 0 means every scenario produced the expected versions and no
-// first-party requirement was left stale; 1 lists each finding.
+// Exit status 0 means every scenario produced the expected versions, no
+// first-party requirement was left stale and the engine's exact (`=`) pins
+// survived (after the `preserve-exact-pins.mjs` post-step); 1 lists each
+// finding. `--without-post-step` must exit 1 (negative control).
 
 import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
+import { EXACT_PINS, preserveExactPins } from "./preserve-exact-pins.mjs";
 
 const [nodeModules, shape, option] = process.argv.slice(2);
-if (!nodeModules || !["shared", "per-port"].includes(shape) || ![undefined, "--key-by-package"].includes(option)) {
-  console.error("usage: rehearse.mjs <node_modules dir> shared|per-port [--key-by-package]");
+if (
+  !nodeModules ||
+  !["shared", "per-port"].includes(shape) ||
+  ![undefined, "--key-by-package", "--without-post-step"].includes(option)
+) {
+  console.error("usage: rehearse.mjs <node_modules dir> shared|per-port [--key-by-package|--without-post-step]");
   process.exit(2);
 }
+// `--without-post-step` is the negative control of the exact pins: without
+// `preserve-exact-pins.mjs` every release must report the lost `=` pins.
+const postStep = option !== "--without-post-step";
 // `--key-by-package` rehearses the proposed manifest fix in memory: every
 // renamed first-party dependency (`webp = { package = "libwebp-rs", … }`) is
 // keyed by its package name instead. The library target names (`webp`, `jxl`,
@@ -184,7 +194,25 @@ async function propose(files, history, released) {
     }
     updated.set(u.path, u.updater.updateContent(updated.get(u.path), quiet));
   }
-  return { files: updated, title: pr.title.toString(), paths: pr.updates.map((u) => u.path) };
+  // The publish workflow's post-step on the release branch: Release Please
+  // writes `=` requirements without the `=`; restore the engine's exact pins
+  // (ADR-0040 problem 7). `raw` keeps the branch as Release Please left it.
+  const raw = new Map(updated);
+  const engine = engineManifest(updated);
+  if (postStep) {
+    const { content } = preserveExactPins(updated.get(engine), (p) => updated.get(p), engineDirOf(engine));
+    updated.set(engine, content);
+  }
+  return { files: updated, raw, title: pr.title.toString(), paths: pr.updates.map((u) => u.path) };
+}
+
+const engineManifest = (files) => (files.has("crates/ferrisma/Cargo.toml") ? "crates/ferrisma/Cargo.toml" : "Cargo.toml");
+const engineDirOf = (manifest) => (manifest === "Cargo.toml" ? "" : manifest.slice(0, -"/Cargo.toml".length));
+
+// The engine's requirements on the crates of EXACT_PINS, as written.
+function exactPinRequirements(files) {
+  const parsed = TOML.parse(files.get(engineManifest(files)));
+  return Object.keys(EXACT_PINS).map((name) => [name, parsed.dependencies?.[name]?.version]);
 }
 
 // Every first-party requirement must name the version its target now carries,
@@ -216,6 +244,9 @@ function audit(files, packages, expected) {
         }
       }
     }
+  }
+  for (const [name, req] of exactPinRequirements(files)) {
+    if (!req?.startsWith("=")) findings.push(`ferrisma: dependencies.${name} requires ${req}, not an exact (=) pin`);
   }
   for (const lock of [...files.keys()].filter((f) => f.endsWith("Cargo.lock"))) {
     for (const p of TOML.parse(files.get(lock)).package ?? []) {
@@ -259,6 +290,21 @@ function report(label, result, expected, allow = []) {
 
 console.log(`release-please ${rpVersion}, draft ${configFile}`);
 
+const before = exactPinRequirements(base).filter(([, req]) => !req?.startsWith("="));
+if (before.length) {
+  console.log(`\nFINDING: the checkout's engine manifest is not exactly pinned: ${before.map(([n, r]) => `${n} ${r}`).join(", ")}`);
+  failed = true;
+}
+
+// Whether Release Please itself drops the `=` (the reason for the post-step);
+// informational, so a later Release Please that keeps it does not fail.
+function reportRawPins(label, result) {
+  const dropped = exactPinRequirements(result.raw).filter(([, req]) => !req?.startsWith("="));
+  console.log(
+    `  ${label}: Release Please ${dropped.length ? `dropped the = of ${dropped.length} pin(s); the post-step restored them` : "kept every = pin"}`,
+  );
+}
+
 const sharedAll = (v) => Object.fromEntries(all.map((n) => [n, v]));
 
 if (shape === "shared") {
@@ -268,6 +314,7 @@ if (shape === "shared") {
     false,
   );
   report("first release (Release-As: 0.1.0)", first, sharedAll("0.1.0"));
+  reportRawPins("exact pins", first);
   const released = setManifestAfterRelease(first.files, packages, config);
   for (const [label, message, file, want] of [
     ["fix in a port", "fix(webp): reject a truncated VP8L header", "codecs/libwebp-rs/src/lib.rs", "0.1.1"],
@@ -291,6 +338,7 @@ if (shape === "shared") {
     false,
   );
   report("first release (Release-As: 0.1.0 on a commit touching every published package)", first, Object.fromEntries(everyPublished.map((n) => [n, "0.1.0"])));
+  reportRawPins("exact pins", first);
   const released = setManifestAfterRelease(first.files, packages, config);
   const fix = await propose(released, [{ message: "fix(webp): reject a truncated VP8L header", files: touch(packages, "libwebp-rs") }], true);
   report("fix in libwebp-rs only", fix, { "libwebp-rs": "0.1.1", "libjxl-rs": "0.1.0", "libjpeg-turbo-rs": "0.1.0" });
