@@ -180,6 +180,24 @@ Not run: `transpile_dav1d.py --check` (needs C2Rust; CI's translate
 workflow); the x86-64 per-kernel and whole-image gates (no x86 kernel yet;
 they run in the QEMU container with the first AVX2 kernels); no hosted run.
 
+**2026-11-16, 8 bpc NEON complete** (`64ce28a5`): all 156 entry points of
+`itx_dsp_init_arm` at 8 bpc, `all_simd` set as in the original. Both
+gates as above: 3,155 selections each at `neon` and scalar; 994 of 994
+whole decodes at each level. Instructions per call against the assembly
+over 175 kernel/path pairs (largest codable eob, 32 million pixels per
+kernel), identical outputs: 0.77 to 1.39, median 1.17. Above 1.3: the
+16-point ADST/flipADST combinations of 8x16, 16x8 and 16x16 (1.33 to 1.39)
+and the 64x64 DC path (1.30). In the ADST kernels LLVM spills 40 to 60
+vectors (counted in the disassembly) that the assembly keeps in its 32
+registers; the instruction order is the assembly's, the register
+assignment is the compiler's, so this cost cannot be removed from Rust
+without assembly. Instructions per decode of the port's dav1d: 8-bit 4:2:0
+1.93 G (from 3.07 G; the port's AOM path needs 2.21 G, stock dav1d with
+NEON 0.99 G), 8-bit 4:4:4 2.50 G (AOM 2.56 G), 8-bit 4:2:0 with alpha
+2.24 G (AOM 2.45 G); 10-bit and lossless unchanged. The itx share of the
+8-bit 4:2:0 profile is now 8 %; msac (48 %) and the loop filter (19 %)
+lead.
+
 ## Review when
 
 A family is completed on a target; the x86-64 AVX2 kernels arrive; the owner
@@ -188,4 +206,5 @@ engine's decoder choice changes.
 
 ## Amendment log
 
+- 2026-11-16 — 8 bpc inverse transforms complete on NEON (validation above).
 - 2026-11-16 — Accepted with the infrastructure and the first slice.
