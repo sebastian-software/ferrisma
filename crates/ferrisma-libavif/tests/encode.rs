@@ -458,7 +458,8 @@ fn output_limit_is_enforced_after_backend_finish() {
     let output = transcode_with(JPEG, ImageFormat::Jpeg, &opts, &backend).unwrap();
     let limited = opts.with_max_output_bytes(output.bytes.len() - 1);
     let error = transcode_with(JPEG, ImageFormat::Jpeg, &limited, &backend).unwrap_err();
-    assert_eq!(error.kind(), ProcessingErrorKind::ResourceExhausted);
+    // Since 2026-11-16; `ResourceExhausted` before.
+    assert_eq!(error.kind(), ProcessingErrorKind::OutputLimitExceeded);
 }
 
 #[cfg(feature = "cli")]
@@ -553,7 +554,7 @@ fn own_encoder_facade_handles_reference_batch_and_invalid_settings() {
         transcode(JPEG, ImageFormat::Jpeg, &limited)
             .unwrap_err()
             .kind(),
-        ProcessingErrorKind::ResourceExhausted
+        ProcessingErrorKind::OutputLimitExceeded
     );
     // The depth is part of the request since 2026-11-15, so the built-in
     // writer and the same backend through `transcode_with` agree (until

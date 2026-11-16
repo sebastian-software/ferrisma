@@ -143,9 +143,10 @@ impl WebpSink {
             };
             // The ICC chunk is always added. VP8X may already be present.
             if new_len > self.max_output_bytes.saturating_sub(ICC_CHUNK_BYTES) {
-                output_failure = Some(Error::BudgetExceeded {
-                    requested: new_len,
-                    available: self.max_output_bytes,
+                // The ICC chunk is added after the codec's chunks.
+                output_failure = Some(Error::OutputLimitExceeded {
+                    needed: new_len.saturating_add(ICC_CHUNK_BYTES),
+                    limit: self.max_output_bytes,
                 });
                 return false;
             }
@@ -179,9 +180,9 @@ impl WebpSink {
             .checked_add(ICC_CHUNK_BYTES + vp8x_bytes)
             .ok_or(Error::GeometryOverflow)?;
         if needed > self.max_output_bytes {
-            return Err(Error::BudgetExceeded {
-                requested: needed,
-                available: self.max_output_bytes,
+            return Err(Error::OutputLimitExceeded {
+                needed,
+                limit: self.max_output_bytes,
             });
         }
         let image = WebPData {
@@ -195,9 +196,9 @@ impl WebpSink {
         webp_mux_set_chunk(&mut mux, b"ICCP", &profile, 0).map_err(|_| Error::EncodeFailed)?;
         let encoded = webp_mux_assemble(&mut mux).map_err(|_| Error::EncodeFailed)?;
         if encoded.bytes.len() > self.max_output_bytes {
-            return Err(Error::BudgetExceeded {
-                requested: encoded.bytes.len(),
-                available: self.max_output_bytes,
+            return Err(Error::OutputLimitExceeded {
+                needed: encoded.bytes.len(),
+                limit: self.max_output_bytes,
             });
         }
         Ok(EncodedImage::new(

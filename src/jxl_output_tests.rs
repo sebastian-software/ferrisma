@@ -783,7 +783,7 @@ mod pipeline_round_trip {
             transcode(&input, ImageFormat::WebP, &short)
                 .unwrap_err()
                 .kind(),
-            ProcessingErrorKind::ResourceExhausted
+            ProcessingErrorKind::OutputLimitExceeded
         );
     }
 

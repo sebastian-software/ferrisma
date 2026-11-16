@@ -562,9 +562,9 @@ impl JxlSink {
             bridge::Error::NotAdmitted(_) => Error::UnsupportedEncoderProfile(
                 "the workspace encoder does not admit this lossy request",
             ),
-            bridge::Error::OutputLimit { limit } => Error::BudgetExceeded {
-                requested: limit.saturating_add(1),
-                available: limit,
+            bridge::Error::OutputLimit { limit } => Error::OutputLimitExceeded {
+                needed: limit.saturating_add(1),
+                limit,
             },
             bridge::Error::OutOfMemory => Error::AllocationFailed,
             _ => Error::EncodeFailed,

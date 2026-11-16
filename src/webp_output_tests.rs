@@ -119,12 +119,14 @@ fn webp_output_frame_and_file_limits_fail_before_retaining_result() {
             .kind(),
         ProcessingErrorKind::ResourceExhausted
     );
+    // The output limit has its own kind since 2026-11-16
+    // (`ResourceExhausted` before).
     let tiny = options(false).with_max_output_bytes(1024);
     assert_eq!(
         transcode(&input(), ImageFormat::WebP, &tiny)
             .unwrap_err()
             .kind(),
-        ProcessingErrorKind::ResourceExhausted
+        ProcessingErrorKind::OutputLimitExceeded
     );
 }
 
@@ -165,7 +167,7 @@ fn exact_final_byte_limit_accepts_opaque_lossy_alpha_and_lossless() {
         );
         assert_eq!(
             too_small.unwrap_err().kind(),
-            ProcessingErrorKind::ResourceExhausted
+            ProcessingErrorKind::OutputLimitExceeded
         );
     }
 }

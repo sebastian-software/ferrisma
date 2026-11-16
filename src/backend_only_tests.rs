@@ -90,9 +90,10 @@ fn backend_runs_without_avif_write() {
         &options.clone().with_max_output_bytes(63),
         &RawBackend,
     );
+    // `OutputLimitExceeded` since 2026-11-16 (`ResourceExhausted` before).
     assert_eq!(
         capped.unwrap_err().kind(),
-        crate::pipeline::ProcessingErrorKind::ResourceExhausted
+        crate::pipeline::ProcessingErrorKind::OutputLimitExceeded
     );
 }
 

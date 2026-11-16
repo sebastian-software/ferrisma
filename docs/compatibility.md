@@ -259,8 +259,10 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   extension, a value that does not parse, and a value the engine refuses as
   `InvalidOptions` (a setting outside its scale, a zero size or limit, a
   crop outside the image). Processing errors: unreadable input, unwritable
-  output, a refused, malformed or too large input, an exhausted resource, a
-  missing feature, an encoder failure, and `Internal`.
+  output, a refused, malformed or too large input, an output above
+  `--max-output-mb` (`OutputLimitExceeded` since 2026-11-16,
+  `ResourceExhausted` before), an exhausted resource, a missing feature, an
+  encoder failure, and `Internal`.
 - An error is one line `error: <message>` on standard error (the message
   text is not stable). When the engine returned it, a second line names
   its kind and refusal reason in the form of the `report:` line:
@@ -270,7 +272,8 @@ Cargo does not apply Ferrisma's workspace profiles to dependents.
   and hyphenated forms of `ProcessingErrorKind` and `RefusalReason`
   (`invalid-options`, `input-limit-exceeded`, `feature-disabled`,
   `malformed-input`, `unsupported-input`, `unsupported-color`,
-  `resource-exhausted`, `cancelled`, `encode-failed`, `internal`), written
+  `resource-exhausted`, `output-limit-exceeded` (since 2026-11-16),
+  `cancelled`, `encode-failed`, `internal`), written
   by the command itself, so renaming a Rust variant does not change them.
   Until 2026-11-16 Rust printed `Error: ` and the error's `Debug` form.
 - `--help` or `-h` prints the usage on standard output and exits 0 (since

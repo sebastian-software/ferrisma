@@ -283,7 +283,7 @@ fn the_output_limit_applies_at_the_exact_byte() {
     let short = lossy(40, 30, 1.0).with_max_output_bytes(full.bytes.len() - 1);
     assert!(matches!(
         encode(40, 30, &data, &short, &budget),
-        Err(Error::BudgetExceeded { .. })
+        Err(Error::OutputLimitExceeded { .. })
     ));
     assert_eq!(budget.snapshot().live, 0);
 }

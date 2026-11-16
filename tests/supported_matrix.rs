@@ -910,7 +910,8 @@ fn jpeg_pixel_limit_is_checked_after_the_header() {
 }
 
 /// The exact output size passes, one byte less fails with
-/// `ResourceExhausted` and `reason`.
+/// `OutputLimitExceeded` and `reason` (since 2026-11-16; `ResourceExhausted`
+/// before, with the memory budget's message for WebP and lossy JPEG XL).
 #[track_caller]
 fn assert_exact_output_limit(base: TransformOptions, reason: &str) {
     let output = transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &base).unwrap();
@@ -919,21 +920,19 @@ fn assert_exact_output_limit(base: TransformOptions, reason: &str) {
     let below = base.with_max_output_bytes(output.bytes.len() - 1);
     rejected(
         transcode(SAMPLE_JPEG, ImageFormat::Jpeg, &below),
-        ProcessingErrorKind::ResourceExhausted,
+        ProcessingErrorKind::OutputLimitExceeded,
         reason,
     );
 }
 
-/// WebP and lossy JPEG XL stop while writing (the encoder's writer reports a
-/// budget overrun); lossless JPEG XL is checked by the facade after the
-/// encoder returns.
+/// WebP and lossy JPEG XL stop while writing; lossless JPEG XL is checked by
+/// the facade after the encoder returns. Every path has the same kind and
+/// message prefix since 2026-11-16 (before, WebP and lossy JPEG XL said
+/// "managed buffer needs …", the memory budget's message).
 #[test]
 fn output_byte_limit_applies_at_the_exact_byte_for_webp_and_jpeg_xl() {
-    assert_exact_output_limit(options(OutputFormat::WebP, ASSUME), "managed buffer needs ");
-    assert_exact_output_limit(
-        options(OutputFormat::JpegXl, ASSUME),
-        "managed buffer needs ",
-    );
+    assert_exact_output_limit(options(OutputFormat::WebP, ASSUME), OUTPUT_BYTES);
+    assert_exact_output_limit(options(OutputFormat::JpegXl, ASSUME), OUTPUT_BYTES);
     assert_exact_output_limit(
         options(OutputFormat::JpegXl, ASSUME).with_output(OutputSettings::JpegXl(
             JpegXlOptions::Lossless(JpegXlLossless::default()),

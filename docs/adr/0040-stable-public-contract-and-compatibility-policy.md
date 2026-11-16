@@ -742,3 +742,14 @@ reports that a stable item cannot express its use case.
      exhaustive destructuring outside the crate. Small value types keep
      `Copy` (`Crop`, `BitDepth`, the enums without data, `DiscardedSet`,
      `WorkCount`).
+  3. **`OutputLimitExceeded`** (problem 5, review 2.8; a behavior change of
+     the error kind). An encoded output above `max_output_bytes` is the new
+     `ProcessingErrorKind::OutputLimitExceeded`, no longer
+     `ResourceExhausted`, with one message for every path ("encoded output
+     exceeds max_output_bytes: it needs at least N bytes, and the limit is
+     M"; the WebP and lossy JPEG XL writers said "managed buffer needs …",
+     the memory budget's message). The CLI names it
+     `failure: kind=output-limit-exceeded` and exits 1, as for every
+     processing error. When the limit is checked (while writing or after
+     the encoder returns) stays a description of today's behavior, so a
+     streaming writer can stop earlier with the same kind (problem 16).

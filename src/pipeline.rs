@@ -1072,6 +1072,14 @@ pub enum ProcessingErrorKind {
     UnsupportedColor,
     /// The managed-memory budget is exhausted or an allocation failed.
     ResourceExhausted,
+    /// The encoded output is larger than `max_output_bytes`
+    /// ([`TransformOptions::max_output_bytes`]). Since 2026-11-16; before,
+    /// this was reported as [`Self::ResourceExhausted`], and the WebP and
+    /// lossy JPEG XL writers' message described the memory budget. When the
+    /// limit is checked (while writing or after the encoder returns) is not
+    /// promised; the kind is the same either way. The command line exits
+    /// with status 1 for it, as for every processing error.
+    OutputLimitExceeded,
     /// Processing was cancelled by the output sink.
     Cancelled,
     /// The encoder failed.
@@ -1258,6 +1266,7 @@ impl From<Error> for ProcessingError {
             Error::AllocationFailed | Error::ThreadSpawnFailed | Error::BudgetExceeded { .. } => {
                 Kind::ResourceExhausted
             }
+            Error::OutputLimitExceeded { .. } => Kind::OutputLimitExceeded,
             Error::Cancelled => Kind::Cancelled,
             Error::EncodeFailed => Kind::EncodeFailed,
             Error::IncompleteOutput => Kind::Internal,
@@ -2081,10 +2090,11 @@ fn run(
         ));
     }
     if encoded_image.bytes.len() > options.max_output_bytes {
-        return Err(ProcessingError::new(
-            ProcessingErrorKind::ResourceExhausted,
-            "encoded output exceeds max_output_bytes",
-        ));
+        return Err(Error::OutputLimitExceeded {
+            needed: encoded_image.bytes.len(),
+            limit: options.max_output_bytes,
+        }
+        .into());
     }
     let encode = encode_started.elapsed();
     let input_access = match processed.decoder.access {

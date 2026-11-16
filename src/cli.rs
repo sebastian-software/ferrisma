@@ -344,7 +344,7 @@ fn usage_text(args: &[String]) -> String {
 /// [`ProcessingErrorKind::InvalidOptions`] (a setting outside its scale, a
 /// zero size or limit, a crop outside the image); 1 for every processing
 /// error: unreadable input or unwritable output, a refused, malformed or too
-/// large input, an exhausted resource, a missing feature, an encoder
+/// large input or output, an exhausted resource, a missing feature, an encoder
 /// failure and an internal error (since 2026-11-16).
 fn exit_status(error: &(dyn Error + 'static)) -> u8 {
     if error.is::<Usage>() {
@@ -371,6 +371,7 @@ fn kind_name(kind: ProcessingErrorKind) -> &'static str {
         ProcessingErrorKind::UnsupportedInput => "unsupported-input",
         ProcessingErrorKind::UnsupportedColor => "unsupported-color",
         ProcessingErrorKind::ResourceExhausted => "resource-exhausted",
+        ProcessingErrorKind::OutputLimitExceeded => "output-limit-exceeded",
         ProcessingErrorKind::Cancelled => "cancelled",
         ProcessingErrorKind::EncodeFailed => "encode-failed",
         ProcessingErrorKind::Internal => "internal",
@@ -1036,7 +1037,9 @@ mod tests {
         let internal = transcode_with(
             jpeg,
             ImageFormat::Jpeg,
-            &webp.with_profile_policy(crate::pipeline::InputProfilePolicy::AssumeSrgbIfMissing),
+            &webp
+                .clone()
+                .with_profile_policy(crate::pipeline::InputProfilePolicy::AssumeSrgbIfMissing),
             &Panics,
         )
         .unwrap_err();
@@ -1047,6 +1050,25 @@ mod tests {
         );
         let io: Box<dyn std::error::Error> = "cannot read missing.jpg".into();
         assert_eq!(exit_status(&*io), 1);
+        // The output limit is a processing error with its own kind (since
+        // 2026-11-16; `resource-exhausted` before).
+        #[cfg(feature = "webp-write")]
+        {
+            let too_large = transcode(
+                jpeg,
+                ImageFormat::Jpeg,
+                &webp
+                    .clone()
+                    .with_profile_policy(crate::pipeline::InputProfilePolicy::AssumeSrgbIfMissing)
+                    .with_max_output_bytes(16),
+            )
+            .unwrap_err();
+            assert_eq!(exit_status(&too_large), 1);
+            assert_eq!(
+                failure_line(&too_large),
+                "failure: kind=output-limit-exceeded reason=none"
+            );
+        }
     }
 
     /// The enum values of the `report:` and `decoder_work:` lines are the

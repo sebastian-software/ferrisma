@@ -75,9 +75,11 @@ mod consumer {
     /// category must not crash or silently succeed.
     fn disposition(error: &ProcessingError) -> Disposition {
         match error.kind() {
-            ProcessingErrorKind::InputLimitExceeded | ProcessingErrorKind::MalformedInput => {
-                Disposition::Reject
-            }
+            // An output above the limit is this upload's at these
+            // settings: report it, as an input above the limit.
+            ProcessingErrorKind::InputLimitExceeded
+            | ProcessingErrorKind::OutputLimitExceeded
+            | ProcessingErrorKind::MalformedInput => Disposition::Reject,
             // A format this build does not include is a property of the
             // deployment, not of the upload.
             ProcessingErrorKind::UnsupportedInput
@@ -370,7 +372,7 @@ mod consumer {
                         ..SERVICE_LIMITS
                     }),
                 ),
-                Some(ProcessingErrorKind::ResourceExhausted),
+                Some(ProcessingErrorKind::OutputLimitExceeded),
             ),
             (
                 // A zero size is refused before decoding. (Until 2026-11-16
