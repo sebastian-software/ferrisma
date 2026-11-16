@@ -108,6 +108,24 @@ Consequences of the wording, stated so that they can be tested:
   port's scalar path with the scalar reference build keeps the full domain.
   A difference, a run time or a defect of the port never justifies a
   narrower domain.
+- **Expected values come from the original as its source defines them.**
+  One named exception (owner decision of 2026-11-16): where a compared
+  observation of the original depends on something the C++ standard library
+  leaves unspecified and its versions resolve differently, the oracle
+  adapter makes that observation the same on every platform, and the port
+  is not changed to mirror one library version. The case that led to it is
+  the order in which a `std::map` frees its elements when it is destroyed:
+  libc++ 22 frees in key order, libc++ 19 and 21 in post-order, so the
+  original's memory-manager trail at `JxlEncoderDestroy` and at the
+  decoder's teardown differs between the macOS and the hosted Linux builds
+  of the same source (libjxl-rs
+  [ADR 0003](../../codecs/libjxl-rs/docs/adr/0003-rust-representation.md),
+  "Public encoder object"). The adapter erases the map's entries in key
+  order before it destroys the object. Each such normalization is written
+  in the adapter next to the code, names the library behavior and the
+  original's source lines, and is listed in the port's ADR. It applies only
+  to an order or layout the library leaves open, never to a value the
+  original's own source computes, and never to the port.
 - The code stays a largely mechanical 1:1 port of the original. An
   optimization that cannot meet the gate is not a v1.0 change.
 
@@ -576,3 +594,9 @@ planned.
   #54 are decided; rav1e's question is moot. Sections 3, 4 and 8 point to
   the decisions instead of the open questions, and the open-questions
   section keeps only a pointer. Decisions D1–D10 unchanged.
+- 2026-11-16 — Section 2 gains one named exception to "expected values come
+  from the original" (owner decision of 2026-11-16): an observation that
+  depends on an order the C++ standard library leaves unspecified is made
+  uniform in the oracle adapter, never in the port. Found through the
+  hosted Linux run 43779456524, where `std::map`'s destruction order under
+  libc++ 21 differed from libc++ 22 on macOS. Decisions D1–D10 unchanged.
